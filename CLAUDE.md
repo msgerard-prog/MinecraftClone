@@ -24,10 +24,12 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--no-vsync`, `--resourcepacks DIR`, `--render-distance N`, `--flat`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
+`--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--resourcepacks DIR`, `--render-distance N`,
+`--flat`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
-with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`.
+with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`
+(streaming stress: add `--auto-fly --max-fps 240 --frames 2400`; logs CPU work and GPU time).
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: click to capture mouse, Esc releases; WASD, space/shift up/down, ctrl sprint.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.

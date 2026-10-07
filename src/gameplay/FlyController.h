@@ -27,6 +27,8 @@ public:
     void setRotation(float yawDeg, float pitchDeg);
 
     void tick(const MoveInput& input);
+    // Benchmarks only: scales horizontal speed (e.g. 4 = streaming stress test).
+    void setSpeedMultiplier(double k) { m_speedMultiplier = k; }
 
     // Mouse movement in screen pixels; sensitivity 0..1 (vanilla default 0.5).
     void turn(double dxPixels, double dyPixels, double sensitivity = 0.5);
@@ -43,6 +45,7 @@ private:
     glm::dvec3 m_pos{0.0};
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
+    double m_speedMultiplier = 1.0;
 };
 
 // Mouse look: degrees of rotation per pixel of mouse movement for a sensitivity

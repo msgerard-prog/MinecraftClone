@@ -118,11 +118,13 @@ int main(int argc, char** argv) {
     player.setPosition(opts->hasPos ? opts->pos : spawn);
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
+    if (opts->autoFly) player.setSpeedMultiplier(4.0);
     mc::GameClock clock;
     double last = mc::timeSeconds();
     int frame = 0;
     int exitCode = 0;
     mc::FrameStats frameStats;
+    mc::FrameStats workStats; // CPU time per frame before the swap (excludes vsync/cap)
     const double startTime = last;
     bool meshed = false;
 
@@ -147,7 +149,12 @@ int main(int argc, char** argv) {
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
-            player.tick(readMoveInput(window));
+            mc::MoveInput input = readMoveInput(window);
+            if (opts->autoFly) { // benchmark: constant sprint-flight forward
+                input.forward = 1.0f;
+                input.sprint = true;
+            }
+            player.tick(input);
             renderer.tick();
         }
 
@@ -191,7 +198,13 @@ int main(int argc, char** argv) {
             }
             break;
         }
+        if (frame > 1) workStats.add((mc::timeSeconds() - now) * 1000.0);
         window.swapBuffers();
+        if (opts->maxFps > 0) { // simple frame cap (benchmarks): sleep off the rest
+            const double target = 1.0 / opts->maxFps;
+            while (mc::timeSeconds() - now < target)
+                std::this_thread::yield();
+        }
     }
     const auto summary = frameStats.summarize();
     const auto& st = renderer.stats();
@@ -201,6 +214,11 @@ int main(int argc, char** argv) {
                 summary.p99Ms, summary.maxMs, opts->vsync ? " [vsync on]" : "");
     MC_LOG_INFO("Last frame: sections drawn %d/%d, quads drawn %llu", st.sectionsDrawn, st.sections,
                 static_cast<unsigned long long>(st.quadsDrawn));
+    const auto work = workStats.summarize();
+    MC_LOG_INFO("CPU work per frame: avg %.2f ms, p99 %.2f ms, max %.2f ms", work.avgMs, work.p99Ms,
+                work.maxMs);
+    MC_LOG_INFO("GPU time per frame: avg %.2f ms, max %.2f ms", renderer.averageGpuMs(),
+                renderer.maxGpuMs());
     const auto& tst = renderer.translucentStats();
     MC_LOG_INFO("Last frame (translucent): sections drawn %d/%d, quads drawn %llu",
                 tst.sectionsDrawn, tst.sections, static_cast<unsigned long long>(tst.quadsDrawn));

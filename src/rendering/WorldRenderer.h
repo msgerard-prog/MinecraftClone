@@ -54,6 +54,11 @@ public:
     // Fog reaches the sky colour at the edge of the render distance (in chunks).
     void setRenderDistance(int chunks) { m_renderDistance = chunks; }
 
+    // Average GPU time of drawFrame (both passes) over the frames measured so far,
+    // from GL timer queries read back a few frames late (no pipeline stall).
+    double averageGpuMs() const { return m_gpuSamples ? m_gpuTotalMs / m_gpuSamples : 0.0; }
+    double maxGpuMs() const { return m_gpuMaxMs; }
+
     const ChunkRenderer::Stats& stats() const { return m_chunks.stats(); }
     const ChunkRenderer::Stats& translucentStats() const { return m_translucent.stats(); }
 
@@ -64,6 +69,13 @@ private:
     ChunkRenderer m_chunks;      // opaque pass
     ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
     int m_renderDistance = 12;
+    static constexpr int kQueryRing = 4;
+    uint32_t m_queries[kQueryRing] = {};
+    bool m_queryPending[kQueryRing] = {};
+    int m_queryIndex = 0;
+    double m_gpuTotalMs = 0.0;
+    double m_gpuMaxMs = 0.0;
+    int m_gpuSamples = 0;
     // Per-section scheduling state. Entries are erased once a section has no mesh
     // work pending. (M3 replaces this map with a dense grid around the camera.)
     struct SectionState {

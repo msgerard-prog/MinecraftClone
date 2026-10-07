@@ -39,6 +39,7 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init()) return false;
+    glCreateQueries(GL_TIME_ELAPSED, kQueryRing, m_queries);
     // Half the cores: leaves room for the main thread and the GL driver's own thread.
     const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
     m_maxInFlight = threads * 4; // bounds job memory and per-frame dispatch work
@@ -182,6 +183,18 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
 void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight) {
     const glm::mat4 viewProj =
         camera.viewProjectionAtOrigin(float(framebufferWidth) / float(framebufferHeight));
+    // GPU timing: read the query issued kQueryRing frames ago (finished by now), then
+    // reuse its slot for this frame.
+    const int q = m_queryIndex;
+    if (m_queryPending[q]) {
+        GLuint64 ns = 0;
+        glGetQueryObjectui64v(m_queries[q], GL_QUERY_RESULT, &ns);
+        const double ms = static_cast<double>(ns) / 1e6;
+        m_gpuTotalMs += ms;
+        m_gpuMaxMs = std::max(m_gpuMaxMs, ms);
+        ++m_gpuSamples;
+    }
+    glBeginQuery(GL_TIME_ELAPSED, m_queries[q]);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
     glClearColor(kSkyR, kSkyG, kSkyB, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -210,6 +223,9 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glEnable(GL_CULL_FACE);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
+    glEndQuery(GL_TIME_ELAPSED);
+    m_queryPending[q] = true;
+    m_queryIndex = (q + 1) % kQueryRing;
 }
 
 } // namespace mc::gfx

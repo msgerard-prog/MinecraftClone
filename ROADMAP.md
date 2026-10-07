@@ -4,32 +4,34 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
-All block textures done (2026-10-06): 1,028 original Minecraft-style block textures
-(every vanilla 1.21.4 block texture: stone, wood, colours, plants, Nether/End,
-utility/redstone/copper, fluids, fire, cracks), 16 animated; full atlas loads fine.
-Items/entities/GUI textures come with their systems (M6, M9, M10).
-M3.0 done: resource packs (folders, .zip, client .jar) override our placeholders;
-HD sprites and animated textures work (verified with our own test pack). Waiting on
-the user to try their own jar.
-M2 done and reviewed (code, perf, parity findings fixed or recorded): block registry
-with vanilla block states, paletted sections/chunks, superflat generator, face-culling mesher with packed
-vertices, random model variants, arena + multi-draw renderer, bounded worker-thread
-meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test cases.
+M3 done (pending milestone reviews): seeded terrain generator (Xoroshiro128++, Perlin
+octaves, vanilla-like surface rules, deepslate, bedrock floor), water (translucent
+pass, 8/9 surface, see-through), cylindrical fog, chunk streaming on worker threads
+with neighbour-complete meshing, --render-distance. All 1,028 block textures exist.
+Measured (release, RTX 5080, --auto-fly at 4x sprint, 240 fps cap):
+| Render distance | Sections / quads | Mesh at start | CPU work/frame p99 / max | GPU max |
+|---|---|---|---|---|
+| 12 | ~1,000 / 260k | 126 ms | 0.56 / 0.81 ms | 0.04 ms |
+| 32 | ~6,900 / 1.8M | 825 ms | 0.89 / 1.36 ms | 0.21 ms |
+Movement is still free flight (physics is M4). 75 test cases.
 
 ## Next
-1. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
-   loading/unloading around the player at render distance 12, worldgen on workers.
-   M3 design input from the M2 perf review (apply while building streaming):
-   - Dense ring-indexed section grid around the camera (vanilla ViewArea) replacing
-     the hash maps in ChunkRenderer/WorldRenderer; frustum-test columns first.
-   - Static per-section integer origins + camera block/fraction uniforms (no per-frame
-     offset upload); persistent-mapped, fenced ring for the command buffer.
-   - Arena in fixed pages with size classes; per-frame upload budget.
-   - Faster snapshots (27 section pointers, face/edge/corner loops, uniform-section
-     fast fill), or immutable sections readable by workers.
-   - Worldgen writes a flat 4096 buffer then `Section::assign` (one palette build).
-   - Mesh a column only when all 8 neighbours exist; re-mesh only facing borders.
-   - Later: per-face-direction draw commands (back-face groups), cave culling.
+1. M3 milestone reviews (code / perf / parity agents), fix findings, push.
+2. M4.1 — Player physics: vanilla AABB 0.6x1.8, gravity, jumping, walking/sprinting/
+   sneaking speeds and friction per tick (wiki: Player, Entity), axis-by-axis
+   collision against block shapes, step-up, creative flight toggle (double space).
+3. M4.2 — Block raycast (DDA) from the eye, outline of the targeted block.
+4. M4.3 — Break (left click) / place (right click) with the chosen block; renderer
+   re-meshes the edited section and its neighbours across section/chunk borders.
+5. M4.4 — Hotbar selection (1-9 / wheel) of placeable blocks (UI proper is M6).
+
+Deferred performance work (from the M2 perf review) — not needed at current numbers;
+revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
+- Dense ring-indexed section grid (vanilla ViewArea) instead of hash maps; column culling.
+- Static section origins + camera block/fraction uniforms; persistent-mapped command ring.
+- Arena pages + size classes, per-frame upload budget.
+- Faster snapshots / immutable sections readable by workers.
+- Per-face-direction draw commands, cave culling.
 
 ## Texture plan (agreed 2026-10-06)
 Textures arrive with their blocks (add-block skill makes the placeholder), by
@@ -62,7 +64,7 @@ and GUI textures are made with their systems.
 | M0 | Setup: build, window, tests, screenshot, docs, Claude tooling | ✅ 2026-10-06 |
 | M1 | Camera + texture atlas + one textured cube | ✅ 2026-10-06 |
 | M2 | Block registry + block states, chunk sections (paletted), face-culled meshing on worker threads | ✅ 2026-10-06 |
-| M3 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | Walkable rolling terrain at render distance 12 |
+| M3 ✅ 2026-10-06 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | Walkable rolling terrain at render distance 12 |
 | M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | Movement constants match the wiki; can build a house |
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | Caves dark, torches light correctly, matches vanilla light levels |
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | Usable creative-mode inventory |
@@ -82,6 +84,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-06 M3: terrain generator, water, fog, chunk streaming, GPU timing, auto-fly bench.
 - 2026-10-06 All block textures (6 batches, 1,028 textures, texgen library).
 - 2026-10-06 Texture pass: original vanilla-style textures, art style guide, ADR 0006.
 - 2026-10-06 M3.0: resource packs, HD + animated sprites.

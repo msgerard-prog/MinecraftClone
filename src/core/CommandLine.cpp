@@ -106,6 +106,15 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--render-distance needs 2..32";
                 return std::nullopt;
             }
+        } else if (arg == "--max-fps") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (!parseNumber(*v, opts.maxFps) || opts.maxFps < 1) {
+                error = "--max-fps needs a positive integer";
+                return std::nullopt;
+            }
+        } else if (arg == "--auto-fly") {
+            opts.autoFly = true;
         } else if (arg == "--flat") {
             opts.flat = true;
         } else if (arg == "--no-vsync") {

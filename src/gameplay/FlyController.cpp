@@ -34,7 +34,7 @@ void FlyController::tick(const MoveInput& input) {
     // Vanilla: you can only sprint while moving forward (wiki: Sprinting).
     const bool sprinting = input.sprint && input.forward > 0.0f;
     const double speed = sprinting ? kSprintFlySpeed : kFlySpeed;
-    m_pos += horizontal * (speed * kTickSeconds);
+    m_pos += horizontal * (speed * m_speedMultiplier * kTickSeconds);
     m_pos.y += double(input.up) * kVerticalSpeed * kTickSeconds;
 }
 
