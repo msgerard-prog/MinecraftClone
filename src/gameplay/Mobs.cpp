@@ -224,6 +224,17 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    if (m.type == MobType::EndCrystal) {
+        // Doesn't move; its glass cubes turn (the yaw only animates the model).
+        m.vel = glm::dvec3(0.0);
+        m.headYaw += 3.0f;
+        m.pitch = 35.0f;
+        if (m.headYaw >= 360.0f) {
+            m.headYaw -= 360.0f;
+            m.prevHeadYaw -= 360.0f;
+        }
+        return;
+    }
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
@@ -378,6 +389,22 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
 }
 
+bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
+    const auto& r = blockRegistry();
+    const BlockId b = r.blockOf(world.getBlock(on));
+    if (b != blocks::Obsidian && b != blocks::Bedrock) return false;
+    if (world.getBlock({on.x, on.y + 1, on.z}) != 0 || world.getBlock({on.x, on.y + 2, on.z}) != 0) return false;
+    MobData m = make(MobType::EndCrystal, {on.x + 0.5, on.y + 1.0, on.z + 0.5}, rng);
+    m.showBottom = false; // (placed crystals have no base)
+    const Aabb room = box(m);
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (const Chunk* c = world.chunk({blockToChunk(on.x) + dx, blockToChunk(on.z) + dz}))
+                for (const MobData& o : c->mobs())
+                    if (box(o).intersects(room)) return false;
+    return add(world, m);
+}
+
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
     m.health -= damage;
@@ -402,6 +429,20 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.type == MobType::EndCrystal) {
+        // Any damage blows it up: power 6, no fire (wiki: End Crystal); nearby crystals
+        // caught in the blast go off too.
+        m.deathTime = 19; // gone next tick
+        m_scratchEdits.clear();
+        std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : m_scratchEdits;
+        ExplosionTargets t;
+        if (ctx.survival && !ctx.playerDead) {
+            t.player = &ctx.player;
+            t.vitals = &ctx.vitals;
+        }
+        m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 1.0, 0), 6.0f, ctx.rng, ctx.items, changed, t);
+        return;
+    }
     // Loot (wiki: Cow - raw beef 1-3, leather 0-2; Zombie - rotten flesh 0-2).
     const auto& items = itemRegistry();
     auto drop = [&](const char* id, int lo, int hi) {

@@ -123,7 +123,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   "end2" (M20, level.dat `end_generator`) adds outer islands beyond 1024 blocks
   (`islandCells`/`islandValue`: centres on a 16-block grid, the strongest island per
   column), the four outer End biomes (`biomeAt`), small end islands, chorus trees
-  (inside one chunk) and the iron bar cages; "end" (M12) is the main island only.
+  (inside one chunk), the iron bar cages and an end crystal on each pillar (a
+  `MobType::EndCrystal` entity in the pillar's chunk: no AI, any damage explodes it
+  through `Mobs::die`; items place them with `Mobs::placeEndCrystal`); "end" (M12) is
+  the main island only.
 - Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre

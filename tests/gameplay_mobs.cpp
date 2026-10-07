@@ -957,3 +957,54 @@ TEST_CASE("bartered potions are fire resistance (wiki: Bartering), never content
     }
     CHECK(potions > 0);
 }
+
+#include "world/NetherGenerator.h"
+
+TEST_CASE("end crystals: one on each end2 pillar; any hit blows it up (power 6) and sets off its neighbours") {
+    const EndGenerator gen(42, 2);
+    int crystals = 0;
+    for (int i = 0; i < EndGenerator::kPillars; ++i) {
+        const auto& p = gen.pillar(i);
+        Chunk c({blockToChunk(p.x), blockToChunk(p.z)}, kEndHeight);
+        gen.generate(c);
+        for (const MobData& m : c.mobs())
+            if (m.type == MobType::EndCrystal && m.pos.y == doctest::Approx(p.height + 2.0)) {
+                ++crystals;
+                CHECK(m.showBottom);
+            }
+    }
+    CHECK(crystals == EndGenerator::kPillars);
+    Chunk old({blockToChunk(gen.pillar(0).x), blockToChunk(gen.pillar(0).z)}, kEndHeight);
+    EndGenerator(42).generate(old);
+    CHECK(old.mobs().empty()); // (the M12 End has none)
+
+    MobScene s;
+    s.mobs = Mobs();
+    s.player.setPosition({-20.5, 64.0, 0.5});
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::EndCrystal, {4.5, 64.0, 4.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::EndCrystal, {8.5, 64.0, 4.5}, s.rng)));
+    s.tick(5);
+    CHECK(s.all().size() == 2); // they just sit there
+    for (MobData* m : s.all())
+        CHECK(m->pos == glm::dvec3(m->pos.x, 64.0, 4.5));
+    Mobs::attack(*s.all()[0], 1.0f, s.player.position()); // a punch
+    s.tick(4);
+    CHECK(s.all().empty()); // both gone: the blast reached the second one
+    CHECK(s.world.getBlock({4, 63, 4}) == 0); // and broke the stone below
+}
+
+TEST_CASE("end crystal items go on obsidian or bedrock with room above; ShowBottom saves") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.world.setBlock({3, 63, 3}, blockRegistry().defaultState(blocks::Obsidian));
+    CHECK_FALSE(Mobs::placeEndCrystal(s.world, {5, 63, 5}, s.rng)); // stone
+    CHECK(Mobs::placeEndCrystal(s.world, {3, 63, 3}, s.rng));
+    CHECK_FALSE(Mobs::placeEndCrystal(s.world, {3, 63, 3}, s.rng)); // one there already
+    REQUIRE(s.all().size() == 1);
+    CHECK_FALSE(s.all()[0]->showBottom);
+    Chunk back({0, 0});
+    entitiesFromNbt(*mc::nbt::read(mc::nbt::write(entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}))))), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].type == MobType::EndCrystal);
+    CHECK_FALSE(back.mobs()[0].showBottom);
+}

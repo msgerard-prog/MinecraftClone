@@ -593,6 +593,22 @@ void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Bi
                 }
     }
 
+    // An end crystal on each pillar's bedrock, added by the chunk holding its centre
+    // (wiki: End Crystal - they heal the dragon; ShowBottom: drawn on a base).
+    for (int i = 0; i < kPillars; ++i) {
+        const Pillar& p = m_pillars[i];
+        if (blockToChunk(p.x) != out.pos().x || blockToChunk(p.z) != out.pos().z) continue;
+        Xoroshiro ur(mixSeed(m_seed ^ 0xC2757A1, static_cast<uint32_t>(i)));
+        MobData m;
+        m.type = MobType::EndCrystal;
+        m.uuidHi = (ur.nextLong() & ~0xF000ull) | 0x4000ull; // (a version-4 UUID)
+        m.uuidLo = (ur.nextLong() & ~(3ull << 62)) | (2ull << 62);
+        m.pos = m.prevPos = m.goal = glm::dvec3(p.x + 0.5, p.height + 2.0, p.z + 0.5);
+        m.health = 1.0f;
+        m.persistent = true;
+        out.mobs().push_back(m);
+    }
+
     // Outer islands (only chunks that can reach them).
     const double cx = baseX + 8.0, cz = baseZ + 8.0;
     if (cx * cx + cz * cz < (kOuterStart - 128.0) * (kOuterStart - 128.0)) return;

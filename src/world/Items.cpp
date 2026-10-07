@@ -200,6 +200,7 @@ ItemRegistry buildItems() {
            .alwaysEdible = true,
            .texture = "item/chorus_fruit"});
     r.add({.id = "minecraft:popped_chorus_fruit", .texture = "item/popped_chorus_fruit"});
+    r.add({.id = "minecraft:end_crystal", .texture = "item/end_crystal"});
     r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));

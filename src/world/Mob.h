@@ -27,6 +27,8 @@ enum class MobType : uint8_t {
     Piglin,
     Hoglin,
     Strider,
+    // The End (M20).
+    EndCrystal, // not a mob in vanilla but an entity; it lives with the mobs here
     Count
 };
 
@@ -73,6 +75,7 @@ struct MobData {
     int loveTicks = 0;      // in love mode after being fed (600)
     uint8_t woolColour = 0; // sheep: dye index (0 white .. 15 black)
     bool sheared = false;
+    bool showBottom = true; // end crystals: drawn on a bedrock base (ShowBottom)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love

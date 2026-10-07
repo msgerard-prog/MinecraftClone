@@ -705,6 +705,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("EggLayTime", int32_t(m.eggTicks));
             e.put("IsChickenJockey", int8_t{0});
         }
+        if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
         if (m.type == MobType::MagmaCube) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::Zombie) {
@@ -769,6 +770,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
         m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
+        m.showBottom = e->integer("ShowBottom").value_or(1) != 0;
         if (m.type == MobType::MagmaCube) {
             const int64_t sz = std::clamp<int64_t>(e->integer("Size").value_or(3), 0, 3);
             m.size = uint8_t(sz >= 3 ? 4 : sz + 1);

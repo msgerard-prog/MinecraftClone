@@ -1264,6 +1264,12 @@ int main(int argc, char** argv) {
                         mc::throwEye(inventory, survival, eye, *s, projectiles);
                         clicks.useClick = false;
                     }
+                if (!dead && heldId == "minecraft:end_crystal" && clicks.useClick && lastHit &&
+                    lastHit->face == mc::world::Direction::Up) { // (M20.1)
+                    if (mc::Mobs::placeEndCrystal(world, lastHit->block, gameRng) && survival)
+                        inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:splash_potion" && clicks.useClick) { // (M19.4)
                     mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
                     clicks.useClick = false;

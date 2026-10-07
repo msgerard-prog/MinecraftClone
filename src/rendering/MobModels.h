@@ -17,6 +17,7 @@ struct MobPart {
     Anim anim;
     // 1 = sheep wool: drawn from the wool texture, grown by `inflate` pixels (same
     // UV), tinted by the wool colour, hidden once sheared (vanilla's wool layer).
+    // 2 = an end crystal's base, hidden without ShowBottom.
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -39,6 +40,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/zombified_piglin.png",
         "assets/minecraft/textures/entity/clone/piglin.png",  "assets/minecraft/textures/entity/clone/hoglin.png",
         "assets/minecraft/textures/entity/clone/strider.png",
+        "assets/minecraft/textures/entity/clone/end_crystal.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png"};
     return kPaths[row];

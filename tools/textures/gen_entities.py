@@ -459,6 +459,24 @@ def strider():
     return img
 
 
+def end_crystal():
+    # Core 6x6x6 @ (0,0): pink-magenta; glass cube 8x8x8 @ (0,16): only its edges
+    # (the rest clear, so the core shows); base 12x4x12 @ (0,40): dark bedrock grey.
+    rng = random.Random("end_crystal")
+    img = Img(64, 64, CLEAR)
+    for f in box_faces(0, 0, 6, 6, 6).values():
+        paint(img, f, ramp(hexc("#C050B8"), 5, spread=0.35), rng)
+    glass = ramp(hexc("#B8C8D8"), 5, spread=0.2)
+    for (x0, y0, w, h) in box_faces(0, 16, 8, 8, 8).values():
+        for y in range(h):
+            for x in range(w):
+                if x in (0, w - 1) or y in (0, h - 1):
+                    img.set(x0 + x, y0 + y, glass[rng.randrange(1, 4)])
+    for f in box_faces(0, 40, 12, 4, 12).values():
+        paint(img, f, ramp(hexc("#4A4A4E"), 5, spread=0.4), rng)
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -486,7 +504,8 @@ def main():
               "chicken": chicken(), "projectiles": projectiles(), "skeleton": skeleton(), "creeper": creeper(),
               "spider": spider(), "enderman": enderman(), "ghast": ghast(), "blaze": blaze(),
               "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin(), "piglin": piglin(),
-              "hoglin": hoglin(), "strider": strider()}
+              "hoglin": hoglin(), "strider": strider(),
+              "end_crystal": end_crystal()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

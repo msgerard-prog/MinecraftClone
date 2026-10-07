@@ -144,6 +144,9 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"##", "##"}, {{'#', item("end_stone")}}, "end_stone_bricks", 4));
     r.push_back(shaped({"##", "##"}, {{'#', item("popped_chorus_fruit")}}, "purpur_block", 4));
     r.push_back(shaped({"###", "###"}, {{'#', item("iron_ingot")}}, "iron_bars", 16));
+    // (wiki: End Crystal - glass around an eye of ender over a ghast tear)
+    r.push_back(shaped({"GGG", "GEG", "GTG"}, {{'G', item("glass")}, {'E', item("ender_eye")}, {'T', item("ghast_tear")}},
+                       "end_crystal"));
     r.push_back(shaped({".B.", "###"}, {{'B', item("blaze_rod")}, {'#', kStoneTool}}, "brewing_stand"));
     r.push_back(shaped({"###", "BBB", "###"}, {{'#', kPlanks}, {'B', item("book")}}, "bookshelf"));
     r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},

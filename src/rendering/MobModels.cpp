@@ -184,6 +184,14 @@ constexpr std::array<MobPart, 3> kStrider = {{
     {{2, 0, -2}, {6, 14, 2}, {4, 14, 0}, 0, 32, A::LegB},
 }};
 
+// End crystal: a bedrock-like base, a glass cube around a pink core turning about its
+// middle (vanilla: two glass cubes tumbling on tilted axes, bobbing up and down).
+constexpr std::array<MobPart, 3> kEndCrystal = {{
+    {{-6, 0, -6}, {6, 4, 6}, {0, 0, 0}, 0, 40, A::None, 2},
+    {{-4, 10, -4}, {4, 18, 4}, {0, 14, 0}, 0, 16, A::Head},
+    {{-3, 11, -3}, {3, 17, 3}, {0, 14, 0}, 0, 0, A::Head},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -203,6 +211,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Piglin: return kZombifiedPiglin; // (the same build)
     case world::MobType::Hoglin: return kHoglin;
     case world::MobType::Strider: return kStrider;
+    case world::MobType::EndCrystal: return kEndCrystal;
     default: return kCow;
     }
 }

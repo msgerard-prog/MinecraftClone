@@ -569,6 +569,22 @@ def fire_charge():
     return img
 
 
+def end_crystal_item():
+    # A glass cube outline around a pink core.
+    rng = random.Random("end_crystal")
+    img = Img(16, 16, CLEAR)
+    glass = ramp(hexc("#B8C8D8"), 5, spread=0.2)
+    core = ramp(hexc("#C050B8"), 5, spread=0.35)
+    for y in range(2, 14):
+        for x in range(2, 14):
+            if x in (2, 13) or y in (2, 13) or x == y or x + y == 15:
+                img.set(x, y, glass[rng.randrange(1, 4)])
+    for y in range(5, 11):
+        for x in range(5, 11):
+            img.set(x, y, core[rng.randrange(0, 5)])
+    return img
+
+
 def bottle_pixels():
     body = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 10.5) < 4.6}
     neck = {(x, y) for x in (6, 7, 8, 9) for y in range(3, 7)}
@@ -723,6 +739,7 @@ def all_items():
     items["glowstone_dust"] = lump("glowstone_dust", "#E8C060", "#FFF0A0", size=4.5)
     # The End (M20.1).
     items["chorus_fruit"] = lump("chorus_fruit", "#7A4A82", "#C89AD2", size=5.2)
+    items["end_crystal"] = end_crystal_item()
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     return items
 

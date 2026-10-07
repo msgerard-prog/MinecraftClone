@@ -17,8 +17,7 @@ systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf)
 
 M20 — The End 2 (wiki: The End, Ender Dragon, End Crystal, End Gateway, End City,
 Chorus Plant, Shulker; a new End generator kind, the old one stays for existing worlds):
-1. M20.1 — (a ✅ outer islands, End biomes, chorus, purpur, end stone bricks, iron
-   bars and cages, chorus fruit; b: end crystals) End generator kind "end2": iron cages and end crystals on the pillars,
+1. ✅ M20.1 — End generator kind "end2": iron cages and end crystals on the pillars,
    outer islands beyond 1000 blocks, chorus plants and flowers, end stone bricks,
    purpur blocks.
 2. M20.2 — Ender dragon: a multi-part flying entity with vanilla's phases (circling,

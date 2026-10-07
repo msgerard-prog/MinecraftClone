@@ -110,7 +110,8 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            animals Age, ForcedAge, InLove; sheep Color (byte), Sheared;
                            chicken EggLayTime, IsChickenJockey; creeper Fuse,
                            ExplosionRadius, ignited, powered; enderman carriedBlockState
-                           {Name, Properties} } ] }
+                           {Name, Properties}; end_crystal ShowBottom (byte; M20, with the mob
+                           fields vanilla ignores) } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

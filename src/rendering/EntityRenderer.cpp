@@ -276,6 +276,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     }
     for (const MobPart& part : mobModel(mob.type)) {
         if (part.layer == 1 && mob.sheared) continue;
+        if (part.layer == 2 && !mob.showBottom) continue;
         glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
         const glm::vec3 pivot(part.pivot[0], part.pivot[1], part.pivot[2]);
         const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z; // UV size (before inflating)

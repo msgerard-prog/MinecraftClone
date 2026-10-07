@@ -33,6 +33,9 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:piglin", 16.0f, 0.6, 1.95, 0.35, 8.0f, true},
         {"minecraft:hoglin", 40.0f, 1.3965, 1.4, 0.3, 6.0f, true, false, false, 2.0f},
         {"minecraft:strider", 20.0f, 0.9, 1.7, 0.175, 0.0f, false, true},
+        // wiki: End Crystal - a 2x2x2 entity that any damage destroys (an explosion of
+        // power 6); no gravity; fire doesn't harm it.
+        {"minecraft:end_crystal", 1.0f, 2.0, 2.0, 0.0, 0.0f, false, true, true, 1.6f},
     };
     return kInfo[static_cast<int>(t)];
 }

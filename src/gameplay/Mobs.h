@@ -54,6 +54,9 @@ public:
 
     void tick(Context& ctx);
 
+    // An end crystal item used on the top of obsidian or bedrock (wiki: End Crystal):
+    // needs two free blocks above and no entity there. False: nothing placed.
+    static bool placeEndCrystal(world::World& world, const world::BlockPos& on, world::Xoroshiro& rng);
     // A mob at `pos` (spawn eggs, commands, natural spawning).
     static world::MobData make(world::MobType type, const glm::dvec3& pos, world::Xoroshiro& rng);
     static uint8_t naturalWoolColour(world::Xoroshiro& rng);
