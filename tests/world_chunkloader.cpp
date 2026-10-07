@@ -1,4 +1,5 @@
 #include "world/ChunkLoader.h"
+#include "world/TerrainGenerator.h"
 
 #include <doctest/doctest.h>
 

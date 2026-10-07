@@ -105,6 +105,31 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                 std::vector<PackedVertex>& dst = model.translucent ? out.translucent : out.opaque;
                 const world::BlockId block = registry.blockOf(state);
 
+                if (model.cross) {
+                    // Two diagonal planes, both sides, flat light from the plant's own
+                    // cell; "Up" shading (no directional darkening).
+                    static constexpr int kPlane[2][4][2] = {{{0, 0}, {0, 0}, {16, 16}, {16, 16}},
+                                                            {{16, 0}, {16, 0}, {0, 16}, {0, 16}}};
+                    for (const auto& plane : kPlane) {
+                        VertexAttribs v[4];
+                        for (int c = 0; c < 4; ++c) {
+                            const bool top = c == 0 || c == 3;
+                            v[c].x16 = uint32_t(x * 16 + plane[c][0]);
+                            v[c].y16 = uint32_t(y * 16 + (top ? 16 : 0));
+                            v[c].z16 = uint32_t(z * 16 + plane[c][1]);
+                            v[c].face = uint32_t(Direction::Up);
+                            v[c].sprite = model.crossSprite;
+                            v[c].u = c < 2 ? 0u : 16u;
+                            v[c].v = top ? 0u : 16u;
+                            v[c].tint = model.crossTint;
+                            v[c].sky4 = sky[i] * 4u;
+                            v[c].block4 = bl[i] * 4u;
+                        }
+                        emitQuad(dst, v, false);
+                        emitReversed(dst, v);
+                    }
+                    continue;
+                }
                 if (model.boxCount > 0) {
                     // Non-cube model: box faces, lit by the block's own cell, no AO.
                     for (int b = 0; b < model.boxCount; ++b) {

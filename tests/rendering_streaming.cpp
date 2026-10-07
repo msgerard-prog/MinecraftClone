@@ -2,6 +2,7 @@
 #include "rendering/ChunkMeshTracker.h"
 #include "rendering/ChunkRenderer.h"
 #include "world/ChunkLoader.h"
+#include "world/TerrainGenerator.h"
 
 #include <doctest/doctest.h>
 

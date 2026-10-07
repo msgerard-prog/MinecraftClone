@@ -50,6 +50,10 @@ struct BakedModel {
     // Non-cube models (torch...): boxes instead of the 6 full-cube faces.
     uint8_t boxCount = 0;
     BakedBox boxes[kMaxBoxes];
+    // Plants (vanilla "cross" model): two diagonal planes, seen from both sides.
+    bool cross = false;
+    uint16_t crossSprite = 0;
+    Tint crossTint = Tint::None;
 };
 
 // Per-state models, resolved once at startup (vanilla "model baking").

@@ -10,6 +10,9 @@ namespace properties {
 extern const Property axis;  // x | y | z  (logs, pillars)
 extern const Property snowy; // true | false (grass block, podzol, mycelium)
 extern const Property level; // 0..15 (fluids: 0 = source, 1..7 flowing, 8..15 falling)
+extern const Property lit;        // true | false (redstone ore, furnace...)
+extern const Property distance;   // 1..7 (leaves: steps to the nearest log)
+extern const Property persistent; // true | false (leaves placed by a player)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -30,6 +33,57 @@ enum : BlockId {
     Glowstone,
     Torch,
     Glass,
+    // World generation (M8). Appended: existing state ids never move.
+    CoalOre,
+    DeepslateCoalOre,
+    IronOre,
+    DeepslateIronOre,
+    CopperOre,
+    DeepslateCopperOre,
+    GoldOre,
+    DeepslateGoldOre,
+    RedstoneOre,
+    DeepslateRedstoneOre,
+    LapisOre,
+    DeepslateLapisOre,
+    DiamondOre,
+    DeepslateDiamondOre,
+    EmeraldOre,
+    DeepslateEmeraldOre,
+    Granite,
+    Diorite,
+    Andesite,
+    Tuff,
+    Calcite,
+    Sandstone,
+    RedSand,
+    RedSandstone,
+    Terracotta,
+    SnowBlock,
+    Ice,
+    PackedIce,
+    Clay,
+    CoarseDirt,
+    MossyCobblestone,
+    Lava,
+    OakLeaves,
+    BirchLog,
+    BirchPlanks,
+    BirchLeaves,
+    SpruceLog,
+    SprucePlanks,
+    SpruceLeaves,
+    AcaciaLog,
+    AcaciaPlanks,
+    AcaciaLeaves,
+    ShortGrass,
+    Fern,
+    Dandelion,
+    Poppy,
+    Cornflower,
+    AzureBluet,
+    OxeyeDaisy,
+    DeadBush,
     Count
 };
 } // namespace blocks

@@ -1,5 +1,7 @@
 #include "rendering/BlockModels.h"
 
+#include <algorithm>
+
 #include "rendering/TextureAtlas.h"
 #include "world/Blocks.h"
 
@@ -206,10 +208,49 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             m = fourYRotations(v);
             break;
         }
-        default:
-            // A registered block without a model: vanilla shows the missing model.
-            m = single(cubeAll(sprite(std::string(TextureAtlas::kMissing).c_str())));
+        default: {
+            // Name-driven models (vanilla's common templates) for the many simple
+            // blocks: cube_all by name, logs as cube_column, leaves tinted, plants as
+            // cross, sandstones bottom/top. Unknown textures show the missing sprite.
+            std::string name = registry.block(registry.blockOf(state)).id;
+            if (name.starts_with("minecraft:")) name.erase(0, 10);
+            const auto ends = [&](std::string_view s) { return name.ends_with(s); };
+            static constexpr std::string_view kPlants[] = {
+                "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
+                "oxeye_daisy", "dead_bush"};
+            if (std::find(std::begin(kPlants), std::end(kPlants), name) != std::end(kPlants)) {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(name.c_str());
+                m.crossTint = (name == "short_grass" || name == "fern") ? Tint::Grass : Tint::None;
+            } else if (ends("_log")) {
+                m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (ends("_leaves")) {
+                BakedVariant v = cubeAll(sprite(name.c_str()));
+                for (auto& f : v.faces)
+                    f.tint = Tint::Foliage;
+                m = single(v); // all faces drawn (fancy leaves): no cullSame
+            } else if (ends("sandstone")) {
+                BakedVariant v = cubeAll(sprite(name.c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
+                v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
+                m = single(v);
+            } else if (name == "snow_block") {
+                m = single(cubeAll(sprite("snow")));
+            } else if (name == "lava") {
+                m = single(cubeAll(sprite("lava_still")));
+                m.fluid = true;
+                m.cullSame = true;
+            } else {
+                m = single(cubeAll(sprite(name.c_str())));
+                if (name == "ice") {
+                    m.translucent = true;
+                    m.cullSame = true;
+                }
+            }
             break;
+        }
         }
     }
 }

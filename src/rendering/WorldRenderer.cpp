@@ -21,6 +21,8 @@ namespace {
 constexpr glm::vec3 kPlainsSky(0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f);
 // Vanilla plains grass colour (#91BD59), until biomes exist (M8).
 constexpr glm::vec3 kPlainsGrass(0x91 / 255.0f, 0xBD / 255.0f, 0x59 / 255.0f);
+// Vanilla plains foliage colour (#77AB2F), until biomes exist (M8).
+constexpr glm::vec3 kPlainsFoliage(0x77 / 255.0f, 0xAB / 255.0f, 0x2F / 255.0f);
 // Vanilla's default water colour (#3F76E4), until biomes exist (M8).
 constexpr glm::vec3 kWater(0x3F / 255.0f, 0x76 / 255.0f, 0xE4 / 255.0f);
 
@@ -274,6 +276,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glUniform1i(1, m_atlas.columns());
     glUniform3fv(2, 1, glm::value_ptr(kPlainsGrass));
     glUniform3fv(3, 1, glm::value_ptr(kWater));
+    glUniform3fv(8, 1, glm::value_ptr(kPlainsFoliage));
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
     const FogRange fog = terrainFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);

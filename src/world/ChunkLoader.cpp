@@ -4,7 +4,7 @@
 
 namespace mc::world {
 
-ChunkLoader::ChunkLoader(World& world, const TerrainGenerator& generator, int threads,
+ChunkLoader::ChunkLoader(World& world, const ChunkGenerator& generator, int threads,
                          ChunkStorage* storage)
     : m_world(world), m_generator(generator), m_storage(storage),
       m_maxInFlight(std::max(2, threads * 3)) {

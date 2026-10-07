@@ -108,22 +108,6 @@ void buildTestWorld(mc::world::World& world) {
     world.setBlock({19, y + 1, 0}, 0);
 }
 
-// Vanilla-like spawn: the nearest land column to the origin (spiral search), feet on
-// its surface.
-glm::dvec3 findSpawn(const mc::world::TerrainGenerator& gen) {
-    for (int r = 0; r <= 256; r += 4) {
-        for (int i = -r; i <= r; i += 4) {
-            const int pts[4][2] = {{i, -r}, {i, r}, {-r, i}, {r, i}};
-            for (const auto& p : pts) {
-                const int h = gen.surfaceHeight(p[0], p[1]);
-                if (h >= mc::world::TerrainGenerator::kSeaLevel)
-                    return {p[0] + 0.5, h + 1.0, p[1] + 0.5};
-            }
-        }
-    }
-    return {0.5, mc::world::TerrainGenerator::kSeaLevel + 1.0, 0.5};
-}
-
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
 // re-mesh) with scripted look directions, so a screenshot can verify editing.
 void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar,
@@ -228,7 +212,7 @@ int main(int argc, char** argv) {
         loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads, storage.get());
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
-        spawn = findSpawn(generator);
+        spawn = generator.findSpawn();
     }
     // Lighting on worker threads (a quarter of the cores).
     mc::world::LightManager lighting(

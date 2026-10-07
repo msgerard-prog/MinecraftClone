@@ -9,7 +9,7 @@ namespace mc::gfx {
 //                                         (0..256), face = world::Direction
 //   w1: sprite:12 | u:5 | v:5 | tint:2 | fluidTop:1 | ao:2
 //       sprite = atlas grid index; u, v = texel coordinates 0..16 inside the sprite
-//       (v 0 = top row); tint 0 none / 1 grass / 2 water; fluidTop = lower this vertex
+//       (v 0 = top row); tint 0 none / 1 grass / 2 water / 3 foliage; fluidTop = lower this vertex
 //       by 1/9 (source fluid surface 8/9); ao = occluding neighbours 0..3
 //   w2: sky:6 | block:6                   light = sum of 4 smooth-lighting samples
 //                                         (0..60), i.e. average x 4
@@ -20,7 +20,7 @@ struct PackedVertex {
 };
 static_assert(sizeof(PackedVertex) == 12);
 
-enum class Tint : uint8_t { None = 0, Grass = 1, Water = 2 };
+enum class Tint : uint8_t { None = 0, Grass = 1, Water = 2, Foliage = 3 };
 
 struct VertexAttribs {
     uint32_t x16, y16, z16; // 1/16 block units, 0..256

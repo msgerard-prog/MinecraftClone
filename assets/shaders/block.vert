@@ -9,6 +9,7 @@ layout(location = 0) uniform mat4 uViewProj;   // camera at the origin
 layout(location = 1) uniform int uAtlasColumns;
 layout(location = 2) uniform vec3 uGrassColor;  // biome tints (plains / default until M8)
 layout(location = 3) uniform vec3 uWaterColor;
+layout(location = 8) uniform vec3 uFoliageColor;
 layout(location = 7) uniform float uSkyDarken;  // 0 (day) .. 11 (night): sky light lost
 
 layout(std430, binding = 0) readonly buffer SectionOffsets { vec4 offsets[]; };
@@ -60,6 +61,9 @@ void main() {
     const vec3 blockPart = brightness(blockLight) * vec3(1.0, 0.93, 0.82);
     const vec3 light = min(skyPart + blockPart, vec3(1.0)) * kAo[ao];
 
-    const vec3 tintColor = tint == 1u ? uGrassColor : tint == 2u ? uWaterColor : vec3(1.0);
+    const vec3 tintColor = tint == 1u ? uGrassColor
+                         : tint == 2u ? uWaterColor
+                         : tint == 3u ? uFoliageColor
+                                      : vec3(1.0);
     vColor = tintColor * kShade[face] * light;
 }

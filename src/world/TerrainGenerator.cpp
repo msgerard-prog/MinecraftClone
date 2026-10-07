@@ -119,4 +119,17 @@ void TerrainGenerator::generate(Chunk& chunk) const {
     }
 }
 
+glm::dvec3 TerrainGenerator::findSpawn() const {
+    for (int r = 0; r <= 256; r += 4) {
+        for (int i = -r; i <= r; i += 4) {
+            const int pts[4][2] = {{i, -r}, {i, r}, {-r, i}, {r, i}};
+            for (const auto& p : pts) {
+                const int h = surfaceHeight(p[0], p[1]);
+                if (h >= kSeaLevel) return {p[0] + 0.5, h + 1.0, p[1] + 0.5};
+            }
+        }
+    }
+    return {0.5, kSeaLevel + 1.0, 0.5};
+}
+
 } // namespace mc::world

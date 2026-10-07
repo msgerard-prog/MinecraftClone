@@ -10,6 +10,9 @@ const Property snowy{"snowy", {"true", "false"}};
 const Property level{
     "level",
     {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
+const Property lit{"lit", {"true", "false"}};
+const Property distance{"distance", {"1", "2", "3", "4", "5", "6", "7"}};
+const Property persistent{"persistent", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -60,6 +63,100 @@ BlockRegistry buildVanillaBlocks() {
                           .opaqueCube = false,
                           .layer = RenderLayer::Cutout}),
           blocks::Glass);
+
+    // --- World generation blocks (M8) ---
+    // Leaves: cutout, not full-opaque for culling, filter light by 1 (wiki: Leaves).
+    constexpr BlockSettings kLeaves{.hardness = 0.2f,
+                                    .resistance = 0.2f,
+                                    .lightOpacity = 1,
+                                    .opaqueCube = false,
+                                    .layer = RenderLayer::Cutout};
+    // Plants: no collision, broken instantly, cross models.
+    constexpr BlockSettings kPlant{
+        .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout};
+    // Ores (wiki: each ore's infobox): stone ores 3.0, deepslate ores 4.5.
+    check(r.add("coal_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::CoalOre);
+    check(r.add("deepslate_coal_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateCoalOre);
+    check(r.add("iron_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::IronOre);
+    check(r.add("deepslate_iron_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateIronOre);
+    check(r.add("copper_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::CopperOre);
+    check(r.add("deepslate_copper_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateCopperOre);
+    check(r.add("gold_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::GoldOre);
+    check(r.add("deepslate_gold_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateGoldOre);
+    check(r.add("redstone_ore", {.hardness = 3.0f, .resistance = 3.0f}, {{&lit, "false"}}), blocks::RedstoneOre);
+    check(r.add("deepslate_redstone_ore", {.hardness = 4.5f, .resistance = 3.0f}, {{&lit, "false"}}),
+          blocks::DeepslateRedstoneOre);
+    check(r.add("lapis_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::LapisOre);
+    check(r.add("deepslate_lapis_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateLapisOre);
+    check(r.add("diamond_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::DiamondOre);
+    check(r.add("deepslate_diamond_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateDiamondOre);
+    check(r.add("emerald_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::EmeraldOre);
+    check(r.add("deepslate_emerald_ore", {.hardness = 4.5f, .resistance = 3.0f}),
+          blocks::DeepslateEmeraldOre);
+    check(r.add("granite", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Granite);
+    check(r.add("diorite", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Diorite);
+    check(r.add("andesite", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Andesite);
+    check(r.add("tuff", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Tuff);
+    check(r.add("calcite", {.hardness = 0.75f, .resistance = 0.75f}), blocks::Calcite);
+    check(r.add("sandstone", {.hardness = 0.8f, .resistance = 0.8f}), blocks::Sandstone);
+    check(r.add("red_sand", {.hardness = 0.5f, .resistance = 0.5f}), blocks::RedSand);
+    check(r.add("red_sandstone", {.hardness = 0.8f, .resistance = 0.8f}), blocks::RedSandstone);
+    check(r.add("terracotta", {.hardness = 1.25f, .resistance = 4.2f}), blocks::Terracotta);
+    check(r.add("snow_block", {.hardness = 0.2f, .resistance = 0.2f}), blocks::SnowBlock);
+    // Ice filters light like water; packed ice is opaque.
+    check(r.add("ice", {.hardness = 0.5f,
+                        .resistance = 0.5f,
+                        .lightOpacity = 1,
+                        .opaqueCube = false,
+                        .layer = RenderLayer::Translucent}),
+          blocks::Ice);
+    check(r.add("packed_ice", {.hardness = 0.5f, .resistance = 0.5f}), blocks::PackedIce);
+    check(r.add("clay", {.hardness = 0.6f, .resistance = 0.6f}), blocks::Clay);
+    check(r.add("coarse_dirt", {.hardness = 0.5f, .resistance = 0.5f}), blocks::CoarseDirt);
+    check(r.add("mossy_cobblestone", {.hardness = 2.0f, .resistance = 6.0f}),
+          blocks::MossyCobblestone);
+    // Lava: a fluid that emits 15 (wiki: Lava); no flow yet.
+    check(r.add("lava",
+                {.hardness = 100.0f,
+                 .resistance = 100.0f,
+                 .lightEmission = 15,
+                 .lightOpacity = 1,
+                 .opaqueCube = false,
+                 .collision = false,
+                 .layer = RenderLayer::Translucent},
+                {{&level, "0"}}),
+          blocks::Lava);
+    check(r.add("oak_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}),
+          blocks::OakLeaves);
+    check(r.add("birch_log", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}),
+          blocks::BirchLog);
+    check(r.add("birch_planks", {.hardness = 2.0f, .resistance = 3.0f}), blocks::BirchPlanks);
+    check(r.add("birch_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}),
+          blocks::BirchLeaves);
+    check(r.add("spruce_log", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}),
+          blocks::SpruceLog);
+    check(r.add("spruce_planks", {.hardness = 2.0f, .resistance = 3.0f}), blocks::SprucePlanks);
+    check(r.add("spruce_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}),
+          blocks::SpruceLeaves);
+    check(r.add("acacia_log", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}),
+          blocks::AcaciaLog);
+    check(r.add("acacia_planks", {.hardness = 2.0f, .resistance = 3.0f}), blocks::AcaciaPlanks);
+    check(r.add("acacia_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}),
+          blocks::AcaciaLeaves);
+    check(r.add("short_grass", kPlant), blocks::ShortGrass);
+    check(r.add("fern", kPlant), blocks::Fern);
+    check(r.add("dandelion", kPlant), blocks::Dandelion);
+    check(r.add("poppy", kPlant), blocks::Poppy);
+    check(r.add("cornflower", kPlant), blocks::Cornflower);
+    check(r.add("azure_bluet", kPlant), blocks::AzureBluet);
+    check(r.add("oxeye_daisy", kPlant), blocks::OxeyeDaisy);
+    check(r.add("dead_bush", kPlant), blocks::DeadBush);
     return r;
 }
 
