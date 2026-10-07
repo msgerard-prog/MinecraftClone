@@ -46,6 +46,8 @@ public:
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
     void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
                   const glm::dvec3& cameraPos);
+    // An arrow (M16.4) with its tip at `tip`, pointing along `dir`: two crossed quads.
+    void addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light, const glm::dvec3& cameraPos);
     // The crack on a block being broken: stage 0..9 (destroy_stage_N).
     void setCrack(const world::BlockPos& block, int stage);
     void clearCrack() { m_crackStage = -1; }

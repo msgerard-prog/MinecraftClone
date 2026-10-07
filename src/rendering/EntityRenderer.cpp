@@ -190,6 +190,25 @@ void EntityRenderer::addBlock(world::BlockStateId state, const glm::dvec3& pos, 
     cube(base + glm::vec3(-0.5f, 0.0f, -0.5f), base + glm::vec3(0.5f, 1.0f, 0.5f), sprites, light, tints, m_items, true);
 }
 
+void EntityRenderer::addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light,
+                              const glm::dvec3& cameraPos) {
+    const double len = glm::length(dir);
+    const glm::vec3 f = len > 1e-9 ? glm::vec3(dir / len) : glm::vec3(0, -1, 0);
+    const glm::vec3 helper = std::abs(f.y) > 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
+    const glm::vec3 a = glm::normalize(glm::cross(f, helper)), b = glm::cross(f, a);
+    const glm::vec3 t(tip - cameraPos);
+    const glm::vec3 tail = t - f * 0.5f; // 16 px long, 5 px wide
+    const float u0 = 0.0f, u1 = 16.0f, v0 = float(kProjectileRow * 64), v1 = v0 + 5.0f;
+    const uint32_t c = pack(light);
+    for (const glm::vec3& side : {a, b}) {
+        const glm::vec3 w = side * (2.5f / 32.0f);
+        const glm::vec3 p[4] = {tail + w, tail - w, t - w, t + w};
+        const glm::vec3 q[4] = {p[3], p[2], p[1], p[0]}; // back side
+        quad(p, u0, v0, u1, v1, c, m_mobs);
+        quad(q, u1, v0, u0, v1, c, m_mobs);
+    }
+}
+
 void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
                             float pitch, const glm::vec3& light, const glm::dvec3& cameraPos) {
     constexpr float kDeg = 3.14159265f / 180.0f;

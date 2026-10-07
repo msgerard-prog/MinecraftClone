@@ -69,6 +69,8 @@ public:
         m_velocity.z = m_velocity.z / 2.0 + dz / len * strength;
         if (m_onGround) m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength); // wiki: Knockback
     }
+    // A push (explosions): added to the velocity.
+    void push(const glm::dvec3& v) { m_velocity += v; }
     void setRotation(float yawDeg, float pitchDeg);
     void setCreative(bool creative) { m_creative = creative; }
     void setVelocity(const glm::dvec3& v) { m_velocity = v; }

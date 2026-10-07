@@ -31,6 +31,11 @@ public:
     int add(world::ItemStack stack);
     // Removes `n` from the selected stack (survival: placing, eating).
     void consumeSelected(int n = 1);
+    // Finds and removes one `item` (arrows for a bow: the selected hotbar slot... any
+    // slot, vanilla prefers the offhand, then the hotbar, then the inventory). False
+    // if there is none.
+    bool takeOne(world::ItemId item);
+    bool has(world::ItemId item) const;
 
     // A single block item stack for a block state (keeps non-default states).
     static world::ItemStack blockStack(world::BlockStateId state, int count = 1);

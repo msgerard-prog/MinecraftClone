@@ -214,13 +214,31 @@ def chicken():
     return img
 
 
+def projectiles():
+    # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
+    img = Img(64, 64, CLEAR)
+    shaft = ramp(hexc("#8A6A42"), 5)
+    head = ramp(hexc("#6A6A72"), 5)
+    feather = ramp(hexc("#E6E6E6"), 5)
+    for x in range(2, 13):
+        img.set(x, 2, shaft[2])
+    for x, y in ((13, 1), (13, 2), (13, 3), (14, 2), (15, 2), (14, 1), (14, 3)):
+        img.set(x, y, head[2 if y == 2 else 1])
+    for x in range(0, 4):
+        img.set(x, 0, feather[2])
+        img.set(x, 4, feather[2])
+        img.set(x + 1, 1, feather[3])
+        img.set(x + 1, 3, feather[3])
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for 4x previews")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     images = {"zombie": zombie(), "cow": cow(), "sheep": sheep(), "sheep_wool": sheep_wool(), "pig": pig(),
-              "chicken": chicken()}
+              "chicken": chicken(), "projectiles": projectiles()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

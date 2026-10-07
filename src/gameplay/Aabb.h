@@ -16,6 +16,7 @@ struct Aabb {
         return {{feet.x - h, feet.y, feet.z - h}, {feet.x + h, feet.y + height, feet.z + h}};
     }
     Aabb moved(const glm::dvec3& d) const { return {min + d, max + d}; }
+    Aabb inflated(double r) const { return {min - glm::dvec3(r), max + glm::dvec3(r)}; }
     // Grows the box toward a movement so it covers the swept volume.
     Aabb expandedTowards(const glm::dvec3& d) const {
         Aabb b = *this;

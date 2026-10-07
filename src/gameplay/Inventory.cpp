@@ -70,6 +70,21 @@ int Inventory::add(world::ItemStack stack) {
     return left;
 }
 
+bool Inventory::has(world::ItemId item) const {
+    for (const auto& s : m_slots)
+        if (!s.empty() && s.item == item) return true;
+    return false;
+}
+
+bool Inventory::takeOne(world::ItemId item) {
+    for (auto& s : m_slots) // slots 0..8 (hotbar) come first, then the main grid
+        if (!s.empty() && s.item == item) {
+            if (--s.count == 0) s = {};
+            return true;
+        }
+    return false;
+}
+
 void Inventory::consumeSelected(int n) {
     world::ItemStack& s = m_slots[static_cast<size_t>(m_selected)];
     if (s.empty()) return;

@@ -22,15 +22,18 @@ struct MobPart {
 };
 
 std::span<const MobPart> mobModel(world::MobType type);
-// Rows of the stacked mob atlas (64 x 64 each): one per mob type, then sheep wool.
-inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 1;
+// Rows of the stacked mob atlas (64 x 64 each): one per mob type, then sheep wool,
+// then projectiles (the arrow: 16 x 5 at (0,0), tip at +x).
+inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 2;
 inline constexpr int kSheepWoolRow = static_cast<int>(world::MobType::Count);
+inline constexpr int kProjectileRow = static_cast<int>(world::MobType::Count) + 1;
 inline int mobTextureRow(world::MobType type) { return static_cast<int>(type); }
 inline const char* mobTexturePath(int row) {
     static constexpr const char* kPaths[kMobTextureRows] = {
         "assets/minecraft/textures/entity/clone/zombie.png", "assets/minecraft/textures/entity/clone/cow.png",
         "assets/minecraft/textures/entity/clone/sheep.png",  "assets/minecraft/textures/entity/clone/pig.png",
-        "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/sheep_wool.png"};
+        "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/sheep_wool.png",
+        "assets/minecraft/textures/entity/clone/projectiles.png"};
     return kPaths[row];
 }
 // Wool colours by dye index (wiki: Dye - the colours of the 16 dyes).

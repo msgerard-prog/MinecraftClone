@@ -102,6 +102,8 @@ std::vector<Recipe> build() {
     r.push_back(shapeless({item("iron_ingot"), item("flint")}, "flint_and_steel"));
     // (wiki: Shears - two iron ingots diagonally)
     r.push_back(shaped({".#", "#."}, {{'#', item("iron_ingot")}}, "shears"));
+    // (wiki: Arrow - flint, stick, feather -> 4)
+    r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
     return r;
 }
 

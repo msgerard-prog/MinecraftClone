@@ -1,0 +1,155 @@
+// Projectiles and explosions (wiki: Arrow, Bow, Egg, Explosion).
+#include "gameplay/Explosion.h"
+#include "gameplay/Mobs.h"
+#include "gameplay/Projectiles.h"
+#include "world/Blocks.h"
+
+#include <doctest/doctest.h>
+
+using namespace mc;
+using namespace mc::world;
+
+namespace {
+
+BlockStateId S(BlockId b) { return blockRegistry().defaultState(b); }
+
+// 5x5 chunks with a 4-deep stone floor (y 60..63) on bedrock (y 59).
+struct Scene {
+    World world;
+    Player player;
+    Vitals vitals;
+    Inventory inventory;
+    ItemEntities items;
+    Projectiles projectiles;
+    Xoroshiro rng{4};
+    Scene() {
+        for (int cz = -2; cz <= 2; ++cz)
+            for (int cx = -2; cx <= 2; ++cx) {
+                Chunk& c = world.createChunk({cx, cz});
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        c.set(x, 59, z, S(blocks::Bedrock));
+                        for (int y = 60; y <= 63; ++y)
+                            c.set(x, y, z, S(blocks::Stone));
+                    }
+            }
+        player.setPosition({0.5, 64.0, 0.5});
+        player.setCreative(false);
+        for (int i = 0; i < Inventory::kSlots; ++i)
+            inventory.setSlot(i, {});
+    }
+    Projectiles::Hits tick(int n) {
+        Projectiles::Hits total;
+        for (int i = 0; i < n; ++i) {
+            const auto h = projectiles.tick(world, player, &vitals, inventory, true, rng);
+            total.playerDamage += h.playerDamage;
+            total.mobsHit += h.mobsHit;
+        }
+        return total;
+    }
+};
+
+} // namespace
+
+TEST_CASE("bow power: (f^2 + 2f)/3 with f = ticks/20, full after a second") {
+    CHECK(bowPower(0) == 0.0f);
+    CHECK(bowPower(10) == doctest::Approx(0.41667f));
+    CHECK(bowPower(20) == 1.0f);
+    CHECK(bowPower(60) == 1.0f);
+}
+
+TEST_CASE("a fully drawn arrow hits a mob for ceil(speed x 2), at least 6") {
+    Scene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {0.5, 64.0, 8.5}, s.rng)));
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.0, 0.5}, {0, 0, 1}, 3.0, 0.0, true, false, s.rng);
+    const auto hits = s.tick(10);
+    CHECK(hits.mobsHit == 1);
+    const MobData& cow = s.world.chunk({0, 0})->mobs().at(0);
+    CHECK(cow.health <= 10.0f - 6.0f);
+    CHECK(s.projectiles.items().empty());
+}
+
+TEST_CASE("arrows stick in walls; the shooter picks them back up") {
+    Scene s;
+    for (int y = 64; y <= 66; ++y)
+        s.world.setBlock({0, y, 6}, S(blocks::Stone));
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.0, 0.5}, {0, 0, 1}, 2.0, 0.0, true, false, s.rng);
+    s.tick(10);
+    REQUIRE(s.projectiles.items().size() == 1);
+    CHECK(s.projectiles.items()[0].stuck);
+    CHECK(s.projectiles.items()[0].pos.z == doctest::Approx(6.05).epsilon(0.01));
+    s.player.setPosition({0.5, 64.0, 5.2}); // walk up to it
+    s.tick(1);
+    CHECK(s.projectiles.items().empty());
+    CHECK(s.inventory.has(*itemRegistry().find("arrow")));
+}
+
+TEST_CASE("arrows fall: a horizontal shot drops over distance") {
+    Scene s;
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.5, 70.0, 0.5}, {0, 0, 1}, 1.0, 0.0, false, false, s.rng);
+    s.tick(10);
+    REQUIRE(s.projectiles.items().size() == 1);
+    CHECK(s.projectiles.items()[0].pos.y < 69.0);
+}
+
+TEST_CASE("a skeleton-style arrow hurts a survival player") {
+    Scene s;
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.0, 8.5}, {0, 0, -1}, 1.6, 0.0, false, false, s.rng);
+    const auto hits = s.tick(10);
+    CHECK(hits.playerDamage >= 3.0f);
+    CHECK(s.vitals.health() < 20.0f);
+}
+
+TEST_CASE("thrown eggs break, now and then hatching chicks") {
+    Scene s;
+    for (int i = 0; i < 64; ++i)
+        s.projectiles.shoot(ProjectileKind::Egg, {0.5, 66.0, 0.5}, {0.2, 0.3, 1}, 1.5, 1.0, true, false, s.rng);
+    s.tick(60);
+    CHECK(s.projectiles.items().empty());
+    int chicks = 0;
+    s.world.forEachChunk([&](const Chunk& c) {
+        for (const MobData& m : c.mobs())
+            chicks += m.type == MobType::Chicken && m.isBaby();
+    });
+    CHECK(chicks > 2);  // ~1 in 8
+    CHECK(chicks < 25);
+}
+
+TEST_CASE("explosions: a crater in dirt (stone barely: resistance 6), never bedrock; damage by distance and cover") {
+    Scene s;
+    for (int x = -8; x <= 8; ++x)
+        for (int z = -8; z <= 8; ++z)
+            for (int y = 60; y <= 63; ++y)
+                s.world.setBlock({x, y, z}, S(blocks::Dirt));
+    Explosion e;
+    std::vector<BlockPos> changed;
+    s.player.setPosition({3.5, 64.0, 0.5});
+    const int n = e.explode(s.world, {0.5, 64.0, 0.5}, 3.0f, s.rng, s.items, changed, {&s.player, &s.vitals});
+    CHECK(n > 10);
+    CHECK(s.world.getBlock({0, 63, 0}) == 0); // the block under it is gone
+    for (int x = -6; x <= 6; ++x)
+        for (int z = -6; z <= 6; ++z)
+            CHECK(s.world.getBlock({x, 59, z}) == S(blocks::Bedrock));
+    const float hurt = 20.0f - s.vitals.health();
+    CHECK(hurt > 4.0f); // 3 blocks from a power-3 blast
+    // Behind a wall there is no exposure.
+    World w;
+    w.createChunk({0, 0});
+    for (int y = 0; y <= 80; ++y)
+        for (int z = 0; z < 16; ++z)
+            w.setBlock({8, y, z}, S(blocks::Stone));
+    CHECK(Explosion::exposure(w, {4.5, 64.0, 8.5}, Aabb::fromFeet({12.5, 64.0, 8.5}, 0.6, 1.8)) == 0.0);
+    CHECK(Explosion::exposure(w, {4.5, 64.0, 8.5}, Aabb::fromFeet({6.5, 64.0, 8.5}, 0.6, 1.8)) == 1.0);
+}
+
+TEST_CASE("water shields blocks from explosions (blast resistance 100)") {
+    Scene s;
+    for (int x = -3; x <= 3; ++x)
+        for (int z = -3; z <= 3; ++z)
+            for (int y = 64; y <= 65; ++y)
+                s.world.setBlock({x, y, z}, S(blocks::Water));
+    Explosion e;
+    std::vector<BlockPos> changed;
+    e.explode(s.world, {0.5, 64.5, 0.5}, 3.0f, s.rng, s.items, changed, {});
+    CHECK(s.world.getBlock({0, 63, 0}) == S(blocks::Stone));
+}

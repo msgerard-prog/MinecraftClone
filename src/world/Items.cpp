@@ -124,6 +124,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:feather", .texture = "item/feather"});
     r.add({.id = "minecraft:egg", .maxStack = 16, .texture = "item/egg"});
     r.add({.id = "minecraft:shears", .maxStack = 1, .durability = 238, .texture = "item/shears"});
+    // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
+    r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});
+    r.add({.id = "minecraft:arrow", .texture = "item/arrow"});
     return r;
 }
 

@@ -24,7 +24,7 @@ M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page)
 3. ✅ M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,
    chicken (eggs, slow falling, flapping); breeding (love mode, babies growing up,
    tempt goals) with wheat / wheat seeds / carrots; their drops and items.
-4. M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,
+4. ✅ M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,
    sticking), explosions (vanilla ray algorithm, block resistance, entity damage).
 5. M16.5 — Hostile mobs: skeleton (bow, strafing, burns in daylight), creeper
    (swelling, explosion 3), spider (climbing walls, neutral in light), enderman

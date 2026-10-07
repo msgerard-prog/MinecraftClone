@@ -323,6 +323,33 @@ def shears():
     return s.render()
 
 
+def bow():
+    # A curved wooden bow (upper-left to lower-right) with a taut string.
+    wood = ramp(hexc("#8A5A2E"), 5, spread=0.35)
+    s = Shape()
+    pts = set()
+    for t in range(0, 41):
+        a = t / 40.0
+        x = 2 + a * 11
+        y = 2 + a * 11
+        bulge = math.sin(a * math.pi) * 3.2
+        pts.add((int(round(x + bulge * 0.7)), int(round(y - bulge * 0.7))))
+    s.add(pts, wood)
+    img = s.render()
+    for t in range(2, 13):
+        img.set(t, t, (220, 220, 220, 255))
+    return img
+
+
+def arrow():
+    # A diagonal shaft, flint head (upper right), feather fletching (lower left).
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(3, 12)}, ramp(hexc("#8A6A42"), 5))
+    s.add({(11, 4), (12, 3), (13, 2), (12, 2), (13, 3), (11, 3), (12, 4)}, ramp(hexc("#5A5A60"), 5))
+    s.add({(2, 13), (3, 13), (2, 12), (4, 14), (3, 14), (1, 12), (2, 14)}, ramp(hexc("#E8E8E8"), 5))
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -367,6 +394,8 @@ def all_items():
     items["feather"] = feather()
     items["egg"] = egg()
     items["shears"] = shears()
+    items["bow"] = bow()
+    items["arrow"] = arrow()
     return items
 
 

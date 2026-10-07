@@ -6,6 +6,7 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/FallingBlocks.h"
 #include "gameplay/Inventory.h"
+#include "gameplay/Projectiles.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
@@ -375,6 +376,8 @@ int main(int argc, char** argv) {
     }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
+    mc::Projectiles projectiles;     // arrows and eggs (M16.4)
+    int bowTicks = 0;                // how long the bow has been drawn
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -726,6 +729,7 @@ int main(int argc, char** argv) {
                 unloadedChunks.insert(unloadedChunks.end(), all.begin(), all.end());
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
                 fallingBlocks.clear();
+                projectiles.clear();
                 const Dimension from = dimension;
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -924,6 +928,36 @@ int main(int argc, char** argv) {
                     clicks.use = false;
                 }
             }
+            // Bows and eggs (M16.4; wiki: Bow, Egg): hold right-click to draw a bow (it
+            // needs an arrow in survival), release to shoot; right-click throws an egg.
+            {
+                const mc::world::ItemStack held = inventory.selectedStack();
+                const std::string_view heldId = mc::world::itemRegistry().item(held.item).id;
+                static const mc::world::ItemId arrowItem = *mc::world::itemRegistry().find("arrow");
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (!dead && heldId == "minecraft:bow" && clicks.use && (!survival || inventory.has(arrowItem))) {
+                    ++bowTicks;
+                    clicks.useClick = false;
+                } else if (bowTicks > 0) {
+                    const float power = mc::bowPower(bowTicks);
+                    bowTicks = 0;
+                    if (!dead && heldId == "minecraft:bow" && power >= 0.1f && (!survival || inventory.takeOne(arrowItem))) {
+                        projectiles.shoot(mc::ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f,
+                                          gameRng);
+                        if (survival) {
+                            mc::world::ItemStack worn = held;
+                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
+                            inventory.setSlot(inventory.selected(), worn.damage >= 384 ? mc::world::ItemStack{} : worn);
+                        }
+                    }
+                }
+                if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
+                    projectiles.shoot(mc::ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, gameRng);
+                    if (survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                }
+            }
             // Feeding and shearing animals (M16.3): right-click the mob in front.
             if (!dead && clicks.useClick && !inventory.selectedStack().empty()) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
@@ -1074,6 +1108,7 @@ int main(int argc, char** argv) {
                 fallingBlocks.spawn(f.pos, f.state);
             blockUpdates.fallingStarts().clear();
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
+            projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
@@ -1168,6 +1203,15 @@ int main(int argc, char** argv) {
             const float t = float(e.age) + float(clock.alpha);
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
+        }
+        for (const auto& pr : projectiles.items()) {
+            const glm::dvec3 p = glm::mix(pr.prevPos, pr.pos, clock.alpha);
+            const glm::vec3 light = lightTable[size_t(pr.skyLight * 16 + pr.blockLight)];
+            static const mc::world::ItemId eggItem = *mc::world::itemRegistry().find("egg");
+            if (pr.kind == mc::ProjectileKind::Arrow)
+                entities.addArrow(p, pr.facing, light, camera.position);
+            else
+                entities.addItem({eggItem, 1}, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
         }
         for (const auto& f : fallingBlocks.blocks())
             entities.addBlock(f.state, glm::mix(f.prevPos, f.pos, clock.alpha),

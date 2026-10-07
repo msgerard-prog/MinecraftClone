@@ -172,6 +172,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Projectiles and explosions (M16.4): `gameplay/Projectiles` (arrows, eggs: pooled,
+  swept against blocks with `raycastBlocks`, against mobs with `Mobs::raycast` and the
+  player's box; stuck arrows; chicks from eggs), bows drawn in main (`bowPower`);
+  `gameplay/Explosion` (vanilla's 1352 rays, block resistance, 1/power drops, exposure
+  sampling, damage and push). Arrows are drawn as crossed quads from the mob strip's
+  projectile row (`EntityRenderer::addArrow`).
 - Farm animals (M16.3, `gameplay/Animals.cpp`, part of `Mobs`): sheep/pig/chicken
   next to cows; upkeep (growing up, love timers, eggs, grazing) and goals (partner,
   tempting food via `Context::heldItem`, parent); babies are queued in `m_births`;
