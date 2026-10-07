@@ -7,6 +7,9 @@ namespace mc::world {
 namespace properties {
 const Property axis{"axis", {"x", "y", "z"}};
 const Property snowy{"snowy", {"true", "false"}};
+const Property level{
+    "level",
+    {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
 } // namespace properties
 
 namespace {
@@ -30,6 +33,17 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("bedrock", {.hardness = -1.0f, .resistance = 3600000.0f}), blocks::Bedrock);
     check(r.add("sand", {.hardness = 0.5f, .resistance = 0.5f}), blocks::Sand);
     check(r.add("oak_log", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), blocks::OakLog);
+    // Fluids: not opaque, drawn in the translucent pass; level 0 is a source block.
+    check(r.add("water",
+                {.hardness = 100.0f,
+                 .resistance = 100.0f,
+                 .opaqueCube = false,
+                 .layer = RenderLayer::Translucent},
+                {{&level, "0"}}),
+          blocks::Water);
+    check(r.add("deepslate", {.hardness = 3.0f, .resistance = 6.0f}, {{&axis, "y"}}),
+          blocks::Deepslate);
+    check(r.add("gravel", {.hardness = 0.6f, .resistance = 0.6f}), blocks::Gravel);
     return r;
 }
 

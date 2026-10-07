@@ -9,6 +9,7 @@ namespace mc::world {
 namespace properties {
 extern const Property axis;  // x | y | z  (logs, pillars)
 extern const Property snowy; // true | false (grass block, podzol, mycelium)
+extern const Property level; // 0..15 (fluids: 0 = source, 1..7 flowing, 8..15 falling)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -23,6 +24,9 @@ enum : BlockId {
     Bedrock,
     Sand,
     OakLog,
+    Water,
+    Deepslate,
+    Gravel,
     Count
 };
 } // namespace blocks

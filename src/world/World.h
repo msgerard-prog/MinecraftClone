@@ -11,6 +11,9 @@ namespace mc::world {
 class World {
 public:
     Chunk& createChunk(ChunkPos pos); // replaces an existing chunk at pos
+    // Takes ownership of a chunk built elsewhere (e.g. on a worldgen worker).
+    Chunk& insertChunk(std::unique_ptr<Chunk> chunk);
+    void removeChunk(ChunkPos pos);
     Chunk* chunk(ChunkPos pos);
     const Chunk* chunk(ChunkPos pos) const;
     size_t chunkCount() const { return m_chunks.size(); }

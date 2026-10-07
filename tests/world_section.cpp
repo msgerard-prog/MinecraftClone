@@ -136,3 +136,29 @@ TEST_CASE("vanilla storage layout: index order and bit positions") {
     CHECK((s.data()[1] & 31u) == 1u);
     CHECK((s.data()[0] >> (11 * 5) & 31u) == 0u); // entry 11 is still air
 }
+
+TEST_CASE("assign() matches set() for every block and picks the same encoding") {
+    std::vector<BlockStateId> states(Section::kVolume);
+    for (int i = 0; i < Section::kVolume; ++i)
+        states[i] = BlockStateId((i * 7) % 23 == 0 ? 0 : 1 + i % 20);
+    Section a;
+    a.assign(states.data());
+    Section b;
+    for (int i = 0; i < Section::kVolume; ++i)
+        b.set(i % 16, i / 256, (i / 16) % 16, states[i]);
+    for (int i = 0; i < Section::kVolume; ++i)
+        CHECK(a.getIndex(i) == states[i]);
+    CHECK(a.bitsPerEntry() == b.bitsPerEntry());
+    CHECK(a.nonAirCount() == b.nonAirCount());
+    // Uniform input collapses to a single-value section.
+    std::vector<BlockStateId> uniform(Section::kVolume, 5);
+    a.assign(uniform.data());
+    CHECK(a.bitsPerEntry() == 0);
+    CHECK(a.get(3, 3, 3) == 5);
+    // Many distinct states go direct.
+    for (int i = 0; i < Section::kVolume; ++i)
+        states[i] = BlockStateId(i % 600);
+    a.assign(states.data());
+    CHECK(a.isDirect());
+    CHECK(a.getIndex(4000) == 4000 % 600);
+}

@@ -27,6 +27,9 @@ public:
     BlockStateId getIndex(int i) const;
     void set(int x, int y, int z, BlockStateId state);
     void fill(BlockStateId state);
+    // Replaces all 4096 states at once (vanilla index order), building the palette
+    // and packing in one pass — much faster than 4096 set() calls (worldgen).
+    void assign(const BlockStateId* states);
 
     // Decodes all 4096 states into `out` (vanilla index order). Fast path for meshing.
     void copyTo(BlockStateId* out) const;

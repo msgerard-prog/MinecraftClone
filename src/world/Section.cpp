@@ -112,6 +112,40 @@ void Section::fill(BlockStateId state) {
     m_nonAir = state == 0 ? 0 : kVolume;
 }
 
+void Section::assign(const BlockStateId* states) {
+    // State -> palette index via a per-thread lookup table (reset after use).
+    static thread_local std::vector<int16_t> index(65536, -1);
+    m_palette.clear();
+    m_nonAir = 0;
+    for (int i = 0; i < kVolume; ++i) {
+        const BlockStateId s = states[i];
+        if (index[s] < 0) {
+            index[s] = static_cast<int16_t>(m_palette.size());
+            m_palette.push_back(s);
+        }
+        if (s != 0) ++m_nonAir;
+    }
+    if (m_palette.size() == 1) {
+        index[m_palette[0]] = -1;
+        m_bits = 0;
+        m_direct = false;
+        m_data.clear();
+        return;
+    }
+    int bits = kMinBits;
+    while ((size_t{1} << bits) < m_palette.size())
+        ++bits;
+    m_direct = bits > kMaxLocalBits;
+    m_bits = static_cast<uint8_t>(m_direct ? kDirectBits : bits);
+    m_data.assign(longsFor(m_bits), 0);
+    for (int i = 0; i < kVolume; ++i) {
+        writeRaw(i, m_direct ? states[i] : static_cast<uint32_t>(index[states[i]]));
+    }
+    for (BlockStateId s : m_palette)
+        index[s] = -1;
+    if (m_direct) m_palette.clear();
+}
+
 size_t Section::memoryBytes() const {
     return sizeof(*this) + m_palette.capacity() * sizeof(BlockStateId) +
            m_data.capacity() * sizeof(uint64_t);
