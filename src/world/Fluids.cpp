@@ -61,6 +61,15 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::DeadBush:
     case B::BrownMushroom:
     case B::RedMushroom:
+    case B::CrimsonFungus:
+    case B::WarpedFungus:
+    case B::CrimsonRoots:
+    case B::WarpedRoots:
+    case B::NetherSprouts:
+    case B::WeepingVines:
+    case B::WeepingVinesPlant:
+    case B::TwistingVines:
+    case B::TwistingVinesPlant:
     case B::Snow:
     case B::Torch:
     case B::RedstoneWire:

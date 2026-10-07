@@ -38,7 +38,7 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:lukewarm_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x45ADF2},
     {"minecraft:cold_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3D57D6},
     {"minecraft:frozen_ocean", 0.0f, 0x80B497, 0x60A17B, 0x3938C9},
-    {"minecraft:nether_wastes", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4},
+    {"minecraft:nether_wastes", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x330808},
     {"minecraft:the_end", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
     {"minecraft:jungle", 0.95f, 0x59C93C, 0x30BB0B, 0x3F76E4},
     {"minecraft:sparse_jungle", 0.95f, 0x64C73F, 0x3EB80F, 0x3F76E4},
@@ -50,6 +50,11 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:mushroom_fields", 0.9f, 0x55C93F, 0x2BBB0F, 0x3F76E4},
     {"minecraft:wooded_badlands", 2.0f, 0x90814D, 0x9E814D, 0x3F76E4},
     {"minecraft:eroded_badlands", 2.0f, 0x90814D, 0x9E814D, 0x3F76E4},
+    // Nether biomes: fog colours from their wiki pages.
+    {"minecraft:crimson_forest", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x330303},
+    {"minecraft:warped_forest", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x1A051A},
+    {"minecraft:soul_sand_valley", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x1B4745},
+    {"minecraft:basalt_deltas", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x685F70},
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

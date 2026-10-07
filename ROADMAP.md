@@ -17,7 +17,7 @@ systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf)
 
 M19 — Nether 2 (wiki: The Nether, Nether biomes, Nether Fortress, Bastion Remnant;
 a new Nether generator kind, the old one stays for existing worlds):
-1. M19.1 — Nether biomes: crimson and warped forests (nylium, fungi, stems, wart
+1. ✅ M19.1 — Nether biomes: crimson and warped forests (nylium, fungi, stems, wart
    blocks, shroomlights, vines), soul sand valley (soul soil, basalt pillars, bone
    fossils), basalt deltas (basalt, blackstone, magma); 3D multi-noise biomes.
 2. M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,

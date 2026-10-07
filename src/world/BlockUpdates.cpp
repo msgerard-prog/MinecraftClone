@@ -107,6 +107,15 @@ Push pushKind(BlockStateId s) {
     case B::BrownMushroom:
     case B::RedMushroom:
     case B::Cactus:
+    case B::CrimsonFungus:
+    case B::WarpedFungus:
+    case B::CrimsonRoots:
+    case B::WarpedRoots:
+    case B::NetherSprouts:
+    case B::WeepingVines:
+    case B::WeepingVinesPlant:
+    case B::TwistingVines:
+    case B::TwistingVinesPlant:
     case B::Snow:
     case B::Water:
     case B::Lava:
@@ -300,6 +309,22 @@ bool BlockUpdates::mushroomCanStay(const World& world, const BlockPos& p) {
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
     const int sky = world.hasSkyLight() ? c->skyLight(x, p.y, z) : 0;
     return std::max<int>(sky, c->blockLight(x, p.y, z)) < 13;
+}
+
+bool BlockUpdates::netherPlantCanStay(const World& world, const BlockPos& p, BlockId plant) {
+    if (plant == B::WeepingVines || plant == B::WeepingVinesPlant) {
+        const BlockStateId above = world.getBlock({p.x, p.y + 1, p.z});
+        const BlockId a = blockOf(above);
+        return a == B::WeepingVines || a == B::WeepingVinesPlant || R().collides(above);
+    }
+    if (plant == B::TwistingVines || plant == B::TwistingVinesPlant) {
+        const BlockStateId below = world.getBlock({p.x, p.y - 1, p.z});
+        const BlockId b = blockOf(below);
+        return b == B::TwistingVines || b == B::TwistingVinesPlant || R().collides(below);
+    }
+    const BlockId b = blockOf(world.getBlock({p.x, p.y - 1, p.z}));
+    return b == B::CrimsonNylium || b == B::WarpedNylium || b == B::SoulSoil || b == B::GrassBlock || b == B::Dirt ||
+           b == B::CoarseDirt || b == B::Podzol || b == B::Mycelium || b == B::Farmland;
 }
 
 bool BlockUpdates::replaceable(BlockStateId s) {
@@ -600,6 +625,29 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         if (!R().opaqueCube(at(rel(p, Direction::Down))))
             pop(p); // (light is checked on placing and spreading)
         break;
+    case B::CrimsonFungus:
+    case B::WarpedFungus:
+    case B::CrimsonRoots:
+    case B::WarpedRoots:
+    case B::NetherSprouts:
+    case B::WeepingVines:
+    case B::WeepingVinesPlant:
+    case B::TwistingVines:
+    case B::TwistingVinesPlant: {
+        const BlockId b = blockOf(s);
+        if (!netherPlantCanStay(m_world, p, b)) {
+            pop(p);
+            break;
+        }
+        // A strand's end piece becomes its tip again (vanilla: the "plant" part with
+        // no more vine beyond it turns into the head).
+        const BlockId below = blockOf(at(rel(p, Direction::Down))), above = blockOf(at(rel(p, Direction::Up)));
+        if (b == B::WeepingVinesPlant && below != B::WeepingVines && below != B::WeepingVinesPlant)
+            set(p, R().defaultState(B::WeepingVines));
+        if (b == B::TwistingVinesPlant && above != B::TwistingVines && above != B::TwistingVinesPlant)
+            set(p, R().defaultState(B::TwistingVines));
+        break;
+    }
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
@@ -1119,6 +1167,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::BrownMushroom:
     case B::RedMushroom:
         if (!mushroomCanStay(world, at)) return std::nullopt;
+        return state;
+    case B::CrimsonFungus:
+    case B::WarpedFungus:
+    case B::CrimsonRoots:
+    case B::WarpedRoots:
+    case B::NetherSprouts:
+    case B::WeepingVines:
+    case B::TwistingVines:
+        if (!netherPlantCanStay(world, at, blockOf(state))) return std::nullopt;
         return state;
     case B::Anvil:
     case B::ChippedAnvil:

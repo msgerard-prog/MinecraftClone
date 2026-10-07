@@ -304,6 +304,8 @@ int main(int argc, char** argv) {
     std::vector<RetiringStorage> retiringStorage;
     // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
+    // The Nether's generator (M19): new worlds get the newest; old ones keep theirs.
+    const std::string netherKind = level ? level->netherGenerator : std::string("nether2");
     if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
@@ -311,7 +313,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
-        if (d == Dimension::Nether) return std::make_unique<mc::world::NetherGenerator>(seed);
+        if (d == Dimension::Nether)
+            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether" ? 1 : 2);
         if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
         return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld" ? 1 : 2);
@@ -494,6 +497,7 @@ int main(int argc, char** argv) {
         l.seed = seed;
         l.flat = flatWorld;
         l.generator = generatorKind;
+        l.netherGenerator = netherKind;
         l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
         l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
@@ -1520,6 +1524,22 @@ int main(int argc, char** argv) {
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
+        if (dimension == Dimension::Nether) { // fog of the Nether biome at the camera, eased in
+            static glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f);
+            const mc::world::BlockPos cam{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
+                                          int(std::floor(camera.position.z))};
+            if (const mc::world::Chunk* c = world.chunk(cam.chunk()); c && c->biomes()) {
+                const uint32_t fog = mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(cam.x), cam.y,
+                                                                          mc::world::blockToLocal(cam.z),
+                                                                          world.height()))
+                                         .fog;
+                if (fog) {
+                    const glm::vec3 target(float(fog >> 16) / 255.0f, float((fog >> 8) & 255) / 255.0f, float(fog & 255) / 255.0f);
+                    netherFog = glm::mix(netherFog, target, 0.03f);
+                }
+            }
+            renderer.setNetherFog(netherFog);
+        }
         renderer.setDayTime(dayTime, static_cast<float>(clock.alpha));
         if (loader) {
             const mc::world::ChunkPos center{

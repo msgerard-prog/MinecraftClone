@@ -220,7 +220,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
-                "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling"};
+                "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
+                "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
+                "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant"};
             if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
                 // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
@@ -239,6 +241,22 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 BakedVariant v = cubeAll(sprite(name == "smooth_sandstone" ? "sandstone_top" : name.c_str()));
                 v.faces[int(Direction::Up)].sprite = sprite("sandstone_top");
                 v.faces[int(Direction::Down)].sprite = sprite("sandstone_top");
+                m = single(v);
+            } else if (name == "crimson_nylium" || name == "warped_nylium") { // side, top, netherrack below
+                BakedVariant v = cubeAll(sprite((name + "_side").c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite(name.c_str());
+                v.faces[int(Direction::Down)].sprite = sprite("netherrack");
+                m = single(v);
+            } else if (name == "crimson_stem" || name == "warped_stem") {
+                m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (name == "basalt" || name == "bone_block") {
+                m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (name == "blackstone") {
+                BakedVariant v = cubeAll(sprite("blackstone"));
+                v.faces[int(Direction::Up)].sprite = sprite("blackstone_top");
+                v.faces[int(Direction::Down)].sprite = sprite("blackstone_top");
                 m = single(v);
             } else if (name == "dirt_path") {
                 BakedVariant v = cubeAll(sprite("dirt_path_side"));

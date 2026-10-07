@@ -101,6 +101,10 @@ public:
     // is below 13 (wiki: Cactus, Mushroom).
     static bool cactusCanStay(const World& world, const BlockPos& p);
     static bool mushroomCanStay(const World& world, const BlockPos& p);
+    // M19.1: fungi, roots and sprouts stand on nylium, soul soil or dirt-like blocks;
+    // weeping vines hang from a block (or vines) above, twisting vines stand on one
+    // below (wiki: Crimson Fungus, Nether Sprouts, Weeping Vines, Twisting Vines).
+    static bool netherPlantCanStay(const World& world, const BlockPos& p, BlockId plant);
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
     static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
     static Direction chestClockwise(Direction facing);

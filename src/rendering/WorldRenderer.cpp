@@ -90,8 +90,7 @@ void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
         // dark sky), no sun, moon or stars.
         m_skyDarken = 0.0f;
         m_skyState.celestial = false;
-        m_skyColor = m_dimension == world::Dimension::Nether ? glm::vec3(0x33, 0x08, 0x08) / 255.0f
-                                                             : glm::vec3(0.09f, 0.07f, 0.10f);
+        m_skyColor = m_dimension == world::Dimension::Nether ? m_netherFog : glm::vec3(0.09f, 0.07f, 0.10f);
     }
 }
 

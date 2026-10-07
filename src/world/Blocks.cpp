@@ -45,6 +45,8 @@ const Property faceDown{"down", {"true", "false"}};
 const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
+const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
+                             "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
 const Property chestType{"type", {"single", "left", "right"}};
 const Property bedPart{"part", {"head", "foot"}};
 const Property occupied{"occupied", {"true", "false"}};
@@ -372,6 +374,32 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("tnt", {}), blocks::Tnt);
     // Dirt path (wiki: hardness 0.65; 15/16 tall in vanilla, a full cube here).
     check(r.add("dirt_path", {.hardness = 0.65f, .resistance = 0.65f}), blocks::DirtPath);
+    // Nether 2 (M19.1; wiki: Nylium 0.4, Stems 2.0, Planks 2.0/3.0 (not flammable),
+    // Wart Block 1.0, Shroomlight 1.0 and light 15, fungi/roots/sprouts/vines 0, Soul
+    // Soil 0.5, Basalt 1.25/4.2, Blackstone 1.5/6.0, Bone Block 2.0).
+    check(r.add("crimson_nylium", {.hardness = 0.4f, .resistance = 0.4f}), blocks::CrimsonNylium);
+    check(r.add("warped_nylium", {.hardness = 0.4f, .resistance = 0.4f}), blocks::WarpedNylium);
+    check(r.add("crimson_stem", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), blocks::CrimsonStem);
+    check(r.add("warped_stem", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), blocks::WarpedStem);
+    check(r.add("crimson_planks", {.hardness = 2.0f, .resistance = 3.0f}), blocks::CrimsonPlanks);
+    check(r.add("warped_planks", {.hardness = 2.0f, .resistance = 3.0f}), blocks::WarpedPlanks);
+    check(r.add("nether_wart_block", {.hardness = 1.0f, .resistance = 1.0f}), blocks::NetherWartBlock);
+    check(r.add("warped_wart_block", {.hardness = 1.0f, .resistance = 1.0f}), blocks::WarpedWartBlock);
+    check(r.add("shroomlight", {.hardness = 1.0f, .resistance = 1.0f, .lightEmission = 15}), blocks::Shroomlight);
+    for (const auto& [name, id] : {std::pair{"crimson_fungus", blocks::CrimsonFungus},
+                                   std::pair{"warped_fungus", blocks::WarpedFungus},
+                                   std::pair{"crimson_roots", blocks::CrimsonRoots},
+                                   std::pair{"warped_roots", blocks::WarpedRoots},
+                                   std::pair{"nether_sprouts", blocks::NetherSprouts}})
+        check(r.add(name, kPlant), id);
+    check(r.add("weeping_vines", kPlant, {{&age25, "0"}}), blocks::WeepingVines);
+    check(r.add("weeping_vines_plant", kPlant), blocks::WeepingVinesPlant);
+    check(r.add("twisting_vines", kPlant, {{&age25, "0"}}), blocks::TwistingVines);
+    check(r.add("twisting_vines_plant", kPlant), blocks::TwistingVinesPlant);
+    check(r.add("soul_soil", {.hardness = 0.5f, .resistance = 0.5f}), blocks::SoulSoil);
+    check(r.add("basalt", {.hardness = 1.25f, .resistance = 4.2f}, {{&axis, "y"}}), blocks::Basalt);
+    check(r.add("blackstone", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Blackstone);
+    check(r.add("bone_block", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), blocks::BoneBlock);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

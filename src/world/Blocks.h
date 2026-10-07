@@ -38,6 +38,7 @@ extern const Property faceDown; // "down": true | false (with the fire ones: hug
 extern const Property moisture; // 0..7 (farmland)
 extern const Property age7;     // "age": 0..7 (wheat, carrots, potatoes)
 extern const Property age3;     // "age": 0..3 (beetroots)
+extern const Property age25;    // "age": 0..25 (weeping and twisting vine tips)
 extern const Property chestType; // "type": single | left | right
 extern const Property bedPart;   // "part": head | foot
 extern const Property occupied;  // true | false
@@ -215,6 +216,29 @@ enum : BlockId {
     ChiseledStoneBricks,
     Tnt, // (explodes from M21; a plain block until then)
     DirtPath, // village roads (M18.5)
+    // Nether 2 (M19.1).
+    CrimsonNylium,
+    WarpedNylium,
+    CrimsonStem, // axis
+    WarpedStem,
+    CrimsonPlanks,
+    WarpedPlanks,
+    NetherWartBlock,
+    WarpedWartBlock,
+    Shroomlight,
+    CrimsonFungus,
+    WarpedFungus,
+    CrimsonRoots,
+    WarpedRoots,
+    NetherSprouts,
+    WeepingVines,       // the bottom tip
+    WeepingVinesPlant,  // the rest of the strand
+    TwistingVines,      // the top tip
+    TwistingVinesPlant,
+    SoulSoil,
+    Basalt,    // axis
+    Blackstone,
+    BoneBlock, // axis
     Count
 };
 } // namespace blocks

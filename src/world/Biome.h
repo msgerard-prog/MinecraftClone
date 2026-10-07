@@ -58,6 +58,11 @@ enum class Biome : uint8_t {
     MushroomFields,
     WoodedBadlands,
     ErodedBadlands,
+    // Nether 2 (M19.1; the "nether2" generator).
+    CrimsonForest,
+    WarpedForest,
+    SoulSandValley,
+    BasaltDeltas,
     Count
 };
 
@@ -67,6 +72,7 @@ struct BiomeInfo {
     uint32_t grass;      // 0xRRGGBB, wiki biome pages
     uint32_t foliage;
     uint32_t water;
+    uint32_t fog = 0; // Nether biomes: their fog colour (0: the dimension's default)
 };
 
 const BiomeInfo& biomeInfo(Biome b);

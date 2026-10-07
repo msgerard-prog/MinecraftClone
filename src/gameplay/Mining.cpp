@@ -26,6 +26,11 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Sandstone:
     case blocks::RedSandstone:
     case blocks::Terracotta:
+    case blocks::CrimsonNylium: // (wiki: any pickaxe; drop netherrack without Silk Touch)
+    case blocks::WarpedNylium:
+    case blocks::Basalt:
+    case blocks::Blackstone:
+    case blocks::BoneBlock:
     case blocks::ChiseledSandstone:
     case blocks::CutSandstone:
     case blocks::SmoothSandstone:
@@ -85,6 +90,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Podzol:
     case blocks::Mycelium:
     case blocks::DirtPath:
+    case blocks::SoulSoil:
     case blocks::GrassBlock:
     case blocks::Sand:
     case blocks::RedSand:
@@ -115,12 +121,20 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Chest:
     case blocks::Bookshelf:
     case blocks::Pumpkin:
+    case blocks::CrimsonStem:
+    case blocks::WarpedStem:
+    case blocks::CrimsonPlanks:
+    case blocks::WarpedPlanks:
     case blocks::BrownMushroomBlock:
     case blocks::RedMushroomBlock:
     case blocks::MushroomStem:
     case blocks::RedBed:
         return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
-    // Hoe (leaves).
+    // Hoe (leaves, wart blocks, shroomlights).
+    case blocks::NetherWartBlock:
+    case blocks::WarpedWartBlock:
+    case blocks::Shroomlight:
+        return {T::Hoe, -1};
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
@@ -253,6 +267,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::GrassBlock:
         case blocks::Podzol:
         case blocks::Mycelium:
+        case blocks::CrimsonNylium:
+        case blocks::WarpedNylium:
         case blocks::BrownMushroomBlock:
         case blocks::RedMushroomBlock:
         case blocks::MushroomStem:
@@ -364,6 +380,21 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return;
     case blocks::MushroomStem:
     case blocks::Spawner:
+    case blocks::NetherSprouts: // (only with shears, which don't collect yet)
+        return;
+    case blocks::CrimsonNylium:
+    case blocks::WarpedNylium:
+        add(itemRegistry().blockItem(blocks::Netherrack)); // (wiki: Nylium)
+        return;
+    // Vines drop only with shears or Silk Touch, or 33% (wiki: Weeping Vines); the
+    // plant parts drop the vine item.
+    case blocks::WeepingVines:
+    case blocks::WeepingVinesPlant:
+    case blocks::TwistingVines:
+    case blocks::TwistingVinesPlant:
+        if (rng.nextFloat() < 0.33f)
+            add(itemRegistry().blockItem(b == blocks::WeepingVines || b == blocks::WeepingVinesPlant ? blocks::WeepingVines
+                                                                                                    : blocks::TwistingVines));
         return;
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre:

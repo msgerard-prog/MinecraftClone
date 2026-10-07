@@ -28,6 +28,9 @@ struct LevelData {
     // Non-flat: "overworld2" (M18, new worlds), "overworld" (M8) or "terrain" (M3
     // placeholder); level.dat files without one are M8 worlds.
     std::string generator = "overworld";
+    // The Nether's generator: "nether2" (M19, new worlds) or "nether" (M12; level.dat
+    // files without one).
+    std::string netherGenerator = "nether";
     // The format the world was created with (kept across saves; see kCloneFormat).
     // Vanilla worlds (no MinecraftClone compound) count as current: nothing to upgrade.
     int32_t cloneFormat = kCloneFormat;

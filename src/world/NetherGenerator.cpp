@@ -43,9 +43,37 @@ constexpr int kCellsX = 16 / kCellW, kCellsY = kNetherTop / kCellH;
 // ---------------------------------------------------------------------------------
 // The Nether
 
-NetherGenerator::NetherGenerator(uint64_t seed)
-    : m_seed(seed), m_main(mixSeed(seed, 0x4E31), -6, 4), m_detail(mixSeed(seed, 0x4E32), -3, 2),
-      m_shore(mixSeed(seed, 0x4E33), -4, 2) {}
+NetherGenerator::NetherGenerator(uint64_t seed, int version)
+    : m_seed(seed), m_version(version), m_main(mixSeed(seed, 0x4E31), -6, 4), m_detail(mixSeed(seed, 0x4E32), -3, 2),
+      m_shore(mixSeed(seed, 0x4E33), -4, 2), m_temperature(mixSeed(seed, 0x4E34), -7, 3),
+      m_humidity(mixSeed(seed, 0x4E35), -7, 3) {}
+
+Biome NetherGenerator::biomeAt(int32_t x, int32_t z) const {
+    if (m_version < 2) return Biome::NetherWastes;
+    // Vanilla picks Nether biomes by the nearest climate point (wiki: Nether biomes -
+    // a multi-noise of temperature and humidity). Ours: two noises and five points of
+    // our own around the wastes; basalt deltas a little rarer.
+    const double t = m_temperature.noise2d(x, z) * 2.2, h = m_humidity.noise2d(x, z) * 2.2;
+    struct Point {
+        Biome biome;
+        double t, h, offset;
+    };
+    static constexpr Point kPoints[] = {{Biome::NetherWastes, 0.0, 0.0, 0.0},
+                                        {Biome::SoulSandValley, 0.0, -0.5, 0.0},
+                                        {Biome::CrimsonForest, 0.4, 0.0, 0.0},
+                                        {Biome::WarpedForest, 0.0, 0.5, 0.0},
+                                        {Biome::BasaltDeltas, -0.5, 0.0, 0.03}};
+    Biome best = Biome::NetherWastes;
+    double bestD = 1e9;
+    for (const Point& p : kPoints) {
+        const double d = (t - p.t) * (t - p.t) + (h - p.h) * (h - p.h) + p.offset;
+        if (d < bestD) {
+            bestD = d;
+            best = p.biome;
+        }
+    }
+    return best;
+}
 
 namespace {
 
@@ -131,6 +159,50 @@ void NetherGenerator::generate(Chunk& out) const {
                 }
         }
 
+    // 2b. nether2 (M19.1): biomes per 4x4 column and their ground.
+    std::array<Biome, 16> columnBiome;
+    columnBiome.fill(Biome::NetherWastes);
+    if (m_version >= 2) {
+        for (int q = 0; q < 16; ++q)
+            columnBiome[size_t(q)] = biomeAt(baseX + (q & 3) * 4 + 2, baseZ + (q >> 2) * 4 + 2);
+        const BlockStateId crimsonNylium = r.defaultState(blocks::CrimsonNylium),
+                           warpedNylium = r.defaultState(blocks::WarpedNylium), soulSoil = r.defaultState(blocks::SoulSoil),
+                           basalt = r.defaultState(blocks::Basalt), blackstone = r.defaultState(blocks::Blackstone);
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const Biome b = columnBiome[size_t((z >> 2) * 4 + (x >> 2))];
+                if (b == Biome::NetherWastes) continue;
+                const double n = m_shore.noise2d((baseX + x) * 1.7, (baseZ + z) * 1.7);
+                for (int y = 1; y < kNetherTop - 1; ++y) {
+                    const BlockStateId cur = blocks[at(x, y, z)];
+                    if (cur != netherrack && cur != soulSand && cur != gravel) continue;
+                    const BlockStateId above = blocks[at(x, y + 1, z)];
+                    const bool floor = above == 0, ceiling = blocks[at(x, y - 1, z)] == 0;
+                    switch (b) {
+                    case Biome::CrimsonForest: // nylium on floors (wiki: Crimson Forest)
+                        if (floor) blocks[at(x, y, z)] = crimsonNylium;
+                        break;
+                    case Biome::WarpedForest:
+                        if (floor) blocks[at(x, y, z)] = warpedNylium;
+                        break;
+                    case Biome::SoulSandValley: // soul sand and soul soil, a few deep, on every open face
+                        if (floor || ceiling || positional(m_seed, baseX + x, y, baseZ + z, 0x5501) < 0.15) {
+                            const BlockStateId s = n > 0.0 ? soulSand : soulSoil;
+                            if (floor || ceiling) {
+                                blocks[at(x, y, z)] = s;
+                                if (floor && y > 1 && blocks[at(x, y - 1, z)] == netherrack) blocks[at(x, y - 1, z)] = s;
+                            }
+                        }
+                        break;
+                    case Biome::BasaltDeltas: // basalt with blackstone patches over everything open
+                        if (floor || ceiling) blocks[at(x, y, z)] = n > 0.25 ? blackstone : basalt;
+                        break;
+                    default: break;
+                    }
+                }
+            }
+    }
+
     // 3. Ores and magma: blobs of netherrack replaced (wiki: Nether Quartz Ore - 16
     //    veins of up to 14 at Y 10-117; Nether Gold Ore - 10 of up to 10; Magma
     //    Block - 4 of up to 33 around Y 27-36). Clipped at the chunk border.
@@ -175,6 +247,9 @@ void NetherGenerator::generate(Chunk& out) const {
         }
     }
 
+    // 4b. nether2 features (M19.1).
+    if (m_version >= 2) netherFeatures(blocks.data(), pos, columnBiome);
+
     // 5. Write the sections (Y 0..127 = sections 0..7 of the Nether's 0..255; the rest
     //    stays air): the array
     //    is in section index order, so each section is assigned in one call.
@@ -184,8 +259,173 @@ void NetherGenerator::generate(Chunk& out) const {
         if (y0 < 0 || y0 >= kNetherTop) section.fill(0);
         else section.assign(blocks.data() + at(0, y0, 0));
     }
-    static const auto nether = uniformBiomes(Biome::NetherWastes);
-    out.setBiomes(nether);
+    if (m_version < 2) {
+        static const auto nether = uniformBiomes(Biome::NetherWastes);
+        out.setBiomes(nether);
+    } else {
+        auto biomes = std::make_shared<ChunkBiomes>();
+        for (int s = 0; s < out.sectionCount(); ++s)
+            for (int qy = 0; qy < 4; ++qy)
+                for (int q = 0; q < 16; ++q)
+                    biomes->cells[size_t(ChunkBiomes::index(s, q & 3, qy, q >> 2))] = columnBiome[size_t(q)];
+        out.setBiomes(biomes);
+    }
+}
+
+void NetherGenerator::netherFeatures(BlockStateId* blocks, ChunkPos pos, const std::array<Biome, 16>& biomes) const {
+    // Biome features (wiki: Crimson Forest, Warped Forest, Soul Sand Valley, Basalt
+    // Deltas): huge fungi with wart caps, shroomlights and vines; roots, fungi and
+    // sprouts on nylium; basalt pillars and bone fossils in soul sand valleys; lava
+    // deltas with magma rims and basalt columns. Counts are ours; everything stays
+    // inside the chunk (huge fungi have their stems 3+ blocks from its edges).
+    const auto& r = blockRegistry();
+    auto S = [&](BlockId b) { return r.defaultState(b); };
+    auto at = [](int x, int y, int z) -> size_t { return size_t((y * 16 + z) * 16 + x); };
+    auto get = [&](int x, int y, int z) -> BlockStateId {
+        return x < 0 || x > 15 || z < 0 || z > 15 || y < 0 || y >= kNetherTop ? BlockStateId{1} : blocks[at(x, y, z)];
+    };
+    auto set = [&](int x, int y, int z, BlockStateId s) {
+        if (x >= 0 && x <= 15 && z >= 0 && z <= 15 && y > 0 && y < kNetherTop - 1) blocks[at(x, y, z)] = s;
+    };
+    const BlockStateId crimsonNylium = S(blocks::CrimsonNylium), warpedNylium = S(blocks::WarpedNylium),
+                       lava = S(blocks::Lava), magma = S(blocks::MagmaBlock), basalt = S(blocks::Basalt),
+                       bone = S(blocks::BoneBlock), soulSand = S(blocks::SoulSand), soulSoil = S(blocks::SoulSoil);
+    Xoroshiro rng(chunkSeed(m_seed, pos.x, pos.z, 0x4E60));
+    // Floors: the first open cell above a solid block, scanning down from y.
+    auto floorBelow = [&](int x, int y, int z) {
+        for (; y > 1; --y)
+            if (get(x, y, z) == 0 && get(x, y - 1, z) != 0 && get(x, y - 1, z) != lava) return y;
+        return -1;
+    };
+    const Biome centre = biomes[5];
+    // Huge fungi: a stem 4-13 tall, a wart cap hanging 2-4 down around its top with
+    // shroomlights inside, weeping vines under crimson caps.
+    if (centre == Biome::CrimsonForest || centre == Biome::WarpedForest) {
+        const bool crimson = centre == Biome::CrimsonForest;
+        const BlockStateId stem = S(crimson ? blocks::CrimsonStem : blocks::WarpedStem),
+                           wart = S(crimson ? blocks::NetherWartBlock : blocks::WarpedWartBlock),
+                           light = S(blocks::Shroomlight), nylium = crimson ? crimsonNylium : warpedNylium;
+        for (int f = 0; f < 8; ++f) {
+            const int x = 3 + static_cast<int>(rng.nextInt(10)), z = 3 + static_cast<int>(rng.nextInt(10));
+            const int y = floorBelow(x, 32 + static_cast<int>(rng.nextInt(90)), z);
+            const int height = 4 + static_cast<int>(rng.nextInt(10));
+            if (y < 0 || get(x, y - 1, z) != nylium) continue;
+            bool room = true;
+            for (int k = 0; k < height + 2 && room; ++k)
+                room = get(x, y + k, z) == 0;
+            if (!room) continue;
+            for (int k = 0; k < height; ++k)
+                set(x, y + k, z, stem);
+            const int top = y + height;
+            for (int dy = -3; dy <= 0; ++dy) {
+                const int rad = dy == 0 ? 1 : 2 + (dy <= -2 ? 1 : 0);
+                for (int dx = -rad; dx <= rad; ++dx)
+                    for (int dz = -rad; dz <= rad; ++dz) {
+                        const bool edge = std::abs(dx) == rad || std::abs(dz) == rad || dy == 0;
+                        if (!edge || get(x + dx, top + dy, z + dz) != 0) continue;
+                        if (std::abs(dx) == rad && std::abs(dz) == rad && rng.nextInt(3) == 0) continue;
+                        set(x + dx, top + dy, z + dz, rng.nextInt(12) == 0 ? light : wart);
+                        if (crimson && dy == -3 && rng.nextInt(4) == 0) { // weeping vines down from the rim
+                            const int len = 1 + static_cast<int>(rng.nextInt(6));
+                            for (int v = 1; v <= len && get(x + dx, top + dy - v, z + dz) == 0; ++v)
+                                set(x + dx, top + dy - v, z + dz,
+                                    S(v == len || get(x + dx, top + dy - v - 1, z + dz) != 0 ? blocks::WeepingVines
+                                                                                              : blocks::WeepingVinesPlant));
+                        }
+                    }
+            }
+            set(x, top, z, wart);
+        }
+    }
+    // Ground plants on nylium; twisting vines up from warped floors.
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const Biome b = biomes[size_t((z >> 2) * 4 + (x >> 2))];
+            if (b != Biome::CrimsonForest && b != Biome::WarpedForest) continue;
+            for (int y = 2; y < kNetherTop - 2; ++y) {
+                const BlockStateId g = get(x, y - 1, z);
+                if (get(x, y, z) != 0 || (g != crimsonNylium && g != warpedNylium)) continue;
+                const double roll = positional(m_seed, pos.x * 16 + x, y, pos.z * 16 + z, 0x4E61);
+                if (g == crimsonNylium) {
+                    if (roll < 0.20) set(x, y, z, S(blocks::CrimsonRoots));
+                    else if (roll < 0.24) set(x, y, z, S(blocks::CrimsonFungus));
+                    else if (roll < 0.25) set(x, y, z, S(blocks::WarpedFungus));
+                } else {
+                    if (roll < 0.12) set(x, y, z, S(blocks::WarpedRoots));
+                    else if (roll < 0.22) set(x, y, z, S(blocks::NetherSprouts));
+                    else if (roll < 0.25) set(x, y, z, S(blocks::WarpedFungus));
+                    else if (roll < 0.27) { // twisting vines, 1-8 up
+                        const int len = 1 + static_cast<int>(roll * 1000) % 8;
+                        int k = 0;
+                        while (k < len && get(x, y + k, z) == 0)
+                            ++k;
+                        for (int v = 0; v < k; ++v)
+                            set(x, y + v, z, S(v == k - 1 ? blocks::TwistingVines : blocks::TwistingVinesPlant));
+                    }
+                }
+            }
+        }
+    // Soul sand valleys: basalt pillars from floor to ceiling; bone fossils.
+    if (centre == Biome::SoulSandValley) {
+        for (int p = 0; p < 2; ++p) {
+            const int x = 1 + static_cast<int>(rng.nextInt(14)), z = 1 + static_cast<int>(rng.nextInt(14));
+            const int y = floorBelow(x, 40 + static_cast<int>(rng.nextInt(80)), z);
+            if (y < 0) continue;
+            int top = y;
+            while (top < kNetherTop - 2 && get(x, top, z) == 0 && top - y < 40)
+                ++top;
+            if (get(x, top, z) == 0) continue; // no ceiling in reach
+            for (int k = y; k < top; ++k) {
+                set(x, k, z, basalt);
+                if (rng.nextInt(3) == 0) set(x + 1, k, z, basalt);
+                if (rng.nextInt(3) == 0) set(x, k, z + 1, basalt);
+            }
+        }
+        if (rng.nextInt(3) == 0) { // a fossil: a bone spine with ribs, half buried
+            const int x = 4 + static_cast<int>(rng.nextInt(8)), z = 4 + static_cast<int>(rng.nextInt(8));
+            const int y = floorBelow(x, 30 + static_cast<int>(rng.nextInt(60)), z);
+            if (y > 0) {
+                const bool alongX = rng.nextInt(2) == 0;
+                for (int k = -3; k <= 3; ++k) {
+                    const int sx = alongX ? x + k : x, sz = alongX ? z : z + k;
+                    set(sx, y, sz, bone);
+                    if (k % 2 == 0)
+                        for (int h = 1; h <= 3; ++h) {
+                            set(alongX ? sx : sx - 1 - (h == 3 ? 1 : 0), y + h - (h == 3 ? 1 : 0),
+                                alongX ? sz - 1 - (h == 3 ? 1 : 0) : sz, bone);
+                            set(alongX ? sx : sx + 1 + (h == 3 ? 1 : 0), y + h - (h == 3 ? 1 : 0),
+                                alongX ? sz + 1 + (h == 3 ? 1 : 0) : sz, bone);
+                        }
+                }
+            }
+        }
+        (void)soulSand;
+        (void)soulSoil;
+    }
+    // Basalt deltas: shallow lava pools rimmed with magma, basalt columns.
+    if (centre == Biome::BasaltDeltas) {
+        for (int d = 0; d < 6; ++d) {
+            const int x = 2 + static_cast<int>(rng.nextInt(12)), z = 2 + static_cast<int>(rng.nextInt(12));
+            const int y = floorBelow(x, 32 + static_cast<int>(rng.nextInt(80)), z);
+            if (y < 0) continue;
+            const int rad = 1 + static_cast<int>(rng.nextInt(2));
+            for (int dx = -rad - 1; dx <= rad + 1; ++dx)
+                for (int dz = -rad - 1; dz <= rad + 1; ++dz) {
+                    const int g = y - 1;
+                    if (get(x + dx, g, z + dz) == 0 || get(x + dx, g + 1, z + dz) != 0) continue;
+                    const bool rim = std::abs(dx) > rad || std::abs(dz) > rad;
+                    set(x + dx, g, z + dz, rim ? magma : lava);
+                }
+        }
+        for (int c = 0; c < 8; ++c) {
+            const int x = static_cast<int>(rng.nextInt(16)), z = static_cast<int>(rng.nextInt(16));
+            const int y = floorBelow(x, 32 + static_cast<int>(rng.nextInt(80)), z);
+            if (y < 0) continue;
+            const int h = 1 + static_cast<int>(rng.nextInt(5));
+            for (int k = 0; k < h && get(x, y + k, z) == 0; ++k)
+                set(x, y + k, z, basalt);
+        }
+    }
 }
 
 glm::dvec3 NetherGenerator::findSpawn() const {

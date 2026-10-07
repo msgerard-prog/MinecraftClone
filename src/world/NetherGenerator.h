@@ -1,8 +1,10 @@
 #pragma once
 
+#include "world/Biome.h"
 #include "world/ChunkGenerator.h"
 #include "world/Noise.h"
 
+#include <array>
 #include <cstdint>
 
 namespace mc::world {
@@ -17,21 +19,32 @@ public:
     static constexpr int kLavaLevel = 31; // lava fills air at Y <= 31
     static constexpr int kFloor = 0, kRoof = 127;
 
-    explicit NetherGenerator(uint64_t seed);
+    // 1 = "nether" (M12: nether wastes only), 2 = "nether2" (M19: five biomes).
+    static constexpr int kNewest = 2;
+    explicit NetherGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
     // A free spot near the origin on solid ground above the lava sea.
     glm::dvec3 findSpawn() const override;
-    std::string_view kind() const override { return "nether"; }
+    std::string_view kind() const override { return m_version >= 2 ? "nether2" : "nether"; }
+    int version() const { return m_version; }
     uint64_t seed() const override { return m_seed; }
     // Solid (netherrack) at a position before features (tests, portal placement).
     bool solidAt(int32_t x, int32_t y, int32_t z) const;
 
 private:
     uint64_t m_seed;
+    int m_version;
     OctaveNoise m_main;    // cavern shape
     OctaveNoise m_detail;  // small bumps
     OctaveNoise m_shore;   // soul sand vs gravel patches
+    OctaveNoise m_temperature, m_humidity; // nether2 biomes
+
+    void netherFeatures(BlockStateId* blocks, ChunkPos pos, const std::array<Biome, 16>& biomes) const;
+
+public:
+    // nether2: the biome at a column (nether_wastes for "nether").
+    Biome biomeAt(int32_t x, int32_t z) const;
 };
 
 // The End (M12, wiki: The End › Generation): the central end stone island, ten

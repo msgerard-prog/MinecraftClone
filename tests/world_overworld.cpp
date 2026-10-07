@@ -253,8 +253,8 @@ TEST_CASE("nether: deterministic, bedrock floor and roof, lava sea, solidAt agre
     Chunk s({blockToChunk(int(std::floor(spawn.x))), blockToChunk(int(std::floor(spawn.z)))}, kNetherHeight);
     gen.generate(s);
     const int sx = blockToLocal(int(std::floor(spawn.x))), sz = blockToLocal(int(std::floor(spawn.z))), sy = int(spawn.y);
-    CHECK(s.get(sx, sy, sz) == 0);
-    CHECK(s.get(sx, sy + 1, sz) == 0);
+    CHECK_FALSE(r.collides(s.get(sx, sy, sz))); // (nether2: a plant may grow there)
+    CHECK_FALSE(r.collides(s.get(sx, sy + 1, sz)));
     CHECK(r.collides(s.get(sx, sy - 1, sz)));
 }
 
@@ -281,7 +281,7 @@ TEST_CASE("the end: an island at the origin with the exit portal, ten obsidian p
 TEST_CASE("nether and end output are pinned (seed 42)") {
     using namespace mc::world;
     Chunk n({3, -5}, kNetherHeight), e({3, -5}, kEndHeight);
-    NetherGenerator(42).generate(n);
+    NetherGenerator(42, 1).generate(n); // "nether" (M12)
     EndGenerator(42).generate(e);
     CHECK(chunkHash(n) == 4236505564017377935ull);
     CHECK(chunkHash(e) == 11352441782643008173ull);
