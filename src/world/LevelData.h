@@ -16,7 +16,8 @@ namespace mc::world {
 struct LevelData {
     std::string name = "New World";
     uint64_t seed = 0;
-    bool flat = false; // our generators: "terrain" (placeholder until M8) or "flat"
+    bool flat = false;                 // the superflat test world
+    std::string generator = "overworld"; // non-flat: "overworld" (M8) or "terrain" (M3 placeholder)
     int64_t dayTime = 0;
     int64_t gameTime = 0;
     int32_t spawn[3] = {0, 64, 0}; // world spawn (fixed at creation; SpawnX/Y/Z)

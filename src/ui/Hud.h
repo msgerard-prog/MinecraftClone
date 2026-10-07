@@ -28,6 +28,7 @@ struct DebugInfo {
     glm::ivec3 target{0};
     const char* targetName = ""; // registry string of the targeted state
     int skyLight = 0, blockLight = 0; // at the feet block
+    const char* biome = "";          // at the feet block (vanilla id)
     int64_t dayTime = 0;
     int64_t gameTime = 0;
     int renderDistance = 0;

@@ -25,6 +25,7 @@
 #include "ui/Hud.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
+#include "world/OverworldGenerator.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
@@ -107,6 +108,31 @@ void buildTestWorld(mc::world::World& world) {
         }
     world.setBlock({19, y, 0}, 0);
     world.setBlock({19, y + 1, 0}, 0);
+}
+
+// A new player's spawn: the generator's spawn column ignores trees and plants, so
+// once that chunk exists, pick the nearest column (within 8 blocks) whose highest
+// solid block is ground - not a log or leaves - and stand on it.
+std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 spawn) {
+    using namespace mc::world;
+    const auto& r = blockRegistry();
+    const int sx = static_cast<int>(std::floor(spawn.x)), sz = static_cast<int>(std::floor(spawn.z));
+    if (!world.chunk({blockToChunk(sx), blockToChunk(sz)})) return std::nullopt;
+    for (int radius = 0; radius <= 8; ++radius)
+        for (int dz = -radius; dz <= radius; ++dz)
+            for (int dx = -radius; dx <= radius; ++dx) {
+                if (std::max(std::abs(dx), std::abs(dz)) != radius) continue;
+                const int x = sx + dx, z = sz + dz;
+                if (!world.chunk({blockToChunk(x), blockToChunk(z)})) continue;
+                for (int y = kMaxY; y > kMinY; --y) {
+                    const BlockStateId s = world.getBlock({x, y, z});
+                    if (s == 0 || !r.collides(s)) continue; // air, plants, water
+                    const std::string_view id = r.block(r.blockOf(s)).id;
+                    if (id.ends_with("_log") || id.ends_with("_leaves")) break; // a tree
+                    return glm::dvec3(x + 0.5, y + 1.0, z + 0.5);
+                }
+            }
+    return std::nullopt;
 }
 
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
@@ -205,7 +231,12 @@ int main(int argc, char** argv) {
     else if (!worldName.empty()) MC_LOG_INFO("Creating world \"%s\"", worldName.c_str());
     std::unique_ptr<mc::world::ChunkStorage> storage;
     if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(worldDir);
-    const mc::world::TerrainGenerator generator(seed);
+    // The world's generator: saved worlds keep theirs (pinned outputs never change).
+    const std::string generatorKind = level ? level->generator : opts->generator;
+    std::unique_ptr<mc::world::ChunkGenerator> generatorPtr;
+    if (generatorKind == "terrain") generatorPtr = std::make_unique<mc::world::TerrainGenerator>(seed);
+    else generatorPtr = std::make_unique<mc::world::OverworldGenerator>(seed);
+    const mc::world::ChunkGenerator& generator = *generatorPtr;
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
     std::vector<mc::world::ChunkPos> unloadedChunks;
@@ -276,6 +307,7 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 3; ++i)
             worldSpawn[i] = level->spawn[i];
     int64_t sessionTicks = 0;
+    bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld;
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
     auto saveWorld = [&](bool wait) {
         if (!storage) return;
@@ -290,6 +322,7 @@ int main(int argc, char** argv) {
         l.name = worldName;
         l.seed = seed;
         l.flat = flatWorld;
+        l.generator = generatorKind;
         for (int i = 0; i < 3; ++i)
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
@@ -492,6 +525,12 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        if (spawnPending) { // new player: stand on solid ground once it's generated
+            if (const auto safe = settleSpawn(world, spawn)) {
+                player.setPosition(*safe);
+                spawnPending = false;
+            }
+        }
         mc::gfx::Camera camera;
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
@@ -570,6 +609,10 @@ int main(int argc, char** argv) {
                 const mc::world::BlockPos feet{static_cast<int32_t>(std::floor(d.feet.x)),
                                                static_cast<int32_t>(std::floor(d.feet.y)),
                                                static_cast<int32_t>(std::floor(d.feet.z))};
+                if (const auto* c = world.chunk(feet.chunk()))
+                    d.biome = mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(feet.x), feet.y,
+                                                                   mc::world::blockToLocal(feet.z)))
+                                  .id.data();
                 if (const auto* c = world.chunk(feet.chunk()); c && c->lit()) {
                     d.skyLight = c->skyLight(mc::world::blockToLocal(feet.x), feet.y,
                                              mc::world::blockToLocal(feet.z));

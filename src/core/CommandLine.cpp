@@ -76,6 +76,14 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 return std::nullopt;
             }
             opts.world = std::string(name);
+        } else if (arg == "--generator") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (std::string_view(*v) != "overworld" && std::string_view(*v) != "terrain") {
+                error = "--generator needs overworld or terrain";
+                return std::nullopt;
+            }
+            opts.generator = *v;
         } else if (arg == "--no-save") {
             opts.noSave = true;
         } else if (arg == "--inventory") {

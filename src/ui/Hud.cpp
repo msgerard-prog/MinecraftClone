@@ -63,6 +63,7 @@ void DebugScreen::draw(gfx::GuiBatch& batch, const DebugInfo& d, int guiWidth) {
     if (yaw >= 180.0f) yaw -= 360.0f;
     if (yaw < -180.0f) yaw += 360.0f;
     line("Facing: %s (%.1f / %.1f)", facingName(d.yaw), yaw, d.pitch);
+    if (*d.biome) line("Biome: %s", d.biome);
     line("Client Light: %d (%d sky, %d block)", d.skyLight > d.blockLight ? d.skyLight : d.blockLight,
          d.skyLight, d.blockLight);
     line("Day %lld, time %lld (game time %lld)", static_cast<long long>(d.dayTime / 24000),

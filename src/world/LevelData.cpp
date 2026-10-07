@@ -89,7 +89,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("Player", std::move(player));
 
     Compound ours;
-    ours.put("generator", std::string(flat ? "flat" : "terrain"));
+    ours.put("generator", flat ? std::string("flat") : generator);
     data.put("MinecraftClone", std::move(ours));
 
     Compound root;
@@ -150,7 +150,10 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     if (const Compound* gen = data->compound("WorldGenSettings"))
         l.seed = static_cast<uint64_t>(gen->integer("seed").value_or(0));
     if (const Compound* ours = data->compound("MinecraftClone"))
-        if (auto g = ours->string("generator")) l.flat = *g == "flat";
+        if (auto g = ours->string("generator")) {
+            l.flat = *g == "flat";
+            if (!l.flat) l.generator = *g;
+        }
     if (const Compound* p = data->compound("Player")) {
         if (const List* pos = p->list("Pos"); pos && pos->items.size() == 3)
             for (int i = 0; i < 3; ++i)
