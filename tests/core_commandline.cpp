@@ -132,3 +132,11 @@ TEST_CASE("command line: --generator overworld|terrain") {
     std::array<const char*, 2> bad = {"--generator", "flat"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
+
+TEST_CASE("command line: --version") {
+    std::string error;
+    std::array<const char*, 1> v = {"--version"};
+    const auto opts = mc::parseCommandLine(v, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->printVersion);
+}

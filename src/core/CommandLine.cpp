@@ -93,6 +93,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 return std::nullopt;
             }
             opts.dimension = *v;
+        } else if (arg == "--version") {
+            opts.printVersion = true;
         } else if (arg == "--no-save") {
             opts.noSave = true;
         } else if (arg == "--inventory") {

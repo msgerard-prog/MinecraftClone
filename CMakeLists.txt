@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
-project(MinecraftClone LANGUAGES C CXX)
+# Version: MAJOR.MINOR.PATCH (semantic). Before 1.0 the minor number follows the last
+# finished milestone (0.12 = M12); v1.0.0 is tagged when M22 is done. Each build also
+# records `git describe` (BuildInfo.h), shown in the log, F3 and --version.
+project(MinecraftClone VERSION 0.12.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +24,14 @@ include(Subsystem)
 
 add_subdirectory(third_party)
 
+# Build info (version + git revision), regenerated on every build.
+set(MC_BUILDINFO_DIR "${CMAKE_BINARY_DIR}/generated")
+add_custom_target(mc_buildinfo ALL
+    COMMAND "${CMAKE_COMMAND}" -DSRC="${CMAKE_SOURCE_DIR}" -DOUT="${MC_BUILDINFO_DIR}/BuildInfo.h"
+            -DPROJECT_VERSION=${PROJECT_VERSION} -P "${CMAKE_SOURCE_DIR}/cmake/GenBuildInfo.cmake"
+    BYPRODUCTS "${MC_BUILDINFO_DIR}/BuildInfo.h"
+    COMMENT "Build info")
+
 # Subsystems, in dependency order (a subsystem may only depend on ones above it).
 # See docs/architecture.md for the layer rules.
 add_subdirectory(src/core)
@@ -30,7 +41,9 @@ add_subdirectory(src/audio)
 add_subdirectory(src/gameplay)
 add_subdirectory(src/ui)
 
-add_executable(MinecraftClone src/main.cpp)
+add_executable(MinecraftClone src/main.cpp src/MinecraftClone.rc)
+add_dependencies(MinecraftClone mc_buildinfo)
+target_include_directories(MinecraftClone PRIVATE "${MC_BUILDINFO_DIR}")
 target_link_libraries(MinecraftClone PRIVATE mc_core mc_world mc_rendering mc_audio mc_gameplay mc_ui)
 mc_set_warnings(MinecraftClone)
 

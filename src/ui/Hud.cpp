@@ -78,7 +78,7 @@ void DebugScreen::draw(gfx::GuiBatch& batch, const DebugInfo& d, int guiWidth) {
     const int bz = static_cast<int>(std::floor(d.feet.z));
     m_count = 0;
     // Left: game state.
-    line("MinecraftClone (1.21 replica)");
+    line("MinecraftClone %s (1.21.11 replica)", d.version);
     line("%d fps  RD %d", d.fps, d.renderDistance);
     line("C: %d/%d sections  queued: chunks %d, light %d, meshes %d", d.sectionsDrawn,
          d.sectionsTotal, d.pendingChunks, d.pendingLight, d.pendingMeshes);

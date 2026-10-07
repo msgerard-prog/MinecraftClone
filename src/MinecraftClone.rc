@@ -1,0 +1,31 @@
+// Windows version resource: Explorer › Properties › Details shows these.
+#include <winver.h>
+#include "BuildInfo.h"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH, 0
+PRODUCTVERSION MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH, 0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "MinecraftClone project"
+            VALUE "FileDescription", "MinecraftClone - a learning replica of Minecraft Java 1.21"
+            VALUE "FileVersion", MC_VERSION
+            VALUE "ProductName", "MinecraftClone"
+            VALUE "ProductVersion", MC_BUILD
+            VALUE "InternalName", "MinecraftClone"
+            VALUE "OriginalFilename", "MinecraftClone.exe"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

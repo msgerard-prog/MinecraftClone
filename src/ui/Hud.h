@@ -29,6 +29,7 @@ void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);
 
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {
+    const char* version = ""; // the build (version + git revision)
     int fps = 0;
     glm::dvec3 feet{0.0};
     float yaw = 0.0f, pitch = 0.0f;

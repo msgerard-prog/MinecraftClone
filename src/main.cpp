@@ -24,6 +24,7 @@
 #include "gameplay/Vitals.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/Frustum.h"
+#include "BuildInfo.h"
 #include "world/DayTime.h"
 #include "world/Redstone.h"
 #include "world/NetherGenerator.h"
@@ -40,6 +41,7 @@
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
+#include <cstdio>
 #include <array>
 #include <cmath>
 #include <filesystem>
@@ -185,6 +187,11 @@ int main(int argc, char** argv) {
         MC_LOG_ERROR("%s", error.c_str());
         return 2;
     }
+    if (opts->printVersion) {
+        std::printf("MinecraftClone %s (%s)\n", MC_VERSION, MC_BUILD);
+        return 0;
+    }
+    MC_LOG_INFO("MinecraftClone %s (%s)", MC_VERSION, MC_BUILD);
     const bool screenshotMode = !opts->screenshotPath.empty();
 
     mc::Window window;
@@ -1131,6 +1138,7 @@ int main(int argc, char** argv) {
             }
             if (showDebug) {
                 mc::ui::DebugInfo d;
+                d.version = MC_BUILD;
                 d.fps = fps;
                 d.feet = player.position();
                 d.yaw = player.yaw();
