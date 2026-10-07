@@ -31,14 +31,17 @@ void slotFrame(gfx::GuiBatch& b, float x, float y) {
 
 void CreativeInventory::build(const gfx::BlockModels& models) {
     const auto& reg = world::blockRegistry();
+    const auto& items = world::itemRegistry();
     m_items.clear();
     m_names.clear();
-    for (world::BlockId id = 1; id < reg.blockCount(); ++id) {
-        const world::BlockStateId s = reg.defaultState(id);
-        if (s >= models.size() || !models[s].visible || models[s].fluid) continue;
-        m_items.push_back(s);
-        std::string name = reg.toString(s);
-        if (const auto b = name.find('['); b != std::string::npos) name.resize(b);
+    for (size_t i = 1; i < items.count(); ++i) {
+        const world::ItemDef& def = items.item(static_cast<world::ItemId>(i));
+        if (def.block) {
+            const world::BlockStateId s = reg.defaultState(def.block);
+            if (s >= models.size() || !models[s].visible || models[s].fluid) continue;
+        }
+        m_items.push_back({static_cast<world::ItemId>(i), 1});
+        std::string name = def.id;
         if (name.starts_with("minecraft:")) name.erase(0, 10);
         m_names.push_back(std::move(name));
     }
@@ -46,12 +49,12 @@ void CreativeInventory::build(const gfx::BlockModels& models) {
 
 void CreativeInventory::open() {
     m_open = true;
-    m_carried = 0;
+    m_carried = {};
 }
 
 void CreativeInventory::close() {
     m_open = false;
-    m_carried = 0;
+    m_carried = {};
 }
 
 int CreativeInventory::maxScrollRow() const {
@@ -86,39 +89,44 @@ CreativeInventory::Hit CreativeInventory::hitTest(double mx, double my, int guiW
     return {Hit::Panel, -1};
 }
 
-void CreativeInventory::click(double mx, double my, int guiWidth, int guiHeight, Hotbar& hotbar) {
+void CreativeInventory::click(double mx, double my, int guiWidth, int guiHeight, Inventory& inventory) {
     const Hit h = hitTest(mx, my, guiWidth, guiHeight);
     switch (h.kind) {
     case Hit::Grid:
         // Creative: the grid is an infinite source; clicking it with something
         // carried deletes that and takes the clicked item.
         m_carried = m_items[size_t(h.index)];
+        m_carried.count = static_cast<uint8_t>(world::itemRegistry().item(m_carried.item).maxStack);
         break;
     case Hit::HotbarSlot: {
-        const world::BlockStateId old = hotbar.slot(h.index);
-        hotbar.setSlot(h.index, m_carried);
+        const world::ItemStack old = inventory.slot(h.index);
+        inventory.setSlot(h.index, m_carried);
         m_carried = old;
         break;
     }
-    case Hit::None: m_carried = 0; break; // outside the panel: drop it
+    case Hit::None: m_carried = {}; break; // outside the panel: drop it
     case Hit::Panel: break;
     }
 }
 
 void CreativeInventory::numberKey(int slot, double mx, double my, int guiWidth, int guiHeight,
-                                  Hotbar& hotbar) {
+                                  Inventory& inventory) {
     const Hit h = hitTest(mx, my, guiWidth, guiHeight);
-    if (h.kind == Hit::Grid) hotbar.setSlot(slot, m_items[size_t(h.index)]);
+    if (h.kind == Hit::Grid) { // a full stack, as vanilla's creative number keys
+        world::ItemStack s = m_items[size_t(h.index)];
+        s.count = static_cast<uint8_t>(world::itemRegistry().item(s.item).maxStack);
+        inventory.setSlot(slot, s);
+    }
     if (h.kind == Hit::HotbarSlot) { // swap two hotbar slots
-        const world::BlockStateId a = hotbar.slot(h.index);
-        hotbar.setSlot(h.index, hotbar.slot(slot));
-        hotbar.setSlot(slot, a);
+        const world::ItemStack a = inventory.slot(h.index);
+        inventory.setSlot(h.index, inventory.slot(slot));
+        inventory.setSlot(slot, a);
     }
 }
 
-void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::BlockModels& models,
-                             const Hotbar& hotbar, int guiWidth, int guiHeight, double mx,
-                             double my) {
+void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
+                             const gfx::BlockModels& models, const Inventory& inventory,
+                             int guiWidth, int guiHeight, double mx, double my) {
     // Dim the world behind (vanilla: gradient #C0101010 -> #D0101010).
     b.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight),
            gfx::argb(0xC8101010));
@@ -141,13 +149,13 @@ void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::BlockModels& models,
             slotFrame(b, x, y);
             const int i = (m_scrollRow + row) * kColumns + col;
             if (i < static_cast<int>(m_items.size()))
-                b.blockIcon(models[m_items[size_t(i)]], x + 1, y + 1, kIconGrassTint);
+                icons.draw(b, models, m_items[size_t(i)], x + 1, y + 1, kIconGrassTint);
             if (hover.kind == Hit::Grid && hover.index == i) b.fill(x + 1, y + 1, 16, 16, kHover);
         }
-    for (int col = 0; col < Hotbar::kSlots; ++col) {
+    for (int col = 0; col < Inventory::kHotbar; ++col) {
         const float x = left + 9 + col * kSlot - 1, y = top + 112 - 1;
         slotFrame(b, x, y);
-        if (const auto s = hotbar.slot(col)) b.blockIcon(models[s], x + 1, y + 1, kIconGrassTint);
+        icons.draw(b, models, inventory.slot(col), x + 1, y + 1, kIconGrassTint);
         if (hover.kind == Hit::HotbarSlot && hover.index == col)
             b.fill(x + 1, y + 1, 16, 16, kHover);
     }
@@ -160,7 +168,7 @@ void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::BlockModels& models,
     b.fill(sx, thumbY, 12, 15, maxRow > 0 ? kLight : kBody);
 
     // Tooltip for the hovered grid item, then the carried item on the cursor.
-    if (hover.kind == Hit::Grid && !m_carried) {
+    if (hover.kind == Hit::Grid && m_carried.empty()) {
         const std::string& name = m_names[size_t(hover.index)];
         const float tx = static_cast<float>(mx) + 12, ty = static_cast<float>(my) - 12;
         const int w = b.textWidth(name);
@@ -169,9 +177,8 @@ void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::BlockModels& models,
         b.fill(tx - 1, ty - 1, static_cast<float>(w + 2), 10, gfx::argb(0xF0100010));
         b.text(name, tx, ty, gfx::argb(0xFFFFFFFF));
     }
-    if (m_carried)
-        b.blockIcon(models[m_carried], static_cast<float>(mx) - 8, static_cast<float>(my) - 8,
-                    kIconGrassTint);
+    icons.draw(b, models, m_carried, static_cast<float>(mx) - 8, static_cast<float>(my) - 8,
+               kIconGrassTint);
 }
 
 } // namespace mc::ui

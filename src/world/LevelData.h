@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace mc::world {
 
@@ -24,7 +25,16 @@ struct LevelData {
     double pos[3] = {0, 0, 0};     // player feet
     float yaw = 0, pitch = 0;
     bool flying = false;
-    std::array<std::string, 9> hotbar{}; // block state strings ("" = empty)
+    // Inventory slots 0..35 (0..8 hotbar). `id` is the item id; `state` the full block
+    // state string for block items placed in a non-default state ("" otherwise).
+    struct SavedItem {
+        int slot = 0;
+        std::string id;
+        std::string state;
+        int count = 1;
+        int damage = 0;
+    };
+    std::vector<SavedItem> inventory;
     int selectedSlot = 0;
 
     // Writes level.dat_new, then keeps the previous level.dat as level.dat_old and

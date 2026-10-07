@@ -10,7 +10,7 @@ namespace {
 
 struct Ctx {
     Player player;
-    Hotbar hotbar;
+    Inventory hotbar;
     int64_t dayTime = 0;
     CommandContext ctx{player, hotbar, dayTime, 0, 42};
     Ctx() { player.setPosition({10.5, 70.0, -3.5}); }
@@ -67,17 +67,19 @@ TEST_CASE("/tp rejects nan, infinity and positions outside the world limits") {
     CHECK(runCommand("/tp 29999999 0 0", c.ctx).ok);
 }
 
-TEST_CASE("/give fills the first empty hotbar slot, else the selected one; unknown ids fail") {
+TEST_CASE("/give adds items to the inventory like pickups; unknown ids fail") {
     Ctx c;
-    const auto glow = mc::world::blockRegistry().defaultState(mc::world::blocks::Glowstone);
-    c.hotbar.select(2);
-    CHECK(runCommand("/give @s minecraft:glowstone", c.ctx).ok); // hotbar full: selected
-    CHECK(c.hotbar.selectedBlock() == glow);
-    c.hotbar.setSlot(6, 0);
+    const auto& items = mc::world::itemRegistry();
+    CHECK(runCommand("/give @s minecraft:glowstone 3", c.ctx).ok); // stacks onto slot 8
+    CHECK(c.hotbar.slot(8).count == 4);
     const auto r = runCommand("/give @p oak_log[axis=x] 64", c.ctx);
     CHECK(r.ok);
     CHECK(r.message == "Gave 64 [oak_log[axis=x]] to Player");
-    CHECK(c.hotbar.slot(6) != 0);
+    CHECK(c.hotbar.slot(9).count == 64); // first empty slot (main inventory)
+    CHECK(c.hotbar.slot(9).state != 0);
+    CHECK(runCommand("/give @s diamond_pickaxe 2", c.ctx).ok);
+    CHECK(c.hotbar.slot(10).item == *items.find("diamond_pickaxe"));
+    CHECK(c.hotbar.slot(11).item == *items.find("diamond_pickaxe"));
     CHECK_FALSE(runCommand("/give @s stone 0", c.ctx).ok);
     CHECK_FALSE(runCommand("/give @s stone lots", c.ctx).ok);
     CHECK_FALSE(runCommand("/give @s not_a_block", c.ctx).ok);

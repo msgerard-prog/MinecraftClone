@@ -59,16 +59,22 @@ TextureAtlas::~TextureAtlas() {
 }
 
 bool TextureAtlas::build(const PackStack& packs, std::string_view folder) {
+    const AtlasFolder one[] = {{folder, ""}};
+    return build(packs, one);
+}
+
+bool TextureAtlas::build(const PackStack& packs, std::span<const AtlasFolder> folders) {
     std::vector<LoadedSprite> sprites;
     sprites.push_back(
         {std::string(kMissing), {kMinCellSize, kMinCellSize, missingSpritePixels()}, {}, 1});
 
     // Sorted file list (union over packs), so placement is the same on every run.
-    for (const std::string& file : packs.list(folder, ".png")) {
-        const std::string path = std::string(folder) + file;
+    for (const AtlasFolder& af : folders)
+    for (const std::string& file : packs.list(af.folder, ".png")) {
+        const std::string path = std::string(af.folder) + file;
         const auto bytes = packs.read(path);
         auto img = bytes ? decodePng(*bytes) : std::nullopt;
-        const std::string name = file.substr(0, file.size() - 4);
+        const std::string name = std::string(af.prefix) + file.substr(0, file.size() - 4);
         if (!img) {
             MC_LOG_WARN("Atlas: can't decode %s", path.c_str());
             continue;

@@ -3,6 +3,7 @@
 #include "rendering/SpriteImage.h"
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -30,8 +31,14 @@ public:
     TextureAtlas(const TextureAtlas&) = delete;
     TextureAtlas& operator=(const TextureAtlas&) = delete;
 
-    // Load time only. `folder` is a pack path ending in '/'; sprite names are file stems.
+    // Load time only. `folder` is a pack path ending in '/'; sprite names are file stems
+    // (prefixed with the folder's `prefix`, e.g. "item/stick").
+    struct AtlasFolder {
+        std::string_view folder;
+        std::string_view prefix;
+    };
     bool build(const PackStack& packs, std::string_view folder);
+    bool build(const PackStack& packs, std::span<const AtlasFolder> folders);
 
     // Advance animations by one game tick (20 per second). Main thread.
     void tick();

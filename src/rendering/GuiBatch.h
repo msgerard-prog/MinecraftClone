@@ -71,6 +71,8 @@ public:
     // A block as a 16x16 GUI item: isometric cube (top, south and east faces shaded
     // 1.0 / 0.8 / 0.6), or its sprite flat for non-cube models (torch).
     void blockIcon(const BakedModel& model, float x, float y, uint32_t grassTint);
+    // An atlas sprite (item textures) drawn flat at 16x16.
+    void atlasSprite(uint16_t sprite, float x, float y, uint32_t color = rgba(255, 255, 255));
 
 private:
     void quad(const float (&px)[4][2], const float (&uv)[4][2], uint32_t color, GuiTexture tex);

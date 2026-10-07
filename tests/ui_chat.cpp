@@ -142,38 +142,42 @@ double hotbarY() { return 82 + 112 + 8; }
 
 } // namespace
 
-TEST_CASE("creative inventory lists visible blocks, never air or fluids") {
+TEST_CASE("creative inventory lists every item: visible blocks and tools, no air or fluids") {
     CreativeInventory inv;
     inv.build(visibleModels());
-    const auto& r = mc::world::blockRegistry();
+    const auto& items = mc::world::itemRegistry();
     REQUIRE_FALSE(inv.items().empty());
-    for (auto s : inv.items()) {
-        CHECK(s != 0);
-        CHECK(r.blockOf(s) != mc::world::blocks::Water);
+    bool pickaxe = false;
+    for (const auto& s : inv.items()) {
+        CHECK(s.item != mc::world::kNoItem);
+        CHECK(items.item(s.item).block != mc::world::blocks::Water);
+        pickaxe |= items.item(s.item).id == "minecraft:diamond_pickaxe";
     }
+    CHECK(pickaxe);
 }
 
 TEST_CASE("creative inventory: take from the grid, put into the hotbar, drop outside") {
     CreativeInventory inv;
     inv.build(visibleModels());
-    mc::Hotbar hotbar;
+    mc::Inventory hotbar;
     inv.open();
-    const auto first = inv.items()[0];
+    const auto first = inv.items()[0].item;
     inv.click(gridX(0), gridY(0), kGw, kGh, hotbar);
-    CHECK(inv.carried() == first);
-    const auto old = hotbar.slot(4);
+    CHECK(inv.carried().item == first);
+    CHECK(inv.carried().count == 64); // creative: a full stack
+    const auto old = hotbar.slot(4).item;
     inv.click(gridX(4), hotbarY(), kGw, kGh, hotbar); // swap with hotbar slot 5
-    CHECK(hotbar.slot(4) == first);
-    CHECK(inv.carried() == old);
+    CHECK(hotbar.slot(4).item == first);
+    CHECK(inv.carried().item == old);
     inv.click(5, 5, kGw, kGh, hotbar); // outside the panel: dropped
-    CHECK(inv.carried() == 0);
-    // Number key over a grid item copies it into that hotbar slot.
+    CHECK(inv.carried().empty());
+    // Number key over a grid item copies a full stack into that hotbar slot.
     inv.numberKey(0, gridX(1), gridY(0), kGw, kGh, hotbar);
-    CHECK(hotbar.slot(0) == inv.items()[1]);
+    CHECK(hotbar.slot(0).item == inv.items()[1].item);
     // Closing drops whatever is carried.
     inv.click(gridX(2), gridY(0), kGw, kGh, hotbar);
     inv.close();
-    CHECK(inv.carried() == 0);
+    CHECK(inv.carried().empty());
 }
 
 TEST_CASE("creative inventory scrolling is clamped to the item rows") {

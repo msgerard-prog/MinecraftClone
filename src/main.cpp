@@ -4,7 +4,7 @@
 #include "core/Log.h"
 #include "core/Window.h"
 #include "gameplay/BlockInteraction.h"
-#include "gameplay/Hotbar.h"
+#include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
@@ -137,19 +137,19 @@ std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 
 
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
 // re-mesh) with scripted look directions, so a screenshot can verify editing.
-void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar,
+void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Inventory& inventory,
                  std::vector<mc::world::BlockPos>& edits) {
     std::vector<mc::world::BlockPos> changed;
     const float yaw = player.yaw(), pitch = player.pitch();
     auto click = [&](float y, float p, bool attack, int slot) {
         player.setRotation(y, p);
-        hotbar.select(slot);
+        inventory.select(slot);
         mc::InteractionInput in;
         in.attack = attack;
         in.use = !attack;
         mc::BlockInteraction fresh; // no cooldown between scripted clicks
         fresh.tick(world, player, mc::BlockInteraction::target(world, player),
-                   hotbar.selectedBlock(), in, changed);
+                   inventory.placeState(), in, changed);
         edits.insert(edits.end(), changed.begin(), changed.end());
     };
     for (int i = 0; i < 3; ++i)
@@ -190,10 +190,12 @@ int main(int argc, char** argv) {
     if (!gui.init(renderer.packs(), renderer.atlas())) return 1;
     mc::ui::Chat chat;
     mc::ui::DebugScreen debugScreen;
-    mc::ui::CreativeInventory inventory;
-    inventory.build(renderer.models());
-    if (opts->inventory) inventory.open();
-    bool numberWasDown[mc::Hotbar::kSlots] = {};
+    mc::gfx::ItemIcons itemIcons;
+    itemIcons.build(renderer.atlas());
+    mc::ui::CreativeInventory creative;
+    creative.build(renderer.models());
+    if (opts->inventory) creative.open();
+    bool numberWasDown[mc::Inventory::kHotbar] = {};
     bool showDebug = opts->debugScreen;
     std::array<char, 64> typed{};
     mc::world::World world;
@@ -284,20 +286,31 @@ int main(int argc, char** argv) {
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
     if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
-    mc::Hotbar hotbar;
+    mc::Inventory inventory;
     if (level && !opts->hasPos) { // resume where the player left
         player.setPosition({level->pos[0], level->pos[1], level->pos[2]});
         player.setRotation(level->yaw, level->pitch);
         player.setFlying(level->flying);
     }
     if (level) {
-        for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
-            const std::string& s = level->hotbar[size_t(i)];
-            std::string_view id(s);
-            if (id.starts_with("minecraft:")) id.remove_prefix(10);
-            hotbar.setSlot(i, s.empty() ? 0 : mc::world::blockRegistry().parse(id).value_or(0));
+        for (int i = 0; i < mc::Inventory::kSlots; ++i)
+            inventory.setSlot(i, {});
+        for (const auto& it : level->inventory) { // unknown items are dropped (logged)
+            const auto item = mc::world::itemRegistry().find(it.id);
+            if (!item) {
+                MC_LOG_WARN("Unknown item %s in slot %d", it.id.c_str(), it.slot);
+                continue;
+            }
+            mc::world::ItemStack s{*item, static_cast<uint8_t>(std::clamp(it.count, 1, 64)),
+                                   static_cast<uint16_t>(std::clamp(it.damage, 0, 65535))};
+            if (!it.state.empty()) {
+                std::string_view st(it.state);
+                if (st.starts_with("minecraft:")) st.remove_prefix(10);
+                if (const auto bs = mc::world::blockRegistry().parse(st)) s.state = *bs;
+            }
+            inventory.setSlot(it.slot, s);
         }
-        hotbar.select(level->selectedSlot);
+        inventory.select(level->selectedSlot);
     }
     // World spawn: fixed when the world is created (vanilla SpawnX/Y/Z).
     int32_t worldSpawn[3] = {static_cast<int32_t>(std::floor(spawn.x)),
@@ -334,9 +347,14 @@ int main(int argc, char** argv) {
         l.yaw = player.yaw();
         l.pitch = player.pitch();
         l.flying = player.flying();
-        for (int i = 0; i < mc::Hotbar::kSlots; ++i)
-            if (hotbar.slot(i)) l.hotbar[size_t(i)] = mc::world::blockRegistry().toString(hotbar.slot(i));
-        l.selectedSlot = hotbar.selected();
+        for (int i = 0; i < mc::Inventory::kSlots; ++i) {
+            const mc::world::ItemStack& s = inventory.slot(i);
+            if (s.empty()) continue;
+            l.inventory.push_back({i, mc::world::itemRegistry().item(s.item).id,
+                                   s.state ? mc::world::blockRegistry().toString(s.state) : std::string(),
+                                   s.count, s.damage});
+        }
+        l.selectedSlot = inventory.selected();
         if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
         if (wait) storage->flush();
         MC_LOG_INFO("Saved world \"%s\" (%d changed chunks)", worldName.c_str(), chunks);
@@ -363,7 +381,7 @@ int main(int argc, char** argv) {
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, hotbar, dayTime, gameTime, opts->seed};
+            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -401,7 +419,7 @@ int main(int argc, char** argv) {
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
                            mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
-        } else if (inventory.isOpen()) {
+        } else if (creative.isOpen()) {
             int fw = 0, fh = 0;
             window.framebufferSize(fw, fh);
             const int scale = mc::gfx::GuiRenderer::guiScale(fw, fh);
@@ -410,14 +428,14 @@ int main(int argc, char** argv) {
             mx /= scale;
             my /= scale;
             for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
-                inventory.click(mx, my, fw / scale, fh / scale, hotbar);
-            inventory.scroll(window.scrollDelta());
-            for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
+                creative.click(mx, my, fw / scale, fh / scale, inventory);
+            creative.scroll(window.scrollDelta());
+            for (int i = 0; i < mc::Inventory::kHotbar; ++i) {
                 const bool down = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
-                if (down && !numberWasDown[i]) inventory.numberKey(i, mx, my, fw / scale, fh / scale, hotbar);
+                if (down && !numberWasDown[i]) creative.numberKey(i, mx, my, fw / scale, fh / scale, inventory);
             }
             if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
-                inventory.close();
+                creative.close();
                 if (!screenshotMode) window.setCursorCaptured(true);
                 attackArmed = false;
             }
@@ -437,7 +455,7 @@ int main(int argc, char** argv) {
                     chat.open();
                     window.setCursorCaptured(false);
                 } else if (window.takePresses(mc::Press::Inventory) > 0) {
-                    inventory.open();
+                    creative.open();
                     window.setCursorCaptured(false);
                 }
             } else {
@@ -458,9 +476,9 @@ int main(int argc, char** argv) {
                 }
             }
         }
-        // Key edges for the inventory's number keys: tracked every frame, so a key
+        // Key edges for the creative's number keys: tracked every frame, so a key
         // held while the screen opens doesn't count as a fresh press.
-        for (int i = 0; i < mc::Hotbar::kSlots; ++i)
+        for (int i = 0; i < mc::Inventory::kHotbar; ++i)
             numberWasDown[i] = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
         // Game presses made while the mouse isn't captured (typing, menus) must not
         // act later (spaces typed in chat would toggle flight).
@@ -473,11 +491,11 @@ int main(int argc, char** argv) {
 
         // Hotbar: number keys 1-9 and the mouse wheel.
         if (window.cursorCaptured()) {
-            for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
+            for (int i = 0; i < mc::Inventory::kHotbar; ++i) {
                 if (window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i)))
-                    hotbar.select(i);
+                    inventory.select(i);
             }
-            hotbar.scroll(window.scrollDelta());
+            inventory.scroll(window.scrollDelta());
         }
 
         const double now = mc::timeSeconds();
@@ -507,7 +525,7 @@ int main(int argc, char** argv) {
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Act on the block the outline showed on the last frame (vanilla).
-            interaction.tick(world, player, lastHit, hotbar.selectedBlock(), clicks, changedBlocks);
+            interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks);
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
@@ -564,12 +582,12 @@ int main(int argc, char** argv) {
         overlay.draw(camera, fbWidth, fbHeight,
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
 
-        // HUD: hotbar, chat, F3 - one batched GUI draw.
+        // HUD: inventory, chat, F3 - one batched GUI draw.
         {
             const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
-            mc::ui::drawHotbar(batch, hotbar, renderer.models(), guiW, guiH);
+            mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;
             if (now - fpsStart >= 1.0) {
@@ -577,7 +595,7 @@ int main(int argc, char** argv) {
                 fpsFrames = 0;
                 fpsStart = now;
             }
-            if (inventory.isOpen()) {
+            if (creative.isOpen()) {
                 double mx = 0, my = 0;
                 window.cursorPos(mx, my);
                 if (screenshotMode) { // a fixed hover for screenshots: the 3rd grid item
@@ -587,7 +605,7 @@ int main(int argc, char** argv) {
                     mx /= scale;
                     my /= scale;
                 }
-                inventory.draw(batch, renderer.models(), hotbar, guiW, guiH, mx, my);
+                creative.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH, mx, my);
             }
             if (showDebug) {
                 mc::ui::DebugInfo d;
@@ -639,7 +657,7 @@ int main(int argc, char** argv) {
             (!loader || loader->pending() == 0) && renderer.stats().sections > 0) {
             meshed = true;
             renderer.resetGpuStats(); // steady-state GPU numbers, like the CPU stats
-            if (opts->demoEdit) runDemoEdit(world, player, hotbar, frameEdits);
+            if (opts->demoEdit) runDemoEdit(world, player, inventory, frameEdits);
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
                         (mc::timeSeconds() - startTime) * 1000.0, st.sections,

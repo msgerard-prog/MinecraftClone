@@ -1,5 +1,5 @@
 #include "gameplay/BlockInteraction.h"
-#include "gameplay/Hotbar.h"
+#include "gameplay/Inventory.h"
 #include "world/Blocks.h"
 
 #include <doctest/doctest.h>
@@ -82,10 +82,10 @@ TEST_CASE("placed logs take the axis of the clicked face") {
 }
 
 TEST_CASE("hotbar: number keys and the wheel (down = next slot) wrap around") {
-    Hotbar h;
-    CHECK(h.selectedBlock() == S(blocks::Stone));
+    Inventory h;
+    CHECK(h.placeState() == S(blocks::Stone));
     h.select(4);
-    CHECK(h.selectedBlock() == S(blocks::OakPlanks));
+    CHECK(h.placeState() == S(blocks::OakPlanks));
     h.scroll(-1); // wheel down
     CHECK(h.selected() == 5);
     h.select(8);
@@ -157,4 +157,29 @@ TEST_CASE("an empty hotbar slot places nothing (and keeps water)") {
     s.tick(false, true, 0);
     CHECK(s.changed.empty());
     CHECK(s.world.getBlock(front) == S(blocks::Water));
+}
+
+TEST_CASE("inventory: add stacks onto matching stacks first, then empty slots; max 64") {
+    Inventory inv;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        inv.setSlot(i, {});
+    const auto& items = itemRegistry();
+    const ItemStack dirt = Inventory::blockStack(S(blocks::Dirt), 40);
+    CHECK(inv.add(dirt) == 0);
+    CHECK(inv.add(dirt) == 0); // 40 + 24 into slot 0, 16 into slot 1
+    CHECK(inv.slot(0).count == 64);
+    CHECK(inv.slot(1).count == 16);
+    const ItemStack pick{*items.find("iron_pickaxe"), 1};
+    CHECK(inv.add(pick) == 0);
+    CHECK(inv.add(pick) == 0); // tools don't stack
+    CHECK(inv.slot(2).item == pick.item);
+    CHECK(inv.slot(3).item == pick.item);
+    CHECK(inv.placeState() == S(blocks::Dirt)); // slot 0 selected
+    inv.consumeSelected(64);
+    CHECK(inv.slot(0).empty());
+    CHECK(inv.placeState() == 0);
+    // An exact state survives (log axis).
+    const auto logX = *blockRegistry().with(S(blocks::OakLog), "axis", "x");
+    inv.setSlot(0, Inventory::blockStack(logX));
+    CHECK(inv.placeState() == logX);
 }

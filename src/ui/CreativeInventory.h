@@ -1,6 +1,7 @@
 #pragma once
 
-#include "gameplay/Hotbar.h"
+#include "gameplay/Inventory.h"
+#include "rendering/ItemIcons.h"
 #include "rendering/BlockModels.h"
 #include "rendering/GuiBatch.h"
 
@@ -20,24 +21,25 @@ public:
     static constexpr int kWidth = 195, kHeight = 136;
     static constexpr int kColumns = 9, kRows = 5, kSlot = 18;
 
-    // The item list: the default state of every block with a visible model,
-    // except fluids (they come as buckets in vanilla). Load time.
+    // The item list: every item (block items whose block has a visible model, then
+    // tools, materials, food). Load time.
     void build(const gfx::BlockModels& models);
-    const std::vector<world::BlockStateId>& items() const { return m_items; }
+    const std::vector<world::ItemStack>& items() const { return m_items; }
 
     bool isOpen() const { return m_open; }
     void open();
     void close(); // drops the carried item (creative)
 
     // Input in GUI pixels.
-    void click(double mx, double my, int guiWidth, int guiHeight, Hotbar& hotbar);
-    void numberKey(int slot, double mx, double my, int guiWidth, int guiHeight, Hotbar& hotbar);
+    void click(double mx, double my, int guiWidth, int guiHeight, Inventory& inventory);
+    void numberKey(int slot, double mx, double my, int guiWidth, int guiHeight, Inventory& inventory);
     void scroll(double steps); // + = up
     int scrollRow() const { return m_scrollRow; }
     int maxScrollRow() const;
-    world::BlockStateId carried() const { return m_carried; }
+    const world::ItemStack& carried() const { return m_carried; }
 
-    void draw(gfx::GuiBatch& batch, const gfx::BlockModels& models, const Hotbar& hotbar,
+    void draw(gfx::GuiBatch& batch, const gfx::ItemIcons& icons, const gfx::BlockModels& models,
+              const Inventory& inventory,
               int guiWidth, int guiHeight, double mx, double my);
 
 private:
@@ -47,12 +49,12 @@ private:
     };
     Hit hitTest(double mx, double my, int guiWidth, int guiHeight) const;
 
-    std::vector<world::BlockStateId> m_items;
+    std::vector<world::ItemStack> m_items;
     std::vector<std::string> m_names; // tooltip text per item (built at load)
     bool m_open = false;
     int m_scrollRow = 0;
     double m_scrollRemainder = 0.0;
-    world::BlockStateId m_carried = 0;
+    world::ItemStack m_carried;
 };
 
 } // namespace mc::ui

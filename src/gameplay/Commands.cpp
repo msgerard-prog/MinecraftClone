@@ -3,6 +3,7 @@
 #include "world/Blocks.h"
 #include "world/DayTime.h"
 
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
@@ -139,29 +140,39 @@ CommandResult time(const std::vector<std::string_view>& a, CommandContext& ctx) 
 }
 
 CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) {
-    // /give @s <block> [count]: blocks only until items exist (M9); the block goes
-    // into the selected hotbar slot (no inventory yet).
+    // /give @s <item> [count] (wiki: Commands/give): into the inventory, stacking
+    // like picked-up items. Block items may carry a state (oak_log[axis=x]).
     if (a.size() < 3 || a.size() > 4 || !isSelf(a[1]))
-        return fail("Usage: /give @s <block> [count]");
+        return fail("Usage: /give @s <item> [count]");
     int count = 1;
     if (a.size() == 4) {
         const auto n = number<int64_t>(a[3]);
         if (!n || *n < 1 || *n > 2147483647) return fail("Invalid count");
-        count = static_cast<int>(*n);
+        count = static_cast<int>(std::min<int64_t>(*n, 36 * 64)); // at most a full inventory
     }
     std::string_view id = a[2];
     if (id.starts_with("minecraft:")) id.remove_prefix(10);
-    const auto state = world::blockRegistry().parse(id);
-    if (!state || *state == 0) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
-    // First empty hotbar slot, else the selected one (no inventory or stacks yet).
-    int slot = ctx.hotbar.selected();
-    for (int i = 0; i < Hotbar::kSlots; ++i)
-        if (ctx.hotbar.slot(i) == 0) {
-            slot = i;
-            break;
-        }
-    ctx.hotbar.setSlot(slot, *state);
-    return {true, format("Gave %d [%.*s] to Player", count, int(id.size()), id.data())};
+    const std::string_view name = id.substr(0, id.find('['));
+    const auto item = world::itemRegistry().find(name);
+    if (!item || *item == world::kNoItem)
+        return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
+    world::ItemStack stack{*item, 1};
+    if (name.size() != id.size()) { // a block state
+        const auto state = world::blockRegistry().parse(id);
+        if (!state) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
+        stack = Inventory::blockStack(*state);
+    }
+    const int max = world::itemRegistry().item(stack.item).maxStack;
+    int given = 0;
+    for (int left = count; left > 0;) {
+        stack.count = static_cast<uint8_t>(std::min(left, max));
+        const int n = stack.count;
+        const int rest = ctx.inventory.add(stack);
+        given += n - rest;
+        if (rest > 0) break; // inventory full (vanilla would drop the rest)
+        left -= n;
+    }
+    return {true, format("Gave %d [%.*s] to Player", given, int(id.size()), id.data())};
 }
 
 } // namespace

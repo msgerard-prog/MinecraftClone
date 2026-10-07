@@ -74,6 +74,13 @@ int GuiBatch::text(std::string_view s, float x, float y, uint32_t color, bool sh
     return static_cast<int>(pen - x);
 }
 
+void GuiBatch::atlasSprite(uint16_t sprite, float x, float y, uint32_t color) {
+    const float cell = static_cast<float>(m_atlas.cellSize);
+    const float u0 = static_cast<float>(sprite % m_atlas.columns) * cell;
+    const float v0 = static_cast<float>(sprite / m_atlas.columns) * cell;
+    this->sprite(GuiTexture::Atlas, x, y, 16, 16, u0, v0, cell, cell, color);
+}
+
 void GuiBatch::blockIcon(const BakedModel& model, float x, float y, uint32_t grassTint) {
     if (!model.visible) return;
     const float cell = static_cast<float>(m_atlas.cellSize);

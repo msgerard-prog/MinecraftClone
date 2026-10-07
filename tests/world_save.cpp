@@ -170,8 +170,9 @@ TEST_CASE("level.dat round-trips the world settings, time, spawn and player") {
     l.yaw = 135;
     l.pitch = -20;
     l.flying = true;
-    l.hotbar[0] = "minecraft:stone";
-    l.hotbar[4] = "minecraft:oak_log[axis=x]";
+    l.inventory.push_back({0, "minecraft:stone", "", 12, 0});
+    l.inventory.push_back({4, "minecraft:oak_log", "minecraft:oak_log[axis=x]", 1, 0});
+    l.inventory.push_back({20, "minecraft:iron_pickaxe", "", 1, 37});
     l.selectedSlot = 4;
     l.spawn[0] = -7;
     l.spawn[1] = 70;
@@ -191,9 +192,13 @@ TEST_CASE("level.dat round-trips the world settings, time, spawn and player") {
     CHECK(back->yaw == 135.0f);
     CHECK(back->pitch == -20.0f);
     CHECK(back->flying);
-    CHECK(back->hotbar[0] == "minecraft:stone");
-    CHECK(back->hotbar[4] == "minecraft:oak_log[axis=x]");
-    CHECK(back->hotbar[1].empty());
+    REQUIRE(back->inventory.size() == 3);
+    CHECK(back->inventory[0].id == "minecraft:stone");
+    CHECK(back->inventory[0].count == 12);
+    CHECK(back->inventory[1].slot == 4);
+    CHECK(back->inventory[1].state == "minecraft:oak_log[axis=x]");
+    CHECK(back->inventory[2].slot == 20);
+    CHECK(back->inventory[2].damage == 37);
     CHECK(back->selectedSlot == 4);
     CHECK(back->spawn[0] == -7);
     CHECK(back->spawn[2] == 12);
@@ -253,7 +258,7 @@ mc::nbt::Compound readLevelRoot(const fs::path& file) {
 TEST_CASE("level.dat: hotbar states use the block_state item component; types as vanilla") {
     TempDir dir("mc_test_level_types");
     LevelData l;
-    l.hotbar[2] = "minecraft:oak_log[axis=x]";
+    l.inventory.push_back({2, "minecraft:oak_log", "minecraft:oak_log[axis=x]", 1, 0});
     REQUIRE(l.save(dir.path));
     const auto root = readLevelRoot(dir.path / "level.dat");
     const auto* data = root.compound("Data");

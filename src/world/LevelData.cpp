@@ -59,15 +59,15 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("abilities", std::move(abilities));
     player.put("playerGameType", int32_t{1});
     player.put("SelectedItemSlot", int32_t{selectedSlot});
-    std::vector<Tag> inventory;
-    for (int i = 0; i < 9; ++i) {
-        if (hotbar[size_t(i)].empty()) continue;
+    std::vector<Tag> items; // vanilla's Inventory list
+    for (const SavedItem& it : inventory) {
         Compound item;
-        // Item id = block id (no properties): vanilla items don't carry states.
-        const std::string& s = hotbar[size_t(i)];
-        item.put("id", s.substr(0, s.find('[')));
-        item.put("count", int32_t{1});
-        item.put("Slot", static_cast<int8_t>(i));
+        const std::string& s = it.state;
+        item.put("id", it.id);
+        item.put("count", int32_t{it.count});
+        item.put("Slot", static_cast<int8_t>(it.slot));
+        Compound components;
+        if (it.damage > 0) components.put("minecraft:damage", int32_t{it.damage});
         // The exact state (e.g. log axis) as vanilla's block_state item component.
         if (const size_t open = s.find('['); open != std::string::npos) {
             Compound props;
@@ -79,13 +79,12 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                     props.put(std::string(kv.substr(0, eq)), std::string(kv.substr(eq + 1)));
                 list.remove_prefix(std::min(comma + 1, list.size()));
             }
-            Compound components;
             components.put("minecraft:block_state", std::move(props));
-            item.put("components", std::move(components));
         }
-        inventory.emplace_back(std::move(item));
+        if (!components.entries.empty()) item.put("components", std::move(components));
+        items.emplace_back(std::move(item));
     }
-    player.put("Inventory", listOf(TagType::Compound, std::move(inventory)));
+    player.put("Inventory", listOf(TagType::Compound, std::move(items)));
     data.put("Player", std::move(player));
 
     Compound ours;
@@ -169,11 +168,16 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                 const Compound* item = t.get<Compound>();
                 if (!item) continue;
                 const auto slot = item->integer("Slot").value_or(-1);
-                if (slot < 0 || slot > 8) continue;
+                if (slot < 0 || slot > 35) continue;
                 const std::string* id = item->string("id");
                 if (!id) continue;
+                SavedItem saved;
+                saved.slot = static_cast<int>(slot);
+                saved.id = *id;
+                saved.count = static_cast<int>(item->integer("count").value_or(1));
                 std::string st = *id;
                 const Compound* comps = item->compound("components");
+                if (comps) saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
                 const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
                 if (props && !props->entries.empty()) {
                     st += '[';
@@ -183,8 +187,9 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                         st += props->entries[i].name + '=' + (v ? *v : std::string());
                     }
                     st += ']';
+                    saved.state = std::move(st);
                 }
-                l.hotbar[size_t(slot)] = std::move(st);
+                l.inventory.push_back(std::move(saved));
             }
     }
     return l;

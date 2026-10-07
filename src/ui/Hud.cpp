@@ -9,19 +9,16 @@
 
 namespace mc::ui {
 
-void drawHotbar(gfx::GuiBatch& batch, const Hotbar& hotbar, const gfx::BlockModels& models,
-                int guiWidth, int guiHeight) {
+void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::ItemIcons& icons,
+                const gfx::BlockModels& models, int guiWidth, int guiHeight) {
     const float left = static_cast<float>(guiWidth / 2 - 91);
     const float top = static_cast<float>(guiHeight - 22);
     batch.sprite(gfx::GuiTexture::Hotbar, left, top, 182, 22, 0, 0, 182, 22);
-    batch.sprite(gfx::GuiTexture::Selection, left - 1 + static_cast<float>(hotbar.selected() * 20),
+    batch.sprite(gfx::GuiTexture::Selection, left - 1 + static_cast<float>(inventory.selected() * 20),
                  top - 1, 24, 23, 0, 0, 24, 23);
-    for (int i = 0; i < Hotbar::kSlots; ++i) {
-        const world::BlockStateId state = hotbar.slot(i);
-        if (state == 0) continue;
-        batch.blockIcon(models[state], left + 3 + static_cast<float>(i * 20), top + 3,
-                        kIconGrassTint);
-    }
+    for (int i = 0; i < Inventory::kHotbar; ++i)
+        icons.draw(batch, models, inventory.slot(i), left + 3 + static_cast<float>(i * 20), top + 3,
+                   kIconGrassTint);
 }
 
 const char* DebugScreen::facingName(float yaw) {

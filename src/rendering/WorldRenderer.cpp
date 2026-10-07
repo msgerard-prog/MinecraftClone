@@ -40,7 +40,10 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     PackStack& packs = *m_packs;
     packs.add(ResourcePack::open(std::filesystem::path(MC_ASSETS_DIR).parent_path()));
     packs.addAllIn(resourcePacksDir);
-    if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
+    // Blocks and items share one atlas (as vanilla's): item sprites are "item/<name>".
+    const TextureAtlas::AtlasFolder folders[] = {{"assets/minecraft/textures/block/", ""},
+                                                 {"assets/minecraft/textures/item/", "item/"}};
+    if (!m_atlas.build(packs, folders)) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;
     // Tint palette (shader binding 1): grass, foliage, water per biome slot, plus the

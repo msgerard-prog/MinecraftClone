@@ -1,6 +1,7 @@
 #pragma once
 
-#include "gameplay/Hotbar.h"
+#include "gameplay/Inventory.h"
+#include "rendering/ItemIcons.h"
 #include "rendering/BlockModels.h"
 #include "rendering/GuiBatch.h"
 
@@ -16,8 +17,8 @@ inline constexpr uint32_t kIconGrassTint = gfx::rgba(0x7C, 0xBD, 0x6B);
 
 // The hotbar (wiki: Heads-up display): 182x22 bar centred at the bottom, the
 // selection frame around the selected slot, block icons 16x16 in each slot.
-void drawHotbar(gfx::GuiBatch& batch, const Hotbar& hotbar, const gfx::BlockModels& models,
-                int guiWidth, int guiHeight);
+void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::ItemIcons& icons,
+                const gfx::BlockModels& models, int guiWidth, int guiHeight);
 
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {

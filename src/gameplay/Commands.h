@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gameplay/Hotbar.h"
+#include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
 
 #include <cstdint>
@@ -12,7 +12,7 @@ namespace mc {
 // What commands can read and change. Owned by main.cpp.
 struct CommandContext {
     Player& player;
-    Hotbar& hotbar;
+    Inventory& inventory;
     int64_t& dayTime;  // world day time (world/DayTime.h)
     int64_t gameTime;  // ticks since the world started
     uint64_t seed;
