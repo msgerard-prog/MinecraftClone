@@ -156,8 +156,9 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
 
     // 4. Sky light: straight down each column from the top (15 until the first block
     //    with opacity; water etc. dim it 1 per block), then spread sideways/down.
+    //    None at all in dimensions without sky light (r.sky stays 0).
     r.queue.clear();
-    for (int iz = 0; iz < kW; ++iz) {
+    for (int iz = 0; iz < kW && n.hasSkyLight; ++iz) {
         for (int ix = 0; ix < kW; ++ix) {
             int level = open;
             for (int y = r.y1 - 1; y >= r.y0 && level > 0; --y) {
@@ -175,7 +176,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
         }
     }
     // Seeds: lit cells next to a darker horizontal or lower neighbour.
-    for (int y = r.y0; y < r.y1; ++y) {
+    for (int y = r.y0; y < r.y1 && n.hasSkyLight; ++y) {
         for (int iz = 0; iz < kW; ++iz) {
             for (int ix = 0; ix < kW; ++ix) {
                 const int i = r.index(ix, y, iz);

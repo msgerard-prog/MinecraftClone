@@ -32,6 +32,10 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M12 perf review: in the Nether only mesh sections within the fog end
+  (+1 chunk) - today 4x more is meshed than its 96-block fog shows; light jobs in
+  sky-less dimensions could start one section below the lowest non-empty one;
+  free unloaded chunks and clear the renderer in bulk on a dimension switch (~38 ms).
 - From the M11 perf review: incremental block light for torches/lamps toggling (today:
   a 3x3-chunk relight each); per-state lookup tables for redstone properties and an
   open-addressing set for `hasTick`/torch toggles; an explicit update queue instead

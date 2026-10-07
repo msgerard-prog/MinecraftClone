@@ -265,6 +265,18 @@ int main(int argc, char** argv) {
     auto dimensionDir = [&](Dimension d) { return worldDir / std::string(mc::world::dimensionInfo(d).folder); };
     std::unique_ptr<mc::world::ChunkStorage> storage;
     if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+    // Storages of dimensions left behind, still writing (see the dimension switch).
+    struct RetiringStorage {
+        std::filesystem::path dir;
+        std::thread thread;
+        RetiringStorage(std::filesystem::path d, std::thread t) : dir(std::move(d)), thread(std::move(t)) {}
+        RetiringStorage(RetiringStorage&&) = default;
+        RetiringStorage& operator=(RetiringStorage&&) = default;
+        ~RetiringStorage() {
+            if (thread.joinable()) thread.join(); // everything is written before exit
+        }
+    };
+    std::vector<RetiringStorage> retiringStorage;
     // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
     if (generatorKind != "terrain" && generatorKind != "overworld") {
@@ -695,8 +707,21 @@ int main(int argc, char** argv) {
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
                 renderer.setDimension(dimension);
                 vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
-                storage.reset(); // flushes
-                if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+                // The old storage finishes its writes on a thread of its own (flushing
+                // hundreds of chunks would freeze the frame); a folder is reopened only
+                // after its previous storage has finished.
+                if (storage) {
+                    retiringStorage.push_back({dimensionDir(from), std::thread([old = std::move(storage)]() mutable { old.reset(); })});
+                }
+                if (!worldName.empty()) {
+                    const auto dir = dimensionDir(dimension);
+                    std::erase_if(retiringStorage, [&](RetiringStorage& r) {
+                        if (r.dir != dir) return false;
+                        r.thread.join();
+                        return true;
+                    });
+                    storage = std::make_unique<mc::world::ChunkStorage>(dir);
+                }
                 generatorPtr = makeGenerator(dimension);
                 loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
                 loader->setRenderDistance(opts->renderDistance);

@@ -175,16 +175,13 @@ void NetherGenerator::generate(Chunk& out) const {
         }
     }
 
-    // 5. Write the sections (Y 0..127 = sections 4..11; the rest stays air).
+    // 5. Write the sections (Y 0..127 = sections 4..11; the rest stays air): the array
+    //    is in section index order, so each section is assigned in one call.
     for (int s = 0; s < kSectionsPerChunk; ++s) {
         Section& section = out.mutableSection(s);
         const int y0 = kMinY + s * 16;
-        section.fill(0);
-        if (y0 < 0 || y0 >= kNetherTop) continue;
-        for (int y = 0; y < 16; ++y)
-            for (int z = 0; z < 16; ++z)
-                for (int x = 0; x < 16; ++x)
-                    if (const BlockStateId b = blocks[at(x, y0 + y, z)]) section.set(x, y, z, b);
+        if (y0 < 0 || y0 >= kNetherTop) section.fill(0);
+        else section.assign(blocks.data() + at(0, y0, 0));
     }
     static const auto nether = uniformBiomes(Biome::NetherWastes);
     out.setBiomes(nether);
@@ -242,8 +239,12 @@ void EndGenerator::generate(Chunk& out) const {
                        bedrock = r.defaultState(blocks::Bedrock), portal = r.defaultState(blocks::EndPortal);
     const ChunkPos pos = out.pos();
     const int32_t baseX = pos.x * 16, baseZ = pos.z * 16;
-    for (int s = 0; s < kSectionsPerChunk; ++s)
-        out.mutableSection(s).fill(0);
+    // Built in a flat array (section index order), then each section assigned once.
+    static thread_local std::array<BlockStateId, 16 * 16 * kHeight> blocks;
+    blocks.fill(0);
+    auto set = [](int x, int y, int z, BlockStateId b) {
+        if (y >= kMinY && y <= kMaxY) blocks[size_t(((y - kMinY) * 16 + z) * 16 + x)] = b;
+    };
     const int centreTop = islandTop(0, 0);
     for (int z = 0; z < 16; ++z)
         for (int x = 0; x < 16; ++x) {
@@ -251,24 +252,30 @@ void EndGenerator::generate(Chunk& out) const {
             const int top = islandTop(wx, wz);
             if (top >= 0)
                 for (int y = std::max(1, islandBottom(wx, wz)); y <= top; ++y)
-                    out.set(x, y, z, endStone);
+                    set(x, y, z, endStone);
             // Pillars.
             for (const Pillar& p : m_pillars) {
                 const int64_t dx = int64_t(wx) - p.x, dz = int64_t(wz) - p.z; // 64-bit: far chunks overflow int
                 if (dx * dx + dz * dz > int64_t(p.radius) * p.radius + 1) continue;
                 for (int y = 0; y <= p.height; ++y) // down to Y 0, below the island too
-                    out.set(x, y, z, obsidian);
-                if (dx == 0 && dz == 0) out.set(x, p.height + 1, z, bedrock); // where the crystal sits
+                    set(x, y, z, obsidian);
+                if (dx == 0 && dz == 0) set(x, p.height + 1, z, bedrock); // where the crystal sits
             }
             // The exit portal at the origin (wiki: Exit Portal): a bedrock bowl, the
             // portal inside, a bedrock column in the middle. Active (no dragon).
             const int64_t d2 = int64_t(wx) * wx + int64_t(wz) * wz;
-            if (d2 <= 12) out.set(x, centreTop, z, bedrock);
-            if (d2 <= 12) out.set(x, centreTop + 1, z, d2 <= 6 && d2 > 0 ? portal : bedrock);
+            if (d2 <= 12) set(x, centreTop, z, bedrock);
+            if (d2 <= 12) set(x, centreTop + 1, z, d2 <= 6 && d2 > 0 ? portal : bedrock);
             if (d2 == 0)
                 for (int y = centreTop + 1; y <= centreTop + 4; ++y)
-                    out.set(x, y, z, bedrock);
+                    set(x, y, z, bedrock);
         }
+    for (int s = 0; s < kSectionsPerChunk; ++s) {
+        const BlockStateId* src = blocks.data() + size_t(s) * Section::kVolume;
+        Section& section = out.mutableSection(s);
+        if (std::all_of(src, src + Section::kVolume, [](BlockStateId b) { return b == 0; })) section.fill(0);
+        else section.assign(src);
+    }
     static const auto end = uniformBiomes(Biome::TheEnd);
     out.setBiomes(end);
 }
