@@ -34,7 +34,8 @@ with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
 shift sneak / fly down, ctrl sprint, left click break, right click place, 1-9 / wheel
-select block, F3 debug screen, T chat, / command (/tp /time /give /seed /help). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.
+select block, F3 debug screen, T chat, / command (/tp /time /give /seed /help), E creative
+inventory (`--inventory` opens it for screenshots). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.
 
 The first build downloads dependencies into `out/deps` (≈1 min). Build output is

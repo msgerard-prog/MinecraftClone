@@ -45,7 +45,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         m_destroyCooldown = kDestroyDelay;
         return; // one action per tick
     }
-    if (use && m_useCooldown == 0) {
+    if (use && m_useCooldown == 0 && placeState != 0) { // empty hand: nothing to place
         m_useCooldown = kUseDelay;
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world::isInBuildHeight(at.y)) return;

@@ -109,3 +109,69 @@ TEST_CASE("F3 facing names follow vanilla yaw (0 south, 90 west, 180 north, 270 
     CHECK(std::string(DebugScreen::facingName(44)).starts_with("south"));
     CHECK(std::string(DebugScreen::facingName(46)).starts_with("west"));
 }
+
+#include "ui/CreativeInventory.h"
+#include "world/Blocks.h"
+
+namespace {
+
+mc::gfx::BlockModels visibleModels() {
+    const auto& r = mc::world::blockRegistry();
+    mc::gfx::BlockModels m;
+    m.resize(r.stateCount());
+    for (size_t s = 1; s < r.stateCount(); ++s)
+        m.at(mc::world::BlockStateId(s)).visible = true;
+    m.at(r.defaultState(mc::world::blocks::Water)).fluid = true;
+    return m;
+}
+
+// GUI 400x300: panel at ((400-195)/2, (300-136)/2) = (102, 82).
+constexpr int kGw = 400, kGh = 300;
+double gridX(int col) { return 102 + 9 + col * 18 + 8; }
+double gridY(int row) { return 82 + 18 + row * 18 + 8; }
+double hotbarY() { return 82 + 112 + 8; }
+
+} // namespace
+
+TEST_CASE("creative inventory lists visible blocks, never air or fluids") {
+    CreativeInventory inv;
+    inv.build(visibleModels());
+    const auto& r = mc::world::blockRegistry();
+    REQUIRE_FALSE(inv.items().empty());
+    for (auto s : inv.items()) {
+        CHECK(s != 0);
+        CHECK(r.blockOf(s) != mc::world::blocks::Water);
+    }
+}
+
+TEST_CASE("creative inventory: take from the grid, put into the hotbar, drop outside") {
+    CreativeInventory inv;
+    inv.build(visibleModels());
+    mc::Hotbar hotbar;
+    inv.open();
+    const auto first = inv.items()[0];
+    inv.click(gridX(0), gridY(0), kGw, kGh, hotbar);
+    CHECK(inv.carried() == first);
+    const auto old = hotbar.slot(4);
+    inv.click(gridX(4), hotbarY(), kGw, kGh, hotbar); // swap with hotbar slot 5
+    CHECK(hotbar.slot(4) == first);
+    CHECK(inv.carried() == old);
+    inv.click(5, 5, kGw, kGh, hotbar); // outside the panel: dropped
+    CHECK(inv.carried() == 0);
+    // Number key over a grid item copies it into that hotbar slot.
+    inv.numberKey(0, gridX(1), gridY(0), kGw, kGh, hotbar);
+    CHECK(hotbar.slot(0) == inv.items()[1]);
+    // Closing drops whatever is carried.
+    inv.click(gridX(2), gridY(0), kGw, kGh, hotbar);
+    inv.close();
+    CHECK(inv.carried() == 0);
+}
+
+TEST_CASE("creative inventory scrolling is clamped to the item rows") {
+    CreativeInventory inv;
+    inv.build(visibleModels());
+    inv.scroll(-100); // wheel down
+    CHECK(inv.scrollRow() == inv.maxScrollRow());
+    inv.scroll(100);
+    CHECK(inv.scrollRow() == 0);
+}

@@ -18,6 +18,7 @@
 #include "gameplay/Commands.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
+#include "ui/CreativeInventory.h"
 #include "ui/Hud.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
@@ -174,6 +175,10 @@ int main(int argc, char** argv) {
     if (!gui.init(renderer.packs(), renderer.atlas())) return 1;
     mc::ui::Chat chat;
     mc::ui::DebugScreen debugScreen;
+    mc::ui::CreativeInventory inventory;
+    inventory.build(renderer.models());
+    if (opts->inventory) inventory.open();
+    bool numberWasDown[mc::Hotbar::kSlots] = {};
     bool showDebug = opts->debugScreen;
     std::array<char, 64> typed{};
     mc::world::World world;
@@ -283,6 +288,30 @@ int main(int argc, char** argv) {
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
                            mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
+        } else if (inventory.isOpen()) {
+            int fw = 0, fh = 0;
+            window.framebufferSize(fw, fh);
+            const int scale = mc::gfx::GuiRenderer::guiScale(fw, fh);
+            double mx = 0, my = 0;
+            window.cursorPos(mx, my);
+            mx /= scale;
+            my /= scale;
+            for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
+                inventory.click(mx, my, fw / scale, fh / scale, hotbar);
+            inventory.scroll(window.scrollDelta());
+            for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
+                const bool down = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
+                if (down && !numberWasDown[i]) inventory.numberKey(i, mx, my, fw / scale, fh / scale, hotbar);
+                numberWasDown[i] = down;
+            }
+            if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
+                inventory.close();
+                if (!screenshotMode) window.setCursorCaptured(true);
+                attackArmed = false;
+            }
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::RightMouse,
+                           mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
+                window.takePresses(p);
         } else {
             for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
                 window.takePresses(p);
@@ -295,14 +324,18 @@ int main(int argc, char** argv) {
                 } else if (window.takePresses(mc::Press::Chat) > 0) {
                     chat.open();
                     window.setCursorCaptured(false);
+                } else if (window.takePresses(mc::Press::Inventory) > 0) {
+                    inventory.open();
+                    window.setCursorCaptured(false);
                 }
             } else {
                 window.takePresses(mc::Press::Chat);
                 window.takePresses(mc::Press::Command);
+                window.takePresses(mc::Press::Inventory);
             }
             if (!screenshotMode) {
                 // Click to capture the mouse, Esc to release it (pause menu: later).
-                if (!window.cursorCaptured() && !chat.isOpen() && window.leftMousePressed()) {
+                if (!window.cursorCaptured() && window.leftMousePressed()) {
                     window.setCursorCaptured(true);
                     attackArmed = false;
                     window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
@@ -408,6 +441,18 @@ int main(int argc, char** argv) {
                 fps = fpsFrames;
                 fpsFrames = 0;
                 fpsStart = now;
+            }
+            if (inventory.isOpen()) {
+                double mx = 0, my = 0;
+                window.cursorPos(mx, my);
+                if (screenshotMode) { // a fixed hover for screenshots: the 3rd grid item
+                    mx = (guiW - mc::ui::CreativeInventory::kWidth) / 2 + 9 + 2 * 18 + 8;
+                    my = (guiH - mc::ui::CreativeInventory::kHeight) / 2 + 18 + 8;
+                } else {
+                    mx /= scale;
+                    my /= scale;
+                }
+                inventory.draw(batch, renderer.models(), hotbar, guiW, guiH, mx, my);
             }
             if (showDebug) {
                 mc::ui::DebugInfo d;

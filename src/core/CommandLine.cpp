@@ -66,6 +66,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--time needs ticks >= 0, e.g. 6000 (noon) or 18000 (midnight)";
                 return std::nullopt;
             }
+        } else if (arg == "--inventory") {
+            opts.inventory = true;
         } else if (arg == "--f3") {
             opts.debugScreen = true;
         } else if (arg == "--command") {
