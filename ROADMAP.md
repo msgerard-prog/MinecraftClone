@@ -4,11 +4,11 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-v0.13.0: M13 done - saves are Java Edition 1.21.11 (DataVersion 4671, heightmaps,
-1.21.4+/1.21.5+ field names, spawn compound, game rules, dimensions; older saves
-still load), 1.21.11 defaults (render distance 16, Nether fog 10-96, sprint-sneak),
-copper tools; versioned builds (exe version resource, F3, --version, git tags).
-Per-dimension world heights (Nether/End Y 0..255). M1-M12 done (v0.12.0).
+v0.14.0: M14 done - water and lava flow like vanilla (levels, falling, slope search,
+sources, reactions, washing away), fluid_ticks saved, flowing surfaces at vanilla's
+corner heights, swimming/currents/drowning/lava damage and burning, buckets (milk,
+lava fuel). Reviews applied (cobblestone generators, midair sources, O(1) tick set).
+M1-M13 done (v0.13.0).
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
@@ -159,7 +159,7 @@ and GUI textures are made with their systems.
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | ✅ 2026-10-07 (no comparators/observers; instant piston moves: see deviations) |
 | M12 | Dimensions: Nether and End, portals | ✅ 2026-10-07 (one dimension loaded at a time; no dragon or strongholds: see deviations) |
 | M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | ✅ 2026-10-07 v0.13.0 (vanilla opening: in-game check) |
-| M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | Flow matches vanilla |
+| M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | ✅ 2026-10-07 v0.14.0 |
 | M15 | Random ticks & fire: crops, saplings, leaf decay, grass spread, fire, flint and steel | Fire spreads like vanilla |
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | Classic mobs behave like vanilla |
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, brewing, farming | Core survival loop complete |
@@ -178,6 +178,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M14 (v0.14.0): fluids - flow, lava/water reactions, swimming, drowning, burning, buckets.
 - 2026-10-07 M13 (v0.13.0): Java Edition 1.21.11 saves and defaults, copper tools, versioning.
 - 2026-10-07 Vanilla world heights per dimension (Nether/End 0..255).
 - 2026-10-07 M12: Nether, End, portals, dimension travel and saves.
