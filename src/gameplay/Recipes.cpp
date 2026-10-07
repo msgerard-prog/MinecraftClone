@@ -170,7 +170,9 @@ float smeltExperienceByName(std::string_view n);
 // furnace's RecipesUsed): recipes with one kind of input, or a tag of inputs
 // (glass from #smelts_to_glass, charcoal from #logs_that_burn), are named after the
 // output; ore and raw-metal recipes, of which each output has several, are
-// "<output>_from_smelting_<input>" (one per input; quartz has only one).
+// "<output>_from_smelting_<input>" (one per input; quartz has only one). The wiki
+// has no full id list, so these are our rules after vanilla's pattern (agreed with
+// the user, 2026-10-07); new recipes follow the same rules.
 std::string smeltRecipeName(std::string_view input, std::string_view output) {
     std::string id = "minecraft:" + std::string(output);
     if ((input.starts_with("raw_") || input.ends_with("_ore")) && output != "quartz")

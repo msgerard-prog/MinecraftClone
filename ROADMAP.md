@@ -95,6 +95,8 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   Nether fog 10-96, sneak-sprint), then 1.21.9-1.21.11 content as milestones.
 - The newest generator of each dimension is the default for new worlds, always;
   older generators stay only for worlds created with them (their pinned hashes).
+- Recipe ids (furnace RecipesUsed, later recipe books): follow vanilla's naming
+  pattern with our own rules where the exact id can't be looked up (no in-game check).
 
 ## Texture plan (agreed 2026-10-06)
 Textures arrive with their blocks (add-block skill makes the placeholder), by
@@ -107,10 +109,6 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **v0.17.1 check:** in vanilla 1.21.11, type `/recipe give @s ` and look at the
-  suggestions: are the smelting ids `minecraft:iron_ingot_from_smelting_raw_iron`,
-  `minecraft:glass`, `minecraft:charcoal`, `minecraft:quartz` (ours, in furnaces'
-  RecipesUsed)? A wrong id only means vanilla pays no experience for that recipe.
 - **M17 note (worldgen):** sugar cane exists (paper -> books -> enchanting) but isn't
   generated yet; per the 2026-10-07 decision it arrives with M18's new Overworld
   generator kind (old worlds keep their generator and pinned hash). Say if you'd
