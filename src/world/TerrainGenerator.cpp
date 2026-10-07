@@ -112,9 +112,9 @@ void TerrainGenerator::generate(Chunk& chunk) const {
             }
         }
         if (any) {
-            chunk.section(s).assign(buffer.data());
+            chunk.mutableSection(s).assign(buffer.data());
         } else {
-            chunk.section(s).fill(air);
+            chunk.mutableSection(s).fill(air);
         }
     }
 }

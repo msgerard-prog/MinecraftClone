@@ -26,13 +26,30 @@ struct BakedVariant {
 
 // Vanilla blockstates can list several models for one state; the game picks one per
 // block position (e.g. grass tops randomly rotated so the ground doesn't tile).
+// A box element of a non-cube model (vanilla model "elements"), in 1/16 block.
+// Each face has a sprite and a texel rectangle (u0, v0, u1, v1 in 0..16).
+struct BakedBox {
+    uint8_t from[3];
+    uint8_t to[3];
+    struct Face {
+        uint16_t sprite = 0;
+        uint8_t uv[4] = {0, 0, 16, 16};
+        bool present = true;
+    } faces[world::kDirectionCount];
+};
+
 struct BakedModel {
     static constexpr int kMaxVariants = 4;
+    static constexpr int kMaxBoxes = 2;
     bool visible = false;     // false for air / invisible blocks
     bool translucent = false; // drawn in the blended pass (water, ice, stained glass)
-    bool fluid = false;       // faces against the same block are hidden; surface at 8/9
+    bool fluid = false;       // surface at 8/9 (source fluid)
+    bool cullSame = false;    // faces against the same block are hidden (fluids, glass)
     uint8_t variantCount = 1;
     BakedVariant variants[kMaxVariants];
+    // Non-cube models (torch...): boxes instead of the 6 full-cube faces.
+    uint8_t boxCount = 0;
+    BakedBox boxes[kMaxBoxes];
 };
 
 // Per-state models, resolved once at startup (vanilla "model baking").

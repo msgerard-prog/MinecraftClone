@@ -57,6 +57,11 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
     m_stateBlock.insert(m_stateBlock.end(), def.stateCount, blockId);
     m_stateOpaque.insert(m_stateOpaque.end(), def.stateCount, settings.opaqueCube ? 1 : 0);
     m_stateCollides.insert(m_stateCollides.end(), def.stateCount, settings.collision ? 1 : 0);
+    const uint8_t opacity = settings.lightOpacity >= 0 ? static_cast<uint8_t>(settings.lightOpacity)
+                            : settings.opaqueCube      ? 15
+                                                       : 0;
+    m_stateOpacity.insert(m_stateOpacity.end(), def.stateCount, opacity);
+    m_stateEmission.insert(m_stateEmission.end(), def.stateCount, settings.lightEmission);
     m_blocks.push_back(std::move(def));
     return blockId;
 }

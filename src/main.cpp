@@ -14,6 +14,7 @@
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
+#include "world/LightManager.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
 #include "world/TerrainGenerator.h"
@@ -69,6 +70,32 @@ void buildTestWorld(mc::world::World& world) {
         for (int dx = 0; dx < 3; ++dx)
             for (int dy = 1; dy <= 3; ++dy)
                 world.setBlock({2 + dx, y - dy, -1 + dz}, 0);
+    // A dark stone room (light check): interior x 9..13, z -5..-1, a doorway in the
+    // south wall, a glass window in the east wall, a torch on the floor and
+    // glowstone in the ceiling.
+    const BlockStateId stone = r.defaultState(blocks::Stone);
+    for (int bx = 8; bx <= 14; ++bx)
+        for (int bz = -6; bz <= 0; ++bz) {
+            world.setBlock({bx, y + 4, bz}, stone); // roof
+            if (bx == 8 || bx == 14 || bz == -6 || bz == 0)
+                for (int dy = 0; dy < 4; ++dy)
+                    world.setBlock({bx, y + dy, bz}, stone);
+        }
+    world.setBlock({11, y, 0}, 0); // doorway
+    world.setBlock({11, y + 1, 0}, 0);
+    world.setBlock({14, y + 1, -3}, r.defaultState(blocks::Glass));
+    world.setBlock({9, y, -5}, r.defaultState(blocks::Torch));
+    world.setBlock({13, y + 4, -1}, r.defaultState(blocks::Glowstone));
+    // Its unlit twin to the east (x 16..22): only sky light through the doorway.
+    for (int bx = 16; bx <= 22; ++bx)
+        for (int bz = -6; bz <= 0; ++bz) {
+            world.setBlock({bx, y + 4, bz}, stone);
+            if (bx == 16 || bx == 22 || bz == -6 || bz == 0)
+                for (int dy = 0; dy < 4; ++dy)
+                    world.setBlock({bx, y + dy, bz}, stone);
+        }
+    world.setBlock({19, y, 0}, 0);
+    world.setBlock({19, y + 1, 0}, 0);
 }
 
 // Vanilla-like spawn: the nearest land column to the origin (spiral search), feet on
@@ -90,7 +117,7 @@ glm::dvec3 findSpawn(const mc::world::TerrainGenerator& gen) {
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
 // re-mesh) with scripted look directions, so a screenshot can verify editing.
 void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar,
-                 mc::gfx::WorldRenderer& renderer) {
+                 mc::gfx::WorldRenderer& renderer, std::vector<mc::world::BlockPos>& edits) {
     std::vector<mc::world::BlockPos> changed;
     const float yaw = player.yaw(), pitch = player.pitch();
     auto click = [&](float y, float p, bool attack, int slot) {
@@ -103,6 +130,7 @@ void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar
         fresh.tick(world, player, mc::BlockInteraction::target(world, player),
                    hotbar.selectedBlock(), in, changed);
         renderer.onBlocksChanged(changed);
+        edits.insert(edits.end(), changed.begin(), changed.end());
     };
     for (int i = 0; i < 3; ++i)
         click(yaw, 55.0f, true, 0); // dig in front
@@ -142,10 +170,15 @@ int main(int argc, char** argv) {
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
     const mc::world::TerrainGenerator generator(opts->seed);
     std::unique_ptr<mc::world::ChunkLoader> loader;
+    std::vector<mc::world::ChunkPos> loadedChunks;
+    std::vector<mc::world::ChunkPos> unloadedChunks;
+    loadedChunks.reserve(256);
+    unloadedChunks.reserve(256);
     if (opts->flat) {
         buildTestWorld(world);
         renderer.setRenderDistance(8);
-        renderer.markAllDirty(world);
+        // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
+        world.forEachChunk([&](const mc::world::Chunk& c) { loadedChunks.push_back(c.pos()); });
     } else {
         // Chunks stream in around the player on worker threads (a quarter of the cores;
         // meshing has half).
@@ -156,10 +189,15 @@ int main(int argc, char** argv) {
         renderer.setRenderDistance(opts->renderDistance);
         spawn = findSpawn(generator);
     }
-    std::vector<mc::world::ChunkPos> loadedChunks;
-    std::vector<mc::world::ChunkPos> unloadedChunks;
-    loadedChunks.reserve(256);
-    unloadedChunks.reserve(256);
+    // Lighting on worker threads (a quarter of the cores).
+    mc::world::LightManager lighting(
+        world, std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 4));
+    std::vector<mc::world::ChunkPos> litChunks;
+    std::vector<mc::world::SectionPos> relitSections;
+    std::vector<mc::world::BlockPos> frameEdits; // all block edits this frame (for lighting)
+    litChunks.reserve(256);
+    relitSections.reserve(256);
+    frameEdits.reserve(16);
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
@@ -243,6 +281,7 @@ int main(int argc, char** argv) {
             // Act on the block the outline showed on the last frame (vanilla).
             interaction.tick(world, player, lastHit, hotbar.selectedBlock(), clicks, changedBlocks);
             renderer.onBlocksChanged(changedBlocks);
+            frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             renderer.tick();
         }
 
@@ -264,9 +303,15 @@ int main(int argc, char** argv) {
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.x))),
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.z)))};
             loader->update(center, loadedChunks, unloadedChunks);
-            renderer.onChunksUnloaded(unloadedChunks);
-            renderer.onChunksLoaded(world, loadedChunks);
         }
+        // Lighting follows loading and edits; meshing follows lighting.
+        lighting.update(loadedChunks, unloadedChunks, frameEdits, litChunks, relitSections);
+        renderer.onChunksUnloaded(unloadedChunks);
+        renderer.onChunksLit(world, litChunks);
+        renderer.onLightChanged(relitSections);
+        loadedChunks.clear();
+        unloadedChunks.clear();
+        frameEdits.clear();
         renderer.update(world, camera.position);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
@@ -278,10 +323,11 @@ int main(int argc, char** argv) {
         overlay.draw(camera, fbWidth, fbHeight,
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
 
-        if (!meshed && renderer.pendingMeshes() == 0 && (!loader || loader->pending() == 0)) {
+        if (!meshed && renderer.pendingMeshes() == 0 && lighting.pending() == 0 &&
+            (!loader || loader->pending() == 0) && frame >= 0 && renderer.stats().sections > 0) {
             meshed = true;
             renderer.resetGpuStats(); // steady-state GPU numbers, like the CPU stats
-            if (opts->demoEdit) runDemoEdit(world, player, hotbar, renderer);
+            if (opts->demoEdit) runDemoEdit(world, player, hotbar, renderer, frameEdits);
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
                         (mc::timeSeconds() - startTime) * 1000.0, st.sections,

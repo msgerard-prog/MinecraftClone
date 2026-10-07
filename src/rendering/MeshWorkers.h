@@ -19,7 +19,9 @@ namespace mc::gfx {
 struct MeshJob {
     world::SectionPos pos;
     uint32_t version = 0;                    // stale results are dropped by the owner
-    std::vector<world::BlockStateId> padded; // input: 18^3 snapshot
+    world::SectionRefs refs;                 // input: shared section + light refs
+    std::vector<world::BlockStateId> padded; // worker scratch: 18^3 blocks
+    std::vector<uint8_t> sky, blockLight;    // worker scratch: 18^3 light
     SectionMesh mesh;                        // output (opaque + translucent)
 };
 

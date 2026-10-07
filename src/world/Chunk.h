@@ -1,11 +1,13 @@
 #pragma once
 
 #include "world/Coords.h"
+#include "world/Light.h"
 #include "world/Section.h"
 
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 namespace mc::world {
 
@@ -28,31 +30,63 @@ struct BlockPos {
 };
 
 // A 16 x 384 x 16 column: 24 sections from Y -64 (section 0) to Y 319 (section 23).
+//
+// Sections and their light are shared, immutable snapshots (copy-on-write): worker
+// threads (lighting, meshing) hold references to them while the main thread keeps
+// editing - an edit copies a section first if anyone else still holds it.
 class Chunk {
 public:
-    explicit Chunk(ChunkPos pos) : m_pos(pos) {}
+    explicit Chunk(ChunkPos pos) : m_pos(pos) {
+        for (auto& s : m_sections)
+            s = std::make_shared<Section>();
+    }
 
     ChunkPos pos() const { return m_pos; }
-    // Reuse this chunk object for another position (sections keep their capacity;
-    // the generator overwrites every section).
-    void reset(ChunkPos pos) { m_pos = pos; }
+    // Reuse this chunk object for another position (the generator overwrites every
+    // section; light is recomputed).
+    void reset(ChunkPos pos) {
+        m_pos = pos;
+        m_lit = false;
+        for (auto& l : m_light)
+            l.reset();
+    }
 
     // Local x/z (0..15), world y. Out-of-height reads return air; writes are ignored.
     BlockStateId get(int x, int y, int z) const {
         if (!isInBuildHeight(y)) return 0;
-        return m_sections[sectionIndex(y)].get(x, blockToLocal(y), z);
+        return m_sections[sectionIndex(y)]->get(x, blockToLocal(y), z);
     }
     void set(int x, int y, int z, BlockStateId state) {
         if (!isInBuildHeight(y)) return;
-        m_sections[sectionIndex(y)].set(x, blockToLocal(y), z, state);
+        mutableSection(sectionIndex(y)).set(x, blockToLocal(y), z, state);
     }
 
-    Section& section(int index) { return m_sections[index]; }
-    const Section& section(int index) const { return m_sections[index]; }
+    const Section& section(int index) const { return *m_sections[index]; }
+    // Write access: copies the section first if a worker still holds the old one.
+    Section& mutableSection(int index) {
+        auto& s = m_sections[index];
+        if (s.use_count() > 1) s = std::make_shared<Section>(*s);
+        return *s;
+    }
+    // A reference that stays valid (unchanged) while the chunk is edited.
+    std::shared_ptr<const Section> shareSection(int index) const { return m_sections[index]; }
+
+    // Light (computed by LightEngine; until then the chunk is not lit).
+    bool lit() const { return m_lit; }
+    const std::shared_ptr<const SectionLight>& light(int index) const { return m_light[index]; }
+    void setLight(std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light) {
+        m_light = std::move(light);
+        m_lit = true;
+    }
+    // Light at local x/z, world y (above the world: full sky light).
+    uint8_t skyLight(int x, int y, int z) const;
+    uint8_t blockLight(int x, int y, int z) const;
 
 private:
     ChunkPos m_pos;
-    std::array<Section, kSectionsPerChunk> m_sections;
+    std::array<std::shared_ptr<Section>, kSectionsPerChunk> m_sections;
+    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> m_light;
+    bool m_lit = false;
 };
 
 } // namespace mc::world

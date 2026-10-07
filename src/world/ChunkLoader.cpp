@@ -23,8 +23,10 @@ void ChunkLoader::setRenderDistance(int chunks) {
 }
 
 bool ChunkLoader::wanted(int dx, int dz, int renderDistance) {
-    for (int oz = -1; oz <= 1; ++oz)
-        for (int ox = -1; ox <= 1; ++ox)
+    // Two rings: lighting a chunk needs its 3x3 neighbourhood loaded, and meshing a
+    // chunk needs its 8 neighbours lit -> 5x5 loaded around every rendered chunk.
+    for (int oz = -2; oz <= 2; ++oz)
+        for (int ox = -2; ox <= 2; ++ox)
             if (inRadius(dx + ox, dz + oz, renderDistance)) return true;
     return false;
 }
@@ -49,7 +51,7 @@ void ChunkLoader::run() {
 }
 
 void ChunkLoader::rebuildQueue(ChunkPos center) {
-    const int r = m_renderDistance + 1;
+    const int r = m_renderDistance + 2;
     m_queue.clear();
     for (int dz = -r; dz <= r; ++dz) {
         for (int dx = -r; dx <= r; ++dx) {
@@ -88,7 +90,7 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
         m_haveCenter = true;
         rebuildQueue(center);
         // Unload chunks 2+ chunks beyond the wanted area (hysteresis).
-        const int keep = m_renderDistance + 3;
+        const int keep = m_renderDistance + 4;
         m_far.clear(); // reused buffer: no allocation on the frame path
         m_world.forEachChunk([&](const Chunk& c) {
             if (!inRadius(c.pos().x - center.x, c.pos().z - center.z, keep))

@@ -38,6 +38,7 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("water",
                 {.hardness = 100.0f,
                  .resistance = 100.0f,
+                 .lightOpacity = 1,
                  .opaqueCube = false,
                  .collision = false,
                  .layer = RenderLayer::Translucent},
@@ -46,6 +47,19 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("deepslate", {.hardness = 3.0f, .resistance = 6.0f}, {{&axis, "y"}}),
           blocks::Deepslate);
     check(r.add("gravel", {.hardness = 0.6f, .resistance = 0.6f}), blocks::Gravel);
+    // Light sources (wiki: Light - glowstone 15, torch 14) and glass.
+    check(r.add("glowstone", {.hardness = 0.3f, .resistance = 0.3f, .lightEmission = 15}),
+          blocks::Glowstone);
+    check(r.add("torch", {.lightEmission = 14,
+                          .opaqueCube = false,
+                          .collision = false,
+                          .layer = RenderLayer::Cutout}),
+          blocks::Torch);
+    check(r.add("glass", {.hardness = 0.3f,
+                          .resistance = 0.3f,
+                          .opaqueCube = false,
+                          .layer = RenderLayer::Cutout}),
+          blocks::Glass);
     return r;
 }
 

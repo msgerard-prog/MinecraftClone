@@ -84,13 +84,27 @@ void WorldRenderer::markChunkSections(const world::World& world, world::ChunkPos
     }
 }
 
-void WorldRenderer::onChunksLoaded(const world::World& world,
-                                   const std::vector<world::ChunkPos>& loaded) {
+void WorldRenderer::onChunksLit(const world::World& world,
+                                const std::vector<world::ChunkPos>& lit) {
     m_streaming = true;
     m_ready.clear();
-    m_meshTracker.onLoaded(world, loaded, m_ready);
+    m_meshTracker.onLoaded(world, lit, m_ready);
     for (const world::ChunkPos& p : m_ready)
         markChunkSections(world, p);
+}
+
+void WorldRenderer::onLightChanged(const std::vector<world::SectionPos>& sections) {
+    // A section's mesh reads light from its 26 neighbours: re-mesh all of them.
+    for (const world::SectionPos& s : sections) {
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dz = -1; dz <= 1; ++dz)
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const world::SectionPos p{s.x + dx, s.y + dy, s.z + dz};
+                    if (p.y < kMinSectionY || p.y > kMaxSectionY) continue;
+                    if (!m_meshTracker.isMeshed({p.x, p.z})) continue;
+                    markDirty(p);
+                }
+    }
 }
 
 void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
@@ -208,7 +222,12 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
         job->pos = pos;
         job->version = ++st.version;
         ++st.inFlight;
-        world::snapshotSection(world, pos, job->padded.data());
+        if (!world::captureSection(world, pos, job->refs)) { // neighbours gone: skip
+            --st.inFlight;
+            m_workers->recycle(std::move(job));
+            eraseIfIdle(pos);
+            continue;
+        }
         m_workers->submit(std::move(job));
         ++m_inFlight;
     }
@@ -248,13 +267,16 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     const FogRange fog = terrainFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);
     glUniform3f(5, kSkyR, kSkyG, kSkyB);
+    glUniform1f(7, m_skyDarken);
     glBindTextureUnit(0, m_atlas.texture());
 
     // Opaque pass.
     // Nothing beyond the fog end is visible: skip those sections (vanilla doesn't draw
     // past the render distance either; chunks stay loaded a little further out).
     const float maxDistance = fog.end;
+    glUniform1f(6, 0.5f); // cutout: torches, glass edges
     m_chunks.draw(camera, viewProj, false, maxDistance);
+    glUniform1f(6, 0.0f);
 
     // Translucent pass: blended, no depth writes, far sections first. Back faces stay
     // culled; fluids emit reversed copies of the faces vanilla shows from both sides.

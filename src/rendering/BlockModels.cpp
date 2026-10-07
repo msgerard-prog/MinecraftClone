@@ -142,6 +142,45 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         case blocks::Gravel:
             m = single(cubeAll(sprite("gravel")));
             break;
+        case blocks::Glowstone:
+            m = single(cubeAll(sprite("glowstone")));
+            break;
+        case blocks::Glass:
+            m = single(cubeAll(sprite("glass")));
+            m.cullSame = true; // glass hides its faces against other glass
+            break;
+        case blocks::Torch: {
+            // Vanilla torch model: a 2x10x2 stick in the middle of the block; sides use
+            // the texture's stick column, the top shows the flame (texels 7..9, 6..8).
+            m.visible = true;
+            m.boxCount = 1;
+            BakedBox& b = m.boxes[0];
+            b.from[0] = 7;
+            b.from[1] = 0;
+            b.from[2] = 7;
+            b.to[0] = 9;
+            b.to[1] = 10;
+            b.to[2] = 9;
+            const uint16_t t = sprite("torch");
+            for (auto& f : b.faces) {
+                f.sprite = t;
+                f.uv[0] = 7;
+                f.uv[1] = 6;
+                f.uv[2] = 9;
+                f.uv[3] = 16;
+            }
+            auto& top = b.faces[int(Direction::Up)];
+            top.uv[0] = 7;
+            top.uv[1] = 6;
+            top.uv[2] = 9;
+            top.uv[3] = 8;
+            auto& bottom = b.faces[int(Direction::Down)];
+            bottom.uv[0] = 7;
+            bottom.uv[1] = 14;
+            bottom.uv[2] = 9;
+            bottom.uv[3] = 16;
+            break;
+        }
         case blocks::Water: {
             // Every level uses the still texture for now (flowing texture with
             // direction comes with fluid flow).
@@ -151,6 +190,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             m = single(v);
             m.translucent = true;
             m.fluid = true;
+            m.cullSame = true;
             break;
         }
         case blocks::OakLog:

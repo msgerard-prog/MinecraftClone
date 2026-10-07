@@ -14,9 +14,9 @@ namespace mc::world {
 // first on worker threads, inserts finished ones into the World (main thread), and
 // unloads chunks that fell out of range.
 //
-// Wanted set: every chunk inside the render circle plus all 8 neighbours of each
-// (meshing a chunk needs its neighbours). Unloading waits until a chunk is 2 chunks
-// beyond that, so chunks don't flicker at the edge. Unloaded chunks are recycled:
+// Wanted set: every chunk inside the render circle plus two rings of neighbours
+// (lighting needs a 3x3 neighbourhood, meshing needs lit neighbours). Unloading waits until a chunk
+// is 2 chunks beyond that, so chunks don't flicker at the edge. Unloaded chunks are recycled:
 // workers reuse them instead of allocating, and the main thread frees nothing.
 class ChunkLoader {
 public:
@@ -41,8 +41,8 @@ public:
     static bool inRadius(int dx, int dz, int radius) {
         return dx * dx + dz * dz <= radius * radius + radius;
     }
-    // True if the chunk at (dx, dz) from the centre is inside the render circle or a
-    // neighbour of a chunk that is.
+    // True if the chunk at (dx, dz) from the centre is inside the render circle or
+    // within 2 chunks of a chunk that is.
     static bool wanted(int dx, int dz, int renderDistance);
 
 private:

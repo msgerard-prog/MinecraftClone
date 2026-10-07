@@ -2,8 +2,10 @@
 
 #include "world/World.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 namespace mc::world {
 
@@ -28,6 +30,22 @@ constexpr int paddedIndex(int x, int y, int z) {
 }
 
 void snapshotSection(const World& world, SectionPos pos, BlockStateId* out);
+
+// Shared references to a section and its 26 neighbours (blocks and light), captured
+// on the main thread in O(27) and read on a worker (sections are copy-on-write).
+// Index: ((dy + 1) * 3 + (dz + 1)) * 3 + (dx + 1). Missing light = not computed.
+struct SectionRefs {
+    SectionPos pos;
+    std::array<std::shared_ptr<const Section>, 27> blocks;
+    std::array<std::shared_ptr<const SectionLight>, 27> light;
+};
+
+// Main thread. False if any of the 9 chunks around is not loaded.
+bool captureSection(const World& world, SectionPos pos, SectionRefs& out);
+
+// Worker: the padded 18^3 arrays a mesher needs - block states, sky and block light.
+// Outside the world, blocks are air; sky light is 15 above / 0 below.
+void buildPadded(const SectionRefs& refs, BlockStateId* blocks, uint8_t* sky, uint8_t* blockLight);
 
 } // namespace mc::world
 

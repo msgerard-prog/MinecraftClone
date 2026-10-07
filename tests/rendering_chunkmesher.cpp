@@ -41,6 +41,16 @@ std::vector<PackedVertex> meshOf(const World& world, SectionPos pos) {
 
 BlockStateId stone() { return blockRegistry().defaultState(blocks::Stone); }
 
+// Vertex position in blocks.
+glm::vec3 posOf(const mc::gfx::VertexAttribs& a) {
+    return glm::vec3(float(a.x16), float(a.y16), float(a.z16)) / 16.0f;
+}
+
+// Full-face UV -> sprite corner: 0 (0,0) 1 (0,16) 2 (16,16) 3 (16,0).
+uint32_t uvCorner(const mc::gfx::VertexAttribs& a) {
+    return a.u ? (a.v ? 2u : 3u) : (a.v ? 1u : 0u);
+}
+
 } // namespace
 
 TEST_CASE("a lone block has 6 faces; two touching blocks hide their shared faces") {
@@ -94,7 +104,7 @@ TEST_CASE("every quad is counter-clockwise seen from outside") {
         glm::vec3 p[4];
         for (int i = 0; i < 4; ++i) {
             const auto u = unpackVertex(verts[q + i]);
-            p[i] = {float(u.x), float(u.y), float(u.z)};
+            p[i] = posOf(u);
         }
         // Triangles 0-1-2 and 0-2-3 (the shared index buffer's order).
         const glm::vec3 outward = (p[0] + p[2]) * 0.5f - center;
@@ -120,10 +130,10 @@ TEST_CASE("texture orientation: top of sprite = +Y on sides, north on up, south 
         const glm::vec3 texRight = glm::cross(-n, texUp); // viewer looks along -n
         for (int i = 0; i < 4; ++i) {
             const auto u = unpackVertex(verts[q + i]);
-            const glm::vec3 p = glm::vec3(float(u.x), float(u.y), float(u.z)) - glm::vec3(0.5f);
+            const glm::vec3 p = posOf(u) - glm::vec3(0.5f);
             INFO("face ", int(face), " corner ", i);
-            CHECK(kV[u.uvCorner] == (glm::dot(p, texUp) > 0 ? 0.0f : 1.0f));    // v0 = top
-            CHECK(kU[u.uvCorner] == (glm::dot(p, texRight) > 0 ? 1.0f : 0.0f)); // u0 = left
+            CHECK(kV[uvCorner(u)] == (glm::dot(p, texUp) > 0 ? 0.0f : 1.0f));    // v0 = top
+            CHECK(kU[uvCorner(u)] == (glm::dot(p, texRight) > 0 ? 1.0f : 0.0f)); // u0 = left
             CHECK(u.sprite == (face == Direction::East ? 9u : 7u));
         }
     }
@@ -153,16 +163,32 @@ TEST_CASE("a tinted face carries its tint into the vertices (grass top)") {
 }
 
 TEST_CASE("packVertex/unpackVertex round-trip the full field ranges") {
-    const auto v =
-        mc::gfx::packVertex(16, 0, 16, 5, 3, mc::gfx::kMaxSprites - 1, mc::gfx::Tint::Grass);
-    const auto u = unpackVertex(v);
-    CHECK(u.x == 16);
-    CHECK(u.y == 0);
-    CHECK(u.z == 16);
+    mc::gfx::VertexAttribs a{};
+    a.x16 = 256;
+    a.y16 = 0;
+    a.z16 = 255;
+    a.face = 5;
+    a.sprite = mc::gfx::kMaxSprites - 1;
+    a.u = 16;
+    a.v = 7;
+    a.tint = mc::gfx::Tint::Water;
+    a.fluidTop = true;
+    a.ao = 3;
+    a.sky4 = 60;
+    a.block4 = 33;
+    const auto u = unpackVertex(mc::gfx::packVertex(a));
+    CHECK(u.x16 == 256);
+    CHECK(u.y16 == 0);
+    CHECK(u.z16 == 255);
     CHECK(u.face == 5);
-    CHECK(u.uvCorner == 3);
     CHECK(u.sprite == mc::gfx::kMaxSprites - 1);
-    CHECK(u.tint == mc::gfx::Tint::Grass);
+    CHECK(u.u == 16);
+    CHECK(u.v == 7);
+    CHECK(u.tint == mc::gfx::Tint::Water);
+    CHECK(u.fluidTop);
+    CHECK(u.ao == 3);
+    CHECK(u.sky4 == 60);
+    CHECK(u.block4 == 33);
 }
 
 TEST_CASE("face shade table matches vanilla") {
@@ -201,7 +227,7 @@ TEST_CASE("rotation and mirroring move UV corners as documented") {
         std::vector<uint32_t> uv;
         for (const auto& v : out.opaque)
             if (unpackVertex(v).face == uint32_t(Direction::South))
-                uv.push_back(unpackVertex(v).uvCorner);
+                uv.push_back(uvCorner(unpackVertex(v)));
         return uv;
     };
     CHECK(southCorners() == std::vector<uint32_t>{0, 1, 2, 3});
@@ -252,6 +278,7 @@ TEST_CASE("water: translucent pass, hidden against water, surface lowered under 
     auto& wm = models.at(water);
     wm.translucent = true;
     wm.fluid = true;
+    wm.cullSame = true; // as the real water model
     World w;
     w.createChunk({0, 0});
     // A 2x1x1 pool of water with a stone floor under it.
@@ -271,7 +298,7 @@ TEST_CASE("water: translucent pass, hidden against water, surface lowered under 
         const auto u = mc::gfx::unpackVertex(v);
         if (u.fluidTop) {
             ++lowered;
-            CHECK(u.y == 6); // only top-edge vertices (y + 1) are lowered
+            CHECK(u.y16 == 6 * 16); // only top-edge vertices (y + 1) are lowered
         }
     }
     CHECK(lowered == 2 * (2 * 4 + 6 * 2)); // (2 tops x 4 + 6 sides x 2 top corners), both sides

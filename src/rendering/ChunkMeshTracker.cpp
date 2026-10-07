@@ -5,7 +5,8 @@ namespace mc::gfx {
 bool ChunkMeshTracker::neighbourhoodLoaded(const world::World& world, world::ChunkPos pos) {
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
-            if (!world.chunk({pos.x + dx, pos.z + dz})) return false;
+            if (const world::Chunk* c = world.chunk({pos.x + dx, pos.z + dz}); !c || !c->lit())
+                return false;
     return true;
 }
 

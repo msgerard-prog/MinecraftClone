@@ -9,7 +9,8 @@
 namespace mc::gfx {
 
 // Which streamed chunks have been given meshes. A chunk becomes meshable once it and
-// all 8 neighbours are loaded (its border faces depend on them). GL-free (tested).
+// all 8 neighbours are loaded and lit (border faces and smooth light depend on them).
+// GL-free (tested).
 class ChunkMeshTracker {
 public:
     static bool neighbourhoodLoaded(const world::World& world, world::ChunkPos pos);

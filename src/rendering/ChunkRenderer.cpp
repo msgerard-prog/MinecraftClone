@@ -59,7 +59,7 @@ bool ChunkRenderer::init() {
 
     glCreateVertexArrays(1, &m_vao);
     glEnableVertexArrayAttrib(m_vao, 0);
-    glVertexArrayAttribIFormat(m_vao, 0, 2, GL_UNSIGNED_INT, 0); // uvec2 aPacked
+    glVertexArrayAttribIFormat(m_vao, 0, 3, GL_UNSIGNED_INT, 0); // uvec3 aPacked
     glVertexArrayAttribBinding(m_vao, 0, 0);
     glVertexArrayElementBuffer(m_vao, m_indexBuffer);
 

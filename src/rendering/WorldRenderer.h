@@ -41,9 +41,12 @@ public:
     void markChunkDirty(const world::World& world, world::ChunkPos pos);
     void markAllDirty(const world::World& world);
 
-    // Streaming: a chunk is meshed once it and all 8 neighbours are loaded (its border
-    // faces depend on them), so the edge of the loaded area never shows walls.
-    void onChunksLoaded(const world::World& world, const std::vector<world::ChunkPos>& loaded);
+    // Streaming: a chunk is meshed once it and all 8 neighbours are lit (its border
+    // faces and smooth lighting depend on them), so loaded-area edges never show walls.
+    void onChunksLit(const world::World& world, const std::vector<world::ChunkPos>& lit);
+    // Sections whose light changed (relit after an edit): re-mesh them and their
+    // neighbours (meshes read light across section borders).
+    void onLightChanged(const std::vector<world::SectionPos>& sections);
     void onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded);
 
     // Blocks edited by the player: re-mesh their sections, plus the neighbouring
@@ -63,6 +66,8 @@ public:
 
     // Fog reaches the sky colour at the edge of the render distance (in chunks).
     void setRenderDistance(int chunks) { m_renderDistance = chunks; }
+    // Sky light lost to night time, 0 (day) .. 11 (midnight); see world/DayTime.h.
+    void setSkyDarken(float levels) { m_skyDarken = levels; }
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,
     // from GL timer queries read back a few frames late (no pipeline stall).
@@ -84,6 +89,7 @@ private:
     ChunkRenderer m_chunks;      // opaque pass
     ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
     int m_renderDistance = 12;
+    float m_skyDarken = 0.0f;
     static constexpr int kQueryRing = 4;
     uint32_t m_queries[kQueryRing] = {};
     bool m_queryPending[kQueryRing] = {};

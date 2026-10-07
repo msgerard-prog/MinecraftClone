@@ -27,6 +27,9 @@ enum : BlockId {
     Water,
     Deepslate,
     Gravel,
+    Glowstone,
+    Torch,
+    Glass,
     Count
 };
 } // namespace blocks

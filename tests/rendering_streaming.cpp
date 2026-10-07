@@ -11,7 +11,20 @@
 using namespace mc::world;
 using mc::gfx::ChunkMeshTracker;
 
-TEST_CASE("a chunk is meshed once it and all 8 neighbours are loaded") {
+namespace {
+
+// Meshing needs light: create a chunk and mark it lit (uniform default light).
+Chunk& createLit(World& w, ChunkPos pos) {
+    Chunk& c = w.createChunk(pos);
+    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    light.fill(std::make_shared<const SectionLight>());
+    c.setLight(light);
+    return c;
+}
+
+} // namespace
+
+TEST_CASE("a chunk is meshed once it and all 8 neighbours are loaded and lit") {
     World w;
     ChunkMeshTracker t;
     std::vector<ChunkPos> ready;
@@ -19,13 +32,18 @@ TEST_CASE("a chunk is meshed once it and all 8 neighbours are loaded") {
     for (int z = -1; z <= 1; ++z)
         for (int x = -1; x <= 1; ++x)
             if (!(x == 1 && z == 1)) {
-                w.createChunk({x, z});
+                createLit(w, {x, z});
                 loaded.push_back({x, z});
             }
     t.onLoaded(w, loaded, ready);
     CHECK(ready.empty()); // (1,1) still missing
-    w.createChunk({1, 1});
+    Chunk& corner = w.createChunk({1, 1});
     const std::vector<ChunkPos> last = {{1, 1}};
+    t.onLoaded(w, last, ready);
+    CHECK(ready.empty()); // (1,1) loaded but not lit yet
+    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    light.fill(std::make_shared<const SectionLight>());
+    corner.setLight(light);
     t.onLoaded(w, last, ready);
     REQUIRE(ready.size() == 1);
     CHECK(ready[0] == ChunkPos{0, 0});
@@ -41,7 +59,7 @@ TEST_CASE("unload then reload makes a chunk meshable again") {
     std::vector<ChunkPos> all, ready;
     for (int z = -1; z <= 1; ++z)
         for (int x = -1; x <= 1; ++x) {
-            w.createChunk({x, z});
+            createLit(w, {x, z});
             all.push_back({x, z});
         }
     t.onLoaded(w, all, ready);
@@ -51,7 +69,7 @@ TEST_CASE("unload then reload makes a chunk meshable again") {
     t.onUnloaded(gone);
     CHECK_FALSE(t.isMeshed({0, 0}));
     ready.clear();
-    w.createChunk({0, 0});
+    createLit(w, {0, 0});
     t.onLoaded(w, gone, ready);
     CHECK(std::find(ready.begin(), ready.end(), ChunkPos{0, 0}) != ready.end());
 }

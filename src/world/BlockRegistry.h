@@ -26,6 +26,9 @@ struct BlockSettings {
     float hardness = 0.0f;   // wiki infobox "Hardness"
     float resistance = 0.0f; // wiki infobox "Blast resistance"
     uint8_t lightEmission = 0;
+    // How much light this block absorbs (wiki: Light): -1 = automatic (opaque cube
+    // 15, otherwise 0). Water and ice use 1: sky light fades 1 per block of depth.
+    int8_t lightOpacity = -1;
     // A full opaque cube: hides the faces of neighbouring blocks and blocks light.
     bool opaqueCube = true;
     // Entities collide with it (a full cube for now; shaped boxes come with slabs etc.).
@@ -70,6 +73,8 @@ public:
     bool isAir(BlockStateId state) const { return state == 0; }
     bool opaqueCube(BlockStateId state) const { return m_stateOpaque[state] != 0; }
     bool collides(BlockStateId state) const { return m_stateCollides[state] != 0; }
+    uint8_t lightOpacity(BlockStateId state) const { return m_stateOpacity[state]; }
+    uint8_t lightEmission(BlockStateId state) const { return m_stateEmission[state]; }
     RenderLayer layer(BlockStateId state) const;
 
     // Property access by name. Return nullopt for unknown property/value.
@@ -91,6 +96,8 @@ private:
     std::vector<BlockId> m_stateBlock;    // state -> block
     std::vector<uint8_t> m_stateOpaque;   // state -> opaqueCube
     std::vector<uint8_t> m_stateCollides; // state -> collision
+    std::vector<uint8_t> m_stateOpacity;  // state -> light opacity 0..15
+    std::vector<uint8_t> m_stateEmission; // state -> light emission 0..15
 };
 
 } // namespace mc::world

@@ -10,6 +10,8 @@ MeshWorkers::MeshWorkers(const world::BlockRegistry& registry, const BlockModels
     for (int i = 0; i < jobCapacity; ++i) {
         auto job = std::make_unique<MeshJob>();
         job->padded.resize(world::kPaddedVolume);
+        job->sky.resize(world::kPaddedVolume);
+        job->blockLight.resize(world::kPaddedVolume);
         job->mesh.opaque.reserve(4096); // grows to the largest mesh it has held, then reused
         m_free.push(std::move(job));
     }
@@ -39,9 +41,12 @@ void MeshWorkers::recycle(std::unique_ptr<MeshJob> job) { m_free.push(std::move(
 
 void MeshWorkers::run() {
     while (auto job = m_pending.popWait()) {
-        const world::SectionPos& p = (*job)->pos;
-        meshSection((*job)->padded.data(), glm::ivec3(p.x * 16, p.y * 16, p.z * 16), m_registry,
-                    m_models, (*job)->mesh);
+        MeshJob& j = **job;
+        world::buildPadded(j.refs, j.padded.data(), j.sky.data(), j.blockLight.data());
+        j.refs = {}; // release the shared sections early
+        const world::SectionPos& p = j.pos;
+        meshSection(j.padded.data(), j.sky.data(), j.blockLight.data(),
+                    glm::ivec3(p.x * 16, p.y * 16, p.z * 16), m_registry, m_models, j.mesh);
         m_done.push(std::move(*job));
     }
 }
