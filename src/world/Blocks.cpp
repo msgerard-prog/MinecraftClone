@@ -450,6 +450,11 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("end_gateway", {.hardness = -1.0f, .resistance = 3600000.0f, .lightEmission = 15, .opaqueCube = false,
                                 .collision = false, .layer = RenderLayer::Cutout}),
           blocks::EndGateway);
+    // wiki: End Rod - breaks at once, light 14; points away from what it's put on.
+    check(r.add("end_rod", {.hardness = 0.0f, .resistance = 0.0f, .lightEmission = 14, .opaqueCube = false,
+                            .collision = false, .layer = RenderLayer::Cutout},
+                {{&facing6, "up"}}),
+          blocks::EndRod);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

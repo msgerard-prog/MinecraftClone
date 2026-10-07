@@ -3,7 +3,9 @@
 #include "world/Biome.h"
 #include "world/Blocks.h"
 #include "world/Direction.h"
+#include "world/Items.h"
 #include "world/Loot.h"
+#include "world/StructurePlacement.h"
 #include "world/Random.h"
 
 #include <algorithm>
@@ -567,7 +569,8 @@ Biome EndGenerator::biomeAt(int32_t x, int32_t z) const {
                                                                                        : Biome::SmallEndIslands;
 }
 
-void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome) const {
+void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome,
+                                 EndChests& chests) const {
     const auto& r = blockRegistry();
     const HeightRange h = out.height();
     const int32_t baseX = out.pos().x * 16, baseZ = out.pos().z * 16;
@@ -733,6 +736,117 @@ void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Bi
             set(x, y, z, s);
         }
     }
+    placeEndCities(out, blocks, chests);
+}
+
+// --- End cities (M20.4; wiki: End City) -----------------------------------------------
+// Placement: vanilla's grid (spacing 20, separation 11, salt 10387313, triangular) on
+// the highlands, where the island is at least Y 57 high at the start (vanilla: 60 on
+// its terrain; ours is flatter). Our own basic template: an end stone brick base, a
+// purpur tower of 3-5 storeys (windows, an end rod lighting each), a wider top room
+// with two loot chests, and on half of them a bridge out to a floating end ship with
+// two more chests and the elytra (vanilla: piece-built towers, bridges, fat towers).
+constexpr RandomSpread kEndCities{20, 11, 10387313, true};
+
+bool EndGenerator::endCityAt(ChunkPos start) const {
+    if (m_version < 2 || !isSpreadCandidate(m_seed, kEndCities, start)) return false;
+    const int32_t x = start.x * 16 + 8, z = start.z * 16 + 8;
+    return outerValue(x, z) > 40.0 && outerTop(x, z) >= 57;
+}
+
+void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& chests) const {
+    const auto& r = blockRegistry();
+    const HeightRange h = out.height();
+    const int32_t baseX = out.pos().x * 16, baseZ = out.pos().z * 16;
+    const BlockStateId purpur = r.defaultState(blocks::PurpurBlock),
+                       pillar = r.defaultState(blocks::PurpurPillar),
+                       bricks = r.defaultState(blocks::EndStoneBricks), chest = r.defaultState(blocks::Chest),
+                       rodDown = r.set(r.defaultState(blocks::EndRod), properties::facing6, 0),
+                       rodUp = r.defaultState(blocks::EndRod), air = 0;
+    auto set = [&](int32_t wx, int y, int32_t wz, BlockStateId s) {
+        const int lx = wx - baseX, lz = wz - baseZ;
+        if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !h.contains(y)) return;
+        blocks[size_t(((y - h.minY) * 16 + lz) * 16 + lx)] = s;
+    };
+    auto box = [&](int32_t x0, int y0, int32_t z0, int32_t x1, int y1, int32_t z1, BlockStateId s) {
+        for (int y = y0; y <= y1; ++y)
+            for (int32_t z = z0; z <= z1; ++z)
+                for (int32_t x = x0; x <= x1; ++x)
+                    set(x, y, z, s);
+    };
+    auto addChest = [&](int32_t wx, int y, int32_t wz, bool elytra) {
+        const int lx = wx - baseX, lz = wz - baseZ;
+        if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || chests.count >= int(chests.list.size())) return;
+        set(wx, y, wz, chest);
+        chests.list[size_t(chests.count++)] = {int8_t(lx), int8_t(lz), int16_t(y), elytra};
+    };
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 0; ++dx) { // (cities reach 2 chunks east of their start)
+            const ChunkPos start{out.pos().x + dx, out.pos().z + dz};
+            if (!endCityAt(start)) continue;
+            const int32_t cx = start.x * 16 + 8, cz = start.z * 16 + 8;
+            const int gy = outerTop(cx, cz);
+            Xoroshiro rng(mixSeed(mixSeed(m_seed ^ 0xC17E5, static_cast<uint32_t>(start.x)), static_cast<uint32_t>(start.z)));
+            const int storeys = 3 + static_cast<int>(rng.nextInt(3));
+            const bool ship = rng.nextInt(2) == 0;
+            // The base: an 11x11 end stone brick plinth down into the island.
+            box(cx - 5, gy - 3, cz - 5, cx + 5, gy, cz + 5, bricks);
+            // The tower: 7x7 purpur walls, a floor and an end rod per 4-high storey.
+            int y = gy + 1;
+            for (int s = 0; s < storeys; ++s, y += 4) {
+                box(cx - 3, y, cz - 3, cx + 3, y + 3, cz + 3, purpur);
+                box(cx - 2, y + (s == 0 ? 0 : 1), cz - 2, cx + 2, y + 3, cz + 2, air);
+                for (const int ox : {-3, 3})
+                    for (const int oz : {-3, 3})
+                        box(cx + ox, y, cz + oz, cx + ox, y + 3, cz + oz, pillar);
+                // Windows in the middle of each side, a door at the bottom.
+                for (const auto& [wx, wz] : {std::pair{cx - 3, cz}, std::pair{cx + 3, cz}, std::pair{cx, cz - 3}, std::pair{cx, cz + 3}})
+                    set(wx, y + 2, wz, air);
+                if (s == 0) box(cx, y + 1, cz + 3, cx, y + 2, cz + 3, air);
+                set(cx, y + 3, cz, rodDown);
+            }
+            // The top room: 11x11, walls 4 high, two chests, rods on the roof's corners.
+            box(cx - 5, y, cz - 5, cx + 5, y + 5, cz + 5, purpur);
+            box(cx - 4, y + 1, cz - 4, cx + 4, y + 4, cz + 4, air);
+            box(cx - 2, y, cz - 2, cx + 2, y, cz + 2, purpur); // (over the tower's shaft)
+            for (const int ox : {-5, 5})
+                for (const int oz : {-5, 5}) {
+                    box(cx + ox, y, cz + oz, cx + ox, y + 5, cz + oz, pillar);
+                    set(cx + ox, y + 6, cz + oz, rodUp);
+                }
+            for (int k = -3; k <= 3; k += 3) { // windows
+                set(cx - 5, y + 2, cz + k, air);
+                set(cx + 5, y + 2, cz + k, air);
+                set(cx + k, y + 2, cz - 5, air);
+                set(cx + k, y + 2, cz + 5, air);
+            }
+            set(cx, y + 4, cz, rodDown);
+            addChest(cx - 3, y + 1, cz - 3, false);
+            addChest(cx - 3, y + 1, cz + 3, false);
+            if (!ship) continue;
+            // A bridge east, then the ship floating beside the city, pointing east.
+            box(cx + 5, y + 1, cz - 1, cx + 5, y + 3, cz + 1, air); // (the room's east door)
+            box(cx + 6, y, cz - 1, cx + 13, y, cz + 1, purpur);
+            const int32_t sx = cx + 14;
+            const int sy = y - 4; // (its deck level with the bridge)
+            for (int i = 0; i < 16; ++i) { // the hull: a narrow keel widening to the deck
+                const int32_t x = sx + i;
+                const int half = i < 2 || i > 13 ? 1 : 3;
+                box(x, sy, cz - std::min(half, 1), x, sy, cz + std::min(half, 1), purpur);
+                box(x, sy + 1, cz - half + 1, x, sy + 1, cz + half - 1, purpur);
+                box(x, sy + 2, cz - half, x, sy + 4, cz + half, purpur);
+                if (half > 1) box(x, sy + 2, cz - half + 1, x, sy + 3, cz + half - 1, air); // (2 high inside)
+            }
+            box(sx, sy + 4, cz - 3, sx + 15, sy + 4, cz + 3, purpur); // the deck
+            box(sx + 6, sy + 5, cz, sx + 6, sy + 10, cz, pillar);      // the mast
+            set(sx + 6, sy + 11, cz, rodUp);
+            set(sx + 1, sy + 5, cz, rodUp);
+            set(sx + 14, sy + 5, cz, rodUp);
+            set(sx + 3, sy + 4, cz, air);                              // the hatch down
+            addChest(sx + 8, sy + 2, cz - 2, false);
+            addChest(sx + 8, sy + 2, cz + 2, false);
+            addChest(sx + 12, sy + 2, cz, true);
+        }
 }
 
 void EndGenerator::generate(Chunk& out) const {
@@ -776,12 +890,25 @@ void EndGenerator::generate(Chunk& out) const {
         }
     std::array<Biome, 16> columnBiome;
     columnBiome.fill(Biome::TheEnd);
-    if (m_version >= 2) generateOuter(out, blocks.data(), columnBiome);
+    EndChests chests;
+    if (m_version >= 2) generateOuter(out, blocks.data(), columnBiome, chests);
     for (int s = 0; s < out.sectionCount(); ++s) {
         const BlockStateId* src = blocks.data() + size_t(s) * Section::kVolume;
         Section& section = out.mutableSection(s);
         if (std::all_of(src, src + Section::kVolume, [](BlockStateId b) { return b == 0; })) section.fill(0);
         else section.assign(src);
+    }
+    for (int i = 0; i < chests.count; ++i) { // end city chests (M20.4)
+        const EndChest& e = chests.list[size_t(i)];
+        if (r.blockOf(out.get(e.x, e.y, e.z)) != blocks::Chest || out.chest(e.x, e.y, e.z)) continue;
+        ChestData& c = out.addChest(e.x, e.y, e.z);
+        if (e.elytra) {
+            if (const auto el = itemRegistry().find("elytra")) c.items[13] = ItemStack{*el, 1};
+        } else {
+            Xoroshiro loot(mixSeed(mixSeed(m_seed ^ 0xE7DC17, static_cast<uint32_t>(pos.x * 31 + i)),
+                                   static_cast<uint32_t>(pos.z)));
+            fillChest(LootTable::EndCityTreasure, loot, c.items);
+        }
     }
     static const auto end = uniformBiomes(Biome::TheEnd);
     if (m_version < 2 || std::all_of(columnBiome.begin(), columnBiome.end(), [](Biome b) { return b == Biome::TheEnd; })) {

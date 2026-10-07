@@ -126,6 +126,20 @@ constexpr LootEntry kFortress1[] = {
 constexpr LootEntry kFortress2[] = {{"", 1, 1, 14}, {"rib_armor_trim_smithing_template", 1, 1, 1}};
 constexpr LootPool kFortress[] = {{2, 4, kFortress1}, {1, 1, kFortress2}};
 
+// wiki: End City › Loot (end_city_treasure, 2-6 rolls; the gear enchanted at levels
+// 20-39 in vanilla, ours with one random enchantment; the netherite upgrade template
+// pool is left out: no netherite yet).
+constexpr LootEntry kEndCity1[] = {
+    {"diamond", 2, 7, 5},          {"iron_ingot", 4, 8, 10},         {"gold_ingot", 2, 7, 15},
+    {"emerald", 2, 6, 2},          {"beetroot_seeds", 1, 10, 5},     {"saddle", 1, 1, 3},
+    {"iron_horse_armor", 1, 1, 1}, {"golden_horse_armor", 1, 1, 1},  {"diamond_horse_armor", 1, 1, 1},
+    {"diamond_sword", 1, 1, 3, true},      {"diamond_boots", 1, 1, 3, true},     {"diamond_chestplate", 1, 1, 3, true},
+    {"diamond_leggings", 1, 1, 3, true},   {"diamond_helmet", 1, 1, 3, true},    {"diamond_pickaxe", 1, 1, 3, true},
+    {"diamond_shovel", 1, 1, 3, true},     {"iron_sword", 1, 1, 3, true},        {"iron_boots", 1, 1, 3, true},
+    {"iron_chestplate", 1, 1, 3, true},    {"iron_leggings", 1, 1, 3, true},     {"iron_helmet", 1, 1, 3, true},
+    {"iron_pickaxe", 1, 1, 3, true},       {"iron_shovel", 1, 1, 3, true}};
+constexpr LootPool kEndCity[] = {{2, 6, kEndCity1}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -163,6 +177,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::PiglinBartering: return kBarter;
     case LootTable::NetherFortress: return kFortress;
     case LootTable::BastionOther: return kBastion;
+    case LootTable::EndCityTreasure: return kEndCity;
     default: return {}; // (filled in as their structures arrive)
     }
 }

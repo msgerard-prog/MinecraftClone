@@ -201,6 +201,9 @@ ItemRegistry buildItems() {
            .texture = "item/chorus_fruit"});
     r.add({.id = "minecraft:popped_chorus_fruit", .texture = "item/popped_chorus_fruit"});
     r.add({.id = "minecraft:end_crystal", .texture = "item/end_crystal"});
+    // (wiki: Elytra - worn in the chest slot, 432 durability, no armor points; M20.4)
+    r.add({.id = "minecraft:elytra", .maxStack = 1, .durability = 432, .texture = "item/elytra", .armorSlot = 2});
+    r.add({.id = "minecraft:shulker_shell", .texture = "item/shulker_shell"});
     r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));

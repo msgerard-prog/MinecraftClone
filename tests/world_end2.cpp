@@ -181,3 +181,34 @@ TEST_CASE("chorus fruit: a teleport lands within 8 blocks on solid ground, never
     }
     CHECK(landed > 80);
 }
+
+TEST_CASE("end2: end cities on the highlands - a purpur tower with loot chests, some with a ship and an elytra") {
+    const EndGenerator gen(42, 2);
+    const auto& r = blockRegistry();
+    int cities = 0, purpur = 0, lootChests = 0, elytras = 0;
+    for (int sz = -200; sz <= 200 && cities < 6; ++sz)
+        for (int sx = 64; sx <= 200 && cities < 6; ++sx) {
+            if (!gen.endCityAt({sx, sz})) continue;
+            ++cities;
+            for (int dz = -1; dz <= 1; ++dz)
+                for (int dx = 0; dx <= 2; ++dx) {
+                    Chunk c({sx + dx, sz + dz}, kEndHeight);
+                    gen.generate(c);
+                    for (int y = 40; y < 140; ++y)
+                        for (int z = 0; z < 16; ++z)
+                            for (int x = 0; x < 16; ++x)
+                                purpur += r.blockOf(c.get(x, y, z)) == blocks::PurpurBlock;
+                    for (const auto& ch : c.chests()) {
+                        bool elytra = false;
+                        for (const ItemStack& it : ch.data.items)
+                            elytra = elytra || (!it.empty() && itemRegistry().item(it.item).id == "minecraft:elytra");
+                        elytras += elytra;
+                        lootChests += !elytra;
+                    }
+                }
+        }
+    REQUIRE(cities > 0);
+    CHECK(purpur > 300 * cities);
+    CHECK(lootChests >= 2 * cities);
+    CHECK(elytras >= 1);
+}

@@ -26,7 +26,8 @@ Chorus Plant, Shulker; a new End generator kind, the old one stays for existing 
    portal opening and the dragon egg; the fight saved in level.dat (DragonFight).
 3. ✅ M20.3 — End gateways (one per kill, up to 20, to the outer islands), respawning
    the dragon with four crystals on the exit portal.
-4. M20.4 — End cities and end ships: shulkers (bullets, levitation, shells), loot,
+4. M20.4 — (a ✅ end cities, ships, end rods, loot, elytra item; b: shulkers; c: elytra
+   flight) End cities and end ships: shulkers (bullets, levitation, shells), loot,
    elytra (gliding) in the ship.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

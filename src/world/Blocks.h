@@ -260,6 +260,7 @@ enum : BlockId {
     IronBars,     // east, north, south, west: connections
     DragonEgg,    // (M20.2)
     EndGateway,   // (M20.3)
+    EndRod,       // facing (down | up | north | south | west | east) (M20.4)
     Count
 };
 } // namespace blocks

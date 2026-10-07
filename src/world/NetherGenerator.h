@@ -111,8 +111,26 @@ private:
     // The cells within reach of a chunk's columns (at most 15x15).
     int islandCells(int32_t baseX, int32_t baseZ, std::array<IslandCell, 225>& out) const;
     static double islandValue(const IslandCell* cells, int count, double x, double z);
+    // Chests placed while building, filled once the chunk is written (end cities).
+    struct EndChest {
+        int8_t x, z;
+        int16_t y;
+        bool elytra; // the ship's: an elytra (vanilla: in an item frame) - else loot
+    };
+    struct EndChests {
+        int count = 0;
+        std::array<EndChest, 16> list{};
+    };
     // end2's additions to a chunk being built in `blocks` (section order).
-    void generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome) const;
+    void generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome, EndChests& chests) const;
+    // End cities (M20.4) whose start is near this chunk, clipped to it.
+    void placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& chests) const;
+
+public:
+    // An end city starts at `start` (a grid candidate on high enough highlands)?
+    bool endCityAt(ChunkPos start) const;
+
+private:
 };
 
 } // namespace mc::world

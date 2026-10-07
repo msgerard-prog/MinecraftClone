@@ -1216,6 +1216,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return blockOf(state) == B::ChorusPlant ? chorusConnected(world, at, state) : state;
     case B::IronBars:
         return barsConnected(world, at, state);
+    case B::EndRod: // points out of the face it was put on (wiki: End Rod)
+        return r.set(state, facing6, static_cast<int>(faceDir));
     case B::RedBed: {
         // The foot where clicked, the head one block further in the player's look;
         // the head needs room (Java beds need no support; wiki: Bed).

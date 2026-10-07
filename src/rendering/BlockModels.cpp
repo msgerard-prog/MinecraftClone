@@ -293,6 +293,36 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 if (on("east")) addBox(hi, y0, lo, 16, y1, hi);
                 if (!bars && on("down")) addBox(lo, 0, lo, hi, lo, hi);
                 if (!bars && on("up")) addBox(lo, hi, lo, hi, 16, hi);
+            } else if (name == "end_rod") {
+                // A 2x15 rod on a 4x1 base, built pointing up, then turned to its facing.
+                const std::string_view f = registry.value(state, "facing").value_or("up");
+                auto map = [&](int x, int y, int z, int out[3]) {
+                    if (f == "down") out[0] = x, out[1] = 16 - y, out[2] = 16 - z;
+                    else if (f == "north") out[0] = x, out[1] = z, out[2] = 16 - y;
+                    else if (f == "south") out[0] = x, out[1] = z, out[2] = y;
+                    else if (f == "west") out[0] = 16 - y, out[1] = z, out[2] = x;
+                    else if (f == "east") out[0] = y, out[1] = z, out[2] = x;
+                    else out[0] = x, out[1] = y, out[2] = z;
+                };
+                static constexpr int kParts[2][6] = {{6, 0, 6, 10, 1, 10}, {7, 1, 7, 9, 16, 9}};
+                const uint16_t sp = sprite("end_rod");
+                m.visible = true;
+                for (int k = 0; k < 2; ++k) {
+                    int a[3], b[3];
+                    map(kParts[k][0], kParts[k][1], kParts[k][2], a);
+                    map(kParts[k][3], kParts[k][4], kParts[k][5], b);
+                    BakedBox& box = m.boxes[m.boxCount++];
+                    for (int i = 0; i < 3; ++i) {
+                        box.from[i] = uint8_t(std::min(a[i], b[i]));
+                        box.to[i] = uint8_t(std::max(a[i], b[i]));
+                    }
+                    for (int d = 0; d < 6; ++d) { // (the rod's column, or the base row)
+                        auto& face = box.faces[d];
+                        face.sprite = sp;
+                        if (k == 0) face.uv[0] = 6, face.uv[1] = 15, face.uv[2] = 10, face.uv[3] = 16;
+                        else face.uv[0] = 7, face.uv[1] = 1, face.uv[2] = 9, face.uv[3] = 15;
+                    }
+                }
             } else if (name == "end_gateway") { // (vanilla: the end portal's starfield on every side)
                 m = single(cubeAll(sprite("end_portal")));
             } else if (name == "dragon_egg") {

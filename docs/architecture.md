@@ -126,7 +126,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (inside one chunk), the iron bar cages and an end crystal on each pillar (a
   `MobType::EndCrystal` entity in the pillar's chunk: no AI, any damage explodes it
   through `Mobs::die`; items place them with `Mobs::placeEndCrystal`); "end" (M12) is
-  the main island only.
+  the main island only. End cities (M20.4, `placeEndCities`): `endCityAt` checks
+  vanilla's grid on high highlands; each chunk builds the parts of the cities
+  starting within 2 chunks west/2 north-south (tower, top room, bridge, ship) and
+  fills their chests (loot or the elytra) after encoding.
 - Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre

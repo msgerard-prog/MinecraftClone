@@ -569,6 +569,23 @@ def fire_charge():
     return img
 
 
+def elytra_item():
+    # Two grey-violet wings hanging from a shoulder bar (worn on the back).
+    rng = random.Random("elytra")
+    img = Img(16, 16, CLEAR)
+    pal = ramp(hexc("#8A82A0"), 5, spread=0.3)
+    for y in range(2, 15):
+        span = max(1, 7 - abs(y - 6) // 2)
+        for x in range(span):
+            for xx in (7 - x, 8 + x):
+                if y > 2 or x < 6:
+                    img.set(xx, y, pal[rng.randrange(0, 5)] if (x + y) % 5 else pal[0])
+    for x in range(7, 9):
+        for y in range(2, 15):
+            img.set(x, y, CLEAR)
+    return img
+
+
 def end_crystal_item():
     # A glass cube outline around a pink core.
     rng = random.Random("end_crystal")
@@ -740,6 +757,8 @@ def all_items():
     # The End (M20.1).
     items["chorus_fruit"] = lump("chorus_fruit", "#7A4A82", "#C89AD2", size=5.2)
     items["end_crystal"] = end_crystal_item()
+    items["elytra"] = elytra_item()
+    items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     return items
 
