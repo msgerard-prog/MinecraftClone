@@ -12,6 +12,7 @@ struct FluidContact {
     bool water = false;
     bool lava = false;
     glm::dvec3 flow{0.0}; // unit direction of the water current (0 in still water)
+    double height = 0.0;  // how far the fluid reaches above the box's bottom
 };
 
 // A fluid cell counts when the box reaches below its surface (amount / 9 high).

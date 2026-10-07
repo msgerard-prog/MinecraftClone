@@ -297,3 +297,13 @@ TEST_CASE("zombies don't spawn on bedrock or in lava") {
     s.tick(2000);
     CHECK(s.all().empty());
 }
+
+TEST_CASE("water puts out a burning mob of any kind (review fix: cows burned on after lava)") {
+    MobScene s;
+    MobData cow = Mobs::make(MobType::Cow, {8.5, 64.0, 8.5}, s.rng);
+    cow.fireTicks = 300;
+    REQUIRE(Mobs::add(s.world, cow));
+    s.world.setBlock({8, 64, 8}, blockRegistry().defaultState(blocks::Water));
+    s.tick(2);
+    CHECK(s.all().at(0)->fireTicks == 0);
+}

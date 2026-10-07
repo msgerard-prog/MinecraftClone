@@ -39,6 +39,7 @@ struct LevelData {
     float saturation = 5.0f, exhaustion = 0.0f;
     int foodTimer = 0; // regeneration / starvation clock (foodTickTimer)
     int air = 300;     // breath (Player.Air)
+    int fire = -20;    // burning ticks left (Player.Fire; -20 = not burning)
     // Inventory slots 0..35 (0..8 hotbar). `id` is the item id; `state` the full block
     // state string for block items placed in a non-default state ("" otherwise).
     struct SavedItem {

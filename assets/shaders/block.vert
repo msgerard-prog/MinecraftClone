@@ -1,7 +1,7 @@
 #version 460 core
 // Block passes (opaque + translucent). One vertex = uvec3 (rendering/PackedVertex.h):
 //   x: x:9 y:9 z:9 face:3         (1/16 block units inside the section)
-//   y: sprite:12 u:5 v:5 tint:2 fluidTop:1 ao:2
+//   y: sprite:12 u:5 v:5 tint:2 (free):1 ao:2
 //   z: sky:6 block:6              (sums of 4 smooth-lighting samples, 0..60)
 layout(location = 0) in uvec3 aPacked;
 
@@ -48,7 +48,6 @@ void main() {
     const uint sprite = w1 & 4095u;
     const vec2 texel = vec2((w1 >> 12) & 31u, (w1 >> 17) & 31u);
     const uint tint = (w1 >> 22) & 3u;
-    if (((w1 >> 24) & 1u) != 0u) local.y -= 1.0 / 9.0; // source fluid surface: 8/9 tall
     const uint ao = (w1 >> 25) & 3u;
     const float sky = float(w2 & 63u) / 4.0;
     const float blockLight = float((w2 >> 6) & 63u) / 4.0;

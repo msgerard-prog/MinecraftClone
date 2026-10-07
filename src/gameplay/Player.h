@@ -50,6 +50,7 @@ public:
     static constexpr double kGroundSlipperiness = 0.6; // default block slipperiness
     static constexpr double kAirFriction = 0.91;
     static constexpr double kJumpVelocity = 0.42;
+    static constexpr double kFluidJumpThreshold = 0.4; // deeper fluid: swim up instead
     static constexpr double kSprintJumpBoost = 0.2;
     static constexpr double kFlySpeed = 0.05;    // creative flying speed (wiki: Flying speeds)
     static constexpr double kFlyVertical = 0.15; // unverified (gives 7.5 b/s; not on the wiki)

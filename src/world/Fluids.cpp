@@ -10,6 +10,7 @@
 #include "world/Blocks.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace mc::world {
 
@@ -84,7 +85,12 @@ int BlockUpdates::slopeFindDistance(BlockId kind) const {
     return kind == B::Lava && !m_world.isUltrawarm() ? 2 : 4;
 }
 
-BlockUpdates::FluidInto BlockUpdates::fluidInto(BlockStateId target, BlockId kind) const {
+BlockUpdates::FluidInto BlockUpdates::fluidInto(const BlockPos& p, BlockId kind) const {
+    // An unloaded chunk is a wall, not a hole: flow waits for it (vanilla only ticks
+    // fluids whose surroundings are loaded).
+    if (!m_world.isInHeight(p.y)) return FluidInto::No;
+    const BlockStateId target = at(p); // (sets m_cache to p's chunk)
+    if (!m_cache) return FluidInto::No;
     if (target == 0) return FluidInto::Empty;
     const BlockId b = blockOf(target);
     if (b == kind) return FluidInto::Same;
@@ -95,7 +101,7 @@ BlockUpdates::FluidInto BlockUpdates::fluidInto(BlockStateId target, BlockId kin
 bool BlockUpdates::isHole(const BlockPos& p, BlockId kind) const {
     // A fluid there could keep falling: the block below takes fluid.
     const BlockPos below = rel(p, Direction::Down);
-    return m_world.isInHeight(below.y) && fluidInto(at(below), kind) != FluidInto::No;
+    return m_world.isInHeight(below.y) && fluidInto(below, kind) != FluidInto::No;
 }
 
 BlockStateId BlockUpdates::newFluidState(const BlockPos& p, BlockId kind) const {
@@ -106,11 +112,11 @@ BlockStateId BlockUpdates::newFluidState(const BlockPos& p, BlockId kind) const 
         if (levelOf(n) == 0) ++sources;
         maxAmount = std::max(maxAmount, fluidAmount(n));
     }
-    // A new source between two sources, over something it can't flow into or another
-    // source (wiki: Water › Infinite water source; lava doesn't by default).
+    // A new source between two sources, over a solid block or another source (wiki:
+    // Water › Infinite water source; lava doesn't by default).
     if (kind == B::Water && sources >= 2) {
         const BlockStateId below = at(rel(p, Direction::Down));
-        if (fluidInto(below, kind) == FluidInto::No || (blockOf(below) == kind && levelOf(below) == 0))
+        if (R().collides(below) || (blockOf(below) == kind && levelOf(below) == 0))
             return fluidState(kind, 8, false);
     }
     if (blockOf(at(rel(p, Direction::Up))) == kind) return fluidState(kind, 8, true); // falling
@@ -132,21 +138,32 @@ bool BlockUpdates::lavaMeetsWater(const BlockPos& p, BlockStateId s) {
 void BlockUpdates::fluidNeighbourChanged(const BlockPos& p, BlockStateId s) {
     const BlockId kind = blockOf(s);
     if (kind == B::Lava && lavaMeetsWater(p, s)) return;
-    if (!hasTick(p, kind)) schedule(p, kind, fluidDelay(kind), 0);
+    schedule(p, kind, fluidDelay(kind), 0); // (ignored if one is pending)
 }
 
 void BlockUpdates::placeFluid(const BlockPos& p, BlockStateId state) {
     const BlockStateId old = at(p);
     if (old == state) return;
-    if (breaksInFluid(blockOf(old)))
+    // Water washes blocks away with their drops; lava burns them (no drop; wiki: Lava).
+    if (breaksInFluid(blockOf(old)) && blockOf(state) == B::Water)
         if (const ItemId item = itemRegistry().blockItem(blockOf(old))) m_drops.push_back({p, {item, 1}});
     set(p, state);
+    if (state == 0) return;
+    // Flowing lava arriving next to water hardens at once (its neighbours' updates
+    // don't reach it: water beside it doesn't change).
+    if (blockOf(state) == B::Lava && lavaMeetsWater(p, state)) return;
     // The new fluid block schedules its own tick (vanilla: on placement).
-    if (state != 0) schedule(p, blockOf(state), fluidDelay(blockOf(state)), 0);
+    schedule(p, blockOf(state), fluidDelay(blockOf(state)), 0);
 }
 
 void BlockUpdates::tickFluid(const BlockPos& p, BlockStateId s) {
     const BlockId kind = blockOf(s);
+    // The slope search reaches 5 blocks: wait until those chunks are loaded.
+    for (const auto& [dx, dz] : {std::pair{-5, 0}, {5, 0}, {0, -5}, {0, 5}})
+        if (!chunkAt({p.x + dx, p.y, p.z + dz})) {
+            schedule(p, kind, fluidDelay(kind), 0);
+            return;
+        }
     if (levelOf(s) != 0) {
         const BlockStateId next = newFluidState(p, kind);
         if (next != s) {
@@ -164,8 +181,11 @@ void BlockUpdates::tickFluid(const BlockPos& p, BlockStateId s) {
             set(below, R().defaultState(B::Stone));
             return;
         }
-        const FluidInto into = fluidInto(bs, kind);
-        if (into != FluidInto::No && !(into == FluidInto::Same && levelOf(bs) == 0)) {
+        const FluidInto into = fluidInto(below, kind);
+        // Below already this fluid: it turns itself into a falling column (its own
+        // update), and a source here still spreads sideways (wiki: Fluid - a midair
+        // source flows down, then to its four sides).
+        if (into != FluidInto::No && into != FluidInto::Same) {
             placeFluid(below, fluidState(kind, 8, true));
             int sources = 0;
             for (const Direction d : kSides)
@@ -184,7 +204,7 @@ int BlockUpdates::slopeDistance(const BlockPos& p, int depth, Direction from, Bl
     for (const Direction d : kSides) {
         if (d == from) continue;
         const BlockPos n = rel(p, d);
-        const FluidInto into = fluidInto(at(n), kind);
+        const FluidInto into = fluidInto(n, kind);
         if (into == FluidInto::No || (into == FluidInto::Same && levelOf(at(n)) == 0)) continue;
         if (isHole(n, kind)) return depth;
         if (depth < slopeFindDistance(kind)) best = std::min(best, slopeDistance(n, depth + 1, opposite(d), kind));
@@ -203,7 +223,7 @@ void BlockUpdates::spreadSideways(const BlockPos& p, BlockStateId s) {
     for (int i = 0; i < 4; ++i) {
         dist[i] = -1;
         const BlockPos n = rel(p, kSides[i]);
-        const FluidInto into = fluidInto(at(n), kind);
+        const FluidInto into = fluidInto(n, kind);
         if (into == FluidInto::No || (into == FluidInto::Same && levelOf(at(n)) == 0)) continue;
         dist[i] = isHole(n, kind) ? 0 : slopeDistance(n, 1, opposite(kSides[i]), kind);
         best = std::min(best, dist[i]);

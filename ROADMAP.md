@@ -39,6 +39,14 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M14 perf review: fluid edits keep sections shared with light/mesh jobs,
+  so copy-on-write copies sections every tick during floods (rate-limit fluid relights
+  per chunk, or pool spare sections); per-chunk pending-edit lists in LightManager
+  instead of one global erase; cache the slope search's cells in a 9x9 stack array;
+  gather fluidContact's cells once (one chunk lookup) with an early out; a per-state
+  fluid amount table; a 17x17 corner-height grid per fluid layer in the mesher;
+  reserve LightManager/edit lists from the render distance; scratch buffer for
+  `Section::resize`.
 - From the M12 perf review: in the Nether only mesh sections within the fog end
   (+1 chunk) - today 4x more is meshed than its 96-block fog shows; light jobs in
   sky-less dimensions could start one section below the lowest non-empty one;
@@ -81,6 +89,13 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M14 checks:** empty the air bar under water, surface and time the refill (ours
+  3.75 s; the wiki text suggests 2 s). Time a 10-block sink and rise in deep still
+  water. Does a torch in front of flowing lava drop as an item (ours: no, per the Lava
+  page)? Does a water bucket clicked on short grass or a torch drop it (ours: yes),
+  and into a lava source cell: obsidian or water (ours: water replaces it)? Can you
+  jump normally from a 1-deep flowing puddle (ours: yes, up to 0.4 deep)? How far does
+  falling lava spread where it lands in the Overworld (ours: 3)?
 - **M13 checks:** open one of our worlds in vanilla 1.21.11 (copy `saves/<world>` into
   your `.minecraft/saves`): does it load, with our terrain and your inventory? In an
   NBT viewer on a fresh vanilla 1.21.11 level.dat: the game-rule compound's name and
@@ -157,7 +172,6 @@ and GUI textures are made with their systems.
 
 ## Backlog (unscheduled)
 - Sound (miniaudio) — `src/audio` is a stub until needed.
-- Fluids (water/lava flow) — likely between M5 and M9.
 - Weather, fog, clouds.
 - F2 screenshot key (vanilla) for interactive play.
 - NVIDIA debug output: "vertex shader recompiled based on GL state" (id 131218) on the

@@ -1,4 +1,5 @@
 // Player physics against the wiki's published numbers (blocks per second etc.).
+#include "gameplay/FluidContact.h"
 #include "gameplay/Player.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
@@ -415,4 +416,54 @@ TEST_CASE("swimming into a ledge hops out of the water") {
         p.tick(w, swim);
     CHECK(p.position().x > 3.0);
     CHECK(p.position().y >= kFloorY + 4.0 - 1e-6);
+}
+
+TEST_CASE("a player on the ground in a thin layer of flowing water jumps normally") {
+    World w = floorWorld();
+    for (int z = -2; z <= 2; ++z)
+        for (int x = -2; x <= 2; ++x) // level 7: 1/9 of a block deep
+            w.setBlock({x, kFloorY + 1, z}, world::BlockUpdates::fluidState(world::blocks::Water, 1, false));
+    Player p;
+    p.setPosition({0.5, kFloorY + 1.0, 0.5});
+    p.setCreative(false);
+    p.tick(w, {});
+    PlayerInput jump;
+    jump.jump = true;
+    double top = 0.0;
+    for (int i = 0; i < 12; ++i) {
+        p.tick(w, jump);
+        top = std::max(top, p.position().y - (kFloorY + 1.0));
+    }
+    CHECK(top > 0.8); // a real jump, not a 0.04-a-tick swim bob
+}
+
+TEST_CASE("lava slows horizontal movement by half, vertical by a fifth") {
+    World w = floorWorld();
+    const auto lava = world::blockRegistry().defaultState(world::blocks::Lava);
+    for (int z = -20; z < 20; ++z)
+        for (int x = -20; x < 20; ++x)
+            for (int y = kFloorY + 1; y <= kFloorY + 6; ++y)
+                w.setBlock({x, y, z}, lava);
+    Player p;
+    p.setPosition({0.5, kFloorY + 4.0, 0.5});
+    p.setCreative(false);
+    p.tick(w, {});
+    // Sinking: velocity settles where v = (v - 0.02) * 0.8 ... -> v = -0.08 per tick
+    // (vertical drag 0.8); with drag 0.5 it would be -0.02.
+    double y = p.position().y;
+    for (int i = 0; i < 15; ++i)
+        p.tick(w, {});
+    const double sink = (y - p.position().y);
+    CHECK(sink > 0.5);
+}
+
+TEST_CASE("pointInFluid: under the surface of a source (8/9) or a level-4 flow (4/9)") {
+    World w = floorWorld();
+    w.setBlock({0, kFloorY + 1, 0}, world::blockRegistry().defaultState(world::blocks::Water));
+    w.setBlock({1, kFloorY + 1, 0}, world::BlockUpdates::fluidState(world::blocks::Water, 4, false));
+    CHECK(pointInFluid(w, {0.5, kFloorY + 1.8, 0.5}, world::blocks::Water));
+    CHECK_FALSE(pointInFluid(w, {0.5, kFloorY + 1.95, 0.5}, world::blocks::Water));
+    CHECK(pointInFluid(w, {1.5, kFloorY + 1.4, 0.5}, world::blocks::Water));
+    CHECK_FALSE(pointInFluid(w, {1.5, kFloorY + 1.5, 0.5}, world::blocks::Water));
+    CHECK_FALSE(pointInFluid(w, {1.5, kFloorY + 1.4, 0.5}, world::blocks::Lava));
 }

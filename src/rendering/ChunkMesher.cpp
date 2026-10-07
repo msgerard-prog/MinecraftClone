@@ -74,9 +74,26 @@ CornerLight cornerLight(const world::BlockStateId* blocks, const uint8_t* sky, c
             uint32_t(o1) + uint32_t(o2) + uint32_t(oc)};
 }
 
+void emitQuad(std::vector<PackedVertex>& dst, VertexAttribs v[4], bool flip) {
+    // Flip the diagonal when 0-2 is darker than 1-3 (avoids AO/light streaks).
+    if (flip) {
+        dst.insert(dst.end(),
+                   {packVertex(v[1]), packVertex(v[2]), packVertex(v[3]), packVertex(v[0])});
+    } else {
+        dst.insert(dst.end(),
+                   {packVertex(v[0]), packVertex(v[1]), packVertex(v[2]), packVertex(v[3])});
+    }
+}
+
+void emitReversed(std::vector<PackedVertex>& dst, VertexAttribs v[4]) {
+    dst.insert(dst.end(), {packVertex(v[0]), packVertex(v[3]), packVertex(v[2]), packVertex(v[1])});
+}
+
+} // namespace
+
 // A fluid cell's surface height (vanilla: amount / 9, so a source is 8/9; falling
 // fluid and fluid with the same fluid above are full).
-float fluidHeight(const world::BlockRegistry& reg, world::BlockStateId s) {
+static float fluidHeight(const world::BlockRegistry& reg, world::BlockStateId s) {
     const int level = reg.get(s, world::properties::level);
     const int amount = level == 0 || level >= 8 ? 8 : 8 - level;
     return float(amount) / 9.0f;
@@ -107,22 +124,6 @@ uint32_t fluidCornerHeight(const world::BlockStateId* blocks, const world::Block
     return uint32_t(h * 16.0f + 0.5f);
 }
 
-void emitQuad(std::vector<PackedVertex>& dst, VertexAttribs v[4], bool flip) {
-    // Flip the diagonal when 0-2 is darker than 1-3 (avoids AO/light streaks).
-    if (flip) {
-        dst.insert(dst.end(),
-                   {packVertex(v[1]), packVertex(v[2]), packVertex(v[3]), packVertex(v[0])});
-    } else {
-        dst.insert(dst.end(),
-                   {packVertex(v[0]), packVertex(v[1]), packVertex(v[2]), packVertex(v[3])});
-    }
-}
-
-void emitReversed(std::vector<PackedVertex>& dst, VertexAttribs v[4]) {
-    dst.insert(dst.end(), {packVertex(v[0]), packVertex(v[3]), packVertex(v[2]), packVertex(v[1])});
-}
-
-} // namespace
 
 void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const uint8_t* bl,
                  const glm::ivec3& origin, const world::BlockRegistry& registry,

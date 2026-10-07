@@ -83,7 +83,7 @@ private:
     int fluidDelay(BlockId kind) const;
     int fluidDrop(BlockId kind) const;
     int slopeFindDistance(BlockId kind) const;
-    FluidInto fluidInto(BlockStateId target, BlockId kind) const;
+    FluidInto fluidInto(const BlockPos& p, BlockId kind) const;
     bool isHole(const BlockPos& p, BlockId kind) const;
     BlockStateId newFluidState(const BlockPos& p, BlockId kind) const;
     bool lavaMeetsWater(const BlockPos& p, BlockStateId s);
@@ -113,6 +113,16 @@ private:
             m_cacheEpoch = m_world.chunkEpoch();
         }
         return m_cache ? m_cache->get(blockToLocal(p.x), p.y, blockToLocal(p.z)) : BlockStateId{0};
+    }
+    // The chunk holding p through the same one-chunk cache (nullptr if unloaded).
+    Chunk* chunkAt(const BlockPos& p) const {
+        const ChunkPos cp = p.chunk();
+        if (m_cacheEpoch != m_world.chunkEpoch() || !(m_cachePos == cp)) {
+            m_cache = m_world.chunk(cp);
+            m_cachePos = cp;
+            m_cacheEpoch = m_world.chunkEpoch();
+        }
+        return const_cast<Chunk*>(m_cache);
     }
     void set(const BlockPos& p, BlockStateId s);    // with updates
     void setRaw(const BlockPos& p, BlockStateId s); // no updates (piston moves)

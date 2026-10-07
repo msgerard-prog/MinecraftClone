@@ -191,8 +191,18 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     const FluidContact fluid = fluidContact(world, box());
     m_inWater = fluid.water;
     m_inLava = fluid.lava;
+    // A shallow layer (up to 0.4 deep: vanilla's fluid jump threshold) still lets a
+    // player on the ground jump normally.
+    const bool shallowJump = m_onGround && fluid.height <= kFluidJumpThreshold;
     if (!m_flying && (fluid.water || fluid.lava)) {
-        if (input.jump) m_velocity.y += kSwimUp;
+        if (!input.jump) m_jumpDelay = 0;
+        if (m_jumpDelay > 0) --m_jumpDelay;
+        if (input.jump && shallowJump && m_jumpDelay == 0) {
+            m_velocity.y = kJumpVelocity;
+            m_jumpDelay = kJumpDelay;
+        } else if (input.jump) {
+            m_velocity.y += kSwimUp;
+        }
         if (input.sneak && fluid.water) m_velocity.y -= kSwimUp;
         const glm::dvec3 fwd(world::forwardFlat(m_yaw));
         const glm::dvec3 rgt(world::rightFlat(m_yaw));
@@ -201,8 +211,10 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         const glm::dvec3 wanted = m_velocity;
         move(world, m_velocity);
         const bool bumped = m_velocity.x != wanted.x || m_velocity.z != wanted.z;
-        const double drag = fluid.water ? kWaterDrag : kLavaDrag;
-        m_velocity *= drag;
+        // Water slows all axes by 0.8; lava horizontal 0.5, vertical 0.8 (wiki: Lava -
+        // "horizontal speed -50%, vertical -20%").
+        if (fluid.water) m_velocity *= kWaterDrag;
+        else m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
         m_velocity.y -= kFluidGravity;
         if (bumped) { // climb out over a ledge (vanilla: if the space 0.6 up is free)
             const Aabb up = box().moved({wanted.x, 0.6, wanted.z});

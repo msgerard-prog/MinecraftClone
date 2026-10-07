@@ -455,6 +455,8 @@ TEST_CASE("level.dat keeps game mode, health and hunger") {
     l.food = 12;
     l.saturation = 1.5f;
     l.exhaustion = 2.25f;
+    l.air = 120;
+    l.fire = 85;
     REQUIRE(l.save(dir.path));
     const auto back = LevelData::load(dir.path);
     REQUIRE(back.has_value());
@@ -463,6 +465,8 @@ TEST_CASE("level.dat keeps game mode, health and hunger") {
     CHECK(back->food == 12);
     CHECK(back->saturation == 1.5f);
     CHECK(back->exhaustion == 2.25f);
+    CHECK(back->air == 120); // Player.Air
+    CHECK(back->fire == 85); // Player.Fire (burning survives a reload)
 }
 
 TEST_CASE("furnaces save as block entities with their contents and timers") {

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace mc::world {
 
@@ -116,7 +117,7 @@ Push pushKind(BlockStateId s) {
 
 BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_world.setListener(this);
-    m_due.reserve(1024);
+    m_due.reserve(16384); // a /fill of fluid sources makes thousands due at once
     m_events.reserve(64);
     m_changed.reserve(4096);
     m_remesh.reserve(4096);
@@ -396,14 +397,15 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
 // --- Scheduled ticks --------------------------------------------------------------
 
 void BlockUpdates::schedule(const BlockPos& p, BlockId block, int ticks, int priority) {
-    Chunk* c = m_world.chunk(p.chunk());
-    if (!c || hasTick(p, block)) return; // one pending tick per block (vanilla)
+    Chunk* c = chunkAt(p);
+    if (!c) return;
+    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    if (c->hasTick(x, p.y, z, block)) return; // one pending tick per block (vanilla)
     makeAbsolute(*c);
     c->markDirty(); // pending ticks are saved with the chunk
-    c->blockTicks().push_back({static_cast<int8_t>(blockToLocal(p.x)), static_cast<int8_t>(blockToLocal(p.z)),
-                               static_cast<int16_t>(p.y), static_cast<int8_t>(priority), block, m_now + ticks,
-                               m_order++});
-    m_world.markTicking(c->pos());
+    c->addTick({static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(p.y),
+                static_cast<int8_t>(priority), block, m_now + ticks, m_order++});
+    if (!c->inTickingList) m_world.markTicking(c->pos());
 }
 
 void BlockUpdates::makeAbsolute(Chunk& c) {
@@ -419,24 +421,20 @@ void BlockUpdates::makeAbsolute(Chunk& c) {
 }
 
 bool BlockUpdates::hasTick(const BlockPos& p, BlockId block) const {
-    const Chunk* c = m_world.chunk(p.chunk());
-    if (!c) return false;
-    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
-    for (const Chunk::BlockTick& t : c->blockTicks())
-        if (t.x == x && t.z == z && t.y == p.y && t.block == block) return true;
-    return false;
+    Chunk* c = chunkAt(p);
+    return c && c->hasTick(blockToLocal(p.x), p.y, blockToLocal(p.z), block);
 }
 
 void BlockUpdates::tick() {
     m_inTick = true;
     m_due.clear();
     m_world.forEachTickingChunk([&](Chunk& c) {
-        auto& ticks = c.blockTicks();
-        if (ticks.empty()) return;
+        if (std::as_const(c).blockTicks().empty()) return;
         makeAbsolute(c);
-        for (const auto& t : ticks)
-            if (t.time <= m_now) m_due.push_back({{c.pos().x * 16 + t.x, t.y, c.pos().z * 16 + t.z}, t});
-        if (std::erase_if(ticks, [&](const Chunk::BlockTick& t) { return t.time <= m_now; })) c.markDirty();
+        if (c.takeDueTicks(m_now, [&](const Chunk::BlockTick& t) {
+                m_due.push_back({{c.pos().x * 16 + t.x, t.y, c.pos().z * 16 + t.z}, t});
+            }))
+            c.markDirty();
     });
     // Block ticks first, then fluid ticks (vanilla runs them as two phases).
     std::sort(m_due.begin(), m_due.end(), [](const Due& a, const Due& b) {

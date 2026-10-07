@@ -38,9 +38,31 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
     if (there != 0 && !BlockUpdates::isFluid(t) && !BlockUpdates::breaksInFluid(t)) return std::nullopt;
     const ItemId empty = *items.find("bucket");
     if (water && world.isUltrawarm()) return BucketResult{empty}; // evaporates (wiki: Water › Nether)
+    BucketResult result{empty};
+    // Water washes the block away with its drop; lava burns it (as flowing fluids do).
+    if (water && BlockUpdates::breaksInFluid(t))
+        if (const ItemId item = items.blockItem(t)) result.washed = {item, 1};
     world.updateBlock(at, reg.defaultState(water ? blocks::Water : blocks::Lava));
     changed.push_back(at);
-    return BucketResult{empty};
+    return result;
+}
+
+ItemStack applyBucket(Inventory& inventory, ItemId filled, bool survival) {
+    const ItemStack held = inventory.selectedStack();
+    const ItemStack result{filled, 1};
+    if (!survival) {
+        if (itemRegistry().item(held.item).id != "minecraft:bucket") return {};
+        for (int sl = 0; sl < Inventory::kSlots; ++sl)
+            if (inventory.slot(sl).item == filled) return {};
+        const int left = inventory.add(result);
+        return left > 0 ? result : ItemStack{};
+    }
+    if (held.count == 1) {
+        inventory.setSlot(inventory.selected(), result);
+        return {};
+    }
+    inventory.consumeSelected(1); // a stack of buckets: one is used
+    return inventory.add(result) > 0 ? result : ItemStack{};
 }
 
 } // namespace mc

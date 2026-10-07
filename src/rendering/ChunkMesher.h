@@ -36,6 +36,11 @@ struct SectionMesh {
 // occlusion (opaque cells among the two sides and the corner). Quads are two CCW
 // triangles 0-1-2, 0-2-3; the diagonal flips to follow the darker corners.
 // `origin` (block coordinates) picks per-position model variants. GL-free.
+// Height in 1/16 block of the surface corner (cx, cz in 0..1) of the `fluid` cell at
+// padded-local (x, y, z) (exposed for tests).
+uint32_t fluidCornerHeight(const world::BlockStateId* blocks, const world::BlockRegistry& reg, world::BlockId fluid,
+                           int x, int y, int z, int cx, int cz);
+
 void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const uint8_t* blockLight,
                  const glm::ivec3& origin, const world::BlockRegistry& registry,
                  const BlockModels& models, SectionMesh& out,

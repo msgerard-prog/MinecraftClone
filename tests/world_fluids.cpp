@@ -148,3 +148,77 @@ TEST_CASE("pending fluid ticks save in fluid_ticks with vanilla's fluid ids and 
     REQUIRE(d.blockTicks().size() == 1);
     CHECK(d.blockTicks()[0].block == blocks::Water);
 }
+
+TEST_CASE("flowing lava that reaches still water hardens at once (review fix)") {
+    Scene s;
+    s.put({2, 64, 0}, S(blocks::Water));
+    s.put({1, 63, 0}, S(blocks::Stone)); // (floor is stone already; water just sits)
+    s.put({-1, 64, 0}, S(blocks::Lava)); // flows east next to the water at x = 1
+    s.tick(5);
+    s.put({3, 64, 0}, S(blocks::Stone)); // keep the water from flowing east... it still flows west
+    s.tick(400);
+    // Whatever flowing lava ended up beside water is cobblestone, never liquid.
+    for (int x = -4; x <= 4; ++x)
+        for (int z = -4; z <= 4; ++z) {
+            const BlockPos p{x, 64, z};
+            if (s.block(p) != blocks::Lava || s.level(p) == 0) continue;
+            for (const BlockPos n : {BlockPos{x + 1, 64, z}, {x - 1, 64, z}, {x, 64, z + 1}, {x, 64, z - 1}})
+                CHECK(s.block(n) != blocks::Water);
+        }
+}
+
+TEST_CASE("lava placed by flow next to a water source becomes cobblestone") {
+    Scene s;
+    s.world.setBlock({0, 64, 0}, S(blocks::Water)); // a quiet source (no pending tick)
+    s.put({3, 64, 0}, S(blocks::Lava));             // reaches x = 1 at tick 60
+    s.tick(61);
+    CHECK(s.block({1, 64, 0}) == blocks::Cobblestone);
+}
+
+TEST_CASE("lava burns torches without a drop; water drops them") {
+    Scene s;
+    s.put({1, 64, 0}, S(blocks::Torch));
+    s.put({0, 64, 0}, S(blocks::Lava));
+    s.tick(30);
+    CHECK(s.block({1, 64, 0}) == blocks::Lava);
+    CHECK(s.updates.drops().empty());
+}
+
+TEST_CASE("no new water source over a non-solid block") {
+    Scene s;
+    s.world.setBlock({1, 63, 0}, S(blocks::EndPortal)); // not solid, not washed away
+    s.put({0, 64, 0}, S(blocks::Water));
+    s.put({2, 64, 0}, S(blocks::Water));
+    s.tick(10);
+    CHECK(s.block({1, 64, 0}) == blocks::Water);
+    CHECK(s.level({1, 64, 0}) != 0);
+}
+
+TEST_CASE("fluids treat unloaded chunks as walls and wait for them") {
+    Scene s;
+    // x = 47 is beyond the loaded 3x3 chunks (-16..31): water at the edge (x = 31)
+    // doesn't see a hole there and keeps its tick until the chunk exists.
+    s.put({31, 64, 0}, S(blocks::Water));
+    s.tick(20);
+    CHECK(s.block({30, 64, 0}) == 0); // waiting: the chunk east of it isn't loaded
+    for (int cz = -1; cz <= 1; ++cz) {
+        Chunk& c = s.world.createChunk({2, cz});
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                c.set(x, 63, z, S(blocks::Stone));
+    }
+    s.tick(10);
+    CHECK(s.block({30, 64, 0}) == blocks::Water);
+    CHECK(s.block({32, 64, 0}) == blocks::Water);
+}
+
+TEST_CASE("a source in midair flows down, then out to its four sides") {
+    Scene s;
+    s.put({0, 70, 0}, S(blocks::Water));
+    s.tick(10);
+    CHECK(s.block({0, 69, 0}) == blocks::Water);
+    for (const BlockPos n : {BlockPos{1, 70, 0}, {-1, 70, 0}, {0, 70, 1}, {0, 70, -1}}) {
+        CHECK(s.block(n) == blocks::Water);
+        CHECK(s.level(n) == 1);
+    }
+}

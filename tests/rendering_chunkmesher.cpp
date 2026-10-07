@@ -1,6 +1,7 @@
 // The chunk mesher is GL-free: geometry, culling and texture orientation are
 // unit-tested here (GPU output is covered by screenshots).
 #include "rendering/ChunkMesher.h"
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/FlatGenerator.h"
 #include "world/SectionSnapshot.h"
@@ -175,7 +176,6 @@ TEST_CASE("packVertex/unpackVertex round-trip the full field ranges") {
     a.u = 16;
     a.v = 7;
     a.tint = mc::gfx::Tint::Water;
-    a.fluidTop = true;
     a.ao = 3;
     a.sky4 = 60;
     a.block4 = 33;
@@ -188,7 +188,6 @@ TEST_CASE("packVertex/unpackVertex round-trip the full field ranges") {
     CHECK(u.u == 16);
     CHECK(u.v == 7);
     CHECK(u.tint == mc::gfx::Tint::Water);
-    CHECK(u.fluidTop);
     CHECK(u.ao == 3);
     CHECK(u.sky4 == 60);
     CHECK(u.block4 == 33);
@@ -441,4 +440,38 @@ TEST_CASE("vertices carry the biome of their 4x4x4 cell; birch leaves use a fixe
     }
     CHECK(desert == 24);
     CHECK(birch == 24);
+}
+
+using mc::gfx::fluidCornerHeight;
+
+TEST_CASE("fluid surface corners: vanilla's weighted average of the 4 cells around them") {
+    const auto& r = blockRegistry();
+    std::vector<BlockStateId> b(kPaddedVolume, 0);
+    const BlockStateId source = r.defaultState(blocks::Water);
+    const BlockStateId flow4 = mc::world::BlockUpdates::fluidState(blocks::Water, 4, false); // 4/9
+    auto put = [&](int x, int y, int z, BlockStateId s) { b[size_t(mc::world::paddedIndex(x, y, z))] = s; };
+    // Row at y 5: source at x 4, level-4 flow at x 5; z 3 and 5 are stone, x 6 open air.
+    for (int x = 3; x <= 6; ++x) {
+        put(x, 5, 3, stone());
+        put(x, 5, 5, stone());
+    }
+    put(3, 5, 4, stone());
+    put(4, 5, 4, source);
+    put(5, 5, 4, flow4);
+    // Corner between the source and the flow (x 5, z 4..5): stones don't count; source
+    // weighs 10 (8/9), the flow 1 (4/9): (80/9 + 4/9) / 11 = 0.848 -> 13.6 -> 14.
+    CHECK(fluidCornerHeight(b.data(), r, blocks::Water, 5, 5, 4, 0, 1) == 14u);
+    // Corner between the flow and open air (x 6): (4/9) / 2 -> 3.6 -> 4.
+    CHECK(fluidCornerHeight(b.data(), r, blocks::Water, 5, 5, 4, 1, 1) == 4u);
+    // Only the source and stones around: 8/9 -> 14.2 -> 14.
+    CHECK(fluidCornerHeight(b.data(), r, blocks::Water, 4, 5, 4, 0, 0) == 14u);
+    // Water above any of the 4 cells: full height.
+    put(5, 6, 4, source);
+    CHECK(fluidCornerHeight(b.data(), r, blocks::Water, 5, 5, 4, 1, 1) == 16u);
+    // At the section edge (x 15) the corner reads the padded border (x 16).
+    put(15, 5, 4, source);
+    put(16, 5, 4, flow4);
+    // Cells x 15..16, z 4..5: source (10), flow (1), two open cells (1 each):
+    // (84/9) / 13 = 0.718 -> 11.5 -> 11.
+    CHECK(fluidCornerHeight(b.data(), r, blocks::Water, 15, 5, 4, 1, 1) == 11u);
 }

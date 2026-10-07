@@ -131,7 +131,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   layout on our own 64×64 skins, `tools/textures/gen_entities.py`); `EntityRenderer`
   draws them with world light, limb swing, head look, death tilt and the hurt tint.
 - Block updates and redstone (M11, `world/BlockUpdates`): gameplay edits go through
-  `World::updateBlock`, which tells the listener (`Redstone`); it notifies the six
+  `World::updateBlock`, which tells the listener (`BlockUpdates`); it notifies the six
   neighbours in vanilla order (W, E, down, up, N, S) and lets components reach
   further (dust and torches: neighbours' neighbours). Scheduled block ticks live in
   their chunk (`Chunk::blockTicks`, saved as `block_ticks`, one pending per block)
@@ -153,7 +153,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   holds the rules: lighting frames, 8:1 coordinates, the known-portal list (saved in
   level.dat, our tag; vanilla uses poi/ files), portal building, end portal frames
   and the End platform. Portal blocks check their frame on block updates
-  (`Redstone::neighbourChanged`), so portals are placed all at once, then updated.
+  (`BlockUpdates::neighbourChanged`), so portals are placed all at once, then updated.
 - Fluids (M14, `world/Fluids.cpp`, part of `BlockUpdates`): water/lava blocks react to
   block updates by scheduling a fluid tick (water 5, lava 30 / Nether 10); the tick
   recomputes the level from the neighbours (new water sources between two), then
@@ -181,7 +181,7 @@ multi-draw) → screen.
 - `ChunkMesher` (GL-free, thread-safe): emits a face when the neighbour is not an
   `opaqueCube` (or the same block for `cullSame` models: water, glass); 4
   `PackedVertex` (12 bytes) per quad: position in 1/16 block, face, texel UV, sprite,
-  tint, fluidTop, AO (0–3 occluders) and smooth sky/block light (sum of the 4
+  tint, AO (0–3 occluders) and smooth sky/block light (sum of the 4
   non-opaque samples around the corner). Box models (torch) are flat-lit from their
   own cell. Quads flip their diagonal to follow the brighter corners. Directional
   shade, the vanilla brightness curve (`f/(4−3f)`, gamma lift) and night sky
@@ -229,8 +229,10 @@ Fixed bindings (add new ones here):
 
 Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),
-sections sorted far→near each frame. Fluids hide faces against the same fluid and
-lower their top vertices by 1/9 (`fluidTop` vertex flag; vanilla source height 8/9).
+sections sorted far→near each frame. Fluids hide faces against the same fluid; their
+surface corners sit at vanilla's averaged heights (`fluidCornerHeight`: amount/9 per
+cell, sources weigh 10x, open cells count 0, solid cells not at all; full under the
+same fluid), rounded to 1/16 block.
 Linear cylindrical distance fog to the sky colour from 92% of the render distance (`Fog.h`).
 
 Known simplifications: uploads use `glNamedBufferSubData` (persistent-mapped staging

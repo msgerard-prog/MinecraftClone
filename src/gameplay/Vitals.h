@@ -44,7 +44,8 @@ public:
 
     // Drowning (wiki: Drowning): 300 ticks of air; with the eyes under water it drops
     // 1 a tick, and from -20 on (one empty second) 2 damage, then back to 0. Out of
-    // water it refills 4 a tick. Returns damage taken.
+    // water it refills 4 a tick (public write-ups; the wiki's "1 bubble every 0.2 s"
+    // would be 7.5 a tick - in-game check). Returns damage taken.
     static constexpr int kMaxAir = 300;
     float breathe(bool eyesInWater);
     int air() const { return m_air; }
@@ -54,6 +55,8 @@ public:
     void setOnFire(int ticks) { m_fire = ticks > m_fire ? ticks : m_fire; }
     float tickFire(bool inWater);
     bool burning() const { return m_fire > 0; }
+    int fireTicks() const { return m_fire; }
+    void setFireTicks(int ticks) { m_fire = ticks; }
 
     // Saved state.
     void setState(float health, int food, float saturation, float exhaustion);

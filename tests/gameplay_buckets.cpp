@@ -82,3 +82,54 @@ TEST_CASE("crafting: a bucket from three iron ingots") {
     REQUIRE(r);
     CHECK(r->item == I("bucket"));
 }
+
+TEST_CASE("a water bucket emptied onto a torch washes it away with its drop; lava burns it") {
+    Scene s;
+    s.world.setBlock({2, 64, 2}, S(blocks::Torch));
+    auto r = useBucket(s.world, I("water_bucket"), kEye, kDown, 4.5, s.changed);
+    REQUIRE(r);
+    CHECK(blockRegistry().blockOf(s.world.getBlock({2, 64, 2})) == blocks::Water);
+    CHECK(r->washed.item == I("torch"));
+    Scene t;
+    t.world.setBlock({2, 64, 2}, S(blocks::Torch));
+    r = useBucket(t.world, I("lava_bucket"), kEye, kDown, 4.5, t.changed);
+    REQUIRE(r);
+    CHECK(r->washed.empty());
+}
+
+TEST_CASE("bucket results: survival swaps or splits the stack, creative adds one filled bucket") {
+    Inventory inv;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        inv.setSlot(i, {});
+    inv.select(0);
+    inv.setSlot(0, {I("bucket"), 1});
+    CHECK(applyBucket(inv, I("water_bucket"), true).empty());
+    CHECK(inv.slot(0).item == I("water_bucket"));
+
+    inv.setSlot(0, {I("bucket"), 3}); // a stack: one is filled, it goes elsewhere
+    CHECK(applyBucket(inv, I("water_bucket"), true).empty());
+    CHECK(inv.slot(0).count == 2);
+    int filled = 0;
+    for (int i = 1; i < Inventory::kSlots; ++i)
+        filled += inv.slot(i).item == I("water_bucket");
+    CHECK(filled == 1);
+
+    for (int i = 1; i < Inventory::kSlots; ++i) // full inventory: the filled bucket drops
+        inv.setSlot(i, {I("stone"), 64});
+    const ItemStack extra = applyBucket(inv, I("lava_bucket"), true);
+    CHECK(extra.item == I("lava_bucket"));
+    CHECK(inv.slot(0).count == 1);
+
+    Inventory creative;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        creative.setSlot(i, {});
+    creative.select(0);
+    creative.setSlot(0, {I("bucket"), 1});
+    applyBucket(creative, I("milk_bucket"), false);
+    applyBucket(creative, I("milk_bucket"), false); // already carried: not added again
+    int milk = 0;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        milk += creative.slot(i).item == I("milk_bucket");
+    CHECK(milk == 1);
+    CHECK(creative.slot(0).item == I("bucket"));
+}

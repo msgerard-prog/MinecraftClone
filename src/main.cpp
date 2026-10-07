@@ -367,6 +367,7 @@ int main(int argc, char** argv) {
         vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
         vitals.setFoodTimer(level->foodTimer);
         vitals.setAir(level->air);
+        vitals.setFireTicks(level->fire);
     }
     mc::ItemEntities droppedItems;
     mc::Mobs mobs;
@@ -472,6 +473,7 @@ int main(int argc, char** argv) {
         l.exhaustion = vitals.exhaustion();
         l.foodTimer = vitals.foodTimer();
         l.air = vitals.air();
+        l.fire = vitals.fireTicks();
         for (int i = 0; i < mc::Inventory::kSlots; ++i) {
             const mc::world::ItemStack& s = inventory.slot(i);
             if (s.empty()) continue;
@@ -919,32 +921,28 @@ int main(int argc, char** argv) {
             if (!dead && clicks.useClick && !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const std::string_view heldId = mc::world::itemRegistry().item(held.item).id;
-                if (heldId.ends_with("bucket") && heldId != "minecraft:milk_bucket") {
+                // A usable block (lever, button...) takes the click first unless sneaking.
+                const bool blockUse = lastHit && !player.sneaking() &&
+                                      mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
+                if (heldId.ends_with("bucket") && heldId != "minecraft:milk_bucket" && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
                     const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
                     const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
                     std::optional<mc::BucketResult> result;
                     if (heldId == "minecraft:bucket")
                         if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
-                            mh && world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Cow)
+                            mh && (!lastHit || mh->distance < lastHit->distance) && // not through walls
+                            world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Cow)
                             result = mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
                     if (!result) result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
                     if (result) {
-                        const mc::world::ItemStack filled{result->filled, 1};
-                        if (!survival) { // creative keeps the bucket; a filled one is added once
-                            if (heldId == "minecraft:bucket") {
-                                bool have = false;
-                                for (int sl = 0; sl < mc::Inventory::kSlots; ++sl)
-                                    have = have || inventory.slot(sl).item == filled.item;
-                                if (!have) inventory.add(filled);
-                            }
-                        } else if (held.count == 1) {
-                            inventory.setSlot(inventory.selected(), filled);
-                        } else { // a stack of empty buckets: one is filled
-                            inventory.consumeSelected(1);
-                            if (inventory.add(filled) > 0)
-                                droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), filled, gameRng);
+                        if (!result->washed.empty() && survival) {
+                            const mc::world::BlockPos w = frameEdits.back();
+                            droppedItems.spawn({w.x + 0.5, w.y + 0.25, w.z + 0.5}, result->washed, gameRng);
                         }
+                        const mc::world::ItemStack extra = mc::applyBucket(inventory, result->filled, survival);
+                        if (!extra.empty())
+                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), extra, gameRng);
                         clicks.useClick = false;
                         clicks.use = false;
                     }

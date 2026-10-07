@@ -5,6 +5,7 @@
 #include "world/Mob.h"
 #include "world/Coords.h"
 #include "world/Light.h"
+#include "world/TickSet.h"
 #include "world/Section.h"
 
 #include <array>
@@ -66,6 +67,8 @@ public:
         m_furnaces.clear();
         m_mobs.clear();
         m_blockTicks.clear();
+        m_tickSet.clear();
+        m_tickSetValid = true;
         ticksRelative = false;
         inTickingList = false;
         lightJob = {};
@@ -154,8 +157,31 @@ public:
         int64_t time;     // game time it runs at (a delay while `ticksRelative`)
         uint64_t order;   // scheduling order within the same time and priority
     };
-    std::vector<BlockTick>& blockTicks() { return m_blockTicks; }
+    // Mutable access for bulk edits (loading): the pending-tick set is rebuilt lazily.
+    std::vector<BlockTick>& blockTicks() {
+        m_tickSetValid = false;
+        return m_blockTicks;
+    }
     const std::vector<BlockTick>& blockTicks() const { return m_blockTicks; }
+    // Hot paths (BlockUpdates): add a tick, ask whether one is pending in O(1), and
+    // remove the ticks due by `now` (passing each to `fn`). Returns true if any ran.
+    static uint64_t tickKey(int x, int y, int z, BlockId block) {
+        return (uint64_t(uint32_t(y) & 0xFFFFu) << 24) | (uint64_t(z) << 20) | (uint64_t(x) << 16) | block;
+    }
+    void addTick(const BlockTick& t) {
+        tickSet().insert(tickKey(t.x, t.y, t.z, t.block));
+        m_blockTicks.push_back(t);
+    }
+    bool hasTick(int x, int y, int z, BlockId block) { return tickSet().contains(tickKey(x, y, z, block)); }
+    template <typename Fn> bool takeDueTicks(int64_t now, Fn&& fn) {
+        TickSet& set = tickSet();
+        return std::erase_if(m_blockTicks, [&](const BlockTick& t) {
+                   if (t.time > now) return false;
+                   set.erase(tickKey(t.x, t.y, t.z, t.block));
+                   fn(t);
+                   return true;
+               }) > 0;
+    }
     // Loaded from disk: tick times are delays until the chunk's first game tick.
     bool ticksRelative = false;
 
@@ -187,6 +213,17 @@ private:
     std::vector<FurnaceEntry> m_furnaces;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;
+    TickSet m_tickSet; // keys of m_blockTicks (valid unless edited in bulk)
+    bool m_tickSetValid = true;
+    TickSet& tickSet() {
+        if (!m_tickSetValid) {
+            m_tickSet.clear();
+            for (const BlockTick& t : m_blockTicks)
+                m_tickSet.insert(tickKey(t.x, t.y, t.z, t.block));
+            m_tickSetValid = true;
+        }
+        return m_tickSet;
+    }
 };
 
 } // namespace mc::world

@@ -104,7 +104,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("OnGround", int8_t{1});
     player.put("fall_distance", 0.0);
     player.put("Air", static_cast<int16_t>(air));
-    player.put("Fire", int16_t{-20});
+    player.put("Fire", static_cast<int16_t>(fire > 0 ? fire : -20));
     player.put("XpLevel", int32_t{0});
     player.put("XpP", 0.0f);
     player.put("XpTotal", int32_t{0});
@@ -252,6 +252,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         }
         if (auto d = p->string("Dimension")) l.dimension = *d;
         l.air = static_cast<int>(std::clamp<int64_t>(p->integer("Air").value_or(300), -20, 300));
+        l.fire = static_cast<int>(std::clamp<int64_t>(p->integer("Fire").value_or(-20), -20, 32767));
         if (const Compound* a = p->compound("abilities")) l.flying = a->integer("flying").value_or(0) != 0;
         l.survival = p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)) == 0;
         if (auto h = p->real("Health")) l.health = static_cast<float>(*h);
