@@ -1,5 +1,6 @@
 // Item entities (wiki: Item (entity)).
 #include "gameplay/ItemEntities.h"
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
 #include <doctest/doctest.h>
@@ -71,5 +72,17 @@ TEST_CASE("items despawn after 6000 ticks; a full inventory leaves them on the g
         items.tick(w, near, true, full);
     CHECK(items.items().size() == 1);
     items.tick(w, near, true, full);
+    CHECK(items.items().empty());
+}
+
+TEST_CASE("items burn up in fire, as in lava") {
+    World w = floorWorld();
+    w.setBlock({4, 64, 4}, BlockUpdates::fireState(0));
+    ItemEntities items;
+    Xoroshiro rng(1);
+    Inventory inv;
+    items.spawn({4.5, 64.2, 4.5}, dirt(1), rng);
+    const Aabb far = Aabb::fromFeet({100, 64, 100}, 0.6, 1.8);
+    items.tick(w, far, true, inv);
     CHECK(items.items().empty());
 }

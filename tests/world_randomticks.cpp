@@ -66,17 +66,17 @@ TEST_CASE("sections count their random-ticking blocks") {
 }
 
 TEST_CASE("grass spreads to lit dirt nearby and dies under an opaque block") {
-    Scene s;
-    s.put({0, 63, 0}, S(blocks::GrassBlock));
+    Scene s; // (only the centre chunk random-ticks: its 8 neighbours are loaded)
+    s.put({8, 63, 8}, S(blocks::GrassBlock));
     s.tick(6000);
     int grass = 0;
-    for (int x = -3; x <= 3; ++x)
-        for (int z = -3; z <= 3; ++z)
+    for (int x = 5; x <= 11; ++x)
+        for (int z = 5; z <= 11; ++z)
             grass += s.block({x, 63, z}) == blocks::GrassBlock;
     CHECK(grass > 4);
-    s.put({0, 64, 0}, S(blocks::Stone));
+    s.put({8, 64, 8}, S(blocks::Stone));
     s.tick(6000);
-    CHECK(s.block({0, 63, 0}) == blocks::Dirt);
+    CHECK(s.block({8, 63, 8}) == blocks::Dirt);
 }
 
 TEST_CASE("grass doesn't spread at night without block light") {
@@ -150,7 +150,7 @@ TEST_CASE("saplings in the dark don't grow; a sapling without soil pops off") {
     s.put({0, 63, 0}, S(blocks::Stone));
     CHECK(s.block({0, 64, 0}) == 0);
     REQUIRE(s.updates.drops().size() == 1);
-    CHECK(s.updates.drops()[0].stack.item == *itemRegistry().find("oak_sapling"));
+    CHECK(R().blockOf(s.updates.drops()[0].loot) == blocks::OakSapling);
     CHECK_FALSE(BlockUpdates::placement(s.world, S(blocks::OakSapling), {0, 64, 0}, Direction::Up, 0, 0));
 }
 
@@ -165,4 +165,18 @@ TEST_CASE("ice and snow layers melt in block light above 11; ice becomes water")
     sun.put({0, 64, 0}, S(blocks::Ice));
     sun.tick(20000);
     CHECK(sun.block({0, 64, 0}) == blocks::Ice);
+}
+
+TEST_CASE("grass under 2+ snow layers dies; one layer is fine; spreads under snow as snowy") {
+    Scene s;
+    s.put({0, 63, 0}, S(blocks::GrassBlock));
+    s.put({0, 64, 0}, S(blocks::Snow)); // 1 layer
+    s.put({1, 63, 1}, S(blocks::GrassBlock));
+    s.put({1, 64, 1}, R().set(S(blocks::Snow), properties::layers, 2)); // 3 layers
+    s.put({2, 64, 2}, S(blocks::Snow)); // dirt under snow nearby
+    s.tick(8000);
+    CHECK(s.block({0, 63, 0}) == blocks::GrassBlock);
+    CHECK(s.block({1, 63, 1}) == blocks::Dirt);
+    if (s.block({2, 63, 2}) == blocks::GrassBlock)
+        CHECK(R().get(s.world.getBlock({2, 63, 2}), properties::snowy) == 0); // snowy=true
 }

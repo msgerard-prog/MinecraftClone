@@ -128,7 +128,7 @@ TEST_CASE("flowing water washes away torches and plants, dropping them") {
     s.tick(5);
     CHECK(s.block({1, 64, 0}) == blocks::Water);
     REQUIRE(s.updates.drops().size() == 1);
-    CHECK(itemRegistry().item(s.updates.drops()[0].stack.item).id == "minecraft:torch");
+    CHECK(R().blockOf(s.updates.drops()[0].loot) == blocks::Torch); // its loot: the torch
 }
 
 #include "world/ChunkSerializer.h"
@@ -221,4 +221,14 @@ TEST_CASE("a source in midair flows down, then out to its four sides") {
         CHECK(s.block(n) == blocks::Water);
         CHECK(s.level(n) == 1);
     }
+}
+
+TEST_CASE("flowing water washes a sapling away (it doesn't stop the flow)") {
+    Scene s;
+    s.put({1, 64, 0}, S(blocks::OakSapling));
+    s.put({0, 64, 0}, S(blocks::Water));
+    s.tick(5);
+    CHECK(s.block({1, 64, 0}) == blocks::Water);
+    REQUIRE(s.updates.drops().size() == 1);
+    CHECK(R().blockOf(s.updates.drops()[0].loot) == blocks::OakSapling);
 }

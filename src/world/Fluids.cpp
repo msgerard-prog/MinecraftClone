@@ -67,7 +67,11 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::Lever:
     case B::StoneButton:
     case B::OakButton:
-    case B::Fire: return true;
+    case B::Fire:
+    case B::OakSapling:
+    case B::BirchSapling:
+    case B::SpruceSapling:
+    case B::AcaciaSapling: return true;
     default: return false;
     }
 }
@@ -146,8 +150,8 @@ void BlockUpdates::placeFluid(const BlockPos& p, BlockStateId state) {
     const BlockStateId old = at(p);
     if (old == state) return;
     // Water washes blocks away with their drops; lava burns them (no drop; wiki: Lava).
-    if (breaksInFluid(blockOf(old)) && blockOf(state) == B::Water)
-        if (const ItemId item = itemRegistry().blockItem(blockOf(old))) m_drops.push_back({p, {item, 1}});
+    if (breaksInFluid(blockOf(old)) && blockOf(state) == B::Water && blockOf(old) != B::Fire)
+        m_drops.push_back({p, {}, old}); // its loot
     set(p, state);
     if (state == 0) return;
     // Flowing lava arriving next to water hardens at once (its neighbours' updates

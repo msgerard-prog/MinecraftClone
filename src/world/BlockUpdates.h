@@ -97,6 +97,12 @@ public:
     static int burnOdds(BlockId b);
     static BlockStateId fireState(int age);
     bool fireSurvives(const BlockPos& p) const;
+    // Whether fire placed at p stays (solid below or a flammable neighbour).
+    static bool fireCanStay(const World& world, const BlockPos& p);
+    // The player's position: fire only acts within kFireRadius blocks of it (1.21.11
+    // game rule fire_spread_radius_around_player). Unset (tests): everywhere.
+    void setPlayer(const glm::dvec3& feet) { m_player = feet; }
+    static constexpr int kFireRadius = 128;
     static bool isLog(BlockId b);
 
     // Fluids (M14, Fluids.cpp). Amount 1..8 (8 = source or falling); 0 if not a fluid.
@@ -121,6 +127,7 @@ private:
     void burnNeighbour(const BlockPos& q, int bound, int fireAge);
     void tickFire(const BlockPos& p, BlockStateId s);
     void lavaIgnites(const BlockPos& p);
+    bool nearPlayer(const BlockPos& p) const;
 
     enum class FluidInto { No, Empty, Same, Breaks };
     int fluidDelay(BlockId kind) const;
@@ -202,6 +209,7 @@ private:
     int m_rtDistance = -1; // no random ticks until set
     int m_rtSpeed = kDefaultRandomTickSpeed;
     int m_skyDarken = 0;
+    std::optional<glm::dvec3> m_player;
     uint64_t m_order = 0;
     mutable bool m_wiresMuted = false; // dust ignores other dust's power through blocks
     int m_depth = 0;                   // update recursion guard

@@ -4,33 +4,31 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-v0.14.0: M14 done - water and lava flow like vanilla (levels, falling, slope search,
-sources, reactions, washing away), fluid_ticks saved, flowing surfaces at vanilla's
-corner heights, swimming/currents/drowning/lava damage and burning, buckets (milk,
-lava fuel). Reviews applied (cobblestone generators, midair sources, O(1) tick set).
-M1-M13 done (v0.13.0).
+M15 done (reviews applied; v0.15.0): random ticks (3 per section, chunks within the
+simulation distance with loaded neighbours), grass spread/death, leaf distance and
+decay with loot, saplings growing worldgen trees, snow/ice melting, fire (aging,
+burning, spreading by the wiki's odds, 128-block radius, infiniburn), lava starting
+fires, flint and steel. M14 fluids (v0.14.0); M1-M13 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M14 — Fluids: done (reviews being applied), then v0.14.0.
-
-M15 — Random ticks and fire (wiki: Tick › Random tick, Grass Block, Leaves, Sapling,
-Fire, Snow, Ice):
-1. ✅ M15.1 — Random ticks: 3 random blocks per 16³ section per game tick in chunks within
-   the simulation distance (`randomTickSpeed` game rule). Grass spreads to dirt (light
-   ≥ 9) and dies under opaque blocks; snow layers and ice melt at block light > 11;
-   leaves track `distance` to the nearest log (updated by scheduled ticks) and decay at
-   7 unless persistent, dropping saplings 1/20, sticks 1/50, apples 1/200 (oak).
-2. ✅ M15.2 — Saplings (oak, birch, spruce, acacia): block + item, planted on dirt/grass,
-   `stage` 0→1→tree on random ticks (1/7 chance, light ≥ 9), trees grown with the
-   worldgen shapes (same code, shared).
-3. ✅ M15.3 — Fire: fire block (age 0-15, scheduled every 30-40 ticks), spread and
-   burn odds per block (flammability table from the wiki), burning out, infiniburn on
-   netherrack/magma, lava igniting nearby flammable blocks, flint and steel places
-   fire (and lights portals through it), fire damages and ignites entities, animated
-   fire rendering.
+M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page):
+1. M16.1 — Falling blocks: sand, red sand, gravel fall 2 ticks after losing support
+   (falling_block entity with gravity, lands as the block or drops as an item on
+   non-full blocks, crushes nothing), saved with the chunk's entities.
+2. M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,
+   walkable, blocked, danger: lava/fire/cactus), follow range, used by zombies and
+   herd animals; mobs avoid drops > 3 and fluids where vanilla does.
+3. M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,
+   chicken (eggs, slow falling, flapping); breeding (love mode, babies growing up,
+   tempt goals) with wheat / wheat seeds / carrots; their drops and items.
+4. M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,
+   sticking), explosions (vanilla ray algorithm, block resistance, entity damage).
+5. M16.5 — Hostile mobs: skeleton (bow, strafing, burns in daylight), creeper
+   (swelling, explosion 3), spider (climbing walls, neutral in light), enderman
+   (teleport, stare aggro, carrying blocks, water damage). Original models/textures.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -96,6 +94,12 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M15 question (save compatibility):** leaves you placed in worlds saved before
+  v0.15.0 were stored as `distance=7, persistent=false` (placement didn't set
+  persistent yet), so they now decay. Shall I add a one-time load upgrade that marks
+  such leaves persistent in old saves (needs a marker tag in level.dat: a save-format
+  change), or accept the loss? Also in-game: does grass under one block of still water
+  in sunlight turn to dirt; how long does a sapling take to grow at light 15?
 - **M14 checks:** empty the air bar under water, surface and time the refill (ours
   3.75 s; the wiki text suggests 2 s). Time a 10-block sink and rise in deep still
   water. Does a torch in front of flowing lava drop as an item (ours: no, per the Lava
@@ -167,7 +171,7 @@ and GUI textures are made with their systems.
 | M12 | Dimensions: Nether and End, portals | ✅ 2026-10-07 (one dimension loaded at a time; no dragon or strongholds: see deviations) |
 | M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | ✅ 2026-10-07 v0.13.0 (vanilla opening: in-game check) |
 | M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | ✅ 2026-10-07 v0.14.0 |
-| M15 | Random ticks & fire: crops, saplings, leaf decay, grass spread, fire, flint and steel | Fire spreads like vanilla |
+| M15 | Random ticks & fire: saplings, leaf decay, grass spread, fire, flint and steel (crops moved to M17 farming) | ✅ 2026-10-07 v0.15.0 |
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | Classic mobs behave like vanilla |
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, brewing, farming | Core survival loop complete |
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | Seeds look like vanilla's kind of world |
@@ -185,6 +189,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M15 (v0.15.0): random ticks, grass, leaves, saplings, snow/ice melt, fire.
 - 2026-10-07 M14 (v0.14.0): fluids - flow, lava/water reactions, swimming, drowning, burning, buckets.
 - 2026-10-07 M13 (v0.13.0): Java Edition 1.21.11 saves and defaults, copper tools, versioning.
 - 2026-10-07 Vanilla world heights per dimension (Nether/End 0..255).

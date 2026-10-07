@@ -1015,8 +1015,10 @@ int main(int argc, char** argv) {
             // events (vanilla: before entities).
             {
                 const mc::world::BlockPos at{int(std::floor(feet.x)), 0, int(std::floor(feet.z))};
-                blockUpdates.setRandomTicks(at.chunk(), mobs.simulationDistance(),
+                // Ticking chunks: within the simulation distance, never past what's loaded.
+                blockUpdates.setRandomTicks(at.chunk(), std::min(mobs.simulationDistance(), opts->renderDistance),
                                             mc::world::BlockUpdates::kDefaultRandomTickSpeed);
+                blockUpdates.setPlayer(feet);
                 blockUpdates.setSkyDarken(dimension == Dimension::Overworld
                                               ? int(mc::world::skyDarken(mc::world::celestialAngle(dayTime)))
                                               : 0);

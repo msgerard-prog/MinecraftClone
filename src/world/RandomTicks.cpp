@@ -45,8 +45,8 @@ bool isSapling(BlockId b) {
 // Blocks a growing tree's logs may replace (vanilla: air, leaves, plants, saplings).
 bool treeReplaceable(BlockStateId s) {
     const BlockId b = blockOf(s);
-    return s == 0 || BlockUpdates::isLeaves(b) || isSapling(b) || b == B::ShortGrass || b == B::Fern ||
-           b == B::Snow;
+    return s == 0 || BlockUpdates::isLeaves(b) || BlockUpdates::isLog(b) || isSapling(b) || b == B::ShortGrass ||
+           b == B::Fern || b == B::Snow;
 }
 
 } // namespace
@@ -89,6 +89,17 @@ void BlockUpdates::runRandomTicks() {
         for (int32_t cx = m_rtCentre.x - m_rtDistance; cx <= m_rtCentre.x + m_rtDistance; ++cx) {
             const Chunk* c = chunkAt({cx * 16, h.minY, cz * 16});
             if (!c) continue;
+            bool any = false;
+            for (int s = 0; s < c->sectionCount() && !any; ++s)
+                any = c->section(s).randomTickingCount() > 0;
+            if (!any) continue;
+            // Only chunks whose 8 neighbours are loaded tick (vanilla's entity-ticking
+            // chunks): blocks next door must not read as air.
+            bool surrounded = true;
+            for (int dz = -1; dz <= 1 && surrounded; ++dz)
+                for (int dx = -1; dx <= 1 && surrounded; ++dx)
+                    surrounded = m_world.chunk({cx + dx, cz + dz}) != nullptr;
+            if (!surrounded) continue;
             for (int s = 0; s < c->sectionCount(); ++s) {
                 if (c->section(s).randomTickingCount() == 0) continue;
                 for (int i = 0; i < m_rtSpeed; ++i) {
@@ -153,7 +164,7 @@ bool BlockUpdates::grassSurvives(const BlockPos& p) const {
     // an opaque block (light opacity 15) turns it to dirt (wiki: Grass Block).
     const BlockStateId above = at(rel(p, Direction::Up));
     const BlockId a = blockOf(above);
-    if (a == B::Snow && R().get(above, layers) == 0) return true;
+    if (a == B::Snow) return R().get(above, layers) == 0; // thicker snow smothers it (wiki: Snow)
     if (a == B::Water && fluidAmount(above) == 8) return false;
     return R().lightOpacity(above) < 15;
 }
@@ -170,9 +181,9 @@ void BlockUpdates::tickGrass(const BlockPos& p) {
         const BlockPos q = offset(p, int(m_random.nextInt(3)) - 1, int(m_random.nextInt(5)) - 3,
                                   int(m_random.nextInt(3)) - 1);
         if (blockOf(at(q)) != B::Dirt || !grassSurvives(q)) continue;
-        if (blockOf(at(rel(q, Direction::Up))) == B::Water) continue;
-        if (rawBrightness(rel(q, Direction::Up)) < 4) continue; // (vanilla: too dark to take)
-        const bool snowAbove = blockOf(at(rel(q, Direction::Up))) == B::Snow;
+        const BlockId above = blockOf(at(rel(q, Direction::Up)));
+        if (above == B::Water || above == B::Lava) continue; // (the target's own light doesn't matter)
+        const bool snowAbove = above == B::Snow;
         set(q, R().set(R().defaultState(B::GrassBlock), properties::snowy, snowAbove ? 0 : 1));
     }
 }
@@ -184,7 +195,9 @@ int BlockUpdates::leafDistance(const BlockPos& p) const {
     // Block states).
     int best = 7;
     for (int d = 0; d < kDirectionCount; ++d) {
-        const BlockStateId n = at(rel(p, static_cast<Direction>(d)));
+        const BlockPos q = rel(p, static_cast<Direction>(d));
+        if (m_world.isInHeight(q.y) && !chunkAt(q)) return R().get(at(p), distance) + 1; // unknown: keep
+        const BlockStateId n = at(q);
         const BlockId b = blockOf(n);
         if (isLog(b)) return 1;
         if (isLeaves(b)) best = std::min(best, R().get(n, distance) + 1 + 1); // value index 0 = "1"
@@ -206,7 +219,7 @@ bool BlockUpdates::growTree(const BlockPos& p, BlockStateId sapling) {
     const uint64_t shapeSeed = m_random.nextLong();
     // Room to grow: every log position must be free (air, leaves, plants) and inside
     // the world (wiki: Sapling - otherwise it stays a sapling and tries again later).
-    bool fits = p.y + height + 2 <= m_world.height().maxY();
+    bool fits = p.y + height <= m_world.height().maxY();
     Xoroshiro check(shapeSeed);
     treeShape(t.kind, p.x, p.y, p.z, height, check, [&](int32_t x, int32_t y, int32_t z, int dist) {
         if (dist == 0 && fits && !((x == p.x && y == p.y && z == p.z) || treeReplaceable(at({x, y, z}))))
@@ -222,7 +235,7 @@ bool BlockUpdates::growTree(const BlockPos& p, BlockStateId sapling) {
         if (!m_world.isInHeight(y)) return;
         if (dist == 0) {
             if (treeReplaceable(at(q))) set(q, log);
-        } else if (at(q) == 0) {
+        } else if (at(q) == 0 || blockOf(at(q)) == B::ShortGrass || blockOf(at(q)) == B::Fern) {
             set(q, R().set(leaf, distance, dist - 1));
         }
     });

@@ -1,5 +1,6 @@
 // Mobs (wiki: Zombie, Cow, Spawn, Entity format).
 #include "gameplay/Mobs.h"
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
 #include "world/OverworldGenerator.h"
@@ -306,4 +307,15 @@ TEST_CASE("water puts out a burning mob of any kind (review fix: cows burned on 
     s.world.setBlock({8, 64, 8}, blockRegistry().defaultState(blocks::Water));
     s.tick(2);
     CHECK(s.all().at(0)->fireTicks == 0);
+}
+
+TEST_CASE("a mob in fire is hurt and set alight for 8 s") {
+    MobScene s;
+    MobData cow = Mobs::make(MobType::Cow, {8.5, 64.0, 8.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, cow));
+    s.world.setBlock({8, 64, 8}, BlockUpdates::fireState(0));
+    s.tick(1);
+    MobData* m = s.all().at(0);
+    CHECK(m->health < 10.0f);
+    CHECK(m->fireTicks >= 150);
 }

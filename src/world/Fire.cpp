@@ -31,7 +31,26 @@ BlockPos rel(const BlockPos& p, Direction d) {
 // Vanilla's default difficulty (Normal) until difficulty exists: it speeds up spread.
 constexpr int kDifficulty = 2;
 
-bool infiniburn(BlockId b) { return b == B::Netherrack || b == B::MagmaBlock || b == B::SoulSand; }
+// Blocks fire burns on forever (wiki: Fire › Eternal fire); bedrock too in the End
+// (the dimension with neither sky light nor ultrawarm).
+bool infiniburn(const World& w, BlockId b) {
+    return b == B::Netherrack || b == B::MagmaBlock || b == B::SoulSand ||
+           (b == B::Bedrock && !w.hasSkyLight() && !w.isUltrawarm());
+}
+
+// Blocks lava can set alight (wiki: Fire, "can catch fire from lava"): wood and leaves,
+// also wood-built blocks that don't burn (crafting table); not 1-block flowers.
+bool ignitedByLava(BlockId b) {
+    switch (b) {
+    case B::Dandelion:
+    case B::Poppy:
+    case B::Cornflower:
+    case B::AzureBluet:
+    case B::OxeyeDaisy: return false;
+    case B::CraftingTable: return true;
+    default: return BlockUpdates::igniteOdds(b) > 0;
+    }
+}
 
 } // namespace
 
@@ -96,9 +115,24 @@ bool BlockUpdates::nextToFlammable(const BlockPos& p) const {
     return false;
 }
 
-bool BlockUpdates::fireSurvives(const BlockPos& p) const {
+bool BlockUpdates::fireCanStay(const World& world, const BlockPos& p) {
     // On a solid block, or clinging to something flammable (wiki: Fire › Placement).
+    if (R().collides(world.getBlock(rel(p, Direction::Down)))) return true;
+    for (int d = 0; d < kDirectionCount; ++d)
+        if (igniteOdds(blockOf(world.getBlock(rel(p, static_cast<Direction>(d))))) > 0) return true;
+    return false;
+}
+
+bool BlockUpdates::fireSurvives(const BlockPos& p) const {
     return R().collides(at(rel(p, Direction::Down))) || nextToFlammable(p);
+}
+
+bool BlockUpdates::nearPlayer(const BlockPos& p) const {
+    // 1.21.11: fire only burns, spreads or goes out within 128 blocks of a player
+    // (game rule fire_spread_radius_around_player; wiki: Fire › Ticking).
+    if (!m_player) return true;
+    const double dx = p.x + 0.5 - m_player->x, dz = p.z + 0.5 - m_player->z;
+    return dx * dx + dz * dz <= double(kFireRadius) * kFireRadius;
 }
 
 BlockStateId BlockUpdates::fireState(int fireAge) { return R().set(R().defaultState(B::Fire), age, std::min(fireAge, 15)); }
@@ -130,14 +164,19 @@ void BlockUpdates::burnNeighbour(const BlockPos& q, int bound, int fireAge) {
 
 void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
     schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // 1.5-2 s (wiki)
+    if (!nearPlayer(p)) return;
     if (!fireSurvives(p)) {
         set(p, 0);
         return;
     }
+    if (!nearPlayer(p)) return; // frozen far from players (still rescheduled)
     const BlockId below = blockOf(at(rel(p, Direction::Down)));
     int a = R().get(s, age);
-    if (a < 15 && m_random.nextInt(3) == 0) setRaw(p, fireState(++a)); // ages 1 in 3 ticks (wiki)
-    if (!infiniburn(below)) {
+    if (a < 15 && m_random.nextInt(3) == 0) { // ages 1 in 3 ticks (wiki)
+        m_world.setBlock(p, fireState(++a)); // the model ignores age: no re-mesh, no updates
+        if (Chunk* c = chunkAt(p)) c->markDirty();
+    }
+    if (!infiniburn(m_world, below)) {
         // Nothing flammable around: a fire older than 3 (or not on a solid block) dies.
         if (!nextToFlammable(p)) {
             if (!R().collides(at(rel(p, Direction::Down))) || a > 3) set(p, 0);
@@ -178,6 +217,7 @@ void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
 }
 
 void BlockUpdates::lavaIgnites(const BlockPos& p) {
+    if (!nearPlayer(p)) return;
     const int steps = static_cast<int>(m_random.nextInt(3));
     if (steps > 0) {
         // Rise 1 block per step, drifting up to 1 sideways; stop at anything solid.
@@ -187,7 +227,10 @@ void BlockUpdates::lavaIgnites(const BlockPos& p) {
             if (!m_world.isInHeight(q.y) || !chunkAt(q)) return;
             const BlockStateId s = at(q);
             if (s == 0) {
-                if (nextToFlammable(q)) {
+                bool catches = false;
+                for (int d = 0; d < kDirectionCount && !catches; ++d)
+                    catches = ignitedByLava(blockOf(at(rel(q, static_cast<Direction>(d)))));
+                if (catches) {
                     placeFire(q, 0);
                     return;
                 }
@@ -203,7 +246,7 @@ void BlockUpdates::lavaIgnites(const BlockPos& p) {
                          p.z + static_cast<int>(m_random.nextInt(3)) - 1};
         if (!m_world.isInHeight(q.y + 1) || !chunkAt(q)) return;
         const BlockPos up{q.x, q.y + 1, q.z};
-        if (at(up) == 0 && igniteOdds(blockOf(at(q))) > 0) placeFire(up, 0);
+        if (at(up) == 0 && ignitedByLava(blockOf(at(q)))) placeFire(up, 0);
     }
 }
 

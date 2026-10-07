@@ -102,7 +102,12 @@ Push pushKind(BlockStateId s) {
     case B::OakLeaves: // leaves break (wiki: Leaves › Piston interactivity)
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: return Push::Destroy;
+    case B::AcaciaLeaves:
+    case B::OakSapling:
+    case B::BirchSapling:
+    case B::SpruceSapling:
+    case B::AcaciaSapling:
+    case B::Fire: return Push::Destroy;
     case B::Obsidian:  // (wiki: Piston/Table)
     case B::Furnace:   // block entities don't move
     case B::PistonHead:
@@ -290,8 +295,7 @@ void BlockUpdates::notifyNeighbours(const BlockPos& p) {
 }
 
 void BlockUpdates::pop(const BlockPos& p) {
-    const BlockStateId s = at(p);
-    if (const ItemId item = itemRegistry().blockItem(blockOf(s))) m_drops.push_back({p, {item, 1}});
+    m_drops.push_back({p, {}, at(p)}); // its loot, as if broken by hand
     set(p, 0);
 }
 

@@ -229,12 +229,7 @@ bool useItem(World& world, Dimension dimension, ItemId item, const BlockPos& blo
         const BlockPos at{block.x + n.x, block.y + n.y, block.z + n.z};
         if (dimension != Dimension::End && light(world, at, changed)) return true;
         if (!world.isInHeight(at.y) || world.getBlock(at) != 0) return false;
-        bool stays = R().collides(world.getBlock({at.x, at.y - 1, at.z}));
-        for (int d = 0; d < kDirectionCount && !stays; ++d) {
-            const glm::ivec3 o = normal(static_cast<Direction>(d));
-            stays = BlockUpdates::igniteOdds(R().blockOf(world.getBlock({at.x + o.x, at.y + o.y, at.z + o.z}))) > 0;
-        }
-        if (!stays) return false; // nowhere for fire to stay: not used
+        if (!BlockUpdates::fireCanStay(world, at)) return false; // nowhere for fire to stay: not used
         world.updateBlock(at, BlockUpdates::fireState(0));
         changed.push_back(at);
         return true;

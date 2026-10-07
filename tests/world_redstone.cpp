@@ -223,8 +223,8 @@ TEST_CASE("components pop off when their support goes, dropping themselves") {
     s.put({3, 64, 3}, 0);
     CHECK(s.at({3, 64, 4}) == 0);
     REQUIRE(s.redstone.drops().size() == 2);
-    CHECK(itemRegistry().item(s.redstone.drops()[0].stack.item).id == "minecraft:redstone");
-    CHECK(itemRegistry().item(s.redstone.drops()[1].stack.item).id == "minecraft:redstone_torch");
+    CHECK(blockRegistry().blockOf(s.redstone.drops()[0].loot) == blocks::RedstoneWire); // loot: redstone
+    CHECK(blockRegistry().blockOf(s.redstone.drops()[1].loot) == blocks::RedstoneWallTorch); // loot: a torch
 }
 
 TEST_CASE("pistons push up to 12 blocks, break dust, stop at bedrock; sticky pistons pull") {
@@ -454,5 +454,26 @@ TEST_CASE("a torch survives 8 turn-offs in 60 ticks and burns out on the 9th") {
             s.tick(3);
         }
         CHECK(s.on({6, 64, 5}) == (offs == 8)); // lit again unless burnt out
+    }
+}
+
+TEST_CASE("pistons destroy saplings, fire and leaves; the drop is the block's loot") {
+    Scene s;
+    for (const BlockId b : {blocks::OakSapling, blocks::Fire, blocks::OakLeaves}) {
+        s.put({0, 64, 4}, 0);
+        s.put({0, 64, 3}, with(S(blocks::Piston), "facing", "east"));
+        if (b == blocks::Fire) s.world.setBlock({1, 64, 3}, BlockUpdates::fireState(0));
+        else s.world.setBlock({1, 64, 3}, S(b));
+        s.redstone.drops().clear();
+        s.put({0, 64, 4}, S(blocks::RedstoneBlock));
+        s.tick(2);
+        CHECK(R().blockOf(s.at({1, 64, 3})) == blocks::PistonHead);
+        CHECK(R().blockOf(s.at({2, 64, 3})) != b); // not pushed along
+        REQUIRE(s.redstone.drops().size() == 1);
+        CHECK(R().blockOf(s.redstone.drops()[0].loot) == b); // rolled as loot (leaves: no leaves item)
+        s.put({0, 64, 4}, 0);
+        s.tick(2);
+        s.put({0, 64, 3}, 0);
+        s.put({1, 64, 3}, 0);
     }
 }

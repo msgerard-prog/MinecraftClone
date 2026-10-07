@@ -152,3 +152,47 @@ TEST_CASE("standing in fire: 1 damage per hurt cooldown, alight after a second")
     CHECK(v.fireTicks() == 160);
     v.touchFire(false);
 }
+
+TEST_CASE("fire more than 128 blocks from the player stays as it is (1.21.11)") {
+    Scene s;
+    s.updates.setPlayer({500.0, 64.0, 0.0});
+    s.put({3, 63, 3}, S(blocks::OakLog));
+    s.put({3, 64, 3}, BlockUpdates::fireState(0));
+    s.tick(3000);
+    CHECK(s.block({3, 64, 3}) == blocks::Fire); // not aged, spread or burnt out
+    CHECK(s.block({3, 63, 3}) == blocks::OakLog);
+    CHECK(R().get(s.world.getBlock({3, 64, 3}), properties::age) == 0);
+}
+
+TEST_CASE("lava doesn't light flowers") {
+    Scene s;
+    s.world.setBlock({0, 64, 0}, S(blocks::Lava));
+    for (int x = -1; x <= 1; ++x)
+        for (int z = -1; z <= 1; ++z)
+            if (x != 0 || z != 0) s.world.setBlock({x, 64, z}, S(blocks::Stone));
+    for (int x = -2; x <= 2; ++x)
+        for (int z = -2; z <= 2; ++z)
+            s.world.setBlock({x, 65, z}, S(blocks::Stone)); // a lid with poppies on it
+    s.world.setBlock({0, 65, 0}, 0);
+    s.world.setBlock({0, 66, 0}, 0);
+    for (int x = -1; x <= 1; ++x)
+        for (int z = -1; z <= 1; ++z)
+            if (x != 0 || z != 0) s.world.setBlock({x, 66, z}, S(blocks::Poppy));
+    s.tick(30000);
+    CHECK(s.count(blocks::Fire, 3) == 0);
+    CHECK(s.count(blocks::Poppy, 3) == 8);
+}
+
+TEST_CASE("fire on bedrock burns forever in the End only") {
+    Scene s;
+    s.put({0, 63, 0}, S(blocks::Bedrock));
+    s.put({0, 64, 0}, BlockUpdates::fireState(0));
+    s.tick(1500);
+    CHECK(s.block({0, 64, 0}) == 0);
+    Scene end;
+    end.world.setHasSkyLight(false);
+    end.put({0, 63, 0}, S(blocks::Bedrock));
+    end.put({0, 64, 0}, BlockUpdates::fireState(0));
+    end.tick(6000);
+    CHECK(end.block({0, 64, 0}) == blocks::Fire);
+}
