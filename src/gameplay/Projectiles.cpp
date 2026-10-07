@@ -5,6 +5,8 @@
 #include "gameplay/Mobs.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
+#include "world/BlockUpdates.h"
+#include "world/Direction.h"
 #include "world/Raycast.h"
 
 #include <cmath>
@@ -121,6 +123,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     Hits hits;
     m_chicks.clear();
     m_eyeDrops.clear();
+    m_explosions.clear();
     static const ItemId arrowItem = *itemRegistry().find("arrow");
     for (size_t i = 0; i < m_items.size();) {
         Projectile& p = m_items[i];
@@ -168,7 +171,36 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     target = Target::Player;
                 }
             }
-            if (target != Target::None) {
+            const bool fireball = p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
+            if (fireball && (target != Target::None || block)) {
+                const glm::dvec3 at = p.pos + dir * reach;
+                if (target == Target::Player && vitals && survival) {
+                    const float damage = p.kind == ProjectileKind::GhastFireball ? 6.0f : 5.0f; // (wiki)
+                    if (vitals->attacked(damage, &p.pos, Vitals::Hit::Fire) && p.kind == ProjectileKind::BlazeFireball)
+                        vitals->setOnFire(100); // 5 s alight
+                    hits.playerDamage += damage;
+                } else if (target == Target::Mob) {
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (m.hurtTime == 0 && !mobInfo(m.type).fireImmune) {
+                        m.health -= p.kind == ProjectileKind::GhastFireball ? 6.0f : 5.0f;
+                        m.hurtTime = 10;
+                        m.fireTicks = std::max<int16_t>(m.fireTicks, 100);
+                        ++hits.mobsHit;
+                    }
+                }
+                if (p.kind == ProjectileKind::GhastFireball) {
+                    m_explosions.push_back(at);
+                } else if (target == Target::None && block) { // fire where it landed
+                    const BlockPos f = block->block;
+                    const glm::ivec3 n = normal(block->face);
+                    const BlockPos front{f.x + n.x, f.y + n.y, f.z + n.z};
+                    if (world.isInHeight(front.y) && world.getBlock(front) == 0 && BlockUpdates::fireCanStay(world, front)) {
+                        world.updateBlock(front, BlockUpdates::fireState(0));
+                        if (m_edits.size() < m_edits.capacity()) m_edits.push_back(front);
+                    }
+                }
+                remove = true;
+            } else if (target != Target::None) {
                 if (p.kind == ProjectileKind::Arrow) {
                     // Base damage 2, Power adds 0.5 per level + 0.5 (wiki: Power).
                     const double base = 2.0 + (p.power ? 0.5 * p.power + 0.5 : 0.0);
@@ -212,9 +244,11 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             } else {
                 p.pos += p.vel;
                 const bool inWater = blockRegistry().blockOf(world.getBlock(cell)) == blocks::Water;
-                const double drag = inWater ? 0.6 : 0.99;
-                p.vel *= drag;
-                p.vel.y -= p.kind == ProjectileKind::Arrow ? 0.05 : 0.03;
+                if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball) { // (fireballs fly straight)
+                    const double drag = inWater ? 0.6 : 0.99;
+                    p.vel *= drag;
+                    p.vel.y -= p.kind == ProjectileKind::Arrow ? 0.05 : 0.03;
+                }
                 if (p.pos.y < world.height().minY - 64 || p.life > 1200) remove = true;
             }
         }

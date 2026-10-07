@@ -34,7 +34,10 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/sheep.png",  "assets/minecraft/textures/entity/clone/pig.png",
         "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/skeleton.png",
         "assets/minecraft/textures/entity/clone/creeper.png", "assets/minecraft/textures/entity/clone/spider.png",
-        "assets/minecraft/textures/entity/clone/enderman.png", "assets/minecraft/textures/entity/clone/sheep_wool.png",
+        "assets/minecraft/textures/entity/clone/enderman.png", "assets/minecraft/textures/entity/clone/ghast.png",
+        "assets/minecraft/textures/entity/clone/blaze.png",  "assets/minecraft/textures/entity/clone/magma_cube.png",
+        "assets/minecraft/textures/entity/clone/zombified_piglin.png",
+        "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png"};
     return kPaths[row];
 }

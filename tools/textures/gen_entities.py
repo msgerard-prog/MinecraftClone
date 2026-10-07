@@ -292,6 +292,98 @@ def enderman():
     return img
 
 
+def ghast():
+    # Pale grey-white with closed eyes and a frowning mouth. Body 16x16x16 @ (0,0),
+    # tentacle 2x9x2 @ (0,32).
+    rng = random.Random("ghast")
+    img = Img(64, 64, CLEAR)
+    white = ramp(hexc("#E8E8E8"), 5, spread=0.18)
+    for f in box_faces(0, 0, 16, 16, 16).values():
+        paint(img, f, white, rng, noise=0.25)
+    dark = (90, 90, 96, 255)
+    front = box_faces(0, 0, 16, 16, 16)["front"]
+    pts = [(x, 6) for x in (3, 4, 5, 10, 11, 12)] + [(x, 7) for x in (2, 6, 9, 13)]
+    pts += [(x, 11) for x in range(5, 11)] + [(4, 12), (11, 12), (5, 10), (10, 10)]
+    face(img, front, pts, dark)
+    for x in (3, 4, 11, 12):  # tear streaks
+        img.set(front[0] + x, front[1] + 8, (180, 180, 190, 255))
+    for f in box_faces(0, 32, 2, 9, 2).values():
+        paint(img, f, white, rng, noise=0.25)
+    return img
+
+
+def blaze():
+    # A glowing yellow-orange head with dark eyes, golden rods. Head 8x8x8 @ (0,0),
+    # rod 2x8x2 @ (0,16).
+    rng = random.Random("blaze")
+    img = Img(64, 64, CLEAR)
+    yellow = ramp(hexc("#F0C030"), 5, spread=0.4)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, yellow, rng, noise=0.5)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 3), (2, 3), (5, 3), (6, 3), (3, 6), (4, 6)), (60, 30, 10, 255))
+    rod = ramp(hexc("#E8A020"), 5, spread=0.4)
+    for f in box_faces(0, 16, 2, 8, 2).values():
+        paint(img, f, rod, rng, noise=0.5)
+    return img
+
+
+def magma_cube():
+    # Dark red-black with glowing orange seams, two yellow eyes. Body 8x8x8 @ (0,0).
+    rng = random.Random("magma_cube")
+    img = Img(64, 64, CLEAR)
+    dark = ramp(hexc("#3A1810"), 5, spread=0.4)
+    glow = ramp(hexc("#F07018"), 5, spread=0.3)
+    for name, (x0, y0, w, h) in box_faces(0, 0, 8, 8, 8).items():
+        paint(img, (x0, y0, w, h), dark, rng)
+        for y in range(h):
+            for x in range(w):
+                if y % 3 == 1 and rng.random() < 0.6:
+                    img.set(x0 + x, y0 + y, glow[3 if rng.random() < 0.5 else 2])
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 2), (2, 2), (5, 2), (6, 2)), (250, 220, 60, 255))
+    return img
+
+
+def zombified_piglin():
+    # A piglin's wide pink head gone grey-green and rotten, a bare rib on the body,
+    # golden loincloth. Head 10x8x8 @ (0,0), snout 4x3x1 @ (40,0), ear 1x5x4 @ (52,0),
+    # body 8x12x4 @ (16,16), arms 4x12x4 @ (40,16) / (32,48), legs @ (0,16) / (16,48).
+    rng = random.Random("zombified_piglin")
+    img = Img(64, 64, CLEAR)
+    pink = ramp(hexc("#D88A84"), 5, spread=0.25)
+    rot = ramp(hexc("#7A9A6A"), 5, spread=0.25)
+    bone = ramp(hexc("#E0DCC8"), 5, spread=0.15)
+    gold = ramp(hexc("#E0B030"), 5, spread=0.3)
+    for name, (x0, y0, w, h) in box_faces(0, 0, 10, 8, 8).items():
+        for y in range(h):
+            for x in range(w):
+                pal = rot if rng.random() < 0.3 else pink
+                img.set(x0 + x, y0 + y, pal[2 if rng.random() > 0.3 else 1])
+    face(img, box_faces(0, 0, 10, 8, 8)["front"], ((2, 3), (7, 3)), (30, 20, 20, 255),
+         (((3, 3), bone[3]), ((6, 3), (240, 240, 240, 255))))
+    for f in box_faces(40, 0, 4, 3, 1).values():
+        paint(img, f, pink, rng)
+    img.set(41 + 1, 1 + 1, (90, 40, 40, 255))
+    img.set(41 + 2, 1 + 1, (90, 40, 40, 255))
+    for f in box_faces(52, 0, 1, 5, 4).values():
+        paint(img, f, rot, rng)
+    for name, (x0, y0, w, h) in box_faces(16, 16, 8, 12, 4).items():
+        paint(img, (x0, y0, w, h), pink, rng)
+        if name in ("front", "back"):
+            for y in (3, 5, 7):
+                for x in range(1, w - 1):
+                    img.set(x0 + x, y0 + y, bone[2])
+            paint(img, (x0, y0 + h - 3, w, 3), gold, rng)
+    for u, v in ((40, 16), (32, 48)):
+        for f in box_faces(u, v, 4, 12, 4).values():
+            paint(img, f, pink if u == 40 else rot, rng)
+    for u, v in ((0, 16), (16, 48)):
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), pink, rng)
+            if name not in ("top", "bottom"):
+                paint(img, (x0, y0 + h - 2, w, 2), ramp(hexc("#4A3A30"), 5), rng)
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -317,7 +409,8 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     images = {"zombie": zombie(), "cow": cow(), "sheep": sheep(), "sheep_wool": sheep_wool(), "pig": pig(),
               "chicken": chicken(), "projectiles": projectiles(), "skeleton": skeleton(), "creeper": creeper(),
-              "spider": spider(), "enderman": enderman()}
+              "spider": spider(), "enderman": enderman(), "ghast": ghast(), "blaze": blaze(),
+              "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

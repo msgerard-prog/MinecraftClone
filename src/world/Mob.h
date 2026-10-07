@@ -9,7 +9,23 @@
 
 namespace mc::world {
 
-enum class MobType : uint8_t { Zombie, Cow, Sheep, Pig, Chicken, Skeleton, Creeper, Spider, Enderman, Count };
+enum class MobType : uint8_t {
+    Zombie,
+    Cow,
+    Sheep,
+    Pig,
+    Chicken,
+    Skeleton,
+    Creeper,
+    Spider,
+    Enderman,
+    // Nether (M19.2).
+    Ghast,
+    Blaze,
+    MagmaCube,
+    ZombifiedPiglin,
+    Count
+};
 
 // Static facts per mob type (wiki: Zombie, Cow - health, hitbox, speed, damage).
 struct MobInfo {
@@ -19,6 +35,9 @@ struct MobInfo {
     double speed;         // movement_speed attribute (blocks/tick scale)
     float attackDamage;   // normal difficulty; 0 = passive
     bool hostile;
+    bool fireImmune = false; // fire and lava don't hurt it (Nether mobs)
+    bool flies = false;      // no gravity: ghasts, blazes hover
+    float modelScale = 1.0f; // drawn this much larger than its model (ghast 4.5)
 };
 const MobInfo& mobInfo(MobType t);
 
@@ -79,6 +98,12 @@ struct MobData {
     uint8_t looting = 0;                    // Looting level of the player's last hit
     int16_t stareTicks = 0;                 // enderman: ticks the player has looked at it
     int16_t angerTicks = 0;                 // enderman: anger left (calms down at 0)
+    // Nether mobs (M19.2).
+    uint8_t size = 1;       // magma cube: 1, 2 or 4 (saved as Size 0, 1, 3)
+    int16_t chargeTicks = 0; // ghast/blaze: charging a shot; blaze: volley timing
+    uint8_t volley = 0;      // blaze: fireballs left in this volley
+    int16_t jumpTicks = 0;   // magma cube: ticks to its next jump
+    bool angerAlert = false; // zombified piglin: just hit - the ones around join in
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 

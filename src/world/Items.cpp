@@ -177,6 +177,13 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:string", .texture = "item/string"});
     r.add({.id = "minecraft:spider_eye", .food = 2, .saturation = 3.2f, .texture = "item/spider_eye"});
     r.add({.id = "minecraft:ender_pearl", .maxStack = 16, .texture = "item/ender_pearl"});
+    // Nether mob drops (M19.2).
+    r.add({.id = "minecraft:ghast_tear", .texture = "item/ghast_tear"});
+    r.add({.id = "minecraft:blaze_rod", .texture = "item/blaze_rod"});
+    r.add({.id = "minecraft:blaze_powder", .texture = "item/blaze_powder"});
+    r.add({.id = "minecraft:magma_cream", .texture = "item/magma_cream"});
+    r.add({.id = "minecraft:gold_nugget", .texture = "item/gold_nugget"});
+    r.add({.id = "minecraft:fire_charge", .texture = "item/fire_charge"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));
     r.mapBlock(blocks::Carrots, *r.find("carrot"));

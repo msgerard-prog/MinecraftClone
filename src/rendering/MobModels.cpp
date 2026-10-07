@@ -114,6 +114,56 @@ constexpr std::array<MobPart, 6> kEnderman = {{
     {{1, 0, -1}, {3, 30, 1}, {2, 30, 0}, 0, 16, A::LegB},
 }};
 
+// Ghast (M19.2): a 16-pixel cube (drawn 4.5x: MobInfo::modelScale) with nine
+// tentacles hanging below it in a 3x3 grid.
+constexpr std::array<MobPart, 10> kGhast = {{
+    {{-8, 0, -8}, {8, 16, 8}, {0, 8, 0}, 0, 0, A::None},
+    {{-6, -9, -6}, {-4, 0, -4}, {-5, 0, -5}, 0, 32, A::LegA},
+    {{-1, -9, -6}, {1, 0, -4}, {0, 0, -5}, 0, 32, A::LegB},
+    {{4, -9, -6}, {6, 0, -4}, {5, 0, -5}, 0, 32, A::LegA},
+    {{-6, -9, -1}, {-4, 0, 1}, {-5, 0, 0}, 0, 32, A::LegB},
+    {{-1, -9, -1}, {1, 0, 1}, {0, 0, 0}, 0, 32, A::LegA},
+    {{4, -9, -1}, {6, 0, 1}, {5, 0, 0}, 0, 32, A::LegB},
+    {{-6, -9, 4}, {-4, 0, 6}, {-5, 0, 5}, 0, 32, A::LegA},
+    {{-1, -9, 4}, {1, 0, 6}, {0, 0, 5}, 0, 32, A::LegB},
+    {{4, -9, 4}, {6, 0, 6}, {5, 0, 5}, 0, 32, A::LegA},
+}};
+
+// Blaze: a head over three rings of four rods (vanilla spins them; ours stand still).
+constexpr std::array<MobPart, 13> kBlaze = {{
+    {{-4, 20, -4}, {4, 28, 4}, {0, 20, 0}, 0, 0, A::Head},
+    {{-9, 13, -1}, {-7, 21, 1}, {0, 0, 0}, 0, 16, A::None},
+    {{7, 13, -1}, {9, 21, 1}, {0, 0, 0}, 0, 16, A::None},
+    {{-1, 13, -9}, {1, 21, -7}, {0, 0, 0}, 0, 16, A::None},
+    {{-1, 13, 7}, {1, 21, 9}, {0, 0, 0}, 0, 16, A::None},
+    {{-6, 6, -6}, {-4, 14, -4}, {0, 0, 0}, 0, 16, A::None},
+    {{4, 6, 4}, {6, 14, 6}, {0, 0, 0}, 0, 16, A::None},
+    {{4, 6, -6}, {6, 14, -4}, {0, 0, 0}, 0, 16, A::None},
+    {{-6, 6, 4}, {-4, 14, 6}, {0, 0, 0}, 0, 16, A::None},
+    {{-4, 0, -1}, {-2, 8, 1}, {0, 0, 0}, 0, 16, A::None},
+    {{2, 0, -1}, {4, 8, 1}, {0, 0, 0}, 0, 16, A::None},
+    {{-1, 0, -4}, {1, 8, -2}, {0, 0, 0}, 0, 16, A::None},
+    {{-1, 0, 2}, {1, 8, 4}, {0, 0, 0}, 0, 16, A::None},
+}};
+
+// Magma cube: one 8-pixel cube, drawn at its size (1, 2 or 4 times).
+constexpr std::array<MobPart, 1> kMagmaCube = {{
+    {{-4, 0, -4}, {4, 8, 4}, {0, 0, 0}, 0, 0, A::None},
+}};
+
+// Zombified piglin: the humanoid with a wide pig head, snout and ears; one arm forward.
+constexpr std::array<MobPart, 9> kZombifiedPiglin = {{
+    {{-5, 24, -4}, {5, 32, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-2, 24, 4}, {2, 27, 5}, {0, 24, 0}, 40, 0, A::Head},
+    {{-6, 26, -2}, {-5, 31, 2}, {0, 24, 0}, 52, 0, A::Head},
+    {{5, 26, -2}, {6, 31, 2}, {0, 24, 0}, 52, 0, A::Head},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 16, A::None},
+    {{-8, 12, -2}, {-4, 24, 2}, {-6, 22, 0}, 40, 16, A::ArmForward},
+    {{4, 12, -2}, {8, 24, 2}, {6, 22, 0}, 32, 48, A::LegA},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 16, A::LegA},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 16, 48, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -126,6 +176,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Creeper: return kCreeper;
     case world::MobType::Spider: return kSpider;
     case world::MobType::Enderman: return kEnderman;
+    case world::MobType::Ghast: return kGhast;
+    case world::MobType::Blaze: return kBlaze;
+    case world::MobType::MagmaCube: return kMagmaCube;
+    case world::MobType::ZombifiedPiglin: return kZombifiedPiglin;
     default: return kCow;
     }
 }

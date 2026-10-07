@@ -19,7 +19,9 @@ namespace mc {
 // picked up if the player shot them. Thrown eggs (gravity 0.03) break on anything;
 // 1 in 8 hatches a chick (1 in 32 of those, four). Pooled (hard rule 1).
 // Eyes of ender (M18.5) fly to a point and then drop or shatter (see throwEye).
-enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder };
+// Ghast fireballs (M19.2) fly straight and explode (power 1, fire); blaze fireballs
+// hit for 5 and set fire (wiki: Fireball, Small Fireball).
+enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball };
 
 struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
@@ -45,6 +47,8 @@ public:
         m_items.reserve(kMax);
         m_chicks.reserve(16);
         m_eyeDrops.reserve(16);
+        m_explosions.reserve(16);
+        m_edits.reserve(64);
     }
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
@@ -65,6 +69,10 @@ public:
     const std::vector<Projectile>& items() const { return m_items; }
     // Eyes of ender that came down this tick (the caller drops an eye item there).
     const std::vector<glm::dvec3>& eyeDrops() const { return m_eyeDrops; }
+    // Ghast fireballs that hit this tick (the caller explodes them, power 1, with fire)
+    // and blocks set alight by blaze fireballs (to relight and re-mesh).
+    const std::vector<glm::dvec3>& explosions() const { return m_explosions; }
+    std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
     void clear() { m_items.clear(); }
 
@@ -72,6 +80,8 @@ private:
     std::vector<Projectile> m_items;
     std::vector<glm::dvec3> m_chicks;   // reused
     std::vector<glm::dvec3> m_eyeDrops; // reused
+    std::vector<glm::dvec3> m_explosions;
+    std::vector<world::BlockPos> m_edits;
 };
 
 // The bow's draw (wiki: Bow): after `ticks` of drawing, power 0..1 =

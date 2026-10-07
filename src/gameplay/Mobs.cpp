@@ -65,7 +65,8 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 
 Aabb Mobs::box(const MobData& m) {
     const MobInfo& info = mobInfo(m.type);
-    const double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
+    double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
+    if (m.type == MobType::MagmaCube) s = m.size / 4.0; // (info is the large one)
     return Aabb::fromFeet(m.pos, info.width * s, info.height * s);
 }
 
@@ -91,6 +92,11 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
+    if (type == MobType::MagmaCube) { // wiki: Magma Cube - sizes 1, 2, 4 at spawn; health size^2
+        const uint32_t r = rng.nextInt(3);
+        m.size = uint8_t(1u << r);
+        m.health = float(m.size * m.size);
+    }
     return m;
 }
 
@@ -108,7 +114,9 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     const FluidContact fluid = fluidContact(world, box(m));
     const bool inWater = fluid.water;
     m.vel += fluid.flow * 0.014; // carried by currents (vanilla pushes mobs too)
-    if (fluid.fire) { // wiki: Fire - 1 a tick (hurt cooldown), 8 s alight
+    const bool fireproof = mobInfo(m.type).fireImmune; // Nether mobs (wiki)
+    if (fireproof) m.fireTicks = 0;
+    if (fluid.fire && !fireproof) { // wiki: Fire - 1 a tick (hurt cooldown), 8 s alight
         if (m.hurtTime == 0 && m.deathTime == 0) {
             m.health -= 1.0f;
             m.hurtTime = 10;
@@ -116,7 +124,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         if (m.fireTicks < 160) m.fireTicks = 160;
     }
     if (inWater) m.fireTicks = 0; // water puts out burning mobs (wiki: Fire)
-    if (fluid.lava) { // wiki: Lava - 4 damage (with the hurt cooldown), on fire 15 s
+    if (fluid.lava && !fireproof) { // wiki: Lava - 4 damage (with the hurt cooldown), on fire 15 s
         if (m.hurtTime == 0 && m.deathTime == 0) {
             m.health -= 4.0f;
             m.hurtTime = 10;
@@ -133,7 +141,11 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.vel.y = 0.2; // spiders climb walls (wiki: Spider)
         m.fallDistance = 0.0f;
     }
-    if (inWater) {
+    if (mobInfo(m.type).flies) {
+        // Ghasts and blazes fly: velocity eases toward the wish (with its height), no
+        // gravity (our motion model).
+        m.vel = m.vel * 0.9 + wish * 0.1;
+    } else if (inWater) {
         // Cows swim up to the surface; zombies sink (wiki: Zombie - they sink and later
         // become drowned).
         m.vel.y = m.vel.y * 0.8 + (m.type == MobType::Zombie ? -0.02 : 0.04);
@@ -184,7 +196,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (inWater) {
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
-        if (m.type != MobType::Chicken) m.fallDistance -= static_cast<float>(moved.y); // (chickens: no falls)
+        if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && !mobInfo(m.type).flies)
+            m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
         const float damage = std::ceil(m.fallDistance - 3.0f);
@@ -207,6 +220,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     const glm::dvec3 playerPos = ctx.player.position();
@@ -372,6 +386,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.targeting = true;
         m.angerTicks = 600;
     }
+    if (m.type == MobType::ZombifiedPiglin) m.angerAlert = true; // (the herd joins in: Mobs::tick)
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
     if (l > 1e-6) { // wiki: Knockback - 0.4 away; lifted only when on the ground
@@ -410,9 +425,14 @@ void Mobs::die(Context& ctx, MobData& m) {
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
     // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
+    // (wiki: blazes 10, magma cubes their size)
     if (ctx.orbs && m.lastHurtByPlayer)
         ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
-                       mobInfo(m.type).hostile ? 5 : 1 + static_cast<int>(ctx.rng.nextInt(3)), ctx.rng);
+                       m.type == MobType::Blaze       ? 10
+                       : m.type == MobType::MagmaCube ? int(m.size)
+                       : mobInfo(m.type).hostile      ? 5
+                                                      : 1 + static_cast<int>(ctx.rng.nextInt(3)),
+                       ctx.rng);
     const bool burning = m.fireTicks > 0; // meat drops cooked
     switch (m.type) {
     case MobType::Cow:
@@ -441,6 +461,35 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (m.carried)
             if (const ItemId it = items.blockItem(blockRegistry().blockOf(m.carried)))
                 ctx.items.spawn(m.pos + glm::dvec3(0, 1, 0), {it, 1}, ctx.rng);
+        break;
+    // Nether mobs (M19.2; wiki): ghast - gunpowder 0-2, ghast tear 0-1; blaze - a blaze
+    // rod 0-1 for player kills; magma cube - magma cream 25% (not the smallest), and
+    // 2-4 cubes of half its size; zombified piglin - rotten flesh 0-1, gold nugget
+    // 0-1, a gold ingot 2.5% for player kills.
+    case MobType::Ghast:
+        drop("gunpowder", 0, 2);
+        drop("ghast_tear", 0, 1);
+        break;
+    case MobType::Blaze:
+        if (m.lastHurtByPlayer) drop("blaze_rod", 0, 1);
+        break;
+    case MobType::MagmaCube:
+        if (m.size > 1) {
+            if (ctx.rng.nextInt(4) == 0) drop("magma_cream", 1, 1);
+            const int n = 2 + static_cast<int>(ctx.rng.nextInt(3));
+            for (int i = 0; i < n; ++i) {
+                MobData child = make(MobType::MagmaCube, m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2,
+                                                                            ctx.rng.nextDouble() - 0.5), ctx.rng);
+                child.size = uint8_t(m.size / 2);
+                child.health = float(child.size * child.size);
+                m_births.push_back(child);
+            }
+        }
+        break;
+    case MobType::ZombifiedPiglin:
+        drop("rotten_flesh", 0, 1);
+        drop("gold_nugget", 0, 1);
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(40) == 0) drop("gold_ingot", 1, 1);
         break;
     case MobType::Chicken: // wiki: Chicken - feathers 0-2, 1 raw chicken
         drop("feather", 0, 2);
@@ -518,7 +567,27 @@ void Mobs::tick(Context& ctx) {
         }
     for (const MobData& baby : m_births)
         add(ctx.world, baby);
-    if (ctx.naturalSpawning) spawnHostiles(ctx);
+    // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
+    // within about 33 blocks across and 11 up/down; 20-55 s of anger).
+    ctx.world.forEachTickingChunk([&](Chunk& chunk) {
+        for (MobData& hit : chunk.mobs()) {
+            if (!hit.angerAlert) continue;
+            hit.angerAlert = false;
+            for (int dz = -3; dz <= 3; ++dz)
+                for (int dx = -3; dx <= 3; ++dx)
+                    if (Chunk* c = ctx.world.chunk({chunk.pos().x + dx, chunk.pos().z + dz}))
+                        for (MobData& o : c->mobs())
+                            if (o.type == MobType::ZombifiedPiglin && std::abs(o.pos.x - hit.pos.x) < 33.5 &&
+                                std::abs(o.pos.z - hit.pos.z) < 33.5 && std::abs(o.pos.y - hit.pos.y) < 11.0) {
+                                o.angry = true;
+                                o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
+                            }
+        }
+    });
+    if (ctx.naturalSpawning) {
+        if (ctx.world.isUltrawarm()) spawnNether(ctx);
+        else spawnHostiles(ctx);
+    }
 }
 
 void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {

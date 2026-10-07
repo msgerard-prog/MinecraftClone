@@ -508,6 +508,67 @@ def book(enchanted=False):
     return img
 
 
+def ghast_tear():
+    pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16)
+           if (y >= 8 and math.hypot(x - 7.5, y - 10) < 4) or (y < 8 and abs(x - 7.5) < (y - 2) * 0.6)}, pal)
+    img = s.render()
+    img.set(6, 9, hexc("#FFFFFF"))
+    img.set(6, 10, hexc("#FFFFFF"))
+    return img
+
+
+def blaze_rod():
+    pal = ramp(hexc("#F0A020"), 5, spread=0.45)
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(3, 13)} | {(x + 1, 15 - x) for x in range(3, 12)}, pal)
+    img = s.render()
+    for x in range(4, 12, 2):
+        img.set(x, 15 - x, hexc("#FFE070"))
+    return img
+
+
+def blaze_powder():
+    rng = random.Random("blaze_powder")
+    pal = ramp(hexc("#E89018"), 5, spread=0.45)
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - 8) / 5.5) ** 2 + ((y - 10) / 3.5) ** 2 < 1 and rng.random() < 0.8}
+    s = Shape()
+    s.add(pts, pal)
+    img = s.render()
+    for (x, y) in pts:
+        if rng.random() < 0.15:
+            img.set(x, y, hexc("#FFE060"))
+    return img
+
+
+def magma_cream():
+    rng = random.Random("magma_cream")
+    pal = ramp(hexc("#3A2410"), 5, spread=0.35)
+    s = Shape()
+    pts = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 8) < 5.2}
+    s.add(pts, pal)
+    img = s.render()
+    for (x, y) in pts:
+        if (x * 3 + y * 5) % 7 == 0 or rng.random() < 0.15:
+            img.set(x, y, hexc("#F08020") if rng.random() < 0.7 else hexc("#FFD040"))
+    return img
+
+
+def fire_charge():
+    rng = random.Random("fire_charge")
+    pal = ramp(hexc("#40302A"), 5, spread=0.35)
+    s = Shape()
+    pts = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 7.5) < 5}
+    s.add(pts, pal)
+    img = s.render()
+    for (x, y) in pts:
+        if rng.random() < 0.3:
+            img.set(x, y, hexc("#E86018") if rng.random() < 0.6 else hexc("#F8C030"))
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -573,6 +634,13 @@ def all_items():
     items["paper"] = paper()
     items["book"] = book()
     items["enchanted_book"] = book(True)
+    # Nether mobs (M19.2).
+    items["ghast_tear"] = ghast_tear()
+    items["blaze_rod"] = blaze_rod()
+    items["blaze_powder"] = blaze_powder()
+    items["magma_cream"] = magma_cream()
+    items["gold_nugget"] = lump("gold_nugget", "#F2CF3C", "#FFF4A0", size=3.4)
+    items["fire_charge"] = fire_charge()
     return items
 
 

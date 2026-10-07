@@ -397,6 +397,7 @@ int main(int argc, char** argv) {
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
     mc::ExperienceOrbs orbs;         // experience orbs (M17.5)
+    mc::Explosion fireballBlast;     // ghast fireballs (M19.2)
     int bowTicks = 0;                // how long the bow has been drawn
     double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;             // how long right-click has held a shield up
@@ -1371,7 +1372,7 @@ int main(int argc, char** argv) {
             // Game rules read the tick's own time, not the renderer's interpolated value.
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
-                                     droppedItems, dimension == Dimension::Overworld,
+                                     droppedItems, dimension != Dimension::End,
                                      inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
@@ -1420,6 +1421,25 @@ int main(int argc, char** argv) {
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
             projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
+            // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
+            // third of the open spots around it); blaze fireballs lit blocks.
+            for (const glm::dvec3& at : projectiles.explosions()) {
+                fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
+                                      {survival && !dead ? &player : nullptr, &vitals, true});
+                const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
+                for (int dx = -2; dx <= 2; ++dx)
+                    for (int dy = -2; dy <= 2; ++dy)
+                        for (int dz = -2; dz <= 2; ++dz) {
+                            const mc::world::BlockPos q{c.x + dx, c.y + dy, c.z + dz};
+                            if (!world.isInHeight(q.y) || world.getBlock(q) != 0 || gameRng.nextInt(3) != 0 ||
+                                !mc::world::BlockUpdates::fireCanStay(world, q))
+                                continue;
+                            world.updateBlock(q, mc::world::BlockUpdates::fireState(0));
+                            frameEdits.push_back(q);
+                        }
+            }
+            frameEdits.insert(frameEdits.end(), projectiles.edits().begin(), projectiles.edits().end());
+            projectiles.edits().clear();
             for (const glm::dvec3& at : projectiles.eyeDrops()) {
                 static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
                 droppedItems.spawn(at, {eyeItem, 1}, gameRng);

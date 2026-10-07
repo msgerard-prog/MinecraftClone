@@ -127,6 +127,12 @@ std::vector<Recipe> build() {
     // Block of Iron).
     r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
     r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
+    // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
+    r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));
+    r.push_back(shapeless({item("ender_pearl"), item("blaze_powder")}, "ender_eye"));
+    r.push_back(shapeless({item("gold_ingot")}, "gold_nugget", 9));
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("gold_nugget")}}, "gold_ingot"));
+    r.push_back(shapeless({item("gunpowder"), item("blaze_powder"), item("coal")}, "fire_charge", 3));
     r.push_back(shaped({"###", "BBB", "###"}, {{'#', kPlanks}, {'B', item("book")}}, "bookshelf"));
     r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},
                        "enchanting_table"));

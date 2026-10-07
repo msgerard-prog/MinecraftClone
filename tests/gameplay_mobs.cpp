@@ -1,4 +1,5 @@
 // Mobs (wiki: Zombie, Cow, Spawn, Entity format).
+#include "gameplay/Inventory.h"
 #include "gameplay/Mobs.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
@@ -687,4 +688,112 @@ TEST_CASE("spawners: active within 16 blocks, spawn up to 4 of their mob nearby,
     far.tick(10);
     CHECK(far.world.chunk({0, 1})->spawner(0, 64, 14)->delay == 5);
     CHECK(far.all().empty());
+}
+
+namespace {
+
+int countType(MobScene& s, MobType t) {
+    int n = 0;
+    for (MobData* m : s.all())
+        n += m->type == t && m->health > 0.0f;
+    return n;
+}
+
+void tickWith(MobScene& s, Projectiles& proj, int n) {
+    static Inventory inventory;
+    for (int i = 0; i < n; ++i) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, s.survival, false, s.dayTime, s.skyDarken, s.rng, s.items};
+        ctx.projectiles = &proj;
+        s.mobs.tick(ctx);
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    }
+}
+
+} // namespace
+
+TEST_CASE("magma cubes: sizes 1/2/4 with size^2 health; a big one splits into 2-4 medium ones") {
+    MobScene s;
+    s.mobs = Mobs();
+    MobData m = Mobs::make(MobType::MagmaCube, {8.5, 64.0, 8.5}, s.rng);
+    m.size = 4;
+    m.health = 0.0f; // dies this tick
+    m.lastHurtByPlayer = true;
+    REQUIRE(Mobs::add(s.world, m));
+    s.tick(2);
+    int medium = 0;
+    for (MobData* c : s.all())
+        if (c->type == MobType::MagmaCube && c->size == 2) {
+            ++medium;
+            CHECK(c->health == doctest::Approx(4.0f));
+            CHECK(Mobs::box(*c).max.x - Mobs::box(*c).min.x == doctest::Approx(1.04));
+        }
+    CHECK(medium >= 2);
+    CHECK(medium <= 4);
+}
+
+TEST_CASE("zombified piglins: neutral until one is hit, then the group nearby turns on the player") {
+    MobScene s;
+    s.mobs = Mobs();
+    for (int i = 0; i < 3; ++i)
+        REQUIRE(Mobs::add(s.world, Mobs::make(MobType::ZombifiedPiglin, {4.5 + i * 2, 64.0, 4.5}, s.rng)));
+    s.tick(40);
+    CHECK(s.vitals.health() == doctest::Approx(20.0f)); // left alone
+    MobData* first = s.all()[0];
+    Mobs::attack(*first, 1.0f, s.player.position());
+    s.tick(1);
+    int angry = 0;
+    for (MobData* m : s.all())
+        angry += m->angry;
+    CHECK(angry == 3);
+}
+
+TEST_CASE("ghasts charge for a second and fire an exploding fireball; blazes fire volleys of three") {
+    MobScene s;
+    s.mobs = Mobs();
+    Projectiles proj;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Ghast, {20.5, 63.5, 0.5}, s.rng)));
+    tickWith(s, proj, 21);
+    bool fired = false;
+    for (const Projectile& p : proj.items())
+        fired = fired || p.kind == ProjectileKind::GhastFireball;
+    CHECK(fired);
+    bool exploded = false;
+    for (int i = 0; i < 60 && !exploded; ++i) {
+        tickWith(s, proj, 1);
+        exploded = !proj.explosions().empty();
+    }
+    CHECK(exploded);
+
+    MobScene b;
+    b.mobs = Mobs();
+    Projectiles bp;
+    REQUIRE(Mobs::add(b.world, Mobs::make(MobType::Blaze, {10.5, 64.0, 0.5}, b.rng)));
+    int shots = 0;
+    for (int i = 0; i < 80; ++i) {
+        const size_t before = bp.items().size();
+        tickWith(b, bp, 1);
+        if (bp.items().size() > before) ++shots;
+    }
+    CHECK(shots == 3);
+}
+
+TEST_CASE("the Nether spawns its own monsters (nether wastes: zombified piglins, ghasts...)") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.world.setUltrawarm(true);
+    s.world.forEachChunk([](Chunk& c) {
+        auto biomes = std::make_shared<ChunkBiomes>();
+        biomes->cells.fill(Biome::NetherWastes);
+        c.setBiomes(biomes);
+    });
+    s.player.setPosition({0.5, 64.0, 0.5});
+    for (int i = 0; i < 4000 && s.all().size() < 8; ++i)
+        s.tick(1);
+    int nether = 0;
+    for (MobData* m : s.all())
+        nether += m->type == MobType::ZombifiedPiglin || m->type == MobType::Ghast || m->type == MobType::MagmaCube ||
+                  m->type == MobType::Enderman;
+    CHECK(nether > 0);
+    CHECK(countType(s, MobType::Zombie) == 0);
 }

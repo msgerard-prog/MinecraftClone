@@ -19,6 +19,14 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:creeper", 20.0f, 0.6, 1.7, 0.25, 0.0f, true},
         {"minecraft:spider", 16.0f, 1.4, 0.9, 0.3, 2.0f, true},
         {"minecraft:enderman", 40.0f, 0.6, 2.9, 0.3, 7.0f, true},
+        // wiki: Ghast (10, 4 x 4, fireballs, flies), Blaze (20, 0.6 x 1.8, 6 melee,
+        // fireballs, hovers), Magma Cube (large: 16, 2.08 x 2.08, 6; smaller sizes scale
+        // in Mobs::box), Zombified Piglin (20, 0.6 x 1.95, 8 with its golden sword) -
+        // all immune to fire and lava.
+        {"minecraft:ghast", 10.0f, 4.0, 4.0, 0.7, 0.0f, true, true, true, 4.5f},
+        {"minecraft:blaze", 20.0f, 0.6, 1.8, 0.23, 6.0f, true, true, true},
+        {"minecraft:magma_cube", 16.0f, 2.08, 2.08, 0.2, 6.0f, true, true},
+        {"minecraft:zombified_piglin", 20.0f, 0.6, 1.95, 0.23, 8.0f, true, true},
     };
     return kInfo[static_cast<int>(t)];
 }

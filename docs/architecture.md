@@ -226,6 +226,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   crop growth on random ticks (vanilla's speed points), `till` (hoes), `boneMeal`,
   `trample` (main rolls the fall chance); crops pop without farmland. Seeds,
   carrots and potatoes are items whose `block` is the crop.
+- Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
+  blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
+  mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are
+  `ProjectileKind::GhastFireball/BlazeFireball` (main explodes ghast ones through its
+  own `Explosion`); `MobInfo::modelScale` and the magma cube's `size` scale models.
 - Monsters 2 (M16.5, `gameplay/Monsters.cpp`, part of `Mobs`): `mayTarget` (spiders
   in the dark, angry endermen), `monsterTick` (creeper fuse -> `Explosion`, skeleton
   bow into `Context::projectiles`, spider leap/climb, enderman stare, water,

@@ -74,6 +74,7 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     case MobType::Spider: // neutral in light 12+ unless provoked (wiki: Spider)
         return m.angry || lightAt(ctx.world, m.pos, ctx.skyDarken) < 12;
     case MobType::Enderman: return m.angry; // only when stared at or hit
+    case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
     default: return true;
     }
 }

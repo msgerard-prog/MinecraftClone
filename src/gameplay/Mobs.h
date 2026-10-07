@@ -30,7 +30,7 @@ public:
         float skyDarken; // sky light levels lost (0..11)
         world::Xoroshiro& rng;
         ItemEntities& items;
-        bool naturalSpawning = true; // Overworld zombies only (no Nether/End mobs yet)
+        bool naturalSpawning = true; // Overworld and Nether monsters (none in the End yet)
         world::ItemId heldItem = 0;  // what the player holds (animals follow their food)
         std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep, creepers, endermen)
         class Projectiles* projectiles = nullptr;      // skeletons shoot into it
@@ -85,6 +85,10 @@ private:
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
     void spawnHostiles(Context& ctx);
     void tickSpawners(Context& ctx, world::Chunk& chunk); // M18.3
+    // Nether mobs (M19.2, NetherMobs.cpp): ghasts, blazes and magma cubes move and
+    // attack on their own (true: handled); zombified piglins' anger runs down.
+    bool netherAi(Context& ctx, world::MobData& m);
+    void spawnNether(Context& ctx);
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
     // (breeding partner, tempting food, parent); true if a goal was set.
