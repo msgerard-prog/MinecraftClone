@@ -97,6 +97,11 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:flint_and_steel", .maxStack = 1, .durability = 64, .texture = "item/flint_and_steel"});
     r.add({.id = "minecraft:ender_eye", .texture = "item/ender_eye"});
     r.add({.id = "minecraft:quartz", .texture = "item/quartz"});
+    // Buckets (M14; wiki: Bucket - empty ones stack to 16, full ones don't).
+    r.add({.id = "minecraft:bucket", .maxStack = 16, .texture = "item/bucket"});
+    r.add({.id = "minecraft:water_bucket", .maxStack = 1, .texture = "item/water_bucket"});
+    r.add({.id = "minecraft:lava_bucket", .maxStack = 1, .texture = "item/lava_bucket"});
+    r.add({.id = "minecraft:milk_bucket", .maxStack = 1, .texture = "item/milk_bucket"});
     // Redstone dust is placed as redstone_wire; wall torches drop the torch item.
     r.mapBlock(blocks::RedstoneWire, *r.find("redstone"));
     r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));

@@ -96,6 +96,8 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"PPP", "CIC", "CRC"},
                        {{'P', kPlanks}, {'C', item("cobblestone")}, {'I', item("iron_ingot")}, {'R', redstone}},
                        "piston"));
+    // (wiki: Bucket)
+    r.push_back(shaped({"#.#", ".#."}, {{'#', item("iron_ingot")}}, "bucket"));
     // (wiki: Flint and Steel)
     r.push_back(shapeless({item("iron_ingot"), item("flint")}, "flint_and_steel"));
     return r;
@@ -238,6 +240,7 @@ int fuelByName(std::string_view n, const ItemDef& def) {
     if (n == "coal" || n == "charcoal") return 1600;
     if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table") return 300;
     if (n == "stick" || n == "dead_bush") return 100;
+    if (n == "lava_bucket") return 20000; // the empty bucket stays in the fuel slot
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;
     return 0;
 }

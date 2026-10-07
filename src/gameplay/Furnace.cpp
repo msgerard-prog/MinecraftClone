@@ -22,7 +22,10 @@ bool tickFurnace(Furnace& f) {
     if (!f.lit() && canSmelt) {
         if (const int ticks = fuelTicks(f.fuel); ticks > 0) {
             f.burnLeft = f.burnDuration = ticks;
-            if (--f.fuel.count == 0) f.fuel = {};
+            // A lava bucket leaves its empty bucket behind (wiki: Fuel).
+            if (world::itemRegistry().item(f.fuel.item).id == "minecraft:lava_bucket")
+                f.fuel = {*world::itemRegistry().find("bucket"), 1};
+            else if (--f.fuel.count == 0) f.fuel = {};
         }
     }
     if (f.lit() && canSmelt) {

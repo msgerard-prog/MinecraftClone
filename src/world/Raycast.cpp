@@ -8,12 +8,11 @@
 namespace mc::world {
 
 std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin,
-                                    const glm::dvec3& direction, double maxDistance) {
+                                    const glm::dvec3& direction, double maxDistance, RayFluids fluids) {
     const double len = glm::length(direction);
     if (len == 0.0) return std::nullopt;
     const glm::dvec3 d = direction / len;
     const auto& reg = blockRegistry();
-    const BlockId water = blocks::Water;
 
     glm::ivec3 cell(static_cast<int>(std::floor(origin.x)), static_cast<int>(std::floor(origin.y)),
                     static_cast<int>(std::floor(origin.z)));
@@ -44,7 +43,12 @@ std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin
             continue;
         }
         const BlockStateId state = world.getBlock(p);
-        if (state == 0 || reg.blockOf(state) == water) continue;
+        if (state == 0) continue;
+        const BlockId b = reg.blockOf(state);
+        if (b == blocks::Water || b == blocks::Lava) {
+            const bool source = reg.get(state, properties::level) == 0;
+            if (fluids == RayFluids::Skip || !source) continue;
+        }
         // Moving +axis enters through the block's negative face, and vice versa.
         return RayHit{p, enter[axis][step[axis] > 0 ? 1 : 0], t};
     }

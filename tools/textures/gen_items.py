@@ -253,6 +253,23 @@ def quartz():
     return s.render()
 
 
+def bucket(fill=None):
+    # An iron pail seen from the side, with a handle; optionally full of something.
+    iron = ramp(hexc("#B4B4BC"), 5, spread=0.4)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(5, 15) if abs(x - 7.5) <= 5.5 - (y - 5) * 0.25}, iron)
+    s.add({(x, y) for x in range(16) for y in range(1, 5) if abs(x - 7.5) in (5.5,) or (y == 1 and 3 <= x <= 12)},
+          iron)
+    img = s.render()
+    if fill:
+        pal = ramp(hexc(fill), 5, spread=0.3)
+        for y in (5, 6, 7):  # the surface seen over the rim
+            for x in range(3, 13):
+                if abs(x - 7.5) <= 5.0 - (y - 5) * 0.25:
+                    img.set(x, y, pal[4] if (x + y) % 4 == 0 else pal[3] if y == 5 else pal[2])
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -280,6 +297,10 @@ def all_items():
     items["flint_and_steel"] = flint_and_steel()
     items["ender_eye"] = ender_eye()
     items["quartz"] = quartz()
+    items["bucket"] = bucket()
+    items["water_bucket"] = bucket("#3C6EE6")
+    items["lava_bucket"] = bucket("#E8661A")
+    items["milk_bucket"] = bucket("#F4F4F0")
     return items
 
 
