@@ -203,6 +203,16 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Main applies bolts to mobs (`Mobs::strikeLightning`) and the player and draws rain/
   snow columns and bolts (`EntityRenderer::addPrecipitation/addLightning`, a blended
   pass after entities; textures `block/weather_*.png`).
+- Level events and particles (M22.3): gameplay code reports what players should see or
+  hear with `World::levelEvent` (block break / mining hit, explosion, mob death poof,
+  potion splash, crit, extinguish, teleport; a reserved list, vanilla's level events).
+  Main hands them to `gameplay/Particles` each tick and clears them (sounds will read
+  them too). `Particles` (pooled 4096, ticked at 20 TPS with its own RNG, interpolated
+  when drawn) also runs vanilla's animate ticks (667 random blocks within 16 and 667
+  within 32 of the player: torches, redstone, fire, lava pops, furnaces, portals, end
+  rods, drips) and rain splashes. `EntityRenderer::addParticle` draws camera-facing
+  quads from `block/particle_*.png` (`world/ParticleSprite.h` names them; terrain
+  pieces use a quarter of the block's texture).
 - Fire (M15, `world/Fire.cpp`): scheduled every 30-40 ticks; ages, burns neighbours
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in

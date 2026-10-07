@@ -256,6 +256,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 // within 4 blocks get the effect, scaled by 1 - distance / 4 (a direct hit:
                 // full); healing and harming swap on the undead (wiki: Undead).
                 const glm::dvec3 at = p.pos + dir * reach;
+                world.levelEvent(LevelEvent::Type::PotionSplash, at.x, at.y, at.z,
+                                 potionColour(static_cast<Potion>(p.potion)));
                 const Aabb area{at - glm::dvec3(4.125, 2.125, 4.125), at + glm::dvec3(4.125, 2.125, 4.125)};
                 auto scaleFor = [&](const Aabb& box, bool direct) {
                     if (direct) return 1.0;
@@ -360,7 +362,10 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     // Base damage 2, Power adds 0.5 per level + 0.5 (wiki: Power).
                     const double base = 2.0 + (p.power ? 0.5 * p.power + 0.5 : 0.0);
                     float damage = float(std::ceil(speed * base));
-                    if (p.critical) damage += float(rng.nextInt(uint32_t(damage / 2.0f + 2.0f)));
+                    if (p.critical) {
+                        damage += float(rng.nextInt(uint32_t(damage / 2.0f + 2.0f)));
+                        world.levelEvent(LevelEvent::Type::Crit, p.pos.x, p.pos.y, p.pos.z);
+                    }
                     if (target == Target::Player) {
                         if (vitals && survival && vitals->attacked(damage, &p.pos, Vitals::Hit::Projectile)) {
                             player.knockback(p.vel.x, p.vel.z, 0.6 * 0.5); // wiki: Arrow knockback

@@ -34,6 +34,7 @@ double Explosion::exposure(const World& world, const glm::dvec3& centre, const A
 
 int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoroshiro& rng, ItemEntities& items,
                        std::vector<BlockPos>& changed, const ExplosionTargets& targets) {
+    world.levelEvent(LevelEvent::Type::Explosion, centre.x, centre.y, centre.z, uint32_t(power * 10.0f));
     const auto& reg = blockRegistry();
     m_hits.clear();
     for (int i = 0; i < 16; ++i)

@@ -712,7 +712,14 @@ void Mobs::tick(Context& ctx) {
                 }
             } else if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
                 if (++m.deathTime == 1) die(ctx, m);
-                if (m.deathTime >= 20) remove = true;
+                if (m.deathTime >= 20) {
+                    remove = true;
+                    // The poof of smoke when the body vanishes (vanilla: 20 particles).
+                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal)
+                        ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
+                                             uint32_t(mobInfo(m.type).width * 100.0f) |
+                                                 uint32_t(mobInfo(m.type).height * 100.0f) << 16);
+                }
             } else {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;

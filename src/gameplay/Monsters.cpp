@@ -97,7 +97,9 @@ bool Mobs::teleport(World& world, MobData& m, const glm::dvec3& around, Xoroshir
             continue;
         const BlockId at = blockRegistry().blockOf(world.getBlock({x, y, z}));
         if (at == blocks::Water || at == blocks::Lava) continue;
+        world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y, m.pos.z); // (purple sparks at both ends)
         m.pos = {x + 0.5, double(y), z + 0.5};
+        world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y, m.pos.z);
         m.prevPos = m.pos; // (a jump, not a slide)
         m.vel = glm::dvec3(0.0);
         m.pathLength = 0;

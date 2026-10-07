@@ -9,6 +9,7 @@
 #include "gameplay/Inventory.h"
 #include "gameplay/PrimedTnt.h"
 #include "gameplay/Projectiles.h"
+#include "gameplay/Particles.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
@@ -408,6 +409,8 @@ int main(int argc, char** argv) {
     std::vector<Bolt> bolts;
     bolts.reserve(32);
     int skyFlash = 0; // ticks the sky stays lit by a bolt (vanilla skyFlashTime)
+    mc::Particles particles;                      // M22.3 (visual only)
+    mc::world::Xoroshiro particleRng(0x9a77'1c1eull); // (keeps gameRng's sequence for gameplay)
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
@@ -998,6 +1001,7 @@ int main(int argc, char** argv) {
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
                 fallingBlocks.clear();
                 projectiles.clear();
+                particles.clear();
                 primedTnt.clear();
                 blockUpdates.landAll();
                 orbs.clear();
@@ -1609,6 +1613,15 @@ int main(int argc, char** argv) {
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
                     const bool hit = m.hurtTime == 0 && m.deathTime == 0;
+                    // A critical hit: falling, not on the ground, in water or flying -
+                    // 150% damage and crit particles (wiki: Damage › Critical hit).
+                    const bool crit = !player.onGround() && player.velocity().y < 0.0 && !player.inWater() &&
+                                      !player.flying() && !player.gliding() && ridingCart == 0 && !player.sprinting();
+                    if (crit && hit) {
+                        dmg *= 1.5f;
+                        const glm::dvec3 at = eye + look * mh->distance;
+                        world.levelEvent(mc::world::LevelEvent::Type::Crit, at.x, at.y, at.z);
+                    }
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
                     if (hit) {
@@ -1949,6 +1962,16 @@ int main(int argc, char** argv) {
                 frameEdits.push_back(p); // relit, then re-meshed
             }
             renderer.tick();
+            // Particles (M22.3): this tick's level events, blocks animating around the
+            // player, rain splashes, the player's effect swirls.
+            if (!dead)
+                for (const auto& e : vitals.effects())
+                    if (e.duration > 0)
+                        particles.effectSwirl(player.position(), 0.6, 1.8, mc::world::effectInfo(e.type).colour,
+                                              particleRng);
+            particles.tick(world, world.levelEvents(), player.eyePosition(1.0),
+                           dimension == Dimension::Overworld ? &weather : nullptr, particleRng);
+            world.levelEvents().clear();
             ++dayTime; // the daylight cycle advances one tick per tick
             weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
@@ -2164,6 +2187,17 @@ int main(int argc, char** argv) {
             }
             for (const Bolt& b : bolts)
                 entities.addLightning(b.pos, b.seed, camera.position);
+        }
+        {
+            // Particles: camera-facing squares (vanilla turns them with the camera).
+            const glm::vec3 look = mc::world::lookVector(camera.yaw, camera.pitch);
+            const glm::vec3 right = glm::normalize(glm::cross(look, glm::vec3(0, 1, 0)));
+            const glm::vec3 up = glm::cross(right, look);
+            for (const mc::Particle& p : particles.all()) {
+                const glm::vec3 light = p.fullBright ? glm::vec3(1.0f) : lightTable[size_t(p.skyLight * 16 + p.blockLight)];
+                entities.addParticle(glm::mix(p.prevPos, p.pos, clock.alpha), p.size, p.frame(), p.state, p.u, p.v,
+                                     p.color * light, camera.position, right, up);
+            }
         }
         for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
             entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position);

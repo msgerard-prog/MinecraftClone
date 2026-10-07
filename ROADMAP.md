@@ -18,7 +18,7 @@ M22 - World & presentation:
    /weather.
 2. ✅ M22.2 - Sky: the sky colour by biome temperature, sunrise/sunset glow, biome fog
    colours (night fog no longer black), clouds, the End sky.
-3. M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
+3. ✅ M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
    drips, crits, potion swirls, mob death puffs, rain splashes.
 4. M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
    synthesized sounds - footsteps by block, breaking/placing, mobs, explosions,

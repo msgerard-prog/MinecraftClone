@@ -16,10 +16,38 @@ public:
     virtual void onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) = 0;
 };
 
+// Something the player sees or hears happen (M22.3; vanilla's level events and
+// particles sent to clients): gameplay code reports them, main turns them into
+// particles (and sounds, M22.4) and clears the list each tick.
+struct LevelEvent {
+    enum class Type : uint8_t {
+        BlockBreak,   // pos = block corner, data = the broken state
+        BlockHit,     // pos = block corner, data = state | face << 16 (mining cracks)
+        Explosion,    // pos = centre, data = power x 10
+        MobDeath,     // pos = feet, data = width x 100 | height x 100 << 16 (poof)
+        PotionSplash, // pos = impact, data = 0xRRGGBB
+        Crit,         // pos = where the hit landed
+        Extinguish,   // pos = centre (fire or a burning thing put out: smoke)
+        Portal,       // pos = where an entity teleported (portal/ender particles)
+    };
+    Type type;
+    double x, y, z;
+    uint32_t data = 0;
+};
+
 // All loaded chunks. Only the main thread mutates it (see docs/architecture.md).
 class World {
 public:
-    World() { m_ticking.reserve(4096); }
+    World() {
+        m_ticking.reserve(4096);
+        m_events.reserve(1024);
+    }
+
+    // Level events (M22.3): dropped beyond the reserved capacity (hard rule 1).
+    void levelEvent(LevelEvent::Type type, double x, double y, double z, uint32_t data = 0) {
+        if (m_events.size() < m_events.capacity()) m_events.push_back({type, x, y, z, data});
+    }
+    std::vector<LevelEvent>& levelEvents() { return m_events; }
 
     Chunk& createChunk(ChunkPos pos); // replaces an existing chunk at pos
     // Takes ownership of a chunk built elsewhere (e.g. on a worldgen worker).
@@ -94,6 +122,7 @@ public:
     }
 
 private:
+    std::vector<LevelEvent> m_events;
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;

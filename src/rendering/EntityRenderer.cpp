@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
+#include <string>
 #include <cmath>
 #include <string>
 
@@ -85,6 +86,16 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     m_rainSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_rain"));
     m_snowSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_snow"));
     m_boltSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_bolt"));
+    for (int i = 0; i < 8; ++i)
+        m_particleSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("particle_generic_" + std::to_string(i)));
+    for (int i = 0; i < 4; ++i)
+        m_particleSprites[int(ParticleSprite::Splash0) + i] =
+            static_cast<uint16_t>(atlas.spriteIndex("particle_splash_" + std::to_string(i)));
+    m_particleSprites[int(ParticleSprite::Flame)] = static_cast<uint16_t>(atlas.spriteIndex("particle_flame"));
+    m_particleSprites[int(ParticleSprite::Lava)] = static_cast<uint16_t>(atlas.spriteIndex("particle_lava"));
+    m_particleSprites[int(ParticleSprite::Crit)] = static_cast<uint16_t>(atlas.spriteIndex("particle_crit"));
+    m_particleSprites[int(ParticleSprite::Effect)] = static_cast<uint16_t>(atlas.spriteIndex("particle_effect"));
+    m_particleSprites[int(ParticleSprite::Drip)] = static_cast<uint16_t>(atlas.spriteIndex("particle_drip"));
     m_weather.reserve(size_t(kMaxWeatherQuads) * 6);
     m_bolts.reserve(size_t(1024) * 6);
     m_crack.reserve(36);
@@ -307,6 +318,33 @@ void EntityRenderer::addLightning(const glm::dvec3& ground, uint32_t seed, const
             p = q;
         }
     }
+}
+
+void EntityRenderer::addParticle(const glm::dvec3& pos, float size, ParticleSprite sprite, world::BlockStateId state,
+                                 uint8_t u, uint8_t v, const glm::vec3& color, const glm::dvec3& cameraPos,
+                                 const glm::vec3& right, const glm::vec3& up) {
+    float u0, v0, u1, v1;
+    if (sprite == ParticleSprite::Terrain) {
+        // The block's particle texture: its first visible face (side for cubes).
+        const BakedModel& m = (*m_models)[state];
+        const uint16_t s = m.cross            ? m.crossSprite
+                           : m.boxCount > 0 ? m.boxes[0].faces[int(world::Direction::North)].sprite
+                                            : m.variants[0].faces[int(world::Direction::North)].sprite;
+        const float q = float(m_cell) / 4.0f;
+        u0 = float(s % m_columns) * m_cell + float(u) * q;
+        v0 = float(s / m_columns) * m_cell + float(v) * q;
+        u1 = u0 + q;
+        v1 = v0 + q;
+    } else {
+        const uint16_t s = m_particleSprites[int(sprite)];
+        u0 = float(s % m_columns) * m_cell;
+        v0 = float(s / m_columns) * m_cell;
+        u1 = u0 + float(m_cell);
+        v1 = v0 + float(m_cell);
+    }
+    const glm::vec3 c(pos - cameraPos), r = right * size, w = up * size;
+    const glm::vec3 q[4] = {c - r + w, c - r - w, c + r - w, c + r + w};
+    quad(q, u0, v0, u1, v1, pack(color), m_items);
 }
 
 void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos) {

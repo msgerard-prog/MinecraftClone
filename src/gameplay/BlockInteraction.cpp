@@ -77,6 +77,8 @@ void BlockInteraction::tick(world::World& world, const Player& player,
 
     if (attack && m_destroyCooldown == 0 && !holdingSword) {
         dropContents(world, hit->block, drops); // containers drop their items in every mode
+        world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z,
+                         world.getBlock(hit->block));
         world.updateBlock(hit->block, 0);
         changed.push_back(hit->block);
         m_destroyCooldown = kDestroyDelay;
@@ -236,6 +238,9 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             // Progress grows by the current tool's per-tick share (vanilla), so switching
             // tools mid-break changes the remaining time, not the progress made.
             m_progressExact += ticks == 0 ? 1.0 : 1.0 / double(ticks);
+            // Cracking particles fly off the face being mined (vanilla: one per tick).
+            world.levelEvent(world::LevelEvent::Type::BlockHit, hit->block.x, hit->block.y, hit->block.z,
+                             uint32_t(state) | uint32_t(hit->face) << 16);
             m_progress = static_cast<float>(std::min(1.0, m_progressExact));
             if (m_progressExact >= 1.0 - 1e-9) {
                 m_dropScratch.clear();
@@ -252,6 +257,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                     if (world::FurnaceData* f =
                             fc->furnace(world::blockToLocal(hit->block.x), hit->block.y, world::blockToLocal(hit->block.z)))
                         m_experience += takeFurnaceExperience(*f, rng);
+                world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z, state);
                 world.updateBlock(hit->block, 0);
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
