@@ -173,6 +173,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_world.setListener(this);
     m_due.reserve(16384); // a /fill of fluid sources makes thousands due at once
     m_events.reserve(64);
+    m_lightning.reserve(64);
     m_changed.reserve(4096);
     m_settling.reserve(4096);
     m_remesh.reserve(4096);
@@ -1143,6 +1144,7 @@ bool BlockUpdates::hasTick(const BlockPos& p, BlockId block) const {
 
 void BlockUpdates::tick() {
     m_inTick = true;
+    m_lightning.clear();
     m_due.clear();
     m_world.forEachTickingChunk([&](Chunk& c) {
         if (std::as_const(c).blockTicks().empty()) return;
@@ -1173,6 +1175,7 @@ void BlockUpdates::tick() {
     watchComparators();
     finishMoves(); // (pistons: blocks 2 ticks in flight land)
     runRandomTicks(); // (vanilla: after block and fluid ticks, before block events)
+    runWeatherTicks();
     // Block events (pistons), including ones these cause (wiki: Tick › Block events).
     // Pistons powered by a player act in the next tick's block events (wiki: Piston ›
     // Start delay); they wait one tick here.

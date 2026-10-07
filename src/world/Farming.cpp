@@ -2,6 +2,8 @@
 // Meal, Tutorial:Crop farming). Part of BlockUpdates.
 #include "world/BlockUpdates.h"
 
+#include "world/Weather.h"
+
 #include "world/Blocks.h"
 
 #include <cmath>
@@ -50,7 +52,8 @@ bool BlockUpdates::nearWater(const BlockPos& p) const {
 
 void BlockUpdates::tickFarmland(const BlockPos& p, BlockStateId s) {
     const int m = R().get(s, moisture);
-    if (nearWater(p)) {
+    // Water nearby or rain falling on the block above keeps it moist (wiki: Farmland).
+    if (nearWater(p) || (m_weather && rainingAt(m_world, *m_weather, {p.x, p.y + 1, p.z}))) {
         if (m != 7) setRaw(p, R().set(s, moisture, 7)); // hydrated at once
     } else if (m > 0) {
         setRaw(p, R().set(s, moisture, m - 1)); // dries a step per random tick

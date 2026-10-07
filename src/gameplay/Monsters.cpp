@@ -6,6 +6,7 @@
 #include "world/Blocks.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
+#include "world/Weather.h"
 
 #include <cmath>
 
@@ -128,7 +129,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             }
             m.health = 0.0f;
             m.deathTime = 19; // gone next tick, without loot (it blew itself up)
-            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0), 3.0f, ctx.rng, ctx.items, changed, t);
+            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0), m.powered ? 6.0f : 3.0f, ctx.rng, ctx.items, changed, t);
         }
         break;
     }
@@ -202,7 +203,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         // Water hurts it (1 a tick) and makes it teleport (wiki: Enderman).
         const FluidContact fluid = fluidContact(ctx.world, box(m));
-        if (fluid.water) {
+        if (fluid.water || (ctx.weather && rainingAt(ctx.world, *ctx.weather, {int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.9)), int(std::floor(m.pos.z))}))) {
             if (m.hurtTime == 0) {
                 m.health -= 1.0f;
                 m.hurtTime = 10;

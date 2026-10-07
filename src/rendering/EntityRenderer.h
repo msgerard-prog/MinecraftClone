@@ -26,6 +26,7 @@ glm::vec3 lightColor(int sky, int block, float skyDarken, float ambient = 0.0f, 
 class EntityRenderer {
 public:
     static constexpr int kMaxQuads = 32768;
+    static constexpr int kMaxWeatherQuads = 16384; // 21x21 columns x up to ~37 blocks
 
     EntityRenderer() = default;
     ~EntityRenderer();
@@ -58,6 +59,14 @@ public:
     // The crack on a block being broken: stage 0..9 (destroy_stage_N).
     void setCrack(const world::BlockPos& block, int stage);
     void clearCrack() { m_crackStage = -1; }
+    // Weather (M22.1; vanilla's rain/snow layer): one camera-facing quad per block of
+    // the column (x, z) from y0 to y1, its texture scrolled down by `scroll` blocks
+    // (rain fast, snow slowly with a sideways drift), blended over the scene.
+    void addPrecipitation(int32_t x, int32_t z, int y0, int y1, bool snow, float scroll, float drift, float alpha,
+                          const glm::vec3& light, const glm::dvec3& cameraPos);
+    // A lightning bolt from the sky down to `ground`: jagged segments (from `seed`)
+    // and a few branches, drawn additively.
+    void addLightning(const glm::dvec3& ground, uint32_t seed, const glm::dvec3& cameraPos);
 
     // Uploads and draws everything added this frame, then clears.
     void draw(const Camera& camera, float aspect);
@@ -87,6 +96,9 @@ private:
     std::vector<Vertex> m_mobs;  // mob atlas pass
     uint32_t m_mobTexture = 0;
     std::vector<Vertex> m_crack;
+    std::vector<Vertex> m_weather; // blended, after everything else
+    std::vector<Vertex> m_bolts;   // additive
+    uint16_t m_rainSprite = 0, m_snowSprite = 0, m_boltSprite = 0;
 };
 
 } // namespace mc::gfx

@@ -82,10 +82,16 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
         m_crackSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("destroy_stage_" + std::to_string(i)));
     m_orbSprite = static_cast<uint16_t>(atlas.spriteIndex("experience_orb")); // (our texture, in the block atlas)
     m_items.reserve(size_t(kMaxQuads) * 6);
+    m_rainSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_rain"));
+    m_snowSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_snow"));
+    m_boltSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_bolt"));
+    m_weather.reserve(size_t(kMaxWeatherQuads) * 6);
+    m_bolts.reserve(size_t(1024) * 6);
     m_crack.reserve(36);
     glCreateVertexArrays(1, &m_vao);
     glCreateBuffers(1, &m_vbo);
-    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads) * 6 * sizeof(Vertex), nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads + kMaxWeatherQuads + 1024) * 6 * sizeof(Vertex), nullptr,
+                         GL_DYNAMIC_STORAGE_BIT);
     glEnableVertexArrayAttrib(m_vao, 0);
     glVertexArrayAttribFormat(m_vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, x));
     glVertexArrayAttribBinding(m_vao, 0, 0);
@@ -222,6 +228,84 @@ void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const
         const glm::vec3 q[4] = {p[3], p[2], p[1], p[0]};
         quad(p, u0, v0, u1, v1, color, m_items);
         quad(q, u0, v0, u1, v1, color, m_items);
+    }
+}
+
+void EntityRenderer::addPrecipitation(int32_t x, int32_t z, int y0, int y1, bool snow, float scroll, float drift,
+                                      float alpha, const glm::vec3& light, const glm::dvec3& cameraPos) {
+    if (y1 <= y0 || m_weather.size() + size_t(y1 - y0 + 1) * 6 > m_weather.capacity()) return;
+    // The quad faces the camera around the vertical axis through the column's centre
+    // (vanilla turns each column's quad toward the viewer).
+    const glm::vec3 c(float(double(x) + 0.5 - cameraPos.x), 0.0f, float(double(z) + 0.5 - cameraPos.z));
+    const float len = std::sqrt(c.x * c.x + c.z * c.z);
+    const glm::vec3 side = len > 1e-3f ? glm::vec3(-c.z / len, 0.0f, c.x / len) * 0.5f : glm::vec3(0.5f, 0, 0);
+    const uint16_t sprite = snow ? m_snowSprite : m_rainSprite;
+    const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
+    const uint32_t color = pack(light, alpha);
+    // Scrolling: each 1-block quad shows the whole (vertically tiling) sprite; moving
+    // the quads down by the fractional scroll and starting one block higher looks like
+    // continuous falling. Snow also slides sideways by `drift` blocks.
+    const float f = scroll - std::floor(scroll);
+    const glm::vec3 shift = side * 2.0f * drift;
+    for (int y = y0 - 1; y < y1; ++y) { // segment [y + 1 - f, y + 2 - f], clipped to the column
+        const float top = std::min(float(y + 1) - f + 1.0f, float(y1)), bottom = std::max(float(y) - f + 1.0f, float(y0));
+        if (top <= bottom) continue;
+        const float vt = v0 + (float(y + 1) - f + 1.0f - top) * float(m_cell), vb = v0 + (float(y + 1) - f + 1.0f - bottom) * float(m_cell);
+        const float yt = float(double(top) - cameraPos.y), yb = float(double(bottom) - cameraPos.y);
+        const glm::vec3 base = c + shift;
+        const glm::vec3 p[4] = {base - side + glm::vec3(0, yt, 0), base - side + glm::vec3(0, yb, 0),
+                                base + side + glm::vec3(0, yb, 0), base + side + glm::vec3(0, yt, 0)};
+        Vertex v[4];
+        const float us[4] = {u0, u0, u0 + float(m_cell), u0 + float(m_cell)};
+        const float vs[4] = {vt, vb, vb, vt};
+        for (int k = 0; k < 4; ++k)
+            v[k] = {p[k].x, p[k].y, p[k].z, us[k], vs[k], color};
+        for (const int k : {0, 1, 2, 0, 2, 3})
+            m_weather.push_back(v[k]);
+    }
+}
+
+void EntityRenderer::addLightning(const glm::dvec3& ground, uint32_t seed, const glm::dvec3& cameraPos) {
+    // 8 legs of 16 blocks each step sideways up to 4 blocks (wiki: Lightning - a
+    // jagged bolt with branches), from 128 blocks up down to the strike.
+    uint32_t r = seed * 747796405u + 2891336453u;
+    auto next = [&] {
+        r = r * 1664525u + 1013904223u;
+        return float((r >> 8) & 0xFFFF) / 65535.0f - 0.5f;
+    };
+    const float u = float(m_boltSprite % m_columns) * m_cell + m_cell * 0.5f,
+                v = float(m_boltSprite / m_columns) * m_cell + m_cell * 0.5f;
+    auto segment = [&](const glm::dvec3& a, const glm::dvec3& b, float width) {
+        if (m_bolts.size() + 12 > m_bolts.capacity()) return;
+        const glm::vec3 s(a - cameraPos), e(b - cameraPos);
+        const glm::vec3 mid = (s + e) * 0.5f;
+        const glm::vec3 toCam = glm::length(mid) > 1e-3f ? -glm::normalize(mid) : glm::vec3(0, 0, 1);
+        const glm::vec3 dir = glm::normalize(e - s);
+        glm::vec3 w = glm::cross(dir, toCam);
+        w = glm::length(w) > 1e-4f ? glm::normalize(w) * width : glm::vec3(width, 0, 0);
+        for (const float scale : {1.0f, 2.5f}) { // a bright core and a fainter glow
+            const uint32_t color = pack(glm::vec3(0.45f, 0.45f, 0.7f) * (scale > 1.0f ? 0.4f : 1.0f), 1.0f);
+            const glm::vec3 p[4] = {s - w * scale, e - w * scale, e + w * scale, s + w * scale};
+            Vertex vtx[4];
+            for (int k = 0; k < 4; ++k)
+                vtx[k] = {p[k].x, p[k].y, p[k].z, u, v, color};
+            for (const int k : {0, 1, 2, 0, 2, 3})
+                m_bolts.push_back(vtx[k]);
+        }
+    };
+    glm::dvec3 points[9];
+    points[8] = ground;
+    for (int i = 7; i >= 0; --i)
+        points[i] = points[i + 1] + glm::dvec3(next() * 8.0, 16.0, next() * 8.0);
+    for (int i = 0; i < 8; ++i)
+        segment(points[i], points[i + 1], 0.12f);
+    for (int b = 0; b < 3; ++b) { // branches from the upper legs, fading out
+        glm::dvec3 p = points[1 + b * 2];
+        for (int i = 0; i < 3; ++i) {
+            const glm::dvec3 q = p + glm::dvec3(next() * 10.0, -8.0, next() * 10.0);
+            segment(p, q, 0.08f);
+            p = q;
+        }
     }
 }
 
@@ -376,7 +460,13 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     const size_t cap = size_t(kMaxQuads) * 6, items = std::min(m_items.size(), cap),
                  crack = std::min(m_crack.size(), cap - items),
                  mobs = std::min(m_mobs.size(), cap - items - crack);
-    if (items + crack + mobs == 0) return;
+    const size_t weatherBase = cap, weather = std::min(m_weather.size(), size_t(kMaxWeatherQuads) * 6),
+                 bolts = std::min(m_bolts.size(), size_t(1024) * 6);
+    if (weather) glNamedBufferSubData(m_vbo, GLintptr(weatherBase * sizeof(Vertex)), GLsizeiptr(weather * sizeof(Vertex)), m_weather.data());
+    if (bolts)
+        glNamedBufferSubData(m_vbo, GLintptr((weatherBase + weather) * sizeof(Vertex)), GLsizeiptr(bolts * sizeof(Vertex)),
+                             m_bolts.data());
+    if (items + crack + mobs + weather + bolts == 0) return;
     glNamedBufferSubData(m_vbo, 0, GLsizeiptr(items * sizeof(Vertex)), m_items.data());
     if (crack)
         glNamedBufferSubData(m_vbo, GLintptr(items * sizeof(Vertex)), GLsizeiptr(crack * sizeof(Vertex)),
@@ -409,9 +499,26 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
     }
+    if (weather || bolts) { // after the world and entities, blended, no depth writes
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        glUniform1f(1, 0.01f);
+        if (weather) {
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDrawArrays(GL_TRIANGLES, GLint(weatherBase), GLsizei(weather));
+        }
+        if (bolts) {
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE); // lightning glows (vanilla: additive)
+            glDrawArrays(GL_TRIANGLES, GLint(weatherBase + weather), GLsizei(bolts));
+        }
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+    }
     glEnable(GL_CULL_FACE);
     m_items.clear();
     m_mobs.clear();
+    m_weather.clear();
+    m_bolts.clear();
 }
 
 } // namespace mc::gfx

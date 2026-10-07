@@ -64,7 +64,8 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            DayTime, Time, LastPlayed, GameType, allowCommands, initialized,
                            spawn { dimension, pos [I; x,y,z], yaw, pitch } (1.21.9+; older
                            SpawnX/Y/Z still read), Difficulty 2, DifficultyLocked, hardcore,
-                           weather fields 0, WasModded 1, ServerBrands, GameRules { 1.21.11
+                           raining, rainTime, thundering, thunderTime, clearWeatherTime
+                           (M22.1), WasModded 1, ServerBrands, GameRules { 1.21.11
                            ids "minecraft:keep_inventory"... : string values }, DataPacks
                            { Enabled ["vanilla"], Disabled [] }, Version { Id 4671, Name
                            "1.21.11", Series, Snapshot }, WorldGenSettings { seed,
@@ -114,7 +115,7 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            [I; 4 ints], cow/pig/chicken variant "minecraft:temperate", zombie IsBaby...;
                            animals Age, ForcedAge, InLove; sheep Color (byte), Sheared;
                            chicken EggLayTime, IsChickenJockey; creeper Fuse,
-                           ExplosionRadius, ignited, powered; enderman carriedBlockState
+                           ExplosionRadius, ignited, powered (struck by lightning, M22.1); enderman carriedBlockState
                            {Name, Properties}; end_crystal ShowBottom (byte; M20, with the mob
                            fields vanilla ignores); ender_dragon DragonPhase (Int, vanilla's
                            phase numbers); shulker AttachFace (0), Peek, Color 16 } ] }

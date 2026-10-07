@@ -9,6 +9,7 @@
 #include "world/Coords.h"
 #include "world/Items.h"
 #include "world/Raycast.h"
+#include "world/Weather.h"
 
 #include <algorithm>
 #include <cmath>
@@ -100,6 +101,38 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
         m.health = float(m.size * m.size);
     }
     return m;
+}
+
+bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
+    const Aabb zone{at - glm::dvec3(3.0, 3.0, 3.0), at + glm::dvec3(3.0, 9.0, 3.0)};
+    bool hit = false;
+    const ChunkPos c0 = BlockPos{int(std::floor(at.x)), 0, int(std::floor(at.z))}.chunk();
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk* c = world.chunk({c0.x + dx, c0.z + dz});
+            if (!c) continue;
+            for (MobData& m : c->mobs()) {
+                if (m.health <= 0.0f || !box(m).intersects(zone) || m.type == MobType::EnderDragon ||
+                    m.type == MobType::EndCrystal || m.type == MobType::Minecart)
+                    continue;
+                hit = true;
+                if (m.type == MobType::Creeper) m.powered = true;
+                if (m.type == MobType::Pig) { // (vanilla: a new entity in its place)
+                    m.type = MobType::ZombifiedPiglin;
+                    m.health = mobInfo(m.type).maxHealth;
+                    m.age = 0;
+                    m.persistent = true;
+                    continue;
+                }
+                if (!mobInfo(m.type).fireImmune) {
+                    m.health -= 5.0f;
+                    m.hurtTime = 10;
+                    m.fireTicks = std::max<decltype(m.fireTicks)>(m.fireTicks, 160);
+                }
+                c->markDirty();
+            }
+        }
+    return hit;
 }
 
 bool Mobs::add(World& world, const MobData& mob) {
@@ -402,7 +435,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const Chunk* c = ctx.world.chunk(head.chunk());
         const bool day = ctx.skyDarken < 4.0f;
         const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
-        const bool wet = blockRegistry().blockOf(ctx.world.getBlock(head)) == blocks::Water;
+        const bool wet = blockRegistry().blockOf(ctx.world.getBlock(head)) == blocks::Water ||
+                         (ctx.weather && rainingAt(ctx.world, *ctx.weather, head)); // (rain puts them out)
         // Re-lit to 8 s while in the sun; refreshed once a second so the 1-per-second
         // damage clock below keeps running.
         if (day && sky && !wet && m.fireTicks <= 140) m.fireTicks = 160;

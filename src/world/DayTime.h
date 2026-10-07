@@ -30,7 +30,10 @@ inline double daylight(double angle) {
 }
 
 // Sky light lost at this angle: 0 by day .. 11 at night (sky light 15 -> 4).
-inline double skyDarken(double angle) { return (1.0 - daylight(angle)) * 11.0; }
+// Rain and thunder each dim the daylight by up to 5/16 (wiki: Weather; 0..1 strengths).
+inline double skyDarken(double angle, double rain = 0.0, double thunder = 0.0) {
+    return (1.0 - daylight(angle) * (1.0 - rain * 5.0 / 16.0) * (1.0 - thunder * 5.0 / 16.0)) * 11.0;
+}
 
 // Star brightness 0 .. 0.5, only once the sky is dark (our estimate: stars appear
 // toward the end of sunset and are brightest at night, wiki: Daylight cycle).

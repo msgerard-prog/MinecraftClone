@@ -210,6 +210,11 @@ void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
     }
     const BlockId below = blockOf(at(rel(p, Direction::Down)));
     int a = R().get(s, age);
+    // Rain on it or beside it puts it out: 20% + 3% per age (wiki: Fire › Rain).
+    if (!infiniburn(m_world, below) && rainingNear(p) && m_random.nextFloat() < 0.2f + 0.03f * float(a)) {
+        set(p, 0);
+        return;
+    }
     if (a < 15 && m_random.nextInt(3) == 0) { // ages 1 in 3 ticks (wiki)
         m_world.setBlock(p, fireState(++a));  // the model ignores age: no re-mesh, no updates
         if (Chunk* c = chunkAt(p)) c->markDirty();

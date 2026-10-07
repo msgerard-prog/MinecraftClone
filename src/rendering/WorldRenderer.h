@@ -74,13 +74,16 @@ public:
     void setRenderDistance(int chunks);
     // Time of day (world/DayTime.h): sky colour, sun/moon/stars and the sky light
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
-    void setDayTime(int64_t dayTime, float partialTick);
+    // rain/thunder: 0..1 strengths (M22.1) - dim the light, grey the sky, hide the sun.
+    void setDayTime(int64_t dayTime, float partialTick, float rain = 0.0f, float thunder = 0.0f);
     // The Nether's fog colour (each Nether biome has its own; main eases it toward
     // the one at the camera). Default: Nether Wastes' #330808.
     void setNetherFog(const glm::vec3& rgb) { m_netherFog = rgb; }
     // Night vision (M19.4): everything lit as if at full light (vanilla scales the
     // lightmap to full brightness).
     void setNightVision(bool on) { m_nightVision = on; }
+    // A lightning flash (vanilla skyFlashTime): full daylight for this frame.
+    void setSkyFlash() { m_skyDarken = 0.0f; }
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
     // Also drops every mesh, queued re-mesh and in-flight result of the previous
     // dimension (its chunks are all unloaded at a switch).

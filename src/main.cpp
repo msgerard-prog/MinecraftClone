@@ -387,6 +387,27 @@ int main(int argc, char** argv) {
 
     int64_t dayTime = level ? level->dayTime : opts->time; // world day time (world/DayTime.h)
     int64_t gameTime = level ? level->gameTime : 0;        // ticks since the world began
+    // Weather (M22.1, world/Weather): one state for the world, shown in the Overworld.
+    mc::world::Weather weather;
+    if (level) {
+        weather.raining = level->raining;
+        weather.thundering = level->thundering;
+        weather.rainTime = level->rainTime;
+        weather.thunderTime = level->thunderTime;
+        weather.clearTime = level->clearWeatherTime;
+        weather.rain = weather.prevRain = weather.raining ? 1.0f : 0.0f;
+        weather.thunder = weather.prevThunder = weather.raining && weather.thundering ? 1.0f : 0.0f;
+    }
+    std::vector<mc::world::BlockPos> commandBolts; // /summon lightning_bolt (struck next tick)
+    commandBolts.reserve(16);
+    struct Bolt {
+        glm::dvec3 pos;
+        uint32_t seed;
+        int ticks; // left on screen
+    };
+    std::vector<Bolt> bolts;
+    bolts.reserve(32);
+    int skyFlash = 0; // ticks the sky stays lit by a bolt (vanilla skyFlashTime)
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
@@ -564,6 +585,11 @@ int main(int argc, char** argv) {
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
         l.gameTime = gameTime;
+        l.raining = weather.raining;
+        l.thundering = weather.thundering;
+        l.rainTime = weather.rainTime;
+        l.thunderTime = weather.thunderTime;
+        l.clearWeatherTime = weather.clearTime;
         const glm::dvec3 p = arrival ? arrival->fromPos : player.position();
         l.pos[0] = p.x;
         l.pos[1] = p.y;
@@ -636,7 +662,7 @@ int main(int argc, char** argv) {
         if (text.empty()) return;
         if (text.front() == '/') {
             mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals, &world, &gameRng,
-                                  &frameEdits};
+                                  &frameEdits, &weather, &commandBolts};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -1266,7 +1292,12 @@ int main(int argc, char** argv) {
                     // cactus collides as a full cube, so the box reaches out a hair.
                     if (mc::portals::touching(world, player.box().inflated(0.001), mc::world::blocks::Cactus))
                         vitals.attacked(1.0f);
-                    vitals.tickFire(player.inWater());
+                    // Rain puts the player out like water does (wiki: Fire).
+                    const glm::dvec3 eye = player.eyePosition(1.0);
+                    vitals.tickFire(player.inWater() ||
+                                    (dimension == Dimension::Overworld &&
+                                     mc::world::rainingAt(world, weather,
+                                                          {int(std::floor(eye.x)), int(std::floor(eye.y)), int(std::floor(eye.z))})));
                 }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
@@ -1628,12 +1659,16 @@ int main(int argc, char** argv) {
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
             // Game rules read the tick's own time, not the renderer's interpolated value.
-            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
-                                     float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
+            const bool overworld = dimension == Dimension::Overworld;
+            const double tickSkyDarken =
+                mc::world::skyDarken(mc::world::celestialAngle(dayTime), overworld ? weather.rain : 0.0,
+                                     overworld ? weather.thunder : 0.0);
+            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime, float(tickSkyDarken), gameRng,
                                      droppedItems, true, // (the End: endermen, M20)
                                      inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
             mobCtx.tnt = &primedTnt;
             mobCtx.worldSeed = seed;
+            mobCtx.weather = overworld ? &weather : nullptr;
             for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() &&
                     mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
@@ -1646,9 +1681,8 @@ int main(int argc, char** argv) {
                 blockUpdates.setRandomTicks(at.chunk(), std::min(mobs.simulationDistance(), opts->renderDistance),
                                             mc::world::BlockUpdates::kDefaultRandomTickSpeed);
                 blockUpdates.setPlayer(feet);
-                blockUpdates.setSkyDarken(dimension == Dimension::Overworld
-                                              ? int(mc::world::skyDarken(mc::world::celestialAngle(dayTime)))
-                                              : 0);
+                blockUpdates.setSkyDarken(overworld ? int(tickSkyDarken) : 0);
+                blockUpdates.setWeather(overworld ? &weather : nullptr);
             }
             {
                 // Pressure plates (M21.1): everything standing on one this tick presses it
@@ -1682,6 +1716,28 @@ int main(int argc, char** argv) {
                 blockUpdates.settlePlates();
             }
             blockUpdates.tick();
+            // Lightning (M22.1; wiki: Lightning): storms strike in BlockUpdates (fire
+            // placed there); here the bolt hurts what stands near and is drawn.
+            {
+                auto strike = [&](const mc::world::BlockPos& b) {
+                    const glm::dvec3 at(b.x + 0.5, b.y, b.z + 0.5);
+                    mc::Mobs::strikeLightning(world, at);
+                    const mc::Aabb zone{at - glm::dvec3(3.0), at + glm::dvec3(3.0, 9.0, 3.0)};
+                    if (survival && !dead && player.box().intersects(zone)) {
+                        vitals.attacked(5.0f, nullptr, mc::Vitals::Hit::Fire);
+                        vitals.setOnFire(160); // 8 s
+                    }
+                    if (bolts.size() < bolts.capacity()) bolts.push_back({at, uint32_t(gameRng.nextLong()), 8});
+                    skyFlash = 2;
+                };
+                for (const auto& b : blockUpdates.lightning())
+                    strike(b);
+                for (const auto& b : commandBolts) {
+                    blockUpdates.strikeLightning(b); // (its fire)
+                    strike(b);
+                }
+                commandBolts.clear();
+            }
             // Blocks a piston moves carry whatever is in their way (M21.5; wiki: Piston):
             // half a block a tick for the 2 ticks of the move.
             for (const auto& mv : blockUpdates.moving()) {
@@ -1894,6 +1950,11 @@ int main(int argc, char** argv) {
             }
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
+            weather.tick(gameRng);
+            if (skyFlash > 0) --skyFlash;
+            for (Bolt& b : bolts)
+                --b.ticks;
+            std::erase_if(bolts, [](const Bolt& b) { return b.ticks <= 0; });
             ++gameTime;
             if (pearlCooldown > 0) --pearlCooldown;
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
@@ -1963,7 +2024,13 @@ int main(int argc, char** argv) {
             renderer.setNetherFog(netherFog);
         }
         renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0);
-        renderer.setDayTime(dayTime, static_cast<float>(clock.alpha));
+        {
+            const bool overworld = dimension == Dimension::Overworld;
+            const float a = static_cast<float>(clock.alpha);
+            renderer.setDayTime(dayTime, a, overworld ? weather.rainAt(a) : 0.0f,
+                                overworld ? weather.thunderAt(a) : 0.0f);
+            if (overworld && skyFlash > 0) renderer.setSkyFlash(); // (a bolt lights everything up)
+        }
         if (loader) {
             const mc::world::ChunkPos center{
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.x))),
@@ -2029,6 +2096,49 @@ int main(int argc, char** argv) {
                 look.potion = pr.potion;
                 entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
             }
+        }
+        if (dimension == Dimension::Overworld) {
+            // Rain and snow (M22.1; vanilla's weather layer): columns within 10 blocks
+            // (Fancy), from the higher of the ground and 10 below the eye to 10 above,
+            // fading toward the edge; each column has its own speed and phase.
+            const float a = static_cast<float>(clock.alpha);
+            const float rain = weather.rainAt(a);
+            if (rain > 0.0f) {
+                constexpr int r = 10;
+                const int cx = int(std::floor(camera.position.x)), cz = int(std::floor(camera.position.z)),
+                          cy = int(std::floor(camera.position.y));
+                const float t = float(gameTime) + a;
+                for (int dz = -r; dz <= r; ++dz)
+                    for (int dx = -r; dx <= r; ++dx) {
+                        const int d2 = dx * dx + dz * dz;
+                        if (d2 > r * r) continue;
+                        const int x = cx + dx, z = cz + dz;
+                        const int ground = mc::world::rainHeight(world, x, z);
+                        const int y0 = std::max(ground, cy - r), y1 = std::max(ground, cy + r);
+                        if (y0 >= y1) continue;
+                        const mc::world::BlockPos at{x, std::max(ground, cy), z};
+                        const auto kind = mc::world::precipitationAt(world, at);
+                        if (kind == mc::world::Precipitation::None) continue;
+                        const uint32_t ux = uint32_t(x), uz = uint32_t(z);
+                        const uint32_t h = ux * 3121u + ux * ux * 45238971u + uz * uz * 418711u + uz * 13761u;
+                        const float phase = float(h & 31) / 32.0f, speed = 1.0f + float((h >> 5) & 7) / 16.0f;
+                        const bool snow = kind == mc::world::Precipitation::Snow;
+                        // Rain: about a block a tick; snow drifts down slowly, swaying.
+                        const float scroll = snow ? t * 0.05f * speed + phase : t * speed + phase; // (grows: falls)
+                        const float drift = snow ? 0.15f * std::sin(t * 0.03f + phase * 6.28f) : 0.0f;
+                        const float alpha = ((1.0f - float(d2) / float(r * r)) * 0.5f + 0.5f) * rain;
+                        const mc::world::Chunk* c = world.chunk(at.chunk());
+                        int sky = 15, blk = 0;
+                        if (c && c->lit() && world.isInHeight(at.y)) {
+                            sky = c->skyLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
+                            blk = c->blockLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
+                        }
+                        entities.addPrecipitation(x, z, y0, y1, snow, scroll, drift, alpha,
+                                                  lightTable[size_t(sky * 16 + blk)], camera.position);
+                    }
+            }
+            for (const Bolt& b : bolts)
+                entities.addLightning(b.pos, b.seed, camera.position);
         }
         for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
             entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position);

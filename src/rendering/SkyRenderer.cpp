@@ -137,14 +137,15 @@ void SkyRenderer::draw(const Camera& camera, float aspect, const SkyState& sky) 
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(vp));
 
     // Stars first (behind the sun and moon), fading in at dusk.
-    if (sky.starBrightness > 0.0f) {
-        glUniform4f(1, sky.starBrightness, sky.starBrightness, sky.starBrightness, 1.0f);
+    const float stars = sky.starBrightness * sky.visibility;
+    if (stars > 0.0f) {
+        glUniform4f(1, stars, stars, stars, 1.0f);
         glUniform4f(2, 0.0f, 0.0f, 0.0f, 0.0f);
         glBindTextureUnit(0, m_whiteTexture);
         glDrawArrays(GL_TRIANGLES, kStarsFirst, m_starVertices);
     }
 
-    glUniform4f(1, 1.0f, 1.0f, 1.0f, 1.0f);
+    glUniform4f(1, 1.0f, 1.0f, 1.0f, sky.visibility);
     glUniform4f(2, 0.0f, 0.0f, 1.0f, 1.0f); // uv offset, scale: whole texture
     glBindTextureUnit(0, m_sunTexture);
     glDrawArrays(GL_TRIANGLES, kSunFirst, 6);

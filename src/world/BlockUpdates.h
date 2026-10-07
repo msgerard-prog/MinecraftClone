@@ -23,6 +23,8 @@ namespace mc::world {
 // Power follows vanilla's model: a component sends weak power to a neighbour, and may
 // strongly power a conductor (an opaque full block). A conductor passes on the strong
 // power it receives to every neighbour; dust only reads strongly powered blocks.
+struct Weather;
+
 class BlockUpdates final : public BlockUpdateListener {
 public:
     explicit BlockUpdates(World& world);
@@ -92,6 +94,12 @@ public:
     // Sky light levels lost to the time of day (0 by day .. 11 at night): growth reads
     // max(block light, sky light - this), vanilla's raw brightness.
     void setSkyDarken(int levels) { m_skyDarken = levels; }
+    // Weather (M22.1): rain puts out fires and waters farmland; in the ticking chunks
+    // water freezes and snow settles in cold biomes, and thunderstorms strike lightning
+    // (its spots, after fire is placed, in lightning() for main: damage, bolts).
+    void setWeather(const Weather* weather) { m_weather = weather; }
+    const std::vector<BlockPos>& lightning() const { return m_lightning; }
+    void strikeLightning(const BlockPos& p); // (also /summon lightning_bolt)
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
@@ -199,6 +207,8 @@ public:
 
 private:
     void runRandomTicks();
+    void runWeatherTicks();
+    bool rainingNear(const BlockPos& p) const; // on p or a horizontal neighbour
     void randomTick(const BlockPos& p, BlockStateId s);
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
@@ -298,6 +308,8 @@ private:
     int m_rtDistance = -1; // no random ticks until set
     int m_rtSpeed = kDefaultRandomTickSpeed;
     int m_skyDarken = 0;
+    const Weather* m_weather = nullptr;
+    std::vector<BlockPos> m_lightning;
     std::optional<glm::dvec3> m_player;
     uint64_t m_order = 0;
     mutable bool m_wiresMuted = false; // dust ignores other dust's power through blocks

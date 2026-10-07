@@ -36,11 +36,11 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("Difficulty", int8_t{2}); // normal (fixed: known deviation)
     data.put("DifficultyLocked", int8_t{0});
     data.put("hardcore", int8_t{0});
-    data.put("raining", int8_t{0});
-    data.put("thundering", int8_t{0});
-    data.put("rainTime", int32_t{0});
-    data.put("thunderTime", int32_t{0});
-    data.put("clearWeatherTime", int32_t{0});
+    data.put("raining", int8_t{raining ? 1 : 0});
+    data.put("thundering", int8_t{thundering ? 1 : 0});
+    data.put("rainTime", rainTime);
+    data.put("thunderTime", thunderTime);
+    data.put("clearWeatherTime", clearWeatherTime);
     data.put("WasModded", int8_t{1}); // not written by vanilla's own server
     data.put("ServerBrands", listOf(TagType::String, {std::string("minecraftclone")}));
     // Game rules: 1.21.11 ids (namespaced snake_case; wiki: Game rule). Only the ones
@@ -280,6 +280,11 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     if (auto s = data->string("LevelName")) l.name = *s;
     l.dayTime = data->integer("DayTime").value_or(0);
     l.gameTime = data->integer("Time").value_or(0);
+    l.raining = data->integer("raining").value_or(0) != 0;
+    l.thundering = data->integer("thundering").value_or(0) != 0;
+    l.rainTime = static_cast<int32_t>(data->integer("rainTime").value_or(0));
+    l.thunderTime = static_cast<int32_t>(data->integer("thunderTime").value_or(0));
+    l.clearWeatherTime = static_cast<int32_t>(data->integer("clearWeatherTime").value_or(0));
     // World spawn: the 1.21.9+ compound, else the older SpawnX/Y/Z (our earlier saves).
     l.spawn[0] = static_cast<int32_t>(data->integer("SpawnX").value_or(0));
     l.spawn[1] = static_cast<int32_t>(data->integer("SpawnY").value_or(64));

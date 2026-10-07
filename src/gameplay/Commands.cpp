@@ -263,6 +263,50 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             ctx.world->notifyChanged(at, was, *state);
         return {true, format("Successfully filled %d block(s)", int(old.size()))};
     }
+    if (a[0] == "weather") {
+        // /weather (clear|rain|thunder) [duration] (wiki: Commands/weather): the duration
+        // in ticks or with a unit (10s, 2d); without one, a random length as the natural
+        // cycle would pick (clear 12,000-179,999, rain 12,000-23,999, thunder 3,600-15,599).
+        if (!ctx.weather || a.size() < 2 || a.size() > 3) return fail("Usage: /weather (clear|rain|thunder) [duration]");
+        world::Weather::Kind kind;
+        if (a[1] == "clear") kind = world::Weather::Kind::Clear;
+        else if (a[1] == "rain") kind = world::Weather::Kind::Rain;
+        else if (a[1] == "thunder") kind = world::Weather::Kind::Thunder;
+        else return fail("Usage: /weather (clear|rain|thunder) [duration]");
+        int duration = 0;
+        if (a.size() == 3) {
+            std::string_view d = a[2];
+            int unit = 1;
+            if (!d.empty() && (d.back() == 't' || d.back() == 's' || d.back() == 'd')) {
+                unit = d.back() == 's' ? 20 : d.back() == 'd' ? 24000 : 1;
+                d.remove_suffix(1);
+            }
+            const auto r = std::from_chars(d.data(), d.data() + d.size(), duration);
+            if (r.ec != std::errc() || duration <= 0 || duration > 1000000) return fail("Invalid duration");
+            duration *= unit;
+        } else if (ctx.rng) {
+            duration = kind == world::Weather::Kind::Clear  ? 12000 + int(ctx.rng->nextInt(168000))
+                       : kind == world::Weather::Kind::Rain ? 12000 + int(ctx.rng->nextInt(12000))
+                                                            : 3600 + int(ctx.rng->nextInt(12000));
+        } else {
+            duration = 6000;
+        }
+        ctx.weather->set(kind, duration);
+        return {true, kind == world::Weather::Kind::Clear  ? "Set the weather to clear"
+                      : kind == world::Weather::Kind::Rain ? "Set the weather to rain"
+                                                           : "Set the weather to rain & thunder"};
+    }
+    if (a[0] == "summon" && a.size() >= 2 && (a[1] == "lightning_bolt" || a[1] == "minecraft:lightning_bolt")) {
+        if (!ctx.lightning || (a.size() != 2 && a.size() != 5)) return fail("Usage: /summon lightning_bolt [x y z]");
+        glm::dvec3 p = ctx.player.position();
+        if (a.size() == 5) {
+            const auto x = coordinate(a[2], p.x, true), y = coordinate(a[3], p.y, false), z = coordinate(a[4], p.z, true);
+            if (!x || !y || !z) return fail("Invalid position");
+            p = {*x, *y, *z};
+        }
+        ctx.lightning->push_back({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))});
+        return {true, "Summoned new Lightning Bolt"};
+    }
     if (a[0] == "summon") {
         // /summon <entity> [x y z] [{Tag:value,...}] (wiki: Commands/summon). Tags (no
         // spaces): Color, Sheared, Age, Size (magma cubes), Health - a small subset of the
@@ -339,7 +383,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /xp"};
+    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

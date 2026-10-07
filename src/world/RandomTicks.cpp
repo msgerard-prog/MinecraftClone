@@ -7,6 +7,7 @@
 
 #include "world/Blocks.h"
 #include "world/TreeFeature.h"
+#include "world/Weather.h"
 
 #include <algorithm>
 
@@ -374,6 +375,71 @@ bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
         if (blockOf(at(ground)) == B::GrassBlock) set(ground, R().defaultState(B::Dirt));
     }
     return true;
+}
+
+} // namespace mc::world
+
+namespace mc::world {
+
+bool BlockUpdates::rainingNear(const BlockPos& p) const {
+    if (!m_weather || !m_weather->raining) return false;
+    return rainingAt(m_world, *m_weather, p) || rainingAt(m_world, *m_weather, rel(p, Direction::West)) ||
+           rainingAt(m_world, *m_weather, rel(p, Direction::East)) ||
+           rainingAt(m_world, *m_weather, rel(p, Direction::North)) ||
+           rainingAt(m_world, *m_weather, rel(p, Direction::South));
+}
+
+void BlockUpdates::strikeLightning(const BlockPos& p) {
+    if (m_lightning.size() < m_lightning.capacity()) m_lightning.push_back(p);
+    // Fire where it lands and up to 4 more within a block (Normal difficulty; wiki:
+    // Lightning › Fire), where fire could stay.
+    auto ignite = [&](const BlockPos& q) {
+        if (m_world.isInHeight(q.y) && at(q) == 0 && fireCanStay(m_world, q)) set(q, fireState(0));
+    };
+    ignite(p);
+    for (int i = 0; i < 4; ++i)
+        ignite({p.x + int(m_random.nextInt(3)) - 1, p.y + int(m_random.nextInt(3)) - 1, p.z + int(m_random.nextInt(3)) - 1});
+}
+
+// Vanilla's per-chunk weather work (ServerLevel tickChunk): in a thunderstorm 1 in
+// 100,000 ticks a bolt strikes the top of a random column where it rains; 1 in 16
+// ticks the top of a random column is checked - still water under the open sky in a
+// cold biome freezes (if it borders something other than water), and while it snows
+// a snow layer settles on air over a solid top (block light below 10).
+void BlockUpdates::runWeatherTicks() {
+    if (!m_weather || m_rtDistance < 0 || !m_world.hasSkyLight()) return;
+    const bool storm = m_weather->raining && m_weather->thunder > 0.9f;
+    for (int32_t cz = m_rtCentre.z - m_rtDistance; cz <= m_rtCentre.z + m_rtDistance; ++cz)
+        for (int32_t cx = m_rtCentre.x - m_rtDistance; cx <= m_rtCentre.x + m_rtDistance; ++cx) {
+            if (!m_world.chunk({cx, cz})) continue;
+            if (storm && m_random.nextInt(100000) == 0) {
+                const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
+                const BlockPos top{x, rainHeight(m_world, x, z), z};
+                if (rainingAt(m_world, *m_weather, top)) strikeLightning(top);
+            }
+            if (m_random.nextInt(16) != 0) continue;
+            const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
+            const BlockPos top{x, rainHeight(m_world, x, z), z};
+            const BlockPos below{x, top.y - 1, z};
+            if (!m_world.isInHeight(below.y) || precipitationAt(m_world, below) != Precipitation::Snow) continue;
+            const Chunk* bc = chunkAt(below);
+            if (!bc) continue;
+            const BlockStateId ws = at(below);
+            if (blockOf(ws) == B::Water && R().get(ws, properties::level) == 0 &&
+                bc->blockLight(blockToLocal(x), below.y, blockToLocal(z)) < 10) {
+                bool edge = false;
+                for (const Direction d : {Direction::West, Direction::East, Direction::North, Direction::South})
+                    edge = edge || blockOf(at(rel(below, d))) != B::Water;
+                if (edge) set(below, R().defaultState(B::Ice));
+            }
+            if (m_weather->raining && m_world.isInHeight(top.y) && at(top) == 0 &&
+                bc->blockLight(blockToLocal(x), std::min(top.y, m_world.height().maxY()), blockToLocal(z)) < 10) {
+                const BlockStateId under = at(below);
+                const BlockId ub = blockOf(under);
+                if ((R().opaqueCube(under) || isLeaves(ub)) && ub != B::Ice && ub != B::PackedIce)
+                    set(top, R().defaultState(B::Snow));
+            }
+        }
 }
 
 } // namespace mc::world

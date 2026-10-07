@@ -36,6 +36,9 @@ struct LevelData {
     // Vanilla worlds (no MinecraftClone compound) count as current: nothing to upgrade.
     int32_t cloneFormat = kCloneFormat;
     int64_t dayTime = 0;
+    // Weather (M22.1; vanilla raining, rainTime, thundering, thunderTime, clearWeatherTime).
+    bool raining = false, thundering = false;
+    int32_t rainTime = 0, thunderTime = 0, clearWeatherTime = 0;
     int64_t gameTime = 0;
     int32_t spawn[3] = {0, 64, 0}; // world spawn (fixed at creation; SpawnX/Y/Z)
     double pos[3] = {0, 0, 0};     // player feet

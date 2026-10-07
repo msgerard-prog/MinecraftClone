@@ -17,6 +17,7 @@ struct SkyState {
     float starBrightness = 0.0f; // 0 .. 0.5
     int moonPhase = 0;           // 0..7
     bool celestial = true;       // sun, moon and stars (Overworld only)
+    float visibility = 1.0f;     // 1 - rain strength: rain hides the sun, moon and stars
 };
 
 // Sun, moon and stars (wiki: Sun, Moon, Daylight cycle). Drawn first each frame, on

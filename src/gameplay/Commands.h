@@ -4,6 +4,7 @@
 #include "gameplay/Player.h"
 #include "gameplay/Vitals.h"
 #include "world/Random.h"
+#include "world/Weather.h"
 #include "world/World.h"
 
 #include <cstdint>
@@ -25,6 +26,8 @@ struct CommandContext {
     world::World* world = nullptr; // /summon
     world::Xoroshiro* rng = nullptr;
     std::vector<world::BlockPos>* changed = nullptr; // /setblock: edited positions (relight)
+    world::Weather* weather = nullptr;                // /weather
+    std::vector<world::BlockPos>* lightning = nullptr; // /summon lightning_bolt: where to strike
 };
 
 struct CommandResult {
@@ -34,7 +37,7 @@ struct CommandResult {
 
 // Runs one chat command (with or without the leading '/'), vanilla syntax
 // (wiki: Commands). Supported: /tp, /teleport, /time, /give, /gamemode, /kill, /setblock,
-// /summon, /seed, /help.
+// /summon, /seed, /weather, /help.
 // Selectors: only @s / @p (the player). Coordinates accept ~ (relative).
 CommandResult runCommand(std::string_view line, CommandContext& ctx);
 

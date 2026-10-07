@@ -79,12 +79,20 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     return true;
 }
 
-void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
+void WorldRenderer::setDayTime(int64_t dayTime, float partialTick, float rain, float thunder) {
     const double angle = world::celestialAngle(dayTime, partialTick);
-    m_skyDarken = static_cast<float>(world::skyDarken(angle));
+    m_skyDarken = static_cast<float>(world::skyDarken(angle, rain, thunder));
     m_skyColor = kPlainsSky * static_cast<float>(world::daylight(angle));
-    m_skyState = {angle, static_cast<float>(world::starBrightness(angle)),
-                  world::moonPhase(dayTime)};
+    // Rain greys the sky toward 60% of its luminance, thunder darkens it toward 20%
+    // (vanilla: each blends 75% of the way at full strength).
+    const auto grey = [&](float strength, float level) {
+        const float l = glm::dot(m_skyColor, glm::vec3(0.3f, 0.59f, 0.11f)) * level;
+        m_skyColor = glm::mix(m_skyColor, glm::vec3(l), strength * 0.75f);
+    };
+    if (rain > 0.0f) grey(rain, 0.6f);
+    if (thunder > 0.0f) grey(thunder, 0.2f);
+    m_skyState = {angle, static_cast<float>(world::starBrightness(angle)), world::moonPhase(dayTime), true,
+                  1.0f - rain};
     if (m_dimension != world::Dimension::Overworld) {
         // No daylight: fixed fog colours (wiki: Nether Wastes fog #330808; the End's
         // dark sky), no sun, moon or stars.

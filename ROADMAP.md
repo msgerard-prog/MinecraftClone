@@ -11,7 +11,7 @@ per-state collision shapes. M1-M20 done. v1.0 waits for M23-M28 (user decision).
 
 ## Next
 M22 - World & presentation:
-1. M22.1 - Weather (wiki: Weather): rain/snow/thunder cycles kept in level.dat
+1. ✅ M22.1 - Weather (wiki: Weather): rain/snow/thunder cycles kept in level.dat
    (vanilla's raining/rainTime/thundering/thunderTime), falling rain and snow drawn,
    darker sky and light, lightning (fire, damage, charged creepers, pigs to zombified
    piglins), rain putting out fires and filling farmland, snow layers and ice forming,

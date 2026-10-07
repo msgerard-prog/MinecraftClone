@@ -5,6 +5,9 @@ Writes assets/minecraft/textures/environment/
   sun.png          32x32, drawn additively (black = no light)
   moon_phases.png  128x64, 4x2 phases of 32x32 (0 = full, then waning, new at 4,
                    waxing back), drawn additively
+and into textures/block/ (the block atlas, which the entity renderer samples):
+  end_portal.png, weather_rain.png, weather_snow.png (16x16, tile vertically:
+  M22.1 draws them as scrolling 1-block segments), weather_bolt.png (white)
 
 Deterministic (fixed seeds). Usage: tools/textures/gen_environment.py [--preview DIR]
 """
@@ -104,6 +107,37 @@ def end_portal():
     return img
 
 
+def weather_rain():
+    """Rain: three thin pale-blue streaks on transparency, wrapping top to bottom
+    (a column is one block wide, so each streak is 1/16 block: keep them sparse)."""
+    rng = random.Random("rain")
+    img = Img(16, 16, (0, 0, 0, 0))
+    for x in (2, 8, 13):
+        top, length = rng.randrange(16), 4 + rng.randrange(4)
+        for i in range(length):
+            a = 70 + int(100 * i / length)  # brighter at the falling end
+            img.set(x, top + i, (170, 195, 240, a))
+    return img
+
+
+def weather_snow():
+    """Snow: a few single-pixel flakes, white with cool tints (a column is one block
+    wide: each flake is 1/16 block, so keep them few)."""
+    rng = random.Random("snow")
+    img = Img(16, 16, (0, 0, 0, 0))
+    for _ in range(5):
+        x, y = rng.randrange(16), rng.randrange(16)
+        img.set(x, y, (255, 255, 255, 220))
+        if rng.random() < 0.3:
+            img.set(x, y + 1, (215, 228, 248, 150))
+    return img
+
+
+def weather_bolt():
+    """Lightning: plain white (tinted and blended additively by the renderer)."""
+    return Img(16, 16, (255, 255, 255, 255))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for a 4x preview")
@@ -116,6 +150,10 @@ def main():
     block = OUT.parent / "block" / "end_portal.png"
     block.write_bytes(encode_png(end_portal()))
     print(f"wrote {block}")
+    for name, img in {"weather_rain": weather_rain(), "weather_snow": weather_snow(), "weather_bolt": weather_bolt()}.items():
+        out = OUT.parent / "block" / f"{name}.png"
+        out.write_bytes(encode_png(img))
+        print(f"wrote {out}")
     if args.preview:
         out = Path(args.preview)
         out.mkdir(parents=True, exist_ok=True)

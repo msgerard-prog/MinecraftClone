@@ -768,7 +768,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("Fuse", int16_t{30});
             e.put("ExplosionRadius", int8_t{3});
             e.put("ignited", int8_t{0});
-            e.put("powered", int8_t{0});
+            e.put("powered", int8_t(m.powered ? 1 : 0));
         }
         if (m.type == MobType::Enderman && m.carried) // carriedBlockState {Name, Properties}
             e.put("carriedBlockState", paletteEntry(blockRegistry().toString(m.carried)));
@@ -847,6 +847,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
         m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
+        m.powered = m.type == MobType::Creeper && e->integer("powered").value_or(0) != 0;
         m.showBottom = e->integer("ShowBottom").value_or(1) != 0;
         if (m.type == MobType::Shulker) m.peek = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Peek").value_or(0), 0, 100));
         if (m.type == MobType::EnderDragon) {

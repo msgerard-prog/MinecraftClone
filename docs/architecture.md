@@ -192,6 +192,17 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   leaves (distance kept by 1-tick scheduled updates), saplings (grow the shapes in
   `world/TreeFeature.h`, shared with worldgen), snow/ice melting, lava starting fires.
   Pending ticks are found in O(1) through each chunk's `TickSet`.
+- Weather (M22.1, `world/Weather`): `Weather` (rain/thunder states, countdowns, 0..1
+  strengths easing 0.01 a tick) is one per world, owned by main, ticked after the day
+  time and saved in level.dat. `precipitationAt` (biome temperature, height),
+  `rainHeight` and `rainingAt` answer where rain/snow fall. `skyDarken(angle, rain,
+  thunder)` dims the light (tick and renderer); the renderer greys the sky and hides
+  the sun, moon and stars. `BlockUpdates::runWeatherTicks` (RandomTicks.cpp, ticking
+  chunks): lightning in storms (`strikeLightning`: fire, `lightning()` for main), ice
+  and snow forming; rain puts out fires (Fire.cpp) and waters farmland (Farming.cpp).
+  Main applies bolts to mobs (`Mobs::strikeLightning`) and the player and draws rain/
+  snow columns and bolts (`EntityRenderer::addPrecipitation/addLightning`, a blended
+  pass after entities; textures `block/weather_*.png`).
 - Fire (M15, `world/Fire.cpp`): scheduled every 30-40 ticks; ages, burns neighbours
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in

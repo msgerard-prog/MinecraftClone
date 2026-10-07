@@ -8,6 +8,7 @@
 #include "gameplay/Vitals.h"
 #include "world/Mob.h"
 #include "world/Random.h"
+#include "world/Weather.h"
 #include "world/World.h"
 
 #include <optional>
@@ -39,6 +40,7 @@ public:
         bool wearsGold = false; // a piece of golden armor on: piglins leave the player be (M19.2)
         class PrimedTnt* tnt = nullptr; // explosions set off TNT (M21.1b)
         uint64_t worldSeed = 0;         // slime chunks (M21.5)
+        const world::Weather* weather = nullptr; // rain: undead don't burn, endermen get hurt (M22.1)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
@@ -75,6 +77,10 @@ public:
     static uint8_t naturalWoolColour(world::Xoroshiro& rng);
     // Adds a mob to the chunk it stands in (false if that chunk isn't loaded).
     static bool add(world::World& world, const world::MobData& mob);
+    // A lightning bolt at `at` (wiki: Lightning): mobs within 3 blocks (6 up) take 5
+    // damage and burn 8 s; creepers become charged, pigs zombified piglins. Returns
+    // whether any mob was hit.
+    static bool strikeLightning(world::World& world, const glm::dvec3& at);
 
     // The mob the player's look ray hits first within `reach` blocks, if it's nearer
     // than `blockDistance` (attacks prefer the mob in front of a block).
