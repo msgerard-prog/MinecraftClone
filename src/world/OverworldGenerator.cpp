@@ -887,6 +887,33 @@ void OverworldGenerator::generate(Chunk& out) const {
             out.mutableSection(sec).assign(b);
     }
     out.setBiomes(biomes);
+
+    // 10. Animals with new chunks (wiki: Spawn › Chunk generation): grassy biomes get
+    //     a herd of 2-4 cows in 1 of 10 chunks, standing on grass.
+    Xoroshiro animals(chunkSeed(m_seed, cx, cz, 500));
+    const Biome herdBiome = columnBiome[5];
+    const bool grassy = herdBiome == Biome::Plains || herdBiome == Biome::Forest || herdBiome == Biome::BirchForest ||
+                        herdBiome == Biome::Meadow || herdBiome == Biome::Taiga || herdBiome == Biome::Savanna ||
+                        herdBiome == Biome::WindsweptHills;
+    if (grassy && animals.nextInt(10) == 0) {
+        const int herd = 2 + static_cast<int>(animals.nextInt(3));
+        for (int i = 0; i < herd; ++i) {
+            const int x = static_cast<int>(animals.nextInt(16)), z = static_cast<int>(animals.nextInt(16));
+            const int y = top(x, z);
+            const uint64_t hi = animals.nextLong(), lo = animals.nextLong();
+            const float yaw = animals.nextFloat() * 360.0f - 180.0f;
+            if (y < kSeaLevel || chunk.get(x, y, z) != B.grass || chunk.get(x, y + 1, z) != B.air) continue;
+            MobData cow;
+            cow.type = MobType::Cow;
+            cow.uuidHi = hi;
+            cow.uuidLo = lo;
+            cow.pos = cow.prevPos = cow.goal = glm::dvec3(baseX + x + 0.5, y + 1.0, baseZ + z + 0.5);
+            cow.yaw = cow.prevYaw = cow.headYaw = yaw;
+            cow.health = mobInfo(MobType::Cow).maxHealth;
+            cow.persistent = true; // animals from world generation never despawn
+            out.mobs().push_back(cow);
+        }
+    }
 }
 
 glm::dvec3 OverworldGenerator::findSpawn() const {
