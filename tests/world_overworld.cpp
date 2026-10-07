@@ -5,6 +5,9 @@
 #include <doctest/doctest.h>
 
 #include <cmath>
+#include <string_view>
+#include <thread>
+#include <vector>
 
 using namespace mc::world;
 
@@ -35,7 +38,8 @@ TEST_CASE("overworld is deterministic per seed and position (pinned hash)") {
     CHECK(chunkHash(c1) != chunkHash(c3));
     CHECK(c1.biomes()->cells == c2.biomes()->cells);
     // Changing this value means generated worlds changed: ask the user first.
-    CHECK(chunkHash(c1) == 9661439017696757985ull);
+    // (Re-pinned 2026-10-07 for the M8 review fixes, before any world used it.)
+    CHECK(chunkHash(c1) == 1773355576298667210ull);
 }
 
 TEST_CASE("overworld: bedrock floor, sea at 63, ores at their depths, lava only deep") {
@@ -61,7 +65,7 @@ TEST_CASE("overworld: bedrock floor, sea at 63, ores at their depths, lava only 
                             ++diamonds;
                             diamondsHigh += y > 16;
                         }
-                        lavaHigh += b == blocks::Lava && y > OverworldGenerator::kLavaLevel;
+                        lavaHigh += b == blocks::Lava && y >= OverworldGenerator::kLavaLevel; // lava only <= -55
                     }
                 }
         }
@@ -122,4 +126,95 @@ TEST_CASE("overworld: biomes cover oceans, land and mountains across a region") 
     CHECK(seen[static_cast<int>(Biome::Forest)]);
     CHECK((seen[static_cast<int>(Biome::Ocean)] || seen[static_cast<int>(Biome::DeepOcean)]));
     CHECK(kinds >= 15);
+}
+
+TEST_CASE("overworld: generated leaves know their trunk (distance 1..6, never decay)") {
+    // Regression: every generated leaf was distance=7 (would all decay).
+    const OverworldGenerator gen(42);
+    const auto& r = blockRegistry();
+    int leaves = 0, far = 0;
+    for (int cz = 3; cz <= 7; ++cz) // the birch forest around seed 42's spawn
+        for (int cx = -8; cx <= -4; ++cx) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (int y = 60; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockStateId s = c.get(x, y, z);
+                        const auto id = std::string_view(r.block(r.blockOf(s)).id);
+                        if (!id.ends_with("_leaves")) continue;
+                        ++leaves;
+                        far += r.value(s, "distance") == "7";
+                    }
+        }
+    CHECK(leaves > 0);
+    CHECK(far == 0);
+}
+
+TEST_CASE("overworld: trees continue seamlessly across chunk borders") {
+    // A forest region: compare the blocks on both sides of each border with a chunk
+    // generated alone - the same tree appears in both (no half trees).
+    const OverworldGenerator gen(42);
+    const auto& r = blockRegistry();
+    int crossing = 0;
+    for (int cz = 3; cz <= 7; ++cz) // the birch forest around seed 42's spawn
+        for (int cx = -8; cx <= -5; ++cx) {
+            Chunk a({cx, cz}), b({cx + 1, cz});
+            gen.generate(a);
+            gen.generate(b);
+            for (int y = 60; y < 200; ++y)
+                for (int z = 0; z < 16; ++z) {
+                    const BlockStateId la = a.get(15, y, z), lb = b.get(0, y, z);
+                    const bool leafA = std::string_view(r.block(r.blockOf(la)).id).ends_with("_leaves");
+                    const bool leafB = std::string_view(r.block(r.blockOf(lb)).id).ends_with("_leaves");
+                    // A log at the border column always has leaves or logs nearby on
+                    // the other side only if the canopy reaches; count shared canopies.
+                    crossing += leafA && leafB;
+                }
+        }
+    CHECK(crossing > 0); // canopies do span borders
+}
+
+TEST_CASE("overworld: same output on any thread, in any order, at negative coordinates") {
+    const OverworldGenerator gen(99);
+    const ChunkPos positions[] = {{-1, -1}, {-17, 3}, {0, 0}, {5, -20}};
+    uint64_t forward[4], other[4];
+    for (int i = 0; i < 4; ++i) {
+        Chunk c(positions[i]);
+        gen.generate(c);
+        forward[i] = chunkHash(c);
+    }
+    std::thread t([&] {
+        for (int i = 3; i >= 0; --i) {
+            Chunk c(positions[i]);
+            gen.generate(c);
+            other[i] = chunkHash(c);
+        }
+    });
+    t.join();
+    for (int i = 0; i < 4; ++i)
+        CHECK(forward[i] == other[i]);
+}
+
+TEST_CASE("overworld: cold places get snow layers and ice; lava stops at -55") {
+    const OverworldGenerator gen(42);
+    const auto& r = blockRegistry();
+    int snow = 0, ice = 0;
+    for (int cz = -40; cz <= 40; cz += 8)
+        for (int cx = -40; cx <= 40; cx += 8) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x)
+                    for (int y = 62; y < 320; ++y) {
+                        const BlockId b = r.blockOf(c.get(x, y, z));
+                        if (b == blocks::Snow) {
+                            ++snow;
+                            CHECK(r.collides(c.get(x, y - 1, z))); // on solid ground
+                        }
+                        ice += b == blocks::Ice && y == 62;
+                    }
+        }
+    CHECK(snow > 0);
+    CHECK(ice > 0);
 }

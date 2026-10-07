@@ -429,3 +429,15 @@ TEST_CASE("chunk NBT: biomes round-trip per 4x4x4 cell with a string palette") {
     CHECK(d.biomes()->cells == b->cells);
     CHECK(d.biomes()->at(5, 9, 14) == Biome::Desert); // section 4 (y 0..15), cell (1, 2, 3)
 }
+
+TEST_CASE("level.dat keeps the generator kind; flat stays flat") {
+    TempDir dir("mc_test_level_generator");
+    LevelData l;
+    l.generator = "terrain";
+    REQUIRE(l.save(dir.path));
+    CHECK(LevelData::load(dir.path)->generator == "terrain");
+    l.flat = true;
+    REQUIRE(l.save(dir.path));
+    CHECK(LevelData::load(dir.path)->flat);
+    CHECK(LevelData().generator == "overworld"); // new worlds
+}

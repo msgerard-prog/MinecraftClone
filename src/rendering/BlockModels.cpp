@@ -239,6 +239,24 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
                 m = single(v);
+            } else if (name == "snow") {
+                // Layers: a box 2 texels per layer high (vanilla snow_height* models).
+                const int layers = std::stoi(std::string(registry.value(state, "layers").value_or("1")));
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = b.from[1] = b.from[2] = 0;
+                b.to[0] = b.to[2] = 16;
+                b.to[1] = static_cast<uint8_t>(2 * layers);
+                for (int f = 0; f < 6; ++f) {
+                    b.faces[f].sprite = sprite("snow");
+                    const bool side = f >= 2;
+                    b.faces[f].uv[0] = 0;
+                    b.faces[f].uv[1] = side ? static_cast<uint8_t>(16 - 2 * layers) : 0;
+                    b.faces[f].uv[2] = 16;
+                    b.faces[f].uv[3] = 16;
+                }
+                b.faces[int(Direction::Down)].present = false; // on the ground: never seen
             } else if (name == "snow_block") {
                 m = single(cubeAll(sprite("snow")));
             } else if (name == "lava") {

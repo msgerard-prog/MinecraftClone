@@ -110,3 +110,15 @@ TEST_CASE("command line: --world takes a folder name only; --no-save") {
         CHECK_FALSE(mc::parseCommandLine(args, error).has_value());
     }
 }
+
+TEST_CASE("command line: --generator overworld|terrain") {
+    std::string error;
+    std::array<const char*, 2> ok = {"--generator", "terrain"};
+    const auto opts = mc::parseCommandLine(ok, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->generator == "terrain");
+    std::array<const char*, 0> none = {};
+    CHECK(mc::parseCommandLine(none, error)->generator == "overworld"); // the default
+    std::array<const char*, 2> bad = {"--generator", "flat"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
+}

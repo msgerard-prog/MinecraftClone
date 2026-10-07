@@ -13,6 +13,7 @@ const Property level{
 const Property lit{"lit", {"true", "false"}};
 const Property distance{"distance", {"1", "2", "3", "4", "5", "6", "7"}};
 const Property persistent{"persistent", {"true", "false"}};
+const Property layers{"layers", {"1", "2", "3", "4", "5", "6", "7", "8"}};
 } // namespace properties
 
 namespace {
@@ -157,6 +158,12 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("azure_bluet", kPlant), blocks::AzureBluet);
     check(r.add("oxeye_daisy", kPlant), blocks::OxeyeDaisy);
     check(r.add("dead_bush", kPlant), blocks::DeadBush);
+    // Snow layers (wiki: Snow): 1/8 block per layer, lets light through; collision
+    // simplified to none (vanilla: layers-1 eighths).
+    check(r.add("snow", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .collision = false,
+                         .layer = RenderLayer::Cutout},
+                {{&layers, "1"}}),
+          blocks::Snow);
     return r;
 }
 

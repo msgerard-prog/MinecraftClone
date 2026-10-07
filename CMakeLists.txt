@@ -9,6 +9,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # parallel compiles then don't depend on the per-user mspdbsrv, which other projects'
 # builds on this machine can leave hung. The linker still writes the .exe's PDB.
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
+# The release preset is RelWithDebInfo, whose default /Ob1 inlines only functions
+# marked inline: allow MSVC to inline any small function (noise, lerp, palette reads).
+if(MSVC)
+    string(REPLACE "/Ob1" "/Ob2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(Dependencies)

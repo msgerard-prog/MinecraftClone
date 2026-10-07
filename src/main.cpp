@@ -126,13 +126,15 @@ std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 
                 if (!world.chunk({blockToChunk(x), blockToChunk(z)})) continue;
                 for (int y = kMaxY; y > kMinY; --y) {
                     const BlockStateId s = world.getBlock({x, y, z});
-                    if (s == 0 || !r.collides(s)) continue; // air, plants, water
+                    const BlockId b = r.blockOf(s);
+                    if (b == blocks::Water || b == blocks::Lava) break; // not on a sea floor
+                    if (s == 0 || !r.collides(s)) continue; // air, plants, snow layers
                     const std::string_view id = r.block(r.blockOf(s)).id;
                     if (id.ends_with("_log") || id.ends_with("_leaves")) break; // a tree
                     return glm::dvec3(x + 0.5, y + 1.0, z + 0.5);
                 }
             }
-    return std::nullopt;
+    return glm::dvec3(spawn); // nothing suitable nearby: keep the generator's spawn
 }
 
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
@@ -237,7 +239,12 @@ int main(int argc, char** argv) {
     const std::string generatorKind = level ? level->generator : opts->generator;
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr;
     if (generatorKind == "terrain") generatorPtr = std::make_unique<mc::world::TerrainGenerator>(seed);
-    else generatorPtr = std::make_unique<mc::world::OverworldGenerator>(seed);
+    else if (generatorKind == "overworld") generatorPtr = std::make_unique<mc::world::OverworldGenerator>(seed);
+    else { // a world from a newer/other build: generating here would leave seams
+        MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
+                     worldName.c_str(), generatorKind.c_str());
+        return 1;
+    }
     const mc::world::ChunkGenerator& generator = *generatorPtr;
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
@@ -254,10 +261,10 @@ int main(int argc, char** argv) {
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
         world.forEachChunk([&](const mc::world::Chunk& c) { loadedChunks.push_back(c.pos()); });
     } else {
-        // Chunks stream in around the player on worker threads (a quarter of the cores;
-        // meshing has half).
+        // Chunks stream in around the player on worker threads (a third of the cores:
+        // the overworld costs ~1 ms per chunk; meshing has half).
         const int genThreads =
-            std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 4);
+            std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 3);
         loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads, storage.get());
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
@@ -335,7 +342,7 @@ int main(int argc, char** argv) {
         l.name = worldName;
         l.seed = seed;
         l.flat = flatWorld;
-        l.generator = generatorKind;
+        l.generator = std::string(generator.kind());
         for (int i = 0; i < 3; ++i)
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;

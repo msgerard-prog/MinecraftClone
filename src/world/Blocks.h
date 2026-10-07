@@ -13,6 +13,7 @@ extern const Property level; // 0..15 (fluids: 0 = source, 1..7 flowing, 8..15 f
 extern const Property lit;        // true | false (redstone ore, furnace...)
 extern const Property distance;   // 1..7 (leaves: steps to the nearest log)
 extern const Property persistent; // true | false (leaves placed by a player)
+extern const Property layers;     // 1..8 (snow)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -84,6 +85,7 @@ enum : BlockId {
     AzureBluet,
     OxeyeDaisy,
     DeadBush,
+    Snow, // snow layers (1..8)
     Count
 };
 } // namespace blocks

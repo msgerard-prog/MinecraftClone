@@ -4,6 +4,7 @@
 #include "world/ChunkGenerator.h"
 #include "world/Noise.h"
 
+#include <array>
 #include <cstdint>
 
 namespace mc::world {
@@ -48,7 +49,18 @@ public:
 private:
     double terrainDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
     double caveDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
-    void placeTrees(Chunk& chunk, int32_t cx, int32_t cz) const;
+    struct TreePlan {
+        struct Tree {
+            int32_t wx, wz;
+            int ground;
+            uint8_t kind, height;
+        };
+        int count = 0;
+        std::array<Tree, 10> trees{};
+    };
+    const TreePlan& treePlan(int32_t cx, int32_t cz) const;
+    bool groundCarved(int32_t x, int32_t y, int32_t z) const;
+    void placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t cx, int32_t cz) const;
 
     uint64_t m_seed;
     OctaveNoise m_continentalness[2], m_erosion[2], m_weirdness[2], m_temperature[2],

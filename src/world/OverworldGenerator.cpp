@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <string>
 
 namespace mc::world {
 
@@ -29,9 +30,9 @@ template <size_t N> double spline(const std::array<std::array<double, 2>, N>& pt
     return pts[N - 1][1];
 }
 
-// Vanilla's "double Perlin" construction (two octave noises, the second sampled at a
-// slightly different scale, averaged) breaks up lattice artefacts.
-constexpr double kDoubleScale = 1.0181268882175227;
+// Two octave noises averaged, the second sampled at a slightly different scale
+// (any factor near 1.02 breaks up lattice alignment; ours).
+constexpr double kDoubleScale = 1.0213;
 double pair2(const OctaveNoise (&n)[2], double x, double z, double gain) {
     return (n[0].noise2d(x, z) + n[1].noise2d(x * kDoubleScale, z * kDoubleScale)) * 0.5 * gain;
 }
@@ -78,7 +79,9 @@ struct Blocks {
     BlockStateId granite, diorite, andesite, tuff;
     BlockStateId oakLog, oakLeaves, birchLog, birchLeaves, spruceLog, spruceLeaves, acaciaLog,
         acaciaLeaves;
-    BlockStateId shortGrass, fern, deadBush, flowers[5];
+    BlockStateId shortGrass, fern, deadBush, flowers[5], snowLayer;
+    // Leaves by kind (oak, birch, spruce, acacia) and distance 1..7 (index d-1).
+    BlockStateId leaves[4][7];
     struct Ore {
         BlockStateId stone, deep;
     } coal, iron, copper, gold, redstone, lapis, diamond, emerald;
@@ -123,6 +126,11 @@ const Blocks& blockSet() {
         x.shortGrass = S(blocks::ShortGrass);
         x.fern = S(blocks::Fern);
         x.deadBush = S(blocks::DeadBush);
+        x.snowLayer = S(blocks::Snow);
+        const BlockStateId leafDefaults[4] = {x.oakLeaves, x.birchLeaves, x.spruceLeaves, x.acaciaLeaves};
+        for (int k = 0; k < 4; ++k)
+            for (int d = 1; d <= 7; ++d)
+                x.leaves[k][d - 1] = r.with(leafDefaults[k], "distance", std::to_string(d)).value_or(leafDefaults[k]);
         x.flowers[0] = S(blocks::Dandelion);
         x.flowers[1] = S(blocks::Poppy);
         x.flowers[2] = S(blocks::OxeyeDaisy);
@@ -140,6 +148,19 @@ const Blocks& blockSet() {
     }();
     return b;
 }
+
+// The chunk being generated, as one flat array (sections encoded once at the end:
+// writing through paletted sections block by block is slow).
+struct Buf {
+    BlockStateId* d;
+    static int index(int x, int y, int z) {
+        return sectionIndex(y) * Section::kVolume + Section::index(x, blockToLocal(y), z);
+    }
+    BlockStateId get(int x, int y, int z) const { return isInBuildHeight(y) ? d[index(x, y, z)] : 0; }
+    void set(int x, int y, int z, BlockStateId s) {
+        if (isInBuildHeight(y)) d[index(x, y, z)] = s;
+    }
+};
 
 } // namespace
 
@@ -216,11 +237,15 @@ double OverworldGenerator::terrainDensity(int32_t x, int32_t y, int32_t z, const
 }
 
 double OverworldGenerator::caveDensity(int32_t x, int32_t y, int32_t z, const Column& c) const {
-    // Caves stay at least ~12 blocks under the terrain's target surface (they fade out
-    // over 8 blocks above that), and above the bedrock floor.
-    const double fade = std::clamp((c.height - 12.0 - y) / 8.0, 0.0, 1.0) *
-                        std::clamp((y - (kMinY + 5.0)) / 4.0, 0.0, 1.0);
-    if (fade <= 0.0) return 1e9;
+    // Cheese and noodle caves stay ~12 blocks under the terrain's target surface
+    // (fading out over 8 blocks above that); spaghetti tunnels may break through on
+    // land (cave entrances), but not under the sea (no aquifers yet: they would
+    // leave dry holes in the sea floor). All stay above the bedrock floor.
+    const double floor = std::clamp((y - (kMinY + 5.0)) / 4.0, 0.0, 1.0);
+    const double fade = std::clamp((c.height - 12.0 - y) / 8.0, 0.0, 1.0) * floor;
+    const bool land = c.height > kSeaLevel + 3;
+    const double entranceFade = land ? std::clamp((c.height + 6.0 - y) / 6.0, 0.0, 1.0) * floor : fade;
+    if (fade <= 0.0 && entranceFade <= 0.0) return 1e9;
     // Cheese: large open chambers where a low-frequency noise is high.
     const double cheese = (0.42 - pair3(m_cheese, x, y * 1.6, z, 3.2)) * 4.0;
     // Spaghetti: long tunnels where two noises are both near zero (their zero
@@ -228,15 +253,14 @@ double OverworldGenerator::caveDensity(int32_t x, int32_t y, int32_t z, const Co
     const double width = 0.055 + 0.03 * m_spaghettiWidth.noise(x, y, z);
     const double a = m_spaghettiA.noise(x, y * 1.5, z) * 3.0;
     const double b = m_spaghettiB.noise(x, y * 1.5, z) * 3.0;
-    const double spaghetti = (std::max(std::abs(a), std::abs(b)) - width) * 8.0;
+    const double spaghetti = lerp(1e3, (std::max(std::abs(a), std::abs(b)) - width) * 8.0, entranceFade);
     // Noodles: thin, winding, deeper down.
     double noodle = 1e9;
     if (y < 40) {
         const double na = m_noodleA.noise(x, y, z) * 3.0, nb = m_noodleB.noise(x, y, z) * 3.0;
         noodle = (std::max(std::abs(na), std::abs(nb)) - 0.03) * 12.0;
     }
-    const double cave = std::min({cheese, spaghetti, noodle});
-    return lerp(1e3, cave, fade);
+    return std::min(lerp(1e3, std::min(cheese, noodle), fade), spaghetti);
 }
 
 int OverworldGenerator::surfaceY(int32_t x, int32_t z) const {
@@ -277,7 +301,7 @@ Biome OverworldGenerator::biomeAt(const Column& c) const {
     const int hum = H < -0.35 ? 0 : H < -0.1 ? 1 : H < 0.1 ? 2 : H < 0.3 ? 3 : 4;
     if (C < -0.19) { // oceans by temperature
         if (temp == 0) return Biome::FrozenOcean;
-        if (C < -0.455) return temp >= 3 ? Biome::LukewarmOcean : Biome::DeepOcean;
+        if (C < -0.455) return temp == 4 ? Biome::WarmOcean : temp == 3 ? Biome::LukewarmOcean : Biome::DeepOcean;
         static constexpr Biome kOcean[5] = {Biome::FrozenOcean, Biome::ColdOcean, Biome::Ocean,
                                             Biome::LukewarmOcean, Biome::WarmOcean};
         return kOcean[temp];
@@ -353,10 +377,39 @@ TreeShape::Kind treeKind(Biome b, Xoroshiro& rng) {
 
 } // namespace
 
-void OverworldGenerator::placeTrees(Chunk& chunk, int32_t cx, int32_t cz) const {
-    const Blocks& B = blockSet();
-    const auto& reg = blockRegistry();
-    const int32_t baseX = chunk.pos().x * 16, baseZ = chunk.pos().z * 16;
+bool OverworldGenerator::groundCarved(int32_t x, int32_t y, int32_t z) const {
+    // The combined (terrain + caves) density at a block, with the same corners and
+    // interpolation as generate(): <= 0 means a cave opened the ground there.
+    const int32_t x0 = floorDiv(x, kCellW) * kCellW, z0 = floorDiv(z, kCellW) * kCellW;
+    const int32_t y0 = kMinY + floorDiv(y - kMinY, kCellH) * kCellH;
+    const double fx = (x - x0) / double(kCellW), fz = (z - z0) / double(kCellW),
+                 fy = (y - y0) / double(kCellH);
+    double d[2][2][2];
+    for (int dz = 0; dz < 2; ++dz)
+        for (int dx = 0; dx < 2; ++dx) {
+            const Column c = column(x0 + dx * kCellW, z0 + dz * kCellW);
+            for (int dy = 0; dy < 2; ++dy) {
+                const int32_t cx = x0 + dx * kCellW, cy = y0 + dy * kCellH, cz = z0 + dz * kCellW;
+                const double t = terrainDensity(cx, cy, cz, c);
+                d[dy][dz][dx] = t > 0.0 ? std::min(t, caveDensity(cx, cy, cz, c)) : t;
+            }
+        }
+    auto layer = [&](int dy) { return lerp(lerp(d[dy][0][0], d[dy][0][1], fx), lerp(d[dy][1][0], d[dy][1][1], fx), fz); };
+    return lerp(layer(0), layer(1), fy) <= 0.0;
+}
+
+const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int32_t cz) const {
+    // Each chunk's trees are planned once per worker and reused by its 8 neighbours
+    // (they all need it). Direct-mapped by chunk position; keyed by generator too.
+    struct Entry {
+        const OverworldGenerator* gen = nullptr;
+        int32_t cx = 0, cz = 0;
+        TreePlan plan;
+    };
+    static thread_local std::array<Entry, 64> cache;
+    Entry& e = cache[size_t((uint32_t(cx) * 31u + uint32_t(cz) * 17u) & 63u)];
+    if (e.gen == this && e.cx == cx && e.cz == cz) return e.plan;
+    e = {this, cx, cz, {}};
     Xoroshiro rng(chunkSeed(m_seed, cx, cz, 300));
     const int attempts = 10;
     for (int a = 0; a < attempts; ++a) {
@@ -369,35 +422,78 @@ void OverworldGenerator::placeTrees(Chunk& chunk, int32_t cx, int32_t cz) const 
         const int ground = surfaceY(wx, wz);
         if (ground < kSeaLevel) continue; // no trees under water
         const TreeShape::Kind kind = treeKind(biome, rng);
-        // Trees only on grass/dirt ground (not on peaks' snow or steep stone).
+        // Not on high grove peaks (snow), not where a cave opened the ground.
         if (biome == Biome::Grove && ground > 160) continue;
         int height = 0;
-        BlockStateId log = B.oakLog, leaves = B.oakLeaves;
         switch (kind) {
         case TreeShape::Oak: height = 4 + static_cast<int>(rng.nextInt(3)); break;
+        case TreeShape::Birch: height = 5 + static_cast<int>(rng.nextInt(3)); break;
+        case TreeShape::Spruce: height = 6 + static_cast<int>(rng.nextInt(4)); break;
+        case TreeShape::Acacia: height = 5 + static_cast<int>(rng.nextInt(2)); break;
+        }
+        if (groundCarved(wx, ground, wz)) continue; // would float over a cave
+        // Only on grass/dirt: steep meadow/grove/windswept ground is bare stone.
+        if (biome == Biome::Meadow || biome == Biome::Grove || biome == Biome::WindsweptHills) {
+            const bool steep = std::abs(surfaceY(wx + 1, wz) - surfaceY(wx - 1, wz)) >= 4 ||
+                               std::abs(surfaceY(wx, wz + 1) - surfaceY(wx, wz - 1)) >= 4;
+            if (steep) continue;
+        }
+        e.plan.trees[size_t(e.plan.count++)] = {wx, wz, ground, static_cast<uint8_t>(kind),
+                                                 static_cast<uint8_t>(height)};
+    }
+    return e.plan;
+}
+
+void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t cx, int32_t cz) const {
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    const int32_t baseX = pos.x * 16, baseZ = pos.z * 16;
+    const TreePlan& plan = treePlan(cx, cz);
+    for (int t = 0; t < plan.count; ++t) {
+        const auto& tree = plan.trees[size_t(t)];
+        const int32_t wx = tree.wx, wz = tree.wz;
+        const int ground = tree.ground, height = tree.height;
+        const auto kind = static_cast<TreeShape::Kind>(tree.kind);
+        BlockStateId log = B.oakLog, leaves = B.oakLeaves;
+        switch (kind) {
+        case TreeShape::Oak: break;
         case TreeShape::Birch:
-            height = 5 + static_cast<int>(rng.nextInt(3));
             log = B.birchLog;
             leaves = B.birchLeaves;
             break;
         case TreeShape::Spruce:
-            height = 6 + static_cast<int>(rng.nextInt(4));
             log = B.spruceLog;
             leaves = B.spruceLeaves;
             break;
         case TreeShape::Acacia:
-            height = 5 + static_cast<int>(rng.nextInt(2));
             log = B.acaciaLog;
             leaves = B.acaciaLeaves;
             break;
         }
         // Writes into this chunk only; logs replace air/leaves/plants, leaves only air.
+        // Generated leaves carry their distance to the trunk (vanilla: 1..6, so they
+        // never decay): taxicab steps to the nearest trunk block of this tree.
+        const int kindIndex = static_cast<int>(kind);
+        std::array<std::array<int32_t, 3>, 16> trunk{};
+        int trunkCount = 0;
+        auto leafFor = [&](int32_t x, int32_t y, int32_t z) {
+            int best = 7;
+            for (int t2 = 0; t2 < trunkCount; ++t2) {
+                const auto& tb = trunk[size_t(t2)];
+                best = std::min(best, std::abs(x - tb[0]) + std::abs(y - tb[1]) + std::abs(z - tb[2]));
+            }
+            return B.leaves[kindIndex][std::clamp(best, 1, 7) - 1];
+        };
         auto put = [&](int32_t x, int32_t y, int32_t z, BlockStateId s, bool isLog) {
+            if (isLog && trunkCount < 16) trunk[size_t(trunkCount++)] = {x, y, z};
+            if (!isLog) s = leafFor(x, y, z);
             const int lx = x - baseX, lz = z - baseZ;
             if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !isInBuildHeight(y)) return;
             const BlockStateId cur = chunk.get(lx, y, lz);
-            if (cur == 0 || (isLog && (cur == B.oakLeaves || cur == B.birchLeaves ||
-                                       cur == B.spruceLeaves || cur == B.acaciaLeaves ||
+            const BlockId curBlock = reg.blockOf(cur);
+            if (cur == 0 || (isLog && (curBlock == blocks::OakLeaves || curBlock == blocks::BirchLeaves ||
+                                       curBlock == blocks::SpruceLeaves || curBlock == blocks::AcaciaLeaves ||
                                        cur == B.shortGrass || cur == B.fern))) {
                 chunk.set(lx, y, lz, s);
             }
@@ -462,9 +558,13 @@ void OverworldGenerator::placeTrees(Chunk& chunk, int32_t cx, int32_t cz) const 
     }
 }
 
-void OverworldGenerator::generate(Chunk& chunk) const {
+void OverworldGenerator::generate(Chunk& out) const {
     const Blocks& B = blockSet();
-    const int32_t cx = chunk.pos().x, cz = chunk.pos().z;
+    const auto& reg = blockRegistry();
+    static thread_local std::vector<BlockStateId> blockArray(size_t(kSectionsPerChunk) * Section::kVolume);
+    Buf chunk{blockArray.data()};
+    const ChunkPos pos = out.pos();
+    const int32_t cx = pos.x, cz = pos.z;
     const int32_t baseX = cx * 16, baseZ = cz * 16;
 
     // 1. Density corners (terrain, and terrain combined with caves).
@@ -502,12 +602,27 @@ void OverworldGenerator::generate(Chunk& chunk) const {
                     biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = columnBiome[size_t(qz * 4 + qx)];
 
     // 3. Fill: stone / deepslate where the density is solid; sea and lava elsewhere.
-    static thread_local std::array<BlockStateId, Section::kVolume> buffer;
     std::array<int, 256> topY;
     topY.fill(kMinY - 1);
+    std::array<bool, kSectionsPerChunk> sectionAir{};
     for (int s = 0; s < kSectionsPerChunk; ++s) {
         const int baseY = kMinY + s * 16;
-        bool any = false;
+        BlockStateId* buffer = blockArray.data() + size_t(s) * Section::kVolume;
+        // Interpolation never leaves the range of its corners: a section above the
+        // sea whose corner densities are all <= 0 is all air.
+        if (baseY >= kSeaLevel) {
+            const int j0 = (baseY - kMinY) / kCellH;
+            double maxD = -1e300;
+            for (int j = j0; j <= std::min(j0 + 2, kCornersY - 1); ++j)
+                for (int k = 0; k < kCornersXZ; ++k)
+                    for (int i = 0; i < kCornersXZ; ++i)
+                        maxD = std::max(maxD, combined[ci(i, j, k)]);
+            if (maxD <= 0.0) {
+                std::fill_n(buffer, Section::kVolume, B.air);
+                sectionAir[size_t(s)] = true;
+                continue;
+            }
+        }
         for (int ly = 0; ly < 16; ++ly) {
             const int y = baseY + ly;
             const int j = (y - kMinY) / kCellH;
@@ -539,17 +654,13 @@ void OverworldGenerator::generate(Chunk& chunk) const {
                         // Open water below sea level; cave air (terrain solid there) stays
                         // dry, or lava at the bottom of the world.
                         const bool cave = j + 1 < kCornersY && tri(terrain) > 0.0;
-                        b = cave ? (y <= kLavaLevel ? B.lava : B.air) : B.water;
+                        b = cave ? (y < kLavaLevel ? B.lava : B.air) : B.water;
                     }
                     buffer[Section::index(x, ly, z)] = b;
-                    any |= b != B.air;
                 }
             }
         }
-        if (any) chunk.mutableSection(s).assign(buffer.data());
-        else chunk.mutableSection(s).fill(B.air);
     }
-    chunk.setBiomes(biomes);
 
     // 4. Surface rules per column (biome-dependent top layers).
     auto top = [&](int x, int z) { return topY[size_t(std::clamp(z, 0, 15) * 16 + std::clamp(x, 0, 15))]; };
@@ -560,10 +671,15 @@ void OverworldGenerator::generate(Chunk& chunk) const {
             const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
             const int32_t wx = baseX + x, wz = baseZ + z;
             const int depth = 3 + static_cast<int>(std::floor(m_surface.noise2d(wx, wz) * 4.0 + 0.5));
-            const bool steep = std::abs(top(x + 1, z) - top(x - 1, z)) >= 4 ||
-                               std::abs(top(x, z + 1) - top(x, z - 1)) >= 4;
+            // Height change over 2 blocks; one-sided at the chunk border (no grid
+            // lines of snow/grass on cliffs every 16 blocks).
+            auto span = [&](int a0, int a1, bool alongX) {
+                const int lo = std::clamp(a0, 0, 15), hi = std::clamp(a1, 0, 15);
+                const int l2 = hi - lo == 2 ? lo : (lo == 0 ? 0 : 13), h2 = l2 + 2;
+                return alongX ? std::abs(top(h2, z) - top(l2, z)) : std::abs(top(x, h2) - top(x, l2));
+            };
+            const bool steep = span(x - 1, x + 1, true) >= 4 || span(z - 1, z + 1, false) >= 4;
             const bool underwater = ty < kSeaLevel - 1;
-            const bool cold = biomeInfo(biome).temperature < 0.15f;
             for (int k = 0; k < 16; ++k) {
                 const int y = ty - k;
                 const BlockStateId cur = chunk.get(x, y, z);
@@ -610,40 +726,48 @@ void OverworldGenerator::generate(Chunk& chunk) const {
                         break;
                     default:
                         if (steep && (biome == Biome::Meadow || biome == Biome::Grove)) break;
-                        b = k == 0 ? (cold ? B.snowyGrass : B.grass) : k < depth ? B.dirt : cur;
+                        b = k == 0 ? B.grass : k < depth ? B.dirt : cur;
                         break;
                     }
                 }
                 if (b != cur) chunk.set(x, y, z, b);
             }
-            // Frozen biomes: the sea surface freezes (wiki: Ice).
-            if (cold && chunk.get(x, kSeaLevel - 1, z) == B.water) chunk.set(x, kSeaLevel - 1, z, B.ice);
         }
 
     // 5. Ores and stone blobs (wiki: Ore - attempts per chunk, sizes, height ranges).
     Xoroshiro ores(chunkSeed(m_seed, cx, cz, 200));
+    const int maxTop = *std::max_element(topY.begin(), topY.end());
+    // Ores replace the overworld's base stones: stone and its granite/diorite/andesite
+    // blobs get the stone variant, deepslate and tuff the deepslate one (wiki: each
+    // ore's "replaceable" blocks).
     auto replaceAt = [&](int x, int y, int z, const Blocks::Ore& ore) {
         if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(y)) return;
         const BlockStateId cur = chunk.get(x, y, z);
-        if (cur == B.stone) chunk.set(x, y, z, ore.stone);
-        else if (cur == B.deepslate) chunk.set(x, y, z, ore.deep);
+        if (cur == B.stone || cur == B.granite || cur == B.diorite || cur == B.andesite)
+            chunk.set(x, y, z, ore.stone);
+        else if (cur == B.deepslate || cur == B.tuff)
+            chunk.set(x, y, z, ore.deep);
     };
     // A blob along a short random line with spheres of varying radius (the classic
     // ore-vein shape), clipped to this chunk.
     auto vein = [&](const Blocks::Ore& ore, int size, int y) {
         const double cxl = ores.nextInt(16), czl = ores.nextInt(16);
         const double angle = ores.nextFloat() * std::numbers::pi;
-        const double len = size / 8.0;
+        const double len = size / 7.0; // our proportions
         const double x1 = cxl + std::sin(angle) * len, x2 = cxl - std::sin(angle) * len;
         const double z1 = czl + std::cos(angle) * len, z2 = czl - std::cos(angle) * len;
         const double y1 = y + static_cast<int>(ores.nextInt(3)) - 1, y2 = y + static_cast<int>(ores.nextInt(3)) - 1;
         for (int n = 0; n < size; ++n) {
             const double t = n / double(size);
             const double px = lerp(x1, x2, t), py = lerp(y1, y2, t), pz = lerp(z1, z2, t);
-            const double r = ((std::sin(std::numbers::pi * t) + 1.0) * ores.nextDouble() * size / 16.0 + 1.0) / 2.0;
-            for (int bx = int(std::floor(px - r)); bx <= int(std::floor(px + r)); ++bx)
-                for (int by = int(std::floor(py - r)); by <= int(std::floor(py + r)); ++by)
-                    for (int bz = int(std::floor(pz - r)); bz <= int(std::floor(pz + r)); ++bz) {
+            const double r = ((std::sin(std::numbers::pi * t) + 1.0) * ores.nextDouble() * size / 15.0 + 1.0) / 2.0;
+            // Clipped to this chunk and to the stone (ores replace nothing above it).
+            const int bx0 = std::max(0, int(std::floor(px - r))), bx1 = std::min(15, int(std::floor(px + r)));
+            const int by0 = std::max(kMinY, int(std::floor(py - r))), by1 = std::min(maxTop, int(std::floor(py + r)));
+            const int bz0 = std::max(0, int(std::floor(pz - r))), bz1 = std::min(15, int(std::floor(pz + r)));
+            for (int bx = bx0; bx <= bx1; ++bx)
+                for (int by = by0; by <= by1; ++by)
+                    for (int bz = bz0; bz <= bz1; ++bz) {
                         const double dx = (bx + 0.5 - px) / r, dy = (by + 0.5 - py) / r, dz = (bz + 0.5 - pz) / r;
                         if (dx * dx + dy * dy + dz * dz < 1.0) replaceAt(bx, by, bz, ore);
                     }
@@ -660,12 +784,15 @@ void OverworldGenerator::generate(Chunk& chunk) const {
     const Blocks::Ore graniteOre{B.granite, B.granite}, dioriteOre{B.diorite, B.diorite},
         andesiteOre{B.andesite, B.andesite}, tuffOre{B.tuff, B.tuff}, dirtOre{B.dirt, B.dirt},
         gravelOre{B.gravel, B.gravel};
-    spread(graniteOre, 2, 48, [&] { return uniform(0, 60); });
-    spread(dioriteOre, 2, 48, [&] { return uniform(0, 60); });
-    spread(andesiteOre, 2, 48, [&] { return uniform(0, 60); });
-    spread(tuffOre, 2, 48, [&] { return uniform(-64, 0); });
+    // Stone blobs (wiki: Andesite/Tuff - 2 per chunk, up to ~860 blocks; plus a 1/6
+    // chance of an upper blob at 64..128), dirt 7x and gravel 14x (wiki: Dirt, Gravel).
+    for (const Blocks::Ore* blob : {&graniteOre, &dioriteOre, &andesiteOre}) {
+        spread(*blob, 2, 64, [&] { return uniform(0, 60); });
+        if (ores.nextInt(6) == 0) spread(*blob, 1, 64, [&] { return uniform(64, 128); });
+    }
+    spread(tuffOre, 2, 64, [&] { return uniform(-64, 0); });
     spread(dirtOre, 7, 33, [&] { return uniform(0, 160); });
-    spread(gravelOre, 8, 33, [&] { return uniform(-64, 320); });
+    spread(gravelOre, 14, 33, [&] { return uniform(-64, 320); });
     spread(B.coal, 30, 17, [&] { return uniform(136, 320); });
     spread(B.coal, 20, 17, [&] { return triangle(0, 192); });
     spread(B.iron, 90, 9, [&] { return triangle(80, 384); });
@@ -673,13 +800,16 @@ void OverworldGenerator::generate(Chunk& chunk) const {
     spread(B.iron, 10, 4, [&] { return uniform(-64, 72); });
     spread(B.copper, 16, 10, [&] { return triangle(-16, 112); });
     spread(B.gold, 4, 9, [&] { return triangle(-64, 32); });
-    spread(B.gold, 1, 9, [&] { return uniform(-64, -48); });
+    if (ores.nextInt(2) == 0) spread(B.gold, 1, 9, [&] { return uniform(-64, -48); });
     spread(B.redstone, 4, 8, [&] { return uniform(-64, 15); });
     spread(B.redstone, 8, 8, [&] { return triangle(-96, -32); });
     spread(B.lapis, 2, 7, [&] { return triangle(-32, 32); });
     spread(B.lapis, 4, 7, [&] { return uniform(-64, 64); });
     spread(B.diamond, 7, 4, [&] { return triangle(-144, 16); });
     if (ores.nextInt(9) == 0) spread(B.diamond, 1, 12, [&] { return triangle(-144, 16); });
+    spread(B.diamond, 4, 8, [&] { return triangle(-144, 16); }); // buried batch
+    spread(B.diamond, 2, 8, [&] { return uniform(-63, -4); });   // medium batch
+    if (columnBiome[5] == Biome::Badlands) spread(B.gold, 50, 9, [&] { return uniform(32, 256); });
     const Biome centreBiome = columnBiome[5];
     if (centreBiome == Biome::WindsweptHills || centreBiome == Biome::StonyPeaks ||
         centreBiome == Biome::JaggedPeaks || centreBiome == Biome::FrozenPeaks ||
@@ -689,7 +819,7 @@ void OverworldGenerator::generate(Chunk& chunk) const {
     // 6. Trees: this chunk's and its neighbours' (their canopies reach in).
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
-            placeTrees(chunk, cx + dx, cz + dz);
+            placeTrees(blockArray.data(), pos, cx + dx, cz + dz);
 
     // 7. Plants on the surface (this chunk only).
     Xoroshiro plants(chunkSeed(m_seed, cx, cz, 400));
@@ -726,6 +856,37 @@ void OverworldGenerator::generate(Chunk& chunk) const {
             }
             if (plant) chunk.set(x, ty + 1, z, plant);
         }
+
+    // 8. Top layer (vanilla's last feature step): where the temperature at the top
+    //    block is below 0.15 - the biome's, minus 1/800 per block above y 80 (wiki:
+    //    Biome › Temperature) - water freezes and sky-exposed ground gets a snow
+    //    layer (grass under it becomes snowy).
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            int y = kMaxY;
+            while (y > kMinY && chunk.get(x, y, z) == B.air)
+                --y;
+            const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
+            const float temp = biomeInfo(biome).temperature - std::max(0, y - 80) / 800.0f;
+            if (temp >= 0.15f) continue;
+            const BlockStateId surface = chunk.get(x, y, z);
+            if (surface == B.water) {
+                chunk.set(x, y, z, B.ice);
+            } else if (y + 1 <= kMaxY && reg.collides(surface)) {
+                chunk.set(x, y + 1, z, B.snowLayer);
+                if (surface == B.grass) chunk.set(x, y, z, B.snowyGrass);
+            }
+        }
+
+    // 9. Encode the sections once (all-air sections stay empty).
+    for (int sec = 0; sec < kSectionsPerChunk; ++sec) {
+        const BlockStateId* b = blockArray.data() + size_t(sec) * Section::kVolume;
+        if (sectionAir[size_t(sec)] && std::all_of(b, b + Section::kVolume, [](BlockStateId v) { return v == 0; }))
+            out.mutableSection(sec).fill(0);
+        else
+            out.mutableSection(sec).assign(b);
+    }
+    out.setBiomes(biomes);
 }
 
 glm::dvec3 OverworldGenerator::findSpawn() const {
