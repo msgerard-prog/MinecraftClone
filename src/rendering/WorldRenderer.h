@@ -69,7 +69,9 @@ public:
     void drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight);
 
     // Fog reaches the sky colour at the edge of the render distance (in chunks).
-    void setRenderDistance(int chunks) { m_renderDistance = chunks; }
+    // Also sizes the opaque vertex arena for it (~2700 quads per chunk column of
+    // terrain measured at RD 12-16, rounded up to a power of two).
+    void setRenderDistance(int chunks);
     // Time of day (world/DayTime.h): sky colour, sun/moon/stars and the sky light
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
     void setDayTime(int64_t dayTime, float partialTick);

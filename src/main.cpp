@@ -346,7 +346,10 @@ int main(int argc, char** argv) {
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
-    player.setPosition(opts->hasPos ? opts->pos : spawn + glm::dvec3(0, opts->autoFly ? 60 : 0, 0));
+    // (the flight benchmark flies at Y 220+, above any mountain, so it keeps streaming)
+    player.setPosition(opts->hasPos ? opts->pos
+                       : opts->autoFly ? glm::dvec3(spawn.x, std::max(spawn.y + 60.0, 220.0), spawn.z)
+                                       : spawn);
     // Scripted views (--pos) and the flight benchmark start in the air: fly.
     player.setFlying(opts->hasPos || opts->autoFly);
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);

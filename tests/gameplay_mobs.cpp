@@ -108,7 +108,6 @@ TEST_CASE("mobs move to the chunk they walk into; far hostiles despawn") {
     CHECK(s.world.chunk({1, 0})->mobs().size() == 1);
     MobData z = Mobs::make(MobType::Zombie, {0.5, 64.0, 0.5}, s.rng);
     REQUIRE(Mobs::add(s.world, z));
-    s.mobs.setSimulationDistance(12); // (at the default 6, mobs > 128 blocks away don't tick at all)
     s.player.setPosition({200.5, 64.0, 0.5}); // > 128 blocks away, inside the simulation distance
     s.tick(2);
     int zombies = 0;

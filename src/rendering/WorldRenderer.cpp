@@ -11,6 +11,7 @@
 #include <glad/gl.h>
 
 #include <algorithm>
+#include <bit>
 #include <glm/gtc/type_ptr.hpp>
 #include <thread>
 
@@ -92,6 +93,12 @@ void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
         m_skyColor = m_dimension == world::Dimension::Nether ? glm::vec3(0x33, 0x08, 0x08) / 255.0f
                                                              : glm::vec3(0.09f, 0.07f, 0.10f);
     }
+}
+
+void WorldRenderer::setRenderDistance(int chunks) {
+    m_renderDistance = chunks;
+    const uint64_t columns = uint64_t(2 * chunks + 1) * uint64_t(2 * chunks + 1);
+    m_chunks.reserve(static_cast<uint32_t>(std::bit_ceil(std::min<uint64_t>(columns * 2700, 1u << 26))));
 }
 
 void WorldRenderer::setDimension(world::Dimension d) {

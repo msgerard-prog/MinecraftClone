@@ -53,6 +53,7 @@ public:
     void uploadSection(world::SectionPos pos, std::span<const PackedVertex> vertices);
     void removeSection(world::SectionPos pos);
     void removeAll(); // every section (a dimension switch)
+    void reserve(uint32_t quads); // grow the vertex arena to at least this many quads
 
     // Issues the draw; the block shader, atlas and pass GL state must already be set.
     // backToFront: sort sections far -> near (translucent pass blending order).

@@ -83,8 +83,9 @@ TEST_CASE("chunk NBT round-trips every block state, at negative positions too") 
     const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
     CHECK(nbt.integer("DataVersion") == kDataVersion);
     CHECK(nbt.integer("yPos") == -4);
-    REQUIRE(nbt.string("status")); // lower case since 1.21
-    CHECK(*nbt.string("status") == "minecraft:full");
+    REQUIRE(nbt.string("Status")); // 1.21.11 (lower case only from 26.4)
+    CHECK(*nbt.string("Status") == "minecraft:full");
+    CHECK_FALSE(nbt.find("status"));
     REQUIRE(nbt.list("sections"));
     CHECK(nbt.list("sections")->items.size() == 24);
     // Through bytes, as on disk.
@@ -784,7 +785,7 @@ TEST_CASE("1.21.11 level.dat: spawn compound, version 1.21.11, game rules, dimen
     CHECK(old->spawn[2] == 7);
 }
 
-TEST_CASE("older saves still load: Status, BurnTime/CookTime, FallDistance") {
+TEST_CASE("older saves still load: BurnTime/CookTime, FallDistance, no status tag") {
     Chunk c({0, 0});
     c.set(1, 64, 1, S(blocks::Furnace));
     c.addFurnace(1, 64, 1).cookTime = 50;
@@ -796,8 +797,7 @@ TEST_CASE("older saves still load: Status, BurnTime/CookTime, FallDistance") {
     });
     e.put("CookTime", int16_t{77});
     e.put("BurnTime", int16_t{300});
-    std::erase_if(nbt.entries, [](const auto& kv) { return kv.name == "status"; });
-    nbt.put("Status", std::string("minecraft:full"));
+    std::erase_if(nbt.entries, [](const auto& kv) { return kv.name == "Status"; }); // (not needed to load)
     Chunk d({0, 0});
     REQUIRE(chunkFromNbt(nbt, d));
     CHECK(d.furnace(1, 64, 1)->cookTime == 77);

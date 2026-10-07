@@ -15,7 +15,7 @@ namespace mc::gfx {
 namespace {
 
 constexpr uint32_t kMaxQuadsPerSection = static_cast<uint32_t>(kMaxSectionVertices / 4);
-constexpr uint32_t kInitialArenaQuads = 1u << 20; // 1M quads = 32 MiB
+constexpr uint32_t kInitialArenaQuads = 1u << 20; // 1M quads = 48 MiB (4 x 12-byte vertices each)
 
 } // namespace
 
@@ -66,6 +66,12 @@ bool ChunkRenderer::init() {
     growArena(kInitialArenaQuads);
     ensureDrawCapacity(1024);
     return true;
+}
+
+void ChunkRenderer::reserve(uint32_t quads) {
+    // Sized up front (cheap while empty) so streaming doesn't have to grow - and copy -
+    // the whole arena mid-game.
+    if (m_vao && m_arenaAlloc.capacity() < quads) growArena(quads);
 }
 
 void ChunkRenderer::growArena(uint32_t minQuads) {

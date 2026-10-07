@@ -205,7 +205,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("zPos", chunk.pos.z);
     // The lowest section's Y: -4 in the Overworld, 0 in the Nether and End (vanilla).
     root.put("yPos", int32_t{chunk.height.minSection()});
-    root.put("status", std::string("minecraft:full")); // "Status" before 1.21 (wiki)
+    root.put("Status", std::string("minecraft:full")); // 1.21.11 (renamed "status" only in 26.4)
     root.put("LastUpdate", chunk.gameTime); // game tick of this save
     root.put("InhabitedTime", int64_t{0});
     bool lit = true;
@@ -298,7 +298,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("PostProcessing", nbt::listOf(nbt::TagType::List, std::move(post)));
     root.put("fluid_ticks", nbt::listOf(nbt::TagType::Compound, {}));
     nbt::Compound structures;
-    structures.put("References", nbt::Compound{});
+    structures.put("references", nbt::Compound{});
     structures.put("starts", nbt::Compound{});
     root.put("structures", std::move(structures));
     // Block entities (wiki: Chunk format › block_entities; Furnace › Block data, 1.21.1).
@@ -507,7 +507,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("PortalCooldown", int32_t{0});
         e.put("Invulnerable", int8_t{0});
         e.put("AbsorptionAmount", 0.0f);
-        e.put("equipment", nbt::Compound{}); // 1.21.5+ (was HandItems/ArmorItems): nothing worn
+        // 1.21.5+ `equipment` (was HandItems/ArmorItems) is left out when nothing is worn.
         e.put("CanPickUpLoot", int8_t{0});
         e.put("LeftHanded", int8_t{0});
         if (m.type == MobType::Cow) e.put("variant", std::string("minecraft:temperate")); // 1.21.5 cow variants
@@ -517,7 +517,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("DrownedConversionTime", int32_t{-1});
             e.put("InWaterTime", int32_t{-1});
         }
-        e.put("Fire", static_cast<int16_t>(m.fireTicks));
+        e.put("Fire", static_cast<int16_t>(m.fireTicks > 0 ? m.fireTicks : -20)); // -20: not burning (wiki)
         e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
         e.put("DeathTime", int16_t{0});
         e.put("PersistenceRequired", static_cast<int8_t>(m.persistent ? 1 : 0));

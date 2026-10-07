@@ -32,8 +32,8 @@ public:
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
-    // (vanilla's simulation distance option; its 1.21.11 default is 6).
-    static constexpr int kDefaultSimulationDistance = 6;
+    // (vanilla's simulation distance option; 12 on the default Fancy preset, 6 on Fast).
+    static constexpr int kDefaultSimulationDistance = 12;
     void setSimulationDistance(int chunks) { m_simulationDistance = chunks; }
     int simulationDistance() const { return m_simulationDistance; }
 

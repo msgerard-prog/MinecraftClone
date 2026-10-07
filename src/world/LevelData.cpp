@@ -109,7 +109,6 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("XpP", 0.0f);
     player.put("XpTotal", int32_t{0});
     player.put("Score", int32_t{0});
-    player.put("equipment", Compound{}); // 1.21.5+: armour/offhand (none yet)
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
     abilities.put("mayfly", static_cast<int8_t>(survival ? 0 : 1));

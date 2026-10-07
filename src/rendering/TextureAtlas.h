@@ -22,7 +22,7 @@ class PackStack;
 class TextureAtlas {
 public:
     static constexpr int kMinCellSize = 16;
-    static constexpr int kMaxMipLevels = 2; // 1.21.11 default Mipmap Levels (was 4)
+    static constexpr int kMaxMipLevels = 4; // 1.21.11 default (Fancy preset; Fast uses 2)
     // Vanilla's missing-texture sprite: magenta/black checkerboard. Always sprite 0.
     static constexpr std::string_view kMissing = "missingno";
 
