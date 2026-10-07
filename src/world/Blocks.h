@@ -214,6 +214,7 @@ enum : BlockId {
     CrackedStoneBricks,
     ChiseledStoneBricks,
     Tnt, // (explodes from M21; a plain block until then)
+    DirtPath, // village roads (M18.5)
     Count
 };
 } // namespace blocks

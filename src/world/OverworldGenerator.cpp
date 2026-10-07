@@ -87,6 +87,7 @@ struct Blocks {
     BlockStateId jungleLog, darkOakLog, cherryLog, podzol, mycelium;
     BlockStateId brownCap, redCap, stem; // huge mushroom blocks (cap: pale underside; stem: no ends)
     BlockStateId cobblestone, mossyCobblestone, chest, spawner, oakPlanks, bookshelf, frame[4], frameEye[4];
+    BlockStateId dirtPath, glass, torch, farmland, crops[4], acaciaPlanks;
     BlockStateId chiseledSandstone, cutSandstone, smoothSandstone, orangeTerracotta, blueTerracotta, stoneBricks,
         mossyStoneBricks, crackedStoneBricks, chiseledStoneBricks, tnt, sprucePlanks, craftingTable, furnace,
         redstoneTorch, bedFoot, bedHead;
@@ -163,6 +164,15 @@ const Blocks& blockSet() {
         x.cobblestone = S(blocks::Cobblestone);
         x.oakPlanks = S(blocks::OakPlanks);
         x.bookshelf = S(blocks::Bookshelf);
+        x.dirtPath = S(blocks::DirtPath);
+        x.glass = S(blocks::Glass);
+        x.torch = S(blocks::Torch);
+        x.farmland = r.with(S(blocks::Farmland), "moisture", "7").value_or(0);
+        x.crops[0] = S(blocks::Wheat);
+        x.crops[1] = S(blocks::Carrots);
+        x.crops[2] = S(blocks::Potatoes);
+        x.crops[3] = S(blocks::Beetroots);
+        x.acaciaPlanks = S(blocks::AcaciaPlanks);
         static constexpr const char* kFacings[4] = {"south", "west", "north", "east"}; // +z, -x, -z, +x
         for (int f = 0; f < 4; ++f) {
             x.frame[f] = r.with(S(blocks::EndPortalFrame), "facing", kFacings[f]).value_or(0);
@@ -1053,7 +1063,10 @@ void OverworldGenerator::generate(Chunk& out) const {
     // 7b. More vegetation (M18.1): sugar cane, pumpkins, cacti, mushrooms.
     if (m_version >= 2) placeVegetation(blockArray.data(), cx, cz, topY, columnBiome);
     // 7c. Surface structures (ours after the plants, so no tree grows through them).
-    if (m_version >= 2) placeStructures(blockArray.data(), cx, cz, entities);
+    if (m_version >= 2) {
+        placeStructures(blockArray.data(), cx, cz, entities);
+        placeVillages(blockArray.data(), cx, cz, topY, entities);
+    }
 
     // 8. Top layer (vanilla's last feature step): where the temperature at the top
     //    block is below 0.15 - the biome's, minus 1/800 per block above y 80 (wiki:
@@ -2102,6 +2115,141 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
             }
         }
     }
+}
+
+void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                                       GeneratedEntities& out) const {
+    // Villages (wiki: Village): plains, desert, savanna, taiga and snowy ones on the
+    // village grid (spacing 34, separation 8). Ours: a well in the middle, 5-9 houses
+    // or farms 14-30 blocks around it with their doors toward it, 3-wide dirt paths
+    // to each, in the biome's materials. Chests in the larger houses.
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    for (int dz = -4; dz <= 4; ++dz)
+        for (int dx = -4; dx <= 4; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kVillages, start)) continue;
+            const int32_t mx = start.x * 16 + 8, mz = start.z * 16 + 8;
+            const Biome biome = biomeAt(column(mx, mz));
+            const bool desert = biome == Biome::Desert;
+            const bool savanna = biome == Biome::Savanna;
+            const bool taiga = biome == Biome::Taiga || biome == Biome::SnowyPlains || biome == Biome::SnowyTaiga;
+            if (!(biome == Biome::Plains || biome == Biome::Meadow || desert || savanna || taiga)) continue;
+            const int ground = surfaceY(mx, mz);
+            if (ground < kSeaLevel) continue;
+            const BlockStateId wall = desert ? B.cutSandstone : savanna ? B.acaciaPlanks : taiga ? B.sprucePlanks : B.oakPlanks;
+            const BlockStateId post = desert ? B.chiseledSandstone : savanna ? B.acaciaLog : taiga ? B.spruceLog : B.oakLog;
+            const BlockStateId roof = desert ? B.smoothSandstone : savanna ? B.acaciaPlanks : taiga ? B.spruceLog : B.oakLog;
+            const BlockStateId floor = desert ? B.sandstone : B.cobblestone;
+            const LootTable loot = desert ? LootTable::VillageDesertHouse : LootTable::VillagePlainsHouse;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 720));
+            // Paths first (houses go over them). A path cell sits on this chunk's top
+            // block, which turns to a dirt path; plants on it go.
+            auto path = [&](int32_t x, int32_t z) {
+                const int lx = x - cx * 16, lz = z - cz * 16;
+                if (lx < 0 || lx > 15 || lz < 0 || lz > 15) return;
+                const int y = topY[size_t(lz * 16 + lx)];
+                const BlockStateId top = Buf{blocks}.get(lx, y, lz);
+                if (top != B.grass && top != B.snowyGrass && top != B.dirt && top != B.sand && top != B.coarseDirt &&
+                    top != B.podzol)
+                    return;
+                Buf{blocks}.set(lx, y, lz, B.dirtPath);
+                const BlockStateId above = Buf{blocks}.get(lx, y + 1, lz);
+                if (above != 0 && !reg.collides(above)) Buf{blocks}.set(lx, y + 1, lz, 0);
+            };
+            struct House {
+                int32_t x, z; // corner
+                int w, d, rot, kind; // kind 0 small, 1 big, 2 farm
+            };
+            std::array<House, 9> houses{};
+            int count = 0;
+            const int n = 5 + static_cast<int>(r.nextInt(5));
+            for (int i = 0; i < n; ++i) {
+                const double angle = i * 2.0 * std::numbers::pi / n + (r.nextDouble() - 0.5) * 0.5;
+                const double dist = 14.0 + r.nextDouble() * 16.0;
+                const int kind = static_cast<int>(r.nextInt(10)) < 3 ? 2 : static_cast<int>(r.nextInt(2));
+                const int w = kind == 2 ? 9 : kind == 1 ? 7 : 5, d = kind == 2 ? 7 : kind == 1 ? 7 : 5;
+                const int32_t hx = mx + static_cast<int32_t>(std::lround(std::cos(angle) * dist));
+                const int32_t hz = mz + static_cast<int32_t>(std::lround(std::sin(angle) * dist));
+                // Door toward the well: pick the rotation whose front (local z = 0) faces it.
+                const int32_t vx = mx - hx, vz = mz - hz;
+                const int rot = std::abs(vx) > std::abs(vz) ? (vx > 0 ? 1 : 3) : (vz > 0 ? 2 : 0);
+                const int ww = rot & 1 ? d : w, dd = rot & 1 ? w : d;
+                House h{hx - ww / 2, hz - dd / 2, w, d, rot, kind};
+                bool clear = std::abs(hx - mx) > 6 || std::abs(hz - mz) > 6;
+                for (int j = 0; j < count && clear; ++j) {
+                    const House& o = houses[size_t(j)];
+                    const int ow = o.rot & 1 ? o.d : o.w, od = o.rot & 1 ? o.w : o.d;
+                    clear = h.x + ww + 1 < o.x || o.x + ow + 1 < h.x || h.z + dd + 1 < o.z || o.z + od + 1 < h.z;
+                }
+                if (!clear) continue;
+                houses[size_t(count++)] = h;
+                // The path from the well to the door (3 wide), straight in steps.
+                const int32_t doorX = h.x + ww / 2, doorZ = h.z + dd / 2;
+                const int steps = std::max(std::abs(doorX - mx), std::abs(doorZ - mz));
+                for (int s = 0; s <= steps; ++s) {
+                    const int32_t px = mx + (doorX - mx) * s / std::max(1, steps), pz = mz + (doorZ - mz) * s / std::max(1, steps);
+                    for (int k = -1; k <= 1; ++k) {
+                        path(px + k, pz);
+                        path(px, pz + k);
+                    }
+                }
+            }
+            // The well: a cobblestone ring with water, 4x4, on the ground.
+            StructureBuilder well{Buf{blocks}, cx * 16, cz * 16, mx - 2, ground, mz - 2, 4, 4, 0, &out};
+            for (int x = 0; x < 4; ++x)
+                for (int z = 0; z < 4; ++z) {
+                    well.foundation(x, z, B.cobblestone, 8);
+                    const bool rim = x == 0 || x == 3 || z == 0 || z == 3;
+                    well.set(x, 0, z, rim ? B.cobblestone : B.water);
+                    well.set(x, -1, z, rim ? B.cobblestone : B.water);
+                    well.set(x, -2, z, B.cobblestone);
+                    well.set(x, 1, z, rim ? B.cobblestone : BlockStateId{0});
+                    if (x != 0 && x != 3 && z != 0 && z != 3) well.set(x, 1, z, 0);
+                }
+            for (int i = 0; i < count; ++i) {
+                const House& h = houses[size_t(i)];
+                const int hy = surfaceY(h.x + 2, h.z + 2) + 1;
+                StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, h.x, hy, h.z, h.w, h.d, h.rot, &out};
+                Xoroshiro hr(chunkSeed(m_seed, h.x, h.z, 721));
+                if (h.kind == 2) { // a farm: logs around farmland with a water row
+                    for (int x = 0; x < h.w; ++x)
+                        for (int z = 0; z < h.d; ++z) {
+                            sb.foundation(x, z, B.dirt, 6);
+                            const bool edge = x == 0 || x == h.w - 1 || z == 0 || z == h.d - 1;
+                            sb.set(x, -1, z, edge ? post : x == h.w / 2 ? B.water : B.farmland);
+                            sb.set(x, 0, z, 0);
+                            sb.set(x, 1, z, 0);
+                        }
+                    const BlockStateId crop = B.crops[hr.nextInt(4)];
+                    for (int x = 1; x < h.w - 1; ++x)
+                        for (int z = 1; z < h.d - 1; ++z)
+                            if (x != h.w / 2) sb.set(x, 0, z, crop);
+                    continue;
+                }
+                // A house: floor, plank walls with corner posts, windows, a door gap,
+                // a flat roof with a ridge; a chest in big ones, a torch, a crafting table.
+                for (int x = 0; x < h.w; ++x)
+                    for (int z = 0; z < h.d; ++z)
+                        sb.foundation(x, z, floor, 10);
+                sb.fill(0, 0, 0, h.w - 1, 0, h.d - 1, floor);
+                for (int y = 1; y <= 3; ++y)
+                    for (int x = 0; x < h.w; ++x)
+                        for (int z = 0; z < h.d; ++z) {
+                            const bool corner = (x == 0 || x == h.w - 1) && (z == 0 || z == h.d - 1);
+                            const bool edge = x == 0 || x == h.w - 1 || z == 0 || z == h.d - 1;
+                            sb.set(x, y, z, corner ? post : edge ? wall : BlockStateId{0});
+                        }
+                sb.fill(0, 4, 0, h.w - 1, 4, h.d - 1, desert ? roof : wall);
+                if (!desert) sb.fill(h.w / 2, 5, 0, h.w / 2, 5, h.d - 1, roof);
+                sb.fill(h.w / 2, 1, 0, h.w / 2, 2, 0, 0);          // door gap
+                sb.set(0, 2, h.d / 2, B.glass);                    // windows
+                sb.set(h.w - 1, 2, h.d / 2, B.glass);
+                sb.set(1, 1, h.d - 2, B.craftingTable);
+                sb.set(h.w - 2, 1, 1, B.torch);
+                if (h.kind == 1) sb.chest(h.w - 2, 1, h.d - 2, loot); // (beds come when facings rotate)
+            }
+        }
 }
 
 void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz,

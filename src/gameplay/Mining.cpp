@@ -84,6 +84,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Dirt:
     case blocks::Podzol:
     case blocks::Mycelium:
+    case blocks::DirtPath:
     case blocks::GrassBlock:
     case blocks::Sand:
     case blocks::RedSand:
@@ -351,6 +352,7 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::GrassBlock:
     case blocks::Podzol: // (wiki: Podzol, Mycelium - drop dirt without Silk Touch)
     case blocks::Mycelium:
+    case blocks::DirtPath: // (wiki: Dirt Path - drops dirt)
         add(d.dirt);
         return;
     // Huge mushroom caps: 0-2 mushrooms (wiki: Mushroom Block - rand(-7..2), at least 0);

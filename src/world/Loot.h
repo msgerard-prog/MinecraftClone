@@ -22,7 +22,9 @@ enum class LootTable : uint8_t {
     Mineshaft,
     StrongholdCorridor, // the altar chests
     StrongholdCrossing, // storerooms
-    StrongholdLibrary
+    StrongholdLibrary,
+    VillagePlainsHouse,
+    VillageDesertHouse
 };
 
 struct LootEntry {

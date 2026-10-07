@@ -88,6 +88,18 @@ constexpr LootEntry kLibrary1[] = {{"map", 1, 1, 1},   {"enchanted_book", 1, 1, 
 constexpr LootEntry kLibrary2[] = {{"eye_armor_trim_smithing_template", 1, 1, 1}};
 constexpr LootPool kLibrary[] = {{2, 10, kLibrary1}, {1, 1, kLibrary2}};
 
+// wiki: Village/Loot (Java Edition): plains and desert house chests.
+constexpr LootEntry kPlainsHouse1[] = {{"potato", 1, 7, 10},     {"apple", 1, 5, 10},    {"bread", 1, 4, 10},
+                                       {"oak_sapling", 1, 2, 5}, {"emerald", 1, 4, 2},   {"dandelion", 1, 1, 2},
+                                       {"gold_nugget", 1, 3, 1}, {"book", 1, 1, 1},      {"feather", 1, 1, 1},
+                                       {"poppy", 1, 1, 1}};
+constexpr LootEntry kHouse2[] = {{"", 1, 1, 2}, {"bundle", 1, 1, 1}};
+constexpr LootPool kPlainsHouse[] = {{3, 8, kPlainsHouse1}, {1, 1, kHouse2}};
+constexpr LootEntry kDesertHouse1[] = {{"wheat", 1, 7, 10},   {"bread", 1, 4, 10},  {"cactus", 1, 4, 10},
+                                       {"dead_bush", 1, 3, 2}, {"emerald", 1, 3, 1}, {"book", 1, 1, 1},
+                                       {"clay_ball", 1, 1, 1}, {"green_dye", 1, 1, 1}};
+constexpr LootPool kDesertHouse[] = {{3, 8, kDesertHouse1}, {1, 1, kHouse2}};
+
 } // namespace
 
 std::span<const LootPool> lootPools(LootTable table) {
@@ -100,6 +112,8 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::StrongholdCorridor: return kAltar;
     case LootTable::StrongholdCrossing: return kStore;
     case LootTable::StrongholdLibrary: return kLibrary;
+    case LootTable::VillagePlainsHouse: return kPlainsHouse;
+    case LootTable::VillageDesertHouse: return kDesertHouse;
     default: return {}; // (filled in as their structures arrive)
     }
 }

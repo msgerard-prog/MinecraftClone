@@ -118,6 +118,10 @@ private:
     // Strongholds (M18.5; wiki: Stronghold): 128 in 8 rings around the origin, each a
     // tree of stone brick rooms from a spiral staircase, with one end portal room.
     void placeStrongholds(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
+    // Villages (M18.5; wiki: Village): a well, houses and farms around it joined by
+    // dirt paths, in the biome's materials (no villagers yet).
+    void placeVillages(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                       GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& biomes) const;
 

@@ -277,3 +277,35 @@ TEST_CASE("overworld2: strongholds - 3 in the first ring; stone brick rooms with
     CHECK(frames == 12);
     CHECK(bricks > 1000);
 }
+
+TEST_CASE("overworld2: villages - dirt paths, a well, houses with chests") {
+    const OverworldGenerator gen(42);
+    ChunkPos found{0, 0};
+    bool ok = false;
+    for (int rz = -12; rz <= 12 && !ok; ++rz)
+        for (int rx = -12; rx <= 12 && !ok; ++rx) {
+            const ChunkPos c = spreadCandidate(42, kVillages, {rx * 34, rz * 34});
+            const Biome b = gen.biomeAt(gen.column(c.x * 16 + 8, c.z * 16 + 8));
+            if (b == Biome::Plains && gen.surfaceY(c.x * 16 + 8, c.z * 16 + 8) >= OverworldGenerator::kSeaLevel) {
+                found = c;
+                ok = true;
+            }
+        }
+    REQUIRE(ok);
+    int paths = 0, planks = 0, chests = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            Chunk c({found.x + dx, found.z + dz});
+            gen.generate(c);
+            chests += static_cast<int>(c.chests().size());
+            for (int y = 50; y < 160; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = blockRegistry().blockOf(c.get(x, y, z));
+                        paths += b == blocks::DirtPath;
+                        planks += b == blocks::OakPlanks;
+                    }
+        }
+    CHECK(paths > 50);
+    CHECK(planks > 50);
+}

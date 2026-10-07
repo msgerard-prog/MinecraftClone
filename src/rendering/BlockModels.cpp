@@ -240,6 +240,11 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("sandstone_top");
                 v.faces[int(Direction::Down)].sprite = sprite("sandstone_top");
                 m = single(v);
+            } else if (name == "dirt_path") {
+                BakedVariant v = cubeAll(sprite("dirt_path_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("dirt_path_top");
+                v.faces[int(Direction::Down)].sprite = sprite("dirt");
+                m = single(v);
             } else if (name == "tnt") {
                 BakedVariant v = cubeAll(sprite("tnt_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("tnt_top");

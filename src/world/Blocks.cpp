@@ -370,6 +370,8 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("cracked_stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::CrackedStoneBricks);
     check(r.add("chiseled_stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::ChiseledStoneBricks);
     check(r.add("tnt", {}), blocks::Tnt);
+    // Dirt path (wiki: hardness 0.65; 15/16 tall in vanilla, a full cube here).
+    check(r.add("dirt_path", {.hardness = 0.65f, .resistance = 0.65f}), blocks::DirtPath);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).
