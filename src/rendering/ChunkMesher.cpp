@@ -1,5 +1,6 @@
 #include "rendering/ChunkMesher.h"
 
+#include "world/Blocks.h"
 #include "world/SectionSnapshot.h"
 
 #include <array>
@@ -71,6 +72,39 @@ CornerLight cornerLight(const world::BlockStateId* blocks, const uint8_t* sky, c
     }
     return {(skySum * 4 + count / 2) / count, (blockSum * 4 + count / 2) / count,
             uint32_t(o1) + uint32_t(o2) + uint32_t(oc)};
+}
+
+// A fluid cell's surface height (vanilla: amount / 9, so a source is 8/9; falling
+// fluid and fluid with the same fluid above are full).
+float fluidHeight(const world::BlockRegistry& reg, world::BlockStateId s) {
+    const int level = reg.get(s, world::properties::level);
+    const int amount = level == 0 || level >= 8 ? 8 : 8 - level;
+    return float(amount) / 9.0f;
+}
+
+// Height (1/16 block) of a fluid surface corner: vanilla averages the 4 cells around
+// it - the fluid's own heights (sources and near-full cells weigh 10x), open cells as
+// 0, solid cells not at all; full if any of them has the same fluid above.
+uint32_t fluidCornerHeight(const world::BlockStateId* blocks, const world::BlockRegistry& reg,
+                           world::BlockId fluid, int x, int y, int z, int cx, int cz) {
+    const int up = paddedIndex(0, 1, 0) - paddedIndex(0, 0, 0);
+    float sum = 0.0f, weight = 0.0f;
+    for (int dz = cz - 1; dz <= cz; ++dz)
+        for (int dx = cx - 1; dx <= cx; ++dx) {
+            const int c = paddedIndex(x + dx, y, z + dz);
+            if (reg.blockOf(blocks[c + up]) == fluid) return 16u;
+            const world::BlockStateId s = blocks[c];
+            if (reg.blockOf(s) == fluid) {
+                const float h = fluidHeight(reg, s);
+                const float w = h >= 0.8f ? 10.0f : 1.0f;
+                sum += h * w;
+                weight += w;
+            } else if (!reg.collides(s)) {
+                weight += 1.0f;
+            }
+        }
+    const float h = weight > 0.0f ? sum / weight : 8.0f / 9.0f;
+    return uint32_t(h * 16.0f + 0.5f);
 }
 
 void emitQuad(std::vector<PackedVertex>& dst, VertexAttribs v[4], bool flip) {
@@ -168,8 +202,13 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
 
                 const BakedVariant& variant = model.variants[variantIndex(
                     origin.x + x, origin.y + y, origin.z + z, model.variantCount)];
-                // Vanilla source fluids are 8/9 tall unless the same fluid is above.
+                // Fluid surfaces sit at their corner heights unless the same fluid is above.
                 const bool lowerTop = model.fluid && registry.blockOf(blocks[i + up]) != block;
+                uint32_t cornerH[2][2] = {{16u, 16u}, {16u, 16u}};
+                if (lowerTop)
+                    for (int cz = 0; cz < 2; ++cz)
+                        for (int cx = 0; cx < 2; ++cx)
+                            cornerH[cx][cz] = fluidCornerHeight(blocks, registry, block, x, y, z, cx, cz);
                 const int upFace = static_cast<int>(Direction::Up);
                 for (int f = 0; f < world::kDirectionCount; ++f) {
                     const int n = i + kNeighbour[f];
@@ -188,14 +227,13 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                         uint32_t uvc = uint32_t(c + face.rotation) & 3u;
                         if (face.mirror) uvc = 3u - uvc;
                         v[c].x16 = uint32_t((x + k.x) * 16);
-                        v[c].y16 = uint32_t((y + k.y) * 16);
+                        v[c].y16 = uint32_t(y * 16) + (k.y ? cornerH[k.x][k.z] : 0u);
                         v[c].z16 = uint32_t((z + k.z) * 16);
                         v[c].face = uint32_t(f);
                         v[c].sprite = face.sprite;
                         v[c].u = uint32_t(kCornerU[uvc]);
                         v[c].v = uint32_t(kCornerV[uvc]);
                         v[c].tint = face.tint;
-                        v[c].fluidTop = lowerTop && k.y == 1;
                         v[c].biome = biome;
                         if (model.fluid) {
                             // Fluids: flat light, the brighter of the fluid's own cell and

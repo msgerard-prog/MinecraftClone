@@ -296,13 +296,14 @@ TEST_CASE("water: translucent pass, hidden against water, surface lowered under 
     // Water: 2 blocks x 6 faces - 2 shared - 2 on the stone floor = 8 faces (2 tops,
     // 6 sides), each emitted twice (front + reversed back face).
     CHECK(out.translucent.size() == 8 * 2 * 4);
+    // Surface corners sit between the block's bottom (80) and top (96): vanilla's
+    // corner averages (8/9 where water surrounds them, lower at the pool's edges).
     int lowered = 0;
     for (const auto& v : out.translucent) {
         const auto u = mc::gfx::unpackVertex(v);
-        if (u.fluidTop) {
-            ++lowered;
-            CHECK(u.y16 == 6 * 16); // only top-edge vertices (y + 1) are lowered
-        }
+        CHECK(u.y16 >= 5 * 16);
+        CHECK(u.y16 < 6 * 16);
+        if (u.y16 > 5 * 16) ++lowered;
     }
     CHECK(lowered == 2 * (2 * 4 + 6 * 2)); // (2 tops x 4 + 6 sides x 2 top corners), both sides
     // Water isn't opaque, so the stone floor's top faces stay visible through it:
