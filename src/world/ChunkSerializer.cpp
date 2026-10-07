@@ -383,11 +383,16 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             const int64_t y = e->integer("y").value_or(INT32_MIN);
             if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
                 continue;
+            // One pending tick per block (a duplicate would run twice in one tick).
+            const bool dup = std::any_of(chunk.blockTicks().begin(), chunk.blockTicks().end(), [&](const auto& t) {
+                return t.x == x && t.z == z && t.y == y && t.block == *block;
+            });
+            if (dup) continue;
             chunk.blockTicks().push_back({static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y),
                                           static_cast<int8_t>(std::clamp<int64_t>(e->integer("p").value_or(0), -3, 3)), *block,
                                           std::clamp<int64_t>(e->integer("t").value_or(0), 0, 1 << 20), order++});
         }
-        chunk.ticksRelative = true;
+        chunk.ticksRelative = !chunk.blockTicks().empty();
     }
     chunk.setBiomes(std::move(biomes));
     return true;

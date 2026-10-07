@@ -106,8 +106,8 @@ Redstone::Redstone(World& world) : m_world(world) {
     m_world.setListener(this);
     m_due.reserve(1024);
     m_events.reserve(64);
-    m_changed.reserve(256);
-    m_remesh.reserve(1024);
+    m_changed.reserve(4096);
+    m_remesh.reserve(4096);
     m_drops.reserve(16);
     m_push.reserve(13);
     m_pushStates.reserve(13);
@@ -202,7 +202,8 @@ void Redstone::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
     const auto& r = R();
     const bool light = r.lightEmission(old) != r.lightEmission(now) || r.lightOpacity(old) != r.lightOpacity(now) ||
                        r.opaqueCube(old) != r.opaqueCube(now);
-    (light ? m_changed : m_remesh).push_back(p);
+    auto& list = light ? m_changed : m_remesh;
+    if (list.empty() || !(list.back() == p)) list.push_back(p); // a block changing again: once
 }
 
 void Redstone::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
@@ -228,33 +229,34 @@ void Redstone::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now
         }
     }
     notifyNeighbours(p);
+    reach(p, old);
+    if (blockOf(now) != blockOf(old) || blockOf(now) == B::Lever || isButton(blockOf(now)) ||
+        blockOf(now) == B::Repeater)
+        reach(p, now); // (same block, new state: once is enough unless its target moved)
+}
+
+void Redstone::reach(const BlockPos& p, BlockStateId s) {
     // Components also update around the blocks they power (vanilla: dust and torches
     // all six neighbours' neighbours, levers/buttons the block they hang on, repeaters
     // the block in front; a block of redstone only its own neighbours).
-    auto reach = [&](BlockStateId s) {
-        switch (blockOf(s)) {
-        case B::RedstoneWire:
-        case B::RedstoneTorch:
-        case B::RedstoneWallTorch:
-            for (const Direction d : kUpdateOrder)
-                notifyNeighbours(rel(p, d));
-            break;
-        case B::Lever:
-        case B::StoneButton:
-        case B::OakButton: notifyNeighbours(rel(p, attachDir(s))); break;
-        case B::Repeater: {
-            const BlockPos front = rel(p, opposite(hFacing(s)));
-            neighbourChanged(front);
-            notifyNeighbours(front);
-            break;
-        }
-        default: break;
-        }
-    };
-    reach(old);
-    if (blockOf(now) != blockOf(old) || blockOf(now) == B::Lever || isButton(blockOf(now)) ||
-        blockOf(now) == B::Repeater)
-        reach(now); // (same block, new state: once is enough unless its target moved)
+    switch (blockOf(s)) {
+    case B::RedstoneWire:
+    case B::RedstoneTorch:
+    case B::RedstoneWallTorch:
+        for (const Direction d : kUpdateOrder)
+            notifyNeighbours(rel(p, d));
+        break;
+    case B::Lever:
+    case B::StoneButton:
+    case B::OakButton: notifyNeighbours(rel(p, attachDir(s))); break;
+    case B::Repeater: {
+        const BlockPos front = rel(p, opposite(hFacing(s)));
+        neighbourChanged(front);
+        notifyNeighbours(front);
+        break;
+    }
+    default: break;
+    }
 }
 
 void Redstone::notifyNeighbours(const BlockPos& p) {
@@ -338,7 +340,9 @@ void Redstone::neighbourChanged(const BlockPos& p) {
     case B::Piston:
     case B::StickyPiston: {
         const bool should = pistonPowered(p, facing6Of(s));
-        if (should != flag(s, extended)) m_events.push_back({p, should});
+        if (should != flag(s, extended) &&
+            std::none_of(m_events.begin(), m_events.end(), [&](const Event& e) { return e.pos == p && e.extend == should; }))
+            m_events.push_back({p, should});
         break;
     }
     case B::PistonHead: {
@@ -356,10 +360,24 @@ void Redstone::neighbourChanged(const BlockPos& p) {
 void Redstone::schedule(const BlockPos& p, BlockId block, int ticks, int priority) {
     Chunk* c = m_world.chunk(p.chunk());
     if (!c || hasTick(p, block)) return; // one pending tick per block (vanilla)
+    makeAbsolute(*c);
+    c->markDirty(); // pending ticks are saved with the chunk
     c->blockTicks().push_back({static_cast<int8_t>(blockToLocal(p.x)), static_cast<int8_t>(blockToLocal(p.z)),
                                static_cast<int16_t>(p.y), static_cast<int8_t>(priority), block, m_now + ticks,
                                m_order++});
     m_world.markTicking(c->pos());
+}
+
+void Redstone::makeAbsolute(Chunk& c) {
+    // Loaded from disk: delays count from now, in their saved order.
+    if (!c.ticksRelative) return;
+    auto& ticks = c.blockTicks();
+    std::sort(ticks.begin(), ticks.end(), [](const auto& a, const auto& b) { return a.order < b.order; });
+    for (auto& t : ticks) {
+        t.time += m_now - 1; // it was loaded before this tick began
+        t.order = m_order++;
+    }
+    c.ticksRelative = false;
 }
 
 bool Redstone::hasTick(const BlockPos& p, BlockId block) const {
@@ -376,17 +394,10 @@ void Redstone::tick() {
     m_world.forEachTickingChunk([&](Chunk& c) {
         auto& ticks = c.blockTicks();
         if (ticks.empty()) return;
-        if (c.ticksRelative) { // loaded from disk: delays count from now, in saved order
-            std::sort(ticks.begin(), ticks.end(), [](const auto& a, const auto& b) { return a.order < b.order; });
-            for (auto& t : ticks) {
-                t.time += m_now;
-                t.order = m_order++;
-            }
-            c.ticksRelative = false;
-        }
+        makeAbsolute(c);
         for (const auto& t : ticks)
             if (t.time <= m_now) m_due.push_back({{c.pos().x * 16 + t.x, t.y, c.pos().z * 16 + t.z}, t});
-        std::erase_if(ticks, [&](const Chunk::BlockTick& t) { return t.time <= m_now; });
+        if (std::erase_if(ticks, [&](const Chunk::BlockTick& t) { return t.time <= m_now; })) c.markDirty();
     });
     std::sort(m_due.begin(), m_due.end(), [](const Due& a, const Due& b) {
         if (a.tick.time != b.tick.time) return a.tick.time < b.tick.time;
@@ -604,8 +615,10 @@ void Redstone::extend(const BlockPos& p) {
     const Direction f = facing6Of(s);
     std::optional<BlockPos> destroy;
     if (!pushList(p, f, destroy)) return;
+    BlockStateId destroyed = 0;
     if (destroy) {
-        const BlockId b = blockOf(at(*destroy));
+        destroyed = at(*destroy);
+        const BlockId b = blockOf(destroyed);
         if (b != B::Water && b != B::Lava)
             if (const ItemId item = itemRegistry().blockItem(b)) m_drops.push_back({*destroy, {item, 1}});
         setRaw(*destroy, 0);
@@ -627,7 +640,10 @@ void Redstone::extend(const BlockPos& p) {
     neighbourChanged(p);
     notifyNeighbours(p);
     notifyNeighbours(rel(p, f));
-    if (destroy) notifyNeighbours(*destroy);
+    if (destroy) {
+        notifyNeighbours(*destroy);
+        reach(*destroy, destroyed); // what the broken component powered loses it
+    }
     for (size_t i = 0; i < n && i < m_push.size(); ++i) {
         const BlockPos to = rel(m_push[i], f);
         neighbourChanged(to);

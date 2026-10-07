@@ -101,3 +101,23 @@ TEST_CASE("/gamemode switches survival/creative; /kill kills") {
     CHECK(runCommand("/kill", c.ctx).ok);
     CHECK(vitals.dead());
 }
+
+TEST_CASE("/setblock places a block state and updates its neighbours") {
+    Ctx c;
+    mc::world::World w;
+    for (int cz = -1; cz <= 0; ++cz)
+        for (int cx = 0; cx <= 1; ++cx)
+            w.createChunk({cx, cz});
+    std::vector<mc::world::BlockPos> changed;
+    c.ctx.world = &w;
+    c.ctx.changed = &changed;
+    CHECK(runCommand("/setblock 12 70 -4 repeater[facing=west,delay=3]", c.ctx).ok);
+    const auto s = w.getBlock({12, 70, -4});
+    CHECK(mc::world::blockRegistry().toString(s) == "minecraft:repeater[delay=3,facing=west,locked=false,powered=false]");
+    CHECK(changed.size() == 1);
+    CHECK(runCommand("/setblock ~ ~ ~ stone", c.ctx).ok); // relative: the player's block
+    CHECK(w.getBlock({10, 70, -4}) == mc::world::blockRegistry().defaultState(mc::world::blocks::Stone));
+    CHECK_FALSE(runCommand("/setblock 12 70 -4 repeater[facing=west,delay=3]", c.ctx).ok); // unchanged
+    CHECK_FALSE(runCommand("/setblock 12 70 -4 nonsense", c.ctx).ok);
+    CHECK_FALSE(runCommand("/setblock 500 70 0 stone", c.ctx).ok); // not loaded
+}

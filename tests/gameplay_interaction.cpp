@@ -1,6 +1,7 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/Inventory.h"
 #include "world/Blocks.h"
+#include "world/Redstone.h"
 
 #include <doctest/doctest.h>
 
@@ -314,4 +315,28 @@ TEST_CASE("instant breaks have no pause; swords wear 2 and can't break in creati
     sword.inv.setSlot(0, {*itemRegistry().find("iron_sword"), 1});
     CHECK(sword.breakTarget() > 0);
     CHECK(sword.inv.slot(0).damage == 2);
+}
+
+TEST_CASE("right-clicking a lever uses it (sneaking places instead); dust can't go into water") {
+    Scene s(0.0f, 60.0f);
+    World& w = s.world;
+    const auto t = BlockInteraction::target(w, s.player);
+    REQUIRE(t);
+    mc::world::Redstone redstone(w);
+    s.interaction.setRedstone(&redstone);
+    const auto lever = *blockRegistry().with(*blockRegistry().with(S(blocks::Lever), "face", "floor"), "facing", "north");
+    const BlockPos above{t->block.x, t->block.y + 1, t->block.z};
+    w.setBlock(above, lever); // the ray now hits the lever
+    const auto onLever = BlockInteraction::target(w, s.player);
+    REQUIRE(onLever);
+    REQUIRE(onLever->block == above);
+    s.tick(false, true, S(blocks::Stone));
+    CHECK(blockRegistry().value(w.getBlock(above), "powered") == "true");
+    CHECK(w.getBlock({above.x, above.y + 1, above.z}) == 0); // used, not placed on
+    // Water: dust is not placed into it (vanilla: non-solid blocks can't be).
+    w.setBlock(above, S(blocks::Water));
+    const auto wire = S(blocks::RedstoneWire);
+    for (int i = 0; i < 5; ++i)
+        s.tick(false, true, wire);
+    CHECK(blockRegistry().blockOf(w.getBlock(above)) == blocks::Water);
 }

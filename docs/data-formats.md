@@ -90,7 +90,7 @@ per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, c
 priority, `t` delay in ticks, `x`, `y`, `z` } ] (M11, in scheduling order), `block_entities` [ furnaces: { id
 "minecraft:furnace", x, y, z, keepPacked, Items [ { Slot 0 input / 1 fuel / 2 output,
 id, count, components } ], BurnTime, CookTime, CookTimeTotal (shorts, 1.21.1 names) } ]. Not written yet: heightmaps,
-dropped items, ticks, structures, POI; `InhabitedTime` is 0; level.dat
+dropped items, structures, POI; `InhabitedTime` is 0; level.dat
 omits GameRules, DataPacks, difficulty and WorldGenSettings.dimensions, so vanilla
 may not open these worlds. Region compression types 4 (LZ4), 127 and external
 `.mcc` chunks are not readable (such chunks regenerate). NBT strings are written as

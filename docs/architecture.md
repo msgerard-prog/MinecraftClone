@@ -188,7 +188,7 @@ Fixed bindings (add new ones here):
 |---|---|---|
 | uniform location | 0 | `uViewProj` (camera at origin) |
 | uniform location | 1 | `uAtlasColumns` |
-| SSBO binding | 1 | tint palette (256 slots × grass/foliage/water vec4; 254/255 birch/spruce foliage) |
+| SSBO binding | 1 | tint palette (256 slots × grass/foliage/water vec4; 238-253 redstone dust power 0-15 (foliage channel), 254/255 birch/spruce foliage) |
 | uniform location | 4 | `uFog` (start, end in blocks) |
 | uniform location | 5 | `uFogColor` (sky) |
 | uniform location | 6 | `uAlphaCutoff` (0.5 opaque/cutout pass, 0 translucent) |

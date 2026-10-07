@@ -55,7 +55,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.furnaces() = snap.furnaces;
             chunk.mobs() = snap.mobs;
             chunk.blockTicks() = snap.blockTicks; // delays (see ChunkSnapshot::of)
-            chunk.ticksRelative = true;
+            chunk.ticksRelative = !snap.blockTicks.empty();
             chunk.clearDirty();
             return true;
         }

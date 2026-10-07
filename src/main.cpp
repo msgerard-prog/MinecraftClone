@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
         // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!storage || storage->load(c)) c.clearDirty();
-            if (!c.furnaces().empty() || !c.mobs().empty()) world.markTicking(c.pos());
+            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty()) world.markTicking(c.pos());
         });
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
@@ -298,10 +298,10 @@ int main(int argc, char** argv) {
     std::vector<mc::world::SectionPos> relitSections;
     std::vector<mc::world::BlockPos> frameEdits; // all block edits this frame (for lighting)
     std::vector<mc::world::BlockPos> frameRemesh; // edits that don't change light: re-mesh at once
-    frameRemesh.reserve(1024);
+    frameRemesh.reserve(4096);
     litChunks.reserve(256);
     relitSections.reserve(256);
-    frameEdits.reserve(16);
+    frameEdits.reserve(4096);
     std::vector<mc::world::BlockPos> editsReady;
     editsReady.reserve(16);
 

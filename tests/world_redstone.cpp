@@ -324,3 +324,85 @@ TEST_CASE("scheduled ticks save as delays and resume after loading") {
     REQUIRE(d.blockTicks().size() == 1);
     CHECK(d.blockTicks()[0].time == 5);
 }
+
+TEST_CASE("ticks loaded from disk fire on time, and new ticks in a loaded chunk aren't late") {
+    // Regression: loaded chunks kept their "relative times" flag forever, so ticks
+    // scheduled later were pushed back by the game time.
+    Scene s;
+    s.time = 24000;
+    s.put({0, 64, 0}, floorLever());
+    s.put({1, 64, 0}, with(with(S(blocks::Repeater), "facing", "west"), "delay", "2"));
+    s.use({0, 64, 0}); // repeater on in 4 ticks
+    s.tick(1);
+    auto nbt = chunkToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), s.time));
+    auto loaded = std::make_unique<Chunk>(ChunkPos{0, 0});
+    REQUIRE(chunkFromNbt(nbt, *loaded));
+    s.world.insertChunk(std::move(loaded));
+    s.tick(2);
+    CHECK_FALSE(s.on({1, 64, 0}, "powered"));
+    s.tick(1);
+    CHECK(s.on({1, 64, 0}, "powered"));
+    // A chunk loaded with no pending ticks: a new tick runs at now + delay.
+    nbt = chunkToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), s.time));
+    loaded = std::make_unique<Chunk>(ChunkPos{0, 0});
+    REQUIRE(chunkFromNbt(nbt, *loaded));
+    CHECK_FALSE(loaded->ticksRelative);
+    s.world.insertChunk(std::move(loaded));
+    s.use({0, 64, 0}); // off in 4 ticks
+    s.tick(4);
+    CHECK_FALSE(s.on({1, 64, 0}, "powered"));
+}
+
+TEST_CASE("scheduling a tick marks the chunk for saving; duplicate saved ticks load once") {
+    Scene s;
+    s.put({0, 64, 0}, with(S(blocks::StoneButton), "face", "floor"));
+    s.world.chunk({0, 0})->clearDirty();
+    s.use({0, 64, 0});
+    CHECK(s.world.chunk({0, 0})->dirty());
+    auto nbt = chunkToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), s.time));
+    auto& list = const_cast<mc::nbt::List&>(*nbt.list("block_ticks"));
+    REQUIRE(list.items.size() == 1);
+    list.items.push_back(list.items[0]);
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(nbt, d));
+    CHECK(d.blockTicks().size() == 1);
+}
+
+TEST_CASE("a piston breaking a lever turns off what the lever powered through its block") {
+    Scene s;
+    s.put({5, 64, 5}, S(blocks::Stone));
+    s.put({5, 64, 4}, with(with(S(blocks::Lever), "face", "wall"), "facing", "north")); // on the stone's north
+    s.put({5, 64, 6}, S(blocks::RedstoneLamp));                                         // the stone's south
+    s.use({5, 64, 4});
+    CHECK(s.on({5, 64, 6}));
+    s.put({5, 64, 3}, with(S(blocks::Piston), "facing", "south")); // pushes into the lever's cell
+    s.put({4, 64, 3}, S(blocks::RedstoneBlock));
+    s.tick(1);
+    CHECK(s.at({5, 64, 4}) != S(blocks::Lever));
+    s.tick(5);
+    CHECK_FALSE(s.on({5, 64, 6}));
+}
+
+TEST_CASE("pistons push across chunk borders at negative coordinates, not into unloaded chunks or past the top") {
+    Scene s;
+    s.put({2, 64, -1}, with(S(blocks::Piston), "facing", "west"));
+    s.put({1, 64, -1}, S(blocks::Cobblestone));
+    s.put({0, 64, -1}, S(blocks::Cobblestone)); // chunk 0 / -1 border is between 0 and -1
+    s.put({2, 64, -2}, S(blocks::RedstoneBlock));
+    s.tick(1);
+    CHECK(s.on({2, 64, -1}, "extended"));
+    CHECK(R().blockOf(s.at({-1, 64, -1})) == blocks::Cobblestone);
+    // The 3x3 scene ends at x = -16: pushing into x -17 (unloaded) fails.
+    s.put({-14, 64, 3}, with(S(blocks::Piston), "facing", "west"));
+    s.put({-15, 64, 3}, S(blocks::Cobblestone));
+    s.put({-16, 64, 3}, S(blocks::Cobblestone));
+    s.put({-14, 64, 4}, S(blocks::RedstoneBlock));
+    s.tick(1);
+    CHECK_FALSE(s.on({-14, 64, 3}, "extended"));
+    // Up at the build limit.
+    s.put({3, 318, 3}, with(S(blocks::Piston), "facing", "up"));
+    s.put({3, 319, 3}, S(blocks::Cobblestone));
+    s.put({4, 318, 3}, S(blocks::RedstoneBlock));
+    s.tick(1);
+    CHECK_FALSE(s.on({3, 318, 3}, "extended"));
+}

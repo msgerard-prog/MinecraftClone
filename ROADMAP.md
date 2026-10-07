@@ -64,6 +64,9 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **Chunk format addition (M11):** chunks now save vanilla's `block_ticks` list
+  (pending redstone ticks: i, p, t, x, y, z). Additive, vanilla's own field; older
+  saves load unchanged. OK to keep?
 - **Save format (ADR 0007, proposed):** vanilla's own Anvil format (region .mca,
   Java 1.21 chunk NBT, gzip level.dat, DataVersion 3955 = 1.21.1). Built because no
   saves existed yet; say if you want something else before worlds matter. Every

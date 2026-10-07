@@ -87,6 +87,8 @@ private:
     void record(const BlockPos& p, BlockStateId old, BlockStateId now);
     void afterChange(const BlockPos& p, BlockStateId old, BlockStateId now);
     void notifyNeighbours(const BlockPos& p);
+    void reach(const BlockPos& p, BlockStateId s); // a component's extra update range
+    void makeAbsolute(Chunk& c);                  // loaded tick delays -> game times
     void neighbourChanged(const BlockPos& p);
     void pop(const BlockPos& p); // breaks the block with its drop
     void tickBlock(const BlockPos& p, BlockStateId s);
