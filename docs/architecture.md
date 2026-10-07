@@ -80,6 +80,10 @@ multi-draw) → screen.
   CPU frustum culling, then one `glMultiDrawElementsIndirect`. Each draw's
   `sectionOrigin − cameraPos` (double → float) goes to an SSBO read with
   `gl_BaseInstance`. Command/offset arrays are reused (no per-frame allocation).
+- `OverlayRenderer` (shader `overlay`): targeted-block outline (12 thin edge boxes,
+  black 40%) and the crosshair (vanilla 15x15 GUI px, inverting blend, auto GUI
+  scale = largest that fits 320x240). Targeting: `world::raycastBlocks` (voxel DDA,
+  skips air and fluids, vanilla reach 4.5 survival / 5.0 creative).
 - `WorldRenderer`: owns the above; `markChunkDirty` (chunk + 4 neighbours),
   `update()` re-meshes dirty sections, `drawFrame()` does all of a frame's GL work.
   `main.cpp` makes no GL calls (hard rule 7).
@@ -95,6 +99,7 @@ Fixed bindings (add new ones here):
 | uniform location | 5 | `uFogColor` (sky) |
 | texture unit | 0 | block atlas |
 | SSBO binding | 0 | section offsets (block pass) |
+| uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |
 
 Passes (M3.2): **opaque**, then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),

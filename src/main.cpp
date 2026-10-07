@@ -6,11 +6,14 @@
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
+#include "rendering/OverlayRenderer.h"
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
+#include "world/Raycast.h"
+#include "world/Rotation.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
@@ -105,6 +108,8 @@ int main(int argc, char** argv) {
     if (!renderer.init(opts->resourcePacks.empty() ? std::string(MC_RESOURCEPACKS_DIR)
                                                    : opts->resourcePacks))
         return 1;
+    mc::gfx::OverlayRenderer overlay;
+    if (!overlay.init()) return 1;
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
     const mc::world::TerrainGenerator generator(opts->seed);
@@ -198,6 +203,13 @@ int main(int argc, char** argv) {
         }
         renderer.update(world, camera.position);
         renderer.drawFrame(camera, fbWidth, fbHeight);
+
+        // Targeted block: from the eye along the look direction, creative reach.
+        const auto hit = mc::world::raycastBlocks(
+            world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
+            mc::world::kCreativeReach);
+        overlay.draw(camera, fbWidth, fbHeight,
+                     hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
 
         if (!meshed && renderer.pendingMeshes() == 0 && (!loader || loader->pending() == 0)) {
             meshed = true;
