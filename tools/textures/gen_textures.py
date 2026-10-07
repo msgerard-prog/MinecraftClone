@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from texgen import blocks_colored, blocks_stone, blocks_wood  # noqa: F401,E402  (registration)
+from texgen import blocks_colored, blocks_plants, blocks_stone, blocks_wood  # noqa: F401,E402  (registration)
 from texgen.core import Img, encode_png, tint  # noqa: E402
 from texgen.registry import TEXTURES  # noqa: E402
 
@@ -35,6 +35,12 @@ PREVIEW_TINT = {
     "dark_oak_leaves": FOLIAGE, "mangrove_leaves": FOLIAGE,
     "spruce_leaves": (0x61, 0x99, 0x61),  # spruce and birch leaves use fixed colours
     "birch_leaves": (0x80, 0xA7, 0x55),
+    **{n: GRASS for n in ("short_grass", "tall_grass_top", "tall_grass_bottom", "fern",
+                          "large_fern_top", "large_fern_bottom", "sugar_cane")},
+    "vine": FOLIAGE,
+    "lily_pad": (0x20, 0x80, 0x30),
+    **{n: (0x7A, 0xB0, 0x30) for n in ("melon_stem", "pumpkin_stem", "attached_melon_stem",
+                                         "attached_pumpkin_stem")},
 }
 
 
