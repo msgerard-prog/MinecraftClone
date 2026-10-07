@@ -20,11 +20,13 @@ bool Mobs::isFood(MobType type, ItemId item) {
     // Breeding foods (wiki: Breeding): wheat for cows and sheep, carrots for pigs,
     // seeds for chickens (others not added yet).
     static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"), seeds = itemId("wheat_seeds");
+    static const ItemId warpedFungus = itemRegistry().blockItem(blocks::WarpedFungus);
     switch (type) {
     case MobType::Cow:
     case MobType::Sheep: return item == wheat;
     case MobType::Pig: return item == carrot;
     case MobType::Chicken: return item == seeds;
+    case MobType::Strider: return item == warpedFungus; // (wiki: Strider)
     default: return false;
     }
 }
@@ -40,6 +42,13 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
                     {itemRegistry().blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)), uint8_t(n)},
                     rng);
         return Use::Sheared;
+    }
+    // Piglins take a gold ingot to admire for 6 s, then barter (wiki: Bartering).
+    static const ItemId goldIngot = itemId("gold_ingot");
+    if (m.type == MobType::Piglin && held == goldIngot && !m.isBaby() && m.admireTicks == 0) {
+        m.admireTicks = 120;
+        m.targeting = false;
+        return Use::Fed;
     }
     if (!isFood(m.type, held)) return Use::None;
     if (m.isBaby()) { // feeding a baby speeds its growth by 10% of the time left

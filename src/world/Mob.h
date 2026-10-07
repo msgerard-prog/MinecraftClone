@@ -24,6 +24,9 @@ enum class MobType : uint8_t {
     Blaze,
     MagmaCube,
     ZombifiedPiglin,
+    Piglin,
+    Hoglin,
+    Strider,
     Count
 };
 
@@ -104,6 +107,7 @@ struct MobData {
     uint8_t volley = 0;      // blaze: fireballs left in this volley
     int16_t jumpTicks = 0;   // magma cube: ticks to its next jump
     bool angerAlert = false; // zombified piglin: just hit - the ones around join in
+    int16_t admireTicks = 0; // piglin: inspecting a gold ingot (barters at the end)
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 

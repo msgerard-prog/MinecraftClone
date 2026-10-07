@@ -1374,6 +1374,10 @@ int main(int argc, char** argv) {
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems, dimension != Dimension::End,
                                      inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
+            for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
+                if (!inventory.armor(piece).empty() &&
+                    mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
+                    mobCtx.wearsGold = true;
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
             {

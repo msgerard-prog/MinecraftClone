@@ -27,6 +27,12 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:blaze", 20.0f, 0.6, 1.8, 0.23, 6.0f, true, true, true},
         {"minecraft:magma_cube", 16.0f, 2.08, 2.08, 0.2, 6.0f, true, true},
         {"minecraft:zombified_piglin", 20.0f, 0.6, 1.95, 0.23, 8.0f, true, true},
+        // wiki: Piglin (16, 0.6 x 1.95, 0.35, 8 with a golden sword on normal), Hoglin
+        // (40, 1.3965 x 1.4, 0.3, 3-8: ours 6), Strider (20, 0.9 x 1.7, 0.175, passive,
+        // fire immune).
+        {"minecraft:piglin", 16.0f, 0.6, 1.95, 0.35, 8.0f, true},
+        {"minecraft:hoglin", 40.0f, 1.3965, 1.4, 0.3, 6.0f, true, false, false, 2.0f},
+        {"minecraft:strider", 20.0f, 0.9, 1.7, 0.175, 0.0f, false, true},
     };
     return kInfo[static_cast<int>(t)];
 }

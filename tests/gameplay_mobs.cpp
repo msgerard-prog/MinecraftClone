@@ -797,3 +797,59 @@ TEST_CASE("the Nether spawns its own monsters (nether wastes: zombified piglins,
     CHECK(nether > 0);
     CHECK(countType(s, MobType::Zombie) == 0);
 }
+
+TEST_CASE("piglins: attack players without gold; take a gold ingot, admire it 6 s, then barter") {
+    MobScene s;
+    s.mobs = Mobs();
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Piglin, {3.5, 64.0, 0.5}, s.rng)));
+    for (int i = 0; i < 60; ++i) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, s.survival, false, s.dayTime, s.skyDarken, s.rng, s.items};
+        ctx.wearsGold = true; // golden armor: left alone
+        s.mobs.tick(ctx);
+    }
+    CHECK(s.vitals.health() == doctest::Approx(20.0f));
+    MobData& p = *s.all()[0];
+    const ItemId gold = *itemRegistry().find("gold_ingot");
+    CHECK(Mobs::interact(p, gold, s.rng, s.items) == Mobs::Use::Fed);
+    CHECK(p.admireTicks == 120);
+    const size_t before = s.items.items().size();
+    int bartered = 0;
+    for (int trial = 0; trial < 30; ++trial) { // some barters are items we don't have yet
+        p.admireTicks = 1;
+        s.tick(1);
+        bartered += s.items.items().size() > before + size_t(bartered);
+    }
+    CHECK(bartered > 10);
+    // Without gold the piglin goes for the player.
+    s.tick(100);
+    CHECK(s.vitals.health() < 20.0f);
+}
+
+TEST_CASE("striders float on lava unhurt; hoglins drop porkchops") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.world.forEachChunk([](Chunk& c) {
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                c.set(x, 63, z, blockRegistry().defaultState(blocks::Stone));
+                c.set(x, 64, z, blockRegistry().defaultState(blocks::Lava));
+            }
+    });
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Strider, {8.5, 64.2, 8.5}, s.rng)));
+    s.tick(100);
+    MobData& st = *s.all()[0];
+    CHECK(st.health == doctest::Approx(20.0f));
+    CHECK(st.pos.y > 64.0);
+
+    MobScene h;
+    h.mobs = Mobs();
+    MobData hog = Mobs::make(MobType::Hoglin, {8.5, 64.0, 8.5}, h.rng);
+    hog.health = 0.0f;
+    REQUIRE(Mobs::add(h.world, hog));
+    h.tick(2);
+    int pork = 0;
+    for (const auto& e : h.items.items())
+        if (itemRegistry().item(e.stack.item).id == "minecraft:porkchop") pork += e.stack.count;
+    CHECK(pork >= 2);
+}

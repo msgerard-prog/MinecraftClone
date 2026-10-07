@@ -164,6 +164,26 @@ constexpr std::array<MobPart, 9> kZombifiedPiglin = {{
     {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 16, 48, A::LegB},
 }};
 
+// Hoglin: a boar at half size (drawn 2x): head with tusks low in front, a long body,
+// four short legs.
+constexpr std::array<MobPart, 8> kHoglin = {{
+    {{-3.5f, 4, 5}, {3.5f, 10, 14}, {0, 9, 5}, 0, 0, A::Head},
+    {{-4.5f, 5, 13}, {-3.5f, 8, 14}, {0, 9, 5}, 40, 0, A::Head},
+    {{3.5f, 5, 13}, {4.5f, 8, 14}, {0, 9, 5}, 40, 0, A::Head},
+    {{-4, 6, -6}, {4, 13, 6}, {0, 6, 0}, 0, 16, A::None},
+    {{-4, 0, 2}, {-1, 6, 5}, {-2.5f, 6, 3.5f}, 0, 40, A::LegA},
+    {{1, 0, 2}, {4, 6, 5}, {2.5f, 6, 3.5f}, 0, 40, A::LegB},
+    {{-4, 0, -5}, {-1, 6, -2}, {-2.5f, 6, -3.5f}, 0, 40, A::LegB},
+    {{1, 0, -5}, {4, 6, -2}, {2.5f, 6, -3.5f}, 0, 40, A::LegA},
+}};
+
+// Strider: a big body on two long legs.
+constexpr std::array<MobPart, 3> kStrider = {{
+    {{-8, 14, -8}, {8, 28, 8}, {0, 14, 0}, 0, 0, A::None},
+    {{-6, 0, -2}, {-2, 14, 2}, {-4, 14, 0}, 0, 32, A::LegA},
+    {{2, 0, -2}, {6, 14, 2}, {4, 14, 0}, 0, 32, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -179,7 +199,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Ghast: return kGhast;
     case world::MobType::Blaze: return kBlaze;
     case world::MobType::MagmaCube: return kMagmaCube;
-    case world::MobType::ZombifiedPiglin: return kZombifiedPiglin;
+    case world::MobType::ZombifiedPiglin:
+    case world::MobType::Piglin: return kZombifiedPiglin; // (the same build)
+    case world::MobType::Hoglin: return kHoglin;
+    case world::MobType::Strider: return kStrider;
     default: return kCow;
     }
 }

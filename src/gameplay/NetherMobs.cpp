@@ -5,6 +5,7 @@
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 #include "world/Blocks.h"
+#include "world/Loot.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
 
@@ -49,6 +50,62 @@ bool roomAt(const World& w, const Aabb& box) {
 } // namespace
 
 bool Mobs::netherAi(Context& ctx, MobData& m) {
+    if (m.type == MobType::Piglin) {
+        // Admiring a gold ingot for 6 s (still, peaceful), then a barter thrown out
+        // toward the player (wiki: Bartering); otherwise it goes for gold on the ground
+        // within 8 blocks.
+        static const ItemId gold = *itemRegistry().find("gold_ingot");
+        if (m.admireTicks > 0) {
+            m.targeting = false;
+            physics(ctx.world, m, glm::dvec3(0.0), false);
+            if (--m.admireTicks == 0 && !m.isBaby()) {
+                const ItemStack loot = rollOne(LootTable::PiglinBartering, ctx.rng);
+                if (!loot.empty()) {
+                    ItemEntity* e = ctx.items.spawn(m.pos + glm::dvec3(0, 1.0, 0), loot, ctx.rng);
+                    if (e) {
+                        const glm::dvec3 d = ctx.player.position() - m.pos;
+                        const double l = glm::length(glm::dvec2(d.x, d.z));
+                        if (l > 1e-6) e->vel = glm::dvec3(d.x / l * 0.3, 0.3, d.z / l * 0.3);
+                    }
+                }
+            }
+            return true;
+        }
+        if (!m.isBaby() && !m.targeting)
+            if (const ItemEntity* g = ctx.items.nearest(m.pos, gold, 8.0)) {
+                if (glm::length(g->pos - m.pos) < 1.5) {
+                    ctx.items.takeOne(g);
+                    m.admireTicks = 120;
+                    return true;
+                }
+                m.goal = g->pos;
+                m.goalTicks = 0;
+            }
+        return false;
+    }
+    if (m.type == MobType::Strider) {
+        // Strolls (lava is ground to it), wants warped fungus partners like any
+        // animal; water hurts it (wiki: Strider).
+        animalUpkeep(ctx, m);
+        double speed = mobInfo(m.type).speed * 0.5;
+        if (!animalGoal(ctx, m, speed) && (++m.goalTicks > 160 || glm::length(m.goal - m.pos) < 1.0)) {
+            m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 16 - 8, 0, ctx.rng.nextDouble() * 16 - 8);
+            m.goalTicks = 0;
+        }
+        const glm::dvec2 d(m.goal.x - m.pos.x, m.goal.z - m.pos.z);
+        glm::dvec3 wish(0.0);
+        if (glm::length(d) > 0.5) {
+            wish = glm::dvec3(d.x, 0, d.y) / glm::length(d) * speed;
+            m.yaw = m.headYaw = approachAngle(m.yaw, yawTo(m.pos, m.goal), 8.0f);
+        }
+        const FluidContact fluid = fluidContact(ctx.world, box(m));
+        if (fluid.water && m.hurtTime == 0) {
+            m.health -= 1.0f;
+            m.hurtTime = 10;
+        }
+        physics(ctx.world, m, wish, false);
+        return true;
+    }
     if (m.type == MobType::ZombifiedPiglin) { // anger runs out (wiki: 20-55 s)
         if (m.angry && --m.angerTicks <= 0) {
             m.angry = false;
@@ -174,11 +231,34 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
 }
 
 void Mobs::spawnNether(Context& ctx) {
+    // Striders (wiki: Strider - groups of 2-4 on lava with air above): one try every
+    // 20 ticks on the lava surface near the player, while fewer than 8 are around.
+    if (ctx.rng.nextInt(20) == 0) {
+        const glm::dvec3 p = ctx.player.position();
+        const int x = int(std::floor(p.x)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
+        const int z = int(std::floor(p.z)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
+        int striders = 0;
+        ctx.world.forEachTickingChunk([&](Chunk& c) {
+            for (const MobData& m : c.mobs())
+                striders += m.type == MobType::Strider;
+        });
+        for (int y = 31; y >= 20 && striders < 8; --y) { // the lava sea's surface (Y 31)
+            if (blockRegistry().blockOf(ctx.world.getBlock({x, y, z})) != blocks::Lava) continue;
+            if (ctx.world.getBlock({x, y + 1, z}) != 0 || ctx.world.getBlock({x, y + 2, z}) != 0) break;
+            const glm::dvec3 d(x + 0.5 - p.x, y - p.y, z + 0.5 - p.z);
+            if (glm::dot(d, d) < 24.0 * 24.0) break;
+            const int group = 2 + static_cast<int>(ctx.rng.nextInt(3));
+            for (int i = 0; i < group; ++i)
+                add(ctx.world, make(MobType::Strider, {x + 0.5 + i * 1.2, y + 1.0, z + 0.5}, ctx.rng));
+            break;
+        }
+    }
     // Nether monsters by biome (wiki: Spawn › Java Edition, the Nether's spawn weights):
     // nether wastes - zombified piglin 100 (groups of 4), ghast 50 (1), magma cube 2,
     // enderman 1; soul sand valley - ghast 50, skeleton 20 (5), enderman 1; basalt
     // deltas - magma cube 100 (2-5), ghast 40; crimson forest - zombified piglin 1;
-    // warped forest - enderman 1. (Piglins, hoglins and striders come in M19.2b.)
+    // warped forest - enderman 1; piglins (wastes 15 in 4s, crimson 5 in 3-4) and
+    // hoglins (crimson 9 in 3-4). Striders: 2-4 on lava with air above, everywhere.
     // One attempt a tick near the player; block light 11 or less (ours); the mob cap 70.
     if (m_hostiles >= 70) return;
     const glm::dvec3 p = ctx.player.position();
@@ -198,7 +278,7 @@ void Mobs::spawnNether(Context& ctx) {
         int weight, minGroup, maxGroup;
     };
     const Biome biome = c->biomes()->at(lx, y, lz, ctx.world.height());
-    std::array<Entry, 4> table{};
+    std::array<Entry, 5> table{};
     int n = 0;
     switch (biome) {
     case Biome::SoulSandValley:
@@ -210,8 +290,8 @@ void Mobs::spawnNether(Context& ctx) {
         n = 2;
         break;
     case Biome::CrimsonForest:
-        table = {{{MobType::ZombifiedPiglin, 1, 2, 4}}};
-        n = 1;
+        table = {{{MobType::ZombifiedPiglin, 1, 2, 4}, {MobType::Piglin, 5, 3, 4}, {MobType::Hoglin, 9, 3, 4}}};
+        n = 3;
         break;
     case Biome::WarpedForest:
         table = {{{MobType::Enderman, 1, 4, 4}}};
@@ -221,8 +301,9 @@ void Mobs::spawnNether(Context& ctx) {
         table = {{{MobType::ZombifiedPiglin, 100, 4, 4},
                   {MobType::Ghast, 50, 1, 1},
                   {MobType::MagmaCube, 2, 4, 4},
-                  {MobType::Enderman, 1, 4, 4}}};
-        n = 4;
+                  {MobType::Enderman, 1, 4, 4},
+                  {MobType::Piglin, 15, 4, 4}}};
+        n = 5;
         break;
     }
     int total = 0;
@@ -247,6 +328,7 @@ void Mobs::spawnNether(Context& ctx) {
                                                    : box(m);
         if (!roomAt(ctx.world, need)) continue;
         if (e.type == MobType::ZombifiedPiglin && ctx.rng.nextInt(20) == 0) m.age = -24000; // 5% babies (wiki)
+        if (e.type == MobType::Piglin && ctx.rng.nextInt(5) == 0) m.age = -24000; // (babies never grow up)
         if (add(ctx.world, m)) ++m_hostiles;
     }
 }

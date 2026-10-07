@@ -46,6 +46,31 @@ public:
     int tick(const world::World& world, const Aabb& player, bool canPickUp, Inventory& inventory);
 
     const std::vector<ItemEntity>& items() const { return m_items; }
+    // The nearest stack of `item` within `radius` of `pos` that may be picked up
+    // (piglins and gold, M19.2); takeOne removes one item of it.
+    const ItemEntity* nearest(const glm::dvec3& pos, world::ItemId item, double radius) const {
+        const ItemEntity* best = nullptr;
+        double bestD = radius * radius;
+        for (const ItemEntity& e : m_items) {
+            const glm::dvec3 d = e.pos - pos;
+            const double d2 = glm::dot(d, d);
+            if (e.stack.item == item && e.stack.count > 0 && e.pickupDelay == 0 && d2 < bestD) {
+                best = &e;
+                bestD = d2;
+            }
+        }
+        return best;
+    }
+    void takeOne(const ItemEntity* e) {
+        for (size_t i = 0; i < m_items.size(); ++i)
+            if (&m_items[i] == e) {
+                if (--m_items[i].stack.count == 0) {
+                    m_items[i] = m_items.back();
+                    m_items.pop_back();
+                }
+                return;
+            }
+    }
     void clear() { m_items.clear(); }
 
 private:

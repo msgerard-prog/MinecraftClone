@@ -384,6 +384,81 @@ def zombified_piglin():
     return img
 
 
+def piglin():
+    # The healthy piglin: pink, brown leather and a gold belt; same layout as the
+    # zombified one.
+    rng = random.Random("piglin")
+    img = Img(64, 64, CLEAR)
+    pink = ramp(hexc("#E89C94"), 5, spread=0.2)
+    leather = ramp(hexc("#6A4428"), 5, spread=0.3)
+    gold = ramp(hexc("#E8B830"), 5, spread=0.3)
+    for f in box_faces(0, 0, 10, 8, 8).values():
+        paint(img, f, pink, rng)
+    face(img, box_faces(0, 0, 10, 8, 8)["front"], ((2, 3), (7, 3)), (30, 20, 20, 255),
+         (((3, 3), (240, 240, 240, 255)), ((6, 3), (240, 240, 240, 255)), ((1, 7), gold[3]), ((8, 7), gold[3])))
+    for f in box_faces(40, 0, 4, 3, 1).values():
+        paint(img, f, pink, rng)
+    img.set(42, 2, (110, 50, 50, 255))
+    img.set(43, 2, (110, 50, 50, 255))
+    for f in box_faces(52, 0, 1, 5, 4).values():
+        paint(img, f, pink, rng)
+    for name, (x0, y0, w, h) in box_faces(16, 16, 8, 12, 4).items():
+        paint(img, (x0, y0, w, h), leather, rng)
+        if name in ("front", "back"):
+            paint(img, (x0, y0 + h - 4, w, 2), gold, rng)
+    for u, v in ((40, 16), (32, 48)):
+        for f in box_faces(u, v, 4, 12, 4).values():
+            paint(img, f, pink, rng)
+    for u, v in ((0, 16), (16, 48)):
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), leather, rng)
+            if name not in ("top", "bottom"):
+                paint(img, (x0, y0 + h - 2, w, 2), ramp(hexc("#3A2A20"), 5), rng)
+    return img
+
+
+def hoglin():
+    # A bristly brown-pink boar with pale tusks (drawn at half size, scaled 2x). Head
+    # 7x6x9 @ (0,0), tusk 1x3x1 @ (40,0), body 8x7x12 @ (0,16), leg 3x6x3 @ (0,40).
+    rng = random.Random("hoglin")
+    img = Img(64, 64, CLEAR)
+    hide = ramp(hexc("#A8644C"), 5, spread=0.35)
+    mane = ramp(hexc("#D8B060"), 5, spread=0.3)
+    for f in box_faces(0, 0, 7, 6, 9).values():
+        paint(img, f, hide, rng, noise=0.5)
+    face(img, box_faces(0, 0, 7, 6, 9)["front"], ((1, 1), (5, 1)), (20, 14, 10, 255),
+         (((2, 4), (60, 30, 30, 255)), ((4, 4), (60, 30, 30, 255))))
+    for f in box_faces(40, 0, 1, 3, 1).values():
+        paint(img, f, ramp(hexc("#EEE8D8"), 5), rng)
+    for name, (x0, y0, w, h) in box_faces(0, 16, 8, 7, 12).items():
+        paint(img, (x0, y0, w, h), hide, rng, noise=0.5)
+        if name == "top":
+            paint(img, (x0 + 3, y0, 2, h), mane, rng)
+    for f in box_faces(0, 40, 3, 6, 3).values():
+        paint(img, f, hide, rng, noise=0.5)
+    return img
+
+
+def strider():
+    # A red, wrinkled body on two long grey legs. Body 16x14x16 @ (0,0), leg 4x16x4 @
+    # (0,32).
+    rng = random.Random("strider")
+    img = Img(64, 64, CLEAR)
+    red = ramp(hexc("#9A2E2E"), 5, spread=0.3)
+    for name, (x0, y0, w, h) in box_faces(0, 0, 16, 14, 16).items():
+        paint(img, (x0, y0, w, h), red, rng)
+        if name not in ("top", "bottom"):
+            for y in range(2, h, 3):
+                for x in range(w):
+                    if rng.random() < 0.7:
+                        img.set(x0 + x, y0 + y, red[1])
+    face(img, box_faces(0, 0, 16, 14, 16)["front"], ((4, 5), (5, 5), (10, 5), (11, 5)), (250, 220, 120, 255),
+         tuple(((x, 10), (40, 10, 10, 255)) for x in range(5, 11)))
+    for f in box_faces(0, 32, 4, 16, 4).values():
+        paint(img, f, ramp(hexc("#5A4A50"), 5, spread=0.25), rng)
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -410,7 +485,8 @@ def main():
     images = {"zombie": zombie(), "cow": cow(), "sheep": sheep(), "sheep_wool": sheep_wool(), "pig": pig(),
               "chicken": chicken(), "projectiles": projectiles(), "skeleton": skeleton(), "creeper": creeper(),
               "spider": spider(), "enderman": enderman(), "ghast": ghast(), "blaze": blaze(),
-              "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin()}
+              "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin(), "piglin": piglin(),
+              "hoglin": hoglin(), "strider": strider()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

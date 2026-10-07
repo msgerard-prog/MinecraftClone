@@ -24,7 +24,8 @@ enum class LootTable : uint8_t {
     StrongholdCrossing, // storerooms
     StrongholdLibrary,
     VillagePlainsHouse,
-    VillageDesertHouse
+    VillageDesertHouse,
+    PiglinBartering
 };
 
 struct LootEntry {
@@ -43,5 +44,7 @@ std::span<const LootPool> lootPools(LootTable table);
 // Rolls the table and puts each stack into a random empty slot (vanilla scatters
 // the loot through the chest).
 void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots);
+// One roll of a single-pool table (bartering); empty if it gave nothing.
+ItemStack rollOne(LootTable table, Xoroshiro& rng);
 
 } // namespace mc::world

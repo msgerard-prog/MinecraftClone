@@ -75,6 +75,8 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
         return m.angry || lightAt(ctx.world, m.pos, ctx.skyDarken) < 12;
     case MobType::Enderman: return m.angry; // only when stared at or hit
     case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
+    case MobType::Piglin: // hostile unless the player wears gold; babies never (wiki: Piglin)
+        return !m.isBaby() && m.admireTicks == 0 && (m.angry || !ctx.wearsGold);
     default: return true;
     }
 }

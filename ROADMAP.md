@@ -20,7 +20,7 @@ a new Nether generator kind, the old one stays for existing worlds):
 1. ✅ M19.1 — Nether biomes: crimson and warped forests (nylium, fungi, stems, wart
    blocks, shroomlights, vines), soul sand valley (soul soil, basalt pillars, bone
    fossils), basalt deltas (basalt, blackstone, magma); 3D multi-noise biomes.
-2. M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,
+2. ✅ M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,
    gold), zombified piglins, hoglins, striders; spawning per biome.
 3. M19.3 — Nether fortresses (bridges, corridors, blaze spawners, nether wart, loot)
    and bastion remnants (simplified, piglins, loot).

@@ -141,7 +141,11 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.vel.y = 0.2; // spiders climb walls (wiki: Spider)
         m.fallDistance = 0.0f;
     }
-    if (mobInfo(m.type).flies) {
+    if (m.type == MobType::Strider && fluid.lava) {
+        // Striders stand on lava (wiki): it holds them up like ground.
+        m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
+        m.onGround = true;
+    } else if (mobInfo(m.type).flies) {
         // Ghasts and blazes fly: velocity eases toward the wish (with its height), no
         // gravity (our motion model).
         m.vel = m.vel * 0.9 + wish * 0.1;
@@ -486,6 +490,12 @@ void Mobs::die(Context& ctx, MobData& m) {
             }
         }
         break;
+    case MobType::Piglin: break; // (drops only what it carries: nothing we model)
+    case MobType::Hoglin: // wiki: Hoglin - porkchop 2-4 (cooked when burning), leather 0-1
+        drop(burning ? "cooked_porkchop" : "porkchop", 2, 4);
+        drop("leather", 0, 1);
+        break;
+    case MobType::Strider: drop("string", 2, 5); break; // wiki: Strider
     case MobType::ZombifiedPiglin:
         drop("rotten_flesh", 0, 1);
         drop("gold_nugget", 0, 1);
