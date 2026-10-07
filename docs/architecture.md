@@ -237,5 +237,7 @@ when uploads get heavy); translucent sorting is per section, not per quad; Meshi
   (recipes, loot tables, tags). Both described in data-formats.md.
 - `third_party/glad` — generated GL loader (do not edit).
 - `cmake/` — `Dependencies.cmake` (pinned FetchContent), `Subsystem.cmake`
-  (`mc_add_subsystem`, warnings).
+  (`mc_add_subsystem`, warnings), `GenBuildInfo.cmake` + `BuildInfo.h.in` (version and
+  `git describe`, regenerated each build into `<build>/generated/BuildInfo.h`);
+  `src/MinecraftClone.rc` is the exe's Windows version resource.
 - `tools/` — WSL scripts; `tools/win/*.cmd` load the MSVC environment.
