@@ -48,6 +48,8 @@ public:
     // Positions changed here since the caller last cleared it (relight / re-mesh), and
     // items dropped by blocks that broke (dust losing its support, pushed torches).
     std::vector<BlockPos>& changed() { return m_changed; }
+    // Changes that don't affect light (dust power...): re-mesh only.
+    std::vector<BlockPos>& remeshOnly() { return m_remesh; }
     struct Drop {
         BlockPos pos;
         ItemStack stack;
@@ -82,6 +84,7 @@ private:
     BlockStateId at(const BlockPos& p) const { return m_world.getBlock(p); }
     void set(const BlockPos& p, BlockStateId s);    // with updates
     void setRaw(const BlockPos& p, BlockStateId s); // no updates (piston moves)
+    void record(const BlockPos& p, BlockStateId old, BlockStateId now);
     void afterChange(const BlockPos& p, BlockStateId old, BlockStateId now);
     void notifyNeighbours(const BlockPos& p);
     void neighbourChanged(const BlockPos& p);
@@ -113,6 +116,7 @@ private:
     std::vector<Due> m_due;
     std::vector<Event> m_events;
     std::vector<BlockPos> m_changed;
+    std::vector<BlockPos> m_remesh;
     std::vector<Drop> m_drops;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)
     std::vector<BlockStateId> m_pushStates;

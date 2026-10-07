@@ -107,6 +107,7 @@ Redstone::Redstone(World& world) : m_world(world) {
     m_due.reserve(1024);
     m_events.reserve(64);
     m_changed.reserve(256);
+    m_remesh.reserve(1024);
     m_drops.reserve(16);
     m_push.reserve(13);
     m_pushStates.reserve(13);
@@ -184,14 +185,24 @@ void Redstone::set(const BlockPos& p, BlockStateId s) {
     const BlockStateId old = at(p);
     if (old == s) return;
     m_world.setBlock(p, s);
-    m_changed.push_back(p);
+    record(p, old, s);
     afterChange(p, old, s);
 }
 
 void Redstone::setRaw(const BlockPos& p, BlockStateId s) {
-    if (at(p) == s) return;
+    const BlockStateId old = at(p);
+    if (old == s) return;
     m_world.setBlock(p, s);
-    m_changed.push_back(p);
+    record(p, old, s);
+}
+
+void Redstone::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    // Light only needs recomputing when emission or opacity changed (dust power,
+    // repeater and lever states only change the model).
+    const auto& r = R();
+    const bool light = r.lightEmission(old) != r.lightEmission(now) || r.lightOpacity(old) != r.lightOpacity(now) ||
+                       r.opaqueCube(old) != r.opaqueCube(now);
+    (light ? m_changed : m_remesh).push_back(p);
 }
 
 void Redstone::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {

@@ -297,6 +297,8 @@ int main(int argc, char** argv) {
     std::vector<mc::world::ChunkPos> litChunks;
     std::vector<mc::world::SectionPos> relitSections;
     std::vector<mc::world::BlockPos> frameEdits; // all block edits this frame (for lighting)
+    std::vector<mc::world::BlockPos> frameRemesh; // edits that don't change light: re-mesh at once
+    frameRemesh.reserve(1024);
     litChunks.reserve(256);
     relitSections.reserve(256);
     frameEdits.reserve(16);
@@ -733,6 +735,8 @@ int main(int argc, char** argv) {
             redstone.tick();
             frameEdits.insert(frameEdits.end(), redstone.changed().begin(), redstone.changed().end());
             redstone.changed().clear();
+            frameRemesh.insert(frameRemesh.end(), redstone.remeshOnly().begin(), redstone.remeshOnly().end());
+            redstone.remeshOnly().clear();
             for (const auto& d : redstone.drops())
                 droppedItems.spawn({d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5}, d.stack, gameRng);
             redstone.drops().clear();
@@ -802,6 +806,8 @@ int main(int argc, char** argv) {
                         editsReady);
         // Edited blocks are re-meshed once their light is current (no stale-light flash).
         renderer.onBlocksChanged(editsReady);
+        renderer.onBlocksChanged(frameRemesh);
+        frameRemesh.clear();
         renderer.onChunksUnloaded(unloadedChunks);
         renderer.onChunksLit(world, litChunks);
         renderer.onLightChanged(relitSections);

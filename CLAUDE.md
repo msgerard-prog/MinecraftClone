@@ -35,7 +35,7 @@ with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
 shift sneak / fly down, ctrl sprint, left click break (or hit the mob in front), right click place, 1-9 / wheel
-select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /summon /seed /help),
+select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /setblock /summon /seed /help),
 E inventory (creative: item list; survival: 2x2 crafting), Q drop item, right-click crafting
 table/furnace to use them (`--inventory` opens the inventory screen for screenshots). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.

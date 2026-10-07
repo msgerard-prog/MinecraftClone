@@ -94,3 +94,7 @@ above). Q drops the held item; `/kill` respawns you.
 Cows graze in grassy biomes and zombies come out in the dark (they burn in daylight);
 left-click a mob to hit it. `/summon zombie|cow [x y z]` spawns one; F3 shows how
 many hostile mobs are around.
+Redstone: dust (the `redstone` item), redstone torches, repeaters (right-click for the
+delay), levers and buttons (right-click), blocks of redstone, lamps and pistons work
+like vanilla's, including torch burnout, repeater locking and quasi-connectivity.
+`/setblock x y z <block>` places any block state, e.g. `repeater[facing=west,delay=3]`.

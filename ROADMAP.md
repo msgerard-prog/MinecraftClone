@@ -4,23 +4,26 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M10 done (reviews running): zombies and cows - mob data in chunks (saved in vanilla
-`entities/` region files), physics with step-up, wander/panic/chase AI, melee and
-knockback, daylight burning, death animation and loot, despawning, zombies spawning
-in the dark, cow herds with new grassy chunks; cuboid models with original 64x64
-textures, walk/head animation and hurt tint; player attacks; `/summon`.
-M9 done: survival, items, crafting, furnace. M8 done: overworld worldgen. M7: saves.
-M6: UI. M5: lighting/day-night.
+M11 done (reviews running): block updates (vanilla neighbour order) and scheduled
+block ticks (saved as `block_ticks`); redstone dust (power falloff, shapes, climbing,
+dot/cross), redstone torches (burnout), repeaters (delay, pulse extension, locking,
+tick priorities), levers, stone/oak buttons, blocks of redstone, lamps, pistons and
+sticky pistons (push limit 12, quasi-connectivity, instant moves); placement rules,
+right-click use, recipes, original-texture models; `/setblock`.
+M10 done: zombies and cows. M9: survival/crafting. M8: overworld. M7: saves. M6: UI.
+M5: lighting.
 
 ## Next
-M11 — Redstone (wiki: Redstone circuits, Redstone Dust, Redstone Torch, Repeater,
-Piston, Block update):
-1. M11.1 — Block updates: neighbour-change notifications and scheduled ticks
-   (saved in chunks as `block_ticks`), so placement/removal reaches neighbours.
-2. M11.2 — Power model: strong/weak power, redstone dust (levels 0-15, connections,
-   models), lever, button, redstone block, lamp.
-3. M11.3 — Redstone torch (inversion, burnout) and repeater (delay 1-4, locking).
-4. M11.4 — Pistons and sticky pistons (push limit 12, moving block, update order).
+M12 — Dimensions: Nether and End, portals (wiki: The Nether, The End, Nether Portal,
+End Portal):
+1. M12.1 — Dimension model: a World per dimension with its own region folder
+   (vanilla `DIM-1/`, `DIM1/`), level.dat player dimension, sky/fog per dimension.
+2. M12.2 — Nether generator: netherrack terrain with the 3D noise ceiling, lava sea at
+   Y 31, bedrock floor/roof, soul sand/gravel, glowstone, nether quartz ore (subset).
+3. M12.3 — Nether portals: obsidian frames, lighting with flint and steel, the portal
+   block, 4-second travel, 8:1 coordinates, portal search/creation.
+4. M12.4 — The End: end stone island, obsidian pillars, exit portal; end portal
+   frames + eyes of ender (subset), travel and return.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -120,7 +123,7 @@ and GUI textures are made with their systems.
 | M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | ✅ 2026-10-07 (aquifers, biome subset: see deviations) |
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | ✅ 2026-10-07 (recipes authored from the wiki, not vanilla JSON) |
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | ✅ 2026-10-07 (zombie + cow, no pathfinding: see deviations) |
-| M11 | Redstone: power, dust, torches, repeaters, pistons, update order | Classic circuits behave like vanilla |
+| M11 | Redstone: power, dust, torches, repeaters, pistons, update order | ✅ 2026-10-07 (no comparators/observers; instant piston moves: see deviations) |
 | M12 | Dimensions: Nether and End, portals | Can travel to both |
 
 ## Backlog (unscheduled)
@@ -132,6 +135,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M11: block updates, scheduled ticks, redstone components, pistons.
 - 2026-10-07 M10: zombies and cows (AI, spawning, saving, models, attacks).
 - 2026-10-07 M9: survival, items, crafting, furnace.
 - 2026-10-07 M8: overworld generator, biomes, snow, ores, trees.

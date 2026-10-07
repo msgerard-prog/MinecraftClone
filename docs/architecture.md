@@ -123,6 +123,18 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   are unchanged). `rendering/MobModels` holds the cuboid models (vanilla box-UV
   layout on our own 64×64 skins, `tools/textures/gen_entities.py`); `EntityRenderer`
   draws them with world light, limb swing, head look, death tilt and the hurt tint.
+- Block updates and redstone (M11, `world/Redstone`): gameplay edits go through
+  `World::updateBlock`, which tells the listener (`Redstone`); it notifies the six
+  neighbours in vanilla order (W, E, down, up, N, S) and lets components reach
+  further (dust and torches: neighbours' neighbours). Scheduled block ticks live in
+  their chunk (`Chunk::blockTicks`, saved as `block_ticks`, one pending per block)
+  and run each game tick by time, priority and scheduling order; piston moves are
+  block events after them. Power: `weak`/`strong` per component, conductors pass
+  strong power on, dust reads other dust only directly (`m_wiresMuted`). Main sets
+  the time at the start of each tick, runs `tick()` after player actions and before
+  mobs, and drains `changed()` (relight/re-mesh) and `drops()`. Models are in
+  `rendering/BlockModelsRedstone.cpp` (rotated boxes; dust tinted by power through
+  palette slots 238-253).
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.
