@@ -317,6 +317,20 @@ BlockRegistry buildVanillaBlocks() {
     BlockSettings cane = kPlant;
     cane.randomTicks = true;
     check(r.add("sugar_cane", cane, {{&age, "0"}}), blocks::SugarCane);
+    // M18.1 vegetation (wiki: Cactus 0.4, Pumpkin 1.0, Mushroom 0 - the brown one gives
+    // light 1). The cactus collides as a full cube here (vanilla: 14/16 wide, 15/16 tall).
+    check(r.add("cactus",
+                {.hardness = 0.4f, .resistance = 0.4f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                 .randomTicks = true},
+                {{&age, "0"}}),
+          blocks::Cactus);
+    check(r.add("pumpkin", {.hardness = 1.0f, .resistance = 1.0f}), blocks::Pumpkin);
+    BlockSettings mushroom = kPlant;
+    mushroom.randomTicks = true;
+    BlockSettings brownMushroom = mushroom;
+    brownMushroom.lightEmission = 1;
+    check(r.add("brown_mushroom", brownMushroom), blocks::BrownMushroom);
+    check(r.add("red_mushroom", mushroom), blocks::RedMushroom);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

@@ -86,6 +86,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::CraftingTable:
     case blocks::Chest:
     case blocks::Bookshelf:
+    case blocks::Pumpkin:
     case blocks::RedBed: return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
     // Hoe (leaves).
     case blocks::OakLeaves:

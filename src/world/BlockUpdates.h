@@ -92,6 +92,11 @@ public:
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
     static bool sugarCaneCanStay(const World& world, const BlockPos& p);
+    // M18.1: a cactus stands on cactus or sand with nothing solid (or lava) beside it;
+    // a mushroom on a solid block where the light (sky or block, not dimmed by night)
+    // is below 13 (wiki: Cactus, Mushroom).
+    static bool cactusCanStay(const World& world, const BlockPos& p);
+    static bool mushroomCanStay(const World& world, const BlockPos& p);
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
     static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
     static Direction chestClockwise(Direction facing);

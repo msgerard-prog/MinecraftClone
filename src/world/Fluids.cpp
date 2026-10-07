@@ -58,6 +58,8 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::AzureBluet:
     case B::OxeyeDaisy:
     case B::DeadBush:
+    case B::BrownMushroom:
+    case B::RedMushroom:
     case B::Snow:
     case B::Torch:
     case B::RedstoneWire:

@@ -219,7 +219,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             const auto ends = [&](std::string_view s) { return name.ends_with(s); };
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
-                "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling"};
+                "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
+                "brown_mushroom", "red_mushroom"};
             if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
                 // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
@@ -233,6 +234,23 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("oak_planks");
                 v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
                 m = single(v);
+            } else if (name == "pumpkin") { // vanilla: cube_column, the stem end on top and bottom
+                m = single(cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y"));
+            } else if (name == "cactus") {
+                // Vanilla: sides inset 1/16 (the spikes stick out of the texture), full
+                // top and bottom.
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = 1, b.from[1] = 0, b.from[2] = 1;
+                b.to[0] = 15, b.to[1] = 16, b.to[2] = 15;
+                for (int d = 0; d < 6; ++d) {
+                    auto& face = b.faces[d];
+                    face.sprite = sprite(d == int(Direction::Up)     ? "cactus_top"
+                                         : d == int(Direction::Down) ? "cactus_bottom"
+                                                                     : "cactus_side");
+                    face.uv[0] = 0, face.uv[1] = 0, face.uv[2] = 16, face.uv[3] = 16;
+                }
             } else if (name == "sugar_cane") { // a cross, tinted like grass (vanilla)
                 m.visible = true;
                 m.cross = true;

@@ -177,6 +177,11 @@ enum : BlockId {
     DamagedAnvil,
     IronBlock,
     SugarCane, // age 0..15
+    // Overworld 2 vegetation (M18.1).
+    Cactus, // age 0..15
+    Pumpkin,
+    BrownMushroom,
+    RedMushroom,
     Count
 };
 } // namespace blocks

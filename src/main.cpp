@@ -1084,6 +1084,10 @@ int main(int argc, char** argv) {
                         vitals.setOnFire(300); // 15 s
                     }
                     vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
+                    // Touching a cactus (beside or on top) hurts 1 (wiki: Cactus); our
+                    // cactus collides as a full cube, so the box reaches out a hair.
+                    if (mc::portals::touching(world, player.box().inflated(0.001), mc::world::blocks::Cactus))
+                        vitals.attacked(1.0f);
                     vitals.tickFire(player.inWater());
                 }
             }

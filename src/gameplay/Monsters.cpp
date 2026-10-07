@@ -49,7 +49,11 @@ bool holdable(BlockId b) {
     case blocks::Poppy:
     case blocks::Cornflower:
     case blocks::AzureBluet:
-    case blocks::OxeyeDaisy: return true;
+    case blocks::OxeyeDaisy:
+    case blocks::Cactus: // (wiki: Enderman › #enderman_holdable)
+    case blocks::Pumpkin:
+    case blocks::BrownMushroom:
+    case blocks::RedMushroom: return true;
     default: return false;
     }
 }

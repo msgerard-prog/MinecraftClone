@@ -95,6 +95,9 @@ Push pushKind(BlockStateId s) {
     case B::AzureBluet:
     case B::OxeyeDaisy:
     case B::DeadBush:
+    case B::BrownMushroom:
+    case B::RedMushroom:
+    case B::Cactus:
     case B::Snow:
     case B::Water:
     case B::Lava:
@@ -240,6 +243,27 @@ bool BlockUpdates::sugarCaneCanStay(const World& world, const BlockPos& p) {
     return false;
 }
 
+bool BlockUpdates::cactusCanStay(const World& world, const BlockPos& p) {
+    const BlockId below = blockOf(world.getBlock({p.x, p.y - 1, p.z}));
+    if (below != B::Cactus && below != B::Sand && below != B::RedSand) return false;
+    for (const Direction d : kHorizontal) {
+        const BlockStateId n = world.getBlock(rel(p, d));
+        if (R().collides(n) || blockOf(n) == B::Lava) return false;
+    }
+    return true;
+}
+
+bool BlockUpdates::mushroomCanStay(const World& world, const BlockPos& p) {
+    const BlockPos below{p.x, p.y - 1, p.z};
+    if (!R().opaqueCube(world.getBlock(below))) return false;
+    // Unlit chunks (just generated, light not computed yet) count as dark.
+    const Chunk* c = world.chunk(p.chunk());
+    if (!c || !c->lit() || !world.isInHeight(p.y)) return true;
+    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    const int sky = world.hasSkyLight() ? c->skyLight(x, p.y, z) : 0;
+    return std::max<int>(sky, c->blockLight(x, p.y, z)) < 13;
+}
+
 bool BlockUpdates::replaceable(BlockStateId s) {
     // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
     // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
@@ -280,7 +304,7 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
     if (blockOf(old) == blockOf(now) && (isLeaves(blockOf(now)) || blockOf(now) == B::Fire ||
                                          blockOf(now) == B::OakSapling || blockOf(now) == B::BirchSapling ||
                                          blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling ||
-                                         blockOf(now) == B::SugarCane))
+                                         blockOf(now) == B::SugarCane || blockOf(now) == B::Cactus))
         return;
     // Farmland moisture below 7 looks the same; carrots/potatoes share a texture
     // across ages 0-1, 2-3, 4-6.
@@ -500,6 +524,13 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     case B::SugarCane:
         if (!sugarCaneCanStay(m_world, p)) pop(p);
+        break;
+    case B::Cactus:
+        if (!cactusCanStay(m_world, p)) pop(p);
+        break;
+    case B::BrownMushroom:
+    case B::RedMushroom:
+        if (!R().opaqueCube(at(rel(p, Direction::Down)))) pop(p); // (light is checked on placing and spreading)
         break;
     case B::OakLeaves:
     case B::BirchLeaves:
@@ -964,6 +995,13 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     }
     case B::SugarCane:
         if (!sugarCaneCanStay(world, at)) return std::nullopt;
+        return state;
+    case B::Cactus:
+        if (!cactusCanStay(world, at)) return std::nullopt;
+        return state;
+    case B::BrownMushroom:
+    case B::RedMushroom:
+        if (!mushroomCanStay(world, at)) return std::nullopt;
         return state;
     case B::Anvil:
     case B::ChippedAnvil:

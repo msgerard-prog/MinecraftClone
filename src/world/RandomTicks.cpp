@@ -151,6 +151,49 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
         }
         break;
     case B::Farmland: tickFarmland(p, s); break;
+    case B::Cactus: {
+        // As sugar cane: age +1 a random tick, a new piece on top at 15, 3 tall at most;
+        // a piece that can't stand there breaks at once (wiki: Cactus).
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (!m_world.isInHeight(up.y) || at(up) != 0) break;
+        int height = 1;
+        while (height < 3 && blockOf(at({p.x, p.y - height, p.z})) == B::Cactus)
+            ++height;
+        if (height >= 3) break;
+        const int a = R().get(s, age);
+        if (a < 15) {
+            setRaw(p, R().set(s, age, a + 1));
+            break;
+        }
+        setRaw(p, R().set(s, age, 0));
+        set(up, R().defaultState(B::Cactus));
+        if (!cactusCanStay(m_world, up)) pop(up);
+        break;
+    }
+    case B::BrownMushroom:
+    case B::RedMushroom: {
+        // 1 in 25: unless 5 of the same kind are within 9x3x9, wander 4 steps of +-1
+        // and grow where it may stand (wiki: Mushroom › Spreading).
+        if (m_random.nextInt(25) != 0) break;
+        const BlockId kind = blockOf(s);
+        int room = 5;
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dz = -4; dz <= 4; ++dz)
+                for (int dx = -4; dx <= 4; ++dx)
+                    if (blockOf(at({p.x + dx, p.y + dy, p.z + dz})) == kind && --room <= 0) return;
+        auto step = [&](const BlockPos& from) {
+            const int dx = int(m_random.nextInt(3)) - 1, dz = int(m_random.nextInt(3)) - 1;
+            const int dy = int(m_random.nextInt(2)) - int(m_random.nextInt(2));
+            return BlockPos{from.x + dx, from.y + dy, from.z + dz};
+        };
+        BlockPos from = p, to = step(p);
+        for (int k = 0; k < 4; ++k) {
+            if (m_world.isInHeight(to.y) && at(to) == 0 && mushroomCanStay(m_world, to)) from = to;
+            to = step(from);
+        }
+        if (m_world.isInHeight(to.y) && at(to) == 0 && mushroomCanStay(m_world, to)) set(to, R().defaultState(kind));
+        break;
+    }
     case B::SugarCane: {
         // Grows on the top piece: age +1 a random tick, a new piece at 15, 3 tall at
         // most (wiki: Sugar Cane).
