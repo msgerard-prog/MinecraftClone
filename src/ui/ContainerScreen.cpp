@@ -215,14 +215,15 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
 
 void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
                             Inventory& inventory, std::vector<world::ItemStack>& drops) {
-    // Taking smelted items pays out the experience the furnace stored (wiki: Furnace).
+    // Taking smelted items out pays the experience of every recipe the furnace used
+    // since the last take (vanilla RecipesUsed, wiki: Furnace): the counts move here
+    // and main turns them into orbs at the player.
     const int outBefore = m_type == Type::Furnace && m_furnace ? m_furnace->output.count : 0;
     clickSlots(mx, my, button, shift, guiWidth, guiHeight, inventory, drops);
-    if (m_type == Type::Furnace && m_furnace && m_furnace->output.count < outBefore && m_furnace->experience > 0.0f) {
-        m_xpFraction += m_furnace->experience;
-        m_furnace->experience = 0.0f;
-        m_experience += int(m_xpFraction);
-        m_xpFraction -= float(int(m_xpFraction));
+    if (m_type == Type::Furnace && m_furnace && m_furnace->output.count < outBefore) {
+        for (const auto& u : m_furnace->recipesUsed)
+            if (u.recipe != world::kNoRecipe) m_takenRecipes.countRecipe(u.recipe, u.count);
+        m_furnace->recipesUsed = {};
     }
 }
 

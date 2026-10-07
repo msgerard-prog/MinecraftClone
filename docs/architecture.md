@@ -119,7 +119,8 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   placing uses items, eating), `ItemEntities` (dropped stacks: physics, pickup,
   despawn; pooled), `Recipes` (crafting/smelting/fuel tables authored from the
   wiki), `Furnace` rules over `world::FurnaceData` block entities stored in their
-  chunk (saved as block_entities, ticked each game tick by main).
+  chunk (saved as block_entities, ticked each game tick by main). Furnaces count
+  recipe uses (vanilla RecipesUsed) by interned recipe id (`world/RecipeIds`).
 - Mobs (M10): `world::MobData` values (zombie, cow; `world/Mob`) live in their
   chunk's `mobs()` and are saved with it (`entities/` region files). `World` keeps a
   ticking list (`markTicking`, `forEachTickingChunk`) of chunks with furnaces or mobs.

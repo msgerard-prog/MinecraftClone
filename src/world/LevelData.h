@@ -14,11 +14,21 @@ namespace mc::world {
 // WorldGenSettings.seed, Player {Pos, Rotation, abilities, Inventory}) plus our own
 // "MinecraftClone" compound for settings vanilla stores differently (generator kind).
 // Hotbar block states use vanilla's item component "minecraft:block_state".
+// Our save-format generation, kept in level.dat's MinecraftClone compound ("format")
+// and on every chunk we write ("clone_format"). 0 = worlds from before v0.17.1, whose
+// chunks may hold placed leaves saved as `distance=7, persistent=false` (placing
+// didn't set persistent before v0.15.0): ChunkStorage upgrades those when a chunk
+// without the chunk tag is loaded (see chunkFromNbt).
+inline constexpr int32_t kCloneFormat = 1;
+
 struct LevelData {
     std::string name = "New World";
     uint64_t seed = 0;
     bool flat = false;                 // the superflat test world
     std::string generator = "overworld"; // non-flat: "overworld" (M8) or "terrain" (M3 placeholder)
+    // The format the world was created with (kept across saves; see kCloneFormat).
+    // Vanilla worlds (no MinecraftClone compound) count as current: nothing to upgrade.
+    int32_t cloneFormat = kCloneFormat;
     int64_t dayTime = 0;
     int64_t gameTime = 0;
     int32_t spawn[3] = {0, 64, 0}; // world spawn (fixed at creation; SpawnX/Y/Z)

@@ -109,3 +109,40 @@ TEST_CASE("crafting: copper tools from copper ingots") {
     std::array<ItemStack, 9> pick = {c, c, c, e, s, e, e, s, e};
     CHECK(out(pick, 3) == "minecraft:copper_pickaxex1");
 }
+
+TEST_CASE("smelting recipes carry vanilla ids: ores per input, tag recipes after the output") {
+    CHECK(recipeIdName(smeltRecipe(I("raw_iron"))) == "minecraft:iron_ingot_from_smelting_raw_iron");
+    CHECK(recipeIdName(smeltRecipe(I("deepslate_gold_ore"))) == "minecraft:gold_ingot_from_smelting_deepslate_gold_ore");
+    CHECK(recipeIdName(smeltRecipe(I("sand"))) == "minecraft:glass");
+    CHECK(smeltRecipe(I("sand")) == smeltRecipe(I("red_sand"))); // one recipe (#smelts_to_glass)
+    CHECK(recipeIdName(smeltRecipe(I("oak_log"))) == "minecraft:charcoal");
+    CHECK(recipeIdName(smeltRecipe(I("beef"))) == "minecraft:cooked_beef");
+    CHECK(smeltRecipe(I("stick")) == kNoRecipe);
+    CHECK(recipeExperience(smeltRecipe(I("raw_gold"))) == doctest::Approx(1.0f));
+}
+
+TEST_CASE("furnace: smelting counts recipe uses; taking pays uses x experience, fraction by chance") {
+    Furnace f;
+    f.input = I("raw_iron", 2);
+    f.fuel = I("coal");
+    for (int t = 0; t < 2 * kFurnaceCookTicks + 2; ++t)
+        tickFurnace(f);
+    REQUIRE(f.output.count == 2);
+    CHECK(f.recipesUsed[0].recipe == smeltRecipe(I("raw_iron")));
+    CHECK(f.recipesUsed[0].count == 2);
+    // 2 x 0.7 = 1.4: always 1 point, a second 40% of the time.
+    Xoroshiro rng(7);
+    int twos = 0;
+    for (int i = 0; i < 1000; ++i) {
+        const int xp = recipesExperience(f.recipesUsed, rng);
+        CHECK((xp == 1 || xp == 2));
+        twos += xp == 2;
+    }
+    CHECK(twos > 330);
+    CHECK(twos < 470);
+    CHECK(takeFurnaceExperience(f, rng) >= 1);
+    CHECK(f.recipesUsed[0].recipe == kNoRecipe); // paid out once
+    // Recipes we don't have (from vanilla worlds) pay nothing.
+    f.countRecipe(internRecipeId("minecraft:unknown_recipe"), 5);
+    CHECK(takeFurnaceExperience(f, rng) == 0);
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Items.h"
+#include "world/RecipeIds.h"
 
 #include <optional>
 #include <span>
@@ -34,6 +35,10 @@ std::optional<world::ItemStack> smelt(const world::ItemStack& input);
 // Experience a smelted item stores in the furnace (wiki: Smelting): ores 0.7-1.0,
 // food 0.35, glass/stone 0.1...
 float smeltExperience(const world::ItemStack& input);
+// The smelting recipe an input uses (its vanilla id, world/RecipeIds.h), kNoRecipe if none.
+world::RecipeId smeltRecipe(const world::ItemStack& input);
+// A recipe's experience per use; 0 for recipes we don't have.
+float recipeExperience(world::RecipeId recipe);
 int fuelTicks(const world::ItemStack& fuel);
 
 } // namespace mc

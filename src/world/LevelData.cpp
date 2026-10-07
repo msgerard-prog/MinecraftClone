@@ -183,6 +183,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
 
     Compound ours;
     ours.put("generator", flat ? std::string("flat") : generator);
+    ours.put("format", cloneFormat);
     std::vector<Tag> portalTags;
     for (const Portal& p : portals) {
         Compound c;
@@ -259,6 +260,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     if (const Compound* gen = data->compound("WorldGenSettings"))
         l.seed = static_cast<uint64_t>(gen->integer("seed").value_or(0));
     if (const Compound* ours = data->compound("MinecraftClone")) {
+        l.cloneFormat = static_cast<int32_t>(ours->integer("format").value_or(0)); // missing: before v0.17.1
         if (auto g = ours->string("generator")) {
             l.flat = *g == "flat";
             if (!l.flat) l.generator = *g;

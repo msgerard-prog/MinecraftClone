@@ -7,7 +7,9 @@ Milestone details live here; design detail lives in `docs/`.
 M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
 cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
 explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
-table, anvils. M16 falling blocks and mobs 2 (v0.16.0); M1-M15 done.
+table, anvils. v0.17.1: furnaces store vanilla's RecipesUsed (experience paid as orbs
+on taking or breaking), leaves placed before v0.15.0 load persistent (level.dat
+`format` + chunk `clone_format`). M16 falling blocks and mobs 2 (v0.16.0); M1-M15 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
@@ -105,18 +107,15 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M17 save note:** a furnace's stored experience is saved in our own block-entity
-  tag `clone_experience` (vanilla stores per-recipe counts in RecipesUsed, which we
-  can't map yet); vanilla ignores the tag, so nothing breaks. OK, or drop it?
+- **v0.17.1 check:** in vanilla 1.21.11, type `/recipe give @s ` and look at the
+  suggestions: are the smelting ids `minecraft:iron_ingot_from_smelting_raw_iron`,
+  `minecraft:glass`, `minecraft:charcoal`, `minecraft:quartz` (ours, in furnaces'
+  RecipesUsed)? A wrong id only means vanilla pays no experience for that recipe.
 - **M17 note (worldgen):** sugar cane exists (paper -> books -> enchanting) but isn't
   generated yet; per the 2026-10-07 decision it arrives with M18's new Overworld
   generator kind (old worlds keep their generator and pinned hash). Say if you'd
   rather have it sooner.
-- **M15 question (save compatibility):** leaves you placed in worlds saved before
-  v0.15.0 were stored as `distance=7, persistent=false` (placement didn't set
-  persistent yet), so they now decay. Shall I add a one-time load upgrade that marks
-  such leaves persistent in old saves (needs a marker tag in level.dat: a save-format
-  change), or accept the loss? Also in-game: does grass under one block of still water
+- **M15 in-game checks:** does grass under one block of still water
   in sunlight turn to dirt; how long does a sapling take to grow at light 15?
 - **M14 checks:** empty the air bar under water, surface and time the refill (ours
   3.75 s; the wiki text suggests 2 s). Time a 10-block sink and rise in deep still

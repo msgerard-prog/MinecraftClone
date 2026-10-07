@@ -62,8 +62,11 @@ public:
 
     void setFurnace(Furnace* furnace) { m_furnace = furnace; }
     const world::ItemStack& carried() const { return m_carried; }
-    // Experience earned by taking smelted items out of a furnace (paid in points).
-    int takeExperience() { return std::exchange(m_experience, 0); }
+    // Recipe uses whose experience was earned by taking smelted items out of a
+    // furnace since the last call (main pays them with recipesExperience).
+    std::array<world::FurnaceData::RecipeUse, 16> takeRecipes() {
+        return std::exchange(m_takenRecipes.recipesUsed, {});
+    }
     const world::ItemStack& result() const { return m_result; }
     const world::ItemStack& grid(int i) const { return m_grid[size_t(i)]; }
 
@@ -92,12 +95,11 @@ private:
     std::array<world::ItemStack, 9> m_grid{};
     world::ItemStack m_result;
     world::ItemStack m_carried;
-    int m_experience = 0;
+    world::FurnaceData m_takenRecipes; // (only its recipesUsed)
     int m_bookshelves = 0, m_levels = 0, m_levelsSpent = 0, m_anvilCost = 0;
     uint64_t m_seed = 0;
     bool m_creative = false, m_enchanted = false, m_anvilUsed = false, m_anvilTooExpensive = false;
     int m_anvilMaterial = 1;
-    float m_xpFraction = 0.0f; // (fractions carry over, vanilla rounds them by chance)
 };
 
 } // namespace mc::ui

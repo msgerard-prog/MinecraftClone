@@ -41,8 +41,10 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk);
 // Fills `chunk` (already at the right position) from NBT. Unknown blocks become air
 // (counted in `unknownBlocks`); unknown properties or values of a known block are
 // ignored (that property keeps its default). Light is not read: it is recomputed on load.
-// Returns false if the NBT isn't a chunk at that position.
-bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = nullptr);
+// Returns false if the NBT isn't a chunk at that position. `legacyWorld`: the world's
+// level.dat predates kCloneFormat 1 (chunks without "clone_format" get their placed
+// leaves made persistent; see LevelData.h).
+bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = nullptr, bool legacyWorld = false);
 
 // The chunk's entities file (wiki: Entity format, 1.17+ entities/ region files):
 // { DataVersion, Position [I; x, z], Entities [ {id, Pos, Motion, Rotation, Health,

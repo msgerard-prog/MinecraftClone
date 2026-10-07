@@ -1,8 +1,10 @@
 #pragma once
 
 #include "world/Items.h"
+#include "world/RecipeIds.h"
 
 #include <array>
+#include <climits>
 
 namespace mc::world {
 
@@ -14,8 +16,25 @@ struct FurnaceData {
     int burnDuration = 0; // of the current fuel (flame gauge)
     int cookTime = 0;     // progress on the current item
     ItemId cooking = 0;   // the input kind being cooked (a different item restarts)
-    float experience = 0.0f; // stored by smelting, paid out when the output is taken
+    // Vanilla's RecipesUsed (wiki: Furnace › Block data): how often each recipe was
+    // used since the output was last taken. The experience is worked out from these
+    // counts when the player takes the output (gameplay/Furnace). A furnace sees only
+    // a few recipes between takes; past 16 at once, new recipes aren't counted.
+    struct RecipeUse {
+        RecipeId recipe = kNoRecipe;
+        int32_t count = 0;
+    };
+    std::array<RecipeUse, 16> recipesUsed{};
     bool lit() const { return burnLeft > 0; }
+    void countRecipe(RecipeId recipe, int32_t n = 1) {
+        if (recipe == kNoRecipe || n <= 0) return;
+        for (RecipeUse& u : recipesUsed)
+            if (u.recipe == recipe || u.recipe == kNoRecipe) {
+                u.recipe = recipe;
+                u.count = u.count > INT32_MAX - n ? INT32_MAX : u.count + n;
+                return;
+            }
+    }
 };
 
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.

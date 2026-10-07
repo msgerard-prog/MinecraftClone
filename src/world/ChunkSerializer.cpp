@@ -3,6 +3,8 @@
 #include "core/Log.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
+#include "world/LevelData.h"
+#include "world/RecipeIds.h"
 
 #include <algorithm>
 #include <bit>
@@ -235,6 +237,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("Status", std::string("minecraft:full")); // 1.21.11 (renamed "status" only in 26.4)
     root.put("LastUpdate", chunk.gameTime); // game tick of this save
     root.put("InhabitedTime", int64_t{0});
+    root.put("clone_format", kCloneFormat); // our tag (vanilla ignores it): see kCloneFormat
     bool lit = true;
     for (int s = 0; s < chunk.height.sections(); ++s)
         lit = lit && chunk.light[size_t(s)] != nullptr;
@@ -348,7 +351,10 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("cooking_total_time", int16_t{200});
         // Experience stored by smelting (vanilla keeps per-recipe counts in RecipesUsed;
         // we keep the total in our own tag, which vanilla ignores).
-        if (f.data.experience > 0.0f) e.put("clone_experience", f.data.experience);
+        nbt::Compound used; // RecipesUsed: recipe id -> times used (vanilla)
+        for (const FurnaceData::RecipeUse& u : f.data.recipesUsed)
+            if (u.recipe != kNoRecipe) used.put(recipeIdName(u.recipe), u.count);
+        e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
     for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
@@ -401,8 +407,13 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     return root;
 }
 
-bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
+bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, bool legacyWorld) {
     const auto& reg = blockRegistry();
+    // A chunk of a pre-v0.17.1 world that wasn't saved since: placed leaves were stored
+    // as distance=7, persistent=false (before v0.15.0) and would now decay. Generated
+    // and grown leaves always carry a real distance (1..6), so distance 7 non-persistent
+    // can only be placed leaves (or leaves about to decay anyway): made persistent.
+    const bool upgradeLeaves = legacyWorld && !root.integer("clone_format");
     if (root.integer("xPos") != chunk.pos().x || root.integer("zPos") != chunk.pos().z)
         return false;
     const nbt::List* sections = root.list("sections");
@@ -455,6 +466,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             if (entry) {
                 std::string text = paletteText(*entry);
                 if (text.starts_with("minecraft:")) text.erase(0, 10);
+                if (upgradeLeaves && text.ends_with("_leaves[distance=7,persistent=false]"))
+                    text.replace(text.size() - 6, 5, "true");
                 st = reg.parse(text);
                 if (!st) { // lenient: known block, unknown property or value
                     const std::string* name = entry->string("Name");
@@ -527,7 +540,15 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             f.burnDuration = static_cast<int>(e->integer("lit_total_time").value_or(f.burnLeft));
             f.cookTime = field("cooking_time_spent", "CookTime");
             f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
-            f.experience = std::clamp(float(e->real("clone_experience").value_or(0.0)), 0.0f, 1.0e6f);
+            if (const nbt::Compound* used = e->compound("RecipesUsed"))
+                for (const auto& u : used->entries)
+                    if (const auto n = used->integer(u.name); n && *n > 0)
+                        f.countRecipe(internRecipeId(u.name), static_cast<int32_t>(std::min<int64_t>(*n, INT32_MAX)));
+            // v0.17.0 kept the stored experience as a number (clone_experience): kept as
+            // uses of the cobblestone -> stone recipe (0.1 each), which pays the same.
+            if (const auto old = e->real("clone_experience"); old && *old > 0.0)
+                f.countRecipe(internRecipeId("minecraft:stone"),
+                              static_cast<int32_t>(std::lround(std::min(*old, 1.0e6) * 10.0)));
         }
     chunk.blockTicks().clear();
     uint64_t order = 0;

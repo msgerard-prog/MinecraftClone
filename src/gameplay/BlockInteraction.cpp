@@ -1,5 +1,7 @@
 #include "gameplay/BlockInteraction.h"
 
+#include "gameplay/Furnace.h"
+
 #include "gameplay/Mining.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
@@ -182,6 +184,11 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 for (const world::ItemStack& d : m_dropScratch)
                     drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
                 dropContents(world, hit->block, &drops);
+                // A broken furnace releases the experience it stored (vanilla).
+                if (world::Chunk* fc = world.chunk(hit->block.chunk()))
+                    if (world::FurnaceData* f =
+                            fc->furnace(world::blockToLocal(hit->block.x), hit->block.y, world::blockToLocal(hit->block.z)))
+                        m_experience += takeFurnaceExperience(*f, rng);
                 world.updateBlock(hit->block, 0);
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block

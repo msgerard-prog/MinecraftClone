@@ -3,6 +3,8 @@
 #include "gameplay/Recipes.h"
 
 #include <algorithm>
+#include <climits>
+#include <cmath>
 
 namespace mc {
 
@@ -33,7 +35,7 @@ bool tickFurnace(Furnace& f) {
             f.cookTime = 0;
             if (f.output.empty()) f.output = *result;
             else f.output.count = static_cast<uint8_t>(f.output.count + result->count);
-            f.experience += smeltExperience(f.input);
+            f.countRecipe(smeltRecipe(f.input)); // RecipesUsed: the experience is paid on taking
             if (--f.input.count == 0) f.input = {};
         }
     } else if (!f.lit() && f.cookTime > 0) {
@@ -42,6 +44,26 @@ bool tickFurnace(Furnace& f) {
         f.cookTime = 0;
     }
     return wasLit != f.lit();
+}
+
+int recipesExperience(std::span<const world::FurnaceData::RecipeUse> used, world::Xoroshiro& rng) {
+    // Each recipe pays its experience times the number of uses; the whole part is
+    // given, the fraction is the chance of one more point (wiki: Smelting).
+    int64_t total = 0;
+    for (const world::FurnaceData::RecipeUse& u : used) {
+        if (u.recipe == world::kNoRecipe || u.count <= 0) continue;
+        const double xp = double(u.count) * double(recipeExperience(u.recipe));
+        const double whole = std::floor(xp);
+        total += static_cast<int64_t>(whole);
+        if (xp > whole && rng.nextFloat() < float(xp - whole)) ++total;
+    }
+    return static_cast<int>(std::min<int64_t>(total, INT32_MAX));
+}
+
+int takeFurnaceExperience(Furnace& f, world::Xoroshiro& rng) {
+    const int xp = recipesExperience(f.recipesUsed, rng);
+    f.recipesUsed = {};
+    return xp;
 }
 
 } // namespace mc

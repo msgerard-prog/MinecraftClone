@@ -166,15 +166,30 @@ std::optional<ItemStack> smeltByName(std::string_view n);
 int fuelByName(std::string_view n, const ItemDef& def);
 float smeltExperienceByName(std::string_view n);
 
+// A smelting recipe's id, as vanilla names them (shown by /recipe; stored in a
+// furnace's RecipesUsed): recipes with one kind of input, or a tag of inputs
+// (glass from #smelts_to_glass, charcoal from #logs_that_burn), are named after the
+// output; ore and raw-metal recipes, of which each output has several, are
+// "<output>_from_smelting_<input>" (one per input; quartz has only one).
+std::string smeltRecipeName(std::string_view input, std::string_view output) {
+    std::string id = "minecraft:" + std::string(output);
+    if ((input.starts_with("raw_") || input.ends_with("_ore")) && output != "quartz")
+        id += "_from_smelting_" + std::string(input);
+    return id;
+}
+
 struct ItemTables {
     std::vector<uint8_t> tags;
     std::vector<ItemStack> smelt; // empty stack: not smeltable
     std::vector<int> fuel;
+    std::vector<world::RecipeId> smeltRecipe; // per input item
+    std::vector<float> recipeXp;              // per recipe id (our smelting recipes)
     ItemTables() {
         const auto& items = itemRegistry();
         tags.resize(items.count());
         smelt.resize(items.count());
         fuel.resize(items.count());
+        smeltRecipe.resize(items.count());
         for (size_t i = 1; i < items.count(); ++i) {
             const std::string_view n = nameOf(static_cast<ItemId>(i));
             tags[i] = static_cast<uint8_t>((n.ends_with("_planks") ? kTagPlanks : 0) |
@@ -182,6 +197,13 @@ struct ItemTables {
                                            (n == "coal" || n == "charcoal" ? kTagCoal : 0) |
                                            (n == "cobblestone" ? kTagStoneTool : 0));
             smelt[i] = smeltByName(n).value_or(ItemStack{});
+            if (!smelt[i].empty()) {
+                std::string_view out = nameOf(smelt[i].item);
+                const world::RecipeId r = world::internRecipeId(smeltRecipeName(n, out));
+                smeltRecipe[i] = r;
+                if (recipeXp.size() <= r) recipeXp.resize(size_t(r) + 1, 0.0f);
+                recipeXp[r] = smeltExperienceByName(n);
+            }
             fuel[i] = fuelByName(n, items.item(static_cast<ItemId>(i)));
         }
     }
@@ -303,11 +325,15 @@ int fuelByName(std::string_view n, const ItemDef& def) {
 
 } // namespace
 
-float smeltExperience(const ItemStack& input) {
-    if (input.empty()) return 0.0f;
-    std::string_view n = itemRegistry().item(input.item).id;
-    if (n.starts_with("minecraft:")) n.remove_prefix(10);
-    return smeltExperienceByName(n);
+float smeltExperience(const ItemStack& input) { return recipeExperience(smeltRecipe(input)); }
+
+world::RecipeId smeltRecipe(const ItemStack& input) {
+    return input.empty() ? world::kNoRecipe : tables().smeltRecipe[input.item];
+}
+
+float recipeExperience(world::RecipeId recipe) {
+    const auto& xp = tables().recipeXp;
+    return recipe < xp.size() ? xp[recipe] : 0.0f;
 }
 
 } // namespace mc

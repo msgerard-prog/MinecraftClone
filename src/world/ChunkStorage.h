@@ -22,7 +22,9 @@ namespace mc::world {
 // write lands. Thread-safe.
 class ChunkStorage {
 public:
-    explicit ChunkStorage(std::filesystem::path worldDir);
+    // `legacyWorld`: level.dat's format predates kCloneFormat 1 (chunks are upgraded
+    // as they load; see chunkFromNbt).
+    explicit ChunkStorage(std::filesystem::path worldDir, bool legacyWorld = false);
     ~ChunkStorage(); // writes everything still queued
     ChunkStorage(const ChunkStorage&) = delete;
     ChunkStorage& operator=(const ChunkStorage&) = delete;
@@ -39,6 +41,7 @@ private:
     void run();
 
     std::filesystem::path m_dir;
+    bool m_legacyWorld = false;
     mutable std::mutex m_mutex; // queue + pending
     std::condition_variable m_wake, m_idle;
     std::deque<ChunkPos> m_queue;

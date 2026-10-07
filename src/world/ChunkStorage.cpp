@@ -6,8 +6,8 @@
 
 namespace mc::world {
 
-ChunkStorage::ChunkStorage(std::filesystem::path worldDir)
-    : m_dir(std::move(worldDir)), m_thread([this] { run(); }) {}
+ChunkStorage::ChunkStorage(std::filesystem::path worldDir, bool legacyWorld)
+    : m_dir(std::move(worldDir)), m_legacyWorld(legacyWorld), m_thread([this] { run(); }) {}
 
 ChunkStorage::~ChunkStorage() {
     flush();
@@ -79,7 +79,7 @@ bool ChunkStorage::load(Chunk& chunk) {
         nbt.reset();
     }
     int unknown = 0;
-    if (!nbt || !chunkFromNbt(*nbt, chunk, &unknown)) {
+    if (!nbt || !chunkFromNbt(*nbt, chunk, &unknown, m_legacyWorld)) {
         MC_LOG_WARN("Chunk %d,%d has invalid data; regenerating it", pos.x, pos.z);
         return false;
     }

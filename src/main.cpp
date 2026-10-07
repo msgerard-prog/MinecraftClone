@@ -283,8 +283,13 @@ int main(int argc, char** argv) {
     if (!opts->dimension.empty() && !flatWorld) dimension = *mc::world::findDimension(opts->dimension);
     // Each dimension saves in its own folder (vanilla: DIM-1 Nether, DIM1 End).
     auto dimensionDir = [&](Dimension d) { return worldDir / std::string(mc::world::dimensionInfo(d).folder); };
+    // Worlds saved before kCloneFormat keep their old format number, so chunks not
+    // saved since are still upgraded on later visits.
+    const int32_t cloneFormat = level ? level->cloneFormat : mc::world::kCloneFormat;
+    const bool legacyWorld = cloneFormat < 1;
     std::unique_ptr<mc::world::ChunkStorage> storage;
-    if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+    if (!worldName.empty())
+        storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension), legacyWorld);
     // Storages of dimensions left behind, still writing (see the dimension switch).
     struct RetiringStorage {
         std::filesystem::path dir;
@@ -486,6 +491,7 @@ int main(int argc, char** argv) {
         l.seed = seed;
         l.flat = flatWorld;
         l.generator = generatorKind;
+        l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
         l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
         for (const auto& k : knownPortals)
@@ -856,7 +862,7 @@ int main(int argc, char** argv) {
                         r.thread.join();
                         return true;
                     });
-                    storage = std::make_unique<mc::world::ChunkStorage>(dir);
+                    storage = std::make_unique<mc::world::ChunkStorage>(dir, legacyWorld);
                 }
                 generatorPtr = makeGenerator(dimension);
                 loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
@@ -1397,7 +1403,9 @@ int main(int argc, char** argv) {
                 const mc::world::BlockPos b = interaction.experienceAt();
                 orbs.drop({b.x + 0.5, b.y + 0.5, b.z + 0.5}, xp, gameRng);
             }
-            vitals.addExperience(container.takeExperience());
+            // Furnace output taken: its stored recipe uses become orbs at the player (vanilla).
+            if (const int xp = mc::recipesExperience(container.takeRecipes(), gameRng); xp > 0)
+                orbs.drop(player.position() + glm::dvec3(0.0, 0.5, 0.0), xp, gameRng);
             // Enchanting and anvils (M17.5): levels spent, a new seed after enchanting,
             // and the anvil's wear: 12% a use - anvil, chipped, damaged, gone (wiki).
             if (const int spent = container.takeLevelsSpent(); spent > 0) vitals.spendLevels(spent);

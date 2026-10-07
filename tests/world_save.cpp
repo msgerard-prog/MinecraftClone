@@ -892,7 +892,7 @@ TEST_CASE("enchanted items save as 1.21.5+ minecraft:enchantments and load back 
     CHECK(back.damage == 3);
 }
 
-TEST_CASE("items keep up to 8 enchantments through a save; furnaces keep their stored experience") {
+TEST_CASE("items keep up to 8 enchantments through a save; furnaces keep RecipesUsed") {
     World w;
     w.createChunk({0, 0});
     w.setBlock({1, 70, 1}, blockRegistry().defaultState(blocks::Chest));
@@ -903,10 +903,72 @@ TEST_CASE("items keep up to 8 enchantments through a save; furnaces keep their s
                           Enchantment::AquaAffinity, Enchantment::Thorns})
         REQUIRE(setEnchantment(helmet, e, 1));
     c.chest(1, 70, 1)->items[0] = helmet;
-    c.furnace(3, 70, 1)->experience = 2.5f;
+    const RecipeId raw = internRecipeId("minecraft:iron_ingot_from_smelting_raw_iron");
+    const RecipeId future = internRecipeId("minecraft:some_recipe_we_lack"); // kept as is
+    c.furnace(3, 70, 1)->countRecipe(raw, 3);
+    c.furnace(3, 70, 1)->countRecipe(future, 2);
     const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
     Chunk e({0, 0});
     REQUIRE(chunkFromNbt(nbt, e));
     CHECK(enchantLevel(e.chest(1, 70, 1)->items[0], Enchantment::Thorns) == 1); // the 5th survives
-    CHECK(e.furnace(3, 70, 1)->experience == doctest::Approx(2.5f));
+    const auto& used = e.furnace(3, 70, 1)->recipesUsed;
+    CHECK(used[0].recipe == raw);
+    CHECK(used[0].count == 3);
+    CHECK(used[1].recipe == future);
+    CHECK(used[1].count == 2);
+    const mc::nbt::Compound* be = nbt.list("block_entities")->items[1].get<mc::nbt::Compound>();
+    REQUIRE(be);
+    if (*be->string("id") != "minecraft:furnace") be = nbt.list("block_entities")->items[0].get<mc::nbt::Compound>();
+    CHECK(be->compound("RecipesUsed")->integer("minecraft:iron_ingot_from_smelting_raw_iron") == 3);
+}
+
+TEST_CASE("v0.17.0 furnaces: clone_experience becomes stone recipe uses paying the same") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({3, 70, 1}, blockRegistry().defaultState(blocks::Furnace));
+    mc::nbt::Compound nbt = chunkToNbt(ChunkSnapshot::of(*w.chunk({0, 0})));
+    for (auto& entry : nbt.entries)
+        if (entry.name == "block_entities")
+            for (mc::nbt::Tag& t : entry.value.get<mc::nbt::List>()->items)
+                t.get<mc::nbt::Compound>()->put("clone_experience", 2.5f);
+    Chunk e({0, 0});
+    REQUIRE(chunkFromNbt(nbt, e));
+    const auto& u = e.furnace(3, 70, 1)->recipesUsed[0];
+    CHECK(recipeIdName(u.recipe) == "minecraft:stone");
+    CHECK(u.count == 25);
+}
+
+TEST_CASE("old worlds: placed leaves saved before v0.15.0 (distance 7, not persistent) load persistent") {
+    const auto& r = blockRegistry();
+    const BlockStateId oldPlaced = *r.with(S(blocks::OakLeaves), "distance", "7");
+    const BlockStateId generated = *r.with(S(blocks::OakLeaves), "distance", "3");
+    REQUIRE(oldPlaced == *r.with(oldPlaced, "persistent", "false"));
+    Chunk c({0, 0});
+    c.set(1, 70, 1, oldPlaced);
+    c.set(2, 70, 1, generated);
+    mc::nbt::Compound nbt = chunkToNbt(ChunkSnapshot::of(c));
+    REQUIRE(nbt.integer("clone_format") == kCloneFormat);
+    mc::nbt::Compound old = nbt; // as written before the chunk tag existed
+    std::erase_if(old.entries, [](const auto& e) { return e.name == "clone_format"; });
+
+    Chunk upgraded({0, 0});
+    REQUIRE(chunkFromNbt(old, upgraded, nullptr, /*legacyWorld=*/true));
+    CHECK(upgraded.get(1, 70, 1) == *r.with(oldPlaced, "persistent", "true"));
+    CHECK(upgraded.get(2, 70, 1) == generated); // real distances are left alone
+    // Chunks saved since (with the tag) and current worlds are never touched.
+    Chunk resaved({0, 0});
+    REQUIRE(chunkFromNbt(nbt, resaved, nullptr, true));
+    CHECK(resaved.get(1, 70, 1) == oldPlaced);
+    Chunk current({0, 0});
+    REQUIRE(chunkFromNbt(old, current));
+    CHECK(current.get(1, 70, 1) == oldPlaced);
+}
+
+TEST_CASE("level.dat keeps the world's format; new worlds are current") {
+    TempDir dir("mc_test_level_format");
+    CHECK(LevelData().cloneFormat == kCloneFormat);
+    LevelData l;
+    l.cloneFormat = 0; // a world from before the format number
+    REQUIRE(l.save(dir.path));
+    CHECK(LevelData::load(dir.path)->cloneFormat == 0);
 }
