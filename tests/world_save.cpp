@@ -83,8 +83,8 @@ TEST_CASE("chunk NBT round-trips every block state, at negative positions too") 
     const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
     CHECK(nbt.integer("DataVersion") == kDataVersion);
     CHECK(nbt.integer("yPos") == -4);
-    REQUIRE(nbt.string("Status"));
-    CHECK(*nbt.string("Status") == "minecraft:full");
+    REQUIRE(nbt.string("status")); // lower case since 1.21
+    CHECK(*nbt.string("status") == "minecraft:full");
     REQUIRE(nbt.list("sections"));
     CHECK(nbt.list("sections")->items.size() == 24);
     // Through bytes, as on disk.
@@ -481,7 +481,10 @@ TEST_CASE("furnaces save as block entities with their contents and timers") {
     CHECK(*e->string("id") == "minecraft:furnace");
     CHECK(e->integer("x") == -32 + 4);
     CHECK(e->integer("z") == 48 + 9);
-    CHECK(e->find("BurnTime")->type() == mc::nbt::TagType::Short);
+    REQUIRE(e->find("lit_time_remaining")); // 1.21.4+ names
+    CHECK(e->find("lit_time_remaining")->type() == mc::nbt::TagType::Short);
+    CHECK(e->integer("cooking_time_spent") == 120);
+    CHECK_FALSE(e->find("BurnTime"));
     Chunk d({-2, 3});
     REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(nbt)), d));
     const FurnaceData* back = d.furnace(4, 70, 9);
@@ -697,4 +700,80 @@ TEST_CASE("chunk reuse across dimension heights; Nether chunks round-trip throug
     auto b = std::make_shared<ChunkBiomes>();
     b->cells[size_t(ChunkBiomes::index(15, 0, 2, 0))] = Biome::NetherWastes; // top section, cell y 248..251
     CHECK(b->at(1, 250, 1, kNetherHeight) == Biome::NetherWastes);
+}
+
+TEST_CASE("1.21.11 chunk extras: heightmaps packed 9 bits x 7 per long, empty lists vanilla writes") {
+    Chunk c({0, 0});
+    c.set(0, -64, 0, S(blocks::Stone));        // column 0: height 1
+    c.set(1, 70, 0, S(blocks::Water));         // column 1: fluid - motion blocking, not ocean floor
+    c.set(1, 60, 0, S(blocks::Sand));
+    c.set(2, 80, 0, S(blocks::OakLeaves));      // column 2: leaves
+    c.set(2, 75, 0, S(blocks::Dirt));
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    const auto* maps = nbt.compound("Heightmaps");
+    REQUIRE(maps);
+    auto value = [&](const char* name, int column) {
+        const auto* t = maps->find(name);
+        const auto& longs = *t->get<std::vector<int64_t>>();
+        REQUIRE(longs.size() == 37);
+        return int((uint64_t(longs[size_t(column / 7)]) >> ((column % 7) * 9)) & 511);
+    };
+    CHECK(value("WORLD_SURFACE", 0) == 1);
+    CHECK(value("MOTION_BLOCKING", 1) == 70 + 64 + 1);
+    CHECK(value("OCEAN_FLOOR", 1) == 60 + 64 + 1);
+    CHECK(value("MOTION_BLOCKING", 2) == 80 + 64 + 1);
+    CHECK(value("MOTION_BLOCKING_NO_LEAVES", 2) == 75 + 64 + 1);
+    CHECK(value("WORLD_SURFACE", 5) == 0);
+    REQUIRE(nbt.list("PostProcessing"));
+    CHECK(nbt.list("PostProcessing")->items.size() == 24);
+    CHECK(nbt.compound("structures"));
+    CHECK(nbt.integer("DataVersion") == 4671);
+}
+
+TEST_CASE("1.21.11 level.dat: spawn compound, version 1.21.11, game rules, dimensions; older fields still read") {
+    TempDir dir("mc_test_level_12111");
+    LevelData l;
+    l.spawn[0] = 12;
+    l.spawn[1] = 70;
+    l.spawn[2] = -5;
+    REQUIRE(l.save(dir.path));
+    std::ifstream f(dir.path / "level.dat", std::ios::binary);
+    const std::vector<uint8_t> gz((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    const auto root = mc::nbt::read(*mc::gzipDecompress(gz));
+    REQUIRE(root);
+    const auto* data = root->compound("Data");
+    REQUIRE(data);
+    CHECK(*data->compound("Version")->string("Name") == "1.21.11");
+    REQUIRE(data->compound("spawn"));
+    CHECK(*data->compound("spawn")->string("dimension") == "minecraft:overworld");
+    CHECK_FALSE(data->find("SpawnX"));
+    CHECK(*data->compound("GameRules")->string("minecraft:keep_inventory") == "false");
+    CHECK(data->compound("WorldGenSettings")->compound("dimensions")->compound("minecraft:the_nether"));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back);
+    CHECK(back->spawn[0] == 12);
+    CHECK(back->spawn[2] == -5);
+}
+
+TEST_CASE("older saves still load: Status, BurnTime/CookTime, FallDistance") {
+    Chunk c({0, 0});
+    c.set(1, 64, 1, S(blocks::Furnace));
+    c.addFurnace(1, 64, 1).cookTime = 50;
+    auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    // Rewrite as a 1.21.1-era save.
+    auto& e = const_cast<mc::nbt::Compound&>(*nbt.list("block_entities")->items[0].get<mc::nbt::Compound>());
+    std::erase_if(e.entries, [](const auto& kv) { return kv.name == "cooking_time_spent"; });
+    e.put("CookTime", int16_t{77});
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(nbt, d));
+    CHECK(d.furnace(1, 64, 1)->cookTime == 77);
+    mc::nbt::Compound mob;
+    mob.put("id", std::string("minecraft:cow"));
+    mob.put("Pos", mc::nbt::listOf(mc::nbt::TagType::Double, {1.0, 64.0, 1.0}));
+    mob.put("FallDistance", 2.5f);
+    mc::nbt::Compound ents;
+    ents.put("Entities", mc::nbt::listOf(mc::nbt::TagType::Compound, {mob}));
+    entitiesFromNbt(ents, d);
+    REQUIRE(d.mobs().size() == 1);
+    CHECK(d.mobs()[0].fallDistance == 2.5f);
 }

@@ -25,16 +25,44 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("GameType", int32_t{survival ? 0 : 1});
     data.put("allowCommands", int8_t{1});
     data.put("initialized", int8_t{1});
-    data.put("SpawnX", spawn[0]);
-    data.put("SpawnY", spawn[1]);
-    data.put("SpawnZ", spawn[2]);
-    data.put("SpawnAngle", 0.0f);
+    // World spawn: since 1.21.9 a compound that names its dimension (was SpawnX/Y/Z,
+    // SpawnAngle; wiki: Java Edition level format).
+    Compound spawnTag;
+    spawnTag.put("dimension", std::string("minecraft:overworld"));
+    spawnTag.put("pos", std::vector<int32_t>{spawn[0], spawn[1], spawn[2]});
+    spawnTag.put("yaw", 0.0f);
+    spawnTag.put("pitch", 0.0f);
+    data.put("spawn", std::move(spawnTag));
+    data.put("Difficulty", int8_t{2}); // normal (fixed: known deviation)
+    data.put("DifficultyLocked", int8_t{0});
+    data.put("hardcore", int8_t{0});
+    data.put("raining", int8_t{0});
+    data.put("thundering", int8_t{0});
+    data.put("rainTime", int32_t{0});
+    data.put("thunderTime", int32_t{0});
+    data.put("clearWeatherTime", int32_t{0});
+    data.put("WasModded", int8_t{1}); // not written by vanilla's own server
+    data.put("ServerBrands", listOf(TagType::String, {std::string("minecraftclone")}));
+    // Game rules: 1.21.11 ids (namespaced snake_case; wiki: Game rule). Only the ones
+    // our game follows; vanilla fills in the rest with defaults.
+    Compound rules;
+    for (const auto& [id, value] : {std::pair{"minecraft:advance_time", "true"}, std::pair{"minecraft:spawn_mobs", "true"},
+                                    std::pair{"minecraft:keep_inventory", "false"}, std::pair{"minecraft:fall_damage", "true"},
+                                    std::pair{"minecraft:natural_health_regeneration", "true"},
+                                    std::pair{"minecraft:mob_drops", "true"}, std::pair{"minecraft:block_drops", "true"},
+                                    std::pair{"minecraft:random_tick_speed", "3"}})
+        rules.put(id, std::string(value));
+    data.put("GameRules", std::move(rules));
+    Compound packs;
+    packs.put("Enabled", listOf(TagType::String, {std::string("vanilla")}));
+    packs.put("Disabled", listOf(TagType::String, {}));
+    data.put("DataPacks", std::move(packs));
     data.put("LastPlayed", static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                                      std::chrono::system_clock::now().time_since_epoch())
                                                      .count()));
     Compound version;
     version.put("Id", kDataVersion);
-    version.put("Name", std::string("1.21.1"));
+    version.put("Name", std::string("1.21.11"));
     version.put("Series", std::string("main"));
     version.put("Snapshot", int8_t{0});
     data.put("Version", std::move(version));
@@ -42,12 +70,46 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     gen.put("seed", static_cast<int64_t>(seed));
     gen.put("generate_features", int8_t{1});
     gen.put("bonus_chest", int8_t{0});
+    // The three vanilla dimensions with vanilla's generators (vanilla generates its own
+    // terrain for chunks we never saved; ours are kept as saved).
+    auto dimensionEntry = [](const char* type, const char* settings, Compound biomeSource) {
+        Compound g;
+        g.put("type", std::string("minecraft:noise"));
+        g.put("settings", std::string(settings));
+        g.put("biome_source", std::move(biomeSource));
+        Compound d;
+        d.put("type", std::string(type));
+        d.put("generator", std::move(g));
+        return d;
+    };
+    Compound multiNoise, netherNoise, endSource;
+    multiNoise.put("type", std::string("minecraft:multi_noise"));
+    multiNoise.put("preset", std::string("minecraft:overworld"));
+    netherNoise.put("type", std::string("minecraft:multi_noise"));
+    netherNoise.put("preset", std::string("minecraft:nether"));
+    endSource.put("type", std::string("minecraft:the_end"));
+    Compound dims;
+    dims.put("minecraft:overworld", dimensionEntry("minecraft:overworld", "minecraft:overworld", std::move(multiNoise)));
+    dims.put("minecraft:the_nether", dimensionEntry("minecraft:the_nether", "minecraft:nether", std::move(netherNoise)));
+    dims.put("minecraft:the_end", dimensionEntry("minecraft:the_end", "minecraft:end", std::move(endSource)));
+    gen.put("dimensions", std::move(dims));
     data.put("WorldGenSettings", std::move(gen));
 
     Compound player;
     player.put("Pos", listOf(TagType::Double, {pos[0], pos[1], pos[2]}));
     player.put("Rotation", listOf(TagType::Float, {yaw, pitch}));
     player.put("Dimension", dimension);
+    player.put("DataVersion", kDataVersion);
+    player.put("Motion", listOf(TagType::Double, {0.0, 0.0, 0.0}));
+    player.put("OnGround", int8_t{1});
+    player.put("fall_distance", 0.0);
+    player.put("Air", int16_t{300});
+    player.put("Fire", int16_t{-20});
+    player.put("XpLevel", int32_t{0});
+    player.put("XpP", 0.0f);
+    player.put("XpTotal", int32_t{0});
+    player.put("Score", int32_t{0});
+    player.put("equipment", Compound{}); // 1.21.5+: armour/offhand (none yet)
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
     abilities.put("mayfly", static_cast<int8_t>(survival ? 0 : 1));
@@ -158,9 +220,15 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     if (auto s = data->string("LevelName")) l.name = *s;
     l.dayTime = data->integer("DayTime").value_or(0);
     l.gameTime = data->integer("Time").value_or(0);
+    // World spawn: the 1.21.9+ compound, else the older SpawnX/Y/Z (our earlier saves).
     l.spawn[0] = static_cast<int32_t>(data->integer("SpawnX").value_or(0));
     l.spawn[1] = static_cast<int32_t>(data->integer("SpawnY").value_or(64));
     l.spawn[2] = static_cast<int32_t>(data->integer("SpawnZ").value_or(0));
+    if (const Compound* sp = data->compound("spawn"))
+        if (const Tag* pos = sp->find("pos"))
+            if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3)
+                for (int i = 0; i < 3; ++i)
+                    l.spawn[i] = (*a)[size_t(i)];
     if (const Compound* gen = data->compound("WorldGenSettings"))
         l.seed = static_cast<uint64_t>(gen->integer("seed").value_or(0));
     if (const Compound* ours = data->compound("MinecraftClone")) {

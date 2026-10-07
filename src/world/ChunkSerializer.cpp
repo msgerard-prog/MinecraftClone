@@ -31,6 +31,46 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
 
 namespace {
 
+// The four heightmaps vanilla stores for a full chunk (wiki: Heightmap).
+struct Heightmaps {
+    static constexpr int kCount = 4;
+    static constexpr const char* kNames[kCount] = {"MOTION_BLOCKING", "MOTION_BLOCKING_NO_LEAVES", "OCEAN_FLOOR",
+                                                   "WORLD_SURFACE"};
+    std::array<std::array<int, 256>, kCount> values{}; // height above the bottom; 0 = none
+};
+
+// Sections are visited bottom-up, so a later match is higher. `base` = the section's
+// bottom relative to the world's minimum Y.
+void updateHeightmaps(const std::vector<BlockStateId>& states, int base, Heightmaps& h) {
+    const auto& reg = blockRegistry();
+    for (int y = 0; y < 16; ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const BlockStateId s = states[size_t(Section::index(x, y, z))];
+                if (s == 0) continue;
+                const int column = z * 16 + x, value = base + y + 1;
+                const BlockId b = reg.blockOf(s);
+                const bool fluid = b == blocks::Water || b == blocks::Lava;
+                const bool solid = reg.collides(s);
+                const bool leaves = reg.block(b).id.ends_with("_leaves");
+                if (solid || fluid) h.values[0][size_t(column)] = value;            // MOTION_BLOCKING
+                if ((solid || fluid) && !leaves) h.values[1][size_t(column)] = value; // ..._NO_LEAVES
+                if (solid) h.values[2][size_t(column)] = value;                     // OCEAN_FLOOR
+                h.values[3][size_t(column)] = value;                                // WORLD_SURFACE
+            }
+}
+
+// Packed like block states without spanning longs: ceil(log2(height + 1)) bits each
+// (9 for 384 and 256), 64 / bits per long (7), 256 entries (37 longs).
+std::vector<int64_t> packHeightmap(const std::array<int, 256>& values, const HeightRange& height) {
+    const int bits = int(std::bit_width(uint32_t(height.height)));
+    const int perLong = 64 / bits;
+    std::vector<int64_t> data((256 + perLong - 1) / perLong, 0);
+    for (int i = 0; i < 256; ++i)
+        data[size_t(i / perLong)] |= int64_t(uint64_t(values[size_t(i)]) << ((i % perLong) * bits));
+    return data;
+}
+
 // "minecraft:oak_log[axis=x]" -> {Name: "minecraft:oak_log", Properties: {axis: "x"}}
 nbt::Compound paletteEntry(const std::string& text) {
     nbt::Compound e;
@@ -143,7 +183,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("zPos", chunk.pos.z);
     // The lowest section's Y: -4 in the Overworld, 0 in the Nether and End (vanilla).
     root.put("yPos", int32_t{chunk.height.minSection()});
-    root.put("Status", std::string("minecraft:full"));
+    root.put("status", std::string("minecraft:full")); // "Status" before 1.21 (wiki)
     root.put("LastUpdate", chunk.gameTime); // game tick of this save
     root.put("InhabitedTime", int64_t{0});
     bool lit = true;
@@ -153,6 +193,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
 
     std::vector<nbt::Tag> sections;
     std::vector<BlockStateId> states(Section::kVolume);
+    Heightmaps heights;
     std::vector<BlockStateId> palette;
     std::unordered_map<BlockStateId, uint32_t> paletteIndex;
     for (int s = 0; s < chunk.height.sections(); ++s) {
@@ -160,6 +201,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         sec.put("Y", static_cast<int8_t>(chunk.height.minSection() + s));
         // Block states: local palette in order of first appearance.
         chunk.sections[size_t(s)]->copyTo(states.data());
+        updateHeightmaps(states, s * 16, heights);
         palette.clear();
         paletteIndex.clear();
         for (BlockStateId st : states)
@@ -219,6 +261,22 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         sections.emplace_back(std::move(sec));
     }
     root.put("sections", nbt::listOf(nbt::TagType::Compound, std::move(sections)));
+    // Heightmaps of a full chunk (wiki: Chunk format › Heightmaps): per column the
+    // height above the bottom of the first block from the top that matches, 0 if none.
+    nbt::Compound maps;
+    for (int k = 0; k < Heightmaps::kCount; ++k)
+        maps.put(std::string(Heightmaps::kNames[k]), packHeightmap(heights.values[size_t(k)], chunk.height));
+    root.put("Heightmaps", std::move(maps));
+    // Empty lists vanilla always writes for full chunks.
+    std::vector<nbt::Tag> post;
+    for (int s = 0; s < chunk.height.sections(); ++s)
+        post.emplace_back(nbt::listOf(nbt::TagType::Short, {}));
+    root.put("PostProcessing", nbt::listOf(nbt::TagType::List, std::move(post)));
+    root.put("fluid_ticks", nbt::listOf(nbt::TagType::Compound, {}));
+    nbt::Compound structures;
+    structures.put("References", nbt::Compound{});
+    structures.put("starts", nbt::Compound{});
+    root.put("structures", std::move(structures));
     // Block entities (wiki: Chunk format › block_entities; Furnace › Block data, 1.21.1).
     std::vector<nbt::Tag> entities;
     for (const auto& f : chunk.furnaces) {
@@ -233,9 +291,11 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         for (int i = 0; i < 3; ++i)
             if (!slots[i]->empty()) items.emplace_back(itemNbt(*slots[i], i));
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
-        e.put("BurnTime", static_cast<int16_t>(f.data.burnLeft));
-        e.put("CookTime", static_cast<int16_t>(f.data.cookTime));
-        e.put("CookTimeTotal", int16_t{200});
+        // 1.21.4+ names (wiki: Furnace › Block data; before: BurnTime, CookTime, CookTimeTotal).
+        e.put("lit_time_remaining", static_cast<int16_t>(f.data.burnLeft));
+        e.put("lit_total_time", static_cast<int16_t>(f.data.burnDuration));
+        e.put("cooking_time_spent", static_cast<int16_t>(f.data.cookTime));
+        e.put("cooking_total_time", int16_t{200});
         entities.emplace_back(std::move(e));
     }
     root.put("block_entities", nbt::listOf(nbt::TagType::Compound, std::move(entities)));
@@ -367,9 +427,13 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
                         ItemStack* dst = slot == 0 ? &f.input : slot == 1 ? &f.fuel : slot == 2 ? &f.output : nullptr;
                         if (dst) *dst = itemFromNbt(*c);
                     }
-            f.burnLeft = static_cast<int>(e->integer("BurnTime").value_or(0));
-            f.burnDuration = f.burnLeft; // not saved by vanilla: the gauge restarts full
-            f.cookTime = static_cast<int>(e->integer("CookTime").value_or(0));
+            // Current names first, then the pre-1.21.4 ones (our older saves).
+            auto field = [&](const char* now, const char* before) {
+                return static_cast<int>(e->integer(now).value_or(e->integer(before).value_or(0)));
+            };
+            f.burnLeft = field("lit_time_remaining", "BurnTime");
+            f.burnDuration = static_cast<int>(e->integer("lit_total_time").value_or(f.burnLeft));
+            f.cookTime = field("cooking_time_spent", "CookTime");
             f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
         }
     chunk.blockTicks().clear();
@@ -414,7 +478,21 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
         e.put("Health", m.health);
         e.put("OnGround", static_cast<int8_t>(m.onGround ? 1 : 0));
-        e.put("FallDistance", m.fallDistance);
+        e.put("fall_distance", double(m.fallDistance)); // 1.21.5+: a double (was FallDistance, float)
+        e.put("Air", int16_t{300});
+        e.put("PortalCooldown", int32_t{0});
+        e.put("Invulnerable", int8_t{0});
+        e.put("AbsorptionAmount", 0.0f);
+        e.put("equipment", nbt::Compound{}); // 1.21.5+ (was HandItems/ArmorItems): nothing worn
+        e.put("CanPickUpLoot", int8_t{0});
+        e.put("LeftHanded", int8_t{0});
+        if (m.type == MobType::Cow) e.put("variant", std::string("minecraft:temperate")); // 1.21.5 cow variants
+        if (m.type == MobType::Zombie) {
+            e.put("IsBaby", int8_t{0});
+            e.put("CanBreakDoors", int8_t{0});
+            e.put("DrownedConversionTime", int32_t{-1});
+            e.put("InWaterTime", int32_t{-1});
+        }
         e.put("Fire", static_cast<int16_t>(m.fireTicks));
         e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
         e.put("DeathTime", int16_t{0});
@@ -463,6 +541,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.health = static_cast<float>(e->real("Health").value_or(mobInfo(m.type).maxHealth));
         m.health = std::isfinite(m.health) ? std::min(m.health, mobInfo(m.type).maxHealth) : 0.0f;
         m.onGround = e->integer("OnGround").value_or(0) != 0;
+        if (const auto f = e->real("fall_distance").value_or(e->real("FallDistance").value_or(0.0)); std::isfinite(f))
+            m.fallDistance = static_cast<float>(std::clamp(f, 0.0, 1.0e6));
         m.fireTicks = static_cast<int16_t>(e->integer("Fire").value_or(0));
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
         if (const nbt::Tag* u = e->find("UUID"))

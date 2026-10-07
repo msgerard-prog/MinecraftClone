@@ -82,6 +82,8 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M13 check:** open one of our worlds in vanilla 1.21.11 (copy `saves/<world>` into
+  your `.minecraft/saves`): does it load, with our terrain and your inventory?
 - **M10-M12 in-game check:** stay in the Nether portal you arrived through: do you go
   back after 4 s, or must you step out (ours: step out)?
 - **Machine note:** while M5-M9 were built, a stuck build of another project

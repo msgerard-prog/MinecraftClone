@@ -56,15 +56,22 @@ assets/data/minecraft/loot_table/blocks/<b>.json
 assets/data/minecraft/tags/block/<tag>.json      e.g. mineable/pickaxe
 ```
 
-## Save format (M7, ADR 0007 — proposed, awaiting the user's OK)
+## Save format (M7, ADR 0007 — accepted; Java Edition 1.21.11 since M13)
 Vanilla Java **Anvil** layout under `saves/<world>/` (git-ignored; `--world NAME`,
 default "New World" for interactive runs; `--no-save`):
 ```
-level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, LevelName,
-                           DayTime, Time, LastPlayed, GameType 1, SpawnX/Y/Z,
-                           SpawnAngle, Version { Id, Name, Series, Snapshot },
-                           WorldGenSettings { seed, generate_features, bonus_chest },
-                           Player { Pos, Rotation, Dimension, abilities { flying,
+level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, LevelName,
+                           DayTime, Time, LastPlayed, GameType, allowCommands, initialized,
+                           spawn { dimension, pos [I; x,y,z], yaw, pitch } (1.21.9+; older
+                           SpawnX/Y/Z still read), Difficulty 2, DifficultyLocked, hardcore,
+                           weather fields 0, WasModded 1, ServerBrands, GameRules { 1.21.11
+                           ids "minecraft:keep_inventory"... : string values }, DataPacks
+                           { Enabled ["vanilla"], Disabled [] }, Version { Id 4671, Name
+                           "1.21.11", Series, Snapshot }, WorldGenSettings { seed,
+                           generate_features, bonus_chest, dimensions { overworld, the_nether,
+                           the_end: vanilla noise generators } },
+                           Player { DataVersion, Pos, Motion, Rotation, Dimension, OnGround,
+                           fall_distance, Air, Fire, Xp*, Score, equipment {}, abilities { flying,
                            mayfly, instabuild, invulnerable, mayBuild, flySpeed,
                            walkSpeed }, playerGameType, Health, foodLevel,
                            foodSaturationLevel, foodExhaustionLevel,
@@ -80,23 +87,28 @@ session.lock               held exclusively while the world is open (one instanc
 DIM-1/region, DIM-1/entities   the Nether (M12), same layouts; DIM1/... the End
 entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
                            Entities [ mobs: { id, Pos, Motion, Rotation, Health,
-                           OnGround, FallDistance, Fire, HurtTime, DeathTime,
-                           PersistenceRequired, UUID [I; 4 ints] } ] } (M10, 1.17+ layout)
+                           OnGround, fall_distance (double, 1.21.5+; FallDistance still read),
+                           Fire, Air, PortalCooldown, Invulnerable, AbsorptionAmount,
+                           equipment {}, HurtTime, DeathTime, PersistenceRequired, UUID
+                           [I; 4 ints], cow variant "minecraft:temperate", zombie IsBaby... } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```
 Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` (the lowest section:
--4 in the Overworld, 0 in the Nether and End; their chunks have 16 sections, Y 0..15), `Status`
-`minecraft:full`, `isLightOn`, `sections` [one per section of the dimension (24 Overworld, 16 Nether/End) × { `Y`, `block_states` { `palette` [
+-4 in the Overworld, 0 in the Nether and End; their chunks have 16 sections, Y 0..15), `status`
+`minecraft:full` (lower case since 1.21; `Status` still read), `Heightmaps` { MOTION_BLOCKING,
+MOTION_BLOCKING_NO_LEAVES, OCEAN_FLOOR, WORLD_SURFACE: 256 x 9-bit heights above the bottom,
+7 per long, 37 longs }, empty `PostProcessing`, `fluid_ticks`, `structures`, `isLightOn`, `sections` [one per section of the dimension (24 Overworld, 16 Nether/End) × { `Y`, `block_states` { `palette` [
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
 per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, ceil(log2 n) bits, 64 entries; none if 1) }, `SkyLight`, `BlockLight`
 (2048-byte nibble arrays, omitted when all 0) }], `block_ticks` [ { `i` block id, `p`
 priority, `t` delay in ticks, `x`, `y`, `z` } ] (M11, in scheduling order), `block_entities` [ furnaces: { id
 "minecraft:furnace", x, y, z, keepPacked, Items [ { Slot 0 input / 1 fuel / 2 output,
-id, count, components } ], BurnTime, CookTime, CookTimeTotal (shorts, 1.21.1 names) } ]. Not written yet: heightmaps,
-dropped items, structures, POI; `InhabitedTime` is 0; level.dat
-omits GameRules, DataPacks, difficulty and WorldGenSettings.dimensions, so vanilla
-may not open these worlds. Region compression types 4 (LZ4), 127 and external
+id, count, components } ], lit_time_remaining, lit_total_time, cooking_time_spent,
+cooking_total_time (shorts, 1.21.4+ names; BurnTime/CookTime still read) } ]. Not written:
+dropped items, structure starts, POI; `InhabitedTime` is 0. Vanilla 1.21.11 should open
+these worlds (in-game check: ROADMAP); chunks we never saved are generated by vanilla's
+own generator there. Region compression types 4 (LZ4), 127 and external
 `.mcc` chunks are not readable (such chunks regenerate). NBT strings are written as
 plain UTF-8 (vanilla: modified UTF-8; differs only for NUL and 4-byte characters).
 Rules: like vanilla, every generated chunk is saved (so terrain never changes after

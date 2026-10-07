@@ -9,9 +9,9 @@
 
 namespace mc::world {
 
-// Data version written into saves (wiki: Data version): Java 1.21.1 = 3955. Tied to
+// Data version written into saves (wiki: Data version): Java 1.21.11 = 4671. Tied to
 // the 1.21 patch decision (ADR 0002, pending).
-inline constexpr int32_t kDataVersion = 3955;
+inline constexpr int32_t kDataVersion = 4671; // Java Edition 1.21.11 (ADR 0002)
 
 // A chunk's saveable state, shared read-only (copy-on-write sections), so the IO
 // thread can serialise it while the main thread keeps playing.
