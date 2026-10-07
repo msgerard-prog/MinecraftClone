@@ -135,6 +135,34 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:beetroot_seeds", .block = blocks::Beetroots, .texture = "item/beetroot_seeds"});
     r.add({.id = "minecraft:bread", .food = 5, .saturation = 6.0f, .texture = "item/bread"});
     r.add({.id = "minecraft:bone_meal", .texture = "item/bone_meal"});
+    // Armor (M17.3; wiki: Armor, Copper Armor): points and durability per piece
+    // (helmet, chestplate, leggings, boots); diamond adds 2 toughness per piece.
+    static constexpr struct {
+        const char* material;
+        int points[4];
+        int durability[4];
+        float toughness;
+    } kArmor[] = {
+        {"leather", {1, 3, 2, 1}, {55, 80, 75, 65}, 0.0f},
+        {"copper", {2, 4, 3, 1}, {121, 176, 165, 143}, 0.0f},
+        {"golden", {2, 5, 3, 1}, {77, 112, 105, 91}, 0.0f},
+        {"iron", {2, 6, 5, 2}, {165, 240, 225, 195}, 0.0f},
+        {"diamond", {3, 8, 6, 3}, {363, 528, 495, 429}, 2.0f},
+    };
+    static constexpr const char* kPieces[4] = {"helmet", "chestplate", "leggings", "boots"};
+    for (const auto& a : kArmor)
+        for (int p = 0; p < 4; ++p) {
+            const std::string name = std::string(a.material) + "_" + kPieces[p];
+            r.add({.id = "minecraft:" + name,
+                   .maxStack = 1,
+                   .durability = a.durability[p],
+                   .texture = "item/" + name,
+                   .armorSlot = static_cast<uint8_t>(p + 1),
+                   .armor = a.points[p],
+                   .toughness = a.toughness});
+        }
+    // (wiki: Shield - 336 uses)
+    r.add({.id = "minecraft:shield", .maxStack = 1, .durability = 336, .texture = "item/shield"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});
     r.add({.id = "minecraft:arrow", .texture = "item/arrow"});

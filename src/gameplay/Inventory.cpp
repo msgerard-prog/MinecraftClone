@@ -70,6 +70,38 @@ int Inventory::add(world::ItemStack stack) {
     return left;
 }
 
+int Inventory::armorPoints() const {
+    int points = 0;
+    for (const auto& a : m_armor)
+        if (!a.empty()) points += world::itemRegistry().item(a.item).armor;
+    return points;
+}
+
+float Inventory::armorToughness() const {
+    float t = 0.0f;
+    for (const auto& a : m_armor)
+        if (!a.empty()) t += world::itemRegistry().item(a.item).toughness;
+    return t;
+}
+
+void Inventory::wearArmor(int amount) {
+    for (auto& a : m_armor) {
+        if (a.empty() || amount <= 0) continue;
+        a.damage = static_cast<uint16_t>(a.damage + amount);
+        if (a.damage >= world::itemRegistry().item(a.item).durability) a = {}; // broke
+    }
+}
+
+bool Inventory::equipSelected() {
+    const world::ItemStack held = selectedStack();
+    if (held.empty()) return false;
+    const int slot = world::itemRegistry().item(held.item).armorSlot;
+    if (slot == 0) return false;
+    setSlot(m_selected, m_armor[size_t(slot - 1)]);
+    m_armor[size_t(slot - 1)] = held;
+    return true;
+}
+
 bool Inventory::has(world::ItemId item) const {
     for (const auto& s : m_slots)
         if (!s.empty() && s.item == item) return true;

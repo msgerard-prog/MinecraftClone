@@ -141,7 +141,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     float damage = float(std::ceil(speed * 2.0));
                     if (p.critical) damage += float(rng.nextInt(uint32_t(damage / 2.0f + 2.0f)));
                     if (target == Target::Player) {
-                        if (vitals && survival && vitals->damage(damage)) {
+                        if (vitals && survival && vitals->attacked(damage, &p.pos)) {
                             player.knockback(p.vel.x, p.vel.z, 0.6 * 0.5); // wiki: Arrow knockback
                             hits.playerDamage += damage;
                         }

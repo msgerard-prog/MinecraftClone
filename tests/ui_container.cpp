@@ -146,3 +146,19 @@ TEST_CASE("chest screen: 3 rows (double: 6), shift-click moves stacks in and out
     CHECK(f.screen.chestRows() == 6);
     CHECK(f.screen.height() == 222);
 }
+
+TEST_CASE("inventory screen: armor slots take only their piece; shift-click puts armor on") {
+    Fixture f;
+    f.inv.setSlot(0, I("iron_boots"));
+    f.inv.setSlot(1, I("dirt", 5));
+    f.screen.open(ContainerScreen::Type::Inventory);
+    f.left(invX(0), hotbarY(), true); // shift: boots go on
+    CHECK(f.inv.armor(3).item == I("iron_boots").item);
+    CHECK(f.inv.slot(0).empty());
+    f.left(invX(1), hotbarY()); // carry dirt
+    f.left(sx(8), sy(8));       // the helmet slot refuses it
+    CHECK(f.inv.armor(0).empty());
+    CHECK_FALSE(f.screen.carried().empty());
+    f.left(sx(77), sy(62)); // the offhand takes anything
+    CHECK(f.inv.offhand().count == 5);
+}

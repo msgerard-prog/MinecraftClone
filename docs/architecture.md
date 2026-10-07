@@ -172,6 +172,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Armor and shields (M17.3): armor items carry `armorSlot`/`armor`/`toughness`;
+  `Inventory` holds 4 worn pieces and the offhand (saved as level.dat `equipment`);
+  `Vitals::attacked` (mob hits, arrows, explosions, lava, fire blocks) applies the
+  shield (front, raised 5 ticks) and the armor formula and collects wear that main
+  applies to the items; the HUD shows the armor bar.
 - Chests (M17.2): `world::ChestData` block entities (27 slots) in `Chunk::chests()`,
   created/removed by `World::setBlock`, saved as block_entities `Items`; double
   chests are two chests whose `type` points at each other (`BlockUpdates::

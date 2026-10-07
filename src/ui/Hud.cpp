@@ -21,7 +21,7 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
                    kIconGrassTint);
 }
 
-void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air) {
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air, int armor) {
     using gfx::HudIcon;
     auto icon = [&](HudIcon i, float x, float y) {
         batch.sprite(gfx::GuiTexture::Icons, x, y, 9, 9, static_cast<float>(int(i) * 9), 0, 9, 9);
@@ -39,6 +39,13 @@ void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int 
         icon(HudIcon::FoodEmpty, x, y);
         if (food >= 2 * i + 2) icon(HudIcon::FoodFull, x, y);
         else if (food == 2 * i + 1) icon(HudIcon::FoodHalf, x, y);
+    }
+    if (armor > 0) { // armor bar above the hearts, shown only when wearing armor (wiki: HUD)
+        for (int i = 0; i < 10; ++i) {
+            const float x = static_cast<float>(guiWidth / 2 - 91 + i * 8);
+            icon(armor >= 2 * i + 2 ? HudIcon::ArmorFull : armor == 2 * i + 1 ? HudIcon::ArmorHalf : HudIcon::ArmorEmpty,
+                 x, y - 10.0f);
+        }
     }
     if (air < 300) { // vanilla: full bubbles, then one bursting as it runs out
         const int full = std::max(0, int(std::ceil((air - 2) * 10.0 / 300.0)));

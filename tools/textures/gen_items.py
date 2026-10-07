@@ -450,6 +450,38 @@ def bone_meal():
     return s.render()
 
 
+ARMOR = {"leather": "#8A5530", "copper": "#D9804F", "golden": "#F2CF3C", "iron": "#D6D6D6", "diamond": "#45DCCB"}
+
+
+def armor(piece, base):
+    pal = ramp(hexc(base), 5, spread=0.35)
+    s = Shape()
+    if piece == "helmet":  # a dome with a face opening
+        pts = {(x, y) for x in range(2, 14) for y in range(3, 11)
+               if not (5 <= x <= 10 and y >= 7) and not (y == 3 and x in (2, 13))}
+    elif piece == "chestplate":  # shoulders, body, a neck notch
+        pts = {(x, y) for x in range(1, 15) for y in range(2, 15)
+               if not (5 <= x <= 10 and y <= 4) and not ((x <= 3 or x >= 12) and y >= 7)}
+    elif piece == "leggings":  # waist band and two legs
+        pts = {(x, y) for x in range(3, 13) for y in range(2, 15) if y <= 5 or not (6 <= x <= 9)}
+    else:  # boots
+        pts = {(x, y) for x in range(1, 15) for y in range(6, 14)
+               if (x <= 6 or x >= 9) and not (y < 10 and (x in (1, 2) or x in (13, 14)))}
+    s.add(pts, pal)
+    return s.render()
+
+
+def shield():
+    wood = ramp(hexc("#8A6038"), 5, spread=0.3)
+    iron = ramp(hexc("#B8B8C0"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(1, 15) if y < 11 or abs(x - 7.5) < (15 - y) * 1.1}, wood)
+    s.add({(x, y) for x in range(3, 13) for y in range(1, 15)
+           if (y in (1, 2) or x in (3, 12)) and (y < 11 or abs(x - 7.5) < (15 - y) * 1.1)}, iron)
+    s.add({(7, 7), (8, 7), (7, 8), (8, 8)}, iron)
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -508,6 +540,10 @@ def all_items():
     items["beetroot_seeds"] = beetroot_seeds()
     items["bread"] = bread()
     items["bone_meal"] = bone_meal()
+    for mat, base in ARMOR.items():
+        for piece in ("helmet", "chestplate", "leggings", "boots"):
+            items[f"{mat}_{piece}"] = armor(piece, base)
+    items["shield"] = shield()
     return items
 
 

@@ -55,7 +55,7 @@ public:
 
 private:
     struct Slot {
-        enum class Kind { Inv, Grid, Result, FurnaceIn, FurnaceFuel, FurnaceOut, Chest } kind;
+        enum class Kind { Inv, Grid, Result, FurnaceIn, FurnaceFuel, FurnaceOut, Chest, Armor, Offhand } kind;
         int index;
         int x, y; // panel coordinates of the 16x16 item area
     };

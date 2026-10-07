@@ -1,5 +1,9 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
+#include <utility>
+
 #include <cstdint>
 
 namespace mc {
@@ -29,6 +33,28 @@ public:
     // Hurts unless invulnerable (10 ticks after a hit). Returns true if it applied.
     // `exhausts`: false for falls and the void (wiki: they cause no exhaustion).
     bool damage(float amount, bool exhausts = true);
+    // An attack (mobs, arrows, explosions, lava, fire blocks): a raised shield blocks
+    // it from the front (no damage); otherwise armor reduces it (wiki: Armor):
+    //   damage x (1 - min(20, max(armor / 5, armor - 4 x damage / (toughness + 8))) / 25)
+    // and each worn piece wears floor(damage / 4), at least 1. `from`: where it came
+    // from (null: no direction, the shield can't help). Returns true if it hurt.
+    bool attacked(float amount, const glm::dvec3* from = nullptr);
+    static float armorReduced(float amount, int armor, float toughness);
+    // Set each tick from the inventory and the player.
+    void setArmor(int points, float toughness) {
+        m_armorPoints = points;
+        m_armorToughness = toughness;
+    }
+    // A shield held up for 5+ ticks blocks attacks from in front of `eye` (horizontal
+    // `facing`).
+    void setShield(bool raised, const glm::dvec3& eye, const glm::dvec3& facing) {
+        m_shieldRaised = raised;
+        m_eye = eye;
+        m_facing = facing;
+    }
+    // Durability owed by the worn armor / the shield since the last call.
+    int takeArmorWear() { return std::exchange(m_armorWear, 0); }
+    int takeShieldWear() { return std::exchange(m_shieldWear, 0); }
     int foodTimer() const { return m_foodTimer; }
     void setFoodTimer(int t) { m_foodTimer = t; }
     // Eats `food` points with `saturation` (wiki: Food), capped like vanilla.
@@ -75,6 +101,11 @@ private:
     int m_air = kMaxAir;
     int m_fire = 0;          // burning ticks left
     int m_fireContact = 0;   // ticks spent in fire blocks (catches fire at 20)
+    int m_armorPoints = 0;
+    float m_armorToughness = 0.0f;
+    int m_armorWear = 0, m_shieldWear = 0;
+    bool m_shieldRaised = false;
+    glm::dvec3 m_eye{0.0}, m_facing{0.0, 0.0, 1.0};
     double m_voidY = -128.0;
     double m_fallStartY = 0.0;
     double m_lastY = 0.0;

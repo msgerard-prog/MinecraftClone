@@ -75,6 +75,9 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             for (int i = 0; i < rows * 9; ++i)
                 out.push_back({K::Chest, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
         } else if (type == Type::Inventory) {
+            for (int i = 0; i < 4; ++i) // armor: head to feet down the left (vanilla)
+                out.push_back({K::Armor, i, 8, 8 + i * 18});
+            out.push_back({K::Offhand, 0, 77, 62});
             for (int i = 0; i < 4; ++i)
                 out.push_back({K::Grid, i, 98 + (i % 2) * 18, 18 + (i / 2) * 18});
             out.push_back({K::Result, 0, 154, 28});
@@ -105,6 +108,8 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
     case Slot::Kind::FurnaceIn: return m_furnace ? &m_furnace->input : nullptr;
     case Slot::Kind::FurnaceFuel: return m_furnace ? &m_furnace->fuel : nullptr;
     case Slot::Kind::FurnaceOut: return m_furnace ? &m_furnace->output : nullptr;
+    case Slot::Kind::Armor: return const_cast<world::ItemStack*>(&inventory.armor(s.index));
+    case Slot::Kind::Offhand: return const_cast<world::ItemStack*>(&inventory.offhand());
     case Slot::Kind::Chest: {
         world::ChestData* c = m_chests[size_t(s.index / 27)];
         return c ? &c->items[size_t(s.index % 27)] : nullptr;
@@ -189,6 +194,8 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
         auto store = [&] {
             if (v.count == 0) v = {};
             if (slot.kind == Slot::Kind::Inv) inventory.setSlot(slot.index, v);
+            else if (slot.kind == Slot::Kind::Armor) inventory.setArmor(slot.index, v);
+            else if (slot.kind == Slot::Kind::Offhand) inventory.setOffhand(v);
             else *s = v;
             if (slot.kind == Slot::Kind::Grid) updateResult();
         };
@@ -198,6 +205,14 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
         }
         if (shift && !v.empty()) {
             if (slot.kind == Slot::Kind::Inv) {
+                // Shift-clicking armor in the inventory puts it on (an empty piece slot).
+                if (const int piece = world::itemRegistry().item(v.item).armorSlot;
+                    m_type == Type::Inventory && piece > 0 && inventory.armor(piece - 1).empty()) {
+                    inventory.setArmor(piece - 1, v);
+                    v = {};
+                    store();
+                    return;
+                }
                 if (m_type == Type::Chest) { // into the chest: merge, then empty slots
                     for (int pass = 0; pass < 2 && !v.empty(); ++pass)
                         for (int i = 0; i < chestRows() * 9 && !v.empty(); ++i) {
@@ -242,6 +257,10 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
             return;
         }
         const bool outputOnly = slot.kind == Slot::Kind::FurnaceOut;
+        // An armor slot only takes its own piece (wiki: Inventory).
+        if (slot.kind == Slot::Kind::Armor && !m_carried.empty() &&
+            world::itemRegistry().item(m_carried.item).armorSlot != slot.index + 1)
+            return;
         // The fuel slot only takes fuel (wiki: Furnace › Fuel).
         if (slot.kind == Slot::Kind::FurnaceFuel && !m_carried.empty() && fuelTicks(m_carried) == 0) return;
         if (button == Button::Left) {

@@ -37,11 +37,26 @@ public:
     bool takeOne(world::ItemId item);
     bool has(world::ItemId item) const;
 
+    // Worn armor (M17.3): 0 head, 1 chest, 2 legs, 3 feet; and the offhand (a shield).
+    const world::ItemStack& armor(int piece) const { return m_armor[size_t(piece)]; }
+    void setArmor(int piece, world::ItemStack s) { m_armor[size_t(piece)] = s; }
+    const world::ItemStack& offhand() const { return m_offhand; }
+    void setOffhand(world::ItemStack s) { m_offhand = s; }
+    // Total armor points and toughness of the worn pieces (wiki: Armor).
+    int armorPoints() const;
+    float armorToughness() const;
+    // Wears every worn piece by `amount` (pieces at their durability break).
+    void wearArmor(int amount);
+    // Right-click with an armor piece: it goes on (swapping with what was worn).
+    bool equipSelected();
+
     // A single block item stack for a block state (keeps non-default states).
     static world::ItemStack blockStack(world::BlockStateId state, int count = 1);
 
 private:
     std::array<world::ItemStack, kSlots> m_slots{};
+    std::array<world::ItemStack, 4> m_armor{};
+    world::ItemStack m_offhand;
     int m_selected = 0;
     double m_scrollRemainder = 0.0;
 };

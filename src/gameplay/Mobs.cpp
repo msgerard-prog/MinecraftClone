@@ -331,7 +331,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const double reach = info.width * 2.0 + 0.6;
         if (playerDist2 < reach * reach && box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
                                                                   ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
-            if (ctx.vitals.damage(info.attackDamage)) ctx.player.knockback(toPlayer.x, toPlayer.z);
+            if (ctx.vitals.attacked(info.attackDamage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
             m.attackCooldown = 20;
         }
     }

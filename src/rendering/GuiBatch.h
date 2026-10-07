@@ -13,7 +13,20 @@ namespace mc::gfx {
 enum class GuiTexture : uint32_t { White = 0, Font = 1, Hotbar = 2, Selection = 3, Atlas = 4, Icons = 5 };
 
 // Survival HUD icons: 9x9 cells in the Icons strip (u = index * 9).
-enum class HudIcon : int { HeartFull, HeartHalf, HeartContainer, FoodFull, FoodHalf, FoodEmpty, Air, AirBursting, Count };
+enum class HudIcon : int {
+    HeartFull,
+    HeartHalf,
+    HeartContainer,
+    FoodFull,
+    FoodHalf,
+    FoodEmpty,
+    Air,
+    AirBursting,
+    ArmorFull,
+    ArmorHalf,
+    ArmorEmpty,
+    Count
+};
 
 // GUI vertex: position in GUI pixels (origin top-left), UV in texels of its texture.
 struct GuiVertex {

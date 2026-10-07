@@ -36,6 +36,11 @@ struct ItemDef {
     int food = 0;            // hunger points restored (wiki: Food)
     float saturation = 0;
     std::string texture;     // item sprite ("item/<name>"), empty for block items with a model
+    // Armor (M17.3; wiki: Armor): where it is worn (0 none, 1 head, 2 chest, 3 legs,
+    // 4 feet), its armor points and toughness.
+    uint8_t armorSlot = 0;
+    int armor = 0;
+    float toughness = 0.0f;
 };
 
 // Every item: a block item for each placeable block (same id), then tools,

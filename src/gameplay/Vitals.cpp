@@ -23,7 +23,7 @@ float Vitals::touchFire(bool inFire) {
         return 0.0f;
     }
     if (++m_fireContact >= 20) setOnFire(160);
-    return damage(1.0f, false) ? 1.0f : 0.0f;
+    return attacked(1.0f) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
 float Vitals::tickFire(bool inWater) {
@@ -61,6 +61,26 @@ bool Vitals::damage(float amount, bool exhausts) {
     m_invulnerable = 10;
     if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;
+}
+
+float Vitals::armorReduced(float amount, int armor, float toughness) {
+    const float a = float(armor);
+    const float reduction = std::min(20.0f, std::max(a / 5.0f, a - 4.0f * amount / (std::min(toughness, 20.0f) + 8.0f)));
+    return amount * (1.0f - reduction / 25.0f);
+}
+
+bool Vitals::attacked(float amount, const glm::dvec3* from) {
+    if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
+    if (m_shieldRaised && from) {
+        glm::dvec3 to = *from - m_eye;
+        to.y = 0.0;
+        if (glm::dot(to, m_facing) > 0.0) { // in front: blocked (wiki: Shield)
+            if (amount >= 3.0f) m_shieldWear += 1 + int(std::floor(amount));
+            return false;
+        }
+    }
+    if (m_armorPoints > 0) m_armorWear += std::max(1, int(amount / 4.0f));
+    return damage(armorReduced(amount, m_armorPoints, m_armorToughness));
 }
 
 void Vitals::eat(int food, float saturation) {

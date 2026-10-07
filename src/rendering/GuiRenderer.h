@@ -25,7 +25,8 @@ public:
     bool init(const PackStack& packs, const TextureAtlas& atlas);
     static constexpr const char* kHudIconPaths[] = {
         "hud/heart/full.png", "hud/heart/half.png", "hud/heart/container.png",
-        "hud/food_full.png",  "hud/food_half.png",  "hud/food_empty.png", "hud/air.png", "hud/air_bursting.png"};
+        "hud/food_full.png",  "hud/food_half.png",  "hud/food_empty.png", "hud/air.png", "hud/air_bursting.png",
+        "hud/armor_full.png", "hud/armor_half.png", "hud/armor_empty.png"};
     // Vanilla "auto" GUI scale: the largest whole scale that keeps 320x240 GUI pixels.
     static int guiScale(int width, int height);
 

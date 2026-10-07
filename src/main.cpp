@@ -380,6 +380,7 @@ int main(int argc, char** argv) {
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
     int bowTicks = 0;                // how long the bow has been drawn
     double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
+    int shieldTicks = 0;             // how long right-click has held a shield up
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -408,7 +409,10 @@ int main(int argc, char** argv) {
                 if (st.starts_with("minecraft:")) st.remove_prefix(10);
                 if (const auto bs = mc::world::blockRegistry().parse(st)) s.state = *bs;
             }
-            inventory.setSlot(it.slot, s);
+            // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
+            if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
+            else if (it.slot == 150) inventory.setOffhand(s);
+            else if (it.slot >= 0 && it.slot < mc::Inventory::kSlots) inventory.setSlot(it.slot, s);
         }
         inventory.select(level->selectedSlot);
     }
@@ -484,13 +488,17 @@ int main(int argc, char** argv) {
         l.foodTimer = vitals.foodTimer();
         l.air = vitals.air();
         l.fire = vitals.fireTicks();
-        for (int i = 0; i < mc::Inventory::kSlots; ++i) {
-            const mc::world::ItemStack& s = inventory.slot(i);
-            if (s.empty()) continue;
-            l.inventory.push_back({i, mc::world::itemRegistry().item(s.item).id,
+        auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
+            if (s.empty()) return;
+            l.inventory.push_back({slot, mc::world::itemRegistry().item(s.item).id,
                                    s.state ? mc::world::blockRegistry().toString(s.state) : std::string(),
                                    s.count, s.damage});
-        }
+        };
+        for (int i = 0; i < mc::Inventory::kSlots; ++i)
+            saveSlot(i, inventory.slot(i));
+        for (int piece = 0; piece < 4; ++piece) // head = 103 .. feet = 100
+            saveSlot(103 - piece, inventory.armor(piece));
+        saveSlot(150, inventory.offhand());
         l.selectedSlot = inventory.selected();
         if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
         if (wait) storage->flush();
@@ -917,7 +925,7 @@ int main(int argc, char** argv) {
                     // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
                     vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water));
                     if (player.inLava()) {
-                        vitals.damage(4.0f, false);
+                        vitals.attacked(4.0f); // lava: armor reduces it (wiki: Armor)
                         vitals.setOnFire(300); // 15 s
                     }
                     vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
@@ -937,6 +945,12 @@ int main(int argc, char** argv) {
                         droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng, 40);
                         inventory.setSlot(s, {});
                     }
+                    for (int piece = 0; piece < 4; ++piece) { // worn armor and the offhand too
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.armor(piece), gameRng, 40);
+                        inventory.setArmor(piece, {});
+                    }
+                    droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.offhand(), gameRng, 40);
+                    inventory.setOffhand({});
                     chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
@@ -978,6 +992,22 @@ int main(int argc, char** argv) {
                             inventory.consumeSelected(1);
                         }
                     }
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+            }
+            // Armor and shield (M17.3): armor values each tick; a shield in either hand
+            // held up with right-click blocks after 5 ticks (wiki: Shield).
+            {
+                static const mc::world::ItemId shieldItem = *mc::world::itemRegistry().find("shield");
+                const bool shieldInHand = inventory.selectedStack().item == shieldItem ||
+                                          (inventory.offhand().item == shieldItem &&
+                                           mc::world::itemRegistry().item(inventory.selectedStack().item).food == 0);
+                shieldTicks = !dead && clicks.use && shieldInHand ? shieldTicks + 1 : 0;
+                const glm::dvec3 facing(mc::world::forwardFlat(player.yaw()));
+                vitals.setArmor(inventory.armorPoints(), inventory.armorToughness());
+                vitals.setShield(shieldTicks >= 5, player.eyePosition(1.0), facing);
+                if (!dead && clicks.useClick && inventory.equipSelected()) { // armor in hand: put it on
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -1172,6 +1202,19 @@ int main(int argc, char** argv) {
                 fallingBlocks.spawn(f.pos, f.state);
             blockUpdates.fallingStarts().clear();
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
+            // Wear from this tick's hits (armor pieces; the shield that blocked).
+            if (const int wear = vitals.takeArmorWear(); wear > 0 && survival) inventory.wearArmor(wear);
+            if (const int wear = vitals.takeShieldWear(); wear > 0 && survival) {
+                static const mc::world::ItemId shieldItem = *mc::world::itemRegistry().find("shield");
+                auto wearShield = [&](mc::world::ItemStack s) {
+                    s.damage = static_cast<uint16_t>(s.damage + wear);
+                    return s.damage >= mc::world::itemRegistry().item(s.item).durability ? mc::world::ItemStack{} : s;
+                };
+                if (inventory.selectedStack().item == shieldItem)
+                    inventory.setSlot(inventory.selected(), wearShield(inventory.selectedStack()));
+                else if (inventory.offhand().item == shieldItem)
+                    inventory.setOffhand(wearShield(inventory.offhand()));
+            }
             projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
@@ -1329,7 +1372,8 @@ int main(int argc, char** argv) {
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
             mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
-            if (survival) mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air());
+            if (survival)
+                mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(), inventory.armorPoints());
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;

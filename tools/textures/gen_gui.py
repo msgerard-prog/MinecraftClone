@@ -120,6 +120,19 @@ BUBBLE = [  # 9x9: '#' outline, 'b' water, 'h' highlight
 ]
 
 
+CHESTPLATE = [  # 9x9: '#' outline, 'a' plate, 'h' highlight (our drawing)
+    "##.....##",
+    "#a#...#a#",
+    "#aa###aa#",
+    "#ahaaaaa#",
+    ".#haaaa#.",
+    ".#aaaaa#.",
+    ".#aaaaa#.",
+    ".#aaaaa#.",
+    ".#######.",
+]
+
+
 def survival_icons():
     out = {}
     red = {"#": (30, 8, 10, 255), "r": (214, 34, 36, 255), "h": (255, 160, 150, 255)}
@@ -136,6 +149,11 @@ def survival_icons():
     out["hud/air.png"] = icon(BUBBLE, water)
     # Bursting: a broken ring (our own drawing).
     out["hud/air_bursting.png"] = icon(BUBBLE, water, lambda x, y: BUBBLE[y][x] == "#" and (x + y) % 3 != 0)
+    plate = {"#": (30, 30, 34, 255), "a": (198, 198, 206, 255), "h": (250, 250, 255, 255)}
+    out["hud/armor_full.png"] = icon(CHESTPLATE, plate)
+    out["hud/armor_half.png"] = icon(CHESTPLATE, plate, lambda x, y: x <= 4 or CHESTPLATE[y][x] == "#")
+    empty = {"#": (30, 30, 34, 255), "a": (60, 60, 64, 255), "h": (60, 60, 64, 255)}
+    out["hud/armor_empty.png"] = icon(CHESTPLATE, empty)
     return out
 
 

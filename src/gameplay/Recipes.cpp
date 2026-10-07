@@ -109,6 +109,19 @@ std::vector<Recipe> build() {
     // (wiki: Bread - 3 wheat in a row; Bone Meal - a bone makes 3)
     r.push_back(shaped({"###"}, {{'#', item("wheat")}}, "bread"));
     r.push_back(shapeless({item("bone")}, "bone_meal", 3));
+    // Armor (wiki: Armor - helmet 5, chestplate 8, leggings 7, boots 4 of the material)
+    // and the shield (planks around an iron ingot).
+    for (const auto& [mat, ing] : {std::pair{"leather", "leather"}, std::pair{"copper", "copper_ingot"},
+                                   std::pair{"golden", "gold_ingot"}, std::pair{"iron", "iron_ingot"},
+                                   std::pair{"diamond", "diamond"}}) {
+        const std::string m = mat;
+        const Ingredient x = item(ing);
+        r.push_back(shaped({"###", "#.#"}, {{'#', x}}, m + "_helmet"));
+        r.push_back(shaped({"#.#", "###", "###"}, {{'#', x}}, m + "_chestplate"));
+        r.push_back(shaped({"###", "#.#", "#.#"}, {{'#', x}}, m + "_leggings"));
+        r.push_back(shaped({"#.#", "#.#"}, {{'#', x}}, m + "_boots"));
+    }
+    r.push_back(shaped({"WIW", "WWW", ".W."}, {{'W', kPlanks}, {'I', item("iron_ingot")}}, "shield"));
     // (wiki: Arrow - flint, stick, feather -> 4)
     r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
     return r;

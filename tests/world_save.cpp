@@ -838,3 +838,23 @@ TEST_CASE("chests: placed chests get storage that saves as Items (Slot 0..26) an
     w.setBlock({3, 70, 4}, 0); // the block goes: its storage too
     CHECK(c.chest(3, 70, 4) == nullptr);
 }
+
+TEST_CASE("level.dat: worn armor and the offhand save in 1.21.5+'s equipment compound") {
+    TempDir dir("mc_test_level_equipment");
+    LevelData l;
+    l.inventory.push_back({103, "minecraft:diamond_helmet", "", 1, 7});
+    l.inventory.push_back({100, "minecraft:iron_boots", "", 1, 0});
+    l.inventory.push_back({150, "minecraft:shield", "", 1, 0});
+    l.inventory.push_back({0, "minecraft:stone", "", 3, 0});
+    REQUIRE(l.save(dir.path));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back);
+    int found = 0;
+    for (const auto& it : back->inventory) {
+        if (it.slot == 103) found += it.id == "minecraft:diamond_helmet" && it.damage == 7;
+        if (it.slot == 100) found += it.id == "minecraft:iron_boots";
+        if (it.slot == 150) found += it.id == "minecraft:shield";
+        if (it.slot == 0) found += it.count == 3;
+    }
+    CHECK(found == 4);
+}

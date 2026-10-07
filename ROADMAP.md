@@ -21,7 +21,7 @@ Anvil, Brewing):
    crop drops and seeds, bread/baked potato recipes.
 2. ✅ M17.2 — Chests (single and double, 27/54 slots, block entity saved as Items),
    item frames of inventory screens reused; hoppers come with redstone 2.
-3. M17.3 — Armor (leather/iron/gold/diamond/copper... pieces, armor points and
+3. ✅ M17.3 — Armor (leather/iron/gold/diamond/copper... pieces, armor points and
    toughness damage reduction, durability, armor slots in the inventory, worn on mobs
    and the player model later); shields (blocking with right-click, 5-tick delay,
    axe disabling).

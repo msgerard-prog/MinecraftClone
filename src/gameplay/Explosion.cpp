@@ -79,7 +79,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
     if (targets.player && targets.vitals)
         hurt(targets.player->box(), targets.player->position(), targets.player->eyeHeight(),
              [&](float dmg, const glm::dvec3& push) {
-            targets.vitals->damage(dmg);
+            targets.vitals->attacked(dmg, &centre);
             targets.player->push(push);
         });
     if (targets.damageMobs) {

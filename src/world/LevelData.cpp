@@ -126,6 +126,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("foodTickTimer", int32_t{foodTimer});
     player.put("SelectedItemSlot", int32_t{selectedSlot});
     std::vector<Tag> items; // vanilla's Inventory list
+    Compound equipment;     // 1.21.5+: worn armor and the offhand
     for (const SavedItem& it : inventory) {
         Compound item;
         const std::string& s = it.state;
@@ -148,9 +149,18 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             components.put("minecraft:block_state", std::move(props));
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
+        if (it.slot >= 100) { // equipment: no Slot field
+            static constexpr const char* kKeys[4] = {"feet", "legs", "chest", "head"};
+            item.entries.erase(std::remove_if(item.entries.begin(), item.entries.end(),
+                                              [](const auto& e) { return e.name == "Slot"; }),
+                               item.entries.end());
+            equipment.put(it.slot == 150 ? "offhand" : kKeys[it.slot - 100], std::move(item));
+            continue;
+        }
         items.emplace_back(std::move(item));
     }
     player.put("Inventory", listOf(TagType::Compound, std::move(items)));
+    if (!equipment.entries.empty()) player.put("equipment", std::move(equipment));
     data.put("Player", std::move(player));
 
     Compound ours;
@@ -261,34 +271,44 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         if (auto v = p->real("foodExhaustionLevel")) l.exhaustion = static_cast<float>(*v);
         l.foodTimer = static_cast<int>(p->integer("foodTickTimer").value_or(0));
         l.selectedSlot = static_cast<int>(p->integer("SelectedItemSlot").value_or(0)) % 9;
+        auto readItem = [&](const Compound& item, int slot) {
+            const std::string* id = item.string("id");
+            if (!id) return;
+            SavedItem saved;
+            saved.slot = slot;
+            saved.id = *id;
+            saved.count = static_cast<int>(item.integer("count").value_or(1));
+            std::string st = *id;
+            const Compound* comps = item.compound("components");
+            if (comps) saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
+            const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
+            if (props && !props->entries.empty()) {
+                st += '[';
+                for (size_t i = 0; i < props->entries.size(); ++i) {
+                    const std::string* v = props->entries[i].value.get<std::string>();
+                    if (i) st += ',';
+                    st += props->entries[i].name + '=' + (v ? *v : std::string());
+                }
+                st += ']';
+                saved.state = std::move(st);
+            }
+            l.inventory.push_back(std::move(saved));
+        };
         if (const List* inv = p->list("Inventory"))
             for (const Tag& t : inv->items) {
                 const Compound* item = t.get<Compound>();
                 if (!item) continue;
                 const auto slot = item->integer("Slot").value_or(-1);
-                if (slot < 0 || slot > 35) continue;
-                const std::string* id = item->string("id");
-                if (!id) continue;
-                SavedItem saved;
-                saved.slot = static_cast<int>(slot);
-                saved.id = *id;
-                saved.count = static_cast<int>(item->integer("count").value_or(1));
-                std::string st = *id;
-                const Compound* comps = item->compound("components");
-                if (comps) saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
-                const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
-                if (props && !props->entries.empty()) {
-                    st += '[';
-                    for (size_t i = 0; i < props->entries.size(); ++i) {
-                        const std::string* v = props->entries[i].value.get<std::string>();
-                        if (i) st += ',';
-                        st += props->entries[i].name + '=' + (v ? *v : std::string());
-                    }
-                    st += ']';
-                    saved.state = std::move(st);
-                }
-                l.inventory.push_back(std::move(saved));
+                // 0..35; before 1.21.5 armor sat at 100..103 and the offhand at -106.
+                if ((slot >= 0 && slot <= 35) || (slot >= 100 && slot <= 103)) readItem(*item, int(slot));
+                else if (slot == -106) readItem(*item, 150);
             }
+        if (const Compound* eq = p->compound("equipment")) {
+            static constexpr std::pair<const char*, int> kKeys[5] = {
+                {"feet", 100}, {"legs", 101}, {"chest", 102}, {"head", 103}, {"offhand", 150}};
+            for (const auto& [key, slot] : kKeys)
+                if (const Compound* item = eq->compound(key)) readItem(*item, slot);
+        }
     }
     return l;
 }
