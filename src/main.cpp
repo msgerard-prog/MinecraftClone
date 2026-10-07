@@ -15,6 +15,10 @@
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
 #include "world/LightManager.h"
+#include "gameplay/Commands.h"
+#include "rendering/GuiRenderer.h"
+#include "ui/Chat.h"
+#include "ui/Hud.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
 #include "world/TerrainGenerator.h"
@@ -166,6 +170,12 @@ int main(int argc, char** argv) {
         return 1;
     mc::gfx::OverlayRenderer overlay;
     if (!overlay.init()) return 1;
+    mc::gfx::GuiRenderer gui;
+    if (!gui.init(renderer.packs(), renderer.atlas())) return 1;
+    mc::ui::Chat chat;
+    mc::ui::DebugScreen debugScreen;
+    bool showDebug = opts->debugScreen;
+    std::array<char, 64> typed{};
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
     const mc::world::TerrainGenerator generator(opts->seed);
@@ -202,6 +212,7 @@ int main(int argc, char** argv) {
     editsReady.reserve(16);
 
     int64_t dayTime = opts->time; // world day time in ticks (world/DayTime.h)
+    int64_t gameTime = 0;         // ticks since start
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
@@ -216,7 +227,6 @@ int main(int argc, char** argv) {
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
     bool attackArmed = false; // the click that captures the mouse must not break a block
-    int shownSlot = -1;
     std::optional<mc::world::RayHit> lastHit; // outline target of the last frame
     mc::GameClock clock;
     double last = mc::timeSeconds();
@@ -226,37 +236,91 @@ int main(int argc, char** argv) {
     mc::FrameStats workStats; // CPU time per frame before the swap (excludes vsync/cap)
     const double startTime = last;
     bool meshed = false;
+    int fps = 0, fpsFrames = 0;
+    mc::world::BlockStateId targetState = 0xFFFF; // F3 target name cache
+    std::string targetName;
+    double fpsStart = startTime;
+
+    // Chat lines: commands run through gameplay/Commands, plain text is echoed.
+    auto runChatLine = [&](std::string_view text) {
+        if (text.empty()) return;
+        if (text.front() == '/') {
+            mc::CommandContext ctx{player, hotbar, dayTime, gameTime, opts->seed};
+            const auto result = mc::runCommand(text, ctx);
+            if (!result.message.empty())
+                chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
+                                gameTime, gui.batch());
+        } else {
+            char line[mc::ui::Chat::kMaxInput + 16];
+            std::snprintf(line, sizeof(line), "<Player> %.*s", int(text.size()), text.data());
+            chat.addMessage(line, 0xFFFFFFFFu, gameTime, gui.batch());
+        }
+    };
+    for (const auto& c : opts->commands)
+        runChatLine(c);
 
     while (!window.shouldClose()) {
         window.pollEvents();
-        if (!screenshotMode) {
-            // Click to capture the mouse, Esc to release it (pause menu comes in M6).
-            if (!window.cursorCaptured() && window.leftMousePressed()) {
+        // Text typed this frame (only the chat consumes it).
+        const int typedCount = window.takeText(typed.data(), static_cast<int>(typed.size()));
+        if (chat.isOpen()) {
+            chat.type({typed.data(), size_t(typedCount)});
+            for (int n = window.takePresses(mc::Press::Backspace); n > 0; --n)
+                chat.backspace();
+            for (int n = window.takePresses(mc::Press::Up); n > 0; --n)
+                chat.browseSent(-1);
+            for (int n = window.takePresses(mc::Press::Down); n > 0; --n)
+                chat.browseSent(1);
+            if (window.takePresses(mc::Press::Enter) > 0) {
+                runChatLine(chat.submit());
                 window.setCursorCaptured(true);
                 attackArmed = false;
-                window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
+            } else if (window.takePresses(mc::Press::Escape) > 0) {
+                chat.close();
+                window.setCursorCaptured(true);
+                attackArmed = false;
             }
-            if (window.cursorCaptured() && window.keyDown(mc::Key::Escape)) {
-                window.setCursorCaptured(false);
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
+                           mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
+                window.takePresses(p); // typing, not game keys
+        } else {
+            for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
+                window.takePresses(p);
+            if (window.takePresses(mc::Press::F3) > 0) showDebug = !showDebug;
+            if (window.cursorCaptured()) {
+                // T opens the chat, / opens it with the slash typed (vanilla).
+                if (window.takePresses(mc::Press::Command) > 0) {
+                    chat.open("/");
+                    window.setCursorCaptured(false);
+                } else if (window.takePresses(mc::Press::Chat) > 0) {
+                    chat.open();
+                    window.setCursorCaptured(false);
+                }
+            } else {
+                window.takePresses(mc::Press::Chat);
+                window.takePresses(mc::Press::Command);
+            }
+            if (!screenshotMode) {
+                // Click to capture the mouse, Esc to release it (pause menu: later).
+                if (!window.cursorCaptured() && !chat.isOpen() && window.leftMousePressed()) {
+                    window.setCursorCaptured(true);
+                    attackArmed = false;
+                    window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
+                }
+                if (window.takePresses(mc::Press::Escape) > 0 && window.cursorCaptured())
+                    window.setCursorCaptured(false);
             }
         }
         player.turn(window.mouseDx(), window.mouseDy());
         if (!window.leftMousePressed()) attackArmed = true;
 
-        // Hotbar: number keys 1-9 and the mouse wheel (shown in the title until the
-        // hotbar UI exists, M6).
+        // Hotbar: number keys 1-9 and the mouse wheel.
         if (window.cursorCaptured()) {
             for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
                 if (window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i)))
                     hotbar.select(i);
             }
             hotbar.scroll(window.scrollDelta());
-        }
-        if (hotbar.selected() != shownSlot && !opts->hidden) {
-            shownSlot = hotbar.selected();
-            const std::string title = "MinecraftClone - [" + std::to_string(shownSlot + 1) + "] " +
-                                      mc::world::blockRegistry().toString(hotbar.selectedBlock());
-            window.setTitle(title.c_str());
         }
 
         const double now = mc::timeSeconds();
@@ -287,6 +351,7 @@ int main(int argc, char** argv) {
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
+            ++gameTime;
         }
 
         int fbWidth = 0;
@@ -330,6 +395,61 @@ int main(int argc, char** argv) {
         lastHit = hit;
         overlay.draw(camera, fbWidth, fbHeight,
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
+
+        // HUD: hotbar, chat, F3 - one batched GUI draw.
+        {
+            const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
+            const int guiW = fbWidth / scale, guiH = fbHeight / scale;
+            auto& batch = gui.batch();
+            mc::ui::drawHotbar(batch, hotbar, renderer.models(), guiW, guiH);
+            chat.draw(batch, guiW, guiH, gameTime);
+            ++fpsFrames;
+            if (now - fpsStart >= 1.0) {
+                fps = fpsFrames;
+                fpsFrames = 0;
+                fpsStart = now;
+            }
+            if (showDebug) {
+                mc::ui::DebugInfo d;
+                d.fps = fps;
+                d.feet = player.position();
+                d.yaw = player.yaw();
+                d.pitch = player.pitch();
+                if (hit) {
+                    d.hasTarget = true;
+                    d.target = {hit->block.x, hit->block.y, hit->block.z};
+                    // Name re-built only when the targeted state changes (not per frame).
+                    const auto state = world.getBlock(hit->block);
+                    if (state != targetState) {
+                        targetState = state;
+                        targetName = mc::world::blockRegistry().toString(state);
+                    }
+                    d.targetName = targetName.c_str();
+                }
+                const mc::world::BlockPos feet{static_cast<int32_t>(std::floor(d.feet.x)),
+                                               static_cast<int32_t>(std::floor(d.feet.y)),
+                                               static_cast<int32_t>(std::floor(d.feet.z))};
+                if (const auto* c = world.chunk(feet.chunk()); c && c->lit()) {
+                    d.skyLight = c->skyLight(mc::world::blockToLocal(feet.x), feet.y,
+                                             mc::world::blockToLocal(feet.z));
+                    d.blockLight = c->blockLight(mc::world::blockToLocal(feet.x), feet.y,
+                                                 mc::world::blockToLocal(feet.z));
+                }
+                d.dayTime = dayTime;
+                d.gameTime = gameTime;
+                d.renderDistance = loader ? opts->renderDistance : 8;
+                d.sectionsDrawn = renderer.stats().sectionsDrawn;
+                d.sectionsTotal = renderer.stats().sections;
+                d.pendingChunks = loader ? loader->pending() : 0;
+                d.pendingLight = lighting.pending();
+                d.pendingMeshes = renderer.pendingMeshes();
+                d.width = fbWidth;
+                d.height = fbHeight;
+                d.gpuMs = renderer.averageGpuMs();
+                debugScreen.draw(batch, d, guiW);
+            }
+            gui.draw(fbWidth, fbHeight);
+        }
 
         if (!meshed && renderer.pendingMeshes() == 0 && lighting.pending() == 0 &&
             (!loader || loader->pending() == 0) && renderer.stats().sections > 0) {

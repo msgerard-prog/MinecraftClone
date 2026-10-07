@@ -49,8 +49,50 @@ void onMouseButton(GLFWwindow* handle, int button, int action, int) {
 
 void onKey(GLFWwindow* handle, int key, int, int action, int) {
     auto* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
-    if (self && action == GLFW_PRESS && key == GLFW_KEY_SPACE)
-        ++self->m_presses[static_cast<int>(Press::Jump)];
+    if (!self || action == GLFW_RELEASE) return;
+    const bool press = action == GLFW_PRESS;
+    auto count = [&](Press p) { ++self->m_presses[static_cast<int>(p)]; };
+    switch (key) {
+    case GLFW_KEY_SPACE: if (press) count(Press::Jump); break;
+    case GLFW_KEY_ESCAPE: if (press) count(Press::Escape); break;
+    case GLFW_KEY_F3: if (press) count(Press::F3); break;
+    case GLFW_KEY_T: if (press) count(Press::Chat); break;
+    case GLFW_KEY_SLASH: if (press) count(Press::Command); break;
+    case GLFW_KEY_E: if (press) count(Press::Inventory); break;
+    case GLFW_KEY_ENTER:
+    case GLFW_KEY_KP_ENTER: if (press) count(Press::Enter); break;
+    case GLFW_KEY_BACKSPACE: count(Press::Backspace); break; // repeats too
+    case GLFW_KEY_UP: count(Press::Up); break;
+    case GLFW_KEY_DOWN: count(Press::Down); break;
+    default: break;
+    }
+}
+
+void onChar(GLFWwindow* handle, unsigned int codepoint) {
+    auto* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+    if (!self || codepoint < 32 || codepoint > 126) return; // ASCII font only
+    if (self->m_textLength < static_cast<int>(sizeof(self->m_text)))
+        self->m_text[self->m_textLength++] = static_cast<char>(codepoint);
+}
+
+int Window::takeText(char* out, int max) {
+    const int n = m_textLength < max ? m_textLength : max;
+    for (int i = 0; i < n; ++i)
+        out[i] = m_text[i];
+    m_textLength = 0;
+    return n;
+}
+
+void Window::cursorPos(double& x, double& y) const {
+    glfwGetCursorPos(m_window, &x, &y);
+    // Window coordinates -> framebuffer pixels (differ on high-DPI displays).
+    int ww = 0, wh = 0, fw = 0, fh = 0;
+    glfwGetWindowSize(m_window, &ww, &wh);
+    glfwGetFramebufferSize(m_window, &fw, &fh);
+    if (ww > 0 && wh > 0) {
+        x *= static_cast<double>(fw) / ww;
+        y *= static_cast<double>(fh) / wh;
+    }
 }
 
 Window::~Window() {
@@ -79,6 +121,7 @@ bool Window::create(int width, int height, const char* title, bool visible, bool
     glfwSetScrollCallback(m_window, onScroll);
     glfwSetMouseButtonCallback(m_window, onMouseButton);
     glfwSetKeyCallback(m_window, onKey);
+    glfwSetCharCallback(m_window, onChar);
     glfwSwapInterval(vsync ? 1 : 0);
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);

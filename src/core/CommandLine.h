@@ -6,6 +6,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace mc {
 
@@ -31,6 +32,8 @@ struct LaunchOptions {
     float yaw = 0.0f;
     float pitch = 0.0f;
     int64_t time = 0; // --time T: day time in ticks (0 sunrise, 6000 noon, 18000 midnight)
+    bool debugScreen = false;          // --f3: start with the F3 debug screen open
+    std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start
 };
 
 // Parses argv (without argv[0]). Returns nullopt and fills `error` on bad input.

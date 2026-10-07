@@ -8,9 +8,25 @@ class Window;
 void onScroll(GLFWwindow* handle, double xoffset, double yoffset);
 void onMouseButton(GLFWwindow* handle, int button, int action, int mods);
 void onKey(GLFWwindow* handle, int key, int scancode, int action, int mods);
+void onChar(GLFWwindow* handle, unsigned int codepoint);
 
 // Presses counted by callbacks, so a press shorter than a frame or tick isn't lost.
-enum class Press { LeftMouse, RightMouse, Jump, Count };
+// Text-editing keys (Backspace, arrows) also count key repeats.
+enum class Press {
+    LeftMouse,
+    RightMouse,
+    Jump,
+    Escape,
+    F3,
+    Chat,      // T
+    Command,   // /
+    Inventory, // E
+    Enter,
+    Backspace,
+    Up,
+    Down,
+    Count
+};
 
 // Keys the game reads. Mapped to GLFW in Window.cpp so no other code includes GLFW.
 enum class Key {
@@ -65,6 +81,12 @@ public:
         return n;
     }
 
+    // Printable characters typed since the last call (ASCII; others dropped).
+    // Returns the count written to `out` (at most `max`) and clears the buffer.
+    int takeText(char* out, int max);
+    // Cursor position in framebuffer pixels (for GUI screens).
+    void cursorPos(double& x, double& y) const;
+
     // Captured = cursor hidden and locked, mouse movement turns the camera.
     void setCursorCaptured(bool captured);
     bool cursorCaptured() const { return m_captured; }
@@ -88,6 +110,9 @@ private:
     friend void onScroll(GLFWwindow*, double, double);
     friend void onMouseButton(GLFWwindow*, int, int, int);
     friend void onKey(GLFWwindow*, int, int, int, int);
+    friend void onChar(GLFWwindow*, unsigned int);
+    char m_text[64] = {};
+    int m_textLength = 0;
     int m_presses[static_cast<int>(Press::Count)] = {};
 };
 
