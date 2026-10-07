@@ -26,7 +26,7 @@ Fire, Snow, Ice):
 2. ✅ M15.2 — Saplings (oak, birch, spruce, acacia): block + item, planted on dirt/grass,
    `stage` 0→1→tree on random ticks (1/7 chance, light ≥ 9), trees grown with the
    worldgen shapes (same code, shared).
-3. M15.3 — Fire: fire block (age 0-15, scheduled every 30-40 ticks), spread and
+3. ✅ M15.3 — Fire: fire block (age 0-15, scheduled every 30-40 ticks), spread and
    burn odds per block (flammability table from the wiki), burning out, infiniburn on
    netherrack/magma, lava igniting nearby flammable blocks, flint and steel places
    fire (and lights portals through it), fire damages and ignites entities, animated

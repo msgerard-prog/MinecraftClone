@@ -139,6 +139,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
             else growTree(p, s);
         }
         break;
+    case B::Lava:
+        lavaIgnites(p); // sources and flowing lava alike
+        break;
     default: break;
     }
 }

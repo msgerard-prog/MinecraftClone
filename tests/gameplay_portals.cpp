@@ -130,7 +130,9 @@ TEST_CASE("flint and steel doesn't light portals in the End") {
     Scene s;
     s.frame(0, 64, 0, 2, 3);
     const ItemId flint = *itemRegistry().find("flint_and_steel");
-    CHECK_FALSE(portals::useItem(s.world, Dimension::End, flint, {0, 63, 0}, Direction::Up, s.changed));
+    CHECK(portals::useItem(s.world, Dimension::End, flint, {0, 63, 0}, Direction::Up, s.changed));
+    CHECK(s.at({0, 64, 0}) == blocks::Fire); // just fire there
+    s.world.setBlock({0, 64, 0}, 0);
     CHECK(portals::useItem(s.world, Dimension::Overworld, flint, {0, 63, 0}, Direction::Up, s.changed));
     CHECK(s.at({0, 64, 0}) == blocks::NetherPortal);
 }

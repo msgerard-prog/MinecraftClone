@@ -371,6 +371,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     case B::Water:
     case B::Lava: fluidNeighbourChanged(p, s); break;
+    case B::Fire: fireNeighbourChanged(p); break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
@@ -511,6 +512,7 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     }
     case B::Water:
     case B::Lava: tickFluid(p, s); break;
+    case B::Fire: tickFire(p, s); break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:

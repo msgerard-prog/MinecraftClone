@@ -53,6 +53,10 @@ public:
     // Burning (wiki: Fire, Lava): lava sets the player on fire for 15 s; burning hurts
     // 1 every second; water puts it out. Returns damage taken.
     void setOnFire(int ticks) { m_fire = ticks > m_fire ? ticks : m_fire; }
+    // Standing in a fire block (wiki: Fire › Burning): 1 damage a tick (the hurt cooldown
+    // makes it one every half second); after a second in it the player catches fire for
+    // 8 s (the player's Fire tag starts at -20). Call each tick, `inFire` or not.
+    float touchFire(bool inFire);
     float tickFire(bool inWater);
     bool burning() const { return m_fire > 0; }
     int fireTicks() const { return m_fire; }
@@ -70,6 +74,7 @@ private:
     int m_invulnerable = 0;  // ticks left after a hit
     int m_air = kMaxAir;
     int m_fire = 0;          // burning ticks left
+    int m_fireContact = 0;   // ticks spent in fire blocks (catches fire at 20)
     double m_voidY = -128.0;
     double m_fallStartY = 0.0;
     double m_lastY = 0.0;

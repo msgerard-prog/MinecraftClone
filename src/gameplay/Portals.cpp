@@ -1,5 +1,6 @@
 #include "gameplay/Portals.h"
 
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Coords.h"
 
@@ -222,10 +223,21 @@ bool useItem(World& world, Dimension dimension, ItemId item, const BlockPos& blo
              std::vector<BlockPos>& changed) {
     const std::string_view id = itemRegistry().item(item).id;
     if (id == "minecraft:flint_and_steel") {
-        if (dimension == Dimension::End) return false; // wiki: portals can't be activated there
-        // No fire yet: the flint and steel lights portals only (known deviation).
+        // Fire goes in front of the clicked face; inside an obsidian frame it becomes a
+        // portal instead (wiki: Flint and Steel, Nether portal - not in the End).
         const glm::ivec3 n = normal(face);
-        return light(world, {block.x + n.x, block.y + n.y, block.z + n.z}, changed).has_value();
+        const BlockPos at{block.x + n.x, block.y + n.y, block.z + n.z};
+        if (dimension != Dimension::End && light(world, at, changed)) return true;
+        if (!world.isInHeight(at.y) || world.getBlock(at) != 0) return false;
+        bool stays = R().collides(world.getBlock({at.x, at.y - 1, at.z}));
+        for (int d = 0; d < kDirectionCount && !stays; ++d) {
+            const glm::ivec3 o = normal(static_cast<Direction>(d));
+            stays = BlockUpdates::igniteOdds(R().blockOf(world.getBlock({at.x + o.x, at.y + o.y, at.z + o.z}))) > 0;
+        }
+        if (!stays) return false; // nowhere for fire to stay: not used
+        world.updateBlock(at, BlockUpdates::fireState(0));
+        changed.push_back(at);
+        return true;
     }
     if (id == "minecraft:ender_eye") {
         const BlockStateId s = world.getBlock(block);

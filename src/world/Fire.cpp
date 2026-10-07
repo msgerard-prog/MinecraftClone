@@ -1,0 +1,210 @@
+// Fire (M15; wiki: Fire, Lava). Part of BlockUpdates.
+//
+// A fire block ticks every 30-40 game ticks (scheduled, not random). Each tick it may
+// age (1 in 3), goes out if it can't stay, burns away its flammable neighbours and
+// spreads to air around it that touches something flammable: 3x3 around, from 1 below
+// to 4 above, less likely the higher and the older the fire. Netherrack, magma
+// blocks and soul sand under it keep it burning forever (infiniburn).
+//
+// Lava starts fires on its random ticks: in air 1 or 2 blocks above it (3x3, then
+// 5x5) next to something flammable, or on top of a flammable block beside it.
+#include "world/BlockUpdates.h"
+
+#include "world/Blocks.h"
+
+#include <algorithm>
+
+namespace mc::world {
+
+namespace {
+
+using namespace properties;
+namespace B = blocks;
+
+const BlockRegistry& R() { return blockRegistry(); }
+BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
+BlockPos rel(const BlockPos& p, Direction d) {
+    const glm::ivec3 v = normal(d);
+    return {p.x + v.x, p.y + v.y, p.z + v.z};
+}
+
+// Vanilla's default difficulty (Normal) until difficulty exists: it speeds up spread.
+constexpr int kDifficulty = 2;
+
+bool infiniburn(BlockId b) { return b == B::Netherrack || b == B::MagmaBlock || b == B::SoulSand; }
+
+} // namespace
+
+int BlockUpdates::igniteOdds(BlockId b) {
+    // How readily fire spreads next to the block (wiki: Fire › Flammable blocks, the
+    // "ignite odds" column).
+    switch (b) {
+    case B::OakPlanks:
+    case B::BirchPlanks:
+    case B::SprucePlanks:
+    case B::AcaciaPlanks:
+    case B::OakLog:
+    case B::BirchLog:
+    case B::SpruceLog:
+    case B::AcaciaLog: return 5;
+    case B::OakLeaves:
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: return 30;
+    case B::ShortGrass:
+    case B::Fern:
+    case B::Dandelion:
+    case B::Poppy:
+    case B::Cornflower:
+    case B::AzureBluet:
+    case B::OxeyeDaisy:
+    case B::DeadBush: return 60;
+    default: return 0;
+    }
+}
+
+int BlockUpdates::burnOdds(BlockId b) {
+    // How quickly fire destroys the block (wiki: Fire, the "burn odds" column).
+    switch (b) {
+    case B::OakPlanks:
+    case B::BirchPlanks:
+    case B::SprucePlanks:
+    case B::AcaciaPlanks: return 20;
+    case B::OakLog:
+    case B::BirchLog:
+    case B::SpruceLog:
+    case B::AcaciaLog: return 5;
+    case B::OakLeaves:
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: return 60;
+    case B::ShortGrass:
+    case B::Fern:
+    case B::Dandelion:
+    case B::Poppy:
+    case B::Cornflower:
+    case B::AzureBluet:
+    case B::OxeyeDaisy:
+    case B::DeadBush: return 100;
+    default: return 0;
+    }
+}
+
+bool BlockUpdates::nextToFlammable(const BlockPos& p) const {
+    for (int d = 0; d < kDirectionCount; ++d)
+        if (igniteOdds(blockOf(at(rel(p, static_cast<Direction>(d))))) > 0) return true;
+    return false;
+}
+
+bool BlockUpdates::fireSurvives(const BlockPos& p) const {
+    // On a solid block, or clinging to something flammable (wiki: Fire › Placement).
+    return R().collides(at(rel(p, Direction::Down))) || nextToFlammable(p);
+}
+
+BlockStateId BlockUpdates::fireState(int fireAge) { return R().set(R().defaultState(B::Fire), age, std::min(fireAge, 15)); }
+
+void BlockUpdates::placeFire(const BlockPos& p, int fireAge) {
+    set(p, fireState(fireAge));
+    schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // its own first tick
+}
+
+void BlockUpdates::fireNeighbourChanged(const BlockPos& p) {
+    if (!fireSurvives(p)) {
+        set(p, 0);
+        return;
+    }
+    schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // (if none pending)
+}
+
+void BlockUpdates::burnNeighbour(const BlockPos& q, int bound, int fireAge) {
+    // The neighbour burns away with a chance of its burn odds out of `bound` (300 at the
+    // sides, 250 above and below: public write-ups; the wiki gives the odds only); a
+    // young fire often takes its place.
+    const int odds = burnOdds(blockOf(at(q)));
+    if (odds == 0 || static_cast<int>(m_random.nextInt(uint32_t(bound))) >= odds) return;
+    if (static_cast<int>(m_random.nextInt(uint32_t(fireAge + 10))) < 5)
+        placeFire(q, fireAge + static_cast<int>(m_random.nextInt(5)) / 4);
+    else
+        set(q, 0); // burnt: no drop
+}
+
+void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
+    schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // 1.5-2 s (wiki)
+    if (!fireSurvives(p)) {
+        set(p, 0);
+        return;
+    }
+    const BlockId below = blockOf(at(rel(p, Direction::Down)));
+    int a = R().get(s, age);
+    if (a < 15 && m_random.nextInt(3) == 0) setRaw(p, fireState(++a)); // ages 1 in 3 ticks (wiki)
+    if (!infiniburn(below)) {
+        // Nothing flammable around: a fire older than 3 (or not on a solid block) dies.
+        if (!nextToFlammable(p)) {
+            if (!R().collides(at(rel(p, Direction::Down))) || a > 3) set(p, 0);
+            return;
+        }
+        // An old fire (age 15) over a non-flammable block: 1 in 4 to go out (wiki).
+        if (a == 15 && igniteOdds(below) == 0 && m_random.nextInt(4) == 0) {
+            set(p, 0);
+            return;
+        }
+    }
+    burnNeighbour(rel(p, Direction::East), 300, a);
+    burnNeighbour(rel(p, Direction::West), 300, a);
+    burnNeighbour(rel(p, Direction::Down), 250, a);
+    burnNeighbour(rel(p, Direction::Up), 250, a);
+    burnNeighbour(rel(p, Direction::North), 300, a);
+    burnNeighbour(rel(p, Direction::South), 300, a);
+    // (Spreading happens even if burning its support just put this fire out.)
+    // Spread: every air block in 3x3, 1 below to 4 above, next to something
+    // flammable. Degree = (best ignite odds + 40 + 7 x difficulty) / (age + 30);
+    // chance degree / base, base 100 up to 1 above, +100 per block higher (wiki:
+    // Fire › Spread).
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dy = -1; dy <= 4; ++dy) {
+                if (dx == 0 && dy == 0 && dz == 0) continue;
+                const BlockPos q{p.x + dx, p.y + dy, p.z + dz};
+                if (!m_world.isInHeight(q.y) || at(q) != 0 || !chunkAt(q)) continue;
+                int best = 0;
+                for (int d = 0; d < kDirectionCount; ++d)
+                    best = std::max(best, igniteOdds(blockOf(at(rel(q, static_cast<Direction>(d))))));
+                if (best == 0) continue;
+                const int base = dy > 1 ? 100 + (dy - 1) * 100 : 100;
+                const int degree = (best + 40 + 7 * kDifficulty) / (a + 30);
+                if (degree > 0 && static_cast<int>(m_random.nextInt(uint32_t(base))) < degree)
+                    placeFire(q, a + static_cast<int>(m_random.nextInt(5)) / 4);
+            }
+}
+
+void BlockUpdates::lavaIgnites(const BlockPos& p) {
+    const int steps = static_cast<int>(m_random.nextInt(3));
+    if (steps > 0) {
+        // Rise 1 block per step, drifting up to 1 sideways; stop at anything solid.
+        BlockPos q = p;
+        for (int i = 0; i < steps; ++i) {
+            q = {q.x + static_cast<int>(m_random.nextInt(3)) - 1, q.y + 1, q.z + static_cast<int>(m_random.nextInt(3)) - 1};
+            if (!m_world.isInHeight(q.y) || !chunkAt(q)) return;
+            const BlockStateId s = at(q);
+            if (s == 0) {
+                if (nextToFlammable(q)) {
+                    placeFire(q, 0);
+                    return;
+                }
+            } else if (R().collides(s)) {
+                return;
+            }
+        }
+        return;
+    }
+    // Or the top of a flammable block beside it.
+    for (int i = 0; i < 3; ++i) {
+        const BlockPos q{p.x + static_cast<int>(m_random.nextInt(3)) - 1, p.y,
+                         p.z + static_cast<int>(m_random.nextInt(3)) - 1};
+        if (!m_world.isInHeight(q.y + 1) || !chunkAt(q)) return;
+        const BlockPos up{q.x, q.y + 1, q.z};
+        if (at(up) == 0 && igniteOdds(blockOf(at(q))) > 0) placeFire(up, 0);
+    }
+}
+
+} // namespace mc::world

@@ -91,6 +91,12 @@ public:
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
+    // Fire (M15, Fire.cpp; wiki: Fire › Flammable blocks): ignite odds (how readily fire
+    // spreads next to a block) and burn odds (how fast it destroys it); 0 = never.
+    static int igniteOdds(BlockId b);
+    static int burnOdds(BlockId b);
+    static BlockStateId fireState(int age);
+    bool fireSurvives(const BlockPos& p) const;
     static bool isLog(BlockId b);
 
     // Fluids (M14, Fluids.cpp). Amount 1..8 (8 = source or falling); 0 if not a fluid.
@@ -109,6 +115,12 @@ private:
     int leafDistance(const BlockPos& p) const;
     void leavesChanged(const BlockPos& p, BlockStateId s);
     bool growTree(const BlockPos& p, BlockStateId sapling);
+    bool nextToFlammable(const BlockPos& p) const;
+    void placeFire(const BlockPos& p, int age);
+    void fireNeighbourChanged(const BlockPos& p);
+    void burnNeighbour(const BlockPos& q, int bound, int fireAge);
+    void tickFire(const BlockPos& p, BlockStateId s);
+    void lavaIgnites(const BlockPos& p);
 
     enum class FluidInto { No, Empty, Same, Breaks };
     int fluidDelay(BlockId kind) const;

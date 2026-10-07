@@ -161,6 +161,17 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Fluid ticks run after block ticks and save as `fluid_ticks`. `gameplay/FluidContact`
   tells entities which fluid they touch and the current; the mesher sets surface
   corners from vanilla's averaged heights. Buckets: `gameplay/Buckets`.
+- Random ticks (M15, `world/RandomTicks.cpp`, part of `BlockUpdates`): after the
+  scheduled ticks, 3 random positions per section in the chunks within the simulation
+  distance (`setRandomTicks`); `Section::randomTickingCount` (per-state
+  `BlockRegistry::randomTicks` flags) skips sections with nothing to tick. Grass,
+  leaves (distance kept by 1-tick scheduled updates), saplings (grow the shapes in
+  `world/TreeFeature.h`, shared with worldgen), snow/ice melting, lava starting fires.
+  Pending ticks are found in O(1) through each chunk's `TickSet`.
+- Fire (M15, `world/Fire.cpp`): scheduled every 30-40 ticks; ages, burns neighbours
+  by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
+  places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
+  it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.

@@ -1,6 +1,7 @@
 #include "gameplay/Mobs.h"
 
 #include "gameplay/FluidContact.h"
+#include "gameplay/Portals.h"
 
 #include "world/Blocks.h"
 #include "world/Coords.h"
@@ -92,6 +93,13 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     const FluidContact fluid = fluidContact(world, box(m));
     const bool inWater = fluid.water;
     m.vel += fluid.flow * 0.014; // carried by currents (vanilla pushes mobs too)
+    if (portals::touching(world, box(m), blocks::Fire)) { // wiki: Fire - 1 a tick (hurt cooldown), 8 s alight
+        if (m.hurtTime == 0 && m.deathTime == 0) {
+            m.health -= 1.0f;
+            m.hurtTime = 10;
+        }
+        if (m.fireTicks < 160) m.fireTicks = 160;
+    }
     if (inWater) m.fireTicks = 0; // water puts out burning mobs (wiki: Fire)
     if (fluid.lava) { // wiki: Lava - 4 damage (with the hurt cooldown), on fire 15 s
         if (m.hurtTime == 0 && m.deathTime == 0) {

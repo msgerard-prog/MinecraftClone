@@ -66,7 +66,8 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::Repeater:
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: return true;
+    case B::OakButton:
+    case B::Fire: return true;
     default: return false;
     }
 }

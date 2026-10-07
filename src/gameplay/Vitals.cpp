@@ -17,6 +17,15 @@ float Vitals::breathe(bool eyesInWater) {
     return 0.0f;
 }
 
+float Vitals::touchFire(bool inFire) {
+    if (!inFire) {
+        m_fireContact = 0;
+        return 0.0f;
+    }
+    if (++m_fireContact >= 20) setOnFire(160);
+    return damage(1.0f, false) ? 1.0f : 0.0f;
+}
+
 float Vitals::tickFire(bool inWater) {
     if (inWater) m_fire = 0;
     if (m_fire <= 0) return 0.0f;
@@ -34,6 +43,7 @@ void Vitals::reset() {
     m_invulnerable = 0;
     m_air = kMaxAir;
     m_fire = 0;
+    m_fireContact = 0;
     m_falling = false;
     m_started = false;
 }

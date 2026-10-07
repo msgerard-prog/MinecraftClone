@@ -81,7 +81,7 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
             const auto& reg = world::blockRegistry();
             const world::BlockId here = reg.blockOf(world.getBlock(at));
             const bool inWater = here == world::blocks::Water;
-            inLava = here == world::blocks::Lava;
+            inLava = here == world::blocks::Lava || here == world::blocks::Fire; // both burn items
             if (inWater) {
                 e.vel.y += 5.0e-4; // items float up slowly in water (wiki)
                 e.vel *= 0.99;

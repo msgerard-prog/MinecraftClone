@@ -859,6 +859,7 @@ int main(int argc, char** argv) {
                         vitals.damage(4.0f, false);
                         vitals.setOnFire(300); // 15 s
                     }
+                    vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
                     vitals.tickFire(player.inWater());
                 }
             }
