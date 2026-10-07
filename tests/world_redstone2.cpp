@@ -233,3 +233,28 @@ TEST_CASE("rails: straight lines, corners, slopes up to a raised rail; powered r
     s.redstone.settlePlates();
     CHECK(val(s.at({12, 64, 12}), "powered") == "true");
 }
+
+TEST_CASE("pistons move blocks over 2 ticks; slime blocks drag what sticks to them along") {
+    Scene s; // (up in the air: a slime block on the floor would drag the floor too)
+    const BlockStateId piston = *R().with(S(blocks::StickyPiston), "facing", "east");
+    s.put({0, 70, 0}, piston);
+    s.put({1, 70, 0}, S(blocks::SlimeBlock));
+    s.put({1, 70, 1}, S(blocks::Stone));      // stuck to the slime's side
+    s.put({1, 71, 0}, S(blocks::Cobblestone)); // and on top
+    s.put({0, 70, -1}, S(blocks::RedstoneBlock));
+    s.tick(2); // the move starts...
+    CHECK(R().blockOf(s.at({2, 70, 0})) == blocks::MovingPiston);
+    CHECK(s.redstone.moving().size() >= 3);
+    s.tick(2); // ...and lands
+    CHECK(R().blockOf(s.at({2, 70, 0})) == blocks::SlimeBlock);
+    CHECK(R().blockOf(s.at({2, 70, 1})) == blocks::Stone);
+    CHECK(R().blockOf(s.at({2, 71, 0})) == blocks::Cobblestone);
+    CHECK(s.at({1, 70, 1}) == 0);
+    CHECK(R().blockOf(s.at({1, 70, 0})) == blocks::PistonHead);
+    // Sticky retract pulls the whole slime structure back.
+    s.put({0, 70, -1}, 0);
+    s.tick(5);
+    CHECK(R().blockOf(s.at({1, 70, 0})) == blocks::SlimeBlock);
+    CHECK(R().blockOf(s.at({1, 70, 1})) == blocks::Stone);
+    CHECK(R().blockOf(s.at({1, 71, 0})) == blocks::Cobblestone);
+}

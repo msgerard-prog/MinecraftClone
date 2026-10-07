@@ -303,7 +303,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 if (key == "Color") mob.woolColour = static_cast<uint8_t>(std::clamp(int(v), 0, 15));
                 else if (key == "Sheared") mob.sheared = v != 0.0;
                 else if (key == "Age" && !world::mobInfo(*type).hostile) mob.age = std::clamp(int(v), -24000, 6000);
-                else if (key == "Size" && *type == world::MobType::MagmaCube) { // vanilla: 0 small, 1 medium, 3 big
+                else if (key == "Size" && (*type == world::MobType::MagmaCube || *type == world::MobType::Slime)) { // vanilla: 0 small, 1 medium, 3 big
                     mob.size = v >= 3.0 ? 4 : v >= 1.0 ? 2 : 1;
                     mob.health = float(mob.size * mob.size);
                 } else if (key == "Health") mob.health = std::clamp(float(v), 0.1f, world::mobInfo(*type).maxHealth);

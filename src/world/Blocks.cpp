@@ -522,6 +522,13 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("detector_rail", kRail, {{&powered, "false"}, {&straightRailShape, "north_south"}}), blocks::DetectorRail);
     check(r.add("activator_rail", kRail, {{&powered, "false"}, {&straightRailShape, "north_south"}}),
           blocks::ActivatorRail);
+    // wiki: Slime Block (breaks at once, bouncy, sticky to pistons; light passes);
+    // Moving Piston (the technical block where a pushed block is in flight).
+    check(r.add("slime_block", {.hardness = 0.0f, .resistance = 0.0f, .opaqueCube = false, .layer = RenderLayer::Translucent}),
+          blocks::SlimeBlock);
+    check(r.add("moving_piston", {.hardness = -1.0f, .resistance = 0.0f, .opaqueCube = false, .collision = false},
+                {{&facing6, "north"}, {&pistonType, "normal"}}),
+          blocks::MovingPiston);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

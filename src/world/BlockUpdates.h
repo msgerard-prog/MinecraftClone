@@ -131,6 +131,19 @@ public:
     // one block above them: quasi-connectivity) fires them 4 ticks later; gameplay does
     // what their item does.
     std::vector<BlockPos>& dispensed() { return m_dispensed; }
+    // Blocks in flight (M21.5; wiki: Piston › Behavior, Moving Piston): a push or pull
+    // takes 2 ticks; meanwhile the target cell holds an invisible moving_piston and the
+    // renderer draws the block sliding from `to - dir` to `to`. `visual`: the retracting
+    // head (nothing lands). Entities in a target cell are carried along (main).
+    struct Moving {
+        BlockPos to;
+        BlockStateId state;
+        Direction dir;
+        int64_t start;
+        bool visual = false;
+    };
+    const std::vector<Moving>& moving() const { return m_moving; }
+    int64_t now() const { return m_now; }
     std::vector<BlockPos>& primedTnt() { return m_tntPrimed; }
     void settlePlates();
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
@@ -311,6 +324,10 @@ private:
     std::vector<Plate> m_plates;
     std::vector<BlockPos> m_tntPrimed;
     std::vector<BlockPos> m_dispensed;
+    std::vector<Moving> m_moving;
+    std::vector<BlockPos> m_pushDestroy;
+    void finishMoves(bool force = false);
+    bool gatherPush(const BlockPos& base, const BlockPos& first, Direction move, std::vector<BlockPos>& destroy);
     int plateTarget(BlockId b, int count) const;
     // Comparators and observers (M21.2).
     int weakAt(const BlockPos& q, Direction toward) const;   // weak() with block entities

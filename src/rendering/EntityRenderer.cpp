@@ -307,7 +307,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     };
     float scale = mob.age < 0 ? 0.5f : 1.0f; // babies: half size
     scale *= world::mobInfo(mob.type).modelScale; // (ghasts: 4.5)
-    if (mob.type == world::MobType::MagmaCube) scale *= float(mob.size); // its model is the size-1 cube
+    if (mob.type == world::MobType::MagmaCube || mob.type == world::MobType::Slime)
+        scale *= float(mob.size); // its model is the size-1 cube
     glm::vec3 flash(0.0f);
     if (mob.fuse > 0) { // a swelling creeper grows and flashes white (wiki: Creeper)
         const float f = std::min(1.0f, float(mob.fuse) / 30.0f);

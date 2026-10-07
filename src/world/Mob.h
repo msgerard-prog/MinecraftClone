@@ -32,6 +32,7 @@ enum class MobType : uint8_t {
     EnderDragon,
     Shulker,
     Minecart, // (M21.4: a vehicle, kept with the mobs)
+    Slime,    // (M21.5)
     Count
 };
 

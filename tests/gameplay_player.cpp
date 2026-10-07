@@ -559,3 +559,18 @@ TEST_CASE("elytra: the second jump press opens the wings while still rising (M20
     CHECK(p.velocity().y > 0.0);
     CHECK(p.gliding());
 }
+
+TEST_CASE("slime blocks bounce a falling player back up (not when sneaking)") {
+    World w = floorWorld();
+    w.setBlock({0, kFloorY + 1, 0}, world::blockRegistry().defaultState(world::blocks::SlimeBlock));
+    Player p;
+    p.setCreative(false);
+    p.setPosition({0.5, kFloorY + 10.0, 0.5});
+    bool bounced = false;
+    for (int i = 0; i < 60 && !bounced; ++i) {
+        p.tick(w, {});
+        bounced = p.takeBounce();
+    }
+    REQUIRE(bounced);
+    CHECK(p.velocity().y > 0.5); // back up about as fast as it fell
+}

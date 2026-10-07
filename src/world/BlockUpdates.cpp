@@ -89,6 +89,7 @@ enum class Push { Air, Destroy, Move, Block };
 Push pushKind(BlockStateId s) {
     if (s == 0) return Push::Air;
     const BlockId b = blockOf(s);
+    if (b == B::MovingPiston) return Push::Block; // (already in flight)
     switch (b) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
@@ -172,6 +173,8 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_plates.reserve(1024); // (pressure plates being pressed)
     m_tntPrimed.reserve(256);
     m_dispensed.reserve(256);
+    m_moving.reserve(256);
+    m_pushDestroy.reserve(16);
 }
 
 BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
@@ -978,6 +981,13 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         }
         comparatorChanged(p, s);
         break;
+    case B::MovingPiston: { // one left without its move (a world saved mid-push) clears
+        bool flying = false;
+        for (const Moving& mv : m_moving)
+            flying = flying || mv.to == p;
+        if (!flying) set(p, 0);
+        break;
+    }
     case B::Tnt: // lit by redstone power (also when placed next to it)
         if (bestNeighbourSignal(p) > 0) primeTnt(p);
         break;
@@ -1140,6 +1150,7 @@ void BlockUpdates::tick() {
         if (blockOf(s) == d.tick.block) tickBlock(d.pos, s);
     }
     watchComparators();
+    finishMoves(); // (pistons: blocks 2 ticks in flight land)
     runRandomTicks(); // (vanilla: after block and fluid ticks, before block events)
     // Block events (pistons), including ones these cause (wiki: Tick › Block events).
     // Pistons powered by a player act in the next tick's block events (wiki: Piston ›
@@ -1442,45 +1453,90 @@ bool BlockUpdates::pushList(const BlockPos& base, Direction f, std::optional<Blo
     }
 }
 
+bool BlockUpdates::gatherPush(const BlockPos& base, const BlockPos& first, Direction move,
+                              std::vector<BlockPos>& destroy) {
+    // Everything that moves: the line of blocks ahead, and with slime blocks every
+    // movable block stuck to them, each pushing its own line (wiki: Slime Block ›
+    // Behavior). At most 12 blocks; an immovable block in the way stops it all.
+    m_push.clear();
+    destroy.clear();
+    BlockPos queue[64];
+    int head = 0, tail = 0;
+    queue[tail++] = first;
+    auto queued = [&](const BlockPos& q) {
+        for (int i = 0; i < tail; ++i)
+            if (queue[i] == q) return true;
+        return false;
+    };
+    while (head < tail) {
+        const BlockPos q = queue[head++];
+        if (!m_world.isInHeight(q.y) || !m_world.chunk(q.chunk())) return false;
+        if (q == base) continue;
+        const Push k = pushKind(at(q));
+        if (k == Push::Air) continue;
+        if (k == Push::Destroy) {
+            if (destroy.size() < 16) destroy.push_back(q);
+            continue;
+        }
+        if (k == Push::Block) return false;
+        if (std::find(m_push.begin(), m_push.end(), q) != m_push.end()) continue;
+        if (m_push.size() == 12) return false; // push limit 12
+        m_push.push_back(q);
+        const BlockPos ahead = rel(q, move);
+        if (!queued(ahead) && tail < 64) queue[tail++] = ahead;
+        if (blockOf(at(q)) == B::SlimeBlock)
+            for (int d = 0; d < kDirectionCount; ++d) {
+                const Direction dir = static_cast<Direction>(d);
+                if (dir == move) continue;
+                const BlockPos n = rel(q, dir);
+                if (n == base || queued(n) || tail >= 64) continue;
+                if (pushKind(at(n)) == Push::Move) queue[tail++] = n; // stuck to the slime
+            }
+    }
+    return true;
+}
+
 void BlockUpdates::extend(const BlockPos& p) {
     const BlockStateId s = at(p);
     const Direction f = facing6Of(s);
-    std::optional<BlockPos> destroy;
-    if (!pushList(p, f, destroy)) return;
-    BlockStateId destroyed = 0;
-    if (destroy) {
-        destroyed = at(*destroy);
-        const BlockId b = blockOf(destroyed);
-        if (b != B::Water && b != B::Lava) m_drops.push_back({*destroy, {}, destroyed}); // its loot
-        setRaw(*destroy, 0);
+    std::vector<BlockPos>& destroy = m_pushDestroy;
+    if (!gatherPush(p, rel(p, f), f, destroy)) return;
+    BlockStateId destroyedStates[16];
+    for (size_t i = 0; i < destroy.size(); ++i) {
+        const BlockPos& d = destroy[i];
+        const BlockStateId ds = at(d);
+        destroyedStates[i] = ds;
+        const BlockId b = blockOf(ds);
+        if (b != B::Water && b != B::Lava) m_drops.push_back({d, {}, ds}); // its loot
+        setRaw(d, 0);
     }
-    // Moves happen at once (vanilla animates them over 2 ticks: known deviation).
+    // The blocks leave their cells at once; for 2 ticks their targets (and the head's
+    // cell) hold moving pistons, then they land.
     m_pushStates.clear();
     for (const BlockPos& q : m_push)
         m_pushStates.push_back(at(q));
     for (const BlockPos& q : m_push)
         setRaw(q, 0);
-    for (size_t i = 0; i < m_push.size(); ++i)
-        setRaw(rel(m_push[i], f), m_pushStates[i]);
+    const BlockStateId moving = R().set(R().defaultState(B::MovingPiston), facing6, static_cast<int>(f));
+    for (size_t i = 0; i < m_push.size(); ++i) {
+        const BlockPos to = rel(m_push[i], f);
+        setRaw(to, moving);
+        if (m_moving.size() < m_moving.capacity()) m_moving.push_back({to, m_pushStates[i], f, m_now});
+    }
     setRaw(p, withFlag(s, extended, true));
     BlockStateId head = R().set(R().defaultState(B::PistonHead), facing6, static_cast<int>(f));
     head = R().set(head, pistonType, blockOf(s) == B::StickyPiston ? 1 : 0);
-    setRaw(rel(p, f), head);
-    // Then everything touched gets its updates.
-    const size_t n = m_push.size();
+    setRaw(rel(p, f), moving);
+    if (m_moving.size() < m_moving.capacity()) m_moving.push_back({rel(p, f), head, f, m_now});
     neighbourChanged(p);
     notifyNeighbours(p);
     notifyNeighbours(rel(p, f));
-    if (destroy) {
-        notifyNeighbours(*destroy);
-        reach(*destroy, destroyed); // what the broken component powered loses it
+    for (size_t i = 0; i < destroy.size(); ++i) {
+        notifyNeighbours(destroy[i]);
+        reach(destroy[i], destroyedStates[i]); // what a broken component powered loses it
     }
-    for (size_t i = 0; i < n && i < m_push.size(); ++i) {
-        const BlockPos to = rel(m_push[i], f);
-        neighbourChanged(to);
-        notifyNeighbours(to);
-        notifyNeighbours(m_push[i]);
-    }
+    for (const BlockPos& q : m_push)
+        notifyNeighbours(q);
 }
 
 void BlockUpdates::retract(const BlockPos& p) {
@@ -1488,24 +1544,68 @@ void BlockUpdates::retract(const BlockPos& p) {
     const Direction f = facing6Of(s);
     const BlockPos front = rel(p, f);
     const BlockStateId h = at(front);
-    if (blockOf(h) == B::PistonHead && facing6Of(h) == f) setRaw(front, 0);
+    if (blockOf(h) == B::PistonHead && facing6Of(h) == f) {
+        setRaw(front, 0);
+        if (m_moving.size() < m_moving.capacity()) m_moving.push_back({p, h, opposite(f), m_now, true}); // (drawn sliding in)
+    } else if (blockOf(h) == B::MovingPiston) {
+        finishMoves(true); // (pulled back before it landed: land everything first)
+    }
     setRaw(p, withFlag(s, extended, false));
-    // Sticky pistons pull the block in front of the head back with them.
-    std::optional<BlockPos> pulled;
+    // Sticky pistons pull the block in front of the head back (with what sticks to it).
     if (blockOf(s) == B::StickyPiston) {
         const BlockPos far = rel(p, f, 2);
+        std::vector<BlockPos>& destroy = m_pushDestroy;
         if (m_world.isInHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 &&
-            pushKind(at(far)) == Push::Move) {
-            setRaw(front, at(far));
-            setRaw(far, 0);
-            pulled = far;
+            pushKind(at(far)) == Push::Move && gatherPush(p, far, opposite(f), destroy)) {
+            for (const BlockPos& d : destroy) {
+                m_drops.push_back({d, {}, at(d)});
+                setRaw(d, 0);
+            }
+            m_pushStates.clear();
+            for (const BlockPos& q : m_push)
+                m_pushStates.push_back(at(q));
+            for (const BlockPos& q : m_push)
+                setRaw(q, 0);
+            const BlockStateId moving =
+                R().set(R().defaultState(B::MovingPiston), facing6, static_cast<int>(opposite(f)));
+            for (size_t i = 0; i < m_push.size(); ++i) {
+                const BlockPos to = rel(m_push[i], opposite(f));
+                setRaw(to, moving);
+                if (m_moving.size() < m_moving.capacity())
+                    m_moving.push_back({to, m_pushStates[i], opposite(f), m_now});
+            }
+            for (const BlockPos& q : m_push)
+                notifyNeighbours(q);
         }
     }
     neighbourChanged(p);
     notifyNeighbours(p);
     neighbourChanged(front);
     notifyNeighbours(front);
-    if (pulled) notifyNeighbours(*pulled);
+}
+
+void BlockUpdates::finishMoves(bool force) {
+    // Blocks whose 2 ticks are up land in their cells, then everything around them
+    // hears about it.
+    size_t kept = 0;
+    size_t landed = 0;
+    BlockPos done[256];
+    for (size_t i = 0; i < m_moving.size(); ++i) {
+        const Moving& mv = m_moving[i];
+        if (m_now - mv.start < 2 && !force) {
+            m_moving[kept++] = mv;
+            continue;
+        }
+        if (!mv.visual && blockOf(at(mv.to)) == B::MovingPiston) {
+            setRaw(mv.to, mv.state);
+            if (landed < 256) done[landed++] = mv.to;
+        }
+    }
+    m_moving.resize(kept);
+    for (size_t i = 0; i < landed; ++i) {
+        neighbourChanged(done[i]);
+        notifyNeighbours(done[i]);
+    }
 }
 
 // --- Players ----------------------------------------------------------------------

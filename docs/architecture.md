@@ -305,6 +305,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   off rails it falls and slides. main keeps the ridden cart's UUID, moves the player
   with it, dismounts on shift or a powered activator rail; carts press detector rails
   and plates (`pressPlate(..., minecart)`).
+- Pistons 2 (M21.5): `gatherPush` collects the moved blocks (slime blocks pull their
+  neighbours, 12 at most); blocks leave at once, their targets hold `moving_piston`
+  for 2 ticks (`BlockUpdates::moving()`, drawn sliding by main), then `finishMoves`
+  lands them. Slimes share the magma cube's code; slime blocks bounce the player.
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push

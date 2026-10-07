@@ -1191,6 +1191,7 @@ int main(int argc, char** argv) {
                 player.setCanGlide(!dead && chestPiece.item == elytraItem && chestPiece.damage < 431);
             }
             if (!arrival && ridingCart == 0) player.tick(world, input); // waiting for a destination: held in place
+            if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
             if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
                 mc::world::MobData* cart = findCart();
                 if (!cart || dead || input.sneak) {
@@ -1613,6 +1614,7 @@ int main(int argc, char** argv) {
                                      droppedItems, true, // (the End: endermen, M20)
                                      inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
             mobCtx.tnt = &primedTnt;
+            mobCtx.worldSeed = seed;
             for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() &&
                     mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
@@ -1653,6 +1655,18 @@ int main(int argc, char** argv) {
                 blockUpdates.settlePlates();
             }
             blockUpdates.tick();
+            // Blocks a piston moves carry whatever is in their way (M21.5; wiki: Piston):
+            // half a block a tick for the 2 ticks of the move.
+            for (const auto& mv : blockUpdates.moving()) {
+                if (mv.visual) continue;
+                const glm::dvec3 step(glm::dvec3(mc::world::normal(mv.dir)) * 0.5);
+                const mc::Aabb cell{{double(mv.to.x), double(mv.to.y), double(mv.to.z)},
+                                    {mv.to.x + 1.0, mv.to.y + 1.0, mv.to.z + 1.0}};
+                if (!dead && player.box().intersects(cell)) player.setPosition(player.position() + step);
+                if (mc::world::Chunk* mc0 = world.chunk(mv.to.chunk()))
+                    for (auto& m : mc0->mobs())
+                        if (mc::Mobs::box(m).intersects(cell)) m.pos += step;
+            }
             { // Dispensers and droppers that fired (M21.3b).
                 mc::DispenseContext dctx{world, blockUpdates, droppedItems, projectiles, primedTnt, gameRng, frameEdits};
                 for (const mc::world::BlockPos& b : blockUpdates.dispensed())
@@ -1985,6 +1999,13 @@ int main(int argc, char** argv) {
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),
                             camera.position);
+        for (const auto& mv : blockUpdates.moving()) { // blocks in flight (M21.5): 2 ticks a move
+            const double progress =
+                std::min(1.0, (double(blockUpdates.now() - mv.start) + clock.alpha) / 2.0);
+            const glm::dvec3 to(mv.to.x + 0.5, mv.to.y, mv.to.z + 0.5);
+            entities.addBlock(mv.state, to - glm::dvec3(mc::world::normal(mv.dir)) * (1.0 - progress),
+                              glm::vec3(1.0f), camera.position);
+        }
         for (const auto& t : primedTnt.items()) { // flashing white every 5 ticks (wiki)
             static const mc::world::BlockStateId tntState =
                 mc::world::blockRegistry().defaultState(mc::world::blocks::Tnt);

@@ -532,6 +532,18 @@ def minecart():
     return img
 
 
+def slime():
+    # A green jelly cube with darker specks, two dark eyes and a mouth. Body 8x8x8 @ (0,0).
+    rng = random.Random("slime")
+    img = Img(64, 64, CLEAR)
+    green = ramp(hexc("#6CC060"), 5, spread=0.3)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, green, rng)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 2), (2, 2), (5, 2), (6, 2)), (30, 60, 30, 255),
+         (((4, 5), (40, 80, 40, 255)),))
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -561,7 +573,8 @@ def main():
               "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin(), "piglin": piglin(),
               "hoglin": hoglin(), "strider": strider(),
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
-              "shulker": shulker(), "minecart": minecart()}
+              "shulker": shulker(), "minecart": minecart(),
+              "slime": slime()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

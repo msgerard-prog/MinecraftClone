@@ -172,6 +172,10 @@ std::vector<Recipe> build() {
                        "dispenser"));
     r.push_back(shaped({"###", "#.#", "#R#"}, {{'#', item("cobblestone")}, {'R', item("redstone")}}, "dropper"));
     r.push_back(shaped({"I.I", "III"}, {{'I', item("iron_ingot")}}, "minecart")); // (wiki: Minecart)
+    // (wiki: Slime Block - 9 slime balls, and back; Sticky Piston - a slime ball over a piston)
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("slime_ball")}}, "slime_block"));
+    r.push_back(shapeless({item("slime_block")}, "slime_ball", 9));
+    r.push_back(shaped({"S", "P"}, {{'S', item("slime_ball")}, {'P', item("piston")}}, "sticky_piston"));
     // Rails (wiki: Rail 16, Powered Rail 6, Detector Rail 6, Activator Rail 6)
     r.push_back(shaped({"I.I", "ISI", "I.I"}, {{'I', item("iron_ingot")}, {'S', stick}}, "rail", 16));
     r.push_back(shaped({"G.G", "GSG", "GRG"}, {{'G', item("gold_ingot")}, {'S', stick}, {'R', item("redstone")}},

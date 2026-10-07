@@ -205,6 +205,7 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:elytra", .maxStack = 1, .durability = 432, .texture = "item/elytra", .armorSlot = 2});
     r.add({.id = "minecraft:shulker_shell", .texture = "item/shulker_shell"});
     r.add({.id = "minecraft:minecart", .maxStack = 1, .texture = "item/minecart"}); // (M21.4)
+    r.add({.id = "minecraft:slime_ball", .texture = "item/slime_ball"});             // (M21.5)
     r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));

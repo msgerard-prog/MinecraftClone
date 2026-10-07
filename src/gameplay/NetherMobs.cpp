@@ -113,7 +113,8 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         }
         return false; // walks, paths and fights like a zombie (generic AI)
     }
-    if (m.type != MobType::Ghast && m.type != MobType::Blaze && m.type != MobType::MagmaCube) return false;
+    if (m.type != MobType::Ghast && m.type != MobType::Blaze && m.type != MobType::MagmaCube && m.type != MobType::Slime)
+        return false; // (slimes share the magma cube's hops, M21.5)
     const MobInfo& info = mobInfo(m.type);
     const glm::dvec3 eye = ctx.player.eyePosition(1.0);
     const glm::dvec3 centre = m.pos + glm::dvec3(0.0, info.height * 0.5, 0.0);
@@ -223,12 +224,16 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         physics(ctx.world, m, wish, false);
         if (m.attackCooldown > 0) --m.attackCooldown;
         if (canTarget && m.attackCooldown == 0 && box(m).intersects(ctx.player.box())) {
-            const float damage = m.size >= 4 ? 6.0f : m.size == 2 ? 4.0f : 3.0f;
-            if (ctx.vitals.attacked(damage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
+            // (slimes: 4, 2, the smallest none - wiki: Slime)
+            const float damage = m.type == MobType::Slime ? (m.size >= 4 ? 4.0f : m.size == 2 ? 2.0f : 0.0f)
+                                 : m.size >= 4          ? 6.0f
+                                 : m.size == 2          ? 4.0f
+                                                        : 3.0f;
+            if (damage > 0.0f && ctx.vitals.attacked(damage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
             m.attackCooldown = 10;
         }
     }
-    if (m.fireTicks > 0) m.fireTicks = 0; // (fire immune)
+    if (m.fireTicks > 0 && m.type != MobType::Slime) m.fireTicks = 0; // (fire immune)
     return true;
 }
 

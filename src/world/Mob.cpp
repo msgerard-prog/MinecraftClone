@@ -45,6 +45,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:shulker", 30.0f, 1.0, 1.0, 0.0, 4.0f, true, true, true},
         // wiki: Minecart - 0.98 x 0.7; a couple of hits break it (ours: 2 health).
         {"minecraft:minecart", 2.0f, 0.98, 0.7, 0.0, 0.0f, false, false, true},
+        // wiki: Slime (large: 16, 2.08 x 2.08, 4; sizes as the magma cube's)
+        {"minecraft:slime", 16.0f, 2.08, 2.08, 0.2, 4.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

@@ -68,7 +68,7 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 Aabb Mobs::box(const MobData& m) {
     const MobInfo& info = mobInfo(m.type);
     double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
-    if (m.type == MobType::MagmaCube) s = m.size / 4.0; // (info is the large one)
+    if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
     return Aabb::fromFeet(m.pos, info.width * s, info.height * s);
 }
 
@@ -94,7 +94,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
-    if (type == MobType::MagmaCube) { // wiki: Magma Cube - sizes 1, 2, 4 at spawn; health size^2
+    if (type == MobType::MagmaCube || type == MobType::Slime) { // wiki: sizes 1, 2, 4 at spawn; health size^2
         const uint32_t r = rng.nextInt(3);
         m.size = uint8_t(1u << r);
         m.health = float(m.size * m.size);
@@ -195,7 +195,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (inWater) {
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
-        if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && !mobInfo(m.type).flies)
+        if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && m.type != MobType::Slime &&
+            !mobInfo(m.type).flies)
             m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
@@ -528,7 +529,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     if (ctx.orbs && m.lastHurtByPlayer)
         ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
                        m.type == MobType::Blaze       ? 10
-                       : m.type == MobType::MagmaCube ? int(m.size)
+                       : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
                        : mobInfo(m.type).hostile      ? 5
                                                       : 1 + static_cast<int>(ctx.rng.nextInt(3)),
                        ctx.rng);
@@ -585,6 +586,20 @@ void Mobs::die(Context& ctx, MobData& m) {
             for (int i = 0; i < n; ++i) {
                 MobData child = make(MobType::MagmaCube, m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2,
                                                                             ctx.rng.nextDouble() - 0.5), ctx.rng);
+                child.size = uint8_t(m.size / 2);
+                child.health = float(child.size * child.size);
+                m_births.push_back(child);
+            }
+        }
+        break;
+    case MobType::Slime: // wiki: Slime - the smallest drop 0-2 slime balls; bigger ones split
+        if (m.size <= 1) {
+            drop("slime_ball", 0, 2);
+        } else {
+            const int n = 2 + static_cast<int>(ctx.rng.nextInt(3));
+            for (int i = 0; i < n; ++i) {
+                MobData child = make(MobType::Slime, m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2,
+                                                                        ctx.rng.nextDouble() - 0.5), ctx.rng);
                 child.size = uint8_t(m.size / 2);
                 child.health = float(child.size * child.size);
                 m_births.push_back(child);
@@ -809,6 +824,19 @@ void Mobs::spawnHostiles(Context& ctx) {
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
     // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
     const uint32_t roll = ctx.rng.nextInt(405);
+    // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
+    // below Y 40, and in swamps between Y 51 and 69 at night; the rest by the Overworld mix.
+    if (ctx.world.hasSkyLight() && ctx.rng.nextInt(3) == 0) {
+        const ChunkPos cp{blockToChunk(x), blockToChunk(z)};
+        Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)), static_cast<uint32_t>(cp.z)));
+        const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
+        const bool swamp = c->biomes() && y >= 51 && y <= 69 &&
+                           c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp;
+        if (slimeChunk || swamp) {
+            if (add(ctx.world, make(MobType::Slime, {x + 0.5, double(y), z + 0.5}, ctx.rng))) ++m_hostiles;
+            return;
+        }
+    }
     // The End (no sky, not the Nether): endermen only, in groups of 4 (wiki: The End biomes).
     const bool end = !ctx.world.hasSkyLight();
     const MobType kind = end          ? MobType::Enderman

@@ -26,7 +26,7 @@ order where documented):
    dispensers (dispense behaviours: arrows, buckets, items).
 4. ✅ M21.4 — Rails and minecarts: rails, powered/detector/activator rails, minecart
    physics and riding, chest and hopper minecarts.
-5. M21.5 — Slime blocks (slime balls from slimes -> sticky pistons craftable),
+5. ✅ M21.5 — Slime blocks (slime balls from slimes -> sticky pistons craftable),
    piston animation (moving pistons over 2 ticks, entities pushed), the M11 piston
    deviations revisited.
 

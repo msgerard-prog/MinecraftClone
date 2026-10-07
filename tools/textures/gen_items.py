@@ -776,6 +776,7 @@ def all_items():
     items["end_crystal"] = end_crystal_item()
     items["elytra"] = elytra_item()
     items["minecart"] = minecart_item()
+    items["slime_ball"] = lump("slime_ball", "#6CC060", "#B8F0A8", size=4.8)
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     return items

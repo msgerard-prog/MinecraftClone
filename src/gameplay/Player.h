@@ -114,6 +114,8 @@ public:
     bool gliding() const { return m_gliding; }
     // Damage from flying into a wall this tick (horizontal speed lost x 10 - 3), once.
     float takeImpact() { return std::exchange(m_impact, 0.0f); }
+    // Landed on a slime block this tick (the fall is forgiven: main resets it), once.
+    bool takeBounce() { return std::exchange(m_bounced, false); }
     bool inWater() const { return m_inWater; } // touching water (last tick)
     bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
@@ -149,6 +151,7 @@ private:
     int m_levitation = 0;
     bool m_canGlide = false, m_gliding = false;
     float m_impact = 0.0f;
+    bool m_bounced = false;
     std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
 
 public:

@@ -1517,3 +1517,26 @@ TEST_CASE("minecarts: powered rails push a cart along the track and round a corn
     for (MobData* m : s.all())
         if (m->type == MobType::Minecart) CHECK(std::abs(m->vel.x) + std::abs(m->vel.z) < 0.05);
 }
+
+TEST_CASE("slimes split into 2-4 smaller ones; the smallest do no damage") {
+    MobScene s;
+    s.mobs = Mobs();
+    MobData m = Mobs::make(MobType::Slime, {8.5, 64.0, 8.5}, s.rng);
+    m.size = 4;
+    m.health = 0.0f;
+    REQUIRE(Mobs::add(s.world, m));
+    s.tick(2);
+    int medium = 0;
+    for (MobData* c : s.all())
+        medium += c->type == MobType::Slime && c->size == 2;
+    CHECK(medium >= 2);
+    CHECK(medium <= 4);
+    MobScene t;
+    t.mobs = Mobs();
+    MobData small = Mobs::make(MobType::Slime, {0.5, 64.0, 0.5}, t.rng); // on the player
+    small.size = 1;
+    small.health = 1.0f;
+    REQUIRE(Mobs::add(t.world, small));
+    t.tick(40);
+    CHECK(t.vitals.health() == doctest::Approx(20.0f));
+}

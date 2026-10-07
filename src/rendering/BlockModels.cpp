@@ -430,6 +430,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                         else face.uv[0] = 7, face.uv[1] = 1, face.uv[2] = 9, face.uv[3] = 15;
                     }
                 }
+            } else if (name == "moving_piston") { // (its block is drawn moving by the entity renderer)
+                m.visible = false;
             } else if (name == "end_gateway") { // (vanilla: the end portal's starfield on every side)
                 m = single(cubeAll(sprite("end_portal")));
             } else if (name == "dragon_egg") {

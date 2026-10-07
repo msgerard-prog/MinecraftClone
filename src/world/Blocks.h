@@ -294,6 +294,8 @@ enum : BlockId {
     PoweredRail,  // powered, shape (6)
     DetectorRail, // powered, shape (6)
     ActivatorRail, // powered, shape (6)
+    SlimeBlock,    // (M21.5)
+    MovingPiston,  // facing (6), type: a block being pushed (2 ticks; invisible)
     Count
 };
 } // namespace blocks
