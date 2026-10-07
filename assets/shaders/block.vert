@@ -31,7 +31,9 @@ void main() {
 
     const vec3 pos = local + offsets[gl_BaseInstance].xyz;
     gl_Position = uViewProj * vec4(pos, 1.0);
-    vDistance = length(pos);
+    // Vanilla terrain fog is cylindrical (since 1.18): horizontal distance, with the
+    // vertical distance counted separately, so the ground stays visible when flying high.
+    vDistance = max(length(pos.xz), abs(pos.y));
 
     const uint cols = uint(uAtlasColumns);
     vUv = (vec2(sprite % cols, sprite / cols) + kCornerUv[corner]) / float(cols);

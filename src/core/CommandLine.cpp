@@ -98,6 +98,14 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             auto v = needValue();
             if (!v) return std::nullopt;
             opts.resourcePacks = std::string(*v);
+        } else if (arg == "--render-distance") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (!parseNumber(*v, opts.renderDistance) || opts.renderDistance < 2 ||
+                opts.renderDistance > 32) {
+                error = "--render-distance needs 2..32";
+                return std::nullopt;
+            }
         } else if (arg == "--flat") {
             opts.flat = true;
         } else if (arg == "--no-vsync") {

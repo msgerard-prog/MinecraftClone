@@ -9,12 +9,16 @@
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
 #include "world/Blocks.h"
+#include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
+#include <cmath>
+#include <memory>
 #include <span>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -86,21 +90,29 @@ int main(int argc, char** argv) {
         return 1;
     mc::world::World world;
     glm::dvec3 spawn(0.5, -57.0, -6.0);
+    const mc::world::TerrainGenerator generator(opts->seed);
+    std::unique_ptr<mc::world::ChunkLoader> loader;
     if (opts->flat) {
         buildTestWorld(world);
+        renderer.setRenderDistance(8);
+        renderer.markAllDirty(world);
     } else {
-        // M3.2: a fixed 16x16-chunk area of generated terrain (streaming comes in M3.3).
-        const mc::world::TerrainGenerator gen(opts->seed);
-        for (int cz = -8; cz < 8; ++cz) {
-            for (int cx = -8; cx < 8; ++cx)
-                gen.generate(world.createChunk({cx, cz}));
-        }
+        // Chunks stream in around the player on worker threads (a quarter of the cores;
+        // meshing has half).
+        const int genThreads =
+            std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 4);
+        loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads);
+        loader->setRenderDistance(opts->renderDistance);
+        renderer.setRenderDistance(opts->renderDistance);
         spawn = {0.5,
-                 std::max(gen.surfaceHeight(0, 0), mc::world::TerrainGenerator::kSeaLevel) + 12.0,
+                 std::max(generator.surfaceHeight(0, 0), mc::world::TerrainGenerator::kSeaLevel) +
+                     12.0,
                  0.5};
     }
-    renderer.setRenderDistance(8);
-    renderer.markAllDirty(world);
+    std::vector<mc::world::ChunkPos> loadedChunks;
+    std::vector<mc::world::ChunkPos> unloadedChunks;
+    loadedChunks.reserve(256);
+    unloadedChunks.reserve(256);
 
     mc::FlyController player;
     player.setPosition(opts->hasPos ? opts->pos : spawn);
@@ -152,10 +164,18 @@ int main(int argc, char** argv) {
         camera.position = player.renderPosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
+        if (loader) {
+            const mc::world::ChunkPos center{
+                mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.x))),
+                mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.z)))};
+            loader->update(center, loadedChunks, unloadedChunks);
+            renderer.onChunksUnloaded(unloadedChunks);
+            renderer.onChunksLoaded(world, loadedChunks);
+        }
         renderer.update(world, camera.position);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
-        if (!meshed && renderer.pendingMeshes() == 0) {
+        if (!meshed && renderer.pendingMeshes() == 0 && (!loader || loader->pending() == 0)) {
             meshed = true;
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",

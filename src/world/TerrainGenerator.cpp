@@ -66,7 +66,7 @@ void TerrainGenerator::generate(Chunk& chunk) const {
             if (h < kSeaLevel - 1) { // sea floor
                 const bool gravelly = m_beach.noise2d(wx, wz) > 0.15 || h < kSeaLevel - 12;
                 top[i] = under[i] = gravelly ? gravel : sand;
-            } else if (h <= kSeaLevel + 1) { // shore
+            } else if (h <= kSeaLevel) { // shore: a narrow band at the waterline
                 const bool gravelly = m_beach.noise2d(wx, wz) > 0.35;
                 top[i] = under[i] = gravelly ? gravel : sand;
             } else {

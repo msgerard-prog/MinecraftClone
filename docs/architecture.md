@@ -39,7 +39,12 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   meshing doesn't allocate. Each section has a version number; a result older than
   the latest submission is dropped (the section changed meanwhile).
 - Workers only read the immutable `blockRegistry()` and baked `BlockModels`.
-- Worldgen on workers comes with M3 (same snapshot/version pattern).
+- `world::ChunkLoader` (cores/4 threads): generates missing chunks within render
+  distance + 1, nearest first, bounded in flight; finished chunks are inserted by the
+  main thread; chunks beyond render distance + 3 unload. `TerrainGenerator` is
+  immutable and pure, so workers share it.
+- The renderer meshes a chunk only when it and its 8 neighbours are loaded
+  (`WorldRenderer::onChunksLoaded`), so loaded-area edges never show walls.
 
 ## World model (M2.1–M2.2, ADR 0005)
 - `ChunkPos {x,z}` (`key()` packs like vanilla's `ChunkPos.toLong`), `BlockPos {x,y,z}`

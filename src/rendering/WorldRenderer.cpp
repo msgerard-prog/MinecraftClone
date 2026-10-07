@@ -67,6 +67,48 @@ void WorldRenderer::markAllDirty(const world::World& world) {
     });
 }
 
+void WorldRenderer::markChunkSections(world::ChunkPos pos) {
+    for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy)
+        markDirty({pos.x, sy, pos.z});
+}
+
+void WorldRenderer::onChunksLoaded(const world::World& world,
+                                   const std::vector<world::ChunkPos>& loaded) {
+    auto meshable = [&](world::ChunkPos p) {
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (!world.chunk({p.x + dx, p.z + dz})) return false;
+        return true;
+    };
+    for (const world::ChunkPos& p : loaded) {
+        // The new chunk may complete its own neighbourhood or any neighbour's.
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                const world::ChunkPos q{p.x + dx, p.z + dz};
+                if (!m_meshedChunks.contains(q) && meshable(q)) {
+                    m_meshedChunks.insert(q);
+                    markChunkSections(q);
+                }
+            }
+        }
+    }
+}
+
+void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
+    for (const world::ChunkPos& p : unloaded) {
+        m_meshedChunks.erase(p);
+        for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
+            const world::SectionPos s{p.x, sy, p.z};
+            m_chunks.removeSection(s);
+            m_translucent.removeSection(s);
+            if (const auto it = m_states.find(s); it != m_states.end()) {
+                ++it->second.version; // drop any result still in flight
+                eraseIfIdle(s);
+            }
+        }
+    }
+}
+
 void WorldRenderer::markDirty(world::SectionPos pos) {
     SectionState& st = m_states[pos];
     if (st.dirty) return;

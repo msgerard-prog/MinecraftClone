@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace mc::gfx {
@@ -33,6 +34,11 @@ public:
     // four neighbours' facing borders, whose face culling depends on it.
     void markChunkDirty(const world::World& world, world::ChunkPos pos);
     void markAllDirty(const world::World& world);
+
+    // Streaming: a chunk is meshed once it and all 8 neighbours are loaded (its border
+    // faces depend on them), so the edge of the loaded area never shows walls.
+    void onChunksLoaded(const world::World& world, const std::vector<world::ChunkPos>& loaded);
+    void onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded);
 
     // Uploads finished meshes, then snapshots dirty sections for the mesh workers,
     // nearest to `cameraPos` first, within a per-frame time budget and a cap on jobs
@@ -66,9 +72,11 @@ private:
         bool dirty = false;    // in m_dirtyList
     };
     void markDirty(world::SectionPos pos);
+    void markChunkSections(world::ChunkPos pos);
     void eraseIfIdle(world::SectionPos pos);
 
     std::unique_ptr<MeshWorkers> m_workers;
+    std::unordered_set<world::ChunkPos> m_meshedChunks; // streaming: chunks given meshes
     std::unordered_map<world::SectionPos, SectionState> m_states;
     std::vector<world::SectionPos> m_dirtyList; // sorted far -> near before dispatch
     bool m_dirtyUnsorted = false;

@@ -74,6 +74,5 @@ fine until a system works.
 | Random model variants are picked with our own position hash, so a given position may show a different variant than vanilla | Vanilla's per-position seed isn't documented on the wiki | When documented / observed |
 | `grass_block[snowy=true]` renders like snowy=false (vanilla: snowy side, untinted top) | No snow yet | When snow is added |
 | Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |
-| Chunks next to unloaded chunks show walls at the edge of the loaded area (vanilla waits for neighbours before drawing) | Fixed test world | M3 (chunk loading) |
 | Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
 | Grass tint is always plains #91BD59 | No biomes yet | M8 |
