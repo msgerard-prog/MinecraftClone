@@ -21,7 +21,7 @@ M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page)
 2. ✅ M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,
    walkable, blocked, danger: lava/fire/cactus), follow range, used by zombies and
    herd animals; mobs avoid drops > 3 and fluids where vanilla does.
-3. M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,
+3. ✅ M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,
    chicken (eggs, slow falling, flapping); breeding (love mode, babies growing up,
    tempt goals) with wheat / wheat seeds / carrots; their drops and items.
 4. M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,

@@ -172,6 +172,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Farm animals (M16.3, `gameplay/Animals.cpp`, part of `Mobs`): sheep/pig/chicken
+  next to cows; upkeep (growing up, love timers, eggs, grazing) and goals (partner,
+  tempting food via `Context::heldItem`, parent); babies are queued in `m_births`;
+  `Mobs::interact` feeds and shears. Sheep wool is a model layer (`MobPart::layer`,
+  inflated, tinted by dye colour) drawn from an extra texture row (`kSheepWoolRow`).
 - Pathfinding (M16.2, `gameplay/Pathfinder`): A* over standable cells (body fits,
   solid below or water), 4 directions, step up 1 / drop 3, lava and fire blocked,
   danger and water costs; preallocated nodes, heap and stamped hash; partial paths.

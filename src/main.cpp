@@ -924,6 +924,31 @@ int main(int argc, char** argv) {
                     clicks.use = false;
                 }
             }
+            // Feeding and shearing animals (M16.3): right-click the mob in front.
+            if (!dead && clicks.useClick && !inventory.selectedStack().empty()) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    const mc::world::ItemStack held = inventory.selectedStack();
+                    const auto use = mc::Mobs::interact(mob, held.item, gameRng, droppedItems);
+                    if (use != mc::Mobs::Use::None) {
+                        world.chunk(mh->chunk)->markDirty();
+                        if (survival && use == mc::Mobs::Use::Fed) inventory.consumeSelected(1);
+                        if (survival && use == mc::Mobs::Use::Sheared) { // shears wear 1 per sheep
+                            mc::world::ItemStack worn = held;
+                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
+                            inventory.setSlot(inventory.selected(),
+                                              worn.damage >= mc::world::itemRegistry().item(held.item).durability
+                                                  ? mc::world::ItemStack{}
+                                                  : worn);
+                        }
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
+            }
             // Buckets (M14; wiki: Bucket): fill from a source or a cow, empty into the world.
             if (!dead && clicks.useClick && !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
@@ -1013,7 +1038,8 @@ int main(int argc, char** argv) {
             // Game rules read the tick's own time, not the renderer's interpolated value.
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
-                                     droppedItems, dimension == Dimension::Overworld};
+                                     droppedItems, dimension == Dimension::Overworld,
+                                     inventory.selectedStack().item, &frameEdits};
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
             {

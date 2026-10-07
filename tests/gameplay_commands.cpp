@@ -139,3 +139,21 @@ TEST_CASE("/fill: places a box, then updates; limits and errors") {
     CHECK_FALSE(runCommand("/fill 0 0 0 100 100 100 stone", c.ctx).ok); // > 32768
     CHECK_FALSE(runCommand("/fill 0 70 0 40 70 0 stone", c.ctx).ok);    // not loaded
 }
+
+TEST_CASE("/summon takes a few of vanilla's data tags: Color, Sheared, Age, Health") {
+    Ctx c;
+    mc::world::World w;
+    w.createChunk({0, -1});
+    mc::world::Xoroshiro rng(1);
+    c.ctx.world = &w;
+    c.ctx.rng = &rng;
+    CHECK(runCommand("/summon sheep 10 70 -4 {Color:14b,Age:-24000,Sheared:1b}", c.ctx).ok);
+    const auto& m = w.chunk({0, -1})->mobs().at(0);
+    CHECK(m.pos.x == doctest::Approx(10.5)); // the position is used with tags too
+    CHECK(m.pos.z == doctest::Approx(-3.5));
+    CHECK(m.woolColour == 14);
+    CHECK(m.age == -24000);
+    CHECK(m.sheared);
+    CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Saddle:1b}", c.ctx).ok); // unknown tag
+    CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Age:x}", c.ctx).ok);
+}

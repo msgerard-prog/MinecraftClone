@@ -30,6 +30,8 @@ public:
         world::Xoroshiro& rng;
         ItemEntities& items;
         bool naturalSpawning = true; // Overworld zombies only (no Nether/End mobs yet)
+        world::ItemId heldItem = 0;  // what the player holds (animals follow their food)
+        std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep eating grass)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
@@ -38,12 +40,17 @@ public:
     void setSimulationDistance(int chunks) { m_simulationDistance = chunks; }
     int simulationDistance() const { return m_simulationDistance; }
 
-    Mobs() { m_moves.reserve(64); m_boxes.reserve(256); }
+    Mobs() {
+        m_moves.reserve(64);
+        m_boxes.reserve(256);
+        m_births.reserve(16);
+    }
 
     void tick(Context& ctx);
 
     // A mob at `pos` (spawn eggs, commands, natural spawning).
     static world::MobData make(world::MobType type, const glm::dvec3& pos, world::Xoroshiro& rng);
+    static uint8_t naturalWoolColour(world::Xoroshiro& rng);
     // Adds a mob to the chunk it stands in (false if that chunk isn't loaded).
     static bool add(world::World& world, const world::MobData& mob);
 
@@ -56,6 +63,12 @@ public:
     };
     static std::optional<MobHit> raycast(world::World& world, const glm::dvec3& eye, const glm::dvec3& dir,
                                          double reach);
+    // Right-click on a mob with `held` (M16.3; wiki: Breeding, Sheep): feeding its food
+    // puts an adult in love mode (or speeds a baby's growth by 10%), shears shear a
+    // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
+    enum class Use { None, Fed, Sheared };
+    static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    static bool isFood(world::MobType type, world::ItemId item); // breeding / tempting food
     // The player hits a mob for `damage` (knockback away from the player).
     static void attack(world::MobData& mob, float damage, const glm::dvec3& from);
 
@@ -67,12 +80,18 @@ private:
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
     void spawnHostiles(Context& ctx);
     void die(Context& ctx, world::MobData& m);
+    // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
+    // (breeding partner, tempting food, parent); true if a goal was set.
+    void animalUpkeep(Context& ctx, world::MobData& m);
+    bool animalGoal(Context& ctx, world::MobData& m, double& speed);
+    world::MobData* findMob(world::World& world, const world::MobData& self, double range, bool wantLove, bool wantAdult);
 
     struct Move {
         world::ChunkPos to;
         world::MobData mob;
     };
     std::vector<Move> m_moves; // reused: mobs crossing chunk borders this tick
+    std::vector<world::MobData> m_births; // reused: babies born this tick
     std::vector<Aabb> m_boxes; // reused collision boxes
     Pathfinder m_pathfinder;
     int m_hostiles = 0;

@@ -111,6 +111,19 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
     r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});
     r.add({.id = "minecraft:rotten_flesh", .food = 4, .saturation = 0.8f, .texture = "item/rotten_flesh"});
+    // Farm animals (M16.3; wiki: each food's page - hunger / saturation).
+    r.add({.id = "minecraft:porkchop", .food = 3, .saturation = 1.8f, .texture = "item/porkchop"});
+    r.add({.id = "minecraft:cooked_porkchop", .food = 8, .saturation = 12.8f, .texture = "item/cooked_porkchop"});
+    r.add({.id = "minecraft:mutton", .food = 2, .saturation = 1.2f, .texture = "item/mutton"});
+    r.add({.id = "minecraft:cooked_mutton", .food = 6, .saturation = 9.6f, .texture = "item/cooked_mutton"});
+    r.add({.id = "minecraft:chicken", .food = 2, .saturation = 1.2f, .texture = "item/chicken"});
+    r.add({.id = "minecraft:cooked_chicken", .food = 6, .saturation = 7.2f, .texture = "item/cooked_chicken"});
+    r.add({.id = "minecraft:carrot", .food = 3, .saturation = 3.6f, .texture = "item/carrot"});
+    r.add({.id = "minecraft:wheat", .texture = "item/wheat"});
+    r.add({.id = "minecraft:wheat_seeds", .texture = "item/wheat_seeds"});
+    r.add({.id = "minecraft:feather", .texture = "item/feather"});
+    r.add({.id = "minecraft:egg", .maxStack = 16, .texture = "item/egg"});
+    r.add({.id = "minecraft:shears", .maxStack = 1, .durability = 238, .texture = "item/shears"});
     return r;
 }
 

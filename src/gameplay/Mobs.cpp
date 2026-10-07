@@ -64,7 +64,20 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 
 Aabb Mobs::box(const MobData& m) {
     const MobInfo& info = mobInfo(m.type);
-    return Aabb::fromFeet(m.pos, info.width, info.height);
+    const double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
+    return Aabb::fromFeet(m.pos, info.width * s, info.height * s);
+}
+
+uint8_t Mobs::naturalWoolColour(Xoroshiro& rng) {
+    // wiki: Sheep › Spawning - white 81.836%, black, gray and light gray 5% each,
+    // brown 3%, pink 0.164%.
+    const double r = rng.nextDouble() * 100.0;
+    if (r < 5.0) return 15;      // black
+    if (r < 10.0) return 7;      // gray
+    if (r < 15.0) return 8;      // light gray
+    if (r < 18.0) return 12;     // brown
+    if (r < 18.164) return 6;    // pink
+    return 0;                    // white
 }
 
 MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
@@ -75,6 +88,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.pos = m.prevPos = m.goal = pos;
     m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = rng.nextFloat() * 360.0f - 180.0f;
     m.health = mobInfo(type).maxHealth;
+    if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     return m;
 }
 
@@ -122,6 +136,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     } else {
         if (jump && m.onGround) m.vel.y = 0.42;
         m.vel.y = (m.vel.y - kGravity) * kDrag;
+        // Chickens flap and fall slowly (wiki: Chicken - no fall damage).
+        if (m.type == MobType::Chicken && !m.onGround && m.vel.y < 0.0) m.vel.y *= 0.6;
     }
 
     // Collision, axis by axis (y first), with step-up onto 0.6-high ledges.
@@ -162,7 +178,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (inWater) {
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
-        m.fallDistance -= static_cast<float>(moved.y);
+        if (m.type != MobType::Chicken) m.fallDistance -= static_cast<float>(moved.y); // (chickens: no falls)
     }
     if (m.onGround) {
         const float damage = std::ceil(m.fallDistance - 3.0f);
@@ -185,6 +201,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 
 void Mobs::ai(Context& ctx, MobData& m) {
     const MobInfo& info = mobInfo(m.type);
+    if (!info.hostile) animalUpkeep(ctx, m);
     const glm::dvec3 playerPos = ctx.player.position();
     const glm::dvec3 toPlayer = playerPos - m.pos;
     const double playerDist2 = toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y + toPlayer.z * toPlayer.z;
@@ -205,6 +222,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
+    } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
+        // (breeding partner, food, parent)
     } else if (m.panicTicks > 0) {
         --m.panicTicks;
         speed *= 2.0; // wiki: Cow - panics when hurt (faster)
@@ -343,16 +362,32 @@ void Mobs::die(Context& ctx, MobData& m) {
         const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1)));
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*items.find(id), uint8_t(n)}, ctx.rng);
     };
-    if (m.type == MobType::Cow) {
-        drop(m.fireTicks > 0 ? "cooked_beef" : "beef", 1, 3);
+    if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
+    const bool burning = m.fireTicks > 0; // meat drops cooked
+    switch (m.type) {
+    case MobType::Cow:
+        drop(burning ? "cooked_beef" : "beef", 1, 3);
         drop("leather", 0, 2);
-    } else if (m.type == MobType::Zombie) {
-        drop("rotten_flesh", 0, 2);
+        break;
+    case MobType::Zombie: drop("rotten_flesh", 0, 2); break;
+    case MobType::Sheep: // wiki: Sheep - its wool unless sheared, 1-2 mutton
+        if (!m.sheared)
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0),
+                            {items.blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)), 1}, ctx.rng);
+        drop(burning ? "cooked_mutton" : "mutton", 1, 2);
+        break;
+    case MobType::Pig: drop(burning ? "cooked_porkchop" : "porkchop", 1, 3); break; // wiki: Pig
+    case MobType::Chicken: // wiki: Chicken - feathers 0-2, 1 raw chicken
+        drop("feather", 0, 2);
+        drop(burning ? "cooked_chicken" : "chicken", 1, 1);
+        break;
+    default: break;
     }
 }
 
 void Mobs::tick(Context& ctx) {
     m_moves.clear();
+    m_births.clear();
     m_hostiles = 0;
     const glm::dvec3 playerPos = ctx.player.position();
     const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))), blockToChunk(int(std::floor(playerPos.z)))};
@@ -415,6 +450,8 @@ void Mobs::tick(Context& ctx) {
             c->markDirty();
             ctx.world.markTicking(mv.to);
         }
+    for (const MobData& baby : m_births)
+        add(ctx.world, baby);
     if (ctx.naturalSpawning) spawnHostiles(ctx);
 }
 

@@ -8,6 +8,8 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
 #include <optional>
 #include <vector>
 
@@ -252,8 +254,10 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, format("Successfully filled %d block(s)", int(old.size()))};
     }
     if (a[0] == "summon") {
-        // /summon <zombie|cow> [x y z] (wiki: Commands/summon).
-        if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5)) return fail("Usage: /summon <entity> [x y z]");
+        // /summon <entity> [x y z] [{Tag:value,...}] (wiki: Commands/summon). Tags (no
+        // spaces): Color, Sheared, Age, Health - a small subset of the entity's data.
+        if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5 && a.size() != 6))
+            return fail("Usage: /summon <entity> [x y z] [{tags}]");
         std::string_view id = a[1];
         if (id.starts_with("minecraft:")) id.remove_prefix(10);
         std::optional<world::MobType> type;
@@ -261,13 +265,38 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             if (world::mobInfo(static_cast<world::MobType>(k)).id.substr(10) == id) type = static_cast<world::MobType>(k);
         if (!type) return fail(format("Unknown entity '%.*s'", int(id.size()), id.data()));
         glm::dvec3 p = ctx.player.position();
-        if (a.size() == 5) {
+        if (a.size() >= 5) {
             const auto x = coordinate(a[2], p.x, true), y = coordinate(a[3], p.y, false), z = coordinate(a[4], p.z, true);
             if (!x || !y || !z) return fail("Invalid position");
             p = {*x, *y, *z};
         }
         if (!world::isValidMobPosition(p)) return fail("Invalid position for summon");
-        if (!Mobs::add(*ctx.world, Mobs::make(*type, p, *ctx.rng))) return fail("That position is not loaded");
+        world::MobData mob = Mobs::make(*type, p, *ctx.rng);
+        if (a.size() == 6) {
+            std::string_view tags = a[5];
+            if (tags.size() < 2 || tags.front() != '{' || tags.back() != '}') return fail("Invalid data tag");
+            tags = tags.substr(1, tags.size() - 2);
+            while (!tags.empty()) {
+                const size_t comma = tags.find(',');
+                const std::string_view pair = tags.substr(0, comma);
+                tags = comma == std::string_view::npos ? std::string_view{} : tags.substr(comma + 1);
+                const size_t colon = pair.find(':');
+                if (colon == std::string_view::npos) return fail("Invalid data tag");
+                const std::string_view key = pair.substr(0, colon);
+                std::string value(pair.substr(colon + 1));
+                if (!value.empty() && (value.back() == 'b' || value.back() == 's' || value.back() == 'f'))
+                    value.pop_back(); // NBT type suffixes
+                char* end = nullptr;
+                const double v = std::strtod(value.c_str(), &end);
+                if (value.empty() || *end != '\0' || !std::isfinite(v)) return fail("Invalid data tag");
+                if (key == "Color") mob.woolColour = static_cast<uint8_t>(std::clamp(int(v), 0, 15));
+                else if (key == "Sheared") mob.sheared = v != 0.0;
+                else if (key == "Age") mob.age = std::clamp(int(v), -24000, 6000);
+                else if (key == "Health") mob.health = std::clamp(float(v), 0.1f, world::mobInfo(*type).maxHealth);
+                else return fail(format("Unknown data tag '%.*s'", int(key.size()), key.data()));
+            }
+        }
+        if (!Mobs::add(*ctx.world, mob)) return fail("That position is not loaded");
         return {true, format("Summoned new %.*s", int(id.size()), id.data())};
     }
     if (a[0] == "kill") {

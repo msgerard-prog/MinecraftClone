@@ -90,7 +90,9 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            OnGround, fall_distance (double, 1.21.5+; FallDistance still read),
                            Fire (-20 when not burning), Air, PortalCooldown, Invulnerable, AbsorptionAmount,
                            equipment (omitted when empty), HurtTime, DeathTime, PersistenceRequired, UUID
-                           [I; 4 ints], cow variant "minecraft:temperate", zombie IsBaby... } ] }
+                           [I; 4 ints], cow/pig/chicken variant "minecraft:temperate", zombie IsBaby...;
+                           animals Age, ForcedAge, InLove; sheep Color (byte), Sheared;
+                           chicken EggLayTime, IsChickenJockey } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

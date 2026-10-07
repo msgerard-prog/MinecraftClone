@@ -152,9 +152,10 @@ TEST_CASE("mobs save in the chunk's entities file and load back") {
     CHECK(d.mobs()[0].persistent);
 }
 
-TEST_CASE("new chunks in grassy biomes sometimes come with a herd of cows") {
+TEST_CASE("new chunks in grassy biomes sometimes come with a herd of farm animals") {
     const OverworldGenerator gen(42);
     int cows = 0, grassy = 0;
+    int kinds[int(MobType::Count)] = {};
     for (int cz = -12; cz <= 12 && grassy < 80; ++cz)
         for (int cx = -12; cx <= 12 && grassy < 80; ++cx) {
             const Biome b = gen.biomeAt(gen.column(cx * 16 + 8, cz * 16 + 8));
@@ -163,13 +164,18 @@ TEST_CASE("new chunks in grassy biomes sometimes come with a herd of cows") {
             Chunk c({cx, cz});
             gen.generate(c);
             for (const MobData& m : c.mobs()) {
-                CHECK(m.type == MobType::Cow);
+                CHECK(m.type != MobType::Zombie);
                 CHECK(m.persistent);
+                ++kinds[int(m.type)];
                 ++cows;
             }
         }
     REQUIRE(grassy >= 20);
     CHECK(cows > 0);
+    int herdKinds = 0;
+    for (int k : kinds)
+        herdKinds += k > 0;
+    CHECK(herdKinds >= 2); // more than one kind of animal
 }
 
 
@@ -336,4 +342,131 @@ TEST_CASE("a chasing zombie paths around a lava trench over its bridge (M16.2)")
     }
     CHECK_FALSE(burnt);     // never stepped into the lava
     CHECK(lowest <= 17.0f); // got across and hit the player
+}
+
+TEST_CASE("two fed cows in love make a calf that grows up; both wait 5 minutes") {
+    MobScene s;
+    const ItemId wheat = *itemRegistry().find("wheat");
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {4.5, 64.0, 4.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {6.5, 64.0, 4.5}, s.rng)));
+    for (MobData* m : s.all())
+        CHECK(Mobs::interact(*m, wheat, s.rng, s.items) == Mobs::Use::Fed);
+    CHECK(Mobs::interact(*s.all()[0], wheat, s.rng, s.items) == Mobs::Use::None); // already in love
+    s.player.setPosition({40.5, 64.0, 40.5});
+    s.tick(200);
+    int babies = 0, adults = 0;
+    for (MobData* m : s.all()) {
+        if (m->isBaby()) ++babies;
+        else {
+            ++adults;
+            CHECK(m->age > 0); // breeding cooldown
+            CHECK(Mobs::interact(*m, wheat, s.rng, s.items) == Mobs::Use::None);
+        }
+    }
+    CHECK(babies == 1);
+    CHECK(adults == 2);
+    for (MobData* m : s.all())
+        if (m->isBaby()) {
+            CHECK(Mobs::box(*m).max.y - Mobs::box(*m).min.y == doctest::Approx(0.7)); // half size
+            m->age = -2;
+        }
+    s.tick(3);
+    for (MobData* m : s.all())
+        CHECK_FALSE(m->isBaby());
+}
+
+TEST_CASE("shearing a sheep drops 1-3 wool of its colour; it regrows after eating grass") {
+    MobScene s;
+    MobData sheep = Mobs::make(MobType::Sheep, {4.5, 64.0, 4.5}, s.rng);
+    sheep.woolColour = 14; // red
+    REQUIRE(Mobs::add(s.world, sheep));
+    MobData* m = s.all().at(0);
+    const ItemId shears = *itemRegistry().find("shears");
+    CHECK(Mobs::interact(*m, shears, s.rng, s.items) == Mobs::Use::Sheared);
+    CHECK(m->sheared);
+    CHECK(Mobs::interact(*m, shears, s.rng, s.items) == Mobs::Use::None);
+    REQUIRE(s.items.items().size() == 1);
+    CHECK(s.items.items()[0].stack.item == itemRegistry().blockItem(blocks::RedWool));
+    CHECK(s.items.items()[0].stack.count >= 1);
+    CHECK(s.items.items()[0].stack.count <= 3);
+    // A grass block under it: sooner or later it grazes and the wool comes back.
+    for (int x = 0; x < 16; ++x)
+        for (int z = 0; z < 16; ++z)
+            s.world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::GrassBlock));
+    s.player.setPosition({40.5, 64.0, 40.5});
+    std::vector<BlockPos> edits;
+    for (int i = 0; i < 20000 && s.all().at(0)->sheared; ++i) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, true, false, s.dayTime, s.skyDarken, s.rng, s.items,
+                          false, 0, &edits};
+        s.mobs.tick(ctx);
+    }
+    CHECK_FALSE(s.all().at(0)->sheared);
+    REQUIRE_FALSE(edits.empty());
+    CHECK(blockRegistry().blockOf(s.world.getBlock(edits[0])) == blocks::Dirt);
+}
+
+TEST_CASE("animal loot: sheep wool + mutton, pig porkchops, chicken feathers + chicken; babies nothing") {
+    for (const MobType t : {MobType::Sheep, MobType::Pig, MobType::Chicken}) {
+        MobScene s;
+        MobData m = Mobs::make(t, {4.5, 64.0, 4.5}, s.rng);
+        m.health = 0.0f;
+        REQUIRE(Mobs::add(s.world, m));
+        s.tick(1);
+        CHECK_FALSE(s.items.items().empty());
+        MobScene b;
+        MobData baby = Mobs::make(t, {4.5, 64.0, 4.5}, b.rng);
+        baby.age = -100;
+        baby.health = 0.0f;
+        REQUIRE(Mobs::add(b.world, baby));
+        b.tick(1);
+        CHECK(b.items.items().empty());
+    }
+}
+
+TEST_CASE("animals follow a player holding their food; chickens lay eggs") {
+    MobScene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Pig, {8.5, 64.0, 0.5}, s.rng)));
+    s.player.setPosition({0.5, 64.0, 0.5});
+    for (int i = 0; i < 200; ++i) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, true, false, s.dayTime, s.skyDarken, s.rng, s.items,
+                          false, *itemRegistry().find("carrot")};
+        s.mobs.tick(ctx);
+    }
+    CHECK(s.all().at(0)->pos.x < 4.0); // came over (stops ~2.5 blocks away)
+    MobScene c;
+    MobData hen = Mobs::make(MobType::Chicken, {4.5, 64.0, 4.5}, c.rng);
+    hen.eggTicks = 5;
+    REQUIRE(Mobs::add(c.world, hen));
+    c.tick(6);
+    REQUIRE(c.items.items().size() == 1);
+    CHECK(c.items.items()[0].stack.item == *itemRegistry().find("egg"));
+}
+
+TEST_CASE("sheep colour/shearing, ages, love and egg timers save as vanilla's Color, Sheared, Age, InLove, EggLayTime") {
+    Chunk c({1, -1});
+    Xoroshiro rng(5);
+    MobData sheep = Mobs::make(MobType::Sheep, {20.5, 70.0, -10.5}, rng);
+    sheep.woolColour = 11;
+    sheep.sheared = true;
+    sheep.age = -1200;
+    MobData hen = Mobs::make(MobType::Chicken, {21.5, 70.0, -10.5}, rng);
+    hen.eggTicks = 777;
+    hen.loveTicks = 300;
+    c.mobs().push_back(sheep);
+    c.mobs().push_back(hen);
+    const auto nbt = entitiesToNbt(ChunkSnapshot::of(c));
+    const auto* e0 = nbt.list("Entities")->items[0].get<mc::nbt::Compound>();
+    CHECK(*e0->string("id") == "minecraft:sheep");
+    CHECK(e0->integer("Color") == 11);
+    Chunk d({1, -1});
+    entitiesFromNbt(*mc::nbt::read(mc::nbt::write(nbt)), d);
+    REQUIRE(d.mobs().size() == 2);
+    CHECK(d.mobs()[0].woolColour == 11);
+    CHECK(d.mobs()[0].sheared);
+    CHECK(d.mobs()[0].age == -1200);
+    CHECK(d.mobs()[1].type == MobType::Chicken);
+    CHECK(d.mobs()[1].eggTicks == 777);
+    CHECK(d.mobs()[1].loveTicks == 300);
 }

@@ -831,6 +831,12 @@ void OverworldGenerator::generate(Chunk& out) const {
         // A group of 4 spread +-5 blocks around a random spot, inside this chunk
         // (wiki: Mob spawning › Chunk generation).
         const int centreX = static_cast<int>(animals.nextInt(16)), centreZ = static_cast<int>(animals.nextInt(16));
+        // Which animal (M16.3): vanilla's passive spawn weights for grassy biomes -
+        // sheep 12, pig 10, chicken 10, cow 8 (wiki: Spawn › Java Edition). A separate
+        // stream, so herd positions stay as they were before more kinds existed.
+        Xoroshiro kindRng(chunkSeed(m_seed, cx, cz, 501));
+        const uint32_t roll = kindRng.nextInt(40);
+        const MobType kind = roll < 12 ? MobType::Sheep : roll < 22 ? MobType::Pig : roll < 32 ? MobType::Chicken : MobType::Cow;
         for (int i = 0; i < 4; ++i) {
             const int x = centreX + static_cast<int>(animals.nextInt(11)) - 5;
             const int z = centreZ + static_cast<int>(animals.nextInt(11)) - 5;
@@ -843,12 +849,17 @@ void OverworldGenerator::generate(Chunk& out) const {
                 (above != B.air && blockRegistry().blockOf(above) != blocks::Snow))
                 continue;
             MobData cow;
-            cow.type = MobType::Cow;
+            cow.type = kind;
+            if (kind == MobType::Sheep) {
+                // wiki: Sheep › Spawning - white 81.836%, black/gray/light gray 5%, brown 3%, pink 0.164%
+                const double r = kindRng.nextDouble() * 100.0;
+                cow.woolColour = r < 5.0 ? 15 : r < 10.0 ? 7 : r < 15.0 ? 8 : r < 18.0 ? 12 : r < 18.164 ? 6 : 0;
+            }
             cow.uuidHi = hi;
             cow.uuidLo = lo;
             cow.pos = cow.prevPos = cow.goal = glm::dvec3(baseX + x + 0.5, y + 1.0, baseZ + z + 0.5);
             cow.yaw = cow.prevYaw = cow.headYaw = cow.prevHeadYaw = yaw;
-            cow.health = mobInfo(MobType::Cow).maxHealth;
+            cow.health = mobInfo(kind).maxHealth;
             cow.persistent = true; // animals from world generation never despawn
             out.mobs().push_back(cow);
         }

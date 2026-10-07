@@ -529,7 +529,21 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // 1.21.5+ `equipment` (was HandItems/ArmorItems) is left out when nothing is worn.
         e.put("CanPickUpLoot", int8_t{0});
         e.put("LeftHanded", int8_t{0});
-        if (m.type == MobType::Cow) e.put("variant", std::string("minecraft:temperate")); // 1.21.5 cow variants
+        if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
+            e.put("variant", std::string("minecraft:temperate")); // 1.21.5+ farm animal variants
+        if (m.type != MobType::Zombie) { // animals (wiki: Entity format › Animal)
+            e.put("Age", int32_t(m.age));
+            e.put("ForcedAge", int32_t{0});
+            e.put("InLove", int32_t(m.loveTicks));
+        }
+        if (m.type == MobType::Sheep) {
+            e.put("Color", int8_t(m.woolColour));
+            e.put("Sheared", int8_t(m.sheared ? 1 : 0));
+        }
+        if (m.type == MobType::Chicken) {
+            e.put("EggLayTime", int32_t(m.eggTicks));
+            e.put("IsChickenJockey", int8_t{0});
+        }
         if (m.type == MobType::Zombie) {
             e.put("IsBaby", int8_t{0});
             e.put("CanBreakDoors", int8_t{0});
@@ -588,6 +602,11 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.fallDistance = static_cast<float>(std::clamp(f, 0.0, 1.0e6));
         m.fireTicks = static_cast<int16_t>(e->integer("Fire").value_or(0));
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
+        m.age = static_cast<int>(std::clamp<int64_t>(e->integer("Age").value_or(0), -24000, 24000));
+        m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
+        m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
+        m.sheared = e->integer("Sheared").value_or(0) != 0;
+        m.eggTicks = static_cast<int>(std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
         if (const nbt::Tag* u = e->find("UUID"))
             if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);

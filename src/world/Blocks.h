@@ -137,6 +137,23 @@ enum : BlockId {
     SpruceSapling,
     AcaciaSapling,
     Fire, // age, east, north, south, up, west (faces it clings to)
+    // Wool (M16.3), in vanilla's dye order.
+    WhiteWool,
+    OrangeWool,
+    MagentaWool,
+    LightBlueWool,
+    YellowWool,
+    LimeWool,
+    PinkWool,
+    GrayWool,
+    LightGrayWool,
+    CyanWool,
+    PurpleWool,
+    BlueWool,
+    BrownWool,
+    GreenWool,
+    RedWool,
+    BlackWool,
     Count
 };
 } // namespace blocks

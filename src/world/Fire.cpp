@@ -78,7 +78,7 @@ int BlockUpdates::igniteOdds(BlockId b) {
     case B::AzureBluet:
     case B::OxeyeDaisy:
     case B::DeadBush: return 60;
-    default: return 0;
+    default: return b >= B::WhiteWool && b <= B::BlackWool ? 30 : 0; // wool: 30 / 60 like leaves (wiki)
     }
 }
 
@@ -105,7 +105,7 @@ int BlockUpdates::burnOdds(BlockId b) {
     case B::AzureBluet:
     case B::OxeyeDaisy:
     case B::DeadBush: return 100;
-    default: return 0;
+    default: return b >= B::WhiteWool && b <= B::BlackWool ? 60 : 0;
     }
 }
 

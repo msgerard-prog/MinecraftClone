@@ -271,6 +271,13 @@ BlockRegistry buildVanillaBlocks() {
                 {{&age, "0"}, {&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"},
                  {&fireUp, "false"}, {&fireWest, "false"}}),
           blocks::Fire);
+    // Wool (wiki: Wool - hardness 0.8), 16 dye colours in vanilla's order.
+    static constexpr const char* kColours[16] = {"white", "orange", "magenta", "light_blue", "yellow", "lime",
+                                                 "pink", "gray", "light_gray", "cyan", "purple", "blue",
+                                                 "brown", "green", "red", "black"};
+    for (int c = 0; c < 16; ++c)
+        check(r.add(std::string(kColours[c]) + "_wool", {.hardness = 0.8f, .resistance = 0.8f}),
+              static_cast<BlockId>(blocks::WhiteWool + c));
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

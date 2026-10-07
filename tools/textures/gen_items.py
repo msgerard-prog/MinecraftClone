@@ -270,6 +270,59 @@ def bucket(fill=None):
     return img
 
 
+def wheat():
+    # A bundle of golden stalks with grain heads, tied in the middle.
+    gold = ramp(hexc("#D8B048"), 5, spread=0.35)
+    s = Shape()
+    for x0 in (4, 7, 10):
+        s.add({(x0 + (y - 8) // 4 * (1 if x0 > 7 else -1 if x0 < 7 else 0), y) for y in range(6, 15)}, gold)
+        s.add({(x0 + dx, y) for y in range(1, 6) for dx in (0, 1) if (y + dx) % 2 == 0 or y < 5}, gold)
+    s.add({(x, 10) for x in range(4, 12)}, ramp(hexc("#8A6A2A"), 5))
+    return s.render()
+
+
+def seeds():
+    # A few small seeds scattered.
+    pal = ramp(hexc("#5C8A2A"), 5, spread=0.35)
+    s = Shape()
+    for cx, cy in ((5, 5), (10, 6), (7, 9), (11, 11), (4, 11)):
+        s.add({(cx, cy), (cx + 1, cy), (cx, cy + 1)}, pal)
+    return s.render()
+
+
+def carrot():
+    orange = ramp(hexc("#F08A1C"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if 3 <= x + y - 6 <= 14 and abs((x - y) - 0) <= 3 - (x + y - 6) // 6 and x + y >= 11}, orange)
+    s.add({(11, 2), (12, 2), (12, 3), (13, 3), (10, 3), (11, 4), (13, 1), (10, 1)}, ramp(hexc("#4C9A2A"), 5))
+    return s.render()
+
+
+def feather():
+    white = ramp(hexc("#EAEAEA"), 5, spread=0.25)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if abs((x + y) - 15) <= 2 and 2 <= x <= 12 and abs(x - y) <= 9}, white)
+    s.add({(x, 15 - x) for x in range(2, 6)}, ramp(hexc("#9A9A9A"), 5))
+    return s.render()
+
+
+def egg():
+    pal = ramp(hexc("#E8D2A8"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 4.2) ** 2 + ((y - 8.5) / (5.6 if y < 8.5 else 4.8)) ** 2 < 1}, pal)
+    return s.render()
+
+
+def shears():
+    iron = ramp(hexc("#C8C8D0"), 5, spread=0.4)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if 2 <= x <= 9 and abs(y - (x + 1)) <= 1 and y <= 10}, iron)
+    s.add({(x, y) for x in range(16) for y in range(16) if 6 <= x <= 13 and abs(y - (15 - x + 1)) <= 1 and y >= 2 and x >= 6 and y <= 9}, iron)
+    s.add({(x, y) for x in range(16) for y in range(16) if 1.4 <= math.hypot(x - 4, y - 12) <= 2.6}, ramp(hexc("#4A4A50"), 5))
+    s.add({(x, y) for x in range(16) for y in range(16) if 1.4 <= math.hypot(x - 11, y - 12) <= 2.6}, ramp(hexc("#4A4A50"), 5))
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -301,6 +354,19 @@ def all_items():
     items["water_bucket"] = bucket("#3C6EE6")
     items["lava_bucket"] = bucket("#E8661A")
     items["milk_bucket"] = bucket("#F4F4F0")
+    # Farm animals and their food (M16.3).
+    items["wheat"] = wheat()
+    items["wheat_seeds"] = seeds()
+    items["carrot"] = carrot()
+    items["porkchop"] = meat("porkchop", "#E89090", "#F8D8D0")
+    items["cooked_porkchop"] = meat("cooked_porkchop", "#B8784A", "#E0B880", marbled=False)
+    items["mutton"] = meat("mutton", "#B8323A", "#E8C8C0")
+    items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
+    items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
+    items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)
+    items["feather"] = feather()
+    items["egg"] = egg()
+    items["shears"] = shears()
     return items
 
 

@@ -9,7 +9,7 @@
 
 namespace mc::world {
 
-enum class MobType : uint8_t { Zombie, Cow, Count };
+enum class MobType : uint8_t { Zombie, Cow, Sheep, Pig, Chicken, Count };
 
 // Static facts per mob type (wiki: Zombie, Cow - health, hitbox, speed, damage).
 struct MobInfo {
@@ -45,6 +45,16 @@ struct MobData {
     bool onGround = false;
     bool persistent = false; // never despawns (named, picked up items...)
     int noPlayerTicks = 0;   // despawn clock (wiki: Spawn › Despawning)
+    // Animals (M16.3; wiki: Breeding, Sheep, Chicken). Saved as Age, InLove, Color,
+    // Sheared, EggLayTime.
+    int age = 0;            // < 0: a baby growing up (-24000 at birth); > 0: breeding cooldown
+    int loveTicks = 0;      // in love mode after being fed (600)
+    uint8_t woolColour = 0; // sheep: dye index (0 white .. 15 black)
+    bool sheared = false;
+    int eggTicks = 6000;    // chicken: ticks until the next egg
+    int eatTicks = 0;       // sheep: eating-grass animation (40)
+    int16_t breedTicks = 0; // time spent next to a partner in love
+    bool isBaby() const { return age < 0; }
     // AI
     glm::dvec3 goal{0.0};    // wander / chase target
     int goalTicks = 0;       // time spent on the current goal

@@ -53,10 +53,10 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     if (!m_shader.load("entity")) return false;
     // Mob textures stacked vertically: 64 x 64 per mob type.
     {
-        constexpr int n = static_cast<int>(world::MobType::Count);
+        constexpr int n = kMobTextureRows;
         Image strip{64, 64 * n, std::vector<uint8_t>(size_t(64) * 64 * n * 4, 0)};
         for (int t = 0; t < n; ++t) {
-            const char* path = mobTexturePath(static_cast<world::MobType>(t));
+            const char* path = mobTexturePath(t);
             const auto bytes = packs.read(path);
             const auto img = bytes ? decodePng(*bytes) : std::nullopt;
             if (!img || img->width != 64 || img->height != 64) {
@@ -231,11 +231,20 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         {{2, 6, 7, 3}, 1.0f}, // top
         {{4, 0, 1, 5}, 0.5f}, // bottom
     };
+    const float scale = mob.age < 0 ? 0.5f : 1.0f; // babies: half size
     for (const MobPart& part : mobModel(mob.type)) {
-        const glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
+        if (part.layer == 1 && mob.sheared) continue;
+        glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
         const glm::vec3 pivot(part.pivot[0], part.pivot[1], part.pivot[2]);
-        const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z;
-        const float u = float(part.u), v = float(part.v) + vrow;
+        const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z; // UV size (before inflating)
+        mn -= glm::vec3(part.inflate);
+        mx += glm::vec3(part.inflate);
+        const float u = float(part.u), v = float(part.v) + (part.layer == 1 ? float(kSheepWoolRow * 64) : vrow);
+        glm::vec3 partTint = tint;
+        if (part.layer == 1) {
+            const uint32_t c = kWoolColours[mob.woolColour & 15];
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
         const glm::mat3* anim = part.anim == MobPart::Anim::Head         ? &head
                                 : part.anim == MobPart::Anim::LegA       ? &legA
                                 : part.anim == MobPart::Anim::LegB       ? &legB
@@ -245,7 +254,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         for (int i = 0; i < 8; ++i) {
             glm::vec3 c(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z);
             if (anim) c = *anim * (c - pivot) + pivot;
-            corners[i] = base + body * c / 16.0f; // pixels -> blocks
+            corners[i] = base + body * c * (scale / 16.0f); // pixels -> blocks
         }
         const float uv[6][4] = {
             {u + d, v + d, w, h}, {u + 2 * d + w, v + d, w, h}, {u, v + d, d, h},
@@ -254,7 +263,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         for (int f = 0; f < 6; ++f) {
             const Face& face = kFaces[f];
             const glm::vec3 p[4] = {corners[face.c[0]], corners[face.c[1]], corners[face.c[2]], corners[face.c[3]]};
-            quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3], pack(light * tint * face.shade),
+            quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3], pack(light * partTint * face.shade),
                  m_mobs);
         }
     }
