@@ -1,5 +1,6 @@
 #include "world/ChunkSerializer.h"
 
+#include "core/Log.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 
@@ -206,10 +207,15 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             if (const nbt::Compound* ench = comps->compound(key)) {
                 // (pre-1.21.5 saves nest them under "levels")
                 const nbt::Compound* levels = ench->compound("levels") ? ench->compound("levels") : ench;
-                for (const auto& e : levels->entries)
-                    if (const auto kind = findEnchantment(e.name))
-                        if (const auto lvl = levels->integer(e.name))
-                            setEnchantment(s, *kind, int(std::clamp<int64_t>(*lvl, 1, 255)));
+                for (const auto& e : levels->entries) {
+                    const auto kind = findEnchantment(e.name);
+                    const auto lvl = levels->integer(e.name);
+                    if (!kind || !lvl || !setEnchantment(s, *kind, int(std::clamp<int64_t>(*lvl, 1, 255)))) {
+                        static bool logged = false; // (unknown kinds: Mending, curses...)
+                        if (!logged) MC_LOG_WARN("Dropping enchantment %s (not supported yet)", e.name.c_str());
+                        logged = true;
+                    }
+                }
             }
         s.repairCost = static_cast<uint8_t>(std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
     }
@@ -340,6 +346,9 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("lit_total_time", static_cast<int16_t>(f.data.burnDuration));
         e.put("cooking_time_spent", static_cast<int16_t>(f.data.cookTime));
         e.put("cooking_total_time", int16_t{200});
+        // Experience stored by smelting (vanilla keeps per-recipe counts in RecipesUsed;
+        // we keep the total in our own tag, which vanilla ignores).
+        if (f.data.experience > 0.0f) e.put("clone_experience", f.data.experience);
         entities.emplace_back(std::move(e));
     }
     for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
@@ -518,6 +527,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             f.burnDuration = static_cast<int>(e->integer("lit_total_time").value_or(f.burnLeft));
             f.cookTime = field("cooking_time_spent", "CookTime");
             f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
+            f.experience = std::clamp(float(e->real("clone_experience").value_or(0.0)), 0.0f, 1.0e6f);
         }
     chunk.blockTicks().clear();
     uint64_t order = 0;

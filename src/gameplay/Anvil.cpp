@@ -45,6 +45,9 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
     if (left.empty() || right.empty()) return r;
     const ItemDef& ld = itemRegistry().item(left.item);
     const bool book = itemRegistry().item(right.item).id == "minecraft:enchanted_book";
+    // A plain book can't take enchantments on the anvil (vanilla: only enchanted books
+    // combine with each other or onto gear).
+    if (ld.id == "minecraft:book") return r;
     ItemStack out = left;
     out.count = 1;
     int cost = 0;

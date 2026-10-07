@@ -179,7 +179,7 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         if (m_result.empty() || m_anvilTooExpensive || (!m_creative && m_levels - m_levelsSpent < m_anvilCost)) return;
         if (!m_carried.empty()) return;
         m_carried = m_result;
-        m_grid[0] = {};
+        if (--m_grid[0].count == 0) m_grid[0] = {}; // one item is worked
         if (m_grid[1].count <= m_anvilMaterial) m_grid[1] = {};
         else m_grid[1].count = uint8_t(m_grid[1].count - m_anvilMaterial);
         if (!m_creative) m_levelsSpent += m_anvilCost;
@@ -332,6 +332,19 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             return;
         }
         const bool outputOnly = slot.kind == Slot::Kind::FurnaceOut;
+        // The enchanting table's item slot holds one item (vanilla): place one, or swap
+        // only a single carried item.
+        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 0 && !m_carried.empty()) {
+            if (v.empty()) {
+                v = m_carried;
+                v.count = 1;
+                if (--m_carried.count == 0) m_carried = {};
+            } else if (m_carried.count == 1) {
+                std::swap(v, m_carried);
+            }
+            store();
+            return;
+        }
         // The enchanting table's second slot takes lapis only.
         if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 1 && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).id != "minecraft:lapis_lazuli")

@@ -308,10 +308,11 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         if (r.ec != std::errc() || amount < 0 || amount > 100000) return fail("Invalid amount");
         const bool levels = a.size() > 4 && a[4] == "levels";
         if (levels) {
-            int points = 0;
-            for (int l = ctx.vitals->xpLevel(); l < ctx.vitals->xpLevel() + amount; ++l)
+            int64_t points = 0;
+            const int to = std::min(ctx.vitals->xpLevel() + amount, 21863); // vanilla's cap (saves clamp too)
+            for (int l = ctx.vitals->xpLevel(); l < to; ++l)
                 points += Vitals::pointsForLevel(l);
-            ctx.vitals->addExperience(points);
+            ctx.vitals->addExperience(int(std::min<int64_t>(points, 1 << 30)));
         } else {
             ctx.vitals->addExperience(amount);
         }

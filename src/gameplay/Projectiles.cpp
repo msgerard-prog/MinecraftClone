@@ -57,8 +57,9 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
     const ItemStack bow = inventory.selectedStack();
     // Infinity: needs an arrow but doesn't use it up (wiki: Infinity).
     const bool infinity = enchantLevel(bow, Enchantment::Infinity) > 0;
-    if (power < 0.1f || (survival && !(infinity ? inventory.has(arrow) : inventory.takeOne(arrow)))) return false;
+    if (power < 0.1f || (survival && !inventory.has(arrow))) return false;
     if (!projectiles.shoot(ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f, rng)) return false;
+    if (survival && !infinity) inventory.takeOne(arrow); // (only once it flew)
     Projectile& p = projectiles.last();
     p.power = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Power));
     p.punch = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Punch));

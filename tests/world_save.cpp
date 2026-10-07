@@ -891,3 +891,22 @@ TEST_CASE("enchanted items save as 1.21.5+ minecraft:enchantments and load back 
     CHECK(back.repairCost == 3);
     CHECK(back.damage == 3);
 }
+
+TEST_CASE("items keep up to 8 enchantments through a save; furnaces keep their stored experience") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 70, 1}, blockRegistry().defaultState(blocks::Chest));
+    w.setBlock({3, 70, 1}, blockRegistry().defaultState(blocks::Furnace));
+    Chunk& c = *w.chunk({0, 0});
+    ItemStack helmet{*itemRegistry().find("diamond_helmet"), 1};
+    for (Enchantment e : {Enchantment::Protection, Enchantment::Unbreaking, Enchantment::Respiration,
+                          Enchantment::AquaAffinity, Enchantment::Thorns})
+        REQUIRE(setEnchantment(helmet, e, 1));
+    c.chest(1, 70, 1)->items[0] = helmet;
+    c.furnace(3, 70, 1)->experience = 2.5f;
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    Chunk e({0, 0});
+    REQUIRE(chunkFromNbt(nbt, e));
+    CHECK(enchantLevel(e.chest(1, 70, 1)->items[0], Enchantment::Thorns) == 1); // the 5th survives
+    CHECK(e.furnace(3, 70, 1)->experience == doctest::Approx(2.5f));
+}

@@ -4,32 +4,14 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M16 done (reviews applied; v0.16.0): falling sand/gravel, A* pathfinding, sheep/pig/
-chicken with breeding, shearing, eggs; bows, arrows, thrown eggs, explosions;
-skeletons, creepers, spiders, endermen with vanilla's follow ranges, fuse and stare
-rules. M15 random ticks and fire (v0.15.0); M1-M14 done.
+M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
+cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
+explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
+table, anvils. M16 falling blocks and mobs 2 (v0.16.0); M1-M15 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
-
-M17 — Items and survival 2 (wiki: Farming, Chest, Bed, Armor, Shield, Enchanting,
-Anvil, Brewing):
-1. ✅ M17.1 — Farming: hoes till dirt/grass into farmland (moisture from water within 4,
-   trampling), wheat/carrots/potatoes/beetroots (age stages, growth chance by
-   farmland moisture and neighbours), bone meal (from bones; grows crops and saplings),
-   crop drops and seeds, bread/baked potato recipes.
-2. ✅ M17.2 — Chests (single and double, 27/54 slots, block entity saved as Items),
-   item frames of inventory screens reused; hoppers come with redstone 2.
-3. ✅ M17.3 — Armor (leather/iron/gold/diamond/copper... pieces, armor points and
-   toughness damage reduction, durability, armor slots in the inventory, worn on mobs
-   and the player model later); shields (blocking with right-click, 5-tick delay,
-   axe disabling).
-4. ✅ M17.4 — Beds (placing two halves, sleeping at night skips to morning, respawn
-   point, explode in the Nether/End).
-5. ✅ M17.5 — Enchanting (table, lapis, levels/XP orbs from mobs and ores, enchantment
-   choices by bookshelves, efficiency/sharpness/protection/unbreaking...), anvils
-   (repair, combine, naming), brewing (stand, blaze powder... where ingredients exist).
 
 M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator kind
 "overworld2", default for new worlds; "overworld" stays for existing worlds):
@@ -206,9 +188,9 @@ and GUI textures are made with their systems.
 | M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | ✅ 2026-10-07 v0.14.0 |
 | M15 | Random ticks & fire: saplings, leaf decay, grass spread, fire, flint and steel (crops moved to M17 farming) | ✅ 2026-10-07 v0.15.0 |
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | ✅ 2026-10-07 v0.16.0 |
-| M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, brewing, farming | Core survival loop complete |
+| M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, farming (brewing moved to M19) | ✅ 2026-10-07 v0.17.0 |
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | Seeds look like vanilla's kind of world |
-| M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes | Nether as in 1.21 |
+| M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | Nether as in 1.21 |
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | Dragon can be beaten |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
@@ -222,6 +204,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M17 (v0.17.0): farming, chests, armor/shields, beds, experience, enchanting, anvils.
 - 2026-10-07 M16 (v0.16.0): falling blocks, pathfinding, farm animals, bows/arrows/eggs, explosions, skeletons, creepers, spiders, endermen.
 - 2026-10-07 M15 (v0.15.0): random ticks, grass, leaves, saplings, snow/ice melt, fire.
 - 2026-10-07 M14 (v0.14.0): fluids - flow, lava/water reactions, swimming, drowning, burning, buckets.

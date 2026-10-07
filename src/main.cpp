@@ -397,6 +397,7 @@ int main(int argc, char** argv) {
     mc::world::BlockPos sleepBed{};
     bool bedRespawnPending = false; // respawned at the bed: check it once its chunks load
     mc::Explosion bedExplosion;     // beds in the Nether and the End
+    std::optional<mc::world::BlockPos> pendingBedUse;
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -586,9 +587,8 @@ int main(int argc, char** argv) {
         if (!first || (chestSecond && !second)) {
             screenDrops.clear();
             container.close(inventory, screenDrops);
-            for (const auto& d : screenDrops)
-                droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), d, gameRng);
-            window.setCursorCaptured(true);
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // (spawned in the tick)
+            if (!screenshotMode) window.setCursorCaptured(true);
             return;
         }
         container.setChests(first, second);
@@ -668,6 +668,13 @@ int main(int argc, char** argv) {
             for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n)
                 container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale, fh / scale,
                                 inventory, screenDrops);
+            // Contents edited through the screen: the block entity's chunk needs saving.
+            if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
+                container.type() == mc::ui::ContainerScreen::Type::Furnace) {
+                if (mc::world::Chunk* c = world.chunk(containerBlock.chunk())) c->markDirty();
+                if (chestSecond)
+                    if (mc::world::Chunk* c = world.chunk(chestSecond->chunk())) c->markDirty();
+            }
             if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
                 container.close(inventory, screenDrops);
                 if (!screenshotMode) window.setCursorCaptured(true);
@@ -744,41 +751,7 @@ int main(int argc, char** argv) {
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
-                        switch (mc::useBed(world, lastHit->block, dayTime, dimension)) {
-                        case mc::BedUse::Sleep:
-                            bedSpawn = *mc::bedHead(world, lastHit->block);
-                            sleepBed = *bedSpawn;
-                            sleepTicks = 1;
-                            world.updateBlock(sleepBed, reg.set(world.getBlock(sleepBed), mc::world::properties::occupied, 0));
-                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::NotNight:
-                            bedSpawn = *mc::bedHead(world, lastHit->block);
-                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
-                            chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::Monsters:
-                            chat.addMessage("You may not rest now; there are monsters nearby", 0xFFFFFFFFu, gameTime,
-                                            gui.batch());
-                            break;
-                        case mc::BedUse::Occupied:
-                            chat.addMessage("This bed is occupied", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::Explodes: { // wiki: Bed - power 5 outside the Overworld
-                            const mc::world::BlockPos head = *mc::bedHead(world, lastHit->block);
-                            world.updateBlock(head, 0); // (the foot follows)
-                            frameEdits.push_back(head);
-                            mc::ExplosionTargets t;
-                            if (survival) {
-                                t.player = &player;
-                                t.vitals = &vitals;
-                            }
-                            bedExplosion.explode(world, {head.x + 0.5, head.y + 0.5, head.z + 0.5}, 5.0f, gameRng,
-                                                 droppedItems, frameEdits, t);
-                            break;
-                        }
-                        case mc::BedUse::NotABed: break;
-                        }
+                        pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
                     } else if (block == mc::world::blocks::EnchantingTable) {
                         containerBlock = lastHit->block;
                         container.openEnchanting(mc::countBookshelves(world, lastHit->block), vitals.enchantSeed());
@@ -941,6 +914,9 @@ int main(int argc, char** argv) {
                     } else if (a.via == Travel::Via::EndPortal) {
                         player.setPosition(mc::portals::endPlatform(world, frameEdits));
                         player.setRotation(90.0f, 0.0f); // facing west, toward the island (wiki: End Platform)
+                    } else if (bedSpawn) { // back from the Nether/End to the bed (wiki: Bed)
+                        player.setPosition({bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
+                        bedRespawnPending = true;
                     } else {
                         spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
                         player.setPosition(spawn);
@@ -975,6 +951,47 @@ int main(int argc, char** argv) {
             }
             blockUpdates.setTime(gameTime);
             blockUpdates.setCreative(!survival);
+            // A bed used this frame (M17.4): sleep, set the respawn point, or explode.
+            if (pendingBedUse && !dead) {
+                const mc::world::BlockPos bedPos = *pendingBedUse;
+                pendingBedUse.reset();
+                switch (mc::useBed(world, bedPos, dayTime, dimension)) {
+                        case mc::BedUse::Sleep:
+                            bedSpawn = *mc::bedHead(world, bedPos);
+                            sleepBed = *bedSpawn;
+                            sleepTicks = 1;
+                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::NotNight:
+                            bedSpawn = *mc::bedHead(world, bedPos);
+                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                            chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::Monsters:
+                            chat.addMessage("You may not rest now; there are monsters nearby", 0xFFFFFFFFu, gameTime,
+                                            gui.batch());
+                            break;
+                        case mc::BedUse::Occupied:
+                            chat.addMessage("This bed is occupied", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::Explodes: { // wiki: Bed - power 5 outside the Overworld
+                            const mc::world::BlockPos head = *mc::bedHead(world, bedPos);
+                            world.updateBlock(head, 0); // (the foot follows)
+                            frameEdits.push_back(head);
+                            mc::ExplosionTargets t;
+                            if (survival) {
+                                t.player = &player;
+                                t.vitals = &vitals;
+                            }
+                            bedExplosion.explode(world, {head.x + 0.5, head.y + 0.5, head.z + 0.5}, 5.0f, gameRng,
+                                                 droppedItems, frameEdits, t);
+                            break;
+                        }
+                        case mc::BedUse::NotABed: break;
+                        }
+            }
+            pendingBedUse.reset();
+
             // Commands wait until the player's chunk is there (--command scripts run
             // before the world has streamed in otherwise).
             if (!pendingChat.empty() && world.chunk(mc::world::ChunkPos{
@@ -1010,10 +1027,8 @@ int main(int argc, char** argv) {
                     player.setVelocity(glm::dvec3(0.0));
                 } else {
                     if (sleepTicks >= 100) dayTime = mc::morningAfter(dayTime); // the night passes
-                    if (stillBed) {
-                        world.updateBlock(sleepBed, mc::world::blockRegistry().set(world.getBlock(sleepBed), mc::world::properties::occupied, 1));
+                    if (stillBed)
                         if (const auto spot = mc::bedStandSpot(world, sleepBed)) player.setPosition(*spot);
-                    }
                     sleepTicks = 0;
                 }
             }
@@ -1287,7 +1302,7 @@ int main(int argc, char** argv) {
                         }
                         if (const int fa = mc::world::enchantLevel(stack, E::FireAspect))
                             m.fireTicks = std::max<int16_t>(m.fireTicks, int16_t(80 * fa));
-                        if (survival && held.durability > 0) // weapons wear 1 per hit (wiki: Durability)
+                        if (survival && held.tool != mc::world::ToolType::None) // swords wear 1 per hit, tools 2 (wiki)
                             inventory.setSlot(inventory.selected(),
                                               mc::wearItem(stack, held.tool == mc::world::ToolType::Sword ? 1 : 2, gameRng));
                     }

@@ -97,3 +97,37 @@ TEST_CASE("enchanting screen: an offer uses levels and lapis and enchants the it
     CHECK(s.grid(1).count == 7);
     CHECK(isEnchanted(s.grid(0)));
 }
+
+TEST_CASE("regressions: the table takes one book of a stack; the anvil won't enchant plain books") {
+    using ui::ContainerScreen;
+    Inventory inv;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        inv.setSlot(i, {});
+    inv.setSlot(0, I("book", 64));
+    ContainerScreen s;
+    std::vector<ItemStack> drops;
+    s.openEnchanting(15, 42);
+    s.setPlayer(40, false, 42);
+    auto click = [&](int x, int y) {
+        s.click(112 + x + 8, 67 + y + 8, ContainerScreen::Button::Left, false, 400, 300, inv, drops);
+    };
+    click(8, 142);  // pick up 64 books
+    click(15, 47);  // only one goes in
+    CHECK(s.grid(0).count == 1);
+    CHECK(s.carried().count == 63);
+    ItemStack book = I("enchanted_book");
+    setEnchantment(book, Enchantment::Sharpness, 5);
+    CHECK(anvilCombine(I("book", 64), book, false).out.empty());
+}
+
+TEST_CASE("regression: a replaced chest's storage is gone (no ghost items under a furnace)") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({2, 70, 2}, blockRegistry().defaultState(blocks::Chest));
+    w.chunk({0, 0})->chest(2, 70, 2)->items[0] = I("diamond", 5);
+    w.setBlock({2, 70, 2}, blockRegistry().defaultState(blocks::Furnace));
+    CHECK(w.chunk({0, 0})->chest(2, 70, 2) == nullptr);
+    w.setBlock({2, 70, 2}, blockRegistry().defaultState(blocks::Chest));
+    CHECK(w.chunk({0, 0})->chest(2, 70, 2)->items[0].empty());
+    CHECK(w.chunk({0, 0})->furnace(2, 70, 2) == nullptr);
+}

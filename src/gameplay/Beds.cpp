@@ -43,7 +43,8 @@ BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension 
     const auto head = bedHead(world, p);
     if (!head) return BedUse::NotABed;
     if (dimension != Dimension::Overworld) return BedUse::Explodes;
-    if (R().get(world.getBlock(*head), properties::occupied) == 0) return BedUse::Occupied;
+    // (One player: occupancy is never stored, so an "occupied" bed from another save
+    // doesn't lock it - vanilla checks the sleeping entity.)
     if (!canSleepAt(dayTime)) return BedUse::NotNight;
     // Monsters within 8 blocks horizontally and 5 vertically keep the player awake.
     const ChunkPos c = head->chunk();
