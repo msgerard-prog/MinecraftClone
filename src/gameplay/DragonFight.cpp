@@ -23,7 +23,7 @@ int columnTop(const World& world) {
 } // namespace
 
 BlockPos DragonFight::gatewayPos(int i) {
-    const double a = 2.0 * std::numbers::pi * i / 20.0;
+    const double a = 2.0 * (-std::numbers::pi + std::numbers::pi / 20.0 * i); // (matches the wiki's table)
     return {static_cast<int>(std::floor(96.0 * std::cos(a))), 75, static_cast<int>(std::floor(96.0 * std::sin(a)))};
 }
 
@@ -38,6 +38,8 @@ bool DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<Blo
         edits.push_back(p);
     };
     const BlockStateId bedrock = r.defaultState(blocks::Bedrock);
+    put({at.x, at.y + 2, at.z}, bedrock);
+    put({at.x, at.y - 2, at.z}, bedrock);
     for (const int dy : {-1, 1}) {
         put({at.x, at.y + dy, at.z}, bedrock);
         put({at.x + 1, at.y + dy, at.z}, bedrock);
@@ -81,6 +83,18 @@ std::optional<glm::dvec3> DragonFight::gatewayTarget(const EndGenerator& gen, co
 void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& rng, std::vector<BlockPos>& edits) {
     ++m_respawnTicks;
     const auto& r = blockRegistry();
+    // Breaking a summoning crystal calls it off (wiki: Ender Dragon › Re-summoning).
+    int summoning = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (const Chunk* c = world.chunk({dx, dz}))
+                for (const MobData& m : c->mobs())
+                    summoning += m.type == MobType::EndCrystal && !m.showBottom && m.health > 0.0f &&
+                                 std::abs(m.pos.x) < 4.0 && std::abs(m.pos.z) < 4.0;
+    if (summoning < 4) {
+        m_respawnTicks = -1;
+        return;
+    }
     if (m_respawnTicks == 100) {
         // The pillars come back as they were made, crystals and cages included.
         const BlockStateId obsidian = r.defaultState(blocks::Obsidian), bedrock = r.defaultState(blocks::Bedrock);
@@ -142,6 +156,11 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
                     world.updateBlock({x, y, z}, 0);
                     edits.push_back({x, y, z});
                 }
+    // The egg, if still on the podium, goes (wiki).
+    if (const int top = columnTop(world); top >= 0 && r.blockOf(world.getBlock({0, top + 1, 0})) == blocks::DragonEgg) {
+        world.updateBlock({0, top + 1, 0}, 0);
+        edits.push_back({0, top + 1, 0});
+    }
     killed = false;
     uuidHi = uuidLo = 0;
     m_scanClock = 99; // (spawns the dragon on the next tick)

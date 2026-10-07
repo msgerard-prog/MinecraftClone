@@ -144,6 +144,8 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"##", "##"}, {{'#', item("end_stone")}}, "end_stone_bricks", 4));
     r.push_back(shaped({"##", "##"}, {{'#', item("popped_chorus_fruit")}}, "purpur_block", 4));
     r.push_back(shaped({"###", "###"}, {{'#', item("iron_ingot")}}, "iron_bars", 16));
+    // (wiki: End Rod - a blaze rod over popped chorus fruit makes 4)
+    r.push_back(shaped({"B", "P"}, {{'B', item("blaze_rod")}, {'P', item("popped_chorus_fruit")}}, "end_rod", 4));
     // (wiki: End Crystal - glass around an eye of ender over a ghast tear)
     r.push_back(shaped({"GGG", "GEG", "GTG"}, {{'G', item("glass")}, {'E', item("ender_eye")}, {'T', item("ghast_tear")}},
                        "end_crystal"));

@@ -233,7 +233,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // for speed, pulling up trades speed for height, the velocity turns toward the look;
     // drag 0.99 / 0.98 / 0.99.
     if (m_gliding && (m_onGround || !m_canGlide || m_flying)) m_gliding = false;
-    if (!m_gliding && m_canGlide && !m_flying && !m_onGround && input.jumpPresses > 0 && m_velocity.y < 0.0)
+    if (!m_gliding && m_canGlide && !m_flying && !m_onGround && input.jumpPresses > 0) // (jumping or falling)
         m_gliding = true;
     if (m_gliding) {
         const double pitch = m_pitch * 3.14159265358979 / 180.0;

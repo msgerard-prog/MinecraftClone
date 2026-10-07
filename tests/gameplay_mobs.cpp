@@ -960,7 +960,7 @@ TEST_CASE("bartered potions are fire resistance (wiki: Bartering), never content
 
 #include "world/NetherGenerator.h"
 
-TEST_CASE("end crystals: one on each end2 pillar; any hit blows it up (power 6) and sets off its neighbours") {
+TEST_CASE("end crystals: one on each end2 pillar; any hit blows it up (power 6); crystals in the blast just vanish (Java)") {
     const EndGenerator gen(42, 2);
     int crystals = 0;
     for (int i = 0; i < EndGenerator::kPillars; ++i) {
@@ -989,7 +989,8 @@ TEST_CASE("end crystals: one on each end2 pillar; any hit blows it up (power 6) 
         CHECK(m->pos == glm::dvec3(m->pos.x, 64.0, 4.5));
     Mobs::attack(*s.all()[0], 1.0f, s.player.position()); // a punch
     s.tick(4);
-    CHECK(s.all().empty()); // both gone: the blast reached the second one
+    for (MobData* o : s.all())
+        CHECK(o->type != MobType::EndCrystal); // both gone: the second blown away without exploding
     CHECK(s.world.getBlock({4, 63, 4}) == 0); // and broke the stone below
 }
 
@@ -1144,6 +1145,10 @@ TEST_CASE("end gateways: 20 on a ring 96 out at Y 75; out to an outer island, ba
         CHECK(g.y == 75);
         CHECK(std::hypot(g.x + 0.5, g.z + 0.5) == doctest::Approx(96.0).epsilon(0.02));
     }
+    CHECK(DragonFight::gatewayPos(0) == BlockPos{96, 75, 0}); // (the wiki's table)
+    CHECK(DragonFight::gatewayPos(5) == BlockPos{-1, 75, 96});
+    CHECK(DragonFight::gatewayPos(10) == BlockPos{-96, 75, -1});
+    CHECK(DragonFight::gatewayPos(15) == BlockPos{0, 75, -96});
     const EndGenerator gen(42, 2);
     DragonFight fight;
     int found = 0;
@@ -1317,4 +1322,25 @@ TEST_CASE("M20 review: a dying dragon is saved mid-death; its head can be hit by
     std::vector<BlockPos> edits;
     CHECK_FALSE(DragonFight::buildGateway(empty, {96, 75, 0}, edits)); // not loaded: later
     CHECK_FALSE(DragonFight::openExitPortal(empty, true, edits));
+}
+
+TEST_CASE("the End spawns only endermen (M20 review); an elytra isn't worn by hits") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.world.setHasSkyLight(false); // (the End: no sky, not the Nether)
+    for (int i = 0; i < 4000; ++i)
+        s.tick(1);
+    int others = 0, endermen = 0;
+    for (MobData* m : s.all()) {
+        endermen += m->type == MobType::Enderman;
+        others += m->type != MobType::Enderman;
+    }
+    CHECK(endermen > 0);
+    CHECK(others == 0);
+
+    Inventory inv;
+    ItemStack el{*itemRegistry().find("elytra"), 1};
+    inv.setArmor(1, el);
+    inv.wearArmor(50, s.rng);
+    CHECK(inv.armor(1).damage == 0);
 }

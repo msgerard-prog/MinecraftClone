@@ -80,7 +80,7 @@ float Mobs::dragonDamage(const MobData& m, float damage, const glm::dvec3& at) {
     const glm::dvec3 h = dragonHead(m);
     const glm::dvec3 d = glm::abs(at - h);
     if (d.x < 1.5 && d.y < 1.5 && d.z < 1.5) return damage; // the head: full damage
-    return damage / 4.0f + 1.0f;                          // wiki: other parts
+    return damage / 4.0f + std::min(1.0f, damage);        // wiki: other parts
 }
 
 void Mobs::dragonAi(Context& ctx, MobData& m) {
@@ -171,6 +171,7 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
             m.vel = glm::dvec3(0.0);
             m.perchDamage = 0.0f;
             m.chargeTicks = 0; // (time perched)
+            m.volley = 0;      // (breaths)
             setPhase(kScanning);
         }
         break;
@@ -183,18 +184,20 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
                                            std::numbers::pi),
                               4.0f);
         m.headYaw = m.yaw;
-        if (m.phase == kScanning && m.phaseTicks % 80 == 40 && canTarget &&
-            glm::length(playerPos - m.pos) < 24.0) {
+        if (m.phase == kScanning && m.phaseTicks % 80 == 40 && canTarget) { // (scans, then breathes)
             setPhase(kFlaming);
         } else if (m.phase == kFlaming) {
             if (m.phaseTicks == 10 && ctx.projectiles) { // flames on the ground in front of it
                 glm::dvec3 at = dragonHead(m) + forwardOf(m.yaw) * 3.0;
                 at.y = m.pos.y - 0.9;
-                ctx.projectiles->addCloud(at, 2.5f, 200);
+                ctx.projectiles->addCloud(at, 2.5f, 60); // (wiki: 3 s)
+                ++m.volley;                               // (breaths this perch)
             }
             if (m.phaseTicks > 60) setPhase(kScanning);
         }
-        if (m.perchDamage >= 50.0f || m.chargeTicks > 400) setPhase(kTakeoff);
+        // Takes off after 50 damage, 4 breaths, or with no player within 150 (wiki).
+        const bool alone = playerPos.x * playerPos.x + playerPos.z * playerPos.z > 150.0 * 150.0 || !canTarget;
+        if (m.perchDamage >= 50.0f || m.volley >= 4 || (alone && m.chargeTicks > 100)) setPhase(kTakeoff);
         break;
     }
     case kTakeoff:

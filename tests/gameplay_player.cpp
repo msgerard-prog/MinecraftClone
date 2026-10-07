@@ -543,3 +543,19 @@ TEST_CASE("elytra: landing in water ends the glide (M20 review)") {
         p.tick(w, {});
     CHECK_FALSE(p.gliding());
 }
+
+TEST_CASE("elytra: the second jump press opens the wings while still rising (M20 review)") {
+    World w = floorWorld();
+    Player p = standingPlayer(w);
+    p.setCreative(false);
+    p.setCanGlide(true);
+    PlayerInput jump;
+    jump.jump = true;
+    jump.jumpPresses = 1;
+    p.tick(w, jump); // the jump
+    PlayerInput again;
+    again.jumpPresses = 1;
+    p.tick(w, again); // in the air, still going up
+    CHECK(p.velocity().y > 0.0);
+    CHECK(p.gliding());
+}

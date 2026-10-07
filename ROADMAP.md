@@ -4,30 +4,31 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M19 done (reviews applied; v0.19.0): new worlds use the "nether2" generator -
-crimson/warped forests, soul sand valleys, basalt deltas, fortresses (blaze spawners,
-nether wart, loot) and bastions (piglins, gold, loot); ghasts, blazes, magma cubes,
-zombified piglins, piglins (bartering), hoglins, striders; 14 status effects, potions,
-brewing stands, splash potions; eyes of ender are craftable. Older worlds keep the
-M12 Nether. M1-M18 done.
+M20 done (reviews applied; v0.20.0): new worlds use the "end2" End - outer islands
+beyond 1024 blocks with the four End biomes, chorus trees and fruit, end cities with
+ships, shulkers and elytra; end crystals on caged pillars; the ender dragon fight
+(phases, fireballs and breath, healing beams, boss bar, death, exit portal, egg), end
+gateways and ender pearls, respawning the dragon; Levitation; elytra flight. Older
+worlds keep the M12 End. M1-M19 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M20 — The End 2 (wiki: The End, Ender Dragon, End Crystal, End Gateway, End City,
-Chorus Plant, Shulker; a new End generator kind, the old one stays for existing worlds):
-1. ✅ M20.1 — End generator kind "end2": iron cages and end crystals on the pillars,
-   outer islands beyond 1000 blocks, chorus plants and flowers, end stone bricks,
-   purpur blocks.
-2. ✅ M20.2 — Ender dragon: a multi-part flying entity with vanilla's phases (circling,
-   strafing with dragon fireballs, landing on the fountain, charging), crystals
-   healing it and exploding; its boss bar, death animation, experience, the exit
-   portal opening and the dragon egg; the fight saved in level.dat (DragonFight).
-3. ✅ M20.3 — End gateways (one per kill, up to 20, to the outer islands), respawning
-   the dragon with four crystals on the exit portal.
-4. ✅ M20.4 — End cities and end ships: shulkers (bullets, levitation, shells), loot,
-   elytra (gliding) in the ship.
+M21 — Redstone 2 (wiki: Redstone circuits, each component's page; vanilla update
+order where documented):
+1. M21.1 — Doors, trapdoors, fence gates (wood and iron; redstone opens them),
+   pressure plates (wood/stone/weighted) and TNT (lit by redstone or fire, primed TNT
+   entity, its explosion; the desert pyramid trap starts working).
+2. M21.2 — Comparators (compare/subtract, reading containers' fullness) and
+   observers (block-state change pulses).
+3. M21.3 — Hoppers (moving items between containers, picking up items), droppers and
+   dispensers (dispense behaviours: arrows, buckets, items).
+4. M21.4 — Rails and minecarts: rails, powered/detector/activator rails, minecart
+   physics and riding, chest and hopper minecarts.
+5. M21.5 — Slime blocks (slime balls from slimes -> sticky pistons craftable),
+   piston animation (moving pistons over 2 ticks, entities pushed), the M11 piston
+   deviations revisited.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -50,6 +51,11 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M20 perf review: a gateway's outward search recomputes the island window
+  per step (walk the cells along the ray); end city candidates evaluate outerValue up
+  to 3 times; the dragon's break box looks up the chunk per cell (per column, skip
+  empty sections); the respawn's pillar rebuild looks chunks up per cell; MobData
+  carries the dragon's fields for every mob (a side struct).
 - From the M16 perf review: classify each probed cell once per path search (cache
   standable/danger in the hash slot) and a 3x3 chunk-pointer cache in the pathfinder;
   explosion de-dup with a bitset over the blast cube (no sort) and per-ray chunk
@@ -115,6 +121,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M20 decision (dragon head damage):** in 1.21.4-1.21.11 vanilla also reduces hits
+  on the dragon's head (a bug, MC-308469, fixed in 26.3). Ours deals full damage to
+  the head, as intended and as from 26.3. Keep that, or copy 1.21.11's bug?
+- **M20 checks:** try `tools/run.sh --world "M20 test" --dimension end`: the fight,
+  crystals, a gateway (throw a pearl into it), an end city (shulkers, elytra).
 - **M19 checks:** in creative, does drinking a potion keep it (ours: yes, and no
   bottle)? Swap a brewing stand's ingredient mid-brew for another valid one: does the
   brew stop (ours: yes)? Try it: `tools/run.sh --world "M19 test" --dimension nether`.
@@ -200,7 +211,7 @@ and GUI textures are made with their systems.
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, farming (brewing moved to M19) | ✅ 2026-10-07 v0.17.0 |
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | ✅ 2026-10-07 v0.18.0 (basic structures, no aquifers: see deviations) |
 | M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | ✅ 2026-10-07 v0.19.0 (basic structures, player-only effects: see deviations) |
-| M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | Dragon can be beaten |
+| M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | ✅ 2026-10-07 v0.20.0 (basic cities, simplified dragon AI: see deviations) |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
 | v1.0 | Tag the codebase (git tag v1.0) | Then polish: deviations, performance |
@@ -213,6 +224,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M20 (v0.20.0): end2 - outer islands, chorus, end cities, shulkers, elytra, crystals, the ender dragon fight, gateways, pearls, respawning.
 - 2026-10-07 M19 (v0.19.0): nether2 - 4 Nether biomes, fortresses, bastions, 7 Nether mobs, status effects, potions, brewing, splash potions.
 - 2026-10-07 M18 (v0.18.0): overworld2 - ravines, lakes, springs, 10 biomes, 3 woods, dungeons, temples, mineshafts, strongholds, villages.
 - 2026-10-07 M17 (v0.17.0): farming, chests, armor/shields, beds, experience, enchanting, anvils.

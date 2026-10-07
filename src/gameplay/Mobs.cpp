@@ -238,7 +238,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const glm::dvec3 to = ctx.player.position() - m.pos;
         const bool target = ctx.survival && !ctx.playerDead && glm::dot(to, to) < 16.0 * 16.0;
         int want = target ? 100 : (m.goalTicks > 0 ? 30 : 0);
-        if (!target && ctx.rng.nextInt(400) == 0) m.goalTicks = 40 + static_cast<int>(ctx.rng.nextInt(60)); // a peek
+        if (!target && ctx.rng.nextInt(400) == 0) m.goalTicks = 20 + static_cast<int>(ctx.rng.nextInt(41)); // a 1-3 s peek
         if (m.goalTicks > 0) --m.goalTicks;
         if (m.peek < want) m.peek = static_cast<uint8_t>(std::min(want, m.peek + 5));
         else if (m.peek > want) m.peek = static_cast<uint8_t>(std::max(want, m.peek - 5));
@@ -470,20 +470,26 @@ void Mobs::die(Context& ctx, MobData& m) {
             t.player = &ctx.player;
             t.vitals = &ctx.vitals;
         }
-        // A dragon it was healing takes 10 damage (wiki: End Crystal).
+        // A dragon it was healing takes 10 damage (wiki: End Crystal); any dragon
+        // around turns on the player (strafes with a fireball; wiki: Ender Dragon).
         const glm::dvec3 top = m.pos + glm::dvec3(0.0, 1.4, 0.0);
         const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
-        for (int dz = -3; dz <= 3; ++dz)
-            for (int dx = -3; dx <= 3; ++dx)
+        for (int dz = -8; dz <= 8; ++dz)
+            for (int dx = -8; dx <= 8; ++dx)
                 if (Chunk* c = ctx.world.chunk({c0.x + dx, c0.z + dz}))
                     for (MobData& d : c->mobs())
-                        if (d.type == MobType::EnderDragon && d.hasBeam && glm::length(d.beam - top) < 0.5 &&
-                            d.health > 0.0f) {
-                            d.health -= 10.0f;
-                            d.hurtTime = 10;
-                            d.hasBeam = false;
+                        if (d.type == MobType::EnderDragon && d.health > 0.0f) {
+                            if (d.hasBeam && glm::length(d.beam - top) < 0.5) {
+                                d.health -= 10.0f;
+                                d.hurtTime = 10;
+                                d.hasBeam = false;
+                            }
+                            if (d.phase != 9 && ctx.survival && !ctx.playerDead) {
+                                d.phase = 1; // strafe
+                                d.phaseTicks = 0;
+                            }
                         }
-        m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 1.0, 0), 6.0f, ctx.rng, ctx.items, changed, t);
+        m_explosion.explode(ctx.world, m.pos, 6.0f, ctx.rng, ctx.items, changed, t); // (from its bottom)
         return;
     }
     // Loot (wiki: Cow - raw beef 1-3, leather 0-2; Zombie - rotten flesh 0-2).
@@ -551,8 +557,11 @@ void Mobs::die(Context& ctx, MobData& m) {
             if (const ItemId it = items.blockItem(blockRegistry().blockOf(m.carried)))
                 ctx.items.spawn(m.pos + glm::dvec3(0, 1, 0), {it, 1}, ctx.rng);
         break;
-    case MobType::Shulker: // wiki: Shulker - a shell half the time
-        drop("shulker_shell", 0, 1);
+    case MobType::Shulker: // wiki: Shulker - a shell 50% + 6.25% per Looting level, never more than one
+        if (ctx.rng.nextFloat() < 0.5f + 0.0625f * float(m.lastHurtByPlayer ? m.looting : 0)) {
+            static const ItemId shell = *items.find("shulker_shell");
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {shell, 1}, ctx.rng);
+        }
         break;
     // Nether mobs (M19.2; wiki): ghast - gunpowder 0-2, ghast tear 0-1; blaze - a blaze
     // rod 0-1 for player kills; magma cube - magma cream 25% (not the smallest), and
@@ -635,6 +644,15 @@ void Mobs::tick(Context& ctx) {
                 m.phase = 9;
                 m.vel = glm::dvec3(0.0);
                 m.pos.y += 0.1;
+                // It dies over the exit portal (vanilla flies there first; ours drifts
+                // there while rising), so its experience lands on the island.
+                const glm::dvec2 toMiddle(0.5 - m.pos.x, 0.5 - m.pos.z);
+                const double dm = glm::length(toMiddle);
+                if (dm > 0.5 && dm < 150.0) {
+                    const glm::dvec2 step = toMiddle / dm * std::min(dm, 1.0);
+                    m.pos.x += step.x;
+                    m.pos.z += step.y;
+                }
                 if (m.deathTime >= 200) {
                     remove = true;
                     if (m_dragonDeaths.size() < m_dragonDeaths.capacity()) m_dragonDeaths.push_back(m.pos);
@@ -787,12 +805,15 @@ void Mobs::spawnHostiles(Context& ctx) {
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
     // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
     const uint32_t roll = ctx.rng.nextInt(405);
-    const MobType kind = roll < 95    ? MobType::Zombie
+    // The End (no sky, not the Nether): endermen only, in groups of 4 (wiki: The End biomes).
+    const bool end = !ctx.world.hasSkyLight();
+    const MobType kind = end          ? MobType::Enderman
+                         : roll < 95  ? MobType::Zombie
                          : roll < 195 ? MobType::Skeleton
                          : roll < 295 ? MobType::Creeper
                          : roll < 395 ? MobType::Spider
                                       : MobType::Enderman;
-    const int group = 1 + static_cast<int>(ctx.rng.nextInt(4));
+    const int group = end ? 4 : 1 + static_cast<int>(ctx.rng.nextInt(4));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
         if (!canSpawnAt(ctx.world, gx, y, gz)) continue;

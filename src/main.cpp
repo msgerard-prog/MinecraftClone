@@ -1160,7 +1160,7 @@ int main(int argc, char** argv) {
                 if (!arrival) {
                     // (gliding counts as flying for falls: our simplification)
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying() || player.gliding());
-                    if (const float impact = player.takeImpact(); impact > 0.0f) vitals.attacked(impact);
+                    if (const float impact = player.takeImpact(); impact > 0.0f) vitals.damage(impact); // (armour doesn't help)
                     if (player.gliding() && ++glideTicks % 20 == 0) // an elytra wears 1 per second of flight
                         inventory.setArmor(1, mc::wearItem(inventory.armor(1), 1, gameRng));
                     // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
@@ -1596,7 +1596,8 @@ int main(int argc, char** argv) {
                 } else {
                     player.setPosition(pl.pos);
                     vitals.resetFall();
-                    if (survival) vitals.attacked(5.0f);
+                    // (vanilla: like a fall - armour doesn't help, Feather Falling does)
+                    if (survival) vitals.damage(vitals.protectionReduced(5.0f, mc::Vitals::Hit::Generic, true), false);
                 }
             }
             if (!dead && dimension == Dimension::End && mc::portals::touching(world, player.box(), mc::world::blocks::EndGateway)) {

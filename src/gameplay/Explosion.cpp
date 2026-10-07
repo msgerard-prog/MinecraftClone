@@ -89,6 +89,11 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                 if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& m : ch->mobs()) {
                         if (m.health <= 0.0f) continue;
+                        if (m.type == MobType::EndCrystal) { // (Java: blown away without exploding, MC-118429)
+                            m.health = 0.0f;
+                            m.deathTime = 19;
+                            continue;
+                        }
                         hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85, [&](float dmg, const glm::dvec3& push) {
                             m.health -= m.type == MobType::EnderDragon ? Mobs::dragonDamage(m, dmg, centre) : dmg;
                             m.hurtTime = 10;
