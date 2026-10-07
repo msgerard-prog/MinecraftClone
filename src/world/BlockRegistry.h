@@ -28,6 +28,8 @@ struct BlockSettings {
     uint8_t lightEmission = 0;
     // A full opaque cube: hides the faces of neighbouring blocks and blocks light.
     bool opaqueCube = true;
+    // Entities collide with it (a full cube for now; shaped boxes come with slabs etc.).
+    bool collision = true;
     RenderLayer layer = RenderLayer::Solid;
 };
 
@@ -67,6 +69,7 @@ public:
     // Hot-path flags, one array lookup per state (used by meshing and lighting).
     bool isAir(BlockStateId state) const { return state == 0; }
     bool opaqueCube(BlockStateId state) const { return m_stateOpaque[state] != 0; }
+    bool collides(BlockStateId state) const { return m_stateCollides[state] != 0; }
     RenderLayer layer(BlockStateId state) const;
 
     // Property access by name. Return nullopt for unknown property/value.
@@ -85,8 +88,9 @@ private:
     uint32_t valueIndex(const BlockDef& def, BlockStateId state, int prop) const;
 
     std::vector<BlockDef> m_blocks;
-    std::vector<BlockId> m_stateBlock;  // state -> block
-    std::vector<uint8_t> m_stateOpaque; // state -> opaqueCube
+    std::vector<BlockId> m_stateBlock;    // state -> block
+    std::vector<uint8_t> m_stateOpaque;   // state -> opaqueCube
+    std::vector<uint8_t> m_stateCollides; // state -> collision
 };
 
 } // namespace mc::world

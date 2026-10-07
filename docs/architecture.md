@@ -25,8 +25,10 @@ never create a GL context.
 ```
 poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → render(alpha) → swap
 ```
-- **Tick** (50 ms, fixed): all simulation — player physics, entities, block updates,
-  random ticks, scheduled ticks. Deterministic given inputs.
+- **Tick** (50 ms, fixed): all simulation — player physics (`gameplay/Player`:
+  vanilla acceleration/friction/gravity, axis-by-axis AABB collision, step-up,
+  sneak edge protection, creative flight), later entities, block updates, random and
+  scheduled ticks. Deterministic given inputs. Texture animations advance here too.
 - **Frame** (vsync): mouse look applied (per frame, as vanilla); camera position
   interpolated between previous and current tick with `alpha`; upload finished chunk
   meshes; draw; UI.

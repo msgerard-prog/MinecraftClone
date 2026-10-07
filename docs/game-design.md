@@ -68,8 +68,10 @@ fine until a system works.
 | Water tint is always #3F76E4 (no biome water colours) | No biomes | M8 |
 | Gravel and sand don't fall | Falling blocks need entities | M10 |
 | All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | M6 (UI) |
-| Free flight uses constant speeds (10.92 / 21.6 / 7.49 b/s), no acceleration or drag; sprint needs Ctrl held (vanilla keeps sprinting until you stop moving forward) | Camera needed before player physics | M4 |
-| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Needs player abilities state | M4 |
+| No swimming: water has no physics, the player sinks through it | Fluid physics come with the fluids work | Fluids milestone |
+| Every block has the default slipperiness 0.6 (ice, slime, honey, soul sand speeds not modelled); no fall damage or hunger | Those blocks/systems don't exist yet | With their blocks / M9 |
+| Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | M6 (controls) |
+| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M4 follow-up |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
 | Water uses the still texture only and every level renders at source height 8/9; no flow, no underwater fog/tint | Fluid flow and camera-in-fluid effects come later | Fluids milestone |
 | Translucent faces are sorted per section, not per quad (rare blending errors inside one section) | Simpler; vanilla sorts quads | When visible |

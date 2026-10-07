@@ -31,7 +31,8 @@ Each run logs "World meshed in …" and frame-time stats at exit; measure perfor
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`
 (streaming stress: add `--auto-fly --max-fps 240 --frames 2400`; logs CPU work and GPU time).
 Add new args in `core/CommandLine.*` + its test and list them here.
-Controls: click to capture mouse, Esc releases; WASD, space/shift up/down, ctrl sprint.
+Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
+shift sneak / fly down, ctrl sprint. `--pos` and `--auto-fly` start flying.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.
 
 The first build downloads dependencies into `out/deps` (≈1 min). Build output is

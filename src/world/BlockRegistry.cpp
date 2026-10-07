@@ -56,6 +56,7 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
     assert((blockId != 0 || def.id == "minecraft:air") && "air must be block 0 / state 0");
     m_stateBlock.insert(m_stateBlock.end(), def.stateCount, blockId);
     m_stateOpaque.insert(m_stateOpaque.end(), def.stateCount, settings.opaqueCube ? 1 : 0);
+    m_stateCollides.insert(m_stateCollides.end(), def.stateCount, settings.collision ? 1 : 0);
     m_blocks.push_back(std::move(def));
     return blockId;
 }

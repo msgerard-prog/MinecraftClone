@@ -69,5 +69,6 @@ clone has implemented show up, of course. `--resourcepacks DIR` points at anothe
 folder. Never commit these files (ADR 0004).
 
 ## Controls
-Click the window to capture the mouse (Esc releases it). WASD to fly, Space up,
-Left Shift down, Left Ctrl sprint.
+Click the window to capture the mouse (Esc releases it). WASD to walk, Space to jump,
+Left Shift to sneak, Left Ctrl to sprint. Double-tap Space to start/stop flying
+(creative); while flying, Space rises and Shift descends.

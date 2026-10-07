@@ -3,7 +3,7 @@
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
-#include "gameplay/FlyController.h"
+#include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
 #include "rendering/Screenshot.h"
@@ -23,13 +23,14 @@
 
 namespace {
 
-// Vanilla controls: WASD move, space up, shift down (in flight), ctrl sprint.
-mc::MoveInput readMoveInput(const mc::Window& window) {
-    mc::MoveInput in;
+// Vanilla controls: WASD move, space jump (double-tap: fly), shift sneak, ctrl sprint.
+mc::PlayerInput readInput(const mc::Window& window) {
+    mc::PlayerInput in;
     if (!window.cursorCaptured()) return in;
     in.forward = float(window.keyDown(mc::Key::W)) - float(window.keyDown(mc::Key::S));
     in.strafe = float(window.keyDown(mc::Key::D)) - float(window.keyDown(mc::Key::A));
-    in.up = float(window.keyDown(mc::Key::Space)) - float(window.keyDown(mc::Key::LeftShift));
+    in.jump = window.keyDown(mc::Key::Space);
+    in.sneak = window.keyDown(mc::Key::LeftShift);
     in.sprint = window.keyDown(mc::Key::LeftControl);
     return in;
 }
@@ -65,6 +66,22 @@ void buildTestWorld(mc::world::World& world) {
                 world.setBlock({2 + dx, y - dy, -1 + dz}, 0);
 }
 
+// Vanilla-like spawn: the nearest land column to the origin (spiral search), feet on
+// its surface.
+glm::dvec3 findSpawn(const mc::world::TerrainGenerator& gen) {
+    for (int r = 0; r <= 256; r += 4) {
+        for (int i = -r; i <= r; i += 4) {
+            const int pts[4][2] = {{i, -r}, {i, r}, {-r, i}, {r, i}};
+            for (const auto& p : pts) {
+                const int h = gen.surfaceHeight(p[0], p[1]);
+                if (h >= mc::world::TerrainGenerator::kSeaLevel)
+                    return {p[0] + 0.5, h + 1.0, p[1] + 0.5};
+            }
+        }
+    }
+    return {0.5, mc::world::TerrainGenerator::kSeaLevel + 1.0, 0.5};
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -89,7 +106,7 @@ int main(int argc, char** argv) {
                                                    : opts->resourcePacks))
         return 1;
     mc::world::World world;
-    glm::dvec3 spawn(0.5, -57.0, -6.0);
+    glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
     const mc::world::TerrainGenerator generator(opts->seed);
     std::unique_ptr<mc::world::ChunkLoader> loader;
     if (opts->flat) {
@@ -104,21 +121,21 @@ int main(int argc, char** argv) {
         loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads);
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
-        spawn = {0.5,
-                 std::max(generator.surfaceHeight(0, 0), mc::world::TerrainGenerator::kSeaLevel) +
-                     12.0,
-                 0.5};
+        spawn = findSpawn(generator);
     }
     std::vector<mc::world::ChunkPos> loadedChunks;
     std::vector<mc::world::ChunkPos> unloadedChunks;
     loadedChunks.reserve(256);
     unloadedChunks.reserve(256);
 
-    mc::FlyController player;
-    player.setPosition(opts->hasPos ? opts->pos : spawn);
+    mc::Player player;
+    // The flight benchmark starts high above spawn so it never hits terrain.
+    player.setPosition(opts->hasPos ? opts->pos : spawn + glm::dvec3(0, opts->autoFly ? 60 : 0, 0));
+    // Scripted views (--pos) and the flight benchmark start in the air: fly.
+    player.setFlying(opts->hasPos || opts->autoFly);
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
-    if (opts->autoFly) player.setSpeedMultiplier(4.0);
+    if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
     mc::GameClock clock;
     double last = mc::timeSeconds();
     int frame = 0;
@@ -149,12 +166,12 @@ int main(int argc, char** argv) {
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
-            mc::MoveInput input = readMoveInput(window);
+            mc::PlayerInput input = readInput(window);
             if (opts->autoFly) { // benchmark: constant sprint-flight forward
                 input.forward = 1.0f;
                 input.sprint = true;
             }
-            player.tick(input);
+            player.tick(world, input);
             renderer.tick();
         }
 
@@ -168,7 +185,7 @@ int main(int argc, char** argv) {
         }
 
         mc::gfx::Camera camera;
-        camera.position = player.renderPosition(clock.alpha);
+        camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
         if (loader) {

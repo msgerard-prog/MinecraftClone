@@ -23,7 +23,8 @@ BlockRegistry buildVanillaBlocks() {
         (void)got;
         (void)expected;
     };
-    check(r.add("air", {.opaqueCube = false, .layer = RenderLayer::Invisible}), blocks::Air);
+    check(r.add("air", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Invisible}),
+          blocks::Air);
     check(r.add("stone", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Stone);
     check(r.add("grass_block", {.hardness = 0.6f, .resistance = 0.6f}, {{&snowy, "false"}}),
           blocks::GrassBlock);
@@ -38,6 +39,7 @@ BlockRegistry buildVanillaBlocks() {
                 {.hardness = 100.0f,
                  .resistance = 100.0f,
                  .opaqueCube = false,
+                 .collision = false,
                  .layer = RenderLayer::Translucent},
                 {{&level, "0"}}),
           blocks::Water);
