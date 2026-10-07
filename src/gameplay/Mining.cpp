@@ -97,58 +97,76 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     return static_cast<int>(std::ceil(1.0f / damage));
 }
 
-std::vector<ItemStack> blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng) {
+namespace {
+
+// Drop item ids resolved once (no name searches when blocks break).
+struct DropIds {
+    ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
+        flint, gravel, clay, stick, apple;
+    DropIds() {
+        const auto& i = itemRegistry();
+        cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
+        rawIron = *i.find("raw_iron"), rawGold = *i.find("raw_gold"), rawCopper = *i.find("raw_copper");
+        redstone = *i.find("redstone"), lapis = *i.find("lapis_lazuli"), diamond = *i.find("diamond");
+        emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
+        clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
+    }
+};
+const DropIds& dropIds() {
+    static const DropIds ids;
+    return ids;
+}
+
+} // namespace
+
+void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out) {
+    if (!canHarvest(state, held)) return;
     const auto& reg = blockRegistry();
-    const auto& items = itemRegistry();
+    const DropIds& d = dropIds();
     const BlockId b = reg.blockOf(state);
-    if (!canHarvest(state, held)) return {};
-    auto one = [&](std::string_view id, int count = 1) {
-        return ItemStack{*items.find(id), static_cast<uint8_t>(count)};
-    };
+    auto add = [&](ItemId id, int count = 1) { out.push_back({id, static_cast<uint8_t>(count)}); };
     auto between = [&](int lo, int hi) { return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1))); };
     switch (b) {
-    case blocks::Stone: return {one("cobblestone")};
-    case blocks::GrassBlock: return {one("dirt")};
-    case blocks::Deepslate: return {one("cobblestone")}; // vanilla: cobbled deepslate (not added yet)
+    case blocks::Stone:
+    case blocks::Deepslate: add(d.cobblestone); return; // vanilla deepslate: cobbled deepslate
+    case blocks::GrassBlock: add(d.dirt); return;
     case blocks::CoalOre:
-    case blocks::DeepslateCoalOre: return {one("coal")};
+    case blocks::DeepslateCoalOre: add(d.coal); return;
     case blocks::IronOre:
-    case blocks::DeepslateIronOre: return {one("raw_iron")};
+    case blocks::DeepslateIronOre: add(d.rawIron); return;
     case blocks::GoldOre:
-    case blocks::DeepslateGoldOre: return {one("raw_gold")};
+    case blocks::DeepslateGoldOre: add(d.rawGold); return;
     case blocks::CopperOre:
-    case blocks::DeepslateCopperOre: return {one("raw_copper", between(2, 5))};
+    case blocks::DeepslateCopperOre: add(d.rawCopper, between(2, 5)); return;
     case blocks::RedstoneOre:
-    case blocks::DeepslateRedstoneOre: return {one("redstone", between(4, 5))};
+    case blocks::DeepslateRedstoneOre: add(d.redstone, between(4, 5)); return;
     case blocks::LapisOre:
-    case blocks::DeepslateLapisOre: return {one("lapis_lazuli", between(4, 9))};
+    case blocks::DeepslateLapisOre: add(d.lapis, between(4, 9)); return;
     case blocks::DiamondOre:
-    case blocks::DeepslateDiamondOre: return {one("diamond")};
+    case blocks::DeepslateDiamondOre: add(d.diamond); return;
     case blocks::EmeraldOre:
-    case blocks::DeepslateEmeraldOre: return {one("emerald")};
-    case blocks::Gravel: // wiki: Gravel - 10% flint
-        return {rng.nextFloat() < 0.1f ? one("flint") : one("gravel")};
-    case blocks::Clay: return {one("clay")}; // vanilla: 4 clay balls (item not added yet)
+    case blocks::DeepslateEmeraldOre: add(d.emerald); return;
+    case blocks::Gravel: add(rng.nextFloat() < 0.1f ? d.flint : d.gravel); return; // wiki: 10% flint
+    case blocks::Clay: add(d.clay); return; // vanilla: 4 clay balls (item not added yet)
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
-    case blocks::AcaciaLeaves: {
-        // wiki: Leaves - sticks 2% (1-2), oak leaves also apples 0.5%; saplings
-        // (5%) don't exist yet.
-        std::vector<ItemStack> out;
-        if (rng.nextFloat() < 0.02f) out.push_back(one("stick", between(1, 2)));
-        if (b == blocks::OakLeaves && rng.nextFloat() < 0.005f) out.push_back(one("apple"));
-        return out;
-    }
+    case blocks::AcaciaLeaves:
+        // wiki: Leaves - sticks 2% (1-2), oak leaves also apples 0.5%; saplings (5%)
+        // don't exist yet.
+        if (rng.nextFloat() < 0.02f) add(d.stick, between(1, 2));
+        if (b == blocks::OakLeaves && rng.nextFloat() < 0.005f) add(d.apple);
+        return;
     case blocks::Glass:
     case blocks::Ice:
+    case blocks::PackedIce:
     case blocks::ShortGrass:
     case blocks::Fern:
-    case blocks::DeadBush: return {}; // need silk touch / shears (or drop seeds/sticks)
-    case blocks::PackedIce: return {};
+    case blocks::DeadBush:
+    case blocks::Snow: return; // silk touch / shears (or seeds, sticks, snowballs)
     default:
-        if (const ItemId item = items.blockItem(b)) return {ItemStack{item, 1}};
-        return {};
+        if (const ItemId item = itemRegistry().blockItem(b)) add(item);
+        return;
     }
 }
 

@@ -55,27 +55,33 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
     m_open = false;
 }
 
-std::vector<ContainerScreen::Slot> ContainerScreen::slots() const {
-    std::vector<Slot> out;
-    using K = Slot::Kind;
-    for (int i = 0; i < 27; ++i) // main inventory 9..35
-        out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, 84 + (i / 9) * 18});
-    for (int i = 0; i < 9; ++i) // hotbar
-        out.push_back({K::Inv, i, 8 + i * 18, 142});
-    if (m_type == Type::Inventory) {
-        for (int i = 0; i < 4; ++i)
-            out.push_back({K::Grid, i, 98 + (i % 2) * 18, 18 + (i / 2) * 18});
-        out.push_back({K::Result, 0, 154, 28});
-    } else if (m_type == Type::Crafting) {
-        for (int i = 0; i < 9; ++i)
-            out.push_back({K::Grid, i, 30 + (i % 3) * 18, 17 + (i / 3) * 18});
-        out.push_back({K::Result, 0, 124, 35});
-    } else {
-        out.push_back({K::FurnaceIn, 0, 56, 17});
-        out.push_back({K::FurnaceFuel, 0, 56, 53});
-        out.push_back({K::FurnaceOut, 0, 116, 35});
-    }
-    return out;
+std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
+    auto build = [](Type type) {
+        std::vector<Slot> out;
+        using K = Slot::Kind;
+        for (int i = 0; i < 27; ++i) // main inventory 9..35
+            out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, 84 + (i / 9) * 18});
+        for (int i = 0; i < 9; ++i) // hotbar
+            out.push_back({K::Inv, i, 8 + i * 18, 142});
+        if (type == Type::Inventory) {
+            for (int i = 0; i < 4; ++i)
+                out.push_back({K::Grid, i, 98 + (i % 2) * 18, 18 + (i / 2) * 18});
+            out.push_back({K::Result, 0, 154, 28});
+        } else if (type == Type::Crafting) {
+            for (int i = 0; i < 9; ++i)
+                out.push_back({K::Grid, i, 30 + (i % 3) * 18, 17 + (i / 3) * 18});
+            out.push_back({K::Result, 0, 124, 35});
+        } else {
+            out.push_back({K::FurnaceIn, 0, 56, 17});
+            out.push_back({K::FurnaceFuel, 0, 56, 53});
+            out.push_back({K::FurnaceOut, 0, 116, 35});
+        }
+        return out;
+    };
+    // Layouts never change: built on first use, then shared (no per-frame vectors).
+    static const std::vector<Slot> inventory = build(Type::Inventory), crafting = build(Type::Crafting),
+                                   furnace = build(Type::Furnace);
+    return m_type == Type::Inventory ? inventory : m_type == Type::Crafting ? crafting : furnace;
 }
 
 world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) {

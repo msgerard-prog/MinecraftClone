@@ -34,6 +34,7 @@
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <optional>
@@ -267,6 +268,7 @@ int main(int argc, char** argv) {
         // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!storage || storage->load(c)) c.clearDirty();
+            if (!c.furnaces().empty() || !c.mobs().empty()) world.markTicking(c.pos());
         });
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
@@ -676,7 +678,7 @@ int main(int argc, char** argv) {
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
-            world.forEachChunk([&](mc::world::Chunk& c) {
+            world.forEachTickingChunk([&](mc::world::Chunk& c) {
                 for (auto& f : c.furnaces()) {
                     const bool changedLit = mc::tickFurnace(f.data);
                     if (f.data.lit() || f.data.cookTime > 0 || changedLit) c.markDirty();
@@ -746,17 +748,16 @@ int main(int argc, char** argv) {
             world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
             survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach);
         // Dropped items and the breaking crack.
+        // Light colours for all 16x16 sky/block levels this frame (night changes them).
+        std::array<glm::vec3, 256> lightTable;
+        for (int sky = 0; sky < 16; ++sky)
+            for (int blk = 0; blk < 16; ++blk)
+                lightTable[size_t(sky * 16 + blk)] = mc::gfx::lightColor(sky, blk, renderer.skyDarken());
         for (const auto& e : droppedItems.items()) {
             const glm::dvec3 p = glm::mix(e.prevPos, e.pos, clock.alpha);
             const float t = float(e.age) + float(clock.alpha);
-            const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.1)), int(std::floor(p.z))};
-            int sky = 15, blk = 0;
-            if (const auto* c = world.chunk(b.chunk()); c && c->lit()) {
-                sky = c->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
-                blk = c->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
-            }
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
-                             mc::gfx::lightColor(sky, blk, renderer.skyDarken()), camera.position);
+                             lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
         }
         if (survival && interaction.breakingBlock())
             entities.setCrack(*interaction.breakingBlock(), static_cast<int>(interaction.breakProgress() * 10.0f));

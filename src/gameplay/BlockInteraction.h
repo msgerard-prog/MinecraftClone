@@ -74,6 +74,10 @@ private:
     float m_progress = 0.0f;
     int m_heldTicks = 0;
     int m_eatTicks = 0;
+    std::vector<world::ItemStack> m_dropScratch = std::vector<world::ItemStack>(8); // reused
+
+public:
+    BlockInteraction() { m_dropScratch.clear(); }
 };
 
 } // namespace mc

@@ -2,6 +2,7 @@
 
 #include "world/Biome.h"
 #include "world/BlockEntity.h"
+#include "world/Mob.h"
 #include "world/Coords.h"
 #include "world/Light.h"
 #include "world/Section.h"
@@ -54,6 +55,7 @@ public:
         m_dirty = false;
         m_biomes = defaultBiomes();
         m_furnaces.clear();
+        m_mobs.clear();
         lightJob = {};
         for (auto& l : m_light)
             l.reset();
@@ -125,6 +127,11 @@ public:
     const std::vector<FurnaceEntry>& furnaces() const { return m_furnaces; }
     void markDirty() { m_dirty = true; }
 
+    // Mobs standing in this chunk (gameplay moves them between chunks as they walk;
+    // saved in the world's entities/ region files).
+    std::vector<MobData>& mobs() { return m_mobs; }
+    const std::vector<MobData>& mobs() const { return m_mobs; }
+
     // Changed since it was generated / loaded / last saved (needs saving).
     bool dirty() const { return m_dirty; }
     void clearDirty() { m_dirty = false; }
@@ -147,6 +154,7 @@ private:
     bool m_dirty = false;
     std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();
     std::vector<FurnaceEntry> m_furnaces;
+    std::vector<MobData> m_mobs;
 };
 
 } // namespace mc::world

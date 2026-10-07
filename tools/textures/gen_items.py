@@ -194,6 +194,29 @@ def apple():
     return s.render()
 
 
+def meat(name, base, fat, marbled=True):
+    rng = random.Random(name)
+    pal = ramp(hexc(base), 5, spread=0.35)
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - 7.5) / 6.0) ** 2 + ((y - 8.5) / 4.5) ** 2 < 1 and x + y > 6}
+    s = Shape()
+    s.add(pts, pal)
+    img = s.render()
+    fatc = hexc(fat)
+    for (x, y) in pts:  # a fat rim and marbling
+        if (x + 1, y) not in pts or (marbled and rng.random() < 0.08):
+            img.set(x, y, fatc)
+    return img
+
+
+def leather():
+    pal = ramp(hexc("#8A5530"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(3, 13)
+           if not ((x in (2, 13)) and (y in (3, 12))) and not (x == 7 and y in (3, 12))}, pal)
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -214,6 +237,10 @@ def all_items():
     items["redstone"] = redstone()
     items["flint"] = flint()
     items["apple"] = apple()
+    items["beef"] = meat("beef", "#C8323A", "#F0D0C8")
+    items["cooked_beef"] = meat("cooked_beef", "#6A3A22", "#B07040", marbled=False)
+    items["rotten_flesh"] = meat("rotten_flesh", "#8A6A3A", "#5A8A3A")
+    items["leather"] = leather()
     return items
 
 

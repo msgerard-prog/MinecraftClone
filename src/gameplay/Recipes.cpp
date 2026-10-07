@@ -1,6 +1,7 @@
 #include "gameplay/Recipes.h"
 
 #include <algorithm>
+#include <array>
 #include <string>
 
 namespace mc {
@@ -97,16 +98,52 @@ bool matchShaped(const Recipe& r, std::span<const ItemStack> grid, int size, int
 
 } // namespace
 
+namespace {
+
+// Per-item tables built once from the name rules below (lookups on hot paths are
+// array reads: furnaces tick every game tick, crafting re-matches on every click).
+enum Tag : uint8_t { kTagPlanks = 1, kTagLogs = 2, kTagCoal = 4, kTagStoneTool = 8 };
+std::optional<ItemStack> smeltByName(std::string_view n);
+int fuelByName(std::string_view n, const ItemDef& def);
+
+struct ItemTables {
+    std::vector<uint8_t> tags;
+    std::vector<ItemStack> smelt; // empty stack: not smeltable
+    std::vector<int> fuel;
+    ItemTables() {
+        const auto& items = itemRegistry();
+        tags.resize(items.count());
+        smelt.resize(items.count());
+        fuel.resize(items.count());
+        for (size_t i = 1; i < items.count(); ++i) {
+            const std::string_view n = nameOf(static_cast<ItemId>(i));
+            tags[i] = static_cast<uint8_t>((n.ends_with("_planks") ? kTagPlanks : 0) |
+                                           (n.ends_with("_log") ? kTagLogs : 0) |
+                                           (n == "coal" || n == "charcoal" ? kTagCoal : 0) |
+                                           (n == "cobblestone" ? kTagStoneTool : 0));
+            smelt[i] = smeltByName(n).value_or(ItemStack{});
+            fuel[i] = fuelByName(n, items.item(static_cast<ItemId>(i)));
+        }
+    }
+};
+
+const ItemTables& tables() {
+    static const ItemTables t;
+    return t;
+}
+
+} // namespace
+
 bool Ingredient::matches(const ItemStack& s) const {
     if (s.empty()) return false;
-    const std::string_view n = nameOf(s.item);
+    const uint8_t tags = tables().tags[s.item];
     switch (kind) {
     case Kind::Empty: return false;
     case Kind::Item: return s.item == item;
-    case Kind::Planks: return n.ends_with("_planks");
-    case Kind::Logs: return n.ends_with("_log");
-    case Kind::Coal: return n == "coal" || n == "charcoal";
-    case Kind::StoneTool: return n == "cobblestone"; // + blackstone, cobbled deepslate in vanilla
+    case Kind::Planks: return (tags & kTagPlanks) != 0;
+    case Kind::Logs: return (tags & kTagLogs) != 0;
+    case Kind::Coal: return (tags & kTagCoal) != 0;
+    case Kind::StoneTool: return (tags & kTagStoneTool) != 0; // + blackstone, cobbled deepslate in vanilla
     }
     return false;
 }
@@ -119,7 +156,7 @@ const std::vector<Recipe>& craftingRecipes() {
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
     for (const Recipe& r : craftingRecipes()) {
         if (r.width == 0) { // shapeless: the same multiset of items, anywhere
-            std::vector<bool> used(r.pattern.size(), false);
+            std::array<bool, 9> used{};
             bool ok = true;
             int filled = 0;
             for (const ItemStack& s : grid) {
@@ -147,7 +184,15 @@ std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
 
 std::optional<ItemStack> smelt(const ItemStack& input) {
     if (input.empty()) return std::nullopt;
-    const std::string_view n = nameOf(input.item);
+    const ItemStack& r = tables().smelt[input.item];
+    return r.empty() ? std::nullopt : std::optional<ItemStack>(r);
+}
+
+int fuelTicks(const ItemStack& fuel) { return fuel.empty() ? 0 : tables().fuel[fuel.item]; }
+
+namespace {
+
+std::optional<ItemStack> smeltByName(std::string_view n) {
     auto out = [](std::string_view name) { return std::optional<ItemStack>(ItemStack{id(name), 1}); };
     if (n == "raw_iron" || n == "iron_ore" || n == "deepslate_iron_ore") return out("iron_ingot");
     if (n == "raw_gold" || n == "gold_ore" || n == "deepslate_gold_ore") return out("gold_ingot");
@@ -159,13 +204,11 @@ std::optional<ItemStack> smelt(const ItemStack& input) {
     if (n == "diamond_ore" || n == "deepslate_diamond_ore") return out("diamond");
     if (n == "emerald_ore" || n == "deepslate_emerald_ore") return out("emerald");
     if (n == "clay") return out("terracotta");
+    if (n == "beef") return out("cooked_beef");
     return std::nullopt;
 }
 
-int fuelTicks(const ItemStack& fuel) {
-    if (fuel.empty()) return 0;
-    const std::string_view n = nameOf(fuel.item);
-    const ItemDef& def = itemRegistry().item(fuel.item);
+int fuelByName(std::string_view n, const ItemDef& def) {
     // wiki: Fuel - burn durations in game ticks.
     if (n == "coal" || n == "charcoal") return 1600;
     if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table") return 300;
@@ -173,5 +216,7 @@ int fuelTicks(const ItemStack& fuel) {
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;
     return 0;
 }
+
+} // namespace
 
 } // namespace mc

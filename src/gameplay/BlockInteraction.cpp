@@ -148,7 +148,9 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             ++m_heldTicks;
             m_progress = ticks == 0 ? 1.0f : std::min(1.0f, float(m_heldTicks) / float(ticks));
             if (m_heldTicks >= ticks) {
-                for (const world::ItemStack& d : blockDrops(state, inventory.selectedStack(), rng))
+                m_dropScratch.clear();
+                blockDrops(state, inventory.selectedStack(), rng, m_dropScratch);
+                for (const world::ItemStack& d : m_dropScratch)
                     drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
                 dropContents(world, hit->block, &drops);
                 world.setBlock(hit->block, 0);

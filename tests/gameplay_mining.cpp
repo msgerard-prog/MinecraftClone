@@ -46,7 +46,8 @@ TEST_CASE("harvest levels: iron needs stone, diamond needs iron; dirt by hand") 
 TEST_CASE("drops: stone -> cobblestone, ores -> materials, nothing without the tool") {
     Xoroshiro rng(1);
     auto first = [&](BlockId b, const ItemStack& held) {
-        const auto d = blockDrops(S(b), held, rng);
+        std::vector<ItemStack> d;
+        blockDrops(S(b), held, rng, d);
         return d.empty() ? std::string() : itemRegistry().item(d[0].item).id;
     };
     CHECK(first(blocks::Stone, I("wooden_pickaxe")) == "minecraft:cobblestone");
@@ -59,7 +60,8 @@ TEST_CASE("drops: stone -> cobblestone, ores -> materials, nothing without the t
     CHECK(first(blocks::Glass, {}).empty());
     int redstone = 0;
     for (int i = 0; i < 50; ++i) {
-        const auto d = blockDrops(S(blocks::RedstoneOre), I("iron_pickaxe"), rng);
+        std::vector<ItemStack> d;
+        blockDrops(S(blocks::RedstoneOre), I("iron_pickaxe"), rng, d);
         REQUIRE(d.size() == 1);
         CHECK(d[0].count >= 4);
         CHECK(d[0].count <= 5);

@@ -18,7 +18,8 @@ namespace {
 float brightness(float level) {
     const float f = std::clamp(level / 15.0f, 0.0f, 1.0f);
     const float b = f / (4.0f - 3.0f * f);
-    const float lifted = 1.0f - std::pow(1.0f - b, 4.0f);
+    const float x = 1.0f - b, x2 = x * x;
+    const float lifted = 1.0f - x2 * x2;
     return 0.05f + 0.95f * (b + (lifted - b) * 0.5f);
 }
 

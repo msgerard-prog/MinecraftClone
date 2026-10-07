@@ -8,10 +8,15 @@
 
 namespace mc {
 
-void ItemEntities::spawn(const glm::dvec3& pos, const world::ItemStack& stack,
-                         world::Xoroshiro& rng, int pickupDelay) {
-    if (stack.empty()) return;
-    if (m_items.size() >= size_t(kMax)) m_items.erase(m_items.begin()); // rare: drop the oldest
+ItemEntity* ItemEntities::spawn(const glm::dvec3& pos, const world::ItemStack& stack,
+                                world::Xoroshiro& rng, int pickupDelay) {
+    if (stack.empty()) return nullptr;
+    if (m_items.size() >= size_t(kMax)) { // rare: replace the oldest (swap-remove)
+        const auto oldest = std::max_element(m_items.begin(), m_items.end(),
+                                             [](const ItemEntity& a, const ItemEntity& b) { return a.age < b.age; });
+        *oldest = m_items.back();
+        m_items.pop_back();
+    }
     ItemEntity e;
     e.pos = e.prevPos = pos;
     // wiki: Item (entity) - dropped blocks pop out with a small random velocity.
@@ -20,12 +25,13 @@ void ItemEntities::spawn(const glm::dvec3& pos, const world::ItemStack& stack,
     e.pickupDelay = pickupDelay;
     e.spinOffset = rng.nextFloat() * 2.0f * std::numbers::pi_v<float>;
     m_items.push_back(e);
+    return &m_items.back();
 }
 
 void ItemEntities::throwFrom(const glm::dvec3& eye, const glm::dvec3& look,
                              const world::ItemStack& stack, world::Xoroshiro& rng) {
-    spawn(eye - glm::dvec3(0, 0.3, 0), stack, rng, 40);
-    m_items.back().vel = look * 0.3 + glm::dvec3(0, 0.1, 0);
+    if (ItemEntity* e = spawn(eye - glm::dvec3(0, 0.3, 0), stack, rng, 40))
+        e->vel = look * 0.3 + glm::dvec3(0, 0.1, 0);
 }
 
 void ItemEntities::move(const world::World& world, ItemEntity& e) {
@@ -64,7 +70,11 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
         if (e.pickupDelay > 0) --e.pickupDelay;
         // Unloaded chunk: keep still (vanilla doesn't tick entities there).
         const world::BlockPos at{int(std::floor(e.pos.x)), int(std::floor(e.pos.y)), int(std::floor(e.pos.z))};
-        if (world.chunk(at.chunk())) {
+        if (const world::Chunk* chunk = world.chunk(at.chunk())) {
+            if (chunk->lit()) {
+                e.skyLight = chunk->skyLight(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));
+                e.blockLight = chunk->blockLight(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));
+            }
             const auto& reg = world::blockRegistry();
             const bool inWater = reg.blockOf(world.getBlock(at)) == world::blocks::Water;
             if (inWater) {
@@ -73,7 +83,10 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
             } else {
                 e.vel.y -= 0.04; // gravity
             }
-            move(world, e);
+            // Resting items only re-check collisions every 4th tick (vanilla).
+            const bool resting = e.onGround && e.vel.x * e.vel.x + e.vel.z * e.vel.z < 1.0e-5;
+            if (!resting || (e.age + int(i)) % 4 == 0) move(world, e);
+            else e.vel.y = 0.0;
             const double friction = e.onGround ? 0.6 * 0.98 : 0.98;
             e.vel.x *= friction;
             e.vel.z *= friction;

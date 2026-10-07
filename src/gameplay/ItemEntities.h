@@ -22,6 +22,7 @@ struct ItemEntity {
     int pickupDelay = 10;
     float spinOffset = 0.0f; // random start angle for the render spin
     bool onGround = false;
+    uint8_t skyLight = 15, blockLight = 0; // at its position, updated each tick (rendering)
 };
 
 class ItemEntities {
@@ -33,8 +34,9 @@ public:
     ItemEntities() { m_items.reserve(kMax); }
 
     // A dropped stack at `pos` (block drops: random small throw, vanilla-like).
-    void spawn(const glm::dvec3& pos, const world::ItemStack& stack, world::Xoroshiro& rng,
-               int pickupDelay = 10);
+    // Returns the new item (nullptr for an empty stack).
+    ItemEntity* spawn(const glm::dvec3& pos, const world::ItemStack& stack, world::Xoroshiro& rng,
+                      int pickupDelay = 10);
     // Thrown by the player along `look` (Q / death): faster, longer pickup delay.
     void throwFrom(const glm::dvec3& eye, const glm::dvec3& look, const world::ItemStack& stack,
                    world::Xoroshiro& rng);

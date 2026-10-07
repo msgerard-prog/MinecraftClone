@@ -3,7 +3,9 @@
 #include "world/Chunk.h"
 
 #include <memory>
+#include <algorithm>
 #include <unordered_map>
+#include <vector>
 
 namespace mc::world {
 
@@ -23,6 +25,22 @@ public:
     BlockStateId getBlock(const BlockPos& p) const;
     void setBlock(const BlockPos& p, BlockStateId state);
 
+    // Chunks with something that ticks (block entities, mobs), so game ticks never
+    // scan every loaded chunk (vanilla keeps level-wide ticking lists too).
+    // markTicking() after adding mobs/entities to a chunk; entries whose chunk was
+    // unloaded or has nothing left are dropped while iterating.
+    void markTicking(ChunkPos pos);
+    template <typename Fn> void forEachTickingChunk(Fn&& fn) {
+        size_t w = 0;
+        for (size_t r = 0; r < m_ticking.size(); ++r) {
+            Chunk* c = chunk(m_ticking[r]);
+            if (!c || (c->furnaces().empty() && c->mobs().empty())) continue; // drop it
+            m_ticking[w++] = m_ticking[r];
+            fn(*c);
+        }
+        m_ticking.resize(w);
+    }
+
     template <typename Fn> void forEachChunk(Fn&& fn) {
         for (auto& [key, c] : m_chunks)
             fn(*c);
@@ -34,6 +52,7 @@ public:
 
 private:
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
+    std::vector<ChunkPos> m_ticking;
 };
 
 } // namespace mc::world

@@ -28,7 +28,8 @@ int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onG
 
 // What a broken block drops (wiki: each block's "Drops"). Empty if it can't be
 // harvested with `held`.
-std::vector<world::ItemStack> blockDrops(world::BlockStateId state, const world::ItemStack& held,
-                                         world::Xoroshiro& rng);
+// Appends to `out` (no allocation when it has room).
+void blockDrops(world::BlockStateId state, const world::ItemStack& held, world::Xoroshiro& rng,
+                std::vector<world::ItemStack>& out);
 
 } // namespace mc

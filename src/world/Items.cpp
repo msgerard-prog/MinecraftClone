@@ -83,10 +83,14 @@ ItemRegistry buildItems() {
     // Materials (wiki: each item's page).
     for (const char* name : {"stick", "coal", "charcoal", "raw_iron", "raw_gold", "raw_copper",
                              "iron_ingot", "gold_ingot", "copper_ingot", "diamond", "emerald",
-                             "lapis_lazuli", "redstone", "flint"})
+                             "lapis_lazuli", "redstone", "flint", "leather"})
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
+    // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
+    r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
+    r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});
+    r.add({.id = "minecraft:rotten_flesh", .food = 4, .saturation = 0.8f, .texture = "item/rotten_flesh"});
     return r;
 }
 

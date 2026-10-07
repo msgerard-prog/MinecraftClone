@@ -7,6 +7,7 @@
 #include "rendering/ItemIcons.h"
 
 #include <array>
+#include <span>
 #include <vector>
 
 namespace mc::ui {
@@ -48,7 +49,7 @@ private:
         int index;
         int x, y; // panel coordinates of the 16x16 item area
     };
-    std::vector<Slot> slots() const;
+    std::span<const Slot> slots() const; // fixed per screen type (built once)
     int gridSize() const { return m_type == Type::Crafting ? 3 : 2; }
     world::ItemStack* stackAt(const Slot& s, Inventory& inventory);
     void updateResult();

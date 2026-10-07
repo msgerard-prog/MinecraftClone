@@ -13,7 +13,12 @@ Chunk& World::createChunk(ChunkPos pos) {
 Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     auto& slot = m_chunks[chunk->pos()];
     slot = std::move(chunk);
+    if (!slot->furnaces().empty() || !slot->mobs().empty()) markTicking(slot->pos());
     return *slot;
+}
+
+void World::markTicking(ChunkPos pos) {
+    if (std::find(m_ticking.begin(), m_ticking.end(), pos) == m_ticking.end()) m_ticking.push_back(pos);
 }
 
 std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
@@ -46,7 +51,10 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     c->set(x, p.y, z, state);
     // Block entities follow their block (a furnace's contents are dropped by the
     // caller before it breaks it).
-    if (blockRegistry().blockOf(state) == blocks::Furnace) c->addFurnace(x, p.y, z);
+    if (blockRegistry().blockOf(state) == blocks::Furnace) {
+        c->addFurnace(x, p.y, z);
+        markTicking(c->pos());
+    }
     else if (!c->furnaces().empty()) c->removeBlockEntity(x, p.y, z);
 }
 
