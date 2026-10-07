@@ -3,6 +3,7 @@
 #include "world/Biome.h"
 #include "world/Blocks.h"
 #include "world/Direction.h"
+#include "world/Loot.h"
 #include "world/Random.h"
 
 #include <algorithm>
@@ -247,8 +248,12 @@ void NetherGenerator::generate(Chunk& out) const {
         }
     }
 
-    // 4b. nether2 features (M19.1).
-    if (m_version >= 2) netherFeatures(blocks.data(), pos, columnBiome);
+    // 4b. nether2 features (M19.1) and structures (M19.3).
+    Entities ents;
+    if (m_version >= 2) {
+        netherFeatures(blocks.data(), pos, columnBiome);
+        placeNetherStructures(blocks.data(), out, pos, ents);
+    }
 
     // 5. Write the sections (Y 0..127 = sections 0..7 of the Nether's 0..255; the rest
     //    stays air): the array
@@ -258,6 +263,16 @@ void NetherGenerator::generate(Chunk& out) const {
         const int y0 = out.height().minY + s * 16;
         if (y0 < 0 || y0 >= kNetherTop) section.fill(0);
         else section.assign(blocks.data() + at(0, y0, 0));
+    }
+    for (int i = 0; i < ents.count; ++i) { // chests (loot) and blaze spawners
+        const Entity& e = ents.list[size_t(i)];
+        const BlockId here = r.blockOf(out.get(e.x, e.y, e.z));
+        if (e.chest && here == blocks::Chest && !out.chest(e.x, e.y, e.z)) {
+            Xoroshiro loot(chunkSeed(m_seed, pos.x, pos.z, 0x4E70 + uint64_t(i)));
+            fillChest(static_cast<LootTable>(e.loot), loot, out.addChest(e.x, e.y, e.z).items);
+        } else if (!e.chest && here == blocks::Spawner && !out.spawner(e.x, e.y, e.z)) {
+            out.addSpawner(e.x, e.y, e.z).mob = MobType::Blaze;
+        }
     }
     if (m_version < 2) {
         static const auto nether = uniformBiomes(Biome::NetherWastes);

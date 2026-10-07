@@ -184,6 +184,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::Farmland:
         tickFarmland(p, s);
         break;
+    case B::NetherWart: // ages one step 1 random tick in 10, to 3 (wiki: Nether Wart)
+        if (R().get(s, age3) < 3 && m_random.nextInt(10) == 0) set(p, R().set(s, age3, R().get(s, age3) + 1));
+        break;
     case B::Cactus: {
         // As sugar cane: age +1 a random tick, a new piece on top at 15, 3 tall at most;
         // a piece that can't stand there breaks at once (wiki: Cactus).

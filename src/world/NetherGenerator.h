@@ -43,6 +43,26 @@ private:
     void netherFeatures(BlockStateId* blocks, ChunkPos pos, const std::array<Biome, 16>& biomes) const;
 
 public:
+    // Nether structures (M19.3, NetherStructures.cpp): chests and spawners placed into
+    // the block array, made block entities once the chunk is written; bastion mobs.
+    struct Entity {
+        int8_t x, z;
+        int16_t y;
+        bool chest; // else a blaze spawner
+        uint8_t loot; // LootTable
+    };
+    struct Entities {
+        int count = 0;
+        std::array<Entity, 64> list{};
+    };
+    // The nether complex (fortress or bastion) of a region's candidate chunk, if any.
+    enum class Complex : uint8_t { None, Fortress, Bastion };
+    Complex complexAt(ChunkPos start) const;
+
+private:
+    void placeNetherStructures(BlockStateId* blocks, Chunk& out, ChunkPos pos, Entities& ents) const;
+
+public:
     // nether2: the biome at a column (nether_wastes for "nether").
     Biome biomeAt(int32_t x, int32_t z) const;
 };

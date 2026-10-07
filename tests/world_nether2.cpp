@@ -65,3 +65,51 @@ TEST_CASE("nether2: five biomes with their ground and plants; the M12 nether sta
             }
     CHECK(h == 18246991405672207176ull); // pinned (re-pinned through M19 until v0.19.0)
 }
+
+TEST_CASE("nether2: fortresses (bridges, blaze spawners, loot) and bastions (blackstone, gold, piglins)") {
+    const NetherGenerator gen(42);
+    ChunkPos fortress{0, 0}, bastion{0, 0};
+    bool haveF = false, haveB = false;
+    for (int z = -60; z <= 60 && !(haveF && haveB); ++z)
+        for (int x = -60; x <= 60 && !(haveF && haveB); ++x) {
+            const auto k = gen.complexAt({x, z});
+            if (k == NetherGenerator::Complex::Fortress && !haveF) fortress = {x, z}, haveF = true;
+            if (k == NetherGenerator::Complex::Bastion && !haveB) bastion = {x, z}, haveB = true;
+        }
+    REQUIRE(haveF);
+    REQUIRE(haveB);
+    CHECK(NetherGenerator(42, 1).complexAt(fortress) == NetherGenerator::Complex::None);
+    int bricks = 0, spawners = 0, chests = 0;
+    for (int dz = -3; dz <= 3; ++dz)
+        for (int dx = -3; dx <= 3; ++dx) {
+            Chunk c({fortress.x + dx, fortress.z + dz}, kNetherHeight);
+            gen.generate(c);
+            spawners += static_cast<int>(c.spawners().size());
+            chests += static_cast<int>(c.chests().size());
+            for (int y = 1; y < 127; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x)
+                        bricks += blockRegistry().blockOf(c.get(x, y, z)) == blocks::NetherBricks;
+            for (const auto& s : c.spawners())
+                CHECK(s.data.mob == MobType::Blaze);
+        }
+    CHECK(bricks > 500);
+    CHECK(spawners > 0);
+    CHECK(chests > 0);
+    int blackstone = 0, piglins = 0, bchests = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk c({bastion.x + dx, bastion.z + dz}, kNetherHeight);
+            gen.generate(c);
+            bchests += static_cast<int>(c.chests().size());
+            for (const MobData& m : c.mobs())
+                piglins += m.type == MobType::Piglin;
+            for (int y = 1; y < 127; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x)
+                        blackstone += blockRegistry().blockOf(c.get(x, y, z)) == blocks::PolishedBlackstoneBricks;
+        }
+    CHECK(blackstone > 300);
+    CHECK(piglins >= 4);
+    CHECK(bchests == 3);
+}

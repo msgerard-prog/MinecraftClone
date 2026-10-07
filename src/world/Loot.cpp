@@ -113,6 +113,36 @@ constexpr LootEntry kBarter1[] = {
     {"dried_ghast", 1, 1, 10}};
 constexpr LootPool kBarter[] = {{1, 1, kBarter1}};
 
+// wiki: Nether Fortress › Loot (Java Edition).
+constexpr LootEntry kFortress1[] = {
+    {"gold_ingot", 1, 3, 15},          {"saddle", 1, 1, 10},           {"golden_horse_armor", 1, 1, 8},
+    {"nether_wart", 3, 7, 5},          {"iron_ingot", 1, 5, 5},        {"diamond", 1, 3, 5},
+    {"copper_horse_armor", 1, 1, 5},   {"flint_and_steel", 1, 1, 5},   {"iron_horse_armor", 1, 1, 5},
+    {"golden_sword", 1, 1, 5},         {"golden_chestplate", 1, 1, 5}, {"diamond_horse_armor", 1, 1, 3},
+    {"obsidian", 2, 4, 2}};
+constexpr LootEntry kFortress2[] = {{"", 1, 1, 14}, {"rib_armor_trim_smithing_template", 1, 1, 1}};
+constexpr LootPool kFortress[] = {{2, 4, kFortress1}, {1, 1, kFortress2}};
+
+// wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
+// gear comes plain or with one random enchantment here.
+constexpr LootEntry kBastion1[] = {
+    {"spectral_arrow", 10, 22, 10}, {"golden_carrot", 6, 17, 12},   {"ancient_debris", 1, 1, 12},
+    {"enchanted_book", 1, 1, 10, true}, {"snout_banner_pattern", 1, 1, 9}, {"golden_apple", 1, 1, 9},
+    {"crossbow", 1, 1, 6},          {"diamond_shovel", 1, 1, 6},    {"diamond_pickaxe", 1, 1, 6, true},
+    {"music_disc_pigstep", 1, 1, 5}, {"netherite_scrap", 1, 1, 4}};
+constexpr LootEntry kBastion2[] = {
+    {"iron_ingot", 1, 6, 2},   {"gold_ingot", 1, 6, 2},         {"crying_obsidian", 1, 5, 2}, {"iron_block", 1, 1, 2},
+    {"iron_sword", 1, 1, 2, true}, {"gold_block", 1, 1, 2},     {"crossbow", 1, 1, 1},        {"golden_sword", 1, 1, 1},
+    {"golden_axe", 1, 1, 1, true}, {"golden_helmet", 1, 1, 1},  {"golden_chestplate", 1, 1, 1},
+    {"golden_leggings", 1, 1, 1}, {"golden_boots", 1, 1, 1},    {"golden_boots", 1, 1, 1, true}};
+constexpr LootEntry kBastion3[] = {
+    {"arrow", 5, 17, 2},  {"magma_cream", 2, 6, 2},  {"gilded_blackstone", 1, 5, 2}, {"iron_chain", 2, 10, 1},
+    {"obsidian", 4, 6, 1}, {"string", 4, 6, 1},      {"iron_nugget", 2, 8, 1},       {"gold_nugget", 2, 8, 1},
+    {"bone_block", 3, 6, 1}, {"cooked_porkchop", 1, 1, 1}};
+constexpr LootEntry kBastion4[] = {{"snout_armor_trim_smithing_template", 1, 1, 1}, {"", 1, 1, 11}};
+constexpr LootEntry kBastion5[] = {{"netherite_upgrade_smithing_template", 1, 1, 1}, {"", 1, 1, 9}};
+constexpr LootPool kBastion[] = {{1, 1, kBastion1}, {2, 2, kBastion2}, {3, 4, kBastion3}, {1, 1, kBastion4}, {1, 1, kBastion5}};
+
 } // namespace
 
 std::span<const LootPool> lootPools(LootTable table) {
@@ -128,6 +158,8 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::VillagePlainsHouse: return kPlainsHouse;
     case LootTable::VillageDesertHouse: return kDesertHouse;
     case LootTable::PiglinBartering: return kBarter;
+    case LootTable::NetherFortress: return kFortress;
+    case LootTable::BastionOther: return kBastion;
     default: return {}; // (filled in as their structures arrive)
     }
 }

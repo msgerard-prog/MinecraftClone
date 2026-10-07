@@ -226,6 +226,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   crop growth on random ticks (vanilla's speed points), `till` (hoes), `boneMeal`,
   `trample` (main rolls the fall chance); crops pop without farmland. Seeds,
   carrots and potatoes are items whose `block` is the crop.
+- Nether structures (M19.3, `world/NetherStructures.cpp`, part of `NetherGenerator`):
+  `complexAt` picks fortress/bastion per grid candidate; fortresses are cached piece
+  trees built per chunk, bastions one keep; chests/blaze spawners become block
+  entities after the chunk is written, bastion mobs are added to their start chunk.
 - Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
   blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
   mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are

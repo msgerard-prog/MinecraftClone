@@ -22,7 +22,7 @@ a new Nether generator kind, the old one stays for existing worlds):
    fossils), basalt deltas (basalt, blackstone, magma); 3D multi-noise biomes.
 2. ✅ M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,
    gold), zombified piglins, hoglins, striders; spawning per biome.
-3. M19.3 — Nether fortresses (bridges, corridors, blaze spawners, nether wart, loot)
+3. ✅ M19.3 — Nether fortresses (bridges, corridors, blaze spawners, nether wart, loot)
    and bastion remnants (simplified, piglins, loot).
 4. M19.4 — Brewing: blaze powder, nether wart, brewing stand, the main potions and
    their effects (status effects system); eyes of ender become craftable.

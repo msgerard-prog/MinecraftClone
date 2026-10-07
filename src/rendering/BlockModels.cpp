@@ -242,6 +242,25 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("sandstone_top");
                 v.faces[int(Direction::Down)].sprite = sprite("sandstone_top");
                 m = single(v);
+            } else if (name == "nether_wart") { // a cross of its stage (0, 1-2, 3)
+                const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(a == 0 ? "nether_wart_stage0" : a < 3 ? "nether_wart_stage1" : "nether_wart_stage2");
+            } else if (name == "nether_brick_fence") { // a post (vanilla: posts with arms to neighbours)
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = 6, b.from[1] = 0, b.from[2] = 6;
+                b.to[0] = 10, b.to[1] = 16, b.to[2] = 10;
+                for (int d = 0; d < 6; ++d) {
+                    auto& face = b.faces[d];
+                    face.sprite = sprite("nether_bricks");
+                    face.uv[0] = 6, face.uv[1] = 0, face.uv[2] = 10, face.uv[3] = 16;
+                }
+            } else if (name == "polished_basalt") {
+                m = single(cubeColumn(sprite("polished_basalt_side"), sprite("polished_basalt_top"),
+                                      registry.value(state, "axis").value_or("y")));
             } else if (name == "crimson_nylium" || name == "warped_nylium") { // side, top, netherrack below
                 BakedVariant v = cubeAll(sprite((name + "_side").c_str()));
                 v.faces[int(Direction::Up)].sprite = sprite(name.c_str());

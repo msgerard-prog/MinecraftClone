@@ -25,7 +25,9 @@ enum class LootTable : uint8_t {
     StrongholdLibrary,
     VillagePlainsHouse,
     VillageDesertHouse,
-    PiglinBartering
+    PiglinBartering,
+    NetherFortress,
+    BastionOther
 };
 
 struct LootEntry {

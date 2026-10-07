@@ -116,6 +116,7 @@ Push pushKind(BlockStateId s) {
     case B::WeepingVinesPlant:
     case B::TwistingVines:
     case B::TwistingVinesPlant:
+    case B::NetherWart:
     case B::Snow:
     case B::Water:
     case B::Lava:
@@ -633,6 +634,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::WeepingVines:
     case B::WeepingVinesPlant:
     case B::TwistingVines:
+    case B::NetherWart:
+        if (blockOf(at(rel(p, Direction::Down))) != B::SoulSand) pop(p);
+        break;
     case B::TwistingVinesPlant: {
         const BlockId b = blockOf(s);
         if (!netherPlantCanStay(m_world, p, b)) {
@@ -1176,6 +1180,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::WeepingVines:
     case B::TwistingVines:
         if (!netherPlantCanStay(world, at, blockOf(state))) return std::nullopt;
+        return state;
+    case B::NetherWart: // only on soul sand (wiki: Nether Wart)
+        if (blockOf(world.getBlock(rel(at, Direction::Down))) != B::SoulSand) return std::nullopt;
         return state;
     case B::Anvil:
     case B::ChippedAnvil:

@@ -239,6 +239,16 @@ enum : BlockId {
     Basalt,    // axis
     Blackstone,
     BoneBlock, // axis
+    // Fortresses and bastions (M19.3).
+    NetherBricks,
+    NetherBrickFence,
+    NetherWart, // age 0..3
+    PolishedBlackstoneBricks,
+    CrackedPolishedBlackstoneBricks,
+    ChiseledPolishedBlackstone,
+    GildedBlackstone,
+    GoldBlock,
+    PolishedBasalt, // axis
     Count
 };
 } // namespace blocks

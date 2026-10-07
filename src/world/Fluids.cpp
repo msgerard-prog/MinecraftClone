@@ -70,6 +70,7 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::WeepingVinesPlant:
     case B::TwistingVines:
     case B::TwistingVinesPlant:
+    case B::NetherWart:
     case B::Snow:
     case B::Torch:
     case B::RedstoneWire:

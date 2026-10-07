@@ -26,6 +26,13 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Sandstone:
     case blocks::RedSandstone:
     case blocks::Terracotta:
+    case blocks::NetherBricks:
+    case blocks::NetherBrickFence:
+    case blocks::PolishedBlackstoneBricks:
+    case blocks::CrackedPolishedBlackstoneBricks:
+    case blocks::ChiseledPolishedBlackstone:
+    case blocks::GildedBlackstone:
+    case blocks::PolishedBasalt:
     case blocks::CrimsonNylium: // (wiki: any pickaxe; drop netherrack without Silk Touch)
     case blocks::WarpedNylium:
     case blocks::Basalt:
@@ -55,6 +62,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre:
         return {T::Pickaxe, 0};
+    case blocks::GoldBlock: // wiki: Block of Gold - iron pickaxe or better
+        return {T::Pickaxe, 2};
     case blocks::IronBlock: // wiki: Block of Iron - stone pickaxe or better
     case blocks::IronOre:
     case blocks::DeepslateIronOre:
@@ -385,6 +394,13 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::CrimsonNylium:
     case blocks::WarpedNylium:
         add(itemRegistry().blockItem(blocks::Netherrack)); // (wiki: Nylium)
+        return;
+    case blocks::NetherWart: // wiki: Nether Wart - 2-4 when ripe (age 3), else 1
+        add(itemRegistry().blockItem(blocks::NetherWart), blockRegistry().get(state, properties::age3) == 3 ? between(2, 4) : 1);
+        return;
+    case blocks::GildedBlackstone: // wiki: 10% 2-5 gold nuggets, else itself
+        if (rng.nextFloat() < 0.1f) add(*itemRegistry().find("gold_nugget"), between(2, 5));
+        else add(itemRegistry().blockItem(blocks::GildedBlackstone));
         return;
     // Vines drop only with shears or Silk Touch, or 33% (wiki: Weeping Vines); the
     // plant parts drop the vine item.

@@ -400,6 +400,24 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("basalt", {.hardness = 1.25f, .resistance = 4.2f}, {{&axis, "y"}}), blocks::Basalt);
     check(r.add("blackstone", {.hardness = 1.5f, .resistance = 6.0f}), blocks::Blackstone);
     check(r.add("bone_block", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), blocks::BoneBlock);
+    // M19.3 (wiki: Nether Bricks 2.0/6.0, fence the same - a post here, no connections;
+    // Nether Wart 0 with ages 0-3, random ticks; Polished Blackstone Bricks and Gilded
+    // Blackstone 1.5/6.0; Block of Gold 3.0/6.0; Polished Basalt 1.25/4.2).
+    check(r.add("nether_bricks", {.hardness = 2.0f, .resistance = 6.0f}), blocks::NetherBricks);
+    check(r.add("nether_brick_fence",
+                {.hardness = 2.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout}),
+          blocks::NetherBrickFence);
+    BlockSettings wart = kPlant;
+    wart.randomTicks = true;
+    check(r.add("nether_wart", wart, {{&age3, "0"}}), blocks::NetherWart);
+    check(r.add("polished_blackstone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::PolishedBlackstoneBricks);
+    check(r.add("cracked_polished_blackstone_bricks", {.hardness = 1.5f, .resistance = 6.0f}),
+          blocks::CrackedPolishedBlackstoneBricks);
+    check(r.add("chiseled_polished_blackstone", {.hardness = 1.5f, .resistance = 6.0f}),
+          blocks::ChiseledPolishedBlackstone);
+    check(r.add("gilded_blackstone", {.hardness = 1.5f, .resistance = 6.0f}), blocks::GildedBlackstone);
+    check(r.add("gold_block", {.hardness = 3.0f, .resistance = 6.0f}), blocks::GoldBlock);
+    check(r.add("polished_basalt", {.hardness = 1.25f, .resistance = 4.2f}, {{&axis, "y"}}), blocks::PolishedBasalt);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).
