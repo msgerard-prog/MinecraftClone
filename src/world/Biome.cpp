@@ -55,8 +55,8 @@ std::optional<Biome> findBiome(std::string_view id) {
     return std::nullopt;
 }
 
-Biome ChunkBiomes::at(int x, int y, int z) const {
-    const int s = std::clamp(sectionIndex(std::clamp(y, kMinY, kMaxY)), 0, 23);
+Biome ChunkBiomes::at(int x, int y, int z, const HeightRange& h) const {
+    const int s = std::clamp(h.sectionIndex(std::clamp(y, h.minY, h.maxY())), 0, h.sections() - 1);
     return cells[size_t(index(s, x >> 2, blockToLocal(y) >> 2, z >> 2))];
 }
 

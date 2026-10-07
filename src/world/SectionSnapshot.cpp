@@ -17,9 +17,9 @@ void snapshotSection(const World& world, SectionPos pos, BlockStateId* out) {
     const int baseY = pos.y * 16;
 
     // Interior: decode the whole section at once.
-    if (center && isInBuildHeight(baseY)) {
+    if (center && center->height().contains(baseY)) {
         static thread_local BlockStateId interior[Section::kVolume];
-        center->section(sectionIndex(baseY)).copyTo(interior);
+        center->section(center->height().sectionIndex(baseY)).copyTo(interior);
         for (int y = 0; y < 16; ++y)
             for (int z = 0; z < 16; ++z)
                 for (int x = 0; x < 16; ++x)
@@ -49,6 +49,9 @@ void snapshotSection(const World& world, SectionPos pos, BlockStateId* out) {
 
 bool captureSection(const World& world, SectionPos pos, SectionRefs& out) {
     out.pos = pos;
+    out.minSection = world.height().minSection();
+    out.maxSection = world.height().maxSection();
+    out.openSky = world.hasSkyLight() ? 15 : 0;
     if (const Chunk* centre = world.chunk({pos.x, pos.z})) out.biomes = centre->biomes();
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dx = -1; dx <= 1; ++dx) {
@@ -59,8 +62,8 @@ bool captureSection(const World& world, SectionPos pos, SectionRefs& out) {
             }
             for (int dy = -1; dy <= 1; ++dy) {
                 const int i = ((dy + 1) * 3 + (dz + 1)) * 3 + (dx + 1);
-                const int s = pos.y + dy - (kMinY >> 4);
-                if (s < 0 || s >= kSectionsPerChunk) {
+                const int s = pos.y + dy - c->height().minSection();
+                if (s < 0 || s >= c->sectionCount()) {
                     out.blocks[i].reset();
                     out.light[i].reset();
                 } else {
@@ -86,10 +89,10 @@ void buildPadded(const SectionRefs& refs, BlockStateId* blocks, uint8_t* sky, ui
                 const Section* sec = refs.blocks[i].get();
                 if (sec && sec->isEmpty()) sec = nullptr; // all air
                 const SectionLight* light = refs.light[i].get();
-                const bool aboveWorld = refs.pos.y + dy > (kMaxY >> 4);
-                // Without light data: above the world is open sky, a missing section
-                // dark, an existing unlit one (tests) full sky.
-                const uint8_t defaultSky = aboveWorld ? 15 : (refs.blocks[i] ? 15 : 0);
+                const bool aboveWorld = refs.pos.y + dy > refs.maxSection;
+                // Without light data: above the world is open air, a missing section
+                // dark, an existing unlit one (tests) open air.
+                const uint8_t defaultSky = aboveWorld || refs.blocks[i] ? refs.openSky : 0;
                 // Decode whole sections only for the centre and its 6 face neighbours
                 // (>= 256 cells used); edges (16) and corners (1) read cells directly.
                 const bool whole = sec && (dx != 0) + (dy != 0) + (dz != 0) <= 1;

@@ -39,13 +39,16 @@ struct SectionRefs {
     std::array<std::shared_ptr<const Section>, 27> blocks;
     std::array<std::shared_ptr<const SectionLight>, 27> light;
     std::shared_ptr<const ChunkBiomes> biomes; // the centre chunk's
+    int minSection = -4;  // the world's bottom section Y
+    int maxSection = 19;  // the world's top section Y (above it: open air)
+    uint8_t openSky = 15; // sky light of open air (0 where the dimension has none)
 };
 
 // Main thread. False if any of the 9 chunks around is not loaded.
 bool captureSection(const World& world, SectionPos pos, SectionRefs& out);
 
 // Worker: the padded 18^3 arrays a mesher needs - block states, sky and block light.
-// Outside the world, blocks are air; sky light is 15 above / 0 below.
+// Outside the world, blocks are air; sky light is the open-air value above / 0 below.
 void buildPadded(const SectionRefs& refs, BlockStateId* blocks, uint8_t* sky, uint8_t* blockLight);
 
 } // namespace mc::world

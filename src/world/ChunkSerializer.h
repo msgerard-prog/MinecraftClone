@@ -17,8 +17,9 @@ inline constexpr int32_t kDataVersion = 3955;
 // thread can serialise it while the main thread keeps playing.
 struct ChunkSnapshot {
     ChunkPos pos;
-    std::array<std::shared_ptr<const Section>, kSectionsPerChunk> sections;
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light; // may be null
+    HeightRange height;                                                 // the dimension's
+    std::array<std::shared_ptr<const Section>, kMaxSections> sections; // [0, height.sections())
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light; // may be null
     std::shared_ptr<const ChunkBiomes> biomes;
     std::vector<Chunk::FurnaceEntry> furnaces; // block entities
     std::vector<MobData> mobs;                 // saved in entities/ (1.17+ layout)

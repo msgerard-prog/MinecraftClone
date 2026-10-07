@@ -89,7 +89,7 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
     const world::RayHit* hit = &hitRef;
     {
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
-        if (!world::isInBuildHeight(at.y)) return;
+        if (!world.isInHeight(at.y)) return;
         const world::BlockStateId existing = world.getBlock(at);
         // Air and fluids can be replaced (not by torches, dust...: they can't exist in water).
         const bool torch = reg.blockOf(placeState) == world::blocks::Torch;

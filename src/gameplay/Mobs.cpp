@@ -333,7 +333,7 @@ void Mobs::tick(Context& ctx) {
                     else if (d2 > 32.0 * 32.0 && ++m.noPlayerTicks > 600 && ctx.rng.nextInt(800) == 0) remove = true;
                     else if (d2 <= 32.0 * 32.0) m.noPlayerTicks = 0;
                 }
-                if (m.pos.y < kMinY - 64) remove = true; // fell out of the world
+                if (m.pos.y < ctx.world.height().minY - 64) remove = true; // fell out of the world
             }
             const ChunkPos now{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
             if (!remove && !(now == chunk.pos())) {
@@ -375,7 +375,7 @@ void Mobs::spawnHostiles(Context& ctx) {
     const int x = int(std::floor(p.x)) + static_cast<int>(ctx.rng.nextInt(129)) - 64;
     const int z = int(std::floor(p.z)) + static_cast<int>(ctx.rng.nextInt(129)) - 64;
     const int y = int(std::floor(p.y)) + static_cast<int>(ctx.rng.nextInt(65)) - 32;
-    if (!isInBuildHeight(y) || !isInBuildHeight(y + 2)) return;
+    if (!ctx.world.isInHeight(y) || !ctx.world.isInHeight(y + 2)) return;
     const double dx = x + 0.5 - p.x, dz = z + 0.5 - p.z, dy = y - p.y;
     if (dx * dx + dy * dy + dz * dz < 24.0 * 24.0) return;
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});

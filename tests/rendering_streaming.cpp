@@ -17,7 +17,7 @@ namespace {
 // Meshing needs light: create a chunk and mark it lit (uniform default light).
 Chunk& createLit(World& w, ChunkPos pos) {
     Chunk& c = w.createChunk(pos);
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
     light.fill(std::make_shared<const SectionLight>());
     c.setLight(light);
     return c;
@@ -42,7 +42,7 @@ TEST_CASE("a chunk is meshed once it and all 8 neighbours are loaded and lit") {
     const std::vector<ChunkPos> last = {{1, 1}};
     t.onLoaded(w, last, ready);
     CHECK(ready.empty()); // (1,1) loaded but not lit yet
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
     light.fill(std::make_shared<const SectionLight>());
     corner.setLight(light);
     t.onLoaded(w, last, ready);

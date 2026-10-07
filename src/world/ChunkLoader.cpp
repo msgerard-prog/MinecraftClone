@@ -6,7 +6,7 @@ namespace mc::world {
 
 ChunkLoader::ChunkLoader(World& world, const ChunkGenerator& generator, int threads,
                          ChunkStorage* storage)
-    : m_world(world), m_generator(generator), m_storage(storage),
+    : m_world(world), m_generator(generator), m_storage(storage), m_height(world.height()),
       m_maxInFlight(std::max(2, threads * 3)) {
     m_requested.reserve(static_cast<size_t>(m_maxInFlight));
     for (int i = 0; i < threads; ++i)
@@ -43,9 +43,9 @@ void ChunkLoader::run() {
         std::unique_ptr<Chunk> chunk;
         if (auto reused = m_recycled.tryPop()) {
             chunk = std::move(*reused);
-            chunk->reset(*pos);
+            chunk->reset(*pos, m_height);
         } else {
-            chunk = std::make_unique<Chunk>(*pos);
+            chunk = std::make_unique<Chunk>(*pos, m_height);
         }
         // Saved chunks load from disk (clean); new ones are generated and stay dirty,
         // so they are saved too: like vanilla, a world's terrain never changes after

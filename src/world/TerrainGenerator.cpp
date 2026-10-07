@@ -77,8 +77,8 @@ void TerrainGenerator::generate(Chunk& chunk) const {
     }
 
     static thread_local std::array<BlockStateId, Section::kVolume> buffer;
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
-        const int baseY = kMinY + s * 16;
+    for (int s = 0; s < kOverworldHeight.sections(); ++s) {
+        const int baseY = kOverworldHeight.minY + s * 16;
         bool any = false;
         for (int ly = 0; ly < 16; ++ly) {
             const int y = baseY + ly;
@@ -87,10 +87,10 @@ void TerrainGenerator::generate(Chunk& chunk) const {
                     const int i = z * 16 + x;
                     const int h = height[i];
                     BlockStateId b = air;
-                    if (y == kMinY) {
+                    if (y == kOverworldHeight.minY) {
                         b = bedrock;
-                    } else if (y <= kMinY + 4 && positional(m_seed, baseX + x, y, baseZ + z, 10) <
-                                                     (kMinY + 5 - y) / 5.0) {
+                    } else if (y <= kOverworldHeight.minY + 4 && positional(m_seed, baseX + x, y, baseZ + z, 10) <
+                                                     (kOverworldHeight.minY + 5 - y) / 5.0) {
                         b = bedrock; // vanilla: bedrock thins out over y -63..-60
                     } else if (y <= h - 4) {
                         // Deepslate below ~0, with a ragged transition up to y 8.

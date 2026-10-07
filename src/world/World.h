@@ -47,6 +47,12 @@ public:
         if (m_listener) m_listener->onBlockChanged(p, old, now);
     }
 
+    // The dimension's vertical extent (vanilla LevelHeightAccessor): every chunk of this
+    // world has it. Set before chunks are created (all chunks are removed when it changes).
+    const HeightRange& height() const { return m_height; }
+    void setHeight(HeightRange h) { m_height = h; }
+    bool isInHeight(int32_t y) const { return m_height.contains(y); }
+
     // Dimension property: the Nether and the End have no sky light.
     bool hasSkyLight() const { return m_hasSkyLight; }
     // Changes whenever a chunk is added or removed (lets callers cache Chunk pointers).
@@ -87,6 +93,7 @@ private:
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
     bool m_hasSkyLight = true;
+    HeightRange m_height = kOverworldHeight;
     uint64_t m_chunkEpoch = 0;
 };
 

@@ -85,7 +85,7 @@ private:
 
     // Block reads go through a one-chunk cache (most queries stay in one chunk).
     BlockStateId at(const BlockPos& p) const {
-        if (!isInBuildHeight(p.y)) return 0;
+        if (!m_world.isInHeight(p.y)) return 0;
         const ChunkPos cp = p.chunk();
         if (m_cacheEpoch != m_world.chunkEpoch() || !(m_cachePos == cp)) {
             m_cache = m_world.chunk(cp);

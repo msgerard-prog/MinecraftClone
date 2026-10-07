@@ -175,11 +175,12 @@ void NetherGenerator::generate(Chunk& out) const {
         }
     }
 
-    // 5. Write the sections (Y 0..127 = sections 4..11; the rest stays air): the array
+    // 5. Write the sections (Y 0..127 = sections 0..7 of the Nether's 0..255; the rest
+    //    stays air): the array
     //    is in section index order, so each section is assigned in one call.
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
+    for (int s = 0; s < out.sectionCount(); ++s) {
         Section& section = out.mutableSection(s);
-        const int y0 = kMinY + s * 16;
+        const int y0 = out.height().minY + s * 16;
         if (y0 < 0 || y0 >= kNetherTop) section.fill(0);
         else section.assign(blocks.data() + at(0, y0, 0));
     }
@@ -240,10 +241,11 @@ void EndGenerator::generate(Chunk& out) const {
     const ChunkPos pos = out.pos();
     const int32_t baseX = pos.x * 16, baseZ = pos.z * 16;
     // Built in a flat array (section index order), then each section assigned once.
-    static thread_local std::array<BlockStateId, 16 * 16 * kHeight> blocks;
+    static thread_local std::array<BlockStateId, 16 * 16 * kMaxHeight> blocks;
     blocks.fill(0);
-    auto set = [](int x, int y, int z, BlockStateId b) {
-        if (y >= kMinY && y <= kMaxY) blocks[size_t(((y - kMinY) * 16 + z) * 16 + x)] = b;
+    const HeightRange h = out.height();
+    auto set = [h](int x, int y, int z, BlockStateId b) {
+        if (h.contains(y)) blocks[size_t(((y - h.minY) * 16 + z) * 16 + x)] = b;
     };
     const int centreTop = islandTop(0, 0);
     for (int z = 0; z < 16; ++z)
@@ -270,7 +272,7 @@ void EndGenerator::generate(Chunk& out) const {
                 for (int y = centreTop + 1; y <= centreTop + 4; ++y)
                     set(x, y, z, bedrock);
         }
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
+    for (int s = 0; s < out.sectionCount(); ++s) {
         const BlockStateId* src = blocks.data() + size_t(s) * Section::kVolume;
         Section& section = out.mutableSection(s);
         if (std::all_of(src, src + Section::kVolume, [](BlockStateId b) { return b == 0; })) section.fill(0);

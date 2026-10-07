@@ -43,7 +43,7 @@ void fillTestChunk(Chunk& c) {
 }
 
 bool sameBlocks(const Chunk& a, const Chunk& b) {
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < kMaxSections; ++s)
         for (int i = 0; i < Section::kVolume; ++i)
             if (a.section(s).getIndex(i) != b.section(s).getIndex(i)) return false;
     return true;
@@ -356,7 +356,7 @@ TEST_CASE("chunk NBT: 17+ states pack 5 bits, 12 per long; dark sections keep Sk
     Chunk c({0, 0});
     for (int i = 0; i < 17; ++i)
         c.set(i % 16, 0, i / 16, blockRegistry().defaultState(BlockId(1 + i)));
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
     light.fill(std::make_shared<const SectionLight>()); // all dark
     c.setLight(light);
     const auto nbt = chunkToNbt(ChunkSnapshot::of(c, 777));
@@ -630,4 +630,37 @@ TEST_CASE("level.dat keeps the player's dimension and known portals; old files d
     CHECK(back->portals[0].z == -3);
     CHECK(back->portals[1].y == 70);
     CHECK(LevelData{}.dimension == "minecraft:overworld");
+}
+
+TEST_CASE("Nether/End chunks save like vanilla: yPos 0, 16 sections Y 0..15; Overworld yPos -4") {
+    Chunk n({2, 3}, kNetherHeight);
+    n.set(4, 0, 4, S(blocks::Bedrock));
+    n.set(4, 255, 4, S(blocks::Netherrack));
+    n.set(4, 256, 4, S(blocks::Netherrack)); // above the Nether's height: ignored
+    n.set(4, -1, 4, S(blocks::Netherrack));  // below: ignored
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(n));
+    CHECK(nbt.integer("yPos") == 0);
+    const auto* sections = nbt.list("sections");
+    REQUIRE(sections);
+    REQUIRE(sections->items.size() == 16);
+    CHECK(sections->items.front().get<mc::nbt::Compound>()->integer("Y") == 0);
+    CHECK(sections->items.back().get<mc::nbt::Compound>()->integer("Y") == 15);
+    Chunk back({2, 3}, kNetherHeight);
+    REQUIRE(chunkFromNbt(nbt, back));
+    CHECK(blockRegistry().blockOf(back.get(4, 0, 4)) == blocks::Bedrock);
+    CHECK(blockRegistry().blockOf(back.get(4, 255, 4)) == blocks::Netherrack);
+    Chunk o({2, 3});
+    CHECK(chunkToNbt(ChunkSnapshot::of(o)).integer("yPos") == -4);
+}
+
+TEST_CASE("a Nether chunk saved in our old 384-block layout loads into the Nether's height") {
+    // Before the per-dimension heights, Nether chunks were written with 24 sections
+    // (Y -4..19). Sections inside 0..15 are read; the rest is ignored.
+    Chunk old({0, 0}); // overworld height, as written then
+    old.set(1, 10, 1, S(blocks::Netherrack));
+    old.set(1, 300, 1, S(blocks::Stone)); // outside the Nether: dropped
+    Chunk n({0, 0}, kNetherHeight);
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(old)), n));
+    CHECK(blockRegistry().blockOf(n.get(1, 10, 1)) == blocks::Netherrack);
+    CHECK(n.get(1, 300, 1) == 0);
 }

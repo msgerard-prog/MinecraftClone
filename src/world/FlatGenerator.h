@@ -22,7 +22,7 @@ public:
 
     void generate(Chunk& chunk) const;
     // Top surface Y (first air block), e.g. -60 for Classic Flat.
-    int surfaceY() const { return kMinY + static_cast<int>(m_layers.size()); }
+    int surfaceY() const { return kOverworldHeight.minY + static_cast<int>(m_layers.size()); }
     const std::vector<BlockStateId>& layers() const { return m_layers; }
 
 private:

@@ -84,7 +84,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - `Section`: 4096 states as vanilla's PalettedContainer (single value → 4–8 bit local
   palette → direct ids), index `(y*16+z)*16+x`; `copyTo()` decodes all at once for
   meshing; tracks `nonAirCount` so empty sections are skipped.
-- `Chunk` = 24 sections (Y −64..319), each a `shared_ptr<Section>` (copy-on-write)
+- Heights (`world/Coords.h` `HeightRange`, vanilla LevelHeightAccessor): the
+  Overworld is Y −64..319 (24 sections), the Nether and End Y 0..255 (16). `World`
+  holds the current dimension's (`height()`, `isInHeight`); every chunk carries its
+  own (`Chunk::height()`, `sectionCount()`), and section arrays have capacity
+  `kMaxSections` (24). Section index = (y − minY) >> 4; "section Y" = y >> 4. Light,
+  meshing (`SectionRefs::minSection/maxSection/openSky`), saving (`yPos` = the lowest
+  section) and range checks all read it; nothing assumes −64..319.
+- `Chunk` = its dimension's sections, each a `shared_ptr<Section>` (copy-on-write)
   plus per-section light (`SectionLight`: sky + block `LightLayer`, a uniform value
   or 2048-byte nibble array, like vanilla's DataLayer).
 - Light (`world/LightEngine`, wiki: Light): computed per chunk over a 46×46 column

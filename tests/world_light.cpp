@@ -37,10 +37,10 @@ ChunkLight lightOf(const World& w) {
 }
 
 uint8_t sky(const ChunkLight& l, int x, int y, int z) {
-    return l[sectionIndex(y)]->sky.get(Section::index(x, blockToLocal(y), z));
+    return l[kOverworldHeight.sectionIndex(y)]->sky.get(Section::index(x, blockToLocal(y), z));
 }
 uint8_t blk(const ChunkLight& l, int x, int y, int z) {
-    return l[sectionIndex(y)]->block.get(Section::index(x, blockToLocal(y), z));
+    return l[kOverworldHeight.sectionIndex(y)]->block.get(Section::index(x, blockToLocal(y), z));
 }
 
 } // namespace
@@ -95,11 +95,11 @@ TEST_CASE("light is deterministic and independent of the neighbours' order of lo
     w.setBlock({8, 65, 8}, S(blocks::Glowstone));
     const auto a = lightOf(w);
     const auto b = lightOf(w);
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < kMaxSections; ++s)
         CHECK(*a[s] == *b[s]);
     // Sections fully above everything are stored as a uniform value (no array).
-    CHECK(a[kSectionsPerChunk - 1]->sky.isUniform());
-    CHECK(a[kSectionsPerChunk - 1]->sky.uniformValue() == 15);
+    CHECK(a[kMaxSections - 1]->sky.isUniform());
+    CHECK(a[kMaxSections - 1]->sky.uniformValue() == 15);
 }
 
 TEST_CASE("LightManager lights a chunk once its 3x3 is loaded; border chunks are not pending") {
@@ -167,11 +167,11 @@ TEST_CASE("block light reaches into the empty section above the highest blocks")
 TEST_CASE("copy-on-write: editing a shared section leaves the worker's copy intact") {
     World w;
     Chunk& c = w.createChunk({0, 0});
-    const auto held = c.shareSection(sectionIndex(70));
+    const auto held = c.shareSection(kOverworldHeight.sectionIndex(70));
     c.set(1, 70, 1, S(blocks::Stone));
     CHECK(held->get(1, blockToLocal(70), 1) == 0);
     CHECK(c.get(1, 70, 1) == S(blocks::Stone));
-    CHECK(c.shareSection(sectionIndex(70)).get() != held.get());
+    CHECK(c.shareSection(kOverworldHeight.sectionIndex(70)).get() != held.get());
 }
 
 namespace {
@@ -265,10 +265,10 @@ TEST_CASE("padded light: above the world is open sky, below it dark; corners cro
     std::vector<BlockStateId> blocks(kPaddedVolume);
     std::vector<uint8_t> skyL(kPaddedVolume), blkL(kPaddedVolume);
     SectionRefs refs;
-    REQUIRE(captureSection(w, {0, kMaxY >> 4, 0}, refs)); // top section
+    REQUIRE(captureSection(w, {0, kOverworldHeight.maxY() >> 4, 0}, refs)); // top section
     buildPadded(refs, blocks.data(), skyL.data(), blkL.data());
     CHECK(skyL[paddedIndex(5, 16, 5)] == 15); // above the world
-    REQUIRE(captureSection(w, {0, kMinY >> 4, 0}, refs)); // bottom section
+    REQUIRE(captureSection(w, {0, kOverworldHeight.minY >> 4, 0}, refs)); // bottom section
     buildPadded(refs, blocks.data(), skyL.data(), blkL.data());
     CHECK(skyL[paddedIndex(5, -1, 5)] == 0); // below the world
     // A failed capture (missing neighbour) keeps no references.
@@ -294,8 +294,35 @@ TEST_CASE("without sky light (Nether, End) open air is dark; block light still s
     REQUIRE(ChunkNeighbourhood::capture(w, {0, 0}, n));
     CHECK_FALSE(n.hasSkyLight);
     const ChunkLight light = computeChunkLight(n);
-    const auto& s = *light[sectionIndex(70)];
+    const auto& s = *light[kOverworldHeight.sectionIndex(70)];
     CHECK(s.sky.get(Section::index(2, blockToLocal(70), 2)) == 0);
     CHECK(s.block.get(Section::index(9, blockToLocal(70), 8)) == 14);
-    CHECK(light[kSectionsPerChunk - 1]->sky.get(0) == 0); // even at the top
+    CHECK(light[kMaxSections - 1]->sky.get(0) == 0); // even at the top
+}
+
+TEST_CASE("a Nether-height world: blocks only in Y 0..255; light and mesh capture use its sections") {
+    using namespace mc::world;
+    World w;
+    w.setHeight(kNetherHeight);
+    w.setHasSkyLight(false);
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx)
+            w.createChunk({cx, cz});
+    CHECK(w.chunk({0, 0})->sectionCount() == 16);
+    w.setBlock({1, -1, 1}, blockRegistry().defaultState(blocks::Stone));
+    CHECK(w.getBlock({1, -1, 1}) == 0);
+    w.setBlock({8, 255, 8}, blockRegistry().defaultState(blocks::Glowstone));
+    CHECK(w.isInHeight(255));
+    CHECK_FALSE(w.isInHeight(256));
+    ChunkNeighbourhood n;
+    REQUIRE(ChunkNeighbourhood::capture(w, {0, 0}, n));
+    const ChunkLight light = computeChunkLight(n);
+    CHECK(light[15]->block.get(Section::index(9, 15, 8)) == 14); // next to the glowstone at 255
+    CHECK(light[16] == nullptr);                                 // no 17th section
+    SectionRefs refs;
+    REQUIRE(captureSection(w, {0, 15, 0}, refs)); // the top section
+    CHECK(refs.blocks[22] == nullptr);             // above it: outside the world
+    CHECK(refs.openSky == 0);
+    REQUIRE(captureSection(w, {0, 0, 0}, refs));
+    CHECK(refs.blocks[4] == nullptr); // below Y 0
 }

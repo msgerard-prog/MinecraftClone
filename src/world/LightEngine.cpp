@@ -38,12 +38,13 @@ const std::shared_ptr<const SectionLight>& sharedUniformLight(uint8_t sky) {
 bool ChunkNeighbourhood::capture(const World& world, ChunkPos center, ChunkNeighbourhood& out) {
     out.center = center;
     out.hasSkyLight = world.hasSkyLight();
+    out.height = world.height();
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dx = -1; dx <= 1; ++dx) {
             const Chunk* c = world.chunk({center.x + dx, center.z + dz});
             if (!c) return false;
             auto& dst = out.sections[(dz + 1) * 3 + (dx + 1)];
-            for (int s = 0; s < kSectionsPerChunk; ++s)
+            for (int s = 0; s < c->sectionCount(); ++s)
                 dst[s] = c->shareSection(s);
         }
     }
@@ -60,7 +61,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     //    open sky (15); everything below that range is dark.
     int topSection = -1;
     for (const auto& chunk : n.sections)
-        for (int s = kSectionsPerChunk - 1; s > topSection; --s)
+        for (int s = n.height.sections() - 1; s > topSection; --s)
             if (!chunk[s]->isEmpty()) topSection = s;
     ChunkLight result;
     const uint8_t open = n.hasSkyLight ? 15 : 0; // light of the open air above everything
@@ -70,7 +71,8 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     }
     // Up to 15 blocks above the highest non-empty section: block light from emitters
     // near its top reaches that far into the open air.
-    r.y1 = std::min(kMaxY + 1, kMinY + (topSection + 1) * 16 + 15);
+    const int minY = n.height.minY;
+    r.y1 = std::min(n.height.maxY() + 1, minY + (topSection + 1) * 16 + 15);
     // Sections that are solid opaque, non-emitting blocks in all 9 chunks hold no
     // light and pass none: start lighting above the highest run of them from the
     // bottom (usually just under the surface).
@@ -85,7 +87,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
             }
         if (!allSolid) break;
     }
-    r.y0 = kMinY + bottomSection * 16;
+    r.y0 = minY + bottomSection * 16;
     const int span = r.y1 - r.y0;
     r.opacity.assign(static_cast<size_t>(span) * kLayer, 0);
     r.sky.assign(r.opacity.size(), 0);
@@ -104,7 +106,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
                 const Section& sec = *n.sections[cz * 3 + cx][s];
                 if (sec.isEmpty()) continue; // opacity 0, no emitters
                 sec.copyTo(sectionStates.data());
-                const int baseY = kMinY + s * 16;
+                const int baseY = minY + s * 16;
                 for (int ly = 0; ly < 16; ++ly) {
                     const int y = baseY + ly;
                     if (y >= r.y1) break;
@@ -196,8 +198,8 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
 
     // 5. Copy the centre chunk out, section by section (uniform where possible;
     //    the common all-sky and all-dark sections share one immutable instance).
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
-        const int baseY = kMinY + s * 16;
+    for (int s = 0; s < n.height.sections(); ++s) {
+        const int baseY = minY + s * 16;
         if (baseY >= r.y1) {
             result[s] = sharedUniformLight(open);
             continue;

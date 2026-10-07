@@ -57,7 +57,7 @@ uint64_t chunkSeed(uint64_t seed, int32_t cx, int32_t cz, uint64_t purpose) {
 // Corner grid of the density (vanilla cell size: 4 x 8 x 4).
 constexpr int kCellW = 4, kCellH = 8;
 constexpr int kCornersXZ = 16 / kCellW + 1;                   // 5
-constexpr int kCornersY = (kMaxY - kMinY + 1) / kCellH + 1;   // 49
+constexpr int kCornersY = (kOverworldHeight.maxY() - kOverworldHeight.minY + 1) / kCellH + 1;   // 49
 
 int floorDiv(int a, int b) { return (a >= 0 ? a : a - b + 1) / b; }
 
@@ -154,11 +154,11 @@ const Blocks& blockSet() {
 struct Buf {
     BlockStateId* d;
     static int index(int x, int y, int z) {
-        return sectionIndex(y) * Section::kVolume + Section::index(x, blockToLocal(y), z);
+        return kOverworldHeight.sectionIndex(y) * Section::kVolume + Section::index(x, blockToLocal(y), z);
     }
-    BlockStateId get(int x, int y, int z) const { return isInBuildHeight(y) ? d[index(x, y, z)] : 0; }
+    BlockStateId get(int x, int y, int z) const { return kOverworldHeight.contains(y) ? d[index(x, y, z)] : 0; }
     void set(int x, int y, int z, BlockStateId s) {
-        if (isInBuildHeight(y)) d[index(x, y, z)] = s;
+        if (kOverworldHeight.contains(y)) d[index(x, y, z)] = s;
     }
 };
 
@@ -231,8 +231,8 @@ OverworldGenerator::Column OverworldGenerator::column(int32_t x, int32_t z) cons
 
 double OverworldGenerator::terrainDensity(int32_t x, int32_t y, int32_t z, const Column& c) const {
     double d = (c.height - y) / c.scale + c.roughness * m_terrain3d.noise(x, y * 1.4, z) * 1.1;
-    if (y < kMinY + 8) d += (kMinY + 8 - y) * 0.3; // closed floor
-    if (y > kMaxY - 20) d -= (y - (kMaxY - 20)) * 0.3; // open sky at the top
+    if (y < kOverworldHeight.minY + 8) d += (kOverworldHeight.minY + 8 - y) * 0.3; // closed floor
+    if (y > kOverworldHeight.maxY() - 20) d -= (y - (kOverworldHeight.maxY() - 20)) * 0.3; // open sky at the top
     return d;
 }
 
@@ -241,7 +241,7 @@ double OverworldGenerator::caveDensity(int32_t x, int32_t y, int32_t z, const Co
     // (fading out over 8 blocks above that); spaghetti tunnels may break through on
     // land (cave entrances), but not under the sea (no aquifers yet: they would
     // leave dry holes in the sea floor). All stay above the bedrock floor.
-    const double floor = std::clamp((y - (kMinY + 5.0)) / 4.0, 0.0, 1.0);
+    const double floor = std::clamp((y - (kOverworldHeight.minY + 5.0)) / 4.0, 0.0, 1.0);
     const double fade = std::clamp((c.height - 12.0 - y) / 8.0, 0.0, 1.0) * floor;
     const bool land = c.height > kSeaLevel + 3;
     const double entranceFade = land ? std::clamp((c.height + 6.0 - y) / 6.0, 0.0, 1.0) * floor : fade;
@@ -273,9 +273,9 @@ int OverworldGenerator::surfaceY(int32_t x, int32_t z) const {
     double top = -1e9;
     for (const Column& c : cols)
         top = std::max(top, c.height + c.roughness * c.scale * 1.1 + 8.0);
-    int j = std::clamp(static_cast<int>(std::ceil((top - kMinY) / kCellH)), 1, kCornersY - 1);
+    int j = std::clamp(static_cast<int>(std::ceil((top - kOverworldHeight.minY) / kCellH)), 1, kCornersY - 1);
     auto layer = [&](int jj) {
-        const int32_t y = kMinY + jj * kCellH;
+        const int32_t y = kOverworldHeight.minY + jj * kCellH;
         const double d00 = terrainDensity(x0, y, z0, cols[0]);
         const double d10 = terrainDensity(x0 + kCellW, y, z0, cols[1]);
         const double d01 = terrainDensity(x0, y, z0 + kCellW, cols[2]);
@@ -286,11 +286,11 @@ int OverworldGenerator::surfaceY(int32_t x, int32_t z) const {
     for (; j > 0; --j) {
         const double lower = layer(j - 1);
         for (int dy = kCellH - 1; dy >= 0; --dy) {
-            if (lerp(lower, upper, dy / double(kCellH)) > 0.0) return kMinY + (j - 1) * kCellH + dy;
+            if (lerp(lower, upper, dy / double(kCellH)) > 0.0) return kOverworldHeight.minY + (j - 1) * kCellH + dy;
         }
         upper = lower;
     }
-    return kMinY;
+    return kOverworldHeight.minY;
 }
 
 // --- Biomes ------------------------------------------------------------------------------
@@ -381,7 +381,7 @@ bool OverworldGenerator::groundCarved(int32_t x, int32_t y, int32_t z) const {
     // The combined (terrain + caves) density at a block, with the same corners and
     // interpolation as generate(): <= 0 means a cave opened the ground there.
     const int32_t x0 = floorDiv(x, kCellW) * kCellW, z0 = floorDiv(z, kCellW) * kCellW;
-    const int32_t y0 = kMinY + floorDiv(y - kMinY, kCellH) * kCellH;
+    const int32_t y0 = kOverworldHeight.minY + floorDiv(y - kOverworldHeight.minY, kCellH) * kCellH;
     const double fx = (x - x0) / double(kCellW), fz = (z - z0) / double(kCellW),
                  fy = (y - y0) / double(kCellH);
     double d[2][2][2];
@@ -489,7 +489,7 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
             if (isLog && trunkCount < 16) trunk[size_t(trunkCount++)] = {x, y, z};
             if (!isLog) s = leafFor(x, y, z);
             const int lx = x - baseX, lz = z - baseZ;
-            if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !isInBuildHeight(y)) return;
+            if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
             const BlockStateId cur = chunk.get(lx, y, lz);
             const BlockId curBlock = reg.blockOf(cur);
             if (cur == 0 || (isLog && (curBlock == blocks::OakLeaves || curBlock == blocks::BirchLeaves ||
@@ -561,7 +561,7 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
 void OverworldGenerator::generate(Chunk& out) const {
     const Blocks& B = blockSet();
     const auto& reg = blockRegistry();
-    static thread_local std::vector<BlockStateId> blockArray(size_t(kSectionsPerChunk) * Section::kVolume);
+    static thread_local std::vector<BlockStateId> blockArray(size_t(kOverworldHeight.sections()) * Section::kVolume);
     Buf chunk{blockArray.data()};
     const ChunkPos pos = out.pos();
     const int32_t cx = pos.x, cz = pos.z;
@@ -579,7 +579,7 @@ void OverworldGenerator::generate(Chunk& out) const {
             const Column& col = cornerCols[size_t(k * kCornersXZ + i)];
             const int32_t x = baseX + i * kCellW, z = baseZ + k * kCellW;
             for (int j = 0; j < kCornersY; ++j) {
-                const int32_t y = kMinY + j * kCellH;
+                const int32_t y = kOverworldHeight.minY + j * kCellH;
                 const double t = terrainDensity(x, y, z, col);
                 terrain[ci(i, j, k)] = t;
                 combined[ci(i, j, k)] = t > 0.0 ? std::min(t, caveDensity(x, y, z, col)) : t;
@@ -595,7 +595,7 @@ void OverworldGenerator::generate(Chunk& out) const {
             columnBiome[size_t(qz * 4 + qx)] = biomeAt(columnCol[size_t(qz * 4 + qx)]);
         }
     auto biomes = std::make_shared<ChunkBiomes>();
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < kOverworldHeight.sections(); ++s)
         for (int qy = 0; qy < 4; ++qy)
             for (int qz = 0; qz < 4; ++qz)
                 for (int qx = 0; qx < 4; ++qx)
@@ -603,15 +603,15 @@ void OverworldGenerator::generate(Chunk& out) const {
 
     // 3. Fill: stone / deepslate where the density is solid; sea and lava elsewhere.
     std::array<int, 256> topY;
-    topY.fill(kMinY - 1);
-    std::array<bool, kSectionsPerChunk> sectionAir{};
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
-        const int baseY = kMinY + s * 16;
+    topY.fill(kOverworldHeight.minY - 1);
+    std::array<bool, kOverworldHeight.sections()> sectionAir{};
+    for (int s = 0; s < kOverworldHeight.sections(); ++s) {
+        const int baseY = kOverworldHeight.minY + s * 16;
         BlockStateId* buffer = blockArray.data() + size_t(s) * Section::kVolume;
         // Interpolation never leaves the range of its corners: a section above the
         // sea whose corner densities are all <= 0 is all air.
         if (baseY >= kSeaLevel) {
-            const int j0 = (baseY - kMinY) / kCellH;
+            const int j0 = (baseY - kOverworldHeight.minY) / kCellH;
             double maxD = -1e300;
             for (int j = j0; j <= std::min(j0 + 2, kCornersY - 1); ++j)
                 for (int k = 0; k < kCornersXZ; ++k)
@@ -625,8 +625,8 @@ void OverworldGenerator::generate(Chunk& out) const {
         }
         for (int ly = 0; ly < 16; ++ly) {
             const int y = baseY + ly;
-            const int j = (y - kMinY) / kCellH;
-            const double fy = ((y - kMinY) % kCellH) / double(kCellH);
+            const int j = (y - kOverworldHeight.minY) / kCellH;
+            const double fy = ((y - kOverworldHeight.minY) % kCellH) / double(kCellH);
             for (int z = 0; z < 16; ++z) {
                 const int k = z / kCellW;
                 const double fz = (z % kCellW) / double(kCellW);
@@ -643,8 +643,8 @@ void OverworldGenerator::generate(Chunk& out) const {
                     const double d = j + 1 < kCornersY ? tri(combined) : -1.0;
                     BlockStateId b = B.air;
                     const int32_t wx = baseX + x, wz = baseZ + z;
-                    if (y == kMinY || (y <= kMinY + 4 && positional(m_seed, wx, y, wz, 10) <
-                                                         (kMinY + 5 - y) / 5.0)) {
+                    if (y == kOverworldHeight.minY || (y <= kOverworldHeight.minY + 4 && positional(m_seed, wx, y, wz, 10) <
+                                                         (kOverworldHeight.minY + 5 - y) / 5.0)) {
                         b = B.bedrock; // vanilla: bedrock thins out over y -63..-60
                     } else if (d > 0.0) {
                         const bool deep = y < 0 || (y < 8 && positional(m_seed, wx, y, wz, 11) < (8 - y) / 8.0);
@@ -667,7 +667,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     for (int z = 0; z < 16; ++z)
         for (int x = 0; x < 16; ++x) {
             const int ty = top(x, z);
-            if (ty < kMinY + 5) continue;
+            if (ty < kOverworldHeight.minY + 5) continue;
             const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
             const int32_t wx = baseX + x, wz = baseZ + z;
             const int depth = 3 + static_cast<int>(std::floor(m_surface.noise2d(wx, wz) * 4.0 + 0.5));
@@ -741,7 +741,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     // blobs get the stone variant, deepslate and tuff the deepslate one (wiki: each
     // ore's "replaceable" blocks).
     auto replaceAt = [&](int x, int y, int z, const Blocks::Ore& ore) {
-        if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(y)) return;
+        if (x < 0 || x > 15 || z < 0 || z > 15 || !kOverworldHeight.contains(y)) return;
         const BlockStateId cur = chunk.get(x, y, z);
         if (cur == B.stone || cur == B.granite || cur == B.diorite || cur == B.andesite)
             chunk.set(x, y, z, ore.stone);
@@ -763,7 +763,7 @@ void OverworldGenerator::generate(Chunk& out) const {
             const double r = ((std::sin(std::numbers::pi * t) + 1.0) * ores.nextDouble() * size / 15.0 + 1.0) / 2.0;
             // Clipped to this chunk and to the stone (ores replace nothing above it).
             const int bx0 = std::max(0, int(std::floor(px - r))), bx1 = std::min(15, int(std::floor(px + r)));
-            const int by0 = std::max(kMinY, int(std::floor(py - r))), by1 = std::min(maxTop, int(std::floor(py + r)));
+            const int by0 = std::max(kOverworldHeight.minY, int(std::floor(py - r))), by1 = std::min(maxTop, int(std::floor(py + r)));
             const int bz0 = std::max(0, int(std::floor(pz - r))), bz1 = std::min(15, int(std::floor(pz + r)));
             for (int bx = bx0; bx <= bx1; ++bx)
                 for (int by = by0; by <= by1; ++by)
@@ -828,7 +828,7 @@ void OverworldGenerator::generate(Chunk& out) const {
             const float roll = plants.nextFloat();
             const uint32_t pick = plants.nextInt(1000);
             const int ty = top(x, z);
-            if (ty < kSeaLevel - 1 || !isInBuildHeight(ty + 1) || chunk.get(x, ty + 1, z) != B.air) continue;
+            if (ty < kSeaLevel - 1 || !kOverworldHeight.contains(ty + 1) || chunk.get(x, ty + 1, z) != B.air) continue;
             const BlockStateId ground = chunk.get(x, ty, z);
             const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
             BlockStateId plant = 0;
@@ -863,8 +863,8 @@ void OverworldGenerator::generate(Chunk& out) const {
     //    layer (grass under it becomes snowy).
     for (int z = 0; z < 16; ++z)
         for (int x = 0; x < 16; ++x) {
-            int y = kMaxY;
-            while (y > kMinY && chunk.get(x, y, z) == B.air)
+            int y = kOverworldHeight.maxY();
+            while (y > kOverworldHeight.minY && chunk.get(x, y, z) == B.air)
                 --y;
             const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
             const float temp = biomeInfo(biome).temperature - std::max(0, y - 80) / 800.0f;
@@ -872,14 +872,14 @@ void OverworldGenerator::generate(Chunk& out) const {
             const BlockStateId surface = chunk.get(x, y, z);
             if (surface == B.water) {
                 chunk.set(x, y, z, B.ice);
-            } else if (y + 1 <= kMaxY && reg.collides(surface)) {
+            } else if (y + 1 <= kOverworldHeight.maxY() && reg.collides(surface)) {
                 chunk.set(x, y + 1, z, B.snowLayer);
                 if (surface == B.grass) chunk.set(x, y, z, B.snowyGrass);
             }
         }
 
     // 9. Encode the sections once (all-air sections stay empty).
-    for (int sec = 0; sec < kSectionsPerChunk; ++sec) {
+    for (int sec = 0; sec < kOverworldHeight.sections(); ++sec) {
         const BlockStateId* b = blockArray.data() + size_t(sec) * Section::kVolume;
         if (sectionAir[size_t(sec)] && std::all_of(b, b + Section::kVolume, [](BlockStateId v) { return v == 0; }))
             out.mutableSection(sec).fill(0);

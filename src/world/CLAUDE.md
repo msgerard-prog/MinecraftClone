@@ -3,7 +3,8 @@ Block registry & states, chunks/sections, worldgen, lighting, saves. **No OpenGL
 GLFW** — everything here must be unit-testable from `tests/`.
 
 - Coordinates: always via `Coords.h` helpers (`blockToChunk`, `blockToLocal`,
-  `sectionIndex`). Never `/ 16` or `% 16` on block coordinates (wrong for negatives).
+  `HeightRange::sectionIndex` of the chunk's/world's height - heights differ per
+  dimension). Never `/ 16` or `% 16` on block coordinates (wrong for negatives).
 - Worldgen must be deterministic per seed: no `rand()`, no global RNG, no dependence
   on thread scheduling or unordered-container iteration order. Use a seeded RNG
   derived from (world seed, chunk pos, feature id) the way vanilla does.

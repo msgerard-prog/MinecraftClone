@@ -84,7 +84,8 @@ The first build downloads dependencies into `out/deps` (≈1 min). Build output 
 3. **World generation is deterministic** for a seed: same seed → same blocks, on any
    thread order. Tests pin hashes of generated chunks.
 4. **Coordinates** follow vanilla (`world/Coords.h`): Y up, chunk 16×16, section 16³,
-   Y −64..319, block coords `int32`, floor division via `>> 4` / `& 15`.
+   heights per dimension as vanilla (`HeightRange`: Overworld −64..319, Nether/End 0..255;
+   never assume one), block coords `int32`, floor division via `>> 4` / `& 15`.
 5. **No Mojang code or assets in the repo.** Implement from the Minecraft Wiki and
    observed behaviour, never paste decompiled source. Textures in `assets/` are our own.
    Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`

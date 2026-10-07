@@ -7,7 +7,7 @@ namespace mc::world {
 Chunk& World::createChunk(ChunkPos pos) {
     ++m_chunkEpoch;
     auto& slot = m_chunks[pos];
-    slot = std::make_unique<Chunk>(pos);
+    slot = std::make_unique<Chunk>(pos, m_height);
     return *slot;
 }
 

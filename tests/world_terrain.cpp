@@ -13,7 +13,7 @@ namespace {
 
 uint64_t chunkHash(const Chunk& c) {
     uint64_t h = 1469598103934665603ull;
-    for (int y = kMinY; y <= kMaxY; ++y)
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
         for (int z = 0; z < 16; ++z)
             for (int x = 0; x < 16; ++x) {
                 h ^= c.get(x, y, z);
@@ -62,7 +62,7 @@ TEST_CASE("terrain: bedrock floor, water up to sea level, surface rules") {
             gen.generate(c);
             for (int z = 0; z < 16; z += 5) {
                 for (int x = 0; x < 16; x += 5) {
-                    CHECK(r.blockOf(c.get(x, kMinY, z)) == blocks::Bedrock);
+                    CHECK(r.blockOf(c.get(x, kOverworldHeight.minY, z)) == blocks::Bedrock);
                     const int h = gen.surfaceHeight(c.pos().x * 16 + x, c.pos().z * 16 + z);
                     CHECK(c.get(x, h, z) != 0);
                     CHECK(c.get(x, h + 1, z) == (h + 1 < TerrainGenerator::kSeaLevel
@@ -109,7 +109,7 @@ TEST_CASE("terrain bands: bedrock thins out, deepslate fades in over y 0..7, 3 d
                 for (int x = 0; x < 16; ++x) {
                     ++columns;
                     for (int i = 0; i < 5; ++i)
-                        bedrock[i] += r.blockOf(c.get(x, kMinY + i, z)) == blocks::Bedrock;
+                        bedrock[i] += r.blockOf(c.get(x, kOverworldHeight.minY + i, z)) == blocks::Bedrock;
                     for (int i = 0; i < 9; ++i)
                         deepslate[i] += r.blockOf(c.get(x, i, z)) == blocks::Deepslate;
                     const int h = gen.surfaceHeight(cx * 16 + x, cz * 16 + z);

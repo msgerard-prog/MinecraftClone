@@ -21,8 +21,6 @@ namespace {
 // Vanilla's daytime sky colour at plains biome (#78A7FF), until biomes exist (M8).
 constexpr glm::vec3 kPlainsSky(0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f);
 
-constexpr int kMinSectionY = world::kMinY >> 4; // -4
-constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
 
 } // namespace
 
@@ -101,14 +99,14 @@ void WorldRenderer::markChunkDirty(const world::World& world, world::ChunkPos po
     for (const auto& d : kNeighbours) {
         const world::ChunkPos p{pos.x + d[0], pos.z + d[1]};
         if (!world.chunk(p)) continue;
-        for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy)
+        for (int sy = m_minSection; sy <= m_maxSection; ++sy)
             markDirty({p.x, sy, p.z});
     }
 }
 
 void WorldRenderer::markAllDirty(const world::World& world) {
     world.forEachChunk([&](const world::Chunk& c) {
-        for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
+        for (int sy = m_minSection; sy <= m_maxSection; ++sy) {
             markDirty({c.pos().x, sy, c.pos().z});
         }
     });
@@ -119,8 +117,8 @@ void WorldRenderer::markChunkSections(const world::World& world, world::ChunkPos
     // and empty sections have no faces of their own (~70% fewer jobs).
     const world::Chunk* chunk = world.chunk(pos);
     if (!chunk) return;
-    for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
-        if (!chunk->section(sy - kMinSectionY).isEmpty()) markDirty({pos.x, sy, pos.z});
+    for (int sy = m_minSection; sy <= m_maxSection; ++sy) {
+        if (!chunk->section(sy - m_minSection).isEmpty()) markDirty({pos.x, sy, pos.z});
     }
 }
 
@@ -140,7 +138,7 @@ void WorldRenderer::onLightChanged(const std::vector<world::SectionPos>& section
             for (int dz = -1; dz <= 1; ++dz)
                 for (int dx = -1; dx <= 1; ++dx) {
                     const world::SectionPos p{s.x + dx, s.y + dy, s.z + dz};
-                    if (p.y < kMinSectionY || p.y > kMaxSectionY) continue;
+                    if (p.y < m_minSection || p.y > m_maxSection) continue;
                     if (!m_meshTracker.isMeshed({p.x, p.z})) continue;
                     markDirty(p);
                 }
@@ -150,7 +148,7 @@ void WorldRenderer::onLightChanged(const std::vector<world::SectionPos>& section
 void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
     m_meshTracker.onUnloaded(unloaded);
     for (const world::ChunkPos& p : unloaded) {
-        for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
+        for (int sy = m_minSection; sy <= m_maxSection; ++sy) {
             const world::SectionPos s{p.x, sy, p.z};
             m_chunks.removeSection(s);
             m_translucent.removeSection(s);
@@ -177,7 +175,7 @@ void WorldRenderer::onBlocksChanged(const std::vector<world::BlockPos>& changed)
             {s.x, s.y, s.z + (lz == 15 ? 1 : 0)},
         };
         for (const world::SectionPos& p : around) {
-            if (p.y < kMinSectionY || p.y > kMaxSectionY) continue;
+            if (p.y < m_minSection || p.y > m_maxSection) continue;
             // While streaming, only chunks that already have meshes are re-meshed (a
             // chunk without all neighbours would show walls).
             if (m_streaming && !m_meshTracker.isMeshed({p.x, p.z})) continue;
@@ -251,7 +249,7 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
 
         const world::Chunk* chunk = world.chunk({pos.x, pos.z});
         // Empty sections have no faces of their own (neighbours mesh their sides).
-        if (!chunk || chunk->section(pos.y - kMinSectionY).isEmpty()) {
+        if (!chunk || chunk->section(pos.y - m_minSection).isEmpty()) {
             ++st.version; // drops any in-flight result for it
             m_chunks.removeSection(pos);
             m_translucent.removeSection(pos);

@@ -96,7 +96,7 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
             e.vel.y *= 0.98;
             if (e.onGround) e.vel.y *= -0.5;
         }
-        bool remove = e.age >= kDespawnTicks || e.pos.y < world::kMinY - 64 || inLava; // lava burns items
+        bool remove = e.age >= kDespawnTicks || e.pos.y < world.height().minY - 64 || inLava; // lava burns items
         if (!remove && canPickUp && e.pickupDelay == 0 &&
             reach.intersects(Aabb::fromFeet(e.pos, kSize, kSize))) {
             const int left = inventory.add(e.stack);

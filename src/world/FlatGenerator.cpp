@@ -22,14 +22,14 @@ std::optional<FlatGenerator> FlatGenerator::fromPreset(std::string_view preset) 
         const auto state = blockRegistry().parse(layer);
         if (!state) return std::nullopt;
         // Check the height limit before inserting (a huge count must not allocate).
-        if (static_cast<size_t>(count) > static_cast<size_t>(kHeight) - gen.m_layers.size()) {
+        if (static_cast<size_t>(count) > static_cast<size_t>(kOverworldHeight.height) - gen.m_layers.size()) {
             return std::nullopt;
         }
         gen.m_layers.insert(gen.m_layers.end(), static_cast<size_t>(count), *state);
         if (comma == std::string_view::npos) break;
         rest.remove_prefix(comma + 1);
     }
-    if (gen.m_layers.empty() || gen.m_layers.size() > static_cast<size_t>(kHeight)) {
+    if (gen.m_layers.empty() || gen.m_layers.size() > static_cast<size_t>(kOverworldHeight.height)) {
         return std::nullopt;
     }
     return gen;
@@ -38,7 +38,7 @@ std::optional<FlatGenerator> FlatGenerator::fromPreset(std::string_view preset) 
 void FlatGenerator::generate(Chunk& chunk) const {
     // Layer by layer, block by block (a few thousand sets per chunk; fine for flat).
     for (size_t i = 0; i < m_layers.size(); ++i) {
-        const int y = kMinY + static_cast<int>(i);
+        const int y = kOverworldHeight.minY + static_cast<int>(i);
         for (int z = 0; z < 16; ++z) {
             for (int x = 0; x < 16; ++x)
                 chunk.set(x, y, z, m_layers[i]);

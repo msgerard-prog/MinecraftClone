@@ -10,7 +10,7 @@ namespace {
 // FNV-1a over every block state of a chunk: pins worldgen output (hard rule 3).
 uint64_t chunkHash(const Chunk& c) {
     uint64_t h = 1469598103934665603ull;
-    for (int y = kMinY; y <= kMaxY; ++y)
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
         for (int z = 0; z < 16; ++z)
             for (int x = 0; x < 16; ++x) {
                 h ^= c.get(x, y, z);

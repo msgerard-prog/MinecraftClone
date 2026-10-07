@@ -49,7 +49,7 @@ bool ChunkStorage::load(Chunk& chunk) {
         if (auto it = m_pending.find(pos); it != m_pending.end()) {
             // Not written yet: copy the queued snapshot's sections.
             const ChunkSnapshot& snap = it->second.snapshot;
-            for (int s = 0; s < kSectionsPerChunk; ++s)
+            for (int s = 0; s < chunk.sectionCount(); ++s)
                 chunk.mutableSection(s) = *snap.sections[size_t(s)];
             if (snap.biomes) chunk.setBiomes(snap.biomes);
             chunk.furnaces() = snap.furnaces;

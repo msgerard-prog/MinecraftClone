@@ -136,7 +136,7 @@ std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 
                 if (std::max(std::abs(dx), std::abs(dz)) != radius) continue;
                 const int x = sx + dx, z = sz + dz;
                 if (!world.chunk({blockToChunk(x), blockToChunk(z)})) continue;
-                for (int y = kMaxY; y > kMinY; --y) {
+                for (int y = world.height().maxY(); y > world.height().minY; --y) {
                     const BlockStateId s = world.getBlock({x, y, z});
                     const BlockId b = r.blockOf(s);
                     if (b == blocks::Water || b == blocks::Lava) break; // not on a sea floor
@@ -293,6 +293,7 @@ int main(int argc, char** argv) {
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
+    world.setHeight(mc::world::dimensionInfo(dimension).height); // vanilla: per dimension type
     renderer.setDimension(dimension);
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
@@ -705,6 +706,7 @@ int main(int argc, char** argv) {
                 const Dimension from = dimension;
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
+                world.setHeight(mc::world::dimensionInfo(dimension).height); // (no chunks are loaded now)
                 renderer.setDimension(dimension);
                 vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
                 // The old storage finishes its writes on a thread of its own (flushing
@@ -767,7 +769,7 @@ int main(int argc, char** argv) {
                                 --in.y;
                         } else {
                             const bool nether = dimension == Dimension::Nether;
-                            in = mc::portals::build(world, a.from, nether ? 32 : mc::world::kMinY + 8, nether ? 118 : 310,
+                            in = mc::portals::build(world, a.from, nether ? 32 : world.height().minY + 8, nether ? 118 : 310,
                                                     frameEdits);
                             knownPortals.push_back({dimension, in});
                         }
@@ -1054,8 +1056,8 @@ int main(int argc, char** argv) {
             mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
         world.forEachTickingChunk([&](mc::world::Chunk& c) {
             if (c.mobs().empty()) return;
-            const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, mc::world::kMinY, c.pos().z * 16.0) - camera.position);
-            if (!mobFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(mc::world::kHeight), 16.0f)))
+            const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, c.height().minY, c.pos().z * 16.0) - camera.position);
+            if (!mobFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(c.height().height), 16.0f)))
                 return;
             for (const auto& m : c.mobs()) {
                 const glm::dvec3 p = glm::mix(m.prevPos, m.pos, clock.alpha);
@@ -1146,7 +1148,7 @@ int main(int argc, char** argv) {
                                                static_cast<int32_t>(std::floor(d.feet.z))};
                 if (const auto* c = world.chunk(feet.chunk()))
                     d.biome = mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(feet.x), feet.y,
-                                                                   mc::world::blockToLocal(feet.z)))
+                                                                   mc::world::blockToLocal(feet.z), c->height()))
                                   .id.data();
                 if (const auto* c = world.chunk(feet.chunk()); c && c->lit()) {
                     d.skyLight = c->skyLight(mc::world::blockToLocal(feet.x), feet.y,

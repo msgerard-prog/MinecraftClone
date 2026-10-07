@@ -204,7 +204,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         const auto state = world::blockRegistry().parse(a[4]);
         if (!state) return fail(format("Unknown block '%.*s'", int(a[4].size()), a[4].data()));
         const world::BlockPos at{int(std::floor(*x)), int(std::floor(*y)), int(std::floor(*z))};
-        if (!world::isInBuildHeight(at.y) || !ctx.world->chunk(at.chunk())) return fail("That position is not loaded");
+        if (!ctx.world->isInHeight(at.y) || !ctx.world->chunk(at.chunk())) return fail("That position is not loaded");
         if (ctx.world->getBlock(at) == *state) return fail("Could not set the block");
         ctx.world->updateBlock(at, *state);
         if (ctx.changed) ctx.changed->push_back(at);
@@ -233,7 +233,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         for (int y = lo[1]; y <= hi[1]; ++y)
             for (int z = lo[2]; z <= hi[2]; ++z)
                 for (int x = lo[0]; x <= hi[0]; ++x)
-                    if (!world::isInBuildHeight(y) || !ctx.world->chunk(world::BlockPos{x, y, z}.chunk()))
+                    if (!ctx.world->isInHeight(y) || !ctx.world->chunk(world::BlockPos{x, y, z}.chunk()))
                         return fail("That position is not loaded");
         std::vector<std::pair<world::BlockPos, world::BlockStateId>> old;
         for (int y = lo[1]; y <= hi[1]; ++y)

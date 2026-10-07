@@ -25,11 +25,12 @@ void LightManager::run() {
     while (auto job = m_jobs.popWait()) {
         Job& j = **job;
         j.output = computeChunkLight(j.input);
+        const int sections = j.input.height.sections();
         j.input = {}; // release the shared sections early
         // Compare with the old light here, not on the main thread; unchanged sections
         // keep their old instance (and the new copy is freed on this thread).
         j.changed = 0;
-        for (int s = 0; s < kSectionsPerChunk; ++s) {
+        for (int s = 0; s < sections; ++s) {
             const auto& before = j.before[s];
             if (before && (before == j.output[s] || *before == *j.output[s])) {
                 j.output[s] = before;
@@ -75,7 +76,7 @@ bool LightManager::submit(ChunkPos pos, std::vector<BlockPos>& editsReady) {
         }
         return true;
     }
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < c->sectionCount(); ++s)
         job->before[s] = c->light(s);
     job->pos = pos;
     job->version = m_nextVersion++;
@@ -136,9 +137,9 @@ void LightManager::update(const std::vector<ChunkPos>& loaded,
         if (chunk && chunk->lightJob.version == job->version) {
             const bool first = !chunk->lit();
             if (!first) {
-                for (int s = 0; s < kSectionsPerChunk; ++s)
+                for (int s = 0; s < chunk->sectionCount(); ++s)
                     if (job->changed & (1u << s))
-                        relitSections.push_back({job->pos.x, (kMinY >> 4) + s, job->pos.z});
+                        relitSections.push_back({job->pos.x, chunk->height().minSection() + s, job->pos.z});
             }
             chunk->setLight(job->output);
             if (first) newlyLit.push_back(job->pos);

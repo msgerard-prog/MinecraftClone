@@ -17,7 +17,7 @@ namespace {
 
 uint64_t chunkHash(const Chunk& c) {
     uint64_t h = 1469598103934665603ull;
-    for (int y = kMinY; y <= kMaxY; ++y)
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
         for (int z = 0; z < 16; ++z)
             for (int x = 0; x < 16; ++x) {
                 h ^= c.get(x, y, z);
@@ -54,8 +54,8 @@ TEST_CASE("overworld: bedrock floor, sea at 63, ores at their depths, lava only 
             gen.generate(c);
             for (int z = 0; z < 16; ++z)
                 for (int x = 0; x < 16; ++x) {
-                    CHECK(r.blockOf(c.get(x, kMinY, z)) == blocks::Bedrock);
-                    for (int y = kMinY; y <= kMaxY; ++y) {
+                    CHECK(r.blockOf(c.get(x, kOverworldHeight.minY, z)) == blocks::Bedrock);
+                    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y) {
                         const BlockId b = r.blockOf(c.get(x, y, z));
                         if (b == blocks::Water) {
                             ++water;
@@ -227,7 +227,7 @@ TEST_CASE("overworld: cold places get snow layers and ice; lava stops at -55") {
 TEST_CASE("nether: deterministic, bedrock floor and roof, lava sea, solidAt agrees with the blocks") {
     using namespace mc::world;
     const NetherGenerator gen(42);
-    Chunk a({3, -5}), b({3, -5});
+    Chunk a({3, -5}, kNetherHeight), b({3, -5}, kNetherHeight);
     gen.generate(a);
     gen.generate(b);
     const auto& r = blockRegistry();
@@ -236,8 +236,9 @@ TEST_CASE("nether: deterministic, bedrock floor and roof, lava sea, solidAt agre
         for (int x = 0; x < 16; ++x) {
             CHECK(r.blockOf(a.get(x, 0, z)) == blocks::Bedrock);
             CHECK(r.blockOf(a.get(x, 127, z)) == blocks::Bedrock);
-            CHECK(a.get(x, -1, z) == 0);
-            CHECK(a.get(x, 128, z) == 0);
+            CHECK(a.get(x, -1, z) == 0);   // below the Nether's height (vanilla: Y 0..255)
+            CHECK(a.get(x, 128, z) == 0);  // above the roof: open (and buildable) up to 255
+            CHECK(a.sectionCount() == 16);
             for (int y = 5; y < 122; ++y) {
                 CHECK(a.get(x, y, z) == b.get(x, y, z));
                 const BlockId id = r.blockOf(a.get(x, y, z));
@@ -249,7 +250,7 @@ TEST_CASE("nether: deterministic, bedrock floor and roof, lava sea, solidAt agre
         }
     CHECK(mismatches == 0);
     const glm::dvec3 spawn = gen.findSpawn();
-    Chunk s({blockToChunk(int(std::floor(spawn.x))), blockToChunk(int(std::floor(spawn.z)))});
+    Chunk s({blockToChunk(int(std::floor(spawn.x))), blockToChunk(int(std::floor(spawn.z)))}, kNetherHeight);
     gen.generate(s);
     const int sx = blockToLocal(int(std::floor(spawn.x))), sz = blockToLocal(int(std::floor(spawn.z))), sy = int(spawn.y);
     CHECK(s.get(sx, sy, sz) == 0);
@@ -261,7 +262,7 @@ TEST_CASE("the end: an island at the origin with the exit portal, ten obsidian p
     using namespace mc::world;
     const EndGenerator gen(42);
     const auto& r = blockRegistry();
-    Chunk c({0, 0});
+    Chunk c({0, 0}, kEndHeight);
     gen.generate(c);
     const int top = gen.islandTop(0, 0);
     CHECK(top > 50);
@@ -270,7 +271,7 @@ TEST_CASE("the end: an island at the origin with the exit portal, ten obsidian p
     CHECK(gen.islandTop(400, 0) < 0); // no outer islands
     for (int i = 0; i < EndGenerator::kPillars; ++i) {
         const auto& p = gen.pillar(i);
-        Chunk pc({blockToChunk(p.x), blockToChunk(p.z)});
+        Chunk pc({blockToChunk(p.x), blockToChunk(p.z)}, kEndHeight);
         gen.generate(pc);
         CHECK(r.blockOf(pc.get(blockToLocal(p.x), p.height, blockToLocal(p.z))) == blocks::Obsidian);
         CHECK(r.blockOf(pc.get(blockToLocal(p.x), p.height + 1, blockToLocal(p.z))) == blocks::Bedrock);
@@ -279,7 +280,7 @@ TEST_CASE("the end: an island at the origin with the exit portal, ten obsidian p
 
 TEST_CASE("nether and end output are pinned (seed 42)") {
     using namespace mc::world;
-    Chunk n({3, -5}), e({3, -5});
+    Chunk n({3, -5}, kNetherHeight), e({3, -5}, kEndHeight);
     NetherGenerator(42).generate(n);
     EndGenerator(42).generate(e);
     CHECK(chunkHash(n) == 4236505564017377935ull);
@@ -295,10 +296,10 @@ TEST_CASE("dimensions: ids, folders, void depth; far End chunks are empty (no in
     CHECK(dimensionInfo(Dimension::Nether).folder == "DIM-1");
     CHECK(dimensionInfo(Dimension::End).folder == "DIM1");
     CHECK(dimensionInfo(Dimension::End).voidY == -64.0);
-    Chunk far({3125, 0}); // x = 50000
+    Chunk far({3125, 0}, kEndHeight); // x = 50000
     EndGenerator(42).generate(far);
     bool empty = true;
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < far.sectionCount(); ++s)
         empty = empty && far.section(s).isEmpty();
     CHECK(empty);
 }

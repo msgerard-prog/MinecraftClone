@@ -37,9 +37,10 @@ std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin
         cell[axis] += step[axis];
         tMax[axis] += tDelta[axis];
         const BlockPos p{cell.x, cell.y, cell.z};
-        if (!isInBuildHeight(p.y)) {
+        const HeightRange& h = world.height();
+        if (!h.contains(p.y)) {
             // Outside the world vertically: nothing more to hit in that direction.
-            if ((p.y < kMinY && step.y <= 0) || (p.y > kMaxY && step.y >= 0)) return std::nullopt;
+            if ((p.y < h.minY && step.y <= 0) || (p.y > h.maxY() && step.y >= 0)) return std::nullopt;
             continue;
         }
         const BlockStateId state = world.getBlock(p);

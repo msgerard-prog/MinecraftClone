@@ -28,7 +28,7 @@ struct MobScene {
                 for (int z = 0; z < 16; ++z)
                     for (int x = 0; x < 16; ++x)
                         c.set(x, 63, z, blockRegistry().defaultState(blocks::Stone));
-                std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+                std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
                 light.fill(std::make_shared<const SectionLight>()); // dark everywhere
                 c.setLight(light);
             }
@@ -121,7 +121,7 @@ TEST_CASE("zombies spawn in the dark around the player, never in light") {
     MobScene day;
     day.skyDarken = 0.0f;
     day.world.forEachChunk([](Chunk& c) {
-        std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+        std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
         auto lit = std::make_shared<SectionLight>();
         lit->sky.fill(15);
         light.fill(lit);
@@ -238,7 +238,7 @@ TEST_CASE("idle mobs don't mark their chunk for saving; mobs beyond the simulati
 TEST_CASE("zombies in the sun burn for 1 damage a second until they die") {
     MobScene s;
     s.skyDarken = 0.0f; // noon
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
     auto bright = std::make_shared<SectionLight>();
     bright->sky.fill(15);
     light.fill(bright);

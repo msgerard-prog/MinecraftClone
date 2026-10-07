@@ -14,14 +14,15 @@ namespace mc::world {
 struct ChunkNeighbourhood {
     ChunkPos center;
     // [(dz + 1) * 3 + (dx + 1)][section]
-    std::array<std::array<std::shared_ptr<const Section>, kSectionsPerChunk>, 9> sections;
+    std::array<std::array<std::shared_ptr<const Section>, kMaxSections>, 9> sections;
     bool hasSkyLight = true; // false in the Nether and the End (wiki: Light › Sky light)
+    HeightRange height;      // the dimension's (sections [0, height.sections()) are set)
 
     // Main thread. Returns false if any of the 9 chunks isn't loaded.
     static bool capture(const World& world, ChunkPos center, ChunkNeighbourhood& out);
 };
 
-using ChunkLight = std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk>;
+using ChunkLight = std::array<std::shared_ptr<const SectionLight>, kMaxSections>;
 
 // Sky and block light of the centre chunk (vanilla rules, wiki: Light):
 // - sky light is 15 under open sky and travels straight down without loss through

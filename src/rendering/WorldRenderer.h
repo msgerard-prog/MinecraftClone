@@ -74,7 +74,11 @@ public:
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
     void setDayTime(int64_t dayTime, float partialTick);
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
-    void setDimension(world::Dimension d) { m_dimension = d; }
+    void setDimension(world::Dimension d) {
+        m_dimension = d;
+        m_minSection = world::dimensionInfo(d).height.minSection(); // vanilla heights per dimension
+        m_maxSection = world::dimensionInfo(d).height.maxSection();
+    }
     float skyDarken() const { return m_skyDarken; }
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,
@@ -105,6 +109,8 @@ private:
     ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
     int m_renderDistance = 12;
     world::Dimension m_dimension = world::Dimension::Overworld;
+    int m_minSection = world::kOverworldHeight.minSection(); // -4
+    int m_maxSection = world::kOverworldHeight.maxSection(); // 19
     float m_skyDarken = 0.0f;       // sky light levels lost to night, 0..11
     glm::vec3 m_skyColor{0.0f};     // clear and fog colour
     SkyState m_skyState;

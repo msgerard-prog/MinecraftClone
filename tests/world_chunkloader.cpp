@@ -63,7 +63,7 @@ TEST_CASE("streamed chunks are identical to directly generated ones") {
     gen.generate(direct);
     const Chunk* streamed = world.chunk({6, -2});
     REQUIRE(streamed);
-    for (int y = kMinY; y <= kMaxY; y += 3)
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); y += 3)
         for (int z = 0; z < 16; z += 3)
             for (int x = 0; x < 16; x += 3)
                 CHECK(streamed->get(x, y, z) == direct.get(x, y, z));

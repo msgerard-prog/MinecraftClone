@@ -41,16 +41,24 @@ struct BlockPos {
 // editing - an edit copies a section first if anyone else still holds it.
 class Chunk {
 public:
-    explicit Chunk(ChunkPos pos) : m_pos(pos) {
-        for (auto& s : m_sections)
-            s = std::make_shared<Section>();
+    // A column of its dimension's height (vanilla: the level's min_y and height).
+    explicit Chunk(ChunkPos pos, HeightRange height = kOverworldHeight) : m_pos(pos), m_height(height) {
+        for (int i = 0; i < m_height.sections(); ++i)
+            m_sections[size_t(i)] = std::make_shared<Section>();
         m_mobs.reserve(4); // mobs walking in don't allocate during the tick (usually)
     }
 
     ChunkPos pos() const { return m_pos; }
+    const HeightRange& height() const { return m_height; }
+    int sectionCount() const { return m_height.sections(); }
     // Reuse this chunk object for another position (the generator overwrites every
-    // section; light is recomputed).
-    void reset(ChunkPos pos) {
+    // section; light is recomputed), possibly in another dimension's height.
+    void reset(ChunkPos pos, HeightRange height = kOverworldHeight) {
+        if (!(height == m_height)) {
+            m_height = height;
+            for (int i = 0; i < kMaxSections; ++i)
+                m_sections[size_t(i)] = i < m_height.sections() ? std::make_shared<Section>() : nullptr;
+        }
         m_pos = pos;
         m_lit = false;
         m_dirty = false;
@@ -67,12 +75,12 @@ public:
 
     // Local x/z (0..15), world y. Out-of-height reads return air; writes are ignored.
     BlockStateId get(int x, int y, int z) const {
-        if (!isInBuildHeight(y)) return 0;
-        return m_sections[sectionIndex(y)]->get(x, blockToLocal(y), z);
+        if (!m_height.contains(y)) return 0;
+        return m_sections[size_t(m_height.sectionIndex(y))]->get(x, blockToLocal(y), z);
     }
     void set(int x, int y, int z, BlockStateId state) {
-        if (!isInBuildHeight(y)) return;
-        mutableSection(sectionIndex(y)).set(x, blockToLocal(y), z, state);
+        if (!m_height.contains(y)) return;
+        mutableSection(m_height.sectionIndex(y)).set(x, blockToLocal(y), z, state);
     }
 
     const Section& section(int index) const { return *m_sections[index]; }
@@ -93,7 +101,7 @@ public:
     // Light (computed by LightEngine; until then the chunk is not lit).
     bool lit() const { return m_lit; }
     const std::shared_ptr<const SectionLight>& light(int index) const { return m_light[index]; }
-    void setLight(std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light) {
+    void setLight(std::array<std::shared_ptr<const SectionLight>, kMaxSections> light) {
         m_light = std::move(light);
         m_lit = true;
     }
@@ -170,8 +178,9 @@ public:
 
 private:
     ChunkPos m_pos;
-    std::array<std::shared_ptr<Section>, kSectionsPerChunk> m_sections;
-    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> m_light;
+    HeightRange m_height;
+    std::array<std::shared_ptr<Section>, kMaxSections> m_sections;      // [0, sectionCount)
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> m_light;
     bool m_lit = false;
     bool m_dirty = false;
     std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();

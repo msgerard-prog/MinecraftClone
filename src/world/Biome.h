@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/Coords.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -83,13 +85,13 @@ inline uint32_t redstoneColor(int power) {
 // read-only with mesh workers.
 struct ChunkBiomes {
     static constexpr int kPerSection = 64;
-    std::array<Biome, 24 * kPerSection> cells{};
+    std::array<Biome, kMaxSections * kPerSection> cells{}; // by section index (bottom = 0)
 
     static int index(int section, int qx, int qy, int qz) {
         return section * kPerSection + (qy * 4 + qz) * 4 + qx;
     }
     // Local block x/z (0..15), world y.
-    Biome at(int x, int y, int z) const;
+    Biome at(int x, int y, int z, const HeightRange& height = kOverworldHeight) const; // world y
 };
 
 } // namespace mc::world

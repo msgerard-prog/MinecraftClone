@@ -21,7 +21,8 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
         for (auto& t : s.blockTicks)
             t.time -= gameTime;
-    for (int i = 0; i < kSectionsPerChunk; ++i) {
+    s.height = chunk.height();
+    for (int i = 0; i < chunk.sectionCount(); ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
     }
@@ -140,22 +141,23 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("DataVersion", kDataVersion);
     root.put("xPos", chunk.pos.x);
     root.put("zPos", chunk.pos.z);
-    root.put("yPos", int32_t{kMinY >> 4});
+    // The lowest section's Y: -4 in the Overworld, 0 in the Nether and End (vanilla).
+    root.put("yPos", int32_t{chunk.height.minSection()});
     root.put("Status", std::string("minecraft:full"));
     root.put("LastUpdate", chunk.gameTime); // game tick of this save
     root.put("InhabitedTime", int64_t{0});
     bool lit = true;
-    for (const auto& l : chunk.light)
-        lit = lit && l != nullptr;
+    for (int s = 0; s < chunk.height.sections(); ++s)
+        lit = lit && chunk.light[size_t(s)] != nullptr;
     root.put("isLightOn", static_cast<int8_t>(lit ? 1 : 0));
 
     std::vector<nbt::Tag> sections;
     std::vector<BlockStateId> states(Section::kVolume);
     std::vector<BlockStateId> palette;
     std::unordered_map<BlockStateId, uint32_t> paletteIndex;
-    for (int s = 0; s < kSectionsPerChunk; ++s) {
+    for (int s = 0; s < chunk.height.sections(); ++s) {
         nbt::Compound sec;
-        sec.put("Y", static_cast<int8_t>((kMinY >> 4) + s));
+        sec.put("Y", static_cast<int8_t>(chunk.height.minSection() + s));
         // Block states: local palette in order of first appearance.
         chunk.sections[size_t(s)]->copyTo(states.data());
         palette.clear();
@@ -266,7 +268,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
     if (!sections) return false;
     std::vector<BlockStateId> states(Section::kVolume);
     std::vector<BlockStateId> palette;
-    for (int s = 0; s < kSectionsPerChunk; ++s)
+    for (int s = 0; s < chunk.sectionCount(); ++s)
         chunk.mutableSection(s).fill(0);
     auto biomes = std::make_shared<ChunkBiomes>(*Chunk::defaultBiomes());
     for (const nbt::Tag& t : sections->items) {
@@ -274,8 +276,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         if (!sec) continue;
         const auto y = sec->integer("Y");
         if (!y) continue;
-        const int index = static_cast<int>(*y) - (kMinY >> 4);
-        if (index < 0 || index >= kSectionsPerChunk) continue; // outside our height
+        const int index = static_cast<int>(*y) - chunk.height().minSection();
+        if (index < 0 || index >= chunk.sectionCount()) continue; // outside this dimension's height
         // Biomes (unknown names become plains).
         if (const nbt::Compound* bio = sec->compound("biomes")) {
             const nbt::List* bpal = bio->list("palette");
@@ -352,9 +354,9 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || *id != "minecraft:furnace") continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
-            const int y = static_cast<int>(e->integer("y").value_or(kMinY - 1));
+            const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
-            if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(y)) continue;
+            if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
             // An entry whose block isn't a furnace (foreign or edited saves) is dropped.
             if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Furnace) continue;
             FurnaceData& f = chunk.addFurnace(x, y, z);
@@ -381,7 +383,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             const int64_t x = e->integer("x").value_or(INT32_MIN) - int64_t{chunk.pos().x} * 16;
             const int64_t z = e->integer("z").value_or(INT32_MIN) - int64_t{chunk.pos().z} * 16;
             const int64_t y = e->integer("y").value_or(INT32_MIN);
-            if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
+            if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
                 continue;
             // One pending tick per block (a duplicate would run twice in one tick).
             const bool dup = std::any_of(chunk.blockTicks().begin(), chunk.blockTicks().end(), [&](const auto& t) {

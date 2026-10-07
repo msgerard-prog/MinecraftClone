@@ -308,7 +308,7 @@ bool Redstone::survives(const BlockPos& p, BlockStateId s) const {
 }
 
 void Redstone::neighbourChanged(const BlockPos& p) {
-    if (!isInBuildHeight(p.y)) return;
+    if (!m_world.isInHeight(p.y)) return;
     if (m_depth > 2048) { // runaway update chain: stop (vanilla also caps its updates)
         static bool logged = false;
         if (!logged) MC_LOG_WARN("Block updates nested too deeply; some were skipped");
@@ -645,7 +645,7 @@ bool Redstone::pushList(const BlockPos& base, Direction f, std::optional<BlockPo
     destroy.reset();
     BlockPos p = rel(base, f);
     for (;;) {
-        if (!isInBuildHeight(p.y) || !m_world.chunk(p.chunk())) return false;
+        if (!m_world.isInHeight(p.y) || !m_world.chunk(p.chunk())) return false;
         const Push k = pushKind(at(p));
         if (k == Push::Air) return true;
         if (k == Push::Destroy) {
@@ -711,7 +711,7 @@ void Redstone::retract(const BlockPos& p) {
     std::optional<BlockPos> pulled;
     if (blockOf(s) == B::StickyPiston) {
         const BlockPos far = rel(p, f, 2);
-        if (isInBuildHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 && pushKind(at(far)) == Push::Move) {
+        if (m_world.isInHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 && pushKind(at(far)) == Push::Move) {
             setRaw(front, at(far));
             setRaw(far, 0);
             pulled = far;

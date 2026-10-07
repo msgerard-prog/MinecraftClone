@@ -53,6 +53,7 @@ public:
 
 private:
     int64_t m_gameTime = 0;
+    HeightRange m_height; // the world's (fixed while this loader lives)
     void rebuildQueue(ChunkPos center);
     bool isRequested(ChunkPos p) const;
     void run();

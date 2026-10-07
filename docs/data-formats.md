@@ -85,8 +85,9 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```
-Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` -4, `Status`
-`minecraft:full`, `isLightOn`, `sections` [24 × { `Y`, `block_states` { `palette` [
+Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` (the lowest section:
+-4 in the Overworld, 0 in the Nether and End; their chunks have 16 sections, Y 0..15), `Status`
+`minecraft:full`, `isLightOn`, `sections` [one per section of the dimension (24 Overworld, 16 Nether/End) × { `Y`, `block_states` { `palette` [
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
 per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, ceil(log2 n) bits, 64 entries; none if 1) }, `SkyLight`, `BlockLight`
 (2048-byte nibble arrays, omitted when all 0) }], `block_ticks` [ { `i` block id, `p`
