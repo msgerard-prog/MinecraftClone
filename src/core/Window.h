@@ -6,6 +6,11 @@ namespace mc {
 
 class Window;
 void onScroll(GLFWwindow* handle, double xoffset, double yoffset);
+void onMouseButton(GLFWwindow* handle, int button, int action, int mods);
+void onKey(GLFWwindow* handle, int key, int scancode, int action, int mods);
+
+// Presses counted by callbacks, so a press shorter than a frame or tick isn't lost.
+enum class Press { LeftMouse, RightMouse, Jump, Count };
 
 // Keys the game reads. Mapped to GLFW in Window.cpp so no other code includes GLFW.
 enum class Key {
@@ -53,6 +58,12 @@ public:
     // Mouse wheel steps since the previous pollEvents (+ = up / away from you).
     double scrollDelta() const { return m_scrollDelta; }
     void setTitle(const char* title);
+    // Presses since the last call (and resets the count).
+    int takePresses(Press p) {
+        const int n = m_presses[static_cast<int>(p)];
+        m_presses[static_cast<int>(p)] = 0;
+        return n;
+    }
 
     // Captured = cursor hidden and locked, mouse movement turns the camera.
     void setCursorCaptured(bool captured);
@@ -75,6 +86,9 @@ private:
     double m_scrollDelta = 0.0;
     double m_scrollAccum = 0.0; // filled by the GLFW callback
     friend void onScroll(GLFWwindow*, double, double);
+    friend void onMouseButton(GLFWwindow*, int, int, int);
+    friend void onKey(GLFWwindow*, int, int, int, int);
+    int m_presses[static_cast<int>(Press::Count)] = {};
 };
 
 // Seconds since GLFW init (monotonic).

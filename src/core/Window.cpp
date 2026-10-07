@@ -40,6 +40,19 @@ void onScroll(GLFWwindow* handle, double, double yoffset) {
     if (self) self->m_scrollAccum += yoffset;
 }
 
+void onMouseButton(GLFWwindow* handle, int button, int action, int) {
+    auto* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+    if (!self || action != GLFW_PRESS) return;
+    if (button == GLFW_MOUSE_BUTTON_LEFT) ++self->m_presses[static_cast<int>(Press::LeftMouse)];
+    if (button == GLFW_MOUSE_BUTTON_RIGHT) ++self->m_presses[static_cast<int>(Press::RightMouse)];
+}
+
+void onKey(GLFWwindow* handle, int key, int, int action, int) {
+    auto* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+    if (self && action == GLFW_PRESS && key == GLFW_KEY_SPACE)
+        ++self->m_presses[static_cast<int>(Press::Jump)];
+}
+
 Window::~Window() {
     if (m_window) glfwDestroyWindow(m_window);
     if (m_glfwInitialized) glfwTerminate();
@@ -64,6 +77,8 @@ bool Window::create(int width, int height, const char* title, bool visible, bool
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, this);
     glfwSetScrollCallback(m_window, onScroll);
+    glfwSetMouseButtonCallback(m_window, onMouseButton);
+    glfwSetKeyCallback(m_window, onKey);
     glfwSwapInterval(vsync ? 1 : 0);
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);

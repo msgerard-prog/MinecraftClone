@@ -14,6 +14,7 @@ struct PlayerInput {
     float forward = 0.0f; // +1 W, -1 S
     float strafe = 0.0f;  // +1 D (right), -1 A
     bool jump = false;    // space: jump, or fly up
+    int jumpPresses = 0;  // space presses since the last tick (double-tap detection)
     bool sneak = false;   // shift: sneak, or fly down
     bool sprint = false;  // ctrl
 };
@@ -96,10 +97,12 @@ private:
     bool m_flying = false;
     bool m_sprinting = false;
     bool m_sneaking = false;
-    bool m_jumpWasDown = false;
     int m_ticksSinceJumpPress = 1000;
     double m_flyMultiplier = 1.0;
-    std::vector<Aabb> m_boxes; // reused collision box buffer
+    std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
+
+public:
+    Player() { m_boxes.reserve(1024); }
 };
 
 // Vanilla mouse look: degrees of rotation per pixel for sensitivity 0..1.

@@ -32,11 +32,16 @@ struct Aabb {
     // VoxelShape.collide, per axis): returns d clipped to the gap, or d if the boxes
     // don't overlap on the other two axes.
     double clip(const Aabb& wall, int axis, double d) const {
+        // Vanilla's collision tolerance: overlaps smaller than 1e-7 don't count, so a
+        // box left touching a wall by rounding (~1 ulp inside) is still stopped by it.
+        constexpr double kEps = 1.0e-7;
         const int a1 = (axis + 1) % 3, a2 = (axis + 2) % 3;
-        if (max[a1] <= wall.min[a1] || min[a1] >= wall.max[a1]) return d;
-        if (max[a2] <= wall.min[a2] || min[a2] >= wall.max[a2]) return d;
-        if (d > 0 && max[axis] <= wall.min[axis]) return std::min(d, wall.min[axis] - max[axis]);
-        if (d < 0 && min[axis] >= wall.max[axis]) return std::max(d, wall.max[axis] - min[axis]);
+        if (max[a1] - kEps <= wall.min[a1] || min[a1] + kEps >= wall.max[a1]) return d;
+        if (max[a2] - kEps <= wall.min[a2] || min[a2] + kEps >= wall.max[a2]) return d;
+        if (d > 0 && max[axis] - kEps <= wall.min[axis])
+            return std::min(d, wall.min[axis] - max[axis]);
+        if (d < 0 && min[axis] + kEps >= wall.max[axis])
+            return std::max(d, wall.max[axis] - min[axis]);
         return d;
     }
 };

@@ -23,6 +23,7 @@ public:
 private:
     std::array<world::BlockStateId, kSlots> m_slots{};
     int m_selected = 0;
+    double m_scrollRemainder = 0.0;
 };
 
 } // namespace mc

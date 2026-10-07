@@ -24,24 +24,28 @@ world::BlockStateId BlockInteraction::orientedState(world::BlockStateId state,
 }
 
 void BlockInteraction::tick(world::World& world, const Player& player,
-                            world::BlockStateId placeState, const InteractionInput& input,
-                            std::vector<world::BlockPos>& changed) {
+                            const std::optional<world::RayHit>& hit, world::BlockStateId placeState,
+                            const InteractionInput& input, std::vector<world::BlockPos>& changed) {
     changed.clear();
     // Cooldowns only run while the button is held; releasing allows an instant click.
-    m_destroyCooldown = input.attack ? std::max(0, m_destroyCooldown - 1) : 0;
-    m_useCooldown = input.use ? std::max(0, m_useCooldown - 1) : 0;
+    // A fresh click always acts (even a press shorter than a tick); holding repeats.
+    m_destroyCooldown = input.attackClick ? 0
+                        : input.attack    ? std::max(0, m_destroyCooldown - 1)
+                                          : 0;
+    m_useCooldown = input.useClick ? 0 : input.use ? std::max(0, m_useCooldown - 1) : 0;
+    const bool attack = input.attack || input.attackClick;
+    const bool use = input.use || input.useClick;
 
-    const auto hit = target(world, player);
     if (!hit) return;
     const auto& reg = world::blockRegistry();
 
-    if (input.attack && m_destroyCooldown == 0) {
+    if (attack && m_destroyCooldown == 0) {
         world.setBlock(hit->block, 0);
         changed.push_back(hit->block);
         m_destroyCooldown = kDestroyDelay;
         return; // one action per tick
     }
-    if (input.use && m_useCooldown == 0) {
+    if (use && m_useCooldown == 0) {
         m_useCooldown = kUseDelay;
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world::isInBuildHeight(at.y)) return;

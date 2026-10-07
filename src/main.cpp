@@ -100,7 +100,8 @@ void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar
         in.attack = attack;
         in.use = !attack;
         mc::BlockInteraction fresh; // no cooldown between scripted clicks
-        fresh.tick(world, player, hotbar.selectedBlock(), in, changed);
+        fresh.tick(world, player, mc::BlockInteraction::target(world, player),
+                   hotbar.selectedBlock(), in, changed);
         renderer.onBlocksChanged(changed);
     };
     for (int i = 0; i < 3; ++i)
@@ -174,6 +175,7 @@ int main(int argc, char** argv) {
     changedBlocks.reserve(8);
     bool attackArmed = false; // the click that captures the mouse must not break a block
     int shownSlot = -1;
+    std::optional<mc::world::RayHit> lastHit; // outline target of the last frame
     mc::GameClock clock;
     double last = mc::timeSeconds();
     int frame = 0;
@@ -190,6 +192,7 @@ int main(int argc, char** argv) {
             if (!window.cursorCaptured() && window.leftMousePressed()) {
                 window.setCursorCaptured(true);
                 attackArmed = false;
+                window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
             }
             if (window.cursorCaptured() && window.keyDown(mc::Key::Escape)) {
                 window.setCursorCaptured(false);
@@ -223,6 +226,8 @@ int main(int argc, char** argv) {
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
             mc::PlayerInput input = readInput(window);
+            // Presses since the last tick (only the first tick of a frame sees them).
+            input.jumpPresses = window.cursorCaptured() ? window.takePresses(mc::Press::Jump) : 0;
             if (opts->autoFly) { // benchmark: constant sprint-flight forward
                 input.forward = 1.0f;
                 input.sprint = true;
@@ -231,7 +236,12 @@ int main(int argc, char** argv) {
             mc::InteractionInput clicks;
             clicks.attack = window.cursorCaptured() && attackArmed && window.leftMousePressed();
             clicks.use = window.cursorCaptured() && window.rightMousePressed();
-            interaction.tick(world, player, hotbar.selectedBlock(), clicks, changedBlocks);
+            clicks.attackClick =
+                window.cursorCaptured() && window.takePresses(mc::Press::LeftMouse) > 0;
+            clicks.useClick =
+                window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
+            // Act on the block the outline showed on the last frame (vanilla).
+            interaction.tick(world, player, lastHit, hotbar.selectedBlock(), clicks, changedBlocks);
             renderer.onBlocksChanged(changedBlocks);
             renderer.tick();
         }
@@ -264,6 +274,7 @@ int main(int argc, char** argv) {
         const auto hit = mc::world::raycastBlocks(
             world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
             mc::world::kCreativeReach);
+        lastHit = hit;
         overlay.draw(camera, fbWidth, fbHeight,
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
 

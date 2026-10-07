@@ -32,7 +32,11 @@ struct Scene {
         player.setRotation(yaw, pitch);
     }
     void tick(bool attack, bool use, BlockStateId place) {
-        interaction.tick(world, player, place, {attack, use}, changed);
+        InteractionInput in;
+        in.attack = attack;
+        in.use = use;
+        interaction.tick(world, player, BlockInteraction::target(world, player), place, in,
+                         changed);
     }
 };
 
@@ -89,4 +93,27 @@ TEST_CASE("hotbar: number keys and the wheel (down = next slot) wrap around") {
     CHECK(h.selected() == 0);
     h.scroll(1); // wheel up from slot 0 wraps to 8
     CHECK(h.selected() == 8);
+}
+
+TEST_CASE("placing into an unloaded chunk does nothing; a click acts despite cooldown") {
+    Scene s(0.0f, 60.0f);
+    const auto t = BlockInteraction::target(s.world, s.player);
+    REQUIRE(t.has_value());
+    // Pretend the target is at the edge of the loaded world: aim at a far fake hit.
+    RayHit far = *t;
+    far.block = {16 * 5, 64, 0}; // chunk (5, 0) is not loaded
+    far.face = Direction::Up;
+    InteractionInput use;
+    use.useClick = true;
+    s.interaction.tick(s.world, s.player, far, S(blocks::Dirt), use, s.changed);
+    CHECK(s.changed.empty());
+    // Two quick clicks in consecutive ticks both act (no 5-tick repeat delay).
+    InteractionInput click;
+    click.attackClick = true;
+    s.interaction.tick(s.world, s.player, BlockInteraction::target(s.world, s.player), 0, click,
+                       s.changed);
+    CHECK(s.changed.size() == 1);
+    s.interaction.tick(s.world, s.player, BlockInteraction::target(s.world, s.player), 0, click,
+                       s.changed);
+    CHECK(s.changed.size() == 1);
 }

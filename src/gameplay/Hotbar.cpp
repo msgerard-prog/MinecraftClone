@@ -17,8 +17,11 @@ Hotbar::Hotbar() {
 }
 
 void Hotbar::scroll(double wheelSteps) {
-    const int steps = static_cast<int>(std::round(wheelSteps));
-    if (steps != 0) select(m_selected - steps); // wheel up (+) = previous slot
+    // Accumulate fractions (touchpads/smooth wheels send small offsets per frame).
+    m_scrollRemainder += wheelSteps;
+    const double whole = std::trunc(m_scrollRemainder);
+    m_scrollRemainder -= whole;
+    if (whole != 0.0) select(m_selected - static_cast<int>(whole)); // up (+) = previous slot
 }
 
 } // namespace mc

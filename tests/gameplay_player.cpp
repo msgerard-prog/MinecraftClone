@@ -132,10 +132,12 @@ TEST_CASE("creative flight: double-tap jump, 10.92 / 7.5 b/s, landing ends it") 
     Player p = standingPlayer(w);
     PlayerInput jump;
     jump.jump = true;
+    PlayerInput press = jump;
+    press.jumpPresses = 1;
     PlayerInput none;
-    p.tick(w, jump);
+    p.tick(w, press);
     p.tick(w, none);
-    p.tick(w, jump); // second press within 7 ticks
+    p.tick(w, press); // second press within 7 ticks
     CHECK(p.flying());
     // Rise for a second: vertical flight ~7.5 b/s (wiki: Transportation 7.49).
     for (int i = 0; i < 20; ++i)
@@ -181,4 +183,75 @@ TEST_CASE("mouse sensitivity curve (0.15 deg/px at the default 0.5)") {
     Player p;
     p.turn(0, 100000);
     CHECK(p.pitch() == Approx(90.0f));
+}
+
+TEST_CASE("walls hold from any fractional or negative starting position (collision epsilon)") {
+    World w = floorWorld();
+    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
+    for (int x = -40; x <= 40; ++x) {
+        for (int y = kFloorY + 1; y <= kFloorY + 3; ++y) {
+            w.setBlock({x, y, -2}, stone); // wall: z in [-2, -1)
+            w.setBlock({x, y, 20}, stone); // wall: z in [20, 21)
+        }
+    }
+    uint64_t seed = 12345;
+    auto rnd = [&]() { // tiny LCG: deterministic test positions
+        seed = seed * 6364136223846793005ull + 1442695040888963407ull;
+        return static_cast<double>(seed >> 11) * 0x1.0p-53;
+    };
+    for (int trial = 0; trial < 200; ++trial) {
+        Player p;
+        const double x = -30.0 + 60.0 * rnd();
+        const double z = 2.0 + 10.0 * rnd();
+        p.setPosition({x, kFloorY + 1.0, z});
+        const bool north = trial % 2 == 0;
+        p.setRotation(north ? 180.0f : 0.0f, 0.0f); // walk -z or +z into a wall
+        PlayerInput run;
+        run.forward = 1;
+        run.sprint = true;
+        for (int i = 0; i < 120; ++i)
+            p.tick(w, run);
+        INFO("trial ", trial, " start ", x, ", ", z);
+        if (north) {
+            CHECK(p.position().z >= -1.0 + Player::kWidth / 2 - 1e-6);
+        } else {
+            CHECK(p.position().z <= 20.0 - Player::kWidth / 2 + 1e-6);
+        }
+    }
+}
+
+TEST_CASE("releasing sneak only stands up when there is headroom") {
+    // With full blocks only, a 1.5-1.8 gap needs fractional feet: put the sneaking
+    // player at y 65.25 (as if on a 1/4 slab) under a roof at y 67 (1.75 headroom).
+    World w = floorWorld();
+    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
+    w.setBlock({0, kFloorY + 1, 0}, stone); // the "slab" support (top at 66)
+    w.setBlock({0, kFloorY + 3, 0}, stone); // roof bottom at y 67
+    Player p;
+    p.setPosition({0.5, kFloorY + 2.0, 0.5}); // feet on the support, roof 1.0 above
+    PlayerInput sneak;
+    sneak.sneak = true;
+    for (int i = 0; i < 3; ++i)
+        p.tick(w, sneak);
+    REQUIRE(p.sneaking());
+    p.tick(w, {}); // let go: 1.0 headroom < 1.8, must stay crouched
+    CHECK(p.sneaking());
+    w.setBlock({0, kFloorY + 3, 0}, 0); // remove the roof
+    p.tick(w, {});
+    CHECK_FALSE(p.sneaking());
+}
+
+TEST_CASE("falling into a one-block ledge does not climb it") {
+    World w = floorWorld();
+    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
+    for (int x = -3; x <= 3; ++x)
+        w.setBlock({x, kFloorY + 1, 3}, stone);
+    Player p;
+    p.setPosition({0.5, kFloorY + 1.7, 2.0}); // falling, pressed against the ledge
+    PlayerInput walk;
+    walk.forward = 1;
+    for (int i = 0; i < 40; ++i)
+        p.tick(w, walk);
+    CHECK(p.position().y == Approx(kFloorY + 1.0));
+    CHECK(p.position().z <= 3.0 - Player::kWidth / 2 + 1e-6);
 }

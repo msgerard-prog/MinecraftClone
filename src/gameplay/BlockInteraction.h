@@ -11,8 +11,10 @@ namespace mc {
 
 // Mouse buttons for one tick.
 struct InteractionInput {
-    bool attack = false; // left button held
-    bool use = false;    // right button held
+    bool attack = false;      // left button held
+    bool use = false;         // right button held
+    bool attackClick = false; // a left press happened since the last tick (act now)
+    bool useClick = false;    // a right press happened since the last tick
 };
 
 // Creative-mode breaking and placing (survival mining times come with items/tools in
@@ -24,11 +26,14 @@ public:
     static constexpr int kDestroyDelay = 5; // creative
     static constexpr int kUseDelay = 4;
 
-    // Breaks/places for this tick. `changed` gets the edited positions (cleared first).
-    void tick(world::World& world, const Player& player, world::BlockStateId placeState,
-              const InteractionInput& input, std::vector<world::BlockPos>& changed);
+    // Breaks/places for this tick at `hit` - the block the outline showed on the last
+    // rendered frame (vanilla acts on the highlighted block). `changed` gets the
+    // edited positions (cleared first).
+    void tick(world::World& world, const Player& player, const std::optional<world::RayHit>& hit,
+              world::BlockStateId placeState, const InteractionInput& input,
+              std::vector<world::BlockPos>& changed);
 
-    // What the player is looking at (from the current tick position).
+    // What the player is looking at from its current tick position (tests, scripts).
     static std::optional<world::RayHit> target(const world::World& world, const Player& player);
 
     // The state to place against `face`: pillars (logs, deepslate) take the axis of

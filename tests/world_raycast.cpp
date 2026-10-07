@@ -56,3 +56,24 @@ TEST_CASE("raycast along a diagonal finds a block a straight walk would skip") {
     REQUIRE(hit.has_value());
     CHECK(hit->block == BlockPos{3, 12, 3});
 }
+
+TEST_CASE("raycast edge cases: inside a block, on a boundary, axis-aligned at negatives") {
+    World w = oneChunk();
+    w.setBlock({2, 10, 2}, stone());
+    w.setBlock({4, 10, 2}, stone());
+    // Origin inside a solid block: that block is skipped, the next one is hit.
+    auto hit = raycastBlocks(w, {2.5, 10.5, 2.5}, {1, 0, 0}, 10);
+    REQUIRE(hit.has_value());
+    CHECK(hit->block == BlockPos{4, 10, 2});
+    // Origin exactly on an integer boundary, moving in the negative direction.
+    hit = raycastBlocks(w, {4.0, 10.5, 2.5}, {-1, 0, 0}, 10);
+    REQUIRE(hit.has_value());
+    CHECK(hit->block == BlockPos{2, 10, 2});
+    CHECK(hit->face == Direction::East);
+    // Two zero components, negative coordinates.
+    w.setBlock({-7, 10, 3}, stone());
+    hit = raycastBlocks(w, {-6.5, 14.5, 3.5}, {0, -1, 0}, 10); // x -6.5 is inside block -7
+    REQUIRE(hit.has_value());
+    CHECK(hit->block == BlockPos{-7, 10, 3});
+    CHECK(hit->face == Direction::Up);
+}
