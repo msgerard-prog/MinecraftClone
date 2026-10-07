@@ -22,6 +22,7 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Brewing.h"
@@ -409,6 +410,14 @@ int main(int argc, char** argv) {
         for (const auto& e : level->effects) // (kinds we don't have are dropped)
             if (const auto kind = mc::world::findEffect(e.id)) vitals.addEffect(*kind, e.amplifier, e.duration);
     }
+    mc::DragonFight dragonFight; // (M20.2; end2 worlds)
+    if (level) {
+        dragonFight.killed = level->dragonKilled;
+        dragonFight.previouslyKilled = level->dragonPreviouslyKilled;
+        dragonFight.uuidHi = level->dragonUuidHi;
+        dragonFight.uuidLo = level->dragonUuidLo;
+        dragonFight.gateways = level->gateways;
+    }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
@@ -517,6 +526,11 @@ int main(int argc, char** argv) {
         l.generator = generatorKind;
         l.netherGenerator = netherKind;
         l.endGenerator = endKind;
+        l.dragonKilled = dragonFight.killed;
+        l.dragonPreviouslyKilled = dragonFight.previouslyKilled;
+        l.dragonUuidHi = dragonFight.uuidHi;
+        l.dragonUuidLo = dragonFight.uuidLo;
+        l.gateways = dragonFight.gateways;
         l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
         l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
@@ -1264,6 +1278,12 @@ int main(int argc, char** argv) {
                         mc::throwEye(inventory, survival, eye, *s, projectiles);
                         clicks.useClick = false;
                     }
+                if (!dead && (clicks.useClick || clicks.attackClick) && lastHit &&
+                    reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::DragonEgg) {
+                    // The egg teleports away when clicked (wiki: Dragon Egg).
+                    mc::DragonFight::teleportEgg(world, lastHit->block, gameRng, frameEdits);
+                    clicks.useClick = clicks.attackClick = clicks.attack = false;
+                }
                 if (!dead && heldId == "minecraft:end_crystal" && clicks.useClick && lastHit &&
                     lastHit->face == mc::world::Direction::Up) { // (M20.1)
                     if (mc::Mobs::placeEndCrystal(world, lastHit->block, gameRng) && survival)
@@ -1575,6 +1595,8 @@ int main(int argc, char** argv) {
             }
             vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
+            if (dimension == Dimension::End && endKind == "end2")
+                dragonFight.tick(world, mobs, player.position(), orbs, gameRng, frameEdits);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {

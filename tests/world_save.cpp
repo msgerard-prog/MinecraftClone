@@ -1048,3 +1048,21 @@ TEST_CASE("level.dat keeps the Nether generator kind as written, even one this b
         CHECK(r->netherGenerator == kind);
     }
 }
+
+TEST_CASE("level.dat keeps the dragon fight as vanilla's DragonFight") {
+    TempDir dir("mc_test_dragonfight");
+    LevelData l;
+    l.dragonKilled = true;
+    l.dragonPreviouslyKilled = true;
+    l.dragonUuidHi = 0x1234567890ABCDEFull;
+    l.dragonUuidLo = 0x0FEDCBA987654321ull;
+    l.gateways = {3, 17};
+    REQUIRE(l.save(dir.path));
+    const auto r = LevelData::load(dir.path);
+    REQUIRE(r);
+    CHECK(r->dragonKilled);
+    CHECK(r->dragonPreviouslyKilled);
+    CHECK(r->dragonUuidHi == l.dragonUuidHi);
+    CHECK(r->dragonUuidLo == l.dragonUuidLo);
+    CHECK(r->gateways == l.gateways);
+}

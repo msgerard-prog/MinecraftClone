@@ -258,6 +258,7 @@ enum : BlockId {
     ChorusPlant,  // down, east, north, south, up, west: connections (true | false)
     ChorusFlower, // age 0..5 (5: dead, grows no more)
     IronBars,     // east, north, south, west: connections
+    DragonEgg,    // (M20.2)
     Count
 };
 } // namespace blocks

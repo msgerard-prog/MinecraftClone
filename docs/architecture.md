@@ -259,6 +259,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   player. `dragonDamage` applies the head rule in melee (main), arrows and
   explosions. Dying takes 200 ticks in `Mobs::tick`, then `dragonDeaths()` reports it;
   `bossHealth()` feeds `ui::drawBossBar`. Breath clouds are pooled in `Projectiles`.
+- The dragon fight (M20.2, `gameplay/DragonFight`, end2 worlds): main ticks it in the
+  End; every 5 s near the middle it looks for the dragon and spawns one over the
+  (shut) exit portal when there is none; on `Mobs::dragonDeaths` it drops the
+  experience, opens the exit portal and puts the egg on its column (first kill).
+  Saved as level.dat DragonFight. The egg (`DragonFight::teleportEgg`) flees clicks.
 - Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
   blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
   mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are

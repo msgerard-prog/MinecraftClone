@@ -1090,3 +1090,50 @@ TEST_CASE("dragon's breath: a cloud hurts a survival player standing in it once 
         proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
     CHECK(proj.clouds().empty());
 }
+
+#include "gameplay/DragonFight.h"
+#include "gameplay/ExperienceOrbs.h"
+
+TEST_CASE("dragon fight: the dragon appears over the shut exit portal; its death opens it, leaves the egg once") {
+    const EndGenerator gen(42, 2);
+    World w;
+    w.setHeight(kEndHeight);
+    for (int cz = -3; cz <= 3; ++cz)
+        for (int cx = -3; cx <= 3; ++cx) {
+            auto c = std::make_unique<Chunk>(ChunkPos{cx, cz}, kEndHeight);
+            gen.generate(*c);
+            c->mobs().clear(); // (no crystals for this test)
+            w.insertChunk(std::move(c));
+        }
+    const int top = gen.islandTop(0, 0) + 4; // the column's top
+    CHECK(w.getBlock({1, top - 3, 1}) == 0);  // shut: no portal yet
+    Mobs mobs;
+    DragonFight fight;
+    ExperienceOrbs orbs;
+    Xoroshiro rng(1);
+    std::vector<BlockPos> edits;
+    for (int i = 0; i < 100; ++i)
+        fight.tick(w, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
+    int dragons = 0;
+    w.forEachChunk([&](Chunk& c) {
+        for (const MobData& m : c.mobs())
+            dragons += m.type == MobType::EnderDragon;
+    });
+    CHECK(dragons == 1);
+    CHECK(fight.uuidHi != 0);
+    for (int i = 0; i < 400; ++i) // found again on later scans: no second dragon
+        fight.tick(w, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
+    dragons = 0;
+    w.forEachChunk([&](Chunk& c) {
+        for (const MobData& m : c.mobs())
+            dragons += m.type == MobType::EnderDragon;
+    });
+    CHECK(dragons == 1);
+
+    DragonFight::openExitPortal(w, true, edits);
+    CHECK(blockRegistry().blockOf(w.getBlock({1, top - 3, 1})) == blocks::EndPortal);
+    CHECK(blockRegistry().blockOf(w.getBlock({2, top - 3, 1})) == blocks::EndPortal);
+    CHECK(blockRegistry().blockOf(w.getBlock({0, top + 1, 0})) == blocks::DragonEgg);
+    CHECK(DragonFight::teleportEgg(w, {0, top + 1, 0}, rng, edits));
+    CHECK(w.getBlock({0, top + 1, 0}) == 0);
+}

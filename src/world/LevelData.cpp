@@ -199,6 +199,17 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("Inventory", listOf(TagType::Compound, std::move(items)));
     if (!equipment.entries.empty()) player.put("equipment", std::move(equipment));
     data.put("Player", std::move(player));
+    {
+        Compound fight; // (vanilla's DragonFight tag)
+        fight.put("DragonKilled", int8_t(dragonKilled ? 1 : 0));
+        fight.put("PreviouslyKilled", int8_t(dragonPreviouslyKilled ? 1 : 0));
+        fight.put("NeedsStateScanning", int8_t{0});
+        if (dragonUuidHi != 0 || dragonUuidLo != 0)
+            fight.put("Dragon", std::vector<int32_t>{int32_t(dragonUuidHi >> 32), int32_t(dragonUuidHi),
+                                                     int32_t(dragonUuidLo >> 32), int32_t(dragonUuidLo)});
+        fight.put("Gateways", gateways);
+        data.put("DragonFight", std::move(fight));
+    }
 
     Compound ours;
     ours.put("generator", flat ? std::string("flat") : generator);
@@ -316,6 +327,17 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.effects.push_back({*c->string("id"),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 1 << 30))});
+        if (const Compound* f = data->compound("DragonFight")) {
+            l.dragonKilled = f->integer("DragonKilled").value_or(0) != 0;
+            l.dragonPreviouslyKilled = f->integer("PreviouslyKilled").value_or(0) != 0;
+            if (const Tag* u = f->find("Dragon"))
+                if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                    l.dragonUuidHi = uint64_t(uint32_t((*a)[0])) << 32 | uint32_t((*a)[1]);
+                    l.dragonUuidLo = uint64_t(uint32_t((*a)[2])) << 32 | uint32_t((*a)[3]);
+                }
+            if (const Tag* g = f->find("Gateways"))
+                if (const auto* a = g->get<std::vector<int32_t>>()) l.gateways = *a;
+        }
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {

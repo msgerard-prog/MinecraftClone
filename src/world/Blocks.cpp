@@ -442,6 +442,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("iron_bars", {.hardness = 5.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
                 {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
           blocks::IronBars);
+    // wiki: Dragon Egg - hardness 3, resistance 9, light 1; falls like sand.
+    check(r.add("dragon_egg", {.hardness = 3.0f, .resistance = 9.0f, .lightEmission = 1, .opaqueCube = false,
+                               .layer = RenderLayer::Cutout}),
+          blocks::DragonEgg);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

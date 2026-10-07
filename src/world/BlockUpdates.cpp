@@ -655,6 +655,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Anvil:
     case B::ChippedAnvil:
     case B::DamagedAnvil:
+    case B::DragonEgg:
         if (fallThrough(at(rel(p, Direction::Down))))
             schedule(p, blockOf(s), 2, 0); // wiki: 2 ticks
         break;
@@ -874,6 +875,7 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::Anvil:
     case B::ChippedAnvil:
     case B::DamagedAnvil:
+    case B::DragonEgg:
         if (p.y > m_world.height().minY && fallThrough(at(rel(p, Direction::Down)))) {
             m_falling.push_back({p, s});
             set(p, 0);

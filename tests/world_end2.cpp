@@ -110,7 +110,8 @@ TEST_CASE("end2: the two shortest pillars carry iron bar cages; end2 keeps the m
                 for (int z = 0; z < 16; ++z)
                     for (int x = 0; x < 16; ++x)
                         diff += a.get(x, y, z) != b.get(x, y, z) &&
-                                r.blockOf(a.get(x, y, z)) != blocks::IronBars;
+                                r.blockOf(a.get(x, y, z)) != blocks::IronBars &&
+                                r.blockOf(b.get(x, y, z)) != blocks::EndPortal; // (shut until the dragon dies)
             CHECK(diff == 0);
         }
 }

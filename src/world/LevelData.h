@@ -66,6 +66,12 @@ struct LevelData {
         int amplifier = 0, duration = 0;
     };
     std::vector<SavedEffect> effects;
+    // The dragon fight (M20.2; vanilla Data.DragonFight): killed now, ever killed (the
+    // egg and the 12,000 experience come only the first time), the living dragon's
+    // UUID (0: none spawned), the gateways spawned so far (M20.3, angles 0..19).
+    bool dragonKilled = false, dragonPreviouslyKilled = false;
+    uint64_t dragonUuidHi = 0, dragonUuidLo = 0;
+    std::vector<int32_t> gateways;
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
     // Inventory slots 0..35 (0..8 hotbar), worn armor 100 (feet)..103 (head) and the

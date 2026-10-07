@@ -757,7 +757,8 @@ void EndGenerator::generate(Chunk& out) const {
             // portal inside, a bedrock column in the middle. Active (no dragon).
             const int64_t d2 = int64_t(wx) * wx + int64_t(wz) * wz;
             if (d2 <= 12) set(x, centreTop, z, bedrock);
-            if (d2 <= 12) set(x, centreTop + 1, z, d2 <= 6 && d2 > 0 ? portal : bedrock);
+            // end2: the portal opens only when the dragon dies (gameplay/DragonFight).
+            if (d2 <= 12) set(x, centreTop + 1, z, d2 <= 6 && d2 > 0 ? (m_version >= 2 ? 0 : portal) : bedrock);
             if (d2 == 0)
                 for (int y = centreTop + 1; y <= centreTop + 4; ++y)
                     set(x, y, z, bedrock);

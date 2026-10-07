@@ -293,6 +293,25 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 if (on("east")) addBox(hi, y0, lo, 16, y1, hi);
                 if (!bars && on("down")) addBox(lo, 0, lo, hi, lo, hi);
                 if (!bars && on("up")) addBox(lo, hi, lo, hi, 16, hi);
+            } else if (name == "dragon_egg") {
+                // An egg of stacked layers, widest low down (vanilla: eight layers).
+                static constexpr uint8_t kLayers[6][3] = {{4, 0, 1}, {3, 1, 6}, {4, 6, 10}, {5, 10, 13}, {6, 13, 15}, {7, 15, 16}};
+                m.visible = true;
+                const uint16_t sp = sprite("dragon_egg");
+                for (const auto& l : kLayers) {
+                    BakedBox& b = m.boxes[m.boxCount++];
+                    const uint8_t lo = l[0], hi = uint8_t(16 - l[0]);
+                    b.from[0] = lo, b.from[1] = l[1], b.from[2] = lo;
+                    b.to[0] = hi, b.to[1] = l[2], b.to[2] = hi;
+                    for (int d = 0; d < 6; ++d) {
+                        auto& f = b.faces[d];
+                        f.sprite = sp;
+                        const bool vertical = d < 2;
+                        f.uv[0] = lo, f.uv[2] = hi;
+                        f.uv[1] = vertical ? lo : uint8_t(16 - l[2]);
+                        f.uv[3] = vertical ? hi : uint8_t(16 - l[1]);
+                    }
+                }
             } else if (name == "chorus_flower") {
                 const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
                 m = single(cubeAll(sprite(a >= 5 ? "chorus_flower_dead" : "chorus_flower")));
