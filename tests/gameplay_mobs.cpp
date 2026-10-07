@@ -87,7 +87,9 @@ TEST_CASE("hitting a cow hurts it, makes it panic and kills it after enough hits
         if (m->type == MobType::Cow) cow = m;
     REQUIRE(cow);
     Mobs::attack(*cow, 7.0f, s.player.position());
-    s.tick(25); // death animation, then gone with loot
+    s.tick(1); // loot drops at the moment of death (user decision; vanilla too)...
+    CHECK_FALSE(s.items.items().empty());
+    s.tick(24); // ...then the death animation, then gone
     int cows = 0; // (zombies may spawn in the dark scene meanwhile)
     for (MobData* m : s.all())
         cows += m->type == MobType::Cow;

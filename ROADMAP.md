@@ -15,10 +15,16 @@ Nether fog and ambient light, End bright lightmap; /fill, --dimension.
 M11 done: redstone. M10: mobs. M9: survival/crafting. M8: overworld. M7: saves.
 
 ## Next
-Waiting for the user's review of M5-M12 (see "Waiting on the user"). Candidates
-afterwards, from the deviations list: fluids (flow, swimming, drowning), falling
-blocks, more mobs (sheep, pigs, Nether mobs), comparators/observers, structures,
-options/pause menus, sounds.
+Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
+systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
+
+M13 — 1.21.11 migration (ADR 0002 update, ADR 0007):
+1. M13.1 — Saves at DataVersion 4671: 1.21.5+ entity fields (`fall_distance` double,
+   `equipment`, cow `variant`), 1.21.4+ furnace names, item components as 1.21.11.
+2. M13.2 — Vanilla-openable worlds: Heightmaps, level.dat WorldGenSettings.dimensions,
+   GameRules, DataPacks, difficulty; `Version` 1.21.11.
+3. M13.3 — 1.21.11 defaults: render distance / graphics presets, mipmap levels, Nether
+   fog fixed 10-96, sneak-sprint (1.21.5+), copper tools (1.21.9).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -76,21 +82,12 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M10-M12 in-game checks:** do mob drops appear at the moment of death or after the
-  death animation (ours: after)? Toggle a lever under a redstone torch 8 times within
-  3 s: does it burn out on the 8th or the 9th (ours: 8th)? Stay in the Nether portal
-  you arrived through: do you go back after 4 s, or must you step out (ours: step out)?
+- **M10-M12 in-game check:** stay in the Nether portal you arrived through: do you go
+  back after 4 s, or must you step out (ours: step out)?
 - **Machine note:** while M5-M9 were built, a stuck build of another project
   (CubeCraft) held MSVC's shared mspdbsrv; I ended cl.exe/mspdbsrv processes globally
   once, which may have interrupted that build. Since then this project embeds debug
   info (/Z7) and only touches its own processes.
-- **Chunk format addition (M11):** chunks now save vanilla's `block_ticks` list
-  (pending redstone ticks: i, p, t, x, y, z). Additive, vanilla's own field; older
-  saves load unchanged. OK to keep?
-- **Save format (ADR 0007, proposed):** vanilla's own Anvil format (region .mca,
-  Java 1.21 chunk NBT, gzip level.dat, DataVersion 3955 = 1.21.1). Built because no
-  saves existed yet; say if you want something else before worlds matter. Every
-  generated chunk is saved (vanilla), so worlds are larger on disk than "edits only".
 - M8 in-game checks: sky light under a surface lava pool (lava opacity), the
   default Biome Blend radius, snow line heights in windswept hills/taiga.
 - M7 in-game check: load one of our worlds' chunks in vanilla? (not a goal; vanilla
@@ -141,6 +138,17 @@ and GUI textures are made with their systems.
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | ✅ 2026-10-07 (zombie + cow, no pathfinding: see deviations) |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | ✅ 2026-10-07 (no comparators/observers; instant piston moves: see deviations) |
 | M12 | Dimensions: Nether and End, portals | ✅ 2026-10-07 (one dimension loaded at a time; no dragon or strongholds: see deviations) |
+| M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | Vanilla 1.21.11 opens our worlds |
+| M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | Flow matches vanilla |
+| M15 | Random ticks & fire: crops, saplings, leaf decay, grass spread, fire, flint and steel | Fire spreads like vanilla |
+| M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | Classic mobs behave like vanilla |
+| M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, brewing, farming | Core survival loop complete |
+| M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | Seeds look like vanilla's kind of world |
+| M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes | Nether as in 1.21 |
+| M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | Dragon can be beaten |
+| M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
+| M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
+| v1.0 | Tag the codebase (git tag v1.0) | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
 - Sound (miniaudio) — `src/audio` is a stub until needed.

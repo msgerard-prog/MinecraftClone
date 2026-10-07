@@ -317,11 +317,9 @@ void Mobs::tick(Context& ctx) {
             m.prevPitch = m.pitch;
             if (m.hurtTime > 0) --m.hurtTime;
             bool remove = false;
-            if (m.health <= 0.0f) { // death animation, then loot
-                if (++m.deathTime == 20) {
-                    die(ctx, m);
-                    remove = true;
-                }
+            if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
+                if (++m.deathTime == 1) die(ctx, m);
+                if (m.deathTime >= 20) remove = true;
             } else {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;

@@ -145,7 +145,7 @@ TEST_CASE("a torch strongly powers the block above it, which powers dust beside 
     CHECK(s.power({-1, 65, 0}) == 15);
 }
 
-TEST_CASE("redstone torches burn out after 8 changes in 60 ticks") {
+TEST_CASE("redstone torches burn out after more than 8 turn-offs in 60 ticks") {
     Scene s;
     s.put({5, 64, 5}, S(blocks::Stone));
     s.put({4, 64, 5}, with(with(S(blocks::Lever), "face", "wall"), "facing", "west"));
@@ -439,4 +439,20 @@ TEST_CASE("dust can't stand on leaves; pistons break leaves and can't move obsid
     s.put({3, 64, 8}, S(blocks::RedstoneBlock));
     s.tick(2);
     CHECK_FALSE(s.on({3, 64, 7}, "extended"));
+}
+
+TEST_CASE("a torch survives 8 turn-offs in 60 ticks and burns out on the 9th") {
+    for (int offs : {8, 9}) {
+        Scene s;
+        s.put({5, 64, 5}, S(blocks::Stone));
+        s.put({4, 64, 5}, with(with(S(blocks::Lever), "face", "wall"), "facing", "west"));
+        s.put({6, 64, 5}, with(S(blocks::RedstoneWallTorch), "facing", "east"));
+        for (int i = 0; i < offs; ++i) { // lever on (torch off), lever off (torch on)
+            s.use({4, 64, 5});
+            s.tick(3);
+            s.use({4, 64, 5});
+            s.tick(3);
+        }
+        CHECK(s.on({6, 64, 5}) == (offs == 8)); // lit again unless burnt out
+    }
 }

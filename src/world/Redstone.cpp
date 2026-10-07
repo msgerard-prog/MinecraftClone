@@ -475,7 +475,7 @@ void Redstone::tickBlock(const BlockPos& p, BlockStateId s) {
         if (flag(s, lit)) {
             if (input) {
                 set(p, withFlag(s, lit, false));
-                // Burnout (wiki: Redstone Torch): 8 changes within 60 ticks.
+                // Burnout (wiki: Redstone Torch): more than 8 turn-offs within 60 ticks.
                 if (toggledTooOften(p, true)) schedule(p, blockOf(s), 160, 0);
             }
         } else if (!input && !toggledTooOften(p, false)) {
@@ -606,7 +606,7 @@ bool Redstone::toggledTooOften(const BlockPos& p, bool add) {
     int n = 0;
     for (const Toggle& t : m_toggles)
         if (t.pos == p && m_now - t.time <= 60) ++n;
-    return n >= 8;
+    return n > 8; // "more than eight" turn-offs (wiki; user decision: the 9th burns out)
 }
 
 int Redstone::repeaterInput(const BlockPos& p, BlockStateId s) const {

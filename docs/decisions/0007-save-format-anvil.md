@@ -1,6 +1,6 @@
 # ADR 0007 — Save format: vanilla Anvil (Java 1.21)
 
-Status: **Proposed** (2026-10-07) — built while the user was away; awaiting confirmation.
+Status: **Accepted** (2026-10-07, confirmed by the user).
 
 ## Context
 M7 needs worlds that survive a restart. The save format is on the "never change
