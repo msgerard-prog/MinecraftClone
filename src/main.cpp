@@ -3,6 +3,8 @@
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
+#include "gameplay/BlockInteraction.h"
+#include "gameplay/Hotbar.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
 #include "rendering/GlContext.h"
@@ -85,6 +87,31 @@ glm::dvec3 findSpawn(const mc::world::TerrainGenerator& gen) {
     return {0.5, mc::world::TerrainGenerator::kSeaLevel + 1.0, 0.5};
 }
 
+// --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
+// re-mesh) with scripted look directions, so a screenshot can verify editing.
+void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar,
+                 mc::gfx::WorldRenderer& renderer) {
+    std::vector<mc::world::BlockPos> changed;
+    const float yaw = player.yaw(), pitch = player.pitch();
+    auto click = [&](float y, float p, bool attack, int slot) {
+        player.setRotation(y, p);
+        hotbar.select(slot);
+        mc::InteractionInput in;
+        in.attack = attack;
+        in.use = !attack;
+        mc::BlockInteraction fresh; // no cooldown between scripted clicks
+        fresh.tick(world, player, hotbar.selectedBlock(), in, changed);
+        renderer.onBlocksChanged(changed);
+    };
+    for (int i = 0; i < 3; ++i)
+        click(yaw, 55.0f, true, 0); // dig in front
+    for (int i = 0; i < 3; ++i)
+        click(yaw + 35.0f, 35.0f, false, 4); // planks, right
+    for (int i = 0; i < 4; ++i)
+        click(yaw - 40.0f, 60.0f - i * 8.0f, false, 5); // logs, left
+    player.setRotation(yaw, pitch);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -141,6 +168,12 @@ int main(int argc, char** argv) {
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
     if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
+    mc::Hotbar hotbar;
+    mc::BlockInteraction interaction;
+    std::vector<mc::world::BlockPos> changedBlocks;
+    changedBlocks.reserve(8);
+    bool attackArmed = false; // the click that captures the mouse must not break a block
+    int shownSlot = -1;
     mc::GameClock clock;
     double last = mc::timeSeconds();
     int frame = 0;
@@ -156,12 +189,30 @@ int main(int argc, char** argv) {
             // Click to capture the mouse, Esc to release it (pause menu comes in M6).
             if (!window.cursorCaptured() && window.leftMousePressed()) {
                 window.setCursorCaptured(true);
+                attackArmed = false;
             }
             if (window.cursorCaptured() && window.keyDown(mc::Key::Escape)) {
                 window.setCursorCaptured(false);
             }
         }
         player.turn(window.mouseDx(), window.mouseDy());
+        if (!window.leftMousePressed()) attackArmed = true;
+
+        // Hotbar: number keys 1-9 and the mouse wheel (shown in the title until the
+        // hotbar UI exists, M6).
+        if (window.cursorCaptured()) {
+            for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
+                if (window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i)))
+                    hotbar.select(i);
+            }
+            hotbar.scroll(window.scrollDelta());
+        }
+        if (hotbar.selected() != shownSlot && !opts->hidden) {
+            shownSlot = hotbar.selected();
+            const std::string title = "MinecraftClone - [" + std::to_string(shownSlot + 1) + "] " +
+                                      mc::world::blockRegistry().toString(hotbar.selectedBlock());
+            window.setTitle(title.c_str());
+        }
 
         const double now = mc::timeSeconds();
         // Full frame period (includes swap, i.e. waiting for the GPU / vsync).
@@ -177,6 +228,11 @@ int main(int argc, char** argv) {
                 input.sprint = true;
             }
             player.tick(world, input);
+            mc::InteractionInput clicks;
+            clicks.attack = window.cursorCaptured() && attackArmed && window.leftMousePressed();
+            clicks.use = window.cursorCaptured() && window.rightMousePressed();
+            interaction.tick(world, player, hotbar.selectedBlock(), clicks, changedBlocks);
+            renderer.onBlocksChanged(changedBlocks);
             renderer.tick();
         }
 
@@ -214,6 +270,7 @@ int main(int argc, char** argv) {
         if (!meshed && renderer.pendingMeshes() == 0 && (!loader || loader->pending() == 0)) {
             meshed = true;
             renderer.resetGpuStats(); // steady-state GPU numbers, like the CPU stats
+            if (opts->demoEdit) runDemoEdit(world, player, hotbar, renderer);
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
                         (mc::timeSeconds() - startTime) * 1000.0, st.sections,

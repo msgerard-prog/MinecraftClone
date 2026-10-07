@@ -40,6 +40,8 @@ Or open the folder in Visual Studio (it reads `CMakePresets.json`).
 | `--no-vsync` | Uncapped frame rate (for measuring performance) |
 | `--render-distance N` | Chunks loaded and drawn around you (2..32, default 12) |
 | `--flat` | The superflat test world instead of generated terrain |
+| `--auto-fly` / `--max-fps N` | Streaming benchmark: fly forward fast / cap the frame rate |
+| `--demo-edit` | Scripted break/place clicks after loading (visual test) |
 | `--resourcepacks DIR` | Folder of resource packs to load (default `resourcepacks/`) |
 | `--pos x,y,z` | Start position (blocks) |
 | `--look yaw,pitch` | Start rotation, vanilla degrees (yaw 0 = south, pitch +90 = down) |
@@ -71,4 +73,6 @@ folder. Never commit these files (ADR 0004).
 ## Controls
 Click the window to capture the mouse (Esc releases it). WASD to walk, Space to jump,
 Left Shift to sneak, Left Ctrl to sprint. Double-tap Space to start/stop flying
-(creative); while flying, Space rises and Shift descends.
+(creative); while flying, Space rises and Shift descends. Left click breaks the block
+under the crosshair, right click places the selected block; 1-9 or the mouse wheel
+select it (the window title shows which).

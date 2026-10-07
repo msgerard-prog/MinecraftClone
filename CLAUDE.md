@@ -24,7 +24,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--resourcepacks DIR`, `--render-distance N`,
+`--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
@@ -32,7 +32,8 @@ with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3
 (streaming stress: add `--auto-fly --max-fps 240 --frames 2400`; logs CPU work and GPU time).
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
-shift sneak / fly down, ctrl sprint. `--pos` and `--auto-fly` start flying.
+shift sneak / fly down, ctrl sprint, left click break, right click place, 1-9 / wheel
+select block (shown in the window title). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.
 
 The first build downloads dependencies into `out/deps` (≈1 min). Build output is

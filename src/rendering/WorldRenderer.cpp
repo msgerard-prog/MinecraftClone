@@ -86,6 +86,7 @@ void WorldRenderer::markChunkSections(const world::World& world, world::ChunkPos
 
 void WorldRenderer::onChunksLoaded(const world::World& world,
                                    const std::vector<world::ChunkPos>& loaded) {
+    m_streaming = true;
     m_ready.clear();
     m_meshTracker.onLoaded(world, loaded, m_ready);
     for (const world::ChunkPos& p : m_ready)
@@ -103,6 +104,30 @@ void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloade
                 ++it->second.version; // drop any result still in flight
                 eraseIfIdle(s);
             }
+        }
+    }
+}
+
+void WorldRenderer::onBlocksChanged(const std::vector<world::BlockPos>& changed) {
+    for (const world::BlockPos& b : changed) {
+        const world::SectionPos s{world::blockToChunk(b.x), b.y >> 4, world::blockToChunk(b.z)};
+        const int lx = world::blockToLocal(b.x), ly = world::blockToLocal(b.y),
+                  lz = world::blockToLocal(b.z);
+        const world::SectionPos around[7] = {
+            s,
+            {s.x + (lx == 0 ? -1 : 0), s.y, s.z},
+            {s.x + (lx == 15 ? 1 : 0), s.y, s.z},
+            {s.x, s.y + (ly == 0 ? -1 : 0), s.z},
+            {s.x, s.y + (ly == 15 ? 1 : 0), s.z},
+            {s.x, s.y, s.z + (lz == 0 ? -1 : 0)},
+            {s.x, s.y, s.z + (lz == 15 ? 1 : 0)},
+        };
+        for (const world::SectionPos& p : around) {
+            if (p.y < kMinSectionY || p.y > kMaxSectionY) continue;
+            // While streaming, only chunks that already have meshes are re-meshed (a
+            // chunk without all neighbours would show walls).
+            if (m_streaming && !m_meshTracker.isMeshed({p.x, p.z})) continue;
+            markDirty(p);
         }
     }
 }

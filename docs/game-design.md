@@ -70,6 +70,7 @@ fine until a system works.
 | All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | M6 (UI) |
 | No swimming: water has no physics, the player sinks through it | Fluid physics come with the fluids work | Fluids milestone |
 | Every block has the default slipperiness 0.6 (ice, slime, honey, soul sand speeds not modelled); no fall damage or hunger | Those blocks/systems don't exist yet | With their blocks / M9 |
+| Breaking is instant (creative); no survival mining times, drops or tool rules; placing doesn't trigger block updates (no falling sand, no water flow into holes) | Items/tools in M9, block updates later | M9 / block updates |
 | Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | M6 (controls) |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M4 follow-up |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |

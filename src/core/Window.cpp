@@ -21,10 +21,24 @@ constexpr int kGlfwKeys[] = {
     GLFW_KEY_LEFT_SHIFT,
     GLFW_KEY_LEFT_CONTROL,
     GLFW_KEY_ESCAPE,
+    GLFW_KEY_1,
+    GLFW_KEY_2,
+    GLFW_KEY_3,
+    GLFW_KEY_4,
+    GLFW_KEY_5,
+    GLFW_KEY_6,
+    GLFW_KEY_7,
+    GLFW_KEY_8,
+    GLFW_KEY_9,
 };
 static_assert(sizeof(kGlfwKeys) / sizeof(kGlfwKeys[0]) == static_cast<int>(Key::Count));
 
 } // namespace
+
+void onScroll(GLFWwindow* handle, double, double yoffset) {
+    auto* self = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+    if (self) self->m_scrollAccum += yoffset;
+}
 
 Window::~Window() {
     if (m_window) glfwDestroyWindow(m_window);
@@ -48,6 +62,8 @@ bool Window::create(int width, int height, const char* title, bool visible, bool
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!m_window) return false;
     glfwMakeContextCurrent(m_window);
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetScrollCallback(m_window, onScroll);
     glfwSwapInterval(vsync ? 1 : 0);
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
@@ -59,6 +75,8 @@ bool Window::shouldClose() const { return glfwWindowShouldClose(m_window); }
 
 void Window::pollEvents() {
     glfwPollEvents();
+    m_scrollDelta = m_scrollAccum;
+    m_scrollAccum = 0.0;
     m_mouseDx = 0.0;
     m_mouseDy = 0.0;
     if (!m_captured) return;
@@ -89,6 +107,12 @@ bool Window::keyDown(Key key) const {
 bool Window::leftMousePressed() const {
     return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 }
+
+bool Window::rightMousePressed() const {
+    return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+}
+
+void Window::setTitle(const char* title) { glfwSetWindowTitle(m_window, title); }
 
 void Window::setCursorCaptured(bool captured) {
     if (captured == m_captured) return;

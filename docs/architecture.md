@@ -27,7 +27,10 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
 ```
 - **Tick** (50 ms, fixed): all simulation — player physics (`gameplay/Player`:
   vanilla acceleration/friction/gravity, axis-by-axis AABB collision, step-up,
-  sneak edge protection, creative flight), later entities, block updates, random and
+  sneak edge protection, creative flight), block interaction (`BlockInteraction`:
+  raycast target, break/place with vanilla repeat delays; edits go to
+  `WorldRenderer::onBlocksChanged`, which re-meshes the section and border
+  neighbours), later entities, block updates, random and
   scheduled ticks. Deterministic given inputs. Texture animations advance here too.
 - **Frame** (vsync): mouse look applied (per frame, as vanilla); camera position
   interpolated between previous and current tick with `alpha`; upload finished chunk

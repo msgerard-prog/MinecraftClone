@@ -46,6 +46,10 @@ public:
     void onChunksLoaded(const world::World& world, const std::vector<world::ChunkPos>& loaded);
     void onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded);
 
+    // Blocks edited by the player: re-mesh their sections, plus the neighbouring
+    // section when a block sits on a section border (its faces there change too).
+    void onBlocksChanged(const std::vector<world::BlockPos>& changed);
+
     // Uploads finished meshes, then snapshots dirty sections for the mesh workers,
     // nearest to `cameraPos` first, within a per-frame time budget and a cap on jobs
     // in flight. Call once per frame (main thread).
@@ -102,6 +106,7 @@ private:
 
     std::unique_ptr<MeshWorkers> m_workers;
     ChunkMeshTracker m_meshTracker;       // streaming: chunks given meshes
+    bool m_streaming = false;             // false: static world (everything meshed up front)
     std::vector<world::ChunkPos> m_ready; // reused
     std::unordered_map<world::SectionPos, SectionState> m_states;
     std::vector<world::SectionPos> m_dirtyList; // sorted far -> near before dispatch

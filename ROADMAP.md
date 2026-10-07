@@ -4,6 +4,10 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
+M4 done (pending milestone reviews): player with vanilla movement physics (walk/
+sprint/sneak/jump/fly match the wiki's speeds in tests), AABB collision with step-up
+and sneak edge protection, block raycast with outline and crosshair, creative
+break/place with vanilla repeat delays and log axes, hotbar 1-9/wheel. 91 test cases.
 M3 done and reviewed (code, perf, parity findings fixed or recorded): seeded terrain
 generator (Xoroshiro128++, Perlin octaves, vanilla-like surface rules, deepslate,
 bedrock floor), water (translucent pass, 8/9 surface, two-sided top/sides, visible
@@ -20,13 +24,14 @@ GPU is drawFrame's two passes after loading:
 Static load (no flight): RD12 ~0.3 s, RD32 ~0.8 s. Movement is still free flight (M4).
 
 ## Next
-1. M4.1 — Player physics: vanilla AABB 0.6x1.8, gravity, jumping, walking/sprinting/
-   sneaking speeds and friction per tick (wiki: Player, Entity), axis-by-axis
-   collision against block shapes, step-up, creative flight toggle (double space).
-2. M4.2 — Block raycast (DDA) from the eye, outline of the targeted block.
-3. M4.3 — Break (left click) / place (right click) with the chosen block; renderer
-   re-meshes the edited section and its neighbours across section/chunk borders.
-4. M4.4 — Hotbar selection (1-9 / wheel) of placeable blocks (UI proper is M6).
+1. M4 milestone reviews (code / perf / parity agents), fix findings, push.
+2. M5.1 — Light engine: sky light (15 from the sky, straight down without loss,
+   -1 per block sideways) and block light (emitters, -1 per step), stored per section
+   (nibble arrays like vanilla), BFS propagation and removal on edits, on workers.
+3. M5.2 — Lit meshes: per-vertex sky/block light in the packed vertex, smooth lighting
+   and ambient occlusion (vanilla's 4-sample average per corner).
+4. M5.3 — Day/night: time of day (24000 ticks), sky light multiplier, sky colour,
+   sun/moon; torch + glowstone blocks to test block light.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -79,7 +84,7 @@ and GUI textures are made with their systems.
 | M1 | Camera + texture atlas + one textured cube | ✅ 2026-10-06 |
 | M2 | Block registry + block states, chunk sections (paletted), face-culled meshing on worker threads | ✅ 2026-10-06 |
 | M3 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | ✅ 2026-10-06 |
-| M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | Movement constants match the wiki; can build a house |
+| M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | ✅ 2026-10-06 |
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | Caves dark, torches light correctly, matches vanilla light levels |
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | Usable creative-mode inventory |
 | M7 | Save/load: region files (format chosen by ADR) | Worlds survive restart; round-trip tests |
@@ -98,6 +103,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-06 M4: player physics, raycast/outline/crosshair, break/place, hotbar.
 - 2026-10-06 M3: terrain generator, water, fog, chunk streaming, GPU timing, auto-fly bench.
 - 2026-10-06 All block textures (6 batches, 1,028 textures, texgen library).
 - 2026-10-06 Texture pass: original vanilla-style textures, art style guide, ADR 0006.

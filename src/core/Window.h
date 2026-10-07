@@ -4,8 +4,30 @@ struct GLFWwindow;
 
 namespace mc {
 
+class Window;
+void onScroll(GLFWwindow* handle, double xoffset, double yoffset);
+
 // Keys the game reads. Mapped to GLFW in Window.cpp so no other code includes GLFW.
-enum class Key { W, A, S, D, Space, LeftShift, LeftControl, Escape, Count };
+enum class Key {
+    W,
+    A,
+    S,
+    D,
+    Space,
+    LeftShift,
+    LeftControl,
+    Escape,
+    Num1,
+    Num2,
+    Num3,
+    Num4,
+    Num5,
+    Num6,
+    Num7,
+    Num8,
+    Num9,
+    Count
+};
 
 // Owns the GLFW window, its OpenGL 4.6 core context, and raw input state.
 class Window {
@@ -27,6 +49,10 @@ public:
 
     bool keyDown(Key key) const;
     bool leftMousePressed() const;
+    bool rightMousePressed() const;
+    // Mouse wheel steps since the previous pollEvents (+ = up / away from you).
+    double scrollDelta() const { return m_scrollDelta; }
+    void setTitle(const char* title);
 
     // Captured = cursor hidden and locked, mouse movement turns the camera.
     void setCursorCaptured(bool captured);
@@ -46,6 +72,9 @@ private:
     double m_lastY = 0.0;
     double m_mouseDx = 0.0;
     double m_mouseDy = 0.0;
+    double m_scrollDelta = 0.0;
+    double m_scrollAccum = 0.0; // filled by the GLFW callback
+    friend void onScroll(GLFWwindow*, double, double);
 };
 
 // Seconds since GLFW init (monotonic).

@@ -113,6 +113,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--max-fps needs a positive integer";
                 return std::nullopt;
             }
+        } else if (arg == "--demo-edit") {
+            opts.demoEdit = true;
         } else if (arg == "--auto-fly") {
             opts.autoFly = true;
         } else if (arg == "--flat") {
