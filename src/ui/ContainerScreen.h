@@ -22,7 +22,7 @@ namespace mc::ui {
 // as fit); clicking outside drops the carried stack. GL-free.
 class ContainerScreen {
 public:
-    enum class Type { Inventory, Crafting, Furnace, Chest };
+    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
     int height() const { return m_type == Type::Chest ? 114 + chestRows() * 18 : kHeight; }
@@ -34,6 +34,20 @@ public:
     void open(Type type, Furnace* furnace = nullptr);
     // A chest (and the other half of a double chest: rows 4-6), owned by the world.
     void openChest(world::ChestData* first, world::ChestData* second);
+    // The enchanting table (M17.5): bookshelves around it and the player's seed.
+    void openEnchanting(int bookshelves, uint64_t seed);
+    void openAnvil();
+    // The player's levels and mode, set each frame (offers and anvil costs need them).
+    void setPlayer(int levels, bool creative, uint64_t enchantSeed) {
+        m_levels = levels;
+        m_creative = creative;
+        m_seed = enchantSeed;
+    }
+    // Levels spent by enchanting or the anvil since the last call (main spends them);
+    // whether an item was enchanted (new seed) / the anvil was used (it may wear).
+    int takeLevelsSpent() { return std::exchange(m_levelsSpent, 0); }
+    bool takeEnchanted() { return std::exchange(m_enchanted, false); }
+    bool takeAnvilUsed() { return std::exchange(m_anvilUsed, false); }
     void setChests(world::ChestData* first, world::ChestData* second) {
         m_chests[0] = first;
         m_chests[1] = second;
@@ -79,6 +93,10 @@ private:
     world::ItemStack m_result;
     world::ItemStack m_carried;
     int m_experience = 0;
+    int m_bookshelves = 0, m_levels = 0, m_levelsSpent = 0, m_anvilCost = 0;
+    uint64_t m_seed = 0;
+    bool m_creative = false, m_enchanted = false, m_anvilUsed = false, m_anvilTooExpensive = false;
+    int m_anvilMaterial = 1;
     float m_xpFraction = 0.0f; // (fractions carry over, vanilla rounds them by chance)
 };
 

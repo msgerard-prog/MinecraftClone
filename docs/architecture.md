@@ -172,6 +172,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Enchanting (M17.5): `world/Enchantments` (registry: wiki weights, cost ranges,
+  targets, groups; items carry up to 4 as id<<8|level, saved as
+  minecraft:enchantments); effects in Mining (Efficiency, Silk Touch, Fortune,
+  `wearItem` Unbreaking), Vitals (protection EPF), main (weapon enchantments),
+  Projectiles (bow enchantments). `gameplay/Enchanting` (bookshelves, offers,
+  picking from the player's XpSeed) and `gameplay/Anvil` (repair, combine, books,
+  costs, prior work) back `ContainerScreen::Type::Enchanting/Anvil`; level spending
+  and anvil wear happen in the tick (main) from the screen's requests.
 - Experience (M17.5): levels in `Vitals` (vanilla's points per level), `gameplay/
   ExperienceOrbs` (pooled orbs drawn to the player), sources: player kills
   (`Mobs::Context::orbs`), breeding, ores (`blockExperience`), furnaces (stored per

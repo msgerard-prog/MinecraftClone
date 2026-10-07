@@ -163,6 +163,10 @@ ItemRegistry buildItems() {
         }
     // (wiki: Shield - 336 uses)
     r.add({.id = "minecraft:shield", .maxStack = 1, .durability = 336, .texture = "item/shield"});
+    // Books (M17.5; wiki: Paper, Book, Enchanted Book - stacks to 1).
+    r.add({.id = "minecraft:paper", .texture = "item/paper"});
+    r.add({.id = "minecraft:book", .texture = "item/book"});
+    r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});
     r.add({.id = "minecraft:arrow", .texture = "item/arrow"});

@@ -1,10 +1,13 @@
 #include "ui/ContainerScreen.h"
 
+#include "gameplay/Anvil.h"
+#include "gameplay/Enchanting.h"
 #include "gameplay/Recipes.h"
 #include "ui/Hud.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace mc::ui {
 
@@ -39,6 +42,14 @@ void ContainerScreen::open(Type type, Furnace* furnace) {
     m_carried = {};
 }
 
+void ContainerScreen::openEnchanting(int bookshelves, uint64_t seed) {
+    open(Type::Enchanting);
+    m_bookshelves = bookshelves;
+    m_seed = seed;
+}
+
+void ContainerScreen::openAnvil() { open(Type::Anvil); }
+
 void ContainerScreen::openChest(world::ChestData* first, world::ChestData* second) {
     open(Type::Chest);
     m_chests = {first, second};
@@ -71,7 +82,14 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, invY + (i / 9) * 18});
         for (int i = 0; i < 9; ++i) // hotbar
             out.push_back({K::Inv, i, 8 + i * 18, invY + 58});
-        if (type == Type::Chest) {
+        if (type == Type::Enchanting) { // item, lapis (vanilla layout)
+            out.push_back({K::Grid, 0, 15, 47});
+            out.push_back({K::Grid, 1, 35, 47});
+        } else if (type == Type::Anvil) { // left, right, result
+            out.push_back({K::Grid, 0, 27, 47});
+            out.push_back({K::Grid, 1, 76, 47});
+            out.push_back({K::Result, 0, 134, 47});
+        } else if (type == Type::Chest) {
             for (int i = 0; i < rows * 9; ++i)
                 out.push_back({K::Chest, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
         } else if (type == Type::Inventory) {
@@ -95,8 +113,11 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
     // Layouts never change: built on first use, then shared (no per-frame vectors).
     static const std::vector<Slot> inventory = build(Type::Inventory, 0), crafting = build(Type::Crafting, 0),
                                    furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
-                                   chest6 = build(Type::Chest, 6);
+                                   chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
+                                   anvil = build(Type::Anvil, 0);
     if (m_type == Type::Chest) return chestRows() == 6 ? chest6 : chest3;
+    if (m_type == Type::Enchanting) return enchanting;
+    if (m_type == Type::Anvil) return anvil;
     return m_type == Type::Inventory ? inventory : m_type == Type::Crafting ? crafting : furnace;
 }
 
@@ -119,7 +140,15 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
 }
 
 void ContainerScreen::updateResult() {
-    if (m_type == Type::Furnace || m_type == Type::Chest) return;
+    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting) return;
+    if (m_type == Type::Anvil) {
+        const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
+        m_result = r.out;
+        m_anvilCost = r.cost;
+        m_anvilMaterial = r.materialUsed;
+        m_anvilTooExpensive = r.tooExpensive;
+        return;
+    }
     const int n = gridSize();
     std::array<world::ItemStack, 9> g{};
     for (int i = 0; i < n * n; ++i)
@@ -146,6 +175,20 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 }
 
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
+    if (m_type == Type::Anvil) { // pay the levels, use up the inputs (wiki: Anvil)
+        if (m_result.empty() || m_anvilTooExpensive || (!m_creative && m_levels - m_levelsSpent < m_anvilCost)) return;
+        if (!m_carried.empty()) return;
+        m_carried = m_result;
+        m_grid[0] = {};
+        if (m_grid[1].count <= m_anvilMaterial) m_grid[1] = {};
+        else m_grid[1].count = uint8_t(m_grid[1].count - m_anvilMaterial);
+        if (!m_creative) m_levelsSpent += m_anvilCost;
+        m_anvilUsed = true;
+        updateResult();
+        (void)inventory;
+        (void)shift;
+        return;
+    }
     const int n = gridSize();
     for (int rounds = 0; rounds < 64 && !m_result.empty(); ++rounds) {
         world::ItemStack made = m_result;
@@ -197,6 +240,25 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             m_carried = {};
         }
         drops.push_back(thrown);
+        return;
+    }
+    if (m_type == Type::Enchanting && px >= 60 && px < 168 && py >= 14 && py < 14 + 3 * 19) {
+        // An offer button: needs its level cost (and, in survival, slot + 1 levels and
+        // lapis) - then the item is enchanted (wiki: Enchanting Table).
+        const int slot = int((py - 14) / 19);
+        const auto offers = enchantOffers(m_grid[0], m_bookshelves, m_seed);
+        const EnchantOffer& o = offers[size_t(slot)];
+        static const world::ItemId lapis = *world::itemRegistry().find("lapis_lazuli");
+        const bool affordable = m_creative || (m_levels - m_levelsSpent >= o.cost &&
+                                               m_grid[1].item == lapis && m_grid[1].count >= slot + 1);
+        if (o.cost > 0 && affordable) {
+            m_grid[0] = applyEnchantments(m_grid[0], pickEnchantments(m_grid[0], o.cost, m_seed, slot));
+            if (!m_creative) {
+                m_levelsSpent += slot + 1;
+                if ((m_grid[1].count = uint8_t(m_grid[1].count - (slot + 1))) == 0) m_grid[1] = {};
+            }
+            m_enchanted = true;
+        }
         return;
     }
     for (const Slot& slot : slots()) {
@@ -270,6 +332,10 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             return;
         }
         const bool outputOnly = slot.kind == Slot::Kind::FurnaceOut;
+        // The enchanting table's second slot takes lapis only.
+        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 1 && !m_carried.empty() &&
+            world::itemRegistry().item(m_carried.item).id != "minecraft:lapis_lazuli")
+            return;
         // An armor slot only takes its own piece (wiki: Inventory).
         if (slot.kind == Slot::Kind::Armor && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).armorSlot != slot.index + 1)
@@ -331,11 +397,16 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 1, top + 1, 2, float(h - 3), kLight);
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
-    const char* title = m_type == Type::Furnace ? "Furnace"
-                        : m_type == Type::Chest ? (chestRows() == 6 ? "Large Chest" : "Chest")
-                                                : "Crafting";
-    const float titleX = m_type == Type::Inventory ? 97.0f : m_type == Type::Crafting ? 28.0f
-                         : m_type == Type::Chest ? 8.0f : 70.0f;
+    const char* title = m_type == Type::Furnace      ? "Furnace"
+                        : m_type == Type::Chest      ? (chestRows() == 6 ? "Large Chest" : "Chest")
+                        : m_type == Type::Enchanting ? "Enchant"
+                        : m_type == Type::Anvil      ? "Repair & Name"
+                                                     : "Crafting";
+    const float titleX = m_type == Type::Inventory ? 97.0f
+                         : m_type == Type::Crafting ? 28.0f
+                         : m_type == Type::Chest || m_type == Type::Enchanting ? 8.0f
+                         : m_type == Type::Anvil ? 60.0f
+                                                 : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
     if (m_type != Type::Inventory)
         b.text("Inventory", left + 8, top + (m_type == Type::Chest ? float(20 + chestRows() * 18) : 72.0f), kLabel, false);
@@ -345,6 +416,36 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
         b.fill(left + x, top + y + 6, 16, 4, kDark);
         if (fill > 0) b.fill(left + x, top + y + 6, 16 * fill, 4, kLight);
     };
+    if (m_type == Type::Enchanting) { // the three offers: hint text and level cost
+        const auto offers = enchantOffers(m_grid[0], m_bookshelves, m_seed);
+        static const world::ItemId lapis = *world::itemRegistry().find("lapis_lazuli");
+        static constexpr const char* kRoman[] = {"", "I", "II", "III", "IV", "V"};
+        for (int i = 0; i < 3; ++i) {
+            const EnchantOffer& o = offers[size_t(i)];
+            const float bx = left + 60, by = top + 14 + i * 19;
+            const bool ok = o.cost > 0 && (m_creative || (m_levels >= o.cost && m_grid[1].item == lapis &&
+                                                          m_grid[1].count >= i + 1));
+            b.fill(bx, by, 108, 19, o.cost == 0 ? kDark : ok ? gfx::rgba(150, 120, 170) : gfx::rgba(110, 100, 115));
+            b.fill(bx, by + 18, 108, 1, kEdge);
+            if (o.cost == 0) continue;
+            char line[48];
+            const auto& info = world::enchantmentInfo(o.hint);
+            const int n = std::snprintf(line, sizeof(line), "%.*s %s", int(info.name.size()), info.name.data(),
+                                        info.maxLevel > 1 ? kRoman[std::min(o.hintLevel, 5)] : "");
+            b.text(std::string_view(line, size_t(std::max(0, n))), bx + 3, by + 2, ok ? kLight : kDark, false);
+            const int c = std::snprintf(line, sizeof(line), "%d", o.cost);
+            b.text(std::string_view(line, size_t(std::max(0, c))), bx + 106 - float(b.textWidth({line, size_t(c)})),
+                   by + 10, ok ? gfx::rgba(128, 255, 32) : gfx::rgba(64, 128, 16), true);
+        }
+    }
+    if (m_type == Type::Anvil && !m_result.empty()) {
+        char line[48];
+        const int n = m_anvilTooExpensive ? std::snprintf(line, sizeof(line), "Too Expensive!")
+                                          : std::snprintf(line, sizeof(line), "Enchantment Cost: %d", m_anvilCost);
+        const bool ok = !m_anvilTooExpensive && (m_creative || m_levels >= m_anvilCost);
+        b.text(std::string_view(line, size_t(std::max(0, n))), left + 168 - float(b.textWidth({line, size_t(n)})), top + 69,
+               ok ? gfx::rgba(128, 255, 32) : gfx::rgba(255, 96, 96), true);
+    }
     if (m_type == Type::Inventory) arrow(134, 28, 0);
     if (m_type == Type::Crafting) arrow(90, 35, 0);
     if (m_type == Type::Furnace && m_furnace) {

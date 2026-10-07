@@ -116,6 +116,9 @@ public:
         m_xpProgress = progress;
         m_xpTotal = total;
     }
+    // The enchantment seed (vanilla XpSeed): fixes the table's offers until used.
+    uint64_t enchantSeed() const { return m_enchantSeed; }
+    void setEnchantSeed(uint64_t s) { m_enchantSeed = s; }
     // Dropped on death (wiki): 7 x level, at most 100 points; then all is lost.
     int deathExperience() const { return std::min(m_xpLevel * 7, 100); }
 
@@ -135,6 +138,7 @@ private:
     int m_xpLevel = 0;
     float m_xpProgress = 0.0f;
     int m_xpTotal = 0;
+    uint64_t m_enchantSeed = 0x5EED;
     std::array<int, 5> m_protection{};
     int m_armorPoints = 0;
     float m_armorToughness = 0.0f;

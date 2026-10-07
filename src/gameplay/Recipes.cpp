@@ -123,6 +123,16 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"#.#", "#.#"}, {{'#', x}}, m + "_boots"));
     }
     r.push_back(shaped({"WIW", "WWW", ".W."}, {{'W', kPlanks}, {'I', item("iron_ingot")}}, "shield"));
+    // Books and enchanting (wiki: Paper, Book, Bookshelf, Enchanting Table, Anvil,
+    // Block of Iron).
+    r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
+    r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
+    r.push_back(shaped({"###", "BBB", "###"}, {{'#', kPlanks}, {'B', item("book")}}, "bookshelf"));
+    r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},
+                       "enchanting_table"));
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("iron_ingot")}}, "iron_block"));
+    r.push_back(shapeless({item("iron_block")}, "iron_ingot", 9));
+    r.push_back(shaped({"BBB", ".I.", "III"}, {{'B', item("iron_block")}, {'I', item("iron_ingot")}}, "anvil"));
     // (wiki: Arrow - flint, stick, feather -> 4)
     r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
     return r;
@@ -285,6 +295,7 @@ int fuelByName(std::string_view n, const ItemDef& def) {
     if (n == "coal" || n == "charcoal") return 1600;
     if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table" || n == "chest") return 300;
     if (n == "stick" || n == "dead_bush" || n.ends_with("_sapling") || n.ends_with("_wool")) return 100;
+    if (n == "bookshelf") return 300;
     if (n == "lava_bucket") return 20000; // the empty bucket stays in the fuel slot
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;
     return 0;

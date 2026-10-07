@@ -169,6 +169,14 @@ enum : BlockId {
     Beetroots, // age 0..3
     Chest,     // facing, type (single | left | right)
     RedBed,    // facing (foot -> head), occupied, part
+    // Enchanting and anvils (M17.5).
+    Bookshelf,
+    EnchantingTable,
+    Anvil, // facing
+    ChippedAnvil,
+    DamagedAnvil,
+    IronBlock,
+    SugarCane, // age 0..15
     Count
 };
 } // namespace blocks

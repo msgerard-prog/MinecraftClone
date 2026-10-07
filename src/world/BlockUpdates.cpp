@@ -224,7 +224,21 @@ std::optional<BlockPos> BlockUpdates::chestPartner(const World& world, const Blo
 
 // --- Falling blocks ---------------------------------------------------------------
 
-bool BlockUpdates::hasGravity(BlockId b) { return b == B::Sand || b == B::RedSand || b == B::Gravel; }
+bool BlockUpdates::hasGravity(BlockId b) {
+    return b == B::Sand || b == B::RedSand || b == B::Gravel || b == B::Anvil || b == B::ChippedAnvil ||
+           b == B::DamagedAnvil;
+}
+
+bool BlockUpdates::sugarCaneCanStay(const World& world, const BlockPos& p) {
+    // On more cane, or on dirt/grass/sand next to water (wiki: Sugar Cane).
+    const BlockPos below{p.x, p.y - 1, p.z};
+    const BlockId b = blockOf(world.getBlock(below));
+    if (b == B::SugarCane) return true;
+    if (b != B::GrassBlock && b != B::Dirt && b != B::CoarseDirt && b != B::Sand && b != B::RedSand) return false;
+    for (const Direction d : kHorizontal)
+        if (blockOf(world.getBlock(rel(below, d))) == B::Water) return true;
+    return false;
+}
 
 bool BlockUpdates::replaceable(BlockStateId s) {
     // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
@@ -265,7 +279,8 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
     // nothing to relight or re-mesh.
     if (blockOf(old) == blockOf(now) && (isLeaves(blockOf(now)) || blockOf(now) == B::Fire ||
                                          blockOf(now) == B::OakSapling || blockOf(now) == B::BirchSapling ||
-                                         blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling))
+                                         blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling ||
+                                         blockOf(now) == B::SugarCane))
         return;
     // Light only needs recomputing when emission or opacity changed (dust power,
     // repeater and lever states only change the model).
@@ -469,7 +484,13 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Sand:
     case B::RedSand:
     case B::Gravel:
+    case B::Anvil:
+    case B::ChippedAnvil:
+    case B::DamagedAnvil:
         if (fallThrough(at(rel(p, Direction::Down)))) schedule(p, blockOf(s), 2, 0); // wiki: 2 ticks
+        break;
+    case B::SugarCane:
+        if (!sugarCaneCanStay(m_world, p)) pop(p);
         break;
     case B::OakLeaves:
     case B::BirchLeaves:
@@ -615,6 +636,9 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::Sand:
     case B::RedSand:
     case B::Gravel:
+    case B::Anvil:
+    case B::ChippedAnvil:
+    case B::DamagedAnvil:
         if (p.y > m_world.height().minY && fallThrough(at(rel(p, Direction::Down)))) {
             m_falling.push_back({p, s});
             set(p, 0);
@@ -932,6 +956,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
             return std::nullopt;
         return r.set(withHFacing(state, look), bedPart, 1);
     }
+    case B::SugarCane:
+        if (!sugarCaneCanStay(world, at)) return std::nullopt;
+        return state;
+    case B::Anvil:
+    case B::ChippedAnvil:
+    case B::DamagedAnvil: return withHFacing(state, look);
     case B::Chest: {
         // The front faces the player; next to a single chest with the same facing
         // (on its left or right) it becomes the other half of a double chest.

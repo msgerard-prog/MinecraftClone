@@ -482,6 +482,32 @@ def shield():
     return s.render()
 
 
+def paper():
+    pal = ramp(hexc("#EEEEE4"), 5, spread=0.15)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(2, 14) if not (x >= 11 and y >= 12)}, pal)
+    img = s.render()
+    for y in (5, 7, 9):
+        for x in range(5, 11):
+            img.set(x, y, hexc("#B8B8B0"))
+    return img
+
+
+def book(enchanted=False):
+    cover = ramp(hexc("#7A3E20" if not enchanted else "#5A2A8A"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(2, 14)}, cover)
+    s.add({(x, y) for x in range(11, 13) for y in range(3, 13)}, ramp(hexc("#EEEEE4"), 5, spread=0.1))
+    img = s.render()
+    if enchanted:
+        for x, y in ((5, 4), (8, 6), (6, 9), (9, 11), (4, 12)):
+            img.set(x, y, hexc("#E8B8FF"))
+    else:
+        for x in range(4, 10):
+            img.set(x, 5, hexc("#C8A050"))
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -544,6 +570,9 @@ def all_items():
         for piece in ("helmet", "chestplate", "leggings", "boots"):
             items[f"{mat}_{piece}"] = armor(piece, base)
     items["shield"] = shield()
+    items["paper"] = paper()
+    items["book"] = book()
+    items["enchanted_book"] = book(True)
     return items
 
 

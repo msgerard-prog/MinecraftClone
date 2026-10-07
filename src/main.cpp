@@ -22,6 +22,7 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/ItemEntities.h"
@@ -379,6 +380,7 @@ int main(int argc, char** argv) {
         vitals.setAir(level->air);
         vitals.setFireTicks(level->fire);
         vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
+        vitals.setEnchantSeed(uint32_t(level->xpSeed));
     }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
@@ -508,6 +510,7 @@ int main(int argc, char** argv) {
         l.xpLevel = vitals.xpLevel();
         l.xpProgress = vitals.xpProgress();
         l.xpTotal = vitals.xpTotal();
+        l.xpSeed = int32_t(uint32_t(vitals.enchantSeed()));
         l.hasRespawn = bedSpawn.has_value();
         if (bedSpawn) l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
@@ -649,6 +652,7 @@ int main(int argc, char** argv) {
                            mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
         } else if (container.isOpen()) {
+            container.setPlayer(vitals.xpLevel(), !survival, vitals.enchantSeed());
             int fw = 0, fh = 0;
             window.framebufferSize(fw, fh);
             const int scale = mc::gfx::GuiRenderer::guiScale(fw, fh);
@@ -775,6 +779,15 @@ int main(int argc, char** argv) {
                         }
                         case mc::BedUse::NotABed: break;
                         }
+                    } else if (block == mc::world::blocks::EnchantingTable) {
+                        containerBlock = lastHit->block;
+                        container.openEnchanting(mc::countBookshelves(world, lastHit->block), vitals.enchantSeed());
+                        window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::Anvil || block == mc::world::blocks::ChippedAnvil ||
+                               block == mc::world::blocks::DamagedAnvil) {
+                        containerBlock = lastHit->block;
+                        container.openAnvil();
+                        window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::Chest) {
                         if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
@@ -1362,6 +1375,31 @@ int main(int argc, char** argv) {
                 orbs.drop({b.x + 0.5, b.y + 0.5, b.z + 0.5}, xp, gameRng);
             }
             vitals.addExperience(container.takeExperience());
+            // Enchanting and anvils (M17.5): levels spent, a new seed after enchanting,
+            // and the anvil's wear: 12% a use - anvil, chipped, damaged, gone (wiki).
+            if (const int spent = container.takeLevelsSpent(); spent > 0) vitals.spendLevels(spent);
+            if (container.takeEnchanted()) vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
+            if (container.takeAnvilUsed() && survival && gameRng.nextFloat() < 0.12f) {
+                const auto st = world.getBlock(containerBlock);
+                const auto b = reg.blockOf(st);
+                const mc::world::BlockId next = b == mc::world::blocks::Anvil          ? mc::world::BlockId(mc::world::blocks::ChippedAnvil)
+                                                : b == mc::world::blocks::ChippedAnvil ? mc::world::BlockId(mc::world::blocks::DamagedAnvil)
+                                                                                       : mc::world::BlockId(0);
+                if (b == mc::world::blocks::Anvil || b == mc::world::blocks::ChippedAnvil || b == mc::world::blocks::DamagedAnvil) {
+                    const auto ns = next ? reg.with(reg.defaultState(next), "facing", *reg.value(st, "facing"))
+                                               .value_or(reg.defaultState(next))
+                                         : mc::world::BlockStateId{0};
+                    world.updateBlock(containerBlock, ns);
+                    frameEdits.push_back(containerBlock);
+                    if (!next) { // destroyed: the screen closes, its items come back
+                        screenDrops.clear();
+                        container.close(inventory, screenDrops);
+                        for (const auto& d : screenDrops)
+                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), d, gameRng);
+                        window.setCursorCaptured(true);
+                    }
+                }
+            }
             vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
@@ -1403,7 +1441,16 @@ int main(int argc, char** argv) {
 
         if (openBlockPending && gameTime > 2) { // --open-block (screenshots of container screens)
             openBlockPending = false;
-            openChestAt({opts->openBlock[0], opts->openBlock[1], opts->openBlock[2]});
+            const mc::world::BlockPos ob{opts->openBlock[0], opts->openBlock[1], opts->openBlock[2]};
+            const auto obBlock = mc::world::blockRegistry().blockOf(world.getBlock(ob));
+            containerBlock = ob;
+            if (obBlock == mc::world::blocks::EnchantingTable)
+                container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
+            else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||
+                     obBlock == mc::world::blocks::DamagedAnvil)
+                container.openAnvil();
+            else
+                openChestAt(ob);
         }
         if (openInventoryPending && gameTime > 0) {
             openInventoryPending = false;

@@ -117,6 +117,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("XpLevel", int32_t{xpLevel});
     player.put("XpP", xpProgress);
     player.put("XpTotal", int32_t{xpTotal});
+    player.put("XpSeed", int32_t{xpSeed});
     player.put("Score", int32_t{0});
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
@@ -283,6 +284,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         l.xpLevel = static_cast<int>(std::clamp<int64_t>(p->integer("XpLevel").value_or(0), 0, 21863));
         l.xpProgress = std::clamp(float(p->real("XpP").value_or(0.0)), 0.0f, 1.0f);
         l.xpTotal = static_cast<int>(std::max<int64_t>(0, p->integer("XpTotal").value_or(0)));
+        l.xpSeed = static_cast<int32_t>(p->integer("XpSeed").value_or(0));
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {

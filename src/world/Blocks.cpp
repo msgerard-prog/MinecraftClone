@@ -302,6 +302,21 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("red_bed", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .layer = RenderLayer::Cutout},
                 {{&facing, "north"}, {&occupied, "false"}, {&bedPart, "foot"}}),
           blocks::RedBed);
+    // Enchanting and anvils (M17.5; wiki: Bookshelf 1.5, Enchanting Table 5 / 1200 and
+    // light 7, Anvil 5 / 1200, Block of Iron 5 / 6, Sugar Cane 0).
+    check(r.add("bookshelf", {.hardness = 1.5f, .resistance = 1.5f}), blocks::Bookshelf);
+    check(r.add("enchanting_table", {.hardness = 5.0f, .resistance = 1200.0f, .lightEmission = 7, .opaqueCube = false,
+                                     .layer = RenderLayer::Cutout}),
+          blocks::EnchantingTable);
+    for (const auto& [name, id] : {std::pair{"anvil", blocks::Anvil}, std::pair{"chipped_anvil", blocks::ChippedAnvil},
+                                   std::pair{"damaged_anvil", blocks::DamagedAnvil}})
+        check(r.add(name, {.hardness = 5.0f, .resistance = 1200.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                    {{&facing, "north"}}),
+              id);
+    check(r.add("iron_block", {.hardness = 5.0f, .resistance = 6.0f}), blocks::IronBlock);
+    BlockSettings cane = kPlant;
+    cane.randomTicks = true;
+    check(r.add("sugar_cane", cane, {{&age, "0"}}), blocks::SugarCane);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

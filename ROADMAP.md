@@ -27,7 +27,7 @@ Anvil, Brewing):
    axe disabling).
 4. ✅ M17.4 — Beds (placing two halves, sleeping at night skips to morning, respawn
    point, explode in the Nether/End).
-5. M17.5 — Enchanting (table, lapis, levels/XP orbs from mobs and ores, enchantment
+5. ✅ M17.5 — Enchanting (table, lapis, levels/XP orbs from mobs and ores, enchantment
    choices by bookshelves, efficiency/sharpness/protection/unbreaking...), anvils
    (repair, combine, naming), brewing (stand, blaze powder... where ingredients exist).
 
@@ -108,6 +108,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M17 question (worldgen):** sugar cane now exists (paper -> books -> bookshelves,
+  enchanting) but no world generates it; adding it to the Overworld generator (next to
+  water on sand/grass, as vanilla) changes generated blocks, so the pinned hashes
+  would change for new chunks. OK to do it?
 - **M15 question (save compatibility):** leaves you placed in worlds saved before
   v0.15.0 were stored as `distance=7, persistent=false` (placement didn't set
   persistent yet), so they now decay. Shall I add a one-time load upgrade that marks

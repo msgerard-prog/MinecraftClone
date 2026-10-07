@@ -228,6 +228,37 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite((name + "_stage" + std::to_string(stage)).c_str());
+            } else if (name == "bookshelf") { // books on the sides, planks top and bottom
+                BakedVariant v = cubeAll(sprite("bookshelf"));
+                v.faces[int(Direction::Up)].sprite = sprite("oak_planks");
+                v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
+                m = single(v);
+            } else if (name == "sugar_cane") { // a cross, tinted like grass (vanilla)
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("sugar_cane");
+                m.crossTint = Tint::Grass;
+            } else if (name == "enchanting_table" || name.ends_with("anvil")) {
+                // Enchanting table: a 12/16-tall box; anvils: a full box here (vanilla:
+                // a stepped model), their top worn with damage.
+                const bool table = name == "enchanting_table";
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = 0, b.from[1] = 0, b.from[2] = 0;
+                b.to[0] = 16, b.to[1] = table ? 12 : 16, b.to[2] = 16;
+                const uint16_t side = sprite(table ? "enchanting_table_side" : "anvil");
+                const uint16_t top = sprite(table ? "enchanting_table_top" : (name + "_top").c_str());
+                const uint16_t bottom = sprite(table ? "enchanting_table_bottom" : "anvil");
+                for (int d = 0; d < 6; ++d) {
+                    auto& face = b.faces[d];
+                    face.sprite = d == int(Direction::Up) ? top : d == int(Direction::Down) ? bottom : side;
+                    face.uv[0] = 0, face.uv[1] = table && d > 1 ? 4 : 0, face.uv[2] = 16, face.uv[3] = 16;
+                }
+                if (!table) {
+                    const auto f = registry.value(state, "facing").value_or("north");
+                    b.faces[int(Direction::Up)].rotation = f == "east" || f == "west" ? 1 : 0;
+                }
             } else if (name == "red_bed") {
                 // A 9/16-tall slab (vanilla's bed model, simplified): blanket on top, the
                 // pillow on the head half; the item icon shows the side.

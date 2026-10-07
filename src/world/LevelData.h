@@ -43,6 +43,7 @@ struct LevelData {
     int xpLevel = 0;       // XpLevel, XpP (bar 0..1), XpTotal
     float xpProgress = 0.0f;
     int xpTotal = 0;
+    int32_t xpSeed = 0;    // XpSeed: the enchanting table's seed
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
     // Inventory slots 0..35 (0..8 hotbar), worn armor 100 (feet)..103 (head) and the

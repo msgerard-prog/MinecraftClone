@@ -151,6 +151,23 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
         }
         break;
     case B::Farmland: tickFarmland(p, s); break;
+    case B::SugarCane: {
+        // Grows on the top piece: age +1 a random tick, a new piece at 15, 3 tall at
+        // most (wiki: Sugar Cane).
+        if (at({p.x, p.y + 1, p.z}) != 0) break;
+        int height = 1;
+        while (height < 3 && blockOf(at({p.x, p.y - height, p.z})) == B::SugarCane)
+            ++height;
+        if (height >= 3) break;
+        const int a = R().get(s, age);
+        if (a >= 15) {
+            set({p.x, p.y + 1, p.z}, R().defaultState(B::SugarCane));
+            setRaw(p, R().set(s, age, 0));
+        } else {
+            setRaw(p, R().set(s, age, a + 1));
+        }
+        break;
+    }
     case B::Wheat:
     case B::Carrots:
     case B::Potatoes:
