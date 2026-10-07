@@ -136,8 +136,8 @@ void ChunkRenderer::uploadSection(world::SectionPos pos, std::span<const PackedV
     ensureDrawCapacity(m_sections.size());
 }
 
-void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin,
-                         bool backToFront) {
+void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin, bool backToFront,
+                         float maxDistance) {
     const Frustum frustum = Frustum::fromMatrix(viewProjAtOrigin);
     uint32_t drawCount = 0;
     uint64_t quads = 0;
@@ -146,6 +146,10 @@ void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin
         const glm::dvec3 origin(pos.x * 16.0, pos.y * 16.0, pos.z * 16.0);
         const glm::vec3 offset(origin - camera.position);
         if (!frustum.intersectsBox(offset, offset + glm::vec3(16.0f))) continue;
+        // Horizontal distance to the section centre; +12 covers the half-diagonal so a
+        // section reaching into the visible range is kept.
+        const glm::vec2 h(offset.x + 8.0f, offset.z + 8.0f);
+        if (glm::dot(h, h) > (maxDistance + 12.0f) * (maxDistance + 12.0f)) continue;
         m_commands[drawCount] = {entry.range.size * 6, 1, 0,
                                  static_cast<int32_t>(entry.range.offset * 4), drawCount};
         m_offsets[drawCount] = glm::vec4(offset, 0.0f);

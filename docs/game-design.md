@@ -63,14 +63,18 @@ fine until a system works.
 ## Known deviations from vanilla
 | Deviation | Why | Remove by |
 |---|---|---|
-| Terrain is simple noise until M8 | Need ground to test M3–M7 | M8 |
+| Placeholder terrain: 2D heightmap; no caves, aquifers, lava level, ores, features, trees or biomes; fixed 3-block dirt; no sandstone under sand; sand vs gravel by noise, not by biome; sand only in a narrow band at the waterline; bedrock/deepslate gradients use our positional hash (same probabilities as described, different pattern) | Need ground to test M3–M7 | M8 |
+| Fog fades to the sky colour #78A7FF; vanilla fades to the biome fog colour (Overworld #C0D8FF) blended with a sky gradient | No sky/fog colour model yet | M5 |
+| Water tint is always #3F76E4 (no biome water colours) | No biomes | M8 |
+| Gravel and sand don't fall | Falling blocks need entities | M10 |
+| All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | M6 (UI) |
 | Free flight uses constant speeds (10.92 / 21.6 / 7.49 b/s), no acceleration or drag; sprint needs Ctrl held (vanilla keeps sprinting until you stop moving forward) | Camera needed before player physics | M4 |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Needs player abilities state | M4 |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
 | Water uses the still texture only and every level renders at source height 8/9; no flow, no underwater fog/tint | Fluid flow and camera-in-fluid effects come later | Fluids milestone |
 | Translucent faces are sorted per section, not per quad (rare blending errors inside one section) | Simpler; vanilla sorts quads | When visible |
 | Flowing water/lava textures are 16px frames (vanilla: 32px) | One 32px sprite would force 32px atlas cells for every texture | When the atlas packs mixed sizes |
-| Animated textures ignore `.mcmeta` custom `frames` order and `interpolate`; non-square or non-power-of-two sprites are skipped; all sprites share one cell size (vanilla packs mixed sizes) | Minimal .mcmeta reader, grid atlas | When a pack needs it |
+| Animated textures ignore `.mcmeta` `frames`, `interpolate`, `width`/`height`; only vertical strips of width×width frames animate (vanilla: squares of the smaller dimension, any strip direction); a non-square image without `.mcmeta` shows its top square (vanilla stretches it); non-power-of-two sprites are skipped; one cell size for all sprites | Minimal .mcmeta reader, grid atlas | When a pack needs it |
 | Random model variants are picked with our own position hash, so a given position may show a different variant than vanilla | Vanilla's per-position seed isn't documented on the wiki | When documented / observed |
 | `grass_block[snowy=true]` renders like snowy=false (vanilla: snowy side, untinted top) | No snow yet | When snow is added |
 | Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |

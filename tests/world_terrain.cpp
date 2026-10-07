@@ -95,3 +95,41 @@ TEST_CASE("terrain is deterministic per seed and position (pinned hash)") {
     // Changing this value means generated worlds changed: ask the user first.
     CHECK(chunkHash(c1) == 274924119714909372ull);
 }
+
+TEST_CASE("terrain bands: bedrock thins out, deepslate fades in over y 0..7, 3 dirt") {
+    const TerrainGenerator gen(5);
+    const auto& r = blockRegistry();
+    int bedrock[5] = {}, deepslate[9] = {};
+    int columns = 0;
+    for (int cz = 0; cz < 4; ++cz) {
+        for (int cx = 0; cx < 4; ++cx) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (int z = 0; z < 16; ++z) {
+                for (int x = 0; x < 16; ++x) {
+                    ++columns;
+                    for (int i = 0; i < 5; ++i)
+                        bedrock[i] += r.blockOf(c.get(x, kMinY + i, z)) == blocks::Bedrock;
+                    for (int i = 0; i < 9; ++i)
+                        deepslate[i] += r.blockOf(c.get(x, i, z)) == blocks::Deepslate;
+                    const int h = gen.surfaceHeight(cx * 16 + x, cz * 16 + z);
+                    if (h >= TerrainGenerator::kSeaLevel + 2) {
+                        for (int d = 1; d <= 3; ++d)
+                            CHECK(r.blockOf(c.get(x, h - d, z)) == blocks::Dirt);
+                        CHECK(r.blockOf(c.get(x, h - 4, z)) != blocks::Dirt);
+                    }
+                }
+            }
+        }
+    }
+    CHECK(bedrock[0] == columns); // y -64 is solid
+    for (int i = 1; i < 5; ++i) {
+        const double expected = (5 - i) / 5.0;
+        CHECK(bedrock[i] / double(columns) == doctest::Approx(expected).epsilon(0.08));
+    }
+    CHECK(deepslate[8] == 0); // never at y 8
+    for (int i = 0; i < 8; ++i) {
+        const double expected = (8 - i) / 8.0;
+        CHECK(deepslate[i] / double(columns) == doctest::Approx(expected).epsilon(0.1));
+    }
+}

@@ -30,6 +30,8 @@ TEST_CASE("default states match vanilla") {
     CHECK(r.toString(r.defaultState(blocks::OakLog)) == "minecraft:oak_log[axis=y]");
     CHECK(r.toString(r.defaultState(blocks::GrassBlock)) == "minecraft:grass_block[snowy=false]");
     CHECK(r.toString(r.defaultState(blocks::Stone)) == "minecraft:stone");
+    CHECK(r.toString(r.defaultState(blocks::Water)) == "minecraft:water[level=0]");
+    CHECK(r.toString(r.defaultState(blocks::Deepslate)) == "minecraft:deepslate[axis=y]");
 }
 
 TEST_CASE("every state string round-trips through parse") {
@@ -86,6 +88,8 @@ TEST_CASE("hardness and blast resistance match the wiki infoboxes") {
         {blocks::Dirt, 0.5f, 0.5f},      {blocks::Cobblestone, 2.0f, 6.0f},
         {blocks::OakPlanks, 2.0f, 3.0f}, {blocks::Bedrock, -1.0f, 3600000.0f},
         {blocks::Sand, 0.5f, 0.5f},      {blocks::OakLog, 2.0f, 2.0f},
+        {blocks::Water, 100.0f, 100.0f}, {blocks::Deepslate, 3.0f, 6.0f},
+        {blocks::Gravel, 0.6f, 0.6f},
     };
     for (const Row& row : rows) {
         INFO(r.block(row.id).id);

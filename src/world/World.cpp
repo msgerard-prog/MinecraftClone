@@ -14,7 +14,13 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     return *slot;
 }
 
-void World::removeChunk(ChunkPos pos) { m_chunks.erase(pos); }
+std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
+    const auto it = m_chunks.find(pos);
+    if (it == m_chunks.end()) return nullptr;
+    std::unique_ptr<Chunk> chunk = std::move(it->second);
+    m_chunks.erase(it);
+    return chunk;
+}
 
 Chunk* World::chunk(ChunkPos pos) {
     const auto it = m_chunks.find(pos);

@@ -33,6 +33,9 @@ public:
     explicit Chunk(ChunkPos pos) : m_pos(pos) {}
 
     ChunkPos pos() const { return m_pos; }
+    // Reuse this chunk object for another position (sections keep their capacity;
+    // the generator overwrites every section).
+    void reset(ChunkPos pos) { m_pos = pos; }
 
     // Local x/z (0..15), world y. Out-of-height reads return air; writes are ignored.
     BlockStateId get(int x, int y, int z) const {

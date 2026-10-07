@@ -23,7 +23,7 @@ void runUntilIdle(ChunkLoader& loader, ChunkPos center, std::vector<ChunkPos>& l
 
 } // namespace
 
-TEST_CASE("chunk loader fills a circle of renderDistance + 1 and unloads behind") {
+TEST_CASE("chunk loader fills the render circle plus neighbours and unloads behind") {
     World world;
     const TerrainGenerator gen(42);
     ChunkLoader loader(world, gen, 2);
@@ -33,9 +33,9 @@ TEST_CASE("chunk loader fills a circle of renderDistance + 1 and unloads behind"
     runUntilIdle(loader, {0, 0}, loaded, unloaded, loadedTotal, unloadedTotal);
 
     int expected = 0;
-    for (int dz = -4; dz <= 4; ++dz)
-        for (int dx = -4; dx <= 4; ++dx)
-            if (ChunkLoader::inRadius(dx, dz, 4)) {
+    for (int dz = -5; dz <= 5; ++dz)
+        for (int dx = -5; dx <= 5; ++dx)
+            if (ChunkLoader::wanted(dx, dz, 3)) {
                 ++expected;
                 CHECK(world.chunk({dx, dz}) != nullptr);
             }
@@ -66,4 +66,23 @@ TEST_CASE("streamed chunks are identical to directly generated ones") {
         for (int z = 0; z < 16; z += 3)
             for (int x = 0; x < 16; x += 3)
                 CHECK(streamed->get(x, y, z) == direct.get(x, y, z));
+}
+
+TEST_CASE("every chunk inside the render circle has all 8 neighbours wanted") {
+    for (int rd : {2, 3, 8, 12, 32}) {
+        for (int dz = -rd; dz <= rd; ++dz)
+            for (int dx = -rd; dx <= rd; ++dx) {
+                if (!ChunkLoader::inRadius(dx, dz, rd)) continue;
+                for (int oz = -1; oz <= 1; ++oz)
+                    for (int ox = -1; ox <= 1; ++ox)
+                        CHECK(ChunkLoader::wanted(dx + ox, dz + oz, rd));
+            }
+    }
+}
+
+TEST_CASE("inRadius edge: a rounded circle (r^2 + r)") {
+    CHECK(ChunkLoader::inRadius(12, 0, 12));
+    CHECK(ChunkLoader::inRadius(8, 9, 12));       // 145 <= 156
+    CHECK_FALSE(ChunkLoader::inRadius(9, 9, 12)); // 162 > 156
+    CHECK_FALSE(ChunkLoader::inRadius(13, 0, 12));
 }

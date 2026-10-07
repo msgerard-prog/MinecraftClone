@@ -2,6 +2,7 @@
 
 #include "core/Files.h"
 #include "core/Window.h"
+#include "rendering/Fog.h"
 #include "rendering/ResourcePack.h"
 #include "world/Blocks.h"
 
@@ -73,9 +74,14 @@ void WorldRenderer::markAllDirty(const world::World& world) {
     });
 }
 
-void WorldRenderer::markChunkSections(world::ChunkPos pos) {
-    for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy)
-        markDirty({pos.x, sy, pos.z});
+void WorldRenderer::markChunkSections(const world::World& world, world::ChunkPos pos) {
+    // Only non-empty sections: a freshly meshable chunk has no old meshes to clear,
+    // and empty sections have no faces of their own (~70% fewer jobs).
+    const world::Chunk* chunk = world.chunk(pos);
+    if (!chunk) return;
+    for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
+        if (!chunk->section(sy - kMinSectionY).isEmpty()) markDirty({pos.x, sy, pos.z});
+    }
 }
 
 void WorldRenderer::onChunksLoaded(const world::World& world,
@@ -83,7 +89,7 @@ void WorldRenderer::onChunksLoaded(const world::World& world,
     m_ready.clear();
     m_meshTracker.onLoaded(world, loaded, m_ready);
     for (const world::ChunkPos& p : m_ready)
-        markChunkSections(p);
+        markChunkSections(world, p);
 }
 
 void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
@@ -134,13 +140,24 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
     // 2. Dispatch, nearest sections first (the list is sorted far -> near, so the
     //    nearest is at the back), within a time budget and the in-flight cap.
     if (m_dirtyUnsorted) {
+        // Far -> near (nearest at the back). Only the newly appended tail is sorted,
+        // then merged with the already-sorted prefix through a reused scratch buffer.
         auto distance2 = [&](const world::SectionPos& p) {
             const glm::dvec3 c(p.x * 16.0 + 8.0, p.y * 16.0 + 8.0, p.z * 16.0 + 8.0);
             const glm::dvec3 d = c - cameraPos;
             return glm::dot(d, d);
         };
-        std::sort(m_dirtyList.begin(), m_dirtyList.end(),
-                  [&](const auto& a, const auto& b) { return distance2(a) > distance2(b); });
+        auto farFirst = [&](const world::SectionPos& a, const world::SectionPos& b) {
+            return distance2(a) > distance2(b);
+        };
+        const auto mid = m_dirtyList.begin() +
+                         static_cast<std::ptrdiff_t>(std::min(m_sortedDirty, m_dirtyList.size()));
+        std::sort(mid, m_dirtyList.end(), farFirst);
+        m_mergeScratch.resize(m_dirtyList.size());
+        std::merge(m_dirtyList.begin(), mid, mid, m_dirtyList.end(), m_mergeScratch.begin(),
+                   farFirst);
+        m_dirtyList.swap(m_mergeScratch);
+        m_sortedDirty = m_dirtyList.size();
         m_dirtyUnsorted = false;
     }
     constexpr double kBudgetSeconds = 0.002; // main-thread snapshot time per frame
@@ -149,6 +166,7 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
            timeSeconds() - start < kBudgetSeconds) {
         const world::SectionPos pos = m_dirtyList.back();
         m_dirtyList.pop_back();
+        m_sortedDirty = std::min(m_sortedDirty, m_dirtyList.size());
         SectionState& st = m_states[pos];
         st.dirty = false;
 
@@ -202,22 +220,23 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glUniform3fv(2, 1, glm::value_ptr(kPlainsGrass));
     glUniform3fv(3, 1, glm::value_ptr(kWater));
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
-    const float fogEnd = static_cast<float>(m_renderDistance * 16);
-    glUniform2f(4, fogEnd * 0.75f, fogEnd);
+    const FogRange fog = terrainFog(m_renderDistance);
+    glUniform2f(4, fog.start, fog.end);
     glUniform3f(5, kSkyR, kSkyG, kSkyB);
     glBindTextureUnit(0, m_atlas.texture());
 
     // Opaque pass.
-    m_chunks.draw(camera, viewProj);
+    // Nothing beyond the fog end is visible: skip those sections (vanilla doesn't draw
+    // past the render distance either; chunks stay loaded a little further out).
+    const float maxDistance = fog.end;
+    m_chunks.draw(camera, viewProj, false, maxDistance);
 
-    // Translucent pass: blended, no depth writes, both sides visible (the water
-    // surface seen from below), far sections first.
+    // Translucent pass: blended, no depth writes, far sections first. Back faces stay
+    // culled; fluids emit reversed copies of the faces vanilla shows from both sides.
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
-    m_translucent.draw(camera, viewProj, /*backToFront=*/true);
-    glEnable(GL_CULL_FACE);
+    m_translucent.draw(camera, viewProj, /*backToFront=*/true, maxDistance);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glEndQuery(GL_TIME_ELAPSED);

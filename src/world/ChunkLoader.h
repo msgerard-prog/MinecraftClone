@@ -6,16 +6,18 @@
 
 #include <memory>
 #include <thread>
-#include <unordered_set>
 #include <vector>
 
 namespace mc::world {
 
 // Streams chunks around a centre (the player): generates missing chunks nearest
 // first on worker threads, inserts finished ones into the World (main thread), and
-// unloads chunks that fell out of range. Generation radius is renderDistance + 1 so
-// every chunk inside the render distance has all 8 neighbours (needed for meshing);
-// unloading waits until renderDistance + 3 so chunks don't flicker at the edge.
+// unloads chunks that fell out of range.
+//
+// Wanted set: every chunk inside the render circle plus all 8 neighbours of each
+// (meshing a chunk needs its neighbours). Unloading waits until a chunk is 2 chunks
+// beyond that, so chunks don't flicker at the edge. Unloaded chunks are recycled:
+// workers reuse them instead of allocating, and the main thread frees nothing.
 class ChunkLoader {
 public:
     ChunkLoader(World& world, const TerrainGenerator& generator, int threads);
@@ -31,16 +33,21 @@ public:
     void update(ChunkPos center, std::vector<ChunkPos>& loaded, std::vector<ChunkPos>& unloaded);
 
     // Chunks wanted but not yet in the World (queued + generating).
-    int pending() const { return static_cast<int>(m_queue.size()) + m_inFlight; }
+    int pending() const {
+        return static_cast<int>(m_queue.size()) + static_cast<int>(m_requested.size());
+    }
 
-    // True if (dx, dz) from the centre is inside a circular radius (vanilla 1.18+
-    // loads/renders a rounded circle, not a square).
+    // Rounded circle (vanilla 1.18+ loads and renders a cylinder, not a square).
     static bool inRadius(int dx, int dz, int radius) {
         return dx * dx + dz * dz <= radius * radius + radius;
     }
+    // True if the chunk at (dx, dz) from the centre is inside the render circle or a
+    // neighbour of a chunk that is.
+    static bool wanted(int dx, int dz, int renderDistance);
 
 private:
     void rebuildQueue(ChunkPos center);
+    bool isRequested(ChunkPos p) const;
     void run();
 
     World& m_world;
@@ -48,13 +55,13 @@ private:
     int m_renderDistance = 12;
     bool m_haveCenter = false;
     ChunkPos m_center{};
-    std::vector<ChunkPos> m_queue;            // wanted chunks, sorted far -> near (pop from back)
-    std::unordered_set<ChunkPos> m_requested; // in flight
-    std::vector<ChunkPos> m_far;              // reused: chunks to unload
-    int m_inFlight = 0;
+    std::vector<ChunkPos> m_queue;     // wanted chunks, sorted far -> near (pop from back)
+    std::vector<ChunkPos> m_requested; // in flight (small: at most m_maxInFlight)
+    std::vector<ChunkPos> m_far;       // reused: chunks to unload
     int m_maxInFlight = 8;
     WorkQueue<ChunkPos> m_jobs;
     WorkQueue<std::unique_ptr<Chunk>> m_done;
+    WorkQueue<std::unique_ptr<Chunk>> m_recycled; // unloaded chunks for workers to reuse
     std::vector<std::thread> m_threads;
 };
 

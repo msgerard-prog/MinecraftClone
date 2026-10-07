@@ -263,8 +263,9 @@ TEST_CASE("water: translucent pass, hidden against water, surface lowered under 
     snapshotSection(w, {0, 0, 0}, padded.data());
     mc::gfx::SectionMesh out;
     mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
-    // Water: 2 blocks x 6 faces - 2 shared - 2 on the stone floor = 8 faces.
-    CHECK(out.translucent.size() == 8 * 4);
+    // Water: 2 blocks x 6 faces - 2 shared - 2 on the stone floor = 8 faces (2 tops,
+    // 6 sides), each emitted twice (front + reversed back face).
+    CHECK(out.translucent.size() == 8 * 2 * 4);
     int lowered = 0;
     for (const auto& v : out.translucent) {
         const auto u = mc::gfx::unpackVertex(v);
@@ -273,8 +274,32 @@ TEST_CASE("water: translucent pass, hidden against water, surface lowered under 
             CHECK(u.y == 6); // only top-edge vertices (y + 1) are lowered
         }
     }
-    CHECK(lowered == 2 * 4 + 6 * 2); // 2 top faces x 4 + 6 side faces x 2 top corners
+    CHECK(lowered == 2 * (2 * 4 + 6 * 2)); // (2 tops x 4 + 6 sides x 2 top corners), both sides
     // Water isn't opaque, so the stone floor's top faces stay visible through it:
     // 2 stones x 6 faces - 2 shared = 10 opaque faces.
     CHECK(out.opaque.size() == 10 * 4);
+}
+
+TEST_CASE("water under a solid block keeps its lowered surface; bottom has no back face") {
+    const auto& r = blockRegistry();
+    mc::gfx::BlockModels models = testModels();
+    const BlockStateId water = r.defaultState(blocks::Water);
+    models.at(water).translucent = true;
+    models.at(water).fluid = true;
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 5, 4}, water);
+    w.setBlock({4, 6, 4}, stone()); // solid block directly on top
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    mc::gfx::SectionMesh out;
+    mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
+    int upQuads = 0, downQuads = 0;
+    for (size_t q = 0; q < out.translucent.size(); q += 4) {
+        const auto face = static_cast<Direction>(mc::gfx::unpackVertex(out.translucent[q]).face);
+        upQuads += face == Direction::Up;
+        downQuads += face == Direction::Down;
+    }
+    CHECK(upQuads == 2);   // lowered top under stone: front + back
+    CHECK(downQuads == 1); // bottom: front only (invisible from above)
 }

@@ -64,6 +64,11 @@ public:
     // from GL timer queries read back a few frames late (no pipeline stall).
     double averageGpuMs() const { return m_gpuSamples ? m_gpuTotalMs / m_gpuSamples : 0.0; }
     double maxGpuMs() const { return m_gpuMaxMs; }
+    // Start GPU statistics afresh (e.g. once loading is done, like the CPU stats).
+    void resetGpuStats() {
+        m_gpuTotalMs = m_gpuMaxMs = 0.0;
+        m_gpuSamples = 0;
+    }
 
     const ChunkRenderer::Stats& stats() const { return m_chunks.stats(); }
     const ChunkRenderer::Stats& translucentStats() const { return m_translucent.stats(); }
@@ -83,14 +88,16 @@ private:
     double m_gpuMaxMs = 0.0;
     int m_gpuSamples = 0;
     // Per-section scheduling state. Entries are erased once a section has no mesh
-    // work pending. (M3 replaces this map with a dense grid around the camera.)
+    // work pending. Known hard-rule-1 exception: node-based maps here and in
+    // ChunkRenderer/World allocate when chunks stream in (ROADMAP › deferred perf:
+    // dense grid around the camera).
     struct SectionState {
         uint32_t version = 0;  // latest submitted job; older results are stale
         uint16_t inFlight = 0; // jobs submitted, not yet returned
         bool dirty = false;    // in m_dirtyList
     };
     void markDirty(world::SectionPos pos);
-    void markChunkSections(world::ChunkPos pos);
+    void markChunkSections(const world::World& world, world::ChunkPos pos);
     void eraseIfIdle(world::SectionPos pos);
 
     std::unique_ptr<MeshWorkers> m_workers;
@@ -99,6 +106,8 @@ private:
     std::unordered_map<world::SectionPos, SectionState> m_states;
     std::vector<world::SectionPos> m_dirtyList; // sorted far -> near before dispatch
     bool m_dirtyUnsorted = false;
+    size_t m_sortedDirty = 0;                      // m_dirtyList[0, n) is sorted
+    std::vector<world::SectionPos> m_mergeScratch; // reused
     int m_inFlight = 0;
     int m_maxInFlight = 0;
 };

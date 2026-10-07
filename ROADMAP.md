@@ -4,26 +4,29 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
-M3 done (pending milestone reviews): seeded terrain generator (Xoroshiro128++, Perlin
-octaves, vanilla-like surface rules, deepslate, bedrock floor), water (translucent
-pass, 8/9 surface, see-through), cylindrical fog, chunk streaming on worker threads
-with neighbour-complete meshing, --render-distance. All 1,028 block textures exist.
-Measured (release, RTX 5080, --auto-fly at 4x sprint, 240 fps cap):
-| Render distance | Sections / quads | Mesh at start | CPU work/frame p99 / max | GPU max |
-|---|---|---|---|---|
-| 12 | ~1,000 / 260k | 126 ms | 0.56 / 0.81 ms | 0.04 ms |
-| 32 | ~6,900 / 1.8M | 825 ms | 0.89 / 1.36 ms | 0.21 ms |
-Movement is still free flight (physics is M4). 75 test cases.
+M3 done and reviewed (code, perf, parity findings fixed or recorded): seeded terrain
+generator (Xoroshiro128++, Perlin octaves, vanilla-like surface rules, deepslate,
+bedrock floor), water (translucent pass, 8/9 surface, two-sided top/sides, visible
+under solid blocks), linear cylindrical fog from 92% of the render distance, chunk
+streaming (render circle + all neighbours, chunk recycling), distance culling,
+--render-distance. All 1,028 block textures exist. 87 test cases.
+Measured (release, RTX 5080, `--auto-fly` = 4x sprint flight, 240 fps cap). "CPU work"
+is game-side main-thread time before the swap (excludes the driver thread and vsync);
+GPU is drawFrame's two passes after loading:
+| Render distance | Loaded sections / quads | CPU work/frame p99 / max | GPU avg / max |
+|---|---|---|---|
+| 12 | ~1,250 / 305k | 0.53 / 0.83 ms | 0.02 / 0.14 ms |
+| 32 | ~7,800 / 2.0M | 0.78 / 0.93 ms | 0.14 / 0.45 ms |
+Static load (no flight): RD12 ~0.3 s, RD32 ~0.8 s. Movement is still free flight (M4).
 
 ## Next
-1. M3 milestone reviews (code / perf / parity agents), fix findings, push.
-2. M4.1 — Player physics: vanilla AABB 0.6x1.8, gravity, jumping, walking/sprinting/
+1. M4.1 — Player physics: vanilla AABB 0.6x1.8, gravity, jumping, walking/sprinting/
    sneaking speeds and friction per tick (wiki: Player, Entity), axis-by-axis
    collision against block shapes, step-up, creative flight toggle (double space).
-3. M4.2 — Block raycast (DDA) from the eye, outline of the targeted block.
-4. M4.3 — Break (left click) / place (right click) with the chosen block; renderer
+2. M4.2 — Block raycast (DDA) from the eye, outline of the targeted block.
+3. M4.3 — Break (left click) / place (right click) with the chosen block; renderer
    re-meshes the edited section and its neighbours across section/chunk borders.
-5. M4.4 — Hotbar selection (1-9 / wheel) of placeable blocks (UI proper is M6).
+4. M4.4 — Hotbar selection (1-9 / wheel) of placeable blocks (UI proper is M6).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -32,6 +35,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Arena pages + size classes, per-frame upload budget.
 - Faster snapshots / immutable sections readable by workers.
 - Per-face-direction draw commands, cave culling.
+- Hard-rule-1 exceptions while streaming: node-based maps (`World`, `WorldRenderer`
+  section states, `ChunkRenderer` sections) and `WorkQueue`'s deque allocate when
+  chunks load — fixed by the dense grid and a ring-buffer queue.
+- Incremental `rebuildQueue` (only the newly exposed strip when the centre moves).
+- Terrain: whole-section fast paths (all air / all stone) using column min/max height.
+- Translucent sort: keep last order, insertion-sort.
+- Animated textures with HD packs: upload frames once to the GPU, copy per tick.
 
 ## Texture plan (agreed 2026-10-06)
 Textures arrive with their blocks (add-block skill makes the placeholder), by
@@ -44,6 +54,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- In your game (spectator + F3): how much of Y -60 is bedrock compared with Y -63?
+  (Ours thins 4/5, 3/5, 2/5, 1/5 over -63..-60; the wiki only says "rare gaps".)
+- The 1.21 patch decision (below) also sets the render distance default (12 up to
+  1.21.10; graphics presets from 1.21.11) and mipmap levels (4 vs 2).
 - Try your own textures: copy your 1.21.x client jar into `resourcepacks/` (README ›
   Using your own Minecraft textures) and run `tools/run.sh`.
 - Try the controls by hand: `tools/run.sh`, click the window, WASD + mouse, Esc.

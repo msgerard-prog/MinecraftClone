@@ -179,3 +179,16 @@ TEST_CASE("zip: malformed entries are rejected, never allocated") {
     ZipArchive cut;
     CHECK_FALSE(cut.openMemory(truncated));
 }
+
+TEST_CASE("pack stack: a client .jar always sits below user packs") {
+    const fs::path dir = fs::temp_directory_path() / "mc_tests" / "order";
+    fs::remove_all(dir);
+    fs::create_directories(dir / "A pack" / "a");
+    std::ofstream(dir / "A pack" / "a" / "x.txt", std::ios::binary) << "user";
+    fs::copy_file(kData / "testpack.zip", dir / "zz.jar"); // a "jar" sorted after "A pack"
+    PackStack stack;
+    stack.addAllIn(dir);
+    REQUIRE(stack.size() == 2);
+    CHECK(stack.pack(0).name() == "zz.jar"); // bottom
+    CHECK(stack.pack(1).name() == "A pack");
+}

@@ -52,11 +52,16 @@ void meshSection(const world::BlockStateId* padded, const glm::ivec3& origin,
                 // Vanilla source fluids are 8/9 tall unless the same fluid is above.
                 const bool lowerTop = model.fluid && registry.blockOf(padded[i + up]) != block;
                 std::vector<PackedVertex>& dst = model.translucent ? out.translucent : out.opaque;
+                const int upFace = static_cast<int>(world::Direction::Up);
                 for (int f = 0; f < world::kDirectionCount; ++f) {
                     const world::BlockStateId neighbour = padded[i + kNeighbour[f]];
-                    if (registry.opaqueCube(neighbour)) continue; // hidden
+                    // A lowered fluid surface stays visible under a solid block (the
+                    // 1/9 gap shows water, as in vanilla).
+                    const bool keepLoweredTop = lowerTop && f == upFace;
+                    if (registry.opaqueCube(neighbour) && !keepLoweredTop) continue; // hidden
                     if (model.fluid && registry.blockOf(neighbour) == block) continue;
                     const BakedFace& face = variant.faces[f];
+                    PackedVertex quad[4];
                     for (int c = 0; c < 4; ++c) {
                         const glm::ivec3& k = kCorners[f][c];
                         // Rotation shifts which UV corner each geometric corner gets
@@ -64,9 +69,16 @@ void meshSection(const world::BlockStateId* padded, const glm::ivec3& origin,
                         // left and right UVs (corner 0<->3, 1<->2).
                         uint32_t uv = uint32_t(c + face.rotation) & 3u;
                         if (face.mirror) uv = 3u - uv;
-                        dst.push_back(packVertex(uint32_t(x + k.x), uint32_t(y + k.y),
-                                                 uint32_t(z + k.z), uint32_t(f), uv, face.sprite,
-                                                 face.tint, lowerTop && k.y == 1));
+                        quad[c] = packVertex(uint32_t(x + k.x), uint32_t(y + k.y),
+                                             uint32_t(z + k.z), uint32_t(f), uv, face.sprite,
+                                             face.tint, lowerTop && k.y == 1);
+                    }
+                    dst.insert(dst.end(), quad, quad + 4);
+                    // Vanilla shows fluid top and side faces from both sides (e.g. the
+                    // surface from underwater) but not the bottom from above: add a
+                    // reversed copy so back-face culling can stay on.
+                    if (model.fluid && f != static_cast<int>(world::Direction::Down)) {
+                        dst.insert(dst.end(), {quad[0], quad[3], quad[2], quad[1]});
                     }
                 }
             }

@@ -184,6 +184,7 @@ int main(int argc, char** argv) {
 
         if (!meshed && renderer.pendingMeshes() == 0 && (!loader || loader->pending() == 0)) {
             meshed = true;
+            renderer.resetGpuStats(); // steady-state GPU numbers, like the CPU stats
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
                         (mc::timeSeconds() - startTime) * 1000.0, st.sections,

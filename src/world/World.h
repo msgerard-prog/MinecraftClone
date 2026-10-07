@@ -13,7 +13,8 @@ public:
     Chunk& createChunk(ChunkPos pos); // replaces an existing chunk at pos
     // Takes ownership of a chunk built elsewhere (e.g. on a worldgen worker).
     Chunk& insertChunk(std::unique_ptr<Chunk> chunk);
-    void removeChunk(ChunkPos pos);
+    // Removes a chunk and hands it back (for reuse); nullptr if it wasn't loaded.
+    std::unique_ptr<Chunk> removeChunk(ChunkPos pos);
     Chunk* chunk(ChunkPos pos);
     const Chunk* chunk(ChunkPos pos) const;
     size_t chunkCount() const { return m_chunks.size(); }

@@ -66,7 +66,13 @@ void PackStack::addAllIn(const fs::path& dir) {
     std::vector<fs::path> entries;
     for (const auto& e : fs::directory_iterator(dir, ec))
         entries.push_back(e.path());
-    std::sort(entries.begin(), entries.end());
+    // Client .jar files are the Default pack in vanilla: always at the bottom, below
+    // every user pack. Then folders and .zip packs in name order (later wins).
+    std::sort(entries.begin(), entries.end(), [](const fs::path& a, const fs::path& b) {
+        const bool ja = a.extension() == ".jar", jb = b.extension() == ".jar";
+        if (ja != jb) return ja;
+        return a < b;
+    });
     for (const auto& p : entries) {
         if (auto pack = ResourcePack::open(p)) {
             MC_LOG_INFO("Resource pack: %s", pack->name().c_str());

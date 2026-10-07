@@ -55,7 +55,9 @@ public:
 
     // Issues the draw; the block shader, atlas and pass GL state must already be set.
     // backToFront: sort sections far -> near (translucent pass blending order).
-    void draw(const Camera& camera, const glm::mat4& viewProjAtOrigin, bool backToFront = false);
+    // maxDistance: skip sections whose centre is further (horizontally) than this.
+    void draw(const Camera& camera, const glm::mat4& viewProjAtOrigin, bool backToFront = false,
+              float maxDistance = 1e30f);
 
     struct Stats {
         int sections = 0;      // with a mesh

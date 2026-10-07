@@ -11,6 +11,6 @@ out vec4 fragColor;
 void main() {
     const vec4 texel = texture(uAtlas, vUv);
     vec3 color = texel.rgb * vColor;
-    const float fog = smoothstep(uFog.x, uFog.y, vDistance);
+    const float fog = clamp((vDistance - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0); // linear
     fragColor = vec4(mix(color, uFogColor, fog), texel.a); // alpha used by the blended pass
 }
