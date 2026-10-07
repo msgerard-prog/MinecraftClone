@@ -73,7 +73,7 @@ public:
         for (size_t r = 0; r < m_ticking.size(); ++r) {
             Chunk* c = chunk(m_ticking[r]);
             if (!c) continue; // unloaded: drop it
-            if (c->furnaces().empty() && c->mobs().empty() && c->blockTicks().empty()) {
+            if (c->furnaces().empty() && c->mobs().empty() && c->blockTicks().empty() && c->spawners().empty()) {
                 c->inTickingList = false; // nothing left: drop it
                 continue;
             }

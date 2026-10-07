@@ -656,3 +656,35 @@ TEST_CASE("spider eyes drop only when the player killed the spider") {
     }
     CHECK(eyes == 0);
 }
+
+TEST_CASE("spawners: active within 16 blocks, spawn up to 4 of their mob nearby, then wait 200-799 ticks") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.world.setBlock({0, 64, 10}, blockRegistry().defaultState(blocks::Spawner));
+    Chunk& c = *s.world.chunk({0, 0});
+    REQUIRE(c.spawner(0, 64, 10));
+    c.spawner(0, 64, 10)->mob = MobType::Skeleton;
+    c.spawner(0, 64, 10)->delay = 0;
+    s.dayTime = 6000; // day: the spawner doesn't care about sky light, only block light
+    s.tick();
+    int skeletons = 0;
+    for (MobData* m : s.all()) {
+        skeletons += m->type == MobType::Skeleton;
+        CHECK(std::abs(m->pos.x - 0.5) <= 4.5);
+        CHECK(std::abs(m->pos.z - 10.5) <= 4.5);
+    }
+    CHECK(skeletons >= 1);
+    CHECK(skeletons <= 4);
+    const int delay = c.spawner(0, 64, 10)->delay;
+    CHECK(delay >= 199);
+    CHECK(delay <= 799);
+
+    // Far from the player: no countdown.
+    MobScene far;
+    far.mobs = Mobs();
+    far.world.setBlock({0, 64, 30}, blockRegistry().defaultState(blocks::Spawner));
+    far.world.chunk({0, 1})->spawner(0, 64, 14)->delay = 5;
+    far.tick(10);
+    CHECK(far.world.chunk({0, 1})->spawner(0, 64, 14)->delay == 5);
+    CHECK(far.all().empty());
+}

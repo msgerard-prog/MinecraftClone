@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Items.h"
+#include "world/Mob.h"
 #include "world/RecipeIds.h"
 
 #include <array>
@@ -35,6 +36,13 @@ struct FurnaceData {
                 return;
             }
     }
+};
+
+// A monster spawner (M18.3; wiki: Monster Spawner › Block data): the mob it spawns
+// and the ticks until its next try (vanilla Delay; 200-799 after each spawn).
+struct SpawnerData {
+    MobType mob = MobType::Zombie;
+    int16_t delay = 20;
 };
 
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.

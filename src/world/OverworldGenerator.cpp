@@ -1,6 +1,7 @@
 #include "world/OverworldGenerator.h"
 
 #include "world/Blocks.h"
+#include "world/Loot.h"
 #include "world/Random.h"
 #include "world/TreeFeature.h"
 
@@ -84,6 +85,7 @@ struct Blocks {
     BlockStateId sugarCane, cactus, pumpkin, brownMushroom, redMushroom, coarseDirt;
     BlockStateId jungleLog, darkOakLog, cherryLog, podzol, mycelium;
     BlockStateId brownCap, redCap, stem; // huge mushroom blocks (cap: pale underside; stem: no ends)
+    BlockStateId cobblestone, mossyCobblestone, chest, spawner;
     // Leaves by wood (oak, birch, spruce, acacia, jungle, dark oak, cherry) and
     // distance 1..7 (index d-1).
     BlockStateId leaves[7][7];
@@ -138,6 +140,10 @@ const Blocks& blockSet() {
         x.brownMushroom = S(blocks::BrownMushroom);
         x.redMushroom = S(blocks::RedMushroom);
         x.coarseDirt = S(blocks::CoarseDirt);
+        x.cobblestone = S(blocks::Cobblestone);
+        x.mossyCobblestone = S(blocks::MossyCobblestone);
+        x.chest = S(blocks::Chest);
+        x.spawner = S(blocks::Spawner);
         x.jungleLog = S(blocks::JungleLog);
         x.darkOakLog = S(blocks::DarkOakLog);
         x.cherryLog = S(blocks::CherryLog);
@@ -850,6 +856,10 @@ void OverworldGenerator::generate(Chunk& out) const {
         carveRavines(blockArray.data(), cx, cz, topY);
         placeLavaLakes(blockArray.data(), cx, cz, topY);
     }
+    // 4c. Dungeons (vanilla's underground structures step, before ores).
+    GeneratedEntities entities;
+    if (m_version >= 2)
+        placeDungeons(blockArray.data(), cx, cz, *std::max_element(topY.begin(), topY.end()), entities);
 
     // 5. Ores and stone blobs (wiki: Ore - attempts per chunk, sizes, height ranges).
     Xoroshiro ores(chunkSeed(m_seed, cx, cz, 200));
@@ -1020,6 +1030,17 @@ void OverworldGenerator::generate(Chunk& out) const {
             out.mutableSection(sec).assign(b);
     }
     out.setBiomes(biomes);
+    for (int i = 0; i < entities.count; ++i) {
+        const GeneratedEntity& e = entities.list[size_t(i)];
+        if (out.get(e.x, e.y, e.z) == (e.chest ? B.chest : B.spawner)) { // (not overwritten since)
+            if (e.chest) {
+                Xoroshiro loot(chunkSeed(m_seed, cx, cz, 640 + uint64_t(i)));
+                fillChest(LootTable::SimpleDungeon, loot, out.addChest(e.x, e.y, e.z).items);
+            } else {
+                out.addSpawner(e.x, e.y, e.z).mob = e.mob;
+            }
+        }
+    }
 
     // 10. Animals with new chunks (wiki: Spawn › Chunk generation): cow biomes get a
     //     herd in 1 of 10 chunks, standing on grass (our rate: see deviations).
@@ -1297,6 +1318,82 @@ void OverworldGenerator::placeSprings(BlockStateId* blocks, Chunk& out, int32_t 
                                     lava ? blocks::Lava : blocks::Water, lava ? 30 : 5, order++});
     }
     if (!out.blockTicks().empty()) out.ticksRelative = true;
+}
+
+void OverworldGenerator::placeDungeons(BlockStateId* blocks, int32_t cx, int32_t cz, int maxTop,
+                                       GeneratedEntities& out) const {
+    // Monster rooms (wiki: Monster Room): 14 attempts a chunk - 10 at y 0..320, 4 at
+    // y -58..-1; a room 7 or 9 wide each way (5 or 7 inside), 6 tall with floor and
+    // ceiling, placed only where floor and ceiling are solid and its walls have 1-5
+    // two-high openings at floor level. Walls cobblestone, floor 75% mossy, a spawner
+    // in the middle (zombie 50%, skeleton 25%, spider 25%), 2 chests (3 tries each) on
+    // a floor spot touching exactly one wall. Ours fit inside the chunk.
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 650));
+    for (int attempt = 0; attempt < 14; ++attempt) {
+        const int rx = 2 + static_cast<int>(r.nextInt(2)), rz = 2 + static_cast<int>(r.nextInt(2));
+        const int ox = rx + 1 + static_cast<int>(r.nextInt(uint32_t(14 - 2 * rx))); // walls inside 0..15
+        const int oz = rz + 1 + static_cast<int>(r.nextInt(uint32_t(14 - 2 * rz)));
+        const int yTry = attempt < 10 ? static_cast<int>(r.nextInt(321)) : -58 + static_cast<int>(r.nextInt(58));
+        const uint64_t roomSeed = r.nextLong();
+        // Our noise caves leave fewer spots that fit vanilla's opening rule than its
+        // carver caves do, so each attempt looks 24 heights down from its pick (ours).
+        int y0 = 0;
+        bool found = false;
+        for (int s = 0; s < 24 && !found; ++s) {
+            y0 = std::min(yTry, maxTop - 5) - s;
+            if (y0 - 1 <= kOverworldHeight.minY || (attempt >= 10 && y0 < -58)) break;
+            bool ok = true;
+            int openings = 0;
+            for (int dx = -rx - 1; dx <= rx + 1 && ok; ++dx)
+                for (int dz = -rz - 1; dz <= rz + 1 && ok; ++dz) {
+                    const int x = ox + dx, z = oz + dz;
+                    if (!reg.collides(chunk.get(x, y0 - 1, z)) || !reg.collides(chunk.get(x, y0 + 4, z))) ok = false;
+                    const bool wall = std::abs(dx) == rx + 1 || std::abs(dz) == rz + 1;
+                    if (wall && chunk.get(x, y0, z) == B.air && chunk.get(x, y0 + 1, z) == B.air) ++openings;
+                }
+            found = ok && openings >= 1 && openings <= 5;
+        }
+        if (!found) continue;
+        Xoroshiro room(roomSeed);
+        for (int dx = -rx - 1; dx <= rx + 1; ++dx)
+            for (int dz = -rz - 1; dz <= rz + 1; ++dz)
+                for (int dy = 4; dy >= -1; --dy) {
+                    const int x = ox + dx, z = oz + dz, y = y0 + dy;
+                    const bool wall = std::abs(dx) == rx + 1 || std::abs(dz) == rz + 1;
+                    const BlockStateId cur = chunk.get(x, y, z);
+                    if (dy == -1) { // floor (under the walls too)
+                        if (reg.collides(cur)) chunk.set(x, y, z, room.nextInt(4) != 0 ? B.mossyCobblestone : B.cobblestone);
+                    } else if (dy == 4 || wall) {
+                        if (reg.collides(cur) && cur != B.chest) chunk.set(x, y, z, B.cobblestone);
+                    } else if (cur != B.chest) {
+                        chunk.set(x, y, z, B.air);
+                    }
+                }
+        auto addEntity = [&](int x, int y, int z, bool chest, MobType mob) {
+            if (out.count < int(out.list.size()))
+                out.list[size_t(out.count++)] = {static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y),
+                                                 chest, mob};
+        };
+        for (int c = 0; c < 2; ++c)
+            for (int t = 0; t < 3; ++t) {
+                const int x = ox + static_cast<int>(room.nextInt(uint32_t(2 * rx + 1))) - rx;
+                const int z = oz + static_cast<int>(room.nextInt(uint32_t(2 * rz + 1))) - rz;
+                if (chunk.get(x, y0, z) != B.air) continue;
+                int walls = 0;
+                for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}})
+                    walls += reg.collides(chunk.get(x + d[0], y0, z + d[1]));
+                if (walls != 1) continue;
+                chunk.set(x, y0, z, B.chest);
+                addEntity(x, y0, z, true, MobType::Zombie);
+                break;
+            }
+        const uint32_t m = room.nextInt(4);
+        chunk.set(ox, y0, oz, B.spawner);
+        addEntity(ox, y0, oz, false, m < 2 ? MobType::Zombie : m == 2 ? MobType::Skeleton : MobType::Spider);
+    }
 }
 
 void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz,

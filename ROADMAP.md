@@ -7,7 +7,8 @@ Milestone details live here; design detail lives in `docs/`.
 M18 in progress: M18.1-2 done - new worlds use "overworld2" (ravines, lava lakes,
 springs, sugar cane, pumpkins, cacti, mushrooms; 10 more biomes - jungle, dark forest,
 cherry grove, ice spikes, mushroom fields...; jungle/dark oak/cherry woods, podzol,
-mycelium, huge mushrooms).
+mycelium, huge mushrooms); M18.3: dungeons with loot chests and monster spawners,
+structure placement grids (vanilla spacing/separation/salt).
 M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
 cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
 explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
@@ -28,7 +29,7 @@ M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator k
 2. ✅ M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
    cherry grove, badlands variants, ice spikes, stony peaks... with their trees and
    new wood types (jungle, dark oak, cherry) and blocks (cactus, mushrooms, mud...).
-3. M18.3 — Structure framework: placement grids (spacing, separation, salt per the
+3. ✅ M18.3 — Structure framework: placement grids (spacing, separation, salt per the
    wiki), structure starts/references saved in chunks, pieces spanning chunks; chest
    loot tables; mob spawners (block entity spawning its mob).
 4. M18.4 — Small structures: dungeons (spawner + loot), desert and jungle temples,

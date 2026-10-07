@@ -204,6 +204,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `Vitals::attacked` (mob hits, arrows, explosions, lava, fire blocks) applies the
   shield (front, raised 5 ticks) and the armor formula and collects wear that main
   applies to the items; the HUD shows the armor bar.
+- Structures (M18.3): `world/StructurePlacement` (random-spread grids, mineshaft
+  odds), `world/Loot` (chest loot tables from the wiki, rolled at generation),
+  `SpawnerData` block entities (`Chunk::spawners()`, ticked by `Mobs::tickSpawners`
+  within the simulation distance). Dungeons are an overworld2 feature; their chests
+  and spawners become block entities after the chunk is encoded.
 - Chests (M17.2): `world::ChestData` block entities (27 slots) in `Chunk::chests()`,
   created/removed by `World::setBlock`, saved as block_entities `Items`; double
   chests are two chests whose `type` points at each other (`BlockUpdates::

@@ -462,6 +462,7 @@ void Mobs::tick(Context& ctx) {
         if (std::abs(chunk.pos().x - playerChunk.x) > m_simulationDistance ||
             std::abs(chunk.pos().z - playerChunk.z) > m_simulationDistance)
             return;
+        if (!chunk.spawners().empty()) tickSpawners(ctx, chunk);
         auto& mobs = chunk.mobs();
         for (size_t i = 0; i < mobs.size();) {
             MobData& m = mobs[i];
@@ -518,6 +519,61 @@ void Mobs::tick(Context& ctx) {
     for (const MobData& baby : m_births)
         add(ctx.world, baby);
     if (ctx.naturalSpawning) spawnHostiles(ctx);
+}
+
+void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
+    // Monster spawners (wiki: Monster Spawner): active while the player is within 16
+    // blocks of the block's centre; when the delay runs out, 4 tries at random spots
+    // within 4 blocks across and 1 up/down (9x3x9) - in the air or not, but with room
+    // for the mob and block light 11 or less (our reading for 1.21's monsters); at
+    // most 6 of its kind in the 9x9x9 around it. After a spawn: 200-799 ticks; with no
+    // spot found it tries again next tick. Mobs join after this tick's loop (m_births).
+    const glm::dvec3 playerPos = ctx.player.position();
+    for (auto& e : chunk.spawners()) {
+        const BlockPos p{chunk.pos().x * 16 + e.x, e.y, chunk.pos().z * 16 + e.z};
+        const glm::dvec3 centre(p.x + 0.5, p.y + 0.5, p.z + 0.5);
+        if (ctx.playerDead || glm::dot(playerPos - centre, playerPos - centre) > 16.0 * 16.0) continue;
+        SpawnerData& s = e.data;
+        chunk.markDirty(); // its delay is saved
+        if (s.delay > 0) {
+            --s.delay;
+            continue;
+        }
+        const Aabb area{centre - glm::dvec3(4.5), centre + glm::dvec3(4.5)};
+        int nearby = 0;
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (const Chunk* c = ctx.world.chunk({chunk.pos().x + dx, chunk.pos().z + dz}))
+                    for (const MobData& m : c->mobs())
+                        nearby += m.type == s.mob && m.health > 0.0f && box(m).intersects(area);
+        for (const MobData& m : m_births)
+            nearby += m.type == s.mob && box(m).intersects(area);
+        if (nearby >= 6) {
+            s.delay = static_cast<int16_t>(200 + ctx.rng.nextInt(600));
+            continue;
+        }
+        bool spawned = false;
+        for (int i = 0; i < 4; ++i) {
+            const double x = p.x + (ctx.rng.nextDouble() - ctx.rng.nextDouble()) * 4.0 + 0.5;
+            const int y = p.y + static_cast<int>(ctx.rng.nextInt(3)) - 1;
+            const double z = p.z + (ctx.rng.nextDouble() - ctx.rng.nextDouble()) * 4.0 + 0.5;
+            const int bx = int(std::floor(x)), bz = int(std::floor(z));
+            if (!ctx.world.isInHeight(y) || !ctx.world.isInHeight(y + 2)) continue;
+            const int tall = s.mob == MobType::Enderman ? 3 : 2;
+            bool room = true;
+            for (int dy = 0; dy < tall && room; ++dy) {
+                const BlockStateId b = ctx.world.getBlock({bx, y + dy, bz});
+                const BlockId id = blockRegistry().blockOf(b);
+                room = !blockRegistry().collides(b) && id != blocks::Water && id != blocks::Lava;
+            }
+            const Chunk* c = ctx.world.chunk({blockToChunk(bx), blockToChunk(bz)});
+            if (!room || !c || !c->lit() || c->blockLight(blockToLocal(bx), y, blockToLocal(bz)) > 11) continue;
+            MobData m = make(s.mob, {x, double(y), z}, ctx.rng);
+            m_births.push_back(m);
+            spawned = true;
+        }
+        if (spawned) s.delay = static_cast<int16_t>(200 + ctx.rng.nextInt(600));
+    }
 }
 
 void Mobs::spawnHostiles(Context& ctx) {

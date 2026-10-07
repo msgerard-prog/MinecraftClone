@@ -201,6 +201,8 @@ enum : BlockId {
     BrownMushroomBlock, // down, east, north, south, up, west (cap faces)
     RedMushroomBlock,
     MushroomStem,
+    // Structures (M18.3).
+    Spawner,
     Count
 };
 } // namespace blocks

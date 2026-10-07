@@ -60,6 +60,8 @@ HarvestInfo harvestInfo(BlockId b) {
         return {T::Pickaxe, 2};
     case blocks::Obsidian:
         return {T::Pickaxe, 3}; // wiki: Obsidian - diamond pickaxe
+    case blocks::Spawner:
+        return {T::Pickaxe, 0}; // wiki: Monster Spawner - any pickaxe for its experience; never drops itself
     case blocks::Ice:
     case blocks::PackedIce:
     case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
@@ -221,6 +223,8 @@ int blockExperience(BlockStateId state, Xoroshiro& rng) {
     case blocks::RedstoneOre:
     case blocks::DeepslateRedstoneOre:
         return between(1, 5);
+    case blocks::Spawner:
+        return between(15, 43); // wiki: Monster Spawner
     case blocks::NetherGoldOre:
         return between(0, 1);
     default:
@@ -348,6 +352,7 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
             add(itemRegistry().blockItem(b == blocks::BrownMushroomBlock ? blocks::BrownMushroom : blocks::RedMushroom), n);
         return;
     case blocks::MushroomStem:
+    case blocks::Spawner:
         return;
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre:

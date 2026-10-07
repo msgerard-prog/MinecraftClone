@@ -90,6 +90,19 @@ private:
     void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;
     void placeLavaLakes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY) const;
     void placeSprings(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, int maxTop) const;
+    // Dungeons (wiki: Monster Room). Their chests and spawners become block entities
+    // once the chunk is encoded.
+    struct GeneratedEntity {
+        int8_t x, z;
+        int16_t y;
+        bool chest;
+        MobType mob;
+    };
+    struct GeneratedEntities {
+        int count = 0;
+        std::array<GeneratedEntity, 48> list{};
+    };
+    void placeDungeons(BlockStateId* blocks, int32_t cx, int32_t cz, int maxTop, GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& biomes) const;
 

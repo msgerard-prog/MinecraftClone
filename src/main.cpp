@@ -331,7 +331,8 @@ int main(int argc, char** argv) {
         // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!storage || storage->load(c)) c.clearDirty();
-            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty()) world.markTicking(c.pos());
+            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty() || !c.spawners().empty())
+                world.markTicking(c.pos());
         });
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).

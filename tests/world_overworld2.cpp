@@ -56,7 +56,7 @@ TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld
     CHECK(chunkHash(o) == 1773355576298667210ull); // the M8 pin (world_overworld.cpp)
     // Pinned. overworld2 grows through M18 (biomes, structures) and is re-pinned at
     // each M18 step until v0.18.0 freezes it; after that, changing it needs the user's OK.
-    CHECK(h == 3038603871320375383ull);
+    CHECK(h == 15665559353877595738ull);
 }
 
 TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
@@ -156,4 +156,29 @@ TEST_CASE("overworld2: the M18.2 biomes all occur; overworld (M8) never places t
         CHECK_MESSAGE(seen[size_t(b)], biomeInfo(b).id);
         CHECK_FALSE(seenOld[size_t(b)]);
     }
+}
+
+TEST_CASE("overworld2: dungeons - cobblestone rooms with a spawner and loot chests") {
+    const OverworldGenerator gen(42);
+    int spawners = 0, chests = 0, loot = 0, mossy = 0;
+    for (int cz = -3; cz <= 3; ++cz)
+        for (int cx = -3; cx <= 3; ++cx) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (const auto& s : c.spawners()) {
+                ++spawners;
+                CHECK(blockRegistry().blockOf(c.get(s.x, s.y, s.z)) == blocks::Spawner);
+                CHECK((s.data.mob == MobType::Zombie || s.data.mob == MobType::Skeleton || s.data.mob == MobType::Spider));
+                mossy += blockRegistry().blockOf(c.get(s.x, s.y - 1, s.z)) == blocks::MossyCobblestone;
+            }
+            for (const auto& ch : c.chests()) {
+                ++chests;
+                for (const ItemStack& it : ch.data.items)
+                    loot += !it.empty();
+            }
+        }
+    MESSAGE("spawners " << spawners << " chests " << chests << " loot " << loot);
+    CHECK(spawners > 0);
+    CHECK(chests > 0);
+    CHECK(loot > chests); // several stacks each
 }

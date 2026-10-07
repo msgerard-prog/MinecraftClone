@@ -972,3 +972,20 @@ TEST_CASE("level.dat keeps the world's format; new worlds are current") {
     REQUIRE(l.save(dir.path));
     CHECK(LevelData::load(dir.path)->cloneFormat == 0);
 }
+
+TEST_CASE("spawners save as minecraft:mob_spawner with their mob and delay") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({2, 40, 3}, blockRegistry().defaultState(blocks::Spawner));
+    SpawnerData& sp = *w.chunk({0, 0})->spawner(2, 40, 3);
+    sp.mob = MobType::Spider;
+    sp.delay = 321;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(*w.chunk({0, 0}))))), back));
+    REQUIRE(back.spawner(2, 40, 3));
+    CHECK(back.spawner(2, 40, 3)->mob == MobType::Spider);
+    CHECK(back.spawner(2, 40, 3)->delay == 321);
+    // Breaking it removes the block entity.
+    w.setBlock({2, 40, 3}, 0);
+    CHECK(w.chunk({0, 0})->spawner(2, 40, 3) == nullptr);
+}

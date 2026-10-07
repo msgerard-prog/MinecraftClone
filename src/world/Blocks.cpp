@@ -355,6 +355,9 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("brown_mushroom_block", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::BrownMushroomBlock);
     check(r.add("red_mushroom_block", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::RedMushroomBlock);
     check(r.add("mushroom_stem", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::MushroomStem);
+    // Monster spawner (wiki: hardness 5, blast resistance 5; a see-through cage).
+    check(r.add("spawner", {.hardness = 5.0f, .resistance = 5.0f, .opaqueCube = false, .layer = RenderLayer::Cutout}),
+          blocks::Spawner);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

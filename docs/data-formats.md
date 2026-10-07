@@ -126,7 +126,10 @@ cooking_total_time (shorts, 1.21.4+ names; BurnTime/CookTime still read), Recipe
 recipe's experience, paid when the output is taken or the furnace broken; ids we lack are
 kept; v0.17.0's float `clone_experience` is read as uses of minecraft:stone, 0.1 each) }, chests: { id
 "minecraft:chest", x, y, z, keepPacked, Items [ { Slot 0..26, id, count, components } ] } ]
-(a double chest is two chests). Not written:
+(a double chest is two chests); spawners: { id "minecraft:mob_spawner", x, y, z, Delay (short),
+SpawnData { entity { id } }, MinSpawnDelay 200, MaxSpawnDelay 800, SpawnCount 4,
+MaxNearbyEntities 6, RequiredPlayerRange 16, SpawnRange 4 } (M18.3; the fixed values are
+written for vanilla, ours are constant). Not written:
 dropped items, structure starts, POI; `InhabitedTime` is 0. Our root tag `clone_format`
 (Int, kCloneFormat = 1) marks chunks we wrote since v0.17.1: in a world whose level.dat
 `format` is 0, a chunk without it gets leaves stored as distance=7, persistent=false (placed

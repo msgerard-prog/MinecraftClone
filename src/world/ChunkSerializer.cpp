@@ -21,6 +21,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.biomes = chunk.biomes();
     s.furnaces = chunk.furnaces();
     s.chests = chunk.chests();
+    s.spawners = chunk.spawners();
     s.mobs = chunk.mobs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
@@ -357,6 +358,27 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& sp : chunk.spawners) { // wiki: Monster Spawner › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:mob_spawner"));
+        e.put("x", int32_t{chunk.pos.x * 16 + sp.x});
+        e.put("y", int32_t{sp.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + sp.z});
+        e.put("keepPacked", int8_t{0});
+        e.put("Delay", int16_t{sp.data.delay});
+        nbt::Compound entity, spawnData;
+        entity.put("id", std::string(mobInfo(sp.data.mob).id));
+        spawnData.put("entity", std::move(entity));
+        e.put("SpawnData", std::move(spawnData));
+        // Vanilla's defaults, written so vanilla keeps the same behaviour.
+        e.put("MinSpawnDelay", int16_t{200});
+        e.put("MaxSpawnDelay", int16_t{800});
+        e.put("SpawnCount", int16_t{4});
+        e.put("MaxNearbyEntities", int16_t{6});
+        e.put("RequiredPlayerRange", int16_t{16});
+        e.put("SpawnRange", int16_t{4});
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
         nbt::Compound e;
         e.put("id", std::string("minecraft:chest"));
@@ -506,11 +528,22 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
         for (const nbt::Tag& t : entities->items) {
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
-            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest")) continue;
+            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner")) continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
+            if (*id == "minecraft:mob_spawner") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Spawner) continue;
+                SpawnerData& sp = chunk.addSpawner(x, y, z);
+                sp.delay = static_cast<int16_t>(std::clamp<int64_t>(e->integer("Delay").value_or(20), 0, 32767));
+                const nbt::Compound* data = e->compound("SpawnData");
+                const nbt::Compound* entity = data ? data->compound("entity") : nullptr;
+                if (const std::string* mob = entity ? entity->string("id") : nullptr)
+                    for (int k = 0; k < static_cast<int>(MobType::Count); ++k)
+                        if (mobInfo(static_cast<MobType>(k)).id == *mob) sp.mob = static_cast<MobType>(k);
+                continue;
+            }
             if (*id == "minecraft:chest") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Chest) continue;
                 ChestData& c = chunk.addChest(x, y, z);

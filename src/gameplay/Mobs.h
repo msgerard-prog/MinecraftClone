@@ -46,7 +46,7 @@ public:
     Mobs() {
         m_moves.reserve(64);
         m_boxes.reserve(256);
-        m_births.reserve(16);
+        m_births.reserve(64); // (babies and spawner mobs)
         m_scratchEdits.reserve(4096);
     }
 
@@ -84,6 +84,7 @@ private:
     void ai(Context& ctx, world::MobData& m);
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
     void spawnHostiles(Context& ctx);
+    void tickSpawners(Context& ctx, world::Chunk& chunk); // M18.3
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
     // (breeding partner, tempting food, parent); true if a goal was set.
