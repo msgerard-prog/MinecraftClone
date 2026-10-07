@@ -105,6 +105,9 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M17 save note:** a furnace's stored experience is saved in our own block-entity
+  tag `clone_experience` (vanilla stores per-recipe counts in RecipesUsed, which we
+  can't map yet); vanilla ignores the tag, so nothing breaks. OK, or drop it?
 - **M17 note (worldgen):** sugar cane exists (paper -> books -> enchanting) but isn't
   generated yet; per the 2026-10-07 decision it arrives with M18's new Overworld
   generator kind (old worlds keep their generator and pinned hash). Say if you'd

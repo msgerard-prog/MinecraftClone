@@ -18,14 +18,20 @@ enum class BedUse {
     Monsters,    // "You may not rest now; there are monsters nearby"
     Occupied,    // "This bed is occupied"
     Explodes,    // not the Overworld
+    TooFar,      // "You can't rest now; the bed is too far away"
+    Obstructed,  // "This bed is obstructed"
     NotABed,
 };
 
-// Night for sleeping: day time 12542..23459 in clear weather (wiki: Bed).
+// Night for sleeping: day time 12523..23477 in clear weather (sky light 11 or less;
+// wiki: Bed).
 bool canSleepAt(int64_t dayTime);
 
 // What happens when the player uses the bed block at `p` (either half).
-BedUse useBed(const world::World& world, const world::BlockPos& p, int64_t dayTime, world::Dimension dimension);
+// `creative`: monsters don't keep a creative player awake. `player`: the player's
+// feet - too far (more than 3 blocks) or a solid block over the head stops it.
+BedUse useBed(const world::World& world, const world::BlockPos& p, int64_t dayTime, world::Dimension dimension,
+              bool creative = false, const glm::dvec3* player = nullptr);
 
 // The bed's head half (where the player lies and the spawn point is kept).
 std::optional<world::BlockPos> bedHead(const world::World& world, const world::BlockPos& p);

@@ -46,6 +46,7 @@ struct EnchantmentInfo {
     int weight;        // chance weight when the table picks one (wiki)
     int minBase, minPerLevel; // cost range of level L: [minBase + minPerLevel (L-1), + span]
     int maxSpan;       // ... upper bound = lower bound + maxSpan (wiki's table)
+    int topMax;        // the top level's upper bound (wider on the wiki)
     EnchantTarget target;
     uint8_t group;     // exclusive group (0 = none): protections 1, damage 2, fortune/silk 3, infinity 4
 };

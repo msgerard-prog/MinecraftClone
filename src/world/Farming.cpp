@@ -91,7 +91,9 @@ void BlockUpdates::tickCrop(const BlockPos& p, BlockStateId s) {
     if (a >= cropMaxAge(crop)) return;
     const float points = growthPoints(p, crop);
     if (points <= 0.0f) return;
-    if (m_random.nextInt(uint32_t(std::floor(25.0f / points)) + 1) == 0) setRaw(p, R().set(s, ageOf(crop), a + 1));
+    if (m_random.nextInt(uint32_t(std::floor(25.0f / points)) + 1) != 0) return;
+    if (crop == B::Beetroots && m_random.nextInt(3) == 0) return; // beetroots skip 1 in 3 (wiki)
+    setRaw(p, R().set(s, ageOf(crop), a + 1));
 }
 
 bool BlockUpdates::boneMeal(const BlockPos& p) {
@@ -102,8 +104,9 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
     if (isCrop(b)) {
         const int a = cropAge(s), max = cropMaxAge(b);
         if (a >= max) return false;
-        const int add = b == B::Beetroots ? 1 : 2 + static_cast<int>(m_random.nextInt(4));
-        set(p, R().set(s, ageOf(b), std::min(max, a + add)));
+        // Beetroots: 75% chance of +1 (the bone meal is used either way).
+        const int add = b == B::Beetroots ? (m_random.nextFloat() < 0.75f ? 1 : 0) : 2 + static_cast<int>(m_random.nextInt(4));
+        if (add > 0) set(p, R().set(s, ageOf(b), std::min(max, a + add)));
         return true;
     }
     if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling) {

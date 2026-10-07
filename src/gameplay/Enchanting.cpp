@@ -19,7 +19,9 @@ int countBookshelves(const World& world, const BlockPos& t) {
                 if (std::abs(dx) != 2 && std::abs(dz) != 2) continue;
                 if (blockRegistry().blockOf(world.getBlock({t.x + dx, t.y + dy, t.z + dz})) != blocks::Bookshelf) continue;
                 const BlockPos between{t.x + dx / 2, t.y + dy, t.z + dz / 2}; // (the block halfway in)
-                if (world.getBlock(between) == 0) ++n;
+                // Air or a "power transmitter" (snow layers, grass...; wiki) in between.
+                const BlockId g = blockRegistry().blockOf(world.getBlock(between));
+                if (g == 0 || g == blocks::Snow || g == blocks::ShortGrass || g == blocks::Fern) ++n;
             }
     return std::min(n, 15);
 }
@@ -69,7 +71,8 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
             const EnchantmentInfo& info = enchantmentInfo(en);
             for (int l = info.maxLevel; l >= 1; --l) {
                 const int lo = info.minBase + info.minPerLevel * (l - 1);
-                if (level >= lo && level <= lo + info.maxSpan) {
+                const int hi = l == info.maxLevel ? info.topMax : lo + info.maxSpan;
+                if (level >= lo && level <= hi) {
                     cands[size_t(nc++)] = {en, l};
                     break;
                 }
@@ -111,6 +114,13 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
         if (i < 0) break;
         out.list[size_t(out.count++)] = cands[size_t(i)];
         level /= 2;
+    }
+    // Books from the table lose one random enchantment when several were picked (wiki).
+    if (itemRegistry().item(item.item).id == "minecraft:book" && out.count > 1) {
+        const int drop = int(rng.nextInt(uint32_t(out.count)));
+        for (int k = drop; k + 1 < out.count; ++k)
+            out.list[size_t(k)] = out.list[size_t(k + 1)];
+        --out.count;
     }
     return out;
 }

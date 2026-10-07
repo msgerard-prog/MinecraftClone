@@ -7,32 +7,32 @@ namespace mc::world {
 namespace {
 
 // Cost ranges reproduce the wiki's "Enchanting mechanics" table, e.g. Sharpness I
-// 1-11, II 12-22 ...: min = minBase + minPerLevel (L-1), max = min + maxSpan (the
-// top level's span on the wiki is larger; we use the common span).
+// 1-11, II 12-22 ...: min = minBase + minPerLevel (L-1), max = min + maxSpan; the top
+// level has its own (wider) maximum, e.g. Unbreaking III 21-71.
 constexpr EnchantmentInfo kInfo[] = {
-    {"", "", 0, 0, 0, 0, 0, EnchantTarget::Durable, 0},
-    {"minecraft:protection", "Protection", 4, 10, 5, 8, 7, EnchantTarget::Armor, 1},
-    {"minecraft:fire_protection", "Fire Protection", 4, 5, 10, 8, 7, EnchantTarget::Armor, 1},
-    {"minecraft:feather_falling", "Feather Falling", 4, 5, 5, 6, 5, EnchantTarget::Feet, 0},
-    {"minecraft:blast_protection", "Blast Protection", 4, 2, 5, 8, 7, EnchantTarget::Armor, 1},
-    {"minecraft:projectile_protection", "Projectile Protection", 4, 5, 3, 6, 5, EnchantTarget::Armor, 1},
-    {"minecraft:respiration", "Respiration", 3, 2, 10, 10, 9, EnchantTarget::Head, 0},
-    {"minecraft:aqua_affinity", "Aqua Affinity", 1, 2, 1, 0, 40, EnchantTarget::Head, 0},
-    {"minecraft:thorns", "Thorns", 3, 1, 10, 20, 19, EnchantTarget::Armor, 0},
-    {"minecraft:sharpness", "Sharpness", 5, 10, 1, 11, 10, EnchantTarget::Sword, 2},
-    {"minecraft:smite", "Smite", 5, 5, 5, 8, 7, EnchantTarget::Sword, 2},
-    {"minecraft:bane_of_arthropods", "Bane of Arthropods", 5, 5, 5, 8, 7, EnchantTarget::Sword, 2},
-    {"minecraft:knockback", "Knockback", 2, 5, 5, 20, 19, EnchantTarget::Sword, 0},
-    {"minecraft:fire_aspect", "Fire Aspect", 2, 2, 10, 10, 9, EnchantTarget::Sword, 0},
-    {"minecraft:looting", "Looting", 3, 2, 15, 9, 8, EnchantTarget::Sword, 0},
-    {"minecraft:efficiency", "Efficiency", 5, 10, 1, 10, 9, EnchantTarget::Digger, 0},
-    {"minecraft:silk_touch", "Silk Touch", 1, 1, 15, 0, 50, EnchantTarget::Digger, 3},
-    {"minecraft:unbreaking", "Unbreaking", 3, 5, 5, 8, 7, EnchantTarget::Durable, 0},
-    {"minecraft:fortune", "Fortune", 3, 2, 15, 9, 8, EnchantTarget::Digger, 3},
-    {"minecraft:power", "Power", 5, 10, 1, 10, 9, EnchantTarget::Bow, 0},
-    {"minecraft:punch", "Punch", 2, 2, 12, 20, 19, EnchantTarget::Bow, 0},
-    {"minecraft:flame", "Flame", 1, 2, 20, 0, 30, EnchantTarget::Bow, 0},
-    {"minecraft:infinity", "Infinity", 1, 1, 20, 0, 30, EnchantTarget::Bow, 4},
+    {"", "", 0, 0, 0, 0, 0, 0, EnchantTarget::Durable, 0},
+    {"minecraft:protection", "Protection", 4, 10, 5, 8, 7, 37, EnchantTarget::Armor, 1},
+    {"minecraft:fire_protection", "Fire Protection", 4, 5, 10, 8, 7, 42, EnchantTarget::Armor, 1},
+    {"minecraft:feather_falling", "Feather Falling", 4, 5, 5, 6, 5, 29, EnchantTarget::Feet, 0},
+    {"minecraft:blast_protection", "Blast Protection", 4, 2, 5, 8, 7, 37, EnchantTarget::Armor, 1},
+    {"minecraft:projectile_protection", "Projectile Protection", 4, 5, 3, 6, 5, 27, EnchantTarget::Armor, 1},
+    {"minecraft:respiration", "Respiration", 3, 2, 10, 10, 9, 60, EnchantTarget::Head, 0},
+    {"minecraft:aqua_affinity", "Aqua Affinity", 1, 2, 1, 0, 40, 41, EnchantTarget::Head, 0},
+    {"minecraft:thorns", "Thorns", 3, 1, 10, 20, 19, 100, EnchantTarget::Armor, 0},
+    {"minecraft:sharpness", "Sharpness", 5, 10, 1, 11, 10, 65, EnchantTarget::Sword, 2},
+    {"minecraft:smite", "Smite", 5, 5, 5, 8, 7, 57, EnchantTarget::Sword, 2},
+    {"minecraft:bane_of_arthropods", "Bane of Arthropods", 5, 5, 5, 8, 7, 57, EnchantTarget::Sword, 2},
+    {"minecraft:knockback", "Knockback", 2, 5, 5, 20, 19, 75, EnchantTarget::Sword, 0},
+    {"minecraft:fire_aspect", "Fire Aspect", 2, 2, 10, 10, 9, 80, EnchantTarget::Sword, 0},
+    {"minecraft:looting", "Looting", 3, 2, 15, 9, 8, 83, EnchantTarget::Sword, 0},
+    {"minecraft:efficiency", "Efficiency", 5, 10, 1, 10, 9, 91, EnchantTarget::Digger, 0},
+    {"minecraft:silk_touch", "Silk Touch", 1, 1, 15, 0, 50, 65, EnchantTarget::Digger, 3},
+    {"minecraft:unbreaking", "Unbreaking", 3, 5, 5, 8, 7, 71, EnchantTarget::Durable, 0},
+    {"minecraft:fortune", "Fortune", 3, 2, 15, 9, 8, 83, EnchantTarget::Digger, 3},
+    {"minecraft:power", "Power", 5, 10, 1, 10, 9, 56, EnchantTarget::Bow, 0},
+    {"minecraft:punch", "Punch", 2, 2, 12, 20, 19, 57, EnchantTarget::Bow, 0},
+    {"minecraft:flame", "Flame", 1, 2, 20, 0, 30, 50, EnchantTarget::Bow, 0},
+    {"minecraft:infinity", "Infinity", 1, 1, 20, 0, 30, 50, EnchantTarget::Bow, 4},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -75,6 +75,7 @@ const Ids& ids() {
 
 bool canEnchant(ItemId item, Enchantment e) {
     const ItemDef& d = itemRegistry().item(item);
+    if (e == Enchantment::Thorns) return false; // (no effect yet: not offered or applied)
     if (item == ids().book || item == ids().enchantedBook) return true;
     switch (enchantmentInfo(e).target) {
     case EnchantTarget::Armor: return d.armorSlot != 0;

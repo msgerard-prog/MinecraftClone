@@ -13,7 +13,9 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
     if (keepBreath) return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
-        if (damage(2.0f, false)) return 2.0f;
+        // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).
+        const float d = protectionReduced(2.0f, Hit::Generic, false);
+        if (damage(d, false)) return d;
     }
     return 0.0f;
 }
@@ -30,9 +32,11 @@ float Vitals::touchFire(bool inFire) {
 float Vitals::tickFire(bool inWater) {
     if (inWater) m_fire = 0;
     if (m_fire <= 0) return 0.0f;
-    const bool hurt = m_fire % 20 == 0 && damage(1.0f, false);
+    // Burning: armor doesn't help; Protection and Fire Protection do.
+    const float d = protectionReduced(1.0f, Hit::Fire, false);
+    const bool hurt = m_fire % 20 == 0 && damage(d, false);
     --m_fire;
-    return hurt ? 1.0f : 0.0f;
+    return hurt ? d : 0.0f;
 }
 
 void Vitals::reset() {

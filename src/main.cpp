@@ -955,7 +955,8 @@ int main(int argc, char** argv) {
             if (pendingBedUse && !dead) {
                 const mc::world::BlockPos bedPos = *pendingBedUse;
                 pendingBedUse.reset();
-                switch (mc::useBed(world, bedPos, dayTime, dimension)) {
+                const glm::dvec3 feetNow = player.position();
+                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow)) {
                         case mc::BedUse::Sleep:
                             bedSpawn = *mc::bedHead(world, bedPos);
                             sleepBed = *bedSpawn;
@@ -987,6 +988,13 @@ int main(int argc, char** argv) {
                                                  droppedItems, frameEdits, t);
                             break;
                         }
+                        case mc::BedUse::TooFar:
+                            chat.addMessage("You can't rest now; the bed is too far away", 0xFFFFFFFFu, gameTime,
+                                            gui.batch());
+                            break;
+                        case mc::BedUse::Obstructed:
+                            chat.addMessage("This bed is obstructed", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
                         case mc::BedUse::NotABed: break;
                         }
             }

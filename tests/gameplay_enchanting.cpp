@@ -131,3 +131,18 @@ TEST_CASE("regression: a replaced chest's storage is gone (no ghost items under 
     CHECK(w.chunk({0, 0})->chest(2, 70, 2)->items[0].empty());
     CHECK(w.chunk({0, 0})->furnace(2, 70, 2) == nullptr);
 }
+
+TEST_CASE("parity: top levels use the wiki's wide range (Unbreaking III at cost 30); Thorns isn't offered") {
+    bool unbreakingIII = false, thorns = false;
+    for (uint64_t seed = 0; seed < 300; ++seed) {
+        const auto pick = pickEnchantments(I("diamond_pickaxe"), 30, seed, 2);
+        for (int i = 0; i < pick.count; ++i)
+            if (pick.list[size_t(i)].first == Enchantment::Unbreaking && pick.list[size_t(i)].second == 3)
+                unbreakingIII = true;
+        const auto armor = pickEnchantments(I("diamond_chestplate"), 30, seed, 2);
+        for (int i = 0; i < armor.count; ++i)
+            thorns = thorns || armor.list[size_t(i)].first == Enchantment::Thorns;
+    }
+    CHECK(unbreakingIII);
+    CHECK_FALSE(thorns);
+}

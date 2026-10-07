@@ -26,7 +26,7 @@ glm::ivec3 facingVec(BlockStateId s) {
 
 bool canSleepAt(int64_t dayTime) {
     const int64_t t = dayTime % 24000;
-    return t >= 12542 && t <= 23459;
+    return t >= 12523 && t <= 23477;
 }
 
 std::optional<BlockPos> bedHead(const World& world, const BlockPos& p) {
@@ -39,21 +39,27 @@ std::optional<BlockPos> bedHead(const World& world, const BlockPos& p) {
     return head;
 }
 
-BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension dimension) {
+BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension dimension, bool creative,
+              const glm::dvec3* player) {
     const auto head = bedHead(world, p);
     if (!head) return BedUse::NotABed;
     if (dimension != Dimension::Overworld) return BedUse::Explodes;
+    if (player && (std::abs(player->x - (head->x + 0.5)) > 3.5 || std::abs(player->z - (head->z + 0.5)) > 3.5 ||
+                   std::abs(player->y - head->y) > 3.0))
+        return BedUse::TooFar;
+    if (R().collides(world.getBlock({head->x, head->y + 1, head->z}))) return BedUse::Obstructed;
     // (One player: occupancy is never stored, so an "occupied" bed from another save
     // doesn't lock it - vanilla checks the sleeping entity.)
     if (!canSleepAt(dayTime)) return BedUse::NotNight;
-    // Monsters within 8 blocks horizontally and 5 vertically keep the player awake.
+    // Monsters within 8 blocks horizontally and 5 vertically keep the player awake
+    // (not in creative).
+    if (creative) return BedUse::Sleep;
     const ChunkPos c = head->chunk();
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
             if (const Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& m : ch->mobs()) {
                     if (!mobInfo(m.type).hostile || m.health <= 0.0f) continue;
-                    if (m.type == MobType::Enderman && !m.angry) continue; // (neutral)
                     if (std::abs(m.pos.x - (head->x + 0.5)) <= 8.0 && std::abs(m.pos.z - (head->z + 0.5)) <= 8.0 &&
                         std::abs(m.pos.y - head->y) <= 5.0)
                         return BedUse::Monsters;

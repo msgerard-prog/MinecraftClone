@@ -59,8 +59,10 @@ TEST_CASE("sleeping: only at night, not with monsters near; beds explode outside
     Xoroshiro rng(1);
     REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {6.5, 64.0, 3.5}, rng)));
     CHECK(useBed(s.world, head, 18000, Dimension::Overworld) == BedUse::Monsters);
-    CHECK(canSleepAt(12542));
-    CHECK_FALSE(canSleepAt(12541));
+    CHECK(canSleepAt(12523));
+    CHECK_FALSE(canSleepAt(12522));
+    CHECK(canSleepAt(23477));
+    CHECK_FALSE(canSleepAt(23478));
     CHECK(morningAfter(18000) == 24000);
     CHECK(morningAfter(24000 * 3 + 13000) == 24000 * 4);
 }
@@ -76,4 +78,19 @@ TEST_CASE("respawning: a spot next to the bed; none when it is walled in") {
             for (int y = 64; y <= 66; ++y)
                 if (R().blockOf(s.world.getBlock({x, y, z})) != blocks::RedBed) s.world.setBlock({x, y, z}, S(blocks::Stone));
     CHECK_FALSE(bedStandSpot(s.world, head));
+}
+
+TEST_CASE("beds: creative ignores monsters; too far or a block over the head stops sleep; no support needed") {
+    Scene s;
+    const BlockPos head = s.bed({0, 64, 0});
+    Xoroshiro rng(1);
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Enderman, {4.5, 64.0, 3.5}, rng))); // calm endermen count too
+    CHECK(useBed(s.world, head, 18000, Dimension::Overworld) == BedUse::Monsters);
+    CHECK(useBed(s.world, head, 18000, Dimension::Overworld, true) == BedUse::Sleep);
+    const glm::dvec3 far{0.5, 64.0, 9.5};
+    CHECK(useBed(s.world, head, 18000, Dimension::Overworld, true, &far) == BedUse::TooFar);
+    s.world.setBlock({head.x, head.y + 1, head.z}, S(blocks::Stone));
+    CHECK(useBed(s.world, head, 18000, Dimension::Overworld, true) == BedUse::Obstructed);
+    // Over air: Java beds don't need support.
+    CHECK(BlockUpdates::placement(s.world, S(blocks::RedBed), {8, 70, 8}, Direction::Up, 0.0f, 0.0f).has_value());
 }

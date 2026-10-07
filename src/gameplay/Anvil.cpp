@@ -87,7 +87,7 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
             }
             const int ll = enchantLevel(out, e);
             const int level = ll == rl ? std::min(ll + 1, enchantmentInfo(e).maxLevel) : std::max(ll, rl);
-            setEnchantment(out, e, level);
+            if (!setEnchantment(out, e, level)) continue; // no room on the item: not charged
             cost += level * std::max(1, multiplier(e) / (book ? 2 : 1));
         }
         if (out.enchantments == left.enchantments && out.damage == left.damage) return r; // nothing changed

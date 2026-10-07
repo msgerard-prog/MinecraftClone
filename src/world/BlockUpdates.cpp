@@ -957,12 +957,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case B::RedBed: {
         // The foot where clicked, the head one block further in the player's look;
-        // both need room and a solid block below (wiki: Bed).
+        // the head needs room (Java beds need no support; wiki: Bed).
         const BlockPos head = rel(at, look);
-        const BlockStateId h = world.getBlock(head);
-        if (!replaceable(h) || !R().collides(world.getBlock(rel(at, Direction::Down))) ||
-            !R().collides(world.getBlock(rel(head, Direction::Down))))
-            return std::nullopt;
+        if (!replaceable(world.getBlock(head))) return std::nullopt;
         return r.set(withHFacing(state, look), bedPart, 1);
     }
     case B::SugarCane:

@@ -108,3 +108,22 @@ TEST_CASE("short grass sometimes drops wheat seeds (1 in 8); glass still nothing
     CHECK(seeds > 60);
     CHECK(seeds < 150);
 }
+
+TEST_CASE("parity: iron blocks need a stone pickaxe, anvils any pickaxe; bookshelves drop 3 books") {
+    using namespace mc::world;
+    const auto& r = blockRegistry();
+    const ItemStack hand{};
+    const ItemStack wood{*itemRegistry().find("wooden_pickaxe"), 1};
+    const ItemStack stone{*itemRegistry().find("stone_pickaxe"), 1};
+    CHECK_FALSE(mc::canHarvest(r.defaultState(blocks::IronBlock), hand));
+    CHECK_FALSE(mc::canHarvest(r.defaultState(blocks::IronBlock), wood));
+    CHECK(mc::canHarvest(r.defaultState(blocks::IronBlock), stone));
+    CHECK_FALSE(mc::canHarvest(r.defaultState(blocks::Anvil), hand));
+    CHECK(mc::canHarvest(r.defaultState(blocks::EnchantingTable), wood));
+    Xoroshiro rng(1);
+    std::vector<ItemStack> out;
+    mc::blockDrops(r.defaultState(blocks::Bookshelf), hand, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].item == *itemRegistry().find("book"));
+    CHECK(out[0].count == 3);
+}

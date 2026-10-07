@@ -34,8 +34,13 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::NetherGoldOre:
     case blocks::MagmaBlock:
     case blocks::EndStone:
+    case blocks::Anvil: // wiki: Anvil, Enchanting Table - any pickaxe
+    case blocks::ChippedAnvil:
+    case blocks::DamagedAnvil:
+    case blocks::EnchantingTable:
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre: return {T::Pickaxe, 0};
+    case blocks::IronBlock: // wiki: Block of Iron - stone pickaxe or better
     case blocks::IronOre:
     case blocks::DeepslateIronOre:
     case blocks::CopperOre:
@@ -78,7 +83,10 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::BirchPlanks:
     case blocks::SprucePlanks:
     case blocks::AcaciaPlanks:
-    case blocks::CraftingTable: return {T::Axe, -1};
+    case blocks::CraftingTable:
+    case blocks::Chest:
+    case blocks::Bookshelf:
+    case blocks::RedBed: return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
     // Hoe (leaves).
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
@@ -214,7 +222,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
         switch (blockRegistry().blockOf(state)) {
         case blocks::CoalOre: case blocks::DeepslateCoalOre: case blocks::DiamondOre: case blocks::DeepslateDiamondOre:
         case blocks::EmeraldOre: case blocks::DeepslateEmeraldOre: case blocks::LapisOre: case blocks::DeepslateLapisOre:
-        case blocks::RedstoneOre: case blocks::DeepslateRedstoneOre: case blocks::NetherQuartzOre:
+        case blocks::NetherQuartzOre:
         case blocks::IronOre: case blocks::DeepslateIronOre: case blocks::GoldOre: case blocks::DeepslateGoldOre:
         case blocks::CopperOre: case blocks::DeepslateCopperOre: {
             const int mult = 1 + std::max(0, int(rng.nextInt(uint32_t(fortune + 2))) - 1);
@@ -222,6 +230,11 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
                 out[i].count = uint8_t(std::min(64, out[i].count * mult));
             break;
         }
+        case blocks::RedstoneOre: // redstone: up to `level` more (wiki: Fortune)
+        case blocks::DeepslateRedstoneOre:
+            for (size_t i = before; i < out.size(); ++i)
+                out[i].count = uint8_t(out[i].count + rng.nextInt(uint32_t(fortune + 1)));
+            break;
         default: break;
         }
     }
@@ -285,19 +298,28 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::Potatoes:
     case blocks::Beetroots: {
         const bool ripe = world::BlockUpdates::cropAge(state) >= world::BlockUpdates::cropMaxAge(b);
+        // Ripe crops roll 3 extra tries at 4/7 each (wiki: a binomial, 1 + B(3, 4/7)
+        // seeds; carrots/potatoes 2 + B(3, 4/7)).
+        auto binomial = [&] {
+            int n = 0;
+            for (int i = 0; i < 3; ++i)
+                n += rng.nextFloat() < 4.0f / 7.0f;
+            return n;
+        };
         if (b == blocks::Wheat) {
             if (ripe) add(d.wheat);
-            add(d.seeds, ripe ? between(1, 4) : 1);
+            add(d.seeds, ripe ? 1 + binomial() : 1);
         } else if (b == blocks::Beetroots) {
             if (ripe) add(d.beetroot);
-            add(d.beetrootSeeds, ripe ? between(1, 4) : 1);
+            add(d.beetrootSeeds, ripe ? 1 + binomial() : 1);
         } else {
-            add(b == blocks::Carrots ? d.carrot : d.potato, ripe ? between(2, 5) : 1);
+            add(b == blocks::Carrots ? d.carrot : d.potato, ripe ? 2 + binomial() : 1);
             if (ripe && b == blocks::Potatoes && rng.nextFloat() < 0.02f) add(d.poisonous);
         }
         return;
     }
     case blocks::Farmland: add(d.dirt); return;
+    case blocks::Bookshelf: add(*itemRegistry().find("book"), 3); return; // wiki: 3 books
     case blocks::ShortGrass:
     case blocks::Fern: // wiki: Wheat Seeds - grass and ferns drop seeds 1 in 8
         if (rng.nextInt(8) == 0) add(d.seeds);

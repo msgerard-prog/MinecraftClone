@@ -1,12 +1,12 @@
 #include "gameplay/BlockInteraction.h"
 
 #include "gameplay/Mining.h"
+#include "world/BlockUpdates.h"
+#include "world/Blocks.h"
+#include "world/Enchantments.h"
+#include "world/Rotation.h"
 
 #include <cmath>
-
-#include "world/Blocks.h"
-#include "world/BlockUpdates.h"
-#include "world/Rotation.h"
 
 namespace mc {
 
@@ -175,7 +175,9 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             if (m_progressExact >= 1.0 - 1e-9) {
                 m_dropScratch.clear();
                 blockDrops(state, inventory.selectedStack(), rng, m_dropScratch);
-                if (canHarvest(state, inventory.selectedStack())) m_experience += blockExperience(state, rng);
+                if (canHarvest(state, inventory.selectedStack()) &&
+                    world::enchantLevel(inventory.selectedStack(), world::Enchantment::SilkTouch) == 0) // (wiki)
+                    m_experience += blockExperience(state, rng);
                 m_xpAt = hit->block;
                 for (const world::ItemStack& d : m_dropScratch)
                     drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
