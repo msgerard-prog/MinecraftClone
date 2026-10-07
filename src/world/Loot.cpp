@@ -23,11 +23,44 @@ constexpr LootEntry kDungeon3[] = {
     {"bone", 1, 8, 10}, {"gunpowder", 1, 8, 10}, {"rotten_flesh", 1, 8, 10}, {"string", 1, 8, 10}};
 constexpr LootPool kDungeon[] = {{1, 3, kDungeon1}, {1, 4, kDungeon2}, {3, 3, kDungeon3}};
 
+// wiki: Desert Pyramid › Loot (Java Edition).
+constexpr LootEntry kDesert1[] = {
+    {"", 1, 1, 15},                {"bone", 4, 6, 25},            {"rotten_flesh", 3, 7, 25},
+    {"spider_eye", 1, 3, 25},      {"leather", 1, 5, 20},         {"enchanted_book", 1, 1, 20, true},
+    {"golden_apple", 1, 1, 20},    {"gold_ingot", 2, 7, 15},      {"iron_ingot", 1, 5, 15},
+    {"emerald", 1, 3, 15},         {"copper_horse_armor", 1, 1, 15}, {"iron_horse_armor", 1, 1, 15},
+    {"golden_horse_armor", 1, 1, 10}, {"diamond", 1, 3, 5},       {"diamond_horse_armor", 1, 1, 5},
+    {"enchanted_golden_apple", 1, 1, 2}};
+constexpr LootEntry kDesert2[] = {
+    {"string", 1, 8, 10}, {"bone", 1, 8, 10}, {"sand", 1, 8, 10}, {"rotten_flesh", 1, 8, 10}, {"gunpowder", 1, 8, 10}};
+constexpr LootEntry kDesert3[] = {{"", 1, 1, 6}, {"dune_armor_trim_smithing_template", 2, 2, 1}};
+constexpr LootPool kDesert[] = {{2, 4, kDesert1}, {4, 4, kDesert2}, {1, 1, kDesert3}};
+
+// wiki: Jungle Pyramid › Loot (Java Edition).
+constexpr LootEntry kJungle1[] = {
+    {"bone", 4, 6, 20},       {"rotten_flesh", 3, 7, 16},  {"gold_ingot", 2, 7, 15},
+    {"bamboo", 1, 3, 15},     {"iron_ingot", 1, 5, 10},    {"leather", 1, 5, 3},
+    {"diamond", 1, 3, 3},     {"emerald", 1, 3, 2},        {"copper_horse_armor", 1, 1, 1},
+    {"enchanted_book", 1, 1, 1, true}, {"iron_horse_armor", 1, 1, 1}, {"golden_horse_armor", 1, 1, 1},
+    {"diamond_horse_armor", 1, 1, 1}};
+constexpr LootEntry kJungle2[] = {{"", 1, 1, 2}, {"wild_armor_trim_smithing_template", 2, 2, 1}};
+constexpr LootPool kJungle[] = {{2, 6, kJungle1}, {1, 1, kJungle2}};
+
+// wiki: Igloo › Loot (the basement chest; Java Edition).
+constexpr LootEntry kIgloo1[] = {{"wheat", 2, 3, 10}, {"gold_nugget", 1, 3, 10}, {"rotten_flesh", 1, 1, 10},
+                                 {"apple", 1, 3, 15}, {"coal", 1, 4, 15},        {"stone_axe", 1, 1, 2},
+                                 {"emerald", 1, 1, 1}};
+constexpr LootEntry kIgloo2[] = {{"golden_apple", 1, 1, 1}};
+constexpr LootPool kIgloo[] = {{2, 8, kIgloo1}, {1, 1, kIgloo2}};
+
 } // namespace
 
 std::span<const LootPool> lootPools(LootTable table) {
     switch (table) {
     case LootTable::SimpleDungeon: return kDungeon;
+    case LootTable::DesertPyramid: return kDesert;
+    case LootTable::JunglePyramid: return kJungle;
+    case LootTable::Igloo: return kIgloo;
     default: return {}; // (filled in as their structures arrive)
     }
 }

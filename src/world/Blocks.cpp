@@ -358,6 +358,18 @@ BlockRegistry buildVanillaBlocks() {
     // Monster spawner (wiki: hardness 5, blast resistance 5; a see-through cage).
     check(r.add("spawner", {.hardness = 5.0f, .resistance = 5.0f, .opaqueCube = false, .layer = RenderLayer::Cutout}),
           blocks::Spawner);
+    // Structure blocks (M18.4; wiki: Sandstone 0.8, Smooth Sandstone 2.0 / 6.0,
+    // Terracotta 1.25 / 4.2, Stone Bricks 1.5 / 6.0, TNT 0).
+    check(r.add("chiseled_sandstone", {.hardness = 0.8f, .resistance = 0.8f}), blocks::ChiseledSandstone);
+    check(r.add("cut_sandstone", {.hardness = 0.8f, .resistance = 0.8f}), blocks::CutSandstone);
+    check(r.add("smooth_sandstone", {.hardness = 2.0f, .resistance = 6.0f}), blocks::SmoothSandstone);
+    check(r.add("orange_terracotta", {.hardness = 1.25f, .resistance = 4.2f}), blocks::OrangeTerracotta);
+    check(r.add("blue_terracotta", {.hardness = 1.25f, .resistance = 4.2f}), blocks::BlueTerracotta);
+    check(r.add("stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::StoneBricks);
+    check(r.add("mossy_stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::MossyStoneBricks);
+    check(r.add("cracked_stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::CrackedStoneBricks);
+    check(r.add("chiseled_stone_bricks", {.hardness = 1.5f, .resistance = 6.0f}), blocks::ChiseledStoneBricks);
+    check(r.add("tnt", {}), blocks::Tnt);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

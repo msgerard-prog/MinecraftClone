@@ -2,6 +2,7 @@
 // lakes, springs and more vegetation.
 #include "world/Blocks.h"
 #include "world/OverworldGenerator.h"
+#include "world/StructurePlacement.h"
 
 #include <doctest/doctest.h>
 
@@ -181,4 +182,43 @@ TEST_CASE("overworld2: dungeons - cobblestone rooms with a spawner and loot ches
     CHECK(spawners > 0);
     CHECK(chests > 0);
     CHECK(loot > chests); // several stacks each
+}
+
+TEST_CASE("overworld2: a desert pyramid - sandstone, a terracotta floor, 4 loot chests over TNT") {
+    const OverworldGenerator gen(42);
+    // Find the nearest desert pyramid candidate in a desert.
+    ChunkPos found{0, 0};
+    bool ok = false;
+    for (int rz = -20; rz <= 20 && !ok; ++rz)
+        for (int rx = -20; rx <= 20 && !ok; ++rx) {
+            const ChunkPos c = spreadCandidate(42, kDesertPyramids, {rx * 32, rz * 32});
+            if (gen.biomeAt(gen.column(c.x * 16 + 8, c.z * 16 + 8)) == Biome::Desert &&
+                gen.surfaceY(c.x * 16 + 10, c.z * 16 + 10) >= OverworldGenerator::kSeaLevel - 1) {
+                found = c;
+                ok = true;
+            }
+        }
+    REQUIRE(ok);
+    int chests = 0, loot = 0, tnt = 0, terracotta = 0;
+    for (int dz = 0; dz <= 1; ++dz)
+        for (int dx = 0; dx <= 1; ++dx) {
+            Chunk c({found.x + dx, found.z + dz});
+            gen.generate(c);
+            for (const auto& ch : c.chests()) {
+                ++chests;
+                for (const ItemStack& it : ch.data.items)
+                    loot += !it.empty();
+            }
+            for (int y = -10; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = blockRegistry().blockOf(c.get(x, y, z));
+                        tnt += b == blocks::Tnt;
+                        terracotta += b == blocks::OrangeTerracotta;
+                    }
+        }
+    CHECK(chests == 4);
+    CHECK(loot > 8);
+    CHECK(tnt == 9);
+    CHECK(terracotta > 20);
 }

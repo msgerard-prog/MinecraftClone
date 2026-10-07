@@ -2,6 +2,7 @@
 
 #include "world/Blocks.h"
 #include "world/Loot.h"
+#include "world/StructurePlacement.h"
 #include "world/Random.h"
 #include "world/TreeFeature.h"
 
@@ -86,6 +87,9 @@ struct Blocks {
     BlockStateId jungleLog, darkOakLog, cherryLog, podzol, mycelium;
     BlockStateId brownCap, redCap, stem; // huge mushroom blocks (cap: pale underside; stem: no ends)
     BlockStateId cobblestone, mossyCobblestone, chest, spawner;
+    BlockStateId chiseledSandstone, cutSandstone, smoothSandstone, orangeTerracotta, blueTerracotta, stoneBricks,
+        mossyStoneBricks, crackedStoneBricks, chiseledStoneBricks, tnt, sprucePlanks, craftingTable, furnace,
+        redstoneTorch, bedFoot, bedHead;
     // Leaves by wood (oak, birch, spruce, acacia, jungle, dark oak, cherry) and
     // distance 1..7 (index d-1).
     BlockStateId leaves[7][7];
@@ -140,6 +144,22 @@ const Blocks& blockSet() {
         x.brownMushroom = S(blocks::BrownMushroom);
         x.redMushroom = S(blocks::RedMushroom);
         x.coarseDirt = S(blocks::CoarseDirt);
+        x.chiseledSandstone = S(blocks::ChiseledSandstone);
+        x.cutSandstone = S(blocks::CutSandstone);
+        x.smoothSandstone = S(blocks::SmoothSandstone);
+        x.orangeTerracotta = S(blocks::OrangeTerracotta);
+        x.blueTerracotta = S(blocks::BlueTerracotta);
+        x.stoneBricks = S(blocks::StoneBricks);
+        x.mossyStoneBricks = S(blocks::MossyStoneBricks);
+        x.crackedStoneBricks = S(blocks::CrackedStoneBricks);
+        x.chiseledStoneBricks = S(blocks::ChiseledStoneBricks);
+        x.tnt = S(blocks::Tnt);
+        x.sprucePlanks = S(blocks::SprucePlanks);
+        x.craftingTable = S(blocks::CraftingTable);
+        x.furnace = S(blocks::Furnace);
+        x.redstoneTorch = S(blocks::RedstoneTorch);
+        x.bedFoot = r.with(S(blocks::RedBed), "facing", "east").value_or(0);
+        x.bedHead = r.with(x.bedFoot, "part", "head").value_or(0);
         x.cobblestone = S(blocks::Cobblestone);
         x.mossyCobblestone = S(blocks::MossyCobblestone);
         x.chest = S(blocks::Chest);
@@ -999,6 +1019,8 @@ void OverworldGenerator::generate(Chunk& out) const {
 
     // 7b. More vegetation (M18.1): sugar cane, pumpkins, cacti, mushrooms.
     if (m_version >= 2) placeVegetation(blockArray.data(), cx, cz, topY, columnBiome);
+    // 7c. Surface structures (ours after the plants, so no tree grows through them).
+    if (m_version >= 2) placeStructures(blockArray.data(), cx, cz, entities);
 
     // 8. Top layer (vanilla's last feature step): where the temperature at the top
     //    block is below 0.15 - the biome's, minus 1/800 per block above y 80 (wiki:
@@ -1035,7 +1057,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         if (out.get(e.x, e.y, e.z) == (e.chest ? B.chest : B.spawner)) { // (not overwritten since)
             if (e.chest) {
                 Xoroshiro loot(chunkSeed(m_seed, cx, cz, 640 + uint64_t(i)));
-                fillChest(LootTable::SimpleDungeon, loot, out.addChest(e.x, e.y, e.z).items);
+                fillChest(e.loot, loot, out.addChest(e.x, e.y, e.z).items);
             } else {
                 out.addSpawner(e.x, e.y, e.z).mob = e.mob;
             }
@@ -1393,6 +1415,205 @@ void OverworldGenerator::placeDungeons(BlockStateId* blocks, int32_t cx, int32_t
         const uint32_t m = room.nextInt(4);
         chunk.set(ox, y0, oz, B.spawner);
         addEntity(ox, y0, oz, false, m < 2 ? MobType::Zombie : m == 2 ? MobType::Skeleton : MobType::Spider);
+    }
+}
+
+namespace {
+
+// Writes a structure into one chunk: local structure coordinates (x across, z deep,
+// y up from the floor) are rotated by `rot` quarter turns around the footprint and
+// clipped to the chunk being generated. Chests become block entities later.
+struct StructureBuilder {
+    Buf chunk;
+    int32_t baseX, baseZ;   // the chunk's origin
+    int32_t ox, oy, oz;     // the structure's corner (world) and floor y
+    int w, d, rot;          // footprint and rotation
+    OverworldGenerator::GeneratedEntities* entities;
+
+    bool toChunk(int x, int z, int& lx, int& lz) const {
+        int rx = x, rz = z;
+        switch (rot & 3) {
+        case 1: rx = d - 1 - z, rz = x; break;
+        case 2: rx = w - 1 - x, rz = d - 1 - z; break;
+        case 3: rx = z, rz = w - 1 - x; break;
+        default: break;
+        }
+        lx = ox + rx - baseX;
+        lz = oz + rz - baseZ;
+        return lx >= 0 && lx < 16 && lz >= 0 && lz < 16;
+    }
+    void set(int x, int y, int z, BlockStateId s) {
+        int lx, lz;
+        if (toChunk(x, z, lx, lz)) chunk.set(lx, oy + y, lz, s);
+    }
+    void fill(int x0, int y0, int z0, int x1, int y1, int z1, BlockStateId s) {
+        for (int y = y0; y <= y1; ++y)
+            for (int z = z0; z <= z1; ++z)
+                for (int x = x0; x <= x1; ++x)
+                    set(x, y, z, s);
+    }
+    // Walls of a box (hollow), its inside air.
+    void room(int x0, int y0, int z0, int x1, int y1, int z1, BlockStateId wall) {
+        for (int y = y0; y <= y1; ++y)
+            for (int z = z0; z <= z1; ++z)
+                for (int x = x0; x <= x1; ++x) {
+                    const bool edge = x == x0 || x == x1 || y == y0 || y == y1 || z == z0 || z == z1;
+                    set(x, y, z, edge ? wall : BlockStateId{0});
+                }
+    }
+    // Solid ground under (x, z) from the floor down to the terrain.
+    void foundation(int x, int z, BlockStateId s, int maxDepth = 12) {
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz)) return;
+        for (int y = oy - 1; y > oy - 1 - maxDepth; --y) {
+            const BlockStateId cur = chunk.get(lx, y, lz);
+            if (blockRegistry().collides(cur)) break;
+            chunk.set(lx, y, lz, s);
+        }
+    }
+    void chest(int x, int y, int z, LootTable loot) {
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz)) return;
+        const Blocks& B = blockSet();
+        chunk.set(lx, oy + y, lz, B.chest);
+        if (entities->count < int(entities->list.size()))
+            entities->list[size_t(entities->count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                         static_cast<int16_t>(oy + y), true, MobType::Zombie, loot};
+    }
+};
+
+} // namespace
+
+void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    const Blocks& B = blockSet();
+    struct Kind {
+        const RandomSpread* spread;
+        int w, d;
+    };
+    static constexpr Kind kKinds[] = {{&kDesertPyramids, 21, 21}, {&kJunglePyramids, 12, 15}, {&kIgloos, 7, 7}, {&kSwampHuts, 7, 9}};
+    for (int k = 0; k < 4; ++k) {
+        const Kind& kind = kKinds[k];
+        // Candidates of the regions around this chunk (a structure reaches < 2 chunks).
+        for (int dz = -2; dz <= 2; ++dz)
+            for (int dx = -2; dx <= 2; ++dx) {
+                const ChunkPos start{cx + dx, cz + dz};
+                if (!isSpreadCandidate(m_seed, *kind.spread, start)) continue;
+                const int32_t sx = start.x * 16, sz = start.z * 16;
+                const Biome biome = biomeAt(column(sx + 8, sz + 8));
+                const bool fits = k == 0   ? biome == Biome::Desert
+                                  : k == 1 ? biome == Biome::Jungle
+                                  : k == 2 ? biome == Biome::SnowyPlains || biome == Biome::SnowyTaiga || biome == Biome::SnowySlopes
+                                           : biome == Biome::Swamp;
+                if (!fits) continue;
+                Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 700 + uint64_t(k)));
+                const int ground = surfaceY(sx + kind.w / 2, sz + kind.d / 2);
+                if (ground < kSeaLevel - 1 && k != 3) continue; // under water: not here
+                StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, ground, sz, kind.w, kind.d,
+                                    static_cast<int>(r.nextInt(4)), &out};
+                if (k == 0) { // ---- Desert pyramid (wiki: Desert Pyramid) ----
+                    // A 21x21 hall of sandstone, its roof stepping in to a peak, two
+                    // corner towers at the front, an orange/blue terracotta floor
+                    // pattern over a buried chamber of 4 chests and 9 TNT.
+                    for (int x = 0; x < 21; ++x)
+                        for (int z = 0; z < 21; ++z)
+                            sb.foundation(x, z, B.sandstone, 20);
+                    sb.room(0, 0, 0, 20, 5, 20, B.sandstone);
+                    for (int step = 1; step <= 9; ++step) // stepped roof
+                        sb.room(step, 5 + step - 1, step, 20 - step, 5 + step, 20 - step, B.sandstone);
+                    sb.fill(1, 1, 1, 19, 4, 19, 0);            // the hall
+                    sb.fill(6, 5, 6, 14, 9, 14, 0);            // its tall middle under the peak
+                    sb.fill(1, 0, 1, 19, 0, 19, B.sandstone);  // floor
+                    for (int x = 6; x <= 14; ++x)              // the terracotta star
+                        for (int z = 6; z <= 14; ++z)
+                            if (std::abs(x - 10) == std::abs(z - 10) || x == 10 || z == 10)
+                                sb.set(x, 0, z, B.orangeTerracotta);
+                    sb.set(10, 0, 10, B.blueTerracotta);
+                    for (int t = 0; t < 2; ++t) { // front towers with an orange band
+                        const int tx = t == 0 ? 0 : 16;
+                        sb.room(tx, 0, 0, tx + 4, 14, 4, B.sandstone);
+                        for (int x = tx; x <= tx + 4; ++x) {
+                            sb.set(x, 11, 0, B.orangeTerracotta);
+                            sb.set(x, 13, 0, B.cutSandstone);
+                        }
+                        sb.set(tx + 2, 12, 0, B.chiseledSandstone);
+                    }
+                    sb.fill(9, 1, 0, 11, 3, 0, 0); // the entrance
+                    sb.fill(8, 4, 0, 12, 4, 0, B.cutSandstone);
+                    // The chamber: 9 deep under the blue terracotta, a chest in each wall,
+                    // TNT under its floor (no pressure plate yet: the trap can't go off).
+                    sb.fill(10, -8, 10, 10, -1, 10, 0);
+                    sb.room(7, -13, 7, 13, -8, 13, B.sandstone);
+                    sb.fill(9, -13, 9, 11, -13, 11, B.sandstone);
+                    sb.fill(9, -14, 9, 11, -14, 11, B.tnt);
+                    sb.set(10, -8, 10, 0); // open to the shaft
+                    sb.chest(10, -12, 8, LootTable::DesertPyramid);
+                    sb.chest(10, -12, 12, LootTable::DesertPyramid);
+                    sb.chest(8, -12, 10, LootTable::DesertPyramid);
+                    sb.chest(12, -12, 10, LootTable::DesertPyramid);
+                } else if (k == 1) { // ---- Jungle temple (wiki: Jungle Pyramid) ----
+                    // Three floors of mossy and plain cobblestone, 12x15, a stepped top,
+                    // chiseled stone bricks over the door, 2 loot chests below.
+                    auto stone = [&](int x, int y, int z) {
+                        return positional(m_seed, sx + x, ground + y, sz + z, 16) < 0.4 ? B.mossyCobblestone : B.cobblestone;
+                    };
+                    for (int x = 0; x < 12; ++x)
+                        for (int z = 0; z < 15; ++z)
+                            sb.foundation(x, z, B.cobblestone, 20);
+                    for (int y = -4; y <= 9; ++y) {
+                        const int in = y <= 3 ? 0 : y <= 7 ? 1 : 2;
+                        for (int x = in; x < 12 - in; ++x)
+                            for (int z = in; z < 15 - in; ++z) {
+                                const bool shell = x == in || x == 11 - in || z == in || z == 14 - in || y == -4 ||
+                                                   y == 0 || y == 4 || y == 8 || y == 9;
+                                sb.set(x, y, z, shell ? stone(x, y, z) : BlockStateId{0});
+                            }
+                    }
+                    sb.fill(5, 1, 0, 6, 3, 0, 0); // door
+                    sb.fill(5, 4, 0, 6, 4, 0, B.chiseledStoneBricks);
+                    sb.fill(5, 0, 6, 6, 0, 7, 0); // a hole down to the cellar
+                    sb.chest(2, -3, 12, LootTable::JunglePyramid);
+                    sb.chest(9, -3, 3, LootTable::JunglePyramid);
+                } else if (k == 2) { // ---- Igloo (wiki: Igloo) ----
+                    // A snow dome with ice windows, a bed, furnace, crafting table and a
+                    // redstone torch (no basement yet: no ladders or trapdoors).
+                    for (int y = 0; y <= 4; ++y)
+                        for (int x = 0; x < 7; ++x)
+                            for (int z = 0; z < 7; ++z) {
+                                const double ex = (x - 3) / 3.5, ez = (z - 3) / 3.5, ey = y / 4.5;
+                                const double d2 = ex * ex + ez * ez + ey * ey;
+                                if (d2 >= 1.0) continue;
+                                const bool shell = d2 > 0.45 || y == 0;
+                                sb.set(x, y, z, shell ? B.snow : BlockStateId{0});
+                            }
+                    for (int x = 0; x < 7; ++x)
+                        for (int z = 0; z < 7; ++z)
+                            sb.foundation(x, z, B.snow, 4);
+                    sb.fill(3, 1, 0, 3, 2, 1, 0); // doorway
+                    sb.set(0, 2, 3, B.ice);
+                    sb.set(6, 2, 3, B.ice);
+                    sb.set(2, 1, 5, B.bedFoot);
+                    sb.set(3, 1, 5, B.bedHead);
+                    sb.set(4, 1, 2, B.furnace);
+                    sb.set(5, 1, 3, B.craftingTable);
+                    sb.set(1, 1, 3, B.redstoneTorch);
+                } else { // ---- Swamp hut (wiki: Swamp Hut) ----
+                    // A spruce plank room on oak log stilts, 2 tall inside, a porch, a
+                    // crafting table (no cauldron, flower pot or witch yet).
+                    const int floor = std::max(ground, kSeaLevel - 1) + 3;
+                    sb.oy = floor;
+                    for (const auto& p : {std::array{1, 2}, std::array{5, 2}, std::array{1, 7}, std::array{5, 7}}) {
+                        sb.set(p[0], 0, p[1], B.oakLog);
+                        sb.foundation(p[0], p[1], B.oakLog, 12);
+                    }
+                    sb.fill(1, 0, 1, 5, 0, 7, B.sprucePlanks);
+                    sb.room(1, 0, 2, 5, 4, 7, B.sprucePlanks);
+                    sb.fill(0, 4, 1, 6, 4, 8, B.sprucePlanks); // roof
+                    sb.fill(3, 1, 2, 3, 2, 2, 0);              // door to the porch
+                    sb.set(1, 2, 4, 0);                        // windows
+                    sb.set(5, 2, 4, 0);
+                    sb.set(4, 1, 6, B.craftingTable);
+                }
+            }
     }
 }
 

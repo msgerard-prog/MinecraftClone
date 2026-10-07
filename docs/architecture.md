@@ -208,7 +208,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   odds), `world/Loot` (chest loot tables from the wiki, rolled at generation),
   `SpawnerData` block entities (`Chunk::spawners()`, ticked by `Mobs::tickSpawners`
   within the simulation distance). Dungeons are an overworld2 feature; their chests
-  and spawners become block entities after the chunk is encoded.
+  and spawners become block entities after the chunk is encoded. Surface structures
+  (`OverworldGenerator::placeStructures`, M18.4): each chunk checks the grid candidates
+  within 2 chunks, tests the biome and builds the clipped parts through a rotating
+  `StructureBuilder` (local coordinates, foundations, chests with a loot table).
 - Chests (M17.2): `world::ChestData` block entities (27 slots) in `Chunk::chests()`,
   created/removed by `World::setBlock`, saved as block_entities `Items`; double
   chests are two chests whose `type` points at each other (`BlockUpdates::

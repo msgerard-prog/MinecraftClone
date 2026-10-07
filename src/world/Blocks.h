@@ -203,6 +203,17 @@ enum : BlockId {
     MushroomStem,
     // Structures (M18.3).
     Spawner,
+    // Structure blocks (M18.4).
+    ChiseledSandstone,
+    CutSandstone,
+    SmoothSandstone,
+    OrangeTerracotta,
+    BlueTerracotta,
+    StoneBricks,
+    MossyStoneBricks,
+    CrackedStoneBricks,
+    ChiseledStoneBricks,
+    Tnt, // (explodes from M21; a plain block until then)
     Count
 };
 } // namespace blocks

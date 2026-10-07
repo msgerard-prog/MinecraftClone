@@ -2,6 +2,7 @@
 
 #include "world/Biome.h"
 #include "world/ChunkGenerator.h"
+#include "world/Loot.h"
 #include "world/Noise.h"
 
 #include <array>
@@ -66,6 +67,19 @@ public:
         std::array<RavineStep, kRavineSteps> steps{};
         std::array<float, kOverworldHeight.height> rough{}; // wall roughness per y
     };
+    // Chests and spawners placed by features and structures; they become block
+    // entities once the chunk is encoded.
+    struct GeneratedEntity {
+        int8_t x, z;
+        int16_t y;
+        bool chest;
+        MobType mob;
+        LootTable loot = LootTable::SimpleDungeon;
+    };
+    struct GeneratedEntities {
+        int count = 0;
+        std::array<GeneratedEntity, 48> list{};
+    };
     // The ravine starting in a chunk (false if none); whether a block lies in one.
     bool ravine(int32_t cx, int32_t cz, Ravine& out) const;
     bool inRavine(int32_t x, int32_t y, int32_t z) const;
@@ -90,19 +104,11 @@ private:
     void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;
     void placeLavaLakes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY) const;
     void placeSprings(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, int maxTop) const;
-    // Dungeons (wiki: Monster Room). Their chests and spawners become block entities
-    // once the chunk is encoded.
-    struct GeneratedEntity {
-        int8_t x, z;
-        int16_t y;
-        bool chest;
-        MobType mob;
-    };
-    struct GeneratedEntities {
-        int count = 0;
-        std::array<GeneratedEntity, 48> list{};
-    };
     void placeDungeons(BlockStateId* blocks, int32_t cx, int32_t cz, int maxTop, GeneratedEntities& out) const;
+    // Surface structures (M18.4): desert pyramids, jungle temples, igloos, swamp huts
+    // from the random-spread grids; each chunk builds the parts of the structures
+    // whose start lies within 2 chunks of it.
+    void placeStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& biomes) const;
 

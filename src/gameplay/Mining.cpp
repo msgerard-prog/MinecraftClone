@@ -26,6 +26,15 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Sandstone:
     case blocks::RedSandstone:
     case blocks::Terracotta:
+    case blocks::ChiseledSandstone:
+    case blocks::CutSandstone:
+    case blocks::SmoothSandstone:
+    case blocks::OrangeTerracotta:
+    case blocks::BlueTerracotta:
+    case blocks::StoneBricks:
+    case blocks::MossyStoneBricks:
+    case blocks::CrackedStoneBricks:
+    case blocks::ChiseledStoneBricks:
     case blocks::MossyCobblestone:
     case blocks::Furnace:
     case blocks::RedstoneBlock: // wiki: Block of Redstone - any pickaxe

@@ -234,6 +234,17 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("oak_planks");
                 v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
                 m = single(v);
+            } else if (name == "chiseled_sandstone" || name == "cut_sandstone" || name == "smooth_sandstone") {
+                // Vanilla: the plain sandstone top on top and bottom (smooth: everywhere).
+                BakedVariant v = cubeAll(sprite(name == "smooth_sandstone" ? "sandstone_top" : name.c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite("sandstone_top");
+                v.faces[int(Direction::Down)].sprite = sprite("sandstone_top");
+                m = single(v);
+            } else if (name == "tnt") {
+                BakedVariant v = cubeAll(sprite("tnt_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("tnt_top");
+                v.faces[int(Direction::Down)].sprite = sprite("tnt_bottom");
+                m = single(v);
             } else if (name == "podzol" || name == "mycelium") { // side, own top, dirt bottom
                 BakedVariant v = cubeAll(sprite((name + "_side").c_str()));
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
