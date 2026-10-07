@@ -164,12 +164,11 @@ void BlockUpdates::burnNeighbour(const BlockPos& q, int bound, int fireAge) {
 
 void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
     schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // 1.5-2 s (wiki)
-    if (!nearPlayer(p)) return;
+    if (!nearPlayer(p)) return; // frozen far from players (still rescheduled)
     if (!fireSurvives(p)) {
         set(p, 0);
         return;
     }
-    if (!nearPlayer(p)) return; // frozen far from players (still rescheduled)
     const BlockId below = blockOf(at(rel(p, Direction::Down)));
     int a = R().get(s, age);
     if (a < 15 && m_random.nextInt(3) == 0) { // ages 1 in 3 ticks (wiki)

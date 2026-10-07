@@ -8,9 +8,9 @@ LightManager::LightManager(World& world, int threads)
     : m_world(world), m_maxInFlight(std::max(2, threads * 3)) {
     for (int i = 0; i < m_maxInFlight; ++i)
         m_free.push_back(std::make_unique<Job>());
-    m_editQueue.reserve(64);
+    m_editQueue.reserve(1024);
     m_queue.reserve(1024);
-    m_pendingEdits.reserve(64);
+    m_pendingEdits.reserve(4096); // fires and decaying leaves edit continuously
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
 }

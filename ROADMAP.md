@@ -44,6 +44,14 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M15 perf review: fire and leaf-decay edits each recompute 9 chunks of
+  light - a large fire kept all light workers busy ~75 s at 60 fps (block-light-only
+  jobs for emission-only edits, rate-limit relights per chunk, then incremental light);
+  copy-on-write section copies every tick while jobs hold them (section pool, release
+  early); per-chunk ticking-section bit mask and cached "8 neighbours loaded" count
+  for random ticks (today ~15k section reads + up to 5.6k lookups a tick at sim 12);
+  fire spread scan from a 5x8x5 stack array, per-state ignite/burn tables; frozen
+  far fires mark their chunk dirty on each reschedule.
 - From the M14 perf review: fluid edits keep sections shared with light/mesh jobs,
   so copy-on-write copies sections every tick during floods (rate-limit fluid relights
   per chunk, or pool spare sections); per-chunk pending-edit lists in LightManager

@@ -126,7 +126,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_events.reserve(64);
     m_changed.reserve(4096);
     m_remesh.reserve(4096);
-    m_drops.reserve(16);
+    m_drops.reserve(256); // leaf decay bursts
     m_push.reserve(13);
     m_pushStates.reserve(13);
     m_toggles.reserve(64);
@@ -222,6 +222,12 @@ void BlockUpdates::setRaw(const BlockPos& p, BlockStateId s) {
 }
 
 void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    // Leaf distance, sapling stage and fire age change neither light nor the model:
+    // nothing to relight or re-mesh.
+    if (blockOf(old) == blockOf(now) && (isLeaves(blockOf(now)) || blockOf(now) == B::Fire ||
+                                         blockOf(now) == B::OakSapling || blockOf(now) == B::BirchSapling ||
+                                         blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling))
+        return;
     // Light only needs recomputing when emission or opacity changed (dust power,
     // repeater and lever states only change the model).
     const auto& r = R();
