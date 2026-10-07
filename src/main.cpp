@@ -769,7 +769,10 @@ int main(int argc, char** argv) {
                                 --in.y;
                         } else {
                             const bool nether = dimension == Dimension::Nether;
-                            in = mc::portals::build(world, a.from, nether ? 32 : world.height().minY + 8, nether ? 118 : 310,
+                            in = mc::portals::build(world, a.from, nether ? 32 : world.height().minY + 8,
+                                                    // vanilla: up to 10 below the logical top
+                                                    mc::world::dimensionInfo(dimension).logicalHeight +
+                                                        world.height().minY - 10,
                                                     frameEdits);
                             knownPortals.push_back({dimension, in});
                         }

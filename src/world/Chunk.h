@@ -53,7 +53,7 @@ public:
     int sectionCount() const { return m_height.sections(); }
     // Reuse this chunk object for another position (the generator overwrites every
     // section; light is recomputed), possibly in another dimension's height.
-    void reset(ChunkPos pos, HeightRange height = kOverworldHeight) {
+    void reset(ChunkPos pos, HeightRange height) {
         if (!(height == m_height)) {
             m_height = height;
             for (int i = 0; i < kMaxSections; ++i)

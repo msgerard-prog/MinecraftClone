@@ -52,6 +52,7 @@ public:
     // Replaces a section's mesh (4 vertices per quad). Empty = remove. Main thread.
     void uploadSection(world::SectionPos pos, std::span<const PackedVertex> vertices);
     void removeSection(world::SectionPos pos);
+    void removeAll(); // every section (a dimension switch)
 
     // Issues the draw; the block shader, atlas and pass GL state must already be set.
     // backToFront: sort sections far -> near (translucent pass blending order).

@@ -33,3 +33,10 @@ format):
   for the same seed differs.
 - Implementation: `core/Nbt`, `core/Compression` (stb deflate/inflate),
   `world/RegionFile`, `world/ChunkSerializer`, `world/ChunkStorage`, `world/LevelData`.
+
+## Update 2026-10-07: per-dimension heights (user decision)
+- The Nether and End use vanilla's heights (Y 0..255): their chunks are saved with
+  `yPos` 0 and 16 sections (Y 0..15), like vanilla; the Overworld keeps `yPos` -4 and
+  24 sections. Chunks saved before this (24 sections in every dimension) load into
+  the new height; anything they held outside Y 0..255 in the Nether/End is dropped
+  (our Nether/End generators never put anything there).

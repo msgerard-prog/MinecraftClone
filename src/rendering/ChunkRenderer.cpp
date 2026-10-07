@@ -120,6 +120,13 @@ void ChunkRenderer::removeSection(world::SectionPos pos) {
     m_sections.erase(it);
 }
 
+void ChunkRenderer::removeAll() {
+    for (const auto& [pos, e] : m_sections)
+        m_arenaAlloc.free(e.range);
+    m_sections.clear();
+    m_quadsTotal = 0;
+}
+
 void ChunkRenderer::uploadSection(world::SectionPos pos, std::span<const PackedVertex> vertices) {
     removeSection(pos);
     if (vertices.empty()) return;

@@ -94,6 +94,23 @@ void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
     }
 }
 
+void WorldRenderer::setDimension(world::Dimension d) {
+    const bool changed = d != m_dimension;
+    m_dimension = d;
+    m_minSection = world::dimensionInfo(d).height.minSection(); // vanilla heights per dimension
+    m_maxSection = world::dimensionInfo(d).height.maxSection();
+    if (!changed) return;
+    m_chunks.removeAll();
+    m_translucent.removeAll();
+    m_dirtyList.clear();
+    m_sortedDirty = 0;
+    for (auto it = m_states.begin(); it != m_states.end();) {
+        ++it->second.version; // results still in flight are stale
+        it->second.dirty = false;
+        it = it->second.inFlight == 0 ? m_states.erase(it) : std::next(it);
+    }
+}
+
 void WorldRenderer::markChunkDirty(const world::World& world, world::ChunkPos pos) {
     constexpr int kNeighbours[5][2] = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     for (const auto& d : kNeighbours) {
@@ -147,8 +164,13 @@ void WorldRenderer::onLightChanged(const std::vector<world::SectionPos>& section
 
 void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
     m_meshTracker.onUnloaded(unloaded);
+    // Every dimension's section range, not just the current one: on a dimension switch
+    // the old dimension's chunks are unloaded after the range has changed.
+    constexpr int kLowest = world::kOverworldHeight.minSection();
+    constexpr int kHighest = std::max({world::kOverworldHeight.maxSection(), world::kNetherHeight.maxSection(),
+                                       world::kEndHeight.maxSection()});
     for (const world::ChunkPos& p : unloaded) {
-        for (int sy = m_minSection; sy <= m_maxSection; ++sy) {
+        for (int sy = kLowest; sy <= kHighest; ++sy) {
             const world::SectionPos s{p.x, sy, p.z};
             m_chunks.removeSection(s);
             m_translucent.removeSection(s);
@@ -248,8 +270,10 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
         st.dirty = false;
 
         const world::Chunk* chunk = world.chunk({pos.x, pos.z});
-        // Empty sections have no faces of their own (neighbours mesh their sides).
-        if (!chunk || chunk->section(pos.y - m_minSection).isEmpty()) {
+        // Empty sections have no faces of their own (neighbours mesh their sides); a
+        // section outside this dimension's height (left from the last one) has none.
+        const bool outside = pos.y < m_minSection || pos.y > m_maxSection;
+        if (!chunk || outside || chunk->section(pos.y - m_minSection).isEmpty()) {
             ++st.version; // drops any in-flight result for it
             m_chunks.removeSection(pos);
             m_translucent.removeSection(pos);

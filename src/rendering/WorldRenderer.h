@@ -74,11 +74,9 @@ public:
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
     void setDayTime(int64_t dayTime, float partialTick);
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
-    void setDimension(world::Dimension d) {
-        m_dimension = d;
-        m_minSection = world::dimensionInfo(d).height.minSection(); // vanilla heights per dimension
-        m_maxSection = world::dimensionInfo(d).height.maxSection();
-    }
+    // Also drops every mesh, queued re-mesh and in-flight result of the previous
+    // dimension (its chunks are all unloaded at a switch).
+    void setDimension(world::Dimension d);
     float skyDarken() const { return m_skyDarken; }
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,

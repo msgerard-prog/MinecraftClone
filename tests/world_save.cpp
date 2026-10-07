@@ -43,7 +43,8 @@ void fillTestChunk(Chunk& c) {
 }
 
 bool sameBlocks(const Chunk& a, const Chunk& b) {
-    for (int s = 0; s < kMaxSections; ++s)
+    if (!(a.height() == b.height())) return false;
+    for (int s = 0; s < a.sectionCount(); ++s)
         for (int i = 0; i < Section::kVolume; ++i)
             if (a.section(s).getIndex(i) != b.section(s).getIndex(i)) return false;
     return true;
@@ -152,7 +153,7 @@ TEST_CASE("chunks are dirty after edits, not after a clean load") {
     CHECK_FALSE(c.dirty());
     c.set(1, 1, 1, S(blocks::Stone));
     CHECK(c.dirty());
-    c.reset({1, 1});
+    c.reset({1, 1}, kOverworldHeight);
     CHECK_FALSE(c.dirty());
 }
 
@@ -663,4 +664,37 @@ TEST_CASE("a Nether chunk saved in our old 384-block layout loads into the Nethe
     REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(old)), n));
     CHECK(blockRegistry().blockOf(n.get(1, 10, 1)) == blocks::Netherrack);
     CHECK(n.get(1, 300, 1) == 0);
+}
+
+TEST_CASE("chunk reuse across dimension heights; Nether chunks round-trip through storage") {
+    Chunk c({1, 1});
+    c.set(3, -60, 3, S(blocks::Stone));
+    c.reset({2, 2}, kNetherHeight);
+    CHECK(c.sectionCount() == 16);
+    CHECK(c.get(3, -60, 3) == 0);
+    c.set(3, 200, 3, S(blocks::Netherrack));
+    CHECK(blockRegistry().blockOf(c.get(3, 200, 3)) == blocks::Netherrack);
+    c.reset({1, 1}, kOverworldHeight);
+    CHECK(c.sectionCount() == 24);
+    c.set(3, -60, 3, S(blocks::Stone));
+    CHECK(c.get(3, -60, 3) == S(blocks::Stone));
+
+    TempDir dir("mc_test_nether_storage");
+    Chunk n({-3, 4}, kNetherHeight);
+    n.set(5, 0, 5, S(blocks::Bedrock));
+    n.set(5, 250, 5, S(blocks::Glowstone));
+    {
+        ChunkStorage storage(dir.path);
+        storage.save(ChunkSnapshot::of(n));
+        Chunk early({-3, 4}, kNetherHeight); // from the pending snapshot
+        REQUIRE(storage.load(early));
+        CHECK(sameBlocks(n, early));
+    }
+    ChunkStorage storage(dir.path);
+    Chunk back({-3, 4}, kNetherHeight);
+    REQUIRE(storage.load(back));
+    CHECK(sameBlocks(n, back));
+    auto b = std::make_shared<ChunkBiomes>();
+    b->cells[size_t(ChunkBiomes::index(15, 0, 2, 0))] = Biome::NetherWastes; // top section, cell y 248..251
+    CHECK(b->at(1, 250, 1, kNetherHeight) == Biome::NetherWastes);
 }

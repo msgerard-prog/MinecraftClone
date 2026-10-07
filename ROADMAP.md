@@ -4,6 +4,8 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
+Per-dimension heights done (user decision): Overworld Y -64..319, Nether and End
+Y 0..255 as vanilla (HeightRange on World/Chunk; saves yPos 0 with 16 sections).
 All planned milestones M0-M12 are built. M12 (reviews running): the Nether (cavern
 generator, lava sea, glowstone, quartz/gold ore, magma) and the End (main island,
 pillars, active exit portal) in vanilla's DIM-1/DIM1 folders; nether portals (lit
@@ -149,6 +151,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 Vanilla world heights per dimension (Nether/End 0..255).
 - 2026-10-07 M12: Nether, End, portals, dimension travel and saves.
 - 2026-10-07 M11: block updates, scheduled ticks, redstone components, pistons.
 - 2026-10-07 M10: zombies and cows (AI, spawning, saving, models, attacks).
