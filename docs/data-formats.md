@@ -102,7 +102,8 @@ MOTION_BLOCKING_NO_LEAVES, OCEAN_FLOOR, WORLD_SURFACE: 256 x 9-bit heights above
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
 per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, ceil(log2 n) bits, 64 entries; none if 1) }, `SkyLight`, `BlockLight`
 (2048-byte nibble arrays, omitted when all 0) }], `block_ticks` [ { `i` block id, `p`
-priority, `t` delay in ticks, `x`, `y`, `z` } ] (M11, in scheduling order), `block_entities` [ furnaces: { id
+priority, `t` delay in ticks, `x`, `y`, `z` } ] (M11, in scheduling order), `fluid_ticks` (same
+fields; `i` "minecraft:water"/"lava" for sources, "minecraft:flowing_water"/"flowing_lava" else), `block_entities` [ furnaces: { id
 "minecraft:furnace", x, y, z, keepPacked, Items [ { Slot 0 input / 1 fuel / 2 output,
 id, count, components } ], lit_time_remaining, lit_total_time, cooking_time_spent,
 cooking_total_time (shorts, 1.21.4+ names; BurnTime/CookTime still read) } ]. Not written:

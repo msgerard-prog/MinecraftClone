@@ -154,6 +154,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   level.dat, our tag; vanilla uses poi/ files), portal building, end portal frames
   and the End platform. Portal blocks check their frame on block updates
   (`Redstone::neighbourChanged`), so portals are placed all at once, then updated.
+- Fluids (M14, `world/Fluids.cpp`, part of `BlockUpdates`): water/lava blocks react to
+  block updates by scheduling a fluid tick (water 5, lava 30 / Nether 10); the tick
+  recomputes the level from the neighbours (new water sources between two), then
+  flows down or sideways toward the nearest drop (slope search 4 / Overworld lava 2).
+  Fluid ticks run after block ticks and save as `fluid_ticks`. `gameplay/FluidContact`
+  tells entities which fluid they touch and the current; the mesher sets surface
+  corners from vanilla's averaged heights. Buckets: `gameplay/Buckets`.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.
