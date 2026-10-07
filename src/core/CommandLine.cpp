@@ -18,6 +18,18 @@ bool parseSize(std::string_view text, int& w, int& h) {
            parseNumber(text.substr(x + 1), h) && w > 0 && h > 0;
 }
 
+// Parses "a,b,c" into exactly `count` numbers.
+template <typename T> bool parseList(std::string_view text, T* out, int count) {
+    for (int i = 0; i < count; ++i) {
+        const size_t comma = text.find(',');
+        const bool last = i == count - 1;
+        if (last != (comma == std::string_view::npos)) return false;
+        if (!parseNumber(text.substr(0, comma), out[i])) return false;
+        if (!last) text.remove_prefix(comma + 1);
+    }
+    return true;
+}
+
 } // namespace
 
 std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
@@ -59,6 +71,27 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--size needs WIDTHxHEIGHT, e.g. 1280x720";
                 return std::nullopt;
             }
+        } else if (arg == "--pos") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            double xyz[3];
+            if (!parseList(*v, xyz, 3)) {
+                error = "--pos needs x,y,z, e.g. 0.5,70,0.5";
+                return std::nullopt;
+            }
+            opts.pos = {xyz[0], xyz[1], xyz[2]};
+            opts.hasPos = true;
+        } else if (arg == "--look") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            float yawPitch[2];
+            if (!parseList(*v, yawPitch, 2)) {
+                error = "--look needs yaw,pitch in degrees, e.g. -45,30";
+                return std::nullopt;
+            }
+            opts.yaw = yawPitch[0];
+            opts.pitch = yawPitch[1];
+            opts.hasLook = true;
         } else if (arg == "--hidden") {
             opts.hidden = true;
         } else {

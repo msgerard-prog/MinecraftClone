@@ -2,11 +2,14 @@
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
+#include "gameplay/FlyController.h"
+#include "rendering/Camera.h"
 #include "rendering/GlContext.h"
 #include "rendering/Screenshot.h"
 #include "rendering/Shader.h"
 
 #include <glad/gl.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <span>
 #include <string>
@@ -17,6 +20,17 @@ namespace {
 constexpr float kSkyR = 0x78 / 255.0f;
 constexpr float kSkyG = 0xA7 / 255.0f;
 constexpr float kSkyB = 0xFF / 255.0f;
+
+// Vanilla controls: WASD move, space up, shift down (in flight), ctrl sprint.
+mc::MoveInput readMoveInput(const mc::Window& window) {
+    mc::MoveInput in;
+    if (!window.cursorCaptured()) return in;
+    in.forward = float(window.keyDown(mc::Key::W)) - float(window.keyDown(mc::Key::S));
+    in.strafe = float(window.keyDown(mc::Key::D)) - float(window.keyDown(mc::Key::A));
+    in.up = float(window.keyDown(mc::Key::Space)) - float(window.keyDown(mc::Key::LeftShift));
+    in.sprint = window.keyDown(mc::Key::LeftControl);
+    return in;
+}
 
 } // namespace
 
@@ -37,11 +51,15 @@ int main(int argc, char** argv) {
     }
     if (!mc::gfx::initOpenGl()) return 1;
 
-    // M0 placeholder scene; replaced by the world renderer in M1.
+    // M1 placeholder scene; replaced by textured cubes in M1.3.
     mc::gfx::Shader helloShader;
     if (!helloShader.load("hello")) return 1;
     GLuint emptyVao = 0;
     glCreateVertexArrays(1, &emptyVao);
+
+    mc::FlyController player;
+    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.0, 0.0, 0.0));
+    if (opts->hasLook) player.setRotation(opts->yaw, opts->pitch);
 
     mc::GameClock clock;
     double last = mc::timeSeconds();
@@ -50,21 +68,43 @@ int main(int argc, char** argv) {
 
     while (!window.shouldClose()) {
         window.pollEvents();
+        if (!screenshotMode) {
+            // Click to capture the mouse, Esc to release it (pause menu comes in M6).
+            if (!window.cursorCaptured() && window.leftMousePressed()) {
+                window.setCursorCaptured(true);
+            }
+            if (window.cursorCaptured() && window.keyDown(mc::Key::Escape)) {
+                window.setCursorCaptured(false);
+            }
+        }
+        player.turn(window.mouseDx(), window.mouseDy());
 
         const double now = mc::timeSeconds();
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
-            // world/gameplay tick goes here (M2+)
+            player.tick(readMoveInput(window));
         }
 
         int fbWidth = 0;
         int fbHeight = 0;
         window.framebufferSize(fbWidth, fbHeight);
+        if (fbWidth == 0 || fbHeight == 0) { // minimised
+            window.swapBuffers();
+            continue;
+        }
+
+        mc::gfx::Camera camera;
+        camera.position = player.renderPosition(clock.alpha);
+        camera.yaw = player.yaw();
+        camera.pitch = player.pitch();
+        const glm::mat4 viewProj = camera.viewProjection(float(fbWidth) / float(fbHeight));
+
         glViewport(0, 0, fbWidth, fbHeight);
         glClearColor(kSkyR, kSkyG, kSkyB, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         helloShader.bind();
+        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
         glBindVertexArray(emptyVao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 

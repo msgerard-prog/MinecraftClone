@@ -11,6 +11,8 @@ description: Verify a visual change by rendering a screenshot and looking at it.
 2. The script prints `out/screenshots/<name>.png`. **Read the PNG.** Never claim a
    visual result you haven't looked at.
 3. Check the run log for `[error]` / `[warn] GL` lines; a new GL error is a bug.
+   For before/after or multi-view checks, combine shots into one image:
+   `tools/stitch_png.py out/screenshots/<name>-all.png a.png b.png ...` and Read that.
 4. Judge it against expectations and vanilla: orientation, colours, missing faces,
    z-fighting, seams, light levels. Compare with an earlier screenshot of the same
    view when changing existing visuals (name them `<feature>-before/after`).

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -15,6 +17,11 @@ struct LaunchOptions {
     std::string screenshotPath; // empty = normal interactive run
     int screenshotFrames = 60;  // frames to render before capturing
     bool hidden = false;        // no visible window (screenshot runs)
+    bool hasPos = false;        // --pos x,y,z  camera position
+    glm::dvec3 pos{0.0};
+    bool hasLook = false; // --look yaw,pitch  vanilla degrees (yaw 0 = south, +pitch = down)
+    float yaw = 0.0f;
+    float pitch = 0.0f;
 };
 
 // Parses argv (without argv[0]). Returns nullopt and fills `error` on bad input.

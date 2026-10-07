@@ -24,7 +24,9 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--size WxH`, `--seed N`. Add new ones in `core/CommandLine.*` + its test
+`--hidden`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
+degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
+Controls: click to capture mouse, Esc releases; WASD, space/shift up/down, ctrl sprint. Add new ones in `core/CommandLine.*` + its test
 and list them here.
 
 The first build downloads dependencies into `out/deps` (≈1 min). Build output is

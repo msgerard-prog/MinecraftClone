@@ -37,6 +37,8 @@ Or open the folder in Visual Studio (it reads `CMakePresets.json`).
 | `--screenshot PATH` | Render, save a PNG to PATH, exit |
 | `--frames N` | Frames to render before the screenshot (default 60) |
 | `--hidden` | No visible window |
+| `--pos x,y,z` | Start position (blocks) |
+| `--look yaw,pitch` | Start rotation, vanilla degrees (yaw 0 = south, pitch +90 = down) |
 
 ## Layout
 ```
@@ -46,3 +48,7 @@ tests/                                         doctest unit tests
 docs/                                          architecture, game design, data formats, ADRs
 tools/                                         build/test/run/screenshot scripts
 ```
+
+## Controls
+Click the window to capture the mouse (Esc releases it). WASD to fly, Space up,
+Left Shift down, Left Ctrl sprint.

@@ -12,6 +12,18 @@ void onGlfwError(int code, const char* description) {
     MC_LOG_ERROR("GLFW error %d: %s", code, description);
 }
 
+constexpr int kGlfwKeys[] = {
+    GLFW_KEY_W,
+    GLFW_KEY_A,
+    GLFW_KEY_S,
+    GLFW_KEY_D,
+    GLFW_KEY_SPACE,
+    GLFW_KEY_LEFT_SHIFT,
+    GLFW_KEY_LEFT_CONTROL,
+    GLFW_KEY_ESCAPE,
+};
+static_assert(sizeof(kGlfwKeys) / sizeof(kGlfwKeys[0]) == static_cast<int>(Key::Count));
+
 } // namespace
 
 Window::~Window() {
@@ -34,17 +46,51 @@ bool Window::create(int width, int height, const char* title, bool visible) {
     if (!m_window) return false;
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(1);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
     return true;
 }
 
 bool Window::shouldClose() const { return glfwWindowShouldClose(m_window); }
 
-void Window::pollEvents() { glfwPollEvents(); }
+void Window::pollEvents() {
+    glfwPollEvents();
+    m_mouseDx = 0.0;
+    m_mouseDy = 0.0;
+    if (!m_captured) return;
+    double x = 0.0;
+    double y = 0.0;
+    glfwGetCursorPos(m_window, &x, &y);
+    if (!m_skipNextDelta) {
+        m_mouseDx = x - m_lastX;
+        m_mouseDy = y - m_lastY;
+    }
+    m_skipNextDelta = false;
+    m_lastX = x;
+    m_lastY = y;
+}
 
 void Window::swapBuffers() { glfwSwapBuffers(m_window); }
 
 void Window::framebufferSize(int& width, int& height) const {
     glfwGetFramebufferSize(m_window, &width, &height);
+}
+
+bool Window::keyDown(Key key) const {
+    return glfwGetKey(m_window, kGlfwKeys[static_cast<int>(key)]) == GLFW_PRESS;
+}
+
+bool Window::leftMousePressed() const {
+    return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+void Window::setCursorCaptured(bool captured) {
+    if (captured == m_captured) return;
+    m_captured = captured;
+    glfwSetInputMode(m_window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    // The cursor jumps when the mode changes; don't turn that jump into a camera spin.
+    m_skipNextDelta = true;
 }
 
 double timeSeconds() { return glfwGetTime(); }
