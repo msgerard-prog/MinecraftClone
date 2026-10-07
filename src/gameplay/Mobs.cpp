@@ -513,6 +513,8 @@ void Mobs::tick(Context& ctx) {
     m_moves.clear();
     m_births.clear();
     m_hostiles = 0;
+    m_striders = 0;
+    m_angerAlertCount = 0;
     const glm::dvec3 playerPos = ctx.player.position();
     const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))), blockToChunk(int(std::floor(playerPos.z)))};
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
@@ -537,6 +539,11 @@ void Mobs::tick(Context& ctx) {
             } else {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;
+                m_striders += m.type == MobType::Strider;
+                if (m.angerAlert) {
+                    m.angerAlert = false;
+                    if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
+                }
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
                 // vanish; beyond 32 they may after 30 s without a player near.
                 const double d2 = glm::dot(m.pos - playerPos, m.pos - playerPos);
@@ -579,21 +586,19 @@ void Mobs::tick(Context& ctx) {
         add(ctx.world, baby);
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
-    ctx.world.forEachTickingChunk([&](Chunk& chunk) {
-        for (MobData& hit : chunk.mobs()) {
-            if (!hit.angerAlert) continue;
-            hit.angerAlert = false;
-            for (int dz = -3; dz <= 3; ++dz)
-                for (int dx = -3; dx <= 3; ++dx)
-                    if (Chunk* c = ctx.world.chunk({chunk.pos().x + dx, chunk.pos().z + dz}))
-                        for (MobData& o : c->mobs())
-                            if (o.type == MobType::ZombifiedPiglin && std::abs(o.pos.x - hit.pos.x) < 33.5 &&
-                                std::abs(o.pos.z - hit.pos.z) < 33.5 && std::abs(o.pos.y - hit.pos.y) < 11.0) {
-                                o.angry = true;
-                                o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
-                            }
-        }
-    });
+    for (int a = 0; a < m_angerAlertCount; ++a) {
+        const glm::dvec3 hit = m_angerAlerts[size_t(a)];
+        const ChunkPos hc{blockToChunk(int(std::floor(hit.x))), blockToChunk(int(std::floor(hit.z)))};
+        for (int dz = -3; dz <= 3; ++dz)
+            for (int dx = -3; dx <= 3; ++dx)
+                if (Chunk* c = ctx.world.chunk({hc.x + dx, hc.z + dz}))
+                    for (MobData& o : c->mobs())
+                        if (o.type == MobType::ZombifiedPiglin && std::abs(o.pos.x - hit.x) < 33.5 &&
+                            std::abs(o.pos.z - hit.z) < 33.5 && std::abs(o.pos.y - hit.y) < 11.0) {
+                            o.angry = true;
+                            o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
+                        }
+    }
     if (ctx.naturalSpawning) {
         if (ctx.world.isUltrawarm()) spawnNether(ctx);
         else spawnHostiles(ctx);

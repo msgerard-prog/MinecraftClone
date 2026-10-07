@@ -11,6 +11,7 @@
 #include "world/World.h"
 
 #include <optional>
+#include <array>
 #include <vector>
 
 namespace mc {
@@ -114,6 +115,10 @@ private:
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
+    int m_striders = 0; // (counted in the tick's mob pass, for strider spawning)
+    // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
+    std::array<glm::dvec3, 8> m_angerAlerts{};
+    int m_angerAlertCount = 0;
     int m_simulationDistance = kDefaultSimulationDistance;
 };
 

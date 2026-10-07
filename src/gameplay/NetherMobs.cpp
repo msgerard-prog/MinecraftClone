@@ -237,11 +237,7 @@ void Mobs::spawnNether(Context& ctx) {
         const glm::dvec3 p = ctx.player.position();
         const int x = int(std::floor(p.x)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
         const int z = int(std::floor(p.z)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
-        int striders = 0;
-        ctx.world.forEachTickingChunk([&](Chunk& c) {
-            for (const MobData& m : c.mobs())
-                striders += m.type == MobType::Strider;
-        });
+        const int striders = m_striders; // (counted in the mob pass)
         for (int y = 31; y >= 20 && striders < 8; --y) { // the lava sea's surface (Y 31)
             if (blockRegistry().blockOf(ctx.world.getBlock({x, y, z})) != blocks::Lava) continue;
             if (ctx.world.getBlock({x, y + 1, z}) != 0 || ctx.world.getBlock({x, y + 2, z}) != 0) break;
