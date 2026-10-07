@@ -102,6 +102,9 @@ std::vector<Recipe> build() {
     r.push_back(shapeless({item("iron_ingot"), item("flint")}, "flint_and_steel"));
     // (wiki: Shears - two iron ingots diagonally)
     r.push_back(shaped({".#", "#."}, {{'#', item("iron_ingot")}}, "shears"));
+    // (wiki: Bow - 3 sticks and 3 string; White Wool - 4 string)
+    r.push_back(shaped({".SX", "S.X", ".SX"}, {{'S', stick}, {'X', item("string")}}, "bow"));
+    r.push_back(shaped({"##", "##"}, {{'#', item("string")}}, "white_wool"));
     // (wiki: Arrow - flint, stick, feather -> 4)
     r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
     return r;

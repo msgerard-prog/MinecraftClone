@@ -250,7 +250,13 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         {{2, 6, 7, 3}, 1.0f}, // top
         {{4, 0, 1, 5}, 0.5f}, // bottom
     };
-    const float scale = mob.age < 0 ? 0.5f : 1.0f; // babies: half size
+    float scale = mob.age < 0 ? 0.5f : 1.0f; // babies: half size
+    glm::vec3 flash(0.0f);
+    if (mob.fuse > 0) { // a swelling creeper grows and flashes white (wiki: Creeper)
+        const float f = std::min(1.0f, float(mob.fuse) / 30.0f);
+        scale *= 1.0f + f * 0.2f;
+        if ((mob.fuse / 3) % 2 == 1) flash = glm::vec3(0.6f * f);
+    }
     for (const MobPart& part : mobModel(mob.type)) {
         if (part.layer == 1 && mob.sheared) continue;
         glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
@@ -282,7 +288,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         for (int f = 0; f < 6; ++f) {
             const Face& face = kFaces[f];
             const glm::vec3 p[4] = {corners[face.c[0]], corners[face.c[1]], corners[face.c[2]], corners[face.c[3]]};
-            quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3], pack(light * partTint * face.shade),
+            quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3],
+                 pack(glm::min(light * partTint * face.shade + flash, glm::vec3(1.0f))),
                  m_mobs);
         }
     }

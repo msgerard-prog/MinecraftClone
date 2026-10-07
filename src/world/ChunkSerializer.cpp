@@ -540,6 +540,14 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("Color", int8_t(m.woolColour));
             e.put("Sheared", int8_t(m.sheared ? 1 : 0));
         }
+        if (m.type == MobType::Creeper) { // wiki: Creeper › Entity data
+            e.put("Fuse", int16_t{30});
+            e.put("ExplosionRadius", int8_t{3});
+            e.put("ignited", int8_t{0});
+            e.put("powered", int8_t{0});
+        }
+        if (m.type == MobType::Enderman && m.carried) // carriedBlockState {Name, Properties}
+            e.put("carriedBlockState", paletteEntry(blockRegistry().toString(m.carried)));
         if (m.type == MobType::Chicken) {
             e.put("EggLayTime", int32_t(m.eggTicks));
             e.put("IsChickenJockey", int8_t{0});
@@ -607,6 +615,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
         m.eggTicks = static_cast<int>(std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
+        if (const nbt::Compound* carried = e->compound("carriedBlockState"))
+            if (const auto s = blockRegistry().parse(paletteText(*carried))) m.carried = *s;
         if (const nbt::Tag* u = e->find("UUID"))
             if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);

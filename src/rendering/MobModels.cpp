@@ -69,6 +69,51 @@ constexpr std::array<MobPart, 8> kChicken = {{
     {{1, 0, -1}, {2, 4, 1}, {1.5f, 4, 0}, 16, 16, A::LegB},
 }};
 
+// Skeleton: the humanoid shape with thin 2x12x2 limbs; arms forward (holding a bow).
+constexpr std::array<MobPart, 6> kSkeleton = {{
+    {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 16, A::None},
+    {{-6, 12, -1}, {-4, 24, 1}, {-5, 22, 0}, 40, 16, A::ArmForward},
+    {{4, 12, -1}, {6, 24, 1}, {5, 22, 0}, 40, 16, A::ArmForward},
+    {{-3, 0, -1}, {-1, 12, 1}, {-2, 12, 0}, 0, 16, A::LegA},
+    {{1, 0, -1}, {3, 12, 1}, {2, 12, 0}, 0, 16, A::LegB},
+}};
+
+// Creeper: head on a tall body, four short legs.
+constexpr std::array<MobPart, 6> kCreeper = {{
+    {{-4, 18, -4}, {4, 26, 4}, {0, 18, 0}, 0, 0, A::Head},
+    {{-4, 6, -2}, {4, 18, 2}, {0, 6, 0}, 16, 16, A::None},
+    {{-4, 0, 2}, {0, 6, 6}, {-2, 6, 4}, 0, 16, A::LegA},
+    {{0, 0, 2}, {4, 6, 6}, {2, 6, 4}, 0, 16, A::LegB},
+    {{-4, 0, -6}, {0, 6, -2}, {-2, 6, -4}, 0, 16, A::LegB},
+    {{0, 0, -6}, {4, 6, -2}, {2, 6, -4}, 0, 16, A::LegA},
+}};
+
+// Spider: head, thorax and a big abdomen low to the ground; eight legs splayed sideways.
+constexpr std::array<MobPart, 11> kSpider = {{
+    {{-4, 5, 3}, {4, 13, 11}, {0, 9, 3}, 0, 0, A::Head},
+    {{-3, 6, -3}, {3, 12, 3}, {0, 9, 0}, 32, 0, A::None},
+    {{-5, 5, -15}, {5, 13, -3}, {0, 9, -3}, 0, 16, A::None},
+    {{3, 8, 1}, {19, 10, 3}, {3, 9, 2}, 0, 40, A::None},
+    {{3, 8, -1}, {19, 10, 1}, {3, 9, 0}, 0, 40, A::None},
+    {{3, 8, -3}, {19, 10, -1}, {3, 9, -2}, 0, 40, A::None},
+    {{3, 8, -5}, {19, 10, -3}, {3, 9, -4}, 0, 40, A::None},
+    {{-19, 8, 1}, {-3, 10, 3}, {-3, 9, 2}, 0, 40, A::None},
+    {{-19, 8, -1}, {-3, 10, 1}, {-3, 9, 0}, 0, 40, A::None},
+    {{-19, 8, -3}, {-3, 10, -1}, {-3, 9, -2}, 0, 40, A::None},
+    {{-19, 8, -5}, {-3, 10, -3}, {-3, 9, -4}, 0, 40, A::None},
+}};
+
+// Enderman: tall and thin - 30-pixel legs and arms, small body and head on top.
+constexpr std::array<MobPart, 6> kEnderman = {{
+    {{-4, 42, -4}, {4, 50, 4}, {0, 42, 0}, 0, 0, A::Head},
+    {{-4, 30, -2}, {4, 42, 2}, {0, 30, 0}, 16, 16, A::None},
+    {{-6, 12, -1}, {-4, 42, 1}, {-5, 40, 0}, 0, 16, A::LegB},
+    {{4, 12, -1}, {6, 42, 1}, {5, 40, 0}, 0, 16, A::LegA},
+    {{-3, 0, -1}, {-1, 30, 1}, {-2, 30, 0}, 0, 16, A::LegA},
+    {{1, 0, -1}, {3, 30, 1}, {2, 30, 0}, 0, 16, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -77,6 +122,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Sheep: return kSheep;
     case world::MobType::Pig: return kPig;
     case world::MobType::Chicken: return kChicken;
+    case world::MobType::Skeleton: return kSkeleton;
+    case world::MobType::Creeper: return kCreeper;
+    case world::MobType::Spider: return kSpider;
+    case world::MobType::Enderman: return kEnderman;
     default: return kCow;
     }
 }

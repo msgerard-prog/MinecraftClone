@@ -172,6 +172,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Monsters 2 (M16.5, `gameplay/Monsters.cpp`, part of `Mobs`): `mayTarget` (spiders
+  in the dark, angry endermen), `monsterTick` (creeper fuse -> `Explosion`, skeleton
+  bow into `Context::projectiles`, spider leap/climb, enderman stare, water,
+  teleport, carried blocks). Spawn mix by vanilla's weights.
 - Projectiles and explosions (M16.4): `gameplay/Projectiles` (arrows, eggs: pooled,
   swept against blocks with `raycastBlocks`, against mobs with `Mobs::raycast` and the
   player's box; stuck arrows; chicks from eggs), bows drawn in main (`bowPower`);

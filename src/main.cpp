@@ -1073,7 +1073,7 @@ int main(int argc, char** argv) {
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems, dimension == Dimension::Overworld,
-                                     inventory.selectedStack().item, &frameEdits};
+                                     inventory.selectedStack().item, &frameEdits, &projectiles};
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
             {

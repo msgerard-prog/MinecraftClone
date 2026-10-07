@@ -214,6 +214,84 @@ def chicken():
     return img
 
 
+def skeleton():
+    # Bone white, dark eye sockets. Head 8x8x8 @ (0,0), body 8x12x4 @ (16,16), arm
+    # 2x12x2 @ (40,16), leg 2x12x2 @ (0,16).
+    rng = random.Random("skeleton")
+    img = Img(64, 64, CLEAR)
+    bone = ramp(hexc("#C8C8C0"), 5, spread=0.2)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, bone, rng)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 3), (2, 3), (5, 3), (6, 3), (1, 4), (2, 4), (5, 4), (6, 4)),
+         (40, 40, 40, 255), tuple(((x, 6), (70, 70, 66, 255)) for x in range(2, 6)))
+    for name, (x0, y0, w, h) in box_faces(16, 16, 8, 12, 4).items():
+        paint(img, (x0, y0, w, h), bone, rng)
+        if name in ("front", "back"):  # ribs: dark gaps
+            for y in range(1, h - 2, 2):
+                for x in range(1, w - 1):
+                    img.set(x0 + x, y0 + y, bone[0])
+    for u, v in ((40, 16), (0, 16)):
+        for f in box_faces(u, v, 2, 12, 2).values():
+            paint(img, f, bone, rng)
+    return img
+
+
+def creeper():
+    # Mottled green, the famous dark face. Head 8x8x8 @ (0,0), body 8x12x4 @ (16,16),
+    # leg 4x6x4 @ (0,16).
+    rng = random.Random("creeper")
+    img = Img(64, 64, CLEAR)
+    green = ramp(hexc("#4CA83C"), 5, spread=0.45)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, green, rng, noise=0.5)
+    dark = (16, 24, 16, 255)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"],
+         ((1, 2), (2, 2), (1, 3), (2, 3), (5, 2), (6, 2), (5, 3), (6, 3), (3, 4), (4, 4), (2, 5), (3, 5), (4, 5),
+          (5, 5), (2, 6), (5, 6), (2, 7), (5, 7)), dark)
+    for f in box_faces(16, 16, 8, 12, 4).values():
+        paint(img, f, green, rng, noise=0.5)
+    for f in box_faces(0, 16, 4, 6, 4).values():
+        paint(img, f, green, rng, noise=0.5)
+    return img
+
+
+def spider():
+    # Dark brown-black hairy body, red eyes. Head 8x8x8 @ (0,0), thorax 6x6x6 @ (32,0),
+    # abdomen 10x8x12 @ (0,16), leg 16x2x2 @ (0,40).
+    rng = random.Random("spider")
+    img = Img(64, 64, CLEAR)
+    body = ramp(hexc("#3A3028"), 5, spread=0.35)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, body, rng, noise=0.5)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 3), (2, 3), (5, 3), (6, 3), (2, 2), (5, 2), (3, 4), (4, 4)),
+         (200, 30, 30, 255))
+    for f in box_faces(32, 0, 6, 6, 6).values():
+        paint(img, f, body, rng, noise=0.5)
+    for f in box_faces(0, 16, 10, 8, 12).values():
+        paint(img, f, body, rng, noise=0.5)
+    for f in box_faces(0, 40, 16, 2, 2).values():
+        paint(img, f, body, rng, noise=0.5)
+    return img
+
+
+def enderman():
+    # Near-black with a purple sheen, glowing purple eyes. Head 8x8x8 @ (0,0), body
+    # 8x12x4 @ (16,16), limb 2x30x2 @ (0,16).
+    rng = random.Random("enderman")
+    img = Img(64, 64, CLEAR)
+    black = ramp(hexc("#161618"), 5, spread=0.4)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, black, rng)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], (), (0, 0, 0, 255),
+         tuple(((x, 4), (224, 120, 250, 255) if x in (1, 6) else (180, 60, 230, 255))
+               for x in (0, 1, 2, 5, 6, 7)))
+    for f in box_faces(16, 16, 8, 12, 4).values():
+        paint(img, f, black, rng)
+    for f in box_faces(0, 16, 2, 30, 2).values():
+        paint(img, f, black, rng)
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -238,7 +316,8 @@ def main():
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     images = {"zombie": zombie(), "cow": cow(), "sheep": sheep(), "sheep_wool": sheep_wool(), "pig": pig(),
-              "chicken": chicken(), "projectiles": projectiles()}
+              "chicken": chicken(), "projectiles": projectiles(), "skeleton": skeleton(), "creeper": creeper(),
+              "spider": spider(), "enderman": enderman()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

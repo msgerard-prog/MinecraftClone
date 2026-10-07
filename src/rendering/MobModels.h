@@ -32,7 +32,9 @@ inline const char* mobTexturePath(int row) {
     static constexpr const char* kPaths[kMobTextureRows] = {
         "assets/minecraft/textures/entity/clone/zombie.png", "assets/minecraft/textures/entity/clone/cow.png",
         "assets/minecraft/textures/entity/clone/sheep.png",  "assets/minecraft/textures/entity/clone/pig.png",
-        "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/sheep_wool.png",
+        "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/skeleton.png",
+        "assets/minecraft/textures/entity/clone/creeper.png", "assets/minecraft/textures/entity/clone/spider.png",
+        "assets/minecraft/textures/entity/clone/enderman.png", "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png"};
     return kPaths[row];
 }

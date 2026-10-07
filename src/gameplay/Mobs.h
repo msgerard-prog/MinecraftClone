@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameplay/Aabb.h"
+#include "gameplay/Explosion.h"
 #include "gameplay/ItemEntities.h"
 #include "gameplay/Pathfinder.h"
 #include "gameplay/Player.h"
@@ -31,7 +32,8 @@ public:
         ItemEntities& items;
         bool naturalSpawning = true; // Overworld zombies only (no Nether/End mobs yet)
         world::ItemId heldItem = 0;  // what the player holds (animals follow their food)
-        std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep eating grass)
+        std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep, creepers, endermen)
+        class Projectiles* projectiles = nullptr;      // skeletons shoot into it
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
@@ -85,6 +87,12 @@ private:
     void animalUpkeep(Context& ctx, world::MobData& m);
     bool animalGoal(Context& ctx, world::MobData& m, double& speed);
     world::MobData* findMob(world::World& world, const world::MobData& self, double range, bool wantLove, bool wantAdult);
+    // Monsters (Monsters.cpp): whether it may pick the player as a target (spiders only
+    // in the dark, endermen only when angry), and its own per-tick behaviour after
+    // moving (creeper fuse, skeleton bow, spider leap, enderman stare/teleport/blocks).
+    bool mayTarget(Context& ctx, const world::MobData& m) const;
+    void monsterTick(Context& ctx, world::MobData& m, bool chase, double playerDist2);
+    bool teleport(world::World& world, world::MobData& m, const glm::dvec3& around, world::Xoroshiro& rng);
 
     struct Move {
         world::ChunkPos to;
@@ -94,6 +102,7 @@ private:
     std::vector<world::MobData> m_births; // reused: babies born this tick
     std::vector<Aabb> m_boxes; // reused collision boxes
     Pathfinder m_pathfinder;
+    Explosion m_explosion;
     int m_hostiles = 0;
     int m_simulationDistance = kDefaultSimulationDistance;
 };

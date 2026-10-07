@@ -350,6 +350,56 @@ def arrow():
     return s.render()
 
 
+def bone():
+    pal = ramp(hexc("#E8E2CC"), 5, spread=0.25)
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(4, 12)} | {(x + 1, 15 - x) for x in range(4, 11)}, pal)
+    for cx, cy in ((3, 12), (4, 13), (12, 3), (11, 2)):
+        s.add({(cx, cy), (cx + 1, cy), (cx, cy + 1), (cx + 1, cy + 1)}, pal)
+    return s.render()
+
+
+def gunpowder():
+    rng = random.Random("gunpowder")
+    pal = ramp(hexc("#5A5A5A"), 5, spread=0.4)
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - 8) / 5.5) ** 2 + ((y - 10) / 3.5) ** 2 < 1 and rng.random() < 0.8}
+    s = Shape()
+    s.add(pts, pal)
+    return s.render()
+
+
+def string_item():
+    pal = ramp(hexc("#EEEEEE"), 5, spread=0.2)
+    s = Shape()
+    pts = set()
+    for t in range(60):
+        a = t / 60 * 4 * math.pi
+        pts.add((int(8 + math.cos(a) * (2 + t / 20)), int(8 + math.sin(a) * (2 + t / 20))))
+    s.add(pts, pal)
+    return s.render()
+
+
+def spider_eye():
+    pal = ramp(hexc("#9A2A3A"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 8) < 5}, pal)
+    img = s.render()
+    for x, y in ((6, 6), (9, 6), (7, 9), (8, 9)):
+        img.set(x, y, hexc("#E04050"))
+    return img
+
+
+def ender_pearl():
+    pal = ramp(hexc("#1E5A50"), 5, spread=0.45)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 7.5) < 5.6}, pal)
+    img = s.render()
+    for x, y in ((5, 5), (6, 5), (5, 6)):
+        img.set(x, y, hexc("#7AD0B8"))
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -396,6 +446,11 @@ def all_items():
     items["shears"] = shears()
     items["bow"] = bow()
     items["arrow"] = arrow()
+    items["bone"] = bone()
+    items["gunpowder"] = gunpowder()
+    items["string"] = string_item()
+    items["spider_eye"] = spider_eye()
+    items["ender_pearl"] = ender_pearl()
     return items
 
 

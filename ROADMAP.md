@@ -26,7 +26,7 @@ M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page)
    tempt goals) with wheat / wheat seeds / carrots; their drops and items.
 4. ✅ M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,
    sticking), explosions (vanilla ray algorithm, block resistance, entity damage).
-5. M16.5 — Hostile mobs: skeleton (bow, strafing, burns in daylight), creeper
+5. ✅ M16.5 — Hostile mobs: skeleton (bow, strafing, burns in daylight), creeper
    (swelling, explosion 3), spider (climbing walls, neutral in light), enderman
    (teleport, stare aggro, carrying blocks, water damage). Original models/textures.
 

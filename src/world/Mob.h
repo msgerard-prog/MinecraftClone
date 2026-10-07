@@ -9,7 +9,7 @@
 
 namespace mc::world {
 
-enum class MobType : uint8_t { Zombie, Cow, Sheep, Pig, Chicken, Count };
+enum class MobType : uint8_t { Zombie, Cow, Sheep, Pig, Chicken, Skeleton, Creeper, Spider, Enderman, Count };
 
 // Static facts per mob type (wiki: Zombie, Cow - health, hitbox, speed, damage).
 struct MobInfo {
@@ -54,6 +54,13 @@ struct MobData {
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love
+    // Hostiles 2 (M16.5; wiki: Creeper, Skeleton, Spider, Enderman).
+    int16_t fuse = 0;           // creeper: swelling ticks (explodes at 30)
+    int16_t shootTicks = 0;     // skeleton: drawing the bow
+    bool angry = false;         // enderman stared at / spider or enderman hit
+    uint16_t carried = 0;       // enderman: the block state it holds (0 = none)
+    bool wantsTeleport = false; // enderman: hit by an arrow / in water - teleport away
+    bool climbing = false;      // spider: against a wall last tick
     bool isBaby() const { return age < 0; }
     // AI
     glm::dvec3 goal{0.0};    // wander / chase target

@@ -127,6 +127,13 @@ ItemRegistry buildItems() {
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});
     r.add({.id = "minecraft:arrow", .texture = "item/arrow"});
+    // Hostile mob drops (M16.5; wiki: Bone, Gunpowder, String, Spider Eye 2 / 3.2,
+    // Ender Pearl - stacks to 16).
+    r.add({.id = "minecraft:bone", .texture = "item/bone"});
+    r.add({.id = "minecraft:gunpowder", .texture = "item/gunpowder"});
+    r.add({.id = "minecraft:string", .texture = "item/string"});
+    r.add({.id = "minecraft:spider_eye", .food = 2, .saturation = 3.2f, .texture = "item/spider_eye"});
+    r.add({.id = "minecraft:ender_pearl", .maxStack = 16, .texture = "item/ender_pearl"});
     return r;
 }
 

@@ -92,7 +92,9 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            equipment (omitted when empty), HurtTime, DeathTime, PersistenceRequired, UUID
                            [I; 4 ints], cow/pig/chicken variant "minecraft:temperate", zombie IsBaby...;
                            animals Age, ForcedAge, InLove; sheep Color (byte), Sheared;
-                           chicken EggLayTime, IsChickenJockey } ] }
+                           chicken EggLayTime, IsChickenJockey; creeper Fuse,
+                           ExplosionRadius, ignited, powered; enderman carriedBlockState
+                           {Name, Properties} } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

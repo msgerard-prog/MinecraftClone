@@ -110,7 +110,9 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         }
                     } else {
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
-                        if (m.hurtTime == 0) {
+                        if (m.type == MobType::Enderman) {
+                            m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
+                        } else if (m.hurtTime == 0) {
                             m.health -= damage;
                             m.hurtTime = 10;
                             const glm::dvec2 h(p.vel.x, p.vel.z);

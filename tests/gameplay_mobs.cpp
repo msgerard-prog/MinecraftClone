@@ -117,10 +117,18 @@ TEST_CASE("mobs move to the chunk they walk into; far hostiles despawn") {
     CHECK(zombies == 0);
 }
 
-TEST_CASE("zombies spawn in the dark around the player, never in light") {
+TEST_CASE("monsters spawn in the dark around the player, never in light") {
     MobScene dark;
+    dark.survival = false; // (creative: no creeper blasts through the thin test floor)
     dark.tick(2000);
     CHECK(dark.mobs.hostileCount() > 0);
+    int kinds[int(MobType::Count)] = {};
+    for (MobData* m : dark.all())
+        ++kinds[int(m->type)];
+    int monsterKinds = 0;
+    for (MobType t : {MobType::Zombie, MobType::Skeleton, MobType::Creeper, MobType::Spider})
+        monsterKinds += kinds[int(t)] > 0;
+    CHECK(monsterKinds >= 2); // a mix, by vanilla's weights
     MobScene day;
     day.skyDarken = 0.0f;
     day.world.forEachChunk([](Chunk& c) {
@@ -469,4 +477,129 @@ TEST_CASE("sheep colour/shearing, ages, love and egg timers save as vanilla's Co
     CHECK(d.mobs()[1].type == MobType::Chicken);
     CHECK(d.mobs()[1].eggTicks == 777);
     CHECK(d.mobs()[1].loveTicks == 300);
+}
+
+#include "gameplay/Projectiles.h"
+
+namespace {
+// A monster scene: mobs ticked with projectiles (skeletons) and edits.
+struct MonsterScene : MobScene {
+    Projectiles projectiles;
+    std::vector<BlockPos> edits;
+    void run(int n, ItemId held = 0) {
+        for (int i = 0; i < n; ++i) {
+            player.tick(world, {});
+            Mobs::Context ctx{world, player, vitals, survival, false, dayTime, skyDarken, rng, items,
+                              false, held, &edits, &projectiles};
+            mobs.tick(ctx);
+            projectiles.tick(world, player, &vitals, inventory, survival, rng);
+            vitals.tick(player.position().y, true, false, false);
+        }
+    }
+    Inventory inventory;
+};
+} // namespace
+
+TEST_CASE("a creeper next to a survival player swells for 30 ticks and explodes") {
+    MonsterScene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Creeper, {2.5, 64.0, 0.5}, s.rng)));
+    s.run(60);
+    int creepers = 0;
+    for (MobData* m : s.all())
+        creepers += m->type == MobType::Creeper;
+    CHECK(creepers == 0);              // blew itself up
+    CHECK(s.vitals.health() < 10.0f); // ~2 blocks from a power-3 blast hurts a lot
+    CHECK_FALSE(s.edits.empty());      // and broke blocks
+}
+
+TEST_CASE("a creeper's fuse goes back down when the player gets away") {
+    MonsterScene s;
+    MobData c = Mobs::make(MobType::Creeper, {2.5, 64.0, 0.5}, s.rng);
+    c.fuse = 20;
+    c.targeting = true;
+    REQUIRE(Mobs::add(s.world, c));
+    s.player.setPosition({30.5, 64.0, 0.5});
+    s.run(5);
+    CHECK(s.all().at(0)->fuse < 20);
+}
+
+TEST_CASE("skeletons shoot arrows at a survival player in range") {
+    MonsterScene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Skeleton, {8.5, 64.0, 0.5}, s.rng)));
+    s.run(120);
+    CHECK(s.vitals.health() < 20.0f);
+}
+
+TEST_CASE("spiders climb walls, and stay calm in bright light until hit") {
+    MonsterScene s;
+    for (int z = -8; z <= 8; ++z) // a 3-high wall between spider and player
+        for (int y = 64; y <= 66; ++y)
+            s.world.setBlock({4, y, z}, blockRegistry().defaultState(blocks::Stone));
+    for (int z = -8; z <= 8; ++z)
+        s.world.setBlock({3, 67, z}, blockRegistry().defaultState(blocks::Stone)); // ledge... (above player side)
+    s.player.setPosition({0.5, 64.0, 0.5});
+    MobData sp = Mobs::make(MobType::Spider, {6.5, 64.0, 0.5}, s.rng);
+    sp.targeting = true;
+    REQUIRE(Mobs::add(s.world, sp));
+    double highest = 0.0;
+    for (int i = 0; i < 60; ++i) {
+        s.run(1);
+        highest = std::max(highest, s.all().at(0)->pos.y);
+    }
+    CHECK(highest > 65.0); // climbed up the wall
+    // Bright light: no targeting.
+    MonsterScene b;
+    b.skyDarken = 0.0f;
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+    auto bright = std::make_shared<SectionLight>();
+    bright->sky.fill(15);
+    light.fill(bright);
+    b.world.forEachChunk([&](Chunk& c) { c.setLight(light); });
+    REQUIRE(Mobs::add(b.world, Mobs::make(MobType::Spider, {4.5, 64.0, 0.5}, b.rng)));
+    b.run(40);
+    CHECK_FALSE(b.all().at(0)->targeting);
+    Mobs::attack(*b.all().at(0), 1.0f, b.player.position());
+    CHECK(b.all().at(0)->angry);
+}
+
+TEST_CASE("endermen anger when stared at, teleport out of water, shrug off arrows") {
+    MonsterScene s;
+    MobData e = Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, e));
+    s.player.setPosition({0.5, 64.0, 0.5});
+    s.player.setRotation(0.0f, -4.0f); // looking south (+Z), a little up: at its head
+    s.run(1);
+    CHECK(s.all().at(0)->angry);
+    // Arrows: it teleports, no damage.
+    MonsterScene a;
+    REQUIRE(Mobs::add(a.world, Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, a.rng)));
+    a.player.setPosition({30.5, 64.0, 30.5});
+    a.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.5, 2.5}, {0, 0, 1}, 2.0, 0.0, false, false, a.rng);
+    a.run(6);
+    MobData* m = a.all().at(0);
+    CHECK(m->health == 40.0f);
+    CHECK(glm::length(m->pos - glm::dvec3(0.5, 64.0, 8.5)) > 2.0); // teleported away
+    // Water: hurts and teleports.
+    MonsterScene w;
+    for (int x = -2; x <= 2; ++x)
+        for (int z = 6; z <= 10; ++z)
+            w.world.setBlock({x, 64, z}, blockRegistry().defaultState(blocks::Water));
+    REQUIRE(Mobs::add(w.world, Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, w.rng)));
+    w.player.setPosition({30.5, 64.0, 30.5});
+    w.run(3);
+    CHECK(w.all().at(0)->health < 40.0f);
+    CHECK(glm::length(w.all().at(0)->pos - glm::dvec3(0.5, 64.0, 8.5)) > 2.0);
+}
+
+TEST_CASE("an enderman's carried block saves as carriedBlockState") {
+    Chunk c({0, 0});
+    Xoroshiro rng(2);
+    MobData e = Mobs::make(MobType::Enderman, {3.5, 70.0, 3.5}, rng);
+    e.carried = blockRegistry().defaultState(blocks::GrassBlock);
+    c.mobs().push_back(e);
+    const auto nbt = entitiesToNbt(ChunkSnapshot::of(c));
+    Chunk d({0, 0});
+    entitiesFromNbt(*mc::nbt::read(mc::nbt::write(nbt)), d);
+    REQUIRE(d.mobs().size() == 1);
+    CHECK(d.mobs()[0].carried == blockRegistry().defaultState(blocks::GrassBlock));
 }

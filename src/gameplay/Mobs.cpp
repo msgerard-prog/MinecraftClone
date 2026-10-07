@@ -127,6 +127,10 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     const double accel = m.onGround ? (1.0 - kGroundFriction) : 0.02 / 0.1 * (1.0 - kGroundFriction) * 0.25;
     m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
     m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
+    if (m.type == MobType::Spider && m.climbing) {
+        m.vel.y = 0.2; // spiders climb walls (wiki: Spider)
+        m.fallDistance = 0.0f;
+    }
     if (inWater) {
         // Cows swim up to the surface; zombies sink (wiki: Zombie - they sink and later
         // become drowned).
@@ -188,6 +192,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         }
         m.fallDistance = 0.0f;
     }
+    m.climbing = moved.x != m.vel.x || moved.z != m.vel.z; // against a wall
     if (moved.x != m.vel.x) m.vel.x = 0.0;
     if (moved.z != m.vel.z) m.vel.z = 0.0;
     if (moved.y != m.vel.y) m.vel.y = 0.0;
@@ -208,7 +213,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     double speed = info.speed * 0.5; // blocks per tick at speed modifier 1 (our estimate)
     bool chase = false;
 
-    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= 35.0 * 35.0) {
+    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= 35.0 * 35.0 || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
         // Targets are picked on sight (wiki: Zombie): a line of sight check twice a second.
@@ -222,6 +227,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
+        // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
+        if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
         // (breeding partner, food, parent)
     } else if (m.panicTicks > 0) {
@@ -310,7 +317,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Melee (wiki: Zombie - 3 damage on normal, once a second, reach ~ width*2).
     if (m.attackCooldown > 0) --m.attackCooldown;
-    if (chase && m.attackCooldown == 0) {
+    if (chase && m.attackCooldown == 0 && info.attackDamage > 0.0f) {
         const double reach = info.width * 2.0 + 0.6;
         if (playerDist2 < reach * reach && box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
                                                                   ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
@@ -319,8 +326,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
 
-    // Undead burn in daylight under open sky (wiki: Zombie): 1 damage a second.
-    if (m.type == MobType::Zombie) {
+    if (info.hostile) monsterTick(ctx, m, chase, playerDist2);
+
+    // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
+    if (m.type == MobType::Zombie || m.type == MobType::Skeleton) {
         const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 1.6)), int(std::floor(m.pos.z))};
         const Chunk* c = ctx.world.chunk(head.chunk());
         const bool day = ctx.skyDarken < 4.0f;
@@ -346,6 +355,10 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.hurtTime = 10;
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
+    if (m.type == MobType::Spider || m.type == MobType::Enderman) { // provoked (wiki)
+        m.angry = true;
+        m.targeting = true;
+    }
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
     if (l > 1e-6) { // wiki: Knockback - 0.4 away; lifted only when on the ground
@@ -377,6 +390,21 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop(burning ? "cooked_mutton" : "mutton", 1, 2);
         break;
     case MobType::Pig: drop(burning ? "cooked_porkchop" : "porkchop", 1, 3); break; // wiki: Pig
+    case MobType::Skeleton: // wiki: Skeleton - bones 0-2, arrows 0-2
+        drop("bone", 0, 2);
+        drop("arrow", 0, 2);
+        break;
+    case MobType::Creeper: drop("gunpowder", 0, 2); break; // wiki: Creeper
+    case MobType::Spider: // wiki: Spider - string 0-2, spider eye 1 in 3
+        drop("string", 0, 2);
+        if (ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1);
+        break;
+    case MobType::Enderman: // wiki: Enderman - ender pearl 0-1, and the block it carried
+        drop("ender_pearl", 0, 1);
+        if (m.carried)
+            if (const ItemId it = items.blockItem(blockRegistry().blockOf(m.carried)))
+                ctx.items.spawn(m.pos + glm::dvec3(0, 1, 0), {it, 1}, ctx.rng);
+        break;
     case MobType::Chicken: // wiki: Chicken - feathers 0-2, 1 raw chicken
         drop("feather", 0, 2);
         drop(burning ? "cooked_chicken" : "chicken", 1, 1);
@@ -474,12 +502,20 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (c->blockLight(lx, y, lz) > 0) return;
     const int sky = c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken);
     if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
-    // A small group (wiki: Zombie - groups of up to 4).
+    // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
+    // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
+    const uint32_t roll = ctx.rng.nextInt(405);
+    const MobType kind = roll < 95    ? MobType::Zombie
+                         : roll < 195 ? MobType::Skeleton
+                         : roll < 295 ? MobType::Creeper
+                         : roll < 395 ? MobType::Spider
+                                      : MobType::Enderman;
     const int group = 1 + static_cast<int>(ctx.rng.nextInt(4));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
         if (!canSpawnAt(ctx.world, gx, y, gz)) continue;
-        if (add(ctx.world, make(MobType::Zombie, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
+        if (kind == MobType::Enderman && solidAt(ctx.world, gx, y + 2, gz)) continue; // 3 tall
+        if (add(ctx.world, make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
     }
 }
 
