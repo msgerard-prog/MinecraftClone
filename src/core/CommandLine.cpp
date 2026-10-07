@@ -66,6 +66,18 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--time needs ticks >= 0, e.g. 6000 (noon) or 18000 (midnight)";
                 return std::nullopt;
             }
+        } else if (arg == "--world") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            const std::string_view name(*v);
+            if (name.empty() || name.find_first_of("/\\:*?\"<>|") != std::string_view::npos ||
+                name == "." || name == "..") {
+                error = "--world needs a folder name (no path separators)";
+                return std::nullopt;
+            }
+            opts.world = std::string(name);
+        } else if (arg == "--no-save") {
+            opts.noSave = true;
         } else if (arg == "--inventory") {
             opts.inventory = true;
         } else if (arg == "--f3") {

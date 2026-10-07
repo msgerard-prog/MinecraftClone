@@ -2,6 +2,8 @@
 out/
 # Local-only resource packs (your own copy of vanilla textures; never commit)
 resourcepacks/
+# Saved worlds
+saves/
 # Editors
 .vs/
 .vscode/

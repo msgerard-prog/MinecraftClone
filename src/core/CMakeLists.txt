@@ -6,3 +6,5 @@ target_compile_definitions(mc_core PUBLIC MC_ASSETS_DIR="${PROJECT_SOURCE_DIR}/a
 # The user's own resource packs (git-ignored): folders, .zip packs or a client .jar.
 target_compile_definitions(mc_core PUBLIC
     MC_RESOURCEPACKS_DIR="${PROJECT_SOURCE_DIR}/resourcepacks")
+# Saved worlds (git-ignored), one folder per world in vanilla's layout.
+target_compile_definitions(mc_core PUBLIC MC_SAVES_DIR="${PROJECT_SOURCE_DIR}/saves")

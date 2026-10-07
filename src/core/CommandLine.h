@@ -35,6 +35,8 @@ struct LaunchOptions {
     bool debugScreen = false;          // --f3: start with the F3 debug screen open
     bool inventory = false;            // --inventory: start with the creative inventory open
     std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start
+    std::string world;                 // --world NAME: saves/<NAME> (created if missing)
+    bool noSave = false;               // --no-save: don't load or save a world
 };
 
 // Parses argv (without argv[0]). Returns nullopt and fills `error` on bad input.

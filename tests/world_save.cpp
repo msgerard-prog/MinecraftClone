@@ -194,3 +194,37 @@ TEST_CASE("level.dat round-trips the world settings, time and player") {
     CHECK(back->selectedSlot == 4);
     CHECK_FALSE(LevelData::load(dir.path / "nope").has_value());
 }
+
+#include "world/ChunkLoader.h"
+#include "world/TerrainGenerator.h"
+
+#include <chrono>
+#include <thread>
+
+TEST_CASE("chunk loader: an edited chunk saves when it unloads and comes back edited") {
+    TempDir dir("mc_test_loader_save");
+    World world;
+    const TerrainGenerator gen(42);
+    ChunkStorage storage(dir.path);
+    ChunkLoader loader(world, gen, 1, &storage);
+    loader.setRenderDistance(2);
+    std::vector<ChunkPos> loaded, unloaded;
+    auto settle = [&](ChunkPos centre) {
+        for (int i = 0; i < 5000; ++i) {
+            loader.update(centre, loaded, unloaded);
+            if (loader.pending() == 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    };
+    settle({0, 0});
+    REQUIRE(world.chunk({0, 0}));
+    CHECK_FALSE(world.chunk({0, 0})->dirty()); // freshly generated: nothing to save
+    world.setBlock({3, 200, 3}, S(blocks::Glowstone));
+    REQUIRE(world.chunk({0, 0})->dirty());
+    settle({100, 100}); // far away: (0,0) unloads and is saved
+    REQUIRE_FALSE(world.chunk({0, 0}));
+    settle({0, 0}); // back: loaded from storage (or its queued snapshot)
+    REQUIRE(world.chunk({0, 0}));
+    CHECK(world.getBlock({3, 200, 3}) == S(blocks::Glowstone));
+    CHECK_FALSE(world.chunk({0, 0})->dirty());
+}

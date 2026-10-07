@@ -56,10 +56,29 @@ assets/data/minecraft/loot_table/blocks/<b>.json
 assets/data/minecraft/tags/block/<tag>.json      e.g. mineable/pickaxe
 ```
 
-## Save format (planned, M7 — decided by ADR at the time)
-Candidate: vanilla's **Anvil** layout — `region/r.<x>.<z>.mca` (32×32 chunks, 4 KiB
-sector table, zlib-compressed NBT per chunk) with paletted sections. Choosing it
-means learning NBT and lets us open worlds in external viewers.
+## Save format (M7, ADR 0007 — proposed, awaiting the user's OK)
+Vanilla Java **Anvil** layout under `saves/<world>/` (git-ignored; `--world NAME`,
+default "New World" for interactive runs; `--no-save`):
+```
+level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, LevelName,
+                           DayTime, Time, GameType 1, WorldGenSettings { seed },
+                           Player { Pos, Rotation, abilities { flying, ... },
+                           SelectedItemSlot, Inventory [ { Slot, id, count,
+                           MinecraftCloneState } ] }, MinecraftClone { generator } }
+level.dat_old              previous level.dat (replaced atomically via level.dat_new)
+region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
+                           4 KiB sectors (BE length, type 2 = zlib, NBT)
+```
+Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` -4, `Status`
+`minecraft:full`, `isLightOn`, `sections` [24 × { `Y`, `block_states` { `palette` [
+{ `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
+per long, none if 1 entry) }, `biomes` { `palette` [plains] }, `SkyLight`, `BlockLight`
+(2048-byte nibble arrays, omitted when all 0) }]. Not written yet: heightmaps,
+entities, block entities, ticks, structures, POI.
+Rules: chunks save when they unload, every 6000 ticks (autosave) and on exit — only
+if changed (`Chunk::dirty`). Saving runs on an IO thread from shared section
+snapshots. On load, unknown block ids become air (logged); light is recomputed.
+The seed, generator kind, time, player and hotbar come from level.dat.
 
 ## Screenshots
 `--screenshot <path>` writes an 8-bit RGB PNG, top row first, of the final back

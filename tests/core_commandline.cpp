@@ -97,3 +97,16 @@ TEST_CASE("command line: --f3, --inventory, repeatable --command, signed --seed"
     std::array<const char*, 1> missing = {"--command"};
     CHECK_FALSE(mc::parseCommandLine(missing, error).has_value());
 }
+
+TEST_CASE("command line: --world takes a folder name only; --no-save") {
+    std::string error;
+    std::array<const char*, 3> ok = {"--world", "My World", "--no-save"};
+    const auto opts = mc::parseCommandLine(ok, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->world == "My World");
+    CHECK(opts->noSave);
+    for (const char* bad : {"../x", "a/b", "c:\\d", ".."}) {
+        std::array<const char*, 2> args = {"--world", bad};
+        CHECK_FALSE(mc::parseCommandLine(args, error).has_value());
+    }
+}

@@ -4,8 +4,10 @@
 
 namespace mc::world {
 
-ChunkLoader::ChunkLoader(World& world, const TerrainGenerator& generator, int threads)
-    : m_world(world), m_generator(generator), m_maxInFlight(std::max(2, threads * 3)) {
+ChunkLoader::ChunkLoader(World& world, const TerrainGenerator& generator, int threads,
+                         ChunkStorage* storage)
+    : m_world(world), m_generator(generator), m_storage(storage),
+      m_maxInFlight(std::max(2, threads * 3)) {
     m_requested.reserve(static_cast<size_t>(m_maxInFlight));
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
@@ -45,7 +47,10 @@ void ChunkLoader::run() {
         } else {
             chunk = std::make_unique<Chunk>(*pos);
         }
-        m_generator.generate(*chunk);
+        // Saved chunks load from disk; others are generated. Either way the chunk
+        // starts clean (only later edits need saving).
+        if (!m_storage || !m_storage->load(*chunk)) m_generator.generate(*chunk);
+        chunk->clearDirty();
         m_done.push(std::move(chunk));
     }
 }
@@ -97,7 +102,10 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
                 m_far.push_back(c.pos());
         });
         for (const ChunkPos& p : m_far) {
-            if (auto chunk = m_world.removeChunk(p)) m_recycled.push(std::move(chunk));
+            if (auto chunk = m_world.removeChunk(p)) {
+                if (m_storage && chunk->dirty()) m_storage->save(ChunkSnapshot::of(*chunk));
+                m_recycled.push(std::move(chunk));
+            }
             unloaded.push_back(p);
         }
     }

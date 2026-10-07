@@ -15,6 +15,8 @@
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
 #include "world/LightManager.h"
+#include "world/ChunkStorage.h"
+#include "world/LevelData.h"
 #include "gameplay/Commands.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
@@ -26,6 +28,8 @@
 #include "world/World.h"
 
 #include <cmath>
+#include <filesystem>
+#include <optional>
 #include <memory>
 #include <span>
 #include <string>
@@ -183,14 +187,36 @@ int main(int argc, char** argv) {
     std::array<char, 64> typed{};
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
-    const mc::world::TerrainGenerator generator(opts->seed);
+
+    // Saved world (saves/<name>, vanilla Anvil layout, ADR 0007). Interactive runs
+    // save to "New World" by default; scripted runs (screenshots, hidden) only with
+    // --world. An existing world's level.dat decides seed, generator, time and player.
+    std::string worldName = opts->world;
+    if (worldName.empty() && !screenshotMode && !opts->hidden) worldName = "New World";
+    if (opts->noSave) worldName.clear();
+    const std::filesystem::path worldDir =
+        worldName.empty() ? std::filesystem::path() : std::filesystem::path(MC_SAVES_DIR) / worldName;
+    std::optional<mc::world::LevelData> level;
+    if (!worldName.empty()) level = mc::world::LevelData::load(worldDir);
+    const bool flatWorld = level ? level->flat : opts->flat;
+    const uint64_t seed = level ? level->seed : opts->seed;
+    if (level) MC_LOG_INFO("Loading world \"%s\" (seed %lld)", worldName.c_str(), static_cast<long long>(seed));
+    else if (!worldName.empty()) MC_LOG_INFO("Creating world \"%s\"", worldName.c_str());
+    std::unique_ptr<mc::world::ChunkStorage> storage;
+    if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(worldDir);
+    const mc::world::TerrainGenerator generator(seed);
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
     std::vector<mc::world::ChunkPos> unloadedChunks;
     loadedChunks.reserve(256);
     unloadedChunks.reserve(256);
-    if (opts->flat) {
+    if (flatWorld) {
         buildTestWorld(world);
+        // Saved changes replace the generated chunks.
+        world.forEachChunk([&](mc::world::Chunk& c) {
+            if (storage) storage->load(c);
+            c.clearDirty();
+        });
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
         world.forEachChunk([&](const mc::world::Chunk& c) { loadedChunks.push_back(c.pos()); });
@@ -199,7 +225,7 @@ int main(int argc, char** argv) {
         // meshing has half).
         const int genThreads =
             std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 4);
-        loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads);
+        loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads, storage.get());
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
         spawn = findSpawn(generator);
@@ -216,8 +242,8 @@ int main(int argc, char** argv) {
     std::vector<mc::world::BlockPos> editsReady;
     editsReady.reserve(16);
 
-    int64_t dayTime = opts->time; // world day time in ticks (world/DayTime.h)
-    int64_t gameTime = 0;         // ticks since start
+    int64_t dayTime = level ? level->dayTime : opts->time; // world day time (world/DayTime.h)
+    int64_t gameTime = level ? level->gameTime : 0;        // ticks since the world began
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
@@ -228,6 +254,50 @@ int main(int argc, char** argv) {
 
     if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
     mc::Hotbar hotbar;
+    if (level && !opts->hasPos) { // resume where the player left
+        player.setPosition({level->pos[0], level->pos[1], level->pos[2]});
+        player.setRotation(level->yaw, level->pitch);
+        player.setFlying(level->flying);
+    }
+    if (level) {
+        for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
+            const std::string& s = level->hotbar[size_t(i)];
+            std::string_view id(s);
+            if (id.starts_with("minecraft:")) id.remove_prefix(10);
+            hotbar.setSlot(i, s.empty() ? 0 : mc::world::blockRegistry().parse(id).value_or(0));
+        }
+        hotbar.select(level->selectedSlot);
+    }
+    // Saving: dirty chunks to the IO thread, level.dat written here (small).
+    auto saveWorld = [&](bool wait) {
+        if (!storage) return;
+        int chunks = 0;
+        world.forEachChunk([&](mc::world::Chunk& c) {
+            if (!c.dirty()) return;
+            storage->save(mc::world::ChunkSnapshot::of(c));
+            c.clearDirty();
+            ++chunks;
+        });
+        mc::world::LevelData l;
+        l.name = worldName;
+        l.seed = seed;
+        l.flat = flatWorld;
+        l.dayTime = dayTime;
+        l.gameTime = gameTime;
+        const glm::dvec3 p = player.position();
+        l.pos[0] = p.x;
+        l.pos[1] = p.y;
+        l.pos[2] = p.z;
+        l.yaw = player.yaw();
+        l.pitch = player.pitch();
+        l.flying = player.flying();
+        for (int i = 0; i < mc::Hotbar::kSlots; ++i)
+            if (hotbar.slot(i)) l.hotbar[size_t(i)] = mc::world::blockRegistry().toString(hotbar.slot(i));
+        l.selectedSlot = hotbar.selected();
+        if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
+        if (wait) storage->flush();
+        MC_LOG_INFO("Saved world \"%s\" (%d changed chunks)", worldName.c_str(), chunks);
+    };
     mc::BlockInteraction interaction;
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
@@ -396,6 +466,7 @@ int main(int argc, char** argv) {
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
+            if (gameTime % 6000 == 0) saveWorld(false); // vanilla autosave: every 5 minutes
         }
 
         int fbWidth = 0;
@@ -534,6 +605,7 @@ int main(int argc, char** argv) {
                 std::this_thread::yield();
         }
     }
+    saveWorld(true);
     const auto summary = frameStats.summarize();
     const auto& st = renderer.stats();
     // Frame times count only frames after meshing finished (steady state).

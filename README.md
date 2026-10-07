@@ -70,6 +70,12 @@ file by file, and anything missing falls back to our placeholders. Only blocks t
 clone has implemented show up, of course. `--resourcepacks DIR` points at another
 folder. Never commit these files (ADR 0004).
 
+## Worlds
+The game saves to `saves/New World/` (vanilla's Anvil layout) when you quit and every
+5 minutes; it continues that world on the next start. `--world NAME` picks another
+world, `--no-save` plays without saving. Screenshot/benchmark runs don't save unless
+given `--world`.
+
 ## Controls
 Click the window to capture the mouse (Esc releases it). WASD to walk, Space to jump,
 Left Shift to sneak, Left Ctrl to sprint. Double-tap Space to start/stop flying

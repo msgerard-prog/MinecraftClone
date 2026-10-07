@@ -58,6 +58,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   distance + 1, nearest first, bounded in flight; finished chunks are inserted by the
   main thread; chunks beyond render distance + 3 unload. `TerrainGenerator` is
   immutable and pure, so workers share it.
+- `world::ChunkStorage` (1 IO thread, M7): the chunk loader's workers load saved
+  chunks from region files before generating; dirty chunks are snapshotted (shared
+  sections, no copy) and written by the IO thread on unload, autosave (6000 ticks)
+  and exit. level.dat is written by the main thread (small). See data-formats.md.
 - `world::LightManager` (cores/4 threads, M5): lights a chunk once its 3x3
   neighbourhood is loaded (the loader keeps render distance + 2 rings for this).
   Jobs hold `shared_ptr`s to the neighbourhood's sections; sections are

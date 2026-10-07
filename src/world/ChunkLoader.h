@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/WorkQueue.h"
+#include "world/ChunkStorage.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 
@@ -20,7 +21,10 @@ namespace mc::world {
 // workers reuse them instead of allocating, and the main thread frees nothing.
 class ChunkLoader {
 public:
-    ChunkLoader(World& world, const TerrainGenerator& generator, int threads);
+    // `storage` (optional): chunks saved before are loaded instead of generated, and
+    // changed chunks are saved when they unload.
+    ChunkLoader(World& world, const TerrainGenerator& generator, int threads,
+                ChunkStorage* storage = nullptr);
     ~ChunkLoader();
     ChunkLoader(const ChunkLoader&) = delete;
     ChunkLoader& operator=(const ChunkLoader&) = delete;
@@ -52,6 +56,7 @@ private:
 
     World& m_world;
     const TerrainGenerator& m_generator;
+    ChunkStorage* m_storage = nullptr;
     int m_renderDistance = 12;
     bool m_haveCenter = false;
     ChunkPos m_center{};
