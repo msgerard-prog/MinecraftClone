@@ -218,3 +218,30 @@ TEST_CASE("bows: drawing needs an arrow in survival; release uses it and wears t
     CHECK(releaseBow(s.inventory, 20, true, {0.5, 65, 0.5}, {0, 0, 1}, s.projectiles, s.rng));
     CHECK(s.inventory.slot(0).empty()); // broke
 }
+
+TEST_CASE("eyes of ender fly 12 blocks toward a far stronghold and up; near one, down; then drop or shatter") {
+    int drops = 0;
+    for (int trial = 0; trial < 50; ++trial) {
+        Scene s;
+        s.rng = Xoroshiro(uint64_t(trial) + 1);
+        s.inventory.setSlot(0, {*itemRegistry().find("ender_eye"), 2});
+        const glm::dvec3 eye(0.5, 65.6, 0.5);
+        throwEye(s.inventory, true, eye, {1000, 0}, s.projectiles);
+        CHECK(s.inventory.slot(0).count == 1); // survival uses it
+        s.tick(40);
+        REQUIRE(s.projectiles.items().size() == 1);
+        const Projectile& p = s.projectiles.items()[0];
+        CHECK(p.pos.x > 8.0); // toward +x
+        CHECK(p.pos.x < 12.6);
+        CHECK(p.pos.y > eye.y + 5.0); // climbing: the stronghold is far
+        s.tick(40);
+        CHECK(s.projectiles.items().empty());
+        drops += static_cast<int>(s.projectiles.eyeDrops().size());
+    }
+    CHECK(drops > 30); // 80% come down as an item
+    CHECK(drops < 50);
+    Scene near;
+    throwEye(near.inventory, false, {0.5, 65.6, 0.5}, {5, 0}, near.projectiles);
+    near.tick(40);
+    CHECK(near.projectiles.items()[0].pos.y < 65.6); // over the stronghold: it sinks
+}

@@ -18,7 +18,8 @@ namespace mc {
 // critical adds up to half again); they stick in blocks for 1200 ticks and can be
 // picked up if the player shot them. Thrown eggs (gravity 0.03) break on anything;
 // 1 in 8 hatches a chick (1 in 32 of those, four). Pooled (hard rule 1).
-enum class ProjectileKind : uint8_t { Arrow, Egg };
+// Eyes of ender (M18.5) fly to a point and then drop or shatter (see throwEye).
+enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder };
 
 struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
@@ -33,6 +34,7 @@ struct Projectile {
     glm::dvec3 facing{0.0, -1.0, 0.0}; // flight direction (kept when stuck, for drawing)
     int life = 0; // ticks alive (stuck arrows vanish at 1200)
     uint8_t skyLight = 15, blockLight = 0;
+    glm::dvec3 target{0.0}; // eyes of ender: where they fly
 };
 
 class Projectiles {
@@ -42,6 +44,7 @@ public:
     Projectiles() {
         m_items.reserve(kMax);
         m_chicks.reserve(16);
+        m_eyeDrops.reserve(16);
     }
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
@@ -60,12 +63,15 @@ public:
               world::Xoroshiro& rng);
 
     const std::vector<Projectile>& items() const { return m_items; }
+    // Eyes of ender that came down this tick (the caller drops an eye item there).
+    const std::vector<glm::dvec3>& eyeDrops() const { return m_eyeDrops; }
     Projectile& last() { return m_items.back(); } // the one just shot
     void clear() { m_items.clear(); }
 
 private:
     std::vector<Projectile> m_items;
-    std::vector<glm::dvec3> m_chicks; // reused
+    std::vector<glm::dvec3> m_chicks;   // reused
+    std::vector<glm::dvec3> m_eyeDrops; // reused
 };
 
 // The bow's draw (wiki: Bow): after `ticks` of drawing, power 0..1 =
@@ -83,5 +89,11 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
 // Throwing the held egg (speed 1.5); survival uses it up.
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, world::Xoroshiro& rng);
+// Throwing an eye of ender toward the nearest stronghold at (x, z) (wiki: Eye of
+// Ender): it flies about 12 blocks that way, climbing while the stronghold is farther
+// than 12 blocks and sinking once it is nearer, hovers, and after 80 ticks drops as an
+// item (80%) or shatters (20%). Survival uses it up.
+void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::ivec2 stronghold,
+              Projectiles& projectiles);
 
 } // namespace mc

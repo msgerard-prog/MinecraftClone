@@ -36,6 +36,8 @@ public:
 
     void generate(Chunk& chunk) const override;
     glm::dvec3 findSpawn() const override;
+    // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
+    std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override { return m_version >= 2 ? "overworld2" : "overworld"; }
     int version() const { return m_version; }
     uint64_t seed() const override { return m_seed; }
@@ -113,11 +115,16 @@ private:
     // crossings and stairs reaching up to 80 blocks out; each chunk builds the pieces
     // that cross it.
     void placeMineshafts(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
+    // Strongholds (M18.5; wiki: Stronghold): 128 in 8 rings around the origin, each a
+    // tree of stone brick rooms from a spiral staircase, with one end portal room.
+    void placeStrongholds(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& biomes) const;
 
     uint64_t m_seed;
     int m_version;
+    std::array<ChunkPos, 128> m_strongholds{}; // staircase chunks (overworld2)
+    int m_strongholdCount = 0;
     OctaveNoise m_continentalness[2], m_erosion[2], m_weirdness[2], m_temperature[2],
         m_humidity[2];
     OctaveNoise m_terrain3d;  // overhangs / roughness

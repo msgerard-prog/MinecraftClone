@@ -212,6 +212,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (`OverworldGenerator::placeStructures`, M18.4): each chunk checks the grid candidates
   within 2 chunks, tests the biome and builds the clipped parts through a rotating
   `StructureBuilder` (local coordinates, foundations, chests with a loot table).
+  Mineshafts and strongholds (M18.5) are piece trees planned from their start
+  (`planMineshaft`, `planStronghold`: boxes that must not overlap, within 80 / 112
+  blocks) and built per chunk; stronghold positions (8 rings) are computed when the
+  generator is made, and `ChunkGenerator::nearestStronghold` guides eyes of ender
+  (`Projectiles`, kind EyeOfEnder).
 - Chests (M17.2): `world::ChestData` block entities (27 slots) in `Chunk::chests()`,
   created/removed by `World::setBlock`, saved as block_entities `Items`; double
   chests are two chests whose `type` points at each other (`BlockUpdates::

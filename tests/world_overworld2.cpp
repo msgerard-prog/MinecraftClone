@@ -249,3 +249,31 @@ TEST_CASE("overworld2: mineshafts carve plank-supported corridors from a dirt-fl
     Chunk room(start);
     gen.generate(room);
 }
+
+TEST_CASE("overworld2: strongholds - 3 in the first ring; stone brick rooms with a 12-frame portal room") {
+    const OverworldGenerator gen(42);
+    const auto near = gen.nearestStronghold(0, 0);
+    REQUIRE(near);
+    const double d = std::hypot(double(near->x), double(near->y));
+    CHECK(d >= 1280 - 16);
+    CHECK(d <= 2816 + 16);
+    CHECK_FALSE(OverworldGenerator(42, 1).nearestStronghold(0, 0)); // not in the M8 overworld
+    int frames = 0, bricks = 0, chests = 0;
+    for (int dz = -3; dz <= 3; ++dz)
+        for (int dx = -3; dx <= 3; ++dx) {
+            Chunk c({(near->x >> 4) + dx, (near->y >> 4) + dz});
+            gen.generate(c);
+            chests += static_cast<int>(c.chests().size());
+            for (int y = -60; y < 60; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = blockRegistry().blockOf(c.get(x, y, z));
+
+                        frames += b == blocks::EndPortalFrame;
+                        bricks += b == blocks::StoneBricks || b == blocks::MossyStoneBricks || b == blocks::CrackedStoneBricks;
+                    }
+        }
+    MESSAGE("stronghold at " << near->x << "," << near->y << " frames " << frames << " chests " << chests);
+    CHECK(frames == 12);
+    CHECK(bricks > 1000);
+}

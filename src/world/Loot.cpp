@@ -68,6 +68,26 @@ constexpr LootEntry kMine3[] = {{"rail", 4, 8, 20},
                                 {"powered_rail", 1, 4, 5}};
 constexpr LootPool kMine[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}};
 
+// wiki: Stronghold › Loot (Java Edition).
+constexpr LootEntry kAltar1[] = {
+    {"diamond_horse_armor", 1, 1, 1}, {"music_disc_otherside", 1, 1, 1}, {"gold_ingot", 1, 3, 5},
+    {"iron_boots", 1, 1, 5},          {"iron_horse_armor", 1, 1, 1},     {"iron_pickaxe", 1, 1, 5},
+    {"apple", 1, 3, 15},              {"iron_ingot", 1, 5, 10},          {"enchanted_book", 1, 1, 1, true},
+    {"diamond", 1, 3, 3},             {"copper_horse_armor", 1, 1, 1},   {"golden_apple", 1, 1, 1},
+    {"iron_helmet", 1, 1, 5},         {"iron_sword", 1, 1, 5},           {"leather", 1, 5, 1},
+    {"ender_pearl", 1, 1, 10},        {"iron_leggings", 1, 1, 5},        {"redstone", 4, 9, 5},
+    {"golden_horse_armor", 1, 1, 1},  {"iron_chestplate", 1, 1, 5},      {"bread", 1, 3, 15}};
+constexpr LootEntry kAltar2[] = {{"eye_armor_trim_smithing_template", 1, 1, 1}, {"", 1, 1, 9}};
+constexpr LootPool kAltar[] = {{2, 3, kAltar1}, {1, 1, kAltar2}};
+constexpr LootEntry kStore1[] = {{"apple", 1, 3, 15},     {"bread", 1, 3, 15},      {"coal", 3, 8, 10},
+                                 {"iron_ingot", 1, 5, 10}, {"redstone", 4, 9, 5},    {"gold_ingot", 1, 3, 5},
+                                 {"enchanted_book", 1, 1, 1, true}, {"iron_pickaxe", 1, 1, 1}};
+constexpr LootPool kStore[] = {{1, 4, kStore1}};
+constexpr LootEntry kLibrary1[] = {{"map", 1, 1, 1},   {"enchanted_book", 1, 1, 10, true}, {"paper", 2, 7, 20},
+                                   {"compass", 1, 1, 1}, {"book", 1, 3, 20}};
+constexpr LootEntry kLibrary2[] = {{"eye_armor_trim_smithing_template", 1, 1, 1}};
+constexpr LootPool kLibrary[] = {{2, 10, kLibrary1}, {1, 1, kLibrary2}};
+
 } // namespace
 
 std::span<const LootPool> lootPools(LootTable table) {
@@ -77,6 +97,9 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::JunglePyramid: return kJungle;
     case LootTable::Igloo: return kIgloo;
     case LootTable::Mineshaft: return kMine;
+    case LootTable::StrongholdCorridor: return kAltar;
+    case LootTable::StrongholdCrossing: return kStore;
+    case LootTable::StrongholdLibrary: return kLibrary;
     default: return {}; // (filled in as their structures arrive)
     }
 }

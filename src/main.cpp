@@ -1200,6 +1200,15 @@ int main(int argc, char** argv) {
                         mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles, gameRng);
                     bowTicks = 0;
                 }
+                // Eyes of ender (M18.5) fly toward the nearest stronghold - in the
+                // Overworld, unless aimed at an end portal frame (that fills it).
+                if (!dead && heldId == "minecraft:ender_eye" && clicks.useClick && dimension == Dimension::Overworld &&
+                    !(lastHit && mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) ==
+                                     mc::world::blocks::EndPortalFrame))
+                    if (const auto s = generatorPtr->nearestStronghold(eye.x, eye.z)) {
+                        mc::throwEye(inventory, survival, eye, *s, projectiles);
+                        clicks.useClick = false;
+                    }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
@@ -1407,6 +1416,10 @@ int main(int argc, char** argv) {
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
             projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
+            for (const glm::dvec3& at : projectiles.eyeDrops()) {
+                static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
+                droppedItems.spawn(at, {eyeItem, 1}, gameRng);
+            }
             // Experience: ores just mined, furnace output taken, orbs collected (M17.5).
             if (const int xp = interaction.takeExperience(); xp > 0) {
                 const mc::world::BlockPos b = interaction.experienceAt();
@@ -1554,10 +1567,12 @@ int main(int argc, char** argv) {
             const glm::dvec3 p = glm::mix(pr.prevPos, pr.pos, clock.alpha);
             const glm::vec3 light = lightTable[size_t(pr.skyLight * 16 + pr.blockLight)];
             static const mc::world::ItemId eggItem = *mc::world::itemRegistry().find("egg");
+            static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
             else
-                entities.addItem({eggItem, 1}, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
+                entities.addItem({pr.kind == mc::ProjectileKind::EyeOfEnder ? eyeItem : eggItem, 1},
+                                 p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
         }
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),

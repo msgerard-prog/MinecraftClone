@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 
 namespace mc::world {
@@ -21,6 +22,9 @@ public:
     // Saved in level.dat ("MinecraftClone.generator") so a world keeps its generator.
     virtual std::string_view kind() const = 0;
     virtual uint64_t seed() const = 0;
+    // Where eyes of ender lead (M18.5): the nearest stronghold's (x, z), if this
+    // generator places strongholds.
+    virtual std::optional<glm::ivec2> nearestStronghold(double, double) const { return std::nullopt; }
 };
 
 } // namespace mc::world

@@ -86,7 +86,7 @@ struct Blocks {
     BlockStateId sugarCane, cactus, pumpkin, brownMushroom, redMushroom, coarseDirt;
     BlockStateId jungleLog, darkOakLog, cherryLog, podzol, mycelium;
     BlockStateId brownCap, redCap, stem; // huge mushroom blocks (cap: pale underside; stem: no ends)
-    BlockStateId cobblestone, mossyCobblestone, chest, spawner, oakPlanks;
+    BlockStateId cobblestone, mossyCobblestone, chest, spawner, oakPlanks, bookshelf, frame[4], frameEye[4];
     BlockStateId chiseledSandstone, cutSandstone, smoothSandstone, orangeTerracotta, blueTerracotta, stoneBricks,
         mossyStoneBricks, crackedStoneBricks, chiseledStoneBricks, tnt, sprucePlanks, craftingTable, furnace,
         redstoneTorch, bedFoot, bedHead;
@@ -162,6 +162,12 @@ const Blocks& blockSet() {
         x.bedHead = r.with(x.bedFoot, "part", "head").value_or(0);
         x.cobblestone = S(blocks::Cobblestone);
         x.oakPlanks = S(blocks::OakPlanks);
+        x.bookshelf = S(blocks::Bookshelf);
+        static constexpr const char* kFacings[4] = {"south", "west", "north", "east"}; // +z, -x, -z, +x
+        for (int f = 0; f < 4; ++f) {
+            x.frame[f] = r.with(S(blocks::EndPortalFrame), "facing", kFacings[f]).value_or(0);
+            x.frameEye[f] = r.with(x.frame[f], "eye", "true").value_or(x.frame[f]);
+        }
         x.mossyCobblestone = S(blocks::MossyCobblestone);
         x.chest = S(blocks::Chest);
         x.spawner = S(blocks::Spawner);
@@ -225,7 +231,30 @@ OverworldGenerator::OverworldGenerator(uint64_t seed, int version)
       m_cheese{OctaveNoise(mixSeed(seed, 113), -7, 4), OctaveNoise(mixSeed(seed, 114), -7, 4)},
       m_spaghettiA(mixSeed(seed, 115), -7, 3), m_spaghettiB(mixSeed(seed, 116), -7, 3),
       m_spaghettiWidth(mixSeed(seed, 117), -6, 1), m_noodleA(mixSeed(seed, 118), -6, 2),
-      m_noodleB(mixSeed(seed, 119), -6, 2), m_surface(mixSeed(seed, 120), -4, 2) {}
+      m_noodleB(mixSeed(seed, 119), -6, 2), m_surface(mixSeed(seed, 120), -4, 2) {
+    if (m_version >= 2) {
+        // Strongholds in 8 rings (wiki: Stronghold - counts and distance bands per
+        // ring); evenly spread around each ring from a random angle, at a random
+        // distance in the band (the angle jitter and biome-free placement are ours).
+        struct Ring {
+            int count, min, max;
+        };
+        static constexpr Ring kRings[] = {{3, 1280, 2816},     {6, 4352, 5888},     {10, 7424, 8960},
+                                          {15, 10496, 12032},  {21, 13568, 15104},  {28, 16640, 18176},
+                                          {36, 19712, 21248},  {9, 22784, 24320}};
+        Xoroshiro r(mixSeed(seed, 0x5354524fu));
+        for (const Ring& ring : kRings) {
+            const double start = r.nextDouble() * 2.0 * std::numbers::pi;
+            for (int i = 0; i < ring.count && m_strongholdCount < int(m_strongholds.size()); ++i) {
+                const double angle = start + i * 2.0 * std::numbers::pi / ring.count + (r.nextDouble() - 0.5) * 0.3;
+                const double dist = ring.min + r.nextDouble() * (ring.max - ring.min);
+                m_strongholds[size_t(m_strongholdCount++)] = {
+                    static_cast<int32_t>(std::floor(std::cos(angle) * dist / 16.0)),
+                    static_cast<int32_t>(std::floor(std::sin(angle) * dist / 16.0))};
+            }
+        }
+    }
+}
 
 // --- Climate and terrain shape ---------------------------------------------------------
 
@@ -882,6 +911,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     if (m_version >= 2) {
         placeDungeons(blockArray.data(), cx, cz, *std::max_element(topY.begin(), topY.end()), entities);
         placeMineshafts(blockArray.data(), cx, cz, entities);
+        placeStrongholds(blockArray.data(), cx, cz, entities);
     }
 
     // 5. Ores and stone blobs (wiki: Ore - attempts per chunk, sizes, height ranges).
@@ -1808,6 +1838,270 @@ void OverworldGenerator::placeMineshafts(BlockStateId* blocks, int32_t cx, int32
                 }
             }
         }
+}
+
+namespace {
+
+// A stronghold piece in local terms: `half` blocks to each side of its axis, `len`
+// long from its entrance wall, `h` tall, all including walls; placed at `x, y, z` (the
+// entrance wall's middle, floor level) facing `dir` (0 +z, 1 -x, 2 -z, 3 +x).
+struct HoldPiece {
+    enum Kind : uint8_t { Stairs, FiveWay, Corridor, Altar, Storeroom, Library, Portal } kind;
+    int32_t x, y, z;
+    uint8_t dir;
+    int half, len, h;
+    int32_t x0, z0, x1, z1; // world box
+    bool intersects(const HoldPiece& o) const {
+        return x0 <= o.x1 && x1 >= o.x0 && z0 <= o.z1 && z1 >= o.z0 && y <= o.y + o.h - 1 && y + h - 1 >= o.y;
+    }
+};
+constexpr int kFx[4] = {0, -1, 0, 1}, kFz[4] = {1, 0, -1, 0};
+
+// Local (u across, v forward) to world for a piece.
+inline void holdWorld(const HoldPiece& p, int u, int v, int32_t& wx, int32_t& wz) {
+    wx = p.x + kFx[p.dir] * v - kFz[p.dir] * u;
+    wz = p.z + kFz[p.dir] * v + kFx[p.dir] * u;
+}
+
+struct HoldPlan {
+    int count = 0;
+    std::array<HoldPiece, 72> pieces{};
+};
+
+void planStronghold(uint64_t seed, ChunkPos start, int startY, HoldPlan& plan) {
+    Xoroshiro r(mixSeed(mixSeed(mixSeed(seed, 0x484f4c44u), static_cast<uint32_t>(start.x)), static_cast<uint32_t>(start.z)));
+    plan.count = 0;
+    const int32_t cx = start.x * 16, cz = start.z * 16;
+    bool portal = false;
+    auto make = [&](HoldPiece::Kind kind, int32_t x, int32_t y, int32_t z, int dir) {
+        HoldPiece p{kind, x, y, z, static_cast<uint8_t>(dir), 2, 5, 5, 0, 0, 0, 0};
+        switch (kind) {
+        case HoldPiece::Stairs: p.half = 2, p.len = 5, p.h = 11; break;
+        case HoldPiece::FiveWay:
+        case HoldPiece::Storeroom: p.half = 5, p.len = 11, p.h = 7; break;
+        case HoldPiece::Corridor: p.half = 2, p.len = 5 + static_cast<int>(r.nextInt(5)), p.h = 5; break;
+        case HoldPiece::Altar: p.half = 2, p.len = 7, p.h = 5; break;
+        case HoldPiece::Library: p.half = 4, p.len = 15, p.h = 7; break;
+        case HoldPiece::Portal: p.half = 5, p.len = 16, p.h = 8; break;
+        }
+        int32_t ax, az, bx, bz;
+        holdWorld(p, -p.half, 0, ax, az);
+        holdWorld(p, p.half, p.len - 1, bx, bz);
+        p.x0 = std::min(ax, bx), p.x1 = std::max(ax, bx), p.z0 = std::min(az, bz), p.z1 = std::max(az, bz);
+        return p;
+    };
+    auto fits = [&](const HoldPiece& p) {
+        if (plan.count >= int(plan.pieces.size())) return false;
+        if (std::abs(p.x0 - cx) > 112 || std::abs(p.x1 - cx) > 112 || std::abs(p.z0 - cz) > 112 || std::abs(p.z1 - cz) > 112)
+            return false;
+        for (int i = 0; i < plan.count; ++i)
+            if (plan.pieces[size_t(i)].intersects(p)) return false;
+        return true;
+    };
+    // Adds a piece through an exit at local (u, v) of `from`, heading `dir` (a door is
+    // cut through both walls when built).
+    auto grow = [&](auto& self, const HoldPiece& from, int u, int v, int dir, int depth, bool towardPortal) -> void {
+        if (depth > 7) return;
+        int32_t x, z;
+        holdWorld(from, u, v, x, z);
+        HoldPiece::Kind kind;
+        if (towardPortal) {
+            kind = depth >= 3 ? HoldPiece::Portal : HoldPiece::Corridor;
+        } else {
+            const uint32_t roll = r.nextInt(100);
+            kind = roll < 35   ? HoldPiece::Corridor
+                   : roll < 45 ? HoldPiece::Altar
+                   : roll < 65 ? HoldPiece::FiveWay
+                   : roll < 75 ? HoldPiece::Storeroom
+                   : roll < 85 ? HoldPiece::Library
+                               : HoldPiece::Kind(255);
+            if (kind == HoldPiece::Kind(255)) return;
+        }
+        const HoldPiece p = make(kind, x, from.y, z, dir);
+        if (!fits(p)) {
+            if (towardPortal && kind != HoldPiece::Portal) { // try the portal room right here
+                const HoldPiece q = make(HoldPiece::Portal, x, from.y, z, dir);
+                if (fits(q)) {
+                    plan.pieces[size_t(plan.count++)] = q;
+                    portal = true;
+                }
+            }
+            return;
+        }
+        plan.pieces[size_t(plan.count++)] = p;
+        if (kind == HoldPiece::Portal) portal = true;
+        const HoldPiece& me = plan.pieces[size_t(plan.count - 1)];
+        switch (kind) {
+        case HoldPiece::Corridor:
+        case HoldPiece::Altar: self(self, me, 0, me.len, dir, depth + 1, towardPortal); break;
+        case HoldPiece::FiveWay:
+        case HoldPiece::Storeroom:
+            self(self, me, 0, me.len, dir, depth + 1, false);
+            self(self, me, me.half + 1, me.len / 2, (dir + 3) & 3, depth + 1, false);
+            self(self, me, -me.half - 1, me.len / 2, (dir + 1) & 3, depth + 1, false);
+            break;
+        default: break; // library, portal: dead ends
+        }
+    };
+    const int dir = static_cast<int>(r.nextInt(4));
+    HoldPiece stairs = make(HoldPiece::Stairs, cx, startY, cz, dir);
+    plan.pieces[size_t(plan.count++)] = stairs;
+    // Below the stairs, a five-way crossing; its way forward leads to the portal room.
+    HoldPiece five = make(HoldPiece::FiveWay, 0, 0, 0, dir);
+    {
+        int32_t x, z;
+        holdWorld(stairs, 0, stairs.len, x, z);
+        five = make(HoldPiece::FiveWay, x, startY, z, dir);
+    }
+    if (!fits(five)) return;
+    plan.pieces[size_t(plan.count++)] = five;
+    const HoldPiece f = five;
+    grow(grow, f, 0, f.len, dir, 1, true);
+    grow(grow, f, f.half + 1, f.len / 2, (dir + 3) & 3, 1, false);
+    grow(grow, f, -f.half - 1, f.len / 2, (dir + 1) & 3, 1, false);
+    (void)portal;
+}
+
+} // namespace
+
+std::optional<glm::ivec2> OverworldGenerator::nearestStronghold(double x, double z) const {
+    std::optional<glm::ivec2> best;
+    double bestD = 0.0;
+    for (int i = 0; i < m_strongholdCount; ++i) {
+        const ChunkPos c = m_strongholds[size_t(i)];
+        const double dx = c.x * 16 - x, dz = c.z * 16 - z, d = dx * dx + dz * dz;
+        if (!best || d < bestD) {
+            best = glm::ivec2(c.x * 16, c.z * 16);
+            bestD = d;
+        }
+    }
+    return best;
+}
+
+void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    const Blocks& B = blockSet();
+    Buf chunk{blocks};
+    const int32_t baseX = cx * 16, baseZ = cz * 16;
+    static thread_local HoldPlan plan;
+    for (int s = 0; s < m_strongholdCount; ++s) {
+        const ChunkPos start = m_strongholds[size_t(s)];
+        if (std::abs(start.x - cx) > 9 || std::abs(start.z - cz) > 9) continue;
+        // Underground: its top well below the surface (ours: floor y 0..30).
+        const int startY = std::min(surfaceY(start.x * 16, start.z * 16) - 22,
+                                    static_cast<int>(positional(m_seed, start.x, 0, start.z, 18) * 30.0));
+        planStronghold(m_seed, start, startY, plan);
+        for (int i = 0; i < plan.count; ++i) {
+            const HoldPiece& p = plan.pieces[size_t(i)];
+            if (p.x1 < baseX || p.x0 > baseX + 15 || p.z1 < baseZ || p.z0 > baseZ + 15) continue;
+            auto put = [&](int u, int y, int v, BlockStateId st) {
+                int32_t wx, wz;
+                holdWorld(p, u, v, wx, wz);
+                const int lx = wx - baseX, lz = wz - baseZ;
+                if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(p.y + y)) return;
+                if (chunk.get(lx, p.y + y, lz) == B.bedrock) return;
+                chunk.set(lx, p.y + y, lz, st);
+            };
+            auto brick = [&](int u, int y, int v) {
+                int32_t wx, wz;
+                holdWorld(p, u, v, wx, wz);
+                const double roll = positional(m_seed, wx, p.y + y, wz, 19);
+                return roll < 0.2 ? B.mossyStoneBricks : roll < 0.4 ? B.crackedStoneBricks : B.stoneBricks;
+            };
+            auto chestAt = [&](int u, int y, int v, LootTable loot) {
+                int32_t wx, wz;
+                holdWorld(p, u, v, wx, wz);
+                const int lx = wx - baseX, lz = wz - baseZ;
+                if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || out.count >= int(out.list.size())) return;
+                chunk.set(lx, p.y + y, lz, B.chest);
+                out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                 static_cast<int16_t>(p.y + y), true, MobType::Zombie, loot};
+            };
+            // Shell and air.
+            for (int v = 0; v < p.len; ++v)
+                for (int u = -p.half; u <= p.half; ++u)
+                    for (int y = 0; y < p.h; ++y) {
+                        const bool wall = v == 0 || v == p.len - 1 || std::abs(u) == p.half || y == 0 || y == p.h - 1;
+                        put(u, y, v, wall ? brick(u, y, v) : BlockStateId{0});
+                    }
+            // Doorways: the entrance (and the stairs' exit at the bottom), 3 wide, 3 tall;
+            // side and far exits of rooms with ways on.
+            auto door = [&](int u, int v, bool alongU) {
+                for (int k = -1; k <= 1; ++k)
+                    for (int y = 1; y <= 3; ++y)
+                        put(alongU ? u : u + k, y, alongU ? v + k : v, 0);
+            };
+            if (p.kind != HoldPiece::Stairs) door(0, 0, false);
+            if (p.kind == HoldPiece::Stairs || p.kind == HoldPiece::Corridor || p.kind == HoldPiece::Altar ||
+                p.kind == HoldPiece::FiveWay || p.kind == HoldPiece::Storeroom)
+                door(0, p.len - 1, false);
+            if (p.kind == HoldPiece::FiveWay || p.kind == HoldPiece::Storeroom) {
+                door(p.half, p.len / 2, true);
+                door(-p.half, p.len / 2, true);
+            }
+            switch (p.kind) {
+            case HoldPiece::Stairs:
+                // A spiral of steps up the shaft (vanilla: stone brick stairs; ours: blocks).
+                for (int y = 1; y < p.h - 1; ++y) {
+                    static constexpr int kRing[8][2] = {{-1, 1}, {0, 1}, {1, 1}, {1, 2}, {1, 3}, {0, 3}, {-1, 3}, {-1, 2}};
+                    const int* c = kRing[(p.h - 1 - y) % 8];
+                    put(c[0], y, c[1], B.stoneBricks);
+                }
+                for (int u = -1; u <= 1; ++u) // open to the surface way up? no: the top is closed (vanilla)
+                    put(u, p.h - 1, 2, brick(u, p.h - 1, 2));
+                break;
+            case HoldPiece::Altar: chestAt(p.half - 1, 1, p.len / 2, LootTable::StrongholdCorridor); break;
+            case HoldPiece::Storeroom: chestAt(p.half - 1, 1, 2, LootTable::StrongholdCrossing); break;
+            case HoldPiece::Library:
+                for (int v = 1; v < p.len - 1; ++v)
+                    for (int y = 1; y <= 4; ++y) {
+                        put(-p.half + 1, y, v, B.bookshelf);
+                        put(p.half - 1, y, v, B.bookshelf);
+                    }
+                for (int u = -p.half + 1; u <= p.half - 1; ++u)
+                    for (int y = 1; y <= 4; ++y)
+                        put(u, y, p.len - 2, B.bookshelf);
+                for (int y = 1; y <= 3; ++y) // keep the doorway clear
+                    for (int u = -1; u <= 1; ++u)
+                        put(u, y, 1, 0);
+                chestAt(0, 1, p.len - 3, LootTable::StrongholdLibrary);
+                break;
+            case HoldPiece::Portal: {
+                // A raised platform with a lava pool under the 12-frame ring, steps up
+                // from the door; each frame holds an eye 1 time in 10 (wiki).
+                for (int v = 6; v <= 12; ++v)
+                    for (int u = -3; u <= 3; ++u) {
+                        put(u, 1, v, B.stoneBricks);
+                        put(u, 2, v, std::abs(u) <= 1 && v >= 8 && v <= 10 ? B.lava : B.stoneBricks);
+                    }
+                for (int u = -1; u <= 1; ++u) {
+                    put(u, 1, 4, B.stoneBricks);
+                    put(u, 1, 5, B.stoneBricks);
+                    put(u, 2, 5, B.stoneBricks);
+                }
+                // The ring: rows across at v 7 and 11, columns along at u -2 and 2; each
+                // frame faces the middle. Local "forward" is the piece's dir.
+                Xoroshiro eyes(mixSeed(mixSeed(m_seed, 0x45594553u), static_cast<uint64_t>(i)));
+                const int fwd = p.dir, back = (p.dir + 2) & 3, right = (p.dir + 3) & 3, left = (p.dir + 1) & 3;
+                auto frame = [&](int u, int v, int facing) {
+                    const bool eye = eyes.nextInt(10) == 0;
+                    put(u, 3, v, eye ? B.frameEye[facing] : B.frame[facing]);
+                };
+                for (int u = -1; u <= 1; ++u) {
+                    frame(u, 7, fwd);
+                    frame(u, 11, back);
+                }
+                for (int v = 8; v <= 10; ++v) {
+                    frame(-2, v, kFz[p.dir] != 0 ? (kFz[p.dir] > 0 ? 3 : 1) : (kFx[p.dir] > 0 ? 2 : 0));
+                    frame(2, v, kFz[p.dir] != 0 ? (kFz[p.dir] > 0 ? 1 : 3) : (kFx[p.dir] > 0 ? 0 : 2));
+                }
+                (void)right;
+                (void)left;
+                break;
+            }
+            default: break;
+            }
+        }
+    }
 }
 
 void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz,

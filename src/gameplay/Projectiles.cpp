@@ -75,6 +75,21 @@ void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const 
     if (survival) inventory.consumeSelected(1);
 }
 
+void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::ivec2 stronghold,
+              Projectiles& projectiles) {
+    world::Xoroshiro unused(0);
+    if (!projectiles.shoot(ProjectileKind::EyeOfEnder, eye, glm::dvec3(0, 1, 0), 0.0, 0.0, true, false, unused))
+        return;
+    Projectile& p = projectiles.last();
+    const glm::dvec2 to(stronghold.x + 0.5 - eye.x, stronghold.y + 0.5 - eye.z);
+    const double dist = glm::length(to);
+    const glm::dvec2 dir = dist > 1e-6 ? to / dist : glm::dvec2(0.0);
+    const double reach = std::min(12.0, dist);
+    p.target = glm::dvec3(eye.x + dir.x * reach, eye.y + (dist > 12.0 ? 8.0 : -4.0), eye.z + dir.y * reach);
+    p.pickup = false;
+    if (survival) inventory.consumeSelected(1);
+}
+
 bool Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
                         double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng, uint64_t owner) {
     if (m_items.size() >= size_t(kMax)) {
@@ -105,6 +120,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                     bool survival, Xoroshiro& rng) {
     Hits hits;
     m_chicks.clear();
+    m_eyeDrops.clear();
     static const ItemId arrowItem = *itemRegistry().find("arrow");
     for (size_t i = 0; i < m_items.size();) {
         Projectile& p = m_items[i];
@@ -116,7 +132,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             p.skyLight = c->skyLight(blockToLocal(cell.x), cell.y, blockToLocal(cell.z));
             p.blockLight = c->blockLight(blockToLocal(cell.x), cell.y, blockToLocal(cell.z));
         }
-        if (p.stuck) {
+        if (p.kind == ProjectileKind::EyeOfEnder) {
+            // Glides toward its target (through blocks), then comes down (wiki).
+            p.vel = (p.target - p.pos) * 0.06;
+            p.pos += p.vel;
+            p.facing = p.vel;
+            if (p.life >= 80) {
+                if (rng.nextInt(5) != 0) m_eyeDrops.push_back(p.pos);
+                remove = true;
+            }
+        } else if (p.stuck) {
             // Stuck arrows: picked up by a survival player who shot them (wiki: Arrow).
             if (p.fromPlayer && p.pickup && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)})) {
                 if (!survival || inventory.add({arrowItem, 1}) == 0) remove = true;

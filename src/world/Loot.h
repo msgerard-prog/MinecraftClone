@@ -14,7 +14,16 @@ namespace mc::world {
 // wiki page ("Loot" tables: pools of rolls, entries with weights and stack sizes).
 // Entries for items we don't have yet stay in the pool with their weight and give
 // nothing, so the odds of everything else stay vanilla's.
-enum class LootTable : uint8_t { SimpleDungeon, DesertPyramid, JunglePyramid, Igloo, Mineshaft, StrongholdCorridor };
+enum class LootTable : uint8_t {
+    SimpleDungeon,
+    DesertPyramid,
+    JunglePyramid,
+    Igloo,
+    Mineshaft,
+    StrongholdCorridor, // the altar chests
+    StrongholdCrossing, // storerooms
+    StrongholdLibrary
+};
 
 struct LootEntry {
     std::string_view item; // without "minecraft:"; "" = an empty entry
