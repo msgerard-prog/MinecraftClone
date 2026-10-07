@@ -42,7 +42,7 @@ struct Scene {
 
 } // namespace
 
-TEST_CASE("left click breaks the targeted block; holding repeats every 5 ticks") {
+TEST_CASE("left click breaks the targeted block; holding repeats every 6 ticks (wiki: Creative)") {
     Scene s(0.0f, 60.0f); // looking down and south at the floor
     const auto t = BlockInteraction::target(s.world, s.player);
     REQUIRE(t.has_value());
@@ -55,7 +55,7 @@ TEST_CASE("left click breaks the targeted block; holding repeats every 5 ticks")
         s.tick(true, false, 0);
         breaks += static_cast<int>(s.changed.size());
     }
-    CHECK(breaks == 3); // ticks 0, 5, 10
+    CHECK(breaks == 2); // ticks 0 and 6 within 11 ticks
 }
 
 TEST_CASE("right click places against the clicked face, never inside the player") {
@@ -107,7 +107,7 @@ TEST_CASE("placing into an unloaded chunk does nothing; a click acts despite coo
     use.useClick = true;
     s.interaction.tick(s.world, s.player, far, S(blocks::Dirt), use, s.changed);
     CHECK(s.changed.empty());
-    // Two quick clicks in consecutive ticks both act (no 5-tick repeat delay).
+    // Two quick clicks in consecutive ticks both act (no 6-tick repeat delay).
     InteractionInput click;
     click.attackClick = true;
     s.interaction.tick(s.world, s.player, BlockInteraction::target(s.world, s.player), 0, click,

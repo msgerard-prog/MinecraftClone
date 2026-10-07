@@ -28,8 +28,8 @@ struct Aabb {
                min.z < o.max.z && max.z > o.min.z;
     }
 
-    // How far this box may move along `axis` by `d` before hitting `wall` (vanilla
-    // VoxelShape.collide, per axis): returns d clipped to the gap, or d if the boxes
+    // How far this box may move along `axis` by `d` before hitting `wall` (
+    // MCPK: Collisions, per axis): returns d clipped to the gap, or d if the boxes
     // don't overlap on the other two axes.
     double clip(const Aabb& wall, int axis, double d) const {
         // Vanilla's collision tolerance: overlaps smaller than 1e-7 don't count, so a

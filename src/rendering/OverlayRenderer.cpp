@@ -5,6 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace mc::gfx {
@@ -86,8 +87,14 @@ void OverlayRenderer::draw(const Camera& camera, int width, int height,
     // Crosshair: inverts what's behind it (vanilla blends ONE_MINUS_DST_COLOR).
     // Vanilla "auto" GUI scale: the largest whole scale that still fits 320x240.
     const float scale = static_cast<float>(std::max(1, std::min(width / 320, height / 240)));
+    // Snap the 15x15 sprite to whole GUI pixels (vanilla draws GUI on a pixel grid).
+    const float guiW = std::floor(width / scale), guiH = std::floor(height / scale);
+    const float left = std::floor((guiW - 15.0f) / 2.0f), top = std::floor((guiH - 15.0f) / 2.0f);
+    const float cx = (left + 7.5f) * scale - width / 2.0f; // sprite centre vs screen centre, px
+    const float cy = height / 2.0f - (top + 7.5f) * scale;
     const glm::mat4 px =
-        glm::scale(glm::mat4(1.0f), {2.0f * scale / width, 2.0f * scale / height, 1.0f});
+        glm::scale(glm::translate(glm::mat4(1.0f), {2.0f * cx / width, 2.0f * cy / height, 0.0f}),
+                   {2.0f * scale / width, 2.0f * scale / height, 1.0f});
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(px));
     glUniform4f(1, 1.0f, 1.0f, 1.0f, 1.0f);
     glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);

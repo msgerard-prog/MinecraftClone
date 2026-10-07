@@ -23,8 +23,8 @@ struct InteractionInput {
 class BlockInteraction {
 public:
     // Vanilla repeat delays while a button is held (ticks).
-    static constexpr int kDestroyDelay = 5; // creative
-    static constexpr int kUseDelay = 4;
+    static constexpr int kDestroyDelay = 6; // creative (wiki: Creative, 0.3 s)
+    static constexpr int kUseDelay = 4;     // public write-ups; unverified on the wiki
 
     // Breaks/places for this tick at `hit` - the block the outline showed on the last
     // rendered frame (vanilla acts on the highlighted block). `changed` gets the

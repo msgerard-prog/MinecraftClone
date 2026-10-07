@@ -88,7 +88,7 @@ bool Player::hasGroundBelow(const world::World& world, const Aabb& box) {
 
 glm::dvec3 Player::backOffFromEdge(const world::World& world, glm::dvec3 d) {
     // Sneaking on the ground: shrink horizontal motion in 0.05 steps until the box
-    // would still stand on something (vanilla Player.maybeBackOffFromEdge).
+    // would still stand on something (MCPK: Sneaking).
     constexpr double kStep = 0.05;
     const Aabb b = box();
     auto shrink = [&](double v) {
@@ -106,7 +106,11 @@ glm::dvec3 Player::backOffFromEdge(const world::World& world, glm::dvec3 d) {
 }
 
 glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
-    if (m_sneaking && m_onGround && !m_flying) delta = backOffFromEdge(world, delta);
+    // Sneak edge protection: on the ground or up to 0.6 above it, but never on the
+    // tick a jump starts (jumping off an edge while sneaking works, wiki: Sneaking).
+    if (m_sneaking && !m_flying && delta.y <= 0.0 && (m_onGround || hasGroundBelow(world, box()))) {
+        delta = backOffFromEdge(world, delta);
+    }
     const Aabb start = box();
     glm::dvec3 moved = collide(world, start, delta);
 
@@ -136,6 +140,10 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
 
 void Player::tick(const world::World& world, const PlayerInput& input) {
     m_prevPos = m_pos;
+    // MCPK: since 1.9 any speed below 0.003 is set to 0, so motion fully stops.
+    for (int a = 0; a < 3; ++a) {
+        if (std::abs(m_velocity[a]) < kMomentumThreshold) m_velocity[a] = 0.0;
+    }
     const world::ChunkPos here{world::blockToChunk(static_cast<int32_t>(std::floor(m_pos.x))),
                                world::blockToChunk(static_cast<int32_t>(std::floor(m_pos.z)))};
     if (!world.chunk(here)) return;
@@ -188,7 +196,11 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     }
 
     // Jumping (before moving, as vanilla): 0.42 up; sprint-jumping adds a boost forward.
-    if (!m_flying && input.jump && m_onGround) {
+    // Holding jump re-jumps only every 10 ticks; releasing it resets the delay.
+    if (!input.jump) m_jumpDelay = 0;
+    if (m_jumpDelay > 0) --m_jumpDelay;
+    if (!m_flying && input.jump && m_onGround && m_jumpDelay == 0) {
+        m_jumpDelay = kJumpDelay;
         m_velocity.y = kJumpVelocity;
         if (m_sprinting) {
             const glm::dvec3 f(world::forwardFlat(m_yaw));
@@ -203,9 +215,17 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
 
     const glm::dvec3 before = m_velocity;
     move(world, m_velocity);
-    if (m_sprinting && (m_velocity.x != before.x || m_velocity.z != before.z)) m_sprinting = false;
+    // Sprinting stops on a wall hit steeper than 8 degrees; glancing contact while
+    // running along a wall keeps it (wiki: Sprinting, since 21w41a).
+    if (m_sprinting && (m_velocity.x != before.x || m_velocity.z != before.z)) {
+        const bool both = m_velocity.x != before.x && m_velocity.z != before.z;
+        const double blocked = m_velocity.x != before.x ? before.x : before.z;
+        const double free = m_velocity.x != before.x ? before.z : before.x;
+        const double angle = glm::degrees(std::atan2(std::abs(blocked), std::abs(free)));
+        if (both || angle > kMinorCollisionDegrees) m_sprinting = false;
+    }
 
-    // After moving: gravity and drag, then friction (vanilla LivingEntity.travel).
+    // After moving: gravity and drag, then friction (MCPK: Horizontal/Vertical Movement Formulas).
     const double friction =
         m_onGround && !m_flying ? kGroundSlipperiness * kAirFriction : kAirFriction;
     if (m_flying) {

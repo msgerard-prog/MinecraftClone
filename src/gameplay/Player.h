@@ -43,10 +43,13 @@ public:
     static constexpr double kAirFriction = 0.91;
     static constexpr double kJumpVelocity = 0.42;
     static constexpr double kSprintJumpBoost = 0.2;
-    static constexpr double kFlySpeed = 0.05;    // abilities.flyingSpeed
-    static constexpr double kFlyVertical = 0.15; // 3 x flying speed
-    static constexpr double kFlyVerticalDamping = 0.6;
-    static constexpr int kDoubleTapTicks = 7;
+    static constexpr double kFlySpeed = 0.05;    // creative flying speed (wiki: Flying speeds)
+    static constexpr double kFlyVertical = 0.15; // unverified (gives 7.5 b/s; not on the wiki)
+    static constexpr double kFlyVerticalDamping = 0.6;    // unverified
+    static constexpr int kDoubleTapTicks = 7;             // unverified (not on the wiki)
+    static constexpr double kMomentumThreshold = 0.003;   // MCPK: smaller speeds become 0 (1.9+)
+    static constexpr int kJumpDelay = 10;                 // wiki: Jumping (holding jump, MC-184409)
+    static constexpr double kMinorCollisionDegrees = 8.0; // wiki: Sprinting (21w41a)
 
     void setPosition(const glm::dvec3& feet);
     void setRotation(float yawDeg, float pitchDeg);
@@ -80,7 +83,7 @@ public:
     Aabb box() const { return Aabb::fromFeet(m_pos, kWidth, m_sneaking ? kSneakHeight : kHeight); }
 
 private:
-    // Moves by `delta` with collision (vanilla Entity.move): returns the actual motion.
+    // Moves by `delta` with collision (MCPK: Collisions): returns the actual motion.
     glm::dvec3 move(const world::World& world, glm::dvec3 delta);
     glm::dvec3 collide(const world::World& world, const Aabb& box, const glm::dvec3& delta);
     void gatherBoxes(const world::World& world, const Aabb& region);
@@ -98,6 +101,7 @@ private:
     bool m_sprinting = false;
     bool m_sneaking = false;
     int m_ticksSinceJumpPress = 1000;
+    int m_jumpDelay = 0;
     double m_flyMultiplier = 1.0;
     std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
 

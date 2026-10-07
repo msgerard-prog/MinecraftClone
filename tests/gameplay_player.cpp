@@ -61,7 +61,7 @@ TEST_CASE("falls under gravity and lands on the floor") {
     CHECK(p.velocity().y == Approx(-0.0784).epsilon(0.01)); // one tick of gravity, re-zeroed
 }
 
-TEST_CASE("ground speeds match the wiki: walk 4.317, sprint 5.612, sneak 1.295 m/s") {
+TEST_CASE("ground speeds: walk 4.317, sprint 5.612 (wiki), sneak 1.295 (wiki rounds to 1.3)") {
     const World w = floorWorld();
     const Player p = standingPlayer(w);
     PlayerInput walk;
@@ -127,7 +127,8 @@ TEST_CASE("sneaking keeps you from walking off an edge") {
     CHECK(p.position().y < kFloorY + 1.0); // without sneaking: off the edge
 }
 
-TEST_CASE("creative flight: double-tap jump, 10.92 / 7.5 b/s, landing ends it") {
+TEST_CASE(
+    "creative flight: double-tap jump, 10.92 b/s (wiki), 7.5 b/s up (derived), landing ends it") {
     const World w = floorWorld();
     Player p = standingPlayer(w);
     PlayerInput jump;
@@ -139,7 +140,7 @@ TEST_CASE("creative flight: double-tap jump, 10.92 / 7.5 b/s, landing ends it") 
     p.tick(w, none);
     p.tick(w, press); // second press within 7 ticks
     CHECK(p.flying());
-    // Rise for a second: vertical flight ~7.5 b/s (wiki: Transportation 7.49).
+    // Rise for a second: 7.5 b/s, derived from our (unverified) flight constants.
     for (int i = 0; i < 20; ++i)
         p.tick(w, jump);
     const double y0 = p.position().y;
@@ -254,4 +255,68 @@ TEST_CASE("falling into a one-block ledge does not climb it") {
         p.tick(w, walk);
     CHECK(p.position().y == Approx(kFloorY + 1.0));
     CHECK(p.position().z <= 3.0 - Player::kWidth / 2 + 1e-6);
+}
+
+TEST_CASE("diagonal sneaking is faster (wiki: Transportation, 1.83 m/s)") {
+    const World w = floorWorld();
+    const Player p = standingPlayer(w);
+    PlayerInput in;
+    in.forward = 1;
+    in.strafe = 1;
+    in.sneak = true;
+    CHECK(steadySpeed(w, p, in) == Approx(1.83).epsilon(0.01));
+}
+
+TEST_CASE("momentum below 0.003 stops completely; holding jump re-jumps every 10 ticks") {
+    const World w = floorWorld();
+    Player p = standingPlayer(w);
+    PlayerInput walk;
+    walk.forward = 1;
+    for (int i = 0; i < 20; ++i)
+        p.tick(w, walk);
+    for (int i = 0; i < 20; ++i)
+        p.tick(w, {});
+    CHECK(p.velocity().x == 0.0);
+    CHECK(p.velocity().z == 0.0);
+    // Under a 2-block roof each jump lands quickly; with jump held, the next jump
+    // waits for the 10-tick delay.
+    World roofed = floorWorld();
+    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
+    roofed.setBlock({0, kFloorY + 3, 0}, stone);
+    Player q;
+    q.setPosition({0.5, kFloorY + 1.0, 0.5});
+    for (int i = 0; i < 3; ++i)
+        q.tick(roofed, {});
+    PlayerInput jump;
+    jump.jump = true;
+    int jumps = 0;
+    bool wasGround = true;
+    for (int i = 0; i < 30; ++i) {
+        q.tick(roofed, jump);
+        if (wasGround && !q.onGround()) ++jumps;
+        wasGround = q.onGround();
+    }
+    CHECK(jumps <= 3); // without the delay it would jump every few ticks
+}
+
+TEST_CASE("sprinting survives glancing wall contact but stops on a head-on hit") {
+    World w = floorWorld();
+    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
+    for (int z = -40; z <= 40; ++z)
+        w.setBlock({2, kFloorY + 1, z}, stone); // wall at x = 2
+    auto run = [&](float yaw) {
+        Player p;
+        p.setPosition({1.69, kFloorY + 1.0, 0.5}); // touching the wall (x max = 1.99)
+        for (int i = 0; i < 3; ++i)
+            p.tick(w, {});
+        p.setRotation(yaw, 0.0f);
+        PlayerInput in;
+        in.forward = 1;
+        in.sprint = true;
+        for (int i = 0; i < 10; ++i)
+            p.tick(w, in);
+        return p.sprinting();
+    };
+    CHECK(run(-5.0f));        // south, 5 degrees into the wall (east): keeps sprinting
+    CHECK_FALSE(run(-20.0f)); // 20 degrees into the wall: stops
 }

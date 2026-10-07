@@ -72,7 +72,11 @@ fine until a system works.
 | Every block has the default slipperiness 0.6 (ice, slime, honey, soul sand speeds not modelled); no fall damage or hunger | Those blocks/systems don't exist yet | With their blocks / M9 |
 | Breaking is instant (creative); no survival mining times, drops or tool rules; placing doesn't trigger block updates (no falling sand, no water flow into holes) | Items/tools in M9, block updates later | M9 / block updates |
 | Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | M6 (controls) |
-| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M4 follow-up |
+| Sneaking cancels sprinting (1.21.4 behaviour; 1.21.5+ keeps sprinting while sneaking, faster than plain sneaking) | Depends on the pinned 1.21 patch (ADR 0002) | Patch decision |
+| Spawn = nearest dry column on a 4-block ring search; no climate-scored search or 21x21 random spawn area | No biomes/climate yet | M8 |
+| Block outline thickness is in world space (vanilla: constant on-screen line width); no High Contrast outline option; hotbar ignores horizontal scrolling | Simpler geometry / input | M6 |
+| Unloaded chunks collide as solid (vanilla keeps entities out of unloaded chunks differently) | Never move into ungenerated terrain | — |
+| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M6 (options) |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
 | Water uses the still texture only and every level renders at source height 8/9; no flow, no underwater fog/tint | Fluid flow and camera-in-fluid effects come later | Fluids milestone |
 | Translucent faces are sorted per section, not per quad (rare blending errors inside one section) | Simpler; vanilla sorts quads | When visible |

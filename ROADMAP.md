@@ -4,10 +4,12 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
-M4 done (pending milestone reviews): player with vanilla movement physics (walk/
+M4 done and reviewed (code, perf, parity findings fixed or recorded): player with vanilla movement physics (walk/
 sprint/sneak/jump/fly match the wiki's speeds in tests), AABB collision with step-up
 and sneak edge protection, block raycast with outline and crosshair, creative
-break/place with vanilla repeat delays and log axes, hotbar 1-9/wheel. 91 test cases.
+break/place (6/4-tick repeats, clicks never lost, acts on the outlined block), log
+axes, hotbar 1-9/wheel; collision epsilon, 8-degree sprint rule, momentum cutoff,
+jump delay. 99 test cases.
 M3 done and reviewed (code, perf, parity findings fixed or recorded): seeded terrain
 generator (Xoroshiro128++, Perlin octaves, vanilla-like surface rules, deepslate,
 bedrock floor), water (translucent pass, 8/9 surface, two-sided top/sides, visible
@@ -24,13 +26,12 @@ GPU is drawFrame's two passes after loading:
 Static load (no flight): RD12 ~0.3 s, RD32 ~0.8 s. Movement is still free flight (M4).
 
 ## Next
-1. M4 milestone reviews (code / perf / parity agents), fix findings, push.
-2. M5.1 — Light engine: sky light (15 from the sky, straight down without loss,
+1. M5.1 — Light engine: sky light (15 from the sky, straight down without loss,
    -1 per block sideways) and block light (emitters, -1 per step), stored per section
    (nibble arrays like vanilla), BFS propagation and removal on edits, on workers.
-3. M5.2 — Lit meshes: per-vertex sky/block light in the packed vertex, smooth lighting
+2. M5.2 — Lit meshes: per-vertex sky/block light in the packed vertex, smooth lighting
    and ambient occlusion (vanilla's 4-sample average per corner).
-4. M5.3 — Day/night: time of day (24000 ticks), sky light multiplier, sky colour,
+3. M5.3 — Day/night: time of day (24000 ticks), sky light multiplier, sky colour,
    sun/moon; torch + glowstone blocks to test block light.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
@@ -59,6 +60,12 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- M4 in-game checks (we can't verify these from the wiki):
+  - Sprint diagonally (mostly along Z) into a block corner from both sides: which
+    side catches? (pins the collision axis order; the public source contradicts itself)
+  - Does the camera ease down when you sneak, or snap? (ours snaps)
+  - Time a 10 s creative climb with F3: ours rises 7.5 b/s; sprint-fly: ours 21.78 vs
+    the wiki's 21.6 b/s.
 - In your game (spectator + F3): how much of Y -60 is bedrock compared with Y -63?
   (Ours thins 4/5, 3/5, 2/5, 1/5 over -63..-60; the wiki only says "rare gaps".)
 - The 1.21 patch decision (below) also sets the render distance default (12 up to
