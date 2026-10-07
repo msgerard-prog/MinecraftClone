@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from texgen import blocks_stone, blocks_wood  # noqa: F401,E402  (registration)
+from texgen import blocks_colored, blocks_stone, blocks_wood  # noqa: F401,E402  (registration)
 from texgen.core import Img, encode_png, tint  # noqa: E402
 from texgen.registry import TEXTURES  # noqa: E402
 

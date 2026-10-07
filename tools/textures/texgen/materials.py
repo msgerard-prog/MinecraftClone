@@ -652,3 +652,128 @@ def roots(rng, pal, background=None, count=7):
                 y += 1
                 x += rng.choice((-1, 0, 0, 1))
     return img
+
+
+# --- Colour families -------------------------------------------------------------------
+
+def wool(rng, pal):
+    """Woven fibres: diagonal twill rows with soft fuzz."""
+    img = mottled(rng, pal, 1, 3, octaves=((4, 0.5), (8, 0.5)), cut=(0.3, 0.7))
+    for y in range(N):
+        for x in range(N):
+            k = (x + 2 * y) % 6
+            if k == 0:
+                img.set(x, y, pal[3])
+            elif k == 3:
+                img.set(x, y, pal[1])
+    speckle(img, rng, [pal[4]], 6)
+    speckle(img, rng, [pal[0]], 4)
+    return img
+
+
+def concrete(rng, pal):
+    """Smooth cast surface: nearly flat with faint pores."""
+    img = Img(fill=pal[2])
+    speckle(img, rng, [pal[1]], 7)
+    speckle(img, rng, [pal[3]], 5)
+    return img
+
+
+def terracotta(rng, pal):
+    """Matte fired clay: soft low-contrast mottling."""
+    img = mottled(rng, pal, 1, 3, octaves=((2, 0.5), (4, 0.5)), cut=(0.32, 0.68))
+    speckle(img, rng, [pal[1]], 6)
+    return img
+
+
+def glazed(rng, pal, accent, dark, motif=None):
+    """Glazed tile: an original motif drawn in one 8x8 quarter, then rotated around the
+    centre so the four quarters form a pinwheel. Six motif types; each colour picks
+    its own type and parameters, so every tile is distinct."""
+    q = Img(8, 8, pal[2])
+    motif = motif or rng.choice(("petal", "zigzag", "corner", "wave", "chain", "ring"))
+    a = rng.randrange(2, 5)
+    for y in range(8):
+        for x in range(8):
+            on = mid = False
+            if motif == "petal":      # leaf shape pointing at the tile centre
+                on = abs((x - y)) <= 1 and x + y > 5
+                mid = x == y and x + y > 7
+            elif motif == "zigzag":
+                on = (y + abs((x % 4) - 2)) % 4 == 0
+            elif motif == "corner":   # interlocking L brackets
+                on = (x == a and y >= a) or (y == a and x >= a) or (x == 1 and y < a)
+            elif motif == "wave":
+                on = abs(y - (3.5 + 2 * math.sin((x + a) * 0.9))) < 0.7
+            elif motif == "chain":    # diamonds along the diagonal
+                on = abs(abs(x - 3.5) + abs(y - 3.5) - a) < 0.6
+                mid = abs(x - 3.5) + abs(y - 3.5) < 1
+            else:                     # ring around the tile centre
+                d = math.hypot(x - 7.5, y - 7.5)
+                on = a + 0.5 < d < a + 1.7
+                mid = d > a + 3.2
+            if on:
+                q.set(x, y, accent[2])
+            if mid:
+                q.set(x, y, dark)
+    for x in range(8):               # a clean border line on the tile's outer edge
+        q.set(x, 0, pal[1])
+        q.set(0, x, pal[1])
+    q.set(rng.randrange(2, 6), rng.randrange(2, 6), accent[4])
+    img = Img()
+    for y in range(8):
+        for x in range(8):
+            c = q.get(x, y)
+            img.set(x, y, c)                 # top-left
+            img.set(15 - y, x, c)            # top-right (rotated 90)
+            img.set(15 - x, 15 - y, c)       # bottom-right (180)
+            img.set(y, 15 - x, c)            # bottom-left (270)
+    return img
+
+
+def glass(rng, pal, alpha, frame_alpha=235):
+    """Glass pane: opaque-ish rim, see-through middle, a couple of glints."""
+    img = Img()
+    for y in range(N):
+        for x in range(N):
+            img.set(x, y, rgba(pal[2], alpha))
+    for i in range(N):
+        for c, (x, y) in ((pal[4], (i, 0)), (pal[4], (0, i)), (pal[1], (i, N - 1)), (pal[1], (N - 1, i))):
+            img.set(x, y, rgba(c, frame_alpha))
+    for k, (x0, y0, ln) in enumerate(((3, 3, 4), (4, 3, 3), (9, 10, 3))):
+        for i in range(ln):
+            img.set(x0 + i, y0 + i + (k == 1), rgba(pal[4], min(255, alpha + 80)))
+    return img
+
+
+def pane_top(pal, frame_alpha=235):
+    img = Img()
+    for y in range(N):
+        img.set(7, y, rgba(pal[4], frame_alpha))
+        img.set(8, y, rgba(pal[1], frame_alpha))
+    return img
+
+
+def candle(rng, pal, lit):
+    """Candle stub (vanilla candle textures put the candle in a small area)."""
+    img = Img()
+    for y in range(8, 14):
+        img.set(6, y, pal[3])
+        img.set(7, y, pal[2])
+        img.set(8, y, pal[1])
+    img.set(6, 8, pal[4])
+    img.set(7, 7, (40, 34, 30, 255))           # wick
+    if lit:
+        img.set(7, 6, (255, 200, 60, 255))
+        img.set(7, 5, (255, 240, 170, 255))
+    return img
+
+
+def shell(rng, pal):
+    """Shulker shell block face: hard plates with a seam across the middle."""
+    img = mottled(rng, pal, 1, 3)
+    for x in range(N):
+        img.set(x, 7, pal[0])
+        img.set(x, 8, pal[4])
+    frame(img, pal[4], pal[0])
+    return img
