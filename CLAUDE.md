@@ -1,0 +1,101 @@
+# MinecraftClone — working notes for Claude
+
+A from-scratch replica of **vanilla Minecraft Java Edition 1.21.x** in C++20 / OpenGL 4.6.
+Non-commercial and for learning: the goal is that the user understands *how Minecraft
+works*, so code should explain the vanilla mechanic it implements.
+
+@ROADMAP.md
+@docs/architecture.md
+
+Read on demand (not every session): `docs/game-design.md` (what "done" means for a
+feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
+`docs/decisions/` (why things are the way they are). Each subsystem folder has its own
+`CLAUDE.md` with local rules — read it before editing that folder.
+
+## Commands (run from WSL; they drive MSVC on Windows)
+
+| Task | Command |
+|---|---|
+| Build (debug / release) | `tools/build.sh` / `tools/build.sh release` |
+| All tests | `tools/test.sh` |
+| Some tests | `tools/test.sh debug -tc="*chunk*"` (doctest filters) |
+| Run the game | `tools/run.sh [release] [game args]` |
+| Screenshot for a visual check | `tools/screenshot.sh <name> [game args]` → `out/screenshots/<name>.png`, then Read it |
+| Format | `tools/format.sh [files]` (the hook does edited files automatically) |
+
+Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
+`--hidden`, `--size WxH`, `--seed N`. Add new ones in `core/CommandLine.*` + its test
+and list them here.
+
+The first build downloads dependencies into `out/deps` (≈1 min). Build output is
+`out/build/<preset>/`; `compile_commands.json` is there for clangd.
+
+## Hooks (`.claude/settings.json`)
+- **PostToolUse** formats every edited `.cpp/.h` with `.clang-format`. Don't hand-format.
+- **Stop** runs an incremental debug build; if it fails you will be sent the errors and
+  must fix them. It allows stopping after 3 failed attempts — then tell the user plainly.
+
+## Session routine
+1. **Start:** read ROADMAP.md › Status and Next; check `git log --oneline -5` matches.
+2. **Work** one roadmap step at a time. For each step: code → tests → `tools/test.sh` →
+   visual check if anything renders differently → commit.
+3. **End:** run the `session-end` skill (ROADMAP update, docs, commit; push at milestone end).
+
+## Workflow agreed with the user
+- Work through a milestone autonomously; **commit after each verified step**; push to
+  `origin main` at the end of each milestone; then report.
+- Every visual change is verified with a screenshot that you actually look at before
+  calling it done. Say what you saw.
+- Basic placeholder graphics first; polish later.
+- Explain vanilla mechanics in comments and in your reports — the user is learning.
+
+## Coding conventions
+- C++20, namespace `mc` (+ `mc::world`, `mc::gfx`, ...). One class per `.h/.cpp` pair.
+- Names: `PascalCase` types, `camelCase` functions/variables, `m_` members,
+  `kName` constants, `MC_` macros. Files named after their main type.
+- Includes: `"subsystem/File.h"` from `src/`; own header first, then project, then
+  third-party, then std.
+- `#pragma once`. No `using namespace` in headers.
+- Errors: return `bool`/`std::optional` and log; no exceptions across subsystem APIs.
+- Sources are globbed per subsystem — adding a `.cpp` needs no CMake edit.
+- `/W4 /WX`: warnings are errors in our code. Fix them, don't silence them.
+- Comments say *why* and name the vanilla behaviour (e.g. "vanilla: leaves decay
+  when no log within 6 blocks").
+
+## Hard rules
+1. **No heap allocation in per-frame or per-tick hot paths** (`new`, growing a
+   `std::vector`, `std::string` building, `std::function`, `shared_ptr` copies).
+   Preallocate, reuse buffers, use pools. Load time and chunk-build workers may allocate.
+2. **Simulation runs only in the fixed 20 TPS tick** (`core/GameClock.h`). Rendering
+   interpolates with `alpha`. Game logic never reads frame time.
+3. **World generation is deterministic** for a seed: same seed → same blocks, on any
+   thread order. Tests pin hashes of generated chunks.
+4. **Coordinates** follow vanilla (`world/Coords.h`): Y up, chunk 16×16, section 16³,
+   Y −64..319, block coords `int32`, floor division via `>> 4` / `& 15`.
+5. **No Mojang code or assets in the repo.** Implement from the Minecraft Wiki and
+   observed behaviour, never paste decompiled source. Textures in `assets/` are our own.
+   Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`.
+6. Subsystem dependencies only point "down" the layer list in docs/architecture.md.
+7. OpenGL calls only in `rendering/` (and `main.cpp` until M1 removes the placeholder).
+8. Every bug fix gets a regression test where testable.
+
+## Never change without asking the user
+- Save/region file format and anything that would break existing worlds.
+- Worldgen output for an existing seed (pinned hashes), or the coordinate conventions.
+- Dependency versions/hashes (`cmake/Dependencies.cmake`), `third_party/`.
+- The hard rules above, the hooks, or the agreed workflow.
+- Deliberate deviations from vanilla behaviour (propose them; record an ADR).
+
+## Keeping docs honest
+A change isn't done until the doc that describes it is updated: ROADMAP.md (status),
+`docs/architecture.md` (structure), `docs/data-formats.md` (formats/registries),
+subsystem `CLAUDE.md` (local rules), an ADR in `docs/decisions/` for any decision with
+alternatives. Keep this file under 150 lines — move detail into those docs.
+
+## Project skills and agents
+Skills (`.claude/skills/`): `add-block`, `add-item`, `add-recipe`, `add-entity`,
+`add-asset`, `add-shader`, `new-system`, `visual-check`, `session-end`.
+Agents (`.claude/agents/`): `code-reviewer` (correctness + rules), `perf-reviewer`
+(hot paths, GPU), `design-keeper` (vanilla parity vs game-design.md). Run
+`code-reviewer` before each milestone push; `perf-reviewer` on renderer/world/tick
+changes; `design-keeper` when a feature is finished.
