@@ -11,7 +11,7 @@ namespace mc::world {
 
 inline constexpr float kMaxPitch = 90.0f;
 
-// Unit vector the entity is looking along (vanilla Entity.calculateViewVector).
+// Unit vector the entity is looking along (wiki: Rotation, entity yaw/pitch).
 inline glm::vec3 lookVector(float yawDeg, float pitchDeg) {
     const float yaw = glm::radians(yawDeg);
     const float pitch = glm::radians(pitchDeg);

@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace mc::gfx {
 
@@ -13,8 +14,11 @@ struct UvRect {
 };
 
 // Stitches every 16x16 PNG in a folder into one GL texture, like vanilla's block
-// atlas (TextureAtlas / "minecraft:textures/atlas/blocks.png"). Sprites sit on a
-// power-of-two grid, so mipmaps (4 levels, as vanilla) never mix two sprites.
+// atlas. Sprites sit on a power-of-two grid, so mipmaps (4 levels, the 1.21 default)
+// never mix two sprites.
+// Not yet vanilla: animated sprites show frame 0 only, and sprites that aren't 16
+// wide (higher-resolution resource packs) are skipped. Fix when the first animated
+// texture or resource-pack loading arrives.
 class TextureAtlas {
 public:
     static constexpr int kSpriteSize = 16;
@@ -33,6 +37,9 @@ public:
     // Looks up a sprite by name (load/mesh-build time); unknown names log a warning and
     // return the missing sprite.
     UvRect sprite(std::string_view name) const;
+
+    // RGBA pixels of the missing-texture sprite (GL-free, unit-tested).
+    static std::vector<uint8_t> missingSpritePixels();
 
     uint32_t texture() const { return m_texture; }
     int spriteCount() const { return static_cast<int>(m_sprites.size()); }

@@ -6,7 +6,9 @@ namespace mc::gfx {
 
 // Perspective camera using vanilla's rotation conventions (world/Rotation.h).
 struct Camera {
-    // Vanilla defaults: FOV 70 (vertical, degrees), near plane 0.05 blocks.
+    // FOV 70 (vertical, degrees) is vanilla's default (wiki: Options). The near plane
+    // 0.05 blocks is not documented on the wiki; it is our choice (close enough to
+    // put your face against a block without clipping).
     static constexpr float kDefaultFov = 70.0f;
     static constexpr float kNear = 0.05f;
     static constexpr float kFar = 1024.0f;

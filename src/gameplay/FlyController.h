@@ -17,11 +17,11 @@ struct MoveInput {
 // as in vanilla, where mouse look is applied every rendered frame.
 class FlyController {
 public:
-    // Simplified constant speeds, blocks per second (wiki: Flying, "Transportation").
-    // M4 replaces these with vanilla's acceleration + drag model.
-    static constexpr double kFlySpeed = 10.92;
-    static constexpr double kSprintFlySpeed = 21.78;
-    static constexpr double kVerticalSpeed = 7.5; // approximate
+    // Simplified constant speeds, blocks per second. M4 replaces these with
+    // vanilla's acceleration + drag model.
+    static constexpr double kFlySpeed = 10.92;      // wiki: Flying#Speed
+    static constexpr double kSprintFlySpeed = 21.6; // wiki: Flying#Speed
+    static constexpr double kVerticalSpeed = 7.49;  // wiki: Transportation
 
     void setPosition(const glm::dvec3& pos);
     void setRotation(float yawDeg, float pitchDeg);
@@ -45,8 +45,10 @@ private:
     float m_pitch = 0.0f;
 };
 
-// Vanilla mouse look: degrees of rotation per pixel of mouse movement.
-// (MouseHandler: f = s*0.6 + 0.2; g = f^3 * 8; Entity.turn scales by 0.15.)
+// Mouse look: degrees of rotation per pixel of mouse movement for a sensitivity
+// 0..1: f = s*0.6 + 0.2; degrees = f^3 * 8 * 0.15 (0.15 deg/px at the default 0.5).
+// Source: community documentation of vanilla mouse handling, not on the wiki.
+// Still to confirm by an in-game measurement (see ROADMAP › Waiting on the user).
 double degreesPerPixel(double sensitivity);
 
 } // namespace mc

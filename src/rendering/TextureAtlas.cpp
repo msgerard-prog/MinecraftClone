@@ -19,22 +19,6 @@ namespace {
 
 using Pixels = std::vector<uint8_t>; // RGBA, kSpriteSize^2 * 4
 
-Pixels missingSprite() {
-    constexpr int n = TextureAtlas::kSpriteSize;
-    Pixels px(n * n * 4);
-    for (int y = 0; y < n; ++y) {
-        for (int x = 0; x < n; ++x) {
-            const bool magenta = (x < n / 2) != (y < n / 2);
-            uint8_t* p = &px[(y * n + x) * 4];
-            p[0] = magenta ? 248 : 0;
-            p[1] = 0;
-            p[2] = magenta ? 248 : 0;
-            p[3] = 255;
-        }
-    }
-    return px;
-}
-
 bool loadSprite(const std::filesystem::path& file, Pixels& out) {
     int w = 0;
     int h = 0;
@@ -60,6 +44,23 @@ bool loadSprite(const std::filesystem::path& file, Pixels& out) {
 
 } // namespace
 
+std::vector<uint8_t> TextureAtlas::missingSpritePixels() {
+    // Vanilla: 2x2 checker of #F800F8 and black (wiki: Missing textures and models).
+    constexpr int n = TextureAtlas::kSpriteSize;
+    Pixels px(n * n * 4);
+    for (int y = 0; y < n; ++y) {
+        for (int x = 0; x < n; ++x) {
+            const bool magenta = (x < n / 2) != (y < n / 2);
+            uint8_t* p = &px[(y * n + x) * 4];
+            p[0] = magenta ? 248 : 0;
+            p[1] = 0;
+            p[2] = magenta ? 248 : 0;
+            p[3] = 255;
+        }
+    }
+    return px;
+}
+
 TextureAtlas::~TextureAtlas() {
     if (m_texture) glDeleteTextures(1, &m_texture);
 }
@@ -80,7 +81,7 @@ bool TextureAtlas::build(const std::string& folder) {
     std::sort(files.begin(), files.end());
 
     std::vector<std::pair<std::string, Pixels>> sprites;
-    sprites.emplace_back(std::string(kMissing), missingSprite());
+    sprites.emplace_back(std::string(kMissing), missingSpritePixels());
     for (const auto& file : files) {
         Pixels px;
         if (loadSprite(file, px)) sprites.emplace_back(file.stem().string(), std::move(px));

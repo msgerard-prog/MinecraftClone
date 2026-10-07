@@ -64,6 +64,9 @@ fine until a system works.
 | Deviation | Why | Remove by |
 |---|---|---|
 | Terrain is simple noise until M8 | Need ground to test M3–M7 | M8 |
-| Free flight uses constant speeds (10.92 / 21.78 / ~7.5 b/s), no acceleration or drag | Camera needed before player physics | M4 |
+| Free flight uses constant speeds (10.92 / 21.6 / 7.49 b/s), no acceleration or drag; sprint needs Ctrl held (vanilla keeps sprinting until you stop moving forward) | Camera needed before player physics | M4 |
+| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Needs player abilities state | M4 |
+| Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
+| Animated textures show frame 0; non-16px sprites (HD resource packs) are skipped | No animated sprites or pack loading yet | When either arrives |
 | Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
 | Grass tint is always plains #91BD59 | No biomes yet | M8 |
