@@ -66,17 +66,20 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
     for (size_t i = 0; i < m_items.size();) {
         ItemEntity& e = m_items[i];
         e.prevPos = e.pos;
-        ++e.age;
-        if (e.pickupDelay > 0) --e.pickupDelay;
         // Unloaded chunk: keep still (vanilla doesn't tick entities there).
         const world::BlockPos at{int(std::floor(e.pos.x)), int(std::floor(e.pos.y)), int(std::floor(e.pos.z))};
+        bool inLava = false;
         if (const world::Chunk* chunk = world.chunk(at.chunk())) {
+            ++e.age; // paused in unloaded chunks (wiki)
+            if (e.pickupDelay > 0) --e.pickupDelay;
             if (chunk->lit()) {
                 e.skyLight = chunk->skyLight(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));
                 e.blockLight = chunk->blockLight(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));
             }
             const auto& reg = world::blockRegistry();
-            const bool inWater = reg.blockOf(world.getBlock(at)) == world::blocks::Water;
+            const world::BlockId here = reg.blockOf(world.getBlock(at));
+            const bool inWater = here == world::blocks::Water;
+            inLava = here == world::blocks::Lava;
             if (inWater) {
                 e.vel.y += 5.0e-4; // items float up slowly in water (wiki)
                 e.vel *= 0.99;
@@ -93,7 +96,7 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
             e.vel.y *= 0.98;
             if (e.onGround) e.vel.y *= -0.5;
         }
-        bool remove = e.age >= kDespawnTicks || e.pos.y < world::kMinY - 64;
+        bool remove = e.age >= kDespawnTicks || e.pos.y < world::kMinY - 64 || inLava; // lava burns items
         if (!remove && canPickUp && e.pickupDelay == 0 &&
             reach.intersects(Aabb::fromFeet(e.pos, kSize, kSize))) {
             const int left = inventory.add(e.stack);

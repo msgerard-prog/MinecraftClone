@@ -25,6 +25,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::RedSandstone:
     case blocks::Terracotta:
     case blocks::MossyCobblestone:
+    case blocks::Furnace:
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre: return {T::Pickaxe, 0};
     case blocks::IronOre:
@@ -50,8 +51,9 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::RedSand:
     case blocks::Gravel:
     case blocks::Clay:
-    case blocks::CoarseDirt:
-    case blocks::SnowBlock: return {T::Shovel, -1};
+    case blocks::CoarseDirt: return {T::Shovel, -1};
+    case blocks::SnowBlock:
+    case blocks::Snow: return {T::Shovel, 0}; // wiki: Snow Block - needs a shovel to drop
     // Axe.
     case blocks::OakLog:
     case blocks::BirchLog:
@@ -60,7 +62,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::OakPlanks:
     case blocks::BirchPlanks:
     case blocks::SprucePlanks:
-    case blocks::AcaciaPlanks: return {T::Axe, -1};
+    case blocks::AcaciaPlanks:
+    case blocks::CraftingTable: return {T::Axe, -1};
     // Hoe (leaves).
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
@@ -88,12 +91,17 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     const ItemDef& item = itemRegistry().item(held.item);
     if (!held.empty() && h.tool != ToolType::None && item.tool == h.tool && harvest)
         speed = tierInfo(item.tier).speed;
-    if (!held.empty() && item.tool == ToolType::Sword && reg.blockOf(state) != blocks::Air)
-        speed = std::max(speed, 1.5f); // swords cut everything a little faster
+    // Swords cut leaves and plants 1.5x faster (wiki: Sword).
+    if (!held.empty() && item.tool == ToolType::Sword) {
+        const std::string_view id = reg.block(reg.blockOf(state)).id;
+        if (id.ends_with("_leaves") || reg.blockOf(state) == blocks::ShortGrass || reg.blockOf(state) == blocks::Fern ||
+            reg.blockOf(state) == blocks::DeadBush)
+            speed = std::max(speed, 1.5f);
+    }
     if (eyesInWater) speed /= 5.0f;
     if (!onGround) speed /= 5.0f;
     const float damage = speed / hardness / (harvest ? 30.0f : 100.0f);
-    if (damage > 1.0f) return 0;
+    if (damage >= 1.0f) return 0; // wiki: instant at damage >= 1
     return static_cast<int>(std::ceil(1.0f / damage));
 }
 
@@ -162,8 +170,10 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::PackedIce:
     case blocks::ShortGrass:
     case blocks::Fern:
-    case blocks::DeadBush:
-    case blocks::Snow: return; // silk touch / shears (or seeds, sticks, snowballs)
+    case blocks::Snow: return; // snowballs: not added yet
+    case blocks::DeadBush: // wiki: Dead Bush - 0-2 sticks without shears
+        if (const int n = between(0, 2)) add(d.stick, n);
+        return;
     default:
         if (const ItemId item = itemRegistry().blockItem(b)) add(item);
         return;

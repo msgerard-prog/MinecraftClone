@@ -79,3 +79,11 @@ TEST_CASE("item registry: block items share block ids; tools stack to 1") {
     CHECK(items.item(pick).durability == 1561);
     CHECK(items.item(*items.find("stick")).maxStack == 64);
 }
+
+TEST_CASE("furnaces need a pickaxe; crafting tables are axe blocks") {
+    CHECK_FALSE(canHarvest(S(blocks::Furnace), {}));
+    CHECK(canHarvest(S(blocks::Furnace), I("wooden_pickaxe")));
+    CHECK(breakTicks(S(blocks::Furnace), {}, true, false) == 350); // 3.5 hardness / 100
+    CHECK(breakTicks(S(blocks::CraftingTable), I("stone_axe"), true, false) <
+          breakTicks(S(blocks::CraftingTable), {}, true, false));
+}

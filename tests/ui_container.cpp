@@ -109,3 +109,19 @@ TEST_CASE("furnace screen: shift-click sends smeltables to input and fuel to fue
     CHECK(furnace.input.count == 3);
     CHECK(furnace.fuel.count == 2);
 }
+
+TEST_CASE("furnace fuel slot takes only fuel; shift-click merges into the furnace") {
+    Fixture f;
+    Furnace furnace;
+    furnace.input = I("raw_iron", 2);
+    f.inv.setSlot(0, I("dirt", 4));
+    f.inv.setSlot(9, I("raw_iron", 3));
+    f.screen.open(ContainerScreen::Type::Furnace, &furnace);
+    f.left(invX(0), hotbarY());   // carry dirt
+    f.left(sx(56), sy(53));       // fuel slot refuses it
+    CHECK(furnace.fuel.empty());
+    CHECK(f.screen.carried().count == 4);
+    f.left(invX(0), hotbarY());   // put it back
+    f.left(invX(0), mainY(0), true); // shift raw iron: merges with the 2 in the input
+    CHECK(furnace.input.count == 5);
+}

@@ -77,7 +77,7 @@ void EntityRenderer::quad(const glm::vec3 (&p)[4], float u0, float v0, float u1,
 }
 
 void EntityRenderer::cube(const glm::vec3& mn, const glm::vec3& mx, const uint16_t (&sprites)[6],
-                          const glm::vec3& light, uint32_t tintRgb, std::vector<Vertex>& out, bool shade) {
+                          const glm::vec3& light, const uint32_t (&tints)[6], std::vector<Vertex>& out, bool shade) {
     // Faces in world::Direction order (down, up, north, south, west, east); corners
     // top-left, bottom-left, bottom-right, top-right seen from outside.
     const glm::vec3 c[8] = {{mn.x, mn.y, mn.z}, {mx.x, mn.y, mn.z}, {mx.x, mx.y, mn.z}, {mn.x, mx.y, mn.z},
@@ -85,9 +85,9 @@ void EntityRenderer::cube(const glm::vec3& mn, const glm::vec3& mx, const uint16
     static constexpr int kFaces[6][4] = {{4, 0, 1, 5}, {3, 7, 6, 2}, {2, 1, 0, 3},
                                          {7, 4, 5, 6}, {3, 0, 4, 7}, {6, 5, 1, 2}};
     static constexpr float kShade[6] = {0.5f, 1.0f, 0.8f, 0.8f, 0.6f, 0.6f};
-    const glm::vec3 tint(float(tintRgb & 255) / 255.0f, float((tintRgb >> 8) & 255) / 255.0f,
-                         float((tintRgb >> 16) & 255) / 255.0f);
     for (int f = 0; f < 6; ++f) {
+        const uint32_t t = tints[f];
+        const glm::vec3 tint(float(t & 255) / 255.0f, float((t >> 8) & 255) / 255.0f, float((t >> 16) & 255) / 255.0f);
         const glm::vec3 p[4] = {c[kFaces[f][0]], c[kFaces[f][1]], c[kFaces[f][2]], c[kFaces[f][3]]};
         const float u0 = float(sprites[f] % m_columns) * m_cell, v0 = float(sprites[f] / m_columns) * m_cell;
         const glm::vec3 col = light * (shade ? kShade[f] : 1.0f) * tint;
@@ -120,13 +120,16 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
         }
         // A 0.25 cube; rotation about Y applied to its corners.
         uint16_t sprites[6];
-        uint32_t tint = 0xFFFFFF;
+        uint32_t tints[6];
         for (int f = 0; f < 6; ++f) {
-            sprites[f] = m.variants[0].faces[f].sprite;
-            if (m.variants[0].faces[f].tint == Tint::Grass) tint = 0x6BBD7C; // item grass colour (BGR order)
+            const BakedFace& face = m.variants[0].faces[f];
+            sprites[f] = face.sprite;
+            // Item colours (wiki: Grass Block #7CBD6B; leaves: plains foliage #77AB2F),
+            // stored R | G << 8 | B << 16.
+            tints[f] = face.tint == Tint::Grass ? 0x6BBD7Cu : face.tint == Tint::Foliage ? 0x2FAB77u : 0xFFFFFFu;
         }
         const size_t start = m_items.size();
-        cube({-0.125f, 0.0f, -0.125f}, {0.125f, 0.25f, 0.125f}, sprites, light, 0xFFFFFF, m_items, true);
+        cube({-0.125f, 0.0f, -0.125f}, {0.125f, 0.25f, 0.125f}, sprites, light, tints, m_items, true);
         for (size_t i = start; i < m_items.size(); ++i) {
             Vertex& v = m_items[i];
             const glm::vec3 r = rot(v.x, v.y, v.z);
@@ -134,7 +137,6 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
             v.y = r.y;
             v.z = r.z;
         }
-        (void)tint;
         return;
     }
     const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
@@ -156,7 +158,8 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         constexpr float g = 0.002f; // slightly larger than the block: no z-fighting
         uint16_t s[6];
         std::fill(std::begin(s), std::end(s), m_crackSprites[m_crackStage]);
-        cube(o - glm::vec3(g), o + glm::vec3(1.0f + g), s, glm::vec3(1.0f), 0xFFFFFF, m_crack, false);
+        static constexpr uint32_t kWhite[6] = {0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF};
+        cube(o - glm::vec3(g), o + glm::vec3(1.0f + g), s, glm::vec3(1.0f), kWhite, m_crack, false);
     }
     const size_t items = m_items.size(), crack = m_crack.size();
     if (items + crack == 0) return;

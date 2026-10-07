@@ -76,6 +76,10 @@ std::vector<Recipe> build() {
     // Blocks (wiki: Sandstone, Red Sandstone).
     r.push_back(shaped({"##", "##"}, {{'#', item("sand")}}, "sandstone"));
     r.push_back(shaped({"##", "##"}, {{'#', item("red_sand")}}, "red_sandstone"));
+    // (wiki: Coarse Dirt, Andesite, Packed Ice)
+    r.push_back(shaped({"DG", "GD"}, {{'D', item("dirt")}, {'G', item("gravel")}}, "coarse_dirt", 4));
+    r.push_back(shapeless({item("diorite"), item("cobblestone")}, "andesite", 2));
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("ice")}}, "packed_ice"));
     return r;
 }
 
@@ -205,6 +209,8 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "emerald_ore" || n == "deepslate_emerald_ore") return out("emerald");
     if (n == "clay") return out("terracotta");
     if (n == "beef") return out("cooked_beef");
+    if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
+    if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;
 }
 
@@ -212,7 +218,7 @@ int fuelByName(std::string_view n, const ItemDef& def) {
     // wiki: Fuel - burn durations in game ticks.
     if (n == "coal" || n == "charcoal") return 1600;
     if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table") return 300;
-    if (n == "stick") return 100;
+    if (n == "stick" || n == "dead_bush") return 100;
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;
     return 0;
 }

@@ -62,6 +62,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("foodLevel", int32_t{food});
     player.put("foodSaturationLevel", saturation);
     player.put("foodExhaustionLevel", exhaustion);
+    player.put("foodTickTimer", int32_t{foodTimer});
     player.put("SelectedItemSlot", int32_t{selectedSlot});
     std::vector<Tag> items; // vanilla's Inventory list
     for (const SavedItem& it : inventory) {
@@ -171,6 +172,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         l.food = static_cast<int>(p->integer("foodLevel").value_or(20));
         if (auto v = p->real("foodSaturationLevel")) l.saturation = static_cast<float>(*v);
         if (auto v = p->real("foodExhaustionLevel")) l.exhaustion = static_cast<float>(*v);
+        l.foodTimer = static_cast<int>(p->integer("foodTickTimer").value_or(0));
         l.selectedSlot = static_cast<int>(p->integer("SelectedItemSlot").value_or(0)) % 9;
         if (const List* inv = p->list("Inventory"))
             for (const Tag& t : inv->items) {

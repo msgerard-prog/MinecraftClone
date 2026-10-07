@@ -176,7 +176,8 @@ Fixed bindings (add new ones here):
 | uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |
 | uniform location (sky) | 0, 1, 2 | `uTransform`, `uColor`, `uUvRect` |
 | uniform location (gui) | 0 | `uGuiSize` (framebuffer / GUI scale) |
-| texture units (gui) | 0–4 | white, font, hotbar, selection, block atlas (= `GuiTexture`) |
+| texture units (gui) | 0–5 | white, font, hotbar, selection, block atlas, HUD icons strip (= `GuiTexture`) |
+| uniform location (entity) | 0, 1 | `uViewProj`, `uAlphaCutoff` (dropped items, crack overlay) |
 
 Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),

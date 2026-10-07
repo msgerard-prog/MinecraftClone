@@ -53,7 +53,7 @@ private:
     void quad(const glm::vec3 (&p)[4], float u0, float v0, float u1, float v1, uint32_t color,
               std::vector<Vertex>& out);
     void cube(const glm::vec3& min, const glm::vec3& max, const uint16_t (&sprites)[6],
-              const glm::vec3& light, uint32_t tintRgb, std::vector<Vertex>& out, bool shade);
+              const glm::vec3& light, const uint32_t (&tints)[6], std::vector<Vertex>& out, bool shade);
 
     Shader m_shader;
     uint32_t m_vao = 0, m_vbo = 0;

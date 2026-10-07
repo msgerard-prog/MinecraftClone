@@ -9,6 +9,10 @@ namespace mc {
 bool tickFurnace(Furnace& f) {
     const bool wasLit = f.lit();
     if (f.burnLeft > 0) --f.burnLeft;
+    if (f.input.item != f.cooking) { // a different input starts over (vanilla)
+        f.cooking = f.input.item;
+        f.cookTime = 0;
+    }
     const auto result = smelt(f.input);
     const auto& items = world::itemRegistry();
     const bool outputFits = result && (f.output.empty() || (f.output.sameKind(*result) &&

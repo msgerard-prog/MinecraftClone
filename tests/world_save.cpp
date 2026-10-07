@@ -1,5 +1,6 @@
 // Saves: Anvil region files and the 1.21 chunk NBT (wiki: Region file format,
 // Chunk format).
+#include "gameplay/Inventory.h"
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
 #include "world/ChunkStorage.h"
@@ -155,6 +156,7 @@ TEST_CASE("chunks are dirty after edits, not after a clean load") {
 }
 
 #include "world/LevelData.h"
+#include "gameplay/Inventory.h"
 
 TEST_CASE("level.dat round-trips the world settings, time, spawn and player") {
     TempDir dir("mc_test_level");
@@ -463,7 +465,9 @@ TEST_CASE("level.dat keeps game mode, health and hunger") {
 TEST_CASE("furnaces save as block entities with their contents and timers") {
     Chunk c({-2, 3});
     World w;
+    c.set(4, 70, 9, S(blocks::Furnace));
     FurnaceData& f = c.addFurnace(4, 70, 9);
+    f.fuel.state = 0;
     f.input = {*itemRegistry().find("raw_iron"), 5};
     f.fuel = {*itemRegistry().find("coal"), 2};
     f.output = {*itemRegistry().find("iron_ingot"), 3};
@@ -498,4 +502,35 @@ TEST_CASE("placing and breaking a furnace block creates and removes its block en
     CHECK(blockRegistry().lightEmission(lit) == 13);
     w.setBlock({1, 64, 1}, 0);
     CHECK(w.chunk({0, 0})->furnace(1, 64, 1) == nullptr);
+}
+
+TEST_CASE("furnace slots keep exact block states; non-furnace entries are dropped on load") {
+    Chunk c({0, 0});
+    c.set(1, 64, 1, S(blocks::Furnace));
+    FurnaceData& f = c.addFurnace(1, 64, 1);
+    f.fuel = mc::Inventory::blockStack(*blockRegistry().with(S(blocks::OakLog), "axis", "x"), 3);
+    const BlockStateId expected = f.fuel.state; // (f may move when the list grows)
+    c.addFurnace(5, 64, 5); // no furnace block there (a stale entry)
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(c)))), d));
+    REQUIRE(d.furnace(1, 64, 1));
+    CHECK(d.furnace(1, 64, 1)->fuel.state == expected);
+    CHECK(d.furnace(5, 64, 5) == nullptr);
+}
+
+TEST_CASE("chunk storage: a reload from the pending save keeps furnaces and biomes") {
+    TempDir dir("mc_test_pending_entities");
+    ChunkStorage storage(dir.path);
+    Chunk c({3, 3});
+    c.set(2, 70, 2, S(blocks::Furnace));
+    c.addFurnace(2, 70, 2).input = {*itemRegistry().find("raw_iron"), 4};
+    auto b = std::make_shared<ChunkBiomes>();
+    b->cells[0] = Biome::Desert;
+    c.setBiomes(b);
+    storage.save(ChunkSnapshot::of(c));
+    Chunk d({3, 3});
+    REQUIRE(storage.load(d)); // pending or written: either way complete
+    REQUIRE(d.furnace(2, 70, 2));
+    CHECK(d.furnace(2, 70, 2)->input.count == 4);
+    CHECK(d.biomes()->cells[0] == Biome::Desert);
 }

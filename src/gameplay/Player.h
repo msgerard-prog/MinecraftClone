@@ -5,6 +5,8 @@
 
 #include <glm/glm.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace mc {
@@ -52,6 +54,14 @@ public:
     static constexpr double kMinorCollisionDegrees = 8.0; // wiki: Sprinting (21w41a)
 
     void setPosition(const glm::dvec3& feet);
+    // Knockback from a hit (wiki: Knockback): pushed away from the attacker.
+    void knockback(double dx, double dz, double strength = 0.4) {
+        const double len = std::sqrt(dx * dx + dz * dz);
+        if (len < 1e-6) return;
+        m_velocity.x = m_velocity.x / 2.0 + dx / len * strength;
+        m_velocity.z = m_velocity.z / 2.0 + dz / len * strength;
+        m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength);
+    }
     void setRotation(float yawDeg, float pitchDeg);
     void setCreative(bool creative) { m_creative = creative; }
     void setFlying(bool flying) { m_flying = flying && m_creative; }

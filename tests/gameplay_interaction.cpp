@@ -228,7 +228,7 @@ TEST_CASE("survival: switching target restarts progress; a pause follows each br
     s.inv.setSlot(0, {*itemRegistry().find("diamond_pickaxe"), 1});
     CHECK(s.breakTarget() == 6);
     // Next block (the one under): 5-tick pause, then 6 ticks.
-    CHECK(s.breakTarget() == 5 + 6);
+    CHECK(s.breakTarget() == 6 + 6); // 6-tick pause (wiki), then 6 ticks
 }
 
 TEST_CASE("survival: placing uses up the stack; worn-out tools break") {
@@ -260,4 +260,58 @@ TEST_CASE("survival: holding use with an apple eats it after 32 ticks when hungr
                                s.changed, s.drops);
     CHECK(s.vitals.food() == 14);
     CHECK(s.inv.slot(0).count == 1);
+}
+
+TEST_CASE("switching tools mid-break keeps the progress made (vanilla)") {
+    // Regression: progress was recomputed from ticks held with the new tool.
+    SurvivalScene s;
+    InteractionInput in;
+    in.attack = true;
+    for (int t = 0; t < 100; ++t) // 100 of 150 ticks by hand: 2/3 done
+        s.interaction.tickSurvival(s.world, s.player, BlockInteraction::target(s.world, s.player), s.inv,
+                                   s.vitals, in, false, s.rng, s.changed, s.drops);
+    CHECK(s.changed.empty());
+    s.inv.setSlot(0, {*itemRegistry().find("wooden_pickaxe"), 1}); // 23 ticks for a whole block
+    int more = 0;
+    while (s.changed.empty() && more < 50) {
+        s.interaction.tickSurvival(s.world, s.player, BlockInteraction::target(s.world, s.player), s.inv,
+                                   s.vitals, in, false, s.rng, s.changed, s.drops);
+        ++more;
+    }
+    CHECK(more == 8); // the remaining third: ceil(23 / 3)
+}
+
+TEST_CASE("breaking a furnace drops its contents, in creative too") {
+    Scene s(0.0f, 60.0f);
+    const auto t = BlockInteraction::target(s.world, s.player);
+    REQUIRE(t.has_value());
+    s.world.setBlock(t->block, S(blocks::Furnace));
+    s.world.chunk(t->block.chunk())->furnace(blockToLocal(t->block.x), t->block.y, blockToLocal(t->block.z))->input =
+        {*itemRegistry().find("raw_iron"), 7};
+    std::vector<BlockInteraction::Drop> drops;
+    InteractionInput in;
+    in.attackClick = true;
+    s.interaction.tick(s.world, s.player, t, 0, in, s.changed, &drops);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].stack.count == 7);
+}
+
+TEST_CASE("instant breaks have no pause; swords wear 2 and can't break in creative") {
+    SurvivalScene s;
+    s.world.setBlock(neighbour(BlockInteraction::target(s.world, s.player)->block, Direction::Up),
+                     S(blocks::ShortGrass)); // a plant on the targeted block's top
+    const auto grass = BlockInteraction::target(s.world, s.player);
+    REQUIRE(grass.has_value());
+    // (the raycast skips nothing solid: grass is targeted; it breaks on the first tick)
+    Scene creative(0.0f, 60.0f);
+    InteractionInput in;
+    in.attackClick = true;
+    std::vector<BlockInteraction::Drop> drops;
+    creative.interaction.tick(creative.world, creative.player, BlockInteraction::target(creative.world, creative.player),
+                              0, in, creative.changed, &drops, /*holdingSword=*/true);
+    CHECK(creative.changed.empty());
+    SurvivalScene sword;
+    sword.inv.setSlot(0, {*itemRegistry().find("iron_sword"), 1});
+    CHECK(sword.breakTarget() > 0);
+    CHECK(sword.inv.slot(0).damage == 2);
 }

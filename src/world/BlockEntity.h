@@ -11,6 +11,7 @@ struct FurnaceData {
     int burnLeft = 0;     // ticks of the current fuel left
     int burnDuration = 0; // of the current fuel (flame gauge)
     int cookTime = 0;     // progress on the current item
+    ItemId cooking = 0;   // the input kind being cooked (a different item restarts)
     bool lit() const { return burnLeft > 0; }
 };
 

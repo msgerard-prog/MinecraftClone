@@ -25,6 +25,12 @@ struct InteractionInput {
 // re-mesh them.
 class BlockInteraction {
 public:
+    // An item a broken block (or its container contents) drops.
+    struct Drop {
+        glm::dvec3 pos;
+        world::ItemStack stack;
+    };
+
     // Vanilla repeat delays while a button is held (ticks).
     static constexpr int kDestroyDelay = 6; // creative (wiki: Creative, 0.3 s)
     static constexpr int kUseDelay = 4;     // public write-ups; unverified on the wiki
@@ -34,7 +40,8 @@ public:
     // edited positions (cleared first).
     void tick(world::World& world, const Player& player, const std::optional<world::RayHit>& hit,
               world::BlockStateId placeState, const InteractionInput& input,
-              std::vector<world::BlockPos>& changed);
+              std::vector<world::BlockPos>& changed, std::vector<Drop>* drops = nullptr,
+              bool holdingSword = false); // swords can't break blocks in creative (wiki)
 
     // What the player is looking at from its current tick position (tests, scripts).
     static std::optional<world::RayHit> target(const world::World& world, const Player& player);
@@ -48,10 +55,6 @@ public:
     // and drops its items (`drops`, cleared first), then a 5-tick pause. Tools wear
     // by 1 per block. Placing uses up the held stack; holding use with food eats it
     // after 32 ticks when hungry.
-    struct Drop {
-        glm::dvec3 pos;
-        world::ItemStack stack;
-    };
     void tickSurvival(world::World& world, const Player& player,
                       const std::optional<world::RayHit>& hit, Inventory& inventory,
                       Vitals& vitals, const InteractionInput& input, bool eyesInWater,
@@ -62,7 +65,7 @@ public:
     float breakProgress() const { return m_progress; }
     int eatingTicks() const { return m_eatTicks; }
     static constexpr int kEatTicks = 32; // wiki: Food (1.61 s)
-    static constexpr int kSurvivalBreakDelay = 5;
+    static constexpr int kSurvivalBreakDelay = 6; // wiki: Breaking - 6 ticks before the next block
 
 private:
     void place(world::World& world, const Player& player, const world::RayHit& hit,
@@ -72,7 +75,7 @@ private:
     int m_useCooldown = 0;
     std::optional<world::BlockPos> m_breaking;
     float m_progress = 0.0f;
-    int m_heldTicks = 0;
+    double m_progressExact = 0.0;
     int m_eatTicks = 0;
     std::vector<world::ItemStack> m_dropScratch = std::vector<world::ItemStack>(8); // reused
 

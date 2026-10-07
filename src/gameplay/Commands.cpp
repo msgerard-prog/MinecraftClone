@@ -101,6 +101,7 @@ CommandResult teleport(const std::vector<std::string_view>& a, CommandContext& c
         pitch = static_cast<float>(*pt);
     }
     ctx.player.setPosition({*x, *y, *z});
+    if (ctx.vitals) ctx.vitals->resetFall(); // a teleport is not a fall
     ctx.player.setRotation(yaw, pitch);
     return {true, format("Teleported Player to %.2f, %.2f, %.2f", *x, *y, *z)};
 }
@@ -189,6 +190,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         if (a.size() != 2 || !ctx.survival || (a[1] != "survival" && a[1] != "creative"))
             return fail("Usage: /gamemode survival|creative");
         *ctx.survival = a[1] == "survival";
+        if (ctx.vitals) ctx.vitals->resetFall();
         return {true, *ctx.survival ? "Set own game mode to Survival Mode"
                                     : "Set own game mode to Creative Mode"};
     }

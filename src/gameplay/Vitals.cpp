@@ -23,11 +23,11 @@ void Vitals::setState(float health, int food, float saturation, float exhaustion
     m_exhaustion = std::clamp(exhaustion, 0.0f, 40.0f);
 }
 
-bool Vitals::damage(float amount) {
+bool Vitals::damage(float amount, bool exhausts) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
     m_health = std::max(0.0f, m_health - amount);
     m_invulnerable = 10;
-    exhaust(0.1f); // wiki: taking damage
+    if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;
 }
 
@@ -56,13 +56,13 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         m_fallStartY = std::max(m_fallStartY, feetY);
     } else if (m_falling) {
         const float amount = static_cast<float>(std::ceil(m_fallStartY - feetY - 3.0));
-        if (amount > 0.0f && damage(amount)) hurt += amount;
+        if (amount > 0.0f && damage(amount, false)) hurt += amount;
         m_falling = false;
     }
     m_lastY = feetY;
 
     // The void (wiki: Void): 4 damage every half second below y -128.
-    if (feetY < -128.0 && m_invulnerable == 0 && damage(4.0f)) hurt += 4.0f;
+    if (feetY < -128.0 && m_invulnerable == 0 && damage(4.0f, false)) hurt += 4.0f;
 
     // Exhaustion drains saturation first, then food (wiki: Hunger).
     while (m_exhaustion >= 4.0f) {

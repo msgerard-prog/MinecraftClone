@@ -95,3 +95,13 @@ TEST_CASE("damage, invulnerability, death, eating and respawn") {
     CHECK(v.food() == 14);
     CHECK(v.saturation() == doctest::Approx(2.4f));
 }
+
+TEST_CASE("a teleport or game-mode change is not a fall (resetFall)") {
+    // Regression: /tp from high ground measured the fall from the old height.
+    Vitals v;
+    v.tick(200.0, true, false, false);
+    v.resetFall();
+    v.tick(70.5, false, false, false); // just above the new ground
+    CHECK(v.tick(70.0, true, false, false) == 0.0f);
+    CHECK(v.health() == 20.0f);
+}

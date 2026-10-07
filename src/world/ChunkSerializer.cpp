@@ -86,6 +86,21 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     c.put("count", int32_t{s.count});
     nbt::Compound components;
     if (s.damage) components.put("minecraft:damage", int32_t{s.damage});
+    if (s.state) { // exact block state (vanilla's minecraft:block_state component)
+        nbt::Compound props;
+        const std::string text = blockRegistry().toString(s.state);
+        if (const size_t open = text.find('['); open != std::string::npos) {
+            std::string_view list(text.data() + open + 1, text.size() - open - 2);
+            while (!list.empty()) {
+                const size_t comma = std::min(list.find(','), list.size());
+                const std::string_view kv = list.substr(0, comma);
+                if (const size_t eq = kv.find('='); eq != std::string_view::npos)
+                    props.put(std::string(kv.substr(0, eq)), std::string(kv.substr(eq + 1)));
+                list.remove_prefix(std::min(comma + 1, list.size()));
+            }
+        }
+        components.put("minecraft:block_state", std::move(props));
+    }
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
 }
@@ -94,9 +109,19 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
     const std::string* id = c.string("id");
     const auto item = id ? itemRegistry().find(*id) : std::nullopt;
     if (!item) return {};
-    ItemStack s{*item, static_cast<uint8_t>(std::clamp<int64_t>(c.integer("count").value_or(1), 1, 64))};
-    if (const nbt::Compound* comps = c.compound("components"))
+    const int maxStack = std::max<int>(1, itemRegistry().item(*item).maxStack);
+    ItemStack s{*item, static_cast<uint8_t>(std::clamp<int64_t>(c.integer("count").value_or(1), 1, maxStack))};
+    if (const nbt::Compound* comps = c.compound("components")) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
+        const ItemDef& def = itemRegistry().item(*item);
+        if (const nbt::Compound* props = comps->compound("minecraft:block_state"); props && def.block) {
+            BlockStateId st = blockRegistry().defaultState(def.block);
+            for (const auto& p : props->entries)
+                if (const std::string* v = p.value.get<std::string>())
+                    st = blockRegistry().with(st, p.name, *v).value_or(st);
+            if (st != blockRegistry().defaultState(def.block)) s.state = st;
+        }
+    }
     return s;
 }
 
@@ -305,6 +330,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             const int y = static_cast<int>(e->integer("y").value_or(kMinY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(y)) continue;
+            // An entry whose block isn't a furnace (foreign or edited saves) is dropped.
+            if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Furnace) continue;
             FurnaceData& f = chunk.addFurnace(x, y, z);
             if (const nbt::List* items = e->list("Items"))
                 for (const nbt::Tag& it : items->items)

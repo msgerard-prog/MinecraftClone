@@ -181,13 +181,19 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
         }
         if (shift && !v.empty()) {
             if (slot.kind == Slot::Kind::Inv) {
-                if (m_type == Type::Furnace && m_furnace) { // into the furnace when it fits
-                    if (smelt(v)) {
-                        if (m_furnace->input.empty()) { m_furnace->input = v; v = {}; }
-                    } else if (fuelTicks(v) > 0 && m_furnace->fuel.empty()) {
-                        m_furnace->fuel = v;
-                        v = {};
-                    }
+                if (m_type == Type::Furnace && m_furnace) { // into the furnace (merging) when it fits
+                    auto into = [&](world::ItemStack& slotStack) {
+                        if (slotStack.empty()) {
+                            slotStack = v;
+                            v = {};
+                        } else if (slotStack.sameKind(v)) {
+                            const int n = std::min<int>(v.count, maxStack(v) - slotStack.count);
+                            slotStack.count = uint8_t(slotStack.count + n);
+                            v.count = uint8_t(v.count - n);
+                        }
+                    };
+                    if (smelt(v)) into(m_furnace->input);
+                    else if (fuelTicks(v) > 0) into(m_furnace->fuel);
                 }
                 if (!v.empty()) {
                     if (slot.index < Inventory::kHotbar) moveToInventory(v, inventory, 9, 36);
@@ -200,6 +206,8 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
             return;
         }
         const bool outputOnly = slot.kind == Slot::Kind::FurnaceOut;
+        // The fuel slot only takes fuel (wiki: Furnace › Fuel).
+        if (slot.kind == Slot::Kind::FurnaceFuel && !m_carried.empty() && fuelTicks(m_carried) == 0) return;
         if (button == Button::Left) {
             if (m_carried.empty()) {
                 m_carried = v;

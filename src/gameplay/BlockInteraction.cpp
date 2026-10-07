@@ -42,7 +42,9 @@ world::BlockStateId BlockInteraction::orientedState(world::BlockStateId state,
 
 void BlockInteraction::tick(world::World& world, const Player& player,
                             const std::optional<world::RayHit>& hit, world::BlockStateId placeState,
-                            const InteractionInput& input, std::vector<world::BlockPos>& changed) {
+                            const InteractionInput& input, std::vector<world::BlockPos>& changed,
+                            std::vector<Drop>* drops, bool holdingSword) {
+    if (drops) drops->clear();
     changed.clear();
     // Cooldowns only run while the button is held; releasing allows an instant click.
     // A fresh click always acts (even a press shorter than a tick); holding repeats.
@@ -55,7 +57,8 @@ void BlockInteraction::tick(world::World& world, const Player& player,
 
     if (!hit) return;
 
-    if (attack && m_destroyCooldown == 0) {
+    if (attack && m_destroyCooldown == 0 && !holdingSword) {
+        dropContents(world, hit->block, drops); // containers drop their items in every mode
         world.setBlock(hit->block, 0);
         changed.push_back(hit->block);
         m_destroyCooldown = kDestroyDelay;
@@ -135,19 +138,20 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     if (!attack || !hit) {
         m_breaking.reset();
         m_progress = 0.0f;
-        m_heldTicks = 0;
+        m_progressExact = 0.0;
     } else if (!pausing) {
         if (!m_breaking || !(*m_breaking == hit->block)) { // a new target starts over
             m_breaking = hit->block;
-            m_heldTicks = 0;
+            m_progressExact = 0.0;
         }
         const world::BlockStateId state = world.getBlock(hit->block);
         const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater);
         if (ticks >= 0) {
-            // Whole ticks held (the speed is re-evaluated each tick, like vanilla).
-            ++m_heldTicks;
-            m_progress = ticks == 0 ? 1.0f : std::min(1.0f, float(m_heldTicks) / float(ticks));
-            if (m_heldTicks >= ticks) {
+            // Progress grows by the current tool's per-tick share (vanilla), so switching
+            // tools mid-break changes the remaining time, not the progress made.
+            m_progressExact += ticks == 0 ? 1.0 : 1.0 / double(ticks);
+            m_progress = static_cast<float>(std::min(1.0, m_progressExact));
+            if (m_progressExact >= 1.0 - 1e-9) {
                 m_dropScratch.clear();
                 blockDrops(state, inventory.selectedStack(), rng, m_dropScratch);
                 for (const world::ItemStack& d : m_dropScratch)
@@ -156,18 +160,21 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 world.setBlock(hit->block, 0);
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
-                // Tools wear 1 per block broken (instant blocks don't count).
+                // Tools wear 1 per block, swords 2 (wiki: Durability); blocks that break
+                // instantly by hand (hardness 0) don't count.
                 const world::ItemStack& tool = inventory.selectedStack();
                 const world::ItemDef& def = items.item(tool.item);
-                if (def.durability > 0 && ticks > 0) {
+                const auto& breg = world::blockRegistry();
+                const bool handInstant = breg.block(breg.blockOf(state)).settings.hardness == 0.0f;
+                if (def.durability > 0 && !handInstant) {
                     world::ItemStack worn = tool;
-                    ++worn.damage;
+                    worn.damage = static_cast<uint16_t>(worn.damage + (def.tool == world::ToolType::Sword ? 2 : 1));
                     inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? world::ItemStack{} : worn);
                 }
                 m_breaking.reset();
                 m_progress = 0.0f;
-                m_heldTicks = 0;
-                m_destroyCooldown = kSurvivalBreakDelay;
+                m_progressExact = 0.0;
+                if (ticks > 0) m_destroyCooldown = kSurvivalBreakDelay; // instant breaks: no pause
                 return; // one action per tick
             }
         }

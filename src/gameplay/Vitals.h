@@ -26,11 +26,20 @@ public:
     // Exhaustion from actions (wiki: Hunger › Exhaustion level increase).
     void exhaust(float amount) { m_exhaustion += amount; }
     // Hurts unless invulnerable (10 ticks after a hit). Returns true if it applied.
-    bool damage(float amount);
+    // `exhausts`: false for falls and the void (wiki: they cause no exhaustion).
+    bool damage(float amount, bool exhausts = true);
+    int foodTimer() const { return m_foodTimer; }
+    void setFoodTimer(int t) { m_foodTimer = t; }
     // Eats `food` points with `saturation` (wiki: Food), capped like vanilla.
     void eat(int food, float saturation);
     void reset(); // respawn: full health and food, fresh saturation
     void kill() { m_health = 0.0f; } // /kill (ignores invulnerability)
+    // Forget the fall in progress (teleports, game-mode changes, respawn): the next
+    // tick measures from where the player is now.
+    void resetFall() {
+        m_falling = false;
+        m_started = false;
+    }
 
     // Saved state.
     void setState(float health, int food, float saturation, float exhaustion);

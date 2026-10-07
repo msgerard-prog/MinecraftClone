@@ -205,6 +205,10 @@ int main(int argc, char** argv) {
     mc::world::BlockPos containerBlock{};
     std::vector<mc::world::ItemStack> screenDrops;
     screenDrops.reserve(16);
+    std::vector<mc::world::ItemStack> pendingThrows; // thrown from screens: spawned in the tick
+    std::vector<mc::world::BlockPos> litChanges;
+    litChanges.reserve(16);
+    pendingThrows.reserve(16);
     creative.build(renderer.models());
     // --inventory: the creative screen, or in survival the inventory (2x2 crafting) screen;
     // opened after the first tick so --command "/gamemode ..." applies first.
@@ -310,7 +314,10 @@ int main(int argc, char** argv) {
     // Survival (M9): game mode, health/hunger, dropped items.
     bool survival = level && level->survival;
     mc::Vitals vitals;
-    if (level) vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
+    if (level) {
+        vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
+        vitals.setFoodTimer(level->foodTimer);
+    }
     mc::ItemEntities droppedItems;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -383,6 +390,7 @@ int main(int argc, char** argv) {
         l.food = vitals.food();
         l.saturation = vitals.saturation();
         l.exhaustion = vitals.exhaustion();
+        l.foodTimer = vitals.foodTimer();
         for (int i = 0; i < mc::Inventory::kSlots; ++i) {
             const mc::world::ItemStack& s = inventory.slot(i);
             if (s.empty()) continue;
@@ -490,9 +498,7 @@ int main(int argc, char** argv) {
                 if (!screenshotMode) window.setCursorCaptured(true);
                 attackArmed = false;
             }
-            for (const auto& d : screenDrops) // thrown out of the screen
-                droppedItems.throwFrom(player.eyePosition(1.0),
-                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), d, gameRng);
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // next tick
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Backspace,
                            mc::Press::Up, mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
                 window.takePresses(p);
@@ -517,7 +523,8 @@ int main(int argc, char** argv) {
                 attackArmed = false;
             }
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::RightMouse,
-                           mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
+                           mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter,
+                           mc::Press::Drop})
                 window.takePresses(p);
         } else {
             if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at world spawn
@@ -584,6 +591,7 @@ int main(int argc, char** argv) {
         if (!window.cursorCaptured()) {
             window.takePresses(mc::Press::Jump);
             window.takePresses(mc::Press::RightMouse);
+            window.takePresses(mc::Press::Drop);
         }
         player.turn(window.mouseDx(), window.mouseDy());
         if (!window.leftMousePressed()) attackArmed = true;
@@ -608,6 +616,10 @@ int main(int argc, char** argv) {
             for (const auto& line : pendingChat)
                 runChatLine(line);
             pendingChat.clear();
+            for (const auto& t : pendingThrows)
+                droppedItems.throwFrom(player.eyePosition(1.0),
+                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), t, gameRng);
+            pendingThrows.clear();
             mc::PlayerInput input = readInput(window);
             // Presses since the last tick (only the first tick of a frame sees them).
             input.jumpPresses = window.cursorCaptured() ? window.takePresses(mc::Press::Jump) : 0;
@@ -637,9 +649,15 @@ int main(int argc, char** argv) {
             }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
                 {
+                    // Open screens close first: their grid/carried items drop too.
+                    screenDrops.clear();
+                    if (container.isOpen()) container.close(inventory, screenDrops);
+                    if (creative.isOpen()) creative.close();
+                    for (const auto& d : screenDrops)
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), d, gameRng);
                     dead = true;
                     for (int s = 0; s < mc::Inventory::kSlots; ++s) {
-                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng);
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng, 40);
                         inventory.setSlot(s, {});
                     }
                     chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
@@ -673,24 +691,35 @@ int main(int argc, char** argv) {
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             } else {
-                interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks);
+                interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
+                                 mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
+                                     mc::world::ToolType::Sword);
+                for (const auto& d : drops)
+                    droppedItems.spawn(d.pos, d.stack, gameRng);
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
+            litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
                 for (auto& f : c.furnaces()) {
                     const bool changedLit = mc::tickFurnace(f.data);
                     if (f.data.lit() || f.data.cookTime > 0 || changedLit) c.markDirty();
-                    if (!changedLit) continue;
-                    const mc::world::BlockPos p{c.pos().x * 16 + f.x, f.y, c.pos().z * 16 + f.z};
-                    const auto state = world.getBlock(p);
-                    world.setBlock(p, mc::world::blockRegistry()
-                                          .with(state, "lit", f.data.lit() ? "true" : "false")
-                                          .value_or(state));
-                    frameEdits.push_back(p); // relit, then re-meshed
+                    if (changedLit)
+                        litChanges.push_back({c.pos().x * 16 + f.x, f.y, c.pos().z * 16 + f.z});
                 }
             });
+            // Block states change after the loop (setBlock may touch the furnace lists).
+            for (const mc::world::BlockPos& p : litChanges) {
+                const auto state = world.getBlock(p);
+                if (reg.blockOf(state) != mc::world::blocks::Furnace) continue;
+                mc::world::Chunk* fc = world.chunk(p.chunk());
+                const auto* f = fc ? fc->furnace(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z))
+                                   : nullptr;
+                if (!f) continue;
+                world.setBlock(p, reg.with(state, "lit", f->lit() ? "true" : "false").value_or(state));
+                frameEdits.push_back(p); // relit, then re-meshed
+            }
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
@@ -783,6 +812,12 @@ int main(int argc, char** argv) {
                 fpsFrames = 0;
                 fpsStart = now;
             }
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
+                mc::world::Chunk* fc = world.chunk(containerBlock.chunk());
+                container.setFurnace(fc ? fc->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                      mc::world::blockToLocal(containerBlock.z))
+                                        : nullptr);
+            }
             if (container.isOpen())
                 container.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH,
                                [&] { double x = 0, y = 0; window.cursorPos(x, y); return x / scale; }(),
@@ -872,6 +907,11 @@ int main(int argc, char** argv) {
                 std::this_thread::yield();
         }
     }
+    // Quitting with a screen open returns its grid and carried stack first (vanilla).
+    screenDrops.clear();
+    if (container.isOpen()) container.close(inventory, screenDrops);
+    for (const auto& d : screenDrops) // didn't fit: drop at the player (saved later... lost: see deviations)
+        droppedItems.spawn(player.position(), d, gameRng);
     saveWorld(true);
     const auto summary = frameStats.summarize();
     const auto& st = renderer.stats();
