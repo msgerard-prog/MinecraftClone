@@ -50,10 +50,19 @@ public:
         m_boxes.reserve(256);
         m_births.reserve(64); // (babies and spawner mobs)
         m_scratchEdits.reserve(4096);
+        m_dragonDeaths.reserve(4);
     }
 
     void tick(Context& ctx);
 
+    // The ender dragon (M20.2): where its head is, and the damage a hit at `at` does
+    // (the head takes it all, the rest a quarter + 1; wiki: Ender Dragon).
+    static glm::dvec3 dragonHead(const world::MobData& m);
+    static float dragonDamage(const world::MobData& m, float damage, const glm::dvec3& at);
+    // The dragon's health this tick for the boss bar (below 0: no dragon ticking).
+    float bossHealth() const { return m_bossHealth; }
+    // Where dragons finished dying this tick (the fight ends there: main).
+    const std::vector<glm::dvec3>& dragonDeaths() const { return m_dragonDeaths; }
     // An end crystal item used on the top of obsidian or bedrock (wiki: End Crystal):
     // needs two free blocks above and no entity there. False: nothing placed.
     static bool placeEndCrystal(world::World& world, const world::BlockPos& on, world::Xoroshiro& rng);
@@ -93,6 +102,7 @@ private:
     // Nether mobs (M19.2, NetherMobs.cpp): ghasts, blazes and magma cubes move and
     // attack on their own (true: handled); zombified piglins' anger runs down.
     bool netherAi(Context& ctx, world::MobData& m);
+    void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void spawnNether(Context& ctx);
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
@@ -118,7 +128,9 @@ private:
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
-    int m_striders = 0; // (counted in the tick's mob pass, for strider spawning)
+    int m_striders = 0;
+    float m_bossHealth = -1.0f;
+    std::vector<glm::dvec3> m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)
     // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
     std::array<glm::dvec3, 8> m_angerAlerts{};
     int m_angerAlertCount = 0;

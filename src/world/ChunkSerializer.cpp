@@ -706,6 +706,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsChickenJockey", int8_t{0});
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
+        if (m.type == MobType::EnderDragon) e.put("DragonPhase", int32_t(m.phase)); // (vanilla's numbers)
         if (m.type == MobType::MagmaCube) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::Zombie) {
@@ -771,6 +772,11 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
         m.showBottom = e->integer("ShowBottom").value_or(1) != 0;
+        if (m.type == MobType::EnderDragon) {
+            m.phase = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("DragonPhase").value_or(0), 0, 10));
+            if (m.phase == 9) m.phase = 0; // (a dying dragon saved mid-death comes back flying; vanilla: dies again)
+            m.lastHealth = m.health;
+        }
         if (m.type == MobType::MagmaCube) {
             const int64_t sz = std::clamp<int64_t>(e->integer("Size").value_or(3), 0, 3);
             m.size = uint8_t(sz >= 3 ? 4 : sz + 1);

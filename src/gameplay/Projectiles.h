@@ -23,7 +23,18 @@ namespace mc {
 // hit for 5 and set fire (wiki: Fireball, Small Fireball).
 // Splash potions (M19.4) fly with gravity 0.05 and break on anything (wiki: Splash
 // Potion): within 4 blocks effects scale with 1 - distance / 4.
-enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball, SplashPotion };
+// Dragon fireballs (M20.2) fly straight and leave a cloud of dragon's breath where they
+// hit: radius 3 for 30 s, Instant Damage to the player in it once a second (wiki:
+// Dragon Fireball, Dragon's Breath; the cloud's numbers are our reading).
+enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball, SplashPotion, DragonFireball };
+
+// A lingering cloud of dragon's breath (vanilla: an area effect cloud).
+struct BreathCloud {
+    glm::dvec3 pos{0.0}; // the middle of its floor
+    float radius = 3.0f;
+    int ticks = 0;    // left
+    int cooldown = 0; // until it can hurt the player again
+};
 
 struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
@@ -52,7 +63,14 @@ public:
         m_eyeDrops.reserve(16);
         m_explosions.reserve(16);
         m_edits.reserve(64);
+        m_clouds.reserve(kMaxClouds);
     }
+    static constexpr int kMaxClouds = 32;
+    // A breath cloud (dragon fireballs, the perched dragon's flames).
+    void addCloud(const glm::dvec3& at, float radius, int ticks) {
+        if (int(m_clouds.size()) < kMaxClouds) m_clouds.push_back({at, radius, ticks, 0});
+    }
+    const std::vector<BreathCloud>& clouds() const { return m_clouds; }
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
     // Returns false if the pool is full of flying arrows (nothing was shot).
@@ -85,6 +103,7 @@ private:
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
     std::vector<world::BlockPos> m_edits;
+    std::vector<BreathCloud> m_clouds;
 };
 
 // The bow's draw (wiki: Bow): after `ticks` of drawing, power 0..1 =

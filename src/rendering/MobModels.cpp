@@ -192,6 +192,19 @@ constexpr std::array<MobPart, 3> kEndCrystal = {{
     {{-3, 11, -3}, {3, 17, 3}, {0, 14, 0}, 0, 0, A::Head},
 }};
 
+// Ender dragon (drawn 4x): body, neck and head forward (+Z), a three-piece tail,
+// thin wings that beat (vanilla: a far more detailed model with legs and jaws).
+constexpr std::array<MobPart, 8> kEnderDragon = {{
+    {{-4, 0, -8}, {4, 6, 8}, {0, 3, 0}, 0, 0, A::None},
+    {{-2, 1, 8}, {2, 5, 16}, {0, 3, 8}, 0, 22, A::None},
+    {{-3, 0.5f, 16}, {3, 5.5f, 24}, {0, 3, 16}, 24, 22, A::Head},
+    {{-1.5f, 1.5f, -16}, {1.5f, 4.5f, -8}, {0, 3, -8}, 0, 35, A::None},
+    {{-1.5f, 1.5f, -24}, {1.5f, 4.5f, -16}, {0, 3, -16}, 0, 35, A::None},
+    {{-1.5f, 1.5f, -32}, {1.5f, 4.5f, -24}, {0, 3, -24}, 0, 35, A::None},
+    {{4, 5, -5}, {24, 6, 5}, {4, 5.5f, 0}, 0, 46, A::WingL},
+    {{-24, 5, -5}, {-4, 6, 5}, {-4, 5.5f, 0}, 0, 46, A::WingR},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -212,6 +225,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Hoglin: return kHoglin;
     case world::MobType::Strider: return kStrider;
     case world::MobType::EndCrystal: return kEndCrystal;
+    case world::MobType::EnderDragon: return kEnderDragon;
     default: return kCow;
     }
 }

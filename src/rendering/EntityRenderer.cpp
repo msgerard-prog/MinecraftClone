@@ -205,6 +205,44 @@ void EntityRenderer::addOrb(const glm::dvec3& pos, int value, float time, const 
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, color, m_items);
 }
 
+void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos) {
+    const glm::dvec3 d = to - from;
+    const double len = glm::length(d);
+    if (len < 1e-3) return;
+    const glm::vec3 f(d / len);
+    const glm::vec3 helper = std::abs(f.y) > 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
+    const glm::vec3 a = glm::normalize(glm::cross(f, helper)), b = glm::cross(f, a);
+    const glm::vec3 s(from - cameraPos), e(to - cameraPos);
+    const uint32_t color = pack(glm::vec3(1.0f, 0.55f, 0.95f));
+    const float u0 = float(m_orbSprite % m_columns) * m_cell + m_cell * 0.45f, v0 = float(m_orbSprite / m_columns) * m_cell;
+    const float u1 = u0 + m_cell * 0.1f, v1 = v0 + m_cell;
+    for (const glm::vec3& side : {a, b}) {
+        const glm::vec3 w = side * 0.08f;
+        const glm::vec3 p[4] = {s + w, s - w, e - w, e + w};
+        const glm::vec3 q[4] = {p[3], p[2], p[1], p[0]};
+        quad(p, u0, v0, u1, v1, color, m_items);
+        quad(q, u0, v0, u1, v1, color, m_items);
+    }
+}
+
+void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos) {
+    // 13 puffs: the middle and two rings, drifting slowly.
+    for (int i = 0; i < 13; ++i) {
+        const float ring = i == 0 ? 0.0f : i <= 4 ? 0.45f : 0.85f;
+        const float a = float(i) * 2.399f + time * 0.01f;
+        const glm::dvec3 p = centre + glm::dvec3(std::cos(a) * ring * radius, 0.3 + 0.2 * std::sin(time * 0.05f + float(i)),
+                                                 std::sin(a) * ring * radius);
+        const glm::vec3 c(p - cameraPos);
+        const glm::vec3 toCam = glm::length(c) > 1e-4f ? -glm::normalize(c) : glm::vec3(0, 0, 1);
+        const glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), toCam)) * 0.6f;
+        const glm::vec3 up = glm::cross(toCam, right);
+        const uint32_t color = pack(glm::vec3(0.75f, 0.3f, 0.95f));
+        const float u0 = float(m_orbSprite % m_columns) * m_cell, v0 = float(m_orbSprite / m_columns) * m_cell;
+        const glm::vec3 q[4] = {c - right + up, c - right - up, c + right - up, c + right + up};
+        quad(q, u0, v0, u0 + m_cell, v0 + m_cell, color, m_items);
+    }
+}
+
 void EntityRenderer::addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light,
                               const glm::dvec3& cameraPos) {
     const double len = glm::length(dir);
@@ -244,9 +282,11 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const float swing = std::cos(mob.limbSwing * 0.6662f) * 1.4f * mob.limbSwingAmount;
     // Body: vanilla yaw turns from +Z towards -X; dying tips over sideways over 20 ticks.
     glm::mat3 body = rotY(-bodyYaw * kDeg);
-    if (mob.deathTime > 0) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
+    if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
     const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
     const glm::mat3 legA = rotX(swing), legB = rotX(-swing), arm = rotX(-90.0f * kDeg + swing * 0.2f);
+    const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
+    const glm::mat3 wingL = rotZ(flap), wingR = rotZ(-flap);
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     const glm::vec3 base(pos - cameraPos);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
@@ -292,6 +332,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                 : part.anim == MobPart::Anim::LegA       ? &legA
                                 : part.anim == MobPart::Anim::LegB       ? &legB
                                 : part.anim == MobPart::Anim::ArmForward ? &arm
+                                : part.anim == MobPart::Anim::WingL      ? &wingL
+                                : part.anim == MobPart::Anim::WingR      ? &wingR
                                                                          : nullptr;
         glm::vec3 corners[8];
         for (int i = 0; i < 8; ++i) {

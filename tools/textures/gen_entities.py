@@ -477,6 +477,24 @@ def end_crystal():
     return img
 
 
+def ender_dragon():
+    # Body 8x6x16 @ (0,0), neck 4x4x8 @ (0,22), head 6x5x8 @ (24,22) with purple eyes,
+    # tail 3x3x8 @ (0,35), wing 20x1x10 @ (0,46): black scales, grey membranes.
+    rng = random.Random("ender_dragon")
+    img = Img(64, 64, CLEAR)
+    scales = ramp(hexc("#1E1A22"), 5, spread=0.45)
+    for (u, v, w, h, d) in ((0, 0, 8, 6, 16), (0, 22, 4, 4, 8), (24, 22, 6, 5, 8), (0, 35, 3, 3, 8)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, scales, rng)
+    x0, y0, w, h = box_faces(24, 22, 6, 5, 8)["front"]
+    for ex in (1, w - 2):
+        img.set(x0 + ex, y0 + 1, (200, 80, 230, 255))
+    membrane = ramp(hexc("#3A3440"), 5, spread=0.3)
+    for name, f in box_faces(0, 46, 20, 1, 10).items():
+        paint(img, f, membrane if name in ("top", "bottom") else scales, rng)
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -505,7 +523,7 @@ def main():
               "spider": spider(), "enderman": enderman(), "ghast": ghast(), "blaze": blaze(),
               "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin(), "piglin": piglin(),
               "hoglin": hoglin(), "strider": strider(),
-              "end_crystal": end_crystal()}
+              "end_crystal": end_crystal(), "ender_dragon": ender_dragon()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

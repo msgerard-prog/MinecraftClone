@@ -251,6 +251,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `complexAt` picks fortress/bastion per grid candidate; fortresses are cached piece
   trees built per chunk, bastions one keep; chests/blaze spawners become block
   entities after the chunk is written, bastion mobs are added to their start chunk.
+- The ender dragon (M20.2, `gameplay/EnderDragon.cpp`, part of `Mobs`): `dragonAi`
+  runs vanilla's DragonPhase numbers (holding ring, strafe with `ProjectileKind::
+  DragonFireball`, landing on the exit portal column, perched flames, takeoff,
+  charge), heals from the nearest crystal (`hasBeam`/`beam`, drawn by
+  `EntityRenderer::addBeam`), breaks non-End blocks in its box and bites/knocks the
+  player. `dragonDamage` applies the head rule in melee (main), arrows and
+  explosions. Dying takes 200 ticks in `Mobs::tick`, then `dragonDeaths()` reports it;
+  `bossHealth()` feeds `ui::drawBossBar`. Breath clouds are pooled in `Projectiles`.
 - Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
   blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
   mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are

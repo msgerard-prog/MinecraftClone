@@ -1409,6 +1409,8 @@ int main(int argc, char** argv) {
                         dmg += 2.5f * float(mc::world::enchantLevel(stack, E::Smite));
                     if (m.type == mc::world::MobType::Spider)
                         dmg += 2.5f * float(mc::world::enchantLevel(stack, E::BaneOfArthropods));
+                    if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
+                        dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
                     const bool hit = m.hurtTime == 0 && m.deathTime == 0;
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
@@ -1712,6 +1714,7 @@ int main(int argc, char** argv) {
             static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
             static const mc::world::ItemId splashItem = *mc::world::itemRegistry().find("splash_potion");
             static const mc::world::ItemId fireItem = *mc::world::itemRegistry().find("fire_charge");
+            // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
             else {
@@ -1724,6 +1727,8 @@ int main(int argc, char** argv) {
                 entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
             }
         }
+        for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
+            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position);
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),
                             camera.position);
@@ -1746,7 +1751,10 @@ int main(int argc, char** argv) {
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
                 const glm::vec3 bmin(rel - glm::dvec3(info.width * 0.5, 0.0, info.width * 0.5));
-                if (!mobFrustum.intersectsBox(bmin, bmin + glm::vec3(float(info.width), float(info.height), float(info.width))))
+                const float reachOut = m.type == mc::world::MobType::EnderDragon ? 8.0f : 0.0f; // (its tail and wings)
+                if (!mobFrustum.intersectsBox(bmin - glm::vec3(reachOut),
+                                              bmin + glm::vec3(float(info.width), float(info.height), float(info.width)) +
+                                                  glm::vec3(reachOut)))
                     continue;
                 const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.5)), int(std::floor(p.z))};
                 int sky = 15, blk = 0;
@@ -1758,6 +1766,8 @@ int main(int argc, char** argv) {
                 entities.addMob(m, p, m.prevYaw + (m.yaw - m.prevYaw) * a, m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
                                 m.prevPitch + (m.pitch - m.prevPitch) * a, lightTable[size_t(sky * 16 + blk)],
                                 camera.position);
+                if (m.type == mc::world::MobType::EnderDragon && m.hasBeam && m.deathTime == 0)
+                    entities.addBeam(m.beam, p + glm::dvec3(0.0, 0.75, 0.0), camera.position);
             }
         });
         if (survival && interaction.breakingBlock())
@@ -1778,6 +1788,8 @@ int main(int argc, char** argv) {
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(), inventory.armorPoints());
             if (survival) mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
+            if (mobs.bossHealth() >= 0.0f) // (M20.2)
+                mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f, mc::gfx::rgba(236, 72, 200), guiW);
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             if (sleepTicks > 0) // falling asleep: the screen darkens (vanilla)
                 batch.fill(0, 0, float(guiW), float(guiH),

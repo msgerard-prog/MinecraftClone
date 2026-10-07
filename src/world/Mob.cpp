@@ -36,6 +36,10 @@ const MobInfo& mobInfo(MobType t) {
         // wiki: End Crystal - a 2x2x2 entity that any damage destroys (an explosion of
         // power 6); no gravity; fire doesn't harm it.
         {"minecraft:end_crystal", 1.0f, 2.0, 2.0, 0.0, 0.0f, false, true, true, 1.6f},
+        // wiki: Ender Dragon - 200 health, 10 damage from its head (Normal); flies
+        // through blocks; drawn 4x its model (about 14 blocks long, 12 across the wings).
+        // Our box is its body (vanilla: several part boxes, 16 x 8 overall).
+        {"minecraft:ender_dragon", 200.0f, 6.0, 3.0, 0.0, 10.0f, true, true, true, 4.0f},
     };
     return kInfo[static_cast<int>(t)];
 }

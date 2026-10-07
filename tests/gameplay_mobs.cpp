@@ -1008,3 +1008,85 @@ TEST_CASE("end crystal items go on obsidian or bedrock with room above; ShowBott
     CHECK(back.mobs()[0].type == MobType::EndCrystal);
     CHECK_FALSE(back.mobs()[0].showBottom);
 }
+
+TEST_CASE("ender dragon: head hits count in full, others a quarter + 1; crystals heal it, a broken one hurts it") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.survival = false; // (no fighting back in this test)
+    MobData d = Mobs::make(MobType::EnderDragon, {0.5, 80.0, 0.5}, s.rng);
+    CHECK(d.health == 200.0f);
+    const glm::dvec3 head = Mobs::dragonHead(d);
+    CHECK(Mobs::dragonDamage(d, 8.0f, head) == 8.0f);
+    CHECK(Mobs::dragonDamage(d, 8.0f, d.pos) == 3.0f);
+    d.health = 150.0f;
+    d.lastHealth = 150.0f;
+    REQUIRE(Mobs::add(s.world, d));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::EndCrystal, {10.5, 80.0, 0.5}, s.rng)));
+    s.tick(20);
+    MobData* dragon = nullptr;
+    MobData* crystal = nullptr;
+    for (MobData* m : s.all())
+        (m->type == MobType::EnderDragon ? dragon : crystal) = m;
+    REQUIRE(dragon);
+    REQUIRE(crystal);
+    CHECK(dragon->hasBeam);
+    CHECK(dragon->health >= 151.0f); // 1 every 10 ticks
+    const float before = dragon->health;
+    Mobs::attack(*crystal, 1.0f, s.player.position());
+    s.tick(1);
+    for (MobData* m : s.all())
+        if (m->type == MobType::EnderDragon) CHECK(m->health <= before - 9.0f); // 10 (and the blast)
+}
+
+TEST_CASE("ender dragon: with no crystals it soon lands on the middle column; dying takes 10 s") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.survival = false;
+    for (int y = 64; y <= 67; ++y)
+        s.world.setBlock({0, y, 0}, blockRegistry().defaultState(blocks::Bedrock)); // the exit portal's column
+    for (int cz = -6; cz <= 6; ++cz) // (its ring is 60 blocks out)
+        for (int cx = -6; cx <= 6; ++cx)
+            if (!s.world.chunk({cx, cz})) s.world.createChunk({cx, cz});
+    MobData d = Mobs::make(MobType::EnderDragon, {0.5, 85.0, 0.5}, s.rng);
+    d.lastHealth = d.health;
+    REQUIRE(Mobs::add(s.world, d));
+    bool perched = false;
+    for (int t = 0; t < 4000 && !perched; ++t) {
+        s.tick(1);
+        for (MobData* m : s.all())
+            perched = perched || (m->type == MobType::EnderDragon && m->phase == 6);
+    }
+    REQUIRE(perched);
+    auto dragon = [&]() -> MobData* { // (found again after ticks: spawns may move the mob list)
+        for (MobData* o : s.all())
+            if (o->type == MobType::EnderDragon) return o;
+        return nullptr;
+    };
+    REQUIRE(dragon());
+    CHECK(dragon()->pos.y == doctest::Approx(68.0));
+    // 50 damage while perched makes it take off.
+    dragon()->health -= 60.0f;
+    s.tick(2);
+    CHECK(dragon()->phase == 4);
+    dragon()->health = 0.0f;
+    s.tick(199);
+    CHECK(s.mobs.dragonDeaths().empty());
+    CHECK(s.mobs.bossHealth() == 0.0f);
+    s.tick(1);
+    CHECK(s.mobs.dragonDeaths().size() == 1);
+    for (MobData* o : s.all())
+        CHECK(o->type != MobType::EnderDragon);
+}
+
+TEST_CASE("dragon's breath: a cloud hurts a survival player standing in it once a second") {
+    MobScene s;
+    Projectiles proj;
+    Inventory inventory;
+    proj.addCloud({0.5, 64.0, 0.5}, 3.0f, 100);
+    for (int i = 0; i < 25; ++i)
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    CHECK(s.vitals.health() == doctest::Approx(8.0f)); // 2 x 6
+    for (int i = 0; i < 100; ++i)
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    CHECK(proj.clouds().empty());
+}

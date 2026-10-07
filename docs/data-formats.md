@@ -111,7 +111,8 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            chicken EggLayTime, IsChickenJockey; creeper Fuse,
                            ExplosionRadius, ignited, powered; enderman carriedBlockState
                            {Name, Properties}; end_crystal ShowBottom (byte; M20, with the mob
-                           fields vanilla ignores) } ] }
+                           fields vanilla ignores); ender_dragon DragonPhase (Int, vanilla's
+                           phase numbers) } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

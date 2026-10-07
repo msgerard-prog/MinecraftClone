@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 
 namespace mc::ui {
 
@@ -27,6 +28,10 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
 void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidth, int guiHeight);
 void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300,
                 int armor = 0);
+
+// A boss bar (wiki: Boss bar): its name centred at the top, a 182x5 bar below it
+// filled by `fraction` (the ender dragon's is pink).
+void drawBossBar(gfx::GuiBatch& batch, std::string_view name, float fraction, uint32_t color, int guiWidth);
 
 // The death screen: red tint, "You died!" and how to respawn.
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);

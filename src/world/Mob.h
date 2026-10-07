@@ -29,6 +29,7 @@ enum class MobType : uint8_t {
     Strider,
     // The End (M20).
     EndCrystal, // not a mob in vanilla but an entity; it lives with the mobs here
+    EnderDragon,
     Count
 };
 
@@ -111,6 +112,15 @@ struct MobData {
     int16_t jumpTicks = 0;   // magma cube: ticks to its next jump
     bool angerAlert = false; // zombified piglin: just hit - the ones around join in
     int16_t admireTicks = 0; // piglin: inspecting a gold ingot (barters at the end)
+    // The ender dragon (M20.2): its phase uses vanilla's DragonPhase numbers (saved).
+    uint8_t phase = 0;
+    int16_t phaseTicks = 0;
+    uint8_t node = 0;         // holding pattern: the ring node it flies to
+    int8_t nodeStep = 1;      // around the ring clockwise or not
+    float lastHealth = 0.0f;  // health at the last tick (damage taken while perched)
+    float perchDamage = 0.0f; // damage taken since it landed (takes off at 50)
+    bool hasBeam = false;     // an end crystal heals it: the beam starts at `beam`
+    glm::dvec3 beam{0.0};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 

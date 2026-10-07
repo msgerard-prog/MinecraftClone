@@ -168,4 +168,12 @@ void DebugScreen::draw(gfx::GuiBatch& batch, const DebugInfo& d, int guiWidth) {
     }
 }
 
+void drawBossBar(gfx::GuiBatch& batch, std::string_view name, float fraction, uint32_t color, int guiWidth) {
+    const float x = std::floor((float(guiWidth) - 182.0f) / 2.0f), y = 12.0f;
+    const int w = batch.textWidth(name);
+    batch.text(name, std::floor((float(guiWidth) - float(w)) / 2.0f), y - 9.0f, gfx::rgba(255, 255, 255));
+    batch.fill(x, y, 182.0f, 5.0f, gfx::rgba(40, 20, 40, 200)); // (vanilla: the empty bar sprite)
+    batch.fill(x, y, std::floor(182.0f * std::clamp(fraction, 0.0f, 1.0f)), 5.0f, color);
+}
+
 } // namespace mc::ui

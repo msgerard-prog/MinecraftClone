@@ -20,7 +20,8 @@ Chorus Plant, Shulker; a new End generator kind, the old one stays for existing 
 1. ✅ M20.1 — End generator kind "end2": iron cages and end crystals on the pillars,
    outer islands beyond 1000 blocks, chorus plants and flowers, end stone bricks,
    purpur blocks.
-2. M20.2 — Ender dragon: a multi-part flying entity with vanilla's phases (circling,
+2. M20.2 — (a ✅ the dragon: phases, fireballs/breath, crystal healing and beams,
+   head/body damage, boss bar, death animation; b: the fight) Ender dragon: a multi-part flying entity with vanilla's phases (circling,
    strafing with dragon fireballs, landing on the fountain, charging), crystals
    healing it and exploding; its boss bar, death animation, experience, the exit
    portal opening and the dragon egg; the fight saved in level.dat (DragonFight).

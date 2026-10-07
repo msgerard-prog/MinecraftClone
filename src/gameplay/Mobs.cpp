@@ -224,6 +224,11 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    if (m.type == MobType::EnderDragon) {
+        dragonAi(ctx, m);
+        if (m.phaseTicks > 30000) m.phaseTicks = 30000;
+        return;
+    }
     if (m.type == MobType::EndCrystal) {
         // Doesn't move; its glass cubes turn (the yaw only animates the model).
         m.vel = glm::dvec3(0.0);
@@ -440,6 +445,19 @@ void Mobs::die(Context& ctx, MobData& m) {
             t.player = &ctx.player;
             t.vitals = &ctx.vitals;
         }
+        // A dragon it was healing takes 10 damage (wiki: End Crystal).
+        const glm::dvec3 top = m.pos + glm::dvec3(0.0, 1.4, 0.0);
+        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        for (int dz = -3; dz <= 3; ++dz)
+            for (int dx = -3; dx <= 3; ++dx)
+                if (Chunk* c = ctx.world.chunk({c0.x + dx, c0.z + dz}))
+                    for (MobData& d : c->mobs())
+                        if (d.type == MobType::EnderDragon && d.hasBeam && glm::length(d.beam - top) < 0.5 &&
+                            d.health > 0.0f) {
+                            d.health -= 10.0f;
+                            d.hurtTime = 10;
+                            d.hasBeam = false;
+                        }
         m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 1.0, 0), 6.0f, ctx.rng, ctx.items, changed, t);
         return;
     }
@@ -557,6 +575,8 @@ void Mobs::tick(Context& ctx) {
     m_hostiles = 0;
     m_striders = 0;
     m_angerAlertCount = 0;
+    m_bossHealth = -1.0f;
+    m_dragonDeaths.clear();
     const glm::dvec3 playerPos = ctx.player.position();
     const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))), blockToChunk(int(std::floor(playerPos.z)))};
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
@@ -579,7 +599,19 @@ void Mobs::tick(Context& ctx) {
                 m.angerAlert = false;
                 if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
             }
-            if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
+            if (m.type == MobType::EnderDragon) m_bossHealth = std::max(0.0f, m.health);
+            if (m.health <= 0.0f && m.type == MobType::EnderDragon) {
+                // The dragon rises slowly for 10 s, then is gone (wiki: Ender Dragon -
+                // its death animation; experience, portal and egg: main).
+                ++m.deathTime;
+                m.phase = 9;
+                m.vel = glm::dvec3(0.0);
+                m.pos.y += 0.1;
+                if (m.deathTime >= 200) {
+                    remove = true;
+                    if (m_dragonDeaths.size() < m_dragonDeaths.capacity()) m_dragonDeaths.push_back(m.pos);
+                }
+            } else if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
                 if (++m.deathTime == 1) die(ctx, m);
                 if (m.deathTime >= 20) remove = true;
             } else {

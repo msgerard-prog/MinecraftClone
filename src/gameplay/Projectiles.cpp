@@ -136,6 +136,24 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_chicks.clear();
     m_eyeDrops.clear();
     m_explosions.clear();
+    // Breath clouds: Instant Damage once a second to a survival player standing in one.
+    for (size_t i = 0; i < m_clouds.size();) {
+        BreathCloud& c = m_clouds[i];
+        if (c.cooldown > 0) --c.cooldown;
+        const glm::dvec3 feet = player.position();
+        const double dx = feet.x - c.pos.x, dz = feet.z - c.pos.z;
+        if (vitals && survival && c.cooldown == 0 && dx * dx + dz * dz < double(c.radius) * c.radius &&
+            feet.y > c.pos.y - 1.0 && feet.y < c.pos.y + 1.5) {
+            vitals->addEffect(Effect::InstantDamage, 0, 1);
+            c.cooldown = 20;
+        }
+        if (--c.ticks <= 0) {
+            m_clouds[i] = m_clouds.back();
+            m_clouds.pop_back();
+        } else {
+            ++i;
+        }
+    }
     static const ItemId arrowItem = *itemRegistry().find("arrow");
     for (size_t i = 0; i < m_items.size();) {
         Projectile& p = m_items[i];
@@ -184,7 +202,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 }
             }
             const bool fireball = p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
-            if (p.kind == ProjectileKind::SplashPotion && (target != Target::None || block)) {
+            if (p.kind == ProjectileKind::DragonFireball && (target != Target::None || block)) {
+                // Its breath lingers where it burst, on the floor below (wiki: Dragon Fireball).
+                glm::dvec3 at = p.pos + dir * reach;
+                for (int k = 0; k < 8 && !blockRegistry().collides(world.getBlock(
+                                             {int(std::floor(at.x)), int(std::floor(at.y - 0.5)), int(std::floor(at.z))}));
+                     ++k)
+                    at.y -= 1.0;
+                addCloud(at, 3.0f, 600);
+                remove = true;
+            } else if (p.kind == ProjectileKind::SplashPotion && (target != Target::None || block)) {
                 // Splash (wiki: Splash Potion): entities whose hitbox touches an
                 // 8.25 x 4.25 x 8.25 box around the impact and whose nearest point is
                 // within 4 blocks get the effect, scaled by 1 - distance / 4 (a direct hit:
@@ -222,6 +249,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                 for (MobData& m : ch->mobs()) {
                                     const double sm = scaleFor(Mobs::box(m), &m == direct);
                                     if (sm <= 0.0 || m.health <= 0.0f) continue;
+                                    // (the dragon and crystals take no effects)
+                                    if (m.type == MobType::EnderDragon || m.type == MobType::EndCrystal) continue;
                                     float amount = 0.0f;
                                     bool harm = true;
                                     if (water) {
@@ -300,11 +329,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         }
                     } else {
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                        const bool perchedDragon = m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6);
                         if (m.type == MobType::Enderman) {
                             m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
+                        } else if (perchedDragon) {
+                            // A perched dragon shrugs arrows off (wiki: Ender Dragon).
                         } else if (m.hurtTime == 0) {
                             if (p.fromPlayer) m.lastHurtByPlayer = true;
-                            m.health -= damage;
+                            m.health -= m.type == MobType::EnderDragon
+                                            ? Mobs::dragonDamage(m, float(damage), p.pos + dir * reach)
+                                            : float(damage);
                             m.hurtTime = 10;
                             const glm::dvec2 h(p.vel.x, p.vel.z);
                             if (glm::length(h) > 1e-6)
@@ -331,7 +365,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             } else {
                 p.pos += p.vel;
                 const bool inWater = blockRegistry().blockOf(world.getBlock(cell)) == blocks::Water;
-                if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball) { // (fireballs fly straight)
+                if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball &&
+                    p.kind != ProjectileKind::DragonFireball) { // (fireballs fly straight)
                     const double drag = inWater ? 0.6 : 0.99;
                     p.vel *= drag;
                     p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ? 0.05 : 0.03;

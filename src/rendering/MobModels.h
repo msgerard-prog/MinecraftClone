@@ -10,7 +10,7 @@ namespace mc::gfx {
 // layouts). Units: pixels (1/16 block), origin at the feet centre, +Y up, the mob
 // facing +Z. Parts rotate about their pivot for animation.
 struct MobPart {
-    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward }; // LegA/B swing opposite
+    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward, WingL, WingR }; // LegA/B swing opposite
     float from[3], to[3];
     float pivot[3];
     int u, v; // box-UV origin in the mob's 64x64 texture
@@ -41,6 +41,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/piglin.png",  "assets/minecraft/textures/entity/clone/hoglin.png",
         "assets/minecraft/textures/entity/clone/strider.png",
         "assets/minecraft/textures/entity/clone/end_crystal.png",
+        "assets/minecraft/textures/entity/clone/ender_dragon.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png"};
     return kPaths[row];
