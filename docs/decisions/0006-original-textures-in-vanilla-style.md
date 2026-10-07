@@ -4,7 +4,7 @@
   game to look like Minecraft without their own jar — "recreate, not copy" — and a
   little sharper, more vivid.
 - Decision: Every texture is original pixel art made by our generator
-  (`tools/textures/gen_placeholders.py`) following `docs/art-style.md`: vanilla's
+  (`tools/textures/gen_textures.py`) following `docs/art-style.md`: vanilla's
   subjects, file names and 16x16 style; our own palettes, shapes and pixel layouts;
   crisp ramps, top-left light, bevels, more contrast than vanilla. Never traced,
   sampled or derived from Mojang files. Users can still override with their own pack.

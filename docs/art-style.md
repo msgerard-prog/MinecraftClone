@@ -33,11 +33,19 @@ Same *style and subject*, independently made — never the same *pixels*.
   (grass side fringe), using ramp × plains tint so the colours match the top.
 
 ## How textures are made
-`tools/textures/gen_placeholders.py`: one function per texture, palettes at the top,
-shared helpers (`fbm`, `voronoi`, `bevel`, `ramp`). Each texture uses its own seeded
-RNG, so editing one never changes another.
+`tools/textures/gen_textures.py` drives the `tools/textures/texgen/` library:
+- `core.py`: image type, `ramp()` palettes (built from one base colour: shadows drift
+  toward blue-violet, highlights toward warm yellow, pale colours shift less), tileable
+  noise/cells, bevels, PNG output.
+- `materials.py`: reusable painters (stone, cells, bricks, tiles, polished, chiseled,
+  cracked, mossy, ores, metal/gem blocks, soils, grass, ice, planks, bark, log ends...).
+- `blocks_*.py`: tables mapping every vanilla texture name to a painter + palette.
+  Base colours are picked from a description of the material, never sampled.
+- `registry.py`: name → painter, family, optional animation `.mcmeta`.
+Each texture's RNG is seeded by its name, so editing one never changes another.
 ```
-tools/textures/gen_placeholders.py --preview out/screenshots/tex.png
+tools/textures/gen_textures.py --preview out/screenshots/tex     # all + sheets
+tools/textures/gen_textures.py --only stone,dirt                 # just these
 ```
-The preview shows each texture at 8x and as a 3x3 tiling. Then check in game
-(`visual-check` skill): a close-up, the default view, and from far away.
+Preview sheets (one per family, 4x, transparency on a checker, tinted textures
+tinted) print their cell order. Then check in game (`visual-check` skill).
