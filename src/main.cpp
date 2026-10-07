@@ -24,6 +24,7 @@
 #include "gameplay/Commands.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
+#include "gameplay/Brewing.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/ItemEntities.h"
 #include "gameplay/Mining.h"
@@ -335,7 +336,8 @@ int main(int argc, char** argv) {
         // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!storage || storage->load(c)) c.clearDirty();
-            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty() || !c.spawners().empty())
+            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty() || !c.spawners().empty() ||
+                !c.brewingStands().empty())
                 world.markTicking(c.pos());
         });
         renderer.setRenderDistance(8);
@@ -636,6 +638,19 @@ int main(int argc, char** argv) {
         window.pollEvents();
         // An open chest screen follows its block(s) (closed if broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
+        // An open brewing stand screen follows its block (closed if it was broken).
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
+            mc::world::Chunk* c = world.chunk(containerBlock.chunk());
+            mc::world::BrewingData* b = c ? c->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                       mc::world::blockToLocal(containerBlock.z))
+                                          : nullptr;
+            container.setBrewing(b);
+            if (!b) {
+                screenDrops.clear();
+                container.close(inventory, screenDrops);
+                if (!screenshotMode) window.setCursorCaptured(true);
+            }
+        }
         // The open furnace screen follows its block (closed if it was broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -692,7 +707,8 @@ int main(int argc, char** argv) {
                                 inventory, screenDrops);
             // Contents edited through the screen: the block entity's chunk needs saving.
             if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
-                container.type() == mc::ui::ContainerScreen::Type::Furnace) {
+                container.type() == mc::ui::ContainerScreen::Type::Furnace ||
+                container.type() == mc::ui::ContainerScreen::Type::Brewing) {
                 if (mc::world::Chunk* c = world.chunk(containerBlock.chunk())) c->markDirty();
                 if (chestSecond)
                     if (mc::world::Chunk* c = world.chunk(chestSecond->chunk())) c->markDirty();
@@ -771,6 +787,13 @@ int main(int argc, char** argv) {
                     } else if (block == mc::world::blocks::Furnace) {
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
+                        window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::BrewingStand) {
+                        containerBlock = lastHit->block;
+                        mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
+                        container.openBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                               mc::world::blockToLocal(containerBlock.z))
+                                                 : nullptr);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
                         pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
@@ -1524,6 +1547,8 @@ int main(int argc, char** argv) {
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
+                for (auto& br : c.brewingStands()) // brewing stands brew (M19.4)
+                    if (mc::tickBrewing(br.data)) c.markDirty();
                 for (auto& f : c.furnaces()) {
                     const bool changedLit = mc::tickFurnace(f.data);
                     if (f.data.lit() || f.data.cookTime > 0 || changedLit) c.markDirty();
@@ -1568,7 +1593,11 @@ int main(int argc, char** argv) {
             else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||
                      obBlock == mc::world::blocks::DamagedAnvil)
                 container.openAnvil();
-            else
+            else if (obBlock == mc::world::blocks::BrewingStand) {
+                mc::world::Chunk* bc = world.chunk(ob.chunk());
+                container.openBrewing(
+                    bc ? bc->brewing(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr);
+            } else
                 openChestAt(ob);
         }
         if (openInventoryPending && gameTime > 0) {
@@ -1725,6 +1754,12 @@ int main(int argc, char** argv) {
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
                 mc::world::Chunk* fc = world.chunk(containerBlock.chunk());
                 container.setFurnace(fc ? fc->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                      mc::world::blockToLocal(containerBlock.z))
+                                        : nullptr);
+            }
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
+                mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
+                container.setBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
                                                       mc::world::blockToLocal(containerBlock.z))
                                         : nullptr);
             }

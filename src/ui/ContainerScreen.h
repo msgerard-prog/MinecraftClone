@@ -22,7 +22,7 @@ namespace mc::ui {
 // as fit); clicking outside drops the carried stack. GL-free.
 class ContainerScreen {
 public:
-    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil };
+    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil, Brewing };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
     int height() const { return m_type == Type::Chest ? 114 + chestRows() * 18 : kHeight; }
@@ -61,6 +61,12 @@ public:
                Inventory& inventory, std::vector<world::ItemStack>& drops);
 
     void setFurnace(Furnace* furnace) { m_furnace = furnace; }
+    // The brewing stand (M19.4), owned by the world; re-pointed every frame like furnaces.
+    void openBrewing(world::BrewingData* stand) {
+        open(Type::Brewing);
+        m_brewing = stand;
+    }
+    void setBrewing(world::BrewingData* stand) { m_brewing = stand; }
     const world::ItemStack& carried() const { return m_carried; }
     // Recipe uses whose experience was earned by taking smelted items out of a
     // furnace since the last call (main pays them with recipesExperience).
@@ -75,7 +81,20 @@ public:
 
 private:
     struct Slot {
-        enum class Kind { Inv, Grid, Result, FurnaceIn, FurnaceFuel, FurnaceOut, Chest, Armor, Offhand } kind;
+        enum class Kind {
+            Inv,
+            Grid,
+            Result,
+            FurnaceIn,
+            FurnaceFuel,
+            FurnaceOut,
+            Chest,
+            Armor,
+            Offhand,
+            BrewBottle,
+            BrewIngredient,
+            BrewFuel
+        } kind;
         int index;
         int x, y; // panel coordinates of the 16x16 item area
     };
@@ -91,6 +110,7 @@ private:
     bool m_open = false;
     Type m_type = Type::Inventory;
     Furnace* m_furnace = nullptr;
+    world::BrewingData* m_brewing = nullptr;
     std::array<world::ChestData*, 2> m_chests{};
     std::array<world::ItemStack, 9> m_grid{};
     world::ItemStack m_result;

@@ -45,6 +45,15 @@ struct SpawnerData {
     int16_t delay = 20;
 };
 
+// A brewing stand (M19.4; wiki: Brewing Stand › Block data): three bottles, the
+// ingredient, blaze powder fuel; brews left on the fuel and ticks left on the brew.
+struct BrewingData {
+    std::array<ItemStack, 3> bottles{};
+    ItemStack ingredient, fuel;
+    int fuelLeft = 0;
+    int brewTime = 0;
+};
+
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.
 struct ChestData {
     std::array<ItemStack, 27> items{};

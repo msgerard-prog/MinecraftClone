@@ -130,7 +130,8 @@ cooking_total_time (shorts, 1.21.4+ names; BurnTime/CookTime still read), Recipe
 recipe's experience, paid when the output is taken or the furnace broken; ids we lack are
 kept; v0.17.0's float `clone_experience` is read as uses of minecraft:stone, 0.1 each) }, chests: { id
 "minecraft:chest", x, y, z, keepPacked, Items [ { Slot 0..26, id, count, components } ] } ]
-(a double chest is two chests); spawners: { id "minecraft:mob_spawner", x, y, z, Delay (short),
+(a double chest is two chests); brewing stands: { id "minecraft:brewing_stand", x, y, z, Items [ Slot
+0-2 bottles, 3 ingredient, 4 fuel ], BrewTime (short), Fuel (byte) } (M19.4); spawners: { id "minecraft:mob_spawner", x, y, z, Delay (short),
 SpawnData { entity { id } }, MinSpawnDelay 200, MaxSpawnDelay 800, SpawnCount 4,
 MaxNearbyEntities 6, RequiredPlayerRange 16, SpawnRange 4 } (M18.3; the fixed values are
 written for vanilla, ours are constant). Not written:

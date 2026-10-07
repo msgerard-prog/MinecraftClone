@@ -258,6 +258,21 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     face.sprite = sprite("nether_bricks");
                     face.uv[0] = 6, face.uv[1] = 0, face.uv[2] = 10, face.uv[3] = 16;
                 }
+            } else if (name == "brewing_stand") { // a blaze rod on a stone base (vanilla: 3 feet)
+                m.visible = true;
+                m.boxCount = 2;
+                const uint8_t from[2][3] = {{2, 0, 2}, {7, 2, 7}}, to[2][3] = {{14, 2, 14}, {9, 14, 9}};
+                for (int k = 0; k < 2; ++k) {
+                    BakedBox& b = m.boxes[k];
+                    for (int a = 0; a < 3; ++a)
+                        b.from[a] = from[k][a], b.to[a] = to[k][a];
+                    for (int d = 0; d < 6; ++d) {
+                        auto& face = b.faces[d];
+                        face.sprite = sprite(k == 0 ? "brewing_stand_base" : "brewing_stand");
+                        face.uv[0] = k == 0 ? 2 : 7, face.uv[1] = k == 0 ? 2 : 2, face.uv[2] = k == 0 ? 14 : 9;
+                        face.uv[3] = k == 0 ? 14 : 14;
+                    }
+                }
             } else if (name == "polished_basalt") {
                 m = single(cubeColumn(sprite("polished_basalt_side"), sprite("polished_basalt_top"),
                                       registry.value(state, "axis").value_or("y")));

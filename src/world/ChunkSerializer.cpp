@@ -23,6 +23,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.furnaces = chunk.furnaces();
     s.chests = chunk.chests();
     s.spawners = chunk.spawners();
+    s.brewing = chunk.brewingStands();
     s.mobs = chunk.mobs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
@@ -367,6 +368,23 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& br : chunk.brewing) { // wiki: Brewing Stand › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:brewing_stand"));
+        e.put("x", int32_t{chunk.pos.x * 16 + br.x});
+        e.put("y", int32_t{br.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + br.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items; // Slot 0-2 bottles, 3 ingredient, 4 fuel
+        for (int i = 0; i < 3; ++i)
+            if (!br.data.bottles[size_t(i)].empty()) items.emplace_back(itemNbt(br.data.bottles[size_t(i)], i));
+        if (!br.data.ingredient.empty()) items.emplace_back(itemNbt(br.data.ingredient, 3));
+        if (!br.data.fuel.empty()) items.emplace_back(itemNbt(br.data.fuel, 4));
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        e.put("BrewTime", int16_t(br.data.brewTime));
+        e.put("Fuel", int8_t(br.data.fuelLeft));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& sp : chunk.spawners) { // wiki: Monster Spawner › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:mob_spawner"));
@@ -537,11 +555,28 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
         for (const nbt::Tag& t : entities->items) {
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
-            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner")) continue;
+            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
+                        *id != "minecraft:brewing_stand"))
+                continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
+            if (*id == "minecraft:brewing_stand") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::BrewingStand) continue;
+                BrewingData& br = chunk.addBrewing(x, y, z);
+                if (const nbt::List* items = e->list("Items"))
+                    for (const nbt::Tag& it : items->items)
+                        if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                            const auto slot = ic->integer("Slot").value_or(-1);
+                            if (slot >= 0 && slot < 3) br.bottles[size_t(slot)] = itemFromNbt(*ic);
+                            else if (slot == 3) br.ingredient = itemFromNbt(*ic);
+                            else if (slot == 4) br.fuel = itemFromNbt(*ic);
+                        }
+                br.brewTime = static_cast<int>(std::clamp<int64_t>(e->integer("BrewTime").value_or(0), 0, 400));
+                br.fuelLeft = static_cast<int>(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 20));
+                continue;
+            }
             if (*id == "minecraft:mob_spawner") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Spawner) continue;
                 SpawnerData& sp = chunk.addSpawner(x, y, z);

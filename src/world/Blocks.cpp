@@ -418,6 +418,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("gilded_blackstone", {.hardness = 1.5f, .resistance = 6.0f}), blocks::GildedBlackstone);
     check(r.add("gold_block", {.hardness = 3.0f, .resistance = 6.0f}), blocks::GoldBlock);
     check(r.add("polished_basalt", {.hardness = 1.25f, .resistance = 4.2f}, {{&axis, "y"}}), blocks::PolishedBasalt);
+    // Brewing stand (wiki: hardness 0.5, light 1; a rod on a base - not a full cube).
+    check(r.add("brewing_stand", {.hardness = 0.5f, .resistance = 0.5f, .lightEmission = 1, .opaqueCube = false,
+                                  .collision = false, .layer = RenderLayer::Cutout}),
+          blocks::BrewingStand);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

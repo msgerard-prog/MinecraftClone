@@ -21,6 +21,12 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
     if (const world::FurnaceData* f = c->furnace(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
         for (const world::ItemStack* s : {&f->input, &f->fuel, &f->output})
             if (!s->empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, *s});
+    if (const world::BrewingData* br = c->brewing(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) {
+        for (const world::ItemStack& s : br->bottles)
+            if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
+        for (const world::ItemStack* s : {&br->ingredient, &br->fuel})
+            if (!s->empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, *s});
+    }
     if (const world::ChestData* ch = c->chest(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
         for (const world::ItemStack& s : ch->items)
             if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});

@@ -1,5 +1,7 @@
 #include "ui/ContainerScreen.h"
 
+#include "gameplay/Brewing.h"
+
 #include "gameplay/Anvil.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/Recipes.h"
@@ -10,6 +12,18 @@
 #include <cstdio>
 
 namespace mc::ui {
+
+namespace {
+
+// What a brewing stand's bottle slot takes (wiki): potions, splash potions, glass bottles.
+bool isBottle(const world::ItemStack& s) {
+    static const world::ItemId potion = *world::itemRegistry().find("potion"),
+                               splash = *world::itemRegistry().find("splash_potion"),
+                               bottle = *world::itemRegistry().find("glass_bottle");
+    return !s.empty() && (s.item == potion || s.item == splash || s.item == bottle);
+}
+
+} // namespace
 
 namespace {
 
@@ -103,6 +117,12 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             for (int i = 0; i < 9; ++i)
                 out.push_back({K::Grid, i, 30 + (i % 3) * 18, 17 + (i / 3) * 18});
             out.push_back({K::Result, 0, 124, 35});
+        } else if (type == Type::Brewing) { // (vanilla's brewing stand layout)
+            out.push_back({K::BrewBottle, 0, 56, 51});
+            out.push_back({K::BrewBottle, 1, 79, 58});
+            out.push_back({K::BrewBottle, 2, 102, 51});
+            out.push_back({K::BrewIngredient, 0, 79, 17});
+            out.push_back({K::BrewFuel, 0, 17, 17});
         } else {
             out.push_back({K::FurnaceIn, 0, 56, 17});
             out.push_back({K::FurnaceFuel, 0, 56, 53});
@@ -114,10 +134,11 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
     static const std::vector<Slot> inventory = build(Type::Inventory, 0), crafting = build(Type::Crafting, 0),
                                    furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
                                    chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
-                                   anvil = build(Type::Anvil, 0);
+                                   anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0);
     if (m_type == Type::Chest) return chestRows() == 6 ? chest6 : chest3;
     if (m_type == Type::Enchanting) return enchanting;
     if (m_type == Type::Anvil) return anvil;
+    if (m_type == Type::Brewing) return brewing;
     return m_type == Type::Inventory ? inventory : m_type == Type::Crafting ? crafting : furnace;
 }
 
@@ -129,6 +150,9 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
     case Slot::Kind::FurnaceIn: return m_furnace ? &m_furnace->input : nullptr;
     case Slot::Kind::FurnaceFuel: return m_furnace ? &m_furnace->fuel : nullptr;
     case Slot::Kind::FurnaceOut: return m_furnace ? &m_furnace->output : nullptr;
+    case Slot::Kind::BrewBottle: return m_brewing ? &m_brewing->bottles[size_t(s.index)] : nullptr;
+    case Slot::Kind::BrewIngredient: return m_brewing ? &m_brewing->ingredient : nullptr;
+    case Slot::Kind::BrewFuel: return m_brewing ? &m_brewing->fuel : nullptr;
     case Slot::Kind::Armor: return const_cast<world::ItemStack*>(&inventory.armor(s.index));
     case Slot::Kind::Offhand: return const_cast<world::ItemStack*>(&inventory.offhand());
     case Slot::Kind::Chest: {
@@ -140,7 +164,7 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
 }
 
 void ContainerScreen::updateResult() {
-    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting) return;
+    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Brewing) return;
     if (m_type == Type::Anvil) {
         const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
         m_result = r.out;
@@ -322,6 +346,29 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     if (smelt(v)) into(m_furnace->input);
                     else if (fuelTicks(v) > 0) into(m_furnace->fuel);
                 }
+                if (m_type == Type::Brewing && m_brewing) { // potions to free bottle slots, then fuel, ingredient
+                    static const world::ItemId powder = *world::itemRegistry().find("blaze_powder");
+                    if (isBottle(v)) {
+                        for (auto& b : m_brewing->bottles)
+                            if (b.empty() && !v.empty()) {
+                                b = v;
+                                b.count = 1;
+                                if (--v.count == 0) v = {};
+                            }
+                    } else if (v.item == powder && (m_brewing->fuel.empty() || m_brewing->fuel.sameKind(v))) {
+                        const int n = std::min<int>(v.count, 64 - m_brewing->fuel.count);
+                        if (m_brewing->fuel.empty()) m_brewing->fuel = {v.item, 0};
+                        m_brewing->fuel.count = uint8_t(m_brewing->fuel.count + n);
+                        v.count = uint8_t(v.count - n);
+                        if (v.count == 0) v = {};
+                    } else if (isBrewingIngredient(v) && (m_brewing->ingredient.empty() || m_brewing->ingredient.sameKind(v))) {
+                        const int n = std::min<int>(v.count, maxStack(v) - m_brewing->ingredient.count);
+                        if (m_brewing->ingredient.empty()) m_brewing->ingredient = {v.item, 0};
+                        m_brewing->ingredient.count = uint8_t(m_brewing->ingredient.count + n);
+                        v.count = uint8_t(v.count - n);
+                        if (v.count == 0) v = {};
+                    }
+                }
                 if (!v.empty()) {
                     if (slot.index < Inventory::kHotbar) moveToInventory(v, inventory, 9, 36);
                     else moveToInventory(v, inventory, 0, 9);
@@ -353,6 +400,23 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         // An armor slot only takes its own piece (wiki: Inventory).
         if (slot.kind == Slot::Kind::Armor && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).armorSlot != slot.index + 1)
+            return;
+        // Brewing stand slots (wiki: Brewing Stand): bottles one each (potions and glass
+        // bottles), the ingredient slot only ingredients, the fuel slot blaze powder.
+        if (slot.kind == Slot::Kind::BrewBottle && !m_carried.empty()) {
+            if (!isBottle(m_carried)) return;
+            if (v.empty()) {
+                v = m_carried;
+                v.count = 1;
+                if (--m_carried.count == 0) m_carried = {};
+                store();
+                return;
+            }
+            if (m_carried.count != 1) return;
+        }
+        if (slot.kind == Slot::Kind::BrewIngredient && !m_carried.empty() && !isBrewingIngredient(m_carried)) return;
+        if (slot.kind == Slot::Kind::BrewFuel && !m_carried.empty() &&
+            world::itemRegistry().item(m_carried.item).id != "minecraft:blaze_powder")
             return;
         // The fuel slot only takes fuel (wiki: Furnace › Fuel).
         if (slot.kind == Slot::Kind::FurnaceFuel && !m_carried.empty() && fuelTicks(m_carried) == 0) return;
@@ -411,7 +475,8 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 1, top + 1, 2, float(h - 3), kLight);
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
-    const char* title = m_type == Type::Furnace      ? "Furnace"
+    const char* title = m_type == Type::Brewing      ? "Brewing Stand"
+                        : m_type == Type::Furnace    ? "Furnace"
                         : m_type == Type::Chest      ? (chestRows() == 6 ? "Large Chest" : "Chest")
                         : m_type == Type::Enchanting ? "Enchant"
                         : m_type == Type::Anvil      ? "Repair & Name"
@@ -462,6 +527,15 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     }
     if (m_type == Type::Inventory) arrow(134, 28, 0);
     if (m_type == Type::Crafting) arrow(90, 35, 0);
+    if (m_type == Type::Brewing && m_brewing) {
+        // Brewing progress down beside the ingredient; fuel left under the fuel slot.
+        const float done = m_brewing->brewTime > 0 ? 1.0f - float(m_brewing->brewTime) / float(kBrewTicks) : 0.0f;
+        b.fill(left + 99, top + 16, 6, 28, kDark);
+        if (done > 0) b.fill(left + 99, top + 16, 6, 28 * done, kLight);
+        b.fill(left + 16, top + 38, 18, 4, kDark);
+        if (m_brewing->fuelLeft > 0)
+            b.fill(left + 16, top + 38, 18.0f * float(m_brewing->fuelLeft) / float(kBrewFuel), 4, gfx::rgba(240, 140, 30));
+    }
     if (m_type == Type::Furnace && m_furnace) {
         arrow(79, 34, float(m_furnace->cookTime) / float(kFurnaceCookTicks));
         // Flame gauge between input and fuel: burn time left.

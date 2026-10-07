@@ -249,6 +249,7 @@ enum : BlockId {
     GildedBlackstone,
     GoldBlock,
     PolishedBasalt, // axis
+    BrewingStand,   // (M19.4)
     Count
 };
 } // namespace blocks

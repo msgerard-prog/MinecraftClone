@@ -1016,3 +1016,23 @@ TEST_CASE("potions save as minecraft:potion_contents; effects as Player.active_e
     REQUIRE(!r->inventory.empty());
     CHECK(r->inventory[0].potion == "strong_healing");
 }
+
+TEST_CASE("brewing stands save their bottles, ingredient, fuel and timers") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({2, 70, 2}, blockRegistry().defaultState(blocks::BrewingStand));
+    BrewingData& b = *w.chunk({0, 0})->brewing(2, 70, 2);
+    b.bottles[1] = {*itemRegistry().find("potion"), 1};
+    b.bottles[1].potion = static_cast<uint8_t>(Potion::Awkward);
+    b.ingredient = {*itemRegistry().find("sugar"), 3};
+    b.fuelLeft = 17;
+    b.brewTime = 123;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(*w.chunk({0, 0}))))), back));
+    const BrewingData* r = back.brewing(2, 70, 2);
+    REQUIRE(r);
+    CHECK(r->bottles[1].potion == static_cast<uint8_t>(Potion::Awkward));
+    CHECK(r->ingredient.count == 3);
+    CHECK(r->fuelLeft == 17);
+    CHECK(r->brewTime == 123);
+}

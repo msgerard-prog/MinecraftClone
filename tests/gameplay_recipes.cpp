@@ -146,3 +146,48 @@ TEST_CASE("furnace: smelting counts recipe uses; taking pays uses x experience, 
     f.countRecipe(internRecipeId("minecraft:unknown_recipe"), 5);
     CHECK(takeFurnaceExperience(f, rng) == 0);
 }
+
+#include "gameplay/Brewing.h"
+#include "world/Potions.h"
+
+namespace {
+ItemStack potionOf(Potion p, const char* item = "potion") {
+    ItemStack s = I(item);
+    s.potion = static_cast<uint8_t>(p);
+    return s;
+}
+} // namespace
+
+TEST_CASE("brewing: water + nether wart = awkward in 400 ticks on one blaze powder use; then the effect potions") {
+    BrewingData b;
+    b.bottles = {potionOf(Potion::Water), potionOf(Potion::Water), {}};
+    b.ingredient = I("nether_wart", 2);
+    b.fuel = I("blaze_powder");
+    for (int t = 0; t < kBrewTicks + 2; ++t)
+        tickBrewing(b);
+    CHECK(b.bottles[0].potion == static_cast<uint8_t>(Potion::Awkward));
+    CHECK(b.bottles[1].potion == static_cast<uint8_t>(Potion::Awkward));
+    CHECK(b.bottles[2].empty());
+    CHECK(b.ingredient.count == 1); // one used for both bottles
+    CHECK(b.fuel.empty());
+    CHECK(b.fuelLeft == kBrewFuel - 1); // one powder = 20 brews
+    // Awkward + sugar = swiftness; redstone extends; gunpowder makes it splash.
+    CHECK(brewResult(I("sugar"), potionOf(Potion::Awkward))->potion == static_cast<uint8_t>(Potion::Swiftness));
+    CHECK(brewResult(I("redstone"), potionOf(Potion::Swiftness))->potion == static_cast<uint8_t>(Potion::LongSwiftness));
+    CHECK(brewResult(I("glowstone_dust"), potionOf(Potion::Swiftness))->potion == static_cast<uint8_t>(Potion::StrongSwiftness));
+    CHECK(brewResult(I("fermented_spider_eye"), potionOf(Potion::Swiftness))->potion == static_cast<uint8_t>(Potion::Slowness));
+    CHECK(itemRegistry().item(brewResult(I("gunpowder"), potionOf(Potion::Healing))->item).id == "minecraft:splash_potion");
+    CHECK_FALSE(brewResult(I("dirt"), potionOf(Potion::Awkward)));
+    CHECK_FALSE(brewResult(I("sugar"), potionOf(Potion::Water)) == std::nullopt); // (mundane)
+    // Taking the ingredient away stops a brew.
+    BrewingData s;
+    s.bottles[0] = potionOf(Potion::Awkward);
+    s.ingredient = I("sugar");
+    s.fuelLeft = 5;
+    for (int t = 0; t < 10; ++t)
+        tickBrewing(s);
+    s.ingredient = {};
+    tickBrewing(s);
+    CHECK(s.brewTime == 0);
+    CHECK(s.bottles[0].potion == static_cast<uint8_t>(Potion::Awkward));
+}

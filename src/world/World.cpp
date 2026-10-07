@@ -16,7 +16,8 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     auto& slot = m_chunks[chunk->pos()];
     slot = std::move(chunk);
     slot->inTickingList = false;
-    if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty())
+    if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
+        !slot->brewingStands().empty())
         markTicking(slot->pos());
     return *slot;
 }
@@ -65,7 +66,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     // Block entities follow their block (a furnace's contents are dropped by the
     // caller before it breaks it).
     const BlockId b = blockRegistry().blockOf(state);
-    if (was != b && (was == blocks::Furnace || was == blocks::Chest || was == blocks::Spawner))
+    if (was != b && (was == blocks::Furnace || was == blocks::Chest || was == blocks::Spawner ||
+                     was == blocks::BrewingStand))
         c->removeBlockEntity(x, p.y, z); // replaced
     if (b == blocks::Furnace) {
         c->addFurnace(x, p.y, z);
@@ -74,6 +76,9 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         if (c->chest(x, p.y, z) == nullptr) c->addChest(x, p.y, z);
     } else if (b == blocks::Spawner) {
         c->addSpawner(x, p.y, z);
+        markTicking(c->pos());
+    } else if (b == blocks::BrewingStand) {
+        c->addBrewing(x, p.y, z);
         markTicking(c->pos());
     }
 }

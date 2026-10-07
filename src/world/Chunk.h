@@ -67,6 +67,7 @@ public:
         m_furnaces.clear();
         m_chests.clear();
         m_spawners.clear();
+        m_brewing.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -176,7 +177,25 @@ public:
     }
     std::vector<SpawnerEntry>& spawners() { return m_spawners; }
     const std::vector<SpawnerEntry>& spawners() const { return m_spawners; }
+    struct BrewingEntry {
+        int x, y, z; // local x/z, world y
+        BrewingData data;
+    };
+    BrewingData* brewing(int x, int y, int z) {
+        for (auto& b : m_brewing)
+            if (b.x == x && b.y == y && b.z == z) return &b.data;
+        return nullptr;
+    }
+    BrewingData& addBrewing(int x, int y, int z) {
+        if (BrewingData* b = brewing(x, y, z)) return *b;
+        m_dirty = true;
+        m_brewing.push_back({x, y, z, {}});
+        return m_brewing.back().data;
+    }
+    std::vector<BrewingEntry>& brewingStands() { return m_brewing; }
+    const std::vector<BrewingEntry>& brewingStands() const { return m_brewing; }
     void removeBlockEntity(int x, int y, int z) {
+        std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
         std::erase_if(m_furnaces, [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
         std::erase_if(m_chests, [&](const ChestEntry& c) { return c.x == x && c.y == y && c.z == z; });
@@ -259,6 +278,7 @@ private:
     std::vector<FurnaceEntry> m_furnaces;
     std::vector<ChestEntry> m_chests;
     std::vector<SpawnerEntry> m_spawners;
+    std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;
     TickSet m_tickSet; // keys of m_blockTicks (valid unless edited in bulk)

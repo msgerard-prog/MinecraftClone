@@ -26,6 +26,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Sandstone:
     case blocks::RedSandstone:
     case blocks::Terracotta:
+    case blocks::BrewingStand: // (wiki: any pickaxe)
     case blocks::NetherBricks:
     case blocks::NetherBrickFence:
     case blocks::PolishedBlackstoneBricks:
