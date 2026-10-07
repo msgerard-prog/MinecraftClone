@@ -12,6 +12,7 @@ public:
     static constexpr int kMaxFood = 20;
 
     float health() const { return m_health; }
+    void setVoidY(double y) { m_voidY = y; } // per dimension
     int food() const { return m_food; }
     float saturation() const { return m_saturation; }
     float exhaustion() const { return m_exhaustion; }
@@ -51,6 +52,7 @@ private:
     float m_exhaustion = 0.0f;
     int m_foodTimer = 0;     // regeneration / starvation clock
     int m_invulnerable = 0;  // ticks left after a hit
+    double m_voidY = -128.0;
     double m_fallStartY = 0.0;
     double m_lastY = 0.0;
     bool m_falling = false;

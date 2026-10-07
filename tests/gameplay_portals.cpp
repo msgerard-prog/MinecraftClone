@@ -114,14 +114,23 @@ TEST_CASE("end portal frames with all 12 eyes open the portal; the arrival platf
         }
     const ItemId eye = *itemRegistry().find("ender_eye");
     for (size_t i = 0; i < ring.size(); ++i) {
-        CHECK(portals::useItem(s.world, eye, ring[i], Direction::Up, s.changed));
+        CHECK(portals::useItem(s.world, Dimension::Overworld, eye, ring[i], Direction::Up, s.changed));
         CHECK(s.at({0, 64, 0}) == (i + 1 == ring.size() ? blocks::EndPortal : 0));
     }
-    CHECK_FALSE(portals::useItem(s.world, eye, ring[0], Direction::Up, s.changed)); // already has one
+    CHECK_FALSE(portals::useItem(s.world, Dimension::Overworld, eye, ring[0], Direction::Up, s.changed)); // already has one
     s.world.createChunk({6, 0});
     s.world.createChunk({6, -1});
     const glm::dvec3 arrive = portals::endPlatform(s.world, s.changed);
     CHECK(arrive.x == 100.5);
     CHECK(s.at({100, 48, 0}) == blocks::Obsidian);
     CHECK(s.at({100, 49, 0}) == 0);
+}
+
+TEST_CASE("flint and steel doesn't light portals in the End") {
+    Scene s;
+    s.frame(0, 64, 0, 2, 3);
+    const ItemId flint = *itemRegistry().find("flint_and_steel");
+    CHECK_FALSE(portals::useItem(s.world, Dimension::End, flint, {0, 63, 0}, Direction::Up, s.changed));
+    CHECK(portals::useItem(s.world, Dimension::Overworld, flint, {0, 63, 0}, Direction::Up, s.changed));
+    CHECK(s.at({0, 64, 0}) == blocks::NetherPortal);
 }

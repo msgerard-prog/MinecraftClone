@@ -144,8 +144,9 @@ BlockPos build(World& world, const BlockPos& target, int minY, int maxY, std::ve
             }
     const BlockStateId obsidian = r.defaultState(blocks::Obsidian);
     Batch batch{world, changed, {}};
-    if (!spot) { // no room: make some at the target height, on an obsidian floor
-        const BlockPos c{target.x, std::clamp(target.y, minY + 2, maxY - 4), target.z};
+    if (!spot) { // no room: make some at the target height (vanilla: Y 70 up to 10
+                 // below the top), on an obsidian floor
+        const BlockPos c{target.x, std::clamp(target.y, std::max(minY + 2, 70), maxY - 4), target.z};
         for (int i = -1; i <= 2; ++i)
             for (int dz = -1; dz <= 1; ++dz) {
                 batch.put({c.x + i, c.y - 2, c.z + dz}, obsidian);
@@ -172,9 +173,9 @@ BlockPos build(World& world, const BlockPos& target, int minY, int maxY, std::ve
 
 BlockPos destination(Dimension from, Dimension to, const BlockPos& pos) {
     if (from == Dimension::Overworld && to == Dimension::Nether)
-        return {floorDiv(pos.x, 8), std::clamp(pos.y, 32, 120), floorDiv(pos.z, 8)};
+        return {floorDiv(pos.x, 8), pos.y, floorDiv(pos.z, 8)}; // Y unchanged (wiki)
     if (from == Dimension::Nether && to == Dimension::Overworld)
-        return {pos.x * 8, std::clamp(pos.y, kMinY + 4, 300), pos.z * 8};
+        return {pos.x * 8, pos.y, pos.z * 8};
     return pos;
 }
 
@@ -217,9 +218,11 @@ bool completeEndPortal(World& world, const BlockPos& frame, std::vector<BlockPos
     return false;
 }
 
-bool useItem(World& world, ItemId item, const BlockPos& block, Direction face, std::vector<BlockPos>& changed) {
+bool useItem(World& world, Dimension dimension, ItemId item, const BlockPos& block, Direction face,
+             std::vector<BlockPos>& changed) {
     const std::string_view id = itemRegistry().item(item).id;
     if (id == "minecraft:flint_and_steel") {
+        if (dimension == Dimension::End) return false; // wiki: portals can't be activated there
         // No fire yet: the flint and steel lights portals only (known deviation).
         const glm::ivec3 n = normal(face);
         return light(world, {block.x + n.x, block.y + n.y, block.z + n.z}, changed).has_value();

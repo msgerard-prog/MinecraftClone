@@ -19,9 +19,9 @@ namespace mc::gfx {
 namespace {
 
 // Same curve as assets/shaders/block.vert brightness().
-float brightness(float level) {
+float brightness(float level, float ambient = 0.0f) {
     const float f = std::clamp(level / 15.0f, 0.0f, 1.0f);
-    const float b = f / (4.0f - 3.0f * f);
+    const float b = std::clamp(f / (4.0f - 3.0f * f) * (1.0f - ambient) + ambient, 0.0f, 1.0f);
     const float x = 1.0f - b, x2 = x * x;
     const float lifted = 1.0f - x2 * x2;
     return 0.05f + 0.95f * (b + (lifted - b) * 0.5f);
@@ -34,10 +34,12 @@ uint32_t pack(const glm::vec3& c, float a = 1.0f) {
 
 } // namespace
 
-glm::vec3 lightColor(int sky, int block, float skyDarken) {
-    const glm::vec3 skyPart(brightness(float(sky) - skyDarken));
-    const glm::vec3 blockPart = brightness(float(block)) * glm::vec3(1.0f, 0.93f, 0.82f);
-    return glm::min(skyPart + blockPart, glm::vec3(1.0f));
+glm::vec3 lightColor(int sky, int block, float skyDarken, float ambient, bool forceBright) {
+    const glm::vec3 skyPart(brightness(float(sky) - skyDarken, ambient));
+    const glm::vec3 blockPart = brightness(float(block), ambient) * glm::vec3(1.0f, 0.93f, 0.82f);
+    glm::vec3 light = glm::min(skyPart + blockPart, glm::vec3(1.0f));
+    if (forceBright) light = glm::min(glm::mix(light, glm::vec3(0.99f, 1.12f, 1.0f), 0.25f), glm::vec3(1.0f));
+    return light; // same as block.vert
 }
 
 EntityRenderer::~EntityRenderer() {

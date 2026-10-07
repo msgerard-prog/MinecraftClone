@@ -614,3 +614,20 @@ TEST_CASE("entities from corrupt files: bad positions skipped, motion and health
     CHECK(c.mobs()[0].vel.x == 10.0);
     CHECK(c.mobs()[0].health == mobInfo(MobType::Cow).maxHealth);
 }
+
+TEST_CASE("level.dat keeps the player's dimension and known portals; old files default to the Overworld") {
+    TempDir dir("mc_test_level_dimension");
+    LevelData l;
+    l.dimension = "minecraft:the_nether";
+    l.portals.push_back({"minecraft:overworld", 10, 64, -3});
+    l.portals.push_back({"minecraft:the_nether", 1, 70, 0});
+    REQUIRE(l.save(dir.path));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back.has_value());
+    CHECK(back->dimension == "minecraft:the_nether");
+    REQUIRE(back->portals.size() == 2);
+    CHECK(back->portals[0].dimension == "minecraft:overworld");
+    CHECK(back->portals[0].z == -3);
+    CHECK(back->portals[1].y == 70);
+    CHECK(LevelData{}.dimension == "minecraft:overworld");
+}

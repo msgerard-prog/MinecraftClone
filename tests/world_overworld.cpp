@@ -4,6 +4,8 @@
 
 #include <doctest/doctest.h>
 
+#include <ostream> // doctest prints std::string_view
+
 #include <cmath>
 #include <string_view>
 #include <thread>
@@ -219,6 +221,7 @@ TEST_CASE("overworld: cold places get snow layers and ice; lava stops at -55") {
     CHECK(ice > 0);
 }
 
+#include "world/Dimension.h"
 #include "world/NetherGenerator.h"
 
 TEST_CASE("nether: deterministic, bedrock floor and roof, lava sea, solidAt agrees with the blocks") {
@@ -281,4 +284,21 @@ TEST_CASE("nether and end output are pinned (seed 42)") {
     EndGenerator(42).generate(e);
     CHECK(chunkHash(n) == 4236505564017377935ull);
     CHECK(chunkHash(e) == 11352441782643008173ull);
+}
+
+TEST_CASE("dimensions: ids, folders, void depth; far End chunks are empty (no int overflow)") {
+    using namespace mc::world;
+    CHECK(findDimension("minecraft:the_nether") == Dimension::Nether);
+    CHECK(findDimension("the_end") == Dimension::End);
+    CHECK(findDimension("nether") == Dimension::Nether);
+    CHECK_FALSE(findDimension("minecraft:aether"));
+    CHECK(dimensionInfo(Dimension::Nether).folder == "DIM-1");
+    CHECK(dimensionInfo(Dimension::End).folder == "DIM1");
+    CHECK(dimensionInfo(Dimension::End).voidY == -64.0);
+    Chunk far({3125, 0}); // x = 50000
+    EndGenerator(42).generate(far);
+    bool empty = true;
+    for (int s = 0; s < kSectionsPerChunk; ++s)
+        empty = empty && far.section(s).isEmpty();
+    CHECK(empty);
 }

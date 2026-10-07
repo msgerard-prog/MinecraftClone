@@ -214,7 +214,7 @@ EndGenerator::EndGenerator(uint64_t seed) : m_seed(seed), m_edge(mixSeed(seed, 0
     for (int i = kPillars - 1; i > 0; --i)
         std::swap(order[i], order[rng.nextInt(uint32_t(i + 1))]);
     for (int i = 0; i < kPillars; ++i) {
-        const double a = 2.0 * std::numbers::pi * i / kPillars;
+        const double a = 2.0 * (-std::numbers::pi + std::numbers::pi / 10.0 * i); // (-42,-1) is one spot
         m_pillars[i] = {static_cast<int>(std::floor(42.0 * std::cos(a))), static_cast<int>(std::floor(42.0 * std::sin(a))),
                         2 + order[i] / 3, 76 + order[i] * 3};
     }
@@ -254,15 +254,15 @@ void EndGenerator::generate(Chunk& out) const {
                     out.set(x, y, z, endStone);
             // Pillars.
             for (const Pillar& p : m_pillars) {
-                const int dx = wx - p.x, dz = wz - p.z;
-                if (dx * dx + dz * dz > p.radius * p.radius + p.radius) continue;
-                for (int y = std::max(1, islandBottom(p.x, p.z)); y <= p.height; ++y)
+                const int64_t dx = int64_t(wx) - p.x, dz = int64_t(wz) - p.z; // 64-bit: far chunks overflow int
+                if (dx * dx + dz * dz > int64_t(p.radius) * p.radius + 1) continue;
+                for (int y = 0; y <= p.height; ++y) // down to Y 0, below the island too
                     out.set(x, y, z, obsidian);
                 if (dx == 0 && dz == 0) out.set(x, p.height + 1, z, bedrock); // where the crystal sits
             }
             // The exit portal at the origin (wiki: Exit Portal): a bedrock bowl, the
             // portal inside, a bedrock column in the middle. Active (no dragon).
-            const int d2 = wx * wx + wz * wz;
+            const int64_t d2 = int64_t(wx) * wx + int64_t(wz) * wz;
             if (d2 <= 12) out.set(x, centreTop, z, bedrock);
             if (d2 <= 12) out.set(x, centreTop + 1, z, d2 <= 6 && d2 > 0 ? portal : bedrock);
             if (d2 == 0)

@@ -281,3 +281,21 @@ TEST_CASE("padded light: above the world is open sky, below it dark; corners cro
     CHECK(blocks[paddedIndex(-1, 0, -1)] == S(blocks::Stone));
     CHECK(blocks[paddedIndex(-1, 1, -1)] == 0);
 }
+
+TEST_CASE("without sky light (Nether, End) open air is dark; block light still spreads") {
+    using namespace mc::world;
+    World w;
+    w.setHasSkyLight(false);
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx)
+            w.createChunk({cx, cz});
+    w.chunk({0, 0})->set(8, 70, 8, blockRegistry().defaultState(blocks::Glowstone));
+    ChunkNeighbourhood n;
+    REQUIRE(ChunkNeighbourhood::capture(w, {0, 0}, n));
+    CHECK_FALSE(n.hasSkyLight);
+    const ChunkLight light = computeChunkLight(n);
+    const auto& s = *light[sectionIndex(70)];
+    CHECK(s.sky.get(Section::index(2, blockToLocal(70), 2)) == 0);
+    CHECK(s.block.get(Section::index(9, blockToLocal(70), 8)) == 14);
+    CHECK(light[kSectionsPerChunk - 1]->sky.get(0) == 0); // even at the top
+}

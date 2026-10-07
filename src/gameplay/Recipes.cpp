@@ -216,7 +216,8 @@ namespace {
 std::optional<ItemStack> smeltByName(std::string_view n) {
     auto out = [](std::string_view name) { return std::optional<ItemStack>(ItemStack{id(name), 1}); };
     if (n == "raw_iron" || n == "iron_ore" || n == "deepslate_iron_ore") return out("iron_ingot");
-    if (n == "raw_gold" || n == "gold_ore" || n == "deepslate_gold_ore") return out("gold_ingot");
+    if (n == "raw_gold" || n == "gold_ore" || n == "deepslate_gold_ore" || n == "nether_gold_ore") return out("gold_ingot");
+    if (n == "nether_quartz_ore") return out("quartz");
     if (n == "raw_copper" || n == "copper_ore" || n == "deepslate_copper_ore") return out("copper_ingot");
     if (n == "sand" || n == "red_sand") return out("glass");
     if (n == "cobblestone") return out("stone");

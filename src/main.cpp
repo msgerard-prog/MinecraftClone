@@ -336,6 +336,7 @@ int main(int argc, char** argv) {
     // Survival (M9): game mode, health/hunger, dropped items.
     bool survival = level && level->survival;
     mc::Vitals vitals;
+    vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
     if (level) {
         vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
         vitals.setFoodTimer(level->foodTimer);
@@ -392,11 +393,16 @@ int main(int argc, char** argv) {
     struct Travel {
         Dimension to;
         enum class Via { NetherPortal, EndPortal, Respawn } via;
-        mc::world::BlockPos from;
+        mc::world::BlockPos from; // entry block; after the switch: the destination target
+        Dimension fromDimension = Dimension::Overworld;
+        glm::dvec3 fromPos{0.0};
     };
     std::optional<Travel> pendingTravel;
     std::optional<Travel> arrival; // waiting for the destination's chunks
     int portalTicks = 0;
+    int arrivalWait = 0; // ticks spent waiting for a remembered portal's chunk
+    if (!level && dimension == Dimension::End && !opts->hasPos) // (a new run started there)
+        arrival = Travel{Dimension::End, Travel::Via::EndPortal, {100, 49, 0}, Dimension::End, {100.5, 49.0, 0.5}};
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int64_t sessionTicks = 0;
@@ -417,14 +423,15 @@ int main(int argc, char** argv) {
         l.seed = seed;
         l.flat = flatWorld;
         l.generator = generatorKind;
-        l.dimension = std::string(mc::world::dimensionInfo(dimension).id);
+        // Mid-travel the player is still where they left from (a reload re-enters).
+        l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
         for (const auto& k : knownPortals)
             l.portals.push_back({std::string(mc::world::dimensionInfo(k.dimension).id), k.pos.x, k.pos.y, k.pos.z});
         for (int i = 0; i < 3; ++i)
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
         l.gameTime = gameTime;
-        const glm::dvec3 p = player.position();
+        const glm::dvec3 p = arrival ? arrival->fromPos : player.position();
         l.pos[0] = p.x;
         l.pos[1] = p.y;
         l.pos[2] = p.z;
@@ -666,6 +673,92 @@ int main(int argc, char** argv) {
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
+            // Changing dimension (M12): save, unload everything, switch the generator and
+            // storage, then wait for the destination to load (vanilla keeps the others
+            // loaded; one dimension at a time here).
+            if (pendingTravel) {
+                Travel t = *pendingTravel;
+                pendingTravel.reset();
+                t.fromDimension = dimension; // saved as the player's place until arrival
+                t.fromPos = player.position();
+                MC_LOG_INFO("Travelling to %s", std::string(mc::world::dimensionInfo(t.to).id).c_str());
+                saveWorld(false);
+                loader.reset(); // joins its workers
+                std::vector<mc::world::ChunkPos> all;
+                world.forEachChunk([&](const mc::world::Chunk& c) { all.push_back(c.pos()); });
+                for (const auto& p : all)
+                    world.removeChunk(p);
+                unloadedChunks.insert(unloadedChunks.end(), all.begin(), all.end());
+                droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
+                const Dimension from = dimension;
+                dimension = t.to;
+                world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
+                renderer.setDimension(dimension);
+                vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
+                storage.reset(); // flushes
+                if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+                generatorPtr = makeGenerator(dimension);
+                loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
+                loader->setRenderDistance(opts->renderDistance);
+                arrival = t;
+                if (t.via == Travel::Via::NetherPortal) arrival->from = mc::portals::destination(from, dimension, t.from);
+                else if (t.via == Travel::Via::EndPortal) arrival->from = {100, 49, 0};
+                else arrival->from = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
+                // Wait at the destination; unloaded chunks hold the player up meanwhile.
+                player.setPosition({arrival->from.x + 0.5, double(arrival->from.y), arrival->from.z + 0.5});
+                player.setVelocity(glm::dvec3(0.0));
+                vitals.resetFall(); // the wait doesn't count as a fall
+                portalTicks = 0;
+                portalCooldown = true;
+            }
+            if (arrival) {
+                // Destination chunks within 2 of the target loaded: find or build the way in.
+                const mc::world::ChunkPos c = arrival->from.chunk();
+                bool ready = true;
+                for (int dz = -2; dz <= 2 && ready; ++dz)
+                    for (int dx = -2; dx <= 2 && ready; ++dx)
+                        ready = world.chunk({c.x + dx, c.z + dz}) != nullptr;
+                std::optional<mc::world::BlockPos> found;
+                if (ready && arrival->via == Travel::Via::NetherPortal) {
+                    found = mc::portals::find(world, knownPortals, dimension, arrival->from,
+                                              dimension == Dimension::Nether ? 16 : 128);
+                    // A remembered portal in a chunk that isn't loaded yet is checked once it
+                    // is (it may be gone since), unless that takes too long.
+                    if (found && !world.chunk(found->chunk())) {
+                        if (++arrivalWait < 400) ready = false;
+                        else found.reset();
+                    }
+                }
+                if (ready) {
+                    const Travel a = *arrival;
+                    arrival.reset();
+                    arrivalWait = 0;
+                    if (a.via == Travel::Via::NetherPortal) {
+                        mc::world::BlockPos in;
+                        if (found) {
+                            in = *found;
+                            while (mc::world::blockRegistry().blockOf(world.getBlock({in.x, in.y - 1, in.z})) ==
+                                   mc::world::blocks::NetherPortal)
+                                --in.y;
+                        } else {
+                            const bool nether = dimension == Dimension::Nether;
+                            in = mc::portals::build(world, a.from, nether ? 32 : mc::world::kMinY + 8, nether ? 118 : 310,
+                                                    frameEdits);
+                            knownPortals.push_back({dimension, in});
+                        }
+                        player.setPosition({in.x + 0.5, double(in.y), in.z + 0.5});
+                    } else if (a.via == Travel::Via::EndPortal) {
+                        player.setPosition(mc::portals::endPlatform(world, frameEdits));
+                        player.setRotation(90.0f, 0.0f); // facing west, toward the island (wiki: End Platform)
+                    } else {
+                        spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                        player.setPosition(spawn);
+                        spawnPending = true; // settle on the ground there
+                    }
+                    player.setVelocity(glm::dvec3(0.0));
+                    vitals.resetFall();
+                }
+            }
             redstone.setTime(gameTime);
             redstone.setCreative(!survival);
             // Commands wait until the player's chunk is there (--command scripts run
@@ -695,7 +788,7 @@ int main(int argc, char** argv) {
             if (survival && !vitals.canSprint()) input.sprint = false;
             const glm::dvec3 before = player.position();
             const bool wasOnGround = player.onGround();
-            player.tick(world, input);
+            if (!arrival) player.tick(world, input); // waiting for a destination: held in place
             const auto& reg = mc::world::blockRegistry();
             const glm::dvec3 feet = player.position();
             const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
@@ -707,7 +800,7 @@ int main(int argc, char** argv) {
                     vitals.exhaust(0.1f * float(glm::length(glm::dvec2(feet.x - before.x, feet.z - before.z))));
                 if (wasOnGround && !player.onGround() && player.velocity().y > 0.0)
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
-                vitals.tick(feet.y, player.onGround(), inWater, player.flying());
+                if (!arrival) vitals.tick(feet.y, player.onGround(), inWater, player.flying());
             }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
                 {
@@ -742,10 +835,11 @@ int main(int argc, char** argv) {
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
-            if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
+            if (!dead && clicks.useClick && lastHit) { // (sneaking only skips block actions)
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const size_t editsBefore = frameEdits.size();
-                if (!held.empty() && mc::portals::useItem(world, held.item, lastHit->block, lastHit->face, frameEdits)) {
+                if (!held.empty() &&
+                    mc::portals::useItem(world, dimension, held.item, lastHit->block, lastHit->face, frameEdits)) {
                     const auto& def = mc::world::itemRegistry().item(held.item);
                     for (size_t e = editsBefore; e < frameEdits.size(); ++e) // remember lit portals
                         if (mc::world::blockRegistry().blockOf(world.getBlock(frameEdits[e])) ==
@@ -776,7 +870,7 @@ int main(int argc, char** argv) {
                         pendingTravel = Travel{dimension == Dimension::End ? Dimension::Overworld : Dimension::End,
                                                dimension == Dimension::End ? Travel::Via::Respawn : Travel::Via::EndPortal,
                                                portalFeet};
-                } else if (mc::portals::touching(world, box, mc::world::blocks::NetherPortal)) {
+                } else if (dimension != Dimension::End && mc::portals::touching(world, box, mc::world::blocks::NetherPortal)) {
                     if (!portalCooldown && ++portalTicks >= (survival ? 80 : 1))
                         pendingTravel = Travel{dimension == Dimension::Nether ? Dimension::Overworld : Dimension::Nether,
                                                Travel::Via::NetherPortal, portalFeet};
@@ -877,74 +971,6 @@ int main(int argc, char** argv) {
             if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
             else creative.open();
         }
-        // Changing dimension (M12): save, unload everything, switch the generator and
-        // storage, then wait for the destination to load (vanilla keeps the others
-        // loaded; one dimension at a time here).
-        if (pendingTravel) {
-            const Travel t = *pendingTravel;
-            pendingTravel.reset();
-            MC_LOG_INFO("Travelling to %s", std::string(mc::world::dimensionInfo(t.to).id).c_str());
-            saveWorld(false);
-            loader.reset(); // joins its workers
-            std::vector<mc::world::ChunkPos> all;
-            world.forEachChunk([&](const mc::world::Chunk& c) { all.push_back(c.pos()); });
-            for (const auto& p : all)
-                world.removeChunk(p);
-            unloadedChunks.insert(unloadedChunks.end(), all.begin(), all.end());
-            droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
-            const Dimension from = dimension;
-            dimension = t.to;
-            world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
-            renderer.setDimension(dimension);
-            storage.reset(); // flushes
-            if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
-            generatorPtr = makeGenerator(dimension);
-            loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
-            loader->setRenderDistance(opts->renderDistance);
-            arrival = t;
-            if (t.via == Travel::Via::NetherPortal) arrival->from = mc::portals::destination(from, dimension, t.from);
-            else if (t.via == Travel::Via::EndPortal) arrival->from = {100, 49, 0};
-            else arrival->from = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
-            // Wait at the destination; unloaded chunks hold the player up meanwhile.
-            player.setPosition({arrival->from.x + 0.5, double(arrival->from.y), arrival->from.z + 0.5});
-            player.setVelocity(glm::dvec3(0.0));
-            portalTicks = 0;
-            portalCooldown = true;
-        }
-        if (arrival) {
-            // Destination chunks within 2 of the target loaded: find or build the way in.
-            const mc::world::ChunkPos c = arrival->from.chunk();
-            bool ready = true;
-            for (int dz = -2; dz <= 2 && ready; ++dz)
-                for (int dx = -2; dx <= 2 && ready; ++dx)
-                    ready = world.chunk({c.x + dx, c.z + dz}) != nullptr;
-            if (ready) {
-                const Travel a = *arrival;
-                arrival.reset();
-                if (a.via == Travel::Via::NetherPortal) {
-                    const int radius = dimension == Dimension::Nether ? 16 : 128;
-                    mc::world::BlockPos in;
-                    if (const auto found = mc::portals::find(world, knownPortals, dimension, a.from, radius)) {
-                        in = *found;
-                        while (mc::world::blockRegistry().blockOf(world.getBlock({in.x, in.y - 1, in.z})) ==
-                               mc::world::blocks::NetherPortal)
-                            --in.y;
-                    } else {
-                        const bool nether = dimension == Dimension::Nether;
-                        in = mc::portals::build(world, a.from, nether ? 32 : mc::world::kMinY + 8, nether ? 120 : 300, frameEdits);
-                        knownPortals.push_back({dimension, in});
-                    }
-                    player.setPosition({in.x + 0.5, double(in.y), in.z + 0.5});
-                } else if (a.via == Travel::Via::EndPortal) {
-                    player.setPosition(mc::portals::endPlatform(world, frameEdits));
-                } else {
-                    spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
-                    player.setPosition(spawn);
-                    spawnPending = true; // settle on the ground there
-                }
-                player.setVelocity(glm::dvec3(0.0));
-            }
-        }
         if (spawnPending) { // new player: stand on solid ground once it's generated
             if (const auto safe = settleSpawn(world, spawn)) {
                 player.setPosition(*safe);
@@ -988,7 +1014,9 @@ int main(int argc, char** argv) {
         std::array<glm::vec3, 256> lightTable;
         for (int sky = 0; sky < 16; ++sky)
             for (int blk = 0; blk < 16; ++blk)
-                lightTable[size_t(sky * 16 + blk)] = mc::gfx::lightColor(sky, blk, renderer.skyDarken());
+                lightTable[size_t(sky * 16 + blk)] = mc::gfx::lightColor(sky, blk, renderer.skyDarken(),
+                                                                         mc::world::dimensionInfo(dimension).ambientLight,
+                                                                         dimension == Dimension::End);
         for (const auto& e : droppedItems.items()) {
             const glm::dvec3 p = glm::mix(e.prevPos, e.pos, clock.alpha);
             const float t = float(e.age) + float(clock.alpha);

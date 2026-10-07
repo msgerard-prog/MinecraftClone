@@ -52,9 +52,9 @@ glm::dvec3 endPlatform(world::World& world, std::vector<world::BlockPos>& change
 bool completeEndPortal(world::World& world, const world::BlockPos& frame, std::vector<world::BlockPos>& changed);
 
 // Right-click with flint and steel (lights a portal frame) or an eye of ender (into an
-// empty frame). `changed` gets edited positions. Returns true if the item was used
+// empty frame); nether portals can't be lit in the End. `changed` gets edited positions. Returns true if the item was used
 // (the caller wears the flint and steel or uses up the eye).
-bool useItem(world::World& world, world::ItemId item, const world::BlockPos& block, world::Direction face,
+bool useItem(world::World& world, world::Dimension dimension, world::ItemId item, const world::BlockPos& block, world::Direction face,
              std::vector<world::BlockPos>& changed);
 
 } // namespace portals

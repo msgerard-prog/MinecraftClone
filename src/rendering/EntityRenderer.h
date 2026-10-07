@@ -18,7 +18,8 @@ class TextureAtlas;
 
 // Brightness 0..1 of a block's light as the block shader computes it (sky light
 // minus the night darkening, block light warm), for entities lit per object.
-glm::vec3 lightColor(int sky, int block, float skyDarken);
+// `ambient`: dimension ambient light (Nether 0.1); `forceBright`: the End's lightmap.
+glm::vec3 lightColor(int sky, int block, float skyDarken, float ambient = 0.0f, bool forceBright = false);
 
 // Draws dropped items and the block-breaking crack each frame: one dynamic buffer
 // of camera-relative quads sampling the block atlas (GL-free building, one upload).

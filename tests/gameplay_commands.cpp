@@ -121,3 +121,21 @@ TEST_CASE("/setblock places a block state and updates its neighbours") {
     CHECK_FALSE(runCommand("/setblock 12 70 -4 nonsense", c.ctx).ok);
     CHECK_FALSE(runCommand("/setblock 500 70 0 stone", c.ctx).ok); // not loaded
 }
+
+TEST_CASE("/fill: places a box, then updates; limits and errors") {
+    Ctx c;
+    mc::world::World w;
+    for (int cz = -1; cz <= 0; ++cz)
+        for (int cx = 0; cx <= 1; ++cx)
+            w.createChunk({cx, cz});
+    std::vector<mc::world::BlockPos> changed;
+    c.ctx.world = &w;
+    c.ctx.changed = &changed;
+    const auto r = runCommand("/fill 10 70 -5 12 71 -4 stone", c.ctx);
+    CHECK(r.ok);
+    CHECK(r.message == "Successfully filled 12 block(s)");
+    CHECK(changed.size() == 12);
+    CHECK_FALSE(runCommand("/fill 10 70 -5 12 71 -4 stone", c.ctx).ok); // nothing changed
+    CHECK_FALSE(runCommand("/fill 0 0 0 100 100 100 stone", c.ctx).ok); // > 32768
+    CHECK_FALSE(runCommand("/fill 0 70 0 40 70 0 stone", c.ctx).ok);    // not loaded
+}

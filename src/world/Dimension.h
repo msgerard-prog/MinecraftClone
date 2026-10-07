@@ -15,19 +15,19 @@ struct DimensionInfo {
     bool hasSkyLight;        // wiki: Dimension type › has_skylight
     float ambientLight;      // wiki: Dimension type › ambient_light (Nether 0.1)
     double coordinateScale;  // wiki: Dimension type › coordinate_scale (Nether 8)
+    double voidY;            // void damage below (wiki: Void - 64 below the min Y)
 };
 
 inline const DimensionInfo& dimensionInfo(Dimension d) {
     static constexpr DimensionInfo kInfo[] = {
-        {"minecraft:overworld", "", true, 0.0f, 1.0},
-        {"minecraft:the_nether", "DIM-1", false, 0.1f, 8.0},
-        {"minecraft:the_end", "DIM1", false, 0.0f, 1.0},
+        {"minecraft:overworld", "", true, 0.0f, 1.0, -128.0},
+        {"minecraft:the_nether", "DIM-1", false, 0.1f, 8.0, -64.0},
+        {"minecraft:the_end", "DIM1", false, 0.0f, 1.0, -64.0},
     };
     return kInfo[static_cast<int>(d)];
 }
 
 inline std::optional<Dimension> findDimension(std::string_view id) {
-    if (!id.starts_with("minecraft:")) id = id.substr(0, id.size()); // bare names too
     for (int i = 0; i < static_cast<int>(Dimension::Count); ++i) {
         const std::string_view full = dimensionInfo(static_cast<Dimension>(i)).id;
         if (full == id || full.substr(10) == id) return static_cast<Dimension>(i);

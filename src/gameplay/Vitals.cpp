@@ -61,8 +61,9 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     }
     m_lastY = feetY;
 
-    // The void (wiki: Void): 4 damage every half second below y -128.
-    if (feetY < -128.0 && m_invulnerable == 0 && damage(4.0f, false)) hurt += 4.0f;
+    // The void (wiki: Void): 4 damage every half second, 64 below the dimension's
+    // bottom (Overworld -128; the Nether and End -64).
+    if (feetY < m_voidY && m_invulnerable == 0 && damage(4.0f, false)) hurt += 4.0f;
 
     // Exhaustion drains saturation first, then food (wiki: Hunger).
     while (m_exhaustion >= 4.0f) {
