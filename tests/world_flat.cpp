@@ -52,5 +52,8 @@ TEST_CASE("preset parsing rejects bad input") {
     CHECK_FALSE(FlatGenerator::fromPreset("minecraft:nope").has_value());
     CHECK_FALSE(FlatGenerator::fromPreset("0*minecraft:stone").has_value());
     CHECK_FALSE(FlatGenerator::fromPreset("x*minecraft:stone").has_value());
+    CHECK_FALSE(FlatGenerator::fromPreset("2000000000*minecraft:stone").has_value());
+    CHECK_FALSE(FlatGenerator::fromPreset("384*stone,stone").has_value()); // 385 > 384
+    CHECK(FlatGenerator::fromPreset("384*stone").has_value());
     CHECK(FlatGenerator::fromPreset("3*stone,oak_log[axis=x]")->layers().size() == 4);
 }

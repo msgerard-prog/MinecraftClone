@@ -37,10 +37,13 @@ public:
         return item;
     }
 
-    void close() {
+    // Wakes all waiters; popWait returns nullopt once the queue is empty.
+    // discard = also drop queued items (fast shutdown).
+    void close(bool discard = false) {
         {
             std::lock_guard lock(m_mutex);
             m_closed = true;
+            if (discard) m_items.clear();
         }
         m_ready.notify_all();
     }

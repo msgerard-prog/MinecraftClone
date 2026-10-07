@@ -1,6 +1,7 @@
 #include "rendering/WorldRenderer.h"
 
 #include "core/Files.h"
+#include "core/Window.h"
 #include "world/Blocks.h"
 
 #include <glad/gl.h>
@@ -30,9 +31,11 @@ bool WorldRenderer::init() {
     if (!m_atlas.build(assetPath("minecraft/textures/block"))) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init()) return false;
-    // Leave one core for the main thread.
-    const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) - 1);
-    m_workers = std::make_unique<MeshWorkers>(world::blockRegistry(), m_models, threads);
+    // Half the cores: leaves room for the main thread and the GL driver's own thread.
+    const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
+    m_maxInFlight = threads * 4; // bounds job memory and per-frame dispatch work
+    m_workers =
+        std::make_unique<MeshWorkers>(world::blockRegistry(), m_models, threads, m_maxInFlight);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); // back faces (clockwise from the camera) are never visible
     return true;
@@ -44,44 +47,83 @@ void WorldRenderer::markChunkDirty(const world::World& world, world::ChunkPos po
         const world::ChunkPos p{pos.x + d[0], pos.z + d[1]};
         if (!world.chunk(p)) continue;
         for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy)
-            m_dirty.insert({p.x, sy, p.z});
+            markDirty({p.x, sy, p.z});
     }
 }
 
 void WorldRenderer::markAllDirty(const world::World& world) {
     world.forEachChunk([&](const world::Chunk& c) {
         for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
-            m_dirty.insert({c.pos().x, sy, c.pos().z});
+            markDirty({c.pos().x, sy, c.pos().z});
         }
     });
 }
 
-void WorldRenderer::update(const world::World& world) {
-    // 1. Dispatch: snapshot each dirty section on the main thread (the only thread
-    //    that may read the World), mesh it on a worker.
-    for (const world::SectionPos& pos : m_dirty) {
+void WorldRenderer::markDirty(world::SectionPos pos) {
+    SectionState& st = m_states[pos];
+    if (st.dirty) return;
+    st.dirty = true;
+    m_dirtyList.push_back(pos);
+    m_dirtyUnsorted = true;
+}
+
+void WorldRenderer::eraseIfIdle(world::SectionPos pos) {
+    const auto it = m_states.find(pos);
+    if (it != m_states.end() && it->second.inFlight == 0 && !it->second.dirty) m_states.erase(it);
+}
+
+void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPos) {
+    // 1. Upload finished meshes. A result older than the section's latest submission
+    //    is stale (the section changed again meanwhile) and is dropped.
+    while (auto job = m_workers->takeResult()) {
+        --m_inFlight;
+        const auto it = m_states.find(job->pos);
+        if (it != m_states.end()) {
+            --it->second.inFlight;
+            if (it->second.version == job->version) {
+                m_chunks.uploadSection(job->pos, job->vertices);
+            }
+            eraseIfIdle(job->pos);
+        }
+        m_workers->recycle(std::move(job));
+    }
+
+    // 2. Dispatch, nearest sections first (the list is sorted far -> near, so the
+    //    nearest is at the back), within a time budget and the in-flight cap.
+    if (m_dirtyUnsorted) {
+        auto distance2 = [&](const world::SectionPos& p) {
+            const glm::dvec3 c(p.x * 16.0 + 8.0, p.y * 16.0 + 8.0, p.z * 16.0 + 8.0);
+            const glm::dvec3 d = c - cameraPos;
+            return glm::dot(d, d);
+        };
+        std::sort(m_dirtyList.begin(), m_dirtyList.end(),
+                  [&](const auto& a, const auto& b) { return distance2(a) > distance2(b); });
+        m_dirtyUnsorted = false;
+    }
+    constexpr double kBudgetSeconds = 0.002; // main-thread snapshot time per frame
+    const double start = timeSeconds();
+    while (!m_dirtyList.empty() && m_inFlight < m_maxInFlight &&
+           timeSeconds() - start < kBudgetSeconds) {
+        const world::SectionPos pos = m_dirtyList.back();
+        m_dirtyList.pop_back();
+        SectionState& st = m_states[pos];
+        st.dirty = false;
+
         const world::Chunk* chunk = world.chunk({pos.x, pos.z});
         // Empty sections have no faces of their own (neighbours mesh their sides).
         if (!chunk || chunk->section(pos.y - kMinSectionY).isEmpty()) {
-            ++m_versions[pos]; // drops any in-flight result for it
+            ++st.version; // drops any in-flight result for it
             m_chunks.removeSection(pos);
+            eraseIfIdle(pos);
             continue;
         }
-        auto job = m_workers->acquireJob();
+        auto job = m_workers->acquireJob(); // never null while under the cap
         job->pos = pos;
-        job->version = ++m_versions[pos];
+        job->version = ++st.version;
+        ++st.inFlight;
         world::snapshotSection(world, pos, job->padded.data());
         m_workers->submit(std::move(job));
         ++m_inFlight;
-    }
-    m_dirty.clear();
-
-    // 2. Upload finished meshes. A result whose version is older than the latest
-    //    submission is stale (the section changed again) and is dropped.
-    while (auto job = m_workers->takeResult()) {
-        --m_inFlight;
-        if (m_versions[job->pos] == job->version) m_chunks.uploadSection(job->pos, job->vertices);
-        m_workers->recycle(std::move(job));
     }
 }
 

@@ -112,7 +112,9 @@ int main(int argc, char** argv) {
 
         const double now = mc::timeSeconds();
         // Full frame period (includes swap, i.e. waiting for the GPU / vsync).
-        if (frame > 0) frameStats.add((now - last) * 1000.0);
+        // Skips the first frame after meshing: it includes one-off driver warm-up
+        // (first multi-draw), which is not a steady-state cost.
+        if (frame > 1) frameStats.add((now - last) * 1000.0);
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
@@ -132,7 +134,7 @@ int main(int argc, char** argv) {
         camera.position = player.renderPosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
-        renderer.update(world);
+        renderer.update(world, camera.position);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
         if (!meshed && renderer.pendingMeshes() == 0) {

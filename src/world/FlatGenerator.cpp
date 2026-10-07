@@ -21,6 +21,10 @@ std::optional<FlatGenerator> FlatGenerator::fromPreset(std::string_view preset) 
         }
         const auto state = blockRegistry().parse(layer);
         if (!state) return std::nullopt;
+        // Check the height limit before inserting (a huge count must not allocate).
+        if (static_cast<size_t>(count) > static_cast<size_t>(kHeight) - gen.m_layers.size()) {
+            return std::nullopt;
+        }
         gen.m_layers.insert(gen.m_layers.end(), static_cast<size_t>(count), *state);
         if (comma == std::string_view::npos) break;
         rest.remove_prefix(comma + 1);

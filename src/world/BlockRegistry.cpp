@@ -63,7 +63,12 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
 std::optional<BlockId> BlockRegistry::findBlock(std::string_view id) const {
     for (size_t i = 0; i < m_blocks.size(); ++i) {
         const std::string_view name = m_blocks[i].id;
-        if (name == id || name.substr(kNamespace.size()) == id) return static_cast<BlockId>(i);
+        // A query without a namespace means "minecraft:<id>".
+        const bool bare = id.find(':') == std::string_view::npos;
+        if (name == id ||
+            (bare && name.starts_with(kNamespace) && name.substr(kNamespace.size()) == id)) {
+            return static_cast<BlockId>(i);
+        }
     }
     return std::nullopt;
 }

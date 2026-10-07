@@ -1,6 +1,7 @@
 #include "rendering/TextureAtlas.h"
 
 #include "core/Log.h"
+#include "rendering/PackedVertex.h"
 
 #include <glad/gl.h>
 
@@ -87,6 +88,12 @@ bool TextureAtlas::build(const std::string& folder) {
         if (loadSprite(file, px)) sprites.emplace_back(file.stem().string(), std::move(px));
     }
 
+    // The packed vertex stores sprite indices in 12 bits (rendering/PackedVertex.h).
+    if (sprites.size() > kMaxSprites) {
+        MC_LOG_ERROR("Atlas: %zu sprites exceed the %u-sprite limit; extra sprites dropped",
+                     sprites.size(), kMaxSprites);
+        sprites.resize(kMaxSprites);
+    }
     // Smallest power-of-two grid that fits all sprites.
     int cols = 1;
     while (cols * cols < static_cast<int>(sprites.size()))

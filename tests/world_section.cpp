@@ -39,6 +39,12 @@ TEST_CASE("palette grows 4 -> 5 bits on the 17th state, direct past 8 bits") {
         CHECK(s.get(i, 0, 0) == 100 + i);
     CHECK(s.get(0, 1, 0) == 500);
     CHECK(s.get(299 % 16, 2 + 299 / 256, (299 / 16) % 16) == 1299);
+    // The non-air count and bulk decode survive every encoding change.
+    CHECK(s.nonAirCount() == 15 + 1 + 300);
+    std::vector<BlockStateId> all(Section::kVolume);
+    s.copyTo(all.data());
+    for (int i = 0; i < Section::kVolume; ++i)
+        CHECK(all[i] == s.getIndex(i));
 }
 
 TEST_CASE("copyTo matches get for every block") {

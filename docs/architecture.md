@@ -18,7 +18,7 @@ depend on layers **above** it in this list (enforced by CMake target links):
 
 `world` and `gameplay` contain **no OpenGL** and are fully unit-testable;
 `tests/` links them directly. Keep simulation logic there, not in `rendering`.
-`tests/` also links `rendering` for its GL-free parts (e.g. `CubeMesher`); tests
+`tests/` also links `rendering` for its GL-free parts (e.g. `ChunkMesher`); tests
 never create a GL context.
 
 ## Main loop (`src/main.cpp`)
@@ -88,7 +88,7 @@ Fixed bindings (add new ones here):
 
 Known simplifications: uploads use `glNamedBufferSubData` (persistent-mapped staging
 when uploads get heavy); one opaque pass only (cutout/translucent with the first
-non-opaque block); meshing is synchronous on the main thread until M2.4.
+non-opaque block). Meshing threads: see Threading.
 
 ## Files outside src/
 - `assets/shaders/<name>.vert|.frag` — loaded at runtime from the source tree

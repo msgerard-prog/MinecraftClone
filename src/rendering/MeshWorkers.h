@@ -27,12 +27,14 @@ struct MeshJob {
 // unchanged while they run.
 class MeshWorkers {
 public:
-    MeshWorkers(const world::BlockRegistry& registry, const BlockModels& models, int threadCount);
+    // Allocates `jobCapacity` jobs up front; no jobs are created later.
+    MeshWorkers(const world::BlockRegistry& registry, const BlockModels& models, int threadCount,
+                int jobCapacity);
     ~MeshWorkers();
     MeshWorkers(const MeshWorkers&) = delete;
     MeshWorkers& operator=(const MeshWorkers&) = delete;
 
-    // A recycled (or new) job with buffers sized for one section.
+    // A free job, or nullptr if all `jobCapacity` jobs are in use.
     std::unique_ptr<MeshJob> acquireJob();
     void submit(std::unique_ptr<MeshJob> job);
     // Finished job, or nullptr if none is ready. Return it with recycle() when done.
