@@ -22,3 +22,4 @@ Template:
 | 0004 | No Mojang code or assets in the repo | Accepted |
 | 0005 | Dense global block-state ids, paletted sections | Accepted |
 | 0006 | Original textures in vanilla's style, sharper than vanilla | Accepted |
+| 0007 | Save format: vanilla Anvil (Java 1.21 chunk NBT, level.dat) | Proposed |

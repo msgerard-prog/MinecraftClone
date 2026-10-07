@@ -49,7 +49,11 @@ class GuiBatch {
 public:
     static constexpr int kLineHeight = 9; // vanilla font line height
 
-    void reserveQuads(size_t quads) { m_vertices.reserve(quads * 6); }
+    // Reserves and caps the batch: quads beyond this are dropped (never reallocates).
+    void reserveQuads(size_t quads) {
+        m_vertices.reserve(quads * 6);
+        m_maxVertices = quads * 6;
+    }
     void clear() { m_vertices.clear(); }
     const std::vector<GuiVertex>& vertices() const { return m_vertices; }
 
@@ -72,6 +76,7 @@ private:
     void quad(const float (&px)[4][2], const float (&uv)[4][2], uint32_t color, GuiTexture tex);
 
     std::vector<GuiVertex> m_vertices;
+    size_t m_maxVertices = 0; // 0: uncapped (tests)
     FontMetrics m_font;
     AtlasLayout m_atlas;
 };

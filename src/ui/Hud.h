@@ -11,8 +11,8 @@
 
 namespace mc::ui {
 
-// Vanilla plains grass colour for tinted item icons (grass block top).
-inline constexpr uint32_t kIconGrassTint = gfx::rgba(0x91, 0xBD, 0x59);
+// Grass block item colour (temperature 0.5, downfall 1.0; wiki: Grass block).
+inline constexpr uint32_t kIconGrassTint = gfx::rgba(0x7C, 0xBD, 0x6B);
 
 // The hotbar (wiki: Heads-up display): 182x22 bar centred at the bottom, the
 // selection frame around the selected slot, block icons 16x16 in each slot.

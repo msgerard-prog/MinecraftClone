@@ -4,6 +4,9 @@ The user's direction (2026-10-06): **recreate Minecraft's look as our own origin
 art, and make it a little sharper and more vivid than vanilla.** Every texture,
 current and future, follows this page. Status: every vanilla 1.21.4 block texture
 (~1,030) has an original version; items, entities and GUI come with their systems.
+GUI sprites (hotbar, selection) and the 5x7 font are original too
+(`tools/textures/gen_gui.py`, glyphs in `texgen/font5x7.py`), as are the sun and moon
+(`tools/textures/gen_environment.py`).
 
 ## The line we don't cross (ADR 0004, ADR 0006)
 Same *style and subject*, independently made — never the same *pixels*.

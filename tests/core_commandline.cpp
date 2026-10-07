@@ -81,3 +81,19 @@ TEST_CASE("command line: --time sets the day time in ticks") {
     std::array<const char*, 2> bad = {"--time", "-5"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
+
+TEST_CASE("command line: --f3, --inventory, repeatable --command, signed --seed") {
+    std::array<const char*, 8> args = {"--f3",    "--inventory", "--command", "/time set night",
+                                       "--command", "/seed",     "--seed",    "-42"};
+    std::string error;
+    const auto opts = mc::parseCommandLine(args, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->debugScreen);
+    CHECK(opts->inventory);
+    REQUIRE(opts->commands.size() == 2);
+    CHECK(opts->commands[0] == "/time set night");
+    CHECK(opts->commands[1] == "/seed");
+    CHECK(static_cast<int64_t>(opts->seed) == -42);
+    std::array<const char*, 1> missing = {"--command"};
+    CHECK_FALSE(mc::parseCommandLine(missing, error).has_value());
+}

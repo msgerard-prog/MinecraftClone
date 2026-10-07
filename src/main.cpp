@@ -242,8 +242,7 @@ int main(int argc, char** argv) {
     const double startTime = last;
     bool meshed = false;
     int fps = 0, fpsFrames = 0;
-    mc::world::BlockStateId targetState = 0xFFFF; // F3 target name cache
-    std::string targetName;
+    std::vector<std::string> stateNames(mc::world::blockRegistry().stateCount()); // F3 names
     double fpsStart = startTime;
 
     // Chat lines: commands run through gameplay/Commands, plain text is echoed.
@@ -261,23 +260,23 @@ int main(int argc, char** argv) {
             chat.addMessage(line, 0xFFFFFFFFu, gameTime, gui.batch());
         }
     };
-    for (const auto& c : opts->commands)
-        runChatLine(c);
+    std::vector<std::string> pendingChat(opts->commands.begin(), opts->commands.end());
 
     while (!window.shouldClose()) {
         window.pollEvents();
         // Text typed this frame (only the chat consumes it).
         const int typedCount = window.takeText(typed.data(), static_cast<int>(typed.size()));
         if (chat.isOpen()) {
-            chat.type({typed.data(), size_t(typedCount)});
-            for (int n = window.takePresses(mc::Press::Backspace); n > 0; --n)
-                chat.backspace();
+            chat.type({typed.data(), size_t(typedCount)}); // backspaces included, in order
+            window.takePresses(mc::Press::Backspace);
             for (int n = window.takePresses(mc::Press::Up); n > 0; --n)
                 chat.browseSent(-1);
             for (int n = window.takePresses(mc::Press::Down); n > 0; --n)
                 chat.browseSent(1);
             if (window.takePresses(mc::Press::Enter) > 0) {
-                runChatLine(chat.submit());
+                // Commands run on the next tick (game state changes only in ticks).
+                const auto line = chat.submit();
+                if (!line.empty()) pendingChat.emplace_back(line);
                 window.setCursorCaptured(true);
                 attackArmed = false;
             } else if (window.takePresses(mc::Press::Escape) > 0) {
@@ -302,7 +301,6 @@ int main(int argc, char** argv) {
             for (int i = 0; i < mc::Hotbar::kSlots; ++i) {
                 const bool down = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
                 if (down && !numberWasDown[i]) inventory.numberKey(i, mx, my, fw / scale, fh / scale, hotbar);
-                numberWasDown[i] = down;
             }
             if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
                 inventory.close();
@@ -344,6 +342,16 @@ int main(int argc, char** argv) {
                     window.setCursorCaptured(false);
             }
         }
+        // Key edges for the inventory's number keys: tracked every frame, so a key
+        // held while the screen opens doesn't count as a fresh press.
+        for (int i = 0; i < mc::Hotbar::kSlots; ++i)
+            numberWasDown[i] = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
+        // Game presses made while the mouse isn't captured (typing, menus) must not
+        // act later (spaces typed in chat would toggle flight).
+        if (!window.cursorCaptured()) {
+            window.takePresses(mc::Press::Jump);
+            window.takePresses(mc::Press::RightMouse);
+        }
         player.turn(window.mouseDx(), window.mouseDy());
         if (!window.leftMousePressed()) attackArmed = true;
 
@@ -364,6 +372,9 @@ int main(int argc, char** argv) {
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
+            for (const auto& line : pendingChat)
+                runChatLine(line);
+            pendingChat.clear();
             mc::PlayerInput input = readInput(window);
             // Presses since the last tick (only the first tick of a frame sees them).
             input.jumpPresses = window.cursorCaptured() ? window.takePresses(mc::Press::Jump) : 0;
@@ -464,12 +475,12 @@ int main(int argc, char** argv) {
                     d.hasTarget = true;
                     d.target = {hit->block.x, hit->block.y, hit->block.z};
                     // Name re-built only when the targeted state changes (not per frame).
+                    // State names are built once per state, then reused (no per-frame
+                    // allocation).
                     const auto state = world.getBlock(hit->block);
-                    if (state != targetState) {
-                        targetState = state;
-                        targetName = mc::world::blockRegistry().toString(state);
-                    }
-                    d.targetName = targetName.c_str();
+                    auto& name = stateNames[state];
+                    if (name.empty()) name = mc::world::blockRegistry().toString(state);
+                    d.targetName = name.c_str();
                 }
                 const mc::world::BlockPos feet{static_cast<int32_t>(std::floor(d.feet.x)),
                                                static_cast<int32_t>(std::floor(d.feet.y)),

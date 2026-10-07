@@ -81,7 +81,8 @@ public:
         return n;
     }
 
-    // Printable characters typed since the last call (ASCII; others dropped).
+    // Printable characters typed since the last call (ASCII; others dropped), with
+    // Backspace as '\b' in typing order.
     // Returns the count written to `out` (at most `max`) and clears the buffer.
     int takeText(char* out, int max);
     // Cursor position in framebuffer pixels (for GUI screens).

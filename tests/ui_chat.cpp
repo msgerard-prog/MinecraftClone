@@ -40,6 +40,15 @@ TEST_CASE("chat input: typing, backspace, submit returns the line and closes") {
     CHECK(c.submit().empty()); // nothing typed
 }
 
+TEST_CASE("chat applies backspaces in typing order (from the window's text stream)") {
+    Chat c;
+    c.open();
+    c.type("a\bb"); // a, Backspace, b within one frame
+    CHECK(c.input() == "b");
+    c.type("\b\b\b"); // more than there is: stays empty
+    CHECK(c.input().empty());
+}
+
 TEST_CASE("chat input is capped at 256 characters (vanilla)") {
     Chat c;
     c.open();

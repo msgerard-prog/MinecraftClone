@@ -67,16 +67,16 @@ fine until a system works.
 | Fog fades to the sky colour (#78A7FF × daylight), so night fog is black; vanilla fades to the biome fog colour (Overworld #C0D8FF; dark blue at night) blended toward the sky and the sunrise colour | Simple sky model | M8 (biome colours) |
 | Water tint is always #3F76E4 (no biome water colours) | No biomes | M8 |
 | Gravel and sand don't fall | Falling blocks need entities | M10 |
-| All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | M6 (UI) |
+| All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | Options screens |
 | No swimming: water has no physics, the player sinks through it | Fluid physics come with the fluids work | Fluids milestone |
 | Every block has the default slipperiness 0.6 (ice, slime, honey, soul sand speeds not modelled); no fall damage or hunger | Those blocks/systems don't exist yet | With their blocks / M9 |
 | Breaking is instant (creative); no survival mining times, drops or tool rules; placing doesn't trigger block updates (no falling sand, no water flow into holes) | Items/tools in M9, block updates later | M9 / block updates |
-| Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | M6 (controls) |
+| Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | Controls options |
 | Sneaking cancels sprinting (1.21.4 behaviour; 1.21.5+ keeps sprinting while sneaking, faster than plain sneaking) | Depends on the pinned 1.21 patch (ADR 0002) | Patch decision |
 | Spawn = nearest dry column on a 4-block ring search; no climate-scored search or 21x21 random spawn area | No biomes/climate yet | M8 |
-| Block outline thickness is in world space (vanilla: constant on-screen line width); no High Contrast outline option; hotbar ignores horizontal scrolling | Simpler geometry / input | M6 |
+| Block outline thickness is in world space (vanilla: constant on-screen line width); no High Contrast outline option; hotbar ignores horizontal scrolling | Simpler geometry / input | Options screens |
 | Unloaded chunks collide as solid (vanilla keeps entities out of unloaded chunks differently) | Never move into ungenerated terrain | — |
-| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M6 (options) |
+| No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | Options screens |
 | Sky is one colour (#78A7FF × daylight): no gradient toward the fog colour at the horizon, no sunrise/sunset glow, no dark void plane below the horizon, no clouds. Sun/moon apparent sizes and the star count are estimated from observation; star positions differ | Simple sky model | Weather/sky pass |
 | The Brightness option's lift of dark light levels is our estimate (`block.vert`); the l/(60−3l) curve and ~5% at full darkness follow public sources; no block-light flicker | Exact lightmap not documented on the wiki | When observed side by side |
 | Non-cube blocks (torch) are targeted and outlined as full cubes | Shape-aware raycast comes with block shapes | Block shapes (slabs...) |
@@ -91,3 +91,9 @@ fine until a system works.
 | Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |
 | Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
 | Grass tint is always plains #91BD59 | No biomes yet | M8 |
+| Esc releases the mouse instead of opening the pause menu; no F1 (hide HUD); no item name shown above the hotbar when switching | No menus or display names yet | Menus / display-name table |
+| Chat: ASCII input only (vanilla: Unicode via its fallback font); no Tab completion, scrolling, cursor movement or paste; history counts wrapped lines, not messages; commands' feedback wording is ours | Minimal chat | Chat polish |
+| Commands: /tp accepts `x y z yaw pitch` without a target, no `^` local coordinates, `facing`, entity or name targets; /give takes block states (`oak_log[axis=x]`), only blocks, and writes into the hotbar (first empty slot, else the selected one) without stacks; /help is one line | No entities, items or inventory yet | M9 / M10 |
+| Creative inventory: one "Blocks" list in registry order; no tabs, search, saved hotbars, survival tab or destroy slot; tooltips show ids, not display names; clicking an item while carrying one swaps to it; clicking outside deletes (vanilla drops an item entity); no right/shift/middle click or Q | Blocks only, no items/entities yet | M9 / M10 |
+| F3 shows our own version, fps, C:, system lines and the time of day; the crosshair stays (vanilla: axis gizmo); line formats follow 1.21.x until ADR 0002 picks a patch | Debug data of this engine | Patch decision |
+| GUI sprites (hotbar, panel) and the font are our own art and palette; panel offsets follow the commonly known layout, not verified | ADR 0004 | In-game comparison |

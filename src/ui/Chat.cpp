@@ -14,6 +14,10 @@ void Chat::open(std::string_view initial) {
 
 void Chat::type(std::string_view text) {
     for (char c : text) {
+        if (c == '\b') {
+            backspace();
+            continue;
+        }
         if (m_inputLength >= kMaxInput) break;
         m_input[size_t(m_inputLength++)] = c;
     }

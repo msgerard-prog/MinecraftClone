@@ -4,27 +4,24 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M5 done and reviewed (code, perf, parity findings fixed or recorded): sky and block
-light on worker threads (wiki rules: free fall only at 15, loss max(1, opacity),
-water 1, glowstone 15, torch 14), copy-on-write shared sections so workers read
-while the main thread edits, smooth lighting + AO in a 12-byte vertex, light curve
-l/(60−3l) with a 5% floor, daylight cycle (24000 ticks, sky darken 0..11, sky colour,
-sun, 8 moon phases, stars; `--time`), glass/torch/glowstone (torch on full blocks),
-edits re-meshed only once their light is current. Sun/moon textures are original
-(`tools/textures/gen_environment.py`). 125 test cases.
-Measured after M5 (release, RTX 5080, auto-fly, 240 fps cap): RD16 CPU work p99
-0.31 ms, GPU 0.04 ms; RD32 CPU p99 0.67 ms, GPU avg 0.26 ms. Static RD32 load ~1 s.
-Earlier milestones: M4 player physics, raycast, break/place, hotbar; M3 terrain
-placeholder, water, fog, streaming; all 1,028 block textures.
+M6 done and reviewed (code, perf, parity findings fixed or recorded): HUD hotbar
+with isometric block icons, F3 debug screen, chat (T and /, history, fade, wrap),
+commands /tp /time /give /seed /help run on the tick, creative inventory (E).
+GUI is one batched draw (~0.02 ms CPU with F3). Original font/hotbar art.
+M5 done: sky + block light on workers, smooth lighting/AO, daylight cycle,
+sun/moon/stars. M7 started: NBT, zlib/gzip, Anvil region files, Java 1.21 chunk
+NBT, level.dat, chunk storage on an IO thread (all tested; not yet wired in).
+Measured (release, RTX 5080): RD32 auto-fly CPU work p99 0.70 ms, GPU avg 0.22 ms;
+static RD32 load 0.58 s.
 
 ## Next
-M6 — UI (started: chat command parser `gameplay/Commands` with /tp /time /give
-/seed /help; GL-free `GuiBatch` (text, sprites, block icons) + `GuiRenderer`;
-original font and hotbar textures from `tools/textures/gen_gui.py`).
-1. M6.1 — HUD: hotbar with block icons and selection, crosshair via GUI scale.
-2. M6.2 — F3 debug screen (fps, XYZ, block, chunk, facing, light, day time).
-3. M6.3 — Chat: T and / open it, text input, history, command feedback.
-4. M6.4 — Creative inventory (E): every block, pick into the hotbar.
+M7 — Save/load (format: vanilla Anvil, ADR 0007 *proposed*, see Waiting on the user).
+1. M7.2 — Loader integration: chunks load from region files before generating;
+   dirty chunks save on unload, every 6000 ticks (autosave) and on exit.
+2. M7.3 — level.dat: seed, generator, time, player, hotbar restored on start;
+   `--world NAME` (default "New World" for interactive runs), `--no-save`.
+3. M7.4 — Round-trip tests (save, restart, compare), docs, reviews.
+Then M8 (1.21 worldgen).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -57,6 +54,13 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **Save format (ADR 0007, proposed):** vanilla's own Anvil format (region .mca,
+  Java 1.21 chunk NBT, gzip level.dat, DataVersion 3955 = 1.21.1). Built because no
+  saves existed yet; say if you want something else before worlds matter.
+- M6 in-game checks: exact feedback of `/tp 100 64 -20`, `/give @s oak_log 64` and an
+  unknown command; does Return open the chat; carrying a creative item and clicking
+  another - is the cursor empty afterwards; compare hotbar / creative panel offsets
+  with a screenshot at the same GUI scale; how many sent lines Up recalls.
 - M5 in-game checks: does a torch stand on glowstone, and can it be placed in water
   (ours: yes / no)? Compare night darkness and sun/moon size side by side
   (`tools/run.sh --time 18000`). Which side of the waning moon is lit (ours: right)?
@@ -96,7 +100,7 @@ and GUI textures are made with their systems.
 | M3 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | ✅ 2026-10-06 |
 | M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | ✅ 2026-10-06 |
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | ✅ 2026-10-07 |
-| M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | Usable creative-mode inventory |
+| M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | ✅ 2026-10-07 |
 | M7 | Save/load: region files (format chosen by ADR) | Worlds survive restart; round-trip tests |
 | M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | Terrain shapes recognisably vanilla for the same kinds of seeds |
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | Wood → stone → iron progression works |
@@ -113,6 +117,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M6: HUD, F3, chat + commands, creative inventory.
 - 2026-10-07 M5: light engine, smooth lighting/AO, daylight cycle, sun/moon/stars.
 - 2026-10-06 M4: player physics, raycast/outline/crosshair, break/place, hotbar.
 - 2026-10-06 M3: terrain generator, water, fog, chunk streaming, GPU timing, auto-fly bench.

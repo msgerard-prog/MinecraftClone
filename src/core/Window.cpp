@@ -61,7 +61,11 @@ void onKey(GLFWwindow* handle, int key, int, int action, int) {
     case GLFW_KEY_E: if (press) count(Press::Inventory); break;
     case GLFW_KEY_ENTER:
     case GLFW_KEY_KP_ENTER: if (press) count(Press::Enter); break;
-    case GLFW_KEY_BACKSPACE: count(Press::Backspace); break; // repeats too
+    case GLFW_KEY_BACKSPACE: // repeats too; also in the text stream, in typing order
+        count(Press::Backspace);
+        if (self->m_textLength < static_cast<int>(sizeof(self->m_text)))
+            self->m_text[self->m_textLength++] = '\b';
+        break;
     case GLFW_KEY_UP: count(Press::Up); break;
     case GLFW_KEY_DOWN: count(Press::Down); break;
     default: break;

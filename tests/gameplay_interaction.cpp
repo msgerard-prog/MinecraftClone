@@ -146,3 +146,15 @@ TEST_CASE("torches go on top of full blocks (glass too), never on sides or into 
     CHECK(wall.changed.empty());
     CHECK(torch.y == 65);
 }
+
+TEST_CASE("an empty hotbar slot places nothing (and keeps water)") {
+    // Regression: an empty slot used to "place" air, deleting water.
+    Scene s(0.0f, 60.0f);
+    const auto t = BlockInteraction::target(s.world, s.player);
+    REQUIRE(t.has_value());
+    const BlockPos front = neighbour(t->block, t->face);
+    s.world.setBlock(front, S(blocks::Water));
+    s.tick(false, true, 0);
+    CHECK(s.changed.empty());
+    CHECK(s.world.getBlock(front) == S(blocks::Water));
+}

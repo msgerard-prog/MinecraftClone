@@ -38,6 +38,15 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   meshes; draw; UI.
 - Screenshot mode: render `--frames` frames, read the back buffer, write PNG, exit.
 
+## Input and screens (`main.cpp`, M6)
+One screen owns the keyboard at a time: **chat** (T, or / pre-filled) takes the typed
+text stream (characters and backspaces in order), Enter, Esc, Up/Down; **creative
+inventory** (E) takes clicks, wheel, 1-9 edges, Esc/E; otherwise the **game** reads
+movement keys and clicks while the mouse is captured. Presses for the other modes
+are drained each frame, and game presses (jump, use) are dropped while the mouse is
+free, so nothing typed acts later. Chat lines are queued and run as commands
+(`gameplay/Commands`) at the start of the next tick.
+
 ## Threading (M2.4)
 - Main thread: GLFW, GL, tick, all `World` reads/writes, section snapshots, uploads.
 - `MeshWorkers` (hardware threads − 1): run `meshSection` on 18³ snapshots. Jobs and
@@ -117,6 +126,13 @@ multi-draw) → screen.
   `update()` re-meshes dirty sections, `drawFrame()` does all of a frame's GL work.
   `main.cpp` makes no GL calls (hard rule 7).
 
+- GUI (M6): `GuiBatch` (GL-free) collects quads in GUI pixels (screen / GUI scale,
+  vanilla auto scale): sprites, text (glyph advances from the font sheet, vanilla
+  shadow), isometric block icons from the atlas; capped, reserved once.
+  `GuiRenderer` uploads it into one dynamic buffer and draws once per frame, after
+  the overlay. `ui/` builds it: `drawHotbar`, `DebugScreen` (F3), `Chat`,
+  `CreativeInventory` — all GL-free and unit-tested.
+
 Fixed bindings (add new ones here):
 | Kind | Slot | Use |
 |---|---|---|
@@ -132,6 +148,8 @@ Fixed bindings (add new ones here):
 | SSBO binding | 0 | section offsets (block pass) |
 | uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |
 | uniform location (sky) | 0, 1, 2 | `uTransform`, `uColor`, `uUvRect` |
+| uniform location (gui) | 0 | `uGuiSize` (framebuffer / GUI scale) |
+| texture units (gui) | 0–4 | white, font, hotbar, selection, block atlas (= `GuiTexture`) |
 
 Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),

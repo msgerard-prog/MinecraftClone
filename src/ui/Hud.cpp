@@ -2,6 +2,7 @@
 
 #include "world/Coords.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -66,16 +67,29 @@ void DebugScreen::draw(gfx::GuiBatch& batch, const DebugInfo& d, int guiWidth) {
          d.skyLight, d.blockLight);
     line("Day %lld, time %lld (game time %lld)", static_cast<long long>(d.dayTime / 24000),
          static_cast<long long>(d.dayTime % 24000), static_cast<long long>(d.gameTime));
-    if (d.hasTarget) {
-        line("");
-        line("Targeted Block: %d, %d, %d", d.target.x, d.target.y, d.target.z);
-        line("%s", d.targetName);
-    }
     const int leftCount = m_count;
-    // Right: system.
+    // Right: system, then the targeted block (id, one property per line).
     line("Display: %dx%d", d.width, d.height);
     line("GPU: %.2f ms/frame", d.gpuMs);
     line("OpenGL 4.6 core");
+    if (d.hasTarget) {
+        line("");
+        line("Targeted Block: %d, %d, %d", d.target.x, d.target.y, d.target.z);
+        const std::string_view name(d.targetName);
+        const size_t open = name.find('[');
+        line("%.*s", int(std::min(open, name.size())), name.data());
+        if (open != std::string_view::npos) {
+            std::string_view props = name.substr(open + 1, name.size() - open - 2);
+            while (!props.empty()) {
+                const size_t comma = std::min(props.find(','), props.size());
+                const std::string_view kv = props.substr(0, comma);
+                const size_t eq = kv.find('=');
+                if (eq != std::string_view::npos)
+                    line("%.*s: %.*s", int(eq), kv.data(), int(kv.size() - eq - 1), kv.data() + eq + 1);
+                props.remove_prefix(std::min(comma + 1, props.size()));
+            }
+        }
+    }
 
     const uint32_t bg = gfx::argb(0x90505050), fg = gfx::argb(0xFFE0E0E0);
     for (int i = 0; i < m_count; ++i) {

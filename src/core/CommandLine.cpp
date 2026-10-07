@@ -77,7 +77,11 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
         } else if (arg == "--seed") {
             auto v = needValue();
             if (!v) return std::nullopt;
-            if (!parseNumber(*v, opts.seed)) {
+            // Seeds are signed 64-bit in vanilla; unsigned input is accepted too.
+            int64_t signedSeed = 0;
+            if (parseNumber(*v, signedSeed)) {
+                opts.seed = static_cast<uint64_t>(signedSeed);
+            } else if (!parseNumber(*v, opts.seed)) {
                 error = "--seed needs an unsigned integer";
                 return std::nullopt;
             }

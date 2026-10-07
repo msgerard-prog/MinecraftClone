@@ -33,6 +33,8 @@ template <typename T> std::optional<T> number(std::string_view s) {
     if (s.front() == '+') s.remove_prefix(1);
     auto [p, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
     if (ec != std::errc{} || p != s.data() + s.size()) return std::nullopt;
+    if constexpr (std::is_floating_point_v<T>)
+        if (!std::isfinite(v)) return std::nullopt; // from_chars accepts nan/inf
     return v;
 }
 
@@ -61,7 +63,9 @@ std::optional<int64_t> timeValue(std::string_view s) {
     }
     const auto v = number<double>(s);
     if (!v || *v < 0) return std::nullopt;
-    return static_cast<int64_t>(std::lround(*v * scale));
+    const double ticks = *v * scale;
+    if (ticks > 2147483647.0) return std::nullopt; // vanilla's time argument is an int
+    return static_cast<int64_t>(std::llround(ticks));
 }
 
 CommandResult fail(std::string msg) { return {false, std::move(msg)}; }
@@ -84,6 +88,9 @@ CommandResult teleport(const std::vector<std::string_view>& a, CommandContext& c
     const auto y = coordinate(a[i + 1], p.y, false);
     const auto z = coordinate(a[i + 2], p.z, true);
     if (!x || !y || !z) return fail("Invalid position");
+    // Vanilla's teleport range (wiki: Commands/teleport).
+    if (std::abs(*x) >= 30000000 || std::abs(*z) >= 30000000 || std::abs(*y) >= 20000000)
+        return fail("Invalid position for teleport");
     float yaw = ctx.player.yaw(), pitch = ctx.player.pitch();
     if (a.size() - i == 5) {
         const auto yw = coordinate(a[i + 3], yaw, false);
@@ -108,8 +115,9 @@ CommandResult time(const std::vector<std::string_view>& a, CommandContext& ctx) 
         else if (a[2] == "midnight") t = 18000;
         else t = timeValue(a[2]);
         if (!t) return fail("Invalid time");
-        // `set` keeps the day count (vanilla sets the time of the current day).
-        ctx.dayTime = ctx.dayTime - ctx.dayTime % world::kTicksPerDay + *t;
+        // `set` sets the absolute day time: the day count (and moon phase) restart
+        // (wiki: Commands/time).
+        ctx.dayTime = *t;
         return {true, format("Set the time to %lld", static_cast<long long>(*t))};
     }
     if (a[1] == "add") {
@@ -133,13 +141,27 @@ CommandResult time(const std::vector<std::string_view>& a, CommandContext& ctx) 
 CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) {
     // /give @s <block> [count]: blocks only until items exist (M9); the block goes
     // into the selected hotbar slot (no inventory yet).
-    if (a.size() < 3 || !isSelf(a[1])) return fail("Usage: /give @s <block> [count]");
+    if (a.size() < 3 || a.size() > 4 || !isSelf(a[1]))
+        return fail("Usage: /give @s <block> [count]");
+    int count = 1;
+    if (a.size() == 4) {
+        const auto n = number<int64_t>(a[3]);
+        if (!n || *n < 1 || *n > 2147483647) return fail("Invalid count");
+        count = static_cast<int>(*n);
+    }
     std::string_view id = a[2];
     if (id.starts_with("minecraft:")) id.remove_prefix(10);
     const auto state = world::blockRegistry().parse(id);
     if (!state || *state == 0) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
-    ctx.hotbar.setSlot(ctx.hotbar.selected(), *state);
-    return {true, format("Gave 1 [%.*s] to Player", int(id.size()), id.data())};
+    // First empty hotbar slot, else the selected one (no inventory or stacks yet).
+    int slot = ctx.hotbar.selected();
+    for (int i = 0; i < Hotbar::kSlots; ++i)
+        if (ctx.hotbar.slot(i) == 0) {
+            slot = i;
+            break;
+        }
+    ctx.hotbar.setSlot(slot, *state);
+    return {true, format("Gave %d [%.*s] to Player", count, int(id.size()), id.data())};
 }
 
 } // namespace
@@ -151,7 +173,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "tp" || a[0] == "teleport") return teleport(a, ctx);
     if (a[0] == "time") return time(a, ctx);
     if (a[0] == "give") return give(a, ctx);
-    if (a[0] == "seed") return {true, format("Seed: [%llu]", static_cast<unsigned long long>(ctx.seed))};
+    if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
     if (a[0] == "help") return {true, "/give /help /seed /teleport /time /tp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }

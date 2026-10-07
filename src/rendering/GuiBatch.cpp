@@ -24,6 +24,8 @@ FontMetrics FontMetrics::fromImage(const uint8_t* pixels, int size) {
 
 void GuiBatch::quad(const float (&px)[4][2], const float (&uv)[4][2], uint32_t color,
                     GuiTexture tex) {
+    // Hard cap: never grow past the reserved capacity (no per-frame allocation).
+    if (m_maxVertices && m_vertices.size() + 6 > m_maxVertices) return;
     const auto t = static_cast<uint32_t>(tex);
     auto v = [&](int i) { return GuiVertex{px[i][0], px[i][1], uv[i][0], uv[i][1], color, t}; };
     m_vertices.push_back(v(0));
