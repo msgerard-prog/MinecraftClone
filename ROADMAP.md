@@ -4,27 +4,26 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-Per-dimension heights done (user decision): Overworld Y -64..319, Nether and End
-Y 0..255 as vanilla (HeightRange on World/Chunk; saves yPos 0 with 16 sections).
-All planned milestones M0-M12 are built. M12 (reviews running): the Nether (cavern
-generator, lava sea, glowstone, quartz/gold ore, magma) and the End (main island,
-pillars, active exit portal) in vanilla's DIM-1/DIM1 folders; nether portals (lit
-with flint and steel, 8:1 travel, linking to known portals or building one), end
-portal frames + eyes, the End platform, respawn in the Overworld; no sky light,
-Nether fog and ambient light, End bright lightmap; /fill, --dimension.
-M11 done: redstone. M10: mobs. M9: survival/crafting. M8: overworld. M7: saves.
+v0.13.0: M13 done - saves are Java Edition 1.21.11 (DataVersion 4671, heightmaps,
+1.21.4+/1.21.5+ field names, spawn compound, game rules, dimensions; older saves
+still load), 1.21.11 defaults (render distance 16, Nether fog 10-96, sprint-sneak),
+copper tools; versioned builds (exe version resource, F3, --version, git tags).
+Per-dimension world heights (Nether/End Y 0..255). M1-M12 done (v0.12.0).
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M13 — 1.21.11 migration (ADR 0002 update, ADR 0007):
-1. M13.1 — Saves at DataVersion 4671: 1.21.5+ entity fields (`fall_distance` double,
-   `equipment`, cow `variant`), 1.21.4+ furnace names, item components as 1.21.11.
-2. M13.2 — Vanilla-openable worlds: Heightmaps, level.dat WorldGenSettings.dimensions,
-   GameRules, DataPacks, difficulty; `Version` 1.21.11.
-3. M13.3 — 1.21.11 defaults: render distance / graphics presets, mipmap levels, Nether
-   fog fixed 10-96, sneak-sprint (1.21.5+), copper tools (1.21.9).
+M14 — Fluids (wiki: Water, Lava, Fluid):
+1. M14.1 — Flow: water and lava levels (water -1 per block, Overworld lava -2), falling
+   fluid, spreading toward the nearest drop (water 4, Overworld lava 2), fluid ticks
+   (water 5, lava 30 / Nether 10), new sources, drying up; saved as `fluid_ticks`.
+2. M14.2 — Fluids break plants/torches/redstone; lava + water make obsidian,
+   cobblestone, stone; flowing surfaces render at their heights.
+3. M14.3 — Entities in fluids: swimming (drag, rising, current push), drowning (air
+   300), lava damage and burning, mobs and items in currents.
+4. M14.4 — Buckets: empty/water/lava buckets, picking up and placing sources, lava
+   bucket fuel; the Nether evaporates water.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -144,7 +143,7 @@ and GUI textures are made with their systems.
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | ✅ 2026-10-07 (zombie + cow, no pathfinding: see deviations) |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | ✅ 2026-10-07 (no comparators/observers; instant piston moves: see deviations) |
 | M12 | Dimensions: Nether and End, portals | ✅ 2026-10-07 (one dimension loaded at a time; no dragon or strongholds: see deviations) |
-| M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | Vanilla 1.21.11 opens our worlds |
+| M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | ✅ 2026-10-07 v0.13.0 (vanilla opening: in-game check) |
 | M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | Flow matches vanilla |
 | M15 | Random ticks & fire: crops, saplings, leaf decay, grass spread, fire, flint and steel | Fire spreads like vanilla |
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | Classic mobs behave like vanilla |
@@ -165,6 +164,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M13 (v0.13.0): Java Edition 1.21.11 saves and defaults, copper tools, versioning.
 - 2026-10-07 Vanilla world heights per dimension (Nether/End 0..255).
 - 2026-10-07 M12: Nether, End, portals, dimension travel and saves.
 - 2026-10-07 M11: block updates, scheduled ticks, redstone components, pistons.
