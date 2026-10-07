@@ -43,6 +43,9 @@ public:
     // others as their sprite; spinning about Y and bobbing (wiki: Item (entity)).
     void addItem(const world::ItemStack& stack, const glm::dvec3& pos, float spin, float bob,
                  const glm::vec3& light, const glm::dvec3& cameraPos);
+    // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
+    void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
+                  const glm::dvec3& cameraPos);
     // The crack on a block being broken: stage 0..9 (destroy_stage_N).
     void setCrack(const world::BlockPos& block, int stage);
     void clearCrack() { m_crackStage = -1; }

@@ -15,7 +15,7 @@ Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
 M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page):
-1. M16.1 — Falling blocks: sand, red sand, gravel fall 2 ticks after losing support
+1. ✅ M16.1 — Falling blocks: sand, red sand, gravel fall 2 ticks after losing support
    (falling_block entity with gravity, lands as the block or drops as an item on
    non-full blocks, crushes nothing), saved with the chunk's entities.
 2. M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,

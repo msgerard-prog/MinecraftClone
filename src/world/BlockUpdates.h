@@ -91,6 +91,17 @@ public:
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
+    // Falling blocks (M16; wiki: Falling Block): sand, red sand and gravel fall 2 ticks
+    // after the block below becomes free (air, fire, fluid, replaceable plants). The
+    // block is removed and listed here for gameplay to turn into a falling entity.
+    static bool hasGravity(BlockId b);
+    static bool fallThrough(BlockStateId below); // vanilla FallingBlock "free" below
+    static bool replaceable(BlockStateId s);     // a landing block may take its place
+    struct FallStart {
+        BlockPos pos;
+        BlockStateId state;
+    };
+    std::vector<FallStart>& fallingStarts() { return m_falling; }
     // Fire (M15, Fire.cpp; wiki: Fire › Flammable blocks): ignite odds (how readily fire
     // spreads next to a block) and burn odds (how fast it destroys it); 0 = never.
     static int igniteOdds(BlockId b);
@@ -223,6 +234,7 @@ private:
     std::vector<BlockPos> m_changed;
     std::vector<BlockPos> m_remesh;
     std::vector<Drop> m_drops;
+    std::vector<FallStart> m_falling;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)
     std::vector<BlockStateId> m_pushStates;
     struct Toggle {

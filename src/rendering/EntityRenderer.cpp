@@ -176,6 +176,20 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
     quad(q, u0 + m_cell, v0, u0, v0 + m_cell, pack(light), m_items);
 }
 
+void EntityRenderer::addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
+                              const glm::dvec3& cameraPos) {
+    const BakedModel& m = (*m_models)[state];
+    if (!m.visible || m.cross || m.boxCount) return; // (only cube blocks fall)
+    uint16_t sprites[6];
+    uint32_t tints[6];
+    for (int f = 0; f < 6; ++f) {
+        sprites[f] = m.variants[0].faces[f].sprite;
+        tints[f] = 0xFFFFFFu;
+    }
+    const glm::vec3 base(pos - cameraPos);
+    cube(base + glm::vec3(-0.5f, 0.0f, -0.5f), base + glm::vec3(0.5f, 1.0f, 0.5f), sprites, light, tints, m_items, true);
+}
+
 void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
                             float pitch, const glm::vec3& light, const glm::dvec3& cameraPos) {
     constexpr float kDeg = 3.14159265f / 180.0f;

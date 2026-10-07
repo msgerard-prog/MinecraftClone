@@ -4,6 +4,7 @@
 #include "core/Log.h"
 #include "core/Window.h"
 #include "gameplay/BlockInteraction.h"
+#include "gameplay/FallingBlocks.h"
 #include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
@@ -373,6 +374,7 @@ int main(int argc, char** argv) {
         vitals.setFireTicks(level->fire);
     }
     mc::ItemEntities droppedItems;
+    mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -723,6 +725,7 @@ int main(int argc, char** argv) {
                     world.removeChunk(p);
                 unloadedChunks.insert(unloadedChunks.end(), all.begin(), all.end());
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
+                fallingBlocks.clear();
                 const Dimension from = dimension;
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -1040,6 +1043,11 @@ int main(int argc, char** argv) {
                 }
             }
             blockUpdates.drops().clear();
+            // Sand/gravel that lost its support falls as an entity (M16).
+            for (const auto& f : blockUpdates.fallingStarts())
+                fallingBlocks.spawn(f.pos, f.state);
+            blockUpdates.fallingStarts().clear();
+            fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
@@ -1135,6 +1143,9 @@ int main(int argc, char** argv) {
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
         }
+        for (const auto& f : fallingBlocks.blocks())
+            entities.addBlock(f.state, glm::mix(f.prevPos, f.pos, clock.alpha),
+                              lightTable[size_t(f.skyLight * 16 + f.blockLight)], camera.position);
         // Mobs: only chunks in view, and mobs within vanilla's entity render distance
         // (64 blocks x the hitbox's average edge; wiki: Options › Entity Distance).
         const mc::gfx::Frustum mobFrustum =

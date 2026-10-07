@@ -127,6 +127,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_changed.reserve(4096);
     m_remesh.reserve(4096);
     m_drops.reserve(256); // leaf decay bursts
+    m_falling.reserve(256);
     m_push.reserve(13);
     m_pushStates.reserve(13);
     m_toggles.reserve(64);
@@ -196,6 +197,20 @@ int BlockUpdates::bestNeighbourSignal(const BlockPos& p) const {
     }
     return best;
 }
+
+// --- Falling blocks ---------------------------------------------------------------
+
+bool BlockUpdates::hasGravity(BlockId b) { return b == B::Sand || b == B::RedSand || b == B::Gravel; }
+
+bool BlockUpdates::replaceable(BlockStateId s) {
+    // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
+    // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
+    const BlockId b = blockOf(s);
+    return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass || b == B::Fern ||
+           b == B::DeadBush || (b == B::Snow && R().get(s, layers) == 0);
+}
+
+bool BlockUpdates::fallThrough(BlockStateId below) { return replaceable(below); }
 
 // --- Updates ----------------------------------------------------------------------
 
@@ -382,6 +397,11 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Water:
     case B::Lava: fluidNeighbourChanged(p, s); break;
     case B::Fire: fireNeighbourChanged(p); break;
+    case B::Sand:
+    case B::RedSand:
+    case B::Gravel:
+        if (fallThrough(at(rel(p, Direction::Down)))) schedule(p, blockOf(s), 2, 0); // wiki: 2 ticks
+        break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
@@ -523,6 +543,14 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::Water:
     case B::Lava: tickFluid(p, s); break;
     case B::Fire: tickFire(p, s); break;
+    case B::Sand:
+    case B::RedSand:
+    case B::Gravel:
+        if (p.y > m_world.height().minY && fallThrough(at(rel(p, Direction::Down)))) {
+            m_falling.push_back({p, s});
+            set(p, 0);
+        }
+        break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:

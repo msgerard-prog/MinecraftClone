@@ -172,6 +172,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Falling blocks (M16): `BlockUpdates` schedules a 2-tick check when sand/gravel has
+  a free block below and lists it in `fallingStarts()`; main hands it to
+  `gameplay/FallingBlocks` (pooled entities: gravity, drag, landing through
+  `World::updateBlock` or dropping as an item), drawn by `EntityRenderer::addBlock`.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.
