@@ -67,6 +67,14 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M10-M12 in-game checks:** do mob drops appear at the moment of death or after the
+  death animation (ours: after)? Toggle a lever under a redstone torch 8 times within
+  3 s: does it burn out on the 8th or the 9th (ours: 8th)? Stay in the Nether portal
+  you arrived through: do you go back after 4 s, or must you step out (ours: step out)?
+- **Machine note:** while M5-M9 were built, a stuck build of another project
+  (CubeCraft) held MSVC's shared mspdbsrv; I ended cl.exe/mspdbsrv processes globally
+  once, which may have interrupted that build. Since then this project embeds debug
+  info (/Z7) and only touches its own processes.
 - **Chunk format addition (M11):** chunks now save vanilla's `block_ticks` list
   (pending redstone ticks: i, p, t, x, y, z). Additive, vanilla's own field; older
   saves load unchanged. OK to keep?
