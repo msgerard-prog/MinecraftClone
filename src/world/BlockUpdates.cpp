@@ -368,6 +368,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
             m_events.push_back({p, should, !m_inTick});
         break;
     }
+    case B::Water:
+    case B::Lava: fluidNeighbourChanged(p, s); break;
     case B::NetherPortal: {
         // A portal block needs portal or obsidian above, below and along its axis
         // (wiki: Nether portal - breaking the frame breaks the portal).
@@ -436,7 +438,10 @@ void BlockUpdates::tick() {
             if (t.time <= m_now) m_due.push_back({{c.pos().x * 16 + t.x, t.y, c.pos().z * 16 + t.z}, t});
         if (std::erase_if(ticks, [&](const Chunk::BlockTick& t) { return t.time <= m_now; })) c.markDirty();
     });
+    // Block ticks first, then fluid ticks (vanilla runs them as two phases).
     std::sort(m_due.begin(), m_due.end(), [](const Due& a, const Due& b) {
+        const bool fa = isFluid(a.tick.block), fb = isFluid(b.tick.block);
+        if (fa != fb) return fb;
         if (a.tick.time != b.tick.time) return a.tick.time < b.tick.time;
         if (a.tick.priority != b.tick.priority) return a.tick.priority < b.tick.priority;
         return a.tick.order < b.tick.order;
@@ -495,6 +500,8 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         }
         break;
     }
+    case B::Water:
+    case B::Lava: tickFluid(p, s); break;
     case B::RedstoneLamp:
         if (flag(s, lit) && bestNeighbourSignal(p) == 0) set(p, withFlag(s, lit, false));
         break;

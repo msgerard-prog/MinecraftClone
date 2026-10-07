@@ -58,6 +58,10 @@ public:
     // Changes whenever a chunk is added or removed (lets callers cache Chunk pointers).
     uint64_t chunkEpoch() const { return m_chunkEpoch; }
     void setHasSkyLight(bool v) { m_hasSkyLight = v; }
+    // The Nether (wiki: Dimension type › ultrawarm): lava flows faster and farther,
+    // water can't be placed.
+    bool isUltrawarm() const { return m_ultrawarm; }
+    void setUltrawarm(bool v) { m_ultrawarm = v; }
 
     // Chunks with something that ticks (block entities, mobs), so game ticks never
     // scan every loaded chunk (vanilla keeps level-wide ticking lists too).
@@ -93,6 +97,7 @@ private:
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
     bool m_hasSkyLight = true;
+    bool m_ultrawarm = false;
     HeightRange m_height = kOverworldHeight;
     uint64_t m_chunkEpoch = 0;
 };

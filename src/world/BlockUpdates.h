@@ -72,7 +72,27 @@ public:
 
     void onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) override;
 
+    // Fluids (M14, Fluids.cpp). Amount 1..8 (8 = source or falling); 0 if not a fluid.
+    static bool isFluid(BlockId b);
+    static int fluidAmount(BlockStateId s);
+    static BlockStateId fluidState(BlockId kind, int amount, bool falling);
+    static bool breaksInFluid(BlockId b); // washed away (plants, torches, redstone...)
+
 private:
+    enum class FluidInto { No, Empty, Same, Breaks };
+    int fluidDelay(BlockId kind) const;
+    int fluidDrop(BlockId kind) const;
+    int slopeFindDistance(BlockId kind) const;
+    FluidInto fluidInto(BlockStateId target, BlockId kind) const;
+    bool isHole(const BlockPos& p, BlockId kind) const;
+    BlockStateId newFluidState(const BlockPos& p, BlockId kind) const;
+    bool lavaMeetsWater(const BlockPos& p, BlockStateId s);
+    void fluidNeighbourChanged(const BlockPos& p, BlockStateId s);
+    void placeFluid(const BlockPos& p, BlockStateId state);
+    void tickFluid(const BlockPos& p, BlockStateId s);
+    int slopeDistance(const BlockPos& p, int depth, Direction from, BlockId kind) const;
+    void spreadSideways(const BlockPos& p, BlockStateId s);
+
     struct Due {
         BlockPos pos;
         Chunk::BlockTick tick;

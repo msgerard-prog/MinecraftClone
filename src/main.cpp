@@ -301,6 +301,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
     world.setHeight(mc::world::dimensionInfo(dimension).height); // vanilla: per dimension type
+    world.setUltrawarm(dimension == Dimension::Nether);
     renderer.setDimension(dimension);
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
@@ -717,6 +718,7 @@ int main(int argc, char** argv) {
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
                 world.setHeight(mc::world::dimensionInfo(dimension).height); // (no chunks are loaded now)
+                world.setUltrawarm(dimension == Dimension::Nether);
                 renderer.setDimension(dimension);
                 vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
                 // The old storage finishes its writes on a thread of its own (flushing

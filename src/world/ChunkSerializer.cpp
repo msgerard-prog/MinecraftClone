@@ -296,7 +296,6 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     for (int s = 0; s < chunk.height.sections(); ++s)
         post.emplace_back(nbt::listOf(nbt::TagType::Short, {}));
     root.put("PostProcessing", nbt::listOf(nbt::TagType::List, std::move(post)));
-    root.put("fluid_ticks", nbt::listOf(nbt::TagType::Compound, {}));
     nbt::Compound structures;
     structures.put("references", nbt::Compound{});
     structures.put("starts", nbt::Compound{});
@@ -325,21 +324,36 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("block_entities", nbt::listOf(nbt::TagType::Compound, std::move(entities)));
     // Scheduled block ticks (wiki: Chunk format › block_ticks): i block id, p
     // priority, t delay, x/y/z world position; in scheduling order.
-    std::vector<nbt::Tag> ticks;
+    // Fluid ticks go to their own list (wiki: Chunk format › fluid_ticks) with the
+    // fluid's id: "minecraft:water" for a source, "minecraft:flowing_water" otherwise
+    // (no priority: always 0).
+    std::vector<nbt::Tag> ticks, fluidTicks;
     std::vector<const Chunk::BlockTick*> ordered;
     for (const auto& t : chunk.blockTicks)
         ordered.push_back(&t);
     std::sort(ordered.begin(), ordered.end(), [](const auto* a, const auto* b) { return a->order < b->order; });
     for (const Chunk::BlockTick* t : ordered) {
         nbt::Compound e;
-        e.put("i", blockRegistry().block(t->block).id);
+        const bool fluid = t->block == blocks::Water || t->block == blocks::Lava;
+        if (fluid) {
+            const int s = chunk.height.sectionIndex(t->y);
+            const BlockStateId st = s >= 0 && s < chunk.height.sections()
+                                        ? chunk.sections[size_t(s)]->get(t->x, blockToLocal(t->y), t->z)
+                                        : BlockStateId{0};
+            const bool source = blockRegistry().blockOf(st) == t->block && blockRegistry().get(st, properties::level) == 0;
+            const std::string name = t->block == blocks::Water ? "water" : "lava";
+            e.put("i", std::string(source ? "minecraft:" : "minecraft:flowing_") + name);
+        } else {
+            e.put("i", blockRegistry().block(t->block).id);
+        }
         e.put("p", int32_t{t->priority});
         e.put("t", static_cast<int32_t>(std::max<int64_t>(0, t->time)));
         e.put("x", int32_t{chunk.pos.x * 16 + t->x});
         e.put("y", int32_t{t->y});
         e.put("z", int32_t{chunk.pos.z * 16 + t->z});
-        ticks.emplace_back(std::move(e));
+        (fluid ? fluidTicks : ticks).emplace_back(std::move(e));
     }
+    root.put("fluid_ticks", nbt::listOf(nbt::TagType::Compound, std::move(fluidTicks)));
     root.put("block_ticks", nbt::listOf(nbt::TagType::Compound, std::move(ticks)));
     return root;
 }
@@ -461,12 +475,17 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
         }
     chunk.blockTicks().clear();
-    if (const nbt::List* ticks = root.list("block_ticks")) {
-        uint64_t order = 0;
+    uint64_t order = 0;
+    for (const char* listName : {"block_ticks", "fluid_ticks"}) {
+        const nbt::List* ticks = root.list(listName);
+        if (!ticks) continue;
         for (const nbt::Tag& t : ticks->items) {
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("i") : nullptr;
-            const auto block = id ? reg.findBlock(*id) : std::nullopt;
+            std::optional<BlockId> block;
+            if (id && (*id == "minecraft:water" || *id == "minecraft:flowing_water")) block = blocks::Water;
+            else if (id && (*id == "minecraft:lava" || *id == "minecraft:flowing_lava")) block = blocks::Lava;
+            else if (id) block = reg.findBlock(*id);
             if (!block) continue;
             const int64_t x = e->integer("x").value_or(INT32_MIN) - int64_t{chunk.pos().x} * 16;
             const int64_t z = e->integer("z").value_or(INT32_MIN) - int64_t{chunk.pos().z} * 16;
@@ -482,8 +501,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
                                           static_cast<int8_t>(std::clamp<int64_t>(e->integer("p").value_or(0), -3, 3)), *block,
                                           std::clamp<int64_t>(e->integer("t").value_or(0), 0, 1 << 20), order++});
         }
-        chunk.ticksRelative = !chunk.blockTicks().empty();
     }
+    chunk.ticksRelative = !chunk.blockTicks().empty();
     chunk.setBiomes(std::move(biomes));
     return true;
 }
