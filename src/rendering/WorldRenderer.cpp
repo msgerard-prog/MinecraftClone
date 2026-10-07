@@ -29,6 +29,11 @@ constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
 
 } // namespace
 
+WorldRenderer::~WorldRenderer() {
+    m_workers.reset(); // join mesh threads before the models they read go away
+    if (m_queries[0]) glDeleteQueries(kQueryRing, m_queries);
+}
+
 bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_blockShader.load("block")) return false;
     // Pack stack: our placeholders at the bottom (the repo root holds `assets/`), then
@@ -75,29 +80,15 @@ void WorldRenderer::markChunkSections(world::ChunkPos pos) {
 
 void WorldRenderer::onChunksLoaded(const world::World& world,
                                    const std::vector<world::ChunkPos>& loaded) {
-    auto meshable = [&](world::ChunkPos p) {
-        for (int dz = -1; dz <= 1; ++dz)
-            for (int dx = -1; dx <= 1; ++dx)
-                if (!world.chunk({p.x + dx, p.z + dz})) return false;
-        return true;
-    };
-    for (const world::ChunkPos& p : loaded) {
-        // The new chunk may complete its own neighbourhood or any neighbour's.
-        for (int dz = -1; dz <= 1; ++dz) {
-            for (int dx = -1; dx <= 1; ++dx) {
-                const world::ChunkPos q{p.x + dx, p.z + dz};
-                if (!m_meshedChunks.contains(q) && meshable(q)) {
-                    m_meshedChunks.insert(q);
-                    markChunkSections(q);
-                }
-            }
-        }
-    }
+    m_ready.clear();
+    m_meshTracker.onLoaded(world, loaded, m_ready);
+    for (const world::ChunkPos& p : m_ready)
+        markChunkSections(p);
 }
 
 void WorldRenderer::onChunksUnloaded(const std::vector<world::ChunkPos>& unloaded) {
+    m_meshTracker.onUnloaded(unloaded);
     for (const world::ChunkPos& p : unloaded) {
-        m_meshedChunks.erase(p);
         for (int sy = kMinSectionY; sy <= kMaxSectionY; ++sy) {
             const world::SectionPos s{p.x, sy, p.z};
             m_chunks.removeSection(s);
@@ -187,12 +178,18 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     // reuse its slot for this frame.
     const int q = m_queryIndex;
     if (m_queryPending[q]) {
-        GLuint64 ns = 0;
-        glGetQueryObjectui64v(m_queries[q], GL_QUERY_RESULT, &ns);
-        const double ms = static_cast<double>(ns) / 1e6;
-        m_gpuTotalMs += ms;
-        m_gpuMaxMs = std::max(m_gpuMaxMs, ms);
-        ++m_gpuSamples;
+        // Allowed per-frame glGet (rendering/CLAUDE.md): availability first, so a
+        // result that isn't ready is skipped instead of stalling the CPU.
+        GLint available = 0;
+        glGetQueryObjectiv(m_queries[q], GL_QUERY_RESULT_AVAILABLE, &available);
+        if (available) {
+            GLuint64 ns = 0;
+            glGetQueryObjectui64v(m_queries[q], GL_QUERY_RESULT, &ns);
+            const double ms = static_cast<double>(ns) / 1e6;
+            m_gpuTotalMs += ms;
+            m_gpuMaxMs = std::max(m_gpuMaxMs, ms);
+            ++m_gpuSamples;
+        }
     }
     glBeginQuery(GL_TIME_ELAPSED, m_queries[q]);
     glViewport(0, 0, framebufferWidth, framebufferHeight);

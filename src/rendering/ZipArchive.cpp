@@ -89,10 +89,15 @@ std::optional<std::vector<uint8_t>> ZipArchive::read(std::string_view name) cons
     if (h + 30 > m_bytes.size() || u32(&m_bytes[h]) != kLocalHeader) return std::nullopt;
     const size_t data = h + 30 + u16(&m_bytes[h + 26]) + u16(&m_bytes[h + 28]);
     if (data + e.compressedSize > m_bytes.size()) return std::nullopt;
+    if (e.size == 0) return std::vector<uint8_t>{};
+    // Validate the claimed size before allocating: stored entries are copied as is;
+    // deflate expands at most ~1032:1, and resource files are far below 256 MiB.
+    constexpr uint64_t kMaxEntry = 256ull << 20;
+    if (e.method == 0 && e.compressedSize != e.size) return std::nullopt;
+    if (e.size > kMaxEntry || e.size > uint64_t{e.compressedSize} * 1032 + 64) return std::nullopt;
 
     std::vector<uint8_t> out(e.size);
     if (e.method == 0) { // stored
-        if (e.compressedSize != e.size) return std::nullopt;
         std::copy_n(&m_bytes[data], e.size, out.begin());
         return out;
     }

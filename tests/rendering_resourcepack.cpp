@@ -92,3 +92,90 @@ TEST_CASE("sprite helpers: strip frames, nearest upscale, mean mipmap") {
     CHECK(half.width == 1);
     CHECK(half.at(0, 0)[0] == (4 + 5 + 6 + 7 + 2) / 4);
 }
+
+namespace {
+
+// Minimal zip with one stored entry; fields can be corrupted by the caller.
+std::vector<uint8_t> tinyZip(uint32_t claimedSize, uint32_t localOffset, uint16_t method = 0) {
+    std::vector<uint8_t> z;
+    auto u16 = [&](uint16_t v) {
+        z.push_back(v & 0xFF);
+        z.push_back(v >> 8);
+    };
+    auto u32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            z.push_back((v >> (8 * i)) & 0xFF);
+    };
+    const std::string name = "a.txt";
+    const std::string body = "hi";
+    // local header
+    u32(0x04034b50);
+    u16(20);
+    u16(0);
+    u16(method);
+    u16(0);
+    u16(0);
+    u32(0);
+    u32(static_cast<uint32_t>(body.size()));
+    u32(claimedSize);
+    u16(static_cast<uint16_t>(name.size()));
+    u16(0);
+    z.insert(z.end(), name.begin(), name.end());
+    z.insert(z.end(), body.begin(), body.end());
+    const auto cd = static_cast<uint32_t>(z.size());
+    // central directory
+    u32(0x02014b50);
+    u16(20);
+    u16(20);
+    u16(0);
+    u16(method);
+    u16(0);
+    u16(0);
+    u32(0);
+    u32(static_cast<uint32_t>(body.size()));
+    u32(claimedSize);
+    u16(static_cast<uint16_t>(name.size()));
+    u16(0);
+    u16(0);
+    u16(0);
+    u16(0);
+    u32(0);
+    u32(localOffset);
+    z.insert(z.end(), name.begin(), name.end());
+    const auto cdSize = static_cast<uint32_t>(z.size()) - cd;
+    // end of central directory
+    u32(0x06054b50);
+    u16(0);
+    u16(0);
+    u16(1);
+    u16(1);
+    u32(cdSize);
+    u32(cd);
+    u16(0);
+    return z;
+}
+
+} // namespace
+
+TEST_CASE("zip: malformed entries are rejected, never allocated") {
+    ZipArchive good;
+    REQUIRE(good.openMemory(tinyZip(2, 0)));
+    CHECK(text(*good.read("a.txt")) == "hi");
+
+    ZipArchive huge; // claims 4 GiB uncompressed
+    REQUIRE(huge.openMemory(tinyZip(0xFFFFFFF0u, 0, 8)));
+    CHECK_FALSE(huge.read("a.txt").has_value());
+
+    ZipArchive mismatch; // stored entry whose sizes disagree
+    REQUIRE(mismatch.openMemory(tinyZip(5, 0)));
+    CHECK_FALSE(mismatch.read("a.txt").has_value());
+
+    ZipArchive badOffset; // local header offset past the end
+    REQUIRE(badOffset.openMemory(tinyZip(2, 100000)));
+    CHECK_FALSE(badOffset.read("a.txt").has_value());
+
+    auto truncated = tinyZip(2, 0);
+    truncated.resize(truncated.size() - 30); // cut into the central directory
+    ZipArchive cut;
+    CHECK_FALSE(cut.openMemory(truncated));
+}

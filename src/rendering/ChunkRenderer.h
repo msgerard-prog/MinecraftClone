@@ -14,6 +14,25 @@
 
 namespace mc::gfx {
 
+// Layout of DrawElementsIndirectCommand.
+struct DrawCommand {
+    uint32_t count, instanceCount, firstIndex;
+    int32_t baseVertex;
+    uint32_t baseInstance;
+};
+
+struct DrawSortItem {
+    float distance2;
+    uint32_t index;
+};
+
+// Reorders draws far -> near (blending order) by distance to each section centre
+// (offset = section origin - camera). Writes to outCommands/outOffsets and renumbers
+// baseInstance so each draw still finds its offset. GL-free; no allocation.
+void sortDrawsBackToFront(std::span<const DrawCommand> commands, std::span<const glm::vec4> offsets,
+                          std::span<DrawSortItem> scratch, std::span<DrawCommand> outCommands,
+                          std::span<glm::vec4> outOffsets);
+
 // Draws all section meshes with one glMultiDrawElementsIndirect per frame.
 //  - One vertex arena buffer holds every section's quads, sub-allocated in quads.
 //  - One shared index buffer (0,1,2, 0,2,3 per quad) serves all sections via
@@ -51,11 +70,6 @@ private:
     struct Entry {
         RangeAllocator::Range range; // in quads
     };
-    struct DrawCommand { // layout of DrawElementsIndirectCommand
-        uint32_t count, instanceCount, firstIndex;
-        int32_t baseVertex;
-        uint32_t baseInstance;
-    };
 
     void growArena(uint32_t minQuads);
     void ensureDrawCapacity(size_t sections);
@@ -70,11 +84,7 @@ private:
     std::unordered_map<world::SectionPos, Entry> m_sections;
     std::vector<DrawCommand> m_commands; // reused every frame (no per-frame allocation)
     std::vector<glm::vec4> m_offsets;
-    struct SortItem {
-        float distance2;
-        uint32_t index;
-    };
-    std::vector<SortItem> m_sort; // reused (translucent ordering)
+    std::vector<DrawSortItem> m_sort; // reused (translucent ordering)
     std::vector<DrawCommand> m_sortedCommands;
     std::vector<glm::vec4> m_sortedOffsets;
     Stats m_stats;

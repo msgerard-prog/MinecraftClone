@@ -70,11 +70,12 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
         rebuildQueue(center);
         // Unload chunks far outside the range.
         const int keep = m_renderDistance + 3;
-        std::vector<ChunkPos> far;
+        m_far.clear(); // reused buffer: no allocation on the frame path
         m_world.forEachChunk([&](const Chunk& c) {
-            if (!inRadius(c.pos().x - center.x, c.pos().z - center.z, keep)) far.push_back(c.pos());
+            if (!inRadius(c.pos().x - center.x, c.pos().z - center.z, keep))
+                m_far.push_back(c.pos());
         });
-        for (const ChunkPos& p : far) {
+        for (const ChunkPos& p : m_far) {
             m_world.removeChunk(p);
             unloaded.push_back(p);
         }

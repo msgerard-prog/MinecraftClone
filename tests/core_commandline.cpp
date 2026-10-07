@@ -48,3 +48,26 @@ TEST_CASE("command line: --pos and --look") {
     std::array<const char*, 2> infinite = {"--pos", "inf,0,0"};
     CHECK_FALSE(mc::parseCommandLine(infinite, error).has_value());
 }
+
+TEST_CASE("command line: M3 options") {
+    std::string error;
+    std::array<const char*, 7> ok = {"--render-distance", "32",     "--max-fps", "240",
+                                     "--auto-fly",        "--flat", "--no-vsync"};
+    const auto opts = mc::parseCommandLine(ok, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->renderDistance == 32);
+    CHECK(opts->maxFps == 240);
+    CHECK(opts->autoFly);
+    CHECK(opts->flat);
+    CHECK_FALSE(opts->vsync);
+    std::array<const char*, 2> packs = {"--resourcepacks", "C:/packs"};
+    CHECK(mc::parseCommandLine(packs, error)->resourcePacks == "C:/packs");
+    for (const char* bad : {"0", "1", "33", "x"}) {
+        std::array<const char*, 2> rd = {"--render-distance", bad};
+        CHECK_FALSE(mc::parseCommandLine(rd, error).has_value());
+    }
+    std::array<const char*, 2> fps = {"--max-fps", "0"};
+    CHECK_FALSE(mc::parseCommandLine(fps, error).has_value());
+    std::array<const char*, 1> noDir = {"--resourcepacks"};
+    CHECK_FALSE(mc::parseCommandLine(noDir, error).has_value());
+}

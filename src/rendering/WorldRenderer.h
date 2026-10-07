@@ -2,6 +2,7 @@
 
 #include "rendering/BlockModels.h"
 #include "rendering/Camera.h"
+#include "rendering/ChunkMeshTracker.h"
 #include "rendering/ChunkRenderer.h"
 #include "rendering/MeshWorkers.h"
 #include "rendering/PackedVertex.h"
@@ -22,6 +23,11 @@ namespace mc::gfx {
 // (hard rule 7).
 class WorldRenderer {
 public:
+    WorldRenderer() = default;
+    ~WorldRenderer();
+    WorldRenderer(const WorldRenderer&) = delete;
+    WorldRenderer& operator=(const WorldRenderer&) = delete;
+
     // Load time: GL state, shaders, atlas, models. Call after initOpenGl().
     // Textures come from our built-in assets, overridden by every pack found in
     // `resourcePacksDir` (sorted by name, later wins).
@@ -88,7 +94,8 @@ private:
     void eraseIfIdle(world::SectionPos pos);
 
     std::unique_ptr<MeshWorkers> m_workers;
-    std::unordered_set<world::ChunkPos> m_meshedChunks; // streaming: chunks given meshes
+    ChunkMeshTracker m_meshTracker;       // streaming: chunks given meshes
+    std::vector<world::ChunkPos> m_ready; // reused
     std::unordered_map<world::SectionPos, SectionState> m_states;
     std::vector<world::SectionPos> m_dirtyList; // sorted far -> near before dispatch
     bool m_dirtyUnsorted = false;

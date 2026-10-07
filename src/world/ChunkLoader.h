@@ -50,6 +50,7 @@ private:
     ChunkPos m_center{};
     std::vector<ChunkPos> m_queue;            // wanted chunks, sorted far -> near (pop from back)
     std::unordered_set<ChunkPos> m_requested; // in flight
+    std::vector<ChunkPos> m_far;              // reused: chunks to unload
     int m_inFlight = 0;
     int m_maxInFlight = 8;
     WorkQueue<ChunkPos> m_jobs;

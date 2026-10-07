@@ -19,6 +19,24 @@ constexpr uint32_t kInitialArenaQuads = 1u << 20; // 1M quads = 32 MiB
 
 } // namespace
 
+void sortDrawsBackToFront(std::span<const DrawCommand> commands, std::span<const glm::vec4> offsets,
+                          std::span<DrawSortItem> scratch, std::span<DrawCommand> outCommands,
+                          std::span<glm::vec4> outOffsets) {
+    const size_t n = commands.size();
+    for (size_t i = 0; i < n; ++i) {
+        const glm::vec3 c = glm::vec3(offsets[i]) + glm::vec3(8.0f); // section centre
+        scratch[i] = {glm::dot(c, c), static_cast<uint32_t>(i)};
+    }
+    std::sort(
+        scratch.begin(), scratch.begin() + static_cast<std::ptrdiff_t>(n),
+        [](const DrawSortItem& a, const DrawSortItem& b) { return a.distance2 > b.distance2; });
+    for (size_t i = 0; i < n; ++i) {
+        outCommands[i] = commands[scratch[i].index];
+        outCommands[i].baseInstance = static_cast<uint32_t>(i);
+        outOffsets[i] = offsets[scratch[i].index];
+    }
+}
+
 ChunkRenderer::~ChunkRenderer() {
     const GLuint buffers[] = {m_indexBuffer, m_arena, m_commandBuffer, m_offsetBuffer};
     for (GLuint b : buffers)
@@ -141,19 +159,11 @@ void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin
     const DrawCommand* commands = m_commands.data();
     const glm::vec4* offsets = m_offsets.data();
     if (backToFront) {
-        // Blending needs far sections first. Sort indices by distance to the section
-        // centre, then gather; baseInstance is renumbered to match the new order.
-        for (uint32_t i = 0; i < drawCount; ++i) {
-            const glm::vec3 c = glm::vec3(m_offsets[i]) + glm::vec3(8.0f);
-            m_sort[i] = {glm::dot(c, c), i};
-        }
-        std::sort(m_sort.begin(), m_sort.begin() + drawCount,
-                  [](const SortItem& a, const SortItem& b) { return a.distance2 > b.distance2; });
-        for (uint32_t i = 0; i < drawCount; ++i) {
-            m_sortedCommands[i] = m_commands[m_sort[i].index];
-            m_sortedCommands[i].baseInstance = i;
-            m_sortedOffsets[i] = m_offsets[m_sort[i].index];
-        }
+        sortDrawsBackToFront(std::span<const DrawCommand>(m_commands.data(), drawCount),
+                             std::span<const glm::vec4>(m_offsets.data(), drawCount),
+                             std::span<DrawSortItem>(m_sort.data(), drawCount),
+                             std::span<DrawCommand>(m_sortedCommands.data(), drawCount),
+                             std::span<glm::vec4>(m_sortedOffsets.data(), drawCount));
         commands = m_sortedCommands.data();
         offsets = m_sortedOffsets.data();
     }
