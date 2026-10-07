@@ -172,6 +172,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Pathfinding (M16.2, `gameplay/Pathfinder`): A* over standable cells (body fits,
+  solid below or water), 4 directions, step up 1 / drop 3, lava and fire blocked,
+  danger and water costs; preallocated nodes, heap and stamped hash; partial paths.
+  `Mobs` keeps one and stores each mob's path (32 cells) in `MobData`.
 - Falling blocks (M16): `BlockUpdates` schedules a 2-tick check when sand/gravel has
   a free block below and lists it in `fallingStarts()`; main hands it to
   `gameplay/FallingBlocks` (pooled entities: gravity, drag, landing through

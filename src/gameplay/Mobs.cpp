@@ -227,20 +227,56 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
 
-    // Steer towards the goal; jump when a block is in the way.
+    // Path to the goal (M16.2): chasing mobs repath every 4-10 ticks (vanilla
+    // recomputes a moving target's path every few ticks), others when the goal changes.
+    const glm::ivec3 feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+    const glm::ivec3 goalCell{int(std::floor(m.goal.x)), int(std::floor(m.goal.y + 0.01)), int(std::floor(m.goal.z))};
+    if (m.repathTicks > 0) --m.repathTicks;
+    if (goalCell != feet && ((chase && m.repathTicks == 0) || (!chase && goalCell != m.pathGoal))) {
+        const int heightCells = int(std::ceil(info.height));
+        // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
+        m.pathLength = uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, heightCells, chase ? 560 : 200,
+                                                   m.path.data(), MobData::kMaxPath));
+        m.pathIndex = 0;
+        m.pathGoal = goalCell;
+        m.repathTicks = int16_t(4 + ctx.rng.nextInt(7));
+        if (!chase && m.pathLength > 0) { // a wander target it can't reach: stop where the path ends
+            const glm::ivec3 end = m.path[size_t(m.pathLength - 1)];
+            m.goal = {end.x + 0.5, double(end.y), end.z + 0.5};
+            m.pathGoal = end;
+        }
+    }
+    // The next cell of the path (skipping the ones reached), else the goal itself.
+    while (m.pathIndex < m.pathLength) {
+        const glm::ivec3 c = m.path[m.pathIndex];
+        const double dx = c.x + 0.5 - m.pos.x, dz = c.z + 0.5 - m.pos.z;
+        if (dx * dx + dz * dz < 0.35 * 0.35 && std::abs(double(c.y) - m.pos.y) < 1.1) ++m.pathIndex;
+        else break;
+    }
+    glm::dvec3 steer = m.goal;
+    bool climb = false;
+    if (m.pathIndex < m.pathLength) {
+        const glm::ivec3 c = m.path[m.pathIndex];
+        steer = {c.x + 0.5, double(c.y), c.z + 0.5};
+        const double cdx = c.x + 0.5 - m.pos.x, cdz = c.z + 0.5 - m.pos.z;
+        climb = c.y > feet.y && cdx * cdx + cdz * cdz < 1.5 * 1.5; // a step up just ahead: jump
+    }
+
+    // Steer towards it; jump when a block is in the way.
     glm::dvec3 wish(0.0);
     bool jump = false;
-    const glm::dvec2 d(m.goal.x - m.pos.x, m.goal.z - m.pos.z);
+    const bool last = m.pathIndex + 1 >= m.pathLength;
+    const glm::dvec2 d(steer.x - m.pos.x, steer.z - m.pos.z);
     const double dl = glm::length(d);
-    const double stopAt = chase ? info.width * 0.5 + 0.5 : 0.5;
+    const double stopAt = chase && last ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
     if (dl > stopAt) {
         wish = glm::dvec3(d.x / dl, 0, d.y / dl) * speed;
-        m.yaw = approachAngle(m.yaw, yawTowards(m.pos, m.goal), 10.0f);
+        m.yaw = approachAngle(m.yaw, yawTowards(m.pos, steer), 10.0f);
         const int ax = int(std::floor(m.pos.x + d.x / dl * (info.width * 0.5 + 0.4)));
         const int az = int(std::floor(m.pos.z + d.y / dl * (info.width * 0.5 + 0.4)));
         const int fy = int(std::floor(m.pos.y + 0.01));
-        jump = solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
-               !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z)));
+        jump = climb || (solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
+                         !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z))));
     }
     // Head: look at a near player (wiki: look-at-player goal, 6-8 blocks).
     if (playerDist2 < 8.0 * 8.0) {

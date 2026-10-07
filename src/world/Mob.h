@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <string_view>
@@ -51,6 +52,12 @@ struct MobData {
     bool targeting = false; // a hostile chasing the player (seen it)
     uint8_t sightCheck = 0; // ticks since the last line-of-sight check
     int attackCooldown = 0;
+    // Path (M16.2): block cells (feet) to walk through, from the pathfinder; not saved.
+    static constexpr int kMaxPath = 32;
+    std::array<glm::ivec3, kMaxPath> path{};
+    uint8_t pathLength = 0, pathIndex = 0;
+    int16_t repathTicks = 0;
+    glm::ivec3 pathGoal{0, -100000, 0}; // the cell the current path was found for
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 

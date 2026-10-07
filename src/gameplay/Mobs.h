@@ -2,6 +2,7 @@
 
 #include "gameplay/Aabb.h"
 #include "gameplay/ItemEntities.h"
+#include "gameplay/Pathfinder.h"
 #include "gameplay/Player.h"
 #include "gameplay/Vitals.h"
 #include "world/Mob.h"
@@ -73,6 +74,7 @@ private:
     };
     std::vector<Move> m_moves; // reused: mobs crossing chunk borders this tick
     std::vector<Aabb> m_boxes; // reused collision boxes
+    Pathfinder m_pathfinder;
     int m_hostiles = 0;
     int m_simulationDistance = kDefaultSimulationDistance;
 };

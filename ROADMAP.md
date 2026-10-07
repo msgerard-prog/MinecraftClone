@@ -18,7 +18,7 @@ M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page)
 1. ✅ M16.1 — Falling blocks: sand, red sand, gravel fall 2 ticks after losing support
    (falling_block entity with gravity, lands as the block or drops as an item on
    non-full blocks, crushes nothing), saved with the chunk's entities.
-2. M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,
+2. ✅ M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,
    walkable, blocked, danger: lava/fire/cactus), follow range, used by zombies and
    herd animals; mobs avoid drops > 3 and fluids where vanilla does.
 3. M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,

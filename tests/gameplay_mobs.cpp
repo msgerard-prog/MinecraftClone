@@ -319,3 +319,21 @@ TEST_CASE("a mob in fire is hurt and set alight for 8 s") {
     CHECK(m->health < 10.0f);
     CHECK(m->fireTicks >= 150);
 }
+
+TEST_CASE("a chasing zombie paths around a lava trench over its bridge (M16.2)") {
+    MobScene s;
+    for (int x = 3; x <= 5; ++x)
+        for (int z = -12; z <= 12; ++z)
+            if (z != 8) s.world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::Lava));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {9.5, 64.0, 0.5}, s.rng)));
+    float lowest = 20.0f;
+    bool burnt = false;
+    for (int i = 0; i < 400; ++i) {
+        s.tick();
+        lowest = std::min(lowest, s.vitals.health());
+        for (MobData* m : s.all())
+            burnt = burnt || m->fireTicks > 0;
+    }
+    CHECK_FALSE(burnt);     // never stepped into the lava
+    CHECK(lowest <= 17.0f); // got across and hit the player
+}
