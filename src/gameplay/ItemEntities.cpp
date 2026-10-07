@@ -1,5 +1,7 @@
 #include "gameplay/ItemEntities.h"
 
+#include "gameplay/FluidContact.h"
+
 #include "world/Blocks.h"
 
 #include <algorithm>
@@ -83,6 +85,9 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
             if (inWater) {
                 e.vel.y += 5.0e-4; // items float up slowly in water (wiki)
                 e.vel *= 0.99;
+                // ...and drift with the current (M14).
+                const FluidContact fluid = fluidContact(world, Aabb::fromFeet(e.pos, 0.25, 0.25));
+                e.vel += fluid.flow * 0.014;
             } else {
                 e.vel.y -= 0.04; // gravity
             }

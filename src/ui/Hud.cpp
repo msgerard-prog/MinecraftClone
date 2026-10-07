@@ -21,7 +21,7 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
                    kIconGrassTint);
 }
 
-void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight) {
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air) {
     using gfx::HudIcon;
     auto icon = [&](HudIcon i, float x, float y) {
         batch.sprite(gfx::GuiTexture::Icons, x, y, 9, 9, static_cast<float>(int(i) * 9), 0, 9, 9);
@@ -39,6 +39,14 @@ void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int 
         icon(HudIcon::FoodEmpty, x, y);
         if (food >= 2 * i + 2) icon(HudIcon::FoodFull, x, y);
         else if (food == 2 * i + 1) icon(HudIcon::FoodHalf, x, y);
+    }
+    if (air < 300) { // vanilla: full bubbles, then one bursting as it runs out
+        const int full = std::max(0, int(std::ceil((air - 2) * 10.0 / 300.0)));
+        const int shown = std::max(0, int(std::ceil(air * 10.0 / 300.0)));
+        for (int i = 0; i < shown && i < 10; ++i) {
+            const float x = static_cast<float>(guiWidth / 2 + 91 - 9 - i * 8);
+            icon(i < full ? HudIcon::Air : HudIcon::AirBursting, x, y - 10.0f);
+        }
     }
 }
 

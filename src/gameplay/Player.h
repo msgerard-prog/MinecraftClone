@@ -39,6 +39,11 @@ public:
     static constexpr double kVerticalDrag = 0.98;
     static constexpr double kWalkSpeed = 0.1; // movement_speed attribute
     static constexpr double kAirAccel = 0.02;
+    // Fluids (public write-ups of vanilla's fluid travel; the swim speeds they give
+    // match the wiki: 0.02 x 0.98 / (1 - 0.8) = 1.96 b/s in water vs 1.97, Swimming).
+    static constexpr double kSwimAccel = 0.02, kSwimUp = 0.04, kFluidGravity = 0.02;
+    static constexpr double kWaterDrag = 0.8, kLavaDrag = 0.5;
+    static constexpr double kWaterPush = 0.014; // current, blocks/tick per tick
     static constexpr double kSprintFactor = 1.3;
     static constexpr double kSneakFactor = 0.3;
     static constexpr double kInputScale = 0.98;        // vanilla scales WASD input by 0.98
@@ -89,6 +94,8 @@ public:
     float pitch() const { return m_pitch; }
     bool onGround() const { return m_onGround; }
     bool flying() const { return m_flying; }
+    bool inWater() const { return m_inWater; } // touching water (last tick)
+    bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
     bool sneaking() const { return m_sneaking; }
     double eyeHeight() const { return m_sneaking ? kSneakEyeHeight : kEyeHeight; }
@@ -108,6 +115,7 @@ private:
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
     bool m_onGround = false;
+    bool m_inWater = false, m_inLava = false;
     bool m_creative = true;
     bool m_flying = false;
     bool m_sprinting = false;

@@ -107,6 +107,19 @@ def icon(rows, colors, keep=lambda x, y: True):
     return img
 
 
+BUBBLE = [  # 9x9: '#' outline, 'b' water, 'h' highlight
+    "..#####..",
+    ".#bbbbb#.",
+    "#bhhbbbb#",
+    "#bhbbbbb#",
+    "#bbbbbbb#",
+    "#bbbbbbb#",
+    "#bbbbbbb#",
+    ".#bbbbb#.",
+    "..#####..",
+]
+
+
 def survival_icons():
     out = {}
     red = {"#": (30, 8, 10, 255), "r": (214, 34, 36, 255), "h": (255, 160, 150, 255)}
@@ -119,6 +132,10 @@ def survival_icons():
     out["hud/food_half.png"] = icon(DRUMSTICK, meat, lambda x, y: x >= 4 or DRUMSTICK[y][x] == "#")
     dark = {"#": (24, 24, 24, 255), "m": (58, 50, 44, 255), "l": (58, 50, 44, 255), "b": (70, 66, 60, 255)}
     out["hud/food_empty.png"] = icon(DRUMSTICK, dark)
+    water = {"#": (20, 40, 110, 255), "b": (70, 140, 230, 255), "h": (210, 235, 255, 255)}
+    out["hud/air.png"] = icon(BUBBLE, water)
+    # Bursting: a broken ring (our own drawing).
+    out["hud/air_bursting.png"] = icon(BUBBLE, water, lambda x, y: BUBBLE[y][x] == "#" and (x + y) % 3 != 0)
     return out
 
 

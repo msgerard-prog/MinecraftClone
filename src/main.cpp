@@ -28,6 +28,7 @@
 #include "world/DayTime.h"
 #include "world/BlockUpdates.h"
 #include "world/NetherGenerator.h"
+#include "gameplay/FluidContact.h"
 #include "gameplay/Portals.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
@@ -364,6 +365,7 @@ int main(int argc, char** argv) {
     if (level) {
         vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
         vitals.setFoodTimer(level->foodTimer);
+        vitals.setAir(level->air);
     }
     mc::ItemEntities droppedItems;
     mc::Mobs mobs;
@@ -468,6 +470,7 @@ int main(int argc, char** argv) {
         l.saturation = vitals.saturation();
         l.exhaustion = vitals.exhaustion();
         l.foodTimer = vitals.foodTimer();
+        l.air = vitals.air();
         for (int i = 0; i < mc::Inventory::kSlots; ++i) {
             const mc::world::ItemStack& s = inventory.slot(i);
             if (s.empty()) continue;
@@ -842,7 +845,16 @@ int main(int argc, char** argv) {
                     vitals.exhaust(0.1f * float(glm::length(glm::dvec2(feet.x - before.x, feet.z - before.z))));
                 if (wasOnGround && !player.onGround() && player.velocity().y > 0.0)
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
-                if (!arrival) vitals.tick(feet.y, player.onGround(), inWater, player.flying());
+                if (!arrival) {
+                    vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying());
+                    // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
+                    vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water));
+                    if (player.inLava()) {
+                        vitals.damage(4.0f, false);
+                        vitals.setOnFire(300); // 15 s
+                    }
+                    vitals.tickFire(player.inWater());
+                }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
                 {
@@ -1110,7 +1122,7 @@ int main(int argc, char** argv) {
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
             mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
-            if (survival) mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH);
+            if (survival) mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air());
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;

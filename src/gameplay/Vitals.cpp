@@ -5,6 +5,26 @@
 
 namespace mc {
 
+float Vitals::breathe(bool eyesInWater) {
+    if (!eyesInWater) {
+        m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
+        return 0.0f;
+    }
+    if (--m_air <= -20) {
+        m_air = 0;
+        if (damage(2.0f, false)) return 2.0f;
+    }
+    return 0.0f;
+}
+
+float Vitals::tickFire(bool inWater) {
+    if (inWater) m_fire = 0;
+    if (m_fire <= 0) return 0.0f;
+    const bool hurt = m_fire % 20 == 0 && damage(1.0f, false);
+    --m_fire;
+    return hurt ? 1.0f : 0.0f;
+}
+
 void Vitals::reset() {
     m_health = kMaxHealth;
     m_food = kMaxFood;
@@ -12,6 +32,8 @@ void Vitals::reset() {
     m_exhaustion = 0.0f;
     m_foodTimer = 0;
     m_invulnerable = 0;
+    m_air = kMaxAir;
+    m_fire = 0;
     m_falling = false;
     m_started = false;
 }

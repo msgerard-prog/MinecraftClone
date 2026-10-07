@@ -1,5 +1,7 @@
 #include "gameplay/Mobs.h"
 
+#include "gameplay/FluidContact.h"
+
 #include "world/Blocks.h"
 #include "world/Coords.h"
 #include "world/Items.h"
@@ -87,9 +89,17 @@ bool Mobs::add(World& world, const MobData& mob) {
 }
 
 void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool jump) {
-    const auto& reg = blockRegistry();
-    const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.1)), int(std::floor(m.pos.z))};
-    const bool inWater = reg.blockOf(world.getBlock(feet)) == blocks::Water;
+    const FluidContact fluid = fluidContact(world, box(m));
+    const bool inWater = fluid.water;
+    m.vel += fluid.flow * 0.014; // carried by currents (vanilla pushes mobs too)
+    if (fluid.lava) { // wiki: Lava - 4 damage (with the hurt cooldown), on fire 15 s
+        if (m.hurtTime == 0 && m.deathTime == 0) {
+            m.health -= 4.0f;
+            m.hurtTime = 10;
+        }
+        m.fireTicks = 300;
+        m.vel *= 0.5;
+    }
     // Walking: horizontal speed approaches `wish` (blocks/tick) with ground friction.
     const double friction = m.onGround ? kGroundFriction : kAirFriction;
     const double accel = m.onGround ? (1.0 - kGroundFriction) : 0.02 / 0.1 * (1.0 - kGroundFriction) * 0.25;

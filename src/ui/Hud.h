@@ -22,7 +22,8 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
 
 // Survival HUD (wiki: Heads-up display): 10 hearts above the hotbar's left half,
 // 10 hunger shanks on the right half (right to left). Values in halves (0..20).
-void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight);
+// Air bubbles show above the hunger bar while breath is below full (wiki: Drowning).
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300);
 
 // The death screen: red tint, "You died!" and how to respawn.
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);

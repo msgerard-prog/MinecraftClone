@@ -1,5 +1,6 @@
 #include "gameplay/Player.h"
 
+#include "gameplay/FluidContact.h"
 #include "world/Blocks.h"
 #include "world/Rotation.h"
 
@@ -183,6 +184,36 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     glm::dvec2 in(input.strafe * kInputScale, input.forward * kInputScale);
     if (m_sneaking) in *= kSneakFactor;
     if (glm::dot(in, in) > 1.0) in = glm::normalize(in);
+
+    // In water or lava (not flying): swim (M14; vanilla travel in fluids - acceleration
+    // 0.02, jump rises 0.04 a tick, sneak sinks, drag 0.8 in water / 0.5 in lava,
+    // gravity 0.02, pushed by the current; a wall bump while moving hops out at 0.3).
+    const FluidContact fluid = fluidContact(world, box());
+    m_inWater = fluid.water;
+    m_inLava = fluid.lava;
+    if (!m_flying && (fluid.water || fluid.lava)) {
+        if (input.jump) m_velocity.y += kSwimUp;
+        if (input.sneak && fluid.water) m_velocity.y -= kSwimUp;
+        const glm::dvec3 fwd(world::forwardFlat(m_yaw));
+        const glm::dvec3 rgt(world::rightFlat(m_yaw));
+        m_velocity += (fwd * in.y + rgt * in.x) * kSwimAccel;
+        if (fluid.water) m_velocity += fluid.flow * kWaterPush;
+        const glm::dvec3 wanted = m_velocity;
+        move(world, m_velocity);
+        const bool bumped = m_velocity.x != wanted.x || m_velocity.z != wanted.z;
+        const double drag = fluid.water ? kWaterDrag : kLavaDrag;
+        m_velocity *= drag;
+        m_velocity.y -= kFluidGravity;
+        if (bumped) { // climb out over a ledge (vanilla: if the space 0.6 up is free)
+            const Aabb up = box().moved({wanted.x, 0.6, wanted.z});
+            gatherBoxes(world, up);
+            bool free = true;
+            for (const Aabb& b : m_boxes)
+                free = free && !up.intersects(b);
+            if (free) m_velocity.y = 0.3;
+        }
+        return;
+    }
 
     double accel;
     if (m_flying) {

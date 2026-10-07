@@ -42,6 +42,19 @@ public:
         m_started = false;
     }
 
+    // Drowning (wiki: Drowning): 300 ticks of air; with the eyes under water it drops
+    // 1 a tick, and from -20 on (one empty second) 2 damage, then back to 0. Out of
+    // water it refills 4 a tick. Returns damage taken.
+    static constexpr int kMaxAir = 300;
+    float breathe(bool eyesInWater);
+    int air() const { return m_air; }
+    void setAir(int a) { m_air = a; }
+    // Burning (wiki: Fire, Lava): lava sets the player on fire for 15 s; burning hurts
+    // 1 every second; water puts it out. Returns damage taken.
+    void setOnFire(int ticks) { m_fire = ticks > m_fire ? ticks : m_fire; }
+    float tickFire(bool inWater);
+    bool burning() const { return m_fire > 0; }
+
     // Saved state.
     void setState(float health, int food, float saturation, float exhaustion);
 
@@ -52,6 +65,8 @@ private:
     float m_exhaustion = 0.0f;
     int m_foodTimer = 0;     // regeneration / starvation clock
     int m_invulnerable = 0;  // ticks left after a hit
+    int m_air = kMaxAir;
+    int m_fire = 0;          // burning ticks left
     double m_voidY = -128.0;
     double m_fallStartY = 0.0;
     double m_lastY = 0.0;

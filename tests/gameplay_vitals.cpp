@@ -105,3 +105,38 @@ TEST_CASE("a teleport or game-mode change is not a fall (resetFall)") {
     CHECK(v.tick(70.0, true, false, false) == 0.0f);
     CHECK(v.health() == 20.0f);
 }
+
+TEST_CASE("drowning: 15 s of air, then 2 damage a second; air comes back 4 a tick") {
+    mc::Vitals v;
+    float dmg = 0.0f;
+    auto tick = [&](bool underwater) { // (tick runs the invulnerability clock, as in game)
+        v.tick(64.0, true, true, false);
+        return v.breathe(underwater);
+    };
+    for (int i = 0; i < 300; ++i)
+        dmg += tick(true);
+    CHECK(dmg == 0.0f);
+    CHECK(v.air() == 0);
+    for (int i = 0; i < 20; ++i)
+        dmg += tick(true);
+    CHECK(dmg == 2.0f);
+    for (int i = 0; i < 20; ++i)
+        dmg += tick(true);
+    CHECK(dmg == 4.0f); // (health also regenerates meanwhile: full hunger)
+    for (int i = 0; i < 10; ++i)
+        tick(false);
+    CHECK(v.air() == 40);
+}
+
+TEST_CASE("burning: 1 damage a second, water puts it out") {
+    mc::Vitals v;
+    v.setOnFire(300);
+    float dmg = 0.0f;
+    for (int i = 0; i < 60; ++i) {
+        v.tick(64.0, true, false, false);
+        dmg += v.tickFire(false);
+    }
+    CHECK(dmg == 3.0f);
+    v.tickFire(true);
+    CHECK_FALSE(v.burning());
+}

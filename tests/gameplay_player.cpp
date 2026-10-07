@@ -1,5 +1,6 @@
 // Player physics against the wiki's published numbers (blocks per second etc.).
 #include "gameplay/Player.h"
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Rotation.h"
 
@@ -349,4 +350,69 @@ TEST_CASE("hunger ends a sprint that is already running (wiki: Sprinting - food 
     run.canSprint = false;
     p.tick(w, run);
     CHECK_FALSE(p.sprinting());
+}
+
+namespace {
+// A 3-deep pool of still water (sources) over the floor, 40 x 40 around the origin.
+World poolWorld() {
+    World w = floorWorld();
+    const auto water = world::blockRegistry().defaultState(world::blocks::Water);
+    for (int z = -20; z < 20; ++z)
+        for (int x = -20; x < 20; ++x)
+            for (int y = kFloorY + 1; y <= kFloorY + 3; ++y)
+                w.setBlock({x, y, z}, water);
+    return w;
+}
+} // namespace
+
+TEST_CASE("swimming: about 1.96 b/s through water (wiki 1.97), jump rises, the player sinks otherwise") {
+    const World w = poolWorld();
+    Player p;
+    p.setPosition({0.5, kFloorY + 1.5, 0.5});
+    p.setCreative(false);
+    PlayerInput swim;
+    swim.forward = 1;
+    CHECK(steadySpeed(w, p, swim) == Approx(1.96).epsilon(0.05));
+    p.tick(w, {});
+    CHECK(p.inWater());
+    PlayerInput up;
+    up.jump = true;
+    const double y0 = p.position().y;
+    for (int i = 0; i < 10; ++i)
+        p.tick(w, up);
+    CHECK(p.position().y > y0);
+    const double y1 = p.position().y;
+    for (int i = 0; i < 10; ++i)
+        p.tick(w, {});
+    CHECK(p.position().y < y1);
+}
+
+TEST_CASE("a water current pushes the player toward lower water") {
+    World w = floorWorld();
+    // A strip of flowing water from level 1 (west) to 7 (east): the current runs east.
+    for (int x = 0; x < 7; ++x)
+        w.setBlock({x, kFloorY + 1, 0}, world::BlockUpdates::fluidState(world::blocks::Water, 7 - x, false));
+    Player p;
+    p.setPosition({2.5, kFloorY + 1.0, 0.5});
+    for (int i = 0; i < 20; ++i)
+        p.tick(w, {});
+    CHECK(p.position().x > 2.6);
+}
+
+TEST_CASE("swimming into a ledge hops out of the water") {
+    World w = poolWorld();
+    for (int z = -20; z < 20; ++z) // the pool's east side is solid: a ledge, top at y 68
+        for (int x = 3; x < 20; ++x)
+            for (int y = kFloorY + 1; y <= kFloorY + 3; ++y)
+                w.setBlock({x, y, z}, world::blockRegistry().defaultState(world::blocks::Stone));
+    Player p;
+    p.setPosition({1.5, kFloorY + 3.2, 0.5}); // at the surface
+    p.setRotation(-90.0f, 0.0f);              // facing east (+X)
+    PlayerInput swim;
+    swim.forward = 1;
+    swim.jump = true;
+    for (int i = 0; i < 60; ++i)
+        p.tick(w, swim);
+    CHECK(p.position().x > 3.0);
+    CHECK(p.position().y >= kFloorY + 4.0 - 1e-6);
 }
