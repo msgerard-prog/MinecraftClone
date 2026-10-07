@@ -24,7 +24,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--no-vsync`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
+`--hidden`, `--no-vsync`, `--resourcepacks DIR`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`.
@@ -79,7 +79,8 @@ The first build downloads dependencies into `out/deps` (≈1 min). Build output 
    Y −64..319, block coords `int32`, floor division via `>> 4` / `& 15`.
 5. **No Mojang code or assets in the repo.** Implement from the Minecraft Wiki and
    observed behaviour, never paste decompiled source. Textures in `assets/` are our own.
-   Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`.
+   Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`
+   (never read them yourself; test with `tests/data/testpack` from tools/make_test_pack.py).
 6. Subsystem dependencies only point "down" the layer list in docs/architecture.md.
 7. OpenGL calls only in `rendering/`. `main.cpp` drives `gfx::WorldRenderer`.
 8. Every bug fix gets a regression test where testable.

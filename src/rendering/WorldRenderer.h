@@ -22,7 +22,12 @@ namespace mc::gfx {
 class WorldRenderer {
 public:
     // Load time: GL state, shaders, atlas, models. Call after initOpenGl().
-    bool init();
+    // Textures come from our built-in assets, overridden by every pack found in
+    // `resourcePacksDir` (sorted by name, later wins).
+    bool init(const std::string& resourcePacksDir);
+
+    // Once per game tick: texture animations.
+    void tick() { m_atlas.tick(); }
 
     // Queue sections for (re)meshing. Marking a chunk also marks the sections of its
     // four neighbours' facing borders, whose face culling depends on it.

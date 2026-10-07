@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rendering/SpriteImage.h"
+
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -8,22 +10,19 @@
 
 namespace mc::gfx {
 
-// Texture coordinates of one sprite inside the atlas (v0 = top row of the image).
-struct UvRect {
-    float u0 = 0, v0 = 0, u1 = 0, v1 = 0;
-};
+class PackStack;
 
-// Stitches every 16x16 PNG in a folder into one GL texture, like vanilla's block
-// atlas. Sprites sit on a power-of-two grid, so mipmaps (4 levels, the 1.21 default)
-// never mix two sprites.
-// Not yet vanilla: animated sprites show frame 0 only, and sprites that aren't 16
-// wide (higher-resolution resource packs) are skipped. Fix when the first animated
-// texture or resource-pack loading arrives.
+// Stitches every PNG in a pack folder ("assets/minecraft/textures/block/") into one
+// GL texture, like vanilla's block atlas. Sprites sit on a power-of-two grid of equal
+// cells; the cell is as big as the largest sprite (HD resource packs) and smaller
+// sprites are scaled up nearest-neighbour. Mipmaps (up to 4 levels, the 1.21
+// default) never mix two sprites. Animated sprites (vertical strips) cycle through
+// their frames, one atlas upload per frame change, as vanilla does each tick.
 class TextureAtlas {
 public:
-    static constexpr int kSpriteSize = 16;
-    static constexpr int kMipLevels = 4;
-    // Vanilla's missing-texture sprite: magenta/black checkerboard.
+    static constexpr int kMinCellSize = 16;
+    static constexpr int kMaxMipLevels = 4;
+    // Vanilla's missing-texture sprite: magenta/black checkerboard. Always sprite 0.
     static constexpr std::string_view kMissing = "missingno";
 
     TextureAtlas() = default;
@@ -31,31 +30,41 @@ public:
     TextureAtlas(const TextureAtlas&) = delete;
     TextureAtlas& operator=(const TextureAtlas&) = delete;
 
-    // Load-time only. `folder` is absolute; sprite names are file stems ("stone").
-    bool build(const std::string& folder);
+    // Load time only. `folder` is a pack path ending in '/'; sprite names are file stems.
+    bool build(const PackStack& packs, std::string_view folder);
 
-    // Looks up a sprite by name (load/mesh-build time); unknown names log a warning and
-    // return the missing sprite.
-    UvRect sprite(std::string_view name) const;
-
-    // RGBA pixels of the missing-texture sprite (GL-free, unit-tested).
-    static std::vector<uint8_t> missingSpritePixels();
+    // Advance animations by one game tick (20 per second). Main thread.
+    void tick();
 
     // Grid index of a sprite (row-major, `columns()` per row); unknown names log a
-    // warning and return the missing sprite (always index 0). Load/bake time only.
+    // warning and return the missing sprite (index 0). Load/bake time only.
     int spriteIndex(std::string_view name) const;
     int columns() const { return m_columns; }
-
+    int cellSize() const { return m_cellSize; }
+    int spriteCount() const { return m_spriteCount; }
+    int animatedCount() const { return static_cast<int>(m_animations.size()); }
     uint32_t texture() const { return m_texture; }
-    int spriteCount() const { return static_cast<int>(m_sprites.size()); }
-    int width() const { return m_width; }
+
+    // RGBA pixels of the 16x16 missing-texture sprite (GL-free, unit-tested).
+    static std::vector<uint8_t> missingSpritePixels();
 
 private:
+    struct Animation {
+        int sprite = 0;
+        int frametime = 1;
+        int frame = 0;
+        int ticksLeft = 1;
+        std::vector<std::vector<Image>> mips; // [frame][level]
+    };
+    void uploadFrame(const Animation& anim) const;
+
     uint32_t m_texture = 0;
-    int m_width = 0;
     int m_columns = 0;
-    std::unordered_map<std::string, UvRect> m_sprites;
+    int m_cellSize = kMinCellSize;
+    int m_mipLevels = kMaxMipLevels;
+    int m_spriteCount = 0;
     std::unordered_map<std::string, int> m_indices;
+    std::vector<Animation> m_animations;
 };
 
 } // namespace mc::gfx

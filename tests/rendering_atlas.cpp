@@ -4,7 +4,7 @@
 
 TEST_CASE("missing texture is a 2x2 magenta/black checker (wiki: Missing textures)") {
     const auto px = mc::gfx::TextureAtlas::missingSpritePixels();
-    constexpr int n = mc::gfx::TextureAtlas::kSpriteSize;
+    constexpr int n = mc::gfx::TextureAtlas::kMinCellSize;
     REQUIRE(px.size() == size_t(n * n * 4));
     auto at = [&](int x, int y) { return &px[(y * n + x) * 4]; };
     auto isMagenta = [](const uint8_t* p) { return p[0] == 248 && p[1] == 0 && p[2] == 248; };

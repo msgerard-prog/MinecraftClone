@@ -30,6 +30,16 @@ assets/minecraft/blockstates/<block>.json   variants / multipart → model
 assets/minecraft/models/block/<model>.json  parent, textures, elements (cuboids)
 assets/minecraft/textures/block/<name>.png  16×16 (animated: N×16 strip + .mcmeta)
 ```
+**Resource packs (M3.0):** `rendering/ResourcePack` reads a pack from a folder, a
+`.zip`, or a client `.jar` (zip; stored + deflate entries, no zip64). `PackStack`:
+our `assets/` at the bottom, then every pack in `resourcepacks/` (or
+`--resourcepacks DIR`) sorted by name, later overriding earlier file by file. The
+block atlas takes every `textures/block/*.png` in the stack: cell size = largest
+sprite (smaller ones scaled up nearest-neighbour), strips with an `.mcmeta`
+`animation` section animate with their `frametime` (custom `frames` lists and
+`interpolate` not yet supported). Test fixtures: `tools/make_test_pack.py` →
+`tests/data/testpack{,.zip}` (our own content).
+
 **Status:** textures are loaded from this layout. Blockstate/model JSON is not parsed
 yet (needs a JSON library — dependency change, ask the user); until then the block →
 model mapping is C++ in `rendering/BlockModels.cpp`, mirroring `cube_all`,

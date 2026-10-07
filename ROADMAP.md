@@ -4,6 +4,9 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
+M3.0 done: resource packs (folders, .zip, client .jar) override our placeholders;
+HD sprites and animated textures work (verified with our own test pack). Waiting on
+the user to try their own jar.
 M2 done and reviewed (code, perf, parity findings fixed or recorded): block registry
 with vanilla block states,
 paletted sections/chunks, superflat generator, face-culling mesher with packed
@@ -11,10 +14,6 @@ vertices, random model variants, arena + multi-draw renderer, bounded worker-thr
 meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test cases.
 
 ## Next
-1. M3.0 — Resource-pack loader (agreed 2026-10-06): read a pack folder or .zip from
-   git-ignored `resourcepacks/` (the user's own copy of vanilla textures), override
-   our placeholders file by file; animated textures (.mcmeta, frame 0 → animation)
-   and non-16px (HD) sprites. Our placeholders stay the in-repo fallback.
    M3 design input from the M2 perf review (apply while building streaming):
    - Dense ring-indexed section grid around the camera (vanilla ViewArea) replacing
      the hash maps in ChunkRenderer/WorldRenderer; frustum-test columns first.
@@ -26,7 +25,7 @@ meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test case
    - Worldgen writes a flat 4096 buffer then `Section::assign` (one palette build).
    - Mesh a column only when all 8 neighbours exist; re-mesh only facing borders.
    - Later: per-face-direction draw commands (back-face groups), cave culling.
-2. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
+1. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
    loading/unloading around the player at render distance 12, worldgen on workers.
 
 ## Texture plan (agreed 2026-10-06)
@@ -38,6 +37,8 @@ and animated textures get renderer support with the first block that needs them.
 Optional art pass on placeholders later (basic graphics first).
 
 ## Waiting on the user
+- Try your own textures: copy your 1.21.x client jar into `resourcepacks/` (README ›
+  Using your own Minecraft textures) and run `tools/run.sh`.
 - Try the controls by hand: `tools/run.sh`, click the window, WASD + mouse, Esc.
   Tell me if the mouse feel or speeds are off.
 - Decide which exact 1.21 patch ADR 0002 targets (e.g. 1.21.10 vs 1.21.11): some

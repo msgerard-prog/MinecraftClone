@@ -2,6 +2,7 @@
 
 #include "core/Files.h"
 #include "core/Window.h"
+#include "rendering/ResourcePack.h"
 #include "world/Blocks.h"
 
 #include <glad/gl.h>
@@ -26,9 +27,14 @@ constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
 
 } // namespace
 
-bool WorldRenderer::init() {
+bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_blockShader.load("block")) return false;
-    if (!m_atlas.build(assetPath("minecraft/textures/block"))) return false;
+    // Pack stack: our placeholders at the bottom (the repo root holds `assets/`), then
+    // the user's packs on top.
+    PackStack packs;
+    packs.add(ResourcePack::open(std::filesystem::path(MC_ASSETS_DIR).parent_path()));
+    packs.addAllIn(resourcePacksDir);
+    if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init()) return false;
     // Half the cores: leaves room for the main thread and the GL driver's own thread.

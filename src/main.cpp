@@ -80,7 +80,9 @@ int main(int argc, char** argv) {
     if (!mc::gfx::initOpenGl()) return 1;
 
     mc::gfx::WorldRenderer renderer;
-    if (!renderer.init()) return 1;
+    if (!renderer.init(opts->resourcePacks.empty() ? std::string(MC_RESOURCEPACKS_DIR)
+                                                   : opts->resourcePacks))
+        return 1;
     mc::world::World world;
     buildTestWorld(world);
     renderer.markAllDirty(world);
@@ -119,6 +121,7 @@ int main(int argc, char** argv) {
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
             player.tick(readMoveInput(window));
+            renderer.tick();
         }
 
         int fbWidth = 0;

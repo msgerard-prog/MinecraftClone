@@ -94,6 +94,10 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.yaw = yawPitch[0];
             opts.pitch = yawPitch[1];
             opts.hasLook = true;
+        } else if (arg == "--resourcepacks") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            opts.resourcePacks = std::string(*v);
         } else if (arg == "--no-vsync") {
             opts.vsync = false;
         } else if (arg == "--hidden") {
