@@ -172,6 +172,19 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
 
 void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
                             Inventory& inventory, std::vector<world::ItemStack>& drops) {
+    // Taking smelted items pays out the experience the furnace stored (wiki: Furnace).
+    const int outBefore = m_type == Type::Furnace && m_furnace ? m_furnace->output.count : 0;
+    clickSlots(mx, my, button, shift, guiWidth, guiHeight, inventory, drops);
+    if (m_type == Type::Furnace && m_furnace && m_furnace->output.count < outBefore && m_furnace->experience > 0.0f) {
+        m_xpFraction += m_furnace->experience;
+        m_furnace->experience = 0.0f;
+        m_experience += int(m_xpFraction);
+        m_xpFraction -= float(int(m_xpFraction));
+    }
+}
+
+void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
+                                 Inventory& inventory, std::vector<world::ItemStack>& drops) {
     const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
     const double px = mx - left, py = my - top;
     if (px < 0 || py < 0 || px >= kWidth || py >= height()) { // outside: throw

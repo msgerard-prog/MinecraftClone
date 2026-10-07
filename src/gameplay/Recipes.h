@@ -31,6 +31,9 @@ const std::vector<Recipe>& craftingRecipes();
 // Smelting (wiki: Smelting): input -> output, 200 ticks each.
 std::optional<world::ItemStack> smelt(const world::ItemStack& input);
 // Fuel burn time in ticks (wiki: Fuel), 0 if not a fuel.
+// Experience a smelted item stores in the furnace (wiki: Smelting): ores 0.7-1.0,
+// food 0.35, glass/stone 0.1...
+float smeltExperience(const world::ItemStack& input);
 int fuelTicks(const world::ItemStack& fuel);
 
 } // namespace mc

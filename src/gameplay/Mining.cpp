@@ -148,6 +148,25 @@ const DropIds& dropIds() {
 
 } // namespace
 
+int blockExperience(BlockStateId state, Xoroshiro& rng) {
+    auto between = [&](int lo, int hi) { return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1))); };
+    switch (blockRegistry().blockOf(state)) {
+    case blocks::CoalOre:
+    case blocks::DeepslateCoalOre: return between(0, 2);
+    case blocks::DiamondOre:
+    case blocks::DeepslateDiamondOre:
+    case blocks::EmeraldOre:
+    case blocks::DeepslateEmeraldOre: return between(3, 7);
+    case blocks::LapisOre:
+    case blocks::DeepslateLapisOre:
+    case blocks::NetherQuartzOre: return between(2, 5);
+    case blocks::RedstoneOre:
+    case blocks::DeepslateRedstoneOre: return between(1, 5);
+    case blocks::NetherGoldOre: return between(0, 1);
+    default: return 0;
+    }
+}
+
 void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out, bool anyTool) {
     if (!anyTool && !canHarvest(state, held)) return;
     const auto& reg = blockRegistry();

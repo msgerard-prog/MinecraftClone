@@ -299,6 +299,24 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         if (!Mobs::add(*ctx.world, mob)) return fail("That position is not loaded");
         return {true, format("Summoned new %.*s", int(id.size()), id.data())};
     }
+    if (a[0] == "xp" || a[0] == "experience") {
+        // /xp add @s <amount> [levels|points] (wiki: Commands/experience).
+        if (!ctx.vitals || a.size() < 4 || a[1] != "add" || !isSelf(a[2]))
+            return fail("Usage: /xp add @s <amount> [levels|points]");
+        int amount = 0;
+        const auto r = std::from_chars(a[3].data(), a[3].data() + a[3].size(), amount);
+        if (r.ec != std::errc() || amount < 0 || amount > 100000) return fail("Invalid amount");
+        const bool levels = a.size() > 4 && a[4] == "levels";
+        if (levels) {
+            int points = 0;
+            for (int l = ctx.vitals->xpLevel(); l < ctx.vitals->xpLevel() + amount; ++l)
+                points += Vitals::pointsForLevel(l);
+            ctx.vitals->addExperience(points);
+        } else {
+            ctx.vitals->addExperience(amount);
+        }
+        return {true, format("Gave %d experience %s to Player", amount, levels ? "levels" : "points")};
+    }
     if (a[0] == "kill") {
         // /kill [@s] (wiki: Commands/kill): works in creative too.
         if (!ctx.vitals || (a.size() > 1 && !isSelf(a[1]))) return fail("Usage: /kill [@s]");
@@ -306,7 +324,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp"};
+    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

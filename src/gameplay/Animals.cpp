@@ -1,6 +1,7 @@
 // Farm animals (M16.3; wiki: Breeding, Sheep, Pig, Chicken, Cow). Part of Mobs.
 #include "gameplay/Mobs.h"
 
+#include "gameplay/ExperienceOrbs.h"
 #include "world/Blocks.h"
 
 #include <cmath>
@@ -134,6 +135,7 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
                         baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
                     m_births.push_back(baby);
+                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng); // wiki: 1-7
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;
                         parent->breedTicks = 0;

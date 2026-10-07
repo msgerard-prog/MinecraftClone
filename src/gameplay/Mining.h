@@ -29,6 +29,9 @@ int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onG
 // What a broken block drops (wiki: each block's "Drops"). Empty if it can't be
 // harvested with `held`.
 // Appends to `out` (no allocation when it has room).
+// Experience a mined block gives (wiki: Experience › ores): coal 0-2, diamond and
+// emerald 3-7, lapis and quartz 2-5, redstone 1-5, nether gold 0-1; 0 otherwise.
+int blockExperience(world::BlockStateId state, world::Xoroshiro& rng);
 // `anyTool`: loot as if harvested correctly (explosions: the tool rule is the player's).
 void blockDrops(world::BlockStateId state, const world::ItemStack& held, world::Xoroshiro& rng,
                 std::vector<world::ItemStack>& out, bool anyTool = false);

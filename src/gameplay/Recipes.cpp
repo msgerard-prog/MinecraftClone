@@ -154,6 +154,7 @@ namespace {
 enum Tag : uint8_t { kTagPlanks = 1, kTagLogs = 2, kTagCoal = 4, kTagStoneTool = 8 };
 std::optional<ItemStack> smeltByName(std::string_view n);
 int fuelByName(std::string_view n, const ItemDef& def);
+float smeltExperienceByName(std::string_view n);
 
 struct ItemTables {
     std::vector<uint8_t> tags;
@@ -264,6 +265,21 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     return std::nullopt;
 }
 
+float smeltExperienceByName(std::string_view n) {
+    // wiki: Smelting - experience per item.
+    if (n == "raw_gold" || n.ends_with("gold_ore") || n.ends_with("diamond_ore") || n.ends_with("emerald_ore")) return 1.0f;
+    if (n == "raw_iron" || n == "raw_copper" || n.ends_with("iron_ore") || n.ends_with("copper_ore") ||
+        n.ends_with("redstone_ore"))
+        return 0.7f;
+    if (n == "nether_quartz_ore" || n.ends_with("lapis_ore")) return 0.2f;
+    if (n.ends_with("coal_ore")) return 0.1f;
+    if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
+    if (n.ends_with("_log")) return 0.15f;
+    if (n == "clay") return 0.35f;
+    if (n == "sand" || n == "red_sand" || n == "cobblestone") return 0.1f;
+    return 0.0f;
+}
+
 int fuelByName(std::string_view n, const ItemDef& def) {
     // wiki: Fuel - burn durations in game ticks.
     if (n == "coal" || n == "charcoal") return 1600;
@@ -275,5 +291,12 @@ int fuelByName(std::string_view n, const ItemDef& def) {
 }
 
 } // namespace
+
+float smeltExperience(const ItemStack& input) {
+    if (input.empty()) return 0.0f;
+    std::string_view n = itemRegistry().item(input.item).id;
+    if (n.starts_with("minecraft:")) n.remove_prefix(10);
+    return smeltExperienceByName(n);
+}
 
 } // namespace mc

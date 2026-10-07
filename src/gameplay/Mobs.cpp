@@ -1,5 +1,6 @@
 #include "gameplay/Mobs.h"
 
+#include "gameplay/ExperienceOrbs.h"
 #include "gameplay/FluidContact.h"
 
 #include "world/Blocks.h"
@@ -406,6 +407,10 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
+    // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
+    if (ctx.orbs && m.lastHurtByPlayer)
+        ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
+                       mobInfo(m.type).hostile ? 5 : 1 + static_cast<int>(ctx.rng.nextInt(3)), ctx.rng);
     const bool burning = m.fireTicks > 0; // meat drops cooked
     switch (m.type) {
     case MobType::Cow:

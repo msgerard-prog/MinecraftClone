@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <utility>
 
 namespace mc::ui {
 
@@ -54,6 +55,23 @@ void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int 
             const float x = static_cast<float>(guiWidth / 2 + 91 - 9 - i * 8);
             icon(i < full ? HudIcon::Air : HudIcon::AirBursting, x, y - 10.0f);
         }
+    }
+}
+
+void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidth, int guiHeight) {
+    // 182 x 5 bar 29 pixels above the bottom, green fill; the level in green above it.
+    const float x = float(guiWidth / 2 - 91), y = float(guiHeight - 29);
+    batch.fill(x, y, 182, 5, gfx::rgba(20, 20, 20));
+    batch.fill(x + 1, y + 1, 180, 3, gfx::rgba(40, 60, 30));
+    if (progress > 0.0f) batch.fill(x + 1, y + 1, 180.0f * std::min(1.0f, progress), 3, gfx::rgba(128, 255, 32));
+    if (level > 0) {
+        char text[12];
+        const int n = std::snprintf(text, sizeof(text), "%d", level);
+        const float w = float(batch.textWidth(std::string_view(text, size_t(n))));
+        const float tx = float(guiWidth) / 2.0f - w / 2.0f, ty = y - 7.0f;
+        for (const auto& [dx, dy] : {std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1}, std::pair{0, -1}})
+            batch.text(std::string_view(text, size_t(n)), tx + float(dx), ty + float(dy), gfx::rgba(0, 0, 0), false);
+        batch.text(std::string_view(text, size_t(n)), tx, ty, gfx::rgba(128, 255, 32), false);
     }
 }
 

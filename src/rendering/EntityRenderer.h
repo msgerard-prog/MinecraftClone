@@ -46,6 +46,8 @@ public:
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
     void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
                   const glm::dvec3& cameraPos);
+    // An experience orb (M17.5): a glowing camera-facing quad, bigger for big orbs.
+    void addOrb(const glm::dvec3& pos, int value, float time, const glm::dvec3& cameraPos);
     // An arrow (M16.4) with its tip at `tip`, pointing along `dir`: two crossed quads.
     void addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light, const glm::dvec3& cameraPos);
     // The crack on a block being broken: stage 0..9 (destroy_stage_N).
@@ -74,6 +76,7 @@ private:
     const ItemIcons* m_icons = nullptr;
     uint16_t m_crackSprites[10] = {};
     int m_crackStage = -1;
+    uint16_t m_orbSprite = 0;
     world::BlockPos m_crackBlock{};
     std::vector<Vertex> m_items; // reserved once
     std::vector<Vertex> m_mobs;  // mob atlas pass

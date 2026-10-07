@@ -80,6 +80,7 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     m_icons = &icons;
     for (int i = 0; i < 10; ++i)
         m_crackSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("destroy_stage_" + std::to_string(i)));
+    m_orbSprite = static_cast<uint16_t>(atlas.spriteIndex("experience_orb")); // (our texture, in the block atlas)
     m_items.reserve(size_t(kMaxQuads) * 6);
     m_crack.reserve(36);
     glCreateVertexArrays(1, &m_vao);
@@ -188,6 +189,20 @@ void EntityRenderer::addBlock(world::BlockStateId state, const glm::dvec3& pos, 
     }
     const glm::vec3 base(pos - cameraPos);
     cube(base + glm::vec3(-0.5f, 0.0f, -0.5f), base + glm::vec3(0.5f, 1.0f, 0.5f), sprites, light, tints, m_items, true);
+}
+
+void EntityRenderer::addOrb(const glm::dvec3& pos, int value, float time, const glm::dvec3& cameraPos) {
+    // Faces the camera; pulses between green and yellow (vanilla's orb shimmer).
+    const float size = value >= 37 ? 0.35f : value >= 7 ? 0.25f : 0.18f;
+    const glm::vec3 c(pos - cameraPos + glm::dvec3(0, size, 0));
+    const glm::vec3 toCam = glm::length(c) > 1e-4f ? -glm::normalize(c) : glm::vec3(0, 0, 1);
+    const glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), toCam)) * size;
+    const glm::vec3 up = glm::cross(toCam, right);
+    const float pulse = 0.5f + 0.5f * std::sin(time * 0.3f);
+    const uint32_t color = pack(glm::vec3(0.5f + 0.5f * pulse, 1.0f, 0.2f));
+    const float u0 = float(m_orbSprite % m_columns) * m_cell, v0 = float(m_orbSprite / m_columns) * m_cell;
+    const glm::vec3 p[4] = {c - right + up, c - right - up, c + right - up, c + right + up};
+    quad(p, u0, v0, u0 + m_cell, v0 + m_cell, color, m_items);
 }
 
 void EntityRenderer::addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light,

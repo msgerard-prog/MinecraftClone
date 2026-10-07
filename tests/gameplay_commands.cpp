@@ -157,3 +157,14 @@ TEST_CASE("/summon takes a few of vanilla's data tags: Color, Sheared, Age, Heal
     CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Saddle:1b}", c.ctx).ok); // unknown tag
     CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Age:x}", c.ctx).ok);
 }
+
+TEST_CASE("/xp adds points or whole levels") {
+    Ctx c;
+    Vitals v;
+    c.ctx.vitals = &v;
+    CHECK(runCommand("/xp add @s 3 levels", c.ctx).ok);
+    CHECK(v.xpLevel() == 3);
+    CHECK(runCommand("/xp add @s 4", c.ctx).ok);
+    CHECK(v.xpProgress() > 0.0f);
+    CHECK_FALSE(runCommand("/xp add @s -1", c.ctx).ok);
+}

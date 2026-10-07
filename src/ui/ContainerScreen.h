@@ -9,6 +9,7 @@
 
 #include <array>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace mc::ui {
@@ -47,6 +48,8 @@ public:
 
     void setFurnace(Furnace* furnace) { m_furnace = furnace; }
     const world::ItemStack& carried() const { return m_carried; }
+    // Experience earned by taking smelted items out of a furnace (paid in points).
+    int takeExperience() { return std::exchange(m_experience, 0); }
     const world::ItemStack& result() const { return m_result; }
     const world::ItemStack& grid(int i) const { return m_grid[size_t(i)]; }
 
@@ -60,6 +63,8 @@ private:
         int x, y; // panel coordinates of the 16x16 item area
     };
     std::span<const Slot> slots() const; // fixed per screen type (built once)
+    void clickSlots(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight, Inventory& inventory,
+                    std::vector<world::ItemStack>& drops);
     int gridSize() const { return m_type == Type::Crafting ? 3 : 2; }
     world::ItemStack* stackAt(const Slot& s, Inventory& inventory);
     void updateResult();
@@ -73,6 +78,8 @@ private:
     std::array<world::ItemStack, 9> m_grid{};
     world::ItemStack m_result;
     world::ItemStack m_carried;
+    int m_experience = 0;
+    float m_xpFraction = 0.0f; // (fractions carry over, vanilla rounds them by chance)
 };
 
 } // namespace mc::ui

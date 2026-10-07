@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 
+#include <algorithm>
 #include <utility>
 
 #include <cstdint>
@@ -88,6 +89,25 @@ public:
     int fireTicks() const { return m_fire; }
     void setFireTicks(int ticks) { m_fire = ticks; }
 
+    // Experience (M17.5; wiki: Experience): points fill the bar to the next level -
+    // 2L + 7 points below level 16, 5L - 38 up to 30, 9L - 158 above.
+    static int pointsForLevel(int level) {
+        return level < 16 ? 2 * level + 7 : level < 31 ? 5 * level - 38 : 9 * level - 158;
+    }
+    void addExperience(int points);
+    // Spends whole levels (enchanting, anvils); false if there aren't enough.
+    bool spendLevels(int levels);
+    int xpLevel() const { return m_xpLevel; }
+    float xpProgress() const { return m_xpProgress; } // 0..1 of the bar
+    int xpTotal() const { return m_xpTotal; }
+    void setExperience(int level, float progress, int total) {
+        m_xpLevel = level;
+        m_xpProgress = progress;
+        m_xpTotal = total;
+    }
+    // Dropped on death (wiki): 7 x level, at most 100 points; then all is lost.
+    int deathExperience() const { return std::min(m_xpLevel * 7, 100); }
+
     // Saved state.
     void setState(float health, int food, float saturation, float exhaustion);
 
@@ -101,6 +121,9 @@ private:
     int m_air = kMaxAir;
     int m_fire = 0;          // burning ticks left
     int m_fireContact = 0;   // ticks spent in fire blocks (catches fire at 20)
+    int m_xpLevel = 0;
+    float m_xpProgress = 0.0f;
+    int m_xpTotal = 0;
     int m_armorPoints = 0;
     float m_armorToughness = 0.0f;
     int m_armorWear = 0, m_shieldWear = 0;

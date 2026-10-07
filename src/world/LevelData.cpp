@@ -114,9 +114,9 @@ bool LevelData::save(const std::filesystem::path& dir) const {
         player.put("respawn", std::move(r));
     }
     player.put("Fire", static_cast<int16_t>(fire > 0 ? fire : -20));
-    player.put("XpLevel", int32_t{0});
-    player.put("XpP", 0.0f);
-    player.put("XpTotal", int32_t{0});
+    player.put("XpLevel", int32_t{xpLevel});
+    player.put("XpP", xpProgress);
+    player.put("XpTotal", int32_t{xpTotal});
     player.put("Score", int32_t{0});
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
@@ -272,6 +272,9 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         if (auto d = p->string("Dimension")) l.dimension = *d;
         l.air = static_cast<int>(std::clamp<int64_t>(p->integer("Air").value_or(300), -20, 300));
         l.fire = static_cast<int>(std::clamp<int64_t>(p->integer("Fire").value_or(-20), -20, 32767));
+        l.xpLevel = static_cast<int>(std::clamp<int64_t>(p->integer("XpLevel").value_or(0), 0, 21863));
+        l.xpProgress = std::clamp(float(p->real("XpP").value_or(0.0)), 0.0f, 1.0f);
+        l.xpTotal = static_cast<int>(std::max<int64_t>(0, p->integer("XpTotal").value_or(0)));
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {

@@ -34,6 +34,7 @@ public:
         world::ItemId heldItem = 0;  // what the player holds (animals follow their food)
         std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep, creepers, endermen)
         class Projectiles* projectiles = nullptr;      // skeletons shoot into it
+        class ExperienceOrbs* orbs = nullptr;          // experience from kills and breeding
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

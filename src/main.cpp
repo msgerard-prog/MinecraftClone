@@ -22,6 +22,7 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/ItemEntities.h"
 #include "gameplay/Mining.h"
@@ -376,10 +377,12 @@ int main(int argc, char** argv) {
         vitals.setFoodTimer(level->foodTimer);
         vitals.setAir(level->air);
         vitals.setFireTicks(level->fire);
+        vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
     }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
+    mc::ExperienceOrbs orbs;         // experience orbs (M17.5)
     int bowTicks = 0;                // how long the bow has been drawn
     double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;             // how long right-click has held a shield up
@@ -497,6 +500,9 @@ int main(int argc, char** argv) {
         l.exhaustion = vitals.exhaustion();
         l.foodTimer = vitals.foodTimer();
         l.air = vitals.air();
+        l.xpLevel = vitals.xpLevel();
+        l.xpProgress = vitals.xpProgress();
+        l.xpTotal = vitals.xpTotal();
         l.hasRespawn = bedSpawn.has_value();
         if (bedSpawn) l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
@@ -832,6 +838,7 @@ int main(int argc, char** argv) {
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
                 fallingBlocks.clear();
                 projectiles.clear();
+                orbs.clear();
                 const Dimension from = dimension;
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -1044,6 +1051,7 @@ int main(int argc, char** argv) {
                     }
                     droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.offhand(), gameRng, 40);
                     inventory.setOffhand({});
+                    orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(), gameRng); // (the rest is lost)
                     chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
@@ -1260,7 +1268,7 @@ int main(int argc, char** argv) {
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems, dimension == Dimension::Overworld,
-                                     inventory.selectedStack().item, &frameEdits, &projectiles};
+                                     inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
             {
@@ -1309,6 +1317,13 @@ int main(int argc, char** argv) {
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
             projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
+            // Experience: ores just mined, furnace output taken, orbs collected (M17.5).
+            if (const int xp = interaction.takeExperience(); xp > 0) {
+                const mc::world::BlockPos b = interaction.experienceAt();
+                orbs.drop({b.x + 0.5, b.y + 0.5, b.z + 0.5}, xp, gameRng);
+            }
+            vitals.addExperience(container.takeExperience());
+            vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
@@ -1417,6 +1432,9 @@ int main(int argc, char** argv) {
             else
                 entities.addItem({eggItem, 1}, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
         }
+        for (const auto& o : orbs.orbs())
+            entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),
+                            camera.position);
         for (const auto& f : fallingBlocks.blocks())
             entities.addBlock(f.state, glm::mix(f.prevPos, f.pos, clock.alpha),
                               lightTable[size_t(f.skyLight * 16 + f.blockLight)], camera.position);
@@ -1467,6 +1485,7 @@ int main(int argc, char** argv) {
             mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(), inventory.armorPoints());
+            if (survival) mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             if (sleepTicks > 0) // falling asleep: the screen darkens (vanilla)
                 batch.fill(0, 0, float(guiW), float(guiH),

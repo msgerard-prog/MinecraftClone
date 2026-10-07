@@ -71,12 +71,28 @@ def bed(face):
     return img
 
 
+def experience_orb():
+    """A white-cored ball (tinted green/yellow by the renderer when drawn)."""
+    img = Img(16, 16, (0, 0, 0, 0))
+    for y in range(16):
+        for x in range(16):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 3.0:
+                img.set(x, y, (255, 255, 255, 255))
+            elif d < 4.5:
+                img.set(x, y, (200, 200, 200, 255))
+            elif d < 5.2 and (x + y) % 2 == 0:
+                img.set(x, y, (140, 140, 140, 255))
+    return img
+
+
 def main():
     for face in ("top", "side", "front"):
         (OUT / f"chest_{face}.png").write_bytes(encode_png(chest(face)))
     for face in ("head_top", "foot_top", "side", "end"):
         (OUT / f"red_bed_{face}.png").write_bytes(encode_png(bed(face)))
-    print("wrote chest and bed textures")
+    (OUT / "experience_orb.png").write_bytes(encode_png(experience_orb()))
+    print("wrote chest, bed and orb textures")
 
 
 if __name__ == "__main__":

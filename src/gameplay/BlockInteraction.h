@@ -8,6 +8,7 @@
 #include "world/World.h"
 
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace mc::world {
@@ -74,7 +75,13 @@ public:
     // Levers, buttons, repeaters and dust react to right-clicks through this.
     void setBlockUpdates(world::BlockUpdates* updates) { m_updates = updates; }
 
+    // Experience from blocks mined this tick (ores), and where (orbs spawn there).
+    int takeExperience() { return std::exchange(m_experience, 0); }
+    world::BlockPos experienceAt() const { return m_xpAt; }
+
 private:
+    int m_experience = 0;
+    world::BlockPos m_xpAt{};
     bool useBlock(const Player& player, const world::RayHit& hit, bool holding);
     void place(world::World& world, const Player& player, const world::RayHit& hit,
                world::BlockStateId state, std::vector<world::BlockPos>& changed, bool& placed);

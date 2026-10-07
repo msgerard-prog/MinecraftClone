@@ -172,6 +172,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Experience (M17.5): levels in `Vitals` (vanilla's points per level), `gameplay/
+  ExperienceOrbs` (pooled orbs drawn to the player), sources: player kills
+  (`Mobs::Context::orbs`), breeding, ores (`blockExperience`), furnaces (stored per
+  smelt, paid when the output is taken), death drops; the HUD bar; /xp.
 - Beds (M17.4, `gameplay/Beds`): two-block red bed (the foot brings its head in
   `BlockUpdates::onBlockChanged`; halves break together), `useBed` rules (night,
   monsters, occupied, explodes outside the Overworld), `bedStandSpot`; main handles

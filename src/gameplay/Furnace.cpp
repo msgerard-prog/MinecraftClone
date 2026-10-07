@@ -33,6 +33,7 @@ bool tickFurnace(Furnace& f) {
             f.cookTime = 0;
             if (f.output.empty()) f.output = *result;
             else f.output.count = static_cast<uint8_t>(f.output.count + result->count);
+            f.experience += smeltExperience(f.input);
             if (--f.input.count == 0) f.input = {};
         }
     } else if (!f.lit() && f.cookTime > 0) {

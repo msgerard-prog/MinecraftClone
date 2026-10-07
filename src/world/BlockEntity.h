@@ -14,6 +14,7 @@ struct FurnaceData {
     int burnDuration = 0; // of the current fuel (flame gauge)
     int cookTime = 0;     // progress on the current item
     ItemId cooking = 0;   // the input kind being cooked (a different item restarts)
+    float experience = 0.0f; // stored by smelting, paid out when the output is taken
     bool lit() const { return burnLeft > 0; }
 };
 

@@ -44,6 +44,9 @@ void Vitals::reset() {
     m_air = kMaxAir;
     m_fire = 0;
     m_fireContact = 0;
+    m_xpLevel = 0; // (dropped as orbs by the caller)
+    m_xpProgress = 0.0f;
+    m_xpTotal = 0;
     m_falling = false;
     m_started = false;
 }
@@ -81,6 +84,28 @@ bool Vitals::attacked(float amount, const glm::dvec3* from) {
     }
     if (m_armorPoints > 0) m_armorWear += std::max(1, int(amount / 4.0f));
     return damage(armorReduced(amount, m_armorPoints, m_armorToughness));
+}
+
+void Vitals::addExperience(int points) {
+    if (points <= 0) return;
+    m_xpTotal += points;
+    float left = float(points);
+    while (left > 0.0f) {
+        const float need = float(pointsForLevel(m_xpLevel)) * (1.0f - m_xpProgress);
+        if (left < need) {
+            m_xpProgress += left / float(pointsForLevel(m_xpLevel));
+            break;
+        }
+        left -= need;
+        ++m_xpLevel;
+        m_xpProgress = 0.0f;
+    }
+}
+
+bool Vitals::spendLevels(int levels) {
+    if (levels > m_xpLevel) return false;
+    m_xpLevel -= levels;
+    return true;
 }
 
 void Vitals::eat(int food, float saturation) {

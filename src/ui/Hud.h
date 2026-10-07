@@ -23,6 +23,8 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
 // Survival HUD (wiki: Heads-up display): 10 hearts above the hotbar's left half,
 // 10 hunger shanks on the right half (right to left). Values in halves (0..20).
 // Air bubbles show above the hunger bar while breath is below full (wiki: Drowning).
+// The experience bar above the hotbar and the level number (wiki: Experience › HUD).
+void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidth, int guiHeight);
 void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300,
                 int armor = 0);
 
