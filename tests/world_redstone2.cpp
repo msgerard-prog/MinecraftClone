@@ -200,3 +200,33 @@ TEST_CASE("a comparator still notices its chest filling after its chunk has been
     s.tick(3);
     CHECK(val(s.at({4, 64, 4}), "powered") == "true");
 }
+
+#include "world/Rails.h"
+
+TEST_CASE("rails: straight lines, corners, slopes up to a raised rail; powered rails carry power 8 along") {
+    Scene s;
+    for (int z = 0; z < 4; ++z)
+        s.place(blocks::Rail, {4, 64, z});
+    CHECK(val(s.at({4, 64, 1}), "shape") == "north_south");
+    s.place(blocks::Rail, {5, 64, 4});
+    s.place(blocks::Rail, {4, 64, 4}); // between (4,3) to the north and (5,4) to the east
+    CHECK(val(s.at({4, 64, 4}), "shape") == "north_east");
+    s.put({8, 64, 0}, S(blocks::Stone));
+    s.place(blocks::Rail, {8, 65, 0});
+    s.place(blocks::Rail, {8, 64, 1}); // the rail north of it is a block up
+    CHECK(val(s.at({8, 64, 1}), "shape") == "ascending_north");
+    // A line of 10 powered rails powered at one end: 9 light up, the 10th stays dark.
+    for (int x = 0; x < 10; ++x)
+        s.place(blocks::PoweredRail, {x, 64, 10}, Direction::Up, 90.0f);
+    s.put({-1, 64, 10}, S(blocks::RedstoneBlock));
+    CHECK(val(s.at({0, 64, 10}), "shape") == "east_west");
+    CHECK(val(s.at({0, 64, 10}), "powered") == "true");
+    CHECK(val(s.at({8, 64, 10}), "powered") == "true");
+    CHECK(val(s.at({9, 64, 10}), "powered") == "false");
+    // Detector rails act like plates for minecarts.
+    s.place(blocks::DetectorRail, {12, 64, 12});
+    s.redstone.setTime(s.time);
+    s.redstone.pressPlate({12, 64, 12}, false);
+    s.redstone.settlePlates();
+    CHECK(val(s.at({12, 64, 12}), "powered") == "true");
+}

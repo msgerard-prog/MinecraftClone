@@ -1,6 +1,7 @@
 #include "rendering/BlockModels.h"
 
 #include "world/BlockShapes.h"
+#include "world/Rails.h"
 #include "world/Biome.h"
 
 #include <algorithm>
@@ -355,6 +356,41 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     } else {
                         put(0, y, 9, 2, y + 3, 15);
                         put(14, y, 9, 16, y + 3, 15);
+                    }
+                }
+            } else if (name == "rail" || name.ends_with("_rail")) {
+                // A flat strip 1/16 thick (vanilla: a plane); ascending rails as four
+                // thin steps (vanilla: a sloped plane). Curves turn the corner texture
+                // (unturned: south-east, as vanilla's model).
+                const int shape = world::railShapeOf(state);
+                const bool on = registry.value(state, "powered").value_or("false") == "true";
+                std::string tex = name == "rail" ? (shape >= 6 ? "rail_corner" : "rail") : (on ? name + "_on" : name);
+                const uint16_t sp = sprite(tex.c_str());
+                m.visible = true;
+                static constexpr uint8_t kTurns[10] = {0, 1, 1, 1, 0, 0, 0, 1, 2, 3};
+                auto top = [&](int i) {
+                    BakedBox& b = m.boxes[size_t(i)];
+                    for (auto& f : b.faces)
+                        f.present = false;
+                    auto& t = b.faces[int(world::Direction::Up)];
+                    t.present = true;
+                    t.rotation = kTurns[shape];
+                };
+                if (shape < 2 || shape >= 6) {
+                    addBox(m, 0, 0, 0, 16, 1, 16, sp);
+                    top(0);
+                    m.boxes[0].faces[int(world::Direction::Up)].uv[0] = 0, m.boxes[0].faces[int(world::Direction::Up)].uv[1] = 0;
+                    m.boxes[0].faces[int(world::Direction::Up)].uv[2] = 16, m.boxes[0].faces[int(world::Direction::Up)].uv[3] = 16;
+                } else {
+                    for (int k = 0; k < 4; ++k) { // step k rises 4 more toward the high side
+                        const int lo = 4 * k, hi = lo + 4, y = 4 * k;
+                        switch (shape) {
+                        case 2: addBox(m, lo, y, 0, hi, y + 1, 16, sp); break;           // up to the east
+                        case 3: addBox(m, 16 - hi, y, 0, 16 - lo, y + 1, 16, sp); break; // up to the west
+                        case 4: addBox(m, 0, y, 16 - hi, 16, y + 1, 16 - lo, sp); break; // up to the north
+                        default: addBox(m, 0, y, lo, 16, y + 1, hi, sp); break;          // up to the south
+                        }
+                        top(k);
                     }
                 }
             } else if (name.ends_with("_pressure_plate")) {

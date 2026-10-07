@@ -53,6 +53,9 @@ extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east
 extern const Property enabled;        // true | false (hoppers)
 extern const Property triggered;      // true | false (dispensers, droppers)
+// "shape": north_south | east_west | ascending_east | ascending_west | ascending_north |
+// ascending_south (| south_east | south_west | north_west | north_east: plain rails)
+extern const Property railShape, straightRailShape;
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -287,6 +290,10 @@ enum : BlockId {
     Hopper,     // facing (down | north | south | west | east), enabled (M21.3)
     Dispenser,  // facing (6), triggered
     Dropper,    // facing (6), triggered
+    Rail,         // shape (10) (M21.4)
+    PoweredRail,  // powered, shape (6)
+    DetectorRail, // powered, shape (6)
+    ActivatorRail, // powered, shape (6)
     Count
 };
 } // namespace blocks

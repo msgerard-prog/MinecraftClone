@@ -320,6 +320,7 @@ private:
     void comparatorChanged(const BlockPos& p, BlockStateId s);
     void watchComparators();
     void setDoor(const BlockPos& lower, BlockStateId lowerState, bool open, bool poweredNow);
+    bool railPowered(const BlockPos& p, BlockStateId s) const;
 };
 
 } // namespace mc::world

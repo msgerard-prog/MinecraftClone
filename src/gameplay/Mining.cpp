@@ -104,6 +104,10 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::StickyPiston:
     case blocks::PistonHead:
     case blocks::StoneButton:
+    case blocks::Rail: // (wiki: rails - any tool, pickaxe fastest)
+    case blocks::PoweredRail:
+    case blocks::DetectorRail:
+    case blocks::ActivatorRail:
     case blocks::BrewingStand: // wiki: Brewing Stand - any tool, a pickaxe is fastest
         return {T::Pickaxe, -1};
     case blocks::OakButton:

@@ -54,6 +54,12 @@ const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
 const Property enabled{"enabled", {"true", "false"}};
 const Property triggered{"triggered", {"true", "false"}};
+const Property railShape{"shape",
+                         {"north_south", "east_west", "ascending_east", "ascending_west", "ascending_north",
+                          "ascending_south", "south_east", "south_west", "north_west", "north_east"}};
+const Property straightRailShape{"shape",
+                                 {"north_south", "east_west", "ascending_east", "ascending_west", "ascending_north",
+                                  "ascending_south"}};
 const Property age5{"age", {"0", "1", "2", "3", "4", "5"}};
 const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
@@ -508,6 +514,14 @@ BlockRegistry buildVanillaBlocks() {
           blocks::Dispenser);
     check(r.add("dropper", {.hardness = 3.5f, .resistance = 3.5f}, {{&facing6, "north"}, {&triggered, "false"}}),
           blocks::Dropper);
+    // wiki: Rail (0.7, no collision: carts ride on them), Powered/Detector/Activator Rail.
+    constexpr BlockSettings kRail{
+        .hardness = 0.7f, .resistance = 0.7f, .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout};
+    check(r.add("rail", kRail, {{&railShape, "north_south"}}), blocks::Rail);
+    check(r.add("powered_rail", kRail, {{&powered, "false"}, {&straightRailShape, "north_south"}}), blocks::PoweredRail);
+    check(r.add("detector_rail", kRail, {{&powered, "false"}, {&straightRailShape, "north_south"}}), blocks::DetectorRail);
+    check(r.add("activator_rail", kRail, {{&powered, "false"}, {&straightRailShape, "north_south"}}),
+          blocks::ActivatorRail);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

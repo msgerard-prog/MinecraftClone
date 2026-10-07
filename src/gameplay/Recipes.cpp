@@ -171,6 +171,15 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###", "#B#", "#R#"}, {{'#', item("cobblestone")}, {'B', item("bow")}, {'R', item("redstone")}},
                        "dispenser"));
     r.push_back(shaped({"###", "#.#", "#R#"}, {{'#', item("cobblestone")}, {'R', item("redstone")}}, "dropper"));
+    // Rails (wiki: Rail 16, Powered Rail 6, Detector Rail 6, Activator Rail 6)
+    r.push_back(shaped({"I.I", "ISI", "I.I"}, {{'I', item("iron_ingot")}, {'S', stick}}, "rail", 16));
+    r.push_back(shaped({"G.G", "GSG", "GRG"}, {{'G', item("gold_ingot")}, {'S', stick}, {'R', item("redstone")}},
+                       "powered_rail", 6));
+    r.push_back(shaped({"I.I", "IPI", "IRI"},
+                       {{'I', item("iron_ingot")}, {'P', item("stone_pressure_plate")}, {'R', item("redstone")}},
+                       "detector_rail", 6));
+    r.push_back(shaped({"ISI", "ITI", "ISI"}, {{'I', item("iron_ingot")}, {'S', stick}, {'T', item("redstone_torch")}},
+                       "activator_rail", 6));
     // (wiki: End Rod - a blaze rod over popped chorus fruit makes 4)
     r.push_back(shaped({"B", "P"}, {{'B', item("blaze_rod")}, {'P', item("popped_chorus_fruit")}}, "end_rod", 4));
     // (wiki: End Crystal - glass around an eye of ender over a ghast tear)

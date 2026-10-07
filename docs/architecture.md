@@ -297,6 +297,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Dispensers and droppers (M21.3b): `BlockUpdates` fires them 4 ticks after a rising
   edge of power (`dispensed()`); main calls `gameplay/Dispensers::dispense`, which picks
   a random slot and drops/inserts (droppers) or uses the item (dispensers).
+- Rails (M21.4, `world/Rails`): shapes 0..9 with their exits, `chooseRailShape` on
+  placement and neighbour updates; powered/activator rails `railPowered` (8 along the
+  line); detector rails reuse the pressure plate mechanism (pressed by minecarts).
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push

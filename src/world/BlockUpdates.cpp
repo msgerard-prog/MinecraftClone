@@ -1,5 +1,7 @@
 #include "world/BlockUpdates.h"
 
+#include "world/Rails.h"
+
 #include "core/Log.h"
 #include "world/Blocks.h"
 #include "world/Rotation.h"
@@ -204,6 +206,7 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return 15;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
+    case B::DetectorRail:
         return flag(s, powered) ? 15 : 0;
     case B::LightWeightedPressurePlate:
     case B::HeavyWeightedPressurePlate:
@@ -230,6 +233,7 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
         return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
     case B::OakPressurePlate: // plates power the block under them strongly (wiki)
     case B::StonePressurePlate:
+    case B::DetectorRail:
     case B::LightWeightedPressurePlate:
     case B::HeavyWeightedPressurePlate:
         return toward == Direction::Down ? weak(s, toward) : 0;
@@ -492,7 +496,7 @@ BlockStateId BlockUpdates::chorusConnected(const World& world, const BlockPos& p
 bool BlockUpdates::isDoor(BlockId b) { return b == B::OakDoor || b == B::IronDoor; }
 bool BlockUpdates::isPressurePlate(BlockId b) {
     return b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
-           b == B::HeavyWeightedPressurePlate;
+           b == B::HeavyWeightedPressurePlate || b == B::DetectorRail; // (detector rails: pressed by minecarts)
 }
 
 BlockStateId BlockUpdates::fenceConnected(const World& world, const BlockPos& p, BlockStateId fence) {
@@ -534,6 +538,31 @@ void BlockUpdates::pressPlate(const BlockPos& p, bool item) {
             return;
         }
     if (m_plates.size() < 1024) m_plates.push_back({p, m_now, 1});
+}
+
+bool BlockUpdates::railPowered(const BlockPos& p, BlockStateId s) const {
+    // Powered (or activator) rails pass power on along their line: one with power of
+    // its own lights up to 8 more of the same kind (wiki: Powered Rail).
+    if (bestNeighbourSignal(p) > 0) return true;
+    const BlockId kind = blockOf(s);
+    const RailExits ex = railExits(railShapeOf(s));
+    for (const Direction start : {ex.a, ex.b}) {
+        BlockPos q = p;
+        Direction d = start;
+        for (int i = 0; i < 8; ++i) {
+            BlockPos next = rel(q, d);
+            if (blockOf(at(next)) != kind) next.y += 1;
+            if (blockOf(at(next)) != kind) next.y -= 2;
+            const BlockStateId ns = at(next);
+            if (blockOf(ns) != kind) break;
+            const int shape = railShapeOf(ns);
+            const bool alongZ = d == Direction::North || d == Direction::South;
+            if (shape == 1 ? alongZ : shape == 0 ? !alongZ : false) break; // (turned across: not in line)
+            if (bestNeighbourSignal(next) > 0) return true;
+            q = next;
+        }
+    }
+    return false;
 }
 
 void BlockUpdates::primeTnt(const BlockPos& p) {
@@ -711,6 +740,7 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
     case B::StonePressurePlate:
     case B::LightWeightedPressurePlate:
     case B::HeavyWeightedPressurePlate:
+    case B::DetectorRail:
         notifyNeighbours(rel(p, Direction::Down));
         break;
     case B::Observer: {
@@ -910,6 +940,20 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::OakFence:
         set(p, fenceConnected(m_world, p, s));
         break;
+    case B::Rail:
+    case B::PoweredRail:
+    case B::DetectorRail:
+    case B::ActivatorRail: {
+        if (!supports(at(rel(p, Direction::Down)))) {
+            pop(p);
+            break;
+        }
+        BlockStateId want = withRailShape(s, chooseRailShape(m_world, p, s));
+        if (blockOf(s) == B::PoweredRail || blockOf(s) == B::ActivatorRail)
+            want = withFlag(want, powered, railPowered(p, want));
+        if (want != s) set(p, want);
+        break;
+    }
     case B::Dispenser:
     case B::Dropper: {
         const bool on = bestNeighbourSignal(p) > 0 || bestNeighbourSignal(rel(p, Direction::Up)) > 0;
@@ -1216,7 +1260,8 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::LightWeightedPressurePlate:
-    case B::HeavyWeightedPressurePlate: {
+    case B::HeavyWeightedPressurePlate:
+    case B::DetectorRail: {
         // Still something on it (this tick or the last)? Stay down; else spring up.
         const BlockId b = blockOf(s);
         const bool weighted = b == B::LightWeightedPressurePlate || b == B::HeavyWeightedPressurePlate;
@@ -1589,6 +1634,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     }
     case B::OakFenceGate:
         return withHFacing(state, look);
+    case B::Rail:
+    case B::PoweredRail:
+    case B::DetectorRail:
+    case B::ActivatorRail:
+        if (!solid(Direction::Down)) return std::nullopt;
+        return withRailShape(state, chooseRailShape(world, at, state));
     case B::Hopper: // points into the block it was put against (down when put on top)
         if (horizontal(faceDir)) return r.set(state, hopperFacing, static_cast<int>(opposite(faceDir)) - 1);
         return r.set(state, hopperFacing, 0);
