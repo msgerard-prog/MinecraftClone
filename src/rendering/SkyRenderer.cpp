@@ -120,6 +120,7 @@ bool SkyRenderer::init(const PackStack& packs) {
 }
 
 void SkyRenderer::draw(const Camera& camera, float aspect, const SkyState& sky) {
+    if (!sky.celestial) return; // the Nether and the End have no sun, moon or stars
     // Sky rotation: about the north-south axis, sun at +Y at angle 0; at sunrise
     // (angle 0.75) it is in the east (+X), at sunset (0.25) in the west.
     const float turn = static_cast<float>(sky.celestialAngle * 2.0 * std::numbers::pi);

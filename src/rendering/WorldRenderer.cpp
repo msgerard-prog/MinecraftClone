@@ -86,6 +86,14 @@ void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
     m_skyColor = kPlainsSky * static_cast<float>(world::daylight(angle));
     m_skyState = {angle, static_cast<float>(world::starBrightness(angle)),
                   world::moonPhase(dayTime)};
+    if (m_dimension != world::Dimension::Overworld) {
+        // No daylight: fixed fog colours (wiki: Nether Wastes fog #330808; the End's
+        // dark sky), no sun, moon or stars.
+        m_skyDarken = 0.0f;
+        m_skyState.celestial = false;
+        m_skyColor = m_dimension == world::Dimension::Nether ? glm::vec3(0x33, 0x08, 0x08) / 255.0f
+                                                             : glm::vec3(0.09f, 0.07f, 0.10f);
+    }
 }
 
 void WorldRenderer::markChunkDirty(const world::World& world, world::ChunkPos pos) {
@@ -297,10 +305,15 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glUniform1i(1, m_atlas.columns());
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_tintPalette); // biome tints
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
-    const FogRange fog = terrainFog(m_renderDistance);
+    FogRange fog = terrainFog(m_renderDistance);
+    if (m_dimension == world::Dimension::Nether) fog = netherFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);
     glUniform3fv(5, 1, glm::value_ptr(m_skyColor));
     glUniform1f(7, m_skyDarken);
+    // Dimension light: the Nether's ambient light lifts darkness (0.1); the End's
+    // lightmap is forced bright (wiki: Dimension type › ambient_light; Light).
+    glUniform1f(8, world::dimensionInfo(m_dimension).ambientLight);
+    glUniform1f(9, m_dimension == world::Dimension::End ? 1.0f : 0.0f);
     glBindTextureUnit(0, m_atlas.texture());
 
     // Opaque pass.

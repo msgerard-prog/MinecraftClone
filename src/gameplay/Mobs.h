@@ -28,6 +28,7 @@ public:
         float skyDarken; // sky light levels lost (0..11)
         world::Xoroshiro& rng;
         ItemEntities& items;
+        bool naturalSpawning = true; // Overworld zombies only (no Nether/End mobs yet)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

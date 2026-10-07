@@ -64,6 +64,7 @@ public:
     }
     void setRotation(float yawDeg, float pitchDeg);
     void setCreative(bool creative) { m_creative = creative; }
+    void setVelocity(const glm::dvec3& v) { m_velocity = v; }
     void setFlying(bool flying) { m_flying = flying && m_creative; }
     // Benchmarks only (--auto-fly): scales flight acceleration.
     void setFlySpeedMultiplier(double k) { m_flyMultiplier = k; }

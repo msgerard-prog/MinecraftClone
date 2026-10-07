@@ -13,6 +13,8 @@ layout(std430, binding = 1) readonly buffer TintPalette {
     vec4 tints[];
 };
 layout(location = 7) uniform float uSkyDarken;  // 0 (day) .. 11 (night): sky light lost
+layout(location = 8) uniform float uAmbient;    // dimension ambient light (Nether 0.1)
+layout(location = 9) uniform float uForceBright; // 1 in the End: forced bright lightmap
 
 layout(std430, binding = 0) readonly buffer SectionOffsets { vec4 offsets[]; };
 
@@ -33,7 +35,8 @@ out float vDistance;
 // Full darkness stays ~5% visible (wiki: Light › Rendered brightness).
 float brightness(float level) {
     const float f = clamp(level / 15.0, 0.0, 1.0);
-    const float b = f / (4.0 - 3.0 * f);
+    // (clamped: mix() can round just above 1, and pow() of a negative base is NaN)
+    const float b = clamp(mix(f / (4.0 - 3.0 * f), 1.0, uAmbient), 0.0, 1.0);
     const float lifted = 1.0 - pow(1.0 - b, 4.0);
     return mix(0.05, 1.0, mix(b, lifted, 0.5));
 }
@@ -61,7 +64,8 @@ void main() {
     // Light: sky light dimmed at night, block light slightly warm; added and clamped.
     const vec3 skyPart = vec3(brightness(sky - uSkyDarken));
     const vec3 blockPart = brightness(blockLight) * vec3(1.0, 0.93, 0.82);
-    const vec3 light = min(skyPart + blockPart, vec3(1.0)) * kAo[ao];
+    vec3 light = min(skyPart + blockPart, vec3(1.0));
+    light = min(mix(light, vec3(0.99, 1.12, 1.0), 0.25 * uForceBright), vec3(1.0)) * kAo[ao];
 
     const uint biome = (w2 >> 12) & 255u;
     const vec3 tintColor = tint == 1u ? tints[biome * 3u].rgb

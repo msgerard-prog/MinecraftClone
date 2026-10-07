@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/Dimension.h"
+
 #include "rendering/BlockModels.h"
 #include "rendering/Camera.h"
 #include "rendering/ChunkMeshTracker.h"
@@ -71,6 +73,8 @@ public:
     // Time of day (world/DayTime.h): sky colour, sun/moon/stars and the sky light
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
     void setDayTime(int64_t dayTime, float partialTick);
+    // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
+    void setDimension(world::Dimension d) { m_dimension = d; }
     float skyDarken() const { return m_skyDarken; }
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,
@@ -100,6 +104,7 @@ private:
     ChunkRenderer m_chunks;      // opaque pass
     ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
     int m_renderDistance = 12;
+    world::Dimension m_dimension = world::Dimension::Overworld;
     float m_skyDarken = 0.0f;       // sky light levels lost to night, 0..11
     glm::vec3 m_skyColor{0.0f};     // clear and fog colour
     SkyState m_skyState;

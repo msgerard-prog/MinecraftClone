@@ -111,6 +111,16 @@ TEST_CASE("command line: --world takes a folder name only; --no-save") {
     }
 }
 
+TEST_CASE("command line: --dimension overworld|nether|end") {
+    std::array<const char*, 2> ok = {"--dimension", "nether"};
+    std::string error;
+    auto opts = mc::parseCommandLine(ok, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->dimension == "nether");
+    std::array<const char*, 2> bad = {"--dimension", "aether"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
+}
+
 TEST_CASE("command line: --generator overworld|terrain") {
     std::string error;
     std::array<const char*, 2> ok = {"--generator", "terrain"};

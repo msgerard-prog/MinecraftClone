@@ -26,6 +26,8 @@
 #include "rendering/Frustum.h"
 #include "world/DayTime.h"
 #include "world/Redstone.h"
+#include "world/NetherGenerator.h"
+#include "gameplay/Portals.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
@@ -253,19 +255,33 @@ int main(int argc, char** argv) {
     const uint64_t seed = level ? level->seed : opts->seed;
     if (level) MC_LOG_INFO("Loading world \"%s\" (seed %lld)", worldName.c_str(), static_cast<long long>(seed));
     else if (!worldName.empty()) MC_LOG_INFO("Creating world \"%s\"", worldName.c_str());
+    // The player's dimension (M12): saved in level.dat; --dimension starts elsewhere.
+    using mc::world::Dimension;
+    Dimension dimension = Dimension::Overworld;
+    if (level)
+        if (const auto d = mc::world::findDimension(level->dimension)) dimension = *d;
+    if (!opts->dimension.empty() && !flatWorld) dimension = *mc::world::findDimension(opts->dimension);
+    // Each dimension saves in its own folder (vanilla: DIM-1 Nether, DIM1 End).
+    auto dimensionDir = [&](Dimension d) { return worldDir / std::string(mc::world::dimensionInfo(d).folder); };
     std::unique_ptr<mc::world::ChunkStorage> storage;
-    if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(worldDir);
-    // The world's generator: saved worlds keep theirs (pinned outputs never change).
+    if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+    // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
-    std::unique_ptr<mc::world::ChunkGenerator> generatorPtr;
-    if (generatorKind == "terrain") generatorPtr = std::make_unique<mc::world::TerrainGenerator>(seed);
-    else if (generatorKind == "overworld") generatorPtr = std::make_unique<mc::world::OverworldGenerator>(seed);
-    else { // a world from a newer/other build: generating here would leave seams
+    if (generatorKind != "terrain" && generatorKind != "overworld") {
+        // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
         return 1;
     }
-    const mc::world::ChunkGenerator& generator = *generatorPtr;
+    auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
+        if (d == Dimension::Nether) return std::make_unique<mc::world::NetherGenerator>(seed);
+        if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed);
+        if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
+        return std::make_unique<mc::world::OverworldGenerator>(seed);
+    };
+    std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
+    world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
+    renderer.setDimension(dimension);
     std::unique_ptr<mc::world::ChunkLoader> loader;
     std::vector<mc::world::ChunkPos> loadedChunks;
     std::vector<mc::world::ChunkPos> unloadedChunks;
@@ -281,15 +297,15 @@ int main(int argc, char** argv) {
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
         world.forEachChunk([&](const mc::world::Chunk& c) { loadedChunks.push_back(c.pos()); });
-    } else {
-        // Chunks stream in around the player on worker threads (a third of the cores:
-        // the overworld costs ~1 ms per chunk; meshing has half).
-        const int genThreads =
-            std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 3);
-        loader = std::make_unique<mc::world::ChunkLoader>(world, generator, genThreads, storage.get());
+    }
+    // Chunks stream in around the player on worker threads (a third of the cores:
+    // the overworld costs ~1 ms per chunk; meshing has half).
+    const int genThreads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 3);
+    if (!flatWorld) {
+        loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
-        spawn = generator.findSpawn();
+        spawn = generatorPtr->findSpawn();
     }
     // Lighting on worker threads (a quarter of the cores).
     mc::world::LightManager lighting(
@@ -364,8 +380,27 @@ int main(int argc, char** argv) {
     if (level)
         for (int i = 0; i < 3; ++i)
             worldSpawn[i] = level->spawn[i];
+    else if (dimension != Dimension::Overworld) { // a new world started elsewhere: spawn is the Overworld's
+        const glm::dvec3 s = makeGenerator(Dimension::Overworld)->findSpawn();
+        worldSpawn[0] = int32_t(std::floor(s.x)), worldSpawn[1] = int32_t(std::floor(s.y)), worldSpawn[2] = int32_t(std::floor(s.z));
+    }
+    // Portals players lit or came through (level.dat, our tag), travel state (M12).
+    std::vector<mc::portals::Known> knownPortals;
+    if (level)
+        for (const auto& p : level->portals)
+            if (const auto d = mc::world::findDimension(p.dimension)) knownPortals.push_back({*d, {p.x, p.y, p.z}});
+    struct Travel {
+        Dimension to;
+        enum class Via { NetherPortal, EndPortal, Respawn } via;
+        mc::world::BlockPos from;
+    };
+    std::optional<Travel> pendingTravel;
+    std::optional<Travel> arrival; // waiting for the destination's chunks
+    int portalTicks = 0;
+    bool portalCooldown = false; // just arrived: step out of the portal first
     int64_t sessionTicks = 0;
-    bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld;
+    // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
+    bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld && dimension == Dimension::Overworld;
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
     auto saveWorld = [&](bool wait) {
         if (!storage) return;
@@ -380,7 +415,10 @@ int main(int argc, char** argv) {
         l.name = worldName;
         l.seed = seed;
         l.flat = flatWorld;
-        l.generator = std::string(generator.kind());
+        l.generator = generatorKind;
+        l.dimension = std::string(mc::world::dimensionInfo(dimension).id);
+        for (const auto& k : knownPortals)
+            l.portals.push_back({std::string(mc::world::dimensionInfo(k.dimension).id), k.pos.x, k.pos.y, k.pos.z});
         for (int i = 0; i < 3; ++i)
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
@@ -540,9 +578,13 @@ int main(int argc, char** argv) {
             if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at world spawn
                 dead = false;
                 vitals.reset();
-                player.setPosition(glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
-                spawnPending = !flatWorld; // settle on the ground there again
-                if (spawnPending) spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                if (dimension != Dimension::Overworld) {
+                    pendingTravel = Travel{Dimension::Overworld, Travel::Via::Respawn, {}}; // spawn is in the Overworld
+                } else {
+                    player.setPosition(glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
+                    spawnPending = !flatWorld; // settle on the ground there again
+                    if (spawnPending) spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                }
             }
             for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
                 window.takePresses(p);
@@ -691,6 +733,50 @@ int main(int argc, char** argv) {
                 window.cursorCaptured() && window.takePresses(mc::Press::LeftMouse) > 0;
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
+            // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
+            if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
+                const mc::world::ItemStack held = inventory.selectedStack();
+                const size_t editsBefore = frameEdits.size();
+                if (!held.empty() && mc::portals::useItem(world, held.item, lastHit->block, lastHit->face, frameEdits)) {
+                    const auto& def = mc::world::itemRegistry().item(held.item);
+                    for (size_t e = editsBefore; e < frameEdits.size(); ++e) // remember lit portals
+                        if (mc::world::blockRegistry().blockOf(world.getBlock(frameEdits[e])) ==
+                            mc::world::blocks::NetherPortal) {
+                            knownPortals.push_back({dimension, frameEdits[e]});
+                            break;
+                        }
+                    if (survival) {
+                        if (def.durability > 0) { // flint and steel wears 1 per use
+                            mc::world::ItemStack worn = held;
+                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
+                            inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? mc::world::ItemStack{} : worn);
+                        } else {
+                            inventory.consumeSelected(1);
+                        }
+                    }
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+            }
+            // Portals (wiki: Nether portal - 4 s inside in survival, at once in creative;
+            // End portal - at once). Arriving players step out before they can go back.
+            if (!dead && !flatWorld && !pendingTravel && !arrival) {
+                const mc::Aabb box = player.box();
+                const mc::world::BlockPos portalFeet{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+                if (mc::portals::touching(world, box, mc::world::blocks::EndPortal)) {
+                    if (!portalCooldown)
+                        pendingTravel = Travel{dimension == Dimension::End ? Dimension::Overworld : Dimension::End,
+                                               dimension == Dimension::End ? Travel::Via::Respawn : Travel::Via::EndPortal,
+                                               portalFeet};
+                } else if (mc::portals::touching(world, box, mc::world::blocks::NetherPortal)) {
+                    if (!portalCooldown && ++portalTicks >= (survival ? 80 : 1))
+                        pendingTravel = Travel{dimension == Dimension::Nether ? Dimension::Overworld : Dimension::Nether,
+                                               Travel::Via::NetherPortal, portalFeet};
+                } else {
+                    portalTicks = 0;
+                    portalCooldown = false;
+                }
+            }
             // Attacking a mob in front of the targeted block (wiki: Melee attack):
             // the held item's attack damage (hand: 1), knockback away from us.
             if (!dead && clicks.attackClick) {
@@ -730,7 +816,7 @@ int main(int argc, char** argv) {
             // Game rules read the tick's own time, not the renderer's interpolated value.
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
-                                     droppedItems};
+                                     droppedItems, dimension == Dimension::Overworld};
             // Scheduled block ticks and block events (vanilla: before entities).
             redstone.tick();
             frameEdits.insert(frameEdits.end(), redstone.changed().begin(), redstone.changed().end());
@@ -782,6 +868,74 @@ int main(int argc, char** argv) {
             openInventoryPending = false;
             if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
             else creative.open();
+        }
+        // Changing dimension (M12): save, unload everything, switch the generator and
+        // storage, then wait for the destination to load (vanilla keeps the others
+        // loaded; one dimension at a time here).
+        if (pendingTravel) {
+            const Travel t = *pendingTravel;
+            pendingTravel.reset();
+            MC_LOG_INFO("Travelling to %s", std::string(mc::world::dimensionInfo(t.to).id).c_str());
+            saveWorld(false);
+            loader.reset(); // joins its workers
+            std::vector<mc::world::ChunkPos> all;
+            world.forEachChunk([&](const mc::world::Chunk& c) { all.push_back(c.pos()); });
+            for (const auto& p : all)
+                world.removeChunk(p);
+            unloadedChunks.insert(unloadedChunks.end(), all.begin(), all.end());
+            droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
+            const Dimension from = dimension;
+            dimension = t.to;
+            world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
+            renderer.setDimension(dimension);
+            storage.reset(); // flushes
+            if (!worldName.empty()) storage = std::make_unique<mc::world::ChunkStorage>(dimensionDir(dimension));
+            generatorPtr = makeGenerator(dimension);
+            loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
+            loader->setRenderDistance(opts->renderDistance);
+            arrival = t;
+            if (t.via == Travel::Via::NetherPortal) arrival->from = mc::portals::destination(from, dimension, t.from);
+            else if (t.via == Travel::Via::EndPortal) arrival->from = {100, 49, 0};
+            else arrival->from = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
+            // Wait at the destination; unloaded chunks hold the player up meanwhile.
+            player.setPosition({arrival->from.x + 0.5, double(arrival->from.y), arrival->from.z + 0.5});
+            player.setVelocity(glm::dvec3(0.0));
+            portalTicks = 0;
+            portalCooldown = true;
+        }
+        if (arrival) {
+            // Destination chunks within 2 of the target loaded: find or build the way in.
+            const mc::world::ChunkPos c = arrival->from.chunk();
+            bool ready = true;
+            for (int dz = -2; dz <= 2 && ready; ++dz)
+                for (int dx = -2; dx <= 2 && ready; ++dx)
+                    ready = world.chunk({c.x + dx, c.z + dz}) != nullptr;
+            if (ready) {
+                const Travel a = *arrival;
+                arrival.reset();
+                if (a.via == Travel::Via::NetherPortal) {
+                    const int radius = dimension == Dimension::Nether ? 16 : 128;
+                    mc::world::BlockPos in;
+                    if (const auto found = mc::portals::find(world, knownPortals, dimension, a.from, radius)) {
+                        in = *found;
+                        while (mc::world::blockRegistry().blockOf(world.getBlock({in.x, in.y - 1, in.z})) ==
+                               mc::world::blocks::NetherPortal)
+                            --in.y;
+                    } else {
+                        const bool nether = dimension == Dimension::Nether;
+                        in = mc::portals::build(world, a.from, nether ? 32 : mc::world::kMinY + 8, nether ? 120 : 300, frameEdits);
+                        knownPortals.push_back({dimension, in});
+                    }
+                    player.setPosition({in.x + 0.5, double(in.y), in.z + 0.5});
+                } else if (a.via == Travel::Via::EndPortal) {
+                    player.setPosition(mc::portals::endPlatform(world, frameEdits));
+                } else {
+                    spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                    player.setPosition(spawn);
+                    spawnPending = true; // settle on the ground there
+                }
+                player.setVelocity(glm::dvec3(0.0));
+            }
         }
         if (spawnPending) { // new player: stand on solid ground once it's generated
             if (const auto safe = settleSpawn(world, spawn)) {

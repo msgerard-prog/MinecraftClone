@@ -345,6 +345,19 @@ void Redstone::neighbourChanged(const BlockPos& p) {
             m_events.push_back({p, should});
         break;
     }
+    case B::NetherPortal: {
+        // A portal block needs portal or obsidian above, below and along its axis
+        // (wiki: Nether portal - breaking the frame breaks the portal).
+        const Direction side = R().get(s, haxis) == 0 ? Direction::East : Direction::South;
+        for (const Direction d : {Direction::Up, Direction::Down, side, opposite(side)}) {
+            const BlockId n = blockOf(at(rel(p, d)));
+            if (n != B::NetherPortal && n != B::Obsidian) {
+                set(p, 0);
+                break;
+            }
+        }
+        break;
+    }
     case B::PistonHead: {
         const BlockStateId b = at(rel(p, opposite(facing6Of(s))));
         if (!(isPiston(blockOf(b)) && flag(b, extended) && facing6Of(b) == facing6Of(s))) set(p, 0);

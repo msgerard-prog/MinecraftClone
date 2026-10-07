@@ -1,4 +1,4 @@
-// Redstone component models (M11). Shapes follow the in-game look described on the
+// Component models: redstone (M11), portals and frames (M12). Shapes follow the in-game look described on the
 // wiki pages of each block; boxes are our own layout in 1/16 block. Each model is
 // built in one orientation and turned to its state's facing.
 #include "rendering/BlockModels.h"
@@ -303,6 +303,46 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         for (Direction d : {Direction::East, Direction::West, Direction::Up, Direction::Down})
             faces[int(d)] = side(0, 16);
         b.cube(faces, rot);
+        return true;
+    }
+    // --- Dimensions (M12) ---
+    case B::NetherPortal: {
+        // A pane in the middle of the block, across its axis (both sides drawn).
+        Builder b(atlas, out);
+        BoxSpec pane{{0, 0, 6}, {16, 16, 10}, {}};
+        pane.faces[int(Direction::North)] = {"nether_portal"};
+        pane.faces[int(Direction::South)] = {"nether_portal"};
+        b.box(pane, {0, r.get(s, P::haxis) == 0 ? 0 : 1});
+        out.translucent = true;
+        return true;
+    }
+    case B::EndPortal: {
+        Builder b(atlas, out);
+        BoxSpec surface{{0, 0, 0}, {16, 12, 16}, {}}; // the top at 12/16 (vanilla)
+        surface.faces[int(Direction::Up)] = {"end_portal"};
+        b.box(surface);
+        return true;
+    }
+    case B::EndPortalFrame: {
+        Builder b(atlas, out);
+        const Rot rot{0, yTurns(hFacing(r, s))};
+        BoxSpec frame = allFaces({0, 0, 0}, {16, 13, 16}, "end_portal_frame_side", {0, 3, 16, 16});
+        frame.faces[int(Direction::Up)] = {"end_portal_frame_top"};
+        frame.faces[int(Direction::Down)] = {"end_stone"};
+        b.box(frame, rot);
+        if (r.get(s, P::eye) == 0) {
+            BoxSpec eye = allFaces({4, 13, 4}, {12, 16, 12}, "end_portal_frame_eye", {4, 0, 12, 3});
+            eye.faces[int(Direction::Up)] = {"end_portal_frame_eye", {4, 4, 12, 12}};
+            b.box(eye, rot);
+        }
+        return true;
+    }
+    case B::MagmaBlock: {
+        Builder b(atlas, out);
+        FaceSpec faces[6];
+        for (auto& f : faces)
+            f.sprite = "magma";
+        b.cube(faces);
         return true;
     }
     default: return false;

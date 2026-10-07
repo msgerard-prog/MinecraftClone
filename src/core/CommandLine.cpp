@@ -84,6 +84,15 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 return std::nullopt;
             }
             opts.generator = *v;
+        } else if (arg == "--dimension") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            const std::string_view d(*v);
+            if (d != "overworld" && d != "nether" && d != "end") {
+                error = "--dimension needs overworld, nether or end";
+                return std::nullopt;
+            }
+            opts.dimension = *v;
         } else if (arg == "--no-save") {
             opts.noSave = true;
         } else if (arg == "--inventory") {

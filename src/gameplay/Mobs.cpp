@@ -363,7 +363,7 @@ void Mobs::tick(Context& ctx) {
             c->markDirty();
             ctx.world.markTicking(mv.to);
         }
-    spawnHostiles(ctx);
+    if (ctx.naturalSpawning) spawnHostiles(ctx);
 }
 
 void Mobs::spawnHostiles(Context& ctx) {

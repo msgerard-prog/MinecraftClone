@@ -16,6 +16,7 @@ struct SkyState {
     double celestialAngle = 0.0; // 0 = sun at the zenith
     float starBrightness = 0.0f; // 0 .. 0.5
     int moonPhase = 0;           // 0..7
+    bool celestial = true;       // sun, moon and stars (Overworld only)
 };
 
 // Sun, moon and stars (wiki: Sun, Moon, Daylight cycle). Drawn first each frame, on
