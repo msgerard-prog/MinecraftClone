@@ -397,7 +397,8 @@ int main(int argc, char** argv) {
     std::optional<Travel> pendingTravel;
     std::optional<Travel> arrival; // waiting for the destination's chunks
     int portalTicks = 0;
-    bool portalCooldown = false; // just arrived: step out of the portal first
+    // Just arrived (or loaded, maybe standing in one): step out of the portal first.
+    bool portalCooldown = level.has_value();
     int64_t sessionTicks = 0;
     // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
     bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld && dimension == Dimension::Overworld;

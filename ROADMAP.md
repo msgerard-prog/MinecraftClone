@@ -4,26 +4,19 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M11 done (reviews running): block updates (vanilla neighbour order) and scheduled
-block ticks (saved as `block_ticks`); redstone dust (power falloff, shapes, climbing,
-dot/cross), redstone torches (burnout), repeaters (delay, pulse extension, locking,
-tick priorities), levers, stone/oak buttons, blocks of redstone, lamps, pistons and
-sticky pistons (push limit 12, quasi-connectivity, instant moves); placement rules,
-right-click use, recipes, original-texture models; `/setblock`.
-M10 done: zombies and cows. M9: survival/crafting. M8: overworld. M7: saves. M6: UI.
-M5: lighting.
+All planned milestones M0-M12 are built. M12 (reviews running): the Nether (cavern
+generator, lava sea, glowstone, quartz/gold ore, magma) and the End (main island,
+pillars, active exit portal) in vanilla's DIM-1/DIM1 folders; nether portals (lit
+with flint and steel, 8:1 travel, linking to known portals or building one), end
+portal frames + eyes, the End platform, respawn in the Overworld; no sky light,
+Nether fog and ambient light, End bright lightmap; /fill, --dimension.
+M11 done: redstone. M10: mobs. M9: survival/crafting. M8: overworld. M7: saves.
 
 ## Next
-M12 — Dimensions: Nether and End, portals (wiki: The Nether, The End, Nether Portal,
-End Portal):
-1. M12.1 — Dimension model: a World per dimension with its own region folder
-   (vanilla `DIM-1/`, `DIM1/`), level.dat player dimension, sky/fog per dimension.
-2. M12.2 — Nether generator: netherrack terrain with the 3D noise ceiling, lava sea at
-   Y 31, bedrock floor/roof, soul sand/gravel, glowstone, nether quartz ore (subset).
-3. M12.3 — Nether portals: obsidian frames, lighting with flint and steel, the portal
-   block, 4-second travel, 8:1 coordinates, portal search/creation.
-4. M12.4 — The End: end stone island, obsidian pillars, exit portal; end portal
-   frames + eyes of ender (subset), travel and return.
+Waiting for the user's review of M5-M12 (see "Waiting on the user"). Candidates
+afterwards, from the deviations list: fluids (flow, swimming, drowning), falling
+blocks, more mobs (sheep, pigs, Nether mobs), comparators/observers, structures,
+options/pause menus, sounds.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -133,7 +126,7 @@ and GUI textures are made with their systems.
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | ✅ 2026-10-07 (recipes authored from the wiki, not vanilla JSON) |
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | ✅ 2026-10-07 (zombie + cow, no pathfinding: see deviations) |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | ✅ 2026-10-07 (no comparators/observers; instant piston moves: see deviations) |
-| M12 | Dimensions: Nether and End, portals | Can travel to both |
+| M12 | Dimensions: Nether and End, portals | ✅ 2026-10-07 (one dimension loaded at a time; no dragon or strongholds: see deviations) |
 
 ## Backlog (unscheduled)
 - Sound (miniaudio) — `src/audio` is a stub until needed.
@@ -144,6 +137,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M12: Nether, End, portals, dimension travel and saves.
 - 2026-10-07 M11: block updates, scheduled ticks, redstone components, pistons.
 - 2026-10-07 M10: zombies and cows (AI, spawning, saving, models, attacks).
 - 2026-10-07 M9: survival, items, crafting, furnace.
