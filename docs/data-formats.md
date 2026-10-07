@@ -75,6 +75,10 @@ level.dat_old              backup copy of the previous level.dat (load falls bac
                            then to level.dat_new); level.dat_new is written first and
                            renamed over level.dat in one step
 session.lock               held exclusively while the world is open (one instance)
+entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
+                           Entities [ mobs: { id, Pos, Motion, Rotation, Health,
+                           OnGround, FallDistance, Fire, HurtTime, DeathTime,
+                           PersistenceRequired, UUID [I; 4 ints] } ] } (M10, 1.17+ layout)
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

@@ -113,6 +113,16 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   despawn; pooled), `Recipes` (crafting/smelting/fuel tables authored from the
   wiki), `Furnace` rules over `world::FurnaceData` block entities stored in their
   chunk (saved as block_entities, ticked each game tick by main).
+- Mobs (M10): `world::MobData` values (zombie, cow; `world/Mob`) live in their
+  chunk's `mobs()` and are saved with it (`entities/` region files). `World` keeps a
+  ticking list (`markTicking`, `forEachTickingChunk`) of chunks with furnaces or mobs.
+  `gameplay/Mobs` ticks them (physics with step-up and floating, wander / panic /
+  chase goals, melee, daylight burning, death + loot, despawning), moves mobs across
+  chunk borders, spawns zombies in the dark and ray-casts player attacks. Cows come
+  with new grassy chunks (`OverworldGenerator` step 10; mobs only, so block hashes
+  are unchanged). `rendering/MobModels` holds the cuboid models (vanilla box-UV
+  layout on our own 64×64 skins, `tools/textures/gen_entities.py`); `EntityRenderer`
+  draws them with world light, limb swing, head look, death tilt and the hurt tint.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.

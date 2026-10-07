@@ -91,3 +91,6 @@ grid. `/gamemode survival` switches to survival: blocks take time to break (tool
 drop items you pick up by walking over them, health and hunger matter, falls hurt.
 Right-click a crafting table for 3x3 recipes or a furnace to smelt (fuel below, input
 above). Q drops the held item; `/kill` respawns you.
+Cows graze in grassy biomes and zombies come out in the dark (they burn in daylight);
+left-click a mob to hit it. `/summon zombie|cow [x y z]` spawns one; F3 shows how
+many hostile mobs are around.

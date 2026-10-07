@@ -4,25 +4,23 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M9 done (reviews running): survival - /gamemode, break times per the wiki's formula
-with tools/tiers/wear and harvest levels, drops as item entities (physics, pickup,
-despawn), health/hunger/regeneration/starvation/fall damage, eating, death (drops,
-death screen, respawn), hearts/hunger HUD; inventory screen with 2x2 crafting,
-crafting table, furnace (block entity, saved), recipes/smelting/fuel authored from
-the wiki; 40 original item textures.
-M8 done: 1.21-style overworld (biomes, caves, snow, ores, trees). M7 done: saves.
-M6 done: UI. M5 done: lighting/day-night.
+M10 done (reviews running): zombies and cows - mob data in chunks (saved in vanilla
+`entities/` region files), physics with step-up, wander/panic/chase AI, melee and
+knockback, daylight burning, death animation and loot, despawning, zombies spawning
+in the dark, cow herds with new grassy chunks; cuboid models with original 64x64
+textures, walk/head animation and hurt tint; player attacks; `/summon`.
+M9 done: survival, items, crafting, furnace. M8 done: overworld worldgen. M7: saves.
+M6: UI. M5: lighting/day-night.
 
 ## Next
-M10 — Entities & mobs (zombie, cow):
-1. M10.1 — Entity data in chunks (moved between chunks as they walk), saved in
-   vanilla's 1.17+ `entities/` region files; mob physics (step-up, swimming).
-2. M10.2 — Mob models and original textures (cuboids, walk/head animation), entity
-   rendering with world light, hurt tint.
-3. M10.3 — AI goals: cow (wander, look at player, panic), zombie (chase with
-   pathfinding, melee, burn in daylight); player attacks with knockback.
-4. M10.4 — Spawning: cows with new chunks, zombies in darkness (light 0, mob cap,
-   despawn rules); drops (beef, rotten flesh, leather) and cooking.
+M11 — Redstone (wiki: Redstone circuits, Redstone Dust, Redstone Torch, Repeater,
+Piston, Block update):
+1. M11.1 — Block updates: neighbour-change notifications and scheduled ticks
+   (saved in chunks as `block_ticks`), so placement/removal reaches neighbours.
+2. M11.2 — Power model: strong/weak power, redstone dust (levels 0-15, connections,
+   models), lever, button, redstone block, lamp.
+3. M11.3 — Redstone torch (inversion, burnout) and repeater (delay 1-4, locking).
+4. M11.4 — Pistons and sticky pistons (push limit 12, moving block, update order).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -116,7 +114,7 @@ and GUI textures are made with their systems.
 | M7 | Save/load: region files (format chosen by ADR) | ✅ 2026-10-07 |
 | M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | ✅ 2026-10-07 (aquifers, biome subset: see deviations) |
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | ✅ 2026-10-07 (recipes authored from the wiki, not vanilla JSON) |
-| M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | Zombies/cows behave like vanilla |
+| M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | ✅ 2026-10-07 (zombie + cow, no pathfinding: see deviations) |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | Classic circuits behave like vanilla |
 | M12 | Dimensions: Nether and End, portals | Can travel to both |
 
@@ -129,6 +127,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M10: zombies and cows (AI, spawning, saving, models, attacks).
 - 2026-10-07 M9: survival, items, crafting, furnace.
 - 2026-10-07 M8: overworld generator, biomes, snow, ores, trees.
 - 2026-10-07 M7: saves (Anvil regions, level.dat, autosave, session lock).
