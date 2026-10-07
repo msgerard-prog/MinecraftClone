@@ -527,9 +527,10 @@ int BlockUpdates::plateTarget(BlockId b, int count) const {
     return 15;
 }
 
-void BlockUpdates::pressPlate(const BlockPos& p, bool item) {
+void BlockUpdates::pressPlate(const BlockPos& p, bool item, bool minecart) {
     const BlockId b = blockOf(at(p));
     if (!isPressurePlate(b) || (item && b == B::StonePressurePlate)) return; // (stone: mobs and players only)
+    if (b == B::DetectorRail && !minecart) return;
     for (Plate& pl : m_plates)
         if (pl.pos == p) {
             if (pl.time != m_now) pl.count = 0;

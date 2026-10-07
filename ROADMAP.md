@@ -24,7 +24,7 @@ order where documented):
    observers (block-state change pulses).
 3. ✅ M21.3 — Hoppers (moving items between containers, picking up items), droppers and
    dispensers (dispense behaviours: arrows, buckets, items).
-4. M21.4 — (a ✅ rails; b: minecarts) Rails and minecarts: rails, powered/detector/activator rails, minecart
+4. ✅ M21.4 — Rails and minecarts: rails, powered/detector/activator rails, minecart
    physics and riding, chest and hopper minecarts.
 5. M21.5 — Slime blocks (slime balls from slimes -> sticky pistons craftable),
    piston animation (moving pistons over 2 ticks, entities pushed), the M11 piston

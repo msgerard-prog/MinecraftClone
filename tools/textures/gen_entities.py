@@ -517,6 +517,21 @@ def shulker():
     return img
 
 
+def minecart():
+    # Floor 14x2x18 @ (0,0), long sides 2x6x18 @ (0,20), ends 10x6x2 @ (40,20): iron
+    # plates with darker rivets along the edges.
+    rng = random.Random("minecart")
+    img = Img(64, 64, CLEAR)
+    iron = ramp(hexc("#7C7C84"), 5, spread=0.3)
+    for (u, v, w, h, d) in ((0, 0, 14, 2, 18), (0, 20, 2, 6, 18), (40, 20, 10, 6, 2)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, iron, rng)
+            x0, y0, fw, fh = f
+            for x in range(0, fw, 4):
+                img.set(x0 + x, y0, iron[0])
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -546,7 +561,7 @@ def main():
               "magma_cube": magma_cube(), "zombified_piglin": zombified_piglin(), "piglin": piglin(),
               "hoglin": hoglin(), "strider": strider(),
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
-              "shulker": shulker()}
+              "shulker": shulker(), "minecart": minecart()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

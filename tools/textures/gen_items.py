@@ -569,6 +569,23 @@ def fire_charge():
     return img
 
 
+def minecart_item():
+    # A grey open box seen from the side with two wheels.
+    rng = random.Random("minecart")
+    img = Img(16, 16, CLEAR)
+    iron = ramp(hexc("#7C7C84"), 5, spread=0.3)
+    for y in range(5, 11):
+        for x in range(1, 15):
+            if y == 5 or y == 10 or x in (1, 14):
+                img.set(x, y, iron[rng.randrange(1, 4)])
+            elif y > 7:
+                img.set(x, y, iron[0])
+    for cx in (4, 11):
+        for (dx, dy) in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            img.set(cx + dx, 11 + dy, hexc("#303034"))
+    return img
+
+
 def elytra_item():
     # Two grey-violet wings hanging from a shoulder bar (worn on the back).
     rng = random.Random("elytra")
@@ -758,6 +775,7 @@ def all_items():
     items["chorus_fruit"] = lump("chorus_fruit", "#7A4A82", "#C89AD2", size=5.2)
     items["end_crystal"] = end_crystal_item()
     items["elytra"] = elytra_item()
+    items["minecart"] = minecart_item()
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     return items

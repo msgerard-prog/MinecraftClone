@@ -219,6 +219,10 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    if (m.type == MobType::Minecart) {
+        minecartTick(ctx, m);
+        return;
+    }
     if (m.type == MobType::EnderDragon) {
         dragonAi(ctx, m);
         if (m.phaseTicks > 30000) m.phaseTicks = 30000;
@@ -453,6 +457,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
+        m.deathTime = 19;
+        if (const auto cart = itemRegistry().find("minecart")) ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
+        return;
+    }
     if (m.type == MobType::EndCrystal) {
         // Any damage blows it up: power 6, no fire (wiki: End Crystal); nearby crystals
         // caught in the blast go off too.

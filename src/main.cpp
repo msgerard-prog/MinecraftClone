@@ -39,6 +39,7 @@
 #include "core/Version.h"
 #include "world/DayTime.h"
 #include "world/BlockUpdates.h"
+#include "world/Rails.h"
 #include "world/Enchantments.h"
 #include "world/NetherGenerator.h"
 #include "world/Potions.h"
@@ -513,6 +514,20 @@ int main(int argc, char** argv) {
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
+    uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID)
+    // The cart the player rides (nullptr: none / gone), found around the player.
+    auto findCart = [&]() -> mc::world::MobData* {
+        if (ridingCart == 0) return nullptr;
+        const mc::world::ChunkPos c0 = mc::world::BlockPos{int(std::floor(player.position().x)), 0,
+                                                           int(std::floor(player.position().z))}
+                                           .chunk();
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
+                    for (auto& m : c->mobs())
+                        if (m.type == mc::world::MobType::Minecart && m.uuidHi == ridingCart) return &m;
+        return nullptr;
+    };
     int glideTicks = 0;
     int64_t sessionTicks = 0;
     // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
@@ -1175,7 +1190,20 @@ int main(int argc, char** argv) {
                 const mc::world::ItemStack& chestPiece = inventory.armor(1);
                 player.setCanGlide(!dead && chestPiece.item == elytraItem && chestPiece.damage < 431);
             }
-            if (!arrival) player.tick(world, input); // waiting for a destination: held in place
+            if (!arrival && ridingCart == 0) player.tick(world, input); // waiting for a destination: held in place
+            if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
+                mc::world::MobData* cart = findCart();
+                if (!cart || dead || input.sneak) {
+                    if (cart) {
+                        cart->ridden = false;
+                        player.setPosition(cart->pos + glm::dvec3(0.0, 0.1, 0.0));
+                    }
+                    ridingCart = 0;
+                } else if (input.forward > 0.0f) {
+                    const glm::dvec3 f(mc::world::forwardFlat(player.yaw()));
+                    if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01) cart->vel += f * 0.04;
+                }
+            }
             const auto& reg = mc::world::blockRegistry();
             const glm::dvec3 feet = player.position();
             const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
@@ -1356,6 +1384,10 @@ int main(int argc, char** argv) {
                     mc::DragonFight::teleportEgg(world, lastHit->block, gameRng, frameEdits);
                     clicks.useClick = clicks.attackClick = clicks.attack = false;
                 }
+                if (!dead && heldId == "minecraft:minecart" && clicks.useClick && lastHit) { // (M21.4)
+                    if (mc::Mobs::placeMinecart(world, lastHit->block, gameRng) && survival) inventory.consumeSelected(1);
+                    if (mc::world::isRail(reg.blockOf(world.getBlock(lastHit->block)))) clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:end_crystal" && clicks.useClick && lastHit &&
                     lastHit->face == mc::world::Direction::Up) { // (M20.1)
                     if (mc::Mobs::placeEndCrystal(world, lastHit->block, gameRng) && survival)
@@ -1393,6 +1425,21 @@ int main(int argc, char** argv) {
                     if (survival) inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
+                }
+            }
+            // Getting into a minecart (M21.4): right-click it (not sneaking).
+            if (!dead && clicks.useClick && !player.sneaking() && ridingCart == 0) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    if (mob.type == mc::world::MobType::Minecart && !mob.ridden) {
+                        mob.ridden = true;
+                        ridingCart = mob.uuidHi;
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
                 }
             }
             // Feeding and shearing animals (M16.3): right-click the mob in front.
@@ -1585,19 +1632,21 @@ int main(int argc, char** argv) {
             {
                 // Pressure plates (M21.1): everything standing on one this tick presses it
                 // (its box over the plate's 14x14 middle, feet in the plate's cell).
-                auto pressAt = [&](const glm::dvec3& f, double half, bool item) {
+                auto pressAt = [&](const glm::dvec3& f, double half, bool item, bool cart = false) {
                     const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y + 0.01)), int(std::floor(f.z))};
                     const double fx = f.x - c.x, fz = f.z - c.z;
                     if (fx + half < 1.0 / 16.0 || fx - half > 15.0 / 16.0 || fz + half < 1.0 / 16.0 ||
                         fz - half > 15.0 / 16.0)
                         return;
-                    blockUpdates.pressPlate(c, item);
+                    blockUpdates.pressPlate(c, item, cart);
                 };
                 if (!dead && !player.flying()) pressAt(player.position(), 0.3, false);
                 world.forEachTickingChunk([&](mc::world::Chunk& c) {
-                    for (const auto& m : c.mobs())
-                        if (m.health > 0.0f && !mc::world::mobInfo(m.type).flies)
-                            pressAt(m.pos, mc::world::mobInfo(m.type).width * 0.5, false);
+                    for (const auto& m : c.mobs()) {
+                        const bool cart = m.type == mc::world::MobType::Minecart;
+                        if (m.health > 0.0f && (!mc::world::mobInfo(m.type).flies || cart))
+                            pressAt(m.pos, mc::world::mobInfo(m.type).width * 0.5, false, cart);
+                    }
                 });
                 for (const auto& it : droppedItems.items())
                     pressAt(it.pos, 0.125, true);
@@ -1753,6 +1802,23 @@ int main(int argc, char** argv) {
             vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
             mc::tickHoppers(world, droppedItems); // (M21.3)
+            if (ridingCart != 0) { // the rider goes with the cart (an activator rail throws them out)
+                if (mc::world::MobData* cart = findCart()) {
+                    player.setPosition(cart->pos + glm::dvec3(0.0, 0.3, 0.0));
+                    player.setVelocity(glm::dvec3(0.0));
+                    vitals.resetFall();
+                    const mc::world::BlockPos under{int(std::floor(cart->pos.x)), int(std::floor(cart->pos.y)),
+                                                    int(std::floor(cart->pos.z))};
+                    const auto us = world.getBlock(under);
+                    if (reg.blockOf(us) == mc::world::blocks::ActivatorRail && reg.get(us, mc::world::properties::powered) == 0) {
+                        cart->ridden = false;
+                        player.setPosition(cart->pos + glm::dvec3(0.0, 1.0, 0.0));
+                        ridingCart = 0;
+                    }
+                } else {
+                    ridingCart = 0;
+                }
+            }
             const auto* endGen = dynamic_cast<const mc::world::EndGenerator*>(generatorPtr.get());
             if (dimension == Dimension::End && endKind == "end2" && endGen)
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng, frameEdits);

@@ -64,6 +64,8 @@ public:
     float bossHealth() const { return m_bossHealth; }
     // Where dragons finished dying this tick (the fight ends there: main).
     const std::vector<glm::dvec3>& dragonDeaths() const { return m_dragonDeaths; }
+    // A minecart item used on a rail (M21.4): a cart on it. False if not a rail.
+    static bool placeMinecart(world::World& world, const world::BlockPos& rail, world::Xoroshiro& rng);
     // An end crystal item used on the top of obsidian or bedrock (wiki: End Crystal):
     // needs two free blocks above and no entity there. False: nothing placed.
     static bool placeEndCrystal(world::World& world, const world::BlockPos& on, world::Xoroshiro& rng);
@@ -104,6 +106,7 @@ private:
     // attack on their own (true: handled); zombified piglins' anger runs down.
     bool netherAi(Context& ctx, world::MobData& m);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
+    void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp
     void spawnNether(Context& ctx);
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals

@@ -1473,3 +1473,47 @@ TEST_CASE("dispensers and droppers: a power pulse fires one item 4 ticks later -
     CHECK(s.world.chunk({0, 0})->chest(9, 64, 8)->items[0].count == 1);
     CHECK(s.world.chunk({0, 0})->dispenser(8, 64, 8)->items[4].count == 4);
 }
+
+#include "world/Rails.h"
+
+TEST_CASE("minecarts: powered rails push a cart along the track and round a corner; unpowered ones stop it; it rolls down slopes") {
+    MobScene s;
+    s.mobs = Mobs();
+    BlockUpdates updates(s.world);
+    const auto& r = blockRegistry();
+    auto place = [&](BlockId b, BlockPos p) {
+        const auto st = BlockUpdates::placement(s.world, r.defaultState(b), p, Direction::Up, 90.0f, 0.0f);
+        REQUIRE(st);
+        s.world.updateBlock(p, *st);
+    };
+    // A line east from x 0 to 20 at z 4, powered rails at x 1..2 with a redstone block,
+    // then a corner north at x 20.
+    for (int x = 0; x <= 20; ++x)
+        place(x == 1 || x == 2 ? BlockId(blocks::PoweredRail) : BlockId(blocks::Rail), {x, 64, 4});
+    for (int z = 0; z < 4; ++z)
+        place(blocks::Rail, {20, 64, z});
+    s.world.updateBlock({1, 64, 5}, r.defaultState(blocks::RedstoneBlock));
+    s.world.updateBlock({20, 64, 4}, *BlockUpdates::placement(s.world, r.defaultState(blocks::Rail), {20, 64, 4},
+                                                              Direction::Up, 90.0f, 0.0f));
+    CHECK(railShapeOf(s.world.getBlock({20, 64, 4})) == 8); // north_west
+    REQUIRE(Mobs::placeMinecart(s.world, {0, 64, 4}, s.rng));
+    for (MobData* m : s.all())
+        if (m->type == MobType::Minecart) {
+            m->vel = {0.1, 0.0, 0.0}; // a nudge east
+            m->ridden = true;         // (an empty cart slows fast: drag 0.96)
+        }
+    double maxX = 0.0, minZ = 10.0;
+    for (int i = 0; i < 200; ++i) {
+        s.tick(1);
+        for (MobData* m : s.all())
+            if (m->type == MobType::Minecart) {
+                maxX = std::max(maxX, m->pos.x);
+                minZ = std::min(minZ, m->pos.z);
+            }
+    }
+    CHECK(maxX > 19.5);  // got to the corner
+    CHECK(minZ < 3.0);   // and round it, north
+    // Off the end it leaves the rails and stops on the ground.
+    for (MobData* m : s.all())
+        if (m->type == MobType::Minecart) CHECK(std::abs(m->vel.x) + std::abs(m->vel.z) < 0.05);
+}

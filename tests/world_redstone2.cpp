@@ -226,7 +226,10 @@ TEST_CASE("rails: straight lines, corners, slopes up to a raised rail; powered r
     // Detector rails act like plates for minecarts.
     s.place(blocks::DetectorRail, {12, 64, 12});
     s.redstone.setTime(s.time);
-    s.redstone.pressPlate({12, 64, 12}, false);
+    s.redstone.pressPlate({12, 64, 12}, false); // a mob or player: no
+    s.redstone.settlePlates();
+    CHECK(val(s.at({12, 64, 12}), "powered") == "false");
+    s.redstone.pressPlate({12, 64, 12}, false, true); // a minecart
     s.redstone.settlePlates();
     CHECK(val(s.at({12, 64, 12}), "powered") == "true");
 }

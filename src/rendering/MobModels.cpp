@@ -212,6 +212,15 @@ constexpr std::array<MobPart, 3> kShulker = {{
     {{-3, 5, -3}, {3, 11, 3}, {0, 0, 0}, 0, 52, A::Lift},
 }};
 
+// Minecart: an open iron box, long along its travel (+Z).
+constexpr std::array<MobPart, 5> kMinecart = {{
+    {{-7, 1, -9}, {7, 3, 9}, {0, 0, 0}, 0, 0, A::None},
+    {{-7, 3, -9}, {-5, 9, 9}, {0, 0, 0}, 0, 20, A::None},
+    {{5, 3, -9}, {7, 9, 9}, {0, 0, 0}, 0, 20, A::None},
+    {{-5, 3, -9}, {5, 9, -7}, {0, 0, 0}, 40, 20, A::None},
+    {{-5, 3, 7}, {5, 9, 9}, {0, 0, 0}, 40, 20, A::None},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -234,6 +243,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::EndCrystal: return kEndCrystal;
     case world::MobType::EnderDragon: return kEnderDragon;
     case world::MobType::Shulker: return kShulker;
+    case world::MobType::Minecart: return kMinecart;
     default: return kCow;
     }
 }

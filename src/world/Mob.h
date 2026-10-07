@@ -31,6 +31,7 @@ enum class MobType : uint8_t {
     EndCrystal, // not a mob in vanilla but an entity; it lives with the mobs here
     EnderDragon,
     Shulker,
+    Minecart, // (M21.4: a vehicle, kept with the mobs)
     Count
 };
 
@@ -122,6 +123,7 @@ struct MobData {
     float perchDamage = 0.0f; // damage taken since it landed (takes off at 50)
     bool hasBeam = false;     // an end crystal heals it: the beam starts at `beam`
     uint8_t peek = 0;         // shulker: how far its lid is open, 0..100 (saved as Peek)
+    bool ridden = false;      // minecart: the player sits in it (not saved: vanilla saves passengers)
     glm::dvec3 beam{0.0};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

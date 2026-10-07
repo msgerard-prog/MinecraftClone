@@ -123,7 +123,7 @@ public:
     // plates feel those), then settlePlates() presses them. A plate stays down while
     // something is on it, checked every 20 ticks (weighted: 10); weighted plates give
     // min(15, n) (gold) or ceil(min(n, 150) / 10) (iron).
-    void pressPlate(const BlockPos& p, bool item);
+    void pressPlate(const BlockPos& p, bool item, bool minecart = false); // (detector rails: minecarts only)
     // TNT (M21.1b; wiki: TNT): redstone power, fire, flint and steel light it - the
     // block goes and gameplay spawns primed TNT where primedTnt() lists.
     void primeTnt(const BlockPos& p);

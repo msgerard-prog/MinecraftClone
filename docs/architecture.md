@@ -300,6 +300,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Rails (M21.4, `world/Rails`): shapes 0..9 with their exits, `chooseRailShape` on
   placement and neighbour updates; powered/activator rails `railPowered` (8 along the
   line); detector rails reuse the pressure plate mechanism (pressed by minecarts).
+- Minecarts (M21.4b, `gameplay/Minecarts.cpp`, part of `Mobs`): `MobType::Minecart`
+  follows its rail's line (`world/Rails` exits), slopes, powered rails and drag;
+  off rails it falls and slides. main keeps the ridden cart's UUID, moves the player
+  with it, dismounts on shift or a powered activator rail; carts press detector rails
+  and plates (`pressPlate(..., minecart)`).
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push
