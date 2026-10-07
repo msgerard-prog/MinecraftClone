@@ -20,3 +20,4 @@ Template:
 | 0002 | Reference version: Java Edition 1.21.x | Accepted |
 | 0003 | Dependencies via pinned FetchContent | Accepted |
 | 0004 | No Mojang code or assets in the repo | Accepted |
+| 0005 | Dense global block-state ids, paletted sections | Accepted |
