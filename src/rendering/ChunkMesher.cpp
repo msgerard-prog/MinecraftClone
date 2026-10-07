@@ -103,11 +103,11 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                 const BakedModel& model = models[state];
                 // Tint palette slot: the biome of this block's 4x4x4 cell (no blending), or the
                 // model's fixed slot (birch/spruce leaves).
+                if (!model.visible) continue;
                 const uint32_t biome =
                     model.fixedTintSlot ? model.fixedTintSlot
                     : biomes ? static_cast<uint32_t>(biomes[((y >> 2) * 4 + (z >> 2)) * 4 + (x >> 2)])
                              : 0u;
-                if (!model.visible) continue;
                 std::vector<PackedVertex>& dst = model.translucent ? out.translucent : out.opaque;
                 const world::BlockId block = registry.blockOf(state);
 

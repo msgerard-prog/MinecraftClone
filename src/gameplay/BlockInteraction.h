@@ -75,7 +75,7 @@ public:
     void setRedstone(world::Redstone* redstone) { m_redstone = redstone; }
 
 private:
-    bool useBlock(const Player& player, const world::RayHit& hit);
+    bool useBlock(const Player& player, const world::RayHit& hit, bool holding);
     void place(world::World& world, const Player& player, const world::RayHit& hit,
                world::BlockStateId state, std::vector<world::BlockPos>& changed, bool& placed);
 

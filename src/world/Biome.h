@@ -66,8 +66,9 @@ inline constexpr uint8_t kSpruceFoliageSlot = 255;
 // Redstone dust colour per power level 0..15 (slots 238..253, "foliage" channel).
 inline constexpr uint8_t kRedstoneSlot0 = 238;
 
-// Dust colour at a power level, 0xRRGGBB (wiki: Redstone Dust › Appearance: red
-// rises with power from 0.3; green and blue only near full power).
+// Dust colour at a power level, 0xRRGGBB. The wiki only says it goes from dark red
+// at 0 to bright red at 15 (Redstone Dust › Appearance); this curve is our estimate
+// of the in-game look (red from 0.3 up, a little green/blue near full power).
 inline uint32_t redstoneColor(int power) {
     const float f = static_cast<float>(power) / 15.0f;
     const float r = f * 0.6f + (power > 0 ? 0.4f : 0.3f);

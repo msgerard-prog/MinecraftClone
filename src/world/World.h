@@ -49,6 +49,8 @@ public:
 
     // Dimension property: the Nether and the End have no sky light.
     bool hasSkyLight() const { return m_hasSkyLight; }
+    // Changes whenever a chunk is added or removed (lets callers cache Chunk pointers).
+    uint64_t chunkEpoch() const { return m_chunkEpoch; }
     void setHasSkyLight(bool v) { m_hasSkyLight = v; }
 
     // Chunks with something that ticks (block entities, mobs), so game ticks never
@@ -85,6 +87,7 @@ private:
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
     bool m_hasSkyLight = true;
+    uint64_t m_chunkEpoch = 0;
 };
 
 } // namespace mc::world

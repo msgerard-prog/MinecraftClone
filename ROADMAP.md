@@ -39,6 +39,12 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M11 perf review: incremental block light for torches/lamps toggling (today:
+  a 3x3-chunk relight each); per-state lookup tables for redstone properties and an
+  open-addressing set for `hasTick`/torch toggles; an explicit update queue instead
+  of recursion (vanilla CollectingNeighborUpdater); dedupe re-mesh positions per
+  section and keep WorldRenderer section states alive (no map node per toggle); cull
+  box faces against opaque neighbours. Measured ~15 us per dust change.
 - From the M10 perf review: instanced mob drawing (static model VBO + per-mob data;
   removes the 32k-quad entity buffer cap), a pooled mob store instead of per-chunk
   vectors (moves into a chunk past its 4 reserved slots allocate), an entities-only

@@ -43,21 +43,21 @@ struct BakedBox {
 struct BakedModel {
     static constexpr int kMaxVariants = 4;
     static constexpr int kMaxBoxes = 10; // redstone dust: centre, 4 arms, 4 climbs
+    // Scalars first: the mesher reads these for every block (one cache line).
     bool visible = false;     // false for air / invisible blocks
     bool translucent = false; // drawn in the blended pass (water, ice, stained glass)
     bool fluid = false;       // surface at 8/9 (source fluid)
     bool cullSame = false;    // faces against the same block are hidden (fluids, glass)
     uint8_t variantCount = 1;
-    BakedVariant variants[kMaxVariants];
-    // Non-cube models (torch...): boxes instead of the 6 full-cube faces.
-    uint8_t boxCount = 0;
-    BakedBox boxes[kMaxBoxes];
+    uint8_t boxCount = 0;     // non-cube models (torch...): boxes instead of cube faces
     // Plants (vanilla "cross" model): two diagonal planes, seen from both sides.
     bool cross = false;
-    uint16_t crossSprite = 0;
     Tint crossTint = Tint::None;
-    // Tint palette slot overriding the biome (birch/spruce leaves); 0 = biome.
+    uint16_t crossSprite = 0;
+    // Tint palette slot overriding the biome (birch/spruce leaves, dust power); 0 = biome.
     uint8_t fixedTintSlot = 0;
+    BakedVariant variants[kMaxVariants];
+    BakedBox boxes[kMaxBoxes];
 };
 
 // Per-state models, resolved once at startup (vanilla "model baking").

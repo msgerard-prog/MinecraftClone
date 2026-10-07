@@ -5,12 +5,14 @@
 namespace mc::world {
 
 Chunk& World::createChunk(ChunkPos pos) {
+    ++m_chunkEpoch;
     auto& slot = m_chunks[pos];
     slot = std::make_unique<Chunk>(pos);
     return *slot;
 }
 
 Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
+    ++m_chunkEpoch;
     auto& slot = m_chunks[chunk->pos()];
     slot = std::move(chunk);
     slot->inTickingList = false;
@@ -31,6 +33,7 @@ std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
     if (it == m_chunks.end()) return nullptr;
     std::unique_ptr<Chunk> chunk = std::move(it->second);
     m_chunks.erase(it);
+    ++m_chunkEpoch;
     if (chunk->inTickingList) { // a chunk loaded here again must not be listed twice
         std::erase(m_ticking, pos);
         chunk->inTickingList = false;

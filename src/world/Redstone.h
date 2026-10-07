@@ -4,6 +4,7 @@
 #include "world/Items.h"
 #include "world/World.h"
 
+#include <climits>
 #include <optional>
 #include <vector>
 
@@ -79,11 +80,23 @@ private:
     struct Event {
         BlockPos pos;
         bool extend;
+        bool nextTick = false; // caused by a player: runs a tick later
     };
 
-    BlockStateId at(const BlockPos& p) const { return m_world.getBlock(p); }
+    // Block reads go through a one-chunk cache (most queries stay in one chunk).
+    BlockStateId at(const BlockPos& p) const {
+        if (!isInBuildHeight(p.y)) return 0;
+        const ChunkPos cp = p.chunk();
+        if (m_cacheEpoch != m_world.chunkEpoch() || !(m_cachePos == cp)) {
+            m_cache = m_world.chunk(cp);
+            m_cachePos = cp;
+            m_cacheEpoch = m_world.chunkEpoch();
+        }
+        return m_cache ? m_cache->get(blockToLocal(p.x), p.y, blockToLocal(p.z)) : BlockStateId{0};
+    }
     void set(const BlockPos& p, BlockStateId s);    // with updates
     void setRaw(const BlockPos& p, BlockStateId s); // no updates (piston moves)
+    void setDiode(const BlockPos& p, BlockStateId s); // repeater on/off: front updates only
     void record(const BlockPos& p, BlockStateId old, BlockStateId now);
     void afterChange(const BlockPos& p, BlockStateId old, BlockStateId now);
     void notifyNeighbours(const BlockPos& p);
@@ -114,6 +127,10 @@ private:
     uint64_t m_order = 0;
     mutable bool m_wiresMuted = false; // dust ignores other dust's power through blocks
     int m_depth = 0;                   // update recursion guard
+    bool m_inTick = false;             // inside tick() (else: players acting)
+    mutable const Chunk* m_cache = nullptr;
+    mutable ChunkPos m_cachePos{INT32_MIN, INT32_MIN};
+    mutable uint64_t m_cacheEpoch = ~0ull;
     bool m_creative = false;
     std::vector<Due> m_due;
     std::vector<Event> m_events;

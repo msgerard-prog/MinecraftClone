@@ -235,20 +235,20 @@ TEST_CASE("pistons push up to 12 blocks, break dust, stop at bedrock; sticky pis
         s.put({x, 64, 0}, S(blocks::Cobblestone));
     s.put({13, 64, 0}, wire());
     s.put({0, 64, 1}, S(blocks::RedstoneBlock));
-    s.tick(1); // block event
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(s.on({0, 64, 0}, "extended"));
     CHECK(R().blockOf(s.at({1, 64, 0})) == blocks::PistonHead);
     CHECK(R().blockOf(s.at({13, 64, 0})) == blocks::Cobblestone);
     CHECK(R().blockOf(s.at({2, 64, 0})) == blocks::Cobblestone);
     CHECK_FALSE(s.redstone.drops().empty()); // the dust
     s.put({0, 64, 1}, 0);
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({0, 64, 0}, "extended"));
     CHECK(s.at({1, 64, 0}) == 0); // normal pistons leave the blocks
     // 13 blocks: too many.
     s.put({1, 64, 0}, S(blocks::Cobblestone));
     s.put({0, 64, 1}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({0, 64, 0}, "extended"));
     // Bedrock doesn't move.
     s.put({0, 64, 1}, 0);
@@ -256,14 +256,14 @@ TEST_CASE("pistons push up to 12 blocks, break dust, stop at bedrock; sticky pis
     s.put({5, 64, 5}, sticky);
     s.put({5, 64, 4}, S(blocks::Bedrock));
     s.put({6, 64, 5}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({5, 64, 5}, "extended"));
     s.put({5, 64, 4}, S(blocks::Dirt));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(s.on({5, 64, 5}, "extended"));
     CHECK(R().blockOf(s.at({5, 64, 3})) == blocks::Dirt);
     s.put({6, 64, 5}, 0);
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(R().blockOf(s.at({5, 64, 4})) == blocks::Dirt); // pulled back
     CHECK(s.at({5, 64, 3}) == 0);
 }
@@ -272,10 +272,10 @@ TEST_CASE("pistons: quasi-connectivity needs an update; base and head break toge
     Scene s;
     s.put({0, 64, 0}, with(S(blocks::Piston), "facing", "up"));
     s.put({1, 65, 0}, S(blocks::RedstoneBlock)); // powers the space above the piston only
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({0, 64, 0}, "extended")); // not updated: a BUD
     s.put({-1, 64, 0}, S(blocks::Stone)); // any update next to it
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(s.on({0, 64, 0}, "extended"));
     s.redstone.drops().clear();
     s.put({0, 65, 0}, 0); // break the head (survival): the base goes too
@@ -377,7 +377,7 @@ TEST_CASE("a piston breaking a lever turns off what the lever powered through it
     CHECK(s.on({5, 64, 6}));
     s.put({5, 64, 3}, with(S(blocks::Piston), "facing", "south")); // pushes into the lever's cell
     s.put({4, 64, 3}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(s.at({5, 64, 4}) != S(blocks::Lever));
     s.tick(5);
     CHECK_FALSE(s.on({5, 64, 6}));
@@ -389,7 +389,7 @@ TEST_CASE("pistons push across chunk borders at negative coordinates, not into u
     s.put({1, 64, -1}, S(blocks::Cobblestone));
     s.put({0, 64, -1}, S(blocks::Cobblestone)); // chunk 0 / -1 border is between 0 and -1
     s.put({2, 64, -2}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK(s.on({2, 64, -1}, "extended"));
     CHECK(R().blockOf(s.at({-1, 64, -1})) == blocks::Cobblestone);
     // The 3x3 scene ends at x = -16: pushing into x -17 (unloaded) fails.
@@ -397,12 +397,46 @@ TEST_CASE("pistons push across chunk borders at negative coordinates, not into u
     s.put({-15, 64, 3}, S(blocks::Cobblestone));
     s.put({-16, 64, 3}, S(blocks::Cobblestone));
     s.put({-14, 64, 4}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({-14, 64, 3}, "extended"));
     // Up at the build limit.
     s.put({3, 318, 3}, with(S(blocks::Piston), "facing", "up"));
     s.put({3, 319, 3}, S(blocks::Cobblestone));
     s.put({4, 318, 3}, S(blocks::RedstoneBlock));
-    s.tick(1);
+    s.tick(2); // player-powered pistons move a tick later
     CHECK_FALSE(s.on({3, 318, 3}, "extended"));
+}
+
+TEST_CASE("player-powered pistons start a tick later; in-line repeaters schedule with priority -3") {
+    Scene s;
+    s.put({0, 64, 0}, with(S(blocks::Piston), "facing", "east"));
+    s.put({0, 64, 1}, S(blocks::RedstoneBlock));
+    s.tick(1);
+    CHECK_FALSE(s.on({0, 64, 0}, "extended"));
+    s.tick(1);
+    CHECK(s.on({0, 64, 0}, "extended"));
+    // Two repeaters in a row (both inputs west): the first faces the second's back.
+    s.put({5, 64, 5}, with(S(blocks::Repeater), "facing", "west"));
+    s.put({6, 64, 5}, with(S(blocks::Repeater), "facing", "west"));
+    s.put({4, 64, 5}, S(blocks::RedstoneBlock));
+    const auto& ticks = s.world.chunk({0, 0})->blockTicks();
+    REQUIRE_FALSE(ticks.empty());
+    CHECK(ticks.back().priority == -3);
+}
+
+TEST_CASE("dust can't stand on leaves; pistons break leaves and can't move obsidian") {
+    Scene s;
+    s.put({0, 64, 0}, S(blocks::OakLeaves));
+    CHECK_FALSE(Redstone::placement(s.world, S(blocks::RedstoneWire), {0, 65, 0}, Direction::Up, 0, 0));
+    s.put({3, 64, 3}, with(S(blocks::Piston), "facing", "east"));
+    s.put({4, 64, 3}, S(blocks::OakLeaves));
+    s.put({3, 64, 4}, S(blocks::RedstoneBlock));
+    s.tick(2);
+    CHECK(s.on({3, 64, 3}, "extended"));
+    CHECK(R().blockOf(s.at({5, 64, 3})) != blocks::OakLeaves); // broken, not pushed
+    s.put({3, 64, 7}, with(S(blocks::Piston), "facing", "east"));
+    s.put({4, 64, 7}, S(blocks::Obsidian));
+    s.put({3, 64, 8}, S(blocks::RedstoneBlock));
+    s.tick(2);
+    CHECK_FALSE(s.on({3, 64, 7}, "extended"));
 }

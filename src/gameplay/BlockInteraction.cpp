@@ -66,7 +66,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         return; // one action per tick
     }
     if (use && m_useCooldown == 0) {
-        if (useBlock(player, *hit)) return;
+        if (useBlock(player, *hit, placeState != 0)) return;
         if (placeState == 0) return;
         m_useCooldown = kUseDelay;
         bool placed = false;
@@ -74,9 +74,10 @@ void BlockInteraction::tick(world::World& world, const Player& player,
     }
 }
 
-bool BlockInteraction::useBlock(const Player& player, const world::RayHit& hit) {
-    // Right-click acts on usable blocks unless sneaking (vanilla), repeating while held.
-    if (!m_redstone || player.sneaking() || !m_redstone->use(hit.block)) return false;
+bool BlockInteraction::useBlock(const Player& player, const world::RayHit& hit, bool holding) {
+    // Right-click acts on usable blocks, repeating while held; sneaking with an item in
+    // hand places it instead (vanilla).
+    if (!m_redstone || (player.sneaking() && holding) || !m_redstone->use(hit.block)) return false;
     m_useCooldown = kUseDelay;
     return true;
 }
@@ -195,7 +196,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     }
 
     // Using a block (lever, button...), else placing, which uses up the held block.
-    if (use && m_useCooldown == 0 && hit && useBlock(player, *hit)) {
+    if (use && m_useCooldown == 0 && hit && useBlock(player, *hit, !inventory.selectedStack().empty())) {
         // used
     } else if (use && m_useCooldown == 0 && hit && held.block) {
         m_useCooldown = kUseDelay;

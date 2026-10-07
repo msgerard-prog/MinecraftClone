@@ -58,6 +58,12 @@ bool signalSource(BlockId b) {
            b == B::RedstoneBlock;
 }
 
+// Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
+// full-collision blocks except leaves (wiki: Opacity/Placement).
+bool supports(BlockStateId s) {
+    return R().collides(s) && !R().block(blockOf(s)).id.ends_with("_leaves");
+}
+
 // Lever/button: the direction of the block it hangs on.
 Direction attachDir(BlockStateId s) {
     const int f = R().get(s, face);
@@ -90,7 +96,13 @@ Push pushKind(BlockStateId s) {
     case B::DeadBush:
     case B::Snow:
     case B::Water:
-    case B::Lava: return Push::Destroy;
+    case B::Lava:
+    case B::NetherPortal:
+    case B::OakLeaves: // leaves break (wiki: Leaves › Piston interactivity)
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: return Push::Destroy;
+    case B::Obsidian:  // (wiki: Piston/Table)
     case B::Furnace:   // block entities don't move
     case B::PistonHead:
         return Push::Block;
@@ -189,6 +201,13 @@ void Redstone::set(const BlockPos& p, BlockStateId s) {
     afterChange(p, old, s);
 }
 
+void Redstone::setDiode(const BlockPos& p, BlockStateId s) {
+    // A repeater turning on/off updates only the block in front and its neighbours
+    // (wiki: Block update - exceptions).
+    setRaw(p, s);
+    reach(p, s);
+}
+
 void Redstone::setRaw(const BlockPos& p, BlockStateId s) {
     const BlockStateId old = at(p);
     if (old == s) return;
@@ -230,9 +249,11 @@ void Redstone::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now
     }
     notifyNeighbours(p);
     reach(p, old);
-    if (blockOf(now) != blockOf(old) || blockOf(now) == B::Lever || isButton(blockOf(now)) ||
-        blockOf(now) == B::Repeater)
-        reach(p, now); // (same block, new state: once is enough unless its target moved)
+    // Same block in a new state: its reach only moves if what it points at changed.
+    const bool sameTarget = blockOf(now) == blockOf(old) &&
+                            ((is != B::Lever && !isButton(is)) || attachDir(old) == attachDir(now)) &&
+                            (is != B::Repeater || hFacing(old) == hFacing(now));
+    if (!sameTarget) reach(p, now);
 }
 
 void Redstone::reach(const BlockPos& p, BlockStateId s) {
@@ -241,10 +262,13 @@ void Redstone::reach(const BlockPos& p, BlockStateId s) {
     // the block in front; a block of redstone only its own neighbours).
     switch (blockOf(s)) {
     case B::RedstoneWire:
-    case B::RedstoneTorch:
-    case B::RedstoneWallTorch:
         for (const Direction d : kUpdateOrder)
             notifyNeighbours(rel(p, d));
+        break;
+    case B::RedstoneTorch:
+    case B::RedstoneWallTorch: // outer order down, up, north, south, west, east (wiki: Block update)
+        for (int d = 0; d < kDirectionCount; ++d)
+            notifyNeighbours(rel(p, static_cast<Direction>(d)));
         break;
     case B::Lever:
     case B::StoneButton:
@@ -271,15 +295,14 @@ void Redstone::pop(const BlockPos& p) {
 }
 
 bool Redstone::survives(const BlockPos& p, BlockStateId s) const {
-    const auto& r = R();
     switch (blockOf(s)) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
-    case B::Repeater: return r.collides(at(rel(p, Direction::Down)));
-    case B::RedstoneWallTorch: return r.collides(at(rel(p, opposite(hFacing(s)))));
+    case B::Repeater: return supports(at(rel(p, Direction::Down)));
+    case B::RedstoneWallTorch: return supports(at(rel(p, opposite(hFacing(s)))));
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: return r.collides(at(rel(p, attachDir(s))));
+    case B::OakButton: return supports(at(rel(p, attachDir(s))));
     default: return true;
     }
 }
@@ -307,7 +330,7 @@ void Redstone::neighbourChanged(const BlockPos& p) {
             break;
         }
         const bool lockedNow = repeaterLocked(p, s);
-        if (lockedNow != flag(s, locked)) set(p, withFlag(s, locked, lockedNow));
+        if (lockedNow != flag(s, locked)) setRaw(p, withFlag(s, locked, lockedNow)); // no updates (vanilla)
         if (lockedNow) break;
         const BlockStateId cur = at(p);
         const bool should = repeaterInput(p, cur) > 0;
@@ -315,7 +338,7 @@ void Redstone::neighbourChanged(const BlockPos& p) {
             // Priorities (wiki: Tick › Scheduled tick): -3 when the repeater faces into
             // the side or back of another repeater, -2 when turning off, else -1.
             const BlockStateId front = at(rel(p, opposite(hFacing(cur))));
-            const int priority = blockOf(front) == B::Repeater && hFacing(front) != hFacing(cur) ? -3
+            const int priority = blockOf(front) == B::Repeater && hFacing(front) != opposite(hFacing(cur)) ? -3
                                  : flag(cur, powered)                                             ? -2
                                                                                                    : -1;
             schedule(p, B::Repeater, (R().get(cur, delay) + 1) * 2, priority);
@@ -342,7 +365,7 @@ void Redstone::neighbourChanged(const BlockPos& p) {
         const bool should = pistonPowered(p, facing6Of(s));
         if (should != flag(s, extended) &&
             std::none_of(m_events.begin(), m_events.end(), [&](const Event& e) { return e.pos == p && e.extend == should; }))
-            m_events.push_back({p, should});
+            m_events.push_back({p, should, !m_inTick});
         break;
     }
     case B::NetherPortal: {
@@ -403,6 +426,7 @@ bool Redstone::hasTick(const BlockPos& p, BlockId block) const {
 }
 
 void Redstone::tick() {
+    m_inTick = true;
     m_due.clear();
     m_world.forEachTickingChunk([&](Chunk& c) {
         auto& ticks = c.blockTicks();
@@ -422,15 +446,23 @@ void Redstone::tick() {
         if (blockOf(s) == d.tick.block) tickBlock(d.pos, s);
     }
     // Block events (pistons), including ones these cause (wiki: Tick › Block events).
+    // Pistons powered by a player act in the next tick's block events (wiki: Piston ›
+    // Start delay); they wait one tick here.
+    size_t kept = 0;
     for (size_t i = 0; i < m_events.size() && i < 65536; ++i) {
         const Event e = m_events[i];
+        if (e.nextTick) {
+            m_events[kept++] = {e.pos, e.extend, false};
+            continue;
+        }
         const BlockStateId s = at(e.pos);
         if (!isPiston(blockOf(s))) continue;
         const bool should = pistonPowered(e.pos, facing6Of(s));
         if (e.extend && should && !flag(s, extended)) extend(e.pos);
         else if (!e.extend && !should && flag(s, extended)) retract(e.pos);
     }
-    m_events.clear();
+    m_events.resize(kept);
+    m_inTick = false;
     // Torch burnout memory: only the last 60 ticks count.
     std::erase_if(m_toggles, [&](const Toggle& t) { return m_now - t.time > 60; });
 }
@@ -455,9 +487,9 @@ void Redstone::tickBlock(const BlockPos& p, BlockStateId s) {
         if (repeaterLocked(p, s)) break;
         const bool should = repeaterInput(p, s) > 0;
         if (flag(s, powered) && !should) {
-            set(p, withFlag(s, powered, false));
+            setDiode(p, withFlag(s, powered, false));
         } else if (!flag(s, powered)) {
-            set(p, withFlag(s, powered, true));
+            setDiode(p, withFlag(s, powered, true));
             // A pulse shorter than the delay is extended to it (wiki: Redstone Repeater).
             if (!should) schedule(p, B::Repeater, (R().get(s, delay) + 1) * 2, -2);
         }
@@ -555,7 +587,10 @@ void Redstone::updateWire(const BlockPos& p) {
         return;
     }
     const BlockStateId next = R().set(wireShape(p, s), power, wireTarget(p));
-    if (next != s) set(p, next);
+    if (next == s) return;
+    // Only a power change updates other components (wiki: Redstone Dust).
+    if (R().get(next, power) == R().get(s, power)) setRaw(p, next);
+    else set(p, next);
 }
 
 // --- Torches, repeaters, pistons ----------------------------------------------------
@@ -729,7 +764,7 @@ bool Redstone::use(const BlockPos& p) {
 std::optional<BlockStateId> Redstone::placement(const World& world, BlockStateId state, const BlockPos& at,
                                                 Direction faceDir, float yaw, float pitch) {
     const auto& r = R();
-    auto solid = [&](Direction d) { return r.collides(world.getBlock(rel(at, d))); };
+    auto solid = [&](Direction d) { return supports(world.getBlock(rel(at, d))); };
     // The player's horizontal look direction (vanilla yaw: 0 south, 90 west).
     const float y = std::fmod(std::fmod(yaw, 360.0f) + 360.0f, 360.0f);
     static constexpr Direction kLook[4] = {Direction::South, Direction::West, Direction::North, Direction::East};
