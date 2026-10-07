@@ -6,7 +6,7 @@ docs/art-style.md: crisp ramp steps, readable shapes, top-left light, tileable.
 import math
 
 from .core import (CLEAR, N, Img, bevel, fbm, fill_rect, frame, mix, pick, ramp, rgba, scale,
-                   shift, value_noise, voronoi)
+                   shift, value_noise, voronoi)  # noqa: F401
 
 
 # --- Stone-like surfaces ---------------------------------------------------------------
@@ -441,4 +441,214 @@ def stripped(rng, pal):
             for y in range(N):
                 if img.get(x, y) == pal[2]:
                     img.set(x, y, pal[3])
+    return img
+
+
+def birch_bark(rng, pal, mark):
+    """Pale bark with dark horizontal marks and fine lines."""
+    img = Img()
+    n = value_noise(rng, 8)
+    for y in range(N):
+        for x in range(N):
+            img.set(x, y, pick(pal, n[y][x] * 0.6 + 0.3, 2, 4))
+    for _ in range(6):
+        x, y = rng.randrange(N), rng.randrange(N)
+        w = rng.randrange(2, 6)
+        for k in range(w):
+            img.set(x + k, y, mark[0])
+            if rng.random() < 0.5:
+                img.set(x + k, y + 1, mark[1])
+    for _ in range(8):
+        img.set(rng.randrange(N), rng.randrange(N), pal[1])
+    return img
+
+
+def leaves(rng, pal, holes=0.16, clusters=11):
+    """Leaf mass: bevelled leaf clumps with see-through gaps (cutout)."""
+    img = Img(fill=pal[1])
+    n = fbm(rng, ((4, 0.5), (8, 0.5)))
+    for y in range(N):
+        for x in range(N):
+            img.set(x, y, pick(pal, n[y][x], 1, 3))
+    for k in range(clusters):  # clumps: lit top-left, shadow bottom-right
+        cx, cy = rng.randrange(N), rng.randrange(N)
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                if abs(dx) + abs(dy) < 2:
+                    img.set(cx + dx, cy + dy, pal[3])
+        img.set(cx - 1, cy - 1, pal[4])
+        img.set(cx + 1, cy + 1, pal[0])
+    # See-through gaps between clumps: small clustered holes, not single-pixel noise.
+    for _ in range(int(holes * 40)):
+        x, y = rng.randrange(N), rng.randrange(N)
+        for dx, dy in [(0, 0)] + rng.sample([(1, 0), (0, 1), (1, 1), (-1, 0)], rng.choice((1, 2))):
+            img.set(x + dx, y + dy, CLEAR)
+        img.set(x - 1, y - 1, pal[0])  # dark edge where the canopy opens up
+    return img
+
+
+def sapling(rng, trunk, leaf, shape="round"):
+    """Young tree on a transparent background (cross model)."""
+    img = Img()
+    for y in range(9, N):  # trunk
+        img.set(7, y, trunk[2])
+        img.set(8, y, trunk[1])
+    if shape == "cone":
+        rows = [(2, 0), (3, 1), (4, 1), (5, 2), (6, 2), (7, 3), (8, 3), (9, 4), (10, 4)]
+    elif shape == "flat":
+        rows = [(3, 5), (4, 6), (5, 4), (7, 1), (8, 1)]
+    elif shape == "tall":
+        rows = [(1, 2), (2, 3), (3, 3), (4, 4), (5, 4), (6, 3), (7, 3), (8, 2), (9, 1)]
+    else:  # round bush
+        rows = [(2, 2), (3, 3), (4, 4), (5, 5), (6, 5), (7, 4), (8, 3), (9, 2)]
+    for y, half in rows:
+        for x in range(8 - half, 8 + half):
+            if rng.random() < 0.88:
+                img.set(x, y, leaf[rng.choice((1, 2, 2, 3))])
+        img.set(8 - half, y, leaf[3]) if half else None
+        img.set(8 + half - 1, y, leaf[1]) if half else None
+    for _ in range(6):
+        y, half = rng.choice(rows)
+        if half:
+            img.set(rng.randrange(8 - half, 8 + half), y, leaf[4])
+    return img
+
+
+def door(rng, pal, part, style):
+    """Door half (top/bottom). Styles: window, panel, boards, lattice, grid, stalks.
+    Transparent pixels are see-through openings."""
+    img = Img(fill=pal[2])
+    # Vertical boards as the base.
+    for x in range(N):
+        for y in range(N):
+            img.set(x, y, pal[2] if (x // 4) % 2 == 0 else pal[3])
+            if x % 4 == 3:
+                img.set(x, y, pal[1])
+    frame(img, pal[4], pal[0])
+    if style == "window" and part == "top":
+        for (x0, y0) in ((3, 3), (9, 3), (3, 9), (9, 9)):
+            for y in range(y0, y0 + 4):
+                for x in range(x0, x0 + 4):
+                    img.set(x, y, CLEAR)
+    elif style == "grid" and part == "top":
+        for y in range(2, 14):
+            for x in range(2, 14):
+                if x % 4 != 1 and y % 4 != 1:
+                    img.set(x, y, CLEAR)
+    elif style == "lattice":
+        for y in range(2, 14):
+            for x in range(2, 14):
+                if (x + y) % 4 == 0 or (x - y) % 4 == 0:
+                    img.set(x, y, pal[0])
+                elif (x + y) % 4 == 2 and (x - y) % 4 == 2 and part == "top":
+                    img.set(x, y, CLEAR)
+    elif style == "panel" or (style in ("window", "grid") and part == "bottom"):
+        for (y0, y1) in ((2, 6), (9, 13)):
+            frame_sub = [(x, y) for x in range(3, 13) for y in range(y0, y1 + 1)]
+            for x, y in frame_sub:
+                img.set(x, y, pal[2])
+            for x in range(3, 13):
+                img.set(x, y0, pal[0])
+                img.set(x, y1, pal[4])
+            for y in range(y0, y1 + 1):
+                img.set(3, y, pal[0])
+                img.set(12, y, pal[4])
+    elif style == "stalks":
+        for x in range(N):
+            for y in range(N):
+                img.set(x, y, pal[3] if x % 3 else pal[1])
+            if x % 3 == 0:
+                for y in range(0, N, 5):
+                    img.set(x, y, pal[0])
+        frame(img, pal[4], pal[0])
+    if style == "boards":
+        for y in (3, 12):  # iron straps
+            for x in range(1, N - 1):
+                img.set(x, y, (70, 70, 76, 255))
+            img.set(2, y, (150, 150, 156, 255))
+    if part == "bottom":  # handle
+        img.set(12, 2, (60, 60, 66, 255))
+        img.set(12, 3, (150, 150, 156, 255))
+    return img
+
+
+def trapdoor(rng, pal, style):
+    img = Img(fill=pal[2])
+    for y in range(N):
+        for x in range(N):
+            img.set(x, y, pal[2] if (y // 4) % 2 == 0 else pal[3])
+            if y % 4 == 3:
+                img.set(x, y, pal[1])
+    frame(img, pal[4], pal[0])
+    frame(img, pal[3], pal[1], inset=1)
+    if style in ("window", "grid", "lattice"):
+        for y in range(3, 13):
+            for x in range(3, 13):
+                hole = ((x % 5 in (3, 4)) and (y % 5 in (3, 4))) if style != "lattice" else \
+                    ((x + y) % 4 == 0)
+                if hole:
+                    img.set(x, y, CLEAR)
+    elif style == "panel":
+        for x in range(4, 12):
+            img.set(x, 4, pal[0])
+            img.set(x, 11, pal[4])
+        for y in range(4, 12):
+            img.set(4, y, pal[0])
+            img.set(11, y, pal[4])
+    elif style == "stalks":
+        for x in range(2, 14):
+            for y in range(2, 14):
+                img.set(x, y, pal[3] if x % 3 else pal[1])
+    return img
+
+
+def stalks(rng, pal, vertical=True):
+    """Bamboo-like bundled stalks with nodes."""
+    img = Img()
+    for x in range(N):
+        col = x % 4
+        for y in range(N):
+            c = (pal[1], pal[3], pal[2], pal[0])[col]
+            img.set(x, y, c)
+    for x0 in range(0, N, 4):
+        ny = rng.randrange(N)
+        for k in range(3):
+            img.set(x0 + k, ny, pal[4] if k == 1 else pal[0])
+    if not vertical:
+        img = img.map(lambda c: c)
+        rot = Img()
+        for y in range(N):
+            for x in range(N):
+                rot.set(y, x, img.get(x, y))
+        img = rot
+    return img
+
+
+def stalk_ends(rng, pal, rim):
+    img = Img(fill=rim[0])
+    for cy in range(2, N, 4):
+        for cx in range(2, N, 4):
+            for dy in (-1, 0):
+                for dx in (-1, 0):
+                    img.set(cx + dx, cy + dy, pal[3] if dx + dy < 0 else pal[1])
+            img.set(cx, cy, rim[1])
+    return img
+
+
+def roots(rng, pal, background=None, count=7):
+    """Tangled roots; transparent gaps unless a background image is given."""
+    img = background.copy() if background else Img()
+    for _ in range(count):
+        x, y = rng.randrange(N), rng.randrange(N)
+        horizontal = rng.random() < 0.5
+        for _ in range(rng.randrange(8, 14)):
+            img.set(x, y, pal[2])
+            img.set(x + (0 if horizontal else 1), y + (1 if horizontal else 0), pal[0])
+            img.set(x - (0 if horizontal else 1), y - (1 if horizontal else 0), pal[3])
+            if horizontal:
+                x += 1
+                y += rng.choice((-1, 0, 0, 1))
+            else:
+                y += 1
+                x += rng.choice((-1, 0, 0, 1))
     return img

@@ -26,9 +26,15 @@ from texgen.registry import TEXTURES  # noqa: E402
 OUT = Path(__file__).resolve().parents[2] / "assets/minecraft/textures/block"
 
 # Textures the game multiplies by a biome/fixed colour; previews show them tinted.
+GRASS = (0x91, 0xBD, 0x59)    # plains grass colour
+FOLIAGE = (0x77, 0xAB, 0x2F)  # plains foliage colour
 PREVIEW_TINT = {
-    "grass_block_top": (0x91, 0xBD, 0x59),
-    "grass_block_side_overlay": (0x91, 0xBD, 0x59),
+    "grass_block_top": GRASS,
+    "grass_block_side_overlay": GRASS,
+    "oak_leaves": FOLIAGE, "jungle_leaves": FOLIAGE, "acacia_leaves": FOLIAGE,
+    "dark_oak_leaves": FOLIAGE, "mangrove_leaves": FOLIAGE,
+    "spruce_leaves": (0x61, 0x99, 0x61),  # spruce and birch leaves use fixed colours
+    "birch_leaves": (0x80, 0xA7, 0x55),
 }
 
 
@@ -94,7 +100,7 @@ def main():
         for family, items in families.items():
             path = out / f"tex-{family.replace(' ', '_').replace('&', 'and')}.png"
             preview(items, path)
-            print(f"preview: {path}  (order: {', '.join(n for n, _ in items)})")
+            print(f"preview: {path}  ({len(items)} textures, sorted by name, 16 per row)")
 
 
 if __name__ == "__main__":
