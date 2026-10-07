@@ -166,6 +166,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_push.reserve(13);
     m_pushStates.reserve(13);
     m_toggles.reserve(64);
+    m_plates.reserve(1024); // (pressure plates being pressed)
 }
 
 BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
@@ -198,6 +199,12 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return flag(s, powered) ? 15 : 0;
     case B::RedstoneBlock:
         return 15;
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+        return flag(s, powered) ? 15 : 0;
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
+        return R().get(s, power);
     default:
         return 0;
     }
@@ -215,6 +222,11 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     case B::StoneButton:
     case B::OakButton:
         return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
+    case B::OakPressurePlate: // plates power the block under them strongly (wiki)
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
+        return toward == Direction::Down ? weak(s, toward) : 0;
     default:
         return 0;
     }
@@ -359,6 +371,67 @@ BlockStateId BlockUpdates::chorusConnected(const World& world, const BlockPos& p
     return r.set(plant, fireEast, joins(Direction::East) ? 0 : 1);
 }
 
+bool BlockUpdates::isDoor(BlockId b) { return b == B::OakDoor || b == B::IronDoor; }
+bool BlockUpdates::isPressurePlate(BlockId b) {
+    return b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
+           b == B::HeavyWeightedPressurePlate;
+}
+
+BlockStateId BlockUpdates::fenceConnected(const World& world, const BlockPos& p, BlockStateId fence) {
+    const auto& r = R();
+    auto joins = [&](Direction d) {
+        const BlockStateId s = world.getBlock(rel(p, d));
+        const BlockId b = blockOf(s);
+        return b == B::OakFence || b == B::OakFenceGate || r.opaqueCube(s);
+    };
+    fence = r.set(fence, fireNorth, joins(Direction::North) ? 0 : 1);
+    fence = r.set(fence, fireSouth, joins(Direction::South) ? 0 : 1);
+    fence = r.set(fence, fireWest, joins(Direction::West) ? 0 : 1);
+    return r.set(fence, fireEast, joins(Direction::East) ? 0 : 1);
+}
+
+void BlockUpdates::setDoor(const BlockPos& lower, BlockStateId s, bool openNow, bool poweredNow) {
+    // Both halves change together (the upper half mirrors the lower one).
+    const BlockStateId lowerNow = withFlag(withFlag(s, open, openNow), powered, poweredNow);
+    set(lower, lowerNow);
+    const BlockPos up{lower.x, lower.y + 1, lower.z};
+    if (isDoor(blockOf(at(up)))) set(up, R().set(lowerNow, doorHalf, 0));
+}
+
+int BlockUpdates::plateTarget(BlockId b, int count) const {
+    if (count <= 0) return 0;
+    if (b == B::LightWeightedPressurePlate) return std::min(15, count);
+    if (b == B::HeavyWeightedPressurePlate) return (std::min(count, 150) + 9) / 10;
+    return 15;
+}
+
+void BlockUpdates::pressPlate(const BlockPos& p, bool item) {
+    const BlockId b = blockOf(at(p));
+    if (!isPressurePlate(b) || (item && b == B::StonePressurePlate)) return; // (stone: mobs and players only)
+    for (Plate& pl : m_plates)
+        if (pl.pos == p) {
+            if (pl.time != m_now) pl.count = 0;
+            pl.time = m_now;
+            ++pl.count;
+            return;
+        }
+    if (m_plates.size() < 1024) m_plates.push_back({p, m_now, 1});
+}
+
+void BlockUpdates::settlePlates() {
+    for (const Plate& pl : m_plates) {
+        if (pl.time != m_now) continue;
+        const BlockStateId s = at(pl.pos);
+        const BlockId b = blockOf(s);
+        if (!isPressurePlate(b)) continue;
+        const int want = plateTarget(b, pl.count);
+        const bool weighted = b == B::LightWeightedPressurePlate || b == B::HeavyWeightedPressurePlate;
+        const int now = weighted ? R().get(s, power) : (flag(s, powered) ? 15 : 0);
+        if (want > now) set(pl.pos, weighted ? R().set(s, power, want) : withFlag(s, powered, true));
+        if (!hasTick(pl.pos, b)) schedule(pl.pos, b, weighted ? 10 : 20, 0);
+    }
+}
+
 BlockStateId BlockUpdates::barsConnected(const World& world, const BlockPos& p, BlockStateId bars) {
     const auto& r = R();
     auto joins = [&](Direction d) {
@@ -443,6 +516,11 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
         if (blockOf(at(head)) != B::RedBed && replaceable(at(head)))
             set(head, R().set(now, bedPart, 0));
     }
+    // A door's lower half placed by a player brings its upper half (wiki: Door).
+    if (isDoor(blockOf(now)) && R().get(now, doorHalf) == 1 && !isDoor(blockOf(old))) {
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (replaceable(at(up))) set(up, R().set(now, doorHalf, 0));
+    }
     afterChange(p, old, now);
     neighbourChanged(p); // the new block checks its surroundings (vanilla onPlace)
 }
@@ -494,6 +572,12 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
     case B::StoneButton:
     case B::OakButton:
         notifyNeighbours(rel(p, attachDir(s)));
+        break;
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
+        notifyNeighbours(rel(p, Direction::Down));
         break;
     case B::Repeater: {
         const BlockPos front = rel(p, opposite(hFacing(s)));
@@ -682,6 +766,41 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     case B::IronBars:
         set(p, barsConnected(m_world, p, s));
+        break;
+    case B::OakFence:
+        set(p, fenceConnected(m_world, p, s));
+        break;
+    case B::OakDoor:
+    case B::IronDoor: {
+        const bool upper = R().get(s, doorHalf) == 0;
+        const BlockPos lower = upper ? BlockPos{p.x, p.y - 1, p.z} : p;
+        const BlockStateId ls = upper ? at(lower) : s;
+        if (upper) { // without its lower half it goes (the lower half drops the door)
+            if (!isDoor(blockOf(ls)) || R().get(ls, doorHalf) != 1) set(p, 0);
+            break;
+        }
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (!isDoor(blockOf(at(up))) || !supports(at(rel(p, Direction::Down)))) {
+            pop(p);
+            break;
+        }
+        // Redstone: power at either half opens it; losing it closes it (wiki: Door).
+        const bool on = bestNeighbourSignal(p) > 0 || bestNeighbourSignal(up) > 0;
+        if (on != flag(s, powered)) setDoor(p, s, on, on);
+        break;
+    }
+    case B::OakTrapdoor:
+    case B::IronTrapdoor:
+    case B::OakFenceGate: {
+        const bool on = bestNeighbourSignal(p) > 0;
+        if (on != flag(s, powered)) set(p, withFlag(withFlag(s, open, on), powered, on));
+        break;
+    }
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
+        if (!supports(at(rel(p, Direction::Down)))) pop(p);
         break;
     case B::CrimsonFungus:
     case B::WarpedFungus:
@@ -899,6 +1018,25 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::OakButton:
         if (flag(s, powered)) set(p, withFlag(s, powered, false));
         break;
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate: {
+        // Still something on it (this tick or the last)? Stay down; else spring up.
+        const BlockId b = blockOf(s);
+        const bool weighted = b == B::LightWeightedPressurePlate || b == B::HeavyWeightedPressurePlate;
+        int count = 0;
+        for (size_t i = 0; i < m_plates.size(); ++i)
+            if (m_plates[i].pos == p) {
+                if (m_now - m_plates[i].time <= 1) count = m_plates[i].count;
+                else m_plates.erase(m_plates.begin() + static_cast<std::ptrdiff_t>(i));
+                break;
+            }
+        const int want = plateTarget(b, count);
+        set(p, weighted ? R().set(s, power, want) : withFlag(s, powered, want > 0));
+        if (want > 0) schedule(p, b, weighted ? 10 : 20, 0);
+        break;
+    }
     default:
         break;
     }
@@ -1133,7 +1271,8 @@ void BlockUpdates::retract(const BlockPos& p) {
 
 bool BlockUpdates::usable(BlockStateId s) {
     const BlockId b = blockOf(s);
-    return b == B::Lever || isButton(b) || b == B::Repeater || b == B::RedstoneWire;
+    return b == B::Lever || isButton(b) || b == B::Repeater || b == B::RedstoneWire || b == B::OakDoor ||
+           b == B::OakTrapdoor || b == B::OakFenceGate;
 }
 
 bool BlockUpdates::use(const BlockPos& p) {
@@ -1152,6 +1291,18 @@ bool BlockUpdates::use(const BlockPos& p) {
         return true;
     case B::Repeater:
         set(p, R().set(s, delay, (R().get(s, delay) + 1) % 4));
+        return true;
+    case B::OakDoor: { // wooden doors open by hand (iron ones only by redstone)
+        const bool upper = R().get(s, doorHalf) == 0;
+        const BlockPos lower = upper ? BlockPos{p.x, p.y - 1, p.z} : p;
+        const BlockStateId ls = at(lower);
+        if (!isDoor(blockOf(ls))) return false;
+        setDoor(lower, ls, !flag(ls, open), flag(ls, powered));
+        return true;
+    }
+    case B::OakTrapdoor:
+    case B::OakFenceGate:
+        set(p, withFlag(s, open, !flag(s, open)));
         return true;
     case B::RedstoneWire: {
         // Unconnected dust toggles between a cross and a dot (wiki: Redstone Dust).
@@ -1216,6 +1367,35 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return blockOf(state) == B::ChorusPlant ? chorusConnected(world, at, state) : state;
     case B::IronBars:
         return barsConnected(world, at, state);
+    case B::OakDoor:
+    case B::IronDoor: {
+        // On solid ground with room above; it faces the way the player looks and hinges
+        // on the left unless a door is already there (a double door; wiki: Door).
+        if (!solid(Direction::Down) || !replaceable(world.getBlock(rel(at, Direction::Up)))) return std::nullopt;
+        BlockStateId s = r.set(withHFacing(state, look), doorHalf, 1);
+        static constexpr Direction kLeftOf[6] = {Direction::Down, Direction::Up, Direction::West,
+                                                 Direction::East, Direction::South, Direction::North};
+        const BlockStateId left = world.getBlock(rel(at, kLeftOf[int(look)]));
+        if (isDoor(blockOf(left)) && r.get(left, hinge) == 0) s = r.set(s, hinge, 1);
+        return s;
+    }
+    case B::OakTrapdoor:
+    case B::IronTrapdoor: {
+        // On a block's side it hangs from that side; clicked from below it sits at the
+        // top of its cell (wiki: Trapdoor - ours: from a top face the bottom).
+        const Direction f = horizontal(faceDir) ? faceDir : opposite(look);
+        return r.set(withHFacing(state, f), slabHalf, faceDir == Direction::Down ? 0 : 1);
+    }
+    case B::OakFenceGate:
+        return withHFacing(state, look);
+    case B::OakFence:
+        return fenceConnected(world, at, state);
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
+        if (!solid(Direction::Down)) return std::nullopt;
+        return state;
     case B::EndRod: // points out of the face it was put on (wiki: End Rod)
         return r.set(state, facing6, static_cast<int>(faceDir));
     case B::RedBed: {

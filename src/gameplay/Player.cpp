@@ -1,5 +1,6 @@
 #include "gameplay/Player.h"
 
+#include "gameplay/BlockCollision.h"
 #include "gameplay/FluidContact.h"
 #include "world/Blocks.h"
 #include "world/Rotation.h"
@@ -37,27 +38,9 @@ glm::dvec3 Player::renderPosition(double alpha) const {
 }
 
 void Player::gatherBoxes(const world::World& world, const Aabb& region) {
-    const auto& reg = world::blockRegistry();
-    m_boxes.clear();
-    const int x0 = static_cast<int>(std::floor(region.min.x));
-    const int x1 = static_cast<int>(std::floor(region.max.x));
-    const int y0 = static_cast<int>(std::floor(region.min.y));
-    const int y1 = static_cast<int>(std::floor(region.max.y));
-    const int z0 = static_cast<int>(std::floor(region.min.z));
-    const int z1 = static_cast<int>(std::floor(region.max.z));
-    for (int y = y0; y <= y1; ++y) {
-        for (int z = z0; z <= z1; ++z) {
-            for (int x = x0; x <= x1; ++x) {
-                // Unloaded chunks count as solid: never move into terrain that hasn't
-                // been generated yet (it would appear around the player).
-                const bool loaded =
-                    world.chunk({world::blockToChunk(x), world::blockToChunk(z)}) != nullptr;
-                if (!loaded || reg.collides(world.getBlock({x, y, z}))) {
-                    m_boxes.push_back({{x, y, z}, {x + 1.0, y + 1.0, z + 1.0}});
-                }
-            }
-        }
-    }
+    // Block shapes (doors, fences...); unloaded chunks count as solid: never move into
+    // terrain that hasn't been generated yet (it would appear around the player).
+    gatherBlockBoxes(world, region, m_boxes, true);
 }
 
 glm::dvec3 Player::collide(const world::World& world, const Aabb& start, const glm::dvec3& delta) {

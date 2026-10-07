@@ -144,6 +144,21 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"##", "##"}, {{'#', item("end_stone")}}, "end_stone_bricks", 4));
     r.push_back(shaped({"##", "##"}, {{'#', item("popped_chorus_fruit")}}, "purpur_block", 4));
     r.push_back(shaped({"###", "###"}, {{'#', item("iron_ingot")}}, "iron_bars", 16));
+    // Redstone 2 (M21.1; wiki: Door 3 from 6 planks/ingots, Trapdoor 2 from 6 planks /
+    // 1 from 4 iron, Fence 3, Fence Gate 1, Pressure Plates from 2 of their material).
+    {
+        const Ingredient planks = kPlanks;
+        r.push_back(shaped({"##", "##", "##"}, {{'#', planks}}, "oak_door", 3));
+        r.push_back(shaped({"##", "##", "##"}, {{'#', item("iron_ingot")}}, "iron_door", 3));
+        r.push_back(shaped({"###", "###"}, {{'#', planks}}, "oak_trapdoor", 2));
+        r.push_back(shaped({"##", "##"}, {{'#', item("iron_ingot")}}, "iron_trapdoor"));
+        r.push_back(shaped({"#S#", "#S#"}, {{'#', planks}, {'S', stick}}, "oak_fence", 3));
+        r.push_back(shaped({"S#S", "S#S"}, {{'#', planks}, {'S', stick}}, "oak_fence_gate"));
+        r.push_back(shaped({"##"}, {{'#', planks}}, "oak_pressure_plate"));
+        r.push_back(shaped({"##"}, {{'#', item("stone")}}, "stone_pressure_plate"));
+        r.push_back(shaped({"##"}, {{'#', item("gold_ingot")}}, "light_weighted_pressure_plate"));
+        r.push_back(shaped({"##"}, {{'#', item("iron_ingot")}}, "heavy_weighted_pressure_plate"));
+    }
     // (wiki: End Rod - a blaze rod over popped chorus fruit makes 4)
     r.push_back(shaped({"B", "P"}, {{'B', item("blaze_rod")}, {'P', item("popped_chorus_fruit")}}, "end_rod", 4));
     // (wiki: End Crystal - glass around an eye of ender over a ghast tear)

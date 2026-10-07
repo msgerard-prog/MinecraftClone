@@ -1,5 +1,7 @@
 #include "gameplay/ItemEntities.h"
 
+#include "gameplay/BlockCollision.h"
+
 #include "gameplay/FluidContact.h"
 
 #include "world/Blocks.h"
@@ -37,15 +39,9 @@ void ItemEntities::throwFrom(const glm::dvec3& eye, const glm::dvec3& look,
 }
 
 void ItemEntities::move(const world::World& world, ItemEntity& e) {
-    const auto& reg = world::blockRegistry();
     const Aabb box = Aabb::fromFeet(e.pos, kSize, kSize);
     const Aabb region = box.expandedTowards(e.vel);
-    m_boxes.clear();
-    for (int x = int(std::floor(region.min.x)); x <= int(std::floor(region.max.x)); ++x)
-        for (int y = int(std::floor(region.min.y)); y <= int(std::floor(region.max.y)); ++y)
-            for (int z = int(std::floor(region.min.z)); z <= int(std::floor(region.max.z)); ++z)
-                if (reg.collides(world.getBlock({x, y, z})))
-                    m_boxes.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
+    gatherBlockBoxes(world, region, m_boxes);
     glm::dvec3 d = e.vel;
     Aabb b = box;
     for (int axis : {1, 0, 2}) { // y first, like vanilla

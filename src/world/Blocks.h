@@ -43,6 +43,12 @@ extern const Property age25;    // "age": 0..25 (weeping and twisting vine tips)
 extern const Property chestType; // "type": single | left | right
 extern const Property bedPart;   // "part": head | foot
 extern const Property occupied;  // true | false
+// Redstone 2 (M21).
+extern const Property open;      // true | false (doors, trapdoors, fence gates)
+extern const Property doorHalf;  // "half": upper | lower
+extern const Property hinge;     // left | right
+extern const Property slabHalf;  // "half": top | bottom (trapdoors)
+extern const Property inWall;    // "in_wall": true | false (fence gates)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -261,6 +267,17 @@ enum : BlockId {
     DragonEgg,    // (M20.2)
     EndGateway,   // (M20.3)
     EndRod,       // facing (down | up | north | south | west | east) (M20.4)
+    // Redstone 2 (M21.1).
+    OakDoor,  // facing, half, hinge, open, powered
+    IronDoor,
+    OakTrapdoor, // facing, half (top | bottom), open, powered
+    IronTrapdoor,
+    OakFence,     // east, north, south, west: connections
+    OakFenceGate, // facing, in_wall, open, powered
+    OakPressurePlate,   // powered
+    StonePressurePlate, // powered
+    LightWeightedPressurePlate, // power (gold)
+    HeavyWeightedPressurePlate, // power (iron)
     Count
 };
 } // namespace blocks

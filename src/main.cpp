@@ -1525,6 +1525,27 @@ int main(int argc, char** argv) {
                                               ? int(mc::world::skyDarken(mc::world::celestialAngle(dayTime)))
                                               : 0);
             }
+            {
+                // Pressure plates (M21.1): everything standing on one this tick presses it
+                // (its box over the plate's 14x14 middle, feet in the plate's cell).
+                auto pressAt = [&](const glm::dvec3& f, double half, bool item) {
+                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y + 0.01)), int(std::floor(f.z))};
+                    const double fx = f.x - c.x, fz = f.z - c.z;
+                    if (fx + half < 1.0 / 16.0 || fx - half > 15.0 / 16.0 || fz + half < 1.0 / 16.0 ||
+                        fz - half > 15.0 / 16.0)
+                        return;
+                    blockUpdates.pressPlate(c, item);
+                };
+                if (!dead && !player.flying()) pressAt(player.position(), 0.3, false);
+                world.forEachTickingChunk([&](mc::world::Chunk& c) {
+                    for (const auto& m : c.mobs())
+                        if (m.health > 0.0f && !mc::world::mobInfo(m.type).flies)
+                            pressAt(m.pos, mc::world::mobInfo(m.type).width * 0.5, false);
+                });
+                for (const auto& it : droppedItems.items())
+                    pressAt(it.pos, 0.125, true);
+                blockUpdates.settlePlates();
+            }
             blockUpdates.tick();
             frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
             blockUpdates.changed().clear();

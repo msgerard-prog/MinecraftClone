@@ -277,6 +277,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Elytra (M20.4c): main tells `Player::setCanGlide` whether a working elytra is worn;
   `Player::tick` starts gliding on a jump press in the air and runs the glide motion;
   `takeImpact` reports wall hits; main wears the elytra 1 a second.
+- Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
+  tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
+  player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
+  trapdoors, fence gates open by hand (wood) or redstone; pressure plates are pressed by
+  main each tick (`BlockUpdates::pressPlate`/`settlePlates`) and spring up on their
+  scheduled tick when nothing is left on them.
 - Shulkers (M20.4b, in `Mobs::ai`): fixed in place, `peek` opens the lid (a `Lift`
   model part), `ProjectileKind::ShulkerBullet` homes in and gives Levitation, which
   `Player::setEffects` turns into a rise.

@@ -45,6 +45,11 @@ const Property faceDown{"down", {"true", "false"}};
 const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
+const Property open{"open", {"true", "false"}};
+const Property doorHalf{"half", {"upper", "lower"}};
+const Property hinge{"hinge", {"left", "right"}};
+const Property slabHalf{"half", {"top", "bottom"}};
+const Property inWall{"in_wall", {"true", "false"}};
 const Property age5{"age", {"0", "1", "2", "3", "4", "5"}};
 const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
@@ -455,6 +460,34 @@ BlockRegistry buildVanillaBlocks() {
                             .collision = false, .layer = RenderLayer::Cutout},
                 {{&facing6, "up"}}),
           blocks::EndRod);
+    // Redstone 2 (M21.1; wiki: Door, Trapdoor, Fence, Fence Gate, Pressure Plate -
+    // wood 3.0/3.0 (fences and gates 2.0/3.0), iron door 5.0/5.0, iron trapdoor 5.0/5.0,
+    // plates 0.5/0.5). Their collision shapes are in world/BlockShapes.
+    constexpr BlockSettings kThin{.hardness = 3.0f, .resistance = 3.0f, .opaqueCube = false, .layer = RenderLayer::Cutout};
+    BlockSettings ironThin = kThin;
+    ironThin.hardness = ironThin.resistance = 5.0f;
+    const std::initializer_list<PropertyDefault> doorProps = {
+        {&facing, "north"}, {&doorHalf, "lower"}, {&hinge, "left"}, {&open, "false"}, {&powered, "false"}};
+    const std::initializer_list<PropertyDefault> trapProps = {
+        {&facing, "north"}, {&slabHalf, "bottom"}, {&open, "false"}, {&powered, "false"}};
+    check(r.add("oak_door", kThin, doorProps), blocks::OakDoor);
+    check(r.add("iron_door", ironThin, doorProps), blocks::IronDoor);
+    check(r.add("oak_trapdoor", kThin, trapProps), blocks::OakTrapdoor);
+    check(r.add("iron_trapdoor", ironThin, trapProps), blocks::IronTrapdoor);
+    BlockSettings fence = kThin;
+    fence.hardness = 2.0f;
+    check(r.add("oak_fence", fence,
+                {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
+          blocks::OakFence);
+    check(r.add("oak_fence_gate", fence,
+                {{&facing, "north"}, {&inWall, "false"}, {&open, "false"}, {&powered, "false"}}),
+          blocks::OakFenceGate);
+    constexpr BlockSettings kPlate{
+        .hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout};
+    check(r.add("oak_pressure_plate", kPlate, {{&powered, "false"}}), blocks::OakPressurePlate);
+    check(r.add("stone_pressure_plate", kPlate, {{&powered, "false"}}), blocks::StonePressurePlate);
+    check(r.add("light_weighted_pressure_plate", kPlate, {{&power, "0"}}), blocks::LightWeightedPressurePlate);
+    check(r.add("heavy_weighted_pressure_plate", kPlate, {{&power, "0"}}), blocks::HeavyWeightedPressurePlate);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

@@ -113,6 +113,18 @@ public:
     static BlockStateId chorusConnected(const World& world, const BlockPos& p, BlockStateId plant);
     // Iron bars join bars and full solid blocks beside them (wiki: Iron Bars).
     static BlockStateId barsConnected(const World& world, const BlockPos& p, BlockStateId bars);
+    // Fences join fences, fence gates and full solid blocks (wiki: Fence).
+    static BlockStateId fenceConnected(const World& world, const BlockPos& p, BlockStateId fence);
+    static bool isDoor(BlockId b);
+    static bool isPressurePlate(BlockId b);
+
+    // Pressure plates (M21.1; wiki: Pressure Plate): gameplay reports each entity on a
+    // plate during the tick (`item`: a dropped item or arrow - only wooden and weighted
+    // plates feel those), then settlePlates() presses them. A plate stays down while
+    // something is on it, checked every 20 ticks (weighted: 10); weighted plates give
+    // min(15, n) (gold) or ceil(min(n, 150) / 10) (iron).
+    void pressPlate(const BlockPos& p, bool item);
+    void settlePlates();
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
     static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
     static Direction chestClockwise(Direction facing);
@@ -283,6 +295,14 @@ private:
         int64_t time;
     };
     std::vector<Toggle> m_toggles; // redstone torch burnout
+    struct Plate {
+        BlockPos pos;
+        int64_t time; // the last tick something was on it
+        int count;    // entities on it during that tick
+    };
+    std::vector<Plate> m_plates;
+    int plateTarget(BlockId b, int count) const;
+    void setDoor(const BlockPos& lower, BlockStateId lowerState, bool open, bool poweredNow);
 };
 
 } // namespace mc::world

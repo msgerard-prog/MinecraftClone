@@ -55,6 +55,11 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::NetherGoldOre:
     case blocks::MagmaBlock:
     case blocks::EndStone:
+    case blocks::IronDoor: // (wiki: Iron Door, Iron Trapdoor, Stone/Weighted Pressure Plates - any pickaxe)
+    case blocks::IronTrapdoor:
+    case blocks::StonePressurePlate:
+    case blocks::LightWeightedPressurePlate:
+    case blocks::HeavyWeightedPressurePlate:
     case blocks::EndStoneBricks: // (wiki: End Stone Bricks, Purpur Block, Iron Bars - any pickaxe)
     case blocks::PurpurBlock:
     case blocks::PurpurPillar:
@@ -145,6 +150,11 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::RedBed:
     case blocks::ChorusPlant: // (wiki: Chorus Plant, Chorus Flower)
     case blocks::ChorusFlower:
+    case blocks::OakDoor: // (wiki: wooden doors, trapdoors, fences, gates, plates - axe fastest)
+    case blocks::OakTrapdoor:
+    case blocks::OakFence:
+    case blocks::OakFenceGate:
+    case blocks::OakPressurePlate:
         return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
     // Hoe (leaves, wart blocks, shroomlights).
     case blocks::NetherWartBlock:
@@ -408,6 +418,10 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return;
     case blocks::ChorusPlant: // wiki: Chorus Plant - 0-1 chorus fruit
         if (rng.nextInt(2) == 0) add(*itemRegistry().find("chorus_fruit"));
+        return;
+    case blocks::OakDoor:
+    case blocks::IronDoor: // only the lower half drops the door (the upper goes with it)
+        if (blockRegistry().get(state, properties::doorHalf) == 1) add(itemRegistry().blockItem(blockRegistry().blockOf(state)));
         return;
     case blocks::Glowstone: // wiki: Glowstone - 2-4 dust
         add(*itemRegistry().find("glowstone_dust"), between(2, 4));

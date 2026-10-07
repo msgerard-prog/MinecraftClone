@@ -1,6 +1,7 @@
 #include "gameplay/Mobs.h"
 
 #include "gameplay/ExperienceOrbs.h"
+#include "gameplay/BlockCollision.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 
@@ -165,14 +166,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 
     // Collision, axis by axis (y first), with step-up onto 0.6-high ledges.
     const Aabb start = box(m);
-    auto gather = [&](const Aabb& region) {
-        m_boxes.clear();
-        for (int x = int(std::floor(region.min.x)); x <= int(std::floor(region.max.x)); ++x)
-            for (int y = int(std::floor(region.min.y)); y <= int(std::floor(region.max.y)); ++y)
-                for (int z = int(std::floor(region.min.z)); z <= int(std::floor(region.max.z)); ++z)
-                    if (solidAt(world, x, y, z))
-                        m_boxes.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
-    };
+    auto gather = [&](const Aabb& region) { gatherBlockBoxes(world, region, m_boxes); };
     auto slide = [&](Aabb b, glm::dvec3 d) {
         for (int axis : {1, 0, 2}) {
             for (const Aabb& w : m_boxes)

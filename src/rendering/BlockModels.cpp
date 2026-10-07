@@ -1,4 +1,6 @@
 #include "rendering/BlockModels.h"
+
+#include "world/BlockShapes.h"
 #include "world/Biome.h"
 
 #include <algorithm>
@@ -54,6 +56,25 @@ BakedModel mirroredAndRotated(const BakedVariant& v) {
     m.variants[2] = rotateY(v, 2);
     m.variants[3] = rotateY(mirrored(v), 2);
     return m;
+}
+
+// A box element whose faces show the part of the texture they cover (vanilla's
+// default UVs from the element's position).
+void addBox(BakedModel& m, int x0, int y0, int z0, int x1, int y1, int z1, uint16_t sprite) {
+    if (m.boxCount >= BakedModel::kMaxBoxes) return;
+    BakedBox& b = m.boxes[m.boxCount++];
+    b.from[0] = uint8_t(x0), b.from[1] = uint8_t(y0), b.from[2] = uint8_t(z0);
+    b.to[0] = uint8_t(x1), b.to[1] = uint8_t(y1), b.to[2] = uint8_t(z1);
+    for (int d = 0; d < 6; ++d) {
+        auto& f = b.faces[d];
+        f.sprite = sprite;
+        const auto dir = static_cast<world::Direction>(d);
+        const bool vertical = dir == world::Direction::Up || dir == world::Direction::Down;
+        const bool alongZ = dir == world::Direction::West || dir == world::Direction::East;
+        f.uv[0] = uint8_t(alongZ ? z0 : x0), f.uv[2] = uint8_t(alongZ ? z1 : x1);
+        f.uv[1] = uint8_t(vertical ? z0 : std::max(0, 16 - y1));
+        f.uv[3] = uint8_t(vertical ? z1 : std::max(0, 16 - y0));
+    }
 }
 
 } // namespace
@@ -293,6 +314,56 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 if (on("east")) addBox(hi, y0, lo, 16, y1, hi);
                 if (!bars && on("down")) addBox(lo, 0, lo, hi, lo, hi);
                 if (!bars && on("up")) addBox(lo, hi, lo, hi, 16, hi);
+            } else if (name.ends_with("_door") || name.ends_with("_trapdoor")) {
+                // The same panel as its collision shape (world/BlockShapes).
+                const bool door = name.ends_with("_door");
+                const bool upper = door && registry.value(state, "half").value_or("lower") == "upper";
+                const uint16_t sp = sprite((door ? name + (upper ? "_top" : "_bottom") : name).c_str());
+                m.visible = true;
+                const world::BlockShape& sh = world::collisionShape(state);
+                for (int i = 0; i < sh.count; ++i) {
+                    const auto& b = sh.boxes[size_t(i)];
+                    addBox(m, b.from[0], b.from[1], b.from[2], b.to[0], b.to[1], b.to[2], sp);
+                }
+            } else if (name == "oak_fence") { // a post with two rails to each neighbour
+                const uint16_t sp = sprite("oak_planks");
+                m.visible = true;
+                addBox(m, 6, 0, 6, 10, 16, 10, sp);
+                auto on = [&](const char* p) { return registry.value(state, p).value_or("false") == "true"; };
+                for (const int y : {6, 12}) {
+                    if (on("north")) addBox(m, 7, y, 0, 9, y + 3, 6, sp);
+                    if (on("south")) addBox(m, 7, y, 10, 9, y + 3, 16, sp);
+                    if (on("west")) addBox(m, 0, y, 7, 6, y + 3, 9, sp);
+                    if (on("east")) addBox(m, 10, y, 7, 16, y + 3, 9, sp);
+                }
+            } else if (name == "oak_fence_gate") {
+                // Two posts and two rails across; open, the rails fold back to the posts.
+                const uint16_t sp = sprite("oak_planks");
+                const std::string_view f = registry.value(state, "facing").value_or("north");
+                const bool alongX = f == "north" || f == "south"; // (the gate spans x)
+                const bool isOpen = registry.value(state, "open").value_or("false") == "true";
+                m.visible = true;
+                auto put = [&](int a0, int y0, int b0, int a1, int y1, int b1) { // a: across, b: through
+                    if (alongX) addBox(m, a0, y0, b0, a1, y1, b1, sp);
+                    else addBox(m, b0, y0, a0, b1, y1, a1, sp);
+                };
+                put(0, 5, 7, 2, 16, 9);
+                put(14, 5, 7, 16, 16, 9);
+                for (const int y : {6, 12}) {
+                    if (!isOpen) {
+                        put(2, y, 7, 14, y + 3, 9);
+                    } else {
+                        put(0, y, 9, 2, y + 3, 15);
+                        put(14, y, 9, 16, y + 3, 15);
+                    }
+                }
+            } else if (name.ends_with("_pressure_plate")) {
+                const char* tex = name == "oak_pressure_plate"     ? "oak_planks"
+                                  : name == "stone_pressure_plate" ? "stone"
+                                  : name.starts_with("light")      ? "gold_block"
+                                                                   : "iron_block";
+                m.visible = true;
+                addBox(m, 1, 0, 1, 15, 1, 15, sprite(tex));
             } else if (name == "end_rod") {
                 // A 2x15 rod on a 4x1 base, built pointing up, then turned to its facing.
                 const std::string_view f = registry.value(state, "facing").value_or("up");
