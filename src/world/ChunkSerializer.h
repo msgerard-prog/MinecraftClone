@@ -18,6 +18,7 @@ struct ChunkSnapshot {
     ChunkPos pos;
     std::array<std::shared_ptr<const Section>, kSectionsPerChunk> sections;
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light; // may be null
+    std::shared_ptr<const ChunkBiomes> biomes;
     int64_t gameTime = 0; // written as LastUpdate
 
     static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);
@@ -27,7 +28,8 @@ struct ChunkSnapshot {
 // "minecraft:full", sections [ {Y, block_states {palette, data}, biomes, SkyLight,
 // BlockLight} ]. Block states are written with a local palette of
 // "minecraft:id" + Properties (vanilla packing: 64 / bits entries per long, at
-// least 4 bits). Biomes are always plains until biomes exist (M8).
+// least 4 bits). Biomes: a string palette per section with 64 entries packed at
+// ceil(log2(palette size)) bits (no data for a single biome).
 nbt::Compound chunkToNbt(const ChunkSnapshot& chunk);
 
 // Fills `chunk` (already at the right position) from NBT. Unknown blocks become air

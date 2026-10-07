@@ -1,4 +1,5 @@
 #include "rendering/BlockModels.h"
+#include "world/Biome.h"
 
 #include <algorithm>
 
@@ -231,6 +232,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 for (auto& f : v.faces)
                     f.tint = Tint::Foliage;
                 m = single(v); // all faces drawn (fancy leaves): no cullSame
+                if (name == "birch_leaves") m.fixedTintSlot = world::kBirchFoliageSlot;
+                if (name == "spruce_leaves") m.fixedTintSlot = world::kSpruceFoliageSlot;
             } else if (ends("sandstone")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());

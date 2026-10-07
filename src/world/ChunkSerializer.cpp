@@ -12,6 +12,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     ChunkSnapshot s;
     s.pos = chunk.pos();
     s.gameTime = gameTime;
+    s.biomes = chunk.biomes();
     for (int i = 0; i < kSectionsPerChunk; ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
@@ -118,10 +119,35 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
             blockStates.put("data", std::move(data));
         }
         sec.put("block_states", std::move(blockStates));
-        nbt::Compound biomes;
-        biomes.put("palette",
-                   nbt::listOf(nbt::TagType::String, {nbt::Tag(std::string("minecraft:plains"))}));
-        sec.put("biomes", std::move(biomes));
+        {
+            const ChunkBiomes& cb = chunk.biomes ? *chunk.biomes : *Chunk::defaultBiomes();
+            std::vector<Biome> bpal;
+            uint8_t indexOf[256] = {};
+            for (int i = 0; i < ChunkBiomes::kPerSection; ++i) {
+                const Biome b = cb.cells[size_t(s * ChunkBiomes::kPerSection + i)];
+                if (std::find(bpal.begin(), bpal.end(), b) == bpal.end()) {
+                    indexOf[static_cast<int>(b)] = static_cast<uint8_t>(bpal.size());
+                    bpal.push_back(b);
+                }
+            }
+            std::vector<nbt::Tag> names;
+            for (Biome b : bpal)
+                names.emplace_back(std::string(biomeInfo(b).id));
+            nbt::Compound biomes;
+            biomes.put("palette", nbt::listOf(nbt::TagType::String, std::move(names)));
+            if (bpal.size() > 1) {
+                const int bits = int(std::bit_width(bpal.size() - 1));
+                const int perLong = 64 / bits;
+                std::vector<int64_t> data((ChunkBiomes::kPerSection + perLong - 1) / perLong, 0);
+                for (int i = 0; i < ChunkBiomes::kPerSection; ++i) {
+                    const uint64_t v =
+                        indexOf[static_cast<int>(cb.cells[size_t(s * ChunkBiomes::kPerSection + i)])];
+                    data[size_t(i / perLong)] |= static_cast<int64_t>(v << ((i % perLong) * bits));
+                }
+                biomes.put("data", std::move(data));
+            }
+            sec.put("biomes", std::move(biomes));
+        }
         if (const auto& l = chunk.light[size_t(s)]) {
             // SkyLight is always written (an omitted one means "same as the section
             // above"); BlockLight is omitted when no light reaches the section.
@@ -145,6 +171,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
     std::vector<BlockStateId> palette;
     for (int s = 0; s < kSectionsPerChunk; ++s)
         chunk.mutableSection(s).fill(0);
+    auto biomes = std::make_shared<ChunkBiomes>(*Chunk::defaultBiomes());
     for (const nbt::Tag& t : sections->items) {
         const nbt::Compound* sec = t.get<nbt::Compound>();
         if (!sec) continue;
@@ -152,6 +179,32 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         if (!y) continue;
         const int index = static_cast<int>(*y) - (kMinY >> 4);
         if (index < 0 || index >= kSectionsPerChunk) continue; // outside our height
+        // Biomes (unknown names become plains).
+        if (const nbt::Compound* bio = sec->compound("biomes")) {
+            const nbt::List* bpal = bio->list("palette");
+            std::vector<Biome> ids;
+            if (bpal)
+                for (const nbt::Tag& name : bpal->items) {
+                    const std::string* n = name.get<std::string>();
+                    ids.push_back(n ? findBiome(*n).value_or(Biome::Plains) : Biome::Plains);
+                }
+            const std::vector<int64_t>* bdata = bio->longArray("data");
+            if (ids.size() == 1) {
+                for (int i = 0; i < ChunkBiomes::kPerSection; ++i)
+                    biomes->cells[size_t(index * ChunkBiomes::kPerSection + i)] = ids[0];
+            } else if (ids.size() > 1 && bdata) {
+                const int bits = int(std::bit_width(ids.size() - 1));
+                const int perLong = 64 / bits;
+                const uint64_t mask = (uint64_t{1} << bits) - 1;
+                if (bdata->size() >= size_t((ChunkBiomes::kPerSection + perLong - 1) / perLong))
+                    for (int i = 0; i < ChunkBiomes::kPerSection; ++i) {
+                        const uint64_t v =
+                            (static_cast<uint64_t>((*bdata)[size_t(i / perLong)]) >> ((i % perLong) * bits)) & mask;
+                        biomes->cells[size_t(index * ChunkBiomes::kPerSection + i)] =
+                            v < ids.size() ? ids[v] : Biome::Plains;
+                    }
+            }
+        }
         const nbt::Compound* bs = sec->compound("block_states");
         const nbt::List* pal = bs ? bs->list("palette") : nullptr;
         if (!pal || pal->items.empty()) continue;
@@ -195,6 +248,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         }
         chunk.mutableSection(index).assign(states.data());
     }
+    chunk.setBiomes(std::move(biomes));
     return true;
 }
 

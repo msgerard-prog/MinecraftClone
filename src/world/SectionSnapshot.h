@@ -38,6 +38,7 @@ struct SectionRefs {
     SectionPos pos;
     std::array<std::shared_ptr<const Section>, 27> blocks;
     std::array<std::shared_ptr<const SectionLight>, 27> light;
+    std::shared_ptr<const ChunkBiomes> biomes; // the centre chunk's
 };
 
 // Main thread. False if any of the 9 chunks around is not loaded.

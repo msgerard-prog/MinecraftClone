@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rendering/BlockModels.h"
+#include "world/Biome.h"
 #include "rendering/PackedVertex.h"
 #include "world/BlockRegistry.h"
 #include "world/Direction.h"
@@ -37,7 +38,8 @@ struct SectionMesh {
 // `origin` (block coordinates) picks per-position model variants. GL-free.
 void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const uint8_t* blockLight,
                  const glm::ivec3& origin, const world::BlockRegistry& registry,
-                 const BlockModels& models, SectionMesh& out);
+                 const BlockModels& models, SectionMesh& out,
+                 const world::Biome* biomes = nullptr); // 64 cells of the section; null = plains
 
 // Same with full sky light everywhere (tests, unlit previews).
 void meshSection(const world::BlockStateId* blocks, const glm::ivec3& origin,

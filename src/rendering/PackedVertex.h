@@ -11,8 +11,9 @@ namespace mc::gfx {
 //       sprite = atlas grid index; u, v = texel coordinates 0..16 inside the sprite
 //       (v 0 = top row); tint 0 none / 1 grass / 2 water / 3 foliage; fluidTop = lower this vertex
 //       by 1/9 (source fluid surface 8/9); ao = occluding neighbours 0..3
-//   w2: sky:6 | block:6                   light = sum of 4 smooth-lighting samples
-//                                         (0..60), i.e. average x 4
+//   w2: sky:6 | block:6 | biome:8         light = sum of 4 smooth-lighting samples
+//                                         (0..60), i.e. average x 4; biome = tint
+//                                         palette slot (world::Biome, or a fixed slot)
 struct PackedVertex {
     uint32_t w0 = 0;
     uint32_t w1 = 0;
@@ -32,13 +33,14 @@ struct VertexAttribs {
     uint32_t ao = 0;     // 0..3
     uint32_t sky4 = 60;  // 0..60 (sum of 4 samples)
     uint32_t block4 = 0; // 0..60
+    uint32_t biome = 0;  // 0..255
 };
 
 constexpr PackedVertex packVertex(const VertexAttribs& a) {
     return {a.x16 | (a.y16 << 9) | (a.z16 << 18) | (a.face << 27),
             a.sprite | (a.u << 12) | (a.v << 17) | (static_cast<uint32_t>(a.tint) << 22) |
                 (a.fluidTop ? 1u << 24 : 0u) | (a.ao << 25),
-            a.sky4 | (a.block4 << 6)};
+            a.sky4 | (a.block4 << 6) | (a.biome << 12)};
 }
 
 constexpr VertexAttribs unpackVertex(PackedVertex p) {
@@ -55,6 +57,7 @@ constexpr VertexAttribs unpackVertex(PackedVertex p) {
     a.ao = (p.w1 >> 25) & 3u;
     a.sky4 = p.w2 & 63u;
     a.block4 = (p.w2 >> 6) & 63u;
+    a.biome = (p.w2 >> 12) & 255u;
     return a;
 }
 

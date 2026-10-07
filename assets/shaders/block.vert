@@ -7,9 +7,11 @@ layout(location = 0) in uvec3 aPacked;
 
 layout(location = 0) uniform mat4 uViewProj;   // camera at the origin
 layout(location = 1) uniform int uAtlasColumns;
-layout(location = 2) uniform vec3 uGrassColor;  // biome tints (plains / default until M8)
-layout(location = 3) uniform vec3 uWaterColor;
-layout(location = 8) uniform vec3 uFoliageColor;
+// Tint palette per slot (world::Biome, plus fixed birch/spruce foliage slots):
+// [slot * 3 + 0] grass, + 1 foliage, + 2 water (rgb).
+layout(std430, binding = 1) readonly buffer TintPalette {
+    vec4 tints[];
+};
 layout(location = 7) uniform float uSkyDarken;  // 0 (day) .. 11 (night): sky light lost
 
 layout(std430, binding = 0) readonly buffer SectionOffsets { vec4 offsets[]; };
@@ -61,9 +63,10 @@ void main() {
     const vec3 blockPart = brightness(blockLight) * vec3(1.0, 0.93, 0.82);
     const vec3 light = min(skyPart + blockPart, vec3(1.0)) * kAo[ao];
 
-    const vec3 tintColor = tint == 1u ? uGrassColor
-                         : tint == 2u ? uWaterColor
-                         : tint == 3u ? uFoliageColor
+    const uint biome = (w2 >> 12) & 255u;
+    const vec3 tintColor = tint == 1u ? tints[biome * 3u].rgb
+                         : tint == 2u ? tints[biome * 3u + 2u].rgb
+                         : tint == 3u ? tints[biome * 3u + 1u].rgb
                                       : vec3(1.0);
     vColor = tintColor * kShade[face] * light;
 }

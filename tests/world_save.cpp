@@ -403,3 +403,24 @@ TEST_CASE("session lock: a second holder is refused until the first lets go") {
     mc::FileLock c;
     CHECK(c.acquire(dir.path / "session.lock"));
 }
+
+TEST_CASE("chunk NBT: biomes round-trip per 4x4x4 cell with a string palette") {
+    Chunk c({0, 0});
+    auto b = std::make_shared<ChunkBiomes>();
+    b->cells[size_t(ChunkBiomes::index(4, 1, 2, 3))] = Biome::Desert;
+    b->cells[size_t(ChunkBiomes::index(4, 0, 0, 0))] = Biome::Taiga;
+    b->cells[size_t(ChunkBiomes::index(23, 3, 3, 3))] = Biome::FrozenPeaks;
+    c.setBiomes(b);
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    const auto* sec4 = nbt.list("sections")->items[4].get<mc::nbt::Compound>();
+    const auto& pal = sec4->compound("biomes")->list("palette")->items;
+    REQUIRE(pal.size() == 3); // taiga (cell 0), plains, desert - first-appearance order
+    CHECK(*pal[0].get<std::string>() == "minecraft:taiga");
+    CHECK(sec4->compound("biomes")->longArray("data")->size() == 2); // 2 bits: 32 per long
+    const auto* sec0 = nbt.list("sections")->items[0].get<mc::nbt::Compound>();
+    CHECK(sec0->compound("biomes")->longArray("data") == nullptr); // one biome: no data
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(nbt, d));
+    CHECK(d.biomes()->cells == b->cells);
+    CHECK(d.biomes()->at(5, 9, 14) == Biome::Desert); // section 4 (y 0..15), cell (1, 2, 3)
+}

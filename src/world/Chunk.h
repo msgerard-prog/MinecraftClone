@@ -1,5 +1,6 @@
 #pragma once
 
+#include "world/Biome.h"
 #include "world/Coords.h"
 #include "world/Light.h"
 #include "world/Section.h"
@@ -49,6 +50,7 @@ public:
         m_pos = pos;
         m_lit = false;
         m_dirty = false;
+        m_biomes = defaultBiomes();
         lightJob = {};
         for (auto& l : m_light)
             l.reset();
@@ -86,6 +88,17 @@ public:
         m_light = std::move(light);
         m_lit = true;
     }
+    // Biomes (4x4x4 cells), immutable and shared; plains until a generator sets them.
+    const std::shared_ptr<const ChunkBiomes>& biomes() const { return m_biomes; }
+    void setBiomes(std::shared_ptr<const ChunkBiomes> b) {
+        m_biomes = std::move(b);
+        m_dirty = true;
+    }
+    static const std::shared_ptr<const ChunkBiomes>& defaultBiomes() {
+        static const auto plains = std::make_shared<const ChunkBiomes>();
+        return plains;
+    }
+
     // Changed since it was generated / loaded / last saved (needs saving).
     bool dirty() const { return m_dirty; }
     void clearDirty() { m_dirty = false; }
@@ -106,6 +119,7 @@ private:
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> m_light;
     bool m_lit = false;
     bool m_dirty = false;
+    std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();
 };
 
 } // namespace mc::world

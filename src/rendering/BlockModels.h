@@ -54,6 +54,8 @@ struct BakedModel {
     bool cross = false;
     uint16_t crossSprite = 0;
     Tint crossTint = Tint::None;
+    // Tint palette slot overriding the biome (birch/spruce leaves); 0 = biome.
+    uint8_t fixedTintSlot = 0;
 };
 
 // Per-state models, resolved once at startup (vanilla "model baking").

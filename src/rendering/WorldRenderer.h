@@ -103,6 +103,7 @@ private:
     glm::vec3 m_skyColor{0.0f};     // clear and fog colour
     SkyState m_skyState;
     SkyRenderer m_sky;
+    uint32_t m_tintPalette = 0; // SSBO binding 1: biome tint colours
     static constexpr int kQueryRing = 4;
     uint32_t m_queries[kQueryRing] = {};
     bool m_queryPending[kQueryRing] = {};

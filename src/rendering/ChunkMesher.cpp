@@ -92,7 +92,7 @@ void emitReversed(std::vector<PackedVertex>& dst, VertexAttribs v[4]) {
 
 void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const uint8_t* bl,
                  const glm::ivec3& origin, const world::BlockRegistry& registry,
-                 const BlockModels& models, SectionMesh& out) {
+                 const BlockModels& models, SectionMesh& out, const world::Biome* biomes) {
     out.clear();
     const int up = kNeighbour[static_cast<int>(Direction::Up)];
     for (int y = 0; y < 16; ++y) {
@@ -101,6 +101,12 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                 const int i = paddedIndex(x, y, z);
                 const world::BlockStateId state = blocks[i];
                 const BakedModel& model = models[state];
+                // Tint palette slot: the biome of this block's 4x4x4 cell (no blending), or the
+                // model's fixed slot (birch/spruce leaves).
+                const uint32_t biome =
+                    model.fixedTintSlot ? model.fixedTintSlot
+                    : biomes ? static_cast<uint32_t>(biomes[((y >> 2) * 4 + (z >> 2)) * 4 + (x >> 2)])
+                             : 0u;
                 if (!model.visible) continue;
                 std::vector<PackedVertex>& dst = model.translucent ? out.translucent : out.opaque;
                 const world::BlockId block = registry.blockOf(state);
@@ -124,6 +130,7 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                             v[c].tint = model.crossTint;
                             v[c].sky4 = sky[i] * 4u;
                             v[c].block4 = bl[i] * 4u;
+                            v[c].biome = biome;
                         }
                         emitQuad(dst, v, false);
                         emitReversed(dst, v);
@@ -149,6 +156,7 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                                 v[c].v = kCornerV[c] ? face.uv[3] : face.uv[1];
                                 v[c].sky4 = sky[i] * 4u;
                                 v[c].block4 = bl[i] * 4u;
+                                v[c].biome = biome;
                             }
                             emitQuad(dst, v, false);
                         }
@@ -186,6 +194,7 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                         v[c].v = uint32_t(kCornerV[uvc]);
                         v[c].tint = face.tint;
                         v[c].fluidTop = lowerTop && k.y == 1;
+                        v[c].biome = biome;
                         if (model.fluid) {
                             // Fluids: flat light, the brighter of the fluid's own cell and
                             // the one in front (a lowered top under a solid block faces an

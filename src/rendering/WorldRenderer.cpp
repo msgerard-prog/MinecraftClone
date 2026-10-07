@@ -4,6 +4,7 @@
 #include "core/Window.h"
 #include "rendering/Fog.h"
 #include "rendering/ResourcePack.h"
+#include "world/Biome.h"
 #include "world/Blocks.h"
 #include "world/DayTime.h"
 
@@ -19,12 +20,6 @@ namespace {
 
 // Vanilla's daytime sky colour at plains biome (#78A7FF), until biomes exist (M8).
 constexpr glm::vec3 kPlainsSky(0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f);
-// Vanilla plains grass colour (#91BD59), until biomes exist (M8).
-constexpr glm::vec3 kPlainsGrass(0x91 / 255.0f, 0xBD / 255.0f, 0x59 / 255.0f);
-// Vanilla plains foliage colour (#77AB2F), until biomes exist (M8).
-constexpr glm::vec3 kPlainsFoliage(0x77 / 255.0f, 0xAB / 255.0f, 0x2F / 255.0f);
-// Vanilla's default water colour (#3F76E4), until biomes exist (M8).
-constexpr glm::vec3 kWater(0x3F / 255.0f, 0x76 / 255.0f, 0xE4 / 255.0f);
 
 constexpr int kMinSectionY = world::kMinY >> 4; // -4
 constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
@@ -34,6 +29,7 @@ constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
 WorldRenderer::~WorldRenderer() {
     m_workers.reset(); // join mesh threads before the models they read go away
     if (m_queries[0]) glDeleteQueries(kQueryRing, m_queries);
+    if (m_tintPalette) glDeleteBuffers(1, &m_tintPalette);
 }
 
 bool WorldRenderer::init(const std::string& resourcePacksDir) {
@@ -47,6 +43,26 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;
+    // Tint palette (shader binding 1): grass, foliage, water per biome slot, plus the
+    // fixed birch/spruce foliage slots (wiki: Leaves).
+    {
+        auto rgb = [](uint32_t c) {
+            return glm::vec4(((c >> 16) & 255) / 255.0f, ((c >> 8) & 255) / 255.0f,
+                             (c & 255) / 255.0f, 1.0f);
+        };
+        std::vector<glm::vec4> palette(256 * 3, glm::vec4(1.0f));
+        for (int b = 0; b < static_cast<int>(world::Biome::Count); ++b) {
+            const auto& info = world::biomeInfo(static_cast<world::Biome>(b));
+            palette[size_t(b) * 3 + 0] = rgb(info.grass);
+            palette[size_t(b) * 3 + 1] = rgb(info.foliage);
+            palette[size_t(b) * 3 + 2] = rgb(info.water);
+        }
+        palette[size_t(world::kBirchFoliageSlot) * 3 + 1] = rgb(0x80A755);
+        palette[size_t(world::kSpruceFoliageSlot) * 3 + 1] = rgb(0x619961);
+        glCreateBuffers(1, &m_tintPalette);
+        glNamedBufferStorage(m_tintPalette, GLsizeiptr(palette.size() * sizeof(glm::vec4)),
+                             palette.data(), 0);
+    }
     setDayTime(6000, 0.0f); // noon until the game says otherwise
     glCreateQueries(GL_TIME_ELAPSED, kQueryRing, m_queries);
     // Half the cores: leaves room for the main thread and the GL driver's own thread.
@@ -274,9 +290,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     // Fixed locations/bindings: see docs/architecture.md › Rendering.
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
     glUniform1i(1, m_atlas.columns());
-    glUniform3fv(2, 1, glm::value_ptr(kPlainsGrass));
-    glUniform3fv(3, 1, glm::value_ptr(kWater));
-    glUniform3fv(8, 1, glm::value_ptr(kPlainsFoliage));
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_tintPalette); // biome tints
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
     const FogRange fog = terrainFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);

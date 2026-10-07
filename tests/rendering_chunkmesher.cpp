@@ -5,6 +5,8 @@
 #include "world/FlatGenerator.h"
 #include "world/SectionSnapshot.h"
 
+#include <array>
+
 #include <doctest/doctest.h>
 
 #include <optional>
@@ -412,4 +414,30 @@ TEST_CASE("glass hides faces against glass but not against air or stone") {
     out = {};
     mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
     CHECK(out.opaque.size() == (9 + 6) * 4); // glass top under stone hidden (opaque)
+}
+
+TEST_CASE("vertices carry the biome of their 4x4x4 cell; birch leaves use a fixed slot") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 1, 1}, stone());
+    w.setBlock({9, 1, 1}, r.defaultState(blocks::BirchLeaves));
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    std::vector<uint8_t> sky(kPaddedVolume, 15), bl(kPaddedVolume, 0);
+    std::array<Biome, 64> biomes{};
+    biomes[0] = Biome::Desert; // cell (0,0,0) holds the stone
+    mc::gfx::BlockModels models = testModels();
+    models.at(r.defaultState(blocks::BirchLeaves)).fixedTintSlot = kBirchFoliageSlot;
+    mc::gfx::SectionMesh out;
+    mc::gfx::meshSection(padded.data(), sky.data(), bl.data(), glm::ivec3(0), r, models, out,
+                         biomes.data());
+    int desert = 0, birch = 0;
+    for (const auto& v : out.opaque) {
+        const auto a = unpackVertex(v);
+        desert += a.biome == uint32_t(Biome::Desert);
+        birch += a.biome == kBirchFoliageSlot;
+    }
+    CHECK(desert == 24);
+    CHECK(birch == 24);
 }

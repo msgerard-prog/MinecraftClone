@@ -43,10 +43,14 @@ void MeshWorkers::run() {
     while (auto job = m_pending.popWait()) {
         MeshJob& j = **job;
         world::buildPadded(j.refs, j.padded.data(), j.sky.data(), j.blockLight.data());
+        const auto biomes = std::move(j.refs.biomes);
         j.refs = {}; // release the shared sections early
         const world::SectionPos& p = j.pos;
+        const int section = p.y - (world::kMinY >> 4);
         meshSection(j.padded.data(), j.sky.data(), j.blockLight.data(),
-                    glm::ivec3(p.x * 16, p.y * 16, p.z * 16), m_registry, m_models, j.mesh);
+                    glm::ivec3(p.x * 16, p.y * 16, p.z * 16), m_registry, m_models, j.mesh,
+                    biomes ? &biomes->cells[size_t(section * world::ChunkBiomes::kPerSection)]
+                           : nullptr);
         m_done.push(std::move(*job));
     }
 }

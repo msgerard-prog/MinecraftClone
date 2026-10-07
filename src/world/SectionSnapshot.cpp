@@ -49,6 +49,7 @@ void snapshotSection(const World& world, SectionPos pos, BlockStateId* out) {
 
 bool captureSection(const World& world, SectionPos pos, SectionRefs& out) {
     out.pos = pos;
+    if (const Chunk* centre = world.chunk({pos.x, pos.z})) out.biomes = centre->biomes();
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dx = -1; dx <= 1; ++dx) {
             const Chunk* c = world.chunk({pos.x + dx, pos.z + dz});
