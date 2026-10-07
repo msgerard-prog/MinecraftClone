@@ -42,6 +42,7 @@ struct DebugInfo {
     int renderDistance = 0;
     int sectionsDrawn = 0, sectionsTotal = 0;
     int pendingChunks = 0, pendingLight = 0, pendingMeshes = 0;
+    int hostileMobs = 0;
     int width = 0, height = 0;
     double gpuMs = 0.0;
 };

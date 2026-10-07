@@ -2,6 +2,7 @@
 
 #include "world/Blocks.h"
 #include "world/DayTime.h"
+#include "gameplay/Mobs.h"
 
 #include <algorithm>
 #include <charconv>
@@ -194,6 +195,24 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, *ctx.survival ? "Set own game mode to Survival Mode"
                                     : "Set own game mode to Creative Mode"};
     }
+    if (a[0] == "summon") {
+        // /summon <zombie|cow> [x y z] (wiki: Commands/summon).
+        if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5)) return fail("Usage: /summon <entity> [x y z]");
+        std::string_view id = a[1];
+        if (id.starts_with("minecraft:")) id.remove_prefix(10);
+        std::optional<world::MobType> type;
+        for (int k = 0; k < static_cast<int>(world::MobType::Count); ++k)
+            if (world::mobInfo(static_cast<world::MobType>(k)).id.substr(10) == id) type = static_cast<world::MobType>(k);
+        if (!type) return fail(format("Unknown entity '%.*s'", int(id.size()), id.data()));
+        glm::dvec3 p = ctx.player.position();
+        if (a.size() == 5) {
+            const auto x = coordinate(a[2], p.x, true), y = coordinate(a[3], p.y, false), z = coordinate(a[4], p.z, true);
+            if (!x || !y || !z) return fail("Invalid position");
+            p = {*x, *y, *z};
+        }
+        if (!Mobs::add(*ctx.world, Mobs::make(*type, p, *ctx.rng))) return fail("That position is not loaded");
+        return {true, format("Summoned new %.*s", int(id.size()), id.data())};
+    }
     if (a[0] == "kill") {
         // /kill [@s] (wiki: Commands/kill): works in creative too.
         if (!ctx.vitals || (a.size() > 1 && !isSelf(a[1]))) return fail("Usage: /kill [@s]");
@@ -201,7 +220,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /teleport /time /tp"};
+    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /summon /teleport /time /tp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

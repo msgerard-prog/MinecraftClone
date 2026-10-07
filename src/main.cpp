@@ -20,6 +20,7 @@
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
 #include "gameplay/ItemEntities.h"
+#include "gameplay/Mobs.h"
 #include "gameplay/Vitals.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/GuiRenderer.h"
@@ -319,12 +320,13 @@ int main(int argc, char** argv) {
         vitals.setFoodTimer(level->foodTimer);
     }
     mc::ItemEntities droppedItems;
+    mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
     drops.reserve(16);
     bool dead = false;
     mc::gfx::EntityRenderer entities;
-    if (!entities.init(renderer.atlas(), renderer.models(), itemIcons)) return 1;
+    if (!entities.init(renderer.atlas(), renderer.models(), itemIcons, renderer.packs())) return 1;
     if (level && !opts->hasPos) { // resume where the player left
         player.setPosition({level->pos[0], level->pos[1], level->pos[2]});
         player.setRotation(level->yaw, level->pitch);
@@ -425,7 +427,7 @@ int main(int argc, char** argv) {
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals};
+            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals, &world, &gameRng};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -679,6 +681,22 @@ int main(int argc, char** argv) {
                 window.cursorCaptured() && window.takePresses(mc::Press::LeftMouse) > 0;
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
+            // Attacking a mob in front of the targeted block (wiki: Melee attack):
+            // the held item's attack damage (hand: 1), knockback away from us.
+            if (!dead && clicks.attackClick) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                const double reach = survival ? 3.0 : 5.0; // wiki: entity interaction range
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, reach);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    const auto& held = mc::world::itemRegistry().item(inventory.selectedStack().item);
+                    mc::Mobs::attack(m, inventory.selectedStack().empty() ? 1.0f : held.attackDamage, player.position());
+                    if (survival) vitals.exhaust(0.1f); // wiki: attacking
+                    clicks.attackClick = false;
+                    clicks.attack = false;
+                }
+            }
             // Act on the block the outline showed on the last frame (vanilla).
             if (dead) {
                 changedBlocks.clear();
@@ -699,6 +717,9 @@ int main(int argc, char** argv) {
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
+            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime, renderer.skyDarken(), gameRng,
+                                     droppedItems};
+            mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
@@ -788,6 +809,19 @@ int main(int argc, char** argv) {
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
         }
+        world.forEachTickingChunk([&](mc::world::Chunk& c) {
+            for (const auto& m : c.mobs()) {
+                const glm::dvec3 p = glm::mix(m.prevPos, m.pos, clock.alpha);
+                const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.5)), int(std::floor(p.z))};
+                int sky = 15, blk = 0;
+                if (const auto* lc = world.chunk(b.chunk()); lc && lc->lit()) {
+                    sky = lc->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+                    blk = lc->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+                }
+                const float yaw = m.prevYaw + (m.yaw - m.prevYaw) * float(clock.alpha);
+                entities.addMob(m, p, yaw, m.headYaw, lightTable[size_t(sky * 16 + blk)], camera.position);
+            }
+        });
         if (survival && interaction.breakingBlock())
             entities.setCrack(*interaction.breakingBlock(), static_cast<int>(interaction.breakProgress() * 10.0f));
         else
@@ -872,6 +906,7 @@ int main(int argc, char** argv) {
                 d.pendingChunks = loader ? loader->pending() : 0;
                 d.pendingLight = lighting.pending();
                 d.pendingMeshes = renderer.pendingMeshes();
+                d.hostileMobs = mobs.hostileCount();
                 d.width = fbWidth;
                 d.height = fbHeight;
                 d.gpuMs = renderer.averageGpuMs();

@@ -82,6 +82,7 @@ void DebugScreen::draw(gfx::GuiBatch& batch, const DebugInfo& d, int guiWidth) {
     line("%d fps  RD %d", d.fps, d.renderDistance);
     line("C: %d/%d sections  queued: chunks %d, light %d, meshes %d", d.sectionsDrawn,
          d.sectionsTotal, d.pendingChunks, d.pendingLight, d.pendingMeshes);
+    line("E: %d hostile mobs", d.hostileMobs);
     line("");
     line("XYZ: %.3f / %.5f / %.3f", d.feet.x, d.feet.y, d.feet.z);
     line("Block: %d %d %d", bx, by, bz);

@@ -3,6 +3,8 @@
 #include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
 #include "gameplay/Vitals.h"
+#include "world/Random.h"
+#include "world/World.h"
 
 #include <cstdint>
 #include <string>
@@ -19,6 +21,8 @@ struct CommandContext {
     uint64_t seed;
     bool* survival = nullptr; // game mode (null: /gamemode unavailable)
     Vitals* vitals = nullptr; // /kill
+    world::World* world = nullptr; // /summon
+    world::Xoroshiro* rng = nullptr;
 };
 
 struct CommandResult {
@@ -27,7 +31,7 @@ struct CommandResult {
 };
 
 // Runs one chat command (with or without the leading '/'), vanilla syntax
-// (wiki: Commands). Supported: /tp, /teleport, /time, /give, /gamemode, /kill, /seed, /help.
+// (wiki: Commands). Supported: /tp, /teleport, /time, /give, /gamemode, /kill, /summon, /seed, /help.
 // Selectors: only @s / @p (the player). Coordinates accept ~ (relative).
 CommandResult runCommand(std::string_view line, CommandContext& ctx);
 
