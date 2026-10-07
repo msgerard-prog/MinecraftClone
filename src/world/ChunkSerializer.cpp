@@ -8,9 +8,10 @@
 
 namespace mc::world {
 
-ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk) {
+ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     ChunkSnapshot s;
     s.pos = chunk.pos();
+    s.gameTime = gameTime;
     for (int i = 0; i < kSectionsPerChunk; ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
@@ -81,7 +82,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("zPos", chunk.pos.z);
     root.put("yPos", int32_t{kMinY >> 4});
     root.put("Status", std::string("minecraft:full"));
-    root.put("LastUpdate", int64_t{0});
+    root.put("LastUpdate", chunk.gameTime); // game tick of this save
     root.put("InhabitedTime", int64_t{0});
     bool lit = true;
     for (const auto& l : chunk.light)
@@ -122,8 +123,9 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
                    nbt::listOf(nbt::TagType::String, {nbt::Tag(std::string("minecraft:plains"))}));
         sec.put("biomes", std::move(biomes));
         if (const auto& l = chunk.light[size_t(s)]) {
-            // Vanilla omits all-zero layers.
-            if (!(l->sky.isUniform() && l->sky.uniformValue() == 0)) sec.put("SkyLight", nibbles(l->sky));
+            // SkyLight is always written (an omitted one means "same as the section
+            // above"); BlockLight is omitted when no light reaches the section.
+            sec.put("SkyLight", nibbles(l->sky));
             if (!(l->block.isUniform() && l->block.uniformValue() == 0))
                 sec.put("BlockLight", nibbles(l->block));
         }
@@ -161,6 +163,18 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
                 std::string text = paletteText(*entry);
                 if (text.starts_with("minecraft:")) text.erase(0, 10);
                 st = reg.parse(text);
+                if (!st) { // lenient: known block, unknown property or value
+                    const std::string* name = entry->string("Name");
+                    std::string_view id = name ? std::string_view(*name) : std::string_view();
+                    if (id.starts_with("minecraft:")) id.remove_prefix(10);
+                    if (const auto block = reg.findBlock(id)) {
+                        st = reg.defaultState(*block);
+                        if (const nbt::Compound* props = entry->compound("Properties"))
+                            for (const auto& p : props->entries)
+                                if (const std::string* v = p.value.get<std::string>())
+                                    st = reg.with(*st, p.name, *v).value_or(*st);
+                    }
+                }
             }
             if (!st && unknownBlocks) ++*unknownBlocks;
             palette.push_back(st.value_or(0));

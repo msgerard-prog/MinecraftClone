@@ -61,7 +61,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - `world::ChunkStorage` (1 IO thread, M7): the chunk loader's workers load saved
   chunks from region files before generating; dirty chunks are snapshotted (shared
   sections, no copy) and written by the IO thread on unload, autosave (6000 ticks)
-  and exit. level.dat is written by the main thread (small). See data-formats.md.
+  , pause (Esc) and exit. level.dat is written by the main thread: an accepted
+  exception to "no blocking IO on the main thread" (a few KB, every 5 minutes or on
+  pause). See data-formats.md.
 - `world::LightManager` (cores/4 threads, M5): lights a chunk once its 3x3
   neighbourhood is loaded (the loader keeps render distance + 2 rings for this).
   Jobs hold `shared_ptr`s to the neighbourhood's sections; sections are

@@ -17,6 +17,7 @@
 #include "world/LightManager.h"
 #include "world/ChunkStorage.h"
 #include "world/LevelData.h"
+#include "core/FileLock.h"
 #include "gameplay/Commands.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
@@ -181,7 +182,23 @@ int main(int argc, char** argv) {
     const std::filesystem::path worldDir =
         worldName.empty() ? std::filesystem::path() : std::filesystem::path(MC_SAVES_DIR) / worldName;
     std::optional<mc::world::LevelData> level;
-    if (!worldName.empty()) level = mc::world::LevelData::load(worldDir);
+    mc::FileLock sessionLock; // one game instance per world (vanilla session.lock)
+    if (!worldName.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(worldDir, ec);
+        if (!sessionLock.acquire(worldDir / "session.lock")) {
+            MC_LOG_ERROR("World \"%s\" is open in another instance", worldName.c_str());
+            return 1;
+        }
+        level = mc::world::LevelData::load(worldDir);
+        // Chunks without settings would be mixed with another seed's terrain.
+        if (!level && std::filesystem::exists(worldDir / "region", ec)) {
+            MC_LOG_ERROR("World \"%s\" has region files but no readable level.dat; not "
+                         "opening it (restore level.dat or level.dat_old)",
+                         worldName.c_str());
+            return 1;
+        }
+    }
     const bool flatWorld = level ? level->flat : opts->flat;
     const uint64_t seed = level ? level->seed : opts->seed;
     if (level) MC_LOG_INFO("Loading world \"%s\" (seed %lld)", worldName.c_str(), static_cast<long long>(seed));
@@ -196,10 +213,9 @@ int main(int argc, char** argv) {
     unloadedChunks.reserve(256);
     if (flatWorld) {
         buildTestWorld(world);
-        // Saved changes replace the generated chunks.
+        // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
-            if (storage) storage->load(c);
-            c.clearDirty();
+            if (!storage || storage->load(c)) c.clearDirty();
         });
         renderer.setRenderDistance(8);
         // The fixed world counts as "loaded" once, on the first frame (lighting, meshing).
@@ -252,13 +268,21 @@ int main(int argc, char** argv) {
         }
         hotbar.select(level->selectedSlot);
     }
+    // World spawn: fixed when the world is created (vanilla SpawnX/Y/Z).
+    int32_t worldSpawn[3] = {static_cast<int32_t>(std::floor(spawn.x)),
+                             static_cast<int32_t>(std::floor(spawn.y)),
+                             static_cast<int32_t>(std::floor(spawn.z))};
+    if (level)
+        for (int i = 0; i < 3; ++i)
+            worldSpawn[i] = level->spawn[i];
+    int64_t sessionTicks = 0;
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
     auto saveWorld = [&](bool wait) {
         if (!storage) return;
         int chunks = 0;
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!c.dirty()) return;
-            storage->save(mc::world::ChunkSnapshot::of(c));
+            storage->save(mc::world::ChunkSnapshot::of(c, gameTime));
             c.clearDirty();
             ++chunks;
         });
@@ -266,6 +290,8 @@ int main(int argc, char** argv) {
         l.name = worldName;
         l.seed = seed;
         l.flat = flatWorld;
+        for (int i = 0; i < 3; ++i)
+            l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
         l.gameTime = gameTime;
         const glm::dvec3 p = player.position();
@@ -282,6 +308,7 @@ int main(int argc, char** argv) {
         if (wait) storage->flush();
         MC_LOG_INFO("Saved world \"%s\" (%d changed chunks)", worldName.c_str(), chunks);
     };
+    if (storage && !level) saveWorld(false); // a new world gets its level.dat at once
     mc::BlockInteraction interaction;
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
@@ -392,8 +419,10 @@ int main(int argc, char** argv) {
                     attackArmed = false;
                     window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
                 }
-                if (window.takePresses(mc::Press::Escape) > 0 && window.cursorCaptured())
+                if (window.takePresses(mc::Press::Escape) > 0 && window.cursorCaptured()) {
                     window.setCursorCaptured(false);
+                    saveWorld(false); // vanilla saves when the game pauses
+                }
             }
         }
         // Key edges for the inventory's number keys: tracked every frame, so a key
@@ -450,7 +479,8 @@ int main(int argc, char** argv) {
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
-            if (gameTime % 6000 == 0) saveWorld(false); // vanilla autosave: every 5 minutes
+            // Vanilla autosave: every 6000 ticks (5 minutes) of play.
+            if (++sessionTicks % 6000 == 0) saveWorld(false);
         }
 
         int fbWidth = 0;

@@ -91,6 +91,7 @@ fine until a system works.
 | Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |
 | Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
 | Grass tint is always plains #91BD59 | No biomes yet | M8 |
+| Saves: no heightmaps, entities, block entities, scheduled ticks or POI in chunks; level.dat without GameRules/DataPacks/difficulty/dimensions; no pause-menu save (we save when Esc releases the mouse) | Those systems don't exist yet | With each system |
 | Esc releases the mouse instead of opening the pause menu; no F1 (hide HUD); no item name shown above the hotbar when switching | No menus or display names yet | Menus / display-name table |
 | Chat: ASCII input only (vanilla: Unicode via its fallback font); no Tab completion, scrolling, cursor movement or paste; history counts wrapped lines, not messages; commands' feedback wording is ours | Minimal chat | Chat polish |
 | Commands: /tp accepts `x y z yaw pitch` without a target, no `^` local coordinates, `facing`, entity or name targets; /give takes block states (`oak_log[axis=x]`), only blocks, and writes into the hotbar (first empty slot, else the selected one) without stacks; /help is one line | No entities, items or inventory yet | M9 / M10 |

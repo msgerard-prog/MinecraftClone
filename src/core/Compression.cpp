@@ -1,5 +1,6 @@
 #include "core/Compression.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -97,7 +98,7 @@ std::optional<std::vector<uint8_t>> gzipDecompress(std::span<const uint8_t> data
     int len = 0;
     char* p = stbi_zlib_decode_malloc_guesssize_headerflag(
         reinterpret_cast<const char*>(body.data()), static_cast<int>(body.size()),
-        static_cast<int>(isize + 16), &len, 0);
+        static_cast<int>(std::min<size_t>(isize, 64u << 20) + 16), &len, 0); // forged sizes
     if (!p) return std::nullopt;
     auto out = take(p, len);
     const uint32_t crc = data[data.size() - 8] | (data[data.size() - 7] << 8) |

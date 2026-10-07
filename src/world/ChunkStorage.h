@@ -34,14 +34,19 @@ public:
     int queued() const;
 
 private:
-    RegionFile* region(ChunkPos pos); // m_fileMutex held
+    RegionFile* region(ChunkPos pos, bool create); // m_fileMutex held
     void run();
 
     std::filesystem::path m_dir;
     mutable std::mutex m_mutex; // queue + pending
     std::condition_variable m_wake, m_idle;
     std::deque<ChunkPos> m_queue;
-    std::unordered_map<ChunkPos, ChunkSnapshot> m_pending; // latest snapshot per chunk
+    struct Pending {
+        ChunkSnapshot snapshot; // latest
+        bool queued = false;    // in m_queue (re-queued if saved again while writing)
+        bool failed = false;    // last write failed: kept in memory, retried on next save
+    };
+    std::unordered_map<ChunkPos, Pending> m_pending;
     bool m_writing = false;
     bool m_stop = false;
     std::mutex m_fileMutex; // region files

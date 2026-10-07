@@ -47,10 +47,13 @@ void ChunkLoader::run() {
         } else {
             chunk = std::make_unique<Chunk>(*pos);
         }
-        // Saved chunks load from disk; others are generated. Either way the chunk
-        // starts clean (only later edits need saving).
-        if (!m_storage || !m_storage->load(*chunk)) m_generator.generate(*chunk);
-        chunk->clearDirty();
+        // Saved chunks load from disk (clean); new ones are generated and stay dirty,
+        // so they are saved too: like vanilla, a world's terrain never changes after
+        // it was generated, even if the generator does. Without storage, nothing saves.
+        if (!m_storage || !m_storage->load(*chunk)) {
+            m_generator.generate(*chunk);
+            if (!m_storage) chunk->clearDirty();
+        }
         m_done.push(std::move(chunk));
     }
 }

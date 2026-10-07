@@ -61,11 +61,18 @@ Vanilla Java **Anvil** layout under `saves/<world>/` (git-ignored; `--world NAME
 default "New World" for interactive runs; `--no-save`):
 ```
 level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, LevelName,
-                           DayTime, Time, GameType 1, WorldGenSettings { seed },
-                           Player { Pos, Rotation, abilities { flying, ... },
-                           SelectedItemSlot, Inventory [ { Slot, id, count,
-                           MinecraftCloneState } ] }, MinecraftClone { generator } }
-level.dat_old              previous level.dat (replaced atomically via level.dat_new)
+                           DayTime, Time, LastPlayed, GameType 1, SpawnX/Y/Z,
+                           SpawnAngle, Version { Id, Name, Series, Snapshot },
+                           WorldGenSettings { seed, generate_features, bonus_chest },
+                           Player { Pos, Rotation, Dimension, abilities { flying,
+                           mayfly, instabuild, invulnerable, mayBuild, flySpeed,
+                           walkSpeed }, SelectedItemSlot, Inventory [ { Slot, id,
+                           count, components { "minecraft:block_state" } } ] },
+                           MinecraftClone { generator } }
+level.dat_old              backup copy of the previous level.dat (load falls back to it,
+                           then to level.dat_new); level.dat_new is written first and
+                           renamed over level.dat in one step
+session.lock               held exclusively while the world is open (one instance)
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```
@@ -74,9 +81,16 @@ Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` -4, `Status`
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
 per long, none if 1 entry) }, `biomes` { `palette` [plains] }, `SkyLight`, `BlockLight`
 (2048-byte nibble arrays, omitted when all 0) }]. Not written yet: heightmaps,
-entities, block entities, ticks, structures, POI.
-Rules: chunks save when they unload, every 6000 ticks (autosave) and on exit — only
-if changed (`Chunk::dirty`). Saving runs on an IO thread from shared section
+entities, block entities, ticks, structures, POI; `InhabitedTime` is 0; level.dat
+omits GameRules, DataPacks, difficulty and WorldGenSettings.dimensions, so vanilla
+may not open these worlds. Region compression types 4 (LZ4), 127 and external
+`.mcc` chunks are not readable (such chunks regenerate). NBT strings are written as
+plain UTF-8 (vanilla: modified UTF-8; differs only for NUL and 4-byte characters).
+Rules: like vanilla, every generated chunk is saved (so terrain never changes after
+generation, whatever the generator does later); chunks save when they unload, every
+6000 ticks of play (autosave), when the game pauses (Esc) and on exit — each only
+if changed since its last save (`Chunk::dirty`). A world with region files but no
+readable level.dat is refused (no silent re-creation with another seed). Saving runs on an IO thread from shared section
 snapshots. On load, unknown block ids become air (logged); light is recomputed.
 The seed, generator kind, time, player and hotbar come from level.dat.
 

@@ -18,16 +18,18 @@ public:
     static constexpr int kSector = 4096;
     static constexpr int kMaxSectors = 255; // larger chunks need .mcc files (unsupported)
 
-    // Opens or creates the file. Returns false on IO errors.
-    bool open(const std::filesystem::path& path);
+    // Opens the file; creates it if `create` (else a missing file is an error).
+    bool open(const std::filesystem::path& path, bool create = true);
 
     // Local chunk index: (z & 31) * 32 + (x & 31).
     static int index(int chunkX, int chunkZ) { return (chunkZ & 31) * 32 + (chunkX & 31); }
 
     // Decompressed chunk NBT, or nullopt if absent / unreadable.
     std::optional<std::vector<uint8_t>> read(int index);
-    // Compresses (zlib) and writes; reuses the old sectors when it fits, otherwise
-    // the first free run (or the end of the file). Returns false if too large.
+    // Compresses (zlib) and writes into a free run (first fit, else the end of the
+    // file) while the old copy stays intact; the header is updated only after the
+    // data is flushed, then the old sectors are freed (a crash mid-write keeps the old
+    // chunk). Returns false if too large or on IO errors.
     bool write(int index, std::span<const uint8_t> nbt, uint32_t timestamp);
     bool has(int index) const { return m_locations[size_t(index)] != 0; }
 

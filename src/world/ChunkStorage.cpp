@@ -19,15 +19,16 @@ ChunkStorage::~ChunkStorage() {
     m_thread.join();
 }
 
-RegionFile* ChunkStorage::region(ChunkPos pos) {
+RegionFile* ChunkStorage::region(ChunkPos pos, bool create) {
     const std::pair key{pos.x >> 5, pos.z >> 5};
     auto it = m_regions.find(key);
     if (it != m_regions.end()) return it->second.get();
     auto file = std::make_unique<RegionFile>();
     const auto path = m_dir / "region" /
                       ("r." + std::to_string(key.first) + "." + std::to_string(key.second) + ".mca");
-    if (!file->open(path)) {
-        MC_LOG_ERROR("Can't open region file %s", path.string().c_str());
+    if (!file->open(path, create)) {
+        // Loads never create files: a missing region just means "never saved".
+        if (create) MC_LOG_ERROR("Can't open region file %s", path.string().c_str());
         return nullptr;
     }
     if (m_regions.size() >= 64) m_regions.erase(m_regions.begin()); // bound open handles
@@ -41,7 +42,7 @@ bool ChunkStorage::load(Chunk& chunk) {
         if (auto it = m_pending.find(pos); it != m_pending.end()) {
             // Not written yet: copy the queued snapshot's sections.
             for (int s = 0; s < kSectionsPerChunk; ++s)
-                chunk.mutableSection(s) = *it->second.sections[size_t(s)];
+                chunk.mutableSection(s) = *it->second.snapshot.sections[size_t(s)];
             chunk.clearDirty();
             return true;
         }
@@ -49,7 +50,7 @@ bool ChunkStorage::load(Chunk& chunk) {
     std::optional<std::vector<uint8_t>> bytes;
     {
         std::lock_guard lock(m_fileMutex);
-        RegionFile* r = region(pos);
+        RegionFile* r = region(pos, /*create=*/false);
         if (!r || !r->has(RegionFile::index(pos.x, pos.z))) return false;
         bytes = r->read(RegionFile::index(pos.x, pos.z));
     }
@@ -57,7 +58,12 @@ bool ChunkStorage::load(Chunk& chunk) {
         MC_LOG_WARN("Chunk %d,%d is unreadable; regenerating it", pos.x, pos.z);
         return false;
     }
-    const auto nbt = nbt::read(*bytes);
+    std::optional<nbt::Compound> nbt;
+    try { // malformed data must not take the worker (and the game) down
+        nbt = nbt::read(*bytes);
+    } catch (const std::bad_alloc&) {
+        nbt.reset();
+    }
     int unknown = 0;
     if (!nbt || !chunkFromNbt(*nbt, chunk, &unknown)) {
         MC_LOG_WARN("Chunk %d,%d has invalid data; regenerating it", pos.x, pos.z);
@@ -72,14 +78,26 @@ void ChunkStorage::save(ChunkSnapshot snapshot) {
     {
         std::lock_guard lock(m_mutex);
         const ChunkPos pos = snapshot.pos;
-        if (m_pending.insert_or_assign(pos, std::move(snapshot)).second) m_queue.push_back(pos);
+        Pending& p = m_pending[pos];
+        p.snapshot = std::move(snapshot);
+        p.failed = false;
+        // Queue it unless it is already waiting. If the IO thread is writing an older
+        // snapshot right now, this queues a second write (regression: that newer
+        // snapshot used to be dropped).
+        if (!p.queued) {
+            p.queued = true;
+            m_queue.push_back(pos);
+        }
     }
     m_wake.notify_one();
 }
 
 int ChunkStorage::queued() const {
     std::lock_guard lock(m_mutex);
-    return static_cast<int>(m_pending.size());
+    int n = 0;
+    for (const auto& [pos, p] : m_pending)
+        n += p.failed ? 0 : 1;
+    return n;
 }
 
 void ChunkStorage::flush() {
@@ -97,7 +115,9 @@ void ChunkStorage::run() {
         }
         const ChunkPos pos = m_queue.front();
         m_queue.pop_front();
-        ChunkSnapshot snap = m_pending.at(pos); // copy (shared pointers): stays pending until written
+        Pending& pending = m_pending.at(pos);
+        pending.queued = false;
+        ChunkSnapshot snap = pending.snapshot; // copy (shared pointers): stays pending until written
         m_writing = true;
         lock.unlock();
 
@@ -105,20 +125,21 @@ void ChunkStorage::run() {
         const auto now = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::seconds>(
                                                    std::chrono::system_clock::now().time_since_epoch())
                                                    .count());
+        bool ok = false;
         {
             std::lock_guard files(m_fileMutex);
-            RegionFile* r = region(pos);
-            if (!r || !r->write(RegionFile::index(pos.x, pos.z), bytes, now))
-                MC_LOG_ERROR("Failed to save chunk %d,%d", pos.x, pos.z);
+            RegionFile* r = region(pos, /*create=*/true);
+            ok = r && r->write(RegionFile::index(pos.x, pos.z), bytes, now);
+            if (!ok) MC_LOG_ERROR("Failed to save chunk %d,%d (kept in memory)", pos.x, pos.z);
         }
 
         lock.lock();
-        // Drop the pending entry unless a newer snapshot replaced it meanwhile
-        // (then it was queued again).
-        if (auto it = m_pending.find(pos); it != m_pending.end() &&
-                                           it->second.sections == snap.sections &&
-                                           std::find(m_queue.begin(), m_queue.end(), pos) == m_queue.end())
-            m_pending.erase(it);
+        // Done with it unless a newer snapshot arrived meanwhile (then it is queued
+        // again) or the write failed (then reloads keep using the snapshot).
+        if (auto it = m_pending.find(pos); it != m_pending.end() && !it->second.queued) {
+            if (ok) m_pending.erase(it);
+            else it->second.failed = true;
+        }
         m_writing = false;
         if (m_queue.empty()) m_idle.notify_all();
     }

@@ -19,14 +19,15 @@ void putBe32(uint8_t* p, uint32_t v) {
 
 } // namespace
 
-bool RegionFile::open(const std::filesystem::path& path) {
+bool RegionFile::open(const std::filesystem::path& path, bool create) {
     std::error_code ec;
-    std::filesystem::create_directories(path.parent_path(), ec);
-    if (!std::filesystem::exists(path)) {
-        std::ofstream create(path, std::ios::binary);
-        const std::vector<char> header(2 * kSector, 0);
-        create.write(header.data(), std::streamsize(header.size()));
+    if (!std::filesystem::exists(path, ec)) {
         if (!create) return false;
+        std::filesystem::create_directories(path.parent_path(), ec);
+        std::ofstream file(path, std::ios::binary);
+        const std::vector<char> header(2 * kSector, 0);
+        file.write(header.data(), std::streamsize(header.size()));
+        if (!file) return false;
     }
     m_file.open(path, std::ios::binary | std::ios::in | std::ios::out);
     if (!m_file) return false;
@@ -48,8 +49,20 @@ bool RegionFile::open(const std::filesystem::path& path) {
         m_locations[size_t(i)] = readBe32(&header[size_t(i) * 4]);
         m_timestamps[size_t(i)] = readBe32(&header[kSector + size_t(i) * 4]);
         const uint32_t offset = m_locations[size_t(i)] >> 8, count = m_locations[size_t(i)] & 0xFF;
-        if (offset < 2 || offset + count > m_used.size()) {
+        if (m_locations[size_t(i)] == 0) continue;
+        if (offset < 2 || count == 0 || offset + count > m_used.size()) {
+            MC_LOG_WARN("Region %s: chunk %d has an invalid location; ignored",
+                        path.filename().string().c_str(), i);
             m_locations[size_t(i)] = 0; // points outside the file: ignore
+            continue;
+        }
+        bool overlaps = false;
+        for (uint32_t s = offset; s < offset + count; ++s)
+            overlaps = overlaps || m_used[s];
+        if (overlaps) { // shares sectors with another chunk: drop it, keep the first
+            MC_LOG_WARN("Region %s: chunk %d overlaps another; ignored",
+                        path.filename().string().c_str(), i);
+            m_locations[size_t(i)] = 0;
             continue;
         }
         for (uint32_t s = offset; s < offset + count; ++s)
@@ -62,6 +75,7 @@ std::optional<std::vector<uint8_t>> RegionFile::read(int index) {
     const uint32_t loc = m_locations[size_t(index)];
     if (loc == 0) return std::nullopt;
     const uint32_t offset = loc >> 8, count = loc & 0xFF;
+    if (count == 0) return std::nullopt;
     m_file.clear();
     m_file.seekg(std::streamoff(offset) * kSector);
     uint8_t head[5];
@@ -101,10 +115,9 @@ bool RegionFile::write(int index, std::span<const uint8_t> nbt, uint32_t timesta
         MC_LOG_WARN("Region: chunk %d is too large (%zu bytes)", index, total);
         return false;
     }
-    // Free the old allocation, then first-fit.
+    // First fit while the old copy is still marked used (it stays valid until the
+    // header points elsewhere).
     const uint32_t old = m_locations[size_t(index)];
-    for (uint32_t s = old >> 8; s < (old >> 8) + (old & 0xFF); ++s)
-        m_used[s] = false;
     uint32_t start = 2, run = 0;
     for (uint32_t s = 2; s < m_used.size() && run < needed; ++s) {
         if (m_used[s]) {
@@ -126,10 +139,18 @@ bool RegionFile::write(int index, std::span<const uint8_t> nbt, uint32_t timesta
     m_file.clear();
     m_file.seekp(std::streamoff(start) * kSector);
     m_file.write(reinterpret_cast<const char*>(buf.data()), std::streamsize(buf.size()));
+    m_file.flush();
+    if (!m_file) {
+        for (uint32_t s = start; s < start + needed; ++s)
+            m_used[s] = false;
+        return false;
+    }
     m_locations[size_t(index)] = start << 8 | needed;
     m_timestamps[size_t(index)] = timestamp;
     writeHeaderEntry(index);
     m_file.flush();
+    for (uint32_t s = old >> 8; s < (old >> 8) + (old & 0xFF); ++s) // now free the old copy
+        m_used[s] = false;
     return static_cast<bool>(m_file);
 }
 

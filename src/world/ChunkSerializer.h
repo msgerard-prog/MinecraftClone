@@ -18,8 +18,9 @@ struct ChunkSnapshot {
     ChunkPos pos;
     std::array<std::shared_ptr<const Section>, kSectionsPerChunk> sections;
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light; // may be null
+    int64_t gameTime = 0; // written as LastUpdate
 
-    static ChunkSnapshot of(const Chunk& chunk);
+    static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);
 };
 
 // Java 1.21 chunk NBT (wiki: Chunk format): DataVersion, xPos/zPos/yPos, Status
@@ -30,7 +31,8 @@ struct ChunkSnapshot {
 nbt::Compound chunkToNbt(const ChunkSnapshot& chunk);
 
 // Fills `chunk` (already at the right position) from NBT. Unknown blocks become air
-// (counted in `unknownBlocks`). Light is not read: it is recomputed on load.
+// (counted in `unknownBlocks`); unknown properties or values of a known block are
+// ignored (that property keeps its default). Light is not read: it is recomputed on load.
 // Returns false if the NBT isn't a chunk at that position.
 bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = nullptr);
 

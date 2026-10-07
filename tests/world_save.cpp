@@ -156,7 +156,7 @@ TEST_CASE("chunks are dirty after edits, not after a clean load") {
 
 #include "world/LevelData.h"
 
-TEST_CASE("level.dat round-trips the world settings, time and player") {
+TEST_CASE("level.dat round-trips the world settings, time, spawn and player") {
     TempDir dir("mc_test_level");
     LevelData l;
     l.name = "Test";
@@ -173,6 +173,9 @@ TEST_CASE("level.dat round-trips the world settings, time and player") {
     l.hotbar[0] = "minecraft:stone";
     l.hotbar[4] = "minecraft:oak_log[axis=x]";
     l.selectedSlot = 4;
+    l.spawn[0] = -7;
+    l.spawn[1] = 70;
+    l.spawn[2] = 12;
     REQUIRE(l.save(dir.path));
     REQUIRE(l.save(dir.path)); // second save keeps a level.dat_old backup
     CHECK(fs::exists(dir.path / "level.dat_old"));
@@ -192,6 +195,8 @@ TEST_CASE("level.dat round-trips the world settings, time and player") {
     CHECK(back->hotbar[4] == "minecraft:oak_log[axis=x]");
     CHECK(back->hotbar[1].empty());
     CHECK(back->selectedSlot == 4);
+    CHECK(back->spawn[0] == -7);
+    CHECK(back->spawn[2] == 12);
     CHECK_FALSE(LevelData::load(dir.path / "nope").has_value());
 }
 
@@ -218,13 +223,183 @@ TEST_CASE("chunk loader: an edited chunk saves when it unloads and comes back ed
     };
     settle({0, 0});
     REQUIRE(world.chunk({0, 0}));
-    CHECK_FALSE(world.chunk({0, 0})->dirty()); // freshly generated: nothing to save
+    CHECK(world.chunk({0, 0})->dirty()); // freshly generated chunks are saved too (vanilla)
     world.setBlock({3, 200, 3}, S(blocks::Glowstone));
-    REQUIRE(world.chunk({0, 0})->dirty());
     settle({100, 100}); // far away: (0,0) unloads and is saved
     REQUIRE_FALSE(world.chunk({0, 0}));
     settle({0, 0}); // back: loaded from storage (or its queued snapshot)
     REQUIRE(world.chunk({0, 0}));
     CHECK(world.getBlock({3, 200, 3}) == S(blocks::Glowstone));
     CHECK_FALSE(world.chunk({0, 0})->dirty());
+}
+
+
+#include "core/Compression.h"
+#include "core/FileLock.h"
+
+#include <fstream>
+#include <iterator>
+
+namespace {
+
+mc::nbt::Compound readLevelRoot(const fs::path& file) {
+    std::ifstream f(file, std::ios::binary);
+    const std::vector<uint8_t> gz((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    return *mc::nbt::read(*mc::gzipDecompress(gz));
+}
+
+} // namespace
+
+TEST_CASE("level.dat: hotbar states use the block_state item component; types as vanilla") {
+    TempDir dir("mc_test_level_types");
+    LevelData l;
+    l.hotbar[2] = "minecraft:oak_log[axis=x]";
+    REQUIRE(l.save(dir.path));
+    const auto root = readLevelRoot(dir.path / "level.dat");
+    const auto* data = root.compound("Data");
+    REQUIRE(data);
+    CHECK(data->find("version")->type() == mc::nbt::TagType::Int);
+    CHECK(data->integer("version") == 19133);
+    CHECK(data->find("DayTime")->type() == mc::nbt::TagType::Long);
+    const auto& item = *data->compound("Player")->list("Inventory")->items[0].get<mc::nbt::Compound>();
+    CHECK(item.find("Slot")->type() == mc::nbt::TagType::Byte);
+    CHECK(item.find("count")->type() == mc::nbt::TagType::Int);
+    CHECK(*item.string("id") == "minecraft:oak_log");
+    CHECK(*item.compound("components")->compound("minecraft:block_state")->string("axis") == "x");
+}
+
+TEST_CASE("level.dat: a missing level.dat falls back to level.dat_old") {
+    // Regression: a lost level.dat made the world look new (wrong seed/generator).
+    TempDir dir("mc_test_level_fallback");
+    LevelData l;
+    l.seed = 123;
+    REQUIRE(l.save(dir.path));
+    REQUIRE(l.save(dir.path)); // creates level.dat_old
+    fs::remove(dir.path / "level.dat");
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back.has_value());
+    CHECK(back->seed == 123);
+}
+
+TEST_CASE("chunk storage: saving again while the chunk is being written keeps the newest") {
+    // Regression: a save arriving during the write of an older snapshot was dropped.
+    TempDir dir("mc_test_resave");
+    {
+        ChunkStorage storage(dir.path);
+        Chunk c({2, 3});
+        for (int i = 1; i <= 40; ++i) { // many saves racing the IO thread
+            c.set(0, 0, 0, i % 2 ? S(blocks::Stone) : S(blocks::Dirt));
+            c.set(1, 0, 0, blockRegistry().defaultState(BlockId(1 + i % 10)));
+            storage.save(ChunkSnapshot::of(c));
+        }
+        storage.flush();
+    }
+    ChunkStorage reopened(dir.path);
+    Chunk d({2, 3});
+    REQUIRE(reopened.load(d));
+    CHECK(d.get(0, 0, 0) == S(blocks::Dirt)); // the 40th save
+    CHECK(d.get(1, 0, 0) == blockRegistry().defaultState(BlockId(1)));
+}
+
+TEST_CASE("loading never creates region files") {
+    TempDir dir("mc_test_nocreate");
+    ChunkStorage storage(dir.path);
+    Chunk c({100, 100});
+    CHECK_FALSE(storage.load(c));
+    CHECK_FALSE(fs::exists(dir.path / "region"));
+}
+
+TEST_CASE("region file: malformed headers are ignored, never trusted") {
+    TempDir dir("mc_test_badregion");
+    const auto path = dir.path / "r.0.0.mca";
+    std::vector<uint8_t> file(3 * 4096, 0);
+    auto loc = [&](int index, uint32_t offset, uint8_t count) {
+        file[size_t(index) * 4 + 0] = uint8_t(offset >> 16);
+        file[size_t(index) * 4 + 1] = uint8_t(offset >> 8);
+        file[size_t(index) * 4 + 2] = uint8_t(offset);
+        file[size_t(index) * 4 + 3] = count;
+    };
+    loc(0, 2, 0);  // count 0 (would allow any length)
+    loc(1, 9, 1);  // beyond the file
+    loc(2, 2, 1);  // valid sector...
+    loc(3, 2, 1);  // ...shared with chunk 2: dropped
+    file[2 * 4096 + 3] = 200; // chunk 2: length 200 > what is there (truncated payload)
+    file[2 * 4096 + 4] = 2;
+    {
+        std::ofstream f(path, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(file.data()), std::streamsize(file.size()));
+    }
+    RegionFile r;
+    REQUIRE(r.open(path));
+    CHECK_FALSE(r.has(0));
+    CHECK_FALSE(r.has(1));
+    CHECK(r.has(2));
+    CHECK_FALSE(r.has(3));
+    CHECK_FALSE(r.read(2).has_value()); // garbage zlib: rejected, no crash
+}
+
+TEST_CASE("NBT lists longer than the remaining input are rejected") {
+    // TAG_Compound "" { TAG_List "l" of TAG_Byte, count 2^30 }
+    const std::vector<uint8_t> bad = {10, 0, 0, 9, 0, 1, 'l', 1, 0x40, 0, 0, 0, 0};
+    CHECK_FALSE(mc::nbt::read(bad).has_value());
+}
+
+TEST_CASE("chunk NBT: 17+ states pack 5 bits, 12 per long; dark sections keep SkyLight") {
+    Chunk c({0, 0});
+    for (int i = 0; i < 17; ++i)
+        c.set(i % 16, 0, i / 16, blockRegistry().defaultState(BlockId(1 + i)));
+    std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light;
+    light.fill(std::make_shared<const SectionLight>()); // all dark
+    c.setLight(light);
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c, 777));
+    CHECK(nbt.integer("LastUpdate") == 777);
+    const auto* sec = nbt.list("sections")->items[4].get<mc::nbt::Compound>(); // y 0
+    const auto& data = *sec->compound("block_states")->longArray("data");
+    CHECK(sec->compound("block_states")->list("palette")->items.size() == 18); // + air
+    CHECK(data.size() == 342); // ceil(4096 / 12)
+    for (int64_t v : data)
+        CHECK((static_cast<uint64_t>(v) >> 60) == 0); // 4 unused high bits
+    REQUIRE(sec->byteArray("SkyLight"));
+    CHECK(sec->byteArray("SkyLight")->size() == 2048);
+    CHECK(sec->byteArray("BlockLight") == nullptr);
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(nbt, d));
+    CHECK(sameBlocks(c, d));
+}
+
+TEST_CASE("chunk NBT: unknown properties are ignored, bad sections skipped") {
+    mc::nbt::Compound entry;
+    entry.put("Name", std::string("minecraft:oak_log"));
+    mc::nbt::Compound props;
+    props.put("axis", std::string("x"));
+    props.put("future_property", std::string("yes"));
+    entry.put("Properties", props);
+    mc::nbt::Compound bs;
+    bs.put("palette", mc::nbt::listOf(mc::nbt::TagType::Compound, {entry}));
+    mc::nbt::Compound sec;
+    sec.put("Y", int8_t{0});
+    sec.put("block_states", bs);
+    mc::nbt::Compound outOfRange = sec;
+    outOfRange.put("Y", int8_t{100});
+    mc::nbt::Compound root;
+    root.put("xPos", int32_t{0});
+    root.put("zPos", int32_t{0});
+    root.put("sections", mc::nbt::listOf(mc::nbt::TagType::Compound, {sec, outOfRange}));
+    Chunk c({0, 0});
+    int unknown = 0;
+    REQUIRE(chunkFromNbt(root, c, &unknown));
+    CHECK(unknown == 0);
+    CHECK(c.get(0, 0, 0) == *blockRegistry().with(S(blocks::OakLog), "axis", "x"));
+}
+
+TEST_CASE("session lock: a second holder is refused until the first lets go") {
+    TempDir dir("mc_test_lock");
+    {
+        mc::FileLock a;
+        REQUIRE(a.acquire(dir.path / "session.lock"));
+        mc::FileLock b;
+        CHECK_FALSE(b.acquire(dir.path / "session.lock"));
+    }
+    mc::FileLock c;
+    CHECK(c.acquire(dir.path / "session.lock"));
 }

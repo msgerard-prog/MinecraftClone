@@ -196,8 +196,10 @@ Tag Reader::payload(TagType type) {
         List l;
         l.elementType = static_cast<TagType>(be<uint8_t>());
         const int32_t n = be<int32_t>();
+        // Every element takes at least one byte: a count beyond the remaining input is
+        // malformed (and would allocate unboundedly).
         if (n < 0 || static_cast<uint8_t>(l.elementType) > 12 ||
-            (n > 0 && l.elementType == TagType::End)) {
+            (n > 0 && l.elementType == TagType::End) || size_t(n) > in.size() - pos) {
             ok = false;
             break;
         }
