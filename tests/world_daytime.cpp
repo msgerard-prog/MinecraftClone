@@ -1,4 +1,5 @@
 // Daylight cycle (wiki: Daylight cycle).
+#include "world/Biome.h"
 #include "world/DayTime.h"
 
 #include <doctest/doctest.h>
@@ -58,4 +59,24 @@ TEST_CASE("the sun rises in the east, is overhead at noon and sets in the west")
     CHECK(noon.y == doctest::Approx(1.0));
     const auto set = sunDirection(celestialAngle(12000));
     CHECK(set.x < -0.9);
+}
+
+TEST_CASE("sky colour follows the biome temperature (plains #78A7FF)") {
+    using mc::world::skyColorFor;
+    CHECK(skyColorFor(0.8f) == 0x78A7FFu);               // plains
+    CHECK(skyColorFor(mc::world::biomeInfo(mc::world::Biome::Plains).temperature) == 0x78A7FFu);
+    // Warm skies shift toward cyan, cold ones toward violet (wiki biome sky colours).
+    CHECK(skyColorFor(2.0f) == 0x6EB1FFu); // desert
+    CHECK(skyColorFor(0.0f) == 0x7FA1FFu); // snowy plains
+}
+
+TEST_CASE("the sunrise glow shows only while the sun is near the horizon") {
+    using namespace mc::world;
+    CHECK(sunriseColor(celestialAngle(6000)).a == 0.0f);  // noon
+    CHECK(sunriseColor(celestialAngle(18000)).a == 0.0f); // midnight
+    const SunriseColor dawn = sunriseColor(celestialAngle(0));
+    CHECK(dawn.a > 0.3f);
+    CHECK(dawn.r > dawn.g); // orange-red
+    CHECK(dawn.g > dawn.b);
+    CHECK(sunriseColor(celestialAngle(12000)).a > 0.3f); // and at sunset
 }

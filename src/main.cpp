@@ -2024,9 +2024,34 @@ int main(int argc, char** argv) {
             renderer.setNetherFog(netherFog);
         }
         renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0);
+        if (dimension == Dimension::Overworld) {
+            // Biome sky and fog colours, blended over 5x5 biome cells (4 blocks each)
+            // around the camera, so crossing a border fades the sky (vanilla samples
+            // its biome grid with a smooth kernel).
+            glm::vec3 sky(0.0f), fog(0.0f);
+            int n = 0;
+            const int bx = int(std::floor(camera.position.x)), bz = int(std::floor(camera.position.z));
+            const int by = std::clamp(int(std::floor(camera.position.y)), world.height().minY, world.height().maxY());
+            for (int dz = -2; dz <= 2; ++dz)
+                for (int dx = -2; dx <= 2; ++dx) {
+                    const mc::world::BlockPos p{bx + dx * 4, by, bz + dz * 4};
+                    const mc::world::Chunk* c = world.chunk(p.chunk());
+                    if (!c || !c->biomes()) continue;
+                    const auto& info = mc::world::biomeInfo(c->biomes()->at(
+                        mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z), world.height()));
+                    auto rgb = [](uint32_t v) {
+                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255), float(v & 255)) / 255.0f;
+                    };
+                    sky += rgb(mc::world::skyColorFor(info.temperature));
+                    fog += rgb(mc::world::kOverworldFog);
+                    ++n;
+                }
+            if (n > 0) renderer.setBiomeSky(sky / float(n), fog / float(n));
+        }
         {
             const bool overworld = dimension == Dimension::Overworld;
             const float a = static_cast<float>(clock.alpha);
+            renderer.setCloudTime(double(gameTime) + double(a));
             renderer.setDayTime(dayTime, a, overworld ? weather.rainAt(a) : 0.0f,
                                 overworld ? weather.thunderAt(a) : 0.0f);
             if (overworld && skyFlash > 0) renderer.setSkyFlash(); // (a bolt lights everything up)

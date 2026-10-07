@@ -10,6 +10,7 @@
 #include "rendering/PackedVertex.h"
 #include "rendering/ResourcePack.h"
 #include "rendering/Shader.h"
+#include "rendering/CloudRenderer.h"
 #include "rendering/SkyRenderer.h"
 #include "rendering/TextureAtlas.h"
 #include "world/SectionSnapshot.h"
@@ -79,6 +80,17 @@ public:
     // The Nether's fog colour (each Nether biome has its own; main eases it toward
     // the one at the camera). Default: Nether Wastes' #330808.
     void setNetherFog(const glm::vec3& rgb) { m_netherFog = rgb; }
+    // The Overworld biome colours around the camera (M22.2; main blends them over
+    // nearby biomes): the sky overhead and the fog at the horizon, at full daylight.
+    void setBiomeSky(const glm::vec3& sky, const glm::vec3& fog) {
+        m_biomeSky = sky;
+        m_biomeFog = fog;
+    }
+    // The fog colour of the last frame (clouds, water tint later).
+    const glm::vec3& fogColor() const { return m_fogColor; }
+    const glm::vec3& skyColor() const { return m_skyColor; }
+    // Game ticks + partial tick: the clouds' drift (wiki: Cloud - set by world time).
+    void setCloudTime(double ticks) { m_cloudTime = ticks; }
     // Night vision (M19.4): everything lit as if at full light (vanilla scales the
     // lightmap to full brightness).
     void setNightVision(bool on) { m_nightVision = on; }
@@ -121,9 +133,19 @@ private:
     int m_minSection = world::kOverworldHeight.minSection(); // -4
     int m_maxSection = world::kOverworldHeight.maxSection(); // 19
     float m_skyDarken = 0.0f;       // sky light levels lost to night, 0..11
-    glm::vec3 m_skyColor{0.0f};     // clear and fog colour
+    glm::vec3 m_skyColor{0.0f};     // the sky overhead
+    glm::vec3 m_fogBase{0.0f};      // fog before the per-frame view blend
+    glm::vec3 m_fogColor{0.0f};     // clear and fog colour this frame
+    glm::vec4 m_sunrise{0.0f};      // sunrise/sunset glow (rgb, alpha)
+    glm::vec2 m_sunSide{1.0f, 0.0f};
+    float m_rain = 0.0f, m_thunder = 0.0f;
+    glm::vec3 m_biomeSky{0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f}; // plains
+    glm::vec3 m_biomeFog{0xC0 / 255.0f, 0xD8 / 255.0f, 0xFF / 255.0f};
     SkyState m_skyState;
     SkyRenderer m_sky;
+    CloudRenderer m_clouds;
+    double m_cloudTime = 0.0;
+    glm::vec4 m_cloudColor{1.0f};
     uint32_t m_tintPalette = 0; // SSBO binding 1: biome tint colours
     static constexpr int kQueryRing = 4;
     uint32_t m_queries[kQueryRing] = {};

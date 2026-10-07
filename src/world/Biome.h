@@ -81,6 +81,13 @@ struct BiomeInfo {
 };
 
 const BiomeInfo& biomeInfo(Biome b);
+
+// The sky colour of a biome from its temperature (wiki: Sky; vanilla's formula, which
+// gives plains #78A7FF): hue 0.62222 - t x 0.05, saturation 0.5 + t x 0.1, value 1,
+// t = temperature / 3 clamped to -1..1 - warm biomes get a paler, cyan sky. 0xRRGGBB.
+uint32_t skyColorFor(float temperature);
+// The Overworld biomes' fog colour (wiki: Fog; #C0D8FF in every Overworld biome).
+inline constexpr uint32_t kOverworldFog = 0xC0D8FF;
 std::optional<Biome> findBiome(std::string_view id); // with or without "minecraft:"
 
 // Palette slots used for fixed-colour foliage (not biomes): birch and spruce leaves

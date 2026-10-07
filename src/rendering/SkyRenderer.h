@@ -33,15 +33,27 @@ public:
     // Load time: shader, sun/moon textures (built-in, overridable by packs), stars.
     bool init(const PackStack& packs);
     void draw(const Camera& camera, float aspect, const SkyState& sky);
+    // The Overworld sky dome (M22.2): sky colour overhead fading to the fog colour at
+    // the horizon, and the sunrise/sunset glow toward the sun (rgb + alpha in sunrise,
+    // sunSide = the sun's horizontal direction). Drawn first, depth off.
+    void drawGradient(const Camera& camera, float aspect, const glm::vec3& sky, const glm::vec3& fog,
+                      const glm::vec4& sunrise, const glm::vec2& sunSide);
+    // The End's sky (M22.2; wiki: The End): a dark tiled texture on a box around the
+    // camera, tinted #282828.
+    void drawEndSky(const Camera& camera, float aspect);
 
 private:
     Shader m_shader;
+    Shader m_gradientShader;
+    uint32_t m_emptyVao = 0;     // (the gradient's full-screen triangle has no buffer)
+    uint32_t m_endSkyTexture = 0;
     uint32_t m_vao = 0;
     uint32_t m_vbo = 0;
     uint32_t m_sunTexture = 0;
     uint32_t m_moonTexture = 0;
     uint32_t m_whiteTexture = 0; // stars
     int m_starVertices = 0;
+    int m_endSkyFirst = 0; // 36 vertices after the stars
 };
 
 } // namespace mc::gfx

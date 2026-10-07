@@ -27,11 +27,25 @@ constexpr int kSunFirst = 0;
 constexpr int kMoonFirst = 6;
 constexpr int kStarsFirst = 12;
 
+
 // A quad facing down at height `y` (seen from below), half size `h`.
 void addQuad(std::vector<SkyVertex>& v, float y, float h) {
     const SkyVertex a{{-h, y, -h}, {0, 0}}, b{{h, y, -h}, {1, 0}}, c{{h, y, h}, {1, 1}},
         d{{-h, y, h}, {0, 1}};
     v.insert(v.end(), {a, b, c, a, c, d});
+}
+
+// The End sky box: 6 faces 100 blocks out, facing in, the 16x16 texture tiled 16 times
+// across each face (vanilla's End sky).
+void addEndSky(std::vector<SkyVertex>& v) {
+    const float d = 100.0f, t = 16.0f;
+    const glm::vec3 c[8] = {{-d, -d, -d}, {d, -d, -d}, {d, d, -d}, {-d, d, -d},
+                            {-d, -d, d},  {d, -d, d},  {d, d, d},  {-d, d, d}};
+    const int faces[6][4] = {{0, 1, 2, 3}, {5, 4, 7, 6}, {4, 0, 3, 7}, {1, 5, 6, 2}, {3, 2, 6, 7}, {4, 5, 1, 0}};
+    for (const auto& f : faces) {
+        const SkyVertex a{c[f[0]], {0, 0}}, b{c[f[1]], {t, 0}}, cc{c[f[2]], {t, t}}, dd{c[f[3]], {0, t}};
+        v.insert(v.end(), {a, b, cc, a, cc, dd});
+    }
 }
 
 // Star field: ~1500 random directions, small quads at distance 100 facing the origin,
@@ -86,20 +100,24 @@ uint32_t loadTexture(const PackStack& packs, const char* path) {
 } // namespace
 
 SkyRenderer::~SkyRenderer() {
-    const uint32_t textures[] = {m_sunTexture, m_moonTexture, m_whiteTexture};
-    glDeleteTextures(3, textures);
+    const uint32_t textures[] = {m_sunTexture, m_moonTexture, m_whiteTexture, m_endSkyTexture};
+    glDeleteTextures(4, textures);
+    if (m_emptyVao) glDeleteVertexArrays(1, &m_emptyVao);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
 
 bool SkyRenderer::init(const PackStack& packs) {
-    if (!m_shader.load("sky")) return false;
+    if (!m_shader.load("sky") || !m_gradientShader.load("skygradient")) return false;
+    glCreateVertexArrays(1, &m_emptyVao);
     std::vector<SkyVertex> v;
     // Apparent sizes estimated from observation (~33 and ~23 degrees across).
     addQuad(v, 100.0f, 30.0f); // sun
     addQuad(v, 100.0f, 20.0f); // moon (placed opposite the sun in draw())
     addStars(v);
     m_starVertices = static_cast<int>(v.size()) - kStarsFirst;
+    m_endSkyFirst = static_cast<int>(v.size());
+    addEndSky(v);
 
     glCreateVertexArrays(1, &m_vao);
     glCreateBuffers(1, &m_vbo);
@@ -116,7 +134,46 @@ bool SkyRenderer::init(const PackStack& packs) {
     m_sunTexture = loadTexture(packs, "assets/minecraft/textures/environment/sun.png");
     m_moonTexture = loadTexture(packs, "assets/minecraft/textures/environment/moon_phases.png");
     m_whiteTexture = makeTexture(Image{1, 1, {255, 255, 255, 255}});
+    m_endSkyTexture = loadTexture(packs, "assets/minecraft/textures/environment/end_sky.png");
+    glTextureParameteri(m_endSkyTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(m_endSkyTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
     return true;
+}
+
+void SkyRenderer::drawGradient(const Camera& camera, float aspect, const glm::vec3& sky, const glm::vec3& fog,
+                               const glm::vec4& sunrise, const glm::vec2& sunSide) {
+    m_gradientShader.bind();
+    glBindVertexArray(m_emptyVao);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    const glm::mat4 inv = glm::inverse(camera.viewProjectionAtOrigin(aspect));
+    glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(inv));
+    glUniform3fv(1, 1, glm::value_ptr(sky));
+    glUniform3fv(2, 1, glm::value_ptr(fog));
+    glUniform4fv(3, 1, glm::value_ptr(sunrise));
+    glUniform2fv(4, 1, glm::value_ptr(sunSide));
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glEnable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+}
+
+void SkyRenderer::drawEndSky(const Camera& camera, float aspect) {
+    m_shader.bind();
+    glBindVertexArray(m_vao);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    const glm::mat4 vp = camera.viewProjectionAtOrigin(aspect);
+    glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform4f(1, 40.0f / 255.0f, 40.0f / 255.0f, 40.0f / 255.0f, 1.0f); // #282828
+    glUniform4f(2, 0.0f, 0.0f, 1.0f, 1.0f);
+    glBindTextureUnit(0, m_endSkyTexture);
+    glDrawArrays(GL_TRIANGLES, m_endSkyFirst, 36);
+    glEnable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
 }
 
 void SkyRenderer::draw(const Camera& camera, float aspect, const SkyState& sky) {

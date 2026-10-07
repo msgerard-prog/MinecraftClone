@@ -60,6 +60,21 @@ inline SkyDirection sunDirection(double angle) {
     return {-std::sin(t), std::cos(t), 0.0};
 }
 
+// The sunrise/sunset glow (wiki: Daylight cycle; vanilla's sunrise colour curve): only
+// while the sun is within cos(angle) of +-0.4 of the horizon. r, g, b and an alpha
+// that peaks as the sun crosses the horizon; alpha 0 = no glow.
+struct SunriseColor {
+    float r = 0, g = 0, b = 0, a = 0;
+};
+inline SunriseColor sunriseColor(double angle) {
+    const double c = std::cos(angle * 2.0 * std::numbers::pi);
+    if (c < -0.4 || c > 0.4) return {};
+    const double f = c / 0.4 * 0.5 + 0.5; // 0 below the horizon .. 1 above
+    double a = 1.0 - (1.0 - std::sin(f * std::numbers::pi)) * 0.99;
+    a *= a;
+    return {float(f * 0.3 + 0.7), float(f * f * 0.7 + 0.2), 0.2f, float(a)};
+}
+
 // Moon phase 0..7 (0 = full moon), one step per day.
 inline int moonPhase(int64_t dayTime) {
     return static_cast<int>(((dayTime / kTicksPerDay) % 8 + 8) % 8);

@@ -2,11 +2,13 @@
 
 #include "core/Files.h"
 #include "core/Window.h"
+#include "core/Log.h"
 #include "rendering/Fog.h"
 #include "rendering/ResourcePack.h"
 #include "world/Biome.h"
 #include "world/Blocks.h"
 #include "world/DayTime.h"
+#include "world/Rotation.h"
 
 #include <glad/gl.h>
 
@@ -20,7 +22,6 @@ namespace mc::gfx {
 namespace {
 
 // Vanilla's daytime sky colour at plains biome (#78A7FF), until biomes exist (M8).
-constexpr glm::vec3 kPlainsSky(0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f);
 
 
 } // namespace
@@ -45,6 +46,7 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_atlas.build(packs, folders)) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;
+    if (!m_clouds.init(packs)) MC_LOG_WARN("Clouds disabled");
     // Tint palette (shader binding 1): grass, foliage, water per biome slot, plus the
     // fixed birch/spruce foliage slots (wiki: Leaves).
     {
@@ -82,23 +84,45 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
 void WorldRenderer::setDayTime(int64_t dayTime, float partialTick, float rain, float thunder) {
     const double angle = world::celestialAngle(dayTime, partialTick);
     m_skyDarken = static_cast<float>(world::skyDarken(angle, rain, thunder));
-    m_skyColor = kPlainsSky * static_cast<float>(world::daylight(angle));
-    // Rain greys the sky toward 60% of its luminance, thunder darkens it toward 20%
-    // (vanilla: each blends 75% of the way at full strength).
+    m_rain = rain;
+    m_thunder = thunder;
+    // The sky: the biome's colour times the daylight (wiki: Sky). Rain greys it toward
+    // 60% of its luminance, thunder darkens it toward 20% (vanilla: each blends 75% of
+    // the way at full strength).
+    const float day = static_cast<float>(world::daylight(angle));
+    m_skyColor = m_biomeSky * day;
     const auto grey = [&](float strength, float level) {
         const float l = glm::dot(m_skyColor, glm::vec3(0.3f, 0.59f, 0.11f)) * level;
         m_skyColor = glm::mix(m_skyColor, glm::vec3(l), strength * 0.75f);
     };
     if (rain > 0.0f) grey(rain, 0.6f);
     if (thunder > 0.0f) grey(thunder, 0.2f);
+    // The fog: the biome's fog colour, darkened at night but never to black (vanilla
+    // keeps 6% of red/green and 9% of blue: a deep blue night horizon).
+    m_fogBase = m_biomeFog * glm::vec3(day * 0.94f + 0.06f, day * 0.94f + 0.06f, day * 0.91f + 0.09f);
+    const world::SunriseColor sr = world::sunriseColor(angle);
+    m_sunrise = {sr.r, sr.g, sr.b, sr.a * (1.0f - rain)};
+    m_sunSide = {world::sunDirection(angle).x >= 0.0 ? 1.0f : -1.0f, 0.0f};
     m_skyState = {angle, static_cast<float>(world::starBrightness(angle)), world::moonPhase(dayTime), true,
                   1.0f - rain};
+    // Clouds: white by day, dim grey at night (vanilla keeps 10% red/green, 15% blue),
+    // greyer in rain and dark in thunder (wiki: Cloud - rgb 30,30,30 in storms).
+    glm::vec3 cloud(day * 0.9f + 0.1f, day * 0.9f + 0.1f, day * 0.85f + 0.15f);
+    const auto greyCloud = [&](float strength, float level) {
+        const float l = glm::dot(cloud, glm::vec3(0.3f, 0.59f, 0.11f)) * level;
+        cloud = glm::mix(cloud, glm::vec3(l), strength * 0.95f);
+    };
+    if (rain > 0.0f) greyCloud(rain, 0.6f);
+    if (thunder > 0.0f) greyCloud(thunder, 0.2f);
+    m_cloudColor = glm::vec4(cloud, 0.8f);
     if (m_dimension != world::Dimension::Overworld) {
         // No daylight: fixed fog colours (wiki: Nether Wastes fog #330808; the End's
-        // dark sky), no sun, moon or stars.
+        // fog #A080A0 x 0.15), no sun, moon, stars or glow.
         m_skyDarken = 0.0f;
         m_skyState.celestial = false;
-        m_skyColor = m_dimension == world::Dimension::Nether ? m_netherFog : glm::vec3(0.09f, 0.07f, 0.10f);
+        m_sunrise = glm::vec4(0.0f);
+        m_skyColor = m_fogBase =
+            m_dimension == world::Dimension::Nether ? m_netherFog : glm::vec3(0xA0, 0x80, 0xA0) / 255.0f * 0.15f;
     }
 }
 
@@ -332,9 +356,29 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     }
     glBeginQuery(GL_TIME_ELAPSED, m_queries[q]);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
-    glClearColor(m_skyColor.r, m_skyColor.g, m_skyColor.b, 1.0f);
+    // The frame's fog colour (vanilla FogRenderer): looking toward a rising or setting
+    // sun tints it with the glow; it leans toward the sky colour at short render
+    // distances; rain and thunder darken it.
+    m_fogColor = m_fogBase;
+    if (m_dimension == world::Dimension::Overworld) {
+        const glm::vec3 look = world::lookVector(camera.yaw, camera.pitch);
+        if (m_sunrise.a > 0.0f && m_renderDistance >= 4) {
+            const float toward = std::max(0.0f, look.x * m_sunSide.x + look.z * m_sunSide.y);
+            m_fogColor = glm::mix(m_fogColor, glm::vec3(m_sunrise), m_sunrise.a * toward);
+        }
+        const float v = 1.0f - std::pow(0.25f + 0.75f * float(std::min(m_renderDistance, 32)) / 32.0f, 0.25f);
+        m_fogColor += (m_skyColor - m_fogColor) * v;
+        if (m_rain > 0.0f) m_fogColor *= glm::vec3(1.0f - m_rain * 0.5f, 1.0f - m_rain * 0.5f, 1.0f - m_rain * 0.4f);
+        if (m_thunder > 0.0f) m_fogColor *= 1.0f - m_thunder * 0.5f;
+    }
+    glClearColor(m_fogColor.r, m_fogColor.g, m_fogColor.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_sky.draw(camera, float(framebufferWidth) / float(framebufferHeight), m_skyState);
+    const float aspect = float(framebufferWidth) / float(framebufferHeight);
+    if (m_dimension == world::Dimension::Overworld)
+        m_sky.drawGradient(camera, aspect, m_skyColor, m_fogColor, m_sunrise, m_sunSide);
+    else if (m_dimension == world::Dimension::End)
+        m_sky.drawEndSky(camera, aspect);
+    m_sky.draw(camera, aspect, m_skyState);
     m_blockShader.bind();
     // Fixed locations/bindings: see docs/architecture.md › Rendering.
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
@@ -344,7 +388,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     FogRange fog = terrainFog(m_renderDistance);
     if (m_dimension == world::Dimension::Nether) fog = netherFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);
-    glUniform3fv(5, 1, glm::value_ptr(m_skyColor));
+    glUniform3fv(5, 1, glm::value_ptr(m_fogColor));
     glUniform1f(7, m_skyDarken);
     // Dimension light: the Nether's ambient light lifts darkness (0.1); the End's
     // lightmap is forced bright (wiki: Dimension type › ambient_light; Light).
@@ -368,6 +412,10 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     m_translucent.draw(camera, viewProj, /*backToFront=*/true, maxDistance);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
+    // Clouds (Overworld; none below render distance 4, wiki: Cloud), last: they're
+    // translucent and almost always farther than water surfaces.
+    if (m_dimension == world::Dimension::Overworld && m_renderDistance >= 4)
+        m_clouds.draw(camera, viewProj, m_cloudTime, float(m_renderDistance * 16), m_cloudColor);
     glEndQuery(GL_TIME_ELAPSED);
     m_queryPending[q] = true;
     m_queryIndex = (q + 1) % kQueryRing;

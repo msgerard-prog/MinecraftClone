@@ -16,7 +16,7 @@ M22 - World & presentation:
    darker sky and light, lightning (fire, damage, charged creepers, pigs to zombified
    piglins), rain putting out fires and filling farmland, snow layers and ice forming,
    /weather.
-2. M22.2 - Sky: the sky colour by biome temperature, sunrise/sunset glow, biome fog
+2. ✅ M22.2 - Sky: the sky colour by biome temperature, sunrise/sunset glow, biome fog
    colours (night fog no longer black), clouds, the End sky.
 3. M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
    drips, crits, potion swirls, mob death puffs, rain splashes.

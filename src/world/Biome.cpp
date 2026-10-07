@@ -3,6 +3,7 @@
 #include "world/Coords.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace mc::world {
 
@@ -77,6 +78,29 @@ std::optional<Biome> findBiome(std::string_view id) {
 Biome ChunkBiomes::at(int x, int y, int z, const HeightRange& h) const {
     const int s = std::clamp(h.sectionIndex(std::clamp(y, h.minY, h.maxY())), 0, h.sections() - 1);
     return cells[size_t(index(s, x >> 2, blockToLocal(y) >> 2, z >> 2))];
+}
+
+uint32_t skyColorFor(float temperature) {
+    const float t = std::clamp(temperature / 3.0f, -1.0f, 1.0f);
+    float h = 0.62222f - t * 0.05f;
+    h -= std::floor(h);
+    const float s = 0.5f + t * 0.1f, v = 1.0f;
+    // HSV to RGB.
+    const float hh = h * 6.0f;
+    const int sector = int(hh) % 6;
+    const float f = hh - std::floor(hh);
+    const float p = v * (1 - s), q = v * (1 - s * f), u = v * (1 - s * (1 - f));
+    float r = 0, g = 0, b = 0;
+    switch (sector) {
+    case 0: r = v, g = u, b = p; break;
+    case 1: r = q, g = v, b = p; break;
+    case 2: r = p, g = v, b = u; break;
+    case 3: r = p, g = q, b = v; break;
+    case 4: r = u, g = p, b = v; break;
+    default: r = v, g = p, b = q; break;
+    }
+    auto c = [](float x) { return uint32_t(std::clamp(int(x * 255.0f), 0, 255)); };
+    return c(r) << 16 | c(g) << 8 | c(b);
 }
 
 } // namespace mc::world

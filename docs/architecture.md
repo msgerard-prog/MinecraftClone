@@ -382,7 +382,18 @@ multi-draw) → screen.
   darkening are applied in the shader.
 - `SkyRenderer` (shader `sky`): additive sun and moon (8 phases) quads and a fixed
   1500-star field, rotated by the celestial angle; drawn after the clear with depth
-  off. Clear and fog colour = plains sky × daylight.
+  off. M22.2: first the dome (shader `skygradient`, a full-screen triangle: sky colour
+  overhead to fog colour at the horizon, vanilla's sunrise fan as an ellipse toward
+  the sun) or, in the End, a tiled `environment/end_sky.png` box tinted #282828.
+  Colours (`WorldRenderer::setDayTime` + `drawFrame`): sky = biome sky
+  (`world::skyColorFor(temperature)`, main averages 5x5 biome cells) × daylight; fog =
+  #C0D8FF darkened at night (never black), tinted by the glow when looking at the sun,
+  pulled toward the sky at short render distances, darkened by rain; it is the clear
+  colour and the terrain fog colour.
+- `CloudRenderer` (shader `clouds`, M22.2): Fancy clouds - 12×4×12 boxes at Y 192 from
+  `environment/clouds.png` (256², tiles), drifting -X 0.03 blocks/tick of game time;
+  mesh rebuilt when the camera's cloud cell changes (reserved buffer), depth pre-pass
+  then blended colour, faded by horizontal distance; drawn last in the Overworld.
 - `ChunkRenderer`: one vertex arena buffer sub-allocated in quads (`RangeAllocator`,
   grows by copying), one shared quad index buffer (baseVertex per section), per-frame
   CPU frustum culling, then one `glMultiDrawElementsIndirect`. Each draw's
@@ -417,6 +428,8 @@ Fixed bindings (add new ones here):
 | SSBO binding | 0 | section offsets (block pass) |
 | uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |
 | uniform location (sky) | 0, 1, 2 | `uTransform`, `uColor`, `uUvRect` |
+| uniform location (skygradient) | 0-4 | `uInvViewProj`, `uSky`, `uFog`, `uSunrise`, `uSunSide` |
+| uniform location (clouds) | 0-3 | `uViewProj`, `uOffset`, `uColor`, `uFade` |
 | uniform location (gui) | 0 | `uGuiSize` (framebuffer / GUI scale) |
 | texture units (gui) | 0–5 | white, font, hotbar, selection, block atlas, HUD icons strip (= `GuiTexture`) |
 | uniform location (entity) | 0, 1 | `uViewProj`, `uAlphaCutoff` (dropped items, crack overlay) |

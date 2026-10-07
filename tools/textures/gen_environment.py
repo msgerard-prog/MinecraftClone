@@ -5,6 +5,8 @@ Writes assets/minecraft/textures/environment/
   sun.png          32x32, drawn additively (black = no light)
   moon_phases.png  128x64, 4x2 phases of 32x32 (0 = full, then waning, new at 4,
                    waxing back), drawn additively
+  end_sky.png      32x32, tiled on the End's sky box, tinted #282828
+  clouds.png       256x256 cloud map (opaque = a 12x12-block cloud cell)
 and into textures/block/ (the block atlas, which the entity renderer samples):
   end_portal.png, weather_rain.png, weather_snow.png (16x16, tile vertically:
   M22.1 draws them as scrolling 1-block segments), weather_bolt.png (white)
@@ -138,12 +140,60 @@ def weather_bolt():
     return Img(16, 16, (255, 255, 255, 255))
 
 
+def end_sky():
+    """The End sky (environment/end_sky.png, 32x32, tiled and tinted #282828 by the
+    renderer): grey static with darker blotches and a few pale specks."""
+    rng = random.Random("end_sky")
+    img = Img(32, 32, BLACK)
+    for y in range(32):
+        for x in range(32):
+            v = 120 + rng.randrange(60)
+            if rng.random() < 0.12:
+                v -= 60
+            if rng.random() < 0.02:
+                v = 235
+            img.set(x, y, (clamp(v), clamp(v * 0.94), clamp(v * 1.02), 255))
+    return img
+
+
+def clouds():
+    """The cloud map (environment/clouds.png, 256x256; each opaque pixel is a 12x12
+    block cloud cell, tiling): blobs from two octaves of smoothed value noise,
+    thresholded so about a quarter of the sky is cloud, in blobs of ~3-15 cells - our own pattern."""
+    rng = random.Random("clouds")
+    n = 256
+
+    def octave(cells):
+        g = [[rng.random() for _ in range(cells)] for _ in range(cells)]
+        step = n // cells
+        out = [[0.0] * n for _ in range(n)]
+        for y in range(n):
+            for x in range(n):
+                gx, gy = x / step, y / step
+                x0, y0 = int(gx) % cells, int(gy) % cells
+                x1, y1 = (x0 + 1) % cells, (y0 + 1) % cells
+                fx, fy = gx - int(gx), gy - int(gy)
+                fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+                a = g[y0][x0] + (g[y0][x1] - g[y0][x0]) * fx
+                b = g[y1][x0] + (g[y1][x1] - g[y1][x0]) * fx
+                out[y][x] = a + (b - a) * fy
+        return out
+
+    big, small = octave(32), octave(128)
+    img = Img(n, n, (0, 0, 0, 0))
+    for y in range(n):
+        for x in range(n):
+            if big[y][x] * 0.7 + small[y][x] * 0.3 > 0.62:
+                img.set(x, y, (255, 255, 255, 255))
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for a 4x preview")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    images = {"sun": sun(), "moon_phases": moon_phases()}
+    images = {"sun": sun(), "moon_phases": moon_phases(), "end_sky": end_sky(), "clouds": clouds()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png ({img.w}x{img.h})")
