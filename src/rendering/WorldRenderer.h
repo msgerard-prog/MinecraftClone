@@ -6,6 +6,7 @@
 #include "rendering/ChunkRenderer.h"
 #include "rendering/MeshWorkers.h"
 #include "rendering/PackedVertex.h"
+#include "rendering/ResourcePack.h"
 #include "rendering/Shader.h"
 #include "rendering/SkyRenderer.h"
 #include "rendering/TextureAtlas.h"
@@ -81,10 +82,17 @@ public:
         m_gpuSamples = 0;
     }
 
+    // For the GUI (item icons): the block atlas and baked models.
+    const TextureAtlas& atlas() const { return m_atlas; }
+    const BlockModels& models() const { return m_models; }
+    // The pack stack's textures for other renderers (GUI), valid after init().
+    const PackStack& packs() const { return *m_packs; }
+
     const ChunkRenderer::Stats& stats() const { return m_chunks.stats(); }
     const ChunkRenderer::Stats& translucentStats() const { return m_translucent.stats(); }
 
 private:
+    std::unique_ptr<PackStack> m_packs;
     Shader m_blockShader;
     TextureAtlas m_atlas;
     BlockModels m_models;

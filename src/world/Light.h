@@ -5,7 +5,7 @@
 
 namespace mc::world {
 
-// One section's worth (4096) of 4-bit light values, like vanilla's DataLayer:
+// One section's worth (4096) of 4-bit light values, like vanilla's per-section light storage (wiki: Chunk format › SkyLight/BlockLight):
 // either a single uniform value (no array: fully lit sky, pitch-dark rock) or a
 // packed nibble array of 2048 bytes. Index order matches Section::index.
 class LightLayer {

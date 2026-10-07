@@ -32,11 +32,29 @@ inline double daylight(double angle) {
 // Sky light lost at this angle: 0 by day .. 11 at night (sky light 15 -> 4).
 inline double skyDarken(double angle) { return (1.0 - daylight(angle)) * 11.0; }
 
-// Star brightness 0 .. 0.5, only once the sky is dark.
+// Star brightness 0 .. 0.5, only once the sky is dark (our estimate: stars appear
+// toward the end of sunset and are brightest at night, wiki: Daylight cycle).
 inline double starBrightness(double angle) {
     const double v = 1.0 - (std::cos(angle * 2.0 * std::numbers::pi) * 2.0 + 0.25);
     const double c = std::clamp(v, 0.0, 1.0);
     return c * c * 0.5;
+}
+
+// Internal (integer) sky light 4..15 used by game logic (mob spawning, daylight
+// sensors; wiki: Light › Internal sky light table).
+inline int internalSkyLight(int64_t dayTime) {
+    return 15 - static_cast<int>(skyDarken(celestialAngle(dayTime)));
+}
+
+// Direction to the sun (unit vector; the moon is opposite): it rises in the east
+// (+X), crosses the zenith at noon and sets in the west (-X), circling about the
+// north-south axis.
+struct SkyDirection {
+    double x, y, z;
+};
+inline SkyDirection sunDirection(double angle) {
+    const double t = angle * 2.0 * std::numbers::pi;
+    return {-std::sin(t), std::cos(t), 0.0};
 }
 
 // Moon phase 0..7 (0 = full moon), one step per day.

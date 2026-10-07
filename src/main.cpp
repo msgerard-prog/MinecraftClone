@@ -47,8 +47,9 @@ mc::PlayerInput readInput(const mc::Window& window) {
 void buildTestWorld(mc::world::World& world) {
     using namespace mc::world;
     const auto gen = FlatGenerator::fromPreset(FlatGenerator::kClassicFlat);
-    for (int cz = -4; cz < 4; ++cz) {
-        for (int cx = -4; cx < 4; ++cx)
+    // 12x12 chunks: the inner 8x8 get lit neighbourhoods and meshes (render distance 8).
+    for (int cz = -6; cz < 6; ++cz) {
+        for (int cx = -6; cx < 6; ++cx)
             gen->generate(world.createChunk({cx, cz}));
     }
     const auto& r = blockRegistry();
@@ -117,7 +118,7 @@ glm::dvec3 findSpawn(const mc::world::TerrainGenerator& gen) {
 // --demo-edit: drives the real click path (raycast -> BlockInteraction -> World ->
 // re-mesh) with scripted look directions, so a screenshot can verify editing.
 void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar,
-                 mc::gfx::WorldRenderer& renderer, std::vector<mc::world::BlockPos>& edits) {
+                 std::vector<mc::world::BlockPos>& edits) {
     std::vector<mc::world::BlockPos> changed;
     const float yaw = player.yaw(), pitch = player.pitch();
     auto click = [&](float y, float p, bool attack, int slot) {
@@ -129,7 +130,6 @@ void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Hotbar& hotbar
         mc::BlockInteraction fresh; // no cooldown between scripted clicks
         fresh.tick(world, player, mc::BlockInteraction::target(world, player),
                    hotbar.selectedBlock(), in, changed);
-        renderer.onBlocksChanged(changed);
         edits.insert(edits.end(), changed.begin(), changed.end());
     };
     for (int i = 0; i < 3; ++i)
@@ -198,6 +198,8 @@ int main(int argc, char** argv) {
     litChunks.reserve(256);
     relitSections.reserve(256);
     frameEdits.reserve(16);
+    std::vector<mc::world::BlockPos> editsReady;
+    editsReady.reserve(16);
 
     int64_t dayTime = opts->time; // world day time in ticks (world/DayTime.h)
 
@@ -282,7 +284,6 @@ int main(int argc, char** argv) {
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Act on the block the outline showed on the last frame (vanilla).
             interaction.tick(world, player, lastHit, hotbar.selectedBlock(), clicks, changedBlocks);
-            renderer.onBlocksChanged(changedBlocks);
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
@@ -309,7 +310,10 @@ int main(int argc, char** argv) {
             loader->update(center, loadedChunks, unloadedChunks);
         }
         // Lighting follows loading and edits; meshing follows lighting.
-        lighting.update(loadedChunks, unloadedChunks, frameEdits, litChunks, relitSections);
+        lighting.update(loadedChunks, unloadedChunks, frameEdits, litChunks, relitSections,
+                        editsReady);
+        // Edited blocks are re-meshed once their light is current (no stale-light flash).
+        renderer.onBlocksChanged(editsReady);
         renderer.onChunksUnloaded(unloadedChunks);
         renderer.onChunksLit(world, litChunks);
         renderer.onLightChanged(relitSections);
@@ -328,10 +332,10 @@ int main(int argc, char** argv) {
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
 
         if (!meshed && renderer.pendingMeshes() == 0 && lighting.pending() == 0 &&
-            (!loader || loader->pending() == 0) && frame >= 0 && renderer.stats().sections > 0) {
+            (!loader || loader->pending() == 0) && renderer.stats().sections > 0) {
             meshed = true;
             renderer.resetGpuStats(); // steady-state GPU numbers, like the CPU stats
-            if (opts->demoEdit) runDemoEdit(world, player, hotbar, renderer, frameEdits);
+            if (opts->demoEdit) runDemoEdit(world, player, hotbar, frameEdits);
             const auto& st = renderer.stats();
             MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
                         (mc::timeSeconds() - startTime) * 1000.0, st.sections,

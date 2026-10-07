@@ -31,4 +31,8 @@ using ChunkLight = std::array<std::shared_ptr<const SectionLight>, kSectionsPerC
 // GL-free and thread-safe (reads only the shared sections and the block registry).
 ChunkLight computeChunkLight(const ChunkNeighbourhood& n);
 
+// Shared immutable section light with no block light and uniform sky light 15 (open
+// sky) or 0 (dark); computeChunkLight returns these for such sections.
+const std::shared_ptr<const SectionLight>& sharedUniformLight(uint8_t sky);
+
 } // namespace mc::world

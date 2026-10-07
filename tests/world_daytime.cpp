@@ -3,6 +3,8 @@
 
 #include <doctest/doctest.h>
 
+#include <cmath>
+
 using namespace mc::world;
 
 TEST_CASE("celestial angle: noon at 6000 is the zenith, midnight at 18000 the nadir") {
@@ -34,4 +36,26 @@ TEST_CASE("the moon changes phase every day, cycling through 8") {
     CHECK(moonPhase(23999) == 0);
     CHECK(moonPhase(24000) == 1);
     CHECK(moonPhase(8 * 24000) == 0);
+}
+
+TEST_CASE("internal sky light follows the wiki's table") {
+    CHECK(internalSkyLight(6000) == 15);
+    CHECK(internalSkyLight(12040) == 15);
+    CHECK(internalSkyLight(12041) == 14);
+    CHECK(internalSkyLight(13670) == 4);
+    CHECK(internalSkyLight(18000) == 4);
+    CHECK(internalSkyLight(22330) == 4);
+    CHECK(internalSkyLight(23961) == 15);
+}
+
+TEST_CASE("the sun rises in the east, is overhead at noon and sets in the west") {
+    const auto rise = sunDirection(celestialAngle(0));
+    CHECK(rise.x > 0.9);
+    CHECK(rise.y > 0.0); // just above the horizon (it rose around tick 23000)
+    CHECK(rise.y < 0.3);
+    CHECK(sunDirection(celestialAngle(22800)).y < 0.0); // still below before sunrise
+    const auto noon = sunDirection(celestialAngle(6000));
+    CHECK(noon.y == doctest::Approx(1.0));
+    const auto set = sunDirection(celestialAngle(12000));
+    CHECK(set.x < -0.9);
 }

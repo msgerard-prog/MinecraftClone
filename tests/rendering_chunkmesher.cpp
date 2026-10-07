@@ -7,6 +7,7 @@
 
 #include <doctest/doctest.h>
 
+#include <optional>
 #include <vector>
 
 using namespace mc::world;
@@ -329,4 +330,86 @@ TEST_CASE("water under a solid block keeps its lowered surface; bottom has no ba
     }
     CHECK(upQuads == 2);   // lowered top under stone: front + back
     CHECK(downQuads == 1); // bottom: front only (invisible from above)
+}
+
+namespace {
+
+// Up faces of the floor cell at (x, 4, z): the vertex at world corner (cx, 5, cz).
+std::optional<mc::gfx::VertexAttribs> floorTopVertex(const std::vector<PackedVertex>& verts, int x,
+                                                     int z, int cx, int cz) {
+    for (size_t q = 0; q < verts.size(); q += 4) {
+        const auto first = unpackVertex(verts[q]);
+        if (first.face != uint32_t(Direction::Up) || first.y16 != 5 * 16) continue;
+        bool mine = true; // all 4 corners within the cell's top square
+        for (int i = 0; i < 4; ++i) {
+            const auto a = unpackVertex(verts[q + i]);
+            mine = mine && int(a.x16) / 16 >= x && int(a.x16) / 16 <= x + 1 &&
+                   int(a.z16) / 16 >= z && int(a.z16) / 16 <= z + 1;
+        }
+        if (!mine) continue;
+        for (int i = 0; i < 4; ++i) {
+            const auto a = unpackVertex(verts[q + i]);
+            if (int(a.x16) == cx * 16 && int(a.z16) == cz * 16) return a;
+        }
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+TEST_CASE("smooth lighting and AO: corners average open cells, opaque sides darken") {
+    World w;
+    w.createChunk({0, 0});
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x)
+            w.setBlock({x, 4, z}, stone()); // floor, top at y 5
+    w.setBlock({6, 5, 5}, stone());          // two blocks meeting diagonally at
+    w.setBlock({5, 5, 6}, stone());          // corner (6, 5, 6) of floor cell (5,4,5)
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    std::vector<uint8_t> sky(kPaddedVolume, 15), bl(kPaddedVolume, 0);
+    bl[paddedIndex(10, 5, 10)] = 8; // a light value in one open cell
+    mc::gfx::SectionMesh out;
+    mc::gfx::meshSection(padded.data(), sky.data(), bl.data(), glm::ivec3(0), blockRegistry(),
+                         testModels(), out);
+
+    // Open floor far from everything: no AO, full light (4 samples x 15).
+    const auto open = floorTopVertex(out.opaque, 1, 1, 1, 1);
+    REQUIRE(open.has_value());
+    CHECK(open->ao == 0);
+    CHECK(open->sky4 == 60);
+    // Both sides opaque: the corner is fully occluded (vanilla: darkest AO).
+    const auto inner = floorTopVertex(out.opaque, 5, 5, 6, 6);
+    REQUIRE(inner.has_value());
+    CHECK(inner->ao == 3);
+    // One side opaque: AO 1; the opaque cell is left out of the light average.
+    const auto edge = floorTopVertex(out.opaque, 4, 5, 5, 6);
+    REQUIRE(edge.has_value());
+    CHECK(edge->ao == 1);
+    CHECK(edge->sky4 == 60);
+    // Block light is averaged over the 4 cells around the corner: 8 in one cell -> 8.
+    const auto lit = floorTopVertex(out.opaque, 10, 10, 10, 10);
+    REQUIRE(lit.has_value());
+    CHECK(lit->block4 == 8);
+}
+
+TEST_CASE("glass hides faces against glass but not against air or stone") {
+    const auto& r = blockRegistry();
+    mc::gfx::BlockModels models = testModels();
+    const BlockStateId glass = r.defaultState(blocks::Glass);
+    models.at(glass).cullSame = true; // as the real glass model
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 4, 4}, glass);
+    w.setBlock({5, 4, 4}, glass);
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    mc::gfx::SectionMesh out;
+    mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
+    CHECK(out.opaque.size() == 10 * 4); // 12 faces - the 2 shared ones
+    w.setBlock({4, 5, 4}, stone()); // glass isn't opaque: stone keeps its bottom face
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    out = {};
+    mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
+    CHECK(out.opaque.size() == (9 + 6) * 4); // glass top under stone hidden (opaque)
 }

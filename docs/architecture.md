@@ -30,7 +30,8 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   sneak edge protection, creative flight), block interaction (`BlockInteraction`:
   raycast target, break/place with vanilla repeat delays; edits go to
   `WorldRenderer::onBlocksChanged`, which re-meshes the section and border
-  neighbours), later entities, block updates, random and
+  neighbours, and to `LightManager`, which relights around them), the day time
+  (+1 per tick, `world/DayTime.h`), later entities, block updates, random and
   scheduled ticks. Deterministic given inputs. Texture animations advance here too.
 - **Frame** (vsync): mouse look applied (per frame, as vanilla); camera position
   interpolated between previous and current tick with `alpha`; upload finished chunk
@@ -48,8 +49,17 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   distance + 1, nearest first, bounded in flight; finished chunks are inserted by the
   main thread; chunks beyond render distance + 3 unload. `TerrainGenerator` is
   immutable and pure, so workers share it.
-- The renderer meshes a chunk only when it and its 8 neighbours are loaded
-  (`WorldRenderer::onChunksLoaded`), so loaded-area edges never show walls.
+- `world::LightManager` (cores/4 threads, M5): lights a chunk once its 3x3
+  neighbourhood is loaded (the loader keeps render distance + 2 rings for this).
+  Jobs hold `shared_ptr`s to the neighbourhood's sections; sections are
+  copy-on-write (`Chunk::mutableSection` copies a section a worker still holds), so
+  the main thread keeps editing while jobs run. Each chunk has a version; stale
+  results are dropped. An edit relights the 3x3 chunks around it; sections whose
+  light changed are reported for re-meshing.
+- The renderer meshes a chunk only when it and its 8 neighbours are lit
+  (`WorldRenderer::onChunksLit`), so loaded-area edges never show walls. Mesh jobs
+  also capture shared section/light pointers (`captureSection`, 27 sections) and
+  build the 18³ padded arrays on the worker (`buildPadded`).
 
 ## World model (M2.1–M2.2, ADR 0005)
 - `ChunkPos {x,z}` (`key()` packs like vanilla's `ChunkPos.toLong`), `BlockPos {x,y,z}`
@@ -59,7 +69,15 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
 - `Section`: 4096 states as vanilla's PalettedContainer (single value → 4–8 bit local
   palette → direct ids), index `(y*16+z)*16+x`; `copyTo()` decodes all at once for
   meshing; tracks `nonAirCount` so empty sections are skipped.
-- `Chunk` = 24 sections (Y −64..319). `World` = map of `ChunkPos` → `Chunk`;
+- `Chunk` = 24 sections (Y −64..319), each a `shared_ptr<Section>` (copy-on-write)
+  plus per-section light (`SectionLight`: sky + block `LightLayer`, a uniform value
+  or 2048-byte nibble array, like vanilla's DataLayer).
+- Light (`world/LightEngine`, wiki: Light): computed per chunk over a 46×46 column
+  region (the chunk + 15-block margin, enough for any light to reach it): sky light
+  15 straight down through opacity-0 blocks, then BFS with loss max(1, opacity);
+  block light BFS from emitters. Opacity per state (`lightOpacity`: opaque 15,
+  water 1, else 0); emission per state (`lightEmission`). Full recompute per chunk,
+  not incremental. `World` = map of `ChunkPos` → `Chunk`;
   unloaded chunks read as air.
 - `FlatGenerator`: superflat from vanilla's preset string (default Classic Flat:
   bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
@@ -76,8 +94,16 @@ multi-draw) → screen.
 - `BlockModels`: per-state baked models (sprite, rotation, tint per face), built once
   at startup. Block → model mapping is C++ (`BlockModels.cpp`) until the JSON loader.
 - `ChunkMesher` (GL-free, thread-safe): emits a face when the neighbour is not an
-  `opaqueCube`; 4 `PackedVertex` (8 bytes) per quad: section-local xyz, face, UV
-  corner, sprite, tint. Directional shade comes from the face in the shader.
+  `opaqueCube` (or the same block for `cullSame` models: water, glass); 4
+  `PackedVertex` (12 bytes) per quad: position in 1/16 block, face, texel UV, sprite,
+  tint, fluidTop, AO (0–3 occluders) and smooth sky/block light (sum of the 4
+  non-opaque samples around the corner). Box models (torch) are flat-lit from their
+  own cell. Quads flip their diagonal to follow the brighter corners. Directional
+  shade, the vanilla brightness curve (`f/(4−3f)`, gamma lift) and night sky
+  darkening are applied in the shader.
+- `SkyRenderer` (shader `sky`): additive sun and moon (8 phases) quads and a fixed
+  1500-star field, rotated by the celestial angle; drawn after the clear with depth
+  off. Clear and fog colour = plains sky × daylight.
 - `ChunkRenderer`: one vertex arena buffer sub-allocated in quads (`RangeAllocator`,
   grows by copying), one shared quad index buffer (baseVertex per section), per-frame
   CPU frustum culling, then one `glMultiDrawElementsIndirect`. Each draw's
@@ -100,19 +126,21 @@ Fixed bindings (add new ones here):
 | uniform location | 3 | `uWaterColor` |
 | uniform location | 4 | `uFog` (start, end in blocks) |
 | uniform location | 5 | `uFogColor` (sky) |
+| uniform location | 6 | `uAlphaCutoff` (0.5 opaque/cutout pass, 0 translucent) |
+| uniform location | 7 | `uSkyDarken` (sky light levels lost at night, 0..11) |
 | texture unit | 0 | block atlas |
 | SSBO binding | 0 | section offsets (block pass) |
 | uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |
+| uniform location (sky) | 0, 1, 2 | `uTransform`, `uColor`, `uUvRect` |
 
-Passes (M3.2): **opaque**, then **translucent** (`BakedModel::translucent`: water...)
+Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),
 sections sorted far→near each frame. Fluids hide faces against the same fluid and
 lower their top vertices by 1/9 (`fluidTop` vertex flag; vanilla source height 8/9).
-Linear-smoothstep distance fog to the sky colour from 75% of the render distance.
+Linear cylindrical distance fog to the sky colour from 92% of the render distance (`Fog.h`).
 
 Known simplifications: uploads use `glNamedBufferSubData` (persistent-mapped staging
-when uploads get heavy); translucent sorting is per section, not per quad; no cutout
-pass yet (leaves/glass panes come with their blocks). Meshing threads: see Threading.
+when uploads get heavy); translucent sorting is per section, not per quad; Meshing threads: see Threading.
 
 ## Files outside src/
 - `assets/shaders/<name>.vert|.frag` — loaded at runtime from the source tree

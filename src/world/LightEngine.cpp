@@ -25,6 +25,16 @@ struct Region {
 
 } // namespace
 
+const std::shared_ptr<const SectionLight>& sharedUniformLight(uint8_t sky) {
+    static const auto make = [](uint8_t v) {
+        auto l = std::make_shared<SectionLight>();
+        l->sky.fill(v);
+        return std::shared_ptr<const SectionLight>(std::move(l));
+    };
+    static const std::shared_ptr<const SectionLight> open = make(15), dark = make(0);
+    return sky == 15 ? open : dark;
+}
+
 bool ChunkNeighbourhood::capture(const World& world, ChunkPos center, ChunkNeighbourhood& out) {
     out.center = center;
     for (int dz = -1; dz <= 1; ++dz) {
@@ -53,14 +63,27 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
             if (!chunk[s]->isEmpty()) topSection = s;
     ChunkLight result;
     if (topSection < 0) { // nothing at all: fully lit sky
-        auto open = std::make_shared<SectionLight>();
-        open->sky.fill(15);
-        for (auto& l : result)
-            l = open;
+        result.fill(sharedUniformLight(15));
         return result;
     }
-    r.y1 = std::min(kMaxY + 1, kMinY + (topSection + 1) * 16 + 1);
-    r.y0 = kMinY;
+    // Up to 15 blocks above the highest non-empty section: block light from emitters
+    // near its top reaches that far into the open air.
+    r.y1 = std::min(kMaxY + 1, kMinY + (topSection + 1) * 16 + 15);
+    // Sections that are solid opaque, non-emitting blocks in all 9 chunks hold no
+    // light and pass none: start lighting above the highest run of them from the
+    // bottom (usually just under the surface).
+    int bottomSection = 0;
+    auto solid = [&](BlockStateId st) { return reg.lightOpacity(st) >= 15 && !reg.lightEmission(st); };
+    for (; bottomSection < topSection; ++bottomSection) {
+        bool allSolid = true;
+        for (const auto& chunk : n.sections)
+            if (chunk[bottomSection]->isEmpty() || !chunk[bottomSection]->allPaletteStates(solid)) {
+                allSolid = false;
+                break;
+            }
+        if (!allSolid) break;
+    }
+    r.y0 = kMinY + bottomSection * 16;
     const int span = r.y1 - r.y0;
     r.opacity.assign(static_cast<size_t>(span) * kLayer, 0);
     r.sky.assign(r.opacity.size(), 0);
@@ -75,7 +98,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
             const int lx0 = std::max(0, -ox), lx1 = std::min(16, kW - ox);
             const int lz0 = std::max(0, -oz), lz1 = std::min(16, kW - oz);
             if (lx0 >= lx1 || lz0 >= lz1) continue;
-            for (int s = 0; s <= topSection; ++s) {
+            for (int s = bottomSection; s <= topSection; ++s) {
                 const Section& sec = *n.sections[cz * 3 + cx][s];
                 if (sec.isEmpty()) continue; // opacity 0, no emitters
                 sec.copyTo(sectionStates.data());
@@ -139,7 +162,12 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
                 const int i = r.index(ix, y, iz);
                 const int o = r.opacity[i];
                 if (o >= 15) break;
-                if (o > 0) level = std::max(0, level - std::max(1, o));
+                if (o > 0) {
+                    // Only full sky light travels down for free: below a filtering
+                    // block (water...) the reduced level spreads by BFS like any light.
+                    r.sky[i] = static_cast<uint8_t>(std::max(0, level - std::max(1, o)));
+                    break;
+                }
                 r.sky[i] = static_cast<uint8_t>(level);
             }
         }
@@ -163,32 +191,41 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     }
     spread(r.sky);
 
-    // 5. Copy the centre chunk out, section by section (uniform where possible).
+    // 5. Copy the centre chunk out, section by section (uniform where possible;
+    //    the common all-sky and all-dark sections share one immutable instance).
     for (int s = 0; s < kSectionsPerChunk; ++s) {
-        auto light = std::make_shared<SectionLight>();
         const int baseY = kMinY + s * 16;
         if (baseY >= r.y1) {
-            light->sky.fill(15); // above everything: open sky
-        } else {
-            for (int ly = 0; ly < 16; ++ly) {
-                const int y = baseY + ly;
-                for (int lz = 0; lz < 16; ++lz) {
-                    for (int lx = 0; lx < 16; ++lx) {
-                        const int si = Section::index(lx, ly, lz);
-                        if (y >= r.y1) {
-                            light->sky.set(si, 15);
-                            continue;
-                        }
-                        const int i = r.index(lx + kMargin, y, lz + kMargin);
-                        light->sky.set(si, r.sky[i]);
-                        light->block.set(si, r.block[i]);
+            result[s] = sharedUniformLight(15);
+            continue;
+        }
+        if (baseY < r.y0) {
+            result[s] = sharedUniformLight(0);
+            continue;
+        }
+        auto light = std::make_shared<SectionLight>();
+        for (int ly = 0; ly < 16; ++ly) {
+            const int y = baseY + ly;
+            for (int lz = 0; lz < 16; ++lz) {
+                for (int lx = 0; lx < 16; ++lx) {
+                    const int si = Section::index(lx, ly, lz);
+                    if (y >= r.y1) {
+                        light->sky.set(si, 15);
+                        continue;
                     }
+                    const int i = r.index(lx + kMargin, y, lz + kMargin);
+                    light->sky.set(si, r.sky[i]);
+                    light->block.set(si, r.block[i]);
                 }
             }
-            light->sky.compact();
-            light->block.compact();
         }
-        result[s] = std::move(light);
+        light->sky.compact();
+        light->block.compact();
+        if (light->block.isUniform() && light->block.uniformValue() == 0 && light->sky.isUniform() &&
+            (light->sky.uniformValue() == 0 || light->sky.uniformValue() == 15))
+            result[s] = sharedUniformLight(light->sky.uniformValue());
+        else
+            result[s] = std::move(light);
     }
     return result;
 }

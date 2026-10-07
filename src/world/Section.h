@@ -39,6 +39,14 @@ public:
     int bitsPerEntry() const { return m_bits; }
     bool isDirect() const { return m_direct; }
     size_t paletteSize() const { return m_palette.size(); }
+    // True if `pred` holds for every state the palette lists (may include states no
+    // longer present: conservative). Direct-mode sections answer false.
+    template <typename Pred> bool allPaletteStates(Pred pred) const {
+        if (m_direct) return false;
+        for (BlockStateId s : m_palette)
+            if (!pred(s)) return false;
+        return true;
+    }
     size_t memoryBytes() const;
     // The packed longs, exactly as vanilla lays them out (for saves and tests).
     const std::vector<uint64_t>& data() const { return m_data; }

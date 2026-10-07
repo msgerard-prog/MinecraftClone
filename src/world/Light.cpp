@@ -27,8 +27,14 @@ void LightLayer::compact() {
 
 bool LightLayer::operator==(const LightLayer& o) const {
     if (!m_data && !o.m_data) return m_uniform == o.m_uniform;
-    for (int i = 0; i < 4096; ++i)
-        if (get(i) != o.get(i)) return false;
+    if (m_data && o.m_data) return std::memcmp(m_data.get(), o.m_data.get(), 2048) == 0;
+    // One uniform, one array: equal only if the array holds one value throughout
+    // (arrays are normally compacted, so this is rare).
+    const LightLayer& arr = m_data ? *this : o;
+    const uint8_t v = m_data ? o.m_uniform : m_uniform;
+    const auto pair = static_cast<uint8_t>(v | (v << 4));
+    for (int i = 0; i < 2048; ++i)
+        if (arr.m_data[i] != pair) return false;
     return true;
 }
 

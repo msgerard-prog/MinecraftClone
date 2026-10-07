@@ -19,6 +19,7 @@ public:
     int selected() const { return m_selected; }
     world::BlockStateId selectedBlock() const { return m_slots[static_cast<size_t>(m_selected)]; }
     world::BlockStateId slot(int i) const { return m_slots[static_cast<size_t>(i)]; }
+    void setSlot(int i, world::BlockStateId state) { m_slots[static_cast<size_t>(i)] = state; }
 
 private:
     std::array<world::BlockStateId, kSlots> m_slots{};

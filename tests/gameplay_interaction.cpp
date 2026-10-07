@@ -118,7 +118,7 @@ TEST_CASE("placing into an unloaded chunk does nothing; a click acts despite coo
     CHECK(s.changed.size() == 1);
 }
 
-TEST_CASE("torches go on top of solid blocks only; glass and the side of a block refuse") {
+TEST_CASE("torches go on top of full blocks (glass too), never on sides or into water") {
     Scene s(0.0f, 60.0f); // looking down at the floor's top face
     s.tick(false, true, S(blocks::Torch));
     REQUIRE(s.changed.size() == 1);
@@ -128,9 +128,16 @@ TEST_CASE("torches go on top of solid blocks only; glass and the side of a block
     Scene glass(0.0f, 60.0f);
     const auto t = BlockInteraction::target(glass.world, glass.player);
     REQUIRE(t.has_value());
-    glass.world.setBlock(t->block, S(blocks::Glass)); // not a solid support
+    glass.world.setBlock(t->block, S(blocks::Glass)); // its top supports the centre
     glass.tick(false, true, S(blocks::Torch));
-    CHECK(glass.changed.empty());
+    CHECK(glass.changed.size() == 1);
+
+    Scene water(0.0f, 60.0f);
+    const auto wt = BlockInteraction::target(water.world, water.player);
+    REQUIRE(wt.has_value());
+    water.world.setBlock(neighbour(wt->block, wt->face), S(blocks::Water));
+    water.tick(false, true, S(blocks::Torch));
+    CHECK(water.changed.empty());
 
     Scene wall(0.0f, 0.0f); // looking south (+z) at a wall's side face
     wall.world.setBlock({0, 65, 3}, S(blocks::Stone));

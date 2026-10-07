@@ -5,6 +5,7 @@
 #include "world/Section.h"
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -47,6 +48,7 @@ public:
     void reset(ChunkPos pos) {
         m_pos = pos;
         m_lit = false;
+        lightJob = {};
         for (auto& l : m_light)
             l.reset();
     }
@@ -63,9 +65,13 @@ public:
 
     const Section& section(int index) const { return *m_sections[index]; }
     // Write access: copies the section first if a worker still holds the old one.
+    // Invariant: only the main thread copies these shared_ptrs (workers only read
+    // and release theirs), so use_count() == 1 means no worker can still see it; the
+    // acquire fence pairs with the worker's releasing decrement.
     Section& mutableSection(int index) {
         auto& s = m_sections[index];
         if (s.use_count() > 1) s = std::make_shared<Section>(*s);
+        std::atomic_thread_fence(std::memory_order_acquire);
         return *s;
     }
     // A reference that stays valid (unchanged) while the chunk is edited.
@@ -78,6 +84,12 @@ public:
         m_light = std::move(light);
         m_lit = true;
     }
+    // LightManager bookkeeping (main thread only).
+    struct LightJobState {
+        uint32_t version = 0; // latest submitted job (0: none); globally unique
+        bool queued = false;  // waiting in a LightManager queue
+    } lightJob;
+
     // Light at local x/z, world y (above the world: full sky light).
     uint8_t skyLight(int x, int y, int z) const;
     uint8_t blockLight(int x, int y, int z) const;

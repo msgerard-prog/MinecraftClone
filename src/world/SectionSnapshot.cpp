@@ -1,6 +1,7 @@
 #include "world/SectionSnapshot.h"
 
 #include <array>
+#include <cstring>
 
 namespace mc::world {
 
@@ -51,7 +52,10 @@ bool captureSection(const World& world, SectionPos pos, SectionRefs& out) {
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dx = -1; dx <= 1; ++dx) {
             const Chunk* c = world.chunk({pos.x + dx, pos.z + dz});
-            if (!c) return false;
+            if (!c) {
+                out = {}; // keep no partial references
+                return false;
+            }
             for (int dy = -1; dy <= 1; ++dy) {
                 const int i = ((dy + 1) * 3 + (dz + 1)) * 3 + (dx + 1);
                 const int s = pos.y + dy - (kMinY >> 4);
@@ -79,18 +83,34 @@ void buildPadded(const SectionRefs& refs, BlockStateId* blocks, uint8_t* sky, ui
                 const int y0 = dy < 0 ? 15 : 0, y1 = dy > 0 ? 0 : 15;
                 const int z0 = dz < 0 ? 15 : 0, z1 = dz > 0 ? 0 : 15;
                 const Section* sec = refs.blocks[i].get();
+                if (sec && sec->isEmpty()) sec = nullptr; // all air
                 const SectionLight* light = refs.light[i].get();
                 const bool aboveWorld = refs.pos.y + dy > (kMaxY >> 4);
-                if (sec && !sec->isEmpty()) sec->copyTo(decoded.data());
+                // Without light data: above the world is open sky, a missing section
+                // dark, an existing unlit one (tests) full sky.
+                const uint8_t defaultSky = aboveWorld ? 15 : (refs.blocks[i] ? 15 : 0);
+                // Decode whole sections only for the centre and its 6 face neighbours
+                // (>= 256 cells used); edges (16) and corners (1) read cells directly.
+                const bool whole = sec && (dx != 0) + (dy != 0) + (dz != 0) <= 1;
+                if (whole) sec->copyTo(decoded.data());
                 for (int ly = y0; ly <= y1; ++ly) {
                     for (int lz = z0; lz <= z1; ++lz) {
-                        for (int lx = x0; lx <= x1; ++lx) {
-                            const int pi = paddedIndex(lx + dx * 16, ly + dy * 16, lz + dz * 16);
-                            const int si = Section::index(lx, ly, lz);
-                            blocks[pi] = sec && !sec->isEmpty() ? decoded[si] : BlockStateId{0};
-                            sky[pi] = light ? light->sky.get(si)
-                                            : (aboveWorld || !sec ? (aboveWorld ? 15 : 0) : 15);
-                            blockLight[pi] = light ? light->block.get(si) : 0;
+                        const int row = paddedIndex(x0 + dx * 16, ly + dy * 16, lz + dz * 16);
+                        const int srow = Section::index(x0, ly, lz);
+                        const int n = x1 - x0 + 1;
+                        for (int k = 0; k < n; ++k) {
+                            blocks[row + k] = !sec    ? BlockStateId{0}
+                                              : whole ? decoded[srow + k]
+                                                      : sec->getIndex(srow + k);
+                        }
+                        if (light) {
+                            for (int k = 0; k < n; ++k) {
+                                sky[row + k] = light->sky.get(srow + k);
+                                blockLight[row + k] = light->block.get(srow + k);
+                            }
+                        } else {
+                            std::memset(sky + row, defaultSky, static_cast<size_t>(n));
+                            std::memset(blockLight + row, 0, static_cast<size_t>(n));
                         }
                     }
                 }

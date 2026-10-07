@@ -64,7 +64,7 @@ fine until a system works.
 | Deviation | Why | Remove by |
 |---|---|---|
 | Placeholder terrain: 2D heightmap; no caves, aquifers, lava level, ores, features, trees or biomes; fixed 3-block dirt; no sandstone under sand; sand vs gravel by noise, not by biome; sand only in a narrow band at the waterline; bedrock/deepslate gradients use our positional hash (same probabilities as described, different pattern) | Need ground to test M3–M7 | M8 |
-| Fog fades to the sky colour #78A7FF; vanilla fades to the biome fog colour (Overworld #C0D8FF) blended with a sky gradient | No sky/fog colour model yet | M5 |
+| Fog fades to the sky colour (#78A7FF × daylight), so night fog is black; vanilla fades to the biome fog colour (Overworld #C0D8FF; dark blue at night) blended toward the sky and the sunrise colour | Simple sky model | M8 (biome colours) |
 | Water tint is always #3F76E4 (no biome water colours) | No biomes | M8 |
 | Gravel and sand don't fall | Falling blocks need entities | M10 |
 | All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | M6 (UI) |
@@ -77,7 +77,11 @@ fine until a system works.
 | Block outline thickness is in world space (vanilla: constant on-screen line width); no High Contrast outline option; hotbar ignores horizontal scrolling | Simpler geometry / input | M6 |
 | Unloaded chunks collide as solid (vanilla keeps entities out of unloaded chunks differently) | Never move into ungenerated terrain | — |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | M6 (options) |
-| Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
+| Sky is one colour (#78A7FF × daylight): no gradient toward the fog colour at the horizon, no sunrise/sunset glow, no dark void plane below the horizon, no clouds. Sun/moon apparent sizes and the star count are estimated from observation; star positions differ | Simple sky model | Weather/sky pass |
+| The Brightness option's lift of dark light levels is our estimate (`block.vert`); the l/(60−3l) curve and ~5% at full darkness follow public sources; no block-light flicker | Exact lightmap not documented on the wiki | When observed side by side |
+| Non-cube blocks (torch) are targeted and outlined as full cubes | Shape-aware raycast comes with block shapes | Block shapes (slabs...) |
+| Torches stand on top of any full-collision block (glass included) but not on walls (no wall torches), and stay when their support is removed; no torch particles | Wall torches are a separate block; no block updates yet | Block updates |
+| Light is recomputed for the whole 3×3 chunks around an edit (vanilla updates incrementally); the edited block's section is re-meshed when that light arrives, a frame or two after the click | Simpler and exact; runs on workers | When edits get frequent (redstone) |
 | Water uses the still texture only and every level renders at source height 8/9; no flow, no underwater fog/tint | Fluid flow and camera-in-fluid effects come later | Fluids milestone |
 | Translucent faces are sorted per section, not per quad (rare blending errors inside one section) | Simpler; vanilla sorts quads | When visible |
 | Flowing water/lava textures are 16px frames (vanilla: 32px) | One 32px sprite would force 32px atlas cells for every texture | When the atlas packs mixed sizes |

@@ -38,7 +38,8 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     if (!m_blockShader.load("block")) return false;
     // Pack stack: our placeholders at the bottom (the repo root holds `assets/`), then
     // the user's packs on top.
-    PackStack packs;
+    m_packs = std::make_unique<PackStack>();
+    PackStack& packs = *m_packs;
     packs.add(ResourcePack::open(std::filesystem::path(MC_ASSETS_DIR).parent_path()));
     packs.addAllIn(resourcePacksDir);
     if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
@@ -232,6 +233,7 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
         ++st.inFlight;
         if (!world::captureSection(world, pos, job->refs)) { // neighbours gone: skip
             --st.inFlight;
+            job->refs = {}; // don't keep partly captured sections alive in the pool
             m_workers->recycle(std::move(job));
             eraseIfIdle(pos);
             continue;

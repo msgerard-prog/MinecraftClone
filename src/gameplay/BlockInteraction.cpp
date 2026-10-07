@@ -50,17 +50,19 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world::isInBuildHeight(at.y)) return;
         const world::BlockStateId existing = world.getBlock(at);
-        // Air and fluids can be replaced.
-        if (existing != 0 && reg.blockOf(existing) != world::blocks::Water) return;
+        // Air and fluids can be replaced (not by torches: they can't exist in water).
+        const bool torch = reg.blockOf(placeState) == world::blocks::Torch;
+        if (existing != 0 && (reg.blockOf(existing) != world::blocks::Water || torch)) return;
         const Aabb blockBox{{at.x, at.y, at.z}, {at.x + 1.0, at.y + 1.0, at.z + 1.0}};
         if (reg.collides(placeState) && player.box().intersects(blockBox))
             return; // not inside the player
         if (!world.chunk(world::ChunkPos{world::blockToChunk(at.x), world::blockToChunk(at.z)}))
             return;
-        // Torches stand on the top of a solid block (wall torches: not yet, see
-        // game-design.md › Known deviations).
-        if (reg.blockOf(placeState) == world::blocks::Torch &&
-            (hit->face != world::Direction::Up || !reg.opaqueCube(world.getBlock(hit->block))))
+        // Floor torches need a top face that supports its centre (wiki:
+        // Opacity/Placement): any full-collision block, glass included. Wall
+        // torches: not yet (game-design.md › Known deviations).
+        if (torch &&
+            (hit->face != world::Direction::Up || !reg.collides(world.getBlock(hit->block))))
             return;
         world.setBlock(at, orientedState(placeState, hit->face));
         changed.push_back(at);

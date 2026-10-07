@@ -162,8 +162,11 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                         v[c].tint = face.tint;
                         v[c].fluidTop = lowerTop && k.y == 1;
                         if (model.fluid) {
-                            v[c].sky4 = sky[n] * 4u; // fluids: flat light of the cell in front
-                            v[c].block4 = bl[n] * 4u;
+                            // Fluids: flat light, the brighter of the fluid's own cell and
+                            // the one in front (a lowered top under a solid block faces an
+                            // opaque cell whose stored light is 0).
+                            v[c].sky4 = std::max(sky[n], sky[i]) * 4u;
+                            v[c].block4 = std::max(bl[n], bl[i]) * 4u;
                         } else {
                             const CornerLight l = cornerLight(blocks, sky, bl, registry, n, f, k);
                             v[c].sky4 = l.sky4;

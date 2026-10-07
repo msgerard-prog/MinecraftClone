@@ -34,10 +34,11 @@ void addQuad(std::vector<SkyVertex>& v, float y, float h) {
     v.insert(v.end(), {a, b, c, a, c, d});
 }
 
-// Vanilla-like star field: 1500 random directions, small quads at distance 100
-// facing the origin, fixed seed (the sky is the same in every world).
+// Star field: ~1500 random directions, small quads at distance 100 facing the origin,
+// fixed seed (the sky is the same in every world). Count and size are estimated from
+// observation, not documented; vanilla's star positions are not reproduced.
 void addStars(std::vector<SkyVertex>& v) {
-    std::mt19937 rng(10842);
+    std::mt19937 rng(0x5EED5u); // our own fixed seed
     std::uniform_real_distribution<float> u(-1.0f, 1.0f), size(0.15f, 0.25f),
         spin(0.0f, 2.0f * std::numbers::pi_v<float>);
     for (int i = 0; i < 1500; ++i) {
@@ -94,8 +95,9 @@ SkyRenderer::~SkyRenderer() {
 bool SkyRenderer::init(const PackStack& packs) {
     if (!m_shader.load("sky")) return false;
     std::vector<SkyVertex> v;
-    addQuad(v, 100.0f, 30.0f); // sun: vanilla size 30 at distance 100
-    addQuad(v, 100.0f, 20.0f); // moon: 20 (placed opposite the sun in draw())
+    // Apparent sizes estimated from observation (~33 and ~23 degrees across).
+    addQuad(v, 100.0f, 30.0f); // sun
+    addQuad(v, 100.0f, 20.0f); // moon (placed opposite the sun in draw())
     addStars(v);
     m_starVertices = static_cast<int>(v.size()) - kStarsFirst;
 

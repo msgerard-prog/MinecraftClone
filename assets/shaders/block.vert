@@ -24,13 +24,15 @@ out vec2 vUv;
 out vec3 vColor;
 out float vDistance;
 
-// Vanilla's light curve (LightTexture): brightness of level f = l/15 is f / (4 - 3f),
-// then the Brightness option (default 50%) lifts the darks: mix(x, 1 - (1-x)^4, 0.5).
+// Light curve: brightness of level l is l / (60 - 3l) (public write-up: Origins docs,
+// "brightness"; each level ~80% of the one above, wiki: Light), then the Brightness
+// option (default 50%) lifts the darks - our estimate: mix(x, 1 - (1-x)^4, 0.5).
+// Full darkness stays ~5% visible (wiki: Light › Rendered brightness).
 float brightness(float level) {
     const float f = clamp(level / 15.0, 0.0, 1.0);
     const float b = f / (4.0 - 3.0 * f);
     const float lifted = 1.0 - pow(1.0 - b, 4.0);
-    return mix(b, lifted, 0.5);
+    return mix(0.05, 1.0, mix(b, lifted, 0.5));
 }
 
 void main() {
