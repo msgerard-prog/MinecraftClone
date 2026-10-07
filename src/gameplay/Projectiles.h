@@ -21,7 +21,9 @@ namespace mc {
 // Eyes of ender (M18.5) fly to a point and then drop or shatter (see throwEye).
 // Ghast fireballs (M19.2) fly straight and explode (power 1, fire); blaze fireballs
 // hit for 5 and set fire (wiki: Fireball, Small Fireball).
-enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball };
+// Splash potions (M19.4) fly with gravity 0.05 and break on anything (wiki: Splash
+// Potion): within 4 blocks effects scale with 1 - distance / 4.
+enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball, SplashPotion };
 
 struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
@@ -37,6 +39,7 @@ struct Projectile {
     int life = 0; // ticks alive (stuck arrows vanish at 1200)
     uint8_t skyLight = 15, blockLight = 0;
     glm::dvec3 target{0.0}; // eyes of ender: where they fly
+    uint8_t potion = 0;     // splash potions: the potion (world::Potion)
 };
 
 class Projectiles {
@@ -105,5 +108,8 @@ void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const 
 // item (80%) or shatters (20%). Survival uses it up.
 void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::ivec2 stronghold,
               Projectiles& projectiles);
+// Throwing the held splash potion (speed 0.5, aimed 20 degrees up; wiki).
+void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
+                       Projectiles& projectiles, world::Xoroshiro& rng);
 
 } // namespace mc

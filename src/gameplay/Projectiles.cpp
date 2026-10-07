@@ -7,7 +7,9 @@
 #include "world/Enchantments.h"
 #include "world/BlockUpdates.h"
 #include "world/Direction.h"
+#include "world/Potions.h"
 #include "world/Raycast.h"
+#include "world/Rotation.h"
 
 #include <cmath>
 
@@ -92,6 +94,16 @@ void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::i
     if (survival) inventory.consumeSelected(1);
 }
 
+void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
+                       Projectiles& projectiles, Xoroshiro& rng) {
+    const ItemStack held = inventory.selectedStack();
+    const glm::dvec3 dir(lookVector(yaw, pitch - 20.0f));
+    if (!projectiles.shoot(ProjectileKind::SplashPotion, eye, dir, 0.5, 1.0, true, false, rng)) return;
+    projectiles.last().potion = held.potion;
+    projectiles.last().pickup = false;
+    if (survival) inventory.consumeSelected(1);
+}
+
 bool Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
                         double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng, uint64_t owner) {
     if (m_items.size() >= size_t(kMax)) {
@@ -172,7 +184,54 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 }
             }
             const bool fireball = p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
-            if (fireball && (target != Target::None || block)) {
+            if (p.kind == ProjectileKind::SplashPotion && (target != Target::None || block)) {
+                // Splash: everything within 4 blocks gets the effect, scaled by
+                // 1 - distance / 4 (a direct hit: full); healing and harming swap on the
+                // undead (wiki: Splash Potion, Undead).
+                const glm::dvec3 at = p.pos + dir * reach;
+                const PotionInfo& info = potionInfo(static_cast<Potion>(p.potion));
+                if (info.effect != Effect::None) {
+                    auto scaleFor = [&](const Aabb& box, bool direct) {
+                        if (direct) return 1.0;
+                        const glm::dvec3 c = (box.min + box.max) * 0.5;
+                        const double d = glm::length(c - at);
+                        return d < 4.0 ? 1.0 - d / 4.0 : 0.0;
+                    };
+                    const double sp = scaleFor(player.box(), target == Target::Player);
+                    const bool hurtsPlayer = info.effect == Effect::InstantDamage || info.effect == Effect::Poison;
+                    if (sp > 0.0 && vitals && (survival || !hurtsPlayer)) { // (creative takes no harm)
+                        const int duration = int(info.duration * sp + 0.5);
+                        if (effectInfo(info.effect).instant || duration > 20)
+                            vitals->addEffect(info.effect, info.amplifier, duration, sp);
+                    }
+                    if (info.effect == Effect::InstantHealth || info.effect == Effect::InstantDamage) {
+                        const MobData* direct = target == Target::Mob ? &world.chunk(mob.chunk)->mobs()[size_t(mob.index)]
+                                                                      : nullptr;
+                        const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+                        for (int dz = -1; dz <= 1; ++dz)
+                            for (int dx = -1; dx <= 1; ++dx)
+                                if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
+                                    for (MobData& m : ch->mobs()) {
+                                        const double sm = scaleFor(Mobs::box(m), &m == direct);
+                                        if (sm <= 0.0 || m.health <= 0.0f) continue;
+                                        const bool undead = m.type == MobType::Zombie || m.type == MobType::Skeleton ||
+                                                            m.type == MobType::ZombifiedPiglin;
+                                        const bool harm = (info.effect == Effect::InstantDamage) != undead;
+                                        const float amount = float(harm ? 6 << info.amplifier
+                                                                                                : 4 << info.amplifier) *
+                                                             float(sm);
+                                        if (harm) {
+                                            m.health -= amount;
+                                            m.hurtTime = 10;
+                                            if (p.fromPlayer) m.lastHurtByPlayer = true;
+                                        } else {
+                                            m.health = std::min(mobInfo(m.type).maxHealth, m.health + amount);
+                                        }
+                                    }
+                    }
+                }
+                remove = true;
+            } else if (fireball && (target != Target::None || block)) {
                 const glm::dvec3 at = p.pos + dir * reach;
                 if (target == Target::Player && vitals && survival) {
                     const float damage = p.kind == ProjectileKind::GhastFireball ? 6.0f : 5.0f; // (wiki)
@@ -247,7 +306,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball) { // (fireballs fly straight)
                     const double drag = inWater ? 0.6 : 0.99;
                     p.vel *= drag;
-                    p.vel.y -= p.kind == ProjectileKind::Arrow ? 0.05 : 0.03;
+                    p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ? 0.05 : 0.03;
                 }
                 if (p.pos.y < world.height().minY - 64 || p.life > 1200) remove = true;
             }

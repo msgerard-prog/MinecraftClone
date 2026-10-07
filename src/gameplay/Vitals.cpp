@@ -29,11 +29,13 @@ float Vitals::touchFire(bool inFire) {
     return attacked(1.0f, nullptr, Hit::Fire) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
-void Vitals::addEffect(world::Effect type, int amplifier, int duration) {
+void Vitals::addEffect(world::Effect type, int amplifier, int duration, double scale) {
     using world::Effect;
     if (world::effectInfo(type).instant) {
-        if (type == Effect::InstantHealth) m_health = std::min(kMaxHealth, m_health + float(4 << amplifier));
-        else if (!dead()) m_health = std::max(0.0f, m_health - protectionReduced(float(6 << amplifier), Hit::Generic, false));
+        const float k = static_cast<float>(scale);
+        if (type == Effect::InstantHealth) m_health = std::min(kMaxHealth, m_health + float(4 << amplifier) * k);
+        else if (!dead())
+            m_health = std::max(0.0f, m_health - protectionReduced(float(6 << amplifier) * k, Hit::Generic, false));
         return;
     }
     ActiveEffect* free = nullptr;

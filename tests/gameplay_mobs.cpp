@@ -5,6 +5,7 @@
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
 #include "world/OverworldGenerator.h"
+#include "world/Potions.h"
 
 #include <doctest/doctest.h>
 
@@ -852,4 +853,35 @@ TEST_CASE("striders float on lava unhurt; hoglins drop porkchops") {
     for (const auto& e : h.items.items())
         if (itemRegistry().item(e.stack.item).id == "minecraft:porkchop") pork += e.stack.count;
     CHECK(pork >= 2);
+}
+
+TEST_CASE("splash potions: harming hurts the living and heals the undead, scaled by distance; regeneration reaches the player") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.player.setPosition({-20.5, 64.0, 0.5}); // out of the splash
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {6.5, 64.0, 4.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {5.0, 64.0, 7.0}, s.rng)));
+    for (MobData* m : s.all())
+        m->health = 5.0f;
+    Projectiles proj;
+    // Dropped straight down onto the ground between them (1.5 blocks from each).
+    REQUIRE(proj.shoot(ProjectileKind::SplashPotion, {5.5, 66.0, 5.5}, {0.0, -1.0, 0.0}, 0.3, 0.0, true, false, s.rng));
+    proj.last().potion = static_cast<uint8_t>(Potion::Harming);
+    proj.last().pickup = false;
+    Inventory inventory;
+    for (int i = 0; i < 20 && !proj.items().empty(); ++i)
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    CHECK(proj.items().empty());
+    for (MobData* m : s.all()) {
+        if (m->type == MobType::Cow) CHECK(m->health < 5.0f);    // harmed (dead or nearly)
+        if (m->type == MobType::Zombie) CHECK(m->health > 5.0f); // healed
+    }
+    CHECK(s.vitals.health() == doctest::Approx(20.0f)); // 20 blocks away: untouched
+
+    s.player.setPosition({5.5, 64.0, 5.5});
+    REQUIRE(proj.shoot(ProjectileKind::SplashPotion, {5.5, 66.5, 7.5}, {0.0, -1.0, 0.0}, 0.3, 0.0, true, false, s.rng));
+    proj.last().potion = static_cast<uint8_t>(Potion::Regeneration);
+    for (int i = 0; i < 20 && !proj.items().empty(); ++i)
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    CHECK(s.vitals.effectLevel(Effect::Regeneration) > 0);
 }

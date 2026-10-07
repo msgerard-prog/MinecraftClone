@@ -1251,6 +1251,10 @@ int main(int argc, char** argv) {
                         mc::throwEye(inventory, survival, eye, *s, projectiles);
                         clicks.useClick = false;
                     }
+                if (!dead && heldId == "minecraft:splash_potion" && clicks.useClick) { // (M19.4)
+                    mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
@@ -1680,11 +1684,19 @@ int main(int argc, char** argv) {
             const glm::vec3 light = lightTable[size_t(pr.skyLight * 16 + pr.blockLight)];
             static const mc::world::ItemId eggItem = *mc::world::itemRegistry().find("egg");
             static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
+            static const mc::world::ItemId splashItem = *mc::world::itemRegistry().find("splash_potion");
+            static const mc::world::ItemId fireItem = *mc::world::itemRegistry().find("fire_charge");
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
-            else
-                entities.addItem({pr.kind == mc::ProjectileKind::EyeOfEnder ? eyeItem : eggItem, 1},
-                                 p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
+            else {
+                mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder     ? eyeItem
+                                          : pr.kind == mc::ProjectileKind::SplashPotion ? splashItem
+                                          : pr.kind == mc::ProjectileKind::Egg          ? eggItem
+                                                                                        : fireItem,
+                                          1};
+                look.potion = pr.potion;
+                entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
+            }
         }
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),

@@ -137,7 +137,8 @@ public:
         int duration = 0; // ticks left
     };
     static constexpr int kMaxEffects = 16;
-    void addEffect(world::Effect type, int amplifier, int duration);
+    // `scale`: splash potions' distance factor (instant effects' amount).
+    void addEffect(world::Effect type, int amplifier, int duration, double scale = 1.0);
     // 0 = not active, else level (amplifier + 1).
     int effectLevel(world::Effect type) const {
         for (const ActiveEffect& e : m_effects)
