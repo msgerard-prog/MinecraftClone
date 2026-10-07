@@ -55,6 +55,10 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::NetherGoldOre:
     case blocks::MagmaBlock:
     case blocks::EndStone:
+    case blocks::EndStoneBricks: // (wiki: End Stone Bricks, Purpur Block, Iron Bars - any pickaxe)
+    case blocks::PurpurBlock:
+    case blocks::PurpurPillar:
+    case blocks::IronBars:
     case blocks::Anvil: // wiki: Anvil, Enchanting Table - any pickaxe
     case blocks::ChippedAnvil:
     case blocks::DamagedAnvil:
@@ -139,6 +143,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::RedMushroomBlock:
     case blocks::MushroomStem:
     case blocks::RedBed:
+    case blocks::ChorusPlant: // (wiki: Chorus Plant, Chorus Flower)
+    case blocks::ChorusFlower:
         return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
     // Hoe (leaves, wart blocks, shroomlights).
     case blocks::NetherWartBlock:
@@ -399,6 +405,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return;
     case blocks::NetherWart: // wiki: Nether Wart - 2-4 when ripe (age 3), else 1
         add(itemRegistry().blockItem(blocks::NetherWart), blockRegistry().get(state, properties::age3) == 3 ? between(2, 4) : 1);
+        return;
+    case blocks::ChorusPlant: // wiki: Chorus Plant - 0-1 chorus fruit
+        if (rng.nextInt(2) == 0) add(*itemRegistry().find("chorus_fruit"));
         return;
     case blocks::Glowstone: // wiki: Glowstone - 2-4 dust
         add(*itemRegistry().find("glowstone_dust"), between(2, 4));

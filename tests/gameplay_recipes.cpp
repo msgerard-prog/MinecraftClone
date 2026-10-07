@@ -205,3 +205,15 @@ TEST_CASE("brewing: swapping the ingredient mid-brew stops the brew (M19 review)
     CHECK(s.bottles[0].potion == static_cast<uint8_t>(Potion::Awkward));
     CHECK(s.ingredient.count == 1);
 }
+
+TEST_CASE("the End's recipes: end stone bricks, chorus fruit -> popped -> purpur, iron bars") {
+    std::array<ItemStack, 4> g{I("end_stone"), I("end_stone"), I("end_stone"), I("end_stone")};
+    CHECK(out(g, 2) == "minecraft:end_stone_bricksx4");
+    g = {I("popped_chorus_fruit"), I("popped_chorus_fruit"), I("popped_chorus_fruit"), I("popped_chorus_fruit")};
+    CHECK(out(g, 2) == "minecraft:purpur_blockx4");
+    CHECK(itemRegistry().item(smelt(I("chorus_fruit"))->item).id == "minecraft:popped_chorus_fruit");
+    std::array<ItemStack, 9> t{};
+    for (int i = 0; i < 6; ++i)
+        t[size_t(i)] = I("iron_ingot");
+    CHECK(out(t, 3) == "minecraft:iron_barsx16");
+}

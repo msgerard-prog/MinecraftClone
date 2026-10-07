@@ -28,6 +28,9 @@ struct InteractionInput {
 // Creative-mode breaking and placing (survival mining times come with items/tools in
 // M9). Runs in the game tick; records every block it changed so the renderer can
 // re-mesh them.
+// Where eating a chorus fruit takes the player from `feet` (nullopt: nowhere found).
+std::optional<glm::dvec3> chorusTeleport(const world::World& world, const glm::dvec3& feet, world::Xoroshiro& rng);
+
 class BlockInteraction {
 public:
     // An item a broken block (or its container contents) drops.
@@ -73,6 +76,8 @@ public:
     std::optional<world::BlockPos> breakingBlock() const { return m_breaking; }
     float breakProgress() const { return m_progress; }
     int eatingTicks() const { return m_eatTicks; }
+    // A chorus fruit was eaten this tick (once; main teleports the player).
+    bool takeChorusTeleport() { return std::exchange(m_ateChorus, false); }
     static constexpr int kEatTicks = 32; // wiki: Food (1.61 s)
     static constexpr int kSurvivalBreakDelay = 6; // wiki: Breaking - 6 ticks before the next block
 
@@ -97,6 +102,8 @@ private:
     float m_progress = 0.0f;
     double m_progressExact = 0.0;
     int m_eatTicks = 0;
+    int m_chorusCooldown = 0; // chorus fruit: 20 ticks between teleports
+    bool m_ateChorus = false;
     std::vector<world::ItemStack> m_dropScratch = std::vector<world::ItemStack>(8); // reused
 
 public:

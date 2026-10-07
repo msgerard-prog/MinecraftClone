@@ -119,7 +119,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `NetherGenerator` is versioned the same way: "nether2" (M19, new worlds; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
   Nether biomes (`biomeAt`), their surfaces and features (`netherFeatures`) and
-  fortresses/bastions; "nether" (M12) stays for older worlds.
+  fortresses/bastions; "nether" (M12) stays for older worlds. `EndGenerator` too:
+  "end2" (M20, level.dat `end_generator`) adds outer islands beyond 1024 blocks
+  (`islandCells`/`islandValue`: centres on a 16-block grid, the strongest island per
+  column), the four outer End biomes (`biomeAt`), small end islands, chorus trees
+  (inside one chunk) and the iron bar cages; "end" (M12) is the main island only.
 - Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre

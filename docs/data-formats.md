@@ -92,6 +92,7 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            "overworld" (M8) | "terrain" (M3) | "flat",
                            portals [ { dimension, x, y, z } ] (known nether portals, M12),
                            nether_generator: "nether2" (M19, new worlds) | "nether" (M12),
+                           end_generator: "end2" (M20, new worlds) | "end" (M12; also when missing),
                            format: Int (kCloneFormat the world was created with; missing = 0,
                            before v0.17.1) } }
                            (Player.Dimension: "minecraft:overworld" | "the_nether" | "the_end")

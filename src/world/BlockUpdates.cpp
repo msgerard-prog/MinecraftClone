@@ -328,6 +328,49 @@ bool BlockUpdates::netherPlantCanStay(const World& world, const BlockPos& p, Blo
            b == B::CoarseDirt || b == B::Podzol || b == B::Mycelium || b == B::Farmland;
 }
 
+bool BlockUpdates::chorusCanStay(const World& world, const BlockPos& p, BlockId block) {
+    const auto isPlant = [&](const BlockPos& q) { return blockOf(world.getBlock(q)) == B::ChorusPlant; };
+    const auto grounded = [&](const BlockPos& q) {
+        const BlockId b = blockOf(world.getBlock({q.x, q.y - 1, q.z}));
+        return b == B::ChorusPlant || b == B::EndStone;
+    };
+    if (grounded(p)) return true;
+    if (block == B::ChorusFlower) return false;
+    const bool above = world.getBlock({p.x, p.y + 1, p.z}) != 0, below = world.getBlock({p.x, p.y - 1, p.z}) != 0;
+    for (const Direction d : {Direction::North, Direction::South, Direction::West, Direction::East}) {
+        const BlockPos q = rel(p, d);
+        if (isPlant(q) && grounded(q)) return !(above && below);
+    }
+    return false;
+}
+
+BlockStateId BlockUpdates::chorusConnected(const World& world, const BlockPos& p, BlockStateId plant) {
+    const auto& r = R();
+    auto joins = [&](Direction d) {
+        const BlockId b = blockOf(world.getBlock(rel(p, d)));
+        return b == B::ChorusPlant || b == B::ChorusFlower || (d == Direction::Down && b == B::EndStone);
+    };
+    // ("true" is value 0 of these properties)
+    plant = r.set(plant, faceDown, joins(Direction::Down) ? 0 : 1);
+    plant = r.set(plant, fireUp, joins(Direction::Up) ? 0 : 1);
+    plant = r.set(plant, fireNorth, joins(Direction::North) ? 0 : 1);
+    plant = r.set(plant, fireSouth, joins(Direction::South) ? 0 : 1);
+    plant = r.set(plant, fireWest, joins(Direction::West) ? 0 : 1);
+    return r.set(plant, fireEast, joins(Direction::East) ? 0 : 1);
+}
+
+BlockStateId BlockUpdates::barsConnected(const World& world, const BlockPos& p, BlockStateId bars) {
+    const auto& r = R();
+    auto joins = [&](Direction d) {
+        const BlockStateId s = world.getBlock(rel(p, d));
+        return blockOf(s) == B::IronBars || r.opaqueCube(s);
+    };
+    bars = r.set(bars, fireNorth, joins(Direction::North) ? 0 : 1);
+    bars = r.set(bars, fireSouth, joins(Direction::South) ? 0 : 1);
+    bars = r.set(bars, fireWest, joins(Direction::West) ? 0 : 1);
+    return r.set(bars, fireEast, joins(Direction::East) ? 0 : 1);
+}
+
 bool BlockUpdates::replaceable(BlockStateId s) {
     // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
     // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
@@ -628,6 +671,16 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     case B::NetherWart: // grows only on soul sand (wiki: Nether Wart)
         if (blockOf(at(rel(p, Direction::Down))) != B::SoulSand) pop(p);
+        break;
+    case B::ChorusPlant: // (vanilla breaks it on a scheduled tick; ours at once)
+        if (!chorusCanStay(m_world, p, B::ChorusPlant)) pop(p);
+        else set(p, chorusConnected(m_world, p, s));
+        break;
+    case B::ChorusFlower:
+        if (!chorusCanStay(m_world, p, B::ChorusFlower)) pop(p);
+        break;
+    case B::IronBars:
+        set(p, barsConnected(m_world, p, s));
         break;
     case B::CrimsonFungus:
     case B::WarpedFungus:
@@ -1155,6 +1208,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::CherrySapling:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
+    case B::ChorusPlant:
+    case B::ChorusFlower:
+        if (!chorusCanStay(world, at, blockOf(state))) return std::nullopt;
+        return blockOf(state) == B::ChorusPlant ? chorusConnected(world, at, state) : state;
+    case B::IronBars:
+        return barsConnected(world, at, state);
     case B::RedBed: {
         // The foot where clicked, the head one block further in the player's look;
         // the head needs room (Java beds need no support; wiki: Bed).

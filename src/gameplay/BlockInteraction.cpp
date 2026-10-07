@@ -134,6 +134,30 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
     }
 }
 
+std::optional<glm::dvec3> chorusTeleport(const world::World& world, const glm::dvec3& feet, world::Xoroshiro& rng) {
+    // wiki: Chorus Fruit - up to 16 tries at a random spot within 8 blocks on each
+    // axis; the player drops down onto the first solid block below it (not into
+    // fluids) where their body fits.
+    const auto& r = world::blockRegistry();
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        const int x = int(std::floor(feet.x + (rng.nextDouble() - 0.5) * 16.0));
+        const int z = int(std::floor(feet.z + (rng.nextDouble() - 0.5) * 16.0));
+        int y = std::clamp(int(std::floor(feet.y + (rng.nextDouble() - 0.5) * 16.0)), world.height().minY + 1,
+                           world.height().maxY() - 2);
+        while (y > world.height().minY + 1 && !r.collides(world.getBlock({x, y - 1, z})))
+            --y;
+        const world::BlockStateId below = world.getBlock({x, y - 1, z});
+        if (!r.collides(below)) continue;
+        const world::BlockStateId a = world.getBlock({x, y, z}), b = world.getBlock({x, y + 1, z});
+        auto free = [&](world::BlockStateId s) {
+            const world::BlockId id = r.blockOf(s);
+            return !r.collides(s) && id != world::blocks::Water && id != world::blocks::Lava;
+        };
+        if (free(a) && free(b)) return glm::dvec3(x + 0.5, double(y), z + 0.5);
+    }
+    return std::nullopt;
+}
+
 bool BlockInteraction::tickDrinking(Inventory& inventory, Vitals& vitals, bool use, bool survival) {
     const auto& items = world::itemRegistry();
     static const world::ItemId potionItem = *items.find("potion"), milk = *items.find("milk_bucket"),
@@ -173,10 +197,16 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     const world::ItemDef& held = items.item(inventory.selectedStack().item);
     const bool planting = held.block && hit && hit->face == world::Direction::Up &&
                           world::blockRegistry().blockOf(world.getBlock(hit->block)) == world::blocks::Farmland;
+    if (m_chorusCooldown > 0) --m_chorusCooldown;
     if (tickDrinking(inventory, vitals, use, true)) {
-    } else if (use && !planting && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
+    } else if (use && !planting && held.food > 0 && (vitals.food() < Vitals::kMaxFood || held.alwaysEdible) &&
+               !(m_chorusCooldown > 0 && held.id == "minecraft:chorus_fruit")) {
         if (++m_eatTicks >= kEatTicks) {
             vitals.eat(held.food, held.saturation);
+            if (held.id == "minecraft:chorus_fruit") { // main teleports (wiki: 1 s cooldown)
+                m_ateChorus = true;
+                m_chorusCooldown = 20;
+            }
             inventory.consumeSelected(1);
             m_eatTicks = 0;
         }

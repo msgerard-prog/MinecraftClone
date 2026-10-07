@@ -204,6 +204,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     ours.put("generator", flat ? std::string("flat") : generator);
     ours.put("format", cloneFormat);
     ours.put("nether_generator", netherGenerator);
+    ours.put("end_generator", endGenerator);
     std::vector<Tag> portalTags;
     for (const Portal& p : portals) {
         Compound c;
@@ -286,6 +287,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             if (!l.flat) l.generator = *g;
         }
         if (auto g = ours->string("nether_generator")) l.netherGenerator = *g; // (unknown kinds: main refuses)
+        if (auto g = ours->string("end_generator")) l.endGenerator = *g;
         if (const List* portals = ours->list("portals"))
             for (const Tag& t : portals->items)
                 if (const Compound* c = t.get<Compound>(); c && c->string("dimension"))

@@ -721,6 +721,9 @@ def all_items():
     items["fermented_spider_eye"] = fermented_spider_eye()
     items["golden_carrot"] = golden_carrot()
     items["glowstone_dust"] = lump("glowstone_dust", "#E8C060", "#FFF0A0", size=4.5)
+    # The End (M20.1).
+    items["chorus_fruit"] = lump("chorus_fruit", "#7A4A82", "#C89AD2", size=5.2)
+    items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     return items
 
 

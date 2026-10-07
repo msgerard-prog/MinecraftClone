@@ -45,6 +45,7 @@ const Property faceDown{"down", {"true", "false"}};
 const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
+const Property age5{"age", {"0", "1", "2", "3", "4", "5"}};
 const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
 const Property chestType{"type", {"single", "left", "right"}};
@@ -422,6 +423,25 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("brewing_stand", {.hardness = 0.5f, .resistance = 0.5f, .lightEmission = 1, .opaqueCube = false,
                                   .collision = false, .layer = RenderLayer::Cutout}),
           blocks::BrewingStand);
+    // The End 2 (M20.1; wiki: End Stone Bricks 3.0/9.0, Purpur Block and Pillar
+    // 1.5/6.0, Chorus Plant and Flower 0.4 (they collide as full cubes here; vanilla:
+    // the plant's arms only), Iron Bars 5.0/6.0 (full cube collision here too)).
+    check(r.add("end_stone_bricks", {.hardness = 3.0f, .resistance = 9.0f}), blocks::EndStoneBricks);
+    check(r.add("purpur_block", {.hardness = 1.5f, .resistance = 6.0f}), blocks::PurpurBlock);
+    check(r.add("purpur_pillar", {.hardness = 1.5f, .resistance = 6.0f}, {{&axis, "y"}}), blocks::PurpurPillar);
+    const std::initializer_list<PropertyDefault> sixWays = {{&faceDown, "false"},  {&fireEast, "false"},
+                                                            {&fireNorth, "false"}, {&fireSouth, "false"},
+                                                            {&fireUp, "false"},    {&fireWest, "false"}};
+    check(r.add("chorus_plant",
+                {.hardness = 0.4f, .resistance = 0.4f, .opaqueCube = false, .layer = RenderLayer::Cutout}, sixWays),
+          blocks::ChorusPlant);
+    check(r.add("chorus_flower",
+                {.hardness = 0.4f, .resistance = 0.4f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&age5, "0"}}),
+          blocks::ChorusFlower);
+    check(r.add("iron_bars", {.hardness = 5.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
+          blocks::IronBars);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

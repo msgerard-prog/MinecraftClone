@@ -72,12 +72,19 @@ public:
 // no ender dragon). No outer islands.
 class EndGenerator final : public ChunkGenerator {
 public:
-    explicit EndGenerator(uint64_t seed);
+    // version 1: "end" (M12, the main island only); 2: "end2" (M20, new worlds) adds
+    // the outer islands, chorus plants, the End biomes, cages and end crystals.
+    explicit EndGenerator(uint64_t seed, int version = 1);
 
     void generate(Chunk& chunk) const override;
+    int version() const { return m_version; }
+    // end2: the outer islands' strength at a column (above 0: island; 40+ highlands),
+    // from island centres on a 16-block grid beyond 1024 blocks (wiki: The End).
+    double outerValue(int32_t x, int32_t z) const;
+    Biome biomeAt(int32_t x, int32_t z) const;
     // Players arrive on the obsidian platform at (100, 49, 0) (wiki: The End).
     glm::dvec3 findSpawn() const override { return {100.5, 49.0, 0.5}; }
-    std::string_view kind() const override { return "end"; }
+    std::string_view kind() const override { return m_version >= 2 ? "end2" : "end"; }
     uint64_t seed() const override { return m_seed; }
     // Top of the island at a column (below 0: no island there).
     int islandTop(int32_t x, int32_t z) const;
@@ -91,8 +98,19 @@ public:
 
 private:
     uint64_t m_seed;
+    int m_version;
     OctaveNoise m_edge;
+    ImprovedNoise m_islands; // which 16-block cells hold an outer island
     Pillar m_pillars[kPillars];
+    // An outer island centre: its cell's position and size factor.
+    struct IslandCell {
+        double x, z, factor;
+    };
+    // The cells within reach of a chunk's columns (at most 15x15).
+    int islandCells(int32_t baseX, int32_t baseZ, std::array<IslandCell, 225>& out) const;
+    static double islandValue(const IslandCell* cells, int count, double x, double z);
+    // end2's additions to a chunk being built in `blocks` (section order).
+    void generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome) const;
 };
 
 } // namespace mc::world

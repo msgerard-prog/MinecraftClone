@@ -308,6 +308,12 @@ int main(int argc, char** argv) {
     const std::string generatorKind = level ? level->generator : opts->generator;
     // The Nether's generator (M19): new worlds get the newest; old ones keep theirs.
     const std::string netherKind = level ? level->netherGenerator : std::string("nether2");
+    const std::string endKind = level ? level->endGenerator : std::string("end2"); // (M20)
+    if (endKind != "end" && endKind != "end2") {
+        MC_LOG_ERROR("World \"%s\" uses End generator \"%s\", which this build doesn't have", worldName.c_str(),
+                     endKind.c_str());
+        return 1;
+    }
     if (netherKind != "nether" && netherKind != "nether2") {
         MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have", worldName.c_str(),
                      netherKind.c_str());
@@ -322,7 +328,7 @@ int main(int argc, char** argv) {
     auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
         if (d == Dimension::Nether)
             return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether" ? 1 : 2);
-        if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed);
+        if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
         return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld" ? 1 : 2);
     };
@@ -510,6 +516,7 @@ int main(int argc, char** argv) {
         l.flat = flatWorld;
         l.generator = generatorKind;
         l.netherGenerator = netherKind;
+        l.endGenerator = endKind;
         l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
         l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
@@ -1431,6 +1438,11 @@ int main(int argc, char** argv) {
                                          gameRng, changedBlocks, drops);
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
+                if (interaction.takeChorusTeleport())
+                    if (const auto to = mc::chorusTeleport(world, player.position(), gameRng)) {
+                        player.setPosition(*to);
+                        vitals.resetFall(); // (vanilla: the fall is reset by the teleport)
+                    }
             } else {
                 interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
                 interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,

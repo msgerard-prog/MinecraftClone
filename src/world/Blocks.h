@@ -38,6 +38,7 @@ extern const Property faceDown; // "down": true | false (with the fire ones: hug
 extern const Property moisture; // 0..7 (farmland)
 extern const Property age7;     // "age": 0..7 (wheat, carrots, potatoes)
 extern const Property age3;     // "age": 0..3 (beetroots)
+extern const Property age5;     // "age": 0..5 (chorus flowers)
 extern const Property age25;    // "age": 0..25 (weeping and twisting vine tips)
 extern const Property chestType; // "type": single | left | right
 extern const Property bedPart;   // "part": head | foot
@@ -250,6 +251,13 @@ enum : BlockId {
     GoldBlock,
     PolishedBasalt, // axis
     BrewingStand,   // (M19.4)
+    // The End 2 (M20.1).
+    EndStoneBricks,
+    PurpurBlock,
+    PurpurPillar, // axis
+    ChorusPlant,  // down, east, north, south, up, west: connections (true | false)
+    ChorusFlower, // age 0..5 (5: dead, grows no more)
+    IronBars,     // east, north, south, west: connections
     Count
 };
 } // namespace blocks

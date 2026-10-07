@@ -140,6 +140,10 @@ std::vector<Recipe> build() {
     r.push_back(shapeless({item("spider_eye"), item("brown_mushroom"), item("sugar")}, "fermented_spider_eye"));
     r.push_back(shaped({"###", "#C#", "###"}, {{'#', item("gold_nugget")}, {'C', item("carrot")}}, "golden_carrot"));
     r.push_back(shaped({"##", "##"}, {{'#', item("glowstone_dust")}}, "glowstone"));
+    // The End (wiki: End Stone Bricks, Purpur Block, Iron Bars).
+    r.push_back(shaped({"##", "##"}, {{'#', item("end_stone")}}, "end_stone_bricks", 4));
+    r.push_back(shaped({"##", "##"}, {{'#', item("popped_chorus_fruit")}}, "purpur_block", 4));
+    r.push_back(shaped({"###", "###"}, {{'#', item("iron_ingot")}}, "iron_bars", 16));
     r.push_back(shaped({".B.", "###"}, {{'B', item("blaze_rod")}, {'#', kStoneTool}}, "brewing_stand"));
     r.push_back(shaped({"###", "BBB", "###"}, {{'#', kPlanks}, {'B', item("book")}}, "bookshelf"));
     r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},
@@ -308,6 +312,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "mutton") return out("cooked_mutton");
     if (n == "chicken") return out("cooked_chicken");
     if (n == "potato") return out("baked_potato");
+    if (n == "chorus_fruit") return out("popped_chorus_fruit");
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;
@@ -324,6 +329,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
+    if (n == "chorus_fruit") return 0.1f;
     if (n == "sand" || n == "red_sand" || n == "cobblestone") return 0.1f;
     return 0.0f;
 }

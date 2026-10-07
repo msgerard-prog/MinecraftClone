@@ -36,6 +36,7 @@ struct ItemDef {
     float attackDamage = 1;  // hearts x2 (wiki: each tool's page)
     int food = 0;            // hunger points restored (wiki: Food)
     float saturation = 0;
+    bool alwaysEdible = false; // eaten even when not hungry (chorus fruit, golden apples)
     std::string texture;     // item sprite ("item/<name>"), empty for block items with a model
     // Armor (M17.3; wiki: Armor): where it is worn (0 none, 1 head, 2 chest, 3 legs,
     // 4 feet), its armor points and toughness.

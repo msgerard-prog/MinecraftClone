@@ -55,6 +55,10 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:warped_forest", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x1A051A},
     {"minecraft:soul_sand_valley", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x1B4745},
     {"minecraft:basalt_deltas", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4, 0x685F70},
+    {"minecraft:end_highlands", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:end_midlands", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:small_end_islands", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:end_barrens", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

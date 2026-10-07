@@ -105,6 +105,14 @@ public:
     // weeping vines hang from a block (or vines) above, twisting vines stand on one
     // below (wiki: Crimson Fungus, Nether Sprouts, Weeping Vines, Twisting Vines).
     static bool netherPlantCanStay(const World& world, const BlockPos& p, BlockId plant);
+    // Chorus plants (wiki: Chorus Plant): stand on end stone or another plant, or hang
+    // off a plant beside them that stands (then nothing may be both above and below);
+    // they connect to plants, flowers and the end stone below. Flowers need a plant or
+    // end stone below.
+    static bool chorusCanStay(const World& world, const BlockPos& p, BlockId block);
+    static BlockStateId chorusConnected(const World& world, const BlockPos& p, BlockStateId plant);
+    // Iron bars join bars and full solid blocks beside them (wiki: Iron Bars).
+    static BlockStateId barsConnected(const World& world, const BlockPos& p, BlockStateId bars);
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
     static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
     static Direction chestClockwise(Direction facing);

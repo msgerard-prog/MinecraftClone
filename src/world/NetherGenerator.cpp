@@ -465,7 +465,15 @@ glm::dvec3 NetherGenerator::findSpawn() const {
 // ---------------------------------------------------------------------------------
 // The End
 
-EndGenerator::EndGenerator(uint64_t seed) : m_seed(seed), m_edge(mixSeed(seed, 0xE1D), -5, 3) {
+namespace {
+ImprovedNoise islandNoise(uint64_t seed) {
+    Xoroshiro r(mixSeed(seed, 0xE15));
+    return ImprovedNoise(r);
+}
+} // namespace
+
+EndGenerator::EndGenerator(uint64_t seed, int version)
+    : m_seed(seed), m_version(version), m_edge(mixSeed(seed, 0xE1D), -5, 3), m_islands(islandNoise(seed)) {
     // Ten obsidian pillars on a circle of radius 42 (wiki: Obsidian Pillar): radii
     // 2..5 and heights 76..103 in steps of 3, shuffled per seed.
     int order[kPillars];
@@ -495,6 +503,209 @@ int EndGenerator::islandBottom(int32_t x, int32_t z) const {
     const double r = std::sqrt(double(x) * x + double(z) * z);
     const double t = std::max(0.0, 1.0 - r / (85.0 + 12.0 * m_edge.noise2d(x, z)));
     return islandTop(x, z) - 2 - static_cast<int>(std::lround(46.0 * std::pow(t, 1.5)));
+}
+
+// --- end2: outer islands (M20.1) ---------------------------------------------------
+// The wiki (The End) describes the outer islands as clusters beyond ~1000 blocks,
+// separated by void; vanilla decides them on a grid of 2x2-chunk cells with a noise
+// threshold and a size per cell. Ours: one candidate per 16-block cell beyond 1024
+// blocks, kept where a smooth noise is low; each island is a lens whose strength
+// falls with distance (100 at its centre minus `factor` per 8 blocks, factor 9..21),
+// and a column's value is the strongest island over it (so neighbours merge into
+// archipelagos).
+constexpr int kCell = 16;
+constexpr double kOuterStart = 1024.0;
+
+int EndGenerator::islandCells(int32_t baseX, int32_t baseZ, std::array<IslandCell, 225>& out) const {
+    int n = 0;
+    const int cx0 = (baseX >> 4) - 7, cz0 = (baseZ >> 4) - 7; // (16-block cells = chunks)
+    for (int cz = cz0; cz <= cz0 + 14; ++cz)
+        for (int cx = cx0; cx <= cx0 + 14; ++cx) {
+            const double mx = cx * double(kCell) + 8.0, mz = cz * double(kCell) + 8.0;
+            if (mx * mx + mz * mz < kOuterStart * kOuterStart) continue;
+            if (m_islands.noise(cx * 0.37, 7.3, cz * 0.37) > -0.55) continue;
+            Xoroshiro r(mixSeed(mixSeed(m_seed ^ 0xE151A, static_cast<uint32_t>(cx)), static_cast<uint32_t>(cz)));
+            const double jx = r.nextDouble() * 12.0 - 6.0, jz = r.nextDouble() * 12.0 - 6.0;
+            out[size_t(n++)] = {mx + jx, mz + jz, 9.0 + r.nextInt(13)};
+        }
+    return n;
+}
+
+double EndGenerator::islandValue(const IslandCell* cells, int count, double x, double z) {
+    double best = -100.0;
+    for (int i = 0; i < count; ++i) {
+        const double dx = (x - cells[i].x) / 8.0, dz = (z - cells[i].z) / 8.0;
+        best = std::max(best, 100.0 - std::sqrt(dx * dx + dz * dz) * cells[i].factor);
+    }
+    return std::clamp(best, -100.0, 80.0);
+}
+
+double EndGenerator::outerValue(int32_t x, int32_t z) const {
+    std::array<IslandCell, 225> cells;
+    const int n = islandCells(x & ~15, z & ~15, cells);
+    return islandValue(cells.data(), n, x + 0.5, z + 0.5);
+}
+
+Biome EndGenerator::biomeAt(int32_t x, int32_t z) const {
+    // Vanilla: the_end around the main island, outside it by the island strength
+    // (wiki: End biomes - highlands in the middle of islands, midlands at their edges,
+    // barrens at the very edge, small end islands in the void between).
+    if (m_version < 2 || double(x) * x + double(z) * z < kOuterStart * kOuterStart) return Biome::TheEnd;
+    const double v = outerValue(x, z);
+    return v > 40.0 ? Biome::EndHighlands : v >= 0.0 ? Biome::EndMidlands : v >= -20.0 ? Biome::EndBarrens
+                                                                                       : Biome::SmallEndIslands;
+}
+
+void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome) const {
+    const auto& r = blockRegistry();
+    const HeightRange h = out.height();
+    const int32_t baseX = out.pos().x * 16, baseZ = out.pos().z * 16;
+    auto inside = [h](int x, int y, int z) { return x >= 0 && x < 16 && z >= 0 && z < 16 && h.contains(y); };
+    auto idx = [h](int x, int y, int z) { return size_t(((y - h.minY) * 16 + z) * 16 + x); };
+    auto get = [&](int x, int y, int z) -> BlockStateId { return inside(x, y, z) ? blocks[idx(x, y, z)] : 0; };
+    auto set = [&](int x, int y, int z, BlockStateId b) {
+        if (inside(x, y, z)) blocks[idx(x, y, z)] = b;
+    };
+    const BlockStateId endStone = r.defaultState(blocks::EndStone), plant = r.defaultState(blocks::ChorusPlant),
+                       deadFlower = r.set(r.defaultState(blocks::ChorusFlower), properties::age5, 5),
+                       bars = r.defaultState(blocks::IronBars);
+
+    // Iron bar cages around the crystals of the two shortest pillars (wiki: Obsidian
+    // Pillar): 5x5 walls 3 high and a roof. Each bar's connections come from the cage's
+    // shape, so a cage split over chunks joins up.
+    for (const Pillar& p : m_pillars) {
+        if (p.height > 79) continue; // (heights 76 and 79: the two shortest)
+        auto cage = [&](int32_t wx, int y, int32_t wz) {
+            const int dx = std::abs(wx - p.x), dz = std::abs(wz - p.z);
+            if (dx > 2 || dz > 2 || y <= p.height || y > p.height + 4) return false;
+            return y == p.height + 4 || dx == 2 || dz == 2;
+        };
+        for (int y = p.height + 1; y <= p.height + 4; ++y)
+            for (int32_t wz = p.z - 2; wz <= p.z + 2; ++wz)
+                for (int32_t wx = p.x - 2; wx <= p.x + 2; ++wx) {
+                    if (!cage(wx, y, wz) || !inside(wx - baseX, y, wz - baseZ)) continue;
+                    BlockStateId s = bars; // ("true" is value 0)
+                    s = r.set(s, properties::fireNorth, cage(wx, y, wz - 1) ? 0 : 1);
+                    s = r.set(s, properties::fireSouth, cage(wx, y, wz + 1) ? 0 : 1);
+                    s = r.set(s, properties::fireWest, cage(wx - 1, y, wz) ? 0 : 1);
+                    s = r.set(s, properties::fireEast, cage(wx + 1, y, wz) ? 0 : 1);
+                    set(wx - baseX, y, wz - baseZ, s);
+                }
+    }
+
+    // Outer islands (only chunks that can reach them).
+    const double cx = baseX + 8.0, cz = baseZ + 8.0;
+    if (cx * cx + cz * cz < (kOuterStart - 128.0) * (kOuterStart - 128.0)) return;
+    std::array<IslandCell, 225> cells;
+    const int n = islandCells(baseX, baseZ, cells);
+    std::array<double, 256> value;
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const int32_t wx = baseX + x, wz = baseZ + z;
+            const double v = islandValue(cells.data(), n, wx + 0.5, wz + 0.5);
+            value[size_t(z * 16 + x)] = v;
+            if (v <= 0.0) continue;
+            // A lens: the top rises gently to ~Y 61, the underside hangs deeper.
+            const double rough = m_edge.noise2d(wx * 2.0, wz * 2.0);
+            const int top = 50 + static_cast<int>(v * 0.14 + rough * 2.0);
+            const int bottom = top - 1 - static_cast<int>(v * 0.45 * (0.8 + 0.2 * rough));
+            for (int y = bottom; y <= top; ++y)
+                set(x, y, z, endStone);
+        }
+    for (int q = 0; q < 16; ++q) {
+        const int x = (q & 3) * 4 + 2, z = (q >> 2) * 4 + 2;
+        const double wx = baseX + x, wz = baseZ + z;
+        const double v = value[size_t(z * 16 + x)];
+        columnBiome[size_t(q)] = wx * wx + wz * wz < kOuterStart * kOuterStart ? Biome::TheEnd
+                                 : v > 40.0                                    ? Biome::EndHighlands
+                                 : v >= 0.0                                    ? Biome::EndMidlands
+                                 : v >= -20.0                                  ? Biome::EndBarrens
+                                                                               : Biome::SmallEndIslands;
+    }
+    Xoroshiro rng(mixSeed(mixSeed(m_seed ^ 0xC40, static_cast<uint32_t>(out.pos().x)), static_cast<uint32_t>(out.pos().z)));
+
+    // Small end islands: a little floating blob in 1 chunk of 14 of the void
+    // (wiki: Small End Islands - "end_island" feature).
+    if (columnBiome[5] == Biome::SmallEndIslands && rng.nextInt(14) == 0) {
+        const int ix = 5 + static_cast<int>(rng.nextInt(6)), iz = 5 + static_cast<int>(rng.nextInt(6));
+        const int iy = 55 + static_cast<int>(rng.nextInt(16));
+        double rad = 3.0 + rng.nextInt(3);
+        for (int y = iy; rad > 0.5; --y, rad -= 1.0 + rng.nextDouble() * 0.5)
+            for (int dz = -5; dz <= 5; ++dz)
+                for (int dx = -5; dx <= 5; ++dx)
+                    if (dx * dx + dz * dz <= (rad + 0.5) * (rad + 0.5)) set(ix + dx, y, iz + dz, endStone);
+    }
+
+    // Chorus plants on the highlands (wiki: Chorus Plant, End Highlands): a stem grows
+    // up 1-4 (the first 2-5), then 1-4 branches out a block and grow on, each up to 4
+    // levels deep; every tip ends in a dead chorus flower. Kept within 4 of the root and
+    // inside the chunk, so no tree crosses a border.
+    const int tries = static_cast<int>(rng.nextInt(4));
+    for (int t = 0; t < tries; ++t) {
+        const int rx = 4 + static_cast<int>(rng.nextInt(8)), rz = 4 + static_cast<int>(rng.nextInt(8));
+        if (columnBiome[size_t((rz >> 2) * 4 + (rx >> 2))] != Biome::EndHighlands) continue;
+        int ry = -1;
+        for (int y = 100; y > 30; --y)
+            if (get(rx, y, rz) == endStone && get(rx, y + 1, rz) == 0) {
+                ry = y + 1;
+                break;
+            }
+        if (ry < 0) continue;
+        struct Grow {
+            int x, y, z, depth;
+        };
+        std::array<Grow, 64> stack;
+        int top = 0;
+        stack[size_t(top++)] = {rx, ry, rz, 0};
+        std::array<std::array<int, 3>, 128> placed;
+        int placedCount = 0;
+        auto put = [&](int x, int y, int z) {
+            set(x, y, z, plant);
+            if (placedCount < int(placed.size())) placed[size_t(placedCount++)] = {x, y, z};
+        };
+        while (top > 0) {
+            const Grow g = stack[size_t(--top)];
+            const int height = 1 + static_cast<int>(rng.nextInt(4)) + (g.depth == 0 ? 1 : 0);
+            int y = g.y;
+            for (int i = 0; i < height && get(g.x, y, g.z) == 0 && y < h.maxY() - 2; ++i, ++y)
+                put(g.x, y, g.z);
+            const int stemTop = y - 1;
+            if (stemTop < g.y) continue; // no room at all
+            int branched = 0;
+            if (g.depth < 4) {
+                const int branches = g.depth == 0 ? 1 + static_cast<int>(rng.nextInt(4)) : static_cast<int>(rng.nextInt(3));
+                for (int b = 0; b < branches; ++b) {
+                    static constexpr int kDx[4] = {1, -1, 0, 0}, kDz[4] = {0, 0, 1, -1};
+                    const int d = static_cast<int>(rng.nextInt(4));
+                    const int nx = g.x + kDx[d], nz = g.z + kDz[d];
+                    if (std::abs(nx - rx) > 4 || std::abs(nz - rz) > 4) continue;
+                    if (get(nx, stemTop, nz) != 0 || get(nx, stemTop - 1, nz) != 0 || get(nx, stemTop + 1, nz) != 0)
+                        continue;
+                    put(nx, stemTop, nz);
+                    if (top < int(stack.size())) stack[size_t(top++)] = {nx, stemTop + 1, nz, g.depth + 1};
+                    ++branched;
+                }
+            }
+            if (branched == 0 && get(g.x, stemTop + 1, g.z) == 0) set(g.x, stemTop + 1, g.z, deadFlower);
+        }
+        // Connections from the finished tree (end stone below counts for "down").
+        for (int i = 0; i < placedCount; ++i) {
+            const auto [x, y, z] = placed[size_t(i)];
+            if (get(x, y, z) != plant) continue;
+            auto joins = [&](int ax, int ay, int az, bool down) {
+                const BlockId b = r.blockOf(get(ax, ay, az));
+                return b == blocks::ChorusPlant || b == blocks::ChorusFlower || (down && b == blocks::EndStone);
+            };
+            BlockStateId s = plant;
+            s = r.set(s, properties::faceDown, joins(x, y - 1, z, true) ? 0 : 1);
+            s = r.set(s, properties::fireUp, joins(x, y + 1, z, false) ? 0 : 1);
+            s = r.set(s, properties::fireNorth, joins(x, y, z - 1, false) ? 0 : 1);
+            s = r.set(s, properties::fireSouth, joins(x, y, z + 1, false) ? 0 : 1);
+            s = r.set(s, properties::fireWest, joins(x - 1, y, z, false) ? 0 : 1);
+            s = r.set(s, properties::fireEast, joins(x + 1, y, z, false) ? 0 : 1);
+            set(x, y, z, s);
+        }
+    }
 }
 
 void EndGenerator::generate(Chunk& out) const {
@@ -535,6 +746,9 @@ void EndGenerator::generate(Chunk& out) const {
                 for (int y = centreTop + 1; y <= centreTop + 4; ++y)
                     set(x, y, z, bedrock);
         }
+    std::array<Biome, 16> columnBiome;
+    columnBiome.fill(Biome::TheEnd);
+    if (m_version >= 2) generateOuter(out, blocks.data(), columnBiome);
     for (int s = 0; s < out.sectionCount(); ++s) {
         const BlockStateId* src = blocks.data() + size_t(s) * Section::kVolume;
         Section& section = out.mutableSection(s);
@@ -542,7 +756,16 @@ void EndGenerator::generate(Chunk& out) const {
         else section.assign(src);
     }
     static const auto end = uniformBiomes(Biome::TheEnd);
-    out.setBiomes(end);
+    if (m_version < 2 || std::all_of(columnBiome.begin(), columnBiome.end(), [](Biome b) { return b == Biome::TheEnd; })) {
+        out.setBiomes(end);
+    } else {
+        auto biomes = std::make_shared<ChunkBiomes>();
+        for (int s = 0; s < out.sectionCount(); ++s)
+            for (int qy = 0; qy < 4; ++qy)
+                for (int q = 0; q < 16; ++q)
+                    biomes->cells[size_t(ChunkBiomes::index(s, q & 3, qy, q >> 2))] = columnBiome[size_t(q)];
+        out.setBiomes(biomes);
+    }
 }
 
 } // namespace mc::world

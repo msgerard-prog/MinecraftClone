@@ -258,6 +258,47 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     face.sprite = sprite("nether_bricks");
                     face.uv[0] = 6, face.uv[1] = 0, face.uv[2] = 10, face.uv[3] = 16;
                 }
+            } else if (name == "chorus_plant" || name == "iron_bars") {
+                // A middle piece plus an arm to each connected side (vanilla multipart):
+                // the chorus plant a 8x8 core (vanilla 10x10 with fringes), iron bars a
+                // 2-wide post with 2-wide arms (vanilla: flat panes).
+                const bool bars = name == "iron_bars";
+                const uint8_t lo = bars ? 7 : 4, hi = bars ? 9 : 12;
+                const uint16_t sp = sprite(name.c_str());
+                m.visible = true;
+                auto addBox = [&](uint8_t x0, uint8_t y0, uint8_t z0, uint8_t x1, uint8_t y1, uint8_t z1) {
+                    BakedBox& b = m.boxes[m.boxCount++];
+                    b.from[0] = x0, b.from[1] = y0, b.from[2] = z0;
+                    b.to[0] = x1, b.to[1] = y1, b.to[2] = z1;
+                    // Each face shows the part of the texture it covers (vanilla's
+                    // default UVs from the element's position).
+                    for (int d = 0; d < 6; ++d) {
+                        auto& f = b.faces[d];
+                        f.sprite = sp;
+                        const auto dir = static_cast<world::Direction>(d);
+                        const bool vertical = dir == world::Direction::Up || dir == world::Direction::Down;
+                        const bool alongZ = dir == world::Direction::West || dir == world::Direction::East;
+                        const uint8_t u0 = alongZ ? z0 : x0, u1 = alongZ ? z1 : x1;
+                        f.uv[0] = u0, f.uv[2] = u1;
+                        f.uv[1] = vertical ? z0 : uint8_t(16 - y1);
+                        f.uv[3] = vertical ? z1 : uint8_t(16 - y0);
+                    }
+                };
+                addBox(lo, bars ? 0 : lo, lo, hi, bars ? 16 : hi, hi);
+                auto on = [&](const char* prop) { return registry.value(state, prop).value_or("false") == "true"; };
+                const uint8_t y0 = bars ? 0 : lo, y1 = bars ? 16 : hi;
+                if (on("north")) addBox(lo, y0, 0, hi, y1, lo);
+                if (on("south")) addBox(lo, y0, hi, hi, y1, 16);
+                if (on("west")) addBox(0, y0, lo, lo, y1, hi);
+                if (on("east")) addBox(hi, y0, lo, 16, y1, hi);
+                if (!bars && on("down")) addBox(lo, 0, lo, hi, lo, hi);
+                if (!bars && on("up")) addBox(lo, hi, lo, hi, 16, hi);
+            } else if (name == "chorus_flower") {
+                const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
+                m = single(cubeAll(sprite(a >= 5 ? "chorus_flower_dead" : "chorus_flower")));
+            } else if (name == "purpur_pillar") {
+                m = single(cubeColumn(sprite("purpur_pillar"), sprite("purpur_pillar_top"),
+                                      registry.value(state, "axis").value_or("y")));
             } else if (name == "brewing_stand") { // a blaze rod on a stone base (vanilla: 3 feet)
                 m.visible = true;
                 m.boxCount = 2;

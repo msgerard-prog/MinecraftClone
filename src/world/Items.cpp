@@ -192,6 +192,14 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:sugar", .texture = "item/sugar"});
     r.add({.id = "minecraft:fermented_spider_eye", .texture = "item/fermented_spider_eye"});
     r.add({.id = "minecraft:golden_carrot", .food = 6, .saturation = 14.4f, .texture = "item/golden_carrot"});
+    // The End (M20.1; wiki: Chorus Fruit - 4 food, 2.4 saturation, edible when full,
+    // teleports; Popped Chorus Fruit - smelted, for purpur).
+    r.add({.id = "minecraft:chorus_fruit",
+           .food = 4,
+           .saturation = 2.4f,
+           .alwaysEdible = true,
+           .texture = "item/chorus_fruit"});
+    r.add({.id = "minecraft:popped_chorus_fruit", .texture = "item/popped_chorus_fruit"});
     r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));

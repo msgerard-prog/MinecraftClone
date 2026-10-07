@@ -63,6 +63,11 @@ enum class Biome : uint8_t {
     WarpedForest,
     SoulSandValley,
     BasaltDeltas,
+    // The End 2 (M20.1; the "end2" generator).
+    EndHighlands,
+    EndMidlands,
+    SmallEndIslands,
+    EndBarrens,
     Count
 };
 
