@@ -71,3 +71,13 @@ TEST_CASE("command line: M3 options") {
     std::array<const char*, 1> noDir = {"--resourcepacks"};
     CHECK_FALSE(mc::parseCommandLine(noDir, error).has_value());
 }
+
+TEST_CASE("command line: --time sets the day time in ticks") {
+    std::array<const char*, 2> args = {"--time", "18000"};
+    std::string error;
+    const auto opts = mc::parseCommandLine(args, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->time == 18000);
+    std::array<const char*, 2> bad = {"--time", "-5"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
+}

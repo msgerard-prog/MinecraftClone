@@ -16,6 +16,9 @@ struct Image {
     const uint8_t* at(int x, int y) const { return &pixels[(size_t(y) * width + x) * 4]; }
 };
 
+// PNG bytes -> RGBA8 (defined in TextureAtlas.cpp, which owns stb_image).
+std::optional<Image> decodePng(const std::vector<uint8_t>& bytes);
+
 // Nearest-neighbour upscale by an integer factor (keeps the pixel-art look when a
 // 16px sprite shares an atlas with 32px+ resource-pack sprites).
 Image upscaleNearest(const Image& src, int factor);

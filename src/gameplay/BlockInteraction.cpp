@@ -57,6 +57,11 @@ void BlockInteraction::tick(world::World& world, const Player& player,
             return; // not inside the player
         if (!world.chunk(world::ChunkPos{world::blockToChunk(at.x), world::blockToChunk(at.z)}))
             return;
+        // Torches stand on the top of a solid block (wall torches: not yet, see
+        // game-design.md › Known deviations).
+        if (reg.blockOf(placeState) == world::blocks::Torch &&
+            (hit->face != world::Direction::Up || !reg.opaqueCube(world.getBlock(hit->block))))
+            return;
         world.setBlock(at, orientedState(placeState, hit->face));
         changed.push_back(at);
     }

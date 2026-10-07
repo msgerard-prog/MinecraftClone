@@ -25,6 +25,8 @@ struct LoadedSprite {
     int frametime = 1;
 };
 
+} // namespace
+
 std::optional<Image> decodePng(const std::vector<uint8_t>& bytes) {
     int w = 0;
     int h = 0;
@@ -36,8 +38,6 @@ std::optional<Image> decodePng(const std::vector<uint8_t>& bytes) {
     stbi_image_free(data);
     return img;
 }
-
-} // namespace
 
 std::vector<uint8_t> TextureAtlas::missingSpritePixels() {
     // Vanilla: 2x2 checker of #F800F8 and black (wiki: Missing textures and models).

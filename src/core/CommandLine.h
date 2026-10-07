@@ -30,6 +30,7 @@ struct LaunchOptions {
     bool hasLook = false; // --look yaw,pitch  vanilla degrees (yaw 0 = south, +pitch = down)
     float yaw = 0.0f;
     float pitch = 0.0f;
+    int64_t time = 0; // --time T: day time in ticks (0 sunrise, 6000 noon, 18000 midnight)
 };
 
 // Parses argv (without argv[0]). Returns nullopt and fills `error` on bad input.

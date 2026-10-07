@@ -199,6 +199,8 @@ int main(int argc, char** argv) {
     relitSections.reserve(256);
     frameEdits.reserve(16);
 
+    int64_t dayTime = opts->time; // world day time in ticks (world/DayTime.h)
+
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
     player.setPosition(opts->hasPos ? opts->pos : spawn + glm::dvec3(0, opts->autoFly ? 60 : 0, 0));
@@ -283,6 +285,7 @@ int main(int argc, char** argv) {
             renderer.onBlocksChanged(changedBlocks);
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             renderer.tick();
+            ++dayTime; // the daylight cycle advances one tick per tick
         }
 
         int fbWidth = 0;
@@ -298,6 +301,7 @@ int main(int argc, char** argv) {
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
+        renderer.setDayTime(dayTime, static_cast<float>(clock.alpha));
         if (loader) {
             const mc::world::ChunkPos center{
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.x))),

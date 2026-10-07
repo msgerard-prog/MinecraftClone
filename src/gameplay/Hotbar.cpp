@@ -11,7 +11,7 @@ Hotbar::Hotbar() {
     const auto& r = blockRegistry();
     const BlockId blocks[kSlots] = {blocks::Stone,      blocks::Cobblestone, blocks::Dirt,
                                     blocks::GrassBlock, blocks::OakPlanks,   blocks::OakLog,
-                                    blocks::Sand,       blocks::Gravel,      blocks::Deepslate};
+                                    blocks::Glass,      blocks::Torch,       blocks::Glowstone};
     for (int i = 0; i < kSlots; ++i)
         m_slots[static_cast<size_t>(i)] = r.defaultState(blocks[i]);
 }

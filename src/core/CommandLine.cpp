@@ -59,6 +59,13 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--frames needs a positive integer";
                 return std::nullopt;
             }
+        } else if (arg == "--time") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (!parseNumber(*v, opts.time) || opts.time < 0) {
+                error = "--time needs ticks >= 0, e.g. 6000 (noon) or 18000 (midnight)";
+                return std::nullopt;
+            }
         } else if (arg == "--seed") {
             auto v = needValue();
             if (!v) return std::nullopt;

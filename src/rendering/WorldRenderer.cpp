@@ -5,6 +5,7 @@
 #include "rendering/Fog.h"
 #include "rendering/ResourcePack.h"
 #include "world/Blocks.h"
+#include "world/DayTime.h"
 
 #include <glad/gl.h>
 
@@ -16,10 +17,8 @@ namespace mc::gfx {
 
 namespace {
 
-// Vanilla's daytime sky colour at plains biome (#78A7FF).
-constexpr float kSkyR = 0x78 / 255.0f;
-constexpr float kSkyG = 0xA7 / 255.0f;
-constexpr float kSkyB = 0xFF / 255.0f;
+// Vanilla's daytime sky colour at plains biome (#78A7FF), until biomes exist (M8).
+constexpr glm::vec3 kPlainsSky(0x78 / 255.0f, 0xA7 / 255.0f, 0xFF / 255.0f);
 // Vanilla plains grass colour (#91BD59), until biomes exist (M8).
 constexpr glm::vec3 kPlainsGrass(0x91 / 255.0f, 0xBD / 255.0f, 0x59 / 255.0f);
 // Vanilla's default water colour (#3F76E4), until biomes exist (M8).
@@ -44,7 +43,8 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     packs.addAllIn(resourcePacksDir);
     if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
-    if (!m_chunks.init() || !m_translucent.init()) return false;
+    if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;
+    setDayTime(6000, 0.0f); // noon until the game says otherwise
     glCreateQueries(GL_TIME_ELAPSED, kQueryRing, m_queries);
     // Half the cores: leaves room for the main thread and the GL driver's own thread.
     const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
@@ -54,6 +54,14 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); // back faces (clockwise from the camera) are never visible
     return true;
+}
+
+void WorldRenderer::setDayTime(int64_t dayTime, float partialTick) {
+    const double angle = world::celestialAngle(dayTime, partialTick);
+    m_skyDarken = static_cast<float>(world::skyDarken(angle));
+    m_skyColor = kPlainsSky * static_cast<float>(world::daylight(angle));
+    m_skyState = {angle, static_cast<float>(world::starBrightness(angle)),
+                  world::moonPhase(dayTime)};
 }
 
 void WorldRenderer::markChunkDirty(const world::World& world, world::ChunkPos pos) {
@@ -255,8 +263,9 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     }
     glBeginQuery(GL_TIME_ELAPSED, m_queries[q]);
     glViewport(0, 0, framebufferWidth, framebufferHeight);
-    glClearColor(kSkyR, kSkyG, kSkyB, 1.0f);
+    glClearColor(m_skyColor.r, m_skyColor.g, m_skyColor.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_sky.draw(camera, float(framebufferWidth) / float(framebufferHeight), m_skyState);
     m_blockShader.bind();
     // Fixed locations/bindings: see docs/architecture.md › Rendering.
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
@@ -266,7 +275,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
     const FogRange fog = terrainFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);
-    glUniform3f(5, kSkyR, kSkyG, kSkyB);
+    glUniform3fv(5, 1, glm::value_ptr(m_skyColor));
     glUniform1f(7, m_skyDarken);
     glBindTextureUnit(0, m_atlas.texture());
 

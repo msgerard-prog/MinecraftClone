@@ -7,6 +7,7 @@
 #include "rendering/MeshWorkers.h"
 #include "rendering/PackedVertex.h"
 #include "rendering/Shader.h"
+#include "rendering/SkyRenderer.h"
 #include "rendering/TextureAtlas.h"
 #include "world/SectionSnapshot.h"
 #include "world/World.h"
@@ -66,8 +67,9 @@ public:
 
     // Fog reaches the sky colour at the edge of the render distance (in chunks).
     void setRenderDistance(int chunks) { m_renderDistance = chunks; }
-    // Sky light lost to night time, 0 (day) .. 11 (midnight); see world/DayTime.h.
-    void setSkyDarken(float levels) { m_skyDarken = levels; }
+    // Time of day (world/DayTime.h): sky colour, sun/moon/stars and the sky light
+    // lost at night. `partialTick` interpolates between ticks for smooth motion.
+    void setDayTime(int64_t dayTime, float partialTick);
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,
     // from GL timer queries read back a few frames late (no pipeline stall).
@@ -89,7 +91,10 @@ private:
     ChunkRenderer m_chunks;      // opaque pass
     ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
     int m_renderDistance = 12;
-    float m_skyDarken = 0.0f;
+    float m_skyDarken = 0.0f;       // sky light levels lost to night, 0..11
+    glm::vec3 m_skyColor{0.0f};     // clear and fog colour
+    SkyState m_skyState;
+    SkyRenderer m_sky;
     static constexpr int kQueryRing = 4;
     uint32_t m_queries[kQueryRing] = {};
     bool m_queryPending[kQueryRing] = {};
