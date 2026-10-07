@@ -133,6 +133,18 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             }
             opts.pos = {xyz[0], xyz[1], xyz[2]};
             opts.hasPos = true;
+        } else if (arg == "--open-block") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            double xyz[3];
+            if (!parseList(*v, xyz, 3) || xyz[0] != std::floor(xyz[0]) || xyz[1] != std::floor(xyz[1]) ||
+                xyz[2] != std::floor(xyz[2]) || std::abs(xyz[0]) > 3.0e7 || std::abs(xyz[1]) > 4096 ||
+                std::abs(xyz[2]) > 3.0e7) {
+                error = "--open-block needs whole x,y,z, e.g. 1,-60,1";
+                return std::nullopt;
+            }
+            opts.openBlock[0] = int(xyz[0]), opts.openBlock[1] = int(xyz[1]), opts.openBlock[2] = int(xyz[2]);
+            opts.hasOpenBlock = true;
         } else if (arg == "--look") {
             auto v = needValue();
             if (!v) return std::nullopt;

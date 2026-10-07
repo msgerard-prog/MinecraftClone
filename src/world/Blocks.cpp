@@ -42,6 +42,7 @@ const Property fireWest{"west", {"true", "false"}};
 const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
+const Property chestType{"type", {"single", "left", "right"}};
 } // namespace properties
 
 namespace {
@@ -291,6 +292,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("carrots", crop, {{&age7, "0"}}), blocks::Carrots);
     check(r.add("potatoes", crop, {{&age7, "0"}}), blocks::Potatoes);
     check(r.add("beetroots", crop, {{&age3, "0"}}), blocks::Beetroots);
+    // Chest (M17.2; wiki: Chest - hardness 2.5; a 14/16 box: not a full cube).
+    check(r.add("chest", {.hardness = 2.5f, .resistance = 2.5f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&facing, "north"}, {&chestType, "single"}}),
+          blocks::Chest);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

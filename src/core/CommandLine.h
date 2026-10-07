@@ -33,6 +33,8 @@ struct LaunchOptions {
     int64_t time = 0; // --time T: day time in ticks (0 sunrise, 6000 noon, 18000 midnight)
     bool debugScreen = false;          // --f3: start with the F3 debug screen open
     bool inventory = false;            // --inventory: start with the creative inventory open
+    bool hasOpenBlock = false;         // --open-block x,y,z: open that block's screen (chest...)
+    int openBlock[3] = {0, 0, 0};
     std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start
     std::string world;                 // --world NAME: saves/<NAME> (created if missing)
     bool noSave = false;               // --no-save: don't load or save a world

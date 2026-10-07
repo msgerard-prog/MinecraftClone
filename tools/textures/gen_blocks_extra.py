@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Block textures for blocks whose vanilla look comes from an entity model (chests):
+original art in the game's pixel style (docs/art-style.md), as plain block faces.
+
+Writes assets/minecraft/textures/block/<name>.png (16x16): chest_top, chest_side,
+chest_front (wooden planks with a dark frame, the front with an iron latch).
+Usage: tools/textures/gen_blocks_extra.py
+"""
+import random
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from texgen.core import Img, encode_png, hexc, ramp  # noqa: E402
+
+OUT = Path(__file__).resolve().parents[2] / "assets/minecraft/textures/block"
+
+
+def planks(rng, img, pal, lid_line=None):
+    for y in range(16):
+        for x in range(16):
+            r = rng.random()
+            c = pal[2] if r > 0.35 else pal[3] if r > 0.15 else pal[1]
+            if y in (4, 9, 14):  # board seams
+                c = pal[0]
+            img.set(x, y, c)
+    for i in range(16):  # dark frame
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            img.set(x, y, pal[0])
+    if lid_line is not None:
+        for x in range(16):
+            img.set(x, lid_line, hexc("#3A2410"))
+
+
+def chest(face):
+    rng = random.Random("chest_" + face)
+    img = Img(16, 16, (0, 0, 0, 255))
+    pal = ramp(hexc("#A26A2E"), 5, spread=0.3)
+    planks(rng, img, pal, lid_line=None if face == "top" else 5)
+    if face == "front":  # the latch
+        iron = ramp(hexc("#C8C8C8"), 5, spread=0.3)
+        for y in range(4, 8):
+            for x in range(7, 9):
+                img.set(x, y, iron[2] if y < 7 else iron[1])
+    return img
+
+
+def main():
+    for face in ("top", "side", "front"):
+        (OUT / f"chest_{face}.png").write_bytes(encode_png(chest(face)))
+    print("wrote chest textures")
+
+
+if __name__ == "__main__":
+    main()

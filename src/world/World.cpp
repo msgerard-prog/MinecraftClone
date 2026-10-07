@@ -63,11 +63,15 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     c->set(x, p.y, z, state);
     // Block entities follow their block (a furnace's contents are dropped by the
     // caller before it breaks it).
-    if (blockRegistry().blockOf(state) == blocks::Furnace) {
+    const BlockId b = blockRegistry().blockOf(state);
+    if (b == blocks::Furnace) {
         c->addFurnace(x, p.y, z);
         markTicking(c->pos());
+    } else if (b == blocks::Chest) {
+        if (c->chest(x, p.y, z) == nullptr) c->addChest(x, p.y, z);
+    } else if (!c->furnaces().empty() || !c->chests().empty()) {
+        c->removeBlockEntity(x, p.y, z);
     }
-    else if (!c->furnaces().empty()) c->removeBlockEntity(x, p.y, z);
 }
 
 } // namespace mc::world

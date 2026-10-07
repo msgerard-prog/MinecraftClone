@@ -16,6 +16,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.gameTime = gameTime;
     s.biomes = chunk.biomes();
     s.furnaces = chunk.furnaces();
+    s.chests = chunk.chests();
     s.mobs = chunk.mobs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
@@ -321,6 +322,19 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("cooking_total_time", int16_t{200});
         entities.emplace_back(std::move(e));
     }
+    for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:chest"));
+        e.put("x", int32_t{chunk.pos.x * 16 + c.x});
+        e.put("y", int32_t{c.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + c.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items;
+        for (int i = 0; i < 27; ++i)
+            if (!c.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(c.data.items[size_t(i)], i));
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        entities.emplace_back(std::move(e));
+    }
     root.put("block_entities", nbt::listOf(nbt::TagType::Compound, std::move(entities)));
     // Scheduled block ticks (wiki: Chunk format › block_ticks): i block id, p
     // priority, t delay, x/y/z world position; in scheduling order.
@@ -450,11 +464,22 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         for (const nbt::Tag& t : entities->items) {
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
-            if (!id || *id != "minecraft:furnace") continue;
+            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest")) continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
+            if (*id == "minecraft:chest") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Chest) continue;
+                ChestData& c = chunk.addChest(x, y, z);
+                if (const nbt::List* items = e->list("Items"))
+                    for (const nbt::Tag& it : items->items)
+                        if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                            const auto slot = ic->integer("Slot").value_or(-1);
+                            if (slot >= 0 && slot < 27) c.items[size_t(slot)] = itemFromNbt(*ic);
+                        }
+                continue;
+            }
             // An entry whose block isn't a furnace (foreign or edited saves) is dropped.
             if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Furnace) continue;
             FurnaceData& f = chunk.addFurnace(x, y, z);

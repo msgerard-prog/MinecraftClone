@@ -39,6 +39,11 @@ void ContainerScreen::open(Type type, Furnace* furnace) {
     m_carried = {};
 }
 
+void ContainerScreen::openChest(world::ChestData* first, world::ChestData* second) {
+    open(Type::Chest);
+    m_chests = {first, second};
+}
+
 void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>& drops) {
     for (auto& s : m_grid) {
         if (s.empty()) continue;
@@ -52,18 +57,24 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
     }
     m_result = {};
     m_furnace = nullptr;
+    m_chests = {};
     m_open = false;
 }
 
 std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
-    auto build = [](Type type) {
+    auto build = [](Type type, int rows) {
         std::vector<Slot> out;
         using K = Slot::Kind;
+        // Chests (vanilla generic_9xN): their rows from y 18, the inventory below.
+        const int invY = type == Type::Chest ? 32 + rows * 18 : 84;
         for (int i = 0; i < 27; ++i) // main inventory 9..35
-            out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, 84 + (i / 9) * 18});
+            out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, invY + (i / 9) * 18});
         for (int i = 0; i < 9; ++i) // hotbar
-            out.push_back({K::Inv, i, 8 + i * 18, 142});
-        if (type == Type::Inventory) {
+            out.push_back({K::Inv, i, 8 + i * 18, invY + 58});
+        if (type == Type::Chest) {
+            for (int i = 0; i < rows * 9; ++i)
+                out.push_back({K::Chest, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
+        } else if (type == Type::Inventory) {
             for (int i = 0; i < 4; ++i)
                 out.push_back({K::Grid, i, 98 + (i % 2) * 18, 18 + (i / 2) * 18});
             out.push_back({K::Result, 0, 154, 28});
@@ -79,8 +90,10 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         return out;
     };
     // Layouts never change: built on first use, then shared (no per-frame vectors).
-    static const std::vector<Slot> inventory = build(Type::Inventory), crafting = build(Type::Crafting),
-                                   furnace = build(Type::Furnace);
+    static const std::vector<Slot> inventory = build(Type::Inventory, 0), crafting = build(Type::Crafting, 0),
+                                   furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
+                                   chest6 = build(Type::Chest, 6);
+    if (m_type == Type::Chest) return chestRows() == 6 ? chest6 : chest3;
     return m_type == Type::Inventory ? inventory : m_type == Type::Crafting ? crafting : furnace;
 }
 
@@ -92,12 +105,16 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
     case Slot::Kind::FurnaceIn: return m_furnace ? &m_furnace->input : nullptr;
     case Slot::Kind::FurnaceFuel: return m_furnace ? &m_furnace->fuel : nullptr;
     case Slot::Kind::FurnaceOut: return m_furnace ? &m_furnace->output : nullptr;
+    case Slot::Kind::Chest: {
+        world::ChestData* c = m_chests[size_t(s.index / 27)];
+        return c ? &c->items[size_t(s.index % 27)] : nullptr;
+    }
     }
     return nullptr;
 }
 
 void ContainerScreen::updateResult() {
-    if (m_type == Type::Furnace) return;
+    if (m_type == Type::Furnace || m_type == Type::Chest) return;
     const int n = gridSize();
     std::array<world::ItemStack, 9> g{};
     for (int i = 0; i < n * n; ++i)
@@ -150,9 +167,9 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
 
 void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
                             Inventory& inventory, std::vector<world::ItemStack>& drops) {
-    const double left = (guiWidth - kWidth) / 2, top = (guiHeight - kHeight) / 2;
+    const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
     const double px = mx - left, py = my - top;
-    if (px < 0 || py < 0 || px >= kWidth || py >= kHeight) { // outside: throw
+    if (px < 0 || py < 0 || px >= kWidth || py >= height()) { // outside: throw
         if (m_carried.empty()) return;
         world::ItemStack thrown = m_carried;
         if (button == Button::Right) {
@@ -181,6 +198,25 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
         }
         if (shift && !v.empty()) {
             if (slot.kind == Slot::Kind::Inv) {
+                if (m_type == Type::Chest) { // into the chest: merge, then empty slots
+                    for (int pass = 0; pass < 2 && !v.empty(); ++pass)
+                        for (int i = 0; i < chestRows() * 9 && !v.empty(); ++i) {
+                            world::ChestData* c = m_chests[size_t(i / 27)];
+                            if (!c) continue;
+                            world::ItemStack& t = c->items[size_t(i % 27)];
+                            if (pass == 0 && !t.empty() && t.sameKind(v) && t.count < maxStack(t)) {
+                                const int n = std::min<int>(v.count, maxStack(t) - t.count);
+                                t.count = uint8_t(t.count + n);
+                                v.count = uint8_t(v.count - n);
+                            } else if (pass == 1 && t.empty()) {
+                                t = v;
+                                v = {};
+                            }
+                        }
+                    if (v.count == 0) v = {};
+                    store();
+                    return;
+                }
                 if (m_type == Type::Furnace && m_furnace) { // into the furnace (merging) when it fits
                     auto into = [&](world::ItemStack& slotStack) {
                         if (slotStack.empty()) {
@@ -254,18 +290,23 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
                            const Inventory& inventory, int guiWidth, int guiHeight, double mx, double my) const {
     b.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0xC0101010));
     const float left = static_cast<float>((guiWidth - kWidth) / 2);
-    const float top = static_cast<float>((guiHeight - kHeight) / 2);
-    b.fill(left + 1, top, kWidth - 2, kHeight, kEdge);
-    b.fill(left, top + 1, kWidth, kHeight - 2, kEdge);
-    b.fill(left + 1, top + 1, kWidth - 2, kHeight - 2, kBody);
+    const int h = height();
+    const float top = static_cast<float>((guiHeight - h) / 2);
+    b.fill(left + 1, top, kWidth - 2, float(h), kEdge);
+    b.fill(left, top + 1, kWidth, float(h - 2), kEdge);
+    b.fill(left + 1, top + 1, kWidth - 2, float(h - 2), kBody);
     b.fill(left + 1, top + 1, kWidth - 3, 2, kLight);
-    b.fill(left + 1, top + 1, 2, kHeight - 3, kLight);
-    b.fill(left + 2, top + kHeight - 3, kWidth - 3, 2, kDark);
-    b.fill(left + kWidth - 3, top + 2, 2, kHeight - 3, kDark);
-    const char* title = m_type == Type::Furnace ? "Furnace" : "Crafting";
-    const float titleX = m_type == Type::Inventory ? 97.0f : m_type == Type::Crafting ? 28.0f : 70.0f;
+    b.fill(left + 1, top + 1, 2, float(h - 3), kLight);
+    b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
+    b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
+    const char* title = m_type == Type::Furnace ? "Furnace"
+                        : m_type == Type::Chest ? (chestRows() == 6 ? "Large Chest" : "Chest")
+                                                : "Crafting";
+    const float titleX = m_type == Type::Inventory ? 97.0f : m_type == Type::Crafting ? 28.0f
+                         : m_type == Type::Chest ? 8.0f : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
-    if (m_type != Type::Inventory) b.text("Inventory", left + 8, top + 72, kLabel, false);
+    if (m_type != Type::Inventory)
+        b.text("Inventory", left + 8, top + (m_type == Type::Chest ? float(20 + chestRows() * 18) : 72.0f), kLabel, false);
 
     // Crafting arrow / furnace gauges.
     auto arrow = [&](float x, float y, float fill) {

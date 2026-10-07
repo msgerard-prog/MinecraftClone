@@ -91,6 +91,9 @@ public:
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
+    // Chests (M17.2): the other half of a double chest, if any; partner side rule.
+    static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
+    static Direction chestClockwise(Direction facing);
     // Farming (M17.1, Farming.cpp).
     static bool isCrop(BlockId b);
     static int cropMaxAge(BlockId b);

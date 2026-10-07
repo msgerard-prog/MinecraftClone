@@ -22,6 +22,7 @@ struct ChunkSnapshot {
     std::array<std::shared_ptr<const SectionLight>, kMaxSections> light; // may be null
     std::shared_ptr<const ChunkBiomes> biomes;
     std::vector<Chunk::FurnaceEntry> furnaces; // block entities
+    std::vector<Chunk::ChestEntry> chests;
     std::vector<MobData> mobs;                 // saved in entities/ (1.17+ layout)
     std::vector<Chunk::BlockTick> blockTicks;  // times relative to gameTime when saved
     int64_t gameTime = 0; // written as LastUpdate

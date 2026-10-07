@@ -140,3 +140,14 @@ TEST_CASE("command line: --version") {
     REQUIRE(opts.has_value());
     CHECK(opts->printVersion);
 }
+
+TEST_CASE("command line: --open-block takes whole block coordinates") {
+    std::string error;
+    std::array<const char*, 2> ok = {"--open-block", "1,-60,-3"};
+    const auto o = mc::parseCommandLine(ok, error);
+    REQUIRE(o);
+    CHECK(o->hasOpenBlock);
+    CHECK(o->openBlock[1] == -60);
+    std::array<const char*, 2> bad = {"--open-block", "1.5,2,3"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
+}

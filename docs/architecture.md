@@ -172,6 +172,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Chests (M17.2): `world::ChestData` block entities (27 slots) in `Chunk::chests()`,
+  created/removed by `World::setBlock`, saved as block_entities `Items`; double
+  chests are two chests whose `type` points at each other (`BlockUpdates::
+  chestPartner`, kept paired by neighbour updates); `ContainerScreen::Type::Chest`
+  shows 3 or 6 rows (main re-points it at the chests each frame).
 - Farming (M17.1, `world/Farming.cpp`, part of `BlockUpdates`): farmland moisture and
   crop growth on random ticks (vanilla's speed points), `till` (hoes), `boneMeal`,
   `trample` (main rolls the fall chance); crops pop without farmland. Seeds,

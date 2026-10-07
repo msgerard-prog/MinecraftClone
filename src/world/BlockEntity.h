@@ -2,6 +2,8 @@
 
 #include "world/Items.h"
 
+#include <array>
+
 namespace mc::world {
 
 // A furnace's contents and timers (wiki: Furnace › Block data). Plain data: the
@@ -13,6 +15,11 @@ struct FurnaceData {
     int cookTime = 0;     // progress on the current item
     ItemId cooking = 0;   // the input kind being cooked (a different item restarts)
     bool lit() const { return burnLeft > 0; }
+};
+
+// A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.
+struct ChestData {
+    std::array<ItemStack, 27> items{};
 };
 
 } // namespace mc::world

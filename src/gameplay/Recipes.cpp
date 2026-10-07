@@ -58,6 +58,7 @@ std::vector<Recipe> build() {
     // Light and stations (wiki: Torch, Furnace).
     r.push_back(shaped({"C", "S"}, {{'C', kCoal}, {'S', item("stick")}}, "torch", 4));
     r.push_back(shaped({"###", "#.#", "###"}, {{'#', kStoneTool}}, "furnace"));
+    r.push_back(shaped({"###", "#.#", "###"}, {{'#', kPlanks}}, "chest")); // wiki: Chest
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword), per material.
     const std::pair<const char*, Ingredient> materials[] = {{"wooden", kPlanks},
                                                             {"stone", kStoneTool},
@@ -252,7 +253,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
 int fuelByName(std::string_view n, const ItemDef& def) {
     // wiki: Fuel - burn durations in game ticks.
     if (n == "coal" || n == "charcoal") return 1600;
-    if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table") return 300;
+    if (n.ends_with("_log") || n.ends_with("_planks") || n == "crafting_table" || n == "chest") return 300;
     if (n == "stick" || n == "dead_bush" || n.ends_with("_sapling") || n.ends_with("_wool")) return 100;
     if (n == "lava_bucket") return 20000; // the empty bucket stays in the fuel slot
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;

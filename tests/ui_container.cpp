@@ -125,3 +125,24 @@ TEST_CASE("furnace fuel slot takes only fuel; shift-click merges into the furnac
     f.left(invX(0), mainY(0), true); // shift raw iron: merges with the 2 in the input
     CHECK(furnace.input.count == 5);
 }
+
+TEST_CASE("chest screen: 3 rows (double: 6), shift-click moves stacks in and out") {
+    Fixture f;
+    ChestData a, b;
+    f.inv.setSlot(0, I("cobblestone", 20));
+    f.screen.openChest(&a, nullptr);
+    CHECK(f.screen.chestRows() == 3);
+    CHECK(f.screen.height() == 168);
+    // Panel at ((400-176)/2, (300-168)/2) = (112, 66); hotbar at y 32 + 54 + 58 = 144.
+    const double hotY = 66 + 144 + 8, chestY0 = 66 + 18 + 8;
+    f.left(112 + 8 + 8, hotY, true); // shift-click the hotbar stack into the chest
+    CHECK(f.inv.slot(0).empty());
+    CHECK(a.items[0].count == 20);
+    f.left(112 + 8 + 8, chestY0, true); // and back out
+    CHECK(a.items[0].empty());
+    CHECK(f.inv.slot(0).count == 20);
+    f.screen.close(f.inv, f.drops);
+    f.screen.openChest(&a, &b);
+    CHECK(f.screen.chestRows() == 6);
+    CHECK(f.screen.height() == 222);
+}

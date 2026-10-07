@@ -110,6 +110,7 @@ Push pushKind(BlockStateId s) {
     case B::Fire: return Push::Destroy;
     case B::Obsidian:  // (wiki: Piston/Table)
     case B::Furnace:   // block entities don't move
+    case B::Chest:
     case B::PistonHead:
         return Push::Block;
     case B::Piston:
@@ -196,6 +197,28 @@ int BlockUpdates::bestNeighbourSignal(const BlockPos& p) const {
         best = std::max(best, signalFrom(rel(p, dir), opposite(dir)));
     }
     return best;
+}
+
+Direction BlockUpdates::chestClockwise(Direction f) {
+    // A chest of type "right" has its partner clockwise of its facing, "left"
+    // counter-clockwise (N -> E -> S -> W).
+    switch (f) {
+    case Direction::North: return Direction::East;
+    case Direction::East: return Direction::South;
+    case Direction::South: return Direction::West;
+    default: return Direction::North;
+    }
+}
+
+std::optional<BlockPos> BlockUpdates::chestPartner(const World& world, const BlockPos& p) {
+    const BlockStateId s = world.getBlock(p);
+    if (blockOf(s) != B::Chest) return std::nullopt;
+    const int t = R().get(s, chestType);
+    if (t == 0) return std::nullopt;
+    const Direction cw = chestClockwise(hFacing(s));
+    const BlockPos q = rel(p, t == 2 ? cw : opposite(cw));
+    if (blockOf(world.getBlock(q)) != B::Chest) return std::nullopt;
+    return q;
 }
 
 // --- Falling blocks ---------------------------------------------------------------
@@ -397,6 +420,28 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Water:
     case B::Lava: fluidNeighbourChanged(p, s); break;
     case B::Fire: fireNeighbourChanged(p); break;
+    case B::Chest: {
+        // Keep double chests paired: a half whose partner is gone turns single; a
+        // single chest takes the free side of a neighbour half pointing at it.
+        const Direction f = hFacing(s), cw = chestClockwise(f);
+        auto partnerOf = [&](BlockStateId st, const BlockPos& at) -> std::optional<BlockPos> {
+            const int t = R().get(st, chestType);
+            if (t == 0) return std::nullopt;
+            const Direction pc = chestClockwise(hFacing(st));
+            return rel(at, t == 2 ? pc : opposite(pc));
+        };
+        int want = 0;
+        for (const auto& [side, myType] : {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) {
+            const BlockPos q = rel(p, side);
+            const BlockStateId n = at(q);
+            if (blockOf(n) == B::Chest && hFacing(n) == f) {
+                const auto back = partnerOf(n, q);
+                if (back && *back == p) want = myType;
+            }
+        }
+        if (want != R().get(s, chestType)) setRaw(p, R().set(s, chestType, want));
+        break;
+    }
     case B::Farmland: // a solid block on top turns it to dirt (wiki: Farmland)
         if (R().collides(at(rel(p, Direction::Up)))) set(p, R().defaultState(B::Dirt));
         break;
@@ -862,6 +907,18 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::AcaciaSapling:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
+    case B::Chest: {
+        // The front faces the player; next to a single chest with the same facing
+        // (on its left or right) it becomes the other half of a double chest.
+        BlockStateId s = withHFacing(state, opposite(look));
+        const Direction cw = chestClockwise(opposite(look));
+        for (const auto& [side, myType] : {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) { // right, left
+            const BlockStateId n = world.getBlock(rel(at, side));
+            if (blockOf(n) == B::Chest && r.get(n, chestType) == 0 && hFacing(n) == opposite(look))
+                return r.set(s, chestType, myType);
+        }
+        return s;
+    }
     case B::Wheat:
     case B::Carrots:
     case B::Potatoes:

@@ -817,3 +817,24 @@ TEST_CASE("older saves still load: BurnTime/CookTime, FallDistance, no status ta
     REQUIRE(d.mobs().size() == 1);
     CHECK(d.mobs()[0].fallDistance == 2.5f);
 }
+
+TEST_CASE("chests: placed chests get storage that saves as Items (Slot 0..26) and loads back") {
+    World w;
+    w.createChunk({0, 0});
+    const auto chest = blockRegistry().defaultState(blocks::Chest);
+    w.setBlock({3, 70, 4}, chest);
+    Chunk& c = *w.chunk({0, 0});
+    ChestData* d = c.chest(3, 70, 4);
+    REQUIRE(d);
+    d->items[5] = {*itemRegistry().find("diamond"), 3};
+    d->items[26] = {*itemRegistry().find("stick"), 64};
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    Chunk e({0, 0});
+    REQUIRE(chunkFromNbt(nbt, e));
+    const ChestData* back = e.chest(3, 70, 4);
+    REQUIRE(back);
+    CHECK(back->items[5].count == 3);
+    CHECK(back->items[26].item == *itemRegistry().find("stick"));
+    w.setBlock({3, 70, 4}, 0); // the block goes: its storage too
+    CHECK(c.chest(3, 70, 4) == nullptr);
+}

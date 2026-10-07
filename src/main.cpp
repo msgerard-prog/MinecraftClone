@@ -221,6 +221,7 @@ int main(int argc, char** argv) {
     mc::ui::CreativeInventory creative;
     mc::ui::ContainerScreen container; // survival inventory, crafting table, furnace
     mc::world::BlockPos containerBlock{};
+    std::optional<mc::world::BlockPos> chestSecond; // a double chest's second half
     std::vector<mc::world::ItemStack> screenDrops;
     screenDrops.reserve(16);
     std::vector<mc::world::ItemStack> pendingThrows; // thrown from screens: spawned in the tick
@@ -533,8 +534,46 @@ int main(int argc, char** argv) {
     };
     std::vector<std::string> pendingChat(opts->commands.begin(), opts->commands.end());
 
+    // The open chest screen's storage, looked up again each frame (chunks may reload);
+    // a broken chest closes the screen.
+    auto pointChests = [&] {
+        auto chestAt = [&](const mc::world::BlockPos& p) -> mc::world::ChestData* {
+            mc::world::Chunk* c = world.chunk(p.chunk());
+            return c ? c->chest(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z)) : nullptr;
+        };
+        mc::world::ChestData* first = chestAt(containerBlock);
+        mc::world::ChestData* second = chestSecond ? chestAt(*chestSecond) : nullptr;
+        if (!first || (chestSecond && !second)) {
+            screenDrops.clear();
+            container.close(inventory, screenDrops);
+            for (const auto& d : screenDrops)
+                droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), d, gameRng);
+            window.setCursorCaptured(true);
+            return;
+        }
+        container.setChests(first, second);
+    };
+    // Opens a chest's screen unless a solid block sits on it (wiki: Chest); a double
+    // chest shows its "left" half first.
+    auto openChestAt = [&](const mc::world::BlockPos& p) {
+        const auto& creg = mc::world::blockRegistry();
+        if (creg.blockOf(world.getBlock(p)) != mc::world::blocks::Chest) return false;
+        const auto partner = mc::world::BlockUpdates::chestPartner(world, p);
+        const bool blocked = creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
+                             (partner && creg.opaqueCube(world.getBlock({partner->x, partner->y + 1, partner->z})));
+        if (blocked) return false;
+        const bool leftFirst = creg.value(world.getBlock(p), "type") != "right";
+        containerBlock = partner && !leftFirst ? *partner : p;
+        chestSecond = partner ? std::optional(leftFirst ? *partner : p) : std::nullopt;
+        container.openChest(nullptr, nullptr);
+        pointChests();
+        return true;
+    };
+    bool openBlockPending = opts->hasOpenBlock;
     while (!window.shouldClose()) {
         window.pollEvents();
+        // An open chest screen follows its block(s) (closed if broken).
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
         // The open furnace screen follows its block (closed if it was broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -659,6 +698,8 @@ int main(int argc, char** argv) {
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::Chest) {
+                        if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
                         window.addPress(mc::Press::RightMouse); // not a workstation: a normal use
                     }
@@ -1170,6 +1211,10 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        if (openBlockPending && gameTime > 2) { // --open-block (screenshots of container screens)
+            openBlockPending = false;
+            openChestAt({opts->openBlock[0], opts->openBlock[1], opts->openBlock[2]});
+        }
         if (openInventoryPending && gameTime > 0) {
             openInventoryPending = false;
             if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);

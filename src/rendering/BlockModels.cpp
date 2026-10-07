@@ -228,6 +228,41 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite((name + "_stage" + std::to_string(stage)).c_str());
+            } else if (name == "chest") {
+                // A 14/16 box (vanilla's chest model), front toward `facing`; the halves
+                // of a double chest reach across to their partner (type left: the
+                // partner is counter-clockwise of facing, right: clockwise).
+                const auto f = registry.value(state, "facing").value_or("north");
+                const auto type = registry.value(state, "type").value_or("single");
+                const Direction front = f == "south" ? Direction::South
+                                        : f == "west" ? Direction::West
+                                        : f == "east" ? Direction::East
+                                                      : Direction::North;
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = 1, b.from[1] = 0, b.from[2] = 1;
+                b.to[0] = 15, b.to[1] = 14, b.to[2] = 15;
+                if (type != "single") {
+                    // Clockwise of N is E, of E is S, of S is W, of W is N.
+                    static constexpr Direction kCw[6] = {Direction::Down, Direction::Up, Direction::East,
+                                                         Direction::West, Direction::North, Direction::South};
+                    const Direction cw = kCw[int(front)];
+                    const Direction side = type == "right" ? cw : static_cast<Direction>(int(cw) ^ 1);
+                    const glm::ivec3 n = world::normal(side);
+                    for (int a = 0; a < 3; a += 2) {
+                        if (n[a] > 0) b.to[a] = 16;
+                        if (n[a] < 0) b.from[a] = 0;
+                    }
+                }
+                const uint16_t sideS = sprite("chest_side"), topS = sprite("chest_top"), frontS = sprite("chest_front");
+                for (int d = 0; d < 6; ++d) {
+                    auto& face = b.faces[d];
+                    face.sprite = d == int(Direction::Up) || d == int(Direction::Down) ? topS
+                                  : d == int(front)                                   ? frontS
+                                                                                      : sideS;
+                    face.uv[0] = 0, face.uv[1] = 0, face.uv[2] = 16, face.uv[3] = 16;
+                }
             } else if (name == "farmland") {
                 // Dirt sides; the top darkens when fully wet (moisture 7).
                 BakedVariant v = cubeAll(sprite("dirt"));

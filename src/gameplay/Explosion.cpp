@@ -106,6 +106,11 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             for (const ItemStack& st : m_loot)
                 items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
         }
+        if (reg.blockOf(s) == blocks::Chest) // its contents fall out (wiki: Chest)
+            if (const Chunk* ch = world.chunk(b.chunk()))
+                if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
+                    for (const ItemStack& st : cd->items)
+                        if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
         world.updateBlock(b, 0);
         changed.push_back(b);
         ++destroyed;

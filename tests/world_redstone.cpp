@@ -477,3 +477,24 @@ TEST_CASE("pistons destroy saplings, fire and leaves; the drop is the block's lo
         s.put({1, 64, 3}, 0);
     }
 }
+
+TEST_CASE("chests placed side by side with the same facing pair up; breaking one splits them") {
+    Scene s;
+    const BlockStateId c = S(blocks::Chest);
+    // Player looks north (yaw 180): the front faces south.
+    const auto a = BlockUpdates::placement(s.world, c, {0, 64, 0}, Direction::Up, 180.0f, 0.0f);
+    REQUIRE(a);
+    s.put({0, 64, 0}, *a);
+    CHECK(val(s.at({0, 64, 0}), "facing") == "south");
+    CHECK(val(s.at({0, 64, 0}), "type") == "single");
+    const auto b = BlockUpdates::placement(s.world, c, {1, 64, 0}, Direction::Up, 180.0f, 0.0f);
+    REQUIRE(b);
+    s.put({1, 64, 0}, *b);
+    CHECK(val(s.at({1, 64, 0}), "type") != "single");
+    CHECK(val(s.at({0, 64, 0}), "type") != "single");
+    CHECK(val(s.at({0, 64, 0}), "type") != val(s.at({1, 64, 0}), "type"));
+    REQUIRE(BlockUpdates::chestPartner(s.world, {0, 64, 0}));
+    CHECK(*BlockUpdates::chestPartner(s.world, {0, 64, 0}) == BlockPos{1, 64, 0});
+    s.put({1, 64, 0}, 0);
+    CHECK(val(s.at({0, 64, 0}), "type") == "single");
+}

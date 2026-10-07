@@ -65,6 +65,7 @@ public:
         m_dirty = false;
         m_biomes = defaultBiomes();
         m_furnaces.clear();
+        m_chests.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -135,8 +136,31 @@ public:
         m_furnaces.push_back({x, y, z, {}});
         return m_furnaces.back().data;
     }
+    struct ChestEntry {
+        int x, y, z; // local x/z, world y
+        ChestData data;
+    };
+    ChestData* chest(int x, int y, int z) {
+        for (auto& c : m_chests)
+            if (c.x == x && c.y == y && c.z == z) return &c.data;
+        return nullptr;
+    }
+    const ChestData* chest(int x, int y, int z) const {
+        for (const auto& c : m_chests)
+            if (c.x == x && c.y == y && c.z == z) return &c.data;
+        return nullptr;
+    }
+    ChestData& addChest(int x, int y, int z) {
+        if (ChestData* c = chest(x, y, z)) return *c;
+        m_dirty = true;
+        m_chests.push_back({x, y, z, {}});
+        return m_chests.back().data;
+    }
+    std::vector<ChestEntry>& chests() { return m_chests; }
+    const std::vector<ChestEntry>& chests() const { return m_chests; }
     void removeBlockEntity(int x, int y, int z) {
         std::erase_if(m_furnaces, [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
+        std::erase_if(m_chests, [&](const ChestEntry& c) { return c.x == x && c.y == y && c.z == z; });
     }
     std::vector<FurnaceEntry>& furnaces() { return m_furnaces; }
     const std::vector<FurnaceEntry>& furnaces() const { return m_furnaces; }
@@ -211,6 +235,7 @@ private:
     bool m_dirty = false;
     std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();
     std::vector<FurnaceEntry> m_furnaces;
+    std::vector<ChestEntry> m_chests;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;
     TickSet m_tickSet; // keys of m_blockTicks (valid unless edited in bulk)
