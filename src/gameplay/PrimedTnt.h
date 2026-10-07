@@ -24,8 +24,8 @@ public:
     static constexpr int kMax = 1024;
     PrimedTnt() {
         m_items.reserve(kMax);
-        m_boxes.reserve(64);
-        m_explode.reserve(64);
+        m_boxes.reserve(256);
+        m_explode.reserve(kMax);
     }
     // A TNT block at `block` lit with `fuse` ticks to go.
     void prime(const world::BlockPos& block, int fuse, world::Xoroshiro& rng);

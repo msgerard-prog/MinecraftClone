@@ -17,7 +17,9 @@ namespace mc {
 bool insertOne(world::World& world, const world::BlockPos& container, world::Direction from,
                const world::ItemStack& one);
 // Takes one item out of the container through its side `from` into `out` (count 1).
-bool extractOne(world::World& world, const world::BlockPos& container, world::Direction from, world::ItemStack& out);
+// `fromSlot`: where it came from (to put it back if it doesn't fit after all).
+bool extractOne(world::World& world, const world::BlockPos& container, world::Direction from, world::ItemStack& out,
+                world::ItemStack** fromSlot = nullptr);
 bool isContainer(const world::World& world, const world::BlockPos& p);
 
 // Every hopper in the ticking chunks, each game tick (wiki: Hopper): while enabled

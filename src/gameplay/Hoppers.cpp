@@ -15,19 +15,27 @@ Direction oppositeOf(Direction d) { return static_cast<Direction>(static_cast<in
 int maxStackOf(const ItemStack& s) { return std::max(1, int(itemRegistry().item(s.item).maxStack)); }
 
 // Puts one item into the first slot of `slots` it merges with, else the first empty one.
+// Puts one item into the leftmost slot that takes it: a matching stack with room or an
+// empty slot (wiki: Hopper - "leftmost available slot").
 template <size_t N>
 bool putIn(std::array<ItemStack, N>& slots, const ItemStack& one) {
-    for (ItemStack& t : slots)
-        if (!t.empty() && t.sameKind(one) && t.count < maxStackOf(t)) {
-            ++t.count;
-            return true;
-        }
-    for (ItemStack& t : slots)
+    for (ItemStack& t : slots) {
         if (t.empty()) {
             t = one;
             t.count = 1;
             return true;
         }
+        if (t.sameKind(one) && t.count < maxStackOf(t)) {
+            ++t.count;
+            return true;
+        }
+    }
+    return false;
+}
+template <size_t N>
+bool fits(const std::array<ItemStack, N>& slots, const ItemStack& one) {
+    for (const ItemStack& t : slots)
+        if (t.empty() || (t.sameKind(one) && t.count < maxStackOf(t))) return true;
     return false;
 }
 bool putInto(ItemStack& t, const ItemStack& one) {
@@ -42,11 +50,13 @@ bool putInto(ItemStack& t, const ItemStack& one) {
     }
     return false;
 }
+ItemStack* g_lastSlot = nullptr; // (the slot the last take came from; main thread only)
 bool takeFrom(ItemStack& s, ItemStack& out) {
     if (s.empty()) return false;
     out = s;
     out.count = 1;
     if (--s.count == 0) s = {};
+    g_lastSlot = &s;
     return true;
 }
 template <size_t N>
@@ -82,7 +92,13 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
                     }
         break;
     case blocks::Hopper:
-        if (HopperData* d = c->hopper(x, p.y, z)) ok = putIn(d->items, one);
+        if (HopperData* d = c->hopper(x, p.y, z)) {
+            bool wasEmpty = true;
+            for (const ItemStack& st : d->items)
+                wasEmpty = wasEmpty && st.empty();
+            ok = putIn(d->items, one);
+            if (ok && wasEmpty) d->cooldown = 7; // (wiki: so an item doesn't cross a chain in one tick)
+        }
         break;
     case blocks::Dispenser:
     case blocks::Dropper:
@@ -120,7 +136,8 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     return ok;
 }
 
-bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out) {
+bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out, ItemStack** fromSlot) {
+    g_lastSlot = nullptr;
     Chunk* c = world.chunk(p.chunk());
     if (!c) return false;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
@@ -159,19 +176,35 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out)
         break;
     }
     if (ok) c->markDirty();
+    if (ok && fromSlot) *fromSlot = g_lastSlot;
     return ok;
 }
 
 void tickHoppers(World& world, ItemEntities& items) {
     const auto& r = blockRegistry();
     bool tookItems = false;
+    // Which dropped items lie over a hopper (one pass: a hopper at (x, y, z) takes items
+    // with y + 0.5 <= item y < y + 2 over its column).
+    struct Pickup {
+        BlockPos hopper;
+        int item;
+    };
+    static std::array<Pickup, 1024> pickups;
+    int pickupCount = 0;
+    const auto& all = items.items();
+    for (size_t i = 0; i < all.size() && pickupCount < int(pickups.size()); ++i) {
+        const glm::dvec3 q = all[i].pos;
+        const int bx = int(std::floor(q.x)), bz = int(std::floor(q.z)), by = int(std::floor(q.y - 0.5));
+        for (const int y : {by, by - 1})
+            if (y + 0.5 <= q.y && q.y < y + 2.0 && r.blockOf(world.getBlock({bx, y, bz})) == blocks::Hopper) {
+                pickups[size_t(pickupCount++)] = {{bx, y, bz}, int(i)};
+                break;
+            }
+    }
     world.forEachTickingChunk([&](Chunk& chunk) {
         for (auto& e : chunk.hoppers()) {
             HopperData& h = e.data;
-            if (h.cooldown > 0) {
-                --h.cooldown;
-                continue;
-            }
+            if (h.cooldown > 0 && --h.cooldown > 0) continue; // (moves on the tick it reaches 0: every 8)
             const BlockPos p{chunk.pos().x * 16 + e.x, e.y, chunk.pos().z * 16 + e.z};
             const BlockStateId s = chunk.get(e.x, e.y, e.z);
             if (r.blockOf(s) != blocks::Hopper || r.get(s, properties::enabled) != 0) continue; // (powered: off)
@@ -182,30 +215,30 @@ void tickHoppers(World& world, ItemEntities& items) {
             // Push: the first stack's item into the container it points into.
             const BlockPos target{p.x + kDirectionNormals[int(out)].x, p.y + kDirectionNormals[int(out)].y,
                                   p.z + kDirectionNormals[int(out)].z};
-            for (ItemStack& st : h.items)
-                if (!st.empty()) {
-                    if (insertOne(world, target, oppositeOf(out), st)) {
-                        if (--st.count == 0) st = {};
-                        moved = true;
-                    }
+            for (ItemStack& st : h.items) // the leftmost stack that goes in
+                if (!st.empty() && insertOne(world, target, oppositeOf(out), st)) {
+                    if (--st.count == 0) st = {};
+                    moved = true;
                     break;
                 }
             // Pull: one item from the container above, or dropped items over it.
             const BlockPos above{p.x, p.y + 1, p.z};
             if (isContainer(world, above)) {
                 ItemStack one;
-                bool room = false;
-                for (const ItemStack& st : h.items)
-                    room = room || st.empty() || st.count < maxStackOf(st);
-                if (room && extractOne(world, above, Direction::Down, one)) {
-                    if (!putIn(h.items, one)) insertOne(world, above, Direction::Down, one); // (no room after all)
-                    else moved = true;
+                ItemStack* from = nullptr;
+                if (extractOne(world, above, Direction::Down, one, &from)) {
+                    if (putIn(h.items, one)) {
+                        moved = true;
+                    } else if (from) { // it doesn't fit here: back where it came from
+                        if (from->empty()) *from = one;
+                        else ++from->count;
+                    }
                 }
-            } else if (!r.collides(world.getBlock(above))) {
-                for (ItemEntity& it : items.mutableItems()) {
-                    if (it.stack.empty() || it.pos.x < p.x || it.pos.x >= p.x + 1 || it.pos.z < p.z ||
-                        it.pos.z >= p.z + 1 || it.pos.y < p.y + 0.5 || it.pos.y >= p.y + 2.0)
-                        continue;
+            } else if (!r.opaqueCube(world.getBlock(above))) { // (only containers and full blocks stop pickup)
+                for (int k = 0; k < pickupCount; ++k) {
+                    if (!(pickups[size_t(k)].hopper == p)) continue;
+                    ItemEntity& it = items.mutableItems()[size_t(pickups[size_t(k)].item)];
+                    if (it.stack.empty() || !fits(h.items, it.stack)) continue;
                     while (it.stack.count > 0 && putIn(h.items, it.stack)) { // the whole stack, as it fits
                         --it.stack.count;
                         moved = true;

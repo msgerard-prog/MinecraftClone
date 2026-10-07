@@ -258,3 +258,76 @@ TEST_CASE("pistons move blocks over 2 ticks; slime blocks drag what sticks to th
     CHECK(R().blockOf(s.at({1, 70, 1})) == blocks::Stone);
     CHECK(R().blockOf(s.at({1, 71, 0})) == blocks::Cobblestone);
 }
+
+TEST_CASE("M21 review: pistons don't move block entities; a quick retract leaves no stray head") {
+    Scene s;
+    s.put({0, 64, 0}, *R().with(S(blocks::Piston), "facing", "east"));
+    s.put({1, 64, 0}, S(blocks::Hopper));
+    s.world.chunk({0, 0})->hopper(1, 64, 0)->items[0] = ItemStack{*itemRegistry().find("stone"), 5};
+    s.put({0, 64, -1}, S(blocks::RedstoneBlock));
+    s.tick(5);
+    CHECK(R().blockOf(s.at({1, 64, 0})) == blocks::Hopper); // can't be pushed
+    CHECK(s.world.chunk({0, 0})->hopper(1, 64, 0)->items[0].count == 5);
+    // Power off one tick after it started: the head mustn't stay behind.
+    s.put({8, 70, 8}, *R().with(S(blocks::Piston), "facing", "east"));
+    s.put({8, 70, 7}, S(blocks::RedstoneBlock));
+    s.tick(2); // (player-powered: it starts now)
+    s.put({8, 70, 7}, 0);
+    s.tick(6);
+    CHECK(val(s.at({8, 70, 8}), "extended") == "false");
+    CHECK(s.at({9, 70, 8}) == 0);
+}
+
+TEST_CASE("M21 review: observers see repeaters switch; breaking a comparator unpowers dust past a block; top-half power opens doors") {
+    Scene s;
+    // A repeater (input west) with an observer watching it from the south.
+    s.put({4, 64, 4}, *R().with(S(blocks::Repeater), "facing", "west"));
+    s.place(blocks::Observer, {4, 64, 5}, Direction::Up, 180.0f); // face north, at the repeater
+    s.put({4, 64, 6}, S(blocks::RedstoneLamp));
+    s.tick(4);
+    s.put({3, 64, 4}, S(blocks::RedstoneBlock)); // the repeater turns on
+    bool lampOn = false;
+    for (int i = 0; i < 8 && !lampOn; ++i) {
+        s.tick(1);
+        lampOn = val(s.at({4, 64, 6}), "lit") == "true";
+    }
+    CHECK(lampOn);
+    // Comparator -> stone -> lamp; break the comparator: the lamp goes out.
+    s.put({10, 64, 2}, S(blocks::RedstoneBlock));
+    s.place(blocks::Comparator, {10, 64, 3}, Direction::Up, 0.0f); // input north, output south
+    s.put({10, 64, 4}, S(blocks::Stone));
+    s.put({10, 64, 5}, S(blocks::RedstoneLamp));
+    s.tick(4);
+    REQUIRE(val(s.at({10, 64, 5}), "lit") == "true");
+    s.put({10, 64, 3}, 0);
+    s.tick(6);
+    CHECK(val(s.at({10, 64, 5}), "lit") == "false");
+    // A door powered only beside its top half opens.
+    s.place(blocks::IronDoor, {14, 64, 8});
+    s.put({15, 65, 8}, S(blocks::RedstoneBlock));
+    CHECK(val(s.at({14, 64, 8}), "open") == "true");
+}
+
+#include "world/ChunkSerializer.h"
+
+TEST_CASE("hoppers, dispensers and droppers save their items (and cooldown, and which is which)") {
+    Scene s;
+    s.put({1, 70, 1}, S(blocks::Hopper));
+    s.put({2, 70, 1}, S(blocks::Dispenser));
+    s.put({3, 70, 1}, S(blocks::Dropper));
+    Chunk& c = *s.world.chunk({0, 0});
+    c.hopper(1, 70, 1)->items[2] = ItemStack{*itemRegistry().find("stone"), 7};
+    c.hopper(1, 70, 1)->cooldown = 5;
+    c.dispenser(2, 70, 1)->items[8] = ItemStack{*itemRegistry().find("arrow"), 9};
+    c.dispenser(3, 70, 1)->items[0] = ItemStack{*itemRegistry().find("dirt"), 3};
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(c)))), back));
+    REQUIRE(back.hopper(1, 70, 1));
+    CHECK(back.hopper(1, 70, 1)->items[2].count == 7);
+    CHECK(back.hopper(1, 70, 1)->cooldown == 5);
+    REQUIRE(back.dispenser(2, 70, 1));
+    CHECK(back.dispenser(2, 70, 1)->items[8].count == 9);
+    CHECK_FALSE(back.dispenser(2, 70, 1)->dropper);
+    REQUIRE(back.dispenser(3, 70, 1));
+    CHECK(back.dispenser(3, 70, 1)->dropper);
+}

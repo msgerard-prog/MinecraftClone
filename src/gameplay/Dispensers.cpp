@@ -79,12 +79,17 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         if (ctx.projectiles.shoot(ProjectileKind::BlazeFireball, mouth, dir, 0.9, 1.0, false, false, ctx.rng)) use();
     } else if (id == "minecraft:water_bucket" || id == "minecraft:lava_bucket") {
         const BlockStateId here = ctx.world.getBlock(front);
-        if (!BlockUpdates::replaceable(here)) return;
+        if (!BlockUpdates::replaceable(here)) { // (wiki: dropped when the front is solid)
+            spit(ctx, mouth, dir, one);
+            use();
+            return;
+        }
         const bool water = id == "minecraft:water_bucket";
         if (!(water && ctx.world.isUltrawarm())) // (water boils away in the Nether)
             ctx.world.updateBlock(front, BlockUpdates::fluidState(water ? blocks::Water : blocks::Lava, 8, false));
         ctx.edits.push_back(front);
-        *slot = ItemStack{*itemRegistry().find("bucket"), 1};
+        static const ItemId bucket = *itemRegistry().find("bucket");
+        *slot = ItemStack{bucket, 1};
         c->markDirty();
     } else if (id == "minecraft:bucket") {
         const BlockStateId here = ctx.world.getBlock(front);
@@ -96,7 +101,8 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         }
         ctx.world.updateBlock(front, 0);
         ctx.edits.push_back(front);
-        const ItemStack full{*itemRegistry().find(hb == blocks::Water ? "water_bucket" : "lava_bucket"), 1};
+        static const ItemId waterBucket = *itemRegistry().find("water_bucket"), lavaBucket = *itemRegistry().find("lava_bucket");
+        const ItemStack full{hb == blocks::Water ? waterBucket : lavaBucket, 1};
         if (slot->count == 1) {
             *slot = full;
         } else {
@@ -122,11 +128,9 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         }
         *slot = wearItem(*slot, 1, ctx.rng);
         c->markDirty();
-    } else if (id == "minecraft:tnt") { // primed in front (wiki)
-        if (BlockUpdates::replaceable(ctx.world.getBlock(front))) {
-            ctx.tnt.prime(front, 80, ctx.rng);
-            use();
-        }
+    } else if (id == "minecraft:tnt") { // primed in front, whatever is there (wiki)
+        ctx.tnt.prime(front, 80, ctx.rng);
+        use();
     } else if (id == "minecraft:bone_meal") {
         if (ctx.updates.boneMeal(front)) use();
     } else {

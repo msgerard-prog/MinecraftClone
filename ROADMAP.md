@@ -4,31 +4,28 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M20 done (reviews applied; v0.20.0): new worlds use the "end2" End - outer islands
-beyond 1024 blocks with the four End biomes, chorus trees and fruit, end cities with
-ships, shulkers and elytra; end crystals on caged pillars; the ender dragon fight
-(phases, fireballs and breath, healing beams, boss bar, death, exit portal, egg), end
-gateways and ender pearls, respawning the dragon; Levitation; elytra flight. Older
-worlds keep the M12 End. M1-M19 done.
+M21 done (reviews applied; v0.21.0): doors, trapdoors, fences, gates, pressure plates,
+TNT, comparators, observers, hoppers, droppers, dispensers, rails and minecarts,
+slimes, slime blocks, sticky pistons, 2-tick piston animation with slime structures,
+per-state collision shapes. M1-M20 done. v1.0 waits for M23-M28 (user decision).
 
 ## Next
-Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
-systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
-
-M21 — Redstone 2 (wiki: Redstone circuits, each component's page; vanilla update
-order where documented):
-1. ✅ M21.1 — Doors, trapdoors, fence gates (wood and iron; redstone opens them),
-   pressure plates (wood/stone/weighted) and TNT (lit by redstone or fire, primed TNT
-   entity, its explosion; the desert pyramid trap starts working).
-2. ✅ M21.2 — Comparators (compare/subtract, reading containers' fullness) and
-   observers (block-state change pulses).
-3. ✅ M21.3 — Hoppers (moving items between containers, picking up items), droppers and
-   dispensers (dispense behaviours: arrows, buckets, items).
-4. ✅ M21.4 — Rails and minecarts: rails, powered/detector/activator rails, minecart
-   physics and riding, chest and hopper minecarts.
-5. ✅ M21.5 — Slime blocks (slime balls from slimes -> sticky pistons craftable),
-   piston animation (moving pistons over 2 ticks, entities pushed), the M11 piston
-   deviations revisited.
+M22 - World & presentation:
+1. M22.1 - Weather (wiki: Weather): rain/snow/thunder cycles kept in level.dat
+   (vanilla's raining/rainTime/thundering/thunderTime), falling rain and snow drawn,
+   darker sky and light, lightning (fire, damage, charged creepers, pigs to zombified
+   piglins), rain putting out fires and filling farmland, snow layers and ice forming,
+   /weather.
+2. M22.2 - Sky: the sky colour by biome temperature, sunrise/sunset glow, biome fog
+   colours (night fog no longer black), clouds, the End sky.
+3. M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
+   drips, crits, potion swirls, mob death puffs, rain splashes.
+4. M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
+   synthesized sounds - footsteps by block, breaking/placing, mobs, explosions,
+   ambience, music later.
+5. M22.5 - Menus: title screen, world list and creation (name, seed, game mode -
+   survival by default, generator), pause menu, options (render distance, FOV,
+   sensitivity, GUI scale, volume, graphics).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -51,6 +48,12 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M21 perf review: comparators reading containers recompute their target every
+  tick (cache the last container signal; vanilla: containers notify comparators);
+  ticking-chunk passes per tick are now 6 (store Chunk* or merge them) and hoppers,
+  comparators and plates tick beyond the simulation distance; railPowered walks up to
+  700 lookups per call (walk the line once); PrimedTnt::push is O(T) per blast (O(T^2)
+  over a chain); explosions look chunks up twice per destroyed container.
 - From the M20 perf review: a gateway's outward search recomputes the island window
   per step (walk the cells along the ray); end city candidates evaluate outerValue up
   to 3 times; the dragon's break box looks up the chunk per cell (per column, skip
@@ -219,7 +222,7 @@ and GUI textures are made with their systems.
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | ✅ 2026-10-07 v0.18.0 (basic structures, no aquifers: see deviations) |
 | M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | ✅ 2026-10-07 v0.19.0 (basic structures, player-only effects: see deviations) |
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | ✅ 2026-10-07 v0.20.0 (basic cities, simplified dragon AI: see deviations) |
-| M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
+| M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | ✅ 2026-10-07 v0.21.0 (plain minecarts; see deviations) |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
 | M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | Vanilla's building and crafting palette |
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | Villages live |
@@ -237,6 +240,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M21 (v0.21.0): doors, plates, TNT, comparators, observers, hoppers, dispensers, rails, minecarts, slimes, piston animation, collision shapes.
 - 2026-10-07 M20 (v0.20.0): end2 - outer islands, chorus, end cities, shulkers, elytra, crystals, the ender dragon fight, gateways, pearls, respawning.
 - 2026-10-07 M19 (v0.19.0): nether2 - 4 Nether biomes, fortresses, bastions, 7 Nether mobs, status effects, potions, brewing, splash potions.
 - 2026-10-07 M18 (v0.18.0): overworld2 - ravines, lakes, springs, 10 biomes, 3 woods, dungeons, temples, mineshafts, strongholds, villages.

@@ -99,6 +99,12 @@ Push pushKind(BlockStateId s) {
     case B::Lever:
     case B::StoneButton:
     case B::OakButton:
+    case B::OakDoor: // (wiki: Piston/Table - doors and pressure plates break)
+    case B::IronDoor:
+    case B::OakPressurePlate:
+    case B::StonePressurePlate:
+    case B::LightWeightedPressurePlate:
+    case B::HeavyWeightedPressurePlate:
     case B::Torch:
     case B::ShortGrass:
     case B::Fern:
@@ -146,6 +152,11 @@ Push pushKind(BlockStateId s) {
     case B::Spawner:          // (wiki: Monster Spawner - immovable)
     case B::Furnace:          // block entities don't move
     case B::Chest:
+    case B::Hopper:
+    case B::Dispenser:
+    case B::Dropper:
+    case B::BrewingStand:
+    case B::EnchantingTable:
     case B::PistonHead:
         return Push::Block;
     case B::Piston:
@@ -328,7 +339,7 @@ int BlockUpdates::comparatorTarget(const BlockPos& p, BlockStateId s) const {
         const BlockPos q = rel(p, d);
         const BlockId nb = blockOf(at(q));
         if (nb == B::RedstoneWire) side = std::max(side, wirePower(q));
-        else if (nb == B::Repeater || nb == B::Comparator || nb == B::RedstoneBlock)
+        else if (nb == B::Repeater || nb == B::Comparator || nb == B::RedstoneBlock || nb == B::Observer)
             side = std::max(side, weakAt(q, opposite(d)));
     }
     return R().get(s, comparatorMode) == 0 ? (rear >= side ? rear : 0) : std::max(0, rear - side);
@@ -507,7 +518,7 @@ BlockStateId BlockUpdates::fenceConnected(const World& world, const BlockPos& p,
     auto joins = [&](Direction d) {
         const BlockStateId s = world.getBlock(rel(p, d));
         const BlockId b = blockOf(s);
-        return b == B::OakFence || b == B::OakFenceGate || r.opaqueCube(s);
+        return b == B::OakFence || b == B::OakFenceGate || r.opaqueCube(s) || b == B::Glass || b == B::SlimeBlock;
     };
     fence = r.set(fence, fireNorth, joins(Direction::North) ? 0 : 1);
     fence = r.set(fence, fireSouth, joins(Direction::South) ? 0 : 1);
@@ -534,6 +545,7 @@ void BlockUpdates::pressPlate(const BlockPos& p, bool item, bool minecart) {
     const BlockId b = blockOf(at(p));
     if (!isPressurePlate(b) || (item && b == B::StonePressurePlate)) return; // (stone: mobs and players only)
     if (b == B::DetectorRail && !minecart) return;
+    if (b == B::StonePressurePlate && minecart) return; // (stone: the rider, not the cart)
     for (Plate& pl : m_plates)
         if (pl.pos == p) {
             if (pl.time != m_now) pl.count = 0;
@@ -570,12 +582,15 @@ bool BlockUpdates::railPowered(const BlockPos& p, BlockStateId s) const {
 }
 
 void BlockUpdates::primeTnt(const BlockPos& p) {
-    if (blockOf(at(p)) != B::Tnt) return;
+    if (blockOf(at(p)) != B::Tnt || m_tntPrimed.size() >= m_tntPrimed.capacity()) return; // (full: lit next tick)
     set(p, 0);
-    if (m_tntPrimed.size() < m_tntPrimed.capacity()) m_tntPrimed.push_back(p);
+    m_tntPrimed.push_back(p);
 }
 
 void BlockUpdates::settlePlates() {
+    // Forget plates nothing has stood on for 2 s (a plate broken while pressed never
+    // runs its release tick).
+    std::erase_if(m_plates, [&](const Plate& pl) { return m_now - pl.time > 40; });
     for (const Plate& pl : m_plates) {
         if (pl.time != m_now) continue;
         const BlockStateId s = at(pl.pos);
@@ -635,7 +650,20 @@ void BlockUpdates::setRaw(const BlockPos& p, BlockStateId s) {
     record(p, old, s);
 }
 
+void BlockUpdates::alertObservers(const BlockPos& p) {
+    // Observers looking at this block notice the change, whoever made it - players,
+    // pistons, repeaters and comparators too (wiki: Observer).
+    for (int d = 0; d < kDirectionCount; ++d) {
+        const Direction dir = static_cast<Direction>(d);
+        const BlockPos q = rel(p, dir);
+        const BlockStateId o = at(q);
+        if (blockOf(o) == B::Observer && facing6Of(o) == opposite(dir) && !flag(o, powered) && !hasTick(q, B::Observer))
+            schedule(q, B::Observer, 2, 0);
+    }
+}
+
 void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    if (old != now) alertObservers(p);
     // Leaf distance, sapling stage and fire age change neither light nor the model:
     // nothing to relight or re-mesh.
     if (blockOf(old) == blockOf(now) &&
@@ -683,6 +711,7 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
 }
 
 void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    if (old != now) alertObservers(p); // (edits that came through World::updateBlock skip record)
     const BlockId was = blockOf(old), is = blockOf(now);
     // A piston and its head go together (wiki: Piston › Behavior).
     if (isPiston(was) && flag(old, extended) && !(isPiston(is) && flag(now, extended))) {
@@ -700,16 +729,6 @@ void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId
             set(base, 0);
         }
     }
-    // Observers looking at this block notice the change (wiki: Observer).
-    if (old != now)
-        for (int d = 0; d < kDirectionCount; ++d) {
-            const Direction dir = static_cast<Direction>(d);
-            const BlockPos q = rel(p, dir);
-            const BlockStateId o = at(q);
-            if (blockOf(o) == B::Observer && facing6Of(o) == opposite(dir) && !flag(o, powered) &&
-                !hasTick(q, B::Observer))
-                schedule(q, B::Observer, 2, 0);
-        }
     notifyNeighbours(p);
     reach(p, old);
     // Same block in a new state: its reach only moves if what it points at changed.
@@ -753,7 +772,8 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
         notifyNeighbours(back);
         break;
     }
-    case B::Repeater: {
+    case B::Repeater:
+    case B::Comparator: {
         const BlockPos front = rel(p, opposite(hFacing(s)));
         neighbourChanged(front);
         notifyNeighbours(front);
@@ -998,6 +1018,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         const BlockStateId ls = upper ? at(lower) : s;
         if (upper) { // without its lower half it goes (the lower half drops the door)
             if (!isDoor(blockOf(ls)) || R().get(ls, doorHalf) != 1) set(p, 0);
+            else neighbourChanged(lower); // (power reaching the top half opens it too)
             break;
         }
         const BlockPos up{p.x, p.y + 1, p.z};
@@ -1501,6 +1522,7 @@ void BlockUpdates::extend(const BlockPos& p) {
     const Direction f = facing6Of(s);
     std::vector<BlockPos>& destroy = m_pushDestroy;
     if (!gatherPush(p, rel(p, f), f, destroy)) return;
+    if (m_moving.size() + m_push.size() + 1 > m_moving.capacity()) return; // (too much in flight: stays put)
     BlockStateId destroyedStates[16];
     for (size_t i = 0; i < destroy.size(); ++i) {
         const BlockPos& d = destroy[i];
@@ -1549,6 +1571,8 @@ void BlockUpdates::retract(const BlockPos& p) {
         if (m_moving.size() < m_moving.capacity()) m_moving.push_back({p, h, opposite(f), m_now, true}); // (drawn sliding in)
     } else if (blockOf(h) == B::MovingPiston) {
         finishMoves(true); // (pulled back before it landed: land everything first)
+        const BlockStateId landed = at(front);
+        if (blockOf(landed) == B::PistonHead && facing6Of(landed) == f) setRaw(front, 0);
     }
     setRaw(p, withFlag(s, extended, false));
     // Sticky pistons pull the block in front of the head back (with what sticks to it).
@@ -1556,7 +1580,8 @@ void BlockUpdates::retract(const BlockPos& p) {
         const BlockPos far = rel(p, f, 2);
         std::vector<BlockPos>& destroy = m_pushDestroy;
         if (m_world.isInHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 &&
-            pushKind(at(far)) == Push::Move && gatherPush(p, far, opposite(f), destroy)) {
+            pushKind(at(far)) == Push::Move && gatherPush(p, far, opposite(f), destroy) &&
+            m_moving.size() + m_push.size() <= m_moving.capacity()) {
             for (const BlockPos& d : destroy) {
                 m_drops.push_back({d, {}, at(d)});
                 setRaw(d, 0);
@@ -1597,8 +1622,21 @@ void BlockUpdates::finishMoves(bool force) {
             continue;
         }
         if (!mv.visual && blockOf(at(mv.to)) == B::MovingPiston) {
+            if (blockOf(mv.state) == B::PistonHead) { // only while its piston is still out
+                const BlockStateId base = at(rel(mv.to, opposite(facing6Of(mv.state))));
+                if (!isPiston(blockOf(base)) || !flag(base, extended) || facing6Of(base) != facing6Of(mv.state)) {
+                    setRaw(mv.to, 0);
+                    if (landed < 256) done[landed++] = mv.to;
+                    continue;
+                }
+            }
             setRaw(mv.to, mv.state);
             if (landed < 256) done[landed++] = mv.to;
+            // A moved observer pulses after its delay; one that was on goes off (wiki).
+            if (blockOf(mv.state) == B::Observer) {
+                if (flag(mv.state, powered)) setRaw(mv.to, withFlag(mv.state, powered, false));
+                else if (!hasTick(mv.to, B::Observer)) schedule(mv.to, B::Observer, 2, 0);
+            }
         }
     }
     m_moving.resize(kept);
@@ -1722,8 +1760,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         BlockStateId s = r.set(withHFacing(state, look), doorHalf, 1);
         static constexpr Direction kLeftOf[6] = {Direction::Down, Direction::Up, Direction::West,
                                                  Direction::East, Direction::South, Direction::North};
-        const BlockStateId left = world.getBlock(rel(at, kLeftOf[int(look)]));
-        if (isDoor(blockOf(left)) && r.get(left, hinge) == 0) s = r.set(s, hinge, 1);
+        const Direction leftDir = kLeftOf[int(look)];
+        const BlockStateId left = world.getBlock(rel(at, leftDir));
+        if (isDoor(blockOf(left)) && r.get(left, hinge) == 0) return r.set(s, hinge, 1); // a double door
+        // Else the hinge goes to the side with more solid blocks beside the two halves.
+        auto solidCount = [&](Direction d) {
+            const BlockPos b = rel(at, d);
+            return int(r.opaqueCube(world.getBlock(b))) + int(r.opaqueCube(world.getBlock(rel(b, Direction::Up))));
+        };
+        if (solidCount(opposite(leftDir)) > solidCount(leftDir)) s = r.set(s, hinge, 1);
         return s;
     }
     case B::OakTrapdoor:

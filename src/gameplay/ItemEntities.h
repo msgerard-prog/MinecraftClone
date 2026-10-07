@@ -31,7 +31,10 @@ public:
     static constexpr int kDespawnTicks = 6000;
     static constexpr double kSize = 0.25;
 
-    ItemEntities() { m_items.reserve(kMax); }
+    ItemEntities() {
+        m_items.reserve(kMax);
+        m_boxes.reserve(256); // (block shapes: up to 5 boxes a cell)
+    }
 
     // A dropped stack at `pos` (block drops: random small throw, vanilla-like).
     // Returns the new item (nullptr for an empty stack).

@@ -36,9 +36,9 @@ public:
         std::vector<world::BlockPos>* edits = nullptr; // blocks mobs changed (sheep, creepers, endermen)
         class Projectiles* projectiles = nullptr;      // skeletons shoot into it
         class ExperienceOrbs* orbs = nullptr;          // experience from kills and breeding
-        bool wearsGold = false;
+        bool wearsGold = false; // a piece of golden armor on: piglins leave the player be (M19.2)
         class PrimedTnt* tnt = nullptr; // explosions set off TNT (M21.1b)
-        uint64_t worldSeed = 0;          // slime chunks (M21.5) // a piece of golden armor on: piglins leave the player be (M19.2)
+        uint64_t worldSeed = 0;         // slime chunks (M21.5)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

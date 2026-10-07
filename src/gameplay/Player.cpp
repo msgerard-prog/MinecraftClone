@@ -119,13 +119,13 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
     if (moved.x != delta.x) m_velocity.x = 0.0;
     if (moved.z != delta.z) m_velocity.z = 0.0;
     if (moved.y != delta.y) m_velocity.y = 0.0;
-    // Landing on a slime block bounces back up as fast as it fell, and the fall does no
-    // damage - unless sneaking (wiki: Slime Block).
-    if (m_onGround && delta.y < 0.0 && !m_sneaking && !m_flying) {
+    // Landing on a slime block bounces back up as fast as it fell (not when sneaking),
+    // and the fall does no damage either way (wiki: Slime Block).
+    if (m_onGround && delta.y < 0.0 && !m_flying) {
         const world::BlockPos under{int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.01)), int(std::floor(m_pos.z))};
         if (world::blockRegistry().blockOf(world.getBlock(under)) == world::blocks::SlimeBlock) {
-            m_bounced = true;
-            if (delta.y < -0.1) {
+            m_bounced = true; // (no fall damage, sneaking or not - wiki: Slime Block)
+            if (delta.y < -0.1 && !m_sneaking) {
                 m_velocity.y = -delta.y;
                 m_onGround = false;
             }

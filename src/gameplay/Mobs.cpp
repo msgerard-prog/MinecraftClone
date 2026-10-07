@@ -818,25 +818,33 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (c->biomes() && c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::MushroomFields)
         return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
+    // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
+    // below Y 40 at any light level, in groups of up to 4; in swamps between Y 51 and
+    // 69 where the light is at most a random 0..7 (night). The rest by the Overworld mix.
+    if (ctx.world.hasSkyLight() && ctx.rng.nextInt(3) == 0) {
+        const ChunkPos cp{blockToChunk(x), blockToChunk(z)};
+        Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)), static_cast<uint32_t>(cp.z)));
+        const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
+        const int light = std::max<int>(c->blockLight(lx, y, lz), c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken));
+        const bool swamp = c->biomes() && y >= 51 && y <= 69 && light <= static_cast<int>(ctx.rng.nextInt(8)) &&
+                           c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp;
+        if (slimeChunk || swamp) {
+            const int group = slimeChunk ? 1 + static_cast<int>(ctx.rng.nextInt(4)) : 1;
+            for (int g = 0; g < group && m_hostiles < 70; ++g) {
+                const int gx = x + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
+                const int gz = z + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
+                if (g > 0 && !canSpawnAt(ctx.world, gx, y, gz)) continue;
+                if (add(ctx.world, make(MobType::Slime, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
+            }
+            return;
+        }
+    }
     if (c->blockLight(lx, y, lz) > 0) return;
     const int sky = c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken);
     if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
     // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
     const uint32_t roll = ctx.rng.nextInt(405);
-    // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
-    // below Y 40, and in swamps between Y 51 and 69 at night; the rest by the Overworld mix.
-    if (ctx.world.hasSkyLight() && ctx.rng.nextInt(3) == 0) {
-        const ChunkPos cp{blockToChunk(x), blockToChunk(z)};
-        Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)), static_cast<uint32_t>(cp.z)));
-        const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
-        const bool swamp = c->biomes() && y >= 51 && y <= 69 &&
-                           c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp;
-        if (slimeChunk || swamp) {
-            if (add(ctx.world, make(MobType::Slime, {x + 0.5, double(y), z + 0.5}, ctx.rng))) ++m_hostiles;
-            return;
-        }
-    }
     // The End (no sky, not the Nether): endermen only, in groups of 4 (wiki: The End biomes).
     const bool end = !ctx.world.hasSkyLight();
     const MobType kind = end          ? MobType::Enderman

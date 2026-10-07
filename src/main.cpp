@@ -666,6 +666,7 @@ int main(int argc, char** argv) {
         if (slots.empty()) {
             screenDrops.clear();
             container.close(inventory, screenDrops);
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // (the cursor's stack)
             if (!screenshotMode) window.setCursorCaptured(true);
         }
     };
@@ -729,6 +730,7 @@ int main(int argc, char** argv) {
             if (!b) {
                 screenDrops.clear();
                 container.close(inventory, screenDrops);
+                pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end());
                 if (!screenshotMode) window.setCursorCaptured(true);
             }
         }
@@ -789,7 +791,9 @@ int main(int argc, char** argv) {
             // Contents edited through the screen: the block entity's chunk needs saving.
             if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
                 container.type() == mc::ui::ContainerScreen::Type::Furnace ||
-                container.type() == mc::ui::ContainerScreen::Type::Brewing) {
+                container.type() == mc::ui::ContainerScreen::Type::Brewing ||
+                container.type() == mc::ui::ContainerScreen::Type::Hopper ||
+                container.type() == mc::ui::ContainerScreen::Type::Dispenser) {
                 if (mc::world::Chunk* c = world.chunk(containerBlock.chunk())) c->markDirty();
                 if (chestSecond)
                     if (mc::world::Chunk* c = world.chunk(chestSecond->chunk())) c->markDirty();
@@ -911,6 +915,7 @@ int main(int argc, char** argv) {
                 }
                 if (window.takePresses(mc::Press::Escape) > 0 && window.cursorCaptured()) {
                     window.setCursorCaptured(false);
+                    blockUpdates.landAll();
                     saveWorld(false); // vanilla saves when the game pauses
                 }
             }
@@ -956,6 +961,7 @@ int main(int argc, char** argv) {
                 t.fromDimension = dimension; // saved as the player's place until arrival
                 t.fromPos = player.position();
                 MC_LOG_INFO("Travelling to %s", std::string(mc::world::dimensionInfo(t.to).id).c_str());
+                blockUpdates.landAll(); // (blocks in flight land in this dimension first)
                 saveWorld(false);
                 loader.reset(); // joins its workers
                 std::vector<mc::world::ChunkPos> all;
@@ -967,6 +973,7 @@ int main(int argc, char** argv) {
                 fallingBlocks.clear();
                 projectiles.clear();
                 primedTnt.clear();
+                blockUpdates.landAll();
                 orbs.clear();
                 const Dimension from = dimension;
                 dimension = t.to;
@@ -1195,9 +1202,21 @@ int main(int argc, char** argv) {
             if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
                 mc::world::MobData* cart = findCart();
                 if (!cart || dead || input.sneak) {
-                    if (cart) {
+                    if (cart) { // out to a safe spot beside the cart, else on top (wiki: Minecart)
+                        const auto& reg = mc::world::blockRegistry();
                         cart->ridden = false;
-                        player.setPosition(cart->pos + glm::dvec3(0.0, 0.1, 0.0));
+                        glm::dvec3 out = cart->pos + glm::dvec3(0.0, 1.0, 0.0);
+                        const mc::world::BlockPos c{int(std::floor(cart->pos.x)), int(std::floor(cart->pos.y)),
+                                                    int(std::floor(cart->pos.z))};
+                        for (const glm::ivec2 d : {glm::ivec2{0, -1}, glm::ivec2{1, 0}, glm::ivec2{0, 1}, glm::ivec2{-1, 0}}) {
+                            const mc::world::BlockPos f{c.x + d.x, c.y, c.z + d.y};
+                            if (!reg.collides(world.getBlock(f)) && !reg.collides(world.getBlock({f.x, f.y + 1, f.z})) &&
+                                reg.collides(world.getBlock({f.x, f.y - 1, f.z}))) {
+                                out = {f.x + 0.5, double(f.y), f.z + 0.5};
+                                break;
+                            }
+                        }
+                        player.setPosition(out);
                     }
                     ridingCart = 0;
                 } else if (input.forward > 0.0f) {
@@ -1646,8 +1665,16 @@ int main(int argc, char** argv) {
                 world.forEachTickingChunk([&](mc::world::Chunk& c) {
                     for (const auto& m : c.mobs()) {
                         const bool cart = m.type == mc::world::MobType::Minecart;
-                        if (m.health > 0.0f && (!mc::world::mobInfo(m.type).flies || cart))
-                            pressAt(m.pos, mc::world::mobInfo(m.type).width * 0.5, false, cart);
+                        const auto& info = mc::world::mobInfo(m.type);
+                        if (m.health <= 0.0f || (info.flies && !cart)) continue;
+                        // (only when it stands on a plate: read from its own chunk, no lookup)
+                        const int fy = int(std::floor(m.pos.y + 0.01));
+                        if (!c.height().contains(fy) ||
+                            !mc::world::BlockUpdates::isPressurePlate(reg.blockOf(c.get(
+                                mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
+                                mc::world::blockToLocal(int(std::floor(m.pos.z)))))))
+                            continue;
+                        pressAt(m.pos, info.width * 0.5, false, cart);
                     }
                 });
                 for (const auto& it : droppedItems.items())
@@ -1662,10 +1689,16 @@ int main(int argc, char** argv) {
                 const glm::dvec3 step(glm::dvec3(mc::world::normal(mv.dir)) * 0.5);
                 const mc::Aabb cell{{double(mv.to.x), double(mv.to.y), double(mv.to.z)},
                                     {mv.to.x + 1.0, mv.to.y + 1.0, mv.to.z + 1.0}};
-                if (!dead && player.box().intersects(cell)) player.setPosition(player.position() + step);
+                // (as a push: the entity's own movement then collides with blocks)
+                auto carry = [&](glm::dvec3 v) {
+                    for (int a = 0; a < 3; ++a)
+                        if (step[a] != 0.0) v[a] = step[a] > 0 ? std::max(v[a], step[a]) : std::min(v[a], step[a]);
+                    return v;
+                };
+                if (!dead && player.box().intersects(cell)) player.setVelocity(carry(player.velocity()));
                 if (mc::world::Chunk* mc0 = world.chunk(mv.to.chunk()))
                     for (auto& m : mc0->mobs())
-                        if (mc::Mobs::box(m).intersects(cell)) m.pos += step;
+                        if (mc::Mobs::box(m).intersects(cell)) m.vel = carry(m.vel);
             }
             { // Dispensers and droppers that fired (M21.3b).
                 mc::DispenseContext dctx{world, blockUpdates, droppedItems, projectiles, primedTnt, gameRng, frameEdits};
@@ -1864,7 +1897,10 @@ int main(int argc, char** argv) {
             ++gameTime;
             if (pearlCooldown > 0) --pearlCooldown;
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
-            if (++sessionTicks % 6000 == 0) saveWorld(false);
+            if (++sessionTicks % 6000 == 0) {
+                blockUpdates.landAll(); // (blocks in flight land before saving)
+                saveWorld(false);
+            }
         }
 
         int fbWidth = 0;
@@ -2194,6 +2230,7 @@ int main(int argc, char** argv) {
     if (container.isOpen()) container.close(inventory, screenDrops);
     for (const auto& d : screenDrops) // didn't fit: drop at the player (saved later... lost: see deviations)
         droppedItems.spawn(player.position(), d, gameRng);
+    blockUpdates.landAll();
     saveWorld(true);
     const auto summary = frameStats.summarize();
     const auto& st = renderer.stats();

@@ -143,6 +143,11 @@ public:
         bool visual = false;
     };
     const std::vector<Moving>& moving() const { return m_moving; }
+    // Lands every block in flight now (before saving or leaving the dimension).
+    void landAll() {
+        finishMoves(true);
+        m_moving.clear();
+    }
     int64_t now() const { return m_now; }
     std::vector<BlockPos>& primedTnt() { return m_tntPrimed; }
     void settlePlates();
@@ -327,6 +332,7 @@ private:
     std::vector<Moving> m_moving;
     std::vector<BlockPos> m_pushDestroy;
     void finishMoves(bool force = false);
+    void alertObservers(const BlockPos& p);
     bool gatherPush(const BlockPos& base, const BlockPos& first, Direction move, std::vector<BlockPos>& destroy);
     int plateTarget(BlockId b, int count) const;
     // Comparators and observers (M21.2).

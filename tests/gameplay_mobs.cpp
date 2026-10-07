@@ -1540,3 +1540,35 @@ TEST_CASE("slimes split into 2-4 smaller ones; the smallest do no damage") {
     t.tick(40);
     CHECK(t.vitals.health() == doctest::Approx(20.0f));
 }
+
+TEST_CASE("M21 review: hoppers move 1 item every 8 ticks, skip stacks that can't go in, never lose a pulled item") {
+    MobScene s;
+    s.mobs = Mobs();
+    BlockUpdates updates(s.world);
+    const auto& r = blockRegistry();
+    const ItemId stone = *itemRegistry().find("stone"), coal = *itemRegistry().find("coal");
+    s.world.updateBlock({4, 65, 4}, r.defaultState(blocks::Hopper));
+    s.world.updateBlock({4, 64, 4}, r.defaultState(blocks::Chest));
+    s.world.chunk({0, 0})->hopper(4, 65, 4)->items[0] = ItemStack{stone, 20};
+    for (int i = 0; i < 40; ++i)
+        tickHoppers(s.world, s.items);
+    CHECK(s.world.chunk({0, 0})->chest(4, 64, 4)->items[0].count == 5); // ticks 1, 9, 17, 25, 33
+    // Into a furnace's side only fuel goes: the coal in slot 2 passes the stone in slot 1.
+    s.world.updateBlock({8, 64, 8}, r.defaultState(blocks::Furnace));
+    s.world.updateBlock({7, 64, 8}, *r.with(r.defaultState(blocks::Hopper), "facing", "east"));
+    s.world.chunk({0, 0})->hopper(7, 64, 8)->items[0] = ItemStack{stone, 3};
+    s.world.chunk({0, 0})->hopper(7, 64, 8)->items[1] = ItemStack{coal, 3};
+    for (int i = 0; i < 2; ++i)
+        tickHoppers(s.world, s.items);
+    CHECK(s.world.chunk({0, 0})->furnace(8, 64, 8)->fuel.item == coal);
+    // A full hopper under a furnace doesn't take (and lose) its output.
+    s.world.updateBlock({12, 65, 12}, r.defaultState(blocks::Furnace));
+    s.world.updateBlock({12, 64, 12}, r.defaultState(blocks::Hopper));
+    s.world.updateBlock({12, 63, 12}, r.defaultState(blocks::Stone));
+    s.world.chunk({0, 0})->furnace(12, 65, 12)->output = ItemStack{*itemRegistry().find("iron_ingot"), 4};
+    for (int k = 0; k < 5; ++k)
+        s.world.chunk({0, 0})->hopper(12, 64, 12)->items[size_t(k)] = ItemStack{stone, 64};
+    for (int i = 0; i < 10; ++i)
+        tickHoppers(s.world, s.items);
+    CHECK(s.world.chunk({0, 0})->furnace(12, 65, 12)->output.count == 4);
+}
