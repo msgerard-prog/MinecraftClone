@@ -73,8 +73,9 @@ folder. Never commit these files (ADR 0004).
 ## Worlds
 The game saves to `saves/New World/` (vanilla's Anvil layout) when you quit and every
 5 minutes; it continues that world on the next start. `--world NAME` picks another
-world, `--no-save` plays without saving, `--generator terrain` creates a world with the
-old M3 placeholder terrain instead of the 1.21-style overworld. Screenshot/benchmark runs don't save unless
+world, `--no-save` plays without saving, `--generator overworld` creates a world with the
+M8 overworld (no ravines, structures or the M18 biomes) and `--generator terrain` one
+with the old M3 placeholder terrain instead of the default "overworld2". Screenshot/benchmark runs don't save unless
 given `--world`.
 
 ## Controls
