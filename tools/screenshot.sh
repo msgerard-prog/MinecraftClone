@@ -8,6 +8,7 @@ name="${1:-shot}"
 shift || true
 out="out/screenshots/$name.png"
 rm -f "$out"
-tools/run.sh release --hidden --screenshot "$out" "$@"
+# Debug build: it has the GL debug context, so GL errors show up in the log.
+tools/run.sh debug --hidden --screenshot "$out" "$@"
 [ -f "$out" ] || { echo "error: no screenshot produced" >&2; exit 1; }
 echo "$out"

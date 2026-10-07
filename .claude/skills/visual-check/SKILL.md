@@ -7,7 +7,7 @@ description: Verify a visual change by rendering a screenshot and looking at it.
 1. Pick a scripted view that shows the change:
    `tools/screenshot.sh <name> [--seed N] [--frames N] [--size WxH] [--pos x,y,z --look yaw,pitch]`
    (`--pos/--look` exist from M1). Use enough `--frames` for chunks to load (worlds:
-   start at 120). Release build is used for speed.
+   start at 120). Uses the debug build so GL errors are reported.
 2. The script prints `out/screenshots/<name>.png`. **Read the PNG.** Never claim a
    visual result you haven't looked at.
 3. Check the run log for `[error]` / `[warn] GL` lines; a new GL error is a bug.

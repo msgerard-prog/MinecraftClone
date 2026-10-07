@@ -31,8 +31,12 @@ bool initOpenGl() {
     MC_LOG_INFO("OpenGL %d.%d - %s", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version),
                 reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
 
+#ifndef NDEBUG
+    // Synchronous output reports errors at the offending call, but serialises the
+    // driver, so release builds leave it off.
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+#endif
     glDebugMessageCallback(onGlDebug, nullptr);
     return true;
 }

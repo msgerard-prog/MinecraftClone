@@ -21,6 +21,8 @@ public:
     // Polls events and updates the mouse delta for this frame.
     void pollEvents();
     void swapBuffers();
+    // Sleeps until an event arrives or `timeoutSeconds` passes (e.g. while minimised).
+    void waitEvents(double timeoutSeconds);
     void framebufferSize(int& width, int& height) const;
 
     bool keyDown(Key key) const;

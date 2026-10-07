@@ -22,6 +22,17 @@ Next session starts M2.
    chunk borders), replacing `buildTestScene`.
 4. M2.4 — Worker-thread meshing + main-thread upload; flat 8×8-chunk world; 60 fps check.
 
+M2 design input from the M1 perf review (apply while building M2.3/M2.4):
+- Indexed quads (one shared index buffer) + packed ~8-byte vertex: section-local
+  position, sprite index/UV, face index (shade in shader), sky/block light, AO.
+- Section-relative positions; camera-relative offset computed in double on the CPU
+  (float world positions crack past ~100k blocks; vanilla goes to ±30M).
+- One VAO + per-pass vertex arena, persistent-mapped staging uploads,
+  `glMultiDrawElementsIndirect` per pass; `Mesh` becomes a handle into the arena.
+- Bake models per block state into a flat table (sprites resolved once); the mesher
+  never calls `TextureAtlas::sprite`. Make sprite lookup heterogeneous (no string alloc).
+- Thread-local reusable vertex buffers per worker; face mask from a padded 18³ copy.
+
 ## Waiting on the user
 - Try the controls by hand: `tools/run.sh`, click the window, WASD + mouse, Esc.
   Tell me if the mouse feel or speeds are off.

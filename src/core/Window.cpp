@@ -39,7 +39,10 @@ bool Window::create(int width, int height, const char* title, bool visible) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifndef NDEBUG
+    // Debug builds only: debug contexts disable some driver optimisations.
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
     glfwWindowHint(GLFW_VISIBLE, visible ? GLFW_TRUE : GLFW_FALSE);
 
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
@@ -72,6 +75,8 @@ void Window::pollEvents() {
 }
 
 void Window::swapBuffers() { glfwSwapBuffers(m_window); }
+
+void Window::waitEvents(double timeoutSeconds) { glfwWaitEventsTimeout(timeoutSeconds); }
 
 void Window::framebufferSize(int& width, int& height) const {
     glfwGetFramebufferSize(m_window, &width, &height);

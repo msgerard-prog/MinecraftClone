@@ -121,8 +121,9 @@ int main(int argc, char** argv) {
         int fbWidth = 0;
         int fbHeight = 0;
         window.framebufferSize(fbWidth, fbHeight);
-        if (fbWidth == 0 || fbHeight == 0) { // minimised
-            window.swapBuffers();
+        if (fbWidth == 0 || fbHeight == 0) {
+            // Minimised: swapBuffers may not block, so sleep instead of spinning a core.
+            window.waitEvents(0.05);
             continue;
         }
 
