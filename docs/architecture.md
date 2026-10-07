@@ -52,25 +52,40 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
 
 ## Rendering
-Current (M1):
-- `Camera`: vanilla FOV 70, near plane 0.05; rotation from `world/Rotation.h`.
+Pipeline (M2.3): `World` → `snapshotSection` (section + 1-block border, 18³ states)
+→ `meshSection` (face culling, packed quads) → `ChunkRenderer` (arena + one
+multi-draw) → screen.
+- `Camera`: vanilla FOV 70, near 0.05; rotation from `world/Rotation.h`.
+  `viewProjectionAtOrigin()` is used for drawing: geometry is camera-relative.
 - `TextureAtlas`: stitches every PNG in `assets/minecraft/textures/block/` (sorted by
-  name) on a power-of-two grid + generated `missingno` sprite; nearest mag filter,
-  4 mip levels (as vanilla). Sprites are looked up by name at mesh-build time.
-- `CubeMesher`: full-cube faces with vanilla directional shade (up 1.0, N/S 0.8,
-  E/W 0.6, down 0.5) multiplied by a per-face tint (grass top = plains #91BD59).
-  `CubeFaces` helpers mirror vanilla models `cube_all`, `cube_column`, `grass_block`.
-- `Mesh`: static VBO of `BlockVertex` (pos, uv, RGBA8 colour), DSA vertex format.
-- Fixed bindings: uniform location 0 = `uViewProj`; texture unit 0 = block atlas.
-  Shaders: `block` (opaque pass). Add new fixed bindings to this list.
-- `WorldRenderer`: owns the block shader, atlas and world mesh; `drawFrame(camera, w, h)`
-  does all of a frame's GL work. `main.cpp` makes no GL calls (hard rule 7).
-- Test scene in `main.cpp` (`buildTestScene`, GL-free) until chunks exist (M2).
+  name) on a power-of-two grid; `missingno` is always sprite 0; nearest mag filter,
+  4 mip levels. Sprites are addressed by grid index in vertices.
+- `BlockModels`: per-state baked models (sprite, rotation, tint per face), built once
+  at startup. Block → model mapping is C++ (`BlockModels.cpp`) until the JSON loader.
+- `ChunkMesher` (GL-free, thread-safe): emits a face when the neighbour is not an
+  `opaqueCube`; 4 `PackedVertex` (8 bytes) per quad: section-local xyz, face, UV
+  corner, sprite, tint. Directional shade comes from the face in the shader.
+- `ChunkRenderer`: one vertex arena buffer sub-allocated in quads (`RangeAllocator`,
+  grows by copying), one shared quad index buffer (baseVertex per section), per-frame
+  CPU frustum culling, then one `glMultiDrawElementsIndirect`. Each draw's
+  `sectionOrigin − cameraPos` (double → float) goes to an SSBO read with
+  `gl_BaseInstance`. Command/offset arrays are reused (no per-frame allocation).
+- `WorldRenderer`: owns the above; `markChunkDirty` (chunk + 4 neighbours),
+  `update()` re-meshes dirty sections, `drawFrame()` does all of a frame's GL work.
+  `main.cpp` makes no GL calls (hard rule 7).
 
-Planned (M2–M5):
-- Chunk meshes per section, face-culled against neighbours; opaque, cutout and
-  translucent passes (vanilla's `solid`, `cutout_mipped`, `translucent` render types).
-- Vertex: packed position, UV, normal/face, light (sky, block), AO.
+Fixed bindings (add new ones here):
+| Kind | Slot | Use |
+|---|---|---|
+| uniform location | 0 | `uViewProj` (camera at origin) |
+| uniform location | 1 | `uAtlasColumns` |
+| uniform location | 2 | `uGrassColor` |
+| texture unit | 0 | block atlas |
+| SSBO binding | 0 | section offsets (block pass) |
+
+Known simplifications: uploads use `glNamedBufferSubData` (persistent-mapped staging
+when uploads get heavy); one opaque pass only (cutout/translucent with the first
+non-opaque block); meshing is synchronous on the main thread until M2.4.
 
 ## Files outside src/
 - `assets/shaders/<name>.vert|.frag` — loaded at runtime from the source tree

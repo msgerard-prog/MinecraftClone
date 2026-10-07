@@ -41,6 +41,11 @@ public:
     // RGBA pixels of the missing-texture sprite (GL-free, unit-tested).
     static std::vector<uint8_t> missingSpritePixels();
 
+    // Grid index of a sprite (row-major, `columns()` per row); unknown names log a
+    // warning and return the missing sprite (always index 0). Load/bake time only.
+    int spriteIndex(std::string_view name) const;
+    int columns() const { return m_columns; }
+
     uint32_t texture() const { return m_texture; }
     int spriteCount() const { return static_cast<int>(m_sprites.size()); }
     int width() const { return m_width; }
@@ -48,7 +53,9 @@ public:
 private:
     uint32_t m_texture = 0;
     int m_width = 0;
+    int m_columns = 0;
     std::unordered_map<std::string, UvRect> m_sprites;
+    std::unordered_map<std::string, int> m_indices;
 };
 
 } // namespace mc::gfx

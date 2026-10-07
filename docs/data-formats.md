@@ -30,7 +30,10 @@ assets/minecraft/blockstates/<block>.json   variants / multipart → model
 assets/minecraft/models/block/<model>.json  parent, textures, elements (cuboids)
 assets/minecraft/textures/block/<name>.png  16×16 (animated: N×16 strip + .mcmeta)
 ```
-Support starts with `cube_all`, `cube_column`, `cross`; full element models later.
+**Status:** textures are loaded from this layout. Blockstate/model JSON is not parsed
+yet (needs a JSON library — dependency change, ask the user); until then the block →
+model mapping is C++ in `rendering/BlockModels.cpp`, mirroring `cube_all`,
+`cube_column` (+ horizontal axis rotation) and `grass_block`.
 
 ## Data packs (planned, M9)
 Recipes, loot tables, tags follow vanilla's data-pack JSON:

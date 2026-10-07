@@ -18,7 +18,12 @@ struct Camera {
     float pitch = 0.0f;
     float fovDegrees = kDefaultFov;
 
+    // Full view-projection (world space in).
     glm::mat4 viewProjection(float aspect) const;
+    // Rotation + projection only, camera at the origin: vertices must be given
+    // relative to `position` (computed in double on the CPU, so precision holds
+    // far from the world origin — vanilla's camera-relative rendering).
+    glm::mat4 viewProjectionAtOrigin(float aspect) const;
 };
 
 } // namespace mc::gfx

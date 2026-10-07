@@ -1,33 +1,48 @@
 #pragma once
 
+#include "rendering/BlockModels.h"
 #include "rendering/Camera.h"
-#include "rendering/Mesh.h"
+#include "rendering/ChunkRenderer.h"
+#include "rendering/PackedVertex.h"
 #include "rendering/Shader.h"
 #include "rendering/TextureAtlas.h"
+#include "world/SectionSnapshot.h"
+#include "world/World.h"
 
-#include <span>
+#include <unordered_set>
+#include <vector>
 
 namespace mc::gfx {
 
-// Owns the GL state for drawing the world: block shader, block atlas, world meshes.
-// main.cpp drives it; all GL calls for a frame happen in here (hard rule 7).
+// Owns the GL state for drawing the world: block shader, atlas, baked models and the
+// chunk renderer. main.cpp drives it; all GL calls for a frame happen in here
+// (hard rule 7).
 class WorldRenderer {
 public:
-    // Load time: GL state, shaders, atlas. Call after initOpenGl().
+    // Load time: GL state, shaders, atlas, models. Call after initOpenGl().
     bool init();
 
-    // Replaces the static world mesh (M1 test scene; per-section meshes in M2).
-    void setWorldMesh(std::span<const BlockVertex> vertices);
+    // Queue sections for (re)meshing. Marking a chunk also marks the sections of its
+    // four neighbours' facing borders, whose face culling depends on it.
+    void markChunkDirty(const world::World& world, world::ChunkPos pos);
+    void markAllDirty(const world::World& world);
+
+    // Meshes queued sections (main thread, synchronous until M2.4) and uploads them.
+    void update(const world::World& world);
 
     // Clears to the sky colour and draws the world from `camera`.
     void drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight);
 
-    const TextureAtlas& atlas() const { return m_atlas; }
+    const ChunkRenderer::Stats& stats() const { return m_chunks.stats(); }
 
 private:
     Shader m_blockShader;
     TextureAtlas m_atlas;
-    Mesh m_world;
+    BlockModels m_models;
+    ChunkRenderer m_chunks;
+    std::unordered_set<world::SectionPos> m_dirty;
+    std::vector<world::BlockStateId> m_padded; // reused snapshot buffer
+    std::vector<PackedVertex> m_vertices;      // reused mesh buffer
 };
 
 } // namespace mc::gfx

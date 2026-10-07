@@ -4,10 +4,12 @@
 #include "core/Window.h"
 #include "gameplay/FlyController.h"
 #include "rendering/Camera.h"
-#include "rendering/CubeMesher.h"
 #include "rendering/GlContext.h"
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
+#include "world/Blocks.h"
+#include "world/FlatGenerator.h"
+#include "world/World.h"
 
 #include <span>
 #include <string>
@@ -26,28 +28,35 @@ mc::MoveInput readMoveInput(const mc::Window& window) {
     return in;
 }
 
-// M1 test scene: a grass block in front of a row of every placeholder block.
-// Replaced by real chunks in M2.
-std::vector<mc::gfx::BlockVertex> buildTestScene(const mc::gfx::TextureAtlas& atlas) {
-    using namespace mc::gfx;
-    std::vector<BlockVertex> verts;
-    appendCube(verts, {0, 0, 0}, grassBlock(atlas));
-    const CubeFaces row[] = {
-        cubeAll(atlas, "stone"),
-        cubeAll(atlas, "cobblestone"),
-        cubeAll(atlas, "dirt"),
-        cubeAll(atlas, "oak_planks"),
-        cubeColumn(atlas, "oak_log", "oak_log_top"),
-        cubeAll(atlas, "sand"),
-        cubeAll(atlas, "bedrock"),
-        grassBlock(atlas),
-    };
+// M2 test world: 8x8 chunks of Classic Flat around the origin, plus a display of
+// every block on the grass (row at z = 4), logs on all three axes, and a pit that
+// exposes dirt and bedrock sides. Replaced by real terrain in M3.
+void buildTestWorld(mc::world::World& world) {
+    using namespace mc::world;
+    const auto gen = FlatGenerator::fromPreset(FlatGenerator::kClassicFlat);
+    for (int cz = -4; cz < 4; ++cz) {
+        for (int cx = -4; cx < 4; ++cx)
+            gen->generate(world.createChunk({cx, cz}));
+    }
+    const auto& r = blockRegistry();
+    const int y = gen->surfaceY(); // -60, first air layer
+    const BlockId row[] = {blocks::Stone,     blocks::Cobblestone, blocks::Dirt,
+                           blocks::OakPlanks, blocks::OakLog,      blocks::Sand,
+                           blocks::Bedrock,   blocks::GrassBlock};
     int x = -7;
-    for (const CubeFaces& faces : row) {
-        appendCube(verts, {x, 0, 4}, faces);
+    for (BlockId b : row) {
+        world.setBlock({x, y, 4}, r.defaultState(b));
         x += 2;
     }
-    return verts;
+    const BlockStateId log = r.defaultState(blocks::OakLog);
+    world.setBlock({-4, y, 0}, *r.with(log, "axis", "x"));
+    world.setBlock({-4, y + 1, 0}, log);
+    world.setBlock({-4, y + 2, 0}, *r.with(log, "axis", "z"));
+    // A 3x3 pit down to the bedrock.
+    for (int dz = 0; dz < 3; ++dz)
+        for (int dx = 0; dx < 3; ++dx)
+            for (int dy = 1; dy <= 3; ++dy)
+                world.setBlock({2 + dx, y - dy, -1 + dz}, 0);
 }
 
 } // namespace
@@ -71,10 +80,12 @@ int main(int argc, char** argv) {
 
     mc::gfx::WorldRenderer renderer;
     if (!renderer.init()) return 1;
-    renderer.setWorldMesh(buildTestScene(renderer.atlas()));
+    mc::world::World world;
+    buildTestWorld(world);
+    renderer.markAllDirty(world);
 
     mc::FlyController player;
-    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.5, 3.0, -5.0));
+    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.5, -57.0, -6.0));
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
     mc::GameClock clock;
@@ -115,6 +126,7 @@ int main(int argc, char** argv) {
         camera.position = player.renderPosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
+        renderer.update(world);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
         ++frame;

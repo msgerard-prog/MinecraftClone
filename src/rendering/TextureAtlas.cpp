@@ -95,6 +95,8 @@ bool TextureAtlas::build(const std::string& folder) {
     std::vector<uint8_t> atlas(static_cast<size_t>(m_width) * m_width * 4, 0);
 
     m_sprites.clear();
+    m_indices.clear();
+    m_columns = cols;
     for (size_t i = 0; i < sprites.size(); ++i) {
         const int sx = static_cast<int>(i) % cols * kSpriteSize;
         const int sy = static_cast<int>(i) / cols * kSpriteSize;
@@ -103,6 +105,7 @@ bool TextureAtlas::build(const std::string& folder) {
                         &sprites[i].second[row * kSpriteSize * 4], kSpriteSize * 4);
         }
         const float scale = 1.0f / static_cast<float>(m_width);
+        m_indices[sprites[i].first] = static_cast<int>(i);
         m_sprites[sprites[i].first] = {sx * scale, sy * scale, (sx + kSpriteSize) * scale,
                                        (sy + kSpriteSize) * scale};
     }
@@ -130,6 +133,13 @@ UvRect TextureAtlas::sprite(std::string_view name) const {
     if (it != m_sprites.end()) return it->second;
     MC_LOG_WARN("Atlas: missing sprite '%.*s'", static_cast<int>(name.size()), name.data());
     return m_sprites.at(std::string(kMissing));
+}
+
+int TextureAtlas::spriteIndex(std::string_view name) const {
+    const auto it = m_indices.find(std::string(name));
+    if (it != m_indices.end()) return it->second;
+    MC_LOG_WARN("Atlas: missing sprite '%.*s'", static_cast<int>(name.size()), name.data());
+    return 0; // missingno is always first
 }
 
 } // namespace mc::gfx

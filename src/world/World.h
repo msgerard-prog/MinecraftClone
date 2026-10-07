@@ -23,6 +23,10 @@ public:
         for (auto& [key, c] : m_chunks)
             fn(*c);
     }
+    template <typename Fn> void forEachChunk(Fn&& fn) const {
+        for (const auto& [key, c] : m_chunks)
+            fn(static_cast<const Chunk&>(*c));
+    }
 
 private:
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
