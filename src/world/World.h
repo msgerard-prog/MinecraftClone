@@ -12,6 +12,8 @@ namespace mc::world {
 // All loaded chunks. Only the main thread mutates it (see docs/architecture.md).
 class World {
 public:
+    World() { m_ticking.reserve(4096); }
+
     Chunk& createChunk(ChunkPos pos); // replaces an existing chunk at pos
     // Takes ownership of a chunk built elsewhere (e.g. on a worldgen worker).
     Chunk& insertChunk(std::unique_ptr<Chunk> chunk);
@@ -34,7 +36,11 @@ public:
         size_t w = 0;
         for (size_t r = 0; r < m_ticking.size(); ++r) {
             Chunk* c = chunk(m_ticking[r]);
-            if (!c || (c->furnaces().empty() && c->mobs().empty())) continue; // drop it
+            if (!c) continue; // unloaded: drop it
+            if (c->furnaces().empty() && c->mobs().empty()) {
+                c->inTickingList = false; // nothing left: drop it
+                continue;
+            }
             m_ticking[w++] = m_ticking[r];
             fn(*c);
         }

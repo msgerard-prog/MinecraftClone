@@ -35,7 +35,7 @@ public:
               const class PackStack& packs);
     // A mob at its render position (interpolated by the caller): cuboid model with
     // walk / head animation, red when hurt, falling over while dying.
-    void addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
+    void addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw, float pitch,
                 const glm::vec3& light, const glm::dvec3& cameraPos);
 
     // A dropped item at `pos` (feet of its 0.25 box): block items as 1/4-size cubes,

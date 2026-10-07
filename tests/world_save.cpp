@@ -1,5 +1,6 @@
 // Saves: Anvil region files and the 1.21 chunk NBT (wiki: Region file format,
 // Chunk format).
+#include "gameplay/Furnace.h"
 #include "gameplay/Inventory.h"
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
@@ -533,4 +534,83 @@ TEST_CASE("chunk storage: a reload from the pending save keeps furnaces and biom
     REQUIRE(d.furnace(2, 70, 2));
     CHECK(d.furnace(2, 70, 2)->input.count == 4);
     CHECK(d.biomes()->cells[0] == Biome::Desert);
+}
+
+TEST_CASE("a reloaded furnace keeps smelting where it left off") {
+    // Regression: the input being cooked wasn't restored, so the first tick reset the
+    // progress after every reload.
+    Chunk c({0, 0});
+    c.set(1, 64, 1, S(blocks::Furnace));
+    FurnaceData& f = c.addFurnace(1, 64, 1);
+    f.input = {*itemRegistry().find("raw_iron"), 3};
+    f.fuel = {*itemRegistry().find("coal"), 2};
+    f.burnLeft = 800;
+    f.cookTime = 120;
+    f.cooking = f.input.item;
+    Chunk d({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(c)))), d));
+    FurnaceData* back = d.furnace(1, 64, 1);
+    REQUIRE(back);
+    mc::tickFurnace(*back);
+    CHECK(back->cookTime == 121);
+}
+
+TEST_CASE("chunk storage: mobs save to entities/, and a chunk's last mob leaving clears them") {
+    TempDir dir("mc_test_entities_storage");
+    Chunk c({5, -3});
+    MobData cow;
+    cow.type = MobType::Cow;
+    cow.pos = {5 * 16 + 4.5, 70.0, -3 * 16 + 2.5};
+    cow.health = 7.0f;
+    c.mobs().push_back(cow);
+    {
+        ChunkStorage storage(dir.path);
+        storage.save(ChunkSnapshot::of(c));
+        Chunk early({5, -3}); // served from the queued save
+        REQUIRE(storage.load(early));
+        CHECK(early.mobs().size() == 1);
+        storage.flush();
+    }
+    CHECK(fs::exists(dir.path / "entities" / "r.0.-1.mca"));
+    {
+        ChunkStorage storage(dir.path);
+        Chunk d({5, -3});
+        REQUIRE(storage.load(d));
+        REQUIRE(d.mobs().size() == 1);
+        CHECK(d.mobs()[0].health == 7.0f);
+        d.mobs().clear(); // the cow walked away
+        storage.save(ChunkSnapshot::of(d));
+        storage.flush();
+    }
+    ChunkStorage storage(dir.path);
+    Chunk e({5, -3});
+    REQUIRE(storage.load(e));
+    CHECK(e.mobs().empty());
+}
+
+TEST_CASE("entities from corrupt files: bad positions skipped, motion and health clamped") {
+    using mc::nbt::Compound;
+    using mc::nbt::List;
+    using mc::nbt::TagType;
+    auto entity = [](double x, double motion, double health) {
+        Compound e;
+        e.put("id", std::string("minecraft:cow"));
+        std::vector<mc::nbt::Tag> pos{mc::nbt::Tag(x), mc::nbt::Tag(64.0), mc::nbt::Tag(1.0)};
+        e.put("Pos", mc::nbt::listOf(TagType::Double, std::move(pos)));
+        std::vector<mc::nbt::Tag> mot{mc::nbt::Tag(motion), mc::nbt::Tag(0.0), mc::nbt::Tag(0.0)};
+        e.put("Motion", mc::nbt::listOf(TagType::Double, std::move(mot)));
+        e.put("Health", static_cast<float>(health));
+        return e;
+    };
+    std::vector<mc::nbt::Tag> list;
+    list.emplace_back(entity(std::nan(""), 0.0, 10.0));
+    list.emplace_back(entity(1e9, 0.0, 10.0));
+    list.emplace_back(entity(1.0, 1e9, 1e9));
+    Compound root;
+    root.put("Entities", mc::nbt::listOf(TagType::Compound, std::move(list)));
+    Chunk c({0, 0});
+    entitiesFromNbt(root, c);
+    REQUIRE(c.mobs().size() == 1);
+    CHECK(c.mobs()[0].vel.x == 10.0);
+    CHECK(c.mobs()[0].health == mobInfo(MobType::Cow).maxHealth);
 }

@@ -24,14 +24,20 @@ RegionFile* ChunkStorage::region(ChunkPos pos, bool create, bool entities) {
     auto& regions = entities ? m_entityRegions : m_regions;
     auto it = regions.find(key);
     if (it != regions.end()) return it->second.get();
+    // Known-missing files (most worlds have few entities/ regions): no filesystem
+    // check per chunk load. Creating the file clears the entry.
+    auto& missing = entities ? m_missingEntityRegions : m_missingRegions;
+    if (!create && missing.contains(key)) return nullptr;
     auto file = std::make_unique<RegionFile>();
     const auto path = m_dir / (entities ? "entities" : "region") /
                       ("r." + std::to_string(key.first) + "." + std::to_string(key.second) + ".mca");
     if (!file->open(path, create)) {
         // Loads never create files: a missing region just means "never saved".
         if (create) MC_LOG_ERROR("Can't open region file %s", path.string().c_str());
+        else missing.insert(key);
         return nullptr;
     }
+    missing.erase(key);
     if (regions.size() >= 64) regions.erase(regions.begin()); // bound open handles
     return regions.emplace(key, std::move(file)).first->second.get();
 }

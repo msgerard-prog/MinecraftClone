@@ -60,7 +60,7 @@ public:
         if (len < 1e-6) return;
         m_velocity.x = m_velocity.x / 2.0 + dx / len * strength;
         m_velocity.z = m_velocity.z / 2.0 + dz / len * strength;
-        m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength);
+        if (m_onGround) m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength); // wiki: Knockback
     }
     void setRotation(float yawDeg, float pitchDeg);
     void setCreative(bool creative) { m_creative = creative; }

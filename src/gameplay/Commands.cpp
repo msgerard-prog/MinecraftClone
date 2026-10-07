@@ -210,6 +210,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             if (!x || !y || !z) return fail("Invalid position");
             p = {*x, *y, *z};
         }
+        if (!world::isValidMobPosition(p)) return fail("Invalid position for summon");
         if (!Mobs::add(*ctx.world, Mobs::make(*type, p, *ctx.rng))) return fail("That position is not loaded");
         return {true, format("Summoned new %.*s", int(id.size()), id.data())};
     }

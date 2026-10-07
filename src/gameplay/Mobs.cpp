@@ -3,10 +3,12 @@
 #include "world/Blocks.h"
 #include "world/Coords.h"
 #include "world/Items.h"
+#include "world/Raycast.h"
 
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <random>
 
 namespace mc {
 
@@ -28,7 +30,33 @@ float approachAngle(float from, float to, float maxStep) {
     return from + d;
 }
 
+// UUIDs must differ between sessions (vanilla: random version-4 UUIDs), so they
+// don't come from the seeded game RNG.
+Xoroshiro& uuidRng() {
+    static Xoroshiro rng = [] {
+        std::random_device rd;
+        return Xoroshiro((uint64_t(rd()) << 32) ^ rd());
+    }();
+    return rng;
+}
+
 bool solidAt(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+
+// A spot a mob can spawn in (wiki: Mob spawning): a spawnable block below (not
+// glass, leaves, bedrock or ice), and two cells without collision or fluid.
+bool canSpawnAt(const World& w, int x, int y, int z) {
+    const auto& reg = blockRegistry();
+    const BlockId below = reg.blockOf(w.getBlock({x, y - 1, z}));
+    if (!reg.collides(w.getBlock({x, y - 1, z})) || below == blocks::Bedrock || below == blocks::Glass ||
+        below == blocks::Ice || below == blocks::PackedIce || reg.block(below).id.ends_with("_leaves"))
+        return false;
+    for (int dy = 0; dy < 2; ++dy) {
+        const BlockStateId s = w.getBlock({x, y + dy, z});
+        const BlockId b = reg.blockOf(s);
+        if (reg.collides(s) || b == blocks::Water || b == blocks::Lava) return false;
+    }
+    return true;
+}
 
 } // namespace
 
@@ -40,10 +68,10 @@ Aabb Mobs::box(const MobData& m) {
 MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     MobData m;
     m.type = type;
-    m.uuidHi = rng.nextLong();
-    m.uuidLo = rng.nextLong();
+    m.uuidHi = (uuidRng().nextLong() & ~0xF000ull) | 0x4000ull; // version 4
+    m.uuidLo = (uuidRng().nextLong() & ~(3ull << 62)) | (2ull << 62); // variant 2
     m.pos = m.prevPos = m.goal = pos;
-    m.yaw = m.prevYaw = m.headYaw = rng.nextFloat() * 360.0f - 180.0f;
+    m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = rng.nextFloat() * 360.0f - 180.0f;
     m.health = mobInfo(type).maxHealth;
     return m;
 }
@@ -68,7 +96,9 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
     m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
     if (inWater) {
-        m.vel.y = m.vel.y * 0.8 + 0.04; // mobs float up (wiki: they swim to the surface)
+        // Cows swim up to the surface; zombies sink (wiki: Zombie - they sink and later
+        // become drowned).
+        m.vel.y = m.vel.y * 0.8 + (m.type == MobType::Zombie ? -0.02 : 0.04);
         m.vel.x *= 0.8;
         m.vel.z *= 0.8;
     } else {
@@ -110,6 +140,20 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
             moved = stepped;
     }
     m.onGround = m.vel.y < 0.0 && moved.y != m.vel.y;
+    // Falls (wiki: Fall damage): 1 per block beyond 3 on landing; water breaks them.
+    if (inWater) {
+        m.fallDistance = 0.0f;
+    } else if (moved.y < 0.0) {
+        m.fallDistance -= static_cast<float>(moved.y);
+    }
+    if (m.onGround) {
+        const float damage = std::ceil(m.fallDistance - 3.0f);
+        if (damage > 0.0f) {
+            m.health -= damage;
+            m.hurtTime = 10;
+        }
+        m.fallDistance = 0.0f;
+    }
     if (moved.x != m.vel.x) m.vel.x = 0.0;
     if (moved.z != m.vel.z) m.vel.z = 0.0;
     if (moved.y != m.vel.y) m.vel.y = 0.0;
@@ -129,7 +173,18 @@ void Mobs::ai(Context& ctx, MobData& m) {
     double speed = info.speed * 0.5; // blocks per tick at speed modifier 1 (our estimate)
     bool chase = false;
 
-    if (info.hostile && ctx.survival && !ctx.playerDead && playerDist2 < 35.0 * 35.0) {
+    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= 35.0 * 35.0) {
+        m.targeting = false;
+    } else if (!m.targeting && ++m.sightCheck >= 10) {
+        // Targets are picked on sight (wiki: Zombie): a line of sight check twice a second.
+        m.sightCheck = 0;
+        const glm::dvec3 eye = m.pos + glm::dvec3(0.0, info.height * 0.85, 0.0);
+        const glm::dvec3 target = playerPos + glm::dvec3(0.0, 1.62, 0.0);
+        const double dist = glm::length(target - eye);
+        const auto block = raycastBlocks(ctx.world, eye, (target - eye) / dist, dist);
+        m.targeting = !block;
+    }
+    if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
     } else if (m.panicTicks > 0) {
@@ -140,8 +195,11 @@ void Mobs::ai(Context& ctx, MobData& m) {
             m.goalTicks = 0;
         }
     } else {
-        // Random strolls (wiki: Mob - wander about every 6 s on average).
-        if (++m.goalTicks > 200 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
+        // Random strolls (wiki: Mob - wander about every 6 s on average), only with a
+        // player within 32 blocks.
+        if (playerDist2 > 32.0 * 32.0) {
+            m.goal = m.pos;
+        } else if (++m.goalTicks > 200 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
             if (ctx.rng.nextInt(120) == 0) {
                 m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0, ctx.rng.nextDouble() * 20 - 10);
                 m.goalTicks = 0;
@@ -195,14 +253,17 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const bool day = ctx.skyDarken < 4.0f;
         const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
         const bool wet = blockRegistry().blockOf(ctx.world.getBlock(head)) == blocks::Water;
-        if (day && sky && !wet) m.fireTicks = std::max<int16_t>(m.fireTicks, 160);
+        // Re-lit to 8 s while in the sun; refreshed once a second so the 1-per-second
+        // damage clock below keeps running.
+        if (day && sky && !wet && m.fireTicks <= 140) m.fireTicks = 160;
         if (wet) m.fireTicks = 0;
     }
-    if (m.fireTicks > 0) {
-        if (--m.fireTicks % 20 == 0 && m.hurtTime == 0) {
+    if (m.fireTicks > 0) { // wiki: Fire - 1 damage a second
+        if (m.fireTicks % 20 == 0) {
             m.health -= 1.0f;
             m.hurtTime = 10;
         }
+        --m.fireTicks;
     }
 }
 
@@ -210,13 +271,14 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
     m.health -= damage;
     m.hurtTime = 10;
-    m.panicTicks = 100;
+    m.noPlayerTicks = 0;                                 // damage resets the despawn clock
+    if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
-    if (l > 1e-6) { // wiki: Knockback - 0.4 away, a little up
+    if (l > 1e-6) { // wiki: Knockback - 0.4 away; lifted only when on the ground
         m.vel.x = m.vel.x / 2.0 + d.x / l * 0.4;
         m.vel.z = m.vel.z / 2.0 + d.y / l * 0.4;
-        m.vel.y = std::min(0.4, m.vel.y / 2.0 + 0.4);
+        if (m.onGround) m.vel.y = std::min(0.4, m.vel.y / 2.0 + 0.4);
     }
 }
 
@@ -239,13 +301,20 @@ void Mobs::tick(Context& ctx) {
     m_moves.clear();
     m_hostiles = 0;
     const glm::dvec3 playerPos = ctx.player.position();
+    const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))), blockToChunk(int(std::floor(playerPos.z)))};
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
+        // Only chunks within the simulation distance tick their mobs (vanilla: entity-
+        // ticking chunks); farther mobs keep their state.
+        if (std::abs(chunk.pos().x - playerChunk.x) > kSimulationDistance ||
+            std::abs(chunk.pos().z - playerChunk.z) > kSimulationDistance)
+            return;
         auto& mobs = chunk.mobs();
-        if (!mobs.empty()) chunk.markDirty();
         for (size_t i = 0; i < mobs.size();) {
             MobData& m = mobs[i];
             m.prevPos = m.pos;
             m.prevYaw = m.yaw;
+            m.prevHeadYaw = m.headYaw;
+            m.prevPitch = m.pitch;
             if (m.hurtTime > 0) --m.hurtTime;
             bool remove = false;
             if (m.health <= 0.0f) { // death animation, then loot
@@ -276,6 +345,10 @@ void Mobs::tick(Context& ctx) {
                     m.vel = glm::dvec3(0.0);
                 }
             }
+            // Saved state changed: the chunk needs saving (idle mobs don't dirty it).
+            if (remove || m.pos != m.prevPos || m.yaw != m.prevYaw || m.hurtTime > 0 || m.fireTicks > 0 ||
+                m.deathTime > 0)
+                chunk.markDirty();
             if (remove) {
                 mobs[i] = mobs.back();
                 mobs.pop_back();
@@ -307,9 +380,7 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (dx * dx + dy * dy + dz * dz < 24.0 * 24.0) return;
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit()) return;
-    if (!solidAt(ctx.world, x, y - 1, z) || solidAt(ctx.world, x, y, z) || solidAt(ctx.world, x, y + 1, z)) return;
-    const auto& reg = blockRegistry();
-    if (reg.blockOf(ctx.world.getBlock({x, y, z})) == blocks::Water) return;
+    if (!canSpawnAt(ctx.world, x, y, z)) return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
     if (c->blockLight(lx, y, lz) > 0) return;
     const int sky = c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken);
@@ -318,7 +389,7 @@ void Mobs::spawnHostiles(Context& ctx) {
     const int group = 1 + static_cast<int>(ctx.rng.nextInt(4));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
-        if (!solidAt(ctx.world, gx, y - 1, gz) || solidAt(ctx.world, gx, y, gz) || solidAt(ctx.world, gx, y + 1, gz)) continue;
+        if (!canSpawnAt(ctx.world, gx, y, gz)) continue;
         if (add(ctx.world, make(MobType::Zombie, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
     }
 }

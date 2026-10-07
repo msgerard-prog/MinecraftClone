@@ -175,62 +175,71 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
 }
 
 void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
-                            const glm::vec3& light, const glm::dvec3& cameraPos) {
+                            float pitch, const glm::vec3& light, const glm::dvec3& cameraPos) {
     constexpr float kDeg = 3.14159265f / 180.0f;
-    const float yaw = bodyYaw * kDeg;
-    const float headRel = (headYaw - bodyYaw) * kDeg, headPitch = mob.pitch * kDeg;
+    // Rotations as matrices, built once per mob / part (same conventions as vanilla's
+    // model parts: x pitches, y turns, z rolls).
+    auto rotX = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(1, 0, 0, 0, c, s, 0, -s, c);
+    };
+    auto rotY = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(c, 0, -s, 0, 1, 0, s, 0, c);
+    };
+    auto rotZ = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(c, s, 0, -s, c, 0, 0, 0, 1);
+    };
     const float swing = std::cos(mob.limbSwing * 0.6662f) * 1.4f * mob.limbSwingAmount;
-    // Dying: tip over sideways over 20 ticks (vanilla's death animation).
-    const float fall = std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg;
+    // Body: vanilla yaw turns from +Z towards -X; dying tips over sideways over 20 ticks.
+    glm::mat3 body = rotY(-bodyYaw * kDeg);
+    if (mob.deathTime > 0) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
+    const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
+    const glm::mat3 legA = rotX(swing), legB = rotX(-swing), arm = rotX(-90.0f * kDeg + swing * 0.2f);
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     const glm::vec3 base(pos - cameraPos);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
-    auto rotX = [](glm::vec3 p, float a) {
-        return glm::vec3(p.x, p.y * std::cos(a) - p.z * std::sin(a), p.y * std::sin(a) + p.z * std::cos(a));
-    };
-    auto rotY = [](glm::vec3 p, float a) {
-        return glm::vec3(p.x * std::cos(a) + p.z * std::sin(a), p.y, -p.x * std::sin(a) + p.z * std::cos(a));
-    };
-    auto rotZ = [](glm::vec3 p, float a) {
-        return glm::vec3(p.x * std::cos(a) - p.y * std::sin(a), p.x * std::sin(a) + p.y * std::cos(a), p.z);
-    };
     const glm::vec3 tint = red ? glm::vec3(1.0f, 0.45f, 0.45f) : glm::vec3(1.0f);
+    // Box corners: bit 0 = max x, bit 1 = max y, bit 2 = max z. Faces list their
+    // corners TL, BL, BR, TR as seen from outside, with the box-UV region and shade.
+    struct Face {
+        uint8_t c[4];
+        float shade;
+    };
+    static constexpr Face kFaces[6] = {
+        {{6, 4, 5, 7}, 0.8f}, // front +Z
+        {{3, 1, 0, 2}, 0.8f}, // back -Z
+        {{2, 0, 4, 6}, 0.6f}, // right -X
+        {{7, 5, 1, 3}, 0.6f}, // left +X
+        {{2, 6, 7, 3}, 1.0f}, // top
+        {{4, 0, 1, 5}, 0.5f}, // bottom
+    };
     for (const MobPart& part : mobModel(mob.type)) {
         const glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
         const glm::vec3 pivot(part.pivot[0], part.pivot[1], part.pivot[2]);
         const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z;
         const float u = float(part.u), v = float(part.v) + vrow;
-        auto place = [&](glm::vec3 p) { // part animation, body yaw, death tilt; pixels -> blocks
-            p -= pivot;
-            switch (part.anim) {
-            case MobPart::Anim::Head: p = rotY(rotX(p, -headPitch), headRel); break;
-            case MobPart::Anim::LegA: p = rotX(p, swing); break;
-            case MobPart::Anim::LegB: p = rotX(p, -swing); break;
-            case MobPart::Anim::ArmForward: p = rotX(p, -90.0f * kDeg + swing * 0.2f); break;
-            case MobPart::Anim::None: break;
-            }
-            p += pivot;
-            p = rotZ(p, fall);
-            p = rotY(p, -yaw); // vanilla yaw: positive turns from +Z towards -X
-            return base + p / 16.0f;
+        const glm::mat3* anim = part.anim == MobPart::Anim::Head         ? &head
+                                : part.anim == MobPart::Anim::LegA       ? &legA
+                                : part.anim == MobPart::Anim::LegB       ? &legB
+                                : part.anim == MobPart::Anim::ArmForward ? &arm
+                                                                         : nullptr;
+        glm::vec3 corners[8];
+        for (int i = 0; i < 8; ++i) {
+            glm::vec3 c(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z);
+            if (anim) c = *anim * (c - pivot) + pivot;
+            corners[i] = base + body * c / 16.0f; // pixels -> blocks
+        }
+        const float uv[6][4] = {
+            {u + d, v + d, w, h}, {u + 2 * d + w, v + d, w, h}, {u, v + d, d, h},
+            {u + d + w, v + d, d, h}, {u + d, v, w, d}, {u + d + w, v, w, d},
         };
-        // Faces: (corner TL, BL, BR, TR as seen from outside) and their box-UV region.
-        struct Face {
-            glm::vec3 c[4];
-            float u0, v0, uw, vh;
-            float shade;
-        };
-        const Face faces[6] = {
-            {{{mn.x, mx.y, mx.z}, {mn.x, mn.y, mx.z}, {mx.x, mn.y, mx.z}, {mx.x, mx.y, mx.z}}, u + d, v + d, w, h, 0.8f},      // front +Z
-            {{{mx.x, mx.y, mn.z}, {mx.x, mn.y, mn.z}, {mn.x, mn.y, mn.z}, {mn.x, mx.y, mn.z}}, u + 2 * d + w, v + d, w, h, 0.8f}, // back -Z
-            {{{mn.x, mx.y, mn.z}, {mn.x, mn.y, mn.z}, {mn.x, mn.y, mx.z}, {mn.x, mx.y, mx.z}}, u, v + d, d, h, 0.6f},          // right -X
-            {{{mx.x, mx.y, mx.z}, {mx.x, mn.y, mx.z}, {mx.x, mn.y, mn.z}, {mx.x, mx.y, mn.z}}, u + d + w, v + d, d, h, 0.6f},  // left +X
-            {{{mn.x, mx.y, mn.z}, {mn.x, mx.y, mx.z}, {mx.x, mx.y, mx.z}, {mx.x, mx.y, mn.z}}, u + d, v, w, d, 1.0f},          // top
-            {{{mn.x, mn.y, mx.z}, {mn.x, mn.y, mn.z}, {mx.x, mn.y, mn.z}, {mx.x, mn.y, mx.z}}, u + d + w, v, w, d, 0.5f},      // bottom
-        };
-        for (const Face& f : faces) {
-            const glm::vec3 p[4] = {place(f.c[0]), place(f.c[1]), place(f.c[2]), place(f.c[3])};
-            quad(p, f.u0, f.v0, f.u0 + f.uw, f.v0 + f.vh, pack(light * tint * f.shade), m_mobs);
+        for (int f = 0; f < 6; ++f) {
+            const Face& face = kFaces[f];
+            const glm::vec3 p[4] = {corners[face.c[0]], corners[face.c[1]], corners[face.c[2]], corners[face.c[3]]};
+            quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3], pack(light * tint * face.shade),
+                 m_mobs);
         }
     }
 }
@@ -250,8 +259,10 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         static constexpr uint32_t kWhite[6] = {0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF};
         cube(o - glm::vec3(g), o + glm::vec3(1.0f + g), s, glm::vec3(1.0f), kWhite, m_crack, false);
     }
-    const size_t items = m_items.size(), crack = m_crack.size(),
-                 mobs = std::min(m_mobs.size(), size_t(kMaxQuads) * 6 - items - crack);
+    // Everything shares one buffer: items first, then the crack, then mobs (saturating).
+    const size_t cap = size_t(kMaxQuads) * 6, items = std::min(m_items.size(), cap),
+                 crack = std::min(m_crack.size(), cap - items),
+                 mobs = std::min(m_mobs.size(), cap - items - crack);
     if (items + crack + mobs == 0) return;
     glNamedBufferSubData(m_vbo, 0, GLsizeiptr(items * sizeof(Vertex)), m_items.data());
     if (crack)

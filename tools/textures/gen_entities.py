@@ -7,7 +7,7 @@ match the cuboid models in src/rendering/MobModels.cpp (keep both in sync):
           (16,16), right arm 4x12x4 @ (40,16), right leg 4x12x4 @ (0,16),
           left leg @ (16,48), left arm @ (32,48)
   cow     our layout: head 8x8x6 @ (0,0), horn 1x3x1 @ (22,0), body 10x10x18 @ (0,16),
-          leg 4x12x4 @ (0,48), udder 4x6x1 @ (16,48)
+          leg 4x12x4 @ (0,48) (the udder region is painted but not modelled yet)
 Box UV for a w x h x d box at (u, v): top (u+d, v) w*d, bottom (u+d+w, v) w*d,
 right side (u, v+d) d*h, front (u+d, v+d) w*h, left side (u+d+w, v+d) d*h,
 back (u+2d+w, v+d) w*h.

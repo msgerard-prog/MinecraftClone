@@ -7,6 +7,7 @@
 #include <deque>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -52,6 +53,7 @@ private:
     std::mutex m_fileMutex; // region files
     std::map<std::pair<int, int>, std::unique_ptr<RegionFile>> m_regions;
     std::map<std::pair<int, int>, std::unique_ptr<RegionFile>> m_entityRegions; // entities/
+    std::set<std::pair<int, int>> m_missingRegions, m_missingEntityRegions;     // not on disk
     std::thread m_thread;
 };
 

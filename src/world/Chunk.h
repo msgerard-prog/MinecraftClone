@@ -44,6 +44,7 @@ public:
     explicit Chunk(ChunkPos pos) : m_pos(pos) {
         for (auto& s : m_sections)
             s = std::make_shared<Section>();
+        m_mobs.reserve(4); // mobs walking in don't allocate during the tick (usually)
     }
 
     ChunkPos pos() const { return m_pos; }
@@ -56,6 +57,7 @@ public:
         m_biomes = defaultBiomes();
         m_furnaces.clear();
         m_mobs.clear();
+        inTickingList = false;
         lightJob = {};
         for (auto& l : m_light)
             l.reset();
@@ -135,6 +137,9 @@ public:
     // Changed since it was generated / loaded / last saved (needs saving).
     bool dirty() const { return m_dirty; }
     void clearDirty() { m_dirty = false; }
+
+    // World bookkeeping: listed in World's ticking chunks (main thread only).
+    bool inTickingList = false;
 
     // LightManager bookkeeping (main thread only).
     struct LightJobState {

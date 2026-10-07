@@ -36,6 +36,11 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M10 perf review: instanced mob drawing (static model VBO + per-mob data;
+  removes the 32k-quad entity buffer cap), a pooled mob store instead of per-chunk
+  vectors (moves into a chunk past its 4 reserved slots allocate), an entities-only
+  dirty flag so moving mobs don't rewrite the chunk's block NBT, cached section access
+  in mob physics, sleeping idle mobs.
 - From the M8 perf review: cave culling (per-section visibility graph) and arena
   pages (RD32 is now ~6.6M quads, ~400 MB of vertices; growth copies the buffer);
   per-cell interpolation stepping; all-solid section fast path.

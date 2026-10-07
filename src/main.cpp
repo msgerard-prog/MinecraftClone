@@ -23,6 +23,8 @@
 #include "gameplay/Mobs.h"
 #include "gameplay/Vitals.h"
 #include "rendering/EntityRenderer.h"
+#include "rendering/Frustum.h"
+#include "world/DayTime.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
@@ -717,7 +719,9 @@ int main(int argc, char** argv) {
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
-            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime, renderer.skyDarken(), gameRng,
+            // Game rules read the tick's own time, not the renderer's interpolated value.
+            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
+                                     float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems};
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
@@ -809,17 +813,34 @@ int main(int argc, char** argv) {
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
         }
+        // Mobs: only chunks in view, and mobs within vanilla's entity render distance
+        // (64 blocks x the hitbox's average edge; wiki: Options › Entity Distance).
+        const mc::gfx::Frustum mobFrustum =
+            mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
         world.forEachTickingChunk([&](mc::world::Chunk& c) {
+            if (c.mobs().empty()) return;
+            const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, mc::world::kMinY, c.pos().z * 16.0) - camera.position);
+            if (!mobFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(mc::world::kHeight), 16.0f)))
+                return;
             for (const auto& m : c.mobs()) {
                 const glm::dvec3 p = glm::mix(m.prevPos, m.pos, clock.alpha);
+                const auto& info = mc::world::mobInfo(m.type);
+                const double maxDist = 64.0 * (info.width * 2.0 + info.height) / 3.0;
+                const glm::dvec3 rel = p - camera.position;
+                if (glm::dot(rel, rel) > maxDist * maxDist) continue;
+                const glm::vec3 bmin(rel - glm::dvec3(info.width * 0.5, 0.0, info.width * 0.5));
+                if (!mobFrustum.intersectsBox(bmin, bmin + glm::vec3(float(info.width), float(info.height), float(info.width))))
+                    continue;
                 const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.5)), int(std::floor(p.z))};
                 int sky = 15, blk = 0;
                 if (const auto* lc = world.chunk(b.chunk()); lc && lc->lit()) {
                     sky = lc->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
                     blk = lc->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
                 }
-                const float yaw = m.prevYaw + (m.yaw - m.prevYaw) * float(clock.alpha);
-                entities.addMob(m, p, yaw, m.headYaw, lightTable[size_t(sky * 16 + blk)], camera.position);
+                const float a = float(clock.alpha);
+                entities.addMob(m, p, m.prevYaw + (m.yaw - m.prevYaw) * a, m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
+                                m.prevPitch + (m.pitch - m.prevPitch) * a, lightTable[size_t(sky * 16 + blk)],
+                                camera.position);
             }
         });
         if (survival && interaction.breakingBlock())

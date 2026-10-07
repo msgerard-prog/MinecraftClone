@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cmath>
 #include <unordered_map>
 
 namespace mc::world {
@@ -344,6 +345,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             f.burnLeft = static_cast<int>(e->integer("BurnTime").value_or(0));
             f.burnDuration = f.burnLeft; // not saved by vanilla: the gauge restarts full
             f.cookTime = static_cast<int>(e->integer("CookTime").value_or(0));
+            f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
         }
     chunk.setBiomes(std::move(biomes));
     return true;
@@ -399,12 +401,18 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         };
         vec3("Pos", m.pos);
         vec3("Motion", m.vel);
+        // Corrupt or hand-edited files: skip mobs outside the world, clamp motion
+        // (vanilla clamps each component to +-10) and health.
+        if (!isValidMobPosition(m.pos)) continue;
+        for (int i = 0; i < 3; ++i)
+            m.vel[i] = std::isfinite(m.vel[i]) ? std::clamp(m.vel[i], -10.0, 10.0) : 0.0;
         m.prevPos = m.goal = m.pos;
         if (const nbt::List* r = e->list("Rotation"); r && r->items.size() == 2) {
-            if (auto v = r->items[0].get<float>()) m.yaw = m.prevYaw = m.headYaw = *v;
-            if (auto v = r->items[1].get<float>()) m.pitch = *v;
+            if (auto v = r->items[0].get<float>()) m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = *v;
+            if (auto v = r->items[1].get<float>()) m.pitch = m.prevPitch = *v;
         }
         m.health = static_cast<float>(e->real("Health").value_or(mobInfo(m.type).maxHealth));
+        m.health = std::isfinite(m.health) ? std::min(m.health, mobInfo(m.type).maxHealth) : 0.0f;
         m.onGround = e->integer("OnGround").value_or(0) != 0;
         m.fireTicks = static_cast<int16_t>(e->integer("Fire").value_or(0));
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;

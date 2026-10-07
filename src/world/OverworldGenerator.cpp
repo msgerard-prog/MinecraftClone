@@ -888,27 +888,35 @@ void OverworldGenerator::generate(Chunk& out) const {
     }
     out.setBiomes(biomes);
 
-    // 10. Animals with new chunks (wiki: Spawn › Chunk generation): grassy biomes get
-    //     a herd of 2-4 cows in 1 of 10 chunks, standing on grass.
+    // 10. Animals with new chunks (wiki: Spawn › Chunk generation): cow biomes get a
+    //     herd in 1 of 10 chunks, standing on grass (our rate: see deviations).
     Xoroshiro animals(chunkSeed(m_seed, cx, cz, 500));
     const Biome herdBiome = columnBiome[5];
+    // Cow biomes (wiki: Cow › Spawning): not meadows; swamps and snowy taigas too.
     const bool grassy = herdBiome == Biome::Plains || herdBiome == Biome::Forest || herdBiome == Biome::BirchForest ||
-                        herdBiome == Biome::Meadow || herdBiome == Biome::Taiga || herdBiome == Biome::Savanna ||
-                        herdBiome == Biome::WindsweptHills;
+                        herdBiome == Biome::Taiga || herdBiome == Biome::SnowyTaiga || herdBiome == Biome::Savanna ||
+                        herdBiome == Biome::WindsweptHills || herdBiome == Biome::Swamp;
     if (grassy && animals.nextInt(10) == 0) {
-        const int herd = 2 + static_cast<int>(animals.nextInt(3));
-        for (int i = 0; i < herd; ++i) {
-            const int x = static_cast<int>(animals.nextInt(16)), z = static_cast<int>(animals.nextInt(16));
-            const int y = top(x, z);
+        // A group of 4 spread +-5 blocks around a random spot, inside this chunk
+        // (wiki: Mob spawning › Chunk generation).
+        const int centreX = static_cast<int>(animals.nextInt(16)), centreZ = static_cast<int>(animals.nextInt(16));
+        for (int i = 0; i < 4; ++i) {
+            const int x = centreX + static_cast<int>(animals.nextInt(11)) - 5;
+            const int z = centreZ + static_cast<int>(animals.nextInt(11)) - 5;
             const uint64_t hi = animals.nextLong(), lo = animals.nextLong();
             const float yaw = animals.nextFloat() * 360.0f - 180.0f;
-            if (y < kSeaLevel || chunk.get(x, y, z) != B.grass || chunk.get(x, y + 1, z) != B.air) continue;
+            if (x < 0 || x > 15 || z < 0 || z > 15) continue;
+            const int y = top(x, z);
+            const BlockStateId above = chunk.get(x, y + 1, z);
+            if (y < kSeaLevel || blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::GrassBlock ||
+                (above != B.air && blockRegistry().blockOf(above) != blocks::Snow))
+                continue;
             MobData cow;
             cow.type = MobType::Cow;
             cow.uuidHi = hi;
             cow.uuidLo = lo;
             cow.pos = cow.prevPos = cow.goal = glm::dvec3(baseX + x + 0.5, y + 1.0, baseZ + z + 0.5);
-            cow.yaw = cow.prevYaw = cow.headYaw = yaw;
+            cow.yaw = cow.prevYaw = cow.headYaw = cow.prevHeadYaw = yaw;
             cow.health = mobInfo(MobType::Cow).maxHealth;
             cow.persistent = true; // animals from world generation never despawn
             out.mobs().push_back(cow);

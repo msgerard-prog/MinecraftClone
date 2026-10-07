@@ -13,12 +13,16 @@ Chunk& World::createChunk(ChunkPos pos) {
 Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     auto& slot = m_chunks[chunk->pos()];
     slot = std::move(chunk);
+    slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty()) markTicking(slot->pos());
     return *slot;
 }
 
 void World::markTicking(ChunkPos pos) {
-    if (std::find(m_ticking.begin(), m_ticking.end(), pos) == m_ticking.end()) m_ticking.push_back(pos);
+    Chunk* c = chunk(pos);
+    if (!c || c->inTickingList) return;
+    c->inTickingList = true;
+    m_ticking.push_back(pos);
 }
 
 std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
@@ -26,6 +30,10 @@ std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
     if (it == m_chunks.end()) return nullptr;
     std::unique_ptr<Chunk> chunk = std::move(it->second);
     m_chunks.erase(it);
+    if (chunk->inTickingList) { // a chunk loaded here again must not be listed twice
+        std::erase(m_ticking, pos);
+        chunk->inTickingList = false;
+    }
     return chunk;
 }
 
