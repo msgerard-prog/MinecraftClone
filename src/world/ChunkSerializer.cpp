@@ -39,25 +39,47 @@ struct Heightmaps {
     std::array<std::array<int, 256>, kCount> values{}; // height above the bottom; 0 = none
 };
 
-// Sections are visited bottom-up, so a later match is higher. `base` = the section's
-// bottom relative to the world's minimum Y.
-void updateHeightmaps(const std::vector<BlockStateId>& states, int base, Heightmaps& h) {
-    const auto& reg = blockRegistry();
-    for (int y = 0; y < 16; ++y)
-        for (int z = 0; z < 16; ++z)
-            for (int x = 0; x < 16; ++x) {
-                const BlockStateId s = states[size_t(Section::index(x, y, z))];
-                if (s == 0) continue;
-                const int column = z * 16 + x, value = base + y + 1;
-                const BlockId b = reg.blockOf(s);
-                const bool fluid = b == blocks::Water || b == blocks::Lava;
-                const bool solid = reg.collides(s);
-                const bool leaves = reg.block(b).id.ends_with("_leaves");
-                if (solid || fluid) h.values[0][size_t(column)] = value;            // MOTION_BLOCKING
-                if ((solid || fluid) && !leaves) h.values[1][size_t(column)] = value; // ..._NO_LEAVES
-                if (solid) h.values[2][size_t(column)] = value;                     // OCEAN_FLOOR
-                h.values[3][size_t(column)] = value;                                // WORLD_SURFACE
-            }
+// Per-state flags for heightmaps, built once: 1 blocks motion (collides), 2 fluid,
+// 4 leaves.
+const std::vector<uint8_t>& heightmapFlags() {
+    static const std::vector<uint8_t> flags = [] {
+        const auto& reg = blockRegistry();
+        std::vector<uint8_t> f(reg.stateCount(), 0);
+        for (size_t i = 0; i < f.size(); ++i) {
+            const auto s = static_cast<BlockStateId>(i);
+            const BlockId b = reg.blockOf(s);
+            f[i] = uint8_t((reg.collides(s) ? 1 : 0) | (b == blocks::Water || b == blocks::Lava ? 2 : 0) |
+                           (reg.block(b).id.ends_with("_leaves") ? 4 : 0));
+        }
+        return f;
+    }();
+    return flags;
+}
+
+// Each column from the top down, stopping once all four maps have their block.
+// `all` holds the chunk's states, section after section (section index order).
+void computeHeightmaps(const std::vector<BlockStateId>& all, int height, Heightmaps& h) {
+    const auto& flags = heightmapFlags();
+    for (int column = 0; column < 256; ++column) {
+        const int x = column & 15, z = column >> 4;
+        int found = 0;
+        for (int y = height - 1; y >= 0 && found != 15; --y) {
+            const BlockStateId s = all[size_t((y >> 4) * Section::kVolume + Section::index(x, y & 15, z))];
+            if (s == 0) continue;
+            const uint8_t f = flags[s];
+            const bool blocking = (f & 3) != 0;
+            auto mark = [&](int bit, bool match) {
+                if (match && !(found & (1 << bit))) {
+                    h.values[size_t(bit)][size_t(column)] = y + 1;
+                    found |= 1 << bit;
+                }
+            };
+            mark(0, blocking);                  // MOTION_BLOCKING
+            mark(1, blocking && !(f & 4));      // MOTION_BLOCKING_NO_LEAVES
+            mark(2, (f & 1) != 0);              // OCEAN_FLOOR
+            mark(3, true);                      // WORLD_SURFACE
+        }
+    }
 }
 
 // Packed like block states without spanning longs: ceil(log2(height + 1)) bits each
@@ -194,6 +216,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     std::vector<nbt::Tag> sections;
     std::vector<BlockStateId> states(Section::kVolume);
     Heightmaps heights;
+    std::vector<BlockStateId> all(size_t(chunk.height.sections()) * Section::kVolume); // (IO thread)
     std::vector<BlockStateId> palette;
     std::unordered_map<BlockStateId, uint32_t> paletteIndex;
     for (int s = 0; s < chunk.height.sections(); ++s) {
@@ -201,7 +224,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         sec.put("Y", static_cast<int8_t>(chunk.height.minSection() + s));
         // Block states: local palette in order of first appearance.
         chunk.sections[size_t(s)]->copyTo(states.data());
-        updateHeightmaps(states, s * 16, heights);
+        std::copy(states.begin(), states.end(), all.begin() + std::ptrdiff_t(s) * Section::kVolume);
         palette.clear();
         paletteIndex.clear();
         for (BlockStateId st : states)
@@ -263,6 +286,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("sections", nbt::listOf(nbt::TagType::Compound, std::move(sections)));
     // Heightmaps of a full chunk (wiki: Chunk format › Heightmaps): per column the
     // height above the bottom of the first block from the top that matches, 0 if none.
+    computeHeightmaps(all, chunk.height.height, heights);
     nbt::Compound maps;
     for (int k = 0; k < Heightmaps::kCount; ++k)
         maps.put(std::string(Heightmaps::kNames[k]), packHeightmap(heights.values[size_t(k)], chunk.height));

@@ -96,7 +96,7 @@ region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payl
 ```
 Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` (the lowest section:
 -4 in the Overworld, 0 in the Nether and End; their chunks have 16 sections, Y 0..15), `status`
-`minecraft:full` (lower case since 1.21; `Status` still read), `Heightmaps` { MOTION_BLOCKING,
+`minecraft:full` (lower case since 1.21; not read back: every saved chunk is full), `Heightmaps` { MOTION_BLOCKING,
 MOTION_BLOCKING_NO_LEAVES, OCEAN_FLOOR, WORLD_SURFACE: 256 x 9-bit heights above the bottom,
 7 per long, 37 longs }, empty `PostProcessing`, `fluid_ticks`, `structures`, `isLightOn`, `sections` [one per section of the dimension (24 Overworld, 16 Nether/End) × { `Y`, `block_states` { `palette` [
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries

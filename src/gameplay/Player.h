@@ -19,6 +19,7 @@ struct PlayerInput {
     int jumpPresses = 0;  // space presses since the last tick (double-tap detection)
     bool sneak = false;   // shift: sneak, or fly down
     bool sprint = false;  // ctrl
+    bool canSprint = true; // false when too hungry (food <= 6): ends a sprint (wiki: Sprinting)
 };
 
 // The local player: vanilla movement physics at 20 TPS. Constants per tick, from

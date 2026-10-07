@@ -335,3 +335,18 @@ TEST_CASE("sprinting into a sneak keeps the sprint: a faster sneak (1.21.5+)") {
     sneakRun.sneak = true;
     CHECK(steadySpeed(w, p, sneakRun) == Approx(5.612 * 0.3).epsilon(0.02));
 }
+
+TEST_CASE("hunger ends a sprint that is already running (wiki: Sprinting - food 6 or less)") {
+    const World w = floorWorld();
+    Player p;
+    p.setPosition({0.5, kFloorY + 1.0, 0.5});
+    PlayerInput run;
+    run.forward = 1;
+    run.sprint = true;
+    for (int i = 0; i < 5; ++i)
+        p.tick(w, run);
+    REQUIRE(p.sprinting());
+    run.canSprint = false;
+    p.tick(w, run);
+    CHECK_FALSE(p.sprinting());
+}

@@ -724,6 +724,19 @@ TEST_CASE("1.21.11 chunk extras: heightmaps packed 9 bits x 7 per long, empty li
     CHECK(value("MOTION_BLOCKING", 2) == 80 + 64 + 1);
     CHECK(value("MOTION_BLOCKING_NO_LEAVES", 2) == 75 + 64 + 1);
     CHECK(value("WORLD_SURFACE", 5) == 0);
+    {
+        Chunk top({0, 0});
+        top.set(3, 319, 0, S(blocks::Stone)); // the highest value: 384
+        const auto tn = chunkToNbt(ChunkSnapshot::of(top));
+        const auto& longs = *tn.compound("Heightmaps")->find("WORLD_SURFACE")->get<std::vector<int64_t>>();
+        CHECK(int((uint64_t(longs[0]) >> (3 * 9)) & 511) == 384);
+        Chunk nether({0, 0}, kNetherHeight);
+        nether.set(0, 255, 0, S(blocks::Netherrack));
+        const auto nn = chunkToNbt(ChunkSnapshot::of(nether));
+        const auto& nl = *nn.compound("Heightmaps")->find("WORLD_SURFACE")->get<std::vector<int64_t>>();
+        CHECK(nl.size() == 37); // still 9 bits for a 256-high world
+        CHECK(int(uint64_t(nl[0]) & 511) == 256);
+    }
     REQUIRE(nbt.list("PostProcessing"));
     CHECK(nbt.list("PostProcessing")->items.size() == 24);
     CHECK(nbt.compound("structures"));
@@ -753,6 +766,22 @@ TEST_CASE("1.21.11 level.dat: spawn compound, version 1.21.11, game rules, dimen
     REQUIRE(back);
     CHECK(back->spawn[0] == 12);
     CHECK(back->spawn[2] == -5);
+    // A level.dat from before 1.21.9: SpawnX/Y/Z, no spawn compound.
+    mc::nbt::Compound oldData;
+    oldData.put("SpawnX", int32_t{-40});
+    oldData.put("SpawnY", int32_t{80});
+    oldData.put("SpawnZ", int32_t{7});
+    mc::nbt::Compound oldRoot;
+    oldRoot.put("Data", std::move(oldData));
+    TempDir oldDir("mc_test_level_old_spawn");
+    const auto bytes = mc::gzipCompress(mc::nbt::write(oldRoot));
+    std::ofstream(oldDir.path / "level.dat", std::ios::binary)
+        .write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+    const auto old = LevelData::load(oldDir.path);
+    REQUIRE(old);
+    CHECK(old->spawn[0] == -40);
+    CHECK(old->spawn[1] == 80);
+    CHECK(old->spawn[2] == 7);
 }
 
 TEST_CASE("older saves still load: Status, BurnTime/CookTime, FallDistance") {
@@ -762,11 +791,18 @@ TEST_CASE("older saves still load: Status, BurnTime/CookTime, FallDistance") {
     auto nbt = chunkToNbt(ChunkSnapshot::of(c));
     // Rewrite as a 1.21.1-era save.
     auto& e = const_cast<mc::nbt::Compound&>(*nbt.list("block_entities")->items[0].get<mc::nbt::Compound>());
-    std::erase_if(e.entries, [](const auto& kv) { return kv.name == "cooking_time_spent"; });
+    std::erase_if(e.entries, [](const auto& kv) {
+        return kv.name == "cooking_time_spent" || kv.name == "lit_time_remaining" || kv.name == "lit_total_time";
+    });
     e.put("CookTime", int16_t{77});
+    e.put("BurnTime", int16_t{300});
+    std::erase_if(nbt.entries, [](const auto& kv) { return kv.name == "status"; });
+    nbt.put("Status", std::string("minecraft:full"));
     Chunk d({0, 0});
     REQUIRE(chunkFromNbt(nbt, d));
     CHECK(d.furnace(1, 64, 1)->cookTime == 77);
+    CHECK(d.furnace(1, 64, 1)->burnLeft == 300);
+    CHECK(d.furnace(1, 64, 1)->burnDuration == 300);
     mc::nbt::Compound mob;
     mob.put("id", std::string("minecraft:cow"));
     mob.put("Pos", mc::nbt::listOf(mc::nbt::TagType::Double, {1.0, 64.0, 1.0}));

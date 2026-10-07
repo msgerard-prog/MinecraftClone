@@ -168,7 +168,7 @@ multi-draw) → screen.
   `viewProjectionAtOrigin()` is used for drawing: geometry is camera-relative.
 - `TextureAtlas`: stitches every PNG in `assets/minecraft/textures/block/` (sorted by
   name) on a power-of-two grid; `missingno` is always sprite 0; nearest mag filter,
-  4 mip levels. Sprites are addressed by grid index in vertices.
+  2 mip levels (the 1.21.11 default). Sprites are addressed by grid index in vertices.
 - `BlockModels`: per-state baked models (sprite, rotation, tint per face), built once
   at startup. Block → model mapping is C++ (`BlockModels.cpp`) until the JSON loader.
 - `ChunkMesher` (GL-free, thread-safe): emits a face when the neighbour is not an

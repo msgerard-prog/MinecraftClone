@@ -103,3 +103,9 @@ TEST_CASE("crafting: redstone torch, repeater, lever, buttons, block of redstone
     std::array<ItemStack, 9> piston = {p, p, p, c, i, c, c, r, c};
     CHECK(out(piston, 3) == "minecraft:pistonx1");
 }
+
+TEST_CASE("crafting: copper tools from copper ingots") {
+    const ItemStack c = I("copper_ingot"), s = I("stick"), e{};
+    std::array<ItemStack, 9> pick = {c, c, c, e, s, e, e, s, e};
+    CHECK(out(pick, 3) == "minecraft:copper_pickaxex1");
+}

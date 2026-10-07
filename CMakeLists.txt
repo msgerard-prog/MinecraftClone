@@ -35,6 +35,8 @@ add_custom_target(mc_buildinfo ALL
 # Subsystems, in dependency order (a subsystem may only depend on ones above it).
 # See docs/architecture.md for the layer rules.
 add_subdirectory(src/core)
+add_dependencies(mc_core mc_buildinfo)
+target_include_directories(mc_core PRIVATE "${MC_BUILDINFO_DIR}") # core/Version.cpp only
 add_subdirectory(src/world)
 add_subdirectory(src/rendering)
 add_subdirectory(src/audio)

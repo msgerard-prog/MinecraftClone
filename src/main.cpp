@@ -24,7 +24,7 @@
 #include "gameplay/Vitals.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/Frustum.h"
-#include "BuildInfo.h"
+#include "core/Version.h"
 #include "world/DayTime.h"
 #include "world/Redstone.h"
 #include "world/NetherGenerator.h"
@@ -188,10 +188,10 @@ int main(int argc, char** argv) {
         return 2;
     }
     if (opts->printVersion) {
-        std::printf("MinecraftClone %s (%s)\n", MC_VERSION, MC_BUILD);
+        std::printf("MinecraftClone %s (%s)\n", mc::version(), mc::buildString());
         return 0;
     }
-    MC_LOG_INFO("MinecraftClone %s (%s)", MC_VERSION, MC_BUILD);
+    MC_LOG_INFO("MinecraftClone %s (%s)", mc::version(), mc::buildString());
     const bool screenshotMode = !opts->screenshotPath.empty();
 
     mc::Window window;
@@ -822,7 +822,7 @@ int main(int argc, char** argv) {
             player.setCreative(!survival);
             if (survival && player.flying()) player.setFlying(false);
             if (dead) input = {};
-            if (survival && !vitals.canSprint()) input.sprint = false;
+            input.canSprint = !survival || vitals.canSprint(); // hunger ends a sprint too
             const glm::dvec3 before = player.position();
             const bool wasOnGround = player.onGround();
             if (!arrival) player.tick(world, input); // waiting for a destination: held in place
@@ -1138,7 +1138,7 @@ int main(int argc, char** argv) {
             }
             if (showDebug) {
                 mc::ui::DebugInfo d;
-                d.version = MC_BUILD;
+                d.version = mc::buildString();
                 d.fps = fps;
                 d.feet = player.position();
                 d.yaw = player.yaw();

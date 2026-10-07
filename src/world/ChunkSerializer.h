@@ -10,7 +10,7 @@
 namespace mc::world {
 
 // Data version written into saves (wiki: Data version): Java 1.21.11 = 4671. Tied to
-// the 1.21 patch decision (ADR 0002, pending).
+// the pinned patch (ADR 0002: 1.21.11).
 inline constexpr int32_t kDataVersion = 4671; // Java Edition 1.21.11 (ADR 0002)
 
 // A chunk's saveable state, shared read-only (copy-on-write sections), so the IO
@@ -29,7 +29,7 @@ struct ChunkSnapshot {
     static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);
 };
 
-// Java 1.21 chunk NBT (wiki: Chunk format): DataVersion, xPos/zPos/yPos, Status
+// Java 1.21.11 chunk NBT (wiki: Chunk format): DataVersion, xPos/zPos/yPos, status
 // "minecraft:full", sections [ {Y, block_states {palette, data}, biomes, SkyLight,
 // BlockLight} ]. Block states are written with a local palette of
 // "minecraft:id" + Properties (vanilla packing: 64 / bits entries per long, at
@@ -45,7 +45,8 @@ bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = n
 
 // The chunk's entities file (wiki: Entity format, 1.17+ entities/ region files):
 // { DataVersion, Position [I; x, z], Entities [ {id, Pos, Motion, Rotation, Health,
-// OnGround, FallDistance, Fire, HurtTime, DeathTime, PersistenceRequired, UUID} ] }.
+// OnGround, fall_distance (1.21.5+ double; FallDistance read), Fire, Air, equipment,
+// HurtTime, DeathTime, PersistenceRequired, UUID, ...} ] }.
 nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk);
 void entitiesFromNbt(const nbt::Compound& nbt, Chunk& chunk);
 

@@ -87,3 +87,12 @@ TEST_CASE("furnaces need a pickaxe; crafting tables are axe blocks") {
     CHECK(breakTicks(S(blocks::CraftingTable), I("stone_axe"), true, false) <
           breakTicks(S(blocks::CraftingTable), {}, true, false));
 }
+
+TEST_CASE("copper tools (1.21.9): stone's harvest level, speed 5, 190 uses") {
+    CHECK(canHarvest(S(blocks::IronOre), I("copper_pickaxe")));
+    CHECK_FALSE(canHarvest(S(blocks::DiamondOre), I("copper_pickaxe")));
+    CHECK(breakTicks(S(blocks::Stone), I("copper_pickaxe"), true, false) == 9); // 5 / 1.5 / 30 per tick
+    const ItemDef& sword = itemRegistry().item(*itemRegistry().find("copper_sword"));
+    CHECK(sword.durability == 190);
+    CHECK(sword.attackDamage == 5.0f);
+}
