@@ -123,7 +123,7 @@ namespace {
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
     ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple, quartz, oakSapling, birchSapling, spruceSapling, acaciaSapling;
+        flint, gravel, clay, stick, apple, quartz, seeds, oakSapling, birchSapling, spruceSapling, acaciaSapling;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
@@ -132,6 +132,7 @@ struct DropIds {
         emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
         clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
         quartz = *i.find("quartz");
+        seeds = *i.find("wheat_seeds");
         oakSapling = *i.find("oak_sapling"), birchSapling = *i.find("birch_sapling");
         spruceSapling = *i.find("spruce_sapling"), acaciaSapling = *i.find("acacia_sapling");
     }
@@ -190,11 +191,13 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::Glass:
     case blocks::Ice:
     case blocks::PackedIce:
-    case blocks::ShortGrass:
-    case blocks::Fern:
     case blocks::Snow:       // snowballs: not added yet
     case blocks::PistonHead: // the base drops the piston
     case blocks::Fire:
+        return;
+    case blocks::ShortGrass:
+    case blocks::Fern: // wiki: Wheat Seeds - grass and ferns drop seeds 1 in 8
+        if (rng.nextInt(8) == 0) add(d.seeds);
         return;
     case blocks::DeadBush: // wiki: Dead Bush - 0-2 sticks without shears
         if (const int n = between(0, 2)) add(d.stick, n);

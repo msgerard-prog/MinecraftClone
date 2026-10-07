@@ -96,3 +96,15 @@ TEST_CASE("copper tools (1.21.9): stone's harvest level, speed 5, 190 uses") {
     CHECK(sword.durability == 190);
     CHECK(sword.attackDamage == 5.0f);
 }
+
+TEST_CASE("short grass sometimes drops wheat seeds (1 in 8); glass still nothing") {
+    mc::world::Xoroshiro rng(9);
+    int seeds = 0;
+    for (int i = 0; i < 800; ++i) {
+        std::vector<mc::world::ItemStack> out;
+        mc::blockDrops(mc::world::blockRegistry().defaultState(mc::world::blocks::ShortGrass), {}, rng, out);
+        seeds += int(out.size());
+    }
+    CHECK(seeds > 60);
+    CHECK(seeds < 150);
+}
