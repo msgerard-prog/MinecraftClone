@@ -8,12 +8,13 @@ M3.0 done: resource packs (folders, .zip, client .jar) override our placeholders
 HD sprites and animated textures work (verified with our own test pack). Waiting on
 the user to try their own jar.
 M2 done and reviewed (code, perf, parity findings fixed or recorded): block registry
-with vanilla block states,
-paletted sections/chunks, superflat generator, face-culling mesher with packed
+with vanilla block states, paletted sections/chunks, superflat generator, face-culling mesher with packed
 vertices, random model variants, arena + multi-draw renderer, bounded worker-thread
 meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test cases.
 
 ## Next
+1. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
+   loading/unloading around the player at render distance 12, worldgen on workers.
    M3 design input from the M2 perf review (apply while building streaming):
    - Dense ring-indexed section grid around the camera (vanilla ViewArea) replacing
      the hash maps in ChunkRenderer/WorldRenderer; frustum-test columns first.
@@ -25,8 +26,6 @@ meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test case
    - Worldgen writes a flat 4096 buffer then `Section::assign` (one palette build).
    - Mesh a column only when all 8 neighbours exist; re-mesh only facing borders.
    - Later: per-face-direction draw commands (back-face groups), cave culling.
-1. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
-   loading/unloading around the player at render distance 12, worldgen on workers.
 
 ## Texture plan (agreed 2026-10-06)
 Textures arrive with their blocks (add-block skill makes the placeholder), by
