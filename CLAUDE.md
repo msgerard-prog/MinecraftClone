@@ -26,8 +26,9 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
 `--hidden`, `--size WxH`, `--seed N`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
-Controls: click to capture mouse, Esc releases; WASD, space/shift up/down, ctrl sprint. Add new ones in `core/CommandLine.*` + its test
-and list them here.
+Add new args in `core/CommandLine.*` + its test and list them here.
+Controls: click to capture mouse, Esc releases; WASD, space/shift up/down, ctrl sprint.
+New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.
 
 The first build downloads dependencies into `out/deps` (≈1 min). Build output is
 `out/build/<preset>/`; `compile_commands.json` is there for clangd.
@@ -78,7 +79,7 @@ The first build downloads dependencies into `out/deps` (≈1 min). Build output 
    observed behaviour, never paste decompiled source. Textures in `assets/` are our own.
    Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`.
 6. Subsystem dependencies only point "down" the layer list in docs/architecture.md.
-7. OpenGL calls only in `rendering/` (and `main.cpp` until M1 removes the placeholder).
+7. OpenGL calls only in `rendering/`. `main.cpp` drives `gfx::WorldRenderer`.
 8. Every bug fix gets a regression test where testable.
 
 ## Never change without asking the user

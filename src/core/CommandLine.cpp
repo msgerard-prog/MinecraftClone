@@ -1,6 +1,7 @@
 #include "core/CommandLine.h"
 
 #include <charconv>
+#include <cmath>
 #include <string_view>
 
 namespace mc {
@@ -25,6 +26,7 @@ template <typename T> bool parseList(std::string_view text, T* out, int count) {
         const bool last = i == count - 1;
         if (last != (comma == std::string_view::npos)) return false;
         if (!parseNumber(text.substr(0, comma), out[i])) return false;
+        if (!std::isfinite(out[i])) return false; // from_chars accepts "nan" and "inf"
         if (!last) text.remove_prefix(comma + 1);
     }
     return true;

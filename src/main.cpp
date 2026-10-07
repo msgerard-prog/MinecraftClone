@@ -1,5 +1,4 @@
 #include "core/CommandLine.h"
-#include "core/Files.h"
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
@@ -8,22 +7,13 @@
 #include "rendering/CubeMesher.h"
 #include "rendering/GlContext.h"
 #include "rendering/Screenshot.h"
-#include "rendering/Shader.h"
-#include "rendering/TextureAtlas.h"
-
-#include <glad/gl.h>
-#include <glm/gtc/type_ptr.hpp>
+#include "rendering/WorldRenderer.h"
 
 #include <span>
 #include <string>
 #include <vector>
 
 namespace {
-
-// Vanilla's daytime sky colour at plains biome (#78A7FF).
-constexpr float kSkyR = 0x78 / 255.0f;
-constexpr float kSkyG = 0xA7 / 255.0f;
-constexpr float kSkyB = 0xFF / 255.0f;
 
 // Vanilla controls: WASD move, space up, shift down (in flight), ctrl sprint.
 mc::MoveInput readMoveInput(const mc::Window& window) {
@@ -79,15 +69,9 @@ int main(int argc, char** argv) {
     }
     if (!mc::gfx::initOpenGl()) return 1;
 
-    mc::gfx::Shader blockShader;
-    if (!blockShader.load("block")) return 1;
-    mc::gfx::TextureAtlas atlas;
-    if (!atlas.build(mc::assetPath("minecraft/textures/block"))) return 1;
-    mc::gfx::Mesh scene;
-    scene.upload(buildTestScene(atlas));
-
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE); // back faces (clockwise from the camera) are never visible
+    mc::gfx::WorldRenderer renderer;
+    if (!renderer.init()) return 1;
+    renderer.setWorldMesh(buildTestScene(renderer.atlas()));
 
     mc::FlyController player;
     player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.5, 3.0, -5.0));
@@ -131,15 +115,7 @@ int main(int argc, char** argv) {
         camera.position = player.renderPosition(clock.alpha);
         camera.yaw = player.yaw();
         camera.pitch = player.pitch();
-        const glm::mat4 viewProj = camera.viewProjection(float(fbWidth) / float(fbHeight));
-
-        glViewport(0, 0, fbWidth, fbHeight);
-        glClearColor(kSkyR, kSkyG, kSkyB, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        blockShader.bind();
-        glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
-        glBindTextureUnit(0, atlas.texture());
-        scene.draw();
+        renderer.drawFrame(camera, fbWidth, fbHeight);
 
         ++frame;
         if (screenshotMode && frame >= opts->screenshotFrames) {

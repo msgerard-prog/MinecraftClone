@@ -43,4 +43,8 @@ TEST_CASE("command line: --pos and --look") {
     CHECK_FALSE(mc::parseCommandLine(tooFew, error).has_value());
     std::array<const char*, 2> tooMany = {"--look", "1,2,3"};
     CHECK_FALSE(mc::parseCommandLine(tooMany, error).has_value());
+    std::array<const char*, 2> notANumber = {"--look", "0,nan"};
+    CHECK_FALSE(mc::parseCommandLine(notANumber, error).has_value());
+    std::array<const char*, 2> infinite = {"--pos", "inf,0,0"};
+    CHECK_FALSE(mc::parseCommandLine(infinite, error).has_value());
 }

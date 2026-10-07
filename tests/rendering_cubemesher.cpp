@@ -54,3 +54,30 @@ TEST_CASE("face colour is tint x shade") {
     CHECK(((c >> 16) & 0xFF) == 100);  // 200 * 0.5
     CHECK((c >> 24) == 0xFF);
 }
+
+TEST_CASE("texture orientation: top of sprite = +Y on sides, north on the up face") {
+    // Distinct UVs per face so we can tell which corner got which coordinate.
+    mc::gfx::CubeFaces faces;
+    for (int f = 0; f < mc::world::kDirectionCount; ++f) {
+        faces.uv[f] = {f * 10.0f, f * 10.0f + 1.0f, f * 10.0f + 5.0f, f * 10.0f + 6.0f};
+    }
+    std::vector<BlockVertex> verts;
+    mc::gfx::appendCube(verts, {0, 0, 0}, faces);
+    for (int f = 0; f < mc::world::kDirectionCount; ++f) {
+        const auto dir = static_cast<Direction>(f);
+        const mc::gfx::UvRect& uv = faces.uv[f];
+        // Seen from outside: "up" on the texture, and "right" on the texture.
+        glm::vec3 texUp(0, 1, 0);
+        if (dir == Direction::Up) texUp = {0, 0, -1};  // north
+        if (dir == Direction::Down) texUp = {0, 0, 1}; // south
+        const glm::vec3 n(mc::world::normal(dir));
+        const glm::vec3 texRight = glm::cross(-n, texUp); // viewer looks along -n
+        for (int i = 0; i < 6; ++i) {
+            const BlockVertex& v = verts[f * 6 + i];
+            const glm::vec3 p = pos(v) - glm::vec3(0.5f);
+            INFO("face ", f, " vertex ", i);
+            CHECK(v.v == (glm::dot(p, texUp) > 0 ? uv.v0 : uv.v1));    // v0 = top row
+            CHECK(v.u == (glm::dot(p, texRight) > 0 ? uv.u1 : uv.u0)); // u0 = left column
+        }
+    }
+}

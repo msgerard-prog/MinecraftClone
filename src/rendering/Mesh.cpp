@@ -13,6 +13,10 @@ Mesh::~Mesh() {
 
 void Mesh::upload(std::span<const BlockVertex> vertices) {
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
+    m_vbo = 0;
+    m_count = 0;
+    // Zero-sized buffer storage is a GL error (e.g. an all-air section): draw nothing.
+    if (vertices.empty()) return;
     if (!m_vao) {
         // Vertex layout matches assets/shaders/block.vert locations 0..2.
         glCreateVertexArrays(1, &m_vao);

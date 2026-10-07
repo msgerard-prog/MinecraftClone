@@ -58,7 +58,9 @@ Current (M1):
 - `Mesh`: static VBO of `BlockVertex` (pos, uv, RGBA8 colour), DSA vertex format.
 - Fixed bindings: uniform location 0 = `uViewProj`; texture unit 0 = block atlas.
   Shaders: `block` (opaque pass). Add new fixed bindings to this list.
-- Test scene in `main.cpp` (`buildTestScene`) until chunks exist (M2).
+- `WorldRenderer`: owns the block shader, atlas and world mesh; `drawFrame(camera, w, h)`
+  does all of a frame's GL work. `main.cpp` makes no GL calls (hard rule 7).
+- Test scene in `main.cpp` (`buildTestScene`, GL-free) until chunks exist (M2).
 
 Planned (M2–M5):
 - Chunk meshes per section, face-culled against neighbours; opaque, cutout and
