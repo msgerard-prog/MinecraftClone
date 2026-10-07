@@ -304,7 +304,7 @@ int main(int argc, char** argv) {
     std::vector<RetiringStorage> retiringStorage;
     // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
-    if (generatorKind != "terrain" && generatorKind != "overworld") {
+    if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -314,7 +314,7 @@ int main(int argc, char** argv) {
         if (d == Dimension::Nether) return std::make_unique<mc::world::NetherGenerator>(seed);
         if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
-        return std::make_unique<mc::world::OverworldGenerator>(seed);
+        return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld" ? 1 : 2);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -353,6 +353,8 @@ int main(int argc, char** argv) {
     std::vector<mc::world::SectionPos> relitSections;
     std::vector<mc::world::BlockPos> frameEdits; // all block edits this frame (for lighting)
     std::vector<mc::world::BlockPos> frameRemesh; // edits that don't change light: re-mesh at once
+    std::vector<mc::world::BlockPos> frameSettling; // flowing fluids: re-mesh now, relight in the background
+    frameSettling.reserve(4096);
     frameRemesh.reserve(4096);
     litChunks.reserve(256);
     relitSections.reserve(256);
@@ -1373,6 +1375,8 @@ int main(int argc, char** argv) {
             frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
             blockUpdates.changed().clear();
             frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(), blockUpdates.remeshOnly().end());
+            frameSettling.insert(frameSettling.end(), blockUpdates.settling().begin(), blockUpdates.settling().end());
+            blockUpdates.settling().clear();
             blockUpdates.remeshOnly().clear();
             for (const auto& d : blockUpdates.drops()) {
                 const glm::dvec3 where{d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5};
@@ -1511,8 +1515,9 @@ int main(int argc, char** argv) {
             loader->update(center, loadedChunks, unloadedChunks);
         }
         // Lighting follows loading and edits; meshing follows lighting.
-        lighting.update(loadedChunks, unloadedChunks, frameEdits, litChunks, relitSections,
+        lighting.update(loadedChunks, unloadedChunks, frameEdits, frameSettling, litChunks, relitSections,
                         editsReady);
+        frameSettling.clear();
         // Edited blocks are re-meshed once their light is current (no stale-light flash).
         renderer.onBlocksChanged(editsReady);
         renderer.onBlocksChanged(frameRemesh);

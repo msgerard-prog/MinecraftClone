@@ -4,6 +4,8 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
+M18 in progress: M18.1 done - new worlds use "overworld2" (ravines, lava lakes,
+springs, sugar cane, pumpkins, cacti, mushrooms; cactus/pumpkin/mushroom blocks).
 M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
 cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
 explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
@@ -17,8 +19,10 @@ systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf)
 
 M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator kind
 "overworld2", default for new worlds; "overworld" stays for existing worlds):
-1. M18.1 — Generator kind and features: lakes (water, lava below), ravines (canyon
-   carver), sugar cane and other vegetation (pumpkins, cactus, mushrooms), springs.
+1. ✅ M18.1 — Generator kind "overworld2" and features: lava lakes (water lakes are
+   gone since 1.18), ravines (canyon carver), sugar cane, pumpkins, cacti,
+   mushrooms, springs; scheduled ticks only within the simulation distance; fluid
+   flow relights at the lowest priority.
 2. M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
    cherry grove, badlands variants, ice spikes, stony peaks... with their trees and
    new wood types (jungle, dark oak, cherry) and blocks (cactus, mushrooms, mud...).
@@ -109,10 +113,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M17 note (worldgen):** sugar cane exists (paper -> books -> enchanting) but isn't
-  generated yet; per the 2026-10-07 decision it arrives with M18's new Overworld
-  generator kind (old worlds keep their generator and pinned hash). Say if you'd
-  rather have it sooner.
+- **M18 note:** new worlds use the generator kind "overworld2", which keeps growing
+  through M18 (biomes, structures) and is frozen at v0.18.0. A world created with an
+  M18 development build may show seams where later steps changed generation; make
+  test worlds with `--no-save` or re-create them after v0.18.0. Existing worlds keep
+  their own generator and are unaffected.
 - **M15 in-game checks:** does grass under one block of still water
   in sunlight turn to dirt; how long does a sapling take to grow at light 15?
 - **M14 checks:** empty the air bar under water, surface and time the refill (ours

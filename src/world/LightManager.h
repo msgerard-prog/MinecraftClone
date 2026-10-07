@@ -31,13 +31,17 @@ public:
     // blocks edited. Outputs (cleared first): chunks that became lit for the first
     // time, sections whose light changed in chunks that were already lit, and edited
     // blocks whose light is now up to date (re-mesh them).
+    // `settling`: edits that may be drawn with stale light for a moment (flowing
+    // fluids): they come straight back in `editsReady` and their relight waits in the
+    // streaming queue instead of jumping ahead of it.
     void update(const std::vector<ChunkPos>& loaded, const std::vector<ChunkPos>& unloaded,
-                const std::vector<BlockPos>& edited, std::vector<ChunkPos>& newlyLit,
-                std::vector<SectionPos>& relitSections, std::vector<BlockPos>& editsReady);
+                const std::vector<BlockPos>& edited, const std::vector<BlockPos>& settling,
+                std::vector<ChunkPos>& newlyLit, std::vector<SectionPos>& relitSections,
+                std::vector<BlockPos>& editsReady);
 
     // Light jobs queued or running.
     int pending() const {
-        return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head) + m_inFlight;
+        return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head + m_settleQueue.size()) + m_inFlight;
     }
 
 private:
@@ -49,16 +53,20 @@ private:
         ChunkLight output;
         uint32_t changed = 0; // bit per section whose light differs from `before`
     };
-    void request(ChunkPos pos, bool edit);
+    enum Priority : uint8_t { kSettle = 0, kStream = 1, kEdit = 2 };
+    void request(ChunkPos pos, Priority priority);
     bool neighbourhoodLoaded(ChunkPos pos) const;
     bool submit(ChunkPos pos, std::vector<BlockPos>& editsReady);
     void run();
 
     World& m_world;
-    // Two FIFO queues: edits first (latency), then streaming. Streaming entries are
-    // consumed from m_head and compacted when the queue drains (no per-pop erase).
+    // Three FIFO queues: edits first (latency), then streaming, then settling (fluid
+    // flow; only once nothing streams, so its repeated requests merge while waiting).
+    // Streaming entries are consumed from m_head and compacted when the queue drains
+    // (no per-pop erase).
     std::vector<ChunkPos> m_editQueue;
     std::vector<ChunkPos> m_queue;
+    std::vector<ChunkPos> m_settleQueue;
     size_t m_head = 0;
     std::vector<BlockPos> m_pendingEdits; // waiting for their chunk's relight
     uint32_t m_nextVersion = 1;            // global: versions never repeat

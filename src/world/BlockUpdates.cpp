@@ -320,7 +320,8 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
     const auto& r = R();
     const bool light = r.lightEmission(old) != r.lightEmission(now) || r.lightOpacity(old) != r.lightOpacity(now) ||
                        r.opaqueCube(old) != r.opaqueCube(now);
-    auto& list = light ? m_changed : m_remesh;
+    auto fluidOrAir = [](BlockStateId s) { return s == 0 || isFluid(blockOf(s)); };
+    auto& list = !light ? m_remesh : fluidOrAir(old) && fluidOrAir(now) ? m_settling : m_changed;
     if (list.empty() || !(list.back() == p)) list.push_back(p); // a block changing again: once
 }
 
@@ -601,6 +602,12 @@ void BlockUpdates::tick() {
     m_due.clear();
     m_world.forEachTickingChunk([&](Chunk& c) {
         if (std::as_const(c).blockTicks().empty()) return;
+        // Beyond the simulation distance scheduled ticks wait (vanilla ticks blocks and
+        // fluids only in ticking chunks): a far spring stays a lone source until you
+        // come near. Their delays start counting once the chunk is in range.
+        if (m_rtDistance >= 0 &&
+            (std::abs(c.pos().x - m_rtCentre.x) > m_rtDistance || std::abs(c.pos().z - m_rtCentre.z) > m_rtDistance))
+            return;
         makeAbsolute(c);
         if (c.takeDueTicks(m_now, [&](const Chunk::BlockTick& t) {
                 m_due.push_back({{c.pos().x * 16 + t.x, t.y, c.pos().z * 16 + t.z}, t});

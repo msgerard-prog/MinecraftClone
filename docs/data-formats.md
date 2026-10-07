@@ -85,7 +85,8 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            older saves' Inventory slots 100..103 / -106 are read),
                            respawn { pos [I; x, y, z], dimension, yaw, pitch, forced }
                            (a bed's respawn point) },
-                           MinecraftClone { generator: "overworld" | "terrain" | "flat",
+                           MinecraftClone { generator: "overworld2" (M18, new worlds) |
+                           "overworld" (M8) | "terrain" (M3) | "flat",
                            portals [ { dimension, x, y, z } ] (known nether portals, M12),
                            format: Int (kCloneFormat the world was created with; missing = 0,
                            before v0.17.1) } }

@@ -81,6 +81,7 @@ struct Blocks {
     BlockStateId oakLog, oakLeaves, birchLog, birchLeaves, spruceLog, spruceLeaves, acaciaLog,
         acaciaLeaves;
     BlockStateId shortGrass, fern, deadBush, flowers[5], snowLayer;
+    BlockStateId sugarCane, cactus, pumpkin, brownMushroom, redMushroom, coarseDirt;
     // Leaves by kind (oak, birch, spruce, acacia) and distance 1..7 (index d-1).
     BlockStateId leaves[4][7];
     struct Ore {
@@ -128,6 +129,12 @@ const Blocks& blockSet() {
         x.fern = S(blocks::Fern);
         x.deadBush = S(blocks::DeadBush);
         x.snowLayer = S(blocks::Snow);
+        x.sugarCane = S(blocks::SugarCane);
+        x.cactus = S(blocks::Cactus);
+        x.pumpkin = S(blocks::Pumpkin);
+        x.brownMushroom = S(blocks::BrownMushroom);
+        x.redMushroom = S(blocks::RedMushroom);
+        x.coarseDirt = S(blocks::CoarseDirt);
         const BlockStateId leafDefaults[4] = {x.oakLeaves, x.birchLeaves, x.spruceLeaves, x.acaciaLeaves};
         for (int k = 0; k < 4; ++k)
             for (int d = 1; d <= 7; ++d)
@@ -167,8 +174,8 @@ struct Buf {
 
 // --- Noises ---------------------------------------------------------------------------
 
-OverworldGenerator::OverworldGenerator(uint64_t seed)
-    : m_seed(seed),
+OverworldGenerator::OverworldGenerator(uint64_t seed, int version)
+    : m_seed(seed), m_version(version),
       m_continentalness{OctaveNoise(mixSeed(seed, 101), -9, 6), OctaveNoise(mixSeed(seed, 102), -9, 6)},
       m_erosion{OctaveNoise(mixSeed(seed, 103), -9, 5), OctaveNoise(mixSeed(seed, 104), -9, 5)},
       m_weirdness{OctaveNoise(mixSeed(seed, 105), -7, 4), OctaveNoise(mixSeed(seed, 106), -7, 4)},
@@ -433,6 +440,7 @@ const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int
         case TreeShape::Acacia: height = 5 + static_cast<int>(rng.nextInt(2)); break;
         }
         if (groundCarved(wx, ground, wz)) continue; // would float over a cave
+        if (m_version >= 2 && inRavine(wx, ground, wz)) continue; // or a ravine
         // Only on grass/dirt: steep meadow/grove/windswept ground is bare stone.
         if (biome == Biome::Meadow || biome == Biome::Grove || biome == Biome::WindsweptHills) {
             const bool steep = std::abs(surfaceY(wx + 1, wz) - surfaceY(wx - 1, wz)) >= 4 ||
@@ -665,6 +673,13 @@ void OverworldGenerator::generate(Chunk& out) const {
             }
         }
 
+    // 4b. Overworld 2 (M18.1): ravines are carved after the surface (vanilla carvers),
+    //     then lava lakes (vanilla's first feature step).
+    if (m_version >= 2) {
+        carveRavines(blockArray.data(), cx, cz, topY);
+        placeLavaLakes(blockArray.data(), cx, cz, topY);
+    }
+
     // 5. Ores and stone blobs (wiki: Ore - attempts per chunk, sizes, height ranges).
     Xoroshiro ores(chunkSeed(m_seed, cx, cz, 200));
     const int maxTop = *std::max_element(topY.begin(), topY.end());
@@ -747,6 +762,9 @@ void OverworldGenerator::generate(Chunk& out) const {
         centreBiome == Biome::Meadow || centreBiome == Biome::Grove || centreBiome == Biome::SnowySlopes)
         spread(B.emerald, 100, 3, [&] { return triangle(-16, 480); });
 
+    // 5b. Springs (vanilla's fluid springs step, after ores).
+    if (m_version >= 2) placeSprings(blockArray.data(), out, cx, cz, maxTop);
+
     // 6. Trees: this chunk's and its neighbours' (their canopies reach in).
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
@@ -787,6 +805,9 @@ void OverworldGenerator::generate(Chunk& out) const {
             }
             if (plant) chunk.set(x, ty + 1, z, plant);
         }
+
+    // 7b. More vegetation (M18.1): sugar cane, pumpkins, cacti, mushrooms.
+    if (m_version >= 2) placeVegetation(blockArray.data(), cx, cz, topY, columnBiome);
 
     // 8. Top layer (vanilla's last feature step): where the temperature at the top
     //    block is below 0.15 - the biome's, minus 1/800 per block above y 80 (wiki:
@@ -865,6 +886,320 @@ void OverworldGenerator::generate(Chunk& out) const {
             out.mobs().push_back(cow);
         }
     }
+}
+
+// --- Overworld 2 features (M18.1) ----------------------------------------------------
+// Vanilla's numbers for these features are game data (not on the wiki), so the rates
+// and sizes below are our own tuning after the classic feature shapes; see
+// game-design.md › deviations.
+
+bool OverworldGenerator::ravine(int32_t cx, int32_t cz, Ravine& out) const {
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 600));
+    out.count = 0;
+    if (r.nextInt(100) != 0) return false; // 1 chunk in 100 starts one
+    double x = cx * 16 + static_cast<int>(r.nextInt(16)); // (signed: negative chunks)
+    double y = 10 + static_cast<int>(r.nextInt(58));      // y 10..67
+    double z = cz * 16 + static_cast<int>(r.nextInt(16));
+    float yaw = r.nextFloat() * 2.0f * std::numbers::pi_v<float>;
+    float pitch = (r.nextFloat() - 0.5f) * 0.25f;
+    const float thickness = (r.nextFloat() * 2.0f + r.nextFloat()) * 2.0f; // 0..6, mostly ~3
+    const int length = kRavineSteps - static_cast<int>(r.nextInt(28));
+    // Walls: the horizontal size wobbles per y in bands of 1-3 blocks.
+    for (size_t i = 0; i < out.rough.size(); ++i)
+        out.rough[i] = (i == 0 || r.nextInt(3) == 0) ? 1.0f + r.nextFloat() * r.nextFloat() : out.rough[i - 1];
+    float dYaw = 0.0f, dPitch = 0.0f;
+    for (int step = 0; step < length; ++step) {
+        // Widest in the middle, 3x as tall as wide (a deep slot).
+        float h = 1.5f + std::sin(float(step) * std::numbers::pi_v<float> / float(length)) * thickness;
+        float v = h * 3.0f;
+        h *= r.nextFloat() * 0.25f + 0.75f;
+        v *= r.nextFloat() * 0.25f + 0.75f;
+        const float cp = std::cos(pitch);
+        x += std::cos(yaw) * cp;
+        y += std::sin(pitch);
+        z += std::sin(yaw) * cp;
+        pitch = pitch * 0.7f + dPitch * 0.05f;
+        yaw += dYaw * 0.05f;
+        dPitch = dPitch * 0.8f + (r.nextFloat() - r.nextFloat()) * r.nextFloat() * 2.0f;
+        dYaw = dYaw * 0.5f + (r.nextFloat() - r.nextFloat()) * r.nextFloat() * 4.0f;
+        if (r.nextInt(4) == 0) continue; // skipped steps roughen the floor and walls
+        out.steps[size_t(out.count++)] = {float(x), float(y), float(z), h, v};
+    }
+    return true;
+}
+
+namespace {
+
+// Inside one ravine step: a squashed ellipsoid whose width varies per y.
+bool inStep(const OverworldGenerator::RavineStep& st, const std::array<float, kOverworldHeight.height>& rough,
+            int32_t x, int32_t y, int32_t z) {
+    const float dx = (float(x) + 0.5f - st.x) / st.h, dz = (float(z) + 0.5f - st.z) / st.h;
+    const float dy = (float(y) + 0.5f - st.y) / st.v;
+    return (dx * dx + dz * dz) * rough[size_t(y - kOverworldHeight.minY)] + dy * dy / 6.0f < 1.0f;
+}
+
+} // namespace
+
+bool OverworldGenerator::inRavine(int32_t x, int32_t y, int32_t z) const {
+    if (!kOverworldHeight.contains(y)) return false;
+    static thread_local Ravine rv;
+    const int32_t cx = x >> 4, cz = z >> 4;
+    for (int32_t sz = cz - kRavineReach; sz <= cz + kRavineReach; ++sz)
+        for (int32_t sx = cx - kRavineReach; sx <= cx + kRavineReach; ++sx) {
+            if (!ravine(sx, sz, rv)) continue;
+            for (int i = 0; i < rv.count; ++i)
+                if (inStep(rv.steps[size_t(i)], rv.rough, x, y, z)) return true;
+        }
+    return false;
+}
+
+void OverworldGenerator::carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const {
+    const Blocks& B = blockSet();
+    Buf chunk{blocks};
+    const int32_t baseX = cx * 16, baseZ = cz * 16;
+    static thread_local Ravine rv;
+    bool carved = false;
+    for (int32_t sz = cz - kRavineReach; sz <= cz + kRavineReach; ++sz)
+        for (int32_t sx = cx - kRavineReach; sx <= cx + kRavineReach; ++sx) {
+            if (!ravine(sx, sz, rv)) continue;
+            for (int i = 0; i < rv.count; ++i) {
+                const RavineStep& st = rv.steps[size_t(i)];
+                const int x0 = std::max(0, int(std::floor(st.x - st.h)) - baseX);
+                const int x1 = std::min(15, int(std::floor(st.x + st.h)) - baseX);
+                const int z0 = std::max(0, int(std::floor(st.z - st.h)) - baseZ);
+                const int z1 = std::min(15, int(std::floor(st.z + st.h)) - baseZ);
+                if (x0 > x1 || z0 > z1) continue;
+                const int y0 = std::max(kOverworldHeight.minY + 1, int(std::floor(st.y - st.v)));
+                const int y1 = std::min(kOverworldHeight.maxY(), int(std::floor(st.y + st.v)));
+                // A step touching water (under seas and rivers) fills with water below the
+                // sea level instead of air, as vanilla's ravines under oceans.
+                bool wet = false;
+                for (int x = x0; x <= x1 && !wet; ++x)
+                    for (int z = z0; z <= z1 && !wet; ++z)
+                        for (int y = y0 - 1; y <= y1 + 1 && !wet; ++y)
+                            wet = chunk.get(x, y, z) == B.water;
+                for (int x = x0; x <= x1; ++x)
+                    for (int z = z0; z <= z1; ++z)
+                        for (int y = y1; y >= y0; --y) { // top down: grass moves onto the dirt below
+                            if (!inStep(st, rv.rough, baseX + x, y, baseZ + z)) continue;
+                            const BlockStateId cur = chunk.get(x, y, z);
+                            if (cur == B.air || cur == B.bedrock || cur == B.lava || cur == B.water) continue;
+                            // Below the lava level carvers leave lava (as caves).
+                            chunk.set(x, y, z, y < kLavaLevel ? B.lava : wet && y < kSeaLevel ? B.water : B.air);
+                            if (cur == B.grass && chunk.get(x, y - 1, z) == B.dirt) chunk.set(x, y - 1, z, B.grass);
+                            carved = true;
+                        }
+            }
+        }
+    if (!carved) return;
+    // The surface may have been cut: drop each column's top to its new highest solid.
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            int& t = topY[size_t(z * 16 + x)];
+            while (t > kOverworldHeight.minY && !blockRegistry().collides(chunk.get(x, t, z)))
+                --t;
+        }
+}
+
+void OverworldGenerator::placeLavaLakes(BlockStateId* blocks, int32_t cx, int32_t cz,
+                                        const std::array<int, 256>& topY) const {
+    // Lava lakes (wiki: Lava lake): small, shallow pools with an air pocket above,
+    // stone around the lava; rare at the surface, more common underground above y 0.
+    // Ours fit inside the chunk: a 16x8x16 box of 4-7 overlapping ellipsoids, lava in
+    // its lower 4 layers.
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 610));
+    const int minTop = *std::min_element(topY.begin(), topY.end());
+    for (int kind = 0; kind < 2; ++kind) {
+        const bool surface = kind == 0;
+        if (r.nextInt(surface ? 200 : 9) != 0) continue;
+        int baseY;
+        if (surface) {
+            baseY = topY[8 * 16 + 8] - 4; // the lava's top layer just under the ground
+            if (baseY + 4 < kSeaLevel) continue;
+        } else {
+            if (minTop - 12 <= 0) continue;
+            baseY = static_cast<int>(r.nextInt(uint32_t(minTop - 12))); // above y 0, under the surface
+        }
+        std::array<bool, 16 * 16 * 8> shape{};
+        auto cell = [&](int x, int y, int z) -> bool {
+            return x >= 0 && x < 16 && z >= 0 && z < 16 && y >= 0 && y < 8 && shape[size_t((y * 16 + z) * 16 + x)];
+        };
+        const int blobs = 4 + static_cast<int>(r.nextInt(4));
+        for (int b = 0; b < blobs; ++b) {
+            const double xs = r.nextDouble() * 6.0 + 3.0, ys = r.nextDouble() * 4.0 + 2.0, zs = r.nextDouble() * 6.0 + 3.0;
+            const double px = r.nextDouble() * (16.0 - xs - 2.0) + 1.0 + xs / 2.0;
+            const double py = r.nextDouble() * (8.0 - ys - 4.0) + 2.0 + ys / 2.0;
+            const double pz = r.nextDouble() * (16.0 - zs - 2.0) + 1.0 + zs / 2.0;
+            for (int y = 1; y < 7; ++y)
+                for (int z = 1; z < 15; ++z)
+                    for (int x = 1; x < 15; ++x) {
+                        const double dx = (x - px) / (xs / 2.0), dy = (y - py) / (ys / 2.0), dz = (z - pz) / (zs / 2.0);
+                        if (dx * dx + dy * dy + dz * dz < 1.0) shape[size_t((y * 16 + z) * 16 + x)] = true;
+                    }
+        }
+        // The rim: no fluid around the air pocket, solid ground around the lava.
+        bool ok = true;
+        for (int y = 0; y < 8 && ok; ++y)
+            for (int z = 0; z < 16 && ok; ++z)
+                for (int x = 0; x < 16 && ok; ++x) {
+                    if (cell(x, y, z)) continue;
+                    const bool edge = cell(x + 1, y, z) || cell(x - 1, y, z) || cell(x, y + 1, z) || cell(x, y - 1, z) ||
+                                      cell(x, y, z + 1) || cell(x, y, z - 1);
+                    if (!edge) continue;
+                    const BlockStateId s = chunk.get(x, baseY + y, z);
+                    if (s == B.water || s == B.lava) ok = false;
+                    else if (y < 4 && !reg.collides(s)) ok = false;
+                }
+        if (!ok) continue;
+        for (int y = 0; y < 8; ++y)
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x)
+                    if (cell(x, y, z)) chunk.set(x, baseY + y, z, y < 4 ? B.lava : B.air);
+        // Solid blocks touching the lava (beside or under it) turn to stone.
+        auto lavaCell = [&](int x, int y, int z) { return y >= 0 && y < 4 && cell(x, y, z); };
+        for (int y = 0; y < 4; ++y)
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    if (cell(x, y, z)) continue;
+                    if (!lavaCell(x + 1, y, z) && !lavaCell(x - 1, y, z) && !lavaCell(x, y, z + 1) &&
+                        !lavaCell(x, y, z - 1) && !lavaCell(x, y + 1, z))
+                        continue;
+                    const BlockStateId s = chunk.get(x, baseY + y, z);
+                    if (reg.collides(s) && s != B.bedrock) chunk.set(x, baseY + y, z, B.stone);
+                }
+    }
+}
+
+void OverworldGenerator::placeSprings(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, int maxTop) const {
+    // Springs (wiki: Spring): a lone fluid source in a wall or a cave's dead end -
+    // stone above and below, stone on 3 sides and one open side - flowing out. Water up to y 192, lava
+    // biased to the bottom. Ours: 50 water and 40 lava attempts per chunk (most land
+    // in solid rock or above the ground and do nothing).
+    const Blocks& B = blockSet();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 620));
+    auto rock = [&](BlockStateId s) {
+        return s == B.stone || s == B.deepslate || s == B.granite || s == B.diorite || s == B.andesite || s == B.tuff;
+    };
+    uint64_t order = 0;
+    for (int i = 0; i < 90; ++i) {
+        const bool lava = i >= 50;
+        const int x = 1 + static_cast<int>(r.nextInt(14)), z = 1 + static_cast<int>(r.nextInt(14));
+        int y;
+        if (lava) { // very biased to the bottom
+            const uint32_t a = r.nextInt(uint32_t(kOverworldHeight.height - 8)) + 8;
+            const uint32_t b = r.nextInt(a) + 8;
+            y = kOverworldHeight.minY + static_cast<int>(r.nextInt(b));
+        } else {
+            y = kOverworldHeight.minY + static_cast<int>(r.nextInt(192 - kOverworldHeight.minY));
+        }
+        if (y <= kOverworldHeight.minY + 4 || y >= maxTop) continue;
+        const BlockStateId here = chunk.get(x, y, z);
+        if ((here != B.air && !rock(here)) || !rock(chunk.get(x, y + 1, z)) || !rock(chunk.get(x, y - 1, z))) continue;
+        int rocks = 0, holes = 0;
+        for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}}) {
+            const BlockStateId n = chunk.get(x + d[0], y, z + d[1]);
+            rocks += rock(n);
+            holes += n == B.air;
+        }
+        if (rocks != 3 || holes != 1) continue;
+        chunk.set(x, y, z, lava ? B.lava : B.water);
+        // It starts flowing once the chunk is in the world (a pending fluid tick:
+        // water 5, lava 30 ticks; a delay until the chunk is placed).
+        out.blockTicks().push_back({static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y), 0,
+                                    lava ? blocks::Lava : blocks::Water, lava ? 30 : 5, order++});
+    }
+    if (!out.blockTicks().empty()) out.ticksRelative = true;
+}
+
+void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz,
+                                         const std::array<int, 256>& topY, const std::array<Biome, 16>& biomes) const {
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 630));
+    auto biomeOf = [&](int x, int z) { return biomes[size_t((z / 4) * 4 + x / 4)]; };
+    auto top = [&](int x, int z) { return topY[size_t(z * 16 + x)]; };
+    auto inside = [](int x, int z) { return x >= 0 && x < 16 && z >= 0 && z < 16; };
+    // A patch: `tries` positions spread around a random centre (vanilla random_patch),
+    // clipped to this chunk; `place` decides and places at the column's top.
+    auto patch = [&](int tries, int spread, auto&& place) {
+        const int ox = static_cast<int>(r.nextInt(16)), oz = static_cast<int>(r.nextInt(16));
+        for (int t = 0; t < tries; ++t) {
+            const int x = ox + static_cast<int>(r.nextInt(uint32_t(spread * 2 + 1))) - spread;
+            const int z = oz + static_cast<int>(r.nextInt(uint32_t(spread * 2 + 1))) - spread;
+            const uint32_t roll = r.nextInt(1u << 16);
+            if (!inside(x, z)) continue;
+            const int y = top(x, z) + 1;
+            if (y <= kSeaLevel - 1 || !kOverworldHeight.contains(y + 3) || chunk.get(x, y, z) != B.air) continue;
+            place(x, y, z, roll);
+        }
+    };
+
+    // Sugar cane (wiki: Sugar Cane › Generation): on grass, dirt or sand with water
+    // beside the block it stands on, 2-4 tall. 10 patches a chunk (deserts and
+    // swamps more).
+    const Biome centre = biomes[5];
+    const int canePatches = centre == Biome::Swamp ? 20 : centre == Biome::Desert ? 13 : 10;
+    for (int p = 0; p < canePatches; ++p)
+        patch(20, 4, [&](int x, int y, int z, uint32_t roll) {
+            const BlockStateId g = chunk.get(x, y - 1, z);
+            if (g != B.grass && g != B.dirt && g != B.sand && g != B.redSand && g != B.coarseDirt) return;
+            bool water = false;
+            for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}})
+                water = water || (inside(x + d[0], z + d[1]) && chunk.get(x + d[0], y - 1, z + d[1]) == B.water);
+            if (!water) return;
+            const int height = 2 + static_cast<int>(roll % 3 == 0 ? (roll >> 2) % 3 : (roll >> 2) % 2); // 2-4, mostly 2-3
+            for (int k = 0; k < height && chunk.get(x, y + k, z) == B.air; ++k)
+                chunk.set(x, y + k, z, B.sugarCane);
+        });
+
+    // Pumpkins (wiki: Pumpkin › Generation): a rare patch on grass (1 chunk in 300).
+    if (r.nextInt(300) == 0)
+        patch(64, 7, [&](int x, int y, int z, uint32_t) {
+            if (chunk.get(x, y - 1, z) == B.grass) chunk.set(x, y, z, B.pumpkin);
+        });
+
+    // Cacti (wiki: Cactus › Generation): deserts and badlands, 1-3 tall, on sand with
+    // nothing solid beside them (kept off the chunk edge, where we can't see).
+    const int cactusPatches = centre == Biome::Desert ? 3 : centre == Biome::Badlands ? 2 : 0;
+    for (int p = 0; p < cactusPatches; ++p)
+        patch(10, 4, [&](int x, int y, int z, uint32_t roll) {
+            if (x < 1 || x > 14 || z < 1 || z > 14) return;
+            const BlockStateId g = chunk.get(x, y - 1, z);
+            if (g != B.sand && g != B.redSand) return;
+            const int height = 1 + static_cast<int>(roll % 3 == 0 ? (roll >> 2) % 3 : (roll >> 2) % 2);
+            for (int k = 0; k < height; ++k) {
+                bool clear = chunk.get(x, y + k, z) == B.air;
+                for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}}) {
+                    const BlockStateId n = chunk.get(x + d[0], y + k, z + d[1]);
+                    clear = clear && !reg.collides(n) && n != B.lava;
+                }
+                if (!clear) break;
+                chunk.set(x, y + k, z, B.cactus);
+            }
+        });
+
+    // Mushrooms (wiki: Mushroom › Generation): in the shade of trees - commonest in
+    // taigas and swamps (brown 1 chunk in 4, red 1 in 8; elsewhere 1 in 32 / 64).
+    const bool shady = centre == Biome::Taiga || centre == Biome::SnowyTaiga || centre == Biome::Swamp;
+    for (int kind = 0; kind < 2; ++kind) {
+        const uint32_t odds = (shady ? 4u : 32u) << kind;
+        if (r.nextInt(odds) != 0) continue;
+        const BlockStateId m = kind == 0 ? B.brownMushroom : B.redMushroom;
+        patch(64, 7, [&](int x, int y, int z, uint32_t) {
+            if (!reg.opaqueCube(chunk.get(x, y - 1, z))) return;
+            for (int k = 1; k <= 16; ++k) // covered (vanilla: light below 13)
+                if (chunk.get(x, y + k, z) != B.air) {
+                    chunk.set(x, y, z, m);
+                    return;
+                }
+        });
+    }
+    (void)biomeOf;
 }
 
 glm::dvec3 OverworldGenerator::findSpawn() const {

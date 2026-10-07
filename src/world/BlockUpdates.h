@@ -52,6 +52,10 @@ public:
     std::vector<BlockPos>& changed() { return m_changed; }
     // Changes that don't affect light (dust power...): re-mesh only.
     std::vector<BlockPos>& remeshOnly() { return m_remesh; }
+    // Fluids flowing (between air, water and lava): re-mesh at once and relight in the
+    // background (LightManager's `settling`), so springs flowing in newly loaded
+    // chunks don't hold back the light of the chunks still streaming in.
+    std::vector<BlockPos>& settling() { return m_settling; }
     struct Drop {
         BlockPos pos;
         ItemStack stack;
@@ -257,6 +261,7 @@ private:
     std::vector<Event> m_events;
     std::vector<BlockPos> m_changed;
     std::vector<BlockPos> m_remesh;
+    std::vector<BlockPos> m_settling;
     std::vector<Drop> m_drops;
     std::vector<FallStart> m_falling;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)

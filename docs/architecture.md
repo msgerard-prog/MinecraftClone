@@ -70,7 +70,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   copy-on-write (`Chunk::mutableSection` copies a section a worker still holds), so
   the main thread keeps editing while jobs run. Each chunk has a version; stale
   results are dropped. An edit relights the 3x3 chunks around it; sections whose
-  light changed are reported for re-meshing.
+  light changed are reported for re-meshing. Three queues: edits, streaming, then
+  settling - fluid flow (`BlockUpdates::settling`) is re-meshed at once and relit
+  only when nothing streams, so springs in new chunks don't starve their light.
+  Scheduled block and fluid ticks run only within the simulation distance (vanilla
+  ticking chunks), like random ticks.
 - The renderer meshes a chunk only when it and its 8 neighbours are lit
   (`WorldRenderer::onChunksLit`), so loaded-area edges never show walls. Mesh jobs
   also capture shared section/light pointers (`captureSection`, 27 sections) and
@@ -106,8 +110,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   trilinear interpolation, cheese/spaghetti/noodle caves, biome per 4×4 column,
   surface rules, ores, trees (planned per chunk and cached per worker, so canopies
   from the 8 neighbours are placed exactly), plants, snow/ice top layer; the whole
-  chunk is built in one flat array and each section encoded once. `TerrainGenerator`
-  (M3 placeholder, kind "terrain") stays for worlds created with it. Both pin a hash.
+  chunk is built in one flat array and each section encoded once. Version 2, kind
+  "overworld2" (M18, default for new worlds), adds ravines (`ravine`/`inRavine`:
+  pure per start chunk, carved by every chunk within 9), lava lakes, springs (a
+  source plus a pending fluid tick, `Chunk::ticksRelative`) and more vegetation;
+  "overworld" (version 1) stays for worlds created with it. `TerrainGenerator`
+  (M3 placeholder, kind "terrain") stays too. Each pins a hash.
 - Biomes (`world/Biome`): 28 vanilla biomes with wiki colours; each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
   chunk's, vertices carry an 8-bit tint slot (w2 bits 12-19) read from the tint

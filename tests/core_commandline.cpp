@@ -121,14 +121,16 @@ TEST_CASE("command line: --dimension overworld|nether|end") {
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
 
-TEST_CASE("command line: --generator overworld|terrain") {
+TEST_CASE("command line: --generator overworld2|overworld|terrain; the newest is the default") {
     std::string error;
     std::array<const char*, 2> ok = {"--generator", "terrain"};
     const auto opts = mc::parseCommandLine(ok, error);
     REQUIRE(opts.has_value());
     CHECK(opts->generator == "terrain");
     std::array<const char*, 0> none = {};
-    CHECK(mc::parseCommandLine(none, error)->generator == "overworld"); // the default
+    CHECK(mc::parseCommandLine(none, error)->generator == "overworld2"); // the default
+    std::array<const char*, 2> old = {"--generator", "overworld"};
+    CHECK(mc::parseCommandLine(old, error)->generator == "overworld");
     std::array<const char*, 2> bad = {"--generator", "flat"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }

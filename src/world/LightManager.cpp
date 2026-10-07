@@ -10,6 +10,7 @@ LightManager::LightManager(World& world, int threads)
         m_free.push_back(std::make_unique<Job>());
     m_editQueue.reserve(1024);
     m_queue.reserve(1024);
+    m_settleQueue.reserve(1024);
     m_pendingEdits.reserve(4096); // fires and decaying leaves edit continuously
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
@@ -50,11 +51,15 @@ bool LightManager::neighbourhoodLoaded(ChunkPos pos) const {
     return true;
 }
 
-void LightManager::request(ChunkPos pos, bool edit) {
+void LightManager::request(ChunkPos pos, Priority priority) {
     Chunk* c = m_world.chunk(pos);
-    if (!c || c->lightJob.queued) return;
+    if (!c) return;
+    // A more urgent request moves a waiting chunk up to its queue (the older entry
+    // is dropped at submit: the chunk is no longer queued by then).
+    if (c->lightJob.queued && c->lightJob.priority >= priority) return;
     c->lightJob.queued = true;
-    (edit ? m_editQueue : m_queue).push_back(pos);
+    c->lightJob.priority = priority;
+    (priority == kEdit ? m_editQueue : priority == kStream ? m_queue : m_settleQueue).push_back(pos);
 }
 
 bool LightManager::submit(ChunkPos pos, std::vector<BlockPos>& editsReady) {
@@ -86,10 +91,9 @@ bool LightManager::submit(ChunkPos pos, std::vector<BlockPos>& editsReady) {
     return true;
 }
 
-void LightManager::update(const std::vector<ChunkPos>& loaded,
-                          const std::vector<ChunkPos>& unloaded,
-                          const std::vector<BlockPos>& edited, std::vector<ChunkPos>& newlyLit,
-                          std::vector<SectionPos>& relitSections,
+void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector<ChunkPos>& unloaded,
+                          const std::vector<BlockPos>& edited, const std::vector<BlockPos>& settling,
+                          std::vector<ChunkPos>& newlyLit, std::vector<SectionPos>& relitSections,
                           std::vector<BlockPos>& editsReady) {
     newlyLit.clear();
     relitSections.clear();
@@ -108,7 +112,7 @@ void LightManager::update(const std::vector<ChunkPos>& loaded,
                 const ChunkPos q{p.x + dx, p.z + dz};
                 const Chunk* c = m_world.chunk(q);
                 if (c && !c->lit() && c->lightJob.version == 0 && neighbourhoodLoaded(q))
-                    request(q, false);
+                    request(q, kStream);
             }
     }
     // An edit can change light up to 15 blocks away: relight the 3x3 chunks around
@@ -125,7 +129,19 @@ void LightManager::update(const std::vector<ChunkPos>& loaded,
             for (int dx = -1; dx <= 1; ++dx) {
                 const ChunkPos q{c.x + dx, c.z + dz};
                 const Chunk* ch = m_world.chunk(q);
-                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, true);
+                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, kEdit);
+            }
+    }
+
+    // Settling edits: re-meshed now, relit when the streaming queue gets there.
+    for (const BlockPos& b : settling) {
+        editsReady.push_back(b);
+        const ChunkPos c = b.chunk();
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx) {
+                const ChunkPos q{c.x + dx, c.z + dz};
+                const Chunk* ch = m_world.chunk(q);
+                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, kSettle);
             }
     }
 
@@ -145,7 +161,7 @@ void LightManager::update(const std::vector<ChunkPos>& loaded,
             if (first) newlyLit.push_back(job->pos);
             // Edits in this chunk now have current light, unless another job for it
             // is still queued (a later edit): then they wait for that one.
-            if (!chunk->lightJob.queued) {
+            if (!chunk->lightJob.queued || chunk->lightJob.priority == kSettle) { // (a settling relight may wait long)
                 std::erase_if(m_pendingEdits, [&](const BlockPos& b) {
                     if (b.chunk() != job->pos) return false;
                     editsReady.push_back(b);
@@ -168,6 +184,11 @@ void LightManager::update(const std::vector<ChunkPos>& loaded,
         m_queue.erase(m_queue.begin(), m_queue.begin() + static_cast<std::ptrdiff_t>(m_head));
         m_head = 0;
     }
+    if (m_head < m_queue.size()) return; // settling waits until nothing streams
+    size_t st = 0;
+    while (st < m_settleQueue.size() && !m_free.empty())
+        submit(m_settleQueue[st++], editsReady);
+    m_settleQueue.erase(m_settleQueue.begin(), m_settleQueue.begin() + static_cast<std::ptrdiff_t>(st));
 }
 
 } // namespace mc::world

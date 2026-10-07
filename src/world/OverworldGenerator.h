@@ -26,11 +26,17 @@ public:
     static constexpr int kSeaLevel = 63; // water fills y <= 62
     static constexpr int kLavaLevel = -54; // caves below this hold lava (wiki: Lava)
 
-    explicit OverworldGenerator(uint64_t seed);
+    // Generator generations (data-formats: generator kinds). Each world keeps the one
+    // it was created with, so its chunks never change; new worlds get the newest.
+    // 1 = "overworld" (M8), 2 = "overworld2" (M18: + lava lakes, springs, ravines,
+    // sugar cane, pumpkins, cacti, mushrooms).
+    static constexpr int kNewest = 2;
+    explicit OverworldGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
     glm::dvec3 findSpawn() const override;
-    std::string_view kind() const override { return "overworld"; }
+    std::string_view kind() const override { return m_version >= 2 ? "overworld2" : "overworld"; }
+    int version() const { return m_version; }
     uint64_t seed() const override { return m_seed; }
 
     // Climate and shape at a column (public for tests and spawn search).
@@ -45,6 +51,23 @@ public:
     Biome biomeAt(const Column& c) const;
     // Highest solid y of the interpolated terrain (caves ignored) at a column.
     int surfaceY(int32_t x, int32_t z) const;
+
+    // Ravines (vanilla's canyon carver): a worm of tall ellipsoids starting in 1 of 100
+    // chunks, up to ~112 blocks long, so each chunk carves the ravines of the chunks
+    // within kRavineReach of it. Steps are a pure function of the start chunk.
+    struct RavineStep {
+        float x, y, z; // centre (world)
+        float h, v;    // horizontal and vertical radius
+    };
+    static constexpr int kRavineSteps = 112, kRavineReach = 9; // (start offset 15 + 112 steps + radius < 9 chunks)
+    struct Ravine {
+        int count = 0;
+        std::array<RavineStep, kRavineSteps> steps{};
+        std::array<float, kOverworldHeight.height> rough{}; // wall roughness per y
+    };
+    // The ravine starting in a chunk (false if none); whether a block lies in one.
+    bool ravine(int32_t cx, int32_t cz, Ravine& out) const;
+    bool inRavine(int32_t x, int32_t y, int32_t z) const;
 
 private:
     double terrainDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
@@ -62,7 +85,15 @@ private:
     bool groundCarved(int32_t x, int32_t y, int32_t z) const;
     void placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t cx, int32_t cz) const;
 
+    // --- Overworld 2 features (M18.1) ---
+    void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;
+    void placeLavaLakes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY) const;
+    void placeSprings(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, int maxTop) const;
+    void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                         const std::array<Biome, 16>& biomes) const;
+
     uint64_t m_seed;
+    int m_version;
     OctaveNoise m_continentalness[2], m_erosion[2], m_weirdness[2], m_temperature[2],
         m_humidity[2];
     OctaveNoise m_terrain3d;  // overhangs / roughness

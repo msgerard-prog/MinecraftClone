@@ -220,6 +220,7 @@ public:
     struct LightJobState {
         uint32_t version = 0; // latest submitted job (0: none); globally unique
         bool queued = false;  // waiting in a LightManager queue
+        uint8_t priority = 0; // of the queue it waits in: 0 settling, 1 streaming, 2 edits
     } lightJob;
 
     // Light at local x/z, world y (above the world: full sky light).

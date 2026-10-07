@@ -31,7 +31,7 @@ BlockStateId S(BlockId b) { return blockRegistry().defaultState(b); }
 } // namespace
 
 TEST_CASE("overworld is deterministic per seed and position (pinned hash)") {
-    const OverworldGenerator a(42), b(42), other(7);
+    const OverworldGenerator a(42, 1), b(42, 1), other(7, 1); // "overworld" (M8)
     Chunk c1({3, -5}), c2({3, -5}), c3({3, -5});
     a.generate(c1);
     b.generate(c2);
@@ -44,8 +44,8 @@ TEST_CASE("overworld is deterministic per seed and position (pinned hash)") {
     CHECK(chunkHash(c1) == 1773355576298667210ull);
 }
 
-TEST_CASE("overworld: bedrock floor, sea at 63, ores at their depths, lava only deep") {
-    const OverworldGenerator gen(42);
+TEST_CASE("overworld (M8): bedrock floor, sea at 63, ores at their depths, lava only deep") {
+    const OverworldGenerator gen(42, 1); // overworld2 adds lava lakes and springs
     const auto& r = blockRegistry();
     int water = 0, waterAbove = 0, coal = 0, iron = 0, diamondsHigh = 0, diamonds = 0, lavaHigh = 0;
     for (int cz = -2; cz <= 2; ++cz)

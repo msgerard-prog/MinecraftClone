@@ -1,0 +1,143 @@
+// The M18 overworld generator ("overworld2"): the M8 terrain plus ravines, lava
+// lakes, springs and more vegetation.
+#include "world/Blocks.h"
+#include "world/OverworldGenerator.h"
+
+#include <doctest/doctest.h>
+
+#include <array>
+#include <cmath>
+#include <ostream>
+#include <utility>
+
+using namespace mc::world;
+
+namespace {
+
+uint64_t chunkHash(const Chunk& c) {
+    uint64_t h = 1469598103934665603ull;
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                h ^= c.get(x, y, z);
+                h *= 1099511628211ull;
+            }
+    return h;
+}
+
+int count(const Chunk& c, BlockId b, int minY = kOverworldHeight.minY) {
+    int n = 0;
+    for (int y = minY; y <= kOverworldHeight.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                n += blockRegistry().blockOf(c.get(x, y, z)) == b;
+    return n;
+}
+
+} // namespace
+
+TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld stays as it was") {
+    const OverworldGenerator a(42), b(42), old(42, 1);
+    CHECK(a.kind() == "overworld2");
+    CHECK(old.kind() == "overworld");
+    // Around the spawn (land: lakes, plants, springs) - same twice, then pinned.
+    const glm::dvec3 spawn = a.findSpawn();
+    uint64_t h = 0;
+    for (int k = 0; k < 9; ++k) {
+        const ChunkPos p{(int32_t(std::floor(spawn.x)) >> 4) + k % 3 - 1, (int32_t(std::floor(spawn.z)) >> 4) + k / 3 - 1};
+        Chunk c1(p), c2(p);
+        a.generate(c1);
+        b.generate(c2);
+        CHECK(chunkHash(c1) == chunkHash(c2));
+        h = h * 31 + chunkHash(c1);
+    }
+    Chunk o({3, -5});
+    old.generate(o);
+    CHECK(chunkHash(o) == 1773355576298667210ull); // the M8 pin (world_overworld.cpp)
+    // Pinned. overworld2 grows through M18 (biomes, structures) and is re-pinned at
+    // each M18 step until v0.18.0 freezes it; after that, changing it needs the user's OK.
+    CHECK(h == 18129735563671691549ull);
+}
+
+TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
+    const OverworldGenerator gen(42);
+    OverworldGenerator::Ravine rv;
+    int found = 0, carved = 0, checked = 0;
+    for (int cz = -20; cz <= 20 && found < 3; ++cz)
+        for (int cx = -20; cx <= 20 && found < 3; ++cx) {
+            if (!gen.ravine(cx, cz, rv)) continue;
+            ++found;
+            CHECK(rv.count > 40);
+            // A deep step's centre.
+            for (int i = rv.count / 3; i < rv.count; i += 7) {
+                const auto& st = rv.steps[size_t(i)];
+                if (st.y > 40.0f || st.y < -50.0f) continue;
+                const int32_t x = int32_t(std::floor(st.x)), y = int32_t(std::floor(st.y)), z = int32_t(std::floor(st.z));
+                CHECK(gen.inRavine(x, y, z));
+                Chunk c({x >> 4, z >> 4});
+                gen.generate(c);
+                ++checked;
+                // Air, or water under a sea (vanilla's flooded ravines).
+                const BlockId b = blockRegistry().blockOf(c.get(x & 15, y, z & 15));
+                carved += b == blocks::Air || b == blocks::Water;
+                break;
+            }
+        }
+    CHECK(found > 0);
+    REQUIRE(checked > 0);
+    CHECK(carved == checked);
+}
+
+TEST_CASE("overworld2: lava lakes, springs with pending fluid ticks, sugar cane by water") {
+    const OverworldGenerator gen(42);
+    const glm::dvec3 spawn = gen.findSpawn(); // on land
+    const int32_t sx = int32_t(std::floor(spawn.x)) >> 4, sz = int32_t(std::floor(spawn.z)) >> 4;
+    int lavaHigh = 0, springs = 0, cane = 0, mushrooms = 0;
+    for (int cz = sz - 3; cz <= sz + 3; ++cz)
+        for (int cx = sx - 3; cx <= sx + 3; ++cx) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            lavaHigh += count(c, blocks::Lava, OverworldGenerator::kLavaLevel);
+            cane += count(c, blocks::SugarCane);
+            mushrooms += count(c, blocks::BrownMushroom) + count(c, blocks::RedMushroom);
+            for (const auto& t : std::as_const(c).blockTicks()) {
+                const BlockId b = blockRegistry().blockOf(c.get(t.x, t.y, t.z));
+                CHECK(b == t.block); // a spring's own fluid
+                ++springs;
+            }
+            if (!std::as_const(c).blockTicks().empty()) CHECK(c.ticksRelative);
+        }
+    CHECK(lavaHigh > 0);
+    CHECK(springs > 0);
+    CHECK(cane > 0);
+    CHECK(mushrooms > 0);
+}
+
+TEST_CASE("overworld2: deserts grow cacti with nothing solid beside them") {
+    const OverworldGenerator gen(42);
+    int32_t dx = 0, dz = 0;
+    bool desert = false;
+    for (int r = 0; r < 4000 && !desert; r += 64)
+        for (int i = -r; i <= r && !desert; i += 64)
+            for (const auto& p : {std::array{i, -r}, std::array{i, r}, std::array{-r, i}, std::array{r, i}})
+                if (!desert && gen.biomeAt(gen.column(p[0], p[1])) == Biome::Desert) {
+                    desert = true;
+                    dx = p[0];
+                    dz = p[1];
+                }
+    REQUIRE(desert);
+    int cacti = 0;
+    for (int k = 0; k < 9; ++k) {
+        Chunk c({(dx >> 4) + k % 3 - 1, (dz >> 4) + k / 3 - 1});
+        gen.generate(c);
+        for (int y = 60; y < 200; ++y)
+            for (int z = 1; z < 15; ++z)
+                for (int x = 1; x < 15; ++x) {
+                    if (blockRegistry().blockOf(c.get(x, y, z)) != blocks::Cactus) continue;
+                    ++cacti;
+                    for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}})
+                        CHECK_FALSE(blockRegistry().collides(c.get(x + d[0], y, z + d[1])));
+                }
+    }
+    CHECK(cacti > 0);
+}

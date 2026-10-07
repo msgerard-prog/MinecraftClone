@@ -79,8 +79,9 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
         } else if (arg == "--generator") {
             auto v = needValue();
             if (!v) return std::nullopt;
-            if (std::string_view(*v) != "overworld" && std::string_view(*v) != "terrain") {
-                error = "--generator needs overworld or terrain";
+            const std::string_view g(*v);
+            if (g != "overworld2" && g != "overworld" && g != "terrain") {
+                error = "--generator needs overworld2, overworld or terrain";
                 return std::nullopt;
             }
             opts.generator = *v;

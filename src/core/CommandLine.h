@@ -39,7 +39,7 @@ struct LaunchOptions {
     std::string world;                 // --world NAME: saves/<NAME> (created if missing)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit
-    std::string generator = "overworld"; // --generator overworld|terrain (new worlds)
+    std::string generator = "overworld2"; // --generator overworld2|overworld|terrain (new worlds; newest default)
     std::string dimension;               // --dimension overworld|nether|end (start there)
 };
 

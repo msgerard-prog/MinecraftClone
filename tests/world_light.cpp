@@ -115,10 +115,10 @@ TEST_CASE("LightManager lights a chunk once its 3x3 is loaded; border chunks are
             loaded.push_back({x, z});
         }
     std::vector<ChunkPos> allLit;
-    lm.update(loaded, none, edits, lit, relit, ready);
+    lm.update(loaded, none, edits, edits, lit, relit, ready);
     for (int i = 0; i < 2000 && lm.pending() > 0; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        lm.update(none, none, edits, lit, relit, ready);
+        lm.update(none, none, edits, edits, lit, relit, ready);
         allLit.insert(allLit.end(), lit.begin(), lit.end());
     }
     // Only the centre has all 8 neighbours; the 8 border chunks wait, yet nothing is
@@ -182,11 +182,12 @@ struct LightRun {
     std::vector<SectionPos> relit;
     std::vector<BlockPos> ready;
     void step(LightManager& lm, const std::vector<ChunkPos>& loaded,
-              const std::vector<ChunkPos>& unloaded, const std::vector<BlockPos>& edits) {
+              const std::vector<ChunkPos>& unloaded, const std::vector<BlockPos>& edits,
+              const std::vector<BlockPos>& settling = {}) {
         std::vector<ChunkPos> l;
         std::vector<SectionPos> r;
         std::vector<BlockPos> e;
-        lm.update(loaded, unloaded, edits, l, r, e);
+        lm.update(loaded, unloaded, edits, settling, l, r, e);
         lit.insert(lit.end(), l.begin(), l.end());
         relit.insert(relit.end(), r.begin(), r.end());
         ready.insert(ready.end(), e.begin(), e.end());
@@ -231,6 +232,34 @@ TEST_CASE("LightManager: an edit is handed back only once its chunk is relit") {
     w.setBlock({20, 64, 4}, 0);
     run.step(lm, {}, {}, {{20, 64, 4}});
     CHECK(run.ready.size() == 1);
+}
+
+TEST_CASE("LightManager: settling edits (flowing fluids) come back at once and are relit later") {
+    World w = floorWorld(64);
+    LightManager lm(w, 1);
+    LightRun run;
+    std::vector<ChunkPos> all;
+    w.forEachChunk([&](const Chunk& c) { all.push_back(c.pos()); });
+    run.step(lm, all, {}, {});
+    run.finish(lm);
+    REQUIRE(w.chunk({0, 0})->lit());
+    const BlockPos hole{8, 64, 8};
+    w.setBlock(hole, 0);
+    run.ready.clear();
+    run.step(lm, {}, {}, {}, {hole});
+    REQUIRE(run.ready.size() == 1); // re-meshed now (stale light for a moment)
+    run.finish(lm);
+    CHECK(w.chunk({0, 0})->skyLight(8, 64, 8) == 15); // then relit
+    // A player edit after a settling one still jumps the queue: it waits for its relight.
+    const BlockPos hole2{9, 64, 8};
+    w.setBlock({10, 64, 8}, 0);
+    w.setBlock(hole2, 0);
+    run.ready.clear();
+    run.step(lm, {}, {}, {hole2}, {{10, 64, 8}});
+    CHECK(run.ready.size() == 1); // only the settling one
+    run.finish(lm);
+    CHECK(run.ready.size() == 2);
+    CHECK(w.chunk({0, 0})->skyLight(9, 64, 8) == 15);
 }
 
 TEST_CASE("LightManager: a chunk unloaded and reloaded mid-job gets fresh light") {
