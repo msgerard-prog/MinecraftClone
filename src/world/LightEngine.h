@@ -15,6 +15,7 @@ struct ChunkNeighbourhood {
     ChunkPos center;
     // [(dz + 1) * 3 + (dx + 1)][section]
     std::array<std::array<std::shared_ptr<const Section>, kSectionsPerChunk>, 9> sections;
+    bool hasSkyLight = true; // false in the Nether and the End (wiki: Light › Sky light)
 
     // Main thread. Returns false if any of the 9 chunks isn't loaded.
     static bool capture(const World& world, ChunkPos center, ChunkNeighbourhood& out);

@@ -42,6 +42,9 @@ enum class Biome : uint8_t {
     LukewarmOcean,
     ColdOcean,
     FrozenOcean,
+    // Other dimensions (M12).
+    NetherWastes,
+    TheEnd,
     Count
 };
 

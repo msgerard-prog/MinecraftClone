@@ -46,7 +46,9 @@ ItemRegistry buildItems() {
     for (BlockId b = 1; b < blocks.blockCount(); ++b) {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
         // Placed by another item (redstone dust, torches on walls) or never an item.
-        if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead) continue;
+        if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead ||
+            b == blocks::NetherPortal || b == blocks::EndPortal)
+            continue;
         const std::string& id = blocks.block(b).id;
         r.mapBlock(b, r.add({.id = id, .block = b}));
     }
@@ -89,6 +91,10 @@ ItemRegistry buildItems() {
         r.add({.id = std::string("minecraft:") + name,
                .block = std::string_view(name) == "redstone" ? BlockId(blocks::RedstoneWire) : BlockId(0),
                .texture = std::string("item/") + name});
+    // Dimensions (wiki: Flint and Steel - 64 uses; Eye of Ender; Nether Quartz).
+    r.add({.id = "minecraft:flint_and_steel", .maxStack = 1, .durability = 64, .texture = "item/flint_and_steel"});
+    r.add({.id = "minecraft:ender_eye", .texture = "item/ender_eye"});
+    r.add({.id = "minecraft:quartz", .texture = "item/quartz"});
     // Redstone dust is placed as redstone_wire; wall torches drop the torch item.
     r.mapBlock(blocks::RedstoneWire, *r.find("redstone"));
     r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));

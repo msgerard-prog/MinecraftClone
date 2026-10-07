@@ -26,6 +26,9 @@ extern const Property facing6;    // "facing": down | up | north | south | west 
 extern const Property extended;   // true | false (pistons)
 extern const Property shortArm;   // "short": true | false (piston head)
 extern const Property pistonType; // "type": normal | sticky (piston head)
+// Dimensions (M12).
+extern const Property haxis; // "axis": x | z (nether portal)
+extern const Property eye;   // true | false (end portal frame)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -113,6 +116,17 @@ enum : BlockId {
     Piston,       // facing (6), extended
     StickyPiston,
     PistonHead, // facing (6), short, type
+    // Nether and End (M12).
+    Netherrack,
+    SoulSand,
+    NetherQuartzOre,
+    NetherGoldOre,
+    MagmaBlock,
+    Obsidian,
+    NetherPortal, // axis (x | z)
+    EndStone,
+    EndPortalFrame, // eye, facing
+    EndPortal,
     Count
 };
 } // namespace blocks

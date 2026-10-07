@@ -43,6 +43,10 @@ public:
     }
     void setListener(BlockUpdateListener* listener) { m_listener = listener; }
 
+    // Dimension property: the Nether and the End have no sky light.
+    bool hasSkyLight() const { return m_hasSkyLight; }
+    void setHasSkyLight(bool v) { m_hasSkyLight = v; }
+
     // Chunks with something that ticks (block entities, mobs), so game ticks never
     // scan every loaded chunk (vanilla keeps level-wide ticking lists too).
     // markTicking() after adding mobs/entities to a chunk; entries whose chunk was
@@ -76,6 +80,7 @@ private:
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
+    bool m_hasSkyLight = true;
 };
 
 } // namespace mc::world

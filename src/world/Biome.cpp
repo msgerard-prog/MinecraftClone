@@ -38,6 +38,8 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:lukewarm_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x45ADF2},
     {"minecraft:cold_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3D57D6},
     {"minecraft:frozen_ocean", 0.0f, 0x80B497, 0x60A17B, 0x3938C9},
+    {"minecraft:nether_wastes", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4},
+    {"minecraft:the_end", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

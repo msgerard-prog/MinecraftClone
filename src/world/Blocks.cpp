@@ -30,6 +30,8 @@ const Property facing6{"facing", {"down", "up", "north", "south", "west", "east"
 const Property extended{"extended", {"true", "false"}};
 const Property shortArm{"short", {"true", "false"}};
 const Property pistonType{"type", {"normal", "sticky"}};
+const Property haxis{"axis", {"x", "z"}};
+const Property eye{"eye", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -227,6 +229,28 @@ BlockRegistry buildVanillaBlocks() {
             const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
             if (r.get(s, lit) == 0) r.setStateEmission(s, b == blocks::RedstoneLamp ? 15 : 7);
         }
+    // --- The Nether and the End (M12; wiki: each block's infobox).
+    check(r.add("netherrack", {.hardness = 0.4f, .resistance = 0.4f}), blocks::Netherrack);
+    check(r.add("soul_sand", {.hardness = 0.5f, .resistance = 0.5f}), blocks::SoulSand);
+    check(r.add("nether_quartz_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::NetherQuartzOre);
+    check(r.add("nether_gold_ore", {.hardness = 3.0f, .resistance = 3.0f}), blocks::NetherGoldOre);
+    check(r.add("magma_block", {.hardness = 0.5f, .resistance = 0.5f, .lightEmission = 3}), blocks::MagmaBlock);
+    check(r.add("obsidian", {.hardness = 50.0f, .resistance = 1200.0f}), blocks::Obsidian);
+    // Portal blocks: unbreakable, no collision; nether portals glow 11, end portals 15.
+    check(r.add("nether_portal",
+                {.hardness = -1.0f, .lightEmission = 11, .opaqueCube = false, .collision = false,
+                 .layer = RenderLayer::Translucent},
+                {{&haxis, "x"}}),
+          blocks::NetherPortal);
+    check(r.add("end_stone", {.hardness = 3.0f, .resistance = 9.0f}), blocks::EndStone);
+    check(r.add("end_portal_frame", {.hardness = -1.0f, .resistance = 3600000.0f, .lightEmission = 1,
+                                     .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&eye, "false"}, {&facing, "north"}}),
+          blocks::EndPortalFrame);
+    check(r.add("end_portal", {.hardness = -1.0f, .resistance = 3600000.0f, .lightEmission = 15,
+                               .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout}),
+          blocks::EndPortal);
+
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})
         for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {

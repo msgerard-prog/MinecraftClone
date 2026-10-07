@@ -89,6 +89,21 @@ def moon_phases():
     return img
 
 
+def end_portal():
+    """The End portal's surface (block/end_portal.png, our own): a deep teal-black
+    void with scattered pale stars. Vanilla draws it with a shader instead."""
+    rng = random.Random("end_portal")
+    img = Img(16, 16, (8, 14, 18, 255))
+    for y in range(16):
+        for x in range(16):
+            v = rng.random()
+            if v < 0.08:
+                img.set(x, y, (12 + rng.randrange(20), 40 + rng.randrange(40), 44 + rng.randrange(40), 255))
+            elif v < 0.12:
+                img.set(x, y, (150 + rng.randrange(80), 220, 200 + rng.randrange(50), 255))
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for a 4x preview")
@@ -98,6 +113,9 @@ def main():
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png ({img.w}x{img.h})")
+    block = OUT.parent / "block" / "end_portal.png"
+    block.write_bytes(encode_png(end_portal()))
+    print(f"wrote {block}")
     if args.preview:
         out = Path(args.preview)
         out.mkdir(parents=True, exist_ok=True)

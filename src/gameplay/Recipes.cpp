@@ -95,6 +95,8 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"PPP", "CIC", "CRC"},
                        {{'P', kPlanks}, {'C', item("cobblestone")}, {'I', item("iron_ingot")}, {'R', redstone}},
                        "piston"));
+    // (wiki: Flint and Steel)
+    r.push_back(shapeless({item("iron_ingot"), item("flint")}, "flint_and_steel"));
     return r;
 }
 

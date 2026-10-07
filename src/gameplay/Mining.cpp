@@ -27,6 +27,11 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::MossyCobblestone:
     case blocks::Furnace:
     case blocks::RedstoneBlock: // wiki: Block of Redstone - any pickaxe
+    case blocks::Netherrack:
+    case blocks::NetherQuartzOre:
+    case blocks::NetherGoldOre:
+    case blocks::MagmaBlock:
+    case blocks::EndStone:
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre: return {T::Pickaxe, 0};
     case blocks::IronOre:
@@ -43,6 +48,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DeepslateDiamondOre:
     case blocks::EmeraldOre:
     case blocks::DeepslateEmeraldOre: return {T::Pickaxe, 2};
+    case blocks::Obsidian: return {T::Pickaxe, 3}; // wiki: Obsidian - diamond pickaxe
     case blocks::Ice:
     case blocks::PackedIce:
     case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
@@ -57,6 +63,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::RedSand:
     case blocks::Gravel:
     case blocks::Clay:
+    case blocks::SoulSand:
     case blocks::CoarseDirt: return {T::Shovel, -1};
     case blocks::SnowBlock:
     case blocks::Snow: return {T::Shovel, 0}; // wiki: Snow Block - needs a shovel to drop
@@ -116,7 +123,7 @@ namespace {
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
     ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple;
+        flint, gravel, clay, stick, apple, quartz;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
@@ -124,6 +131,7 @@ struct DropIds {
         redstone = *i.find("redstone"), lapis = *i.find("lapis_lazuli"), diamond = *i.find("diamond");
         emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
         clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
+        quartz = *i.find("quartz");
     }
 };
 const DropIds& dropIds() {
@@ -161,6 +169,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::EmeraldOre:
     case blocks::DeepslateEmeraldOre: add(d.emerald); return;
     case blocks::Gravel: add(rng.nextFloat() < 0.1f ? d.flint : d.gravel); return; // wiki: 10% flint
+    case blocks::NetherQuartzOre: add(d.quartz); return;
+    // (wiki: Nether Gold Ore - 2-6 gold nuggets; nuggets don't exist yet: the ore drops itself)
     case blocks::Clay: add(d.clay); return; // vanilla: 4 clay balls (item not added yet)
     case blocks::OakLeaves:
     case blocks::BirchLeaves:

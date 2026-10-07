@@ -23,6 +23,14 @@ struct LevelData {
     int64_t gameTime = 0;
     int32_t spawn[3] = {0, 64, 0}; // world spawn (fixed at creation; SpawnX/Y/Z)
     double pos[3] = {0, 0, 0};     // player feet
+    std::string dimension = "minecraft:overworld"; // the player's dimension
+    // Nether portals players lit or arrived through (vanilla keeps them in poi/ files;
+    // ours: a list in our own level.dat tag), so travel links back to them.
+    struct Portal {
+        std::string dimension;
+        int32_t x, y, z;
+    };
+    std::vector<Portal> portals;
     float yaw = 0, pitch = 0;
     bool flying = false;
     bool survival = false; // GameType / playerGameType 0 (survival) or 1 (creative)

@@ -217,6 +217,41 @@ def leather():
     return s.render()
 
 
+def flint_and_steel():
+    # A curved steel striker (an open ring) and a flint chip beside it.
+    steel = ramp(hexc("#B8B8C0"), 5, spread=0.4)
+    s = Shape()
+    ring = {(x, y) for x in range(16) for y in range(16)
+            if 2.2 <= math.hypot(x - 6, y - 6) <= 4.2 and not (x > 6 and y > 6)}
+    s.add(ring, steel)
+    s.add({(x, y) for x in range(16) for y in range(16)
+           if 8 <= x <= 13 and 8 <= y <= 13 and abs(x - y) <= 2 + (x + y) % 2}, ramp(hexc("#4A4A4E"), 5, spread=0.4))
+    return s.render()
+
+
+def ender_eye():
+    # A round green-teal eye with a dark slit pupil.
+    pal = ramp(hexc("#3E9A7A"), 5, spread=0.45)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 7.5) < 5.6}, pal)
+    img = s.render()
+    for y in range(4, 12):
+        img.set(7, y, hexc("#10261E"))
+        img.set(8, y, hexc("#10261E"))
+    img.set(5, 5, pal[4])
+    img.set(6, 4, pal[4])
+    return img
+
+
+def quartz():
+    # Two white crystal prisms, pointed tops.
+    pal = ramp(hexc("#E8E2D8"), 5, spread=0.25)
+    s = Shape()
+    s.add({(x, y) for x in range(4, 9) for y in range(3, 14) if y >= 3 + abs(x - 6)}, pal)
+    s.add({(x, y) for x in range(8, 13) for y in range(6, 14) if y >= 6 + abs(x - 10)}, pal)
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -241,6 +276,9 @@ def all_items():
     items["cooked_beef"] = meat("cooked_beef", "#6A3A22", "#B07040", marbled=False)
     items["rotten_flesh"] = meat("rotten_flesh", "#8A6A3A", "#5A8A3A")
     items["leather"] = leather()
+    items["flint_and_steel"] = flint_and_steel()
+    items["ender_eye"] = ender_eye()
+    items["quartz"] = quartz()
     return items
 
 

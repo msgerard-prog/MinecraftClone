@@ -37,6 +37,7 @@ const std::shared_ptr<const SectionLight>& sharedUniformLight(uint8_t sky) {
 
 bool ChunkNeighbourhood::capture(const World& world, ChunkPos center, ChunkNeighbourhood& out) {
     out.center = center;
+    out.hasSkyLight = world.hasSkyLight();
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dx = -1; dx <= 1; ++dx) {
             const Chunk* c = world.chunk({center.x + dx, center.z + dz});
@@ -62,8 +63,9 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
         for (int s = kSectionsPerChunk - 1; s > topSection; --s)
             if (!chunk[s]->isEmpty()) topSection = s;
     ChunkLight result;
+    const uint8_t open = n.hasSkyLight ? 15 : 0; // light of the open air above everything
     if (topSection < 0) { // nothing at all: fully lit sky
-        result.fill(sharedUniformLight(15));
+        result.fill(sharedUniformLight(open));
         return result;
     }
     // Up to 15 blocks above the highest non-empty section: block light from emitters
@@ -157,7 +159,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     r.queue.clear();
     for (int iz = 0; iz < kW; ++iz) {
         for (int ix = 0; ix < kW; ++ix) {
-            int level = 15;
+            int level = open;
             for (int y = r.y1 - 1; y >= r.y0 && level > 0; --y) {
                 const int i = r.index(ix, y, iz);
                 const int o = r.opacity[i];
@@ -196,7 +198,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     for (int s = 0; s < kSectionsPerChunk; ++s) {
         const int baseY = kMinY + s * 16;
         if (baseY >= r.y1) {
-            result[s] = sharedUniformLight(15);
+            result[s] = sharedUniformLight(open);
             continue;
         }
         if (baseY < r.y0) {
@@ -210,7 +212,7 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
                 for (int lx = 0; lx < 16; ++lx) {
                     const int si = Section::index(lx, ly, lz);
                     if (y >= r.y1) {
-                        light->sky.set(si, 15);
+                        light->sky.set(si, open);
                         continue;
                     }
                     const int i = r.index(lx + kMargin, y, lz + kMargin);

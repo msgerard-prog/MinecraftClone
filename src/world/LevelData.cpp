@@ -47,7 +47,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     Compound player;
     player.put("Pos", listOf(TagType::Double, {pos[0], pos[1], pos[2]}));
     player.put("Rotation", listOf(TagType::Float, {yaw, pitch}));
-    player.put("Dimension", std::string("minecraft:overworld"));
+    player.put("Dimension", dimension);
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
     abilities.put("mayfly", static_cast<int8_t>(survival ? 0 : 1));
@@ -94,6 +94,16 @@ bool LevelData::save(const std::filesystem::path& dir) const {
 
     Compound ours;
     ours.put("generator", flat ? std::string("flat") : generator);
+    std::vector<Tag> portalTags;
+    for (const Portal& p : portals) {
+        Compound c;
+        c.put("dimension", p.dimension);
+        c.put("x", p.x);
+        c.put("y", p.y);
+        c.put("z", p.z);
+        portalTags.emplace_back(std::move(c));
+    }
+    ours.put("portals", listOf(TagType::Compound, std::move(portalTags)));
     data.put("MinecraftClone", std::move(ours));
 
     Compound root;
@@ -153,11 +163,18 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     l.spawn[2] = static_cast<int32_t>(data->integer("SpawnZ").value_or(0));
     if (const Compound* gen = data->compound("WorldGenSettings"))
         l.seed = static_cast<uint64_t>(gen->integer("seed").value_or(0));
-    if (const Compound* ours = data->compound("MinecraftClone"))
+    if (const Compound* ours = data->compound("MinecraftClone")) {
         if (auto g = ours->string("generator")) {
             l.flat = *g == "flat";
             if (!l.flat) l.generator = *g;
         }
+        if (const List* portals = ours->list("portals"))
+            for (const Tag& t : portals->items)
+                if (const Compound* c = t.get<Compound>(); c && c->string("dimension"))
+                    l.portals.push_back({*c->string("dimension"), static_cast<int32_t>(c->integer("x").value_or(0)),
+                                         static_cast<int32_t>(c->integer("y").value_or(0)),
+                                         static_cast<int32_t>(c->integer("z").value_or(0))});
+    }
     if (const Compound* p = data->compound("Player")) {
         if (const List* pos = p->list("Pos"); pos && pos->items.size() == 3)
             for (int i = 0; i < 3; ++i)
@@ -166,6 +183,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             if (auto v = rot->items[0].get<float>()) l.yaw = *v;
             if (auto v = rot->items[1].get<float>()) l.pitch = *v;
         }
+        if (auto d = p->string("Dimension")) l.dimension = *d;
         if (const Compound* a = p->compound("abilities")) l.flying = a->integer("flying").value_or(0) != 0;
         l.survival = p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)) == 0;
         if (auto h = p->real("Health")) l.health = static_cast<float>(*h);
