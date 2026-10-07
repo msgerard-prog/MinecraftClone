@@ -19,20 +19,21 @@ ChunkStorage::~ChunkStorage() {
     m_thread.join();
 }
 
-RegionFile* ChunkStorage::region(ChunkPos pos, bool create) {
+RegionFile* ChunkStorage::region(ChunkPos pos, bool create, bool entities) {
     const std::pair key{pos.x >> 5, pos.z >> 5};
-    auto it = m_regions.find(key);
-    if (it != m_regions.end()) return it->second.get();
+    auto& regions = entities ? m_entityRegions : m_regions;
+    auto it = regions.find(key);
+    if (it != regions.end()) return it->second.get();
     auto file = std::make_unique<RegionFile>();
-    const auto path = m_dir / "region" /
+    const auto path = m_dir / (entities ? "entities" : "region") /
                       ("r." + std::to_string(key.first) + "." + std::to_string(key.second) + ".mca");
     if (!file->open(path, create)) {
         // Loads never create files: a missing region just means "never saved".
         if (create) MC_LOG_ERROR("Can't open region file %s", path.string().c_str());
         return nullptr;
     }
-    if (m_regions.size() >= 64) m_regions.erase(m_regions.begin()); // bound open handles
-    return m_regions.emplace(key, std::move(file)).first->second.get();
+    if (regions.size() >= 64) regions.erase(regions.begin()); // bound open handles
+    return regions.emplace(key, std::move(file)).first->second.get();
 }
 
 bool ChunkStorage::load(Chunk& chunk) {
@@ -46,6 +47,7 @@ bool ChunkStorage::load(Chunk& chunk) {
                 chunk.mutableSection(s) = *snap.sections[size_t(s)];
             if (snap.biomes) chunk.setBiomes(snap.biomes);
             chunk.furnaces() = snap.furnaces;
+            chunk.mobs() = snap.mobs;
             chunk.clearDirty();
             return true;
         }
@@ -73,6 +75,21 @@ bool ChunkStorage::load(Chunk& chunk) {
         return false;
     }
     if (unknown > 0) MC_LOG_WARN("Chunk %d,%d: %d unknown block states became air", pos.x, pos.z, unknown);
+    // Entities live in their own region files (1.17+); a chunk without one has none.
+    {
+        std::optional<std::vector<uint8_t>> ebytes;
+        {
+            std::lock_guard lock(m_fileMutex);
+            RegionFile* r = region(pos, /*create=*/false, /*entities=*/true);
+            if (r && r->has(RegionFile::index(pos.x, pos.z))) ebytes = r->read(RegionFile::index(pos.x, pos.z));
+        }
+        if (ebytes) {
+            try {
+                if (auto en = nbt::read(*ebytes)) entitiesFromNbt(*en, chunk);
+            } catch (const std::bad_alloc&) {
+            }
+        }
+    }
     chunk.clearDirty();
     return true;
 }
@@ -133,6 +150,12 @@ void ChunkStorage::run() {
             std::lock_guard files(m_fileMutex);
             RegionFile* r = region(pos, /*create=*/true);
             ok = r && r->write(RegionFile::index(pos.x, pos.z), bytes, now);
+            // Entities file: written when there are mobs, or to clear an old one.
+            RegionFile* er = region(pos, /*create=*/!snap.mobs.empty(), /*entities=*/true);
+            if (er && (!snap.mobs.empty() || er->has(RegionFile::index(pos.x, pos.z)))) {
+                const auto ebytes = nbt::write(entitiesToNbt(snap));
+                ok = ok && er->write(RegionFile::index(pos.x, pos.z), ebytes, now);
+            }
             if (!ok) MC_LOG_ERROR("Failed to save chunk %d,%d (kept in memory)", pos.x, pos.z);
         }
 

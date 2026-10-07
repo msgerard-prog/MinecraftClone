@@ -34,7 +34,7 @@ public:
     int queued() const;
 
 private:
-    RegionFile* region(ChunkPos pos, bool create); // m_fileMutex held
+    RegionFile* region(ChunkPos pos, bool create, bool entities = false); // m_fileMutex held
     void run();
 
     std::filesystem::path m_dir;
@@ -51,6 +51,7 @@ private:
     bool m_stop = false;
     std::mutex m_fileMutex; // region files
     std::map<std::pair<int, int>, std::unique_ptr<RegionFile>> m_regions;
+    std::map<std::pair<int, int>, std::unique_ptr<RegionFile>> m_entityRegions; // entities/
     std::thread m_thread;
 };
 

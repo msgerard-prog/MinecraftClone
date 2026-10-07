@@ -21,6 +21,7 @@ struct ChunkSnapshot {
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light; // may be null
     std::shared_ptr<const ChunkBiomes> biomes;
     std::vector<Chunk::FurnaceEntry> furnaces; // block entities
+    std::vector<MobData> mobs;                 // saved in entities/ (1.17+ layout)
     int64_t gameTime = 0; // written as LastUpdate
 
     static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);
@@ -39,5 +40,11 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk);
 // ignored (that property keeps its default). Light is not read: it is recomputed on load.
 // Returns false if the NBT isn't a chunk at that position.
 bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = nullptr);
+
+// The chunk's entities file (wiki: Entity format, 1.17+ entities/ region files):
+// { DataVersion, Position [I; x, z], Entities [ {id, Pos, Motion, Rotation, Health,
+// OnGround, FallDistance, Fire, HurtTime, DeathTime, PersistenceRequired, UUID} ] }.
+nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk);
+void entitiesFromNbt(const nbt::Compound& nbt, Chunk& chunk);
 
 } // namespace mc::world

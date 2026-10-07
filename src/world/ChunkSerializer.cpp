@@ -14,6 +14,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.gameTime = gameTime;
     s.biomes = chunk.biomes();
     s.furnaces = chunk.furnaces();
+    s.mobs = chunk.mobs();
     for (int i = 0; i < kSectionsPerChunk; ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
@@ -346,6 +347,74 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         }
     chunk.setBiomes(std::move(biomes));
     return true;
+}
+
+nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
+    nbt::Compound root;
+    root.put("DataVersion", kDataVersion);
+    root.put("Position", std::vector<int32_t>{chunk.pos.x, chunk.pos.z});
+    std::vector<nbt::Tag> list;
+    for (const MobData& m : chunk.mobs) {
+        if (m.health <= 0.0f) continue; // dying mobs are not saved
+        nbt::Compound e;
+        e.put("id", std::string(mobInfo(m.type).id));
+        e.put("Pos", nbt::listOf(nbt::TagType::Double, {m.pos.x, m.pos.y, m.pos.z}));
+        e.put("Motion", nbt::listOf(nbt::TagType::Double, {m.vel.x, m.vel.y, m.vel.z}));
+        e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
+        e.put("Health", m.health);
+        e.put("OnGround", static_cast<int8_t>(m.onGround ? 1 : 0));
+        e.put("FallDistance", m.fallDistance);
+        e.put("Fire", static_cast<int16_t>(m.fireTicks));
+        e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
+        e.put("DeathTime", int16_t{0});
+        e.put("PersistenceRequired", static_cast<int8_t>(m.persistent ? 1 : 0));
+        e.put("UUID", std::vector<int32_t>{int32_t(m.uuidHi >> 32), int32_t(m.uuidHi), int32_t(m.uuidLo >> 32),
+                                           int32_t(m.uuidLo)});
+        list.emplace_back(std::move(e));
+    }
+    root.put("Entities", nbt::listOf(nbt::TagType::Compound, std::move(list)));
+    return root;
+}
+
+void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
+    chunk.mobs().clear();
+    const nbt::List* list = root.list("Entities");
+    if (!list) return;
+    for (const nbt::Tag& t : list->items) {
+        const nbt::Compound* e = t.get<nbt::Compound>();
+        const std::string* id = e ? e->string("id") : nullptr;
+        if (!id) continue;
+        MobData m;
+        bool known = false;
+        for (int k = 0; k < static_cast<int>(MobType::Count); ++k)
+            if (mobInfo(static_cast<MobType>(k)).id == *id) {
+                m.type = static_cast<MobType>(k);
+                known = true;
+            }
+        if (!known) continue; // entity types we don't have yet are skipped
+        auto vec3 = [&](const char* key, glm::dvec3& out) {
+            if (const nbt::List* l = e->list(key); l && l->items.size() == 3)
+                for (int i = 0; i < 3; ++i)
+                    if (auto d = l->items[size_t(i)].get<double>()) out[i] = *d;
+        };
+        vec3("Pos", m.pos);
+        vec3("Motion", m.vel);
+        m.prevPos = m.goal = m.pos;
+        if (const nbt::List* r = e->list("Rotation"); r && r->items.size() == 2) {
+            if (auto v = r->items[0].get<float>()) m.yaw = m.prevYaw = m.headYaw = *v;
+            if (auto v = r->items[1].get<float>()) m.pitch = *v;
+        }
+        m.health = static_cast<float>(e->real("Health").value_or(mobInfo(m.type).maxHealth));
+        m.onGround = e->integer("OnGround").value_or(0) != 0;
+        m.fireTicks = static_cast<int16_t>(e->integer("Fire").value_or(0));
+        m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
+        if (const nbt::Tag* u = e->find("UUID"))
+            if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
+                m.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
+            }
+        if (m.health > 0.0f) chunk.mobs().push_back(m);
+    }
 }
 
 } // namespace mc::world
