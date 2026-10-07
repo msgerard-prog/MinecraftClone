@@ -81,6 +81,7 @@ The first build downloads dependencies into `out/deps` (≈1 min). Build output 
    observed behaviour, never paste decompiled source. Textures in `assets/` are our own.
    Vanilla textures may only be loaded at runtime from the git-ignored `resourcepacks/`
    (never read them yourself; test with `tests/data/testpack` from tools/make_test_pack.py).
+   Our textures are original art in vanilla's style (docs/art-style.md, ADR 0006).
 6. Subsystem dependencies only point "down" the layer list in docs/architecture.md.
 7. OpenGL calls only in `rendering/`. `main.cpp` drives `gfx::WorldRenderer`.
 8. Every bug fix gets a regression test where testable.

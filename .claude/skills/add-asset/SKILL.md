@@ -4,19 +4,23 @@ description: Create a new placeholder texture or other asset (our own, never Moj
 ---
 # Add an asset
 
-1. **Never copy** from a vanilla jar, the internet, or `resourcepacks/` (ADR 0004).
-   We make our own.
+Textures are **original art in Minecraft's style, sharper than vanilla**
+(docs/art-style.md, ADR 0006). Read docs/art-style.md before making one.
+
+1. **Never copy** from a vanilla jar, the internet, or `resourcepacks/` — no tracing,
+   colour sampling or pixel-by-pixel redraws (ADR 0004/0006). Work from a written
+   description of the material.
 2. Path follows vanilla's layout so a real pack overrides it file for file:
    `assets/minecraft/textures/{block,item,entity,gui}/<vanilla_name>.png`.
-3. Make it: 16×16 RGBA PNG (entities/GUI: vanilla's sheet size). Placeholder style:
-   the material's base colour + light per-pixel noise + a 1px darker edge where it
-   helps read block boundaries. Generate it with a small Python script using
-   only the standard library: add a function + entry in `TEXTURES` in
-   `tools/textures/gen_placeholders.py` (colour constants at the top), then run it.
-   Each texture has its own seeded RNG, so other textures don't change.
-4. Animated textures: vertical strip of N 16×16 frames + `<name>.png.mcmeta`
-   (`{"animation":{"frametime":2}}`).
-5. No registration needed: `TextureAtlas` stitches every PNG in `textures/block/`.
-   Reference it by file stem (`atlas.sprite("stone")`).
-6. Look at the generated PNG with Read. Then `visual-check` it in-game. Commit
-   the PNG and the generator change together.
+3. Design it in `tools/textures/gen_placeholders.py`: add a palette ramp (4–5 shades,
+   cool shadows, warm highlights) at the top, a function using the helpers (`fbm`,
+   `voronoi`, `bevel`, `ramp`), and an entry in `TEXTURES`. Tinted materials
+   (leaves, grass, water) are greyscale.
+4. Animated textures: vertical strip of N 16x16 frames + `<name>.png.mcmeta`
+   (`{"animation":{"frametime":2}}`); the atlas animates it per tick.
+5. Run `tools/textures/gen_placeholders.py --preview out/screenshots/tex.png` and
+   Read the preview: crisp shapes, readable material, no seams in the 3x3 tiling.
+   Only the new texture's PNG should change (`git status`).
+6. No registration needed: `TextureAtlas` stitches every PNG in `textures/block/`.
+   Reference it by file stem. Then `visual-check` in game (close-up and far).
+   Commit the PNG and the generator change together.
