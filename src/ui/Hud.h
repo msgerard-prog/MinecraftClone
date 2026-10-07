@@ -20,6 +20,13 @@ inline constexpr uint32_t kIconGrassTint = gfx::rgba(0x7C, 0xBD, 0x6B);
 void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::ItemIcons& icons,
                 const gfx::BlockModels& models, int guiWidth, int guiHeight);
 
+// Survival HUD (wiki: Heads-up display): 10 hearts above the hotbar's left half,
+// 10 hunger shanks on the right half (right to left). Values in halves (0..20).
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight);
+
+// The death screen: red tint, "You died!" and how to respawn.
+void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);
+
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {
     int fps = 0;

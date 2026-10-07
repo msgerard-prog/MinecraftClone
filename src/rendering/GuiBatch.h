@@ -10,7 +10,10 @@
 namespace mc::gfx {
 
 // Textures the GUI samples (vertex field `texture`; see assets/shaders/gui.frag).
-enum class GuiTexture : uint32_t { White = 0, Font = 1, Hotbar = 2, Selection = 3, Atlas = 4 };
+enum class GuiTexture : uint32_t { White = 0, Font = 1, Hotbar = 2, Selection = 3, Atlas = 4, Icons = 5 };
+
+// Survival HUD icons: 9x9 cells in the Icons strip (u = index * 9).
+enum class HudIcon : int { HeartFull, HeartHalf, HeartContainer, FoodFull, FoodHalf, FoodEmpty, Count };
 
 // GUI vertex: position in GUI pixels (origin top-left), UV in texels of its texture.
 struct GuiVertex {
@@ -66,7 +69,8 @@ public:
     void sprite(GuiTexture tex, float x, float y, float w, float h, float u, float v, float uw,
                 float vh, uint32_t color = rgba(255, 255, 255));
     // Text with vanilla's drop shadow (1 px down-right, colour / 4). Returns the width.
-    int text(std::string_view s, float x, float y, uint32_t color, bool shadow = true);
+    int text(std::string_view s, float x, float y, uint32_t color, bool shadow = true,
+             float scale = 1.0f);
     int textWidth(std::string_view s) const;
     // A block as a 16x16 GUI item: isometric cube (top, south and east faces shaded
     // 1.0 / 0.8 / 0.6), or its sprite flat for non-cube models (torch).

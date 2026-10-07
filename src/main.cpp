@@ -19,6 +19,9 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/ItemEntities.h"
+#include "gameplay/Vitals.h"
+#include "rendering/EntityRenderer.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
 #include "ui/CreativeInventory.h"
@@ -294,6 +297,17 @@ int main(int argc, char** argv) {
 
     if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
     mc::Inventory inventory;
+    // Survival (M9): game mode, health/hunger, dropped items.
+    bool survival = level && level->survival;
+    mc::Vitals vitals;
+    if (level) vitals.setState(level->health, level->food, level->saturation, level->exhaustion);
+    mc::ItemEntities droppedItems;
+    mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
+    std::vector<mc::BlockInteraction::Drop> drops;
+    drops.reserve(16);
+    bool dead = false;
+    mc::gfx::EntityRenderer entities;
+    if (!entities.init(renderer.atlas(), renderer.models(), itemIcons)) return 1;
     if (level && !opts->hasPos) { // resume where the player left
         player.setPosition({level->pos[0], level->pos[1], level->pos[2]});
         player.setRotation(level->yaw, level->pitch);
@@ -354,6 +368,11 @@ int main(int argc, char** argv) {
         l.yaw = player.yaw();
         l.pitch = player.pitch();
         l.flying = player.flying();
+        l.survival = survival;
+        l.health = vitals.health();
+        l.food = vitals.food();
+        l.saturation = vitals.saturation();
+        l.exhaustion = vitals.exhaustion();
         for (int i = 0; i < mc::Inventory::kSlots; ++i) {
             const mc::world::ItemStack& s = inventory.slot(i);
             if (s.empty()) continue;
@@ -388,7 +407,7 @@ int main(int argc, char** argv) {
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed};
+            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -450,6 +469,13 @@ int main(int argc, char** argv) {
                            mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
                 window.takePresses(p);
         } else {
+            if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at world spawn
+                dead = false;
+                vitals.reset();
+                player.setPosition(glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
+                spawnPending = !flatWorld; // settle on the ground there again
+                if (spawnPending) spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+            }
             for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
                 window.takePresses(p);
             if (window.takePresses(mc::Press::F3) > 0) showDebug = !showDebug;
@@ -523,7 +549,45 @@ int main(int argc, char** argv) {
                 input.forward = 1.0f;
                 input.sprint = true;
             }
+            player.setCreative(!survival);
+            if (survival && player.flying()) player.setFlying(false);
+            if (dead) input = {};
+            if (survival && !vitals.canSprint()) input.sprint = false;
+            const glm::dvec3 before = player.position();
+            const bool wasOnGround = player.onGround();
             player.tick(world, input);
+            const auto& reg = mc::world::blockRegistry();
+            const glm::dvec3 feet = player.position();
+            const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+            const bool inWater = reg.blockOf(world.getBlock(feetBlock)) == mc::world::blocks::Water;
+            if (survival && !dead) {
+                // Exhaustion (wiki: Hunger): sprinting 0.1 per metre, jumps 0.05 (0.2
+                // sprinting).
+                if (player.sprinting())
+                    vitals.exhaust(0.1f * float(glm::length(glm::dvec2(feet.x - before.x, feet.z - before.z))));
+                if (wasOnGround && !player.onGround() && player.velocity().y > 0.0)
+                    vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
+                vitals.tick(feet.y, player.onGround(), inWater, player.flying());
+            }
+            if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
+                {
+                    dead = true;
+                    for (int s = 0; s < mc::Inventory::kSlots; ++s) {
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng);
+                        inventory.setSlot(s, {});
+                    }
+                    chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
+                }
+            }
+            // Q drops one of the held item (wiki: Controls).
+            if (window.cursorCaptured() && window.takePresses(mc::Press::Drop) > 0 && !inventory.selectedStack().empty()) {
+                mc::world::ItemStack one = inventory.selectedStack();
+                one.count = 1;
+                droppedItems.throwFrom(player.eyePosition(1.0),
+                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), one,
+                                       gameRng);
+                inventory.consumeSelected(1);
+            }
             mc::InteractionInput clicks;
             clicks.attack = window.cursorCaptured() && attackArmed && window.leftMousePressed();
             clicks.use = window.cursorCaptured() && window.rightMousePressed();
@@ -532,8 +596,21 @@ int main(int argc, char** argv) {
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Act on the block the outline showed on the last frame (vanilla).
-            interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks);
+            if (dead) {
+                changedBlocks.clear();
+            } else if (survival) {
+                const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)), int(std::floor(feet.y + player.eyeHeight())),
+                                                   int(std::floor(feet.z))};
+                const bool eyesInWater = reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
+                interaction.tickSurvival(world, player, lastHit, inventory, vitals, clicks, eyesInWater,
+                                         gameRng, changedBlocks, drops);
+                for (const auto& d : drops)
+                    droppedItems.spawn(d.pos, d.stack, gameRng);
+            } else {
+                interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks);
+            }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
+            droppedItems.tick(world, player.box(), !dead, inventory);
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
@@ -581,10 +658,28 @@ int main(int argc, char** argv) {
         renderer.update(world, camera.position);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
-        // Targeted block: from the eye along the look direction, creative reach.
+        // Targeted block: from the eye along the look direction (reach by game mode).
         const auto hit = mc::world::raycastBlocks(
             world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
-            mc::world::kCreativeReach);
+            survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach);
+        // Dropped items and the breaking crack.
+        for (const auto& e : droppedItems.items()) {
+            const glm::dvec3 p = glm::mix(e.prevPos, e.pos, clock.alpha);
+            const float t = float(e.age) + float(clock.alpha);
+            const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.1)), int(std::floor(p.z))};
+            int sky = 15, blk = 0;
+            if (const auto* c = world.chunk(b.chunk()); c && c->lit()) {
+                sky = c->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+                blk = c->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+            }
+            entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
+                             mc::gfx::lightColor(sky, blk, renderer.skyDarken()), camera.position);
+        }
+        if (survival && interaction.breakingBlock())
+            entities.setCrack(*interaction.breakingBlock(), static_cast<int>(interaction.breakProgress() * 10.0f));
+        else
+            entities.clearCrack();
+        entities.draw(camera, float(fbWidth) / float(fbHeight));
         lastHit = hit;
         overlay.draw(camera, fbWidth, fbHeight,
                      hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
@@ -595,6 +690,8 @@ int main(int argc, char** argv) {
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
             mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
+            if (survival) mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH);
+            if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;
             if (now - fpsStart >= 1.0) {

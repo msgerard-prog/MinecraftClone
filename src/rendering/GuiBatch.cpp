@@ -54,22 +54,22 @@ int GuiBatch::textWidth(std::string_view s) const {
     return w;
 }
 
-int GuiBatch::text(std::string_view s, float x, float y, uint32_t color, bool shadow) {
+int GuiBatch::text(std::string_view s, float x, float y, uint32_t color, bool shadow, float scale) {
     if (shadow) {
         // Vanilla shadow: the colour's RGB / 4, same alpha.
         const uint32_t sc = (color & 0xFF000000u) | ((color & 0x00FCFCFCu) >> 2);
-        text(s, x + 1, y + 1, sc, false);
+        text(s, x + scale, y + scale, sc, false, scale);
     }
-    const float scale = static_cast<float>(m_font.cell) / 8.0f; // texels per GUI px
+    const float texel = static_cast<float>(m_font.cell) / 8.0f; // texels per GUI px
     float pen = x;
     for (char c : s) {
         const auto code = static_cast<uint8_t>(c);
         if (c != ' ') {
             const float u = static_cast<float>((code % 16) * m_font.cell);
             const float v = static_cast<float>((code / 16) * m_font.cell);
-            sprite(GuiTexture::Font, pen, y, 8, 8, u, v, 8 * scale, 8 * scale, color);
+            sprite(GuiTexture::Font, pen, y, 8 * scale, 8 * scale, u, v, 8 * texel, 8 * texel, color);
         }
-        pen += m_font.advance[code];
+        pen += m_font.advance[code] * scale;
     }
     return static_cast<int>(pen - x);
 }

@@ -441,3 +441,21 @@ TEST_CASE("level.dat keeps the generator kind; flat stays flat") {
     CHECK(LevelData::load(dir.path)->flat);
     CHECK(LevelData().generator == "overworld"); // new worlds
 }
+
+TEST_CASE("level.dat keeps game mode, health and hunger") {
+    TempDir dir("mc_test_level_survival");
+    LevelData l;
+    l.survival = true;
+    l.health = 7.5f;
+    l.food = 12;
+    l.saturation = 1.5f;
+    l.exhaustion = 2.25f;
+    REQUIRE(l.save(dir.path));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back.has_value());
+    CHECK(back->survival);
+    CHECK(back->health == 7.5f);
+    CHECK(back->food == 12);
+    CHECK(back->saturation == 1.5f);
+    CHECK(back->exhaustion == 2.25f);
+}

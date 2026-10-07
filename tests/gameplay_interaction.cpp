@@ -183,3 +183,81 @@ TEST_CASE("inventory: add stacks onto matching stacks first, then empty slots; m
     inv.setSlot(0, Inventory::blockStack(logX));
     CHECK(inv.placeState() == logX);
 }
+
+namespace {
+
+struct SurvivalScene : Scene {
+    Inventory inv;
+    Vitals vitals;
+    Xoroshiro rng{7};
+    std::vector<BlockInteraction::Drop> drops;
+    SurvivalScene() : Scene(0.0f, 60.0f) {
+        for (int i = 0; i < Inventory::kSlots; ++i)
+            inv.setSlot(i, {});
+    }
+    // Holds attack until the block breaks; returns ticks taken (or -1 after 400).
+    int breakTarget() {
+        InteractionInput in;
+        in.attack = true;
+        for (int t = 1; t <= 400; ++t) {
+            interaction.tickSurvival(world, player, BlockInteraction::target(world, player), inv,
+                                     vitals, in, false, rng, changed, drops);
+            if (!changed.empty()) return t;
+        }
+        return -1;
+    }
+};
+
+} // namespace
+
+TEST_CASE("survival: stone takes 7.5 s by hand and drops nothing; 1.15 s with a wooden pickaxe") {
+    SurvivalScene hand;
+    CHECK(hand.breakTarget() == 150);
+    CHECK(hand.drops.empty());
+    SurvivalScene pick;
+    pick.inv.setSlot(0, {*itemRegistry().find("wooden_pickaxe"), 1});
+    CHECK(pick.breakTarget() == 23);
+    REQUIRE(pick.drops.size() == 1);
+    CHECK(itemRegistry().item(pick.drops[0].stack.item).id == "minecraft:cobblestone");
+    CHECK(pick.inv.slot(0).damage == 1); // tools wear
+    CHECK(pick.vitals.exhaustion() == doctest::Approx(0.005f));
+}
+
+TEST_CASE("survival: switching target restarts progress; a pause follows each break") {
+    SurvivalScene s;
+    s.inv.setSlot(0, {*itemRegistry().find("diamond_pickaxe"), 1});
+    CHECK(s.breakTarget() == 6);
+    // Next block (the one under): 5-tick pause, then 6 ticks.
+    CHECK(s.breakTarget() == 5 + 6);
+}
+
+TEST_CASE("survival: placing uses up the stack; worn-out tools break") {
+    SurvivalScene s;
+    s.inv.setSlot(0, Inventory::blockStack(S(blocks::Dirt), 2));
+    InteractionInput use;
+    use.useClick = true;
+    s.interaction.tickSurvival(s.world, s.player, BlockInteraction::target(s.world, s.player), s.inv,
+                               s.vitals, use, false, s.rng, s.changed, s.drops);
+    CHECK(s.changed.size() == 1);
+    CHECK(s.inv.slot(0).count == 1);
+    const auto pickId = *itemRegistry().find("golden_pickaxe"); // 32 uses
+    s.inv.setSlot(0, {pickId, 1, 31});
+    CHECK(s.breakTarget() > 0);
+    CHECK(s.inv.slot(0).empty());
+}
+
+TEST_CASE("survival: holding use with an apple eats it after 32 ticks when hungry") {
+    SurvivalScene s;
+    s.vitals.setState(20.0f, 10, 0.0f, 0.0f);
+    s.inv.setSlot(0, {*itemRegistry().find("apple"), 2});
+    InteractionInput use;
+    use.use = true;
+    for (int t = 0; t < 31; ++t)
+        s.interaction.tickSurvival(s.world, s.player, std::nullopt, s.inv, s.vitals, use, false, s.rng,
+                                   s.changed, s.drops);
+    CHECK(s.vitals.food() == 10);
+    s.interaction.tickSurvival(s.world, s.player, std::nullopt, s.inv, s.vitals, use, false, s.rng,
+                               s.changed, s.drops);
+    CHECK(s.vitals.food() == 14);
+    CHECK(s.inv.slot(0).count == 1);
+}

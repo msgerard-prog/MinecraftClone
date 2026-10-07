@@ -25,6 +25,10 @@ struct LevelData {
     double pos[3] = {0, 0, 0};     // player feet
     float yaw = 0, pitch = 0;
     bool flying = false;
+    bool survival = false; // GameType / playerGameType 0 (survival) or 1 (creative)
+    float health = 20.0f;
+    int food = 20;
+    float saturation = 5.0f, exhaustion = 0.0f;
     // Inventory slots 0..35 (0..8 hotbar). `id` is the item id; `state` the full block
     // state string for block items placed in a non-default state ("" otherwise).
     struct SavedItem {

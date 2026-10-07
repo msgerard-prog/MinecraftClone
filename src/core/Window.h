@@ -21,6 +21,7 @@ enum class Press {
     Chat,      // T
     Command,   // /
     Inventory, // E
+    Drop,      // Q
     Enter,
     Backspace,
     Up,

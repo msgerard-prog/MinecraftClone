@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <string>
 
 namespace mc::gfx {
 
@@ -40,6 +41,7 @@ Image loadImage(const PackStack& packs, const char* path, int fallbackW, int fal
 GuiRenderer::~GuiRenderer() {
     // The atlas texture (index 4) belongs to TextureAtlas.
     glDeleteTextures(4, m_textures);
+    glDeleteTextures(1, &m_textures[5]);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
@@ -58,6 +60,19 @@ bool GuiRenderer::init(const PackStack& packs, const TextureAtlas& atlas) {
     m_textures[3] = makeTexture(
         loadImage(packs, "assets/minecraft/textures/gui/sprites/hud/hotbar_selection.png", 24, 23));
     m_textures[4] = atlas.texture();
+    // Survival icons: one 9-pixel cell each, side by side (vanilla sprite paths).
+    {
+        constexpr int n = static_cast<int>(HudIcon::Count);
+        Image strip{9 * n, 9, std::vector<uint8_t>(size_t(9 * n) * 9 * 4, 0)};
+        for (int i = 0; i < n; ++i) {
+            const Image icon = loadImage(
+                packs, (std::string("assets/minecraft/textures/gui/sprites/") + kHudIconPaths[i]).c_str(), 9, 9);
+            for (int y = 0; y < std::min(9, icon.height); ++y)
+                for (int x = 0; x < std::min(9, icon.width); ++x)
+                    std::copy_n(icon.at(x, y), 4, &strip.pixels[(size_t(y) * strip.width + i * 9 + x) * 4]);
+        }
+        m_textures[5] = makeTexture(strip);
+    }
 
     // Font sheets are square 16x16 grids (any resolution).
     if (font.width == font.height && font.width >= 16)
@@ -96,7 +111,7 @@ void GuiRenderer::draw(int framebufferWidth, int framebufferHeight) {
     glBindVertexArray(m_vao);
     // GUI pixels -> NDC, origin top-left.
     glUniform2f(0, float(framebufferWidth) / float(scale), float(framebufferHeight) / float(scale));
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
         glBindTextureUnit(GLuint(i), m_textures[i]);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);

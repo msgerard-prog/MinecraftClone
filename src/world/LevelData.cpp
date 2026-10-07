@@ -22,7 +22,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("LevelName", name);
     data.put("DayTime", dayTime);
     data.put("Time", gameTime);
-    data.put("GameType", int32_t{1}); // creative
+    data.put("GameType", int32_t{survival ? 0 : 1});
     data.put("allowCommands", int8_t{1});
     data.put("initialized", int8_t{1});
     data.put("SpawnX", spawn[0]);
@@ -50,14 +50,18 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("Dimension", std::string("minecraft:overworld"));
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
-    abilities.put("mayfly", int8_t{1});
-    abilities.put("instabuild", int8_t{1});
-    abilities.put("invulnerable", int8_t{1});
+    abilities.put("mayfly", static_cast<int8_t>(survival ? 0 : 1));
+    abilities.put("instabuild", static_cast<int8_t>(survival ? 0 : 1));
+    abilities.put("invulnerable", static_cast<int8_t>(survival ? 0 : 1));
     abilities.put("mayBuild", int8_t{1});
     abilities.put("flySpeed", 0.05f);
     abilities.put("walkSpeed", 0.1f);
     player.put("abilities", std::move(abilities));
-    player.put("playerGameType", int32_t{1});
+    player.put("playerGameType", int32_t{survival ? 0 : 1});
+    player.put("Health", health);
+    player.put("foodLevel", int32_t{food});
+    player.put("foodSaturationLevel", saturation);
+    player.put("foodExhaustionLevel", exhaustion);
     player.put("SelectedItemSlot", int32_t{selectedSlot});
     std::vector<Tag> items; // vanilla's Inventory list
     for (const SavedItem& it : inventory) {
@@ -162,6 +166,11 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             if (auto v = rot->items[1].get<float>()) l.pitch = *v;
         }
         if (const Compound* a = p->compound("abilities")) l.flying = a->integer("flying").value_or(0) != 0;
+        l.survival = p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)) == 0;
+        if (auto h = p->real("Health")) l.health = static_cast<float>(*h);
+        l.food = static_cast<int>(p->integer("foodLevel").value_or(20));
+        if (auto v = p->real("foodSaturationLevel")) l.saturation = static_cast<float>(*v);
+        if (auto v = p->real("foodExhaustionLevel")) l.exhaustion = static_cast<float>(*v);
         l.selectedSlot = static_cast<int>(p->integer("SelectedItemSlot").value_or(0)) % 9;
         if (const List* inv = p->list("Inventory"))
             for (const Tag& t : inv->items) {

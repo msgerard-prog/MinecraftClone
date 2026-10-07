@@ -74,11 +74,60 @@ def selection():
     return img
 
 
+HEART = [  # 9x9: '#' outline, 'r' fill, 'h' highlight
+    ".##...##.",
+    "#rr#.#rr#",
+    "#hrr#rrr#",
+    "#hrrrrrr#",
+    "#rrrrrrr#",
+    ".#rrrrr#.",
+    "..#rrr#..",
+    "...#r#...",
+    "....#....",
+]
+DRUMSTICK = [  # 9x9: '#' outline, 'm' meat, 'l' light, 'b' bone
+    "..####...",
+    ".#mmmm#..",
+    "#mllmmm#.",
+    "#lmmmmm#.",
+    "#mmmmmm#.",
+    ".#mmmm##.",
+    "..####b#.",
+    "......#b#",
+    ".......#.",
+]
+
+
+def icon(rows, colors, keep=lambda x, y: True):
+    img = Img(9, 9, CLEAR)
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c != "." and keep(x, y):
+                img.set(x, y, colors.get(c, colors["#"]))
+    return img
+
+
+def survival_icons():
+    out = {}
+    red = {"#": (30, 8, 10, 255), "r": (214, 34, 36, 255), "h": (255, 160, 150, 255)}
+    out["hud/heart/full.png"] = icon(HEART, red)
+    out["hud/heart/half.png"] = icon(HEART, red, lambda x, y: x <= 4 or HEART[y][x] == "#")
+    grey = {"#": (24, 24, 24, 255), "r": (60, 60, 60, 255), "h": (60, 60, 60, 255)}
+    out["hud/heart/container.png"] = icon(HEART, grey)
+    meat = {"#": (40, 20, 8, 255), "m": (176, 96, 44, 255), "l": (230, 150, 90, 255), "b": (236, 228, 210, 255)}
+    out["hud/food_full.png"] = icon(DRUMSTICK, meat)
+    out["hud/food_half.png"] = icon(DRUMSTICK, meat, lambda x, y: x >= 4 or DRUMSTICK[y][x] == "#")
+    dark = {"#": (24, 24, 24, 255), "m": (58, 50, 44, 255), "l": (58, 50, 44, 255), "b": (70, 66, 60, 255)}
+    out["hud/food_empty.png"] = icon(DRUMSTICK, dark)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for 4x previews")
     args = ap.parse_args()
     files = {
+        **{"gui/sprites/" + k: v for k, v in survival_icons().items()},
         "font/ascii.png": font(),
         "gui/sprites/hud/hotbar.png": hotbar(),
         "gui/sprites/hud/hotbar_selection.png": selection(),

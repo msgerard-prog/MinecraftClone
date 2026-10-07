@@ -1,6 +1,9 @@
 #pragma once
 
+#include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
+#include "gameplay/Vitals.h"
+#include "world/Random.h"
 #include "world/Raycast.h"
 #include "world/World.h"
 
@@ -40,9 +43,37 @@ public:
     // the clicked face, as in vanilla.
     static world::BlockStateId orientedState(world::BlockStateId state, world::Direction face);
 
+    // Survival (wiki: Breaking, Placing, Food): holding attack builds break progress
+    // at the speed `breakTicks` gives for the held item; the block breaks at 100%
+    // and drops its items (`drops`, cleared first), then a 5-tick pause. Tools wear
+    // by 1 per block. Placing uses up the held stack; holding use with food eats it
+    // after 32 ticks when hungry.
+    struct Drop {
+        glm::dvec3 pos;
+        world::ItemStack stack;
+    };
+    void tickSurvival(world::World& world, const Player& player,
+                      const std::optional<world::RayHit>& hit, Inventory& inventory,
+                      Vitals& vitals, const InteractionInput& input, bool eyesInWater,
+                      world::Xoroshiro& rng, std::vector<world::BlockPos>& changed,
+                      std::vector<Drop>& drops);
+    // Crack overlay: the block being broken and progress 0..1 (no block: nullopt).
+    std::optional<world::BlockPos> breakingBlock() const { return m_breaking; }
+    float breakProgress() const { return m_progress; }
+    int eatingTicks() const { return m_eatTicks; }
+    static constexpr int kEatTicks = 32; // wiki: Food (1.61 s)
+    static constexpr int kSurvivalBreakDelay = 5;
+
 private:
+    void place(world::World& world, const Player& player, const world::RayHit& hit,
+               world::BlockStateId state, std::vector<world::BlockPos>& changed, bool& placed);
+
     int m_destroyCooldown = 0;
     int m_useCooldown = 0;
+    std::optional<world::BlockPos> m_breaking;
+    float m_progress = 0.0f;
+    int m_heldTicks = 0;
+    int m_eatTicks = 0;
 };
 
 } // namespace mc

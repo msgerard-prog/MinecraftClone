@@ -86,3 +86,18 @@ TEST_CASE("/give adds items to the inventory like pickups; unknown ids fail") {
     CHECK_FALSE(runCommand("/frobnicate", c.ctx).ok);
     CHECK(runCommand("/seed", c.ctx).message == "Seed: [42]");
 }
+
+TEST_CASE("/gamemode switches survival/creative; /kill kills") {
+    Ctx c;
+    bool survival = false;
+    mc::Vitals vitals;
+    c.ctx.survival = &survival;
+    c.ctx.vitals = &vitals;
+    CHECK(runCommand("/gamemode survival", c.ctx).ok);
+    CHECK(survival);
+    CHECK(runCommand("/gamemode creative", c.ctx).message == "Set own game mode to Creative Mode");
+    CHECK_FALSE(survival);
+    CHECK_FALSE(runCommand("/gamemode 0", c.ctx).ok); // numeric ids are gone (wiki)
+    CHECK(runCommand("/kill", c.ctx).ok);
+    CHECK(vitals.dead());
+}

@@ -21,6 +21,37 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
                    kIconGrassTint);
 }
 
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight) {
+    using gfx::HudIcon;
+    auto icon = [&](HudIcon i, float x, float y) {
+        batch.sprite(gfx::GuiTexture::Icons, x, y, 9, 9, static_cast<float>(int(i) * 9), 0, 9, 9);
+    };
+    const float y = static_cast<float>(guiHeight - 39);
+    const int hp = static_cast<int>(std::ceil(health));
+    for (int i = 0; i < 10; ++i) {
+        const float x = static_cast<float>(guiWidth / 2 - 91 + i * 8);
+        icon(HudIcon::HeartContainer, x, y);
+        if (hp >= 2 * i + 2) icon(HudIcon::HeartFull, x, y);
+        else if (hp == 2 * i + 1) icon(HudIcon::HeartHalf, x, y);
+    }
+    for (int i = 0; i < 10; ++i) {
+        const float x = static_cast<float>(guiWidth / 2 + 91 - 9 - i * 8);
+        icon(HudIcon::FoodEmpty, x, y);
+        if (food >= 2 * i + 2) icon(HudIcon::FoodFull, x, y);
+        else if (food == 2 * i + 1) icon(HudIcon::FoodHalf, x, y);
+    }
+}
+
+void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight) {
+    batch.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0x80700000));
+    const std::string_view title = "You died!";
+    const float w = static_cast<float>(batch.textWidth(title)) * 2.0f;
+    batch.text(title, (guiWidth - w) / 2.0f, guiHeight / 4.0f, gfx::argb(0xFFFFFFFF), true, 2.0f);
+    const std::string_view hint = "Press Enter to respawn";
+    batch.text(hint, (guiWidth - batch.textWidth(hint)) / 2.0f, guiHeight / 4.0f + 40.0f,
+               gfx::argb(0xFFE0E0E0));
+}
+
 const char* DebugScreen::facingName(float yaw) {
     const float y = std::fmod(std::fmod(yaw, 360.0f) + 360.0f, 360.0f);
     const int q = static_cast<int>(std::floor((y + 45.0f) / 90.0f)) % 4;

@@ -184,8 +184,22 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "tp" || a[0] == "teleport") return teleport(a, ctx);
     if (a[0] == "time") return time(a, ctx);
     if (a[0] == "give") return give(a, ctx);
+    if (a[0] == "gamemode") {
+        // /gamemode survival|creative (wiki: Commands/gamemode; ids 0/1 were removed).
+        if (a.size() != 2 || !ctx.survival || (a[1] != "survival" && a[1] != "creative"))
+            return fail("Usage: /gamemode survival|creative");
+        *ctx.survival = a[1] == "survival";
+        return {true, *ctx.survival ? "Set own game mode to Survival Mode"
+                                    : "Set own game mode to Creative Mode"};
+    }
+    if (a[0] == "kill") {
+        // /kill [@s] (wiki: Commands/kill): works in creative too.
+        if (!ctx.vitals || (a.size() > 1 && !isSelf(a[1]))) return fail("Usage: /kill [@s]");
+        ctx.vitals->kill();
+        return {true, "Killed Player"};
+    }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/give /help /seed /teleport /time /tp"};
+    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /teleport /time /tp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

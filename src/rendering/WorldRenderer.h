@@ -71,6 +71,7 @@ public:
     // Time of day (world/DayTime.h): sky colour, sun/moon/stars and the sky light
     // lost at night. `partialTick` interpolates between ticks for smooth motion.
     void setDayTime(int64_t dayTime, float partialTick);
+    float skyDarken() const { return m_skyDarken; }
 
     // Average GPU time of drawFrame (both passes) over the frames measured so far,
     // from GL timer queries read back a few frames late (no pipeline stall).

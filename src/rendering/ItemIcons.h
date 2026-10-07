@@ -16,6 +16,8 @@ class TextureAtlas;
 class ItemIcons {
 public:
     void build(const TextureAtlas& atlas);
+    // Item sprite (0: none, use the block model).
+    uint16_t sprite(world::ItemId id) const { return id < m_sprites.size() ? m_sprites[id] : 0; }
     // The test/helper path: an explicit sprite per item.
     void setSprite(world::ItemId id, uint16_t sprite);
 

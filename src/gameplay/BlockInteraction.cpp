@@ -1,5 +1,7 @@
 #include "gameplay/BlockInteraction.h"
 
+#include "gameplay/Mining.h"
+
 #include "world/Blocks.h"
 #include "world/Rotation.h"
 
@@ -37,7 +39,6 @@ void BlockInteraction::tick(world::World& world, const Player& player,
     const bool use = input.use || input.useClick;
 
     if (!hit) return;
-    const auto& reg = world::blockRegistry();
 
     if (attack && m_destroyCooldown == 0) {
         world.setBlock(hit->block, 0);
@@ -45,8 +46,19 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         m_destroyCooldown = kDestroyDelay;
         return; // one action per tick
     }
-    if (use && m_useCooldown == 0 && placeState != 0) { // empty hand: nothing to place
+    if (use && m_useCooldown == 0 && placeState != 0) {
         m_useCooldown = kUseDelay;
+        bool placed = false;
+        place(world, player, *hit, placeState, changed, placed);
+    }
+}
+
+void BlockInteraction::place(world::World& world, const Player& player, const world::RayHit& hitRef,
+                             world::BlockStateId placeState, std::vector<world::BlockPos>& changed,
+                             bool& placed) {
+    const auto& reg = world::blockRegistry();
+    const world::RayHit* hit = &hitRef;
+    {
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world::isInBuildHeight(at.y)) return;
         const world::BlockStateId existing = world.getBlock(at);
@@ -66,6 +78,81 @@ void BlockInteraction::tick(world::World& world, const Player& player,
             return;
         world.setBlock(at, orientedState(placeState, hit->face));
         changed.push_back(at);
+        placed = true;
+    }
+}
+
+void BlockInteraction::tickSurvival(world::World& world, const Player& player,
+                                    const std::optional<world::RayHit>& hit, Inventory& inventory,
+                                    Vitals& vitals, const InteractionInput& input, bool eyesInWater,
+                                    world::Xoroshiro& rng, std::vector<world::BlockPos>& changed,
+                                    std::vector<Drop>& drops) {
+    changed.clear();
+    drops.clear();
+    const auto& items = world::itemRegistry();
+    const bool attack = input.attack || input.attackClick;
+    const bool use = input.use || input.useClick;
+    const bool pausing = m_destroyCooldown > 0; // after a break: 5 idle ticks
+    if (pausing) --m_destroyCooldown;
+    m_useCooldown = input.useClick ? 0 : input.use ? std::max(0, m_useCooldown - 1) : 0;
+
+    // Eating: hold use with food while hungry (wiki: Food).
+    const world::ItemDef& held = items.item(inventory.selectedStack().item);
+    if (use && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
+        if (++m_eatTicks >= kEatTicks) {
+            vitals.eat(held.food, held.saturation);
+            inventory.consumeSelected(1);
+            m_eatTicks = 0;
+        }
+    } else {
+        m_eatTicks = 0;
+    }
+
+    // Breaking.
+    if (!attack || !hit) {
+        m_breaking.reset();
+        m_progress = 0.0f;
+        m_heldTicks = 0;
+    } else if (!pausing) {
+        if (!m_breaking || !(*m_breaking == hit->block)) { // a new target starts over
+            m_breaking = hit->block;
+            m_heldTicks = 0;
+        }
+        const world::BlockStateId state = world.getBlock(hit->block);
+        const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater);
+        if (ticks >= 0) {
+            // Whole ticks held (the speed is re-evaluated each tick, like vanilla).
+            ++m_heldTicks;
+            m_progress = ticks == 0 ? 1.0f : std::min(1.0f, float(m_heldTicks) / float(ticks));
+            if (m_heldTicks >= ticks) {
+                for (const world::ItemStack& d : blockDrops(state, inventory.selectedStack(), rng))
+                    drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
+                world.setBlock(hit->block, 0);
+                changed.push_back(hit->block);
+                vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
+                // Tools wear 1 per block broken (instant blocks don't count).
+                const world::ItemStack& tool = inventory.selectedStack();
+                const world::ItemDef& def = items.item(tool.item);
+                if (def.durability > 0 && ticks > 0) {
+                    world::ItemStack worn = tool;
+                    ++worn.damage;
+                    inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? world::ItemStack{} : worn);
+                }
+                m_breaking.reset();
+                m_progress = 0.0f;
+                m_heldTicks = 0;
+                m_destroyCooldown = kSurvivalBreakDelay;
+                return; // one action per tick
+            }
+        }
+    }
+
+    // Placing uses up the held block.
+    if (use && m_useCooldown == 0 && hit && held.block) {
+        m_useCooldown = kUseDelay;
+        bool placed = false;
+        place(world, player, *hit, inventory.placeState(), changed, placed);
+        if (placed) inventory.consumeSelected(1);
     }
 }
 
