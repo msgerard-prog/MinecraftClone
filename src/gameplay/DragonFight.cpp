@@ -27,8 +27,11 @@ BlockPos DragonFight::gatewayPos(int i) {
     return {static_cast<int>(std::floor(96.0 * std::cos(a))), 75, static_cast<int>(std::floor(96.0 * std::sin(a)))};
 }
 
-void DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<BlockPos>& edits) {
+bool DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<BlockPos>& edits) {
     const auto& r = blockRegistry();
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (!world.chunk(BlockPos{at.x + dx, at.y, at.z + dz}.chunk())) return false;
     auto put = [&](const BlockPos& p, BlockStateId s) {
         if (!world.isInHeight(p.y) || !world.chunk(p.chunk()) || world.getBlock(p) == s) return;
         world.updateBlock(p, s);
@@ -43,6 +46,7 @@ void DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<Blo
         put({at.x, at.y + dy, at.z - 1}, bedrock);
     }
     put(at, r.defaultState(blocks::EndGateway));
+    return true;
 }
 
 std::optional<glm::dvec3> DragonFight::gatewayTarget(const EndGenerator& gen, const BlockPos& g) {
@@ -58,8 +62,10 @@ std::optional<glm::dvec3> DragonFight::gatewayTarget(const EndGenerator& gen, co
             const int x = int(std::floor(dir.x * r)), z = int(std::floor(dir.y * r));
             const int top = gen.outerTop(x, z);
             if (top < 0) continue;
-            m_pendingExit = BlockPos{x, top + 10, z};
-            return glm::dvec3(x + 0.5, top + 1.0, z + 2.5);
+            // The exit gateway floats 10 above this column; the player lands on its
+            // ground (below it, out of its reach).
+            if (m_pendingGateways.size() < 32) m_pendingGateways.push_back({x, top + 10, z});
+            return glm::dvec3(x + 0.5, top + 1.0, z + 0.5);
         }
         return std::nullopt;
     }
@@ -101,6 +107,16 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
                         }
                     }
                 }
+            // Its cage, if it had one.
+            for (int y = p.height + 1; y <= p.height + 4; ++y)
+                for (int z = p.z - 2; z <= p.z + 2; ++z)
+                    for (int x = p.x - 2; x <= p.x + 2; ++x) {
+                        const BlockStateId cage = gen.cageBlock(x, y, z);
+                        const BlockPos b{x, y, z};
+                        if (!cage || !world.chunk(b.chunk()) || world.getBlock(b) == cage) continue;
+                        world.updateBlock(b, cage);
+                        edits.push_back(b);
+                    }
             // Its crystal, if it lost it.
             bool has = false;
             if (Chunk* c = world.chunk({blockToChunk(p.x), blockToChunk(p.z)}))
@@ -144,9 +160,9 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
     }
     for (const glm::dvec3& at : mobs.dragonDeaths()) {
         orbs.drop(at, previouslyKilled ? 500 : 12000, rng);
-        openExitPortal(world, !previouslyKilled, edits);
-        if (!gateways.empty()) { // the next gateway opens
-            buildGateway(world, gatewayPos(gateways.front()), edits);
+        if (!openExitPortal(world, !previouslyKilled, edits)) m_pendingPortal = previouslyKilled ? 1 : 2;
+        if (!gateways.empty()) { // the next gateway opens (once its chunks are there)
+            if (m_pendingGateways.size() < 32) m_pendingGateways.push_back(gatewayPos(gateways.front()));
             gateways.erase(gateways.begin());
         }
         killed = true;
@@ -154,10 +170,8 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
         uuidHi = uuidLo = 0;
         missingScans = 0;
     }
-    if (m_pendingExit && world.chunk(m_pendingExit->chunk())) {
-        buildGateway(world, *m_pendingExit, edits);
-        m_pendingExit.reset();
-    }
+    if (m_pendingPortal && openExitPortal(world, m_pendingPortal == 2, edits)) m_pendingPortal = 0;
+    std::erase_if(m_pendingGateways, [&](const BlockPos& g) { return buildGateway(world, g, edits); });
     if (killed) {
         if (m_respawnTicks >= 0) {
             respawnStep(world, gen, rng, edits);
@@ -198,7 +212,14 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
         missingScans = 0;
         return;
     }
-    if (uuidHi != 0 && ++missingScans < 3) return;
+    if (uuidHi != 0) {
+        // A known dragon may just be in an unloaded chunk: it counts as missing only
+        // when its whole flying range (80 blocks round the middle) was scanned.
+        for (int dz = -5; dz <= 5; ++dz)
+            for (int dx = -5; dx <= 5; ++dx)
+                if (!world.chunk({dx, dz})) return;
+        if (++missingScans < 3) return;
+    }
     MobData d = Mobs::make(MobType::EnderDragon, {0.5, 128.0, 0.5}, rng);
     d.persistent = true;
     d.lastHealth = d.health;
@@ -209,9 +230,12 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
     }
 }
 
-void DragonFight::openExitPortal(World& world, bool egg, std::vector<BlockPos>& edits) {
+bool DragonFight::openExitPortal(World& world, bool egg, std::vector<BlockPos>& edits) {
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (!world.chunk({dx, dz})) return false;
     const int top = columnTop(world);
-    if (top < 0) return;
+    if (top < 0) return false;
     // The column rises 4 above the portal's floor; the portal is the ring of cells
     // within 2.5 of it one above the bowl (wiki: Exit Portal).
     const int y = top - 3;
@@ -227,6 +251,7 @@ void DragonFight::openExitPortal(World& world, bool egg, std::vector<BlockPos>& 
         world.updateBlock({0, top + 1, 0}, blockRegistry().defaultState(blocks::DragonEgg));
         edits.push_back({0, top + 1, 0});
     }
+    return true;
 }
 
 bool DragonFight::teleportEgg(World& world, const BlockPos& egg, Xoroshiro& rng, std::vector<BlockPos>& edits) {

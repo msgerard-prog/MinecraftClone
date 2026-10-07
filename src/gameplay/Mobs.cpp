@@ -812,7 +812,9 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, c
             for (size_t i = 0; i < c->mobs().size(); ++i) {
                 const MobData& m = c->mobs()[i];
                 if (m.health <= 0.0f || (skipUuidHi && m.uuidHi == skipUuidHi)) continue;
-                const Aabb b = box(m);
+                // The dragon's head reaches out of its body box: rayed as its own box.
+                for (int part = 0; part < (m.type == MobType::EnderDragon ? 2 : 1); ++part) {
+                const Aabb b = part == 0 ? box(m) : Aabb{dragonHead(m) - glm::dvec3(1.0), dragonHead(m) + glm::dvec3(1.0)};
                 // Slab test along the ray.
                 double t0 = 0.0, t1 = reach;
                 bool hit = true;
@@ -828,6 +830,7 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, c
                     hit = t0 <= t1;
                 }
                 if (hit && (!best || t0 < best->distance)) best = MobHit{c->pos(), int(i), t0};
+                }
             }
         }
     return best;

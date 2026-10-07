@@ -44,9 +44,11 @@ struct DragonFight {
     std::optional<glm::dvec3> gatewayTarget(const world::EndGenerator& gen, const world::BlockPos& gateway);
     // Builds an end gateway with its bedrock caps (vanilla's look: a plus of bedrock
     // above and below).
-    static void buildGateway(world::World& world, const world::BlockPos& at, std::vector<world::BlockPos>& edits);
-    // Fills the exit portal (and, with `egg`, puts the egg on its column).
-    static void openExitPortal(world::World& world, bool egg, std::vector<world::BlockPos>& edits);
+    // False if part of it isn't loaded (nothing done: try again later).
+    static bool buildGateway(world::World& world, const world::BlockPos& at, std::vector<world::BlockPos>& edits);
+    // Fills the exit portal (and, with `egg`, puts the egg on its column). False if
+    // the middle isn't loaded (nothing done).
+    static bool openExitPortal(world::World& world, bool egg, std::vector<world::BlockPos>& edits);
     // The egg flees a click: up to 15 blocks away sideways and 7 up or down, into an
     // air block (wiki: Dragon Egg). False if no spot was found.
     static bool teleportEgg(world::World& world, const world::BlockPos& egg, world::Xoroshiro& rng,
@@ -55,7 +57,9 @@ struct DragonFight {
 private:
     int m_scanClock = 0;
     int m_respawnTicks = -1; // the respawn under way (not saved: it starts over)
-    std::optional<world::BlockPos> m_pendingExit;
+    // Builds waiting for their chunks to load (not saved: lost if the game quits first).
+    std::vector<world::BlockPos> m_pendingGateways;
+    int m_pendingPortal = 0; // 1: open the exit portal, 2: and the egg
     void respawnStep(world::World& world, const world::EndGenerator& gen, world::Xoroshiro& rng,
                      std::vector<world::BlockPos>& edits);
 };

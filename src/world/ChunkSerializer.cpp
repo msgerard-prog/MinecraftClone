@@ -666,7 +666,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
     root.put("Position", std::vector<int32_t>{chunk.pos.x, chunk.pos.z});
     std::vector<nbt::Tag> list;
     for (const MobData& m : chunk.mobs) {
-        if (m.health <= 0.0f) continue; // dying mobs are not saved
+        // Dying mobs are not saved - except the dragon, whose 10 s death ends the fight.
+        if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
         e.put("id", std::string(mobInfo(m.type).id));
         e.put("Pos", nbt::listOf(nbt::TagType::Double, {m.pos.x, m.pos.y, m.pos.z}));
@@ -722,7 +723,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         }
         e.put("Fire", static_cast<int16_t>(m.fireTicks > 0 ? m.fireTicks : -20)); // -20: not burning (wiki)
         e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
-        e.put("DeathTime", int16_t{0});
+        e.put("DeathTime", static_cast<int16_t>(m.type == MobType::EnderDragon ? m.deathTime : 0));
         e.put("PersistenceRequired", static_cast<int8_t>(m.persistent ? 1 : 0));
         e.put("UUID", std::vector<int32_t>{int32_t(m.uuidHi >> 32), int32_t(m.uuidHi), int32_t(m.uuidLo >> 32),
                                            int32_t(m.uuidLo)});
@@ -780,7 +781,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (m.type == MobType::Shulker) m.peek = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Peek").value_or(0), 0, 100));
         if (m.type == MobType::EnderDragon) {
             m.phase = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("DragonPhase").value_or(0), 0, 10));
-            if (m.phase == 9) m.phase = 0; // (a dying dragon saved mid-death comes back flying; vanilla: dies again)
+            m.deathTime = static_cast<int16_t>(std::clamp<int64_t>(e->integer("DeathTime").value_or(0), 0, 199));
             m.lastHealth = m.health;
         }
         if (m.type == MobType::MagmaCube) {
@@ -799,7 +800,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
                 m.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
             }
-        if (m.health > 0.0f) chunk.mobs().push_back(m);
+        if (m.health > 0.0f || (m.type == MobType::EnderDragon && m.deathTime > 0)) chunk.mobs().push_back(m);
     }
 }
 

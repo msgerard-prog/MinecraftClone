@@ -194,6 +194,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // A shallow layer (up to 0.4 deep: vanilla's fluid jump threshold) still lets a
     // player on the ground jump normally.
     const bool shallowJump = m_onGround && fluid.height <= kFluidJumpThreshold;
+    if (fluid.water || fluid.lava) m_gliding = false; // (water and lava end a glide)
     if (!m_flying && (fluid.water || fluid.lava)) {
         if (!input.jump) m_jumpDelay = 0;
         if (m_jumpDelay > 0) --m_jumpDelay;

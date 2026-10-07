@@ -522,3 +522,24 @@ TEST_CASE("elytra: jump while falling to glide; level flight sinks slowly and ca
     }
     CHECK(impact > 5.0f);
 }
+
+TEST_CASE("elytra: landing in water ends the glide (M20 review)") {
+    World w = floorWorld();
+    for (int z = -2; z <= 2; ++z)
+        for (int x = -2; x <= 2; ++x)
+            w.setBlock({x, kFloorY + 1, z}, world::blockRegistry().defaultState(world::blocks::Water));
+    Player p;
+    p.setCreative(false);
+    p.setPosition({0.5, 70.0, 0.5});
+    p.setCanGlide(true);
+    p.tick(w, {});
+    PlayerInput jump;
+    jump.jumpPresses = 1;
+    p.tick(w, jump);
+    REQUIRE(p.gliding());
+    p.setRotation(0.0f, 90.0f);
+    p.setVelocity({0.0, -1.0, 0.0});
+    for (int i = 0; i < 20; ++i)
+        p.tick(w, {});
+    CHECK_FALSE(p.gliding());
+}

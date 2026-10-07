@@ -97,6 +97,9 @@ public:
     };
     static constexpr int kPillars = 10;
     const Pillar& pillar(int i) const { return m_pillars[i]; }
+    // end2: the iron bar cage block at a position (0: none) - the two shortest pillars'
+    // cages, with their connections (generation and the dragon respawn share it).
+    BlockStateId cageBlock(int32_t x, int y, int32_t z) const;
 
 private:
     uint64_t m_seed;

@@ -62,7 +62,8 @@ int nearestNode(const glm::dvec3& p) {
 bool dragonImmune(BlockId b) {
     // (vanilla #dragon_immune, the blocks we have)
     return b == blocks::Bedrock || b == blocks::Obsidian || b == blocks::EndStone || b == blocks::IronBars ||
-           b == blocks::EndPortal || b == blocks::EndPortalFrame || b == blocks::Water || b == blocks::Lava;
+           b == blocks::EndPortal || b == blocks::EndPortalFrame || b == blocks::EndGateway || b == blocks::Water ||
+           b == blocks::Lava;
 }
 
 float approachAngle(float from, float to, float step) {
@@ -163,7 +164,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         break;
     }
     case kLandingApproach: {
-        const glm::dvec3 perch = perchPoint();
+        if (m.phaseTicks == 1 || m.goal.y < 1.0) m.goal = perchPoint(); // (found once per landing; goals aren't saved)
+        const glm::dvec3 perch = m.goal;
         if (fly(perch, 0.5) < 1.5) {
             m.pos = perch;
             m.vel = glm::dvec3(0.0);
@@ -196,7 +198,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         break;
     }
     case kTakeoff:
-        if (fly(perchPoint() + glm::dvec3(0.0, 25.0, 0.0), 0.5) < 4.0 || m.phaseTicks > 200) {
+        if (m.phaseTicks == 1 || m.goal.y < 1.0) m.goal = perchPoint() + glm::dvec3(0.0, 25.0, 0.0);
+        if (fly(m.goal, 0.5) < 4.0 || m.phaseTicks > 200) {
             m.node = static_cast<uint8_t>(nearestNode(m.pos));
             setPhase(canTarget && ctx.rng.nextInt(2) == 0 ? kCharging : kHolding);
         }

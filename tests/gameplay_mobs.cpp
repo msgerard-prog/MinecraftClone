@@ -1153,9 +1153,10 @@ TEST_CASE("end gateways: 20 on a ring 96 out at Y 75; out to an outer island, ba
         ++found;
         const double r = std::hypot(to->x, to->z);
         CHECK(r > 1000.0);
-        CHECK(gen.outerTop(int(std::floor(to->x)), int(std::floor(to->z) - 2)) >= 0); // above an island
+        // On the island's own ground (M20 review: the landing column is the one checked).
+        CHECK(gen.outerTop(int(std::floor(to->x)), int(std::floor(to->z))) + 1 == int(to->y));
         // And the exit gateway out there leads home, onto the main island.
-        const BlockPos exit{int(std::floor(to->x)), int(to->y) + 9, int(std::floor(to->z)) - 2};
+        const BlockPos exit{int(std::floor(to->x)), int(to->y) + 9, int(std::floor(to->z))};
         const auto back = fight.gatewayTarget(gen, exit);
         REQUIRE(back);
         CHECK(std::hypot(back->x, back->z) < 100.0);
@@ -1178,6 +1179,12 @@ TEST_CASE("respawning the dragon: four crystals on the open portal's rim rebuild
     DragonFight::openExitPortal(w, false, edits);
     const auto& p0 = gen.pillar(0);
     w.setBlock({p0.x, p0.height, p0.z}, 0); // a damaged pillar
+    int caged = -1;
+    for (int i = 0; i < EndGenerator::kPillars; ++i)
+        if (gen.pillar(i).height <= 79) caged = i;
+    REQUIRE(caged >= 0);
+    const auto& pc = gen.pillar(caged);
+    w.setBlock({pc.x + 2, pc.height + 2, pc.z}, 0); // a broken cage
     DragonFight fight;
     fight.killed = fight.previouslyKilled = true;
     Mobs mobs;
@@ -1190,6 +1197,7 @@ TEST_CASE("respawning the dragon: four crystals on the open portal's rim rebuild
         fight.tick(w, gen, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
     CHECK_FALSE(fight.killed);
     CHECK(blockRegistry().blockOf(w.getBlock({p0.x, p0.height, p0.z})) == blocks::Obsidian);
+    CHECK(blockRegistry().blockOf(w.getBlock({pc.x + 2, pc.height + 2, pc.z})) == blocks::IronBars); // (M20 review)
     int dragons = 0, rimCrystals = 0;
     w.forEachChunk([&](Chunk& c) {
         for (const MobData& m : c.mobs()) {
@@ -1275,4 +1283,38 @@ TEST_CASE("end cities hold shulkers") {
                 shulkers += m.type == MobType::Shulker;
         }
     CHECK(shulkers >= 2);
+}
+
+TEST_CASE("M20 review: a dying dragon is saved mid-death; its head can be hit by a ray; clouds don't follow travel") {
+    Chunk c({0, 0});
+    Xoroshiro rng(4);
+    MobData d = Mobs::make(MobType::EnderDragon, {8.5, 90.0, 4.5}, rng);
+    d.health = 0.0f;
+    d.deathTime = 120;
+    c.mobs().push_back(d);
+    Chunk back({0, 0});
+    entitiesFromNbt(*mc::nbt::read(mc::nbt::write(entitiesToNbt(ChunkSnapshot::of(c)))), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].deathTime == 120);
+    CHECK(back.mobs()[0].health <= 0.0f);
+
+    MobScene s;
+    s.mobs = Mobs();
+    MobData f = Mobs::make(MobType::EnderDragon, {0.5, 80.0, 0.5}, s.rng);
+    f.yaw = 0.0f; // facing +Z: the head is 5 blocks south
+    REQUIRE(Mobs::add(s.world, f));
+    const glm::dvec3 eye{0.5, 80.75, 12.0};
+    const auto hit = Mobs::raycast(s.world, eye, {0.0, 0.0, -1.0}, 10.0);
+    REQUIRE(hit);
+    const MobData& m = s.world.chunk(hit->chunk)->mobs()[size_t(hit->index)];
+    CHECK(Mobs::dragonDamage(m, 8.0f, eye + glm::dvec3(0.0, 0.0, -1.0) * hit->distance) == 8.0f);
+
+    Projectiles proj;
+    proj.addCloud({0.5, 64.0, 0.5}, 3.0f, 100);
+    proj.clear();
+    CHECK(proj.clouds().empty());
+    World empty;
+    std::vector<BlockPos> edits;
+    CHECK_FALSE(DragonFight::buildGateway(empty, {96, 75, 0}, edits)); // not loaded: later
+    CHECK_FALSE(DragonFight::openExitPortal(empty, true, edits));
 }

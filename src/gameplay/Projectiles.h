@@ -117,7 +117,11 @@ public:
     const std::vector<glm::dvec3>& explosions() const { return m_explosions; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
-    void clear() { m_items.clear(); }
+    void clear() { // (travelling: nothing follows the player into another dimension)
+        m_items.clear();
+        m_clouds.clear();
+        m_pearls.clear();
+    }
 
 private:
     std::vector<Projectile> m_items;

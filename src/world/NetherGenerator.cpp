@@ -569,6 +569,26 @@ Biome EndGenerator::biomeAt(int32_t x, int32_t z) const {
                                                                                        : Biome::SmallEndIslands;
 }
 
+BlockStateId EndGenerator::cageBlock(int32_t x, int y, int32_t z) const {
+    if (m_version < 2) return 0;
+    const auto& r = blockRegistry();
+    for (const Pillar& p : m_pillars) {
+        if (p.height > 79) continue; // (heights 76 and 79: the two shortest)
+        auto cage = [&](int32_t wx, int wy, int32_t wz) {
+            const int dx = std::abs(wx - p.x), dz = std::abs(wz - p.z);
+            if (dx > 2 || dz > 2 || wy <= p.height || wy > p.height + 4) return false;
+            return wy == p.height + 4 || dx == 2 || dz == 2;
+        };
+        if (!cage(x, y, z)) continue;
+        BlockStateId s = r.defaultState(blocks::IronBars); // ("true" is value 0)
+        s = r.set(s, properties::fireNorth, cage(x, y, z - 1) ? 0 : 1);
+        s = r.set(s, properties::fireSouth, cage(x, y, z + 1) ? 0 : 1);
+        s = r.set(s, properties::fireWest, cage(x - 1, y, z) ? 0 : 1);
+        return r.set(s, properties::fireEast, cage(x + 1, y, z) ? 0 : 1);
+    }
+    return 0;
+}
+
 void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Biome, 16>& columnBiome,
                                  EndChests& chests) const {
     const auto& r = blockRegistry();
@@ -581,30 +601,18 @@ void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Bi
         if (inside(x, y, z)) blocks[idx(x, y, z)] = b;
     };
     const BlockStateId endStone = r.defaultState(blocks::EndStone), plant = r.defaultState(blocks::ChorusPlant),
-                       deadFlower = r.set(r.defaultState(blocks::ChorusFlower), properties::age5, 5),
-                       bars = r.defaultState(blocks::IronBars);
+                       deadFlower = r.set(r.defaultState(blocks::ChorusFlower), properties::age5, 5);
 
     // Iron bar cages around the crystals of the two shortest pillars (wiki: Obsidian
     // Pillar): 5x5 walls 3 high and a roof. Each bar's connections come from the cage's
     // shape, so a cage split over chunks joins up.
     for (const Pillar& p : m_pillars) {
-        if (p.height > 79) continue; // (heights 76 and 79: the two shortest)
-        auto cage = [&](int32_t wx, int y, int32_t wz) {
-            const int dx = std::abs(wx - p.x), dz = std::abs(wz - p.z);
-            if (dx > 2 || dz > 2 || y <= p.height || y > p.height + 4) return false;
-            return y == p.height + 4 || dx == 2 || dz == 2;
-        };
+        if (p.height > 79) continue;
         for (int y = p.height + 1; y <= p.height + 4; ++y)
             for (int32_t wz = p.z - 2; wz <= p.z + 2; ++wz)
-                for (int32_t wx = p.x - 2; wx <= p.x + 2; ++wx) {
-                    if (!cage(wx, y, wz) || !inside(wx - baseX, y, wz - baseZ)) continue;
-                    BlockStateId s = bars; // ("true" is value 0)
-                    s = r.set(s, properties::fireNorth, cage(wx, y, wz - 1) ? 0 : 1);
-                    s = r.set(s, properties::fireSouth, cage(wx, y, wz + 1) ? 0 : 1);
-                    s = r.set(s, properties::fireWest, cage(wx - 1, y, wz) ? 0 : 1);
-                    s = r.set(s, properties::fireEast, cage(wx + 1, y, wz) ? 0 : 1);
-                    set(wx - baseX, y, wz - baseZ, s);
-                }
+                for (int32_t wx = p.x - 2; wx <= p.x + 2; ++wx)
+                    if (const BlockStateId s = cageBlock(wx, y, wz); s && inside(wx - baseX, y, wz - baseZ))
+                        set(wx - baseX, y, wz - baseZ, s);
     }
 
     // An end crystal on each pillar's bedrock, added by the chunk holding its centre
@@ -792,7 +800,7 @@ void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& c
             // Shulkers sit on floors (vanilla: in the walls and on the ceilings too); each
             // belongs to the chunk it is in.
             auto addShulker = [&](int32_t wx, int sy, int32_t wz) {
-                Xoroshiro ur(mixSeed(mixSeed(m_seed ^ 0x5A1C, static_cast<uint32_t>(wx)), static_cast<uint32_t>(wz * 512 + sy)));
+                Xoroshiro ur(mixSeed(mixSeed(m_seed ^ 0x5A1C, static_cast<uint32_t>(wx)), uint32_t(wz) * 512u + uint32_t(sy)));
                 if (blockToChunk(wx) != out.pos().x || blockToChunk(wz) != out.pos().z) return;
                 MobData m;
                 m.type = MobType::Shulker;
