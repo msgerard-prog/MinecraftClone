@@ -118,6 +118,20 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("XpP", xpProgress);
     player.put("XpTotal", int32_t{xpTotal});
     player.put("XpSeed", int32_t{xpSeed});
+    if (!effects.empty()) {
+        std::vector<Tag> list;
+        for (const SavedEffect& e : effects) {
+            Compound c;
+            c.put("id", e.id);
+            c.put("amplifier", int8_t(e.amplifier));
+            c.put("duration", int32_t{e.duration});
+            c.put("ambient", int8_t{0});
+            c.put("show_particles", int8_t{1});
+            c.put("show_icon", int8_t{1});
+            list.emplace_back(std::move(c));
+        }
+        player.put("active_effects", listOf(TagType::Compound, std::move(list)));
+    }
     player.put("Score", int32_t{0});
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
@@ -166,6 +180,11 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                            std::move(ench));
         }
         if (it.repairCost) components.put("minecraft:repair_cost", int32_t{it.repairCost});
+        if (!it.potion.empty()) {
+            Compound contents;
+            contents.put("potion", "minecraft:" + it.potion);
+            components.put("minecraft:potion_contents", std::move(contents));
+        }
         if (!components.entries.empty()) item.put("components", std::move(components));
         if (it.slot >= 100) { // equipment: no Slot field
             static constexpr const char* kKeys[4] = {"feet", "legs", "chest", "head"};
@@ -289,6 +308,12 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         l.xpProgress = std::clamp(float(p->real("XpP").value_or(0.0)), 0.0f, 1.0f);
         l.xpTotal = static_cast<int>(std::max<int64_t>(0, p->integer("XpTotal").value_or(0)));
         l.xpSeed = static_cast<int32_t>(p->integer("XpSeed").value_or(0));
+        if (const List* effects = p->list("active_effects"))
+            for (const Tag& t : effects->items)
+                if (const Compound* c = t.get<Compound>(); c && c->string("id"))
+                    l.effects.push_back({*c->string("id"),
+                                         static_cast<int>(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
+                                         static_cast<int>(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 1 << 30))});
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {
@@ -316,6 +341,9 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             if (comps) {
                 saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
                 saved.repairCost = static_cast<int>(comps->integer("minecraft:repair_cost").value_or(0));
+                if (const Compound* pc = comps->compound("minecraft:potion_contents"))
+                    if (const std::string* pid = pc->string("potion"))
+                        saved.potion = pid->starts_with("minecraft:") ? pid->substr(10) : *pid;
                 for (const char* key : {"minecraft:enchantments", "minecraft:stored_enchantments"})
                     if (const Compound* ench = comps->compound(key)) {
                         const Compound* levels = ench->compound("levels") ? ench->compound("levels") : ench;

@@ -1,5 +1,7 @@
 #include "ui/CreativeInventory.h"
 
+#include "world/Potions.h"
+
 #include "ui/Hud.h"
 #include "world/Blocks.h"
 
@@ -40,9 +42,18 @@ void CreativeInventory::build(const gfx::BlockModels& models) {
             const world::BlockStateId s = reg.defaultState(def.block);
             if (s >= models.size() || !models[s].visible || models[s].fluid) continue;
         }
-        m_items.push_back({static_cast<world::ItemId>(i), 1});
         std::string name = def.id;
         if (name.starts_with("minecraft:")) name.erase(0, 10);
+        if (name == "potion" || name == "splash_potion") { // one of each potion (vanilla's tab)
+            for (int p = 1; p < static_cast<int>(world::Potion::Count); ++p) {
+                world::ItemStack s{static_cast<world::ItemId>(i), 1};
+                s.potion = static_cast<uint8_t>(p);
+                m_items.push_back(s);
+                m_names.push_back(name + " " + std::string(world::potionInfo(static_cast<world::Potion>(p)).id));
+            }
+            continue;
+        }
+        m_items.push_back({static_cast<world::ItemId>(i), 1});
         m_names.push_back(std::move(name));
     }
 }

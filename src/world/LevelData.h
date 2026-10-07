@@ -59,6 +59,12 @@ struct LevelData {
     float xpProgress = 0.0f;
     int xpTotal = 0;
     int32_t xpSeed = 0;    // XpSeed: the enchanting table's seed
+    // Status effects (M19.4): Player.active_effects [{id, amplifier, duration, ...}].
+    struct SavedEffect {
+        std::string id; // "minecraft:speed"
+        int amplifier = 0, duration = 0;
+    };
+    std::vector<SavedEffect> effects;
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
     // Inventory slots 0..35 (0..8 hotbar), worn armor 100 (feet)..103 (head) and the
@@ -72,6 +78,7 @@ struct LevelData {
         int damage = 0;
         std::vector<std::pair<std::string, int>> enchantments; // ("minecraft:sharpness", 5)
         int repairCost = 0;
+        std::string potion; // potion id without "minecraft:" ("" = none)
         bool storedEnchantments = false; // an enchanted book's (minecraft:stored_enchantments)
     };
     std::vector<SavedItem> inventory;

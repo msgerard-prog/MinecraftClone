@@ -147,7 +147,26 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     const world::ItemDef& held = items.item(inventory.selectedStack().item);
     const bool planting = held.block && hit && hit->face == world::Direction::Up &&
                           world::blockRegistry().blockOf(world.getBlock(hit->block)) == world::blocks::Farmland;
-    if (use && !planting && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
+    // Drinking (M19.4; wiki: Potion, Milk Bucket): 32 ticks of holding use; a potion
+    // gives its effect and leaves a glass bottle, milk clears all effects and leaves
+    // the bucket.
+    static const world::ItemId potionItem = *items.find("potion"), milk = *items.find("milk_bucket"),
+                               bottle = *items.find("glass_bottle"), bucket = *items.find("bucket");
+    const world::ItemStack& heldStack = inventory.selectedStack();
+    const bool drink = heldStack.item == potionItem || heldStack.item == milk;
+    if (use && drink) {
+        if (++m_eatTicks >= kEatTicks) {
+            m_eatTicks = 0;
+            if (heldStack.item == milk) {
+                vitals.clearEffects();
+                inventory.setSlot(inventory.selected(), {bucket, 1});
+            } else {
+                const world::PotionInfo& p = world::potionInfo(static_cast<world::Potion>(heldStack.potion));
+                if (p.effect != world::Effect::None) vitals.addEffect(p.effect, p.amplifier, p.duration);
+                inventory.setSlot(inventory.selected(), {bottle, 1});
+            }
+        }
+    } else if (use && !planting && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
         if (++m_eatTicks >= kEatTicks) {
             vitals.eat(held.food, held.saturation);
             inventory.consumeSelected(1);

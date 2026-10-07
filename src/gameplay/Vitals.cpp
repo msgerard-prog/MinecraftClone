@@ -10,7 +10,7 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
-    if (keepBreath) return 0.0f;
+    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0) return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
         // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).
@@ -29,8 +29,48 @@ float Vitals::touchFire(bool inFire) {
     return attacked(1.0f, nullptr, Hit::Fire) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
+void Vitals::addEffect(world::Effect type, int amplifier, int duration) {
+    using world::Effect;
+    if (world::effectInfo(type).instant) {
+        if (type == Effect::InstantHealth) m_health = std::min(kMaxHealth, m_health + float(4 << amplifier));
+        else if (!dead()) m_health = std::max(0.0f, m_health - protectionReduced(float(6 << amplifier), Hit::Generic, false));
+        return;
+    }
+    ActiveEffect* free = nullptr;
+    for (ActiveEffect& e : m_effects) {
+        if (e.type == type && e.duration > 0) {
+            if (amplifier > e.amplifier || (amplifier == e.amplifier && duration > e.duration))
+                e = {type, uint8_t(amplifier), duration};
+            return;
+        }
+        if (!free && e.duration <= 0) free = &e;
+    }
+    if (free) *free = {type, uint8_t(amplifier), duration};
+}
+
+void Vitals::tickEffects() {
+    using world::Effect;
+    for (ActiveEffect& e : m_effects) {
+        if (e.duration <= 0) continue;
+        if (!dead()) {
+            if (e.type == Effect::Regeneration) {
+                const int every = std::max(1, 50 >> e.amplifier);
+                if (e.duration % every == 0 && m_health < kMaxHealth) m_health = std::min(kMaxHealth, m_health + 1.0f);
+            } else if (e.type == Effect::Poison) {
+                const int every = std::max(1, 25 >> e.amplifier);
+                if (e.duration % every == 0 && m_health > 1.0f) m_health -= 1.0f; // (never kills)
+            }
+        }
+        if (--e.duration <= 0) e = {};
+    }
+}
+
 float Vitals::tickFire(bool inWater) {
     if (inWater) m_fire = 0;
+    if (effectLevel(world::Effect::FireResistance) > 0) { // still alight, but unhurt (wiki)
+        if (m_fire > 0) --m_fire;
+        return 0.0f;
+    }
     if (m_fire <= 0) return 0.0f;
     // Burning: armor doesn't help; Protection and Fire Protection do.
     const float d = protectionReduced(1.0f, Hit::Fire, false);
@@ -40,6 +80,7 @@ float Vitals::tickFire(bool inWater) {
 }
 
 void Vitals::reset() {
+    m_effects = {}; // (death clears effects)
     m_health = kMaxHealth;
     m_food = kMaxFood;
     m_saturation = 5.0f;
@@ -88,6 +129,7 @@ float Vitals::protectionReduced(float amount, Hit kind, bool fall) const {
 
 bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
+    if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
     if (m_shieldRaised && from) {
         glm::dvec3 to = *from - m_eye;
         to.y = 0.0;
@@ -137,7 +179,7 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
 
     // Falls (wiki: Fall damage): 1 per block fallen beyond 3, on landing, measured
     // from the highest point since leaving the ground. Water and flight cancel it.
-    if (inWater || flying) {
+    if (inWater || flying || effectLevel(world::Effect::SlowFalling) > 0) { // (slow falling: no fall damage)
         m_falling = false;
     } else if (!onGround) {
         if (!m_falling) {

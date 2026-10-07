@@ -77,6 +77,14 @@ public:
     void setFlying(bool flying) { m_flying = flying && m_creative; }
     // Benchmarks only (--auto-fly): scales flight acceleration.
     void setFlySpeedMultiplier(double k) { m_flyMultiplier = k; }
+    // Effects (M19.4; wiki: Speed, Slowness, Jump Boost, Slow Falling): walking speed
+    // x (1 + 0.2 speed) x (1 - 0.15 slowness); jumps 0.1 higher per jump boost level;
+    // slow falling: gravity 0.01 while falling.
+    void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling) {
+        m_walkMultiplier = std::max(0.0, (1.0 + 0.2 * speed) * (1.0 - 0.15 * slowness));
+        m_jumpBoost = jumpBoost;
+        m_slowFalling = slowFalling;
+    }
 
     // One game tick. Does nothing while the player's chunk isn't loaded (vanilla
     // keeps the player still until the terrain arrives).
@@ -126,6 +134,9 @@ private:
     int m_ticksSinceJumpPress = 1000;
     int m_jumpDelay = 0;
     double m_flyMultiplier = 1.0;
+    double m_walkMultiplier = 1.0;
+    int m_jumpBoost = 0;
+    bool m_slowFalling = false;
     std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
 
 public:

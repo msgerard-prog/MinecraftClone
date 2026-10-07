@@ -276,6 +276,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::GrassBlock:
         case blocks::Podzol:
         case blocks::Mycelium:
+        case blocks::Glowstone:
         case blocks::CrimsonNylium:
         case blocks::WarpedNylium:
         case blocks::BrownMushroomBlock:
@@ -397,6 +398,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return;
     case blocks::NetherWart: // wiki: Nether Wart - 2-4 when ripe (age 3), else 1
         add(itemRegistry().blockItem(blocks::NetherWart), blockRegistry().get(state, properties::age3) == 3 ? between(2, 4) : 1);
+        return;
+    case blocks::Glowstone: // wiki: Glowstone - 2-4 dust
+        add(*itemRegistry().find("glowstone_dust"), between(2, 4));
         return;
     case blocks::GildedBlackstone: // wiki: 10% 2-5 gold nuggets, else itself
         if (rng.nextFloat() < 0.1f) add(*itemRegistry().find("gold_nugget"), between(2, 5));

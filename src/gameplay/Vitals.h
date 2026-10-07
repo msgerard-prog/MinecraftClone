@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/Potions.h"
+
 #include <glm/glm.hpp>
 
 #include <algorithm>
@@ -122,6 +124,30 @@ public:
     // Dropped on death (wiki): 7 x level, at most 100 points; then all is lost.
     int deathExperience() const { return std::min(m_xpLevel * 7, 100); }
 
+    // Status effects (M19.4; wiki: Effect). A new effect replaces one of the same kind
+    // when it is stronger, or as strong and longer. Instant health heals 4 x 2^level,
+    // instant damage hurts 6 x 2^level (armor doesn't help); regeneration heals 1
+    // every 50 >> level ticks, poison hurts 1 every 25 >> level ticks but never below
+    // 1 health; fire resistance stops fire and lava damage; water breathing keeps the
+    // air; slow falling stops fall damage. Speed, jump boost and the rest are read by
+    // the player and the renderer (effectLevel).
+    struct ActiveEffect {
+        world::Effect type = world::Effect::None;
+        uint8_t amplifier = 0;
+        int duration = 0; // ticks left
+    };
+    static constexpr int kMaxEffects = 16;
+    void addEffect(world::Effect type, int amplifier, int duration);
+    // 0 = not active, else level (amplifier + 1).
+    int effectLevel(world::Effect type) const {
+        for (const ActiveEffect& e : m_effects)
+            if (e.type == type && e.duration > 0) return e.amplifier + 1;
+        return 0;
+    }
+    const std::array<ActiveEffect, kMaxEffects>& effects() const { return m_effects; }
+    void clearEffects() { m_effects = {}; } // death, milk
+    void tickEffects();
+
     // Saved state.
     void setState(float health, int food, float saturation, float exhaustion);
 
@@ -150,6 +176,7 @@ private:
     double m_lastY = 0.0;
     bool m_falling = false;
     bool m_started = false;
+    std::array<ActiveEffect, kMaxEffects> m_effects{};
 };
 
 } // namespace mc

@@ -234,7 +234,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         if (input.sneak) m_velocity.y -= kFlyVertical;
     } else if (m_onGround) {
         const double slip = kGroundSlipperiness;
-        accel = kWalkSpeed * (m_sprinting ? kSprintFactor : 1.0) * std::pow(0.6 / slip, 3.0);
+        accel = kWalkSpeed * m_walkMultiplier * (m_sprinting ? kSprintFactor : 1.0) * std::pow(0.6 / slip, 3.0);
     } else {
         accel = kAirAccel * (m_sprinting ? kSprintFactor : 1.0);
     }
@@ -245,7 +245,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     if (m_jumpDelay > 0) --m_jumpDelay;
     if (!m_flying && input.jump && m_onGround && m_jumpDelay == 0) {
         m_jumpDelay = kJumpDelay;
-        m_velocity.y = kJumpVelocity;
+        m_velocity.y = kJumpVelocity + 0.1 * m_jumpBoost;
         if (m_sprinting) {
             const glm::dvec3 f(world::forwardFlat(m_yaw));
             m_velocity += f * kSprintJumpBoost;
@@ -276,7 +276,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         m_velocity.y *= kFlyVerticalDamping;
         if (m_onGround) m_flying = false; // landing ends creative flight
     } else {
-        m_velocity.y = (m_velocity.y - kGravity) * kVerticalDrag;
+        m_velocity.y = (m_velocity.y - (m_slowFalling && m_velocity.y <= 0.0 ? 0.01 : kGravity)) * kVerticalDrag;
     }
     m_velocity.x *= friction;
     m_velocity.z *= friction;

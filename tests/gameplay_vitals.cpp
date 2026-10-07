@@ -140,3 +140,31 @@ TEST_CASE("burning: 1 damage a second, water puts it out") {
     v.tickFire(true);
     CHECK_FALSE(v.burning());
 }
+
+TEST_CASE("effects: regeneration heals, poison stops at 1, instant health/damage, fire resistance, stronger replaces") {
+    using mc::world::Effect;
+    mc::Vitals v;
+    v.setState(10.0f, 20, 0.0f, 0.0f);
+    v.addEffect(Effect::Regeneration, 0, 100); // 1 every 50 ticks
+    for (int i = 0; i < 100; ++i)
+        v.tickEffects();
+    CHECK(v.health() == doctest::Approx(12.0f));
+    CHECK(v.effectLevel(Effect::Regeneration) == 0); // ran out
+    v.addEffect(Effect::Poison, 1, 1000); // poison II: 1 every 12 ticks
+    for (int i = 0; i < 1000; ++i)
+        v.tickEffects();
+    CHECK(v.health() == doctest::Approx(1.0f)); // poison never kills
+    v.addEffect(Effect::InstantHealth, 1, 1); // healing II: +8
+    CHECK(v.health() == doctest::Approx(9.0f));
+    v.addEffect(Effect::InstantDamage, 0, 1); // harming: -6
+    CHECK(v.health() == doctest::Approx(3.0f));
+    v.addEffect(Effect::FireResistance, 0, 200);
+    CHECK_FALSE(v.attacked(4.0f, nullptr, mc::Vitals::Hit::Fire));
+    v.addEffect(Effect::Speed, 0, 3600);
+    v.addEffect(Effect::Speed, 1, 100); // stronger: replaces
+    CHECK(v.effectLevel(Effect::Speed) == 2);
+    v.addEffect(Effect::Speed, 0, 9600); // weaker: ignored
+    CHECK(v.effectLevel(Effect::Speed) == 2);
+    v.reset();
+    CHECK(v.effectLevel(Effect::Speed) == 0); // death clears effects
+}

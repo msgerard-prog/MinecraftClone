@@ -569,6 +569,77 @@ def fire_charge():
     return img
 
 
+def bottle_pixels():
+    body = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 10.5) < 4.6}
+    neck = {(x, y) for x in (6, 7, 8, 9) for y in range(3, 7)}
+    return body, neck
+
+
+def bottle(splash=False, filled=True):
+    # Glass outline with a cork; the liquid is the separate overlay (tinted per potion).
+    img = Img(16, 16, CLEAR)
+    body, neck = bottle_pixels()
+    if splash:  # a squat, rounder bottle
+        body = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 10) < 5.2}
+    shape = body | neck
+    for (x, y) in shape:
+        edge = any((x + dx, y + dy) not in shape for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        if edge:
+            img.set(x, y, (205, 225, 240, 255))
+        elif not filled or y < 8:
+            img.set(x, y, (225, 240, 250, 90))
+    for x in (6, 7, 8, 9):
+        img.set(x, 2, (140, 100, 60, 255))
+        img.set(x, 3, (120, 84, 50, 255))
+    img.set(6, 9, (255, 255, 255, 220))  # a glint
+    img.set(6, 10, (255, 255, 255, 180))
+    return img
+
+
+def potion_overlay():
+    # White liquid where the bottle body is (lower part), multiplied by the potion colour.
+    img = Img(16, 16, CLEAR)
+    body, _ = bottle_pixels()
+    for (x, y) in body:
+        inner = all((x + dx, y + dy) in body for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        if inner and y >= 8:
+            v = 255 if (x + y) % 5 else 220
+            img.set(x, y, (v, v, v, 255))
+    return img
+
+
+def sugar():
+    rng = random.Random("sugar")
+    pal = ramp(hexc("#F4F4F0"), 5, spread=0.15)
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - 8) / 5.5) ** 2 + ((y - 10) / 3.5) ** 2 < 1 and rng.random() < 0.85}
+    s = Shape()
+    s.add(pts, pal)
+    return s.render()
+
+
+def fermented_spider_eye():
+    pal = ramp(hexc("#8A4A3A"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 8) < 5}, pal)
+    img = s.render()
+    for x, y in ((5, 6), (9, 6), (7, 9), (8, 9), (6, 11)):
+        img.set(x, y, hexc("#C86A4A"))
+    for x, y in ((4, 4), (10, 5), (11, 9)):
+        img.set(x, y, hexc("#E0C8A0"))  # sugar specks
+    return img
+
+
+def golden_carrot():
+    img = carrot()
+    for y in range(16):
+        for x in range(16):
+            r, g, b, a = img.get(x, y)
+            if a and r > g:  # the orange root turns gold
+                img.set(x, y, (min(255, r + 30), min(255, g + 70), max(0, b - 10), a))
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -641,6 +712,15 @@ def all_items():
     items["magma_cream"] = magma_cream()
     items["gold_nugget"] = lump("gold_nugget", "#F2CF3C", "#FFF4A0", size=3.4)
     items["fire_charge"] = fire_charge()
+    # Brewing (M19.4).
+    items["glass_bottle"] = bottle(filled=False)
+    items["potion"] = bottle()
+    items["splash_potion"] = bottle(splash=True)
+    items["potion_overlay"] = potion_overlay()
+    items["sugar"] = sugar()
+    items["fermented_spider_eye"] = fermented_spider_eye()
+    items["golden_carrot"] = golden_carrot()
+    items["glowstone_dust"] = lump("glowstone_dust", "#E8C060", "#FFF0A0", size=4.5)
     return items
 
 

@@ -6,6 +6,7 @@
 #include "world/ChunkSerializer.h"
 #include "world/ChunkStorage.h"
 #include "world/FlatGenerator.h"
+#include "world/Potions.h"
 #include "world/RegionFile.h"
 
 #include <doctest/doctest.h>
@@ -988,4 +989,30 @@ TEST_CASE("spawners save as minecraft:mob_spawner with their mob and delay") {
     // Breaking it removes the block entity.
     w.setBlock({2, 40, 3}, 0);
     CHECK(w.chunk({0, 0})->spawner(2, 40, 3) == nullptr);
+}
+
+TEST_CASE("potions save as minecraft:potion_contents; effects as Player.active_effects") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 70, 1}, blockRegistry().defaultState(blocks::Chest));
+    ItemStack p{*itemRegistry().find("potion"), 1};
+    p.potion = static_cast<uint8_t>(Potion::LongSwiftness);
+    w.chunk({0, 0})->chest(1, 70, 1)->items[3] = p;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(*w.chunk({0, 0}))))), back));
+    CHECK(back.chest(1, 70, 1)->items[3].potion == static_cast<uint8_t>(Potion::LongSwiftness));
+    TempDir dir("mc_test_effects");
+    LevelData l;
+    l.effects.push_back({"minecraft:night_vision", 0, 1234});
+    LevelData::SavedItem item;
+    item.id = "minecraft:potion";
+    item.potion = "strong_healing";
+    l.inventory.push_back(item);
+    REQUIRE(l.save(dir.path));
+    const auto r = LevelData::load(dir.path);
+    REQUIRE(r);
+    REQUIRE(r->effects.size() == 1);
+    CHECK(r->effects[0].duration == 1234);
+    REQUIRE(!r->inventory.empty());
+    CHECK(r->inventory[0].potion == "strong_healing");
 }

@@ -28,6 +28,7 @@ public:
 
 private:
     std::vector<uint16_t> m_sprites; // per item; 0 = use the block model
+    uint16_t m_potionOverlay = 0;
 };
 
 } // namespace mc::gfx

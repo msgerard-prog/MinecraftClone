@@ -4,6 +4,7 @@
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 #include "world/LevelData.h"
+#include "world/Potions.h"
 #include "world/RecipeIds.h"
 
 #include <algorithm>
@@ -186,6 +187,11 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
                        std::move(ench));
     }
     if (s.repairCost) components.put("minecraft:repair_cost", int32_t{s.repairCost});
+    if (s.potion) { // 1.20.5+ potion_contents { potion: "minecraft:<id>" }
+        nbt::Compound contents;
+        contents.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
+        components.put("minecraft:potion_contents", std::move(contents));
+    }
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
 }
@@ -221,6 +227,9 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                 }
             }
         s.repairCost = static_cast<uint8_t>(std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
+        if (const nbt::Compound* pc = comps->compound("minecraft:potion_contents"))
+            if (const std::string* pid = pc->string("potion"))
+                if (const auto p = findPotion(*pid)) s.potion = static_cast<uint8_t>(*p);
     }
     return s;
 }

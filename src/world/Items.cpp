@@ -184,6 +184,15 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:magma_cream", .texture = "item/magma_cream"});
     r.add({.id = "minecraft:gold_nugget", .texture = "item/gold_nugget"});
     r.add({.id = "minecraft:fire_charge", .texture = "item/fire_charge"});
+    // Brewing (M19.4; wiki: Potion, Glass Bottle, Sugar, Fermented Spider Eye, Golden
+    // Carrot - 6 food, 14.4 saturation; Glowstone Dust).
+    r.add({.id = "minecraft:glass_bottle", .texture = "item/glass_bottle"});
+    r.add({.id = "minecraft:potion", .maxStack = 1, .texture = "item/potion"});
+    r.add({.id = "minecraft:splash_potion", .maxStack = 1, .texture = "item/splash_potion"});
+    r.add({.id = "minecraft:sugar", .texture = "item/sugar"});
+    r.add({.id = "minecraft:fermented_spider_eye", .texture = "item/fermented_spider_eye"});
+    r.add({.id = "minecraft:golden_carrot", .food = 6, .saturation = 14.4f, .texture = "item/golden_carrot"});
+    r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).
     r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));
     r.mapBlock(blocks::Carrots, *r.find("carrot"));

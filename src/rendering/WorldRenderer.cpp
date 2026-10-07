@@ -340,7 +340,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glUniform1f(7, m_skyDarken);
     // Dimension light: the Nether's ambient light lifts darkness (0.1); the End's
     // lightmap is forced bright (wiki: Dimension type › ambient_light; Light).
-    glUniform1f(8, world::dimensionInfo(m_dimension).ambientLight);
+    glUniform1f(8, m_nightVision ? 1.0f : world::dimensionInfo(m_dimension).ambientLight);
     glUniform1f(9, m_dimension == world::Dimension::End ? 1.0f : 0.0f);
     glBindTextureUnit(0, m_atlas.texture());
 

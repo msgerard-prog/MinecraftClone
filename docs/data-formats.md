@@ -80,7 +80,10 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            components { "minecraft:block_state", "minecraft:damage",
                            "minecraft:enchantments" | "minecraft:stored_enchantments"
                            { "minecraft:<id>": level } (1.21.5+ map; the older
-                           { levels: {...} } is read), "minecraft:repair_cost" } } ],
+                           { levels: {...} } is read), "minecraft:repair_cost",
+                           "minecraft:potion_contents" { potion } (M19.4) } } ],
+                           active_effects [ { id, amplifier (byte), duration, ambient,
+                           show_particles, show_icon } ] (M19.4),
                            equipment { head, chest, legs, feet, offhand: item } (1.21.5+;
                            older saves' Inventory slots 100..103 / -106 are read),
                            respawn { pos [I; x, y, z], dimension, yaw, pitch, forced }

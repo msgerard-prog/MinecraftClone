@@ -36,6 +36,7 @@
 #include "world/BlockUpdates.h"
 #include "world/Enchantments.h"
 #include "world/NetherGenerator.h"
+#include "world/Potions.h"
 #include "gameplay/Buckets.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Portals.h"
@@ -392,6 +393,8 @@ int main(int argc, char** argv) {
         vitals.setFireTicks(level->fire);
         vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
         vitals.setEnchantSeed(uint32_t(level->xpSeed));
+        for (const auto& e : level->effects) // (kinds we don't have are dropped)
+            if (const auto kind = mc::world::findEffect(e.id)) vitals.addEffect(*kind, e.amplifier, e.duration);
     }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
@@ -442,6 +445,7 @@ int main(int argc, char** argv) {
                 if (const auto e = mc::world::findEnchantment(eid))
                     mc::world::setEnchantment(s, *e, std::clamp(lvl, 1, 255));
             s.repairCost = static_cast<uint8_t>(std::clamp(it.repairCost, 0, 255));
+            if (const auto p = mc::world::findPotion(it.potion)) s.potion = static_cast<uint8_t>(*p);
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
             else if (it.slot == 150) inventory.setOffhand(s);
@@ -526,6 +530,9 @@ int main(int argc, char** argv) {
         l.xpProgress = vitals.xpProgress();
         l.xpTotal = vitals.xpTotal();
         l.xpSeed = int32_t(uint32_t(vitals.enchantSeed()));
+        for (const auto& e : vitals.effects())
+            if (e.duration > 0)
+                l.effects.push_back({std::string(mc::world::effectInfo(e.type).id), e.amplifier, e.duration});
         l.hasRespawn = bedSpawn.has_value();
         if (bedSpawn) l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
@@ -538,6 +545,7 @@ int main(int argc, char** argv) {
                 if (v) it.enchantments.emplace_back(
                     std::string(mc::world::enchantmentInfo(mc::world::Enchantment(v >> 8)).id), int(v & 0xFF));
             it.repairCost = s.repairCost;
+            if (s.potion) it.potion = std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
             it.storedEnchantments = it.id == "minecraft:enchanted_book";
             l.inventory.push_back(std::move(it));
         };
@@ -1057,6 +1065,12 @@ int main(int argc, char** argv) {
             input.canSprint = !survival || vitals.canSprint(); // hunger ends a sprint too
             const glm::dvec3 before = player.position();
             const bool wasOnGround = player.onGround();
+            {
+                using E = mc::world::Effect;
+                vitals.tickEffects(); // (M19.4: in any game mode)
+                player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
+                                  vitals.effectLevel(E::JumpBoost), vitals.effectLevel(E::SlowFalling) > 0);
+            }
             if (!arrival) player.tick(world, input); // waiting for a destination: held in place
             const auto& reg = mc::world::blockRegistry();
             const glm::dvec3 feet = player.position();
@@ -1262,6 +1276,27 @@ int main(int argc, char** argv) {
                 // A usable block (lever, button...) takes the click first unless sneaking.
                 const bool blockUse = lastHit && !player.sneaking() &&
                                       mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
+                // A glass bottle fills from water (wiki: Glass Bottle): a water bottle.
+                if (heldId == "minecraft:glass_bottle" && clicks.useClick && !blockUse) {
+                    const glm::dvec3 eye = player.eyePosition(1.0);
+                    const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                    const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
+                    for (double t = 0.0; t <= reach; t += 0.1) {
+                        const glm::dvec3 q = eye + look * t;
+                        const mc::world::BlockPos b{int(std::floor(q.x)), int(std::floor(q.y)), int(std::floor(q.z))};
+                        const mc::world::BlockStateId s = world.getBlock(b);
+                        if (mc::world::blockRegistry().blockOf(s) == mc::world::blocks::Water) {
+                            static const mc::world::ItemId potionItem = *mc::world::itemRegistry().find("potion");
+                            mc::world::ItemStack water{potionItem, 1};
+                            water.potion = static_cast<uint8_t>(mc::world::Potion::Water);
+                            if (survival) inventory.consumeSelected(1);
+                            if (inventory.add(water) > 0) droppedItems.spawn(player.position(), water, gameRng);
+                            clicks.useClick = false;
+                            break;
+                        }
+                        if (mc::world::blockRegistry().collides(s)) break;
+                    }
+                }
                 if (heldId.ends_with("bucket") && heldId != "minecraft:milk_bucket" && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
                     const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
@@ -1321,6 +1356,9 @@ int main(int argc, char** argv) {
                     using E = mc::world::Enchantment;
                     float dmg = stack.empty() ? 1.0f : held.attackDamage;
                     if (const int s = mc::world::enchantLevel(stack, E::Sharpness)) dmg += 0.5f * float(s) + 0.5f;
+                    // Strength +3 and weakness -4 per level (wiki: Strength, Weakness).
+                    dmg += 3.0f * float(vitals.effectLevel(mc::world::Effect::Strength));
+                    dmg = std::max(0.0f, dmg - 4.0f * float(vitals.effectLevel(mc::world::Effect::Weakness)));
                     if (m.type == mc::world::MobType::Zombie || m.type == mc::world::MobType::Skeleton)
                         dmg += 2.5f * float(mc::world::enchantLevel(stack, E::Smite));
                     if (m.type == mc::world::MobType::Spider)
@@ -1564,6 +1602,7 @@ int main(int argc, char** argv) {
             }
             renderer.setNetherFog(netherFog);
         }
+        renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0);
         renderer.setDayTime(dayTime, static_cast<float>(clock.alpha));
         if (loader) {
             const mc::world::ChunkPos center{

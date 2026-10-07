@@ -2,6 +2,7 @@
 
 #include "rendering/TextureAtlas.h"
 #include "world/Blocks.h"
+#include "world/Potions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,6 +17,7 @@ void ItemIcons::build(const TextureAtlas& atlas) {
         const world::ItemDef& def = items.item(static_cast<world::ItemId>(i));
         if (!def.texture.empty()) m_sprites[i] = static_cast<uint16_t>(atlas.spriteIndex(def.texture));
     }
+    m_potionOverlay = static_cast<uint16_t>(atlas.spriteIndex("item/potion_overlay"));
 }
 
 void ItemIcons::setSprite(world::ItemId id, uint16_t sprite) {
@@ -28,7 +30,12 @@ void ItemIcons::draw(GuiBatch& batch, const BlockModels& models, const world::It
     if (stack.empty()) return;
     const world::ItemDef& def = world::itemRegistry().item(stack.item);
     const uint16_t sprite = stack.item < m_sprites.size() ? m_sprites[stack.item] : 0;
-    if (sprite) {
+    if (sprite && stack.potion && m_potionOverlay) {
+        // Potions (M19.4): the liquid, tinted by the potion's colour, under the bottle.
+        const uint32_t c = world::potionColour(static_cast<world::Potion>(stack.potion));
+        batch.atlasSprite(m_potionOverlay, x, y, rgba(uint8_t(c >> 16), uint8_t(c >> 8), uint8_t(c)));
+        batch.atlasSprite(sprite, x, y);
+    } else if (sprite) {
         batch.atlasSprite(sprite, x, y);
     } else if (def.block) {
         const world::BlockStateId state =

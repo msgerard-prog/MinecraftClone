@@ -77,11 +77,14 @@ struct ItemStack {
     // anvil's prior-work penalty (vanilla minecraft:repair_cost).
     std::array<uint16_t, 8> enchantments{};
     uint8_t repairCost = 0;
+    // Potion items (M19.4): the potion inside (world/Potions.h; 0 = none), vanilla's
+    // minecraft:potion_contents.
+    uint8_t potion = 0;
 
     bool empty() const { return item == kNoItem || count == 0; }
     bool sameKind(const ItemStack& o) const {
         return item == o.item && state == o.state && damage == o.damage && enchantments == o.enchantments &&
-               repairCost == o.repairCost;
+               repairCost == o.repairCost && potion == o.potion;
     }
 };
 

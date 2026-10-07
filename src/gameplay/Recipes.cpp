@@ -133,6 +133,13 @@ std::vector<Recipe> build() {
     r.push_back(shapeless({item("gold_ingot")}, "gold_nugget", 9));
     r.push_back(shaped({"###", "###", "###"}, {{'#', item("gold_nugget")}}, "gold_ingot"));
     r.push_back(shapeless({item("gunpowder"), item("blaze_powder"), item("coal")}, "fire_charge", 3));
+    // Brewing (M19.4; wiki: Glass Bottle, Sugar, Fermented Spider Eye, Golden Carrot,
+    // Glowstone).
+    r.push_back(shaped({"#.#", ".#."}, {{'#', item("glass")}}, "glass_bottle", 3));
+    r.push_back(shapeless({item("sugar_cane")}, "sugar"));
+    r.push_back(shapeless({item("spider_eye"), item("brown_mushroom"), item("sugar")}, "fermented_spider_eye"));
+    r.push_back(shaped({"###", "#C#", "###"}, {{'#', item("gold_nugget")}, {'C', item("carrot")}}, "golden_carrot"));
+    r.push_back(shaped({"##", "##"}, {{'#', item("glowstone_dust")}}, "glowstone"));
     r.push_back(shaped({"###", "BBB", "###"}, {{'#', kPlanks}, {'B', item("book")}}, "bookshelf"));
     r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},
                        "enchanting_table"));

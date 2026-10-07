@@ -78,6 +78,9 @@ public:
     // The Nether's fog colour (each Nether biome has its own; main eases it toward
     // the one at the camera). Default: Nether Wastes' #330808.
     void setNetherFog(const glm::vec3& rgb) { m_netherFog = rgb; }
+    // Night vision (M19.4): everything lit as if at full light (vanilla scales the
+    // lightmap to full brightness).
+    void setNightVision(bool on) { m_nightVision = on; }
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
     // Also drops every mesh, queued re-mesh and in-flight result of the previous
     // dimension (its chunks are all unloaded at a switch).
@@ -151,6 +154,7 @@ private:
     int m_inFlight = 0;
     int m_maxInFlight = 0;
     glm::vec3 m_netherFog{0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f};
+    bool m_nightVision = false;
 };
 
 } // namespace mc::gfx

@@ -1,5 +1,7 @@
 #include "gameplay/Commands.h"
 
+#include "world/Potions.h"
+
 #include "world/Blocks.h"
 #include "world/DayTime.h"
 #include "gameplay/Mobs.h"
@@ -161,7 +163,15 @@ CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) 
     if (!item || *item == world::kNoItem)
         return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
     world::ItemStack stack{*item, 1};
-    if (name.size() != id.size()) { // a block state
+    if (const size_t pc = id.find("[potion_contents={potion:"); pc != std::string_view::npos) {
+        // potion[potion_contents={potion:"minecraft:swiftness"}] (vanilla components)
+        std::string_view rest = id.substr(pc + 25);
+        if (!rest.empty() && rest.front() == '"') rest.remove_prefix(1);
+        rest = rest.substr(0, rest.find_first_of("\"}"));
+        const auto potion = world::findPotion(rest);
+        if (!potion) return fail(format("Unknown potion '%.*s'", int(rest.size()), rest.data()));
+        stack.potion = static_cast<uint8_t>(*potion);
+    } else if (name.size() != id.size()) { // a block state
         const auto state = world::blockRegistry().parse(id);
         if (!state) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
         stack = Inventory::blockStack(*state);
