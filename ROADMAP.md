@@ -102,6 +102,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   Section copy-on-write allocates when a worker still holds the section (rare).
 
 ## Decisions (2026-10-07, user)
+- **v1.0 is tagged only when the first revision is fully complete and resembles
+  vanilla Minecraft** - after M22 come content milestones M23-M28 (building blocks,
+  villages, oceans, the remaining mobs, biomes/structures, progression), then v1.0.
+  Work continues autonomously, a commit per step and a push per milestone, stopping
+  only for decisions or problems that need the user.
+- Entity textures stay as they are (procedural skins on vanilla-shaped models); the
+  user decides whether to change them.
 - Target patch: **1.21.11** (ADR 0002 update). Migration to do: DataVersion 4671 and
   1.21.5+ NBT names in saves, 1.21.11 defaults (render/graphics presets, mipmaps,
   Nether fog 10-96, sneak-sprint), then 1.21.9-1.21.11 content as milestones.
@@ -214,7 +221,13 @@ and GUI textures are made with their systems.
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | ✅ 2026-10-07 v0.20.0 (basic cities, simplified dragon AI: see deviations) |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
-| v1.0 | Tag the codebase (git tag v1.0) | Then polish: deviations, performance |
+| M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | Vanilla's building and crafting palette |
+| M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | Villages live |
+| M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | Oceans as in 1.21 |
+| M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
+| M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
+| M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
+| v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
 - Sound (miniaudio) — `src/audio` is a stub until needed.
