@@ -227,6 +227,45 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         return;
     }
 
+    // Gliding (M20.4): the elytra motion as measured and documented by the community
+    // (MCPK wiki: Elytra) - lift from the pitch's cosine squared, diving trades height
+    // for speed, pulling up trades speed for height, the velocity turns toward the look;
+    // drag 0.99 / 0.98 / 0.99.
+    if (m_gliding && (m_onGround || !m_canGlide || m_flying)) m_gliding = false;
+    if (!m_gliding && m_canGlide && !m_flying && !m_onGround && input.jumpPresses > 0 && m_velocity.y < 0.0)
+        m_gliding = true;
+    if (m_gliding) {
+        const double pitch = m_pitch * 3.14159265358979 / 180.0;
+        const glm::dvec3 look(world::lookVector(m_yaw, m_pitch));
+        const double hlook = std::sqrt(look.x * look.x + look.z * look.z);
+        const double hvel = std::sqrt(m_velocity.x * m_velocity.x + m_velocity.z * m_velocity.z);
+        const double lift = std::cos(pitch) * std::cos(pitch);
+        m_velocity.y += -kGravity + lift * 0.06;
+        if (m_velocity.y < 0.0 && hlook > 0.0) {
+            const double yacc = m_velocity.y * -0.1 * lift;
+            m_velocity.y += yacc;
+            m_velocity.x += look.x * yacc / hlook;
+            m_velocity.z += look.z * yacc / hlook;
+        }
+        if (pitch < 0.0 && hlook > 0.0) {
+            const double yacc = hvel * -std::sin(pitch) * 0.04;
+            m_velocity.y += yacc * 3.2;
+            m_velocity.x -= look.x * yacc / hlook;
+            m_velocity.z -= look.z * yacc / hlook;
+        }
+        if (hlook > 0.0) {
+            m_velocity.x += (look.x / hlook * hvel - m_velocity.x) * 0.1;
+            m_velocity.z += (look.z / hlook * hvel - m_velocity.z) * 0.1;
+        }
+        const double before = std::sqrt(m_velocity.x * m_velocity.x + m_velocity.z * m_velocity.z);
+        move(world, m_velocity);
+        const double after = std::sqrt(m_velocity.x * m_velocity.x + m_velocity.z * m_velocity.z);
+        const double lost = (before - after) * 10.0 - 3.0; // flying into a wall (wiki: Elytra)
+        if (lost > 0.0) m_impact = static_cast<float>(lost);
+        m_velocity *= glm::dvec3(0.99, 0.98, 0.99);
+        return;
+    }
+
     double accel;
     if (m_flying) {
         accel = kFlySpeed * (m_sprinting ? 2.0 : 1.0) * m_flyMultiplier;

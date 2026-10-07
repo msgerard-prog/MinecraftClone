@@ -467,3 +467,58 @@ TEST_CASE("pointInFluid: under the surface of a source (8/9) or a level-4 flow (
     CHECK_FALSE(pointInFluid(w, {1.5, kFloorY + 1.5, 0.5}, world::blocks::Water));
     CHECK_FALSE(pointInFluid(w, {1.5, kFloorY + 1.4, 0.5}, world::blocks::Lava));
 }
+
+TEST_CASE("elytra: jump while falling to glide; level flight sinks slowly and carries far; a dive is fast; walls hurt") {
+    World w = floorWorld();
+    Player p;
+    p.setCreative(false);
+    p.setPosition({0.5, 250.0, -90.5}); // (the test world ends 104 blocks out)
+    p.setRotation(0.0f, 0.0f); // facing south, level
+    p.setCanGlide(true);
+    for (int i = 0; i < 5; ++i)
+        p.tick(w, {}); // falling
+    PlayerInput jump;
+    jump.jumpPresses = 1;
+    p.tick(w, jump);
+    REQUIRE(p.gliding());
+    // A gentle downward look: a long glide (vanilla's glide ratio is about 10:1).
+    p.setRotation(0.0f, 10.0f);
+    for (int i = 0; i < 100; ++i) // (settling into a steady glide)
+        p.tick(w, {});
+    const glm::dvec3 start = p.position();
+    for (int i = 0; i < 50; ++i)
+        p.tick(w, {});
+    const double dist = p.position().z - start.z, drop = start.y - p.position().y;
+    CHECK(p.gliding());
+    CHECK(dist > 4.0 * drop); // much farther than down
+    // Straight down: fast.
+    p.setRotation(0.0f, 89.0f);
+    for (int i = 0; i < 40 && p.gliding(); ++i)
+        p.tick(w, {});
+    CHECK(p.velocity().y < -1.5);
+    // Without the elytra it stops gliding.
+    p.setCanGlide(false);
+    p.tick(w, {});
+    CHECK_FALSE(p.gliding());
+
+    // Flying fast into a wall hurts.
+    World wall = floorWorld();
+    for (int y = 65; y < 100; ++y)
+        for (int x = -3; x <= 3; ++x)
+            wall.setBlock({x, y, 30}, world::blockRegistry().defaultState(world::blocks::Stone));
+    Player q;
+    q.setCreative(false);
+    q.setPosition({0.5, 80.0, 0.5});
+    q.setCanGlide(true);
+    q.setRotation(0.0f, 0.0f);
+    q.tick(wall, {});
+    q.tick(wall, jump);
+    REQUIRE(q.gliding());
+    q.setVelocity({0.0, -0.1, 2.0});
+    float impact = 0.0f;
+    for (int i = 0; i < 30; ++i) {
+        q.tick(wall, {});
+        impact += q.takeImpact();
+    }
+    CHECK(impact > 5.0f);
+}

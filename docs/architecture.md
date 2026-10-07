@@ -274,6 +274,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `Projectiles::pearls`) and touching a gateway move the player (main). Four rim
   crystals start `respawnStep`: pillars rebuilt from the generator's pillar data,
   the portal shut, a new dragon.
+- Elytra (M20.4c): main tells `Player::setCanGlide` whether a working elytra is worn;
+  `Player::tick` starts gliding on a jump press in the air and runs the glide motion;
+  `takeImpact` reports wall hits; main wears the elytra 1 a second.
 - Shulkers (M20.4b, in `Mobs::ai`): fixed in place, `peek` opens the lid (a `Lift`
   model part), `ProjectileKind::ShulkerBullet` homes in and gives Levitation, which
   `Player::setEffects` turns into a rise.

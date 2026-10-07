@@ -508,6 +508,7 @@ int main(int argc, char** argv) {
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
+    int glideTicks = 0;
     int64_t sessionTicks = 0;
     // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
     bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld && dimension == Dimension::Overworld;
@@ -1125,6 +1126,13 @@ int main(int argc, char** argv) {
                                   vitals.effectLevel(E::JumpBoost), vitals.effectLevel(E::SlowFalling) > 0,
                                   vitals.effectLevel(E::Levitation));
             }
+            {
+                // An elytra worn and not about to break can glide (wiki: Elytra - it stops
+                // working at 1 durability left).
+                static const mc::world::ItemId elytraItem = *mc::world::itemRegistry().find("elytra");
+                const mc::world::ItemStack& chestPiece = inventory.armor(1);
+                player.setCanGlide(!dead && chestPiece.item == elytraItem && chestPiece.damage < 431);
+            }
             if (!arrival) player.tick(world, input); // waiting for a destination: held in place
             const auto& reg = mc::world::blockRegistry();
             const glm::dvec3 feet = player.position();
@@ -1150,7 +1158,11 @@ int main(int argc, char** argv) {
                 if (wasOnGround && !player.onGround() && player.velocity().y > 0.0)
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
                 if (!arrival) {
-                    vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying());
+                    // (gliding counts as flying for falls: our simplification)
+                    vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying() || player.gliding());
+                    if (const float impact = player.takeImpact(); impact > 0.0f) vitals.attacked(impact);
+                    if (player.gliding() && ++glideTicks % 20 == 0) // an elytra wears 1 per second of flight
+                        inventory.setArmor(1, mc::wearItem(inventory.armor(1), 1, gameRng));
                     // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
                     const int respiration = mc::world::enchantLevel(inventory.armor(0), mc::world::Enchantment::Respiration);
                     vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water),

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 namespace mc {
@@ -107,6 +108,12 @@ public:
     float pitch() const { return m_pitch; }
     bool onGround() const { return m_onGround; }
     bool flying() const { return m_flying; }
+    // Elytra (M20.4; wiki: Elytra): with a working elytra worn, pressing jump while
+    // falling starts gliding; landing, water or taking it off ends it.
+    void setCanGlide(bool can) { m_canGlide = can; }
+    bool gliding() const { return m_gliding; }
+    // Damage from flying into a wall this tick (horizontal speed lost x 10 - 3), once.
+    float takeImpact() { return std::exchange(m_impact, 0.0f); }
     bool inWater() const { return m_inWater; } // touching water (last tick)
     bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
@@ -140,6 +147,8 @@ private:
     int m_jumpBoost = 0;
     bool m_slowFalling = false;
     int m_levitation = 0;
+    bool m_canGlide = false, m_gliding = false;
+    float m_impact = 0.0f;
     std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
 
 public:
