@@ -107,6 +107,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   palette SSBO.
 - Items (`world/Items`): item registry (block items + tools/materials/food),
   `ItemStack`; the player's 36-slot `gameplay/Inventory`.
+- Survival (M9, gameplay): `Vitals` (health/hunger/falls), `Mining` (break ticks,
+  harvest levels, drops), `BlockInteraction::tickSurvival` (break progress, wear,
+  placing uses items, eating), `ItemEntities` (dropped stacks: physics, pickup,
+  despawn; pooled), `Recipes` (crafting/smelting/fuel tables authored from the
+  wiki), `Furnace` rules over `world::FurnaceData` block entities stored in their
+  chunk (saved as block_entities, ticked each game tick by main).
+- Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
+  furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
+  items and the breaking crack from per-frame data main builds.
 - `FlatGenerator`: superflat from vanilla's preset string (default Classic Flat:
   bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
 

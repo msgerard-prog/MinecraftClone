@@ -85,5 +85,9 @@ under the crosshair, right click places the selected block; 1-9 or the mouse whe
 select it in the hotbar. F3 toggles the debug screen. T opens chat, / opens it with a
 command: `/tp x y z` (`~` = relative), `/time set day|noon|night|midnight|<ticks>`,
 `/time add <n>[d|s|t]`, `/time query daytime|gametime|day`, `/give @s <block>`
-(into the selected slot), `/seed`, `/help`. Enter sends, Esc cancels, Up/Down recall. E opens the creative inventory: click a block
-to pick it up, click a hotbar slot to put it there (or hover a block and press 1-9).
+(into the selected slot), `/seed`, `/help`. Enter sends, Esc cancels, Up/Down recall. E opens the inventory: in creative, every item (click to pick up, click a hotbar slot to
+put it there, or hover and press 1-9); in survival, your inventory with a 2x2 crafting
+grid. `/gamemode survival` switches to survival: blocks take time to break (tools help),
+drop items you pick up by walking over them, health and hunger matter, falls hurt.
+Right-click a crafting table for 3x3 recipes or a furnace to smelt (fuel below, input
+above). Q drops the held item; `/kill` respawns you.

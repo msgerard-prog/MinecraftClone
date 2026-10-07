@@ -66,8 +66,10 @@ level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, Lev
                            WorldGenSettings { seed, generate_features, bonus_chest },
                            Player { Pos, Rotation, Dimension, abilities { flying,
                            mayfly, instabuild, invulnerable, mayBuild, flySpeed,
-                           walkSpeed }, SelectedItemSlot, Inventory [ { Slot, id,
-                           count, components { "minecraft:block_state" } } ] },
+                           walkSpeed }, playerGameType, Health, foodLevel,
+                           foodSaturationLevel, foodExhaustionLevel,
+                           SelectedItemSlot, Inventory [ { Slot 0..35, id, count,
+                           components { "minecraft:block_state", "minecraft:damage" } } ] },
                            MinecraftClone { generator: "overworld" | "terrain" | "flat" } }
 level.dat_old              backup copy of the previous level.dat (load falls back to it,
                            then to level.dat_new); level.dat_new is written first and
@@ -80,7 +82,9 @@ Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` -4, `Status`
 `minecraft:full`, `isLightOn`, `sections` [24 × { `Y`, `block_states` { `palette` [
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
 per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, ceil(log2 n) bits, 64 entries; none if 1) }, `SkyLight`, `BlockLight`
-(2048-byte nibble arrays, omitted when all 0) }]. Not written yet: heightmaps,
+(2048-byte nibble arrays, omitted when all 0) }], `block_entities` [ furnaces: { id
+"minecraft:furnace", x, y, z, keepPacked, Items [ { Slot 0 input / 1 fuel / 2 output,
+id, count, components } ], BurnTime, CookTime, CookTimeTotal (shorts, 1.21.1 names) } ]. Not written yet: heightmaps,
 entities, block entities, ticks, structures, POI; `InhabitedTime` is 0; level.dat
 omits GameRules, DataPacks, difficulty and WorldGenSettings.dimensions, so vanilla
 may not open these worlds. Region compression types 4 (LZ4), 127 and external

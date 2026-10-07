@@ -4,24 +4,25 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M8 done and reviewed (code, perf, parity findings fixed or recorded): 1.21-style
-overworld - climate noises, spline-shaped 3D terrain (oceans, coasts, rivers, hills,
-mountain ranges), cheese/spaghetti/noodle caves with surface entrances, lava below
--54, 28 biomes with wiki colours (per-vertex tints, saved palettes), surface rules,
-snow layers and ice by altitude temperature, ores and stone blobs per the wiki,
-oak/birch/spruce/acacia trees across chunk borders, plants. ~1 ms per chunk; static
-load RD12 0.34 s, RD32 1.6 s (release, /Ob2).
-M9 started: item textures (40, original), item registry, inventory of item stacks
-(saved), item icons, mining speed/harvest levels/drops (not yet used in game).
-M7 done: saves. M6 done: UI. M5 done: lighting/day-night.
+M9 done (reviews running): survival - /gamemode, break times per the wiki's formula
+with tools/tiers/wear and harvest levels, drops as item entities (physics, pickup,
+despawn), health/hunger/regeneration/starvation/fall damage, eating, death (drops,
+death screen, respawn), hearts/hunger HUD; inventory screen with 2x2 crafting,
+crafting table, furnace (block entity, saved), recipes/smelting/fuel authored from
+the wiki; 40 original item textures.
+M8 done: 1.21-style overworld (biomes, caves, snow, ores, trees). M7 done: saves.
+M6 done: UI. M5 done: lighting/day-night.
 
 ## Next
-M9 — Survival basics:
-1. M9.2 — Game modes (/gamemode), survival mining with break progress and times,
-   drops as item entities with pickup, health/hunger HUD, fall damage, death/respawn.
-2. M9.3 — Crafting: survival inventory screen with 2x2 grid, crafting table (3x3),
-   recipes authored from the wiki's recipe pages.
-3. M9.4 — Furnace: block entity, smelting, fuel, saved block entities.
+M10 — Entities & mobs (zombie, cow):
+1. M10.1 — Entity data in chunks (moved between chunks as they walk), saved in
+   vanilla's 1.17+ `entities/` region files; mob physics (step-up, swimming).
+2. M10.2 — Mob models and original textures (cuboids, walk/head animation), entity
+   rendering with world light, hurt tint.
+3. M10.3 — AI goals: cow (wander, look at player, panic), zombie (chase with
+   pathfinding, melee, burn in daylight); player attacks with knockback.
+4. M10.4 — Spawning: cows with new chunks, zombies in darkness (light 0, mob cap,
+   despawn rules); drops (beef, rotten flesh, leather) and cooking.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -114,7 +115,7 @@ and GUI textures are made with their systems.
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | ✅ 2026-10-07 |
 | M7 | Save/load: region files (format chosen by ADR) | ✅ 2026-10-07 |
 | M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | ✅ 2026-10-07 (aquifers, biome subset: see deviations) |
-| M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | Wood → stone → iron progression works |
+| M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | ✅ 2026-10-07 (recipes authored from the wiki, not vanilla JSON) |
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | Zombies/cows behave like vanilla |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | Classic circuits behave like vanilla |
 | M12 | Dimensions: Nether and End, portals | Can travel to both |
@@ -128,6 +129,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M9: survival, items, crafting, furnace.
 - 2026-10-07 M8: overworld generator, biomes, snow, ores, trees.
 - 2026-10-07 M7: saves (Anvil regions, level.dat, autosave, session lock).
 - 2026-10-07 M6: HUD, F3, chat + commands, creative inventory.
