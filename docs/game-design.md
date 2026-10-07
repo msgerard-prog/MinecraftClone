@@ -67,6 +67,10 @@ fine until a system works.
 | Free flight uses constant speeds (10.92 / 21.6 / 7.49 b/s), no acceleration or drag; sprint needs Ctrl held (vanilla keeps sprinting until you stop moving forward) | Camera needed before player physics | M4 |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Needs player abilities state | M4 |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
-| Animated textures show frame 0; non-16px sprites (HD resource packs) are skipped | No animated sprites or pack loading yet | When either arrives |
+| Animated textures show frame 0; non-16px sprites (HD resource packs) are skipped | No animated sprites or pack loading yet | M3.0 (resource packs) |
+| Random model variants are picked with our own position hash, so a given position may show a different variant than vanilla | Vanilla's per-position seed isn't documented on the wiki | When documented / observed |
+| `grass_block[snowy=true]` renders like snowy=false (vanilla: snowy side, untinted top) | No snow yet | When snow is added |
+| Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |
+| Chunks next to unloaded chunks show walls at the edge of the loaded area (vanilla waits for neighbours before drawing) | Fixed test world | M3 (chunk loading) |
 | Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
 | Grass tint is always plains #91BD59 | No biomes yet | M8 |

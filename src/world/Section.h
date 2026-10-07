@@ -37,6 +37,8 @@ public:
     bool isDirect() const { return m_direct; }
     size_t paletteSize() const { return m_palette.size(); }
     size_t memoryBytes() const;
+    // The packed longs, exactly as vanilla lays them out (for saves and tests).
+    const std::vector<uint64_t>& data() const { return m_data; }
 
 private:
     uint32_t readRaw(int i) const;

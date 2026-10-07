@@ -4,14 +4,14 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
-M2 done (pending milestone reviews): block registry with vanilla block states,
+M2 done and reviewed (code, perf, parity findings fixed or recorded): block registry
+with vanilla block states,
 paletted sections/chunks, superflat generator, face-culling mesher with packed
-vertices, arena + multi-draw renderer, worker-thread meshing. 8x8 flat world:
-~2600 fps (0.38 ms avg) release, meshed in 2 ms. 54 test cases.
+vertices, random model variants, arena + multi-draw renderer, bounded worker-thread
+meshing. 8x8 flat world: 0.28 ms avg / 1.16 ms max frame (release). 61 test cases.
 
 ## Next
-1. Handle M2 review findings (code / perf / parity agents), push M2.
-2. M3.0 — Resource-pack loader (agreed 2026-10-06): read a pack folder or .zip from
+1. M3.0 — Resource-pack loader (agreed 2026-10-06): read a pack folder or .zip from
    git-ignored `resourcepacks/` (the user's own copy of vanilla textures), override
    our placeholders file by file; animated textures (.mcmeta, frame 0 → animation)
    and non-16px (HD) sprites. Our placeholders stay the in-repo fallback.
@@ -26,7 +26,7 @@ vertices, arena + multi-draw renderer, worker-thread meshing. 8x8 flat world:
    - Worldgen writes a flat 4096 buffer then `Section::assign` (one palette build).
    - Mesh a column only when all 8 neighbours exist; re-mesh only facing borders.
    - Later: per-face-direction draw commands (back-face groups), cave culling.
-3. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
+2. M3.1+ — terrain: simple noise heightmap, stone/dirt/grass/water/sand layers, chunk
    loading/unloading around the player at render distance 12, worldgen on workers.
 
 ## Texture plan (agreed 2026-10-06)
@@ -42,6 +42,11 @@ Optional art pass on placeholders later (basic graphics first).
   Tell me if the mouse feel or speeds are off.
 - Decide which exact 1.21 patch ADR 0002 targets (e.g. 1.21.10 vs 1.21.11): some
   defaults changed in 1.21.11 (mipmap levels 4 → 2 with graphics presets).
+- In your game, check horizontal oak logs (axis x and z) against ours
+  (`tools/screenshot.sh logs --pos -1.2,-58.5,-2.8 --look 45,15`): the face rotations
+  in `BlockModels.cpp` were derived from vanilla model files a review agent should not
+  have downloaded (deleted; rule added to design-keeper). Also: is the underside of the
+  Y -64 bedrock layer drawn when seen from below?
 - Optional: confirm the mouse-sensitivity curve in your game (degrees per mouse
   movement at 0%, 100%, 200% sensitivity) — it isn't documented on the wiki.
 

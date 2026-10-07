@@ -33,7 +33,10 @@ assets/minecraft/textures/block/<name>.png  16×16 (animated: N×16 strip + .mcm
 **Status:** textures are loaded from this layout. Blockstate/model JSON is not parsed
 yet (needs a JSON library — dependency change, ask the user); until then the block →
 model mapping is C++ in `rendering/BlockModels.cpp`, mirroring `cube_all`,
-`cube_column` (+ horizontal axis rotation) and `grass_block`.
+`cube_column` (+ horizontal-log face rotations) and `grass_block`, and the random
+variants of stone/bedrock (mirrored × y0/y180) and dirt/sand/grass (y0/90/180/270).
+Not modelled yet: `grass_block_snow` (snowy=true). Variant choice per position uses
+our own hash (see game-design.md › Known deviations).
 
 ## Data packs (planned, M9)
 Recipes, loot tables, tags follow vanilla's data-pack JSON:

@@ -94,3 +94,45 @@ TEST_CASE("chunk key packs x and z like vanilla's ChunkPos.toLong") {
     CHECK(ChunkPos{0, 1}.key() == (int64_t{1} << 32));
     CHECK(ChunkPos{-1, 0}.key() == 0xFFFFFFFFll);
 }
+
+TEST_CASE("vanilla storage layout: longs per bit width (entries never span longs)") {
+    // 4096 entries, floor(64 / bits) per long.
+    Section s;
+    s.set(0, 0, 0, 1);
+    CHECK(s.bitsPerEntry() == 4);
+    CHECK(s.data().size() == 256);
+    for (int i = 2; i <= 16; ++i)
+        s.set(i, 0, 0, BlockStateId(i));
+    CHECK(s.bitsPerEntry() == 5);
+    CHECK(s.data().size() == 342); // 12 per long
+    for (int i = 17; i <= 32; ++i)
+        s.set(i % 16, 1, 0, BlockStateId(i));
+    CHECK(s.bitsPerEntry() == 6);
+    CHECK(s.data().size() == 410); // 10 per long
+    for (int i = 33; i <= 64; ++i)
+        s.set(i % 16, 2 + i / 48, 0, BlockStateId(i));
+    CHECK(s.bitsPerEntry() == 7);
+    CHECK(s.data().size() == 456); // 9 per long
+    for (int i = 65; i <= 128; ++i)
+        s.set(i % 16, 4, i / 16, BlockStateId(i));
+    CHECK(s.bitsPerEntry() == 8);
+    CHECK(s.data().size() == 512);
+    for (int i = 129; i <= 300; ++i)
+        s.set(i % 16, 5 + i / 256, (i / 16) % 16, BlockStateId(i));
+    CHECK(s.isDirect());
+    CHECK(s.data().size() == 1024); // 16 bits: 4 per long
+}
+
+TEST_CASE("vanilla storage layout: index order and bit positions") {
+    // Index (y*16 + z)*16 + x; at 5 bits, entry 12 starts at bit 0 of long 1.
+    CHECK(Section::index(1, 0, 0) == 1);
+    CHECK(Section::index(0, 0, 1) == 16);
+    CHECK(Section::index(0, 1, 0) == 256);
+    Section s;
+    for (int i = 1; i <= 16; ++i)
+        s.set(i - 1, 15, 15, BlockStateId(1000 + i)); // 17 states
+    REQUIRE(s.bitsPerEntry() == 5);
+    s.set(12, 0, 0, 1001); // palette index of 1001 is 1 (air is 0)
+    CHECK((s.data()[1] & 31u) == 1u);
+    CHECK((s.data()[0] >> (11 * 5) & 31u) == 0u); // entry 11 is still air
+}

@@ -39,7 +39,9 @@ void MeshWorkers::recycle(std::unique_ptr<MeshJob> job) { m_free.push(std::move(
 
 void MeshWorkers::run() {
     while (auto job = m_pending.popWait()) {
-        meshSection((*job)->padded.data(), m_registry, m_models, (*job)->vertices);
+        const world::SectionPos& p = (*job)->pos;
+        meshSection((*job)->padded.data(), glm::ivec3(p.x * 16, p.y * 16, p.z * 16), m_registry,
+                    m_models, (*job)->vertices);
         m_done.push(std::move(*job));
     }
 }

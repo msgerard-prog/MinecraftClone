@@ -5,6 +5,7 @@
 #include "world/Direction.h"
 
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 namespace mc::gfx {
@@ -14,30 +15,53 @@ class TextureAtlas;
 // One face of a baked full-cube model: everything the mesher needs, no lookups.
 struct BakedFace {
     uint16_t sprite = 0;  // atlas grid index
-    uint8_t rotation = 0; // quarter turns of the texture on the face (0..3)
+    uint8_t rotation = 0; // quarter turns clockwise of the texture on the face (0..3)
+    bool mirror = false;  // texture flipped left-right (vanilla *_mirrored models)
     Tint tint = Tint::None;
 };
 
-struct BakedModel {
-    bool visible = false; // false for air / invisible blocks
+struct BakedVariant {
     BakedFace faces[world::kDirectionCount];
+};
+
+// Vanilla blockstates can list several models for one state; the game picks one per
+// block position (e.g. grass tops randomly rotated so the ground doesn't tile).
+struct BakedModel {
+    static constexpr int kMaxVariants = 4;
+    bool visible = false; // false for air / invisible blocks
+    uint8_t variantCount = 1;
+    BakedVariant variants[kMaxVariants];
 };
 
 // Per-state models, resolved once at startup (vanilla "model baking").
 // Until the JSON loader exists, block -> model mapping lives in BlockModels.cpp,
-// mirroring vanilla's block/cube_all, block/cube_column(_horizontal), grass_block.
+// mirroring vanilla's cube_all, cube_column(_horizontal), grass_block and the
+// random-variant blockstates of stone, bedrock, dirt, sand and grass.
 class BlockModels {
 public:
     void bake(const world::BlockRegistry& registry, const TextureAtlas& atlas);
     const BakedModel& operator[](world::BlockStateId state) const { return m_models[state]; }
     size_t size() const { return m_models.size(); }
 
-    // Test/helper constructor path: set a model directly.
+    // Test/helper path: set models directly.
     void resize(size_t states) { m_models.assign(states, {}); }
     BakedModel& at(world::BlockStateId state) { return m_models[state]; }
 
 private:
     std::vector<BakedModel> m_models;
 };
+
+// Which variant a block at this world position uses. Deterministic per position.
+// Our own hash: vanilla's per-position seed isn't documented on the wiki, so the
+// variant chosen at a given position differs from vanilla (known deviation).
+uint32_t variantIndex(int32_t x, int32_t y, int32_t z, uint32_t variantCount);
+
+// Rotation helpers (exposed for tests and for the future JSON loader).
+// Vanilla blockstate "y" rotation applied to a cube whose side faces share one
+// texture: the up face turns by `quarters`, the down face the other way.
+BakedVariant rotateY(BakedVariant v, int quarters);
+
+// Vanilla cube_column for a log-like block on `axis` ("x" | "y" | "z").
+BakedVariant cubeColumn(uint16_t side, uint16_t end, std::string_view axis);
 
 } // namespace mc::gfx

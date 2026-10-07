@@ -54,6 +54,7 @@ TEST_CASE("parse accepts defaults, short ids and spaces; rejects junk") {
     CHECK_FALSE(r.parse("minecraft:oak_log[color=red]").has_value());
     CHECK_FALSE(r.parse("minecraft:not_a_block").has_value());
     CHECK_FALSE(r.parse("minecraft:oak_log[axis=x").has_value());
+    CHECK_FALSE(r.parse("minecraft:oak_log[axis=x,axis=z]").has_value()); // duplicate
 }
 
 TEST_CASE("with() changes one property and keeps the block") {
@@ -72,4 +73,23 @@ TEST_CASE("opaque cube flag drives face culling") {
     CHECK(r.opaqueCube(r.defaultState(blocks::Stone)));
     CHECK(r.opaqueCube(r.defaultState(blocks::OakLog)));
     CHECK(r.layer(0) == RenderLayer::Invisible);
+}
+
+TEST_CASE("hardness and blast resistance match the wiki infoboxes") {
+    const auto& r = blockRegistry();
+    struct Row {
+        BlockId id;
+        float hardness, resistance;
+    };
+    const Row rows[] = {
+        {blocks::Stone, 1.5f, 6.0f},     {blocks::GrassBlock, 0.6f, 0.6f},
+        {blocks::Dirt, 0.5f, 0.5f},      {blocks::Cobblestone, 2.0f, 6.0f},
+        {blocks::OakPlanks, 2.0f, 3.0f}, {blocks::Bedrock, -1.0f, 3600000.0f},
+        {blocks::Sand, 0.5f, 0.5f},      {blocks::OakLog, 2.0f, 2.0f},
+    };
+    for (const Row& row : rows) {
+        INFO(r.block(row.id).id);
+        CHECK(r.block(row.id).settings.hardness == row.hardness);
+        CHECK(r.block(row.id).settings.resistance == row.resistance);
+    }
 }

@@ -3,45 +3,108 @@
 #include "rendering/TextureAtlas.h"
 #include "world/Blocks.h"
 
+#include <string>
+
 namespace mc::gfx {
 
 namespace {
 
 using world::Direction;
 
-BakedModel cubeAll(uint16_t sprite) {
+BakedVariant cubeAll(uint16_t sprite) {
+    BakedVariant v;
+    for (auto& f : v.faces)
+        f.sprite = sprite;
+    return v;
+}
+
+BakedVariant mirrored(BakedVariant v) {
+    for (auto& f : v.faces)
+        f.mirror = true;
+    return v;
+}
+
+BakedModel single(const BakedVariant& v) {
     BakedModel m;
     m.visible = true;
-    for (auto& f : m.faces)
-        f.sprite = sprite;
+    m.variants[0] = v;
     return m;
 }
 
-// Vanilla cube_column: `end` on the two faces along the axis, `side` elsewhere.
-// Horizontal logs rotate the side texture so the bark runs along the axis.
-BakedModel cubeColumn(uint16_t side, uint16_t end, std::string_view axis) {
-    BakedModel m = cubeAll(side);
-    auto setEnd = [&](Direction a, Direction b) {
-        m.faces[int(a)].sprite = end;
-        m.faces[int(b)].sprite = end;
-    };
-    auto rotate = [&](std::initializer_list<Direction> faces) {
-        for (Direction d : faces)
-            m.faces[int(d)].rotation = 1;
-    };
-    if (axis == "x") {
-        setEnd(Direction::West, Direction::East);
-        rotate({Direction::Up, Direction::Down, Direction::North, Direction::South});
-    } else if (axis == "z") {
-        setEnd(Direction::North, Direction::South);
-        rotate({Direction::West, Direction::East});
-    } else {
-        setEnd(Direction::Down, Direction::Up);
-    }
+// Vanilla dirt/sand/grass blockstates: y = 0, 90, 180, 270, equal weight.
+BakedModel fourYRotations(const BakedVariant& v) {
+    BakedModel m;
+    m.visible = true;
+    m.variantCount = 4;
+    for (int i = 0; i < 4; ++i)
+        m.variants[i] = rotateY(v, i);
+    return m;
+}
+
+// Vanilla stone/bedrock blockstates: normal, mirrored, each with y = 0 or 180.
+BakedModel mirroredAndRotated(const BakedVariant& v) {
+    BakedModel m;
+    m.visible = true;
+    m.variantCount = 4;
+    m.variants[0] = v;
+    m.variants[1] = mirrored(v);
+    m.variants[2] = rotateY(v, 2);
+    m.variants[3] = rotateY(mirrored(v), 2);
     return m;
 }
 
 } // namespace
+
+uint32_t variantIndex(int32_t x, int32_t y, int32_t z, uint32_t variantCount) {
+    if (variantCount <= 1) return 0;
+    uint32_t h = static_cast<uint32_t>(x) * 73856093u ^ static_cast<uint32_t>(y) * 19349663u ^
+                 static_cast<uint32_t>(z) * 83492791u;
+    h ^= h >> 16;
+    h *= 0x7feb352du;
+    h ^= h >> 15;
+    h *= 0x846ca68bu;
+    h ^= h >> 16;
+    return h % variantCount;
+}
+
+// Vanilla cube_column: `end` on the two faces along the axis, `side` elsewhere.
+// Horizontal logs (cube_column_horizontal rotated by the blockstate) turn the side
+// textures so the bark runs along the axis and the end rings stay upright.
+// Rotations are quarter turns clockwise per face.
+BakedVariant cubeColumn(uint16_t side, uint16_t end, std::string_view axis) {
+    BakedVariant v = cubeAll(side);
+    auto set = [&](Direction d, uint16_t sprite, uint8_t rotation) {
+        v.faces[int(d)].sprite = sprite;
+        v.faces[int(d)].rotation = rotation;
+    };
+    if (axis == "x") {
+        set(Direction::West, end, 0);
+        set(Direction::East, end, 0);
+        set(Direction::Up, side, 1);
+        set(Direction::Down, side, 1);
+        set(Direction::North, side, 3);
+        set(Direction::South, side, 1);
+    } else if (axis == "z") {
+        set(Direction::North, end, 0);
+        set(Direction::South, end, 0);
+        set(Direction::Down, side, 2);
+        set(Direction::West, side, 3);
+        set(Direction::East, side, 1);
+    } else {
+        set(Direction::Down, end, 0);
+        set(Direction::Up, end, 0);
+    }
+    return v;
+}
+
+BakedVariant rotateY(BakedVariant v, int quarters) {
+    const int q = quarters & 3;
+    auto& up = v.faces[int(Direction::Up)];
+    auto& down = v.faces[int(Direction::Down)];
+    up.rotation = static_cast<uint8_t>((up.rotation + q) & 3);
+    down.rotation = static_cast<uint8_t>((down.rotation + 4 - q) & 3);
+    return v;
+}
 
 void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas& atlas) {
     using namespace world;
@@ -55,37 +118,39 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         case blocks::Air:
             break;
         case blocks::Stone:
-            m = cubeAll(sprite("stone"));
-            break;
-        case blocks::Dirt:
-            m = cubeAll(sprite("dirt"));
-            break;
-        case blocks::Cobblestone:
-            m = cubeAll(sprite("cobblestone"));
-            break;
-        case blocks::OakPlanks:
-            m = cubeAll(sprite("oak_planks"));
+            m = mirroredAndRotated(cubeAll(sprite("stone")));
             break;
         case blocks::Bedrock:
-            m = cubeAll(sprite("bedrock"));
+            m = mirroredAndRotated(cubeAll(sprite("bedrock")));
+            break;
+        case blocks::Dirt:
+            m = fourYRotations(cubeAll(sprite("dirt")));
             break;
         case blocks::Sand:
-            m = cubeAll(sprite("sand"));
+            m = fourYRotations(cubeAll(sprite("sand")));
+            break;
+        case blocks::Cobblestone:
+            m = single(cubeAll(sprite("cobblestone")));
+            break;
+        case blocks::OakPlanks:
+            m = single(cubeAll(sprite("oak_planks")));
             break;
         case blocks::OakLog:
-            m = cubeColumn(sprite("oak_log"), sprite("oak_log_top"),
-                           registry.value(state, "axis").value_or("y"));
+            m = single(cubeColumn(sprite("oak_log"), sprite("oak_log_top"),
+                                  registry.value(state, "axis").value_or("y")));
             break;
-        case blocks::GrassBlock:
-            // Greyscale top tinted by the biome colour; dirt bottom. (snowy=true uses
-            // the snowy side texture in vanilla; not modelled until snow exists.)
-            m = cubeAll(sprite("grass_block_side"));
-            m.faces[int(Direction::Up)] = {sprite("grass_block_top"), 0, Tint::Grass};
-            m.faces[int(Direction::Down)].sprite = sprite("dirt");
+        case blocks::GrassBlock: {
+            // Greyscale top tinted by the biome colour; dirt bottom. snowy=true should
+            // use the snowy side and an untinted top (known deviation until snow).
+            BakedVariant v = cubeAll(sprite("grass_block_side"));
+            v.faces[int(Direction::Up)] = {sprite("grass_block_top"), 0, false, Tint::Grass};
+            v.faces[int(Direction::Down)].sprite = sprite("dirt");
+            m = fourYRotations(v);
             break;
+        }
         default:
             // A registered block without a model: vanilla shows the missing model.
-            m = cubeAll(sprite(std::string(TextureAtlas::kMissing).c_str()));
+            m = single(cubeAll(sprite(std::string(TextureAtlas::kMissing).c_str())));
             break;
         }
     }

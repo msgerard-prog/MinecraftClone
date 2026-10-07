@@ -12,3 +12,5 @@ GLFW** — everything here must be unit-testable from `tests/`.
 - Block/neighbour access in loops goes through section pointers, not per-block
   hash lookups.
 - Cite the wiki page for every mechanic constant (light falloff, hardness, ...).
+- "Air" is currently `state == 0` (`isAir`, `Section` non-air count). When `cave_air`
+  or `void_air` are registered they must count as air everywhere, as in vanilla.

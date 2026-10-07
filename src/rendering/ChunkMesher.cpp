@@ -34,8 +34,9 @@ constexpr int kNeighbour[world::kDirectionCount] = {
 
 } // namespace
 
-void meshSection(const world::BlockStateId* padded, const world::BlockRegistry& registry,
-                 const BlockModels& models, std::vector<PackedVertex>& out) {
+void meshSection(const world::BlockStateId* padded, const glm::ivec3& origin,
+                 const world::BlockRegistry& registry, const BlockModels& models,
+                 std::vector<PackedVertex>& out) {
     out.clear();
     for (int y = 0; y < 16; ++y) {
         for (int z = 0; z < 16; ++z) {
@@ -43,14 +44,21 @@ void meshSection(const world::BlockStateId* padded, const world::BlockRegistry& 
                 const int i = paddedIndex(x, y, z);
                 const BakedModel& model = models[padded[i]];
                 if (!model.visible) continue;
+                const BakedVariant& variant = model.variants[variantIndex(
+                    origin.x + x, origin.y + y, origin.z + z, model.variantCount)];
                 for (int f = 0; f < world::kDirectionCount; ++f) {
                     if (registry.opaqueCube(padded[i + kNeighbour[f]])) continue; // hidden
-                    const BakedFace& face = model.faces[f];
+                    const BakedFace& face = variant.faces[f];
                     for (int c = 0; c < 4; ++c) {
                         const glm::ivec3& k = kCorners[f][c];
-                        out.push_back(packVertex(
-                            uint32_t(x + k.x), uint32_t(y + k.y), uint32_t(z + k.z), uint32_t(f),
-                            uint32_t((c + face.rotation) & 3), face.sprite, face.tint));
+                        // Rotation shifts which UV corner each geometric corner gets
+                        // (+1 = texture turned 90 degrees clockwise); mirroring swaps
+                        // left and right UVs (corner 0<->3, 1<->2).
+                        uint32_t uv = uint32_t(c + face.rotation) & 3u;
+                        if (face.mirror) uv = 3u - uv;
+                        out.push_back(packVertex(uint32_t(x + k.x), uint32_t(y + k.y),
+                                                 uint32_t(z + k.z), uint32_t(f), uv, face.sprite,
+                                                 face.tint));
                     }
                 }
             }

@@ -7,7 +7,9 @@
   `BlockStateId` at startup (air = 0). Hot flags (`opaqueCube`, later light opacity)
   live in flat per-state arrays. Sections store states as vanilla does: a palette and
   a packed `uint64` array (entries never span two longs), single-value sections use
-  0 bits, and 4–8 bit linear palettes grow to a direct 15-bit global palette.
+  0 bits, and 4–8 bit linear palettes grow to a direct global palette of 16 bits
+  (vanilla uses ceil(log2(state count)) = 15 in 1.21; both pack 4 entries per long,
+  so the long count is identical).
 - Alternatives: per-block id + metadata nibble (pre-1.13 model; can't express
   e.g. 6-way facing + waterlogged); a plain `uint16[4096]` per section (8 KiB each,
   simple but 10–100x more memory for typical terrain and unlike vanilla).

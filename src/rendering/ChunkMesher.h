@@ -5,6 +5,8 @@
 #include "world/BlockRegistry.h"
 #include "world/Direction.h"
 
+#include <glm/glm.hpp>
+
 #include <vector>
 
 namespace mc::gfx {
@@ -18,8 +20,10 @@ inline constexpr float kFaceShade[world::kDirectionCount] = {0.5f, 1.0f, 0.8f, 0
 // A face is emitted only if the neighbouring block is not an opaque full cube (vanilla
 // face culling). Appends 4 vertices per quad to `out` (cleared first); quads are drawn
 // as two CCW triangles with indices 0-1-2, 0-2-3. GL-free and thread-safe.
-void meshSection(const world::BlockStateId* padded, const world::BlockRegistry& registry,
-                 const BlockModels& models, std::vector<PackedVertex>& out);
+// `origin` is the section's block origin (picks per-position model variants).
+void meshSection(const world::BlockStateId* padded, const glm::ivec3& origin,
+                 const world::BlockRegistry& registry, const BlockModels& models,
+                 std::vector<PackedVertex>& out);
 
 // Upper bound of vertices for one section (every block, every face).
 inline constexpr size_t kMaxSectionVertices = 4096 * 6 * 4;

@@ -135,12 +135,18 @@ std::optional<BlockStateId> BlockRegistry::parse(std::string_view text) const {
     if (text.back() != ']') return std::nullopt;
 
     std::string_view props = text.substr(bracket + 1, text.size() - bracket - 2);
+    const BlockDef& def = m_blocks[*block];
+    uint32_t seen = 0; // bit per property: vanilla rejects a property given twice
     while (!props.empty()) {
         const size_t comma = props.find(',');
         const std::string_view pair = props.substr(0, comma);
         const size_t eq = pair.find('=');
         if (eq == std::string_view::npos) return std::nullopt;
-        const auto next = with(state, trim(pair.substr(0, eq)), trim(pair.substr(eq + 1)));
+        const std::string_view name = trim(pair.substr(0, eq));
+        const int p = propertyIndex(def, name);
+        if (p < 0 || (seen & (1u << p))) return std::nullopt;
+        seen |= 1u << p;
+        const auto next = with(state, name, trim(pair.substr(eq + 1)));
         if (!next) return std::nullopt;
         state = *next;
         if (comma == std::string_view::npos) break;

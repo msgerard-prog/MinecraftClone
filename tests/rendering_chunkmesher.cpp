@@ -23,9 +23,9 @@ mc::gfx::BlockModels testModels() {
     for (size_t s = 1; s < r.stateCount(); ++s) {
         auto& model = m.at(BlockStateId(s));
         model.visible = true;
-        for (auto& f : model.faces)
+        for (auto& f : model.variants[0].faces)
             f.sprite = 7;
-        model.faces[int(Direction::East)].sprite = 9;
+        model.variants[0].faces[int(Direction::East)].sprite = 9;
     }
     return m;
 }
@@ -34,7 +34,8 @@ std::vector<PackedVertex> meshOf(const World& world, SectionPos pos) {
     std::vector<BlockStateId> padded(kPaddedVolume);
     snapshotSection(world, pos, padded.data());
     std::vector<PackedVertex> out;
-    mc::gfx::meshSection(padded.data(), blockRegistry(), testModels(), out);
+    mc::gfx::meshSection(padded.data(), glm::ivec3(pos.x * 16, pos.y * 16, pos.z * 16),
+                         blockRegistry(), testModels(), out);
     return out;
 }
 
@@ -132,14 +133,14 @@ TEST_CASE("a tinted face carries its tint into the vertices (grass top)") {
     const auto& r = blockRegistry();
     mc::gfx::BlockModels models = testModels();
     auto& grass = models.at(r.defaultState(blocks::GrassBlock));
-    grass.faces[int(Direction::Up)].tint = mc::gfx::Tint::Grass;
+    grass.variants[0].faces[int(Direction::Up)].tint = mc::gfx::Tint::Grass;
     World w;
     w.createChunk({0, 0});
     w.setBlock({0, 0, 0}, r.defaultState(blocks::GrassBlock));
     std::vector<BlockStateId> padded(kPaddedVolume);
     snapshotSection(w, {0, 0, 0}, padded.data());
     std::vector<PackedVertex> out;
-    mc::gfx::meshSection(padded.data(), r, models, out);
+    mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
     int tinted = 0;
     for (const auto& v : out) {
         const auto u = unpackVertex(v);
@@ -171,4 +172,75 @@ TEST_CASE("face shade table matches vanilla") {
     CHECK(mc::gfx::kFaceShade[int(Direction::South)] == 0.8f);
     CHECK(mc::gfx::kFaceShade[int(Direction::West)] == 0.6f);
     CHECK(mc::gfx::kFaceShade[int(Direction::East)] == 0.6f);
+}
+
+TEST_CASE("variant choice is deterministic per position and uses every variant") {
+    int counts[4] = {};
+    for (int x = -20; x < 20; ++x)
+        for (int z = -20; z < 20; ++z) {
+            const uint32_t v = mc::gfx::variantIndex(x, -61, z, 4);
+            CHECK(v == mc::gfx::variantIndex(x, -61, z, 4));
+            ++counts[v];
+        }
+    for (int c : counts)
+        CHECK(c > 250); // 1600 samples, ~400 each
+    CHECK(mc::gfx::variantIndex(5, 5, 5, 1) == 0);
+}
+
+TEST_CASE("rotation and mirroring move UV corners as documented") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({0, 0, 0}, stone());
+    mc::gfx::BlockModels models = testModels();
+    auto& face = models.at(stone()).variants[0].faces[int(Direction::South)];
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    auto southCorners = [&]() {
+        std::vector<PackedVertex> out;
+        mc::gfx::meshSection(padded.data(), glm::ivec3(0), blockRegistry(), models, out);
+        std::vector<uint32_t> uv;
+        for (const auto& v : out)
+            if (unpackVertex(v).face == uint32_t(Direction::South))
+                uv.push_back(unpackVertex(v).uvCorner);
+        return uv;
+    };
+    CHECK(southCorners() == std::vector<uint32_t>{0, 1, 2, 3});
+    face.rotation = 1; // 90 degrees clockwise: top-left corner shows the bottom-left texel
+    CHECK(southCorners() == std::vector<uint32_t>{1, 2, 3, 0});
+    face.rotation = 0;
+    face.mirror = true; // left-right flip
+    CHECK(southCorners() == std::vector<uint32_t>{3, 2, 1, 0});
+}
+
+TEST_CASE("rotateY turns the up face one way and the down face the other") {
+    mc::gfx::BakedVariant v;
+    const auto r = mc::gfx::rotateY(v, 1);
+    CHECK(r.faces[int(Direction::Up)].rotation == 1);
+    CHECK(r.faces[int(Direction::Down)].rotation == 3);
+    CHECK(r.faces[int(Direction::North)].rotation == 0);
+}
+
+TEST_CASE("log textures: ends on the axis faces, side rotations as vanilla horizontal logs") {
+    using mc::gfx::cubeColumn;
+    auto rot = [](const mc::gfx::BakedVariant& v, Direction d) {
+        return int(v.faces[int(d)].rotation);
+    };
+    const auto y = cubeColumn(1, 2, "y");
+    CHECK(y.faces[int(Direction::Up)].sprite == 2);
+    CHECK(y.faces[int(Direction::Down)].sprite == 2);
+    CHECK(y.faces[int(Direction::North)].sprite == 1);
+    const auto z = cubeColumn(1, 2, "z");
+    CHECK(z.faces[int(Direction::North)].sprite == 2);
+    CHECK(z.faces[int(Direction::South)].sprite == 2);
+    CHECK(rot(z, Direction::Up) == 0);
+    CHECK(rot(z, Direction::Down) == 2);
+    CHECK(rot(z, Direction::West) == 3);
+    CHECK(rot(z, Direction::East) == 1);
+    const auto x = cubeColumn(1, 2, "x");
+    CHECK(x.faces[int(Direction::West)].sprite == 2);
+    CHECK(x.faces[int(Direction::East)].sprite == 2);
+    CHECK(rot(x, Direction::Up) == 1);
+    CHECK(rot(x, Direction::Down) == 1);
+    CHECK(rot(x, Direction::North) == 3);
+    CHECK(rot(x, Direction::South) == 1);
 }
