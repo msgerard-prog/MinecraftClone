@@ -32,11 +32,14 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   meshes; draw; UI.
 - Screenshot mode: render `--frames` frames, read the back buffer, write PNG, exit.
 
-## Threading (planned, M2+)
-- Main thread: GLFW, GL, tick.
-- Worker pool: chunk generation and chunk meshing. Workers read immutable snapshots
-  (a chunk plus its 8 neighbours' border data) and return results through a lock-free
-  or mutex-guarded queue; only the main thread mutates the world.
+## Threading (M2.4)
+- Main thread: GLFW, GL, tick, all `World` reads/writes, section snapshots, uploads.
+- `MeshWorkers` (hardware threads − 1): run `meshSection` on 18³ snapshots. Jobs and
+  their buffers are recycled through queues (`core/WorkQueue.h`), so steady-state
+  meshing doesn't allocate. Each section has a version number; a result older than
+  the latest submission is dropped (the section changed meanwhile).
+- Workers only read the immutable `blockRegistry()` and baked `BlockModels`.
+- Worldgen on workers comes with M3 (same snapshot/version pattern).
 
 ## World model (M2.1–M2.2, ADR 0005)
 - `ChunkPos {x,z}` (`key()` packs like vanilla's `ChunkPos.toLong`), `BlockPos {x,y,z}`

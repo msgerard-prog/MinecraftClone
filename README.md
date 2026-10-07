@@ -37,6 +37,7 @@ Or open the folder in Visual Studio (it reads `CMakePresets.json`).
 | `--screenshot PATH` | Render, save a PNG to PATH, exit |
 | `--frames N` | Frames to render before the screenshot (default 60) |
 | `--hidden` | No visible window |
+| `--no-vsync` | Uncapped frame rate (for measuring performance) |
 | `--pos x,y,z` | Start position (blocks) |
 | `--look yaw,pitch` | Start rotation, vanilla degrees (yaw 0 = south, pitch +90 = down) |
 

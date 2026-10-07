@@ -93,6 +93,7 @@ void ChunkRenderer::removeSection(world::SectionPos pos) {
     const auto it = m_sections.find(pos);
     if (it == m_sections.end()) return;
     m_arenaAlloc.free(it->second.range);
+    m_quadsTotal -= it->second.range.size;
     m_sections.erase(it);
 }
 
@@ -108,6 +109,7 @@ void ChunkRenderer::uploadSection(world::SectionPos pos, std::span<const PackedV
     glNamedBufferSubData(m_arena, static_cast<GLintptr>(range->offset) * 4 * sizeof(PackedVertex),
                          static_cast<GLsizeiptr>(vertices.size_bytes()), vertices.data());
     m_sections[pos] = {*range};
+    m_quadsTotal += quads;
     ensureDrawCapacity(m_sections.size());
 }
 
@@ -127,7 +129,7 @@ void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin
         quads += entry.range.size;
     }
     m_stats = {static_cast<int>(m_sections.size()), static_cast<int>(drawCount), quads,
-               m_arenaAlloc.capacity()};
+               m_quadsTotal, m_arenaAlloc.capacity()};
     if (drawCount == 0) return;
 
     glNamedBufferSubData(m_commandBuffer, 0, drawCount * sizeof(DrawCommand), m_commands.data());

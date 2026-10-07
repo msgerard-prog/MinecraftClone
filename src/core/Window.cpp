@@ -31,7 +31,7 @@ Window::~Window() {
     if (m_glfwInitialized) glfwTerminate();
 }
 
-bool Window::create(int width, int height, const char* title, bool visible) {
+bool Window::create(int width, int height, const char* title, bool visible, bool vsync) {
     glfwSetErrorCallback(onGlfwError);
     if (!glfwInit()) return false;
     m_glfwInitialized = true;
@@ -48,7 +48,7 @@ bool Window::create(int width, int height, const char* title, bool visible) {
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!m_window) return false;
     glfwMakeContextCurrent(m_window);
-    glfwSwapInterval(1);
+    glfwSwapInterval(vsync ? 1 : 0);
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }

@@ -15,7 +15,7 @@ public:
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
-    bool create(int width, int height, const char* title, bool visible);
+    bool create(int width, int height, const char* title, bool visible, bool vsync = true);
 
     bool shouldClose() const;
     // Polls events and updates the mouse delta for this frame.

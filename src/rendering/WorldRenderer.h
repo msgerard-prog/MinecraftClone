@@ -3,12 +3,15 @@
 #include "rendering/BlockModels.h"
 #include "rendering/Camera.h"
 #include "rendering/ChunkRenderer.h"
+#include "rendering/MeshWorkers.h"
 #include "rendering/PackedVertex.h"
 #include "rendering/Shader.h"
 #include "rendering/TextureAtlas.h"
 #include "world/SectionSnapshot.h"
 #include "world/World.h"
 
+#include <memory>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -27,8 +30,12 @@ public:
     void markChunkDirty(const world::World& world, world::ChunkPos pos);
     void markAllDirty(const world::World& world);
 
-    // Meshes queued sections (main thread, synchronous until M2.4) and uploads them.
+    // Snapshots dirty sections for the mesh workers (main thread) and uploads
+    // finished meshes. Call once per frame.
     void update(const world::World& world);
+
+    // Sections submitted to workers whose results haven't been uploaded yet.
+    int pendingMeshes() const { return m_inFlight; }
 
     // Clears to the sky colour and draws the world from `camera`.
     void drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight);
@@ -40,9 +47,10 @@ private:
     TextureAtlas m_atlas;
     BlockModels m_models;
     ChunkRenderer m_chunks;
+    std::unique_ptr<MeshWorkers> m_workers;
     std::unordered_set<world::SectionPos> m_dirty;
-    std::vector<world::BlockStateId> m_padded; // reused snapshot buffer
-    std::vector<PackedVertex> m_vertices;      // reused mesh buffer
+    std::unordered_map<world::SectionPos, uint32_t> m_versions; // latest submitted
+    int m_inFlight = 0;
 };
 
 } // namespace mc::gfx

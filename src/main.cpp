@@ -1,4 +1,5 @@
 #include "core/CommandLine.h"
+#include "core/FrameStats.h"
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
@@ -72,7 +73,7 @@ int main(int argc, char** argv) {
     const bool screenshotMode = !opts->screenshotPath.empty();
 
     mc::Window window;
-    if (!window.create(opts->width, opts->height, "MinecraftClone", !opts->hidden)) {
+    if (!window.create(opts->width, opts->height, "MinecraftClone", !opts->hidden, opts->vsync)) {
         MC_LOG_ERROR("Could not create an OpenGL 4.6 window");
         return 1;
     }
@@ -92,6 +93,9 @@ int main(int argc, char** argv) {
     double last = mc::timeSeconds();
     int frame = 0;
     int exitCode = 0;
+    mc::FrameStats frameStats;
+    const double startTime = last;
+    bool meshed = false;
 
     while (!window.shouldClose()) {
         window.pollEvents();
@@ -107,6 +111,8 @@ int main(int argc, char** argv) {
         player.turn(window.mouseDx(), window.mouseDy());
 
         const double now = mc::timeSeconds();
+        // Full frame period (includes swap, i.e. waiting for the GPU / vsync).
+        if (frame > 0) frameStats.add((now - last) * 1000.0);
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
@@ -129,7 +135,16 @@ int main(int argc, char** argv) {
         renderer.update(world);
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
-        ++frame;
+        if (!meshed && renderer.pendingMeshes() == 0) {
+            meshed = true;
+            const auto& st = renderer.stats();
+            MC_LOG_INFO("World meshed in %.0f ms: %d sections, %llu quads",
+                        (mc::timeSeconds() - startTime) * 1000.0, st.sections,
+                        static_cast<unsigned long long>(st.quadsTotal));
+        }
+
+        // Screenshots wait until every section is meshed, then count frames.
+        if (meshed) ++frame;
         if (screenshotMode && frame >= opts->screenshotFrames) {
             if (!mc::gfx::saveScreenshot(opts->screenshotPath.c_str(), fbWidth, fbHeight)) {
                 exitCode = 1;
@@ -138,5 +153,13 @@ int main(int argc, char** argv) {
         }
         window.swapBuffers();
     }
+    const auto summary = frameStats.summarize();
+    const auto& st = renderer.stats();
+    // Frame times count only frames after meshing finished (steady state).
+    MC_LOG_INFO("Frame time over %zu frames: avg %.2f ms (%.0f fps), p99 %.2f ms, max %.2f ms%s",
+                summary.frames, summary.avgMs, summary.avgMs > 0 ? 1000.0 / summary.avgMs : 0.0,
+                summary.p99Ms, summary.maxMs, opts->vsync ? " [vsync on]" : "");
+    MC_LOG_INFO("Last frame: sections drawn %d/%d, quads drawn %llu", st.sectionsDrawn, st.sections,
+                static_cast<unsigned long long>(st.quadsDrawn));
     return exitCode;
 }

@@ -41,6 +41,7 @@ public:
         int sections = 0;      // with a mesh
         int sectionsDrawn = 0; // after frustum culling
         uint64_t quadsDrawn = 0;
+        uint64_t quadsTotal = 0; // all uploaded sections
         uint32_t arenaQuads = 0; // arena capacity
     };
     const Stats& stats() const { return m_stats; }
@@ -69,6 +70,7 @@ private:
     std::vector<DrawCommand> m_commands; // reused every frame (no per-frame allocation)
     std::vector<glm::vec4> m_offsets;
     Stats m_stats;
+    uint64_t m_quadsTotal = 0;
 };
 
 } // namespace mc::gfx

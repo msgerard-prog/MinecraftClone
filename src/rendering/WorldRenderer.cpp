@@ -1,11 +1,13 @@
 #include "rendering/WorldRenderer.h"
 
 #include "core/Files.h"
-#include "rendering/ChunkMesher.h"
 #include "world/Blocks.h"
 
 #include <glad/gl.h>
+
+#include <algorithm>
 #include <glm/gtc/type_ptr.hpp>
+#include <thread>
 
 namespace mc::gfx {
 
@@ -28,8 +30,9 @@ bool WorldRenderer::init() {
     if (!m_atlas.build(assetPath("minecraft/textures/block"))) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init()) return false;
-    m_padded.resize(world::kPaddedVolume);
-    m_vertices.reserve(kMaxSectionVertices);
+    // Leave one core for the main thread.
+    const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) - 1);
+    m_workers = std::make_unique<MeshWorkers>(world::blockRegistry(), m_models, threads);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); // back faces (clockwise from the camera) are never visible
     return true;
@@ -54,23 +57,32 @@ void WorldRenderer::markAllDirty(const world::World& world) {
 }
 
 void WorldRenderer::update(const world::World& world) {
-    const auto& registry = world::blockRegistry();
+    // 1. Dispatch: snapshot each dirty section on the main thread (the only thread
+    //    that may read the World), mesh it on a worker.
     for (const world::SectionPos& pos : m_dirty) {
         const world::Chunk* chunk = world.chunk({pos.x, pos.z});
-        if (!chunk) {
-            m_chunks.removeSection(pos);
-            continue;
-        }
         // Empty sections have no faces of their own (neighbours mesh their sides).
-        if (chunk->section(pos.y - kMinSectionY).isEmpty()) {
+        if (!chunk || chunk->section(pos.y - kMinSectionY).isEmpty()) {
+            ++m_versions[pos]; // drops any in-flight result for it
             m_chunks.removeSection(pos);
             continue;
         }
-        world::snapshotSection(world, pos, m_padded.data());
-        meshSection(m_padded.data(), registry, m_models, m_vertices);
-        m_chunks.uploadSection(pos, m_vertices);
+        auto job = m_workers->acquireJob();
+        job->pos = pos;
+        job->version = ++m_versions[pos];
+        world::snapshotSection(world, pos, job->padded.data());
+        m_workers->submit(std::move(job));
+        ++m_inFlight;
     }
     m_dirty.clear();
+
+    // 2. Upload finished meshes. A result whose version is older than the latest
+    //    submission is stale (the section changed again) and is dropped.
+    while (auto job = m_workers->takeResult()) {
+        --m_inFlight;
+        if (m_versions[job->pos] == job->version) m_chunks.uploadSection(job->pos, job->vertices);
+        m_workers->recycle(std::move(job));
+    }
 }
 
 void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight) {
