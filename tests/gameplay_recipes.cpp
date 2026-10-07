@@ -81,3 +81,25 @@ TEST_CASE("furnace: one coal smelts 8 items, 200 ticks each; no fuel used withou
         tickFurnace(f);
     CHECK(f.output.count == 10); // second coal took over
 }
+
+TEST_CASE("crafting: redstone torch, repeater, lever, buttons, block of redstone, lamp, piston") {
+    const ItemStack r = I("redstone"), s = I("stick"), st = I("stone"), c = I("cobblestone"), e{};
+    std::array<ItemStack, 4> torch = {r, e, s, e};
+    CHECK(out(torch, 2) == "minecraft:redstone_torchx1");
+    const ItemStack t = I("redstone_torch");
+    std::array<ItemStack, 9> repeater = {t, r, t, st, st, st, e, e, e};
+    CHECK(out(repeater, 3) == "minecraft:repeaterx1");
+    std::array<ItemStack, 4> lever = {s, e, c, e};
+    CHECK(out(lever, 2) == "minecraft:leverx1");
+    std::array<ItemStack, 4> button = {e, st, e, e};
+    CHECK(out(button, 2) == "minecraft:stone_buttonx1");
+    std::array<ItemStack, 9> block = {r, r, r, r, r, r, r, r, r};
+    CHECK(out(block, 3) == "minecraft:redstone_blockx1");
+    std::array<ItemStack, 4> back = {I("redstone_block"), e, e, e};
+    CHECK(out(back, 2) == "minecraft:redstonex9");
+    std::array<ItemStack, 9> lamp = {e, r, e, r, I("glowstone"), r, e, r, e};
+    CHECK(out(lamp, 3) == "minecraft:redstone_lampx1");
+    const ItemStack p = I("birch_planks"), i = I("iron_ingot");
+    std::array<ItemStack, 9> piston = {p, p, p, c, i, c, c, r, c};
+    CHECK(out(piston, 3) == "minecraft:pistonx1");
+}

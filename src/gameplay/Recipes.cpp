@@ -80,6 +80,21 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"DG", "GD"}, {{'D', item("dirt")}, {'G', item("gravel")}}, "coarse_dirt", 4));
     r.push_back(shapeless({item("diorite"), item("cobblestone")}, "andesite", 2));
     r.push_back(shaped({"###", "###", "###"}, {{'#', item("ice")}}, "packed_ice"));
+    // Redstone (wiki: Redstone Torch, Redstone Repeater, Lever, Button, Block of
+    // Redstone, Redstone Lamp, Piston). Sticky pistons need slime balls: not yet.
+    const Ingredient redstone = item("redstone");
+    r.push_back(shaped({"R", "S"}, {{'R', redstone}, {'S', stick}}, "redstone_torch"));
+    r.push_back(shaped({"TRT", "SSS"}, {{'T', item("redstone_torch")}, {'R', redstone}, {'S', item("stone")}},
+                       "repeater"));
+    r.push_back(shaped({"S", "C"}, {{'S', stick}, {'C', item("cobblestone")}}, "lever"));
+    r.push_back(shapeless({item("stone")}, "stone_button"));
+    r.push_back(shapeless({item("oak_planks")}, "oak_button"));
+    r.push_back(shaped({"###", "###", "###"}, {{'#', redstone}}, "redstone_block"));
+    r.push_back(shapeless({item("redstone_block")}, "redstone", 9));
+    r.push_back(shaped({".R.", "RGR", ".R."}, {{'R', redstone}, {'G', item("glowstone")}}, "redstone_lamp"));
+    r.push_back(shaped({"PPP", "CIC", "CRC"},
+                       {{'P', kPlanks}, {'C', item("cobblestone")}, {'I', item("iron_ingot")}, {'R', redstone}},
+                       "piston"));
     return r;
 }
 
