@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Generate the GUI textures: original art in the game's pixel style (docs/art-style.md).
+
+Writes, in vanilla's resource-pack layout (so a pack or the user's jar overrides it):
+  assets/minecraft/textures/font/ascii.png               128x128, 16x16 cells of 8x8,
+                                                         code point = row*16 + col;
+                                                         advance = ink width + 1
+  assets/minecraft/textures/gui/sprites/hud/hotbar.png            182x22, 9 slots
+  assets/minecraft/textures/gui/sprites/hud/hotbar_selection.png  24x23
+Deterministic. Usage: tools/textures/gen_gui.py [--preview DIR]
+"""
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from texgen.core import CLEAR, Img, encode_png  # noqa: E402
+from texgen.font5x7 import G  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2] / "assets/minecraft/textures"
+WHITE = (255, 255, 255, 255)
+
+
+def font():
+    img = Img(128, 128, CLEAR)
+    for ch, rows in G.items():
+        code = ord(ch)
+        ox, oy = (code % 16) * 8, (code // 16) * 8
+        for y, row in enumerate(rows):
+            for x, c in enumerate(row):
+                if c == "#":
+                    img.set(ox + x, oy + y, WHITE)
+    return img
+
+
+def hotbar():
+    """Nine 20x20 slots in a 182x22 bar: dark translucent wells, bevelled frame."""
+    img = Img(182, 22, CLEAR)
+    edge_dark, edge_light = (24, 24, 28, 255), (150, 150, 158, 255)
+    well, well_light, well_dark = (58, 58, 64, 190), (92, 92, 100, 200), (36, 36, 40, 200)
+    for x in range(182):
+        img.set(x, 0, edge_dark)
+        img.set(x, 21, edge_dark)
+    for y in range(22):
+        img.set(0, y, edge_dark)
+        img.set(181, y, edge_dark)
+    for i in range(9):
+        sx = 1 + i * 20
+        for y in range(1, 21):
+            for x in range(sx, sx + 20):
+                lx, ly = x - sx, y - 1
+                if lx == 0 or ly == 0:
+                    c = edge_light if (lx == 0 and ly == 0) else well_dark
+                elif lx == 19 or ly == 19:
+                    c = well_light
+                else:
+                    c = well
+                img.set(x, y, c)
+    return img
+
+
+def selection():
+    """A bright 24x23 frame (open at the bottom row like the bar's lower edge)."""
+    img = Img(24, 23, CLEAR)
+    outer, inner = (20, 20, 20, 255), (236, 236, 236, 255)
+    for y in range(23):
+        for x in range(24):
+            ring = min(x, y, 23 - x, 22 - y)
+            if ring == 0:
+                img.set(x, y, outer)
+            elif ring in (1, 2):
+                img.set(x, y, inner if ring == 1 else (176, 176, 176, 255))
+    return img
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--preview", help="directory for 4x previews")
+    args = ap.parse_args()
+    files = {
+        "font/ascii.png": font(),
+        "gui/sprites/hud/hotbar.png": hotbar(),
+        "gui/sprites/hud/hotbar_selection.png": selection(),
+    }
+    for rel, img in files.items():
+        path = ROOT / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(encode_png(img))
+        print(f"wrote {path} ({img.w}x{img.h})")
+    if args.preview:
+        out = Path(args.preview)
+        out.mkdir(parents=True, exist_ok=True)
+        for rel, img in files.items():
+            big = Img(img.w * 4, img.h * 4, (90, 120, 90, 255))
+            for y in range(big.h):
+                for x in range(big.w):
+                    c = img.get(x // 4, y // 4)
+                    if c[3]:
+                        a = c[3] / 255
+                        bg = big.get(x, y)
+                        big.set(x, y, tuple(int(c[k] * a + bg[k] * (1 - a)) for k in range(3)))
+            (out / ("gui-" + rel.replace("/", "_"))).write_bytes(encode_png(big))
+
+
+if __name__ == "__main__":
+    main()
