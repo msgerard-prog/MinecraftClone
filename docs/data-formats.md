@@ -68,7 +68,7 @@ level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, Lev
                            mayfly, instabuild, invulnerable, mayBuild, flySpeed,
                            walkSpeed }, SelectedItemSlot, Inventory [ { Slot, id,
                            count, components { "minecraft:block_state" } } ] },
-                           MinecraftClone { generator } }
+                           MinecraftClone { generator: "overworld" | "terrain" | "flat" } }
 level.dat_old              backup copy of the previous level.dat (load falls back to it,
                            then to level.dat_new); level.dat_new is written first and
                            renamed over level.dat in one step
@@ -79,7 +79,7 @@ region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payl
 Chunk NBT (Java 1.21): `DataVersion`, `xPos`, `zPos`, `yPos` -4, `Status`
 `minecraft:full`, `isLightOn`, `sections` [24 × { `Y`, `block_states` { `palette` [
 { `Name`, `Properties` } ], `data` (longs; bits = max(4, ceil(log2 n)), 64/bits entries
-per long, none if 1 entry) }, `biomes` { `palette` [plains] }, `SkyLight`, `BlockLight`
+per long, none if 1 entry) }, `biomes` { `palette` [biome ids], `data` (longs, ceil(log2 n) bits, 64 entries; none if 1) }, `SkyLight`, `BlockLight`
 (2048-byte nibble arrays, omitted when all 0) }]. Not written yet: heightmaps,
 entities, block entities, ticks, structures, POI; `InhabitedTime` is 0; level.dat
 omits GameRules, DataPacks, difficulty and WorldGenSettings.dimensions, so vanilla

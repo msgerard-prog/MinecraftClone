@@ -27,7 +27,7 @@ Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60
 `--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
-runs default to "New World"), `--no-save`, `--pos x,y,z`, `--look yaw,pitch` (vanilla
+runs default to "New World"), `--no-save`, `--generator overworld|terrain` (new worlds), `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`

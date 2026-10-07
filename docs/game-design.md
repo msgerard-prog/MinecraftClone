@@ -63,9 +63,15 @@ fine until a system works.
 ## Known deviations from vanilla
 | Deviation | Why | Remove by |
 |---|---|---|
-| Placeholder terrain: 2D heightmap; no caves, aquifers, lava level, ores, features, trees or biomes; fixed 3-block dirt; no sandstone under sand; sand vs gravel by noise, not by biome; sand only in a narrow band at the waterline; bedrock/deepslate gradients use our positional hash (same probabilities as described, different pattern) | Need ground to test M3–M7 | M8 |
-| Fog fades to the sky colour (#78A7FF × daylight), so night fog is black; vanilla fades to the biome fog colour (Overworld #C0D8FF; dark blue at night) blended toward the sky and the sunrise colour | Simple sky model | M8 (biome colours) |
-| Water tint is always #3F76E4 (no biome water colours) | No biomes | M8 |
+| Legacy "terrain" generator (M3 placeholder: 2D heightmap, no caves/ores/trees/biomes) is kept for worlds created with it | Saved worlds keep their generator | — (legacy worlds) |
+| Overworld generator: vanilla's pipeline with our own climate/spline/cave constants (vanilla's noise settings and biome tables are game data we don't read, ADR 0004), so a seed gives different terrain than vanilla; bedrock/deepslate gradients use our positional hash | ADR 0004 | — |
+| 28 of ~56 overworld biomes (no cave biomes, no deep lukewarm/cold/frozen oceans, no jungles, dark forests, mushroom fields...); biomes don't vary with height; biome tints per 4×4×4 cell without blending; swamp grass one colour (vanilla: noise #4C763C/#6A7039) | Subset first | Biome pass |
+| No aquifers (caves below sea level are dry, no lava pockets above -55, no flooded caves under the sea) and no carver caves or ravines; cheese/noodle caves stay under the surface (spaghetti tunnels make the entrances) | Simpler first cave model | Aquifer step |
+| Ores: no air-exposure skipping (coal/gold/lapis/diamond rules), no large ore veins (copper/iron), emerald biome taken at the chunk centre; veins clipped at chunk borders; tree canopies cross borders but ore blobs don't | Simpler placement | Feature pass |
+| Trees: oak, birch, spruce, acacia (straight 2-block lean) only - no fancy oak, pine, savanna oak, branching acacia, bee nests; plains tree density our own; plants: 5 flowers, short grass, fern, dead bush (no tall grass, sugar cane, cactus, pumpkins, berries, tulips); no lakes, springs, disks, geodes, dungeons, fossils, structures | Feature subset | Feature pass |
+| Surfaces: badlands are plain terracotta (no coloured bands), frozen oceans fully iced with gravel floors (vanilla: patches, icebergs, stone), ocean floors several blocks of sand/gravel, stony peaks calcite speckles (vanilla strips), no powder snow, steepness symmetric (vanilla: north/east faces) | Blocks/rules not added yet | Biome pass |
+| Snow layers have no collision; snow isn't placed by the player yet; lava filters sky light like water (opacity 1; wiki suggests transparent) | Simplified | In-game check / block shapes |
+| Fog fades to the sky colour (#78A7FF × daylight), so night fog is black; vanilla fades to the biome fog colour (Overworld #C0D8FF; dark blue at night) blended toward the sky and the sunrise colour | Simple sky model | Biome pass (fog colours) |
 | Gravel and sand don't fall | Falling blocks need entities | M10 |
 | All packs in `resourcepacks/` are enabled automatically (jars at the bottom, others by name); packs need no `pack.mcmeta`; a client `.jar` is treated as the Default pack | No Resource Packs screen yet; lets you use your own jar unpacked | Options screens |
 | No swimming: water has no physics, the player sinks through it | Fluid physics come with the fluids work | Fluids milestone |
@@ -73,7 +79,7 @@ fine until a system works.
 | Breaking is instant (creative); no survival mining times, drops or tool rules; placing doesn't trigger block updates (no falling sand, no water flow into holes) | Items/tools in M9, block updates later | M9 / block updates |
 | Sprinting starts with Ctrl only (no double-tap W); sneak box is 1.5 tall but crawling/swimming poses don't exist | Simpler input | Controls options |
 | Sneaking cancels sprinting (1.21.4 behaviour; 1.21.5+ keeps sprinting while sneaking, faster than plain sneaking) | Depends on the pinned 1.21 patch (ADR 0002) | Patch decision |
-| Spawn = nearest dry column on a 4-block ring search; no climate-scored search or 21x21 random spawn area | No biomes/climate yet | M8 |
+| Spawn: 8-block ring search to 1024 for a dry, non-ocean/river column, then the nearest non-tree ground within 8 blocks; no climate fitness search, no 21×21 random respawn area | Simpler search | Spawn pass |
 | Block outline thickness is in world space (vanilla: constant on-screen line width); no High Contrast outline option; hotbar ignores horizontal scrolling | Simpler geometry / input | Options screens |
 | Unloaded chunks collide as solid (vanilla keeps entities out of unloaded chunks differently) | Never move into ungenerated terrain | — |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Cosmetic; the player state exists now | Options screens |
@@ -88,9 +94,8 @@ fine until a system works.
 | Animated textures ignore `.mcmeta` `frames`, `interpolate`, `width`/`height`; only vertical strips of width×width frames animate (vanilla: squares of the smaller dimension, any strip direction); a non-square image without `.mcmeta` shows its top square (vanilla stretches it); non-power-of-two sprites are skipped; one cell size for all sprites | Minimal .mcmeta reader, grid atlas | When a pack needs it |
 | Random model variants are picked with our own position hash, so a given position may show a different variant than vanilla | Vanilla's per-position seed isn't documented on the wiki | When documented / observed |
 | `grass_block[snowy=true]` renders like snowy=false (vanilla: snowy side, untinted top) | No snow yet | When snow is added |
-| Superflat presets accept block-state layers (`oak_log[axis=x]`), ignore the biome, no villages | Extension used by tests; no biomes/structures yet | M8 |
-| Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
-| Grass tint is always plains #91BD59 | No biomes yet | M8 |
+| Superflat presets accept block-state layers (`oak_log[axis=x]`); the preset's biome field is ignored (always plains); no villages | Extension used by tests; no structures yet | Structures |
+| Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad | Biome pass |
 | Saves: no heightmaps, entities, block entities, scheduled ticks or POI in chunks; level.dat without GameRules/DataPacks/difficulty/dimensions; no pause-menu save (we save when Esc releases the mouse) | Those systems don't exist yet | With each system |
 | Esc releases the mouse instead of opening the pause menu; no F1 (hide HUD); no item name shown above the hotbar when switching | No menus or display names yet | Menus / display-name table |
 | Chat: ASCII input only (vanilla: Unicode via its fallback font); no Tab completion, scrolling, cursor movement or paste; history counts wrapped lines, not messages; commands' feedback wording is ours | Minimal chat | Chat polish |

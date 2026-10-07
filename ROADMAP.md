@@ -4,30 +4,24 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M7 done and reviewed (code + parity findings fixed or recorded): worlds save in
-vanilla's Anvil layout (ADR 0007, proposed) - every generated chunk is saved,
-autosave every 6000 ticks, on pause (Esc) and on exit; level.dat restores seed,
-generator, time, player and hotbar; crash-safe region writes; session.lock.
-`saves/New World` by default, `--world NAME`, `--no-save`.
-M6 done: HUD, F3, chat + commands, creative inventory. M5 done: lighting, day/night.
-M8 started: generator interface (placeholder kept unchanged as kind "terrain"),
-50 worldgen blocks (ores, stones, sandstones, ice, lava, woods, leaves, plants)
-with name-driven models and cross plants.
-Measured (release, RTX 5080): RD32 auto-fly CPU work p99 0.70 ms, GPU avg 0.22 ms.
+M8 done and reviewed (code, perf, parity findings fixed or recorded): 1.21-style
+overworld - climate noises, spline-shaped 3D terrain (oceans, coasts, rivers, hills,
+mountain ranges), cheese/spaghetti/noodle caves with surface entrances, lava below
+-54, 28 biomes with wiki colours (per-vertex tints, saved palettes), surface rules,
+snow layers and ice by altitude temperature, ores and stone blobs per the wiki,
+oak/birch/spruce/acacia trees across chunk borders, plants. ~1 ms per chunk; static
+load RD12 0.34 s, RD32 1.6 s (release, /Ob2).
+M9 started: item textures (40, original), item registry, inventory of item stacks
+(saved), item icons, mining speed/harvest levels/drops (not yet used in game).
+M7 done: saves. M6 done: UI. M5 done: lighting/day-night.
 
 ## Next
-M8 — 1.21-style overworld (new generator kind "overworld" for new worlds; existing
-worlds keep theirs). Pipeline as vanilla documents it, constants our own (vanilla's
-noise settings and biome tables are Mojang data we don't read):
-1. M8.2 — Biomes: registry with wiki colours, 4x4x4 biome storage per section (saved),
-   per-vertex biome tints (grass, foliage, water).
-2. M8.3 — Terrain: climate noises (continentalness, erosion, weirdness/PV,
-   temperature, humidity), spline-shaped 3D density on 4x8x4 cells, sea level 63.
-3. M8.4 — Caves and aquifers: cheese, spaghetti, noodle caves; lava below -55;
-   water where caves meet the sea.
-4. M8.5 — Biome placement (multi-noise lookup) and surface rules per biome.
-5. M8.6 — Features: ores (wiki distributions), trees (oak, birch, spruce, acacia),
-   grass and flowers; spawn search; tests, docs, reviews.
+M9 — Survival basics:
+1. M9.2 — Game modes (/gamemode), survival mining with break progress and times,
+   drops as item entities with pickup, health/hunger HUD, fall damage, death/respawn.
+2. M9.3 — Crafting: survival inventory screen with 2x2 grid, crafting table (3x3),
+   recipes authored from the wiki's recipe pages.
+3. M9.4 — Furnace: block entity, smelting, fuel, saved block entities.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -43,6 +37,9 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M8 perf review: cave culling (per-section visibility graph) and arena
+  pages (RD32 is now ~6.6M quads, ~400 MB of vertices; growth copies the buffer);
+  per-cell interpolation stepping; all-solid section fast path.
 - From the M5 perf review: re-mesh only neighbours on the sides whose border light
   changed (an edit marks ~20–100 sections today); incremental light updates instead of
   the 3x3 full relight; pre-size the vertex arena from the render distance (growth
@@ -64,6 +61,8 @@ and GUI textures are made with their systems.
   Java 1.21 chunk NBT, gzip level.dat, DataVersion 3955 = 1.21.1). Built because no
   saves existed yet; say if you want something else before worlds matter. Every
   generated chunk is saved (vanilla), so worlds are larger on disk than "edits only".
+- M8 in-game checks: sky light under a surface lava pool (lava opacity), the
+  default Biome Blend radius, snow line heights in windswept hills/taiga.
 - **M8 generator (needs your OK to become the default):** new worlds use a new
   generator kind "overworld"; the M3 placeholder ("terrain", pinned hash) is kept
   for worlds that already use it. `--generator terrain` will select the old one.
@@ -114,7 +113,7 @@ and GUI textures are made with their systems.
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | ✅ 2026-10-07 |
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | ✅ 2026-10-07 |
 | M7 | Save/load: region files (format chosen by ADR) | ✅ 2026-10-07 |
-| M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | Terrain shapes recognisably vanilla for the same kinds of seeds |
+| M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | ✅ 2026-10-07 (aquifers, biome subset: see deviations) |
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | Wood → stone → iron progression works |
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | Zombies/cows behave like vanilla |
 | M11 | Redstone: power, dust, torches, repeaters, pistons, update order | Classic circuits behave like vanilla |
@@ -129,6 +128,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M8: overworld generator, biomes, snow, ores, trees.
 - 2026-10-07 M7: saves (Anvil regions, level.dat, autosave, session lock).
 - 2026-10-07 M6: HUD, F3, chat + commands, creative inventory.
 - 2026-10-07 M5: light engine, smooth lighting/AO, daylight cycle, sun/moon/stars.

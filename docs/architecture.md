@@ -56,7 +56,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Workers only read the immutable `blockRegistry()` and baked `BlockModels`.
 - `world::ChunkLoader` (cores/4 threads): generates missing chunks within render
   distance + 1, nearest first, bounded in flight; finished chunks are inserted by the
-  main thread; chunks beyond render distance + 3 unload. `TerrainGenerator` is
+  main thread; chunks beyond render distance + 3 unload. The `ChunkGenerator` is
   immutable and pure, so workers share it.
 - `world::ChunkStorage` (1 IO thread, M7): the chunk loader's workers load saved
   chunks from region files before generating; dirty chunks are snapshotted (shared
@@ -94,6 +94,19 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   water 1, else 0); emission per state (`lightEmission`). Full recompute per chunk,
   not incremental. `World` = map of `ChunkPos` → `Chunk`;
   unloaded chunks read as air.
+- Generators (`world/ChunkGenerator`): `OverworldGenerator` (M8, kind "overworld",
+  default for new worlds) - climate columns -> spline-shaped density on 4×8×4 cells,
+  trilinear interpolation, cheese/spaghetti/noodle caves, biome per 4×4 column,
+  surface rules, ores, trees (planned per chunk and cached per worker, so canopies
+  from the 8 neighbours are placed exactly), plants, snow/ice top layer; the whole
+  chunk is built in one flat array and each section encoded once. `TerrainGenerator`
+  (M3 placeholder, kind "terrain") stays for worlds created with it. Both pin a hash.
+- Biomes (`world/Biome`): 28 vanilla biomes with wiki colours; each chunk holds a
+  shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
+  chunk's, vertices carry an 8-bit tint slot (w2 bits 12-19) read from the tint
+  palette SSBO.
+- Items (`world/Items`): item registry (block items + tools/materials/food),
+  `ItemStack`; the player's 36-slot `gameplay/Inventory`.
 - `FlatGenerator`: superflat from vanilla's preset string (default Classic Flat:
   bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
 
@@ -144,8 +157,7 @@ Fixed bindings (add new ones here):
 |---|---|---|
 | uniform location | 0 | `uViewProj` (camera at origin) |
 | uniform location | 1 | `uAtlasColumns` |
-| uniform location | 2 | `uGrassColor` |
-| uniform location | 3 | `uWaterColor` |
+| SSBO binding | 1 | tint palette (256 slots × grass/foliage/water vec4; 254/255 birch/spruce foliage) |
 | uniform location | 4 | `uFog` (start, end in blocks) |
 | uniform location | 5 | `uFogColor` (sky) |
 | uniform location | 6 | `uAlphaCutoff` (0.5 opaque/cutout pass, 0 translucent) |
