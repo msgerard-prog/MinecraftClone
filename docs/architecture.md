@@ -283,6 +283,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   trapdoors, fence gates open by hand (wood) or redstone; pressure plates are pressed by
   main each tick (`BlockUpdates::pressPlate`/`settlePlates`) and spring up on their
   scheduled tick when nothing is left on them.
+- TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
+  blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
+  with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push
+  primed TNT through `ExplosionTargets::tnt`.
 - Shulkers (M20.4b, in `Mobs::ai`): fixed in place, `peek` opens the lid (a `Lift`
   model part), `ProjectileKind::ShulkerBullet` homes in and gives Levitation, which
   `Player::setEffects` turns into a rise.

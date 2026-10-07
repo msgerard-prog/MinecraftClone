@@ -167,6 +167,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_pushStates.reserve(13);
     m_toggles.reserve(64);
     m_plates.reserve(1024); // (pressure plates being pressed)
+    m_tntPrimed.reserve(256);
 }
 
 BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
@@ -416,6 +417,12 @@ void BlockUpdates::pressPlate(const BlockPos& p, bool item) {
             return;
         }
     if (m_plates.size() < 1024) m_plates.push_back({p, m_now, 1});
+}
+
+void BlockUpdates::primeTnt(const BlockPos& p) {
+    if (blockOf(at(p)) != B::Tnt) return;
+    set(p, 0);
+    if (m_tntPrimed.size() < m_tntPrimed.capacity()) m_tntPrimed.push_back(p);
 }
 
 void BlockUpdates::settlePlates() {
@@ -769,6 +776,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     case B::OakFence:
         set(p, fenceConnected(m_world, p, s));
+        break;
+    case B::Tnt: // lit by redstone power (also when placed next to it)
+        if (bestNeighbourSignal(p) > 0) primeTnt(p);
         break;
     case B::OakDoor:
     case B::IronDoor: {

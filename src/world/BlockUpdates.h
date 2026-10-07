@@ -124,6 +124,10 @@ public:
     // something is on it, checked every 20 ticks (weighted: 10); weighted plates give
     // min(15, n) (gold) or ceil(min(n, 150) / 10) (iron).
     void pressPlate(const BlockPos& p, bool item);
+    // TNT (M21.1b; wiki: TNT): redstone power, fire, flint and steel light it - the
+    // block goes and gameplay spawns primed TNT where primedTnt() lists.
+    void primeTnt(const BlockPos& p);
+    std::vector<BlockPos>& primedTnt() { return m_tntPrimed; }
     void settlePlates();
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
     static std::optional<BlockPos> chestPartner(const World& world, const BlockPos& p);
@@ -301,6 +305,7 @@ private:
         int count;    // entities on it during that tick
     };
     std::vector<Plate> m_plates;
+    std::vector<BlockPos> m_tntPrimed;
     int plateTarget(BlockId b, int count) const;
     void setDoor(const BlockPos& lower, BlockStateId lowerState, bool open, bool poweredNow);
 };

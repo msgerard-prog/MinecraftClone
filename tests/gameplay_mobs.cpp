@@ -1344,3 +1344,40 @@ TEST_CASE("the End spawns only endermen (M20 review); an elytra isn't worn by hi
     inv.wearArmor(50, s.rng);
     CHECK(inv.armor(1).damage == 0);
 }
+
+#include "gameplay/Explosion.h"
+#include "gameplay/PrimedTnt.h"
+
+TEST_CASE("TNT: redstone lights it, it hops, falls and blows up after 4 s; its blast sets off more TNT") {
+    MobScene s;
+    BlockUpdates updates(s.world);
+    const auto tnt = blockRegistry().defaultState(blocks::Tnt);
+    s.world.updateBlock({4, 64, 4}, tnt);
+    s.world.updateBlock({4, 64, 9}, tnt); // 5 away: in the blast
+    CHECK(updates.primedTnt().empty());
+    s.world.updateBlock({5, 64, 4}, blockRegistry().defaultState(blocks::RedstoneBlock));
+    REQUIRE(updates.primedTnt().size() == 1);
+    CHECK(s.world.getBlock({4, 64, 4}) == 0);
+    PrimedTnt primed;
+    primed.prime(updates.primedTnt()[0], 80, s.rng);
+    updates.primedTnt().clear();
+    int ticks = 0;
+    double peak = 0.0;
+    while (primed.explosions().empty() && ticks < 200) {
+        primed.tick(s.world);
+        if (!primed.items().empty()) peak = std::max(peak, primed.items()[0].pos.y);
+        ++ticks;
+    }
+    CHECK(ticks == 80);
+    CHECK(peak > 64.3); // it hopped
+    Explosion blast;
+    std::vector<BlockPos> changed;
+    ExplosionTargets t;
+    t.tnt = &primed;
+    t.dropAll = true;
+    blast.explode(s.world, primed.explosions()[0], 4.0f, s.rng, s.items, changed, t);
+    CHECK(s.world.getBlock({4, 64, 9}) == 0);
+    REQUIRE(primed.items().size() == 1); // the other TNT, lit with a short fuse
+    CHECK(primed.items()[0].fuse <= 30);
+    CHECK(primed.items()[0].fuse >= 10);
+}

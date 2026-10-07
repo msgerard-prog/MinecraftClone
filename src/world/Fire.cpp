@@ -93,6 +93,8 @@ int BlockUpdates::igniteOdds(BlockId b) {
     case B::OxeyeDaisy:
     case B::DeadBush:
         return 60;
+    case B::Tnt: // (wiki: TNT - encouragement 15, flammability 100)
+        return 15;
     default:
         return b >= B::WhiteWool && b <= B::BlackWool ? 30 : 0; // wool: 30 / 60 like leaves (wiki)
     }
@@ -133,6 +135,7 @@ int BlockUpdates::burnOdds(BlockId b) {
     case B::AzureBluet:
     case B::OxeyeDaisy:
     case B::DeadBush:
+    case B::Tnt:
         return 100;
     default:
         return b >= B::WhiteWool && b <= B::BlackWool ? 60 : 0;
@@ -188,6 +191,10 @@ void BlockUpdates::burnNeighbour(const BlockPos& q, int bound, int fireAge) {
     // young fire often takes its place.
     const int odds = burnOdds(blockOf(at(q)));
     if (odds == 0 || static_cast<int>(m_random.nextInt(uint32_t(bound))) >= odds) return;
+    if (blockOf(at(q)) == B::Tnt) { // burning TNT is lit (wiki: TNT)
+        primeTnt(q);
+        return;
+    }
     if (static_cast<int>(m_random.nextInt(uint32_t(fireAge + 10))) < 5)
         placeFire(q, fireAge + static_cast<int>(m_random.nextInt(5)) / 4);
     else

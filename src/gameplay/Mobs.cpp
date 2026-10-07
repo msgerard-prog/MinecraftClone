@@ -460,6 +460,7 @@ void Mobs::die(Context& ctx, MobData& m) {
         m_scratchEdits.clear();
         std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : m_scratchEdits;
         ExplosionTargets t;
+        t.tnt = ctx.tnt;
         if (ctx.survival && !ctx.playerDead) {
             t.player = &ctx.player;
             t.vitals = &ctx.vitals;

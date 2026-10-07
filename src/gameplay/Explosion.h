@@ -24,6 +24,11 @@ struct ExplosionTargets {
     Player* player = nullptr; // with its vitals, if it can be hurt (survival)
     Vitals* vitals = nullptr;
     bool damageMobs = true;
+    // TNT (M21.1b): blasts light TNT blocks (a 10-30 tick fuse) and push primed TNT;
+    // TNT's own blasts drop every block they break (1.21 game rule tnt_explosion_drop_decay
+    // false), mob blasts 1 in power.
+    class PrimedTnt* tnt = nullptr;
+    bool dropAll = false;
 };
 
 class Explosion {

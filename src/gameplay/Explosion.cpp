@@ -1,5 +1,7 @@
 #include "gameplay/Explosion.h"
 
+#include "gameplay/PrimedTnt.h"
+
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "world/Blocks.h"
@@ -101,11 +103,18 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                         });
                     }
     }
+    if (targets.tnt) targets.tnt->push(centre, power);
     int destroyed = 0;
     for (const BlockPos& b : m_hits) {
         const BlockStateId s = world.getBlock(b);
         if (s == 0) continue;
-        if (rng.nextFloat() < 1.0f / power) { // its loot, 1 in power (mob explosions)
+        if (reg.blockOf(s) == blocks::Tnt && targets.tnt) { // set off with a short fuse (wiki: TNT)
+            world.updateBlock(b, 0);
+            changed.push_back(b);
+            targets.tnt->prime(b, 10 + static_cast<int>(rng.nextInt(21)), rng);
+            continue;
+        }
+        if (targets.dropAll || rng.nextFloat() < 1.0f / power) { // its loot (mob explosions: 1 in power)
             m_loot.clear();
             blockDrops(s, {}, rng, m_loot, true);
             for (const ItemStack& st : m_loot)

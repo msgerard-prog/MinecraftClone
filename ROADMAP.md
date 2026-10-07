@@ -17,8 +17,7 @@ systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf)
 
 M21 — Redstone 2 (wiki: Redstone circuits, each component's page; vanilla update
 order where documented):
-1. M21.1 — (a ✅ doors, trapdoors, fences, gates, plates, collision shapes; b: TNT)
-   Doors, trapdoors, fence gates (wood and iron; redstone opens them),
+1. ✅ M21.1 — Doors, trapdoors, fence gates (wood and iron; redstone opens them),
    pressure plates (wood/stone/weighted) and TNT (lit by redstone or fire, primed TNT
    entity, its explosion; the desert pyramid trap starts working).
 2. M21.2 — Comparators (compare/subtract, reading containers' fullness) and

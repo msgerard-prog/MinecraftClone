@@ -7,6 +7,7 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/FallingBlocks.h"
 #include "gameplay/Inventory.h"
+#include "gameplay/PrimedTnt.h"
 #include "gameplay/Projectiles.h"
 #include "gameplay/Player.h"
 #include "rendering/Camera.h"
@@ -424,6 +425,8 @@ int main(int argc, char** argv) {
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
     mc::ExperienceOrbs orbs;         // experience orbs (M17.5)
     mc::Explosion fireballBlast;     // ghast fireballs (M19.2)
+    mc::Explosion tntBlast;          // (M21.1b)
+    mc::PrimedTnt primedTnt;
     int bowTicks = 0;                // how long the bow has been drawn
     double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;             // how long right-click has held a shield up
@@ -911,6 +914,7 @@ int main(int argc, char** argv) {
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
                 fallingBlocks.clear();
                 projectiles.clear();
+                primedTnt.clear();
                 orbs.clear();
                 const Dimension from = dimension;
                 dimension = t.to;
@@ -1056,6 +1060,7 @@ int main(int argc, char** argv) {
                             world.updateBlock(head, 0); // (the foot follows)
                             frameEdits.push_back(head);
                             mc::ExplosionTargets t;
+                            t.tnt = &primedTnt;
                             if (survival) {
                                 t.player = &player;
                                 t.vitals = &vitals;
@@ -1219,6 +1224,20 @@ int main(int argc, char** argv) {
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
+            if (!dead && clicks.useClick && lastHit &&
+                reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Tnt) {
+                // Flint and steel or a fire charge lights TNT (wiki: TNT).
+                const mc::world::ItemStack held = inventory.selectedStack();
+                const std::string_view hid = mc::world::itemRegistry().item(held.item).id;
+                if (hid == "minecraft:flint_and_steel" || hid == "minecraft:fire_charge") {
+                    blockUpdates.primeTnt(lastHit->block);
+                    if (survival) {
+                        if (hid == "minecraft:fire_charge") inventory.consumeSelected(1);
+                        else inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    }
+                    clicks.useClick = false;
+                }
+            }
             if (!dead && clicks.useClick && lastHit) { // (sneaking only skips block actions)
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const size_t editsBefore = frameEdits.size();
@@ -1507,8 +1526,9 @@ int main(int argc, char** argv) {
             // Game rules read the tick's own time, not the renderer's interpolated value.
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
-                                     droppedItems, dimension != Dimension::End,
+                                     droppedItems, true, // (the End: endermen, M20)
                                      inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
+            mobCtx.tnt = &primedTnt;
             for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() &&
                     mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
@@ -1547,6 +1567,21 @@ int main(int argc, char** argv) {
                 blockUpdates.settlePlates();
             }
             blockUpdates.tick();
+            // TNT (M21.1b): lit blocks become primed TNT; fuses run out and explode.
+            for (const mc::world::BlockPos& b : blockUpdates.primedTnt())
+                primedTnt.prime(b, 80, gameRng);
+            blockUpdates.primedTnt().clear();
+            primedTnt.tick(world);
+            for (const glm::dvec3& at : primedTnt.explosions()) {
+                mc::ExplosionTargets t;
+                t.tnt = &primedTnt;
+                t.dropAll = true;
+                if (survival && !dead) {
+                    t.player = &player;
+                    t.vitals = &vitals;
+                }
+                tntBlast.explode(world, at, 4.0f, gameRng, droppedItems, frameEdits, t);
+            }
             frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
             blockUpdates.changed().clear();
             frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(), blockUpdates.remeshOnly().end());
@@ -1585,7 +1620,7 @@ int main(int argc, char** argv) {
             // third of the open spots around it); blaze fireballs lit blocks.
             for (const glm::dvec3& at : projectiles.explosions()) {
                 fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                                      {survival && !dead ? &player : nullptr, &vitals, true});
+                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
                 const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
                 for (int dx = -2; dx <= 2; ++dx)
                     for (int dy = -2; dy <= 2; ++dy)
@@ -1839,6 +1874,12 @@ int main(int argc, char** argv) {
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),
                             camera.position);
+        for (const auto& t : primedTnt.items()) { // flashing white every 5 ticks (wiki)
+            static const mc::world::BlockStateId tntState =
+                mc::world::blockRegistry().defaultState(mc::world::blocks::Tnt);
+            const glm::vec3 light = (t.fuse / 5) % 2 == 0 ? glm::vec3(2.0f) : glm::vec3(1.0f);
+            entities.addBlock(tntState, glm::mix(t.prevPos, t.pos, clock.alpha), light, camera.position);
+        }
         for (const auto& f : fallingBlocks.blocks())
             entities.addBlock(f.state, glm::mix(f.prevPos, f.pos, clock.alpha),
                               lightTable[size_t(f.skyLight * 16 + f.blockLight)], camera.position);
