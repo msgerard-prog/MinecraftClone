@@ -131,7 +131,7 @@ TEST_CASE("explosions: a crater in dirt (stone barely: resistance 6), never bedr
         for (int z = -6; z <= 6; ++z)
             CHECK(s.world.getBlock({x, 59, z}) == S(blocks::Bedrock));
     const float hurt = 20.0f - s.vitals.health();
-    CHECK(hurt > 4.0f); // 3 blocks from a power-3 blast
+    CHECK(hurt >= 3.0f); // 3 blocks from a power-3 blast (the floor shields part of the box)
     // Behind a wall there is no exposure.
     World w;
     w.createChunk({0, 0});
@@ -152,4 +152,69 @@ TEST_CASE("water shields blocks from explosions (blast resistance 100)") {
     std::vector<BlockPos> changed;
     e.explode(s.world, {0.5, 64.5, 0.5}, 3.0f, s.rng, s.items, changed, {});
     CHECK(s.world.getBlock({0, 63, 0}) == S(blocks::Stone));
+}
+
+TEST_CASE("blown-up stone drops cobblestone (no tool needed), at about 1/power") {
+    Scene s;
+    Explosion e;
+    std::vector<BlockPos> changed;
+    int destroyed = 0;
+    for (int i = 0; i < 6; ++i) // several blasts in the stone floor at different places
+        destroyed += e.explode(s.world, {i * 8.0 - 20.0, 63.5, 0.5}, 4.0f, s.rng, s.items, changed, {});
+    REQUIRE(destroyed > 8);
+    int cobble = 0;
+    for (const auto& it : s.items.items())
+        cobble += it.stack.item == itemRegistry().blockItem(blocks::Cobblestone) ? it.stack.count : 0;
+    CHECK(cobble > 0);
+    CHECK(cobble < destroyed);
+}
+
+TEST_CASE("cover the blast destroys still shields what is behind it (entities first)") {
+    Scene open, covered;
+    for (Scene* s : {&open, &covered})
+        for (int x = -8; x <= 8; ++x)
+            for (int z = -8; z <= 8; ++z)
+                for (int y = 60; y <= 63; ++y)
+                    s->world.setBlock({x, y, z}, S(blocks::Dirt));
+    for (int y = 64; y <= 67; ++y) // a dirt wall between blast and player, inside the crater's reach
+        for (int z = -3; z <= 3; ++z)
+            covered.world.setBlock({2, y, z}, S(blocks::Dirt));
+    Explosion e;
+    std::vector<BlockPos> changed;
+    open.player.setPosition({3.5, 64.0, 0.5});
+    covered.player.setPosition({3.5, 64.0, 0.5});
+    e.explode(open.world, {0.5, 64.0, 0.5}, 3.0f, open.rng, open.items, changed, {&open.player, &open.vitals});
+    e.explode(covered.world, {0.5, 64.0, 0.5}, 3.0f, covered.rng, covered.items, changed,
+              {&covered.player, &covered.vitals});
+    CHECK(covered.vitals.health() > open.vitals.health());
+}
+
+TEST_CASE("a mob's own arrow never hits it, even shot steeply down") {
+    Scene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Skeleton, {0.5, 70.0, 0.5}, s.rng)));
+    MobData& sk = s.world.chunk({0, 0})->mobs().at(0);
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.6, 71.0, 0.6}, {0.29, -0.96, 0.0}, 1.6, 0.0, false, false, s.rng,
+                        sk.uuidHi);
+    s.tick(5);
+    CHECK(s.world.chunk({0, 0})->mobs().at(0).health == 20.0f);
+}
+
+TEST_CASE("bows: drawing needs an arrow in survival; release uses it and wears the bow") {
+    Scene s;
+    const ItemId bow = *itemRegistry().find("bow"), arrow = *itemRegistry().find("arrow");
+    s.inventory.select(0);
+    s.inventory.setSlot(0, {bow, 1});
+    CHECK_FALSE(canDrawBow(s.inventory, true));
+    CHECK(canDrawBow(s.inventory, false));
+    s.inventory.setSlot(5, {arrow, 2});
+    CHECK(canDrawBow(s.inventory, true));
+    CHECK_FALSE(releaseBow(s.inventory, 1, true, {0.5, 65, 0.5}, {0, 0, 1}, s.projectiles, s.rng)); // too short
+    CHECK(releaseBow(s.inventory, 20, true, {0.5, 65, 0.5}, {0, 0, 1}, s.projectiles, s.rng));
+    CHECK(s.inventory.slot(5).count == 1);
+    CHECK(s.inventory.slot(0).damage == 1);
+    CHECK(s.projectiles.items().size() == 1);
+    CHECK(s.projectiles.items()[0].critical);
+    s.inventory.setSlot(0, {bow, 1, 383}); // one use left
+    CHECK(releaseBow(s.inventory, 20, true, {0.5, 65, 0.5}, {0, 0, 1}, s.projectiles, s.rng));
+    CHECK(s.inventory.slot(0).empty()); // broke
 }

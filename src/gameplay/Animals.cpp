@@ -81,7 +81,8 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
     if (m.loveTicks > 0) --m.loveTicks;
     // Chickens lay an egg every 5-10 minutes (wiki: Chicken), adults only.
     if (m.type == MobType::Chicken && !m.isBaby() && --m.eggTicks <= 0) {
-        ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {itemId("egg"), 1}, ctx.rng);
+        static const ItemId egg = itemId("egg");
+        ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {egg, 1}, ctx.rng);
         m.eggTicks = 6000 + static_cast<int>(ctx.rng.nextInt(6000));
     }
     // Sheep graze (wiki: Sheep › Eating): now and then (adults 1 in 1000 ticks, lambs

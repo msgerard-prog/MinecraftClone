@@ -89,6 +89,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = rng.nextFloat() * 360.0f - 180.0f;
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
+    if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
     return m;
 }
 
@@ -213,7 +214,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     double speed = info.speed * 0.5; // blocks per tick at speed modifier 1 (our estimate)
     bool chase = false;
 
-    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= 35.0 * 35.0 || !mayTarget(ctx, m)) {
+    // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
+    // creepers and spiders within 16; endermen only when angered (64).
+    const double follow = m.type == MobType::Zombie ? 35.0 : m.type == MobType::Enderman ? 64.0 : 16.0;
+    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
         // Targets are picked on sight (wiki: Zombie): a line of sight check twice a second.
@@ -253,23 +257,29 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
 
-    // Path to the goal (M16.2): chasing mobs repath every 4-10 ticks (vanilla
-    // recomputes a moving target's path every few ticks), others when the goal changes.
+    // Path to the goal (M16.2): a new search only when the goal cell moved (or a chase
+    // path ran out), at most every 4-10 ticks; longer waits after a partial path (+15)
+    // and for far targets (+5 past 16 blocks, +10 past 32), as vanilla's melee goal.
     const glm::ivec3 feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
     const glm::ivec3 goalCell{int(std::floor(m.goal.x)), int(std::floor(m.goal.y + 0.01)), int(std::floor(m.goal.z))};
     if (m.repathTicks > 0) --m.repathTicks;
-    if (goalCell != feet && ((chase && m.repathTicks == 0) || (!chase && goalCell != m.pathGoal))) {
+    const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
+    if (goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished))) {
         const int heightCells = int(std::ceil(info.height));
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
         m.pathLength = uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, heightCells, chase ? 560 : 200,
                                                    m.path.data(), MobData::kMaxPath));
         m.pathIndex = 0;
-        m.pathGoal = goalCell;
-        m.repathTicks = int16_t(4 + ctx.rng.nextInt(7));
-        if (!chase && m.pathLength > 0) { // a wander target it can't reach: stop where the path ends
+        m.pathRequest = goalCell;
+        const bool partial = m.pathLength == 0 || m.path[size_t(m.pathLength - 1)] != goalCell;
+        const double far2 = glm::dot(m.goal - m.pos, m.goal - m.pos);
+        m.repathTicks = int16_t(4 + ctx.rng.nextInt(7) + (partial ? 15 : 0) + (far2 > 16.0 * 16.0 ? 5 : 0) +
+                                (far2 > 32.0 * 32.0 ? 5 : 0));
+        if (!chase && partial && m.pathLength > 0 && m.panicTicks == 0) {
+            // A stroll target it can't reach: stop where the path ends.
             const glm::ivec3 end = m.path[size_t(m.pathLength - 1)];
             m.goal = {end.x + 0.5, double(end.y), end.z + 0.5};
-            m.pathGoal = end;
+            m.pathRequest = end;
         }
     }
     // The next cell of the path (skipping the ones reached), else the goal itself.
@@ -354,10 +364,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.health -= damage;
     m.hurtTime = 10;
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
+    m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
     if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
     if (m.type == MobType::Spider || m.type == MobType::Enderman) { // provoked (wiki)
         m.angry = true;
         m.targeting = true;
+        m.angerTicks = 600;
     }
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
@@ -372,8 +384,26 @@ void Mobs::die(Context& ctx, MobData& m) {
     // Loot (wiki: Cow - raw beef 1-3, leather 0-2; Zombie - rotten flesh 0-2).
     const auto& items = itemRegistry();
     auto drop = [&](const char* id, int lo, int hi) {
+        // Item ids by name, resolved once per name (no string search per death).
+        struct Cached {
+            const char* name;
+            ItemId item;
+        };
+        static Cached cache[32] = {};
+        ItemId item = 0;
+        for (Cached& c : cache) {
+            if (c.name == id) { // same literal
+                item = c.item;
+                break;
+            }
+            if (!c.name) {
+                c = {id, *items.find(id)};
+                item = c.item;
+                break;
+            }
+        }
         const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1)));
-        if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*items.find(id), uint8_t(n)}, ctx.rng);
+        if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
     const bool burning = m.fireTicks > 0; // meat drops cooked
@@ -397,7 +427,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Creeper: drop("gunpowder", 0, 2); break; // wiki: Creeper
     case MobType::Spider: // wiki: Spider - string 0-2, spider eye 1 in 3
         drop("string", 0, 2);
-        if (ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1);
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1); // player kills only
         break;
     case MobType::Enderman: // wiki: Enderman - ender pearl 0-1, and the block it carried
         drop("ender_pearl", 0, 1);
@@ -519,7 +549,8 @@ void Mobs::spawnHostiles(Context& ctx) {
     }
 }
 
-std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, const glm::dvec3& dir, double reach) {
+std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, const glm::dvec3& dir, double reach,
+                                          uint64_t skipUuidHi) {
     std::optional<MobHit> best;
     const ChunkPos centre{blockToChunk(int(std::floor(eye.x))), blockToChunk(int(std::floor(eye.z)))};
     for (int dz = -1; dz <= 1; ++dz)
@@ -528,7 +559,7 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, c
             if (!c) continue;
             for (size_t i = 0; i < c->mobs().size(); ++i) {
                 const MobData& m = c->mobs()[i];
-                if (m.health <= 0.0f) continue;
+                if (m.health <= 0.0f || (skipUuidHi && m.uuidHi == skipUuidHi)) continue;
                 const Aabb b = box(m);
                 // Slab test along the ray.
                 double t0 = 0.0, t1 = reach;

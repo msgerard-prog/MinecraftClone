@@ -567,8 +567,10 @@ TEST_CASE("endermen anger when stared at, teleport out of water, shrug off arrow
     MobData e = Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, s.rng);
     REQUIRE(Mobs::add(s.world, e));
     s.player.setPosition({0.5, 64.0, 0.5});
-    s.player.setRotation(0.0f, -4.0f); // looking south (+Z), a little up: at its head
-    s.run(1);
+    s.player.setRotation(0.0f, -7.3f); // looking south (+Z), up at its head (1 block above our eyes)
+    s.run(3);
+    CHECK_FALSE(s.all().at(0)->angry); // a glance isn't enough: 5 ticks of staring
+    s.run(3);
     CHECK(s.all().at(0)->angry);
     // Arrows: it teleports, no damage.
     MonsterScene a;
@@ -602,4 +604,55 @@ TEST_CASE("an enderman's carried block saves as carriedBlockState") {
     entitiesFromNbt(*mc::nbt::read(mc::nbt::write(nbt)), d);
     REQUIRE(d.mobs().size() == 1);
     CHECK(d.mobs()[0].carried == blockRegistry().defaultState(blocks::GrassBlock));
+}
+
+TEST_CASE("a creeper keeps swelling at 5 blocks (vanilla) but calms behind a wall") {
+    MonsterScene s;
+    MobData c = Mobs::make(MobType::Creeper, {5.5, 64.0, 0.5}, s.rng);
+    c.fuse = 10;
+    c.targeting = true;
+    REQUIRE(Mobs::add(s.world, c));
+    s.player.setPosition({0.5, 64.0, 0.5});
+    // Keep it from walking closer: walls around it on three sides.
+    for (int y = 64; y <= 65; ++y) {
+        s.world.setBlock({6, y, 0}, blockRegistry().defaultState(blocks::Stone));
+        s.world.setBlock({5, y, 1}, blockRegistry().defaultState(blocks::Stone));
+        s.world.setBlock({5, y, -1}, blockRegistry().defaultState(blocks::Stone));
+    }
+    s.run(3);
+    CHECK(s.all().at(0)->fuse > 10);
+    MonsterScene w;
+    MobData c2 = Mobs::make(MobType::Creeper, {5.5, 64.0, 0.5}, w.rng);
+    c2.fuse = 10;
+    c2.targeting = true;
+    REQUIRE(Mobs::add(w.world, c2));
+    for (int y = 64; y <= 66; ++y)
+        for (int z = -3; z <= 3; ++z)
+            w.world.setBlock({3, y, z}, blockRegistry().defaultState(blocks::Stone)); // no line of sight
+    w.run(3);
+    CHECK(w.all().at(0)->fuse < 10);
+}
+
+TEST_CASE("skeletons and creepers notice the player within 16 blocks, zombies 35") {
+    MonsterScene s;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Skeleton, {20.5, 64.0, 0.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {0.5, 64.0, 20.5}, s.rng)));
+    s.run(25);
+    for (MobData* m : s.all())
+        CHECK(m->targeting == (m->type == MobType::Zombie));
+}
+
+TEST_CASE("spider eyes drop only when the player killed the spider") {
+    int eyes = 0;
+    for (int i = 0; i < 40; ++i) {
+        MobScene s;
+        s.rng = Xoroshiro(uint64_t(i));
+        MobData sp = Mobs::make(MobType::Spider, {4.5, 64.0, 4.5}, s.rng);
+        sp.health = 0.0f;
+        REQUIRE(Mobs::add(s.world, sp));
+        s.tick(1);
+        for (const auto& it : s.items.items())
+            eyes += it.stack.item == *itemRegistry().find("spider_eye");
+    }
+    CHECK(eyes == 0);
 }

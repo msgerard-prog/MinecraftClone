@@ -4,31 +4,32 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M15 done (reviews applied; v0.15.0): random ticks (3 per section, chunks within the
-simulation distance with loaded neighbours), grass spread/death, leaf distance and
-decay with loot, saplings growing worldgen trees, snow/ice melting, fire (aging,
-burning, spreading by the wiki's odds, 128-block radius, infiniburn), lava starting
-fires, flint and steel. M14 fluids (v0.14.0); M1-M13 done.
+M16 done (reviews applied; v0.16.0): falling sand/gravel, A* pathfinding, sheep/pig/
+chicken with breeding, shearing, eggs; bows, arrows, thrown eggs, explosions;
+skeletons, creepers, spiders, endermen with vanilla's follow ranges, fuse and stare
+rules. M15 random ticks and fire (v0.15.0); M1-M14 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M16 — Falling blocks and mobs 2 (wiki: Falling Block, Mob AI, each mob's page):
-1. ✅ M16.1 — Falling blocks: sand, red sand, gravel fall 2 ticks after losing support
-   (falling_block entity with gravity, lands as the block or drops as an item on
-   non-full blocks, crushes nothing), saved with the chunk's entities.
-2. ✅ M16.2 — Pathfinding: A* over walkable nodes (vanilla's node types subset: open,
-   walkable, blocked, danger: lava/fire/cactus), follow range, used by zombies and
-   herd animals; mobs avoid drops > 3 and fluids where vanilla does.
-3. ✅ M16.3 — Passive mobs: sheep (wool colours, eating grass, regrowing wool), pig,
-   chicken (eggs, slow falling, flapping); breeding (love mode, babies growing up,
-   tempt goals) with wheat / wheat seeds / carrots; their drops and items.
-4. ✅ M16.4 — Projectiles and explosions: arrows (gravity, drag, damage by speed,
-   sticking), explosions (vanilla ray algorithm, block resistance, entity damage).
-5. ✅ M16.5 — Hostile mobs: skeleton (bow, strafing, burns in daylight), creeper
-   (swelling, explosion 3), spider (climbing walls, neutral in light), enderman
-   (teleport, stare aggro, carrying blocks, water damage). Original models/textures.
+M17 — Items and survival 2 (wiki: Farming, Chest, Bed, Armor, Shield, Enchanting,
+Anvil, Brewing):
+1. M17.1 — Farming: hoes till dirt/grass into farmland (moisture from water within 4,
+   trampling), wheat/carrots/potatoes/beetroots (age stages, growth chance by
+   farmland moisture and neighbours), bone meal (from bones; grows crops and saplings),
+   crop drops and seeds, bread/baked potato recipes.
+2. M17.2 — Chests (single and double, 27/54 slots, block entity saved as Items),
+   item frames of inventory screens reused; hoppers come with redstone 2.
+3. M17.3 — Armor (leather/iron/gold/diamond/copper... pieces, armor points and
+   toughness damage reduction, durability, armor slots in the inventory, worn on mobs
+   and the player model later); shields (blocking with right-click, 5-tick delay,
+   axe disabling).
+4. M17.4 — Beds (placing two halves, sleeping at night skips to morning, respawn
+   point, explode in the Nether/End).
+5. M17.5 — Enchanting (table, lapis, levels/XP orbs from mobs and ores, enchantment
+   choices by bookshelves, efficiency/sharpness/protection/unbreaking...), anvils
+   (repair, combine, naming), brewing (stand, blaze powder... where ingredients exist).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -44,6 +45,11 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M16 perf review: classify each probed cell once per path search (cache
+  standable/danger in the hash slot) and a 3x3 chunk-pointer cache in the pathfinder;
+  explosion de-dup with a bitset over the blast cube (no sort) and per-ray chunk
+  caching; a side pool for mob paths (MobData is ~700 bytes, copied on chunk moves);
+  findMob is O(N) per breeding/baby animal (O(N^2) in dense farms).
 - From the M15 perf review: fire and leaf-decay edits each recompute 9 chunks of
   light - a large fire kept all light workers busy ~75 s at 60 fps (block-light-only
   jobs for emission-only edits, rate-limit relights per chunk, then incremental light);
@@ -180,7 +186,7 @@ and GUI textures are made with their systems.
 | M13 | 1.21.11 migration: saves at DataVersion 4671, vanilla-openable worlds, 1.21.11 defaults | ✅ 2026-10-07 v0.13.0 (vanilla opening: in-game check) |
 | M14 | Fluids: water/lava flow, swimming, drowning, lava damage, buckets | ✅ 2026-10-07 v0.14.0 |
 | M15 | Random ticks & fire: saplings, leaf decay, grass spread, fire, flint and steel (crops moved to M17 farming) | ✅ 2026-10-07 v0.15.0 |
-| M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | Classic mobs behave like vanilla |
+| M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | ✅ 2026-10-07 v0.16.0 |
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, brewing, farming | Core survival loop complete |
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | Seeds look like vanilla's kind of world |
 | M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes | Nether as in 1.21 |
@@ -197,6 +203,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M16 (v0.16.0): falling blocks, pathfinding, farm animals, bows/arrows/eggs, explosions, skeletons, creepers, spiders, endermen.
 - 2026-10-07 M15 (v0.15.0): random ticks, grass, leaves, saplings, snow/ice melt, fire.
 - 2026-10-07 M14 (v0.14.0): fluids - flow, lava/water reactions, swimming, drowning, burning, buckets.
 - 2026-10-07 M13 (v0.13.0): Java Edition 1.21.11 saves and defaults, copper tools, versioning.

@@ -291,7 +291,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 if (value.empty() || *end != '\0' || !std::isfinite(v)) return fail("Invalid data tag");
                 if (key == "Color") mob.woolColour = static_cast<uint8_t>(std::clamp(int(v), 0, 15));
                 else if (key == "Sheared") mob.sheared = v != 0.0;
-                else if (key == "Age") mob.age = std::clamp(int(v), -24000, 6000);
+                else if (key == "Age" && !world::mobInfo(*type).hostile) mob.age = std::clamp(int(v), -24000, 6000);
                 else if (key == "Health") mob.health = std::clamp(float(v), 0.1f, world::mobInfo(*type).maxHealth);
                 else return fail(format("Unknown data tag '%.*s'", int(key.size()), key.data()));
             }

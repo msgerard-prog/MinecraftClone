@@ -531,7 +531,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("LeftHanded", int8_t{0});
         if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
             e.put("variant", std::string("minecraft:temperate")); // 1.21.5+ farm animal variants
-        if (m.type != MobType::Zombie) { // animals (wiki: Entity format › Animal)
+        if (!mobInfo(m.type).hostile) { // animals (wiki: Entity format › Animal)
             e.put("Age", int32_t(m.age));
             e.put("ForcedAge", int32_t{0});
             e.put("InLove", int32_t(m.loveTicks));

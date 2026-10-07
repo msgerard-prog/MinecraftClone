@@ -43,9 +43,45 @@ float bowPower(int ticks) {
     return std::min(1.0f, (f * f + f * 2.0f) / 3.0f);
 }
 
+bool canDrawBow(const Inventory& inventory, bool survival) {
+    static const ItemId arrow = *itemRegistry().find("arrow");
+    return !survival || inventory.has(arrow);
+}
+
+bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                Projectiles& projectiles, Xoroshiro& rng) {
+    static const ItemId arrow = *itemRegistry().find("arrow");
+    const float power = bowPower(ticks);
+    if (power < 0.1f || (survival && !inventory.takeOne(arrow))) return false;
+    projectiles.shoot(ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f, rng);
+    if (survival) {
+        ItemStack bow = inventory.selectedStack();
+        bow.damage = static_cast<uint16_t>(bow.damage + 1);
+        inventory.setSlot(inventory.selected(),
+                          bow.damage >= itemRegistry().item(bow.item).durability ? ItemStack{} : bow);
+    }
+    return true;
+}
+
+void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+              Projectiles& projectiles, Xoroshiro& rng) {
+    projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng);
+    if (survival) inventory.consumeSelected(1);
+}
+
 void Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
-                        double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng) {
-    if (m_items.size() >= size_t(kMax)) return;
+                        double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng, uint64_t owner) {
+    if (m_items.size() >= size_t(kMax)) {
+        // Full: the oldest arrow stuck in a block (not the player's) makes room.
+        size_t oldest = m_items.size();
+        for (size_t i = 0; i < m_items.size(); ++i)
+            if (m_items[i].stuck && !m_items[i].fromPlayer &&
+                (oldest == m_items.size() || m_items[i].life > m_items[oldest].life))
+                oldest = i;
+        if (oldest == m_items.size()) return;
+        m_items[oldest] = m_items.back();
+        m_items.pop_back();
+    }
     glm::dvec3 d = glm::normalize(dir);
     d += glm::dvec3(gaussian(rng), gaussian(rng), gaussian(rng)) * 0.0075 * inaccuracy;
     Projectile p;
@@ -54,6 +90,7 @@ void Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::
     p.vel = d * speed;
     p.fromPlayer = fromPlayer;
     p.critical = critical;
+    p.owner = owner;
     m_items.push_back(p);
 }
 
@@ -87,7 +124,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             // Entities in the way, nearer than the block.
             enum class Target { None, Player, Mob } target = Target::None;
             Mobs::MobHit mob{};
-            if (const auto mh = Mobs::raycast(world, p.pos, dir, reach)) {
+            if (const auto mh = Mobs::raycast(world, p.pos, dir, reach, p.owner)) {
                 mob = *mh;
                 reach = mh->distance;
                 target = Target::Mob;
@@ -113,6 +150,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         if (m.type == MobType::Enderman) {
                             m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
                         } else if (m.hurtTime == 0) {
+                            if (p.fromPlayer) m.lastHurtByPlayer = true;
                             m.health -= damage;
                             m.hurtTime = 10;
                             const glm::dvec2 h(p.vel.x, p.vel.z);

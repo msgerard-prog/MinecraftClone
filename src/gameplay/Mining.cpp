@@ -144,8 +144,8 @@ const DropIds& dropIds() {
 
 } // namespace
 
-void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out) {
-    if (!canHarvest(state, held)) return;
+void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out, bool anyTool) {
+    if (!anyTool && !canHarvest(state, held)) return;
     const auto& reg = blockRegistry();
     const DropIds& d = dropIds();
     const BlockId b = reg.blockOf(state);

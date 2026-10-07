@@ -15,6 +15,15 @@ using namespace world;
 
 namespace {
 
+// Line of sight from a mob's eyes to the player's (no block in between).
+bool sees(const World& w, const MobData& m, const Player& player) {
+    const glm::dvec3 eye = m.pos + glm::dvec3(0.0, mobInfo(m.type).height * 0.85, 0.0);
+    const glm::dvec3 target = player.eyePosition(1.0);
+    const glm::dvec3 d = target - eye;
+    const double len = glm::length(d);
+    return len < 1e-6 || !raycastBlocks(w, eye, d / len, len);
+}
+
 bool solid(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
 
 // Light where a mob stands, as spiders see it: max(block, sky - night darkening).
@@ -85,13 +94,16 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
     const MobInfo& info = mobInfo(m.type);
     switch (m.type) {
     case MobType::Creeper: {
-        // Swells while within 3 blocks of its target; calms down if it gets 7 away;
-        // explodes after 30 ticks of swelling with power 3 (wiki: Creeper).
-        if (chase && playerDist2 < 3.0 * 3.0) ++m.fuse;
-        else if (m.fuse > 0 && (!chase || playerDist2 > 7.0 * 7.0)) --m.fuse;
+        // Starts swelling within 3 blocks of its target and keeps going while the
+        // target stays within 7 and in sight; otherwise it calms down. Explodes after
+        // 30 ticks of swelling, with power 3 (wiki: Creeper).
+        const bool swelling = chase && playerDist2 <= 7.0 * 7.0 && (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
+                              sees(ctx.world, m, ctx.player);
+        if (swelling) ++m.fuse;
+        else if (m.fuse > 0) --m.fuse;
         if (m.fuse >= 30) {
-            static std::vector<BlockPos> scratch;
-            std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : scratch;
+            m_scratchEdits.clear();
+            std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : m_scratchEdits;
             ExplosionTargets t;
             if (ctx.survival && !ctx.playerDead) {
                 t.player = &ctx.player;
@@ -105,21 +117,22 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
     }
     case MobType::Skeleton: {
         // Draws for 20 ticks while it sees the player within 15 blocks, then shoots
-        // (speed 1.6, spread 6 on normal) and waits 20 more (wiki: Skeleton).
-        if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles) {
+        // (speed 1.6, spread 6) and waits 40 more: one arrow every 3 s on Normal (wiki:
+        // Skeleton).
+        if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) {
             m.shootTicks = 0;
             break;
         }
         if (m.attackCooldown > 0) break;
         if (++m.shootTicks >= 20) {
             m.shootTicks = 0;
-            m.attackCooldown = 20;
+            m.attackCooldown = 40;
             const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
             glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // aim above for the drop
             // (Starts just outside its own box: vanilla's arrows ignore their shooter.)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
-            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng);
+            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi);
         }
         break;
     }
@@ -138,17 +151,37 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         break;
     }
     case MobType::Enderman: {
-        // Stared at (the player looks at its head, unblocked, within 64): angry.
+        // Stared at: the player's look ray meets its head, unblocked, within 64 blocks,
+        // for 5 ticks in a row - then it is angry for 20-40 s (wiki: Enderman).
         const glm::dvec3 eye = ctx.player.eyePosition(1.0);
-        const glm::dvec3 head = m.pos + glm::dvec3(0, info.height - 0.4, 0);
-        const glm::dvec3 d = head - eye;
-        const double dist = glm::length(d);
-        if (!m.angry && ctx.survival && !ctx.playerDead && dist < 64.0 && dist > 1e-6) {
+        const glm::dvec3 headCentre = m.pos + glm::dvec3(0, info.height - 0.25, 0);
+        const double dist = glm::length(headCentre - eye);
+        bool stared = false;
+        if (ctx.survival && !ctx.playerDead && dist < 64.0 && dist > 1e-6) {
             const glm::dvec3 look(lookVector(ctx.player.yaw(), ctx.player.pitch()));
-            if (glm::dot(look, d / dist) > 1.0 - 0.025 / dist && !raycastBlocks(ctx.world, eye, d / dist, dist)) {
-                m.angry = true;
-                m.targeting = true;
+            const Aabb head{headCentre - glm::dvec3(0.3), headCentre + glm::dvec3(0.3)};
+            double t0 = 0.0, t1 = 64.0; // the look ray against the head box
+            for (int a = 0; a < 3 && t0 <= t1; ++a) {
+                if (std::abs(look[a]) < 1e-12) {
+                    if (eye[a] < head.min[a] || eye[a] > head.max[a]) t0 = t1 + 1.0;
+                    continue;
+                }
+                double ta = (head.min[a] - eye[a]) / look[a], tb = (head.max[a] - eye[a]) / look[a];
+                if (ta > tb) std::swap(ta, tb);
+                t0 = std::max(t0, ta);
+                t1 = std::min(t1, tb);
             }
+            stared = t0 <= t1 && !raycastBlocks(ctx.world, eye, look, t0);
+        }
+        m.stareTicks = stared ? int16_t(m.stareTicks + 1) : int16_t(0);
+        if (m.stareTicks >= 5) {
+            m.angry = true;
+            m.targeting = true;
+            m.angerTicks = int16_t(400 + ctx.rng.nextInt(400));
+        }
+        if (m.angry && m.angerTicks > 0 && --m.angerTicks == 0) { // calms down
+            m.angry = false;
+            m.targeting = false;
         }
         // Water hurts it (1 a tick) and makes it teleport (wiki: Enderman).
         const FluidContact fluid = fluidContact(ctx.world, box(m));

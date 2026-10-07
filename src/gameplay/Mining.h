@@ -29,7 +29,8 @@ int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onG
 // What a broken block drops (wiki: each block's "Drops"). Empty if it can't be
 // harvested with `held`.
 // Appends to `out` (no allocation when it has room).
+// `anyTool`: loot as if harvested correctly (explosions: the tool rule is the player's).
 void blockDrops(world::BlockStateId state, const world::ItemStack& held, world::Xoroshiro& rng,
-                std::vector<world::ItemStack>& out);
+                std::vector<world::ItemStack>& out, bool anyTool = false);
 
 } // namespace mc

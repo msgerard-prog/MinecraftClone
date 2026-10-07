@@ -46,6 +46,7 @@ public:
         m_moves.reserve(64);
         m_boxes.reserve(256);
         m_births.reserve(16);
+        m_scratchEdits.reserve(4096);
     }
 
     void tick(Context& ctx);
@@ -63,8 +64,9 @@ public:
         int index;
         double distance;
     };
+    // `skipUuidHi`: a mob to ignore (an arrow's shooter); 0 = none.
     static std::optional<MobHit> raycast(world::World& world, const glm::dvec3& eye, const glm::dvec3& dir,
-                                         double reach);
+                                         double reach, uint64_t skipUuidHi = 0);
     // Right-click on a mob with `held` (M16.3; wiki: Breeding, Sheep): feeding its food
     // puts an adult in love mode (or speeds a baby's growth by 10%), shears shear a
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
@@ -103,6 +105,7 @@ private:
     std::vector<Aabb> m_boxes; // reused collision boxes
     Pathfinder m_pathfinder;
     Explosion m_explosion;
+    std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
     int m_simulationDistance = kDefaultSimulationDistance;
 };

@@ -21,14 +21,14 @@ uint64_t pack(const glm::ivec3& p) {
 
 int heuristic(const glm::ivec3& a, const glm::ivec3& b) {
     const glm::ivec3 d = glm::abs(a - b);
-    return (d.x + d.y + d.z) * 10;
+    return (d.x + d.z) * 10 + d.y * 5; // never more than the real cost (admissible)
 }
 
 } // namespace
 
 Pathfinder::Pathfinder() {
     m_nodes.reserve(kMaxNodes + 8);
-    m_heap.reserve(kMaxNodes * 4 + 8);
+    m_heap.reserve(kMaxNodes * 5 + 8); // + re-pushes of improved nodes
     m_keys.assign(kHashSlots, 0);
     m_index.assign(kHashSlots, -1);
     m_stamp.assign(kHashSlots, 0);
@@ -118,6 +118,12 @@ int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ive
         m_nodes.push_back({p, g, g + heuristic(p, goal), parent, false});
         push(int(m_nodes.size()) - 1);
     };
+    // A cell already finished needs no danger/standability work (about half the
+    // neighbours on open ground).
+    auto closedAt = [&](const glm::ivec3& p) {
+        const int s = slot(p);
+        return m_stamp[size_t(s)] == m_search && m_nodes[size_t(m_index[size_t(s)])].closed;
+    };
     visit(start, 0, -1);
     int best = 0; // the node nearest to the goal (partial path)
     int bestH = heuristic(start, goal);
@@ -146,12 +152,13 @@ int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ive
                         break;
                     }
                 }
-                if (drop > kMaxDrop) continue;
+                if (drop > kMaxDrop || closedAt(q)) continue;
                 visit(q, n.g + 10 + drop * 2 + danger(world, q), ni);
             } else {
                 // Step up 1: the cell above the wall, with headroom over the mob.
                 const glm::ivec3 up{q.x, q.y + 1, q.z};
-                if (standable(world, up, height) && passable(world, {n.pos.x, n.pos.y + height, n.pos.z}, 1))
+                if (!closedAt(up) && standable(world, up, height) &&
+                    passable(world, {n.pos.x, n.pos.y + height, n.pos.z}, 1))
                     visit(up, n.g + 15 + danger(world, up), ni);
             }
         }

@@ -931,30 +931,19 @@ int main(int argc, char** argv) {
             // Bows and eggs (M16.4; wiki: Bow, Egg): hold right-click to draw a bow (it
             // needs an arrow in survival), release to shoot; right-click throws an egg.
             {
-                const mc::world::ItemStack held = inventory.selectedStack();
-                const std::string_view heldId = mc::world::itemRegistry().item(held.item).id;
-                static const mc::world::ItemId arrowItem = *mc::world::itemRegistry().find("arrow");
+                const std::string_view heldId = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (!dead && heldId == "minecraft:bow" && clicks.use && (!survival || inventory.has(arrowItem))) {
+                if (!dead && heldId == "minecraft:bow" && clicks.use && mc::canDrawBow(inventory, survival)) {
                     ++bowTicks;
                     clicks.useClick = false;
                 } else if (bowTicks > 0) {
-                    const float power = mc::bowPower(bowTicks);
+                    if (!dead && heldId == "minecraft:bow")
+                        mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles, gameRng);
                     bowTicks = 0;
-                    if (!dead && heldId == "minecraft:bow" && power >= 0.1f && (!survival || inventory.takeOne(arrowItem))) {
-                        projectiles.shoot(mc::ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f,
-                                          gameRng);
-                        if (survival) {
-                            mc::world::ItemStack worn = held;
-                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
-                            inventory.setSlot(inventory.selected(), worn.damage >= 384 ? mc::world::ItemStack{} : worn);
-                        }
-                    }
                 }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
-                    projectiles.shoot(mc::ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, gameRng);
-                    if (survival) inventory.consumeSelected(1);
+                    mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
             }

@@ -860,6 +860,7 @@ void OverworldGenerator::generate(Chunk& out) const {
             cow.pos = cow.prevPos = cow.goal = glm::dvec3(baseX + x + 0.5, y + 1.0, baseZ + z + 0.5);
             cow.yaw = cow.prevYaw = cow.headYaw = cow.prevHeadYaw = yaw;
             cow.health = mobInfo(kind).maxHealth;
+            if (kind == MobType::Chicken) cow.eggTicks = 6000 + static_cast<int>(kindRng.nextInt(6000));
             cow.persistent = true; // animals from world generation never despawn
             out.mobs().push_back(cow);
         }

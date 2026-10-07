@@ -62,34 +62,23 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
         return a.x != b.x ? a.x < b.x : a.y != b.y ? a.y < b.y : a.z < b.z;
     });
     m_hits.erase(std::unique(m_hits.begin(), m_hits.end()), m_hits.end());
-    int destroyed = 0;
-    for (const BlockPos& b : m_hits) {
-        const BlockStateId s = world.getBlock(b);
-        if (s == 0) continue;
-        if (rng.nextFloat() < 1.0f / power) { // its loot, 1 in power (mob explosions)
-            m_loot.clear();
-            blockDrops(s, {}, rng, m_loot);
-            for (const ItemStack& st : m_loot)
-                items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
-        }
-        world.updateBlock(b, 0);
-        changed.push_back(b);
-        ++destroyed;
-    }
+    // Entities first, while the cover the blast is about to destroy still stands
+    // (vanilla's order).
     // Entities within 2 x power.
     const double reach = 2.0 * power;
-    auto hurt = [&](const Aabb& box, const glm::dvec3& feet, auto&& apply) {
+    auto hurt = [&](const Aabb& box, const glm::dvec3& feet, double eyeHeight, auto&& apply) {
         const double dist = glm::length(feet - centre) / reach;
         if (dist > 1.0) return;
         const double impact = (1.0 - dist) * exposure(world, centre, box);
         const double damage = (impact * impact + impact) / 2.0 * 7.0 * reach + 1.0;
-        glm::dvec3 away = feet - centre;
+        glm::dvec3 away = feet + glm::dvec3(0, eyeHeight, 0) - centre; // pushed away from the eyes (wiki)
         const double len = glm::length(away);
         away = len > 1e-6 ? away / len : glm::dvec3(0, 1, 0);
         apply(float(std::floor(damage)), away * impact);
     };
     if (targets.player && targets.vitals)
-        hurt(targets.player->box(), targets.player->position(), [&](float dmg, const glm::dvec3& push) {
+        hurt(targets.player->box(), targets.player->position(), targets.player->eyeHeight(),
+             [&](float dmg, const glm::dvec3& push) {
             targets.vitals->damage(dmg);
             targets.player->push(push);
         });
@@ -100,12 +89,26 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                 if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& m : ch->mobs()) {
                         if (m.health <= 0.0f) continue;
-                        hurt(Mobs::box(m), m.pos, [&](float dmg, const glm::dvec3& push) {
+                        hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85, [&](float dmg, const glm::dvec3& push) {
                             m.health -= dmg;
                             m.hurtTime = 10;
                             m.vel += push;
                         });
                     }
+    }
+    int destroyed = 0;
+    for (const BlockPos& b : m_hits) {
+        const BlockStateId s = world.getBlock(b);
+        if (s == 0) continue;
+        if (rng.nextFloat() < 1.0f / power) { // its loot, 1 in power (mob explosions)
+            m_loot.clear();
+            blockDrops(s, {}, rng, m_loot, true);
+            for (const ItemStack& st : m_loot)
+                items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
+        }
+        world.updateBlock(b, 0);
+        changed.push_back(b);
+        ++destroyed;
     }
     return destroyed;
 }

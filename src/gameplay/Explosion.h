@@ -29,7 +29,7 @@ struct ExplosionTargets {
 class Explosion {
 public:
     Explosion() {
-        m_hits.reserve(4096);
+        m_hits.reserve(16384); // ~1352 rays x up to ~8 cells each in soft blocks
         m_loot.reserve(16);
     }
     // Destroys blocks (through World::updateBlock; positions into `changed`), spawns

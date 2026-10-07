@@ -74,7 +74,10 @@ struct MobData {
     std::array<glm::ivec3, kMaxPath> path{};
     uint8_t pathLength = 0, pathIndex = 0;
     int16_t repathTicks = 0;
-    glm::ivec3 pathGoal{0, -100000, 0}; // the cell the current path was found for
+    glm::ivec3 pathRequest{0, -100000, 0}; // the goal cell the current path was asked for
+    bool lastHurtByPlayer = false;          // (spider eyes drop only for player kills)
+    int16_t stareTicks = 0;                 // enderman: ticks the player has looked at it
+    int16_t angerTicks = 0;                 // enderman: anger left (calms down at 0)
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 
