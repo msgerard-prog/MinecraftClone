@@ -48,6 +48,7 @@ public:
     void reset(ChunkPos pos) {
         m_pos = pos;
         m_lit = false;
+        m_dirty = false;
         lightJob = {};
         for (auto& l : m_light)
             l.reset();
@@ -72,6 +73,7 @@ public:
         auto& s = m_sections[index];
         if (s.use_count() > 1) s = std::make_shared<Section>(*s);
         std::atomic_thread_fence(std::memory_order_acquire);
+        m_dirty = true;
         return *s;
     }
     // A reference that stays valid (unchanged) while the chunk is edited.
@@ -84,6 +86,10 @@ public:
         m_light = std::move(light);
         m_lit = true;
     }
+    // Changed since it was generated / loaded / last saved (needs saving).
+    bool dirty() const { return m_dirty; }
+    void clearDirty() { m_dirty = false; }
+
     // LightManager bookkeeping (main thread only).
     struct LightJobState {
         uint32_t version = 0; // latest submitted job (0: none); globally unique
@@ -99,6 +105,7 @@ private:
     std::array<std::shared_ptr<Section>, kSectionsPerChunk> m_sections;
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> m_light;
     bool m_lit = false;
+    bool m_dirty = false;
 };
 
 } // namespace mc::world
