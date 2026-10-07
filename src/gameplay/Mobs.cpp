@@ -305,8 +305,8 @@ void Mobs::tick(Context& ctx) {
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
         // Only chunks within the simulation distance tick their mobs (vanilla: entity-
         // ticking chunks); farther mobs keep their state.
-        if (std::abs(chunk.pos().x - playerChunk.x) > kSimulationDistance ||
-            std::abs(chunk.pos().z - playerChunk.z) > kSimulationDistance)
+        if (std::abs(chunk.pos().x - playerChunk.x) > m_simulationDistance ||
+            std::abs(chunk.pos().z - playerChunk.z) > m_simulationDistance)
             return;
         auto& mobs = chunk.mobs();
         for (size_t i = 0; i < mobs.size();) {

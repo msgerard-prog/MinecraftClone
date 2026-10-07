@@ -32,8 +32,10 @@ public:
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
-    // (vanilla's simulation distance option; its default is 12).
-    static constexpr int kSimulationDistance = 12;
+    // (vanilla's simulation distance option; its 1.21.11 default is 6).
+    static constexpr int kDefaultSimulationDistance = 6;
+    void setSimulationDistance(int chunks) { m_simulationDistance = chunks; }
+    int simulationDistance() const { return m_simulationDistance; }
 
     Mobs() { m_moves.reserve(64); m_boxes.reserve(256); }
 
@@ -72,6 +74,7 @@ private:
     std::vector<Move> m_moves; // reused: mobs crossing chunk borders this tick
     std::vector<Aabb> m_boxes; // reused collision boxes
     int m_hostiles = 0;
+    int m_simulationDistance = kDefaultSimulationDistance;
 };
 
 } // namespace mc

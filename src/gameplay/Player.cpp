@@ -173,10 +173,11 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         m_sneaking = wantSneak;
     }
 
-    // Sprinting: needs forward input; stops when forward is released, when sneaking,
-    // or after running into a wall (wiki: Sprinting).
+    // Sprinting: needs forward input; stops when forward is released or after running
+    // into a wall (wiki: Sprinting). Sneaking doesn't end it (1.21.5+): a sprint that
+    // goes on while sneaking is a faster sneak. It can't start while sneaking.
     if (input.sprint && input.forward > 0.0f && !m_sneaking) m_sprinting = true;
-    if (input.forward <= 0.0f || m_sneaking) m_sprinting = false;
+    if (input.forward <= 0.0f) m_sprinting = false;
 
     // Horizontal input, scaled like vanilla (0.98, sneak 0.3), normalised if > 1.
     glm::dvec2 in(input.strafe * kInputScale, input.forward * kInputScale);

@@ -14,12 +14,11 @@ constexpr FogRange terrainFog(int renderDistanceChunks) {
     return {end * 0.92f, end};
 }
 
-// The Nether's thick fog (wiki: Fog › Nether): visibility ends at half the render
-// distance, at most 96 blocks, and starts almost at the camera.
+// The Nether's thick fog (wiki: Fog › Nether): since 1.21.11 fixed from 10 to 96
+// blocks, but never past the render distance.
 constexpr FogRange netherFog(int renderDistanceChunks) {
     const float rd = static_cast<float>(renderDistanceChunks * 16);
-    const float end = (rd < 192.0f ? rd : 192.0f) * 0.5f;
-    return {end * 0.1f, end};
+    return {10.0f, rd < 96.0f ? rd : 96.0f};
 }
 
 } // namespace mc::gfx

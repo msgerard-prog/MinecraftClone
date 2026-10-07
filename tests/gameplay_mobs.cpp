@@ -108,6 +108,7 @@ TEST_CASE("mobs move to the chunk they walk into; far hostiles despawn") {
     CHECK(s.world.chunk({1, 0})->mobs().size() == 1);
     MobData z = Mobs::make(MobType::Zombie, {0.5, 64.0, 0.5}, s.rng);
     REQUIRE(Mobs::add(s.world, z));
+    s.mobs.setSimulationDistance(12); // (at the default 6, mobs > 128 blocks away don't tick at all)
     s.player.setPosition({200.5, 64.0, 0.5}); // > 128 blocks away, inside the simulation distance
     s.tick(2);
     int zombies = 0;
@@ -230,7 +231,7 @@ TEST_CASE("idle mobs don't mark their chunk for saving; mobs beyond the simulati
     c.clearDirty();
     s.tick();
     CHECK_FALSE(c.dirty());
-    s.player.setPosition({(Mobs::kSimulationDistance + 3) * 16.0, 64.0, 0.0});
+    s.player.setPosition({(Mobs::kDefaultSimulationDistance + 3) * 16.0, 64.0, 0.0});
     c.mobs()[0].vel = {0.3, 0.0, 0.0};
     const glm::dvec3 before = c.mobs()[0].pos;
     s.tick();

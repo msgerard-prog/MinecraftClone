@@ -11,9 +11,9 @@ TEST_CASE("terrain fog: ends at the render distance, starts at 92% (wiki: Fog)")
     CHECK(f32.start / f32.end == doctest::Approx(0.92));
 }
 
-TEST_CASE("nether fog: ends at half the render distance, at most 96 blocks") {
-    CHECK(mc::gfx::netherFog(12).end == 96.0f);
+TEST_CASE("nether fog (1.21.11): 10 to 96 blocks, within the render distance") {
+    CHECK(mc::gfx::netherFog(16).start == 10.0f);
+    CHECK(mc::gfx::netherFog(16).end == 96.0f);
     CHECK(mc::gfx::netherFog(32).end == 96.0f);
-    CHECK(mc::gfx::netherFog(8).end == 64.0f);
-    CHECK(mc::gfx::netherFog(8).start < 10.0f);
+    CHECK(mc::gfx::netherFog(4).end == 64.0f);
 }

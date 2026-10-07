@@ -21,8 +21,7 @@ struct LaunchOptions {
     bool vsync = true;          // --no-vsync: measure real frame cost
     std::string resourcePacks;  // --resourcepacks DIR (default: <repo>/resourcepacks)
     bool flat = false;          // --flat: the M2 superflat test world instead of terrain
-    int renderDistance =
-        12;                // --render-distance N (chunks, 2..32; vanilla default 12 up to 1.21.10)
+    int renderDistance = 16; // --render-distance N (chunks, 2..32; 1.21.11 default "Far", 16)
     bool autoFly = false;  // --auto-fly: fly forward at 4x sprint speed (streaming benchmark)
     int maxFps = 0;        // --max-fps N: sleep to cap the frame rate (0 = uncapped)
     bool demoEdit = false; // --demo-edit: scripted break/place after loading (visual test)

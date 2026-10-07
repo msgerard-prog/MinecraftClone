@@ -320,3 +320,18 @@ TEST_CASE("sprinting survives glancing wall contact but stops on a head-on hit")
     CHECK(run(-5.0f));        // south, 5 degrees into the wall (east): keeps sprinting
     CHECK_FALSE(run(-20.0f)); // 20 degrees into the wall: stops
 }
+
+TEST_CASE("sprinting into a sneak keeps the sprint: a faster sneak (1.21.5+)") {
+    const World w = floorWorld();
+    Player p;
+    p.setPosition({0.5, kFloorY + 1.0, 0.5});
+    PlayerInput run;
+    run.forward = 1;
+    run.sprint = true;
+    for (int i = 0; i < 20; ++i)
+        p.tick(w, run);
+    REQUIRE(p.sprinting());
+    PlayerInput sneakRun = run;
+    sneakRun.sneak = true;
+    CHECK(steadySpeed(w, p, sneakRun) == Approx(5.612 * 0.3).epsilon(0.02));
+}

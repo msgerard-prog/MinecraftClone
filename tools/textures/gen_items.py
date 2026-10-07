@@ -24,6 +24,7 @@ MATERIALS = {
     "iron": hexc("#D6D6D6"),
     "golden": hexc("#F2CF3C"),
     "diamond": hexc("#45DCCB"),
+    "copper": hexc("#D9804F"),
 }
 HANDLE = ramp(hexc("#7C5A30"), 5)
 

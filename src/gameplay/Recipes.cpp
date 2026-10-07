@@ -63,7 +63,8 @@ std::vector<Recipe> build() {
                                                             {"stone", kStoneTool},
                                                             {"iron", item("iron_ingot")},
                                                             {"golden", item("gold_ingot")},
-                                                            {"diamond", item("diamond")}};
+                                                            {"diamond", item("diamond")},
+                                                            {"copper", item("copper_ingot")}};
     const Ingredient stick = item("stick");
     for (const auto& [mat, m] : materials) {
         const std::string p(mat);

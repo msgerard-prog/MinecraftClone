@@ -13,6 +13,7 @@ const TierInfo& tierInfo(ToolTier tier) {
         {2, 6.0f, 250},  // Iron
         {3, 8.0f, 1561}, // Diamond
         {0, 12.0f, 32},  // Gold
+        {1, 5.0f, 190},  // Copper (1.21.9; wiki: Copper Pickaxe - stone's level, faster)
     };
     return kTiers[static_cast<int>(tier)];
 }
@@ -56,14 +57,14 @@ ItemRegistry buildItems() {
     struct ToolKind {
         const char* name;
         ToolType type;
-        float damage[5]; // wood, stone, iron, diamond, gold
+        float damage[6]; // wood, stone, iron, diamond, gold, copper
     };
     static constexpr ToolKind kTools[] = {
-        {"pickaxe", ToolType::Pickaxe, {2, 3, 4, 5, 2}},
-        {"axe", ToolType::Axe, {7, 9, 9, 9, 7}},
-        {"shovel", ToolType::Shovel, {2.5f, 3.5f, 4.5f, 5.5f, 2.5f}},
-        {"hoe", ToolType::Hoe, {1, 1, 1, 1, 1}},
-        {"sword", ToolType::Sword, {4, 5, 6, 7, 4}},
+        {"pickaxe", ToolType::Pickaxe, {2, 3, 4, 5, 2, 3}},
+        {"axe", ToolType::Axe, {7, 9, 9, 9, 7, 9}},
+        {"shovel", ToolType::Shovel, {2.5f, 3.5f, 4.5f, 5.5f, 2.5f, 3.5f}},
+        {"hoe", ToolType::Hoe, {1, 1, 1, 1, 1, 1}},
+        {"sword", ToolType::Sword, {4, 5, 6, 7, 4, 5}},
     };
     static constexpr struct {
         const char* name;
@@ -72,8 +73,9 @@ ItemRegistry buildItems() {
                       {"stone", ToolTier::Stone},
                       {"iron", ToolTier::Iron},
                       {"diamond", ToolTier::Diamond},
-                      {"golden", ToolTier::Gold}};
-    for (int m = 0; m < 5; ++m)
+                      {"golden", ToolTier::Gold},
+                      {"copper", ToolTier::Copper}};
+    for (int m = 0; m < 6; ++m)
         for (const auto& t : kTools) {
             const std::string name = std::string(kMaterials[m].name) + "_" + t.name;
             r.add({.id = "minecraft:" + name,

@@ -17,7 +17,7 @@ enum class ToolType : uint8_t { None, Pickaxe, Axe, Shovel, Hoe, Sword };
 
 // Tool material tiers (wiki: Tiers): mining level, speed, durability, enchantability
 // left out until enchanting exists.
-enum class ToolTier : uint8_t { None, Wood, Stone, Iron, Diamond, Gold };
+enum class ToolTier : uint8_t { None, Wood, Stone, Iron, Diamond, Gold, Copper };
 struct TierInfo {
     int level;      // harvest level: wood/gold 0, stone 1, iron 2, diamond 3
     float speed;    // mining speed multiplier
