@@ -264,6 +264,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (shut) exit portal when there is none; on `Mobs::dragonDeaths` it drops the
   experience, opens the exit portal and puts the egg on its column (first kill).
   Saved as level.dat DragonFight. The egg (`DragonFight::teleportEgg`) flees clicks.
+  Gateways (M20.3): each kill builds the next ring gateway (`gatewayPos`,
+  `buildGateway`); `gatewayTarget` finds the way out (the first outer island along
+  its direction, `EndGenerator::outerTop`, the exit gateway built when that chunk
+  loads) or back (the main island). Ender pearls (`ProjectileKind::EnderPearl`,
+  `Projectiles::pearls`) and touching a gateway move the player (main). Four rim
+  crystals start `respawnStep`: pillars rebuilt from the generator's pillar data,
+  the portal shut, a new dragon.
 - Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
   blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
   mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are

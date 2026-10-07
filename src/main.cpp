@@ -417,6 +417,7 @@ int main(int argc, char** argv) {
         dragonFight.uuidHi = level->dragonUuidHi;
         dragonFight.uuidLo = level->dragonUuidLo;
         dragonFight.gateways = level->gateways;
+        dragonFight.gatewaysReady = level->hasGateways;
     }
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
@@ -506,6 +507,7 @@ int main(int argc, char** argv) {
         arrival = Travel{Dimension::End, Travel::Via::EndPortal, {100, 49, 0}, Dimension::End, {100.5, 49.0, 0.5}};
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
+    int pearlCooldown = 0;
     int64_t sessionTicks = 0;
     // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
     bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld && dimension == Dimension::Overworld;
@@ -531,6 +533,7 @@ int main(int argc, char** argv) {
         l.dragonUuidHi = dragonFight.uuidHi;
         l.dragonUuidLo = dragonFight.uuidLo;
         l.gateways = dragonFight.gateways;
+        l.hasGateways = dragonFight.gatewaysReady;
         l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
         l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
@@ -1290,6 +1293,13 @@ int main(int argc, char** argv) {
                         inventory.consumeSelected(1);
                     clicks.useClick = false;
                 }
+                if (!dead && heldId == "minecraft:ender_pearl" && clicks.useClick) { // (M20.3)
+                    if (pearlCooldown == 0) {
+                        mc::throwPearl(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
+                        pearlCooldown = 20; // (wiki: 1 s between throws)
+                    }
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:splash_potion" && clicks.useClick) { // (M19.4)
                     mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
                     clicks.useClick = false;
@@ -1556,6 +1566,40 @@ int main(int argc, char** argv) {
             }
             frameEdits.insert(frameEdits.end(), projectiles.edits().begin(), projectiles.edits().end());
             projectiles.edits().clear();
+            // Ender pearls (M20.3): the player goes where one lands (5 damage), or
+            // through the end gateway it went into.
+            auto gatewayTravel = [&](const mc::world::BlockPos& g) {
+                const auto* eg = dynamic_cast<const mc::world::EndGenerator*>(generatorPtr.get());
+                if (!eg) return;
+                if (const auto to = dragonFight.gatewayTarget(*eg, g)) {
+                    player.setPosition(*to);
+                    vitals.resetFall();
+                }
+            };
+            for (const mc::PearlLanding& pl : projectiles.pearls()) {
+                if (dead) break;
+                if (pl.gateway) {
+                    gatewayTravel(pl.gatewayBlock);
+                } else {
+                    player.setPosition(pl.pos);
+                    vitals.resetFall();
+                    if (survival) vitals.attacked(5.0f);
+                }
+            }
+            if (!dead && dimension == Dimension::End && mc::portals::touching(world, player.box(), mc::world::blocks::EndGateway)) {
+                // Walking (or flying) into a gateway works too (vanilla: any entity).
+                const glm::dvec3 f = player.position();
+                for (int dy = 0; dy <= 2; ++dy)
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            const mc::world::BlockPos b{int(std::floor(f.x)) + dx, int(std::floor(f.y)) + dy,
+                                                        int(std::floor(f.z)) + dz};
+                            if (reg.blockOf(world.getBlock(b)) == mc::world::blocks::EndGateway) {
+                                gatewayTravel(b);
+                                dy = dz = dx = 3; // (once)
+                            }
+                        }
+            }
             for (const glm::dvec3& at : projectiles.eyeDrops()) {
                 static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
                 droppedItems.spawn(at, {eyeItem, 1}, gameRng);
@@ -1595,8 +1639,9 @@ int main(int argc, char** argv) {
             }
             vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
-            if (dimension == Dimension::End && endKind == "end2")
-                dragonFight.tick(world, mobs, player.position(), orbs, gameRng, frameEdits);
+            const auto* endGen = dynamic_cast<const mc::world::EndGenerator*>(generatorPtr.get());
+            if (dimension == Dimension::End && endKind == "end2" && endGen)
+                dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng, frameEdits);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
@@ -1623,6 +1668,7 @@ int main(int argc, char** argv) {
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
+            if (pearlCooldown > 0) --pearlCooldown;
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) saveWorld(false);
         }
@@ -1736,6 +1782,7 @@ int main(int argc, char** argv) {
             static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
             static const mc::world::ItemId splashItem = *mc::world::itemRegistry().find("splash_potion");
             static const mc::world::ItemId fireItem = *mc::world::itemRegistry().find("fire_charge");
+            static const mc::world::ItemId pearlItem = *mc::world::itemRegistry().find("ender_pearl");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
@@ -1743,6 +1790,7 @@ int main(int argc, char** argv) {
                 mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder     ? eyeItem
                                           : pr.kind == mc::ProjectileKind::SplashPotion ? splashItem
                                           : pr.kind == mc::ProjectileKind::Egg          ? eggItem
+                                          : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
                                                                                         : fireItem,
                                           1};
                 look.potion = pr.potion;

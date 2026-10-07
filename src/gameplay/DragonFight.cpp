@@ -2,7 +2,9 @@
 
 #include "world/Blocks.h"
 
+#include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace mc {
 
@@ -20,17 +22,161 @@ int columnTop(const World& world) {
 
 } // namespace
 
-void DragonFight::tick(World& world, const Mobs& mobs, const glm::dvec3& playerPos, ExperienceOrbs& orbs,
-                       Xoroshiro& rng, std::vector<BlockPos>& edits) {
+BlockPos DragonFight::gatewayPos(int i) {
+    const double a = 2.0 * std::numbers::pi * i / 20.0;
+    return {static_cast<int>(std::floor(96.0 * std::cos(a))), 75, static_cast<int>(std::floor(96.0 * std::sin(a)))};
+}
+
+void DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<BlockPos>& edits) {
+    const auto& r = blockRegistry();
+    auto put = [&](const BlockPos& p, BlockStateId s) {
+        if (!world.isInHeight(p.y) || !world.chunk(p.chunk()) || world.getBlock(p) == s) return;
+        world.updateBlock(p, s);
+        edits.push_back(p);
+    };
+    const BlockStateId bedrock = r.defaultState(blocks::Bedrock);
+    for (const int dy : {-1, 1}) {
+        put({at.x, at.y + dy, at.z}, bedrock);
+        put({at.x + 1, at.y + dy, at.z}, bedrock);
+        put({at.x - 1, at.y + dy, at.z}, bedrock);
+        put({at.x, at.y + dy, at.z + 1}, bedrock);
+        put({at.x, at.y + dy, at.z - 1}, bedrock);
+    }
+    put(at, r.defaultState(blocks::EndGateway));
+}
+
+std::optional<glm::dvec3> DragonFight::gatewayTarget(const EndGenerator& gen, const BlockPos& g) {
+    const glm::dvec2 out(g.x + 0.5, g.z + 0.5);
+    const double dist = glm::length(out);
+    if (dist < 1.0) return std::nullopt;
+    const glm::dvec2 dir = out / dist;
+    if (dist < 512.0) {
+        // Out: along its direction to the first island past 1024 blocks (vanilla also
+        // makes a small island when it finds none; ours lands on the first one within
+        // 4096 blocks or not at all).
+        for (double r = 1024.0; r < 4096.0; r += 16.0) {
+            const int x = int(std::floor(dir.x * r)), z = int(std::floor(dir.y * r));
+            const int top = gen.outerTop(x, z);
+            if (top < 0) continue;
+            m_pendingExit = BlockPos{x, top + 10, z};
+            return glm::dvec3(x + 0.5, top + 1.0, z + 2.5);
+        }
+        return std::nullopt;
+    }
+    // Back: to the main island, beside the nearest ring gateway, on solid ground.
+    for (double r = 96.0; r > 0.0; r -= 1.0) {
+        const int x = int(std::floor(dir.x * r)), z = int(std::floor(dir.y * r));
+        const int top = gen.islandTop(x, z);
+        if (top >= 0) return glm::dvec3(x + 0.5, top + 1.0, z + 0.5);
+    }
+    return glm::dvec3(100.5, 49.0, 0.5); // (the arrival platform)
+}
+
+void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& rng, std::vector<BlockPos>& edits) {
+    ++m_respawnTicks;
+    const auto& r = blockRegistry();
+    if (m_respawnTicks == 100) {
+        // The pillars come back as they were made, crystals and cages included.
+        const BlockStateId obsidian = r.defaultState(blocks::Obsidian), bedrock = r.defaultState(blocks::Bedrock);
+        for (int i = 0; i < EndGenerator::kPillars; ++i) {
+            const auto& p = gen.pillar(i);
+            for (int dz = -p.radius - 1; dz <= p.radius + 1; ++dz)
+                for (int dx = -p.radius - 1; dx <= p.radius + 1; ++dx) {
+                    if (dx * dx + dz * dz > p.radius * p.radius + 1) continue;
+                    for (int y = 0; y <= p.height + 4; ++y) {
+                        const BlockPos b{p.x + dx, y, p.z + dz};
+                        if (!world.chunk(b.chunk())) continue;
+                        const BlockStateId want = y <= p.height ? obsidian : 0;
+                        if (y > p.height && (y > p.height + 1 || dx != 0 || dz != 0)) {
+                            if (world.getBlock(b) != 0 && r.blockOf(world.getBlock(b)) != blocks::IronBars) {
+                                world.updateBlock(b, 0);
+                                edits.push_back(b);
+                            }
+                            continue;
+                        }
+                        const BlockStateId s = y == p.height + 1 ? bedrock : want;
+                        if (world.getBlock(b) != s) {
+                            world.updateBlock(b, s);
+                            edits.push_back(b);
+                        }
+                    }
+                }
+            // Its crystal, if it lost it.
+            bool has = false;
+            if (Chunk* c = world.chunk({blockToChunk(p.x), blockToChunk(p.z)}))
+                for (const MobData& m : c->mobs())
+                    has = has || (m.type == MobType::EndCrystal && std::abs(m.pos.x - (p.x + 0.5)) < 1.0 &&
+                                  std::abs(m.pos.z - (p.z + 0.5)) < 1.0);
+            if (!has) Mobs::add(world, Mobs::make(MobType::EndCrystal, {p.x + 0.5, p.height + 2.0, p.z + 0.5}, rng));
+        }
+    }
+    if (m_respawnTicks < 200) return;
+    // Done: the summoning crystals go, the portal shuts, the dragon comes.
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (Chunk* c = world.chunk({dx, dz}))
+                std::erase_if(c->mobs(), [](const MobData& m) {
+                    return m.type == MobType::EndCrystal && !m.showBottom && std::abs(m.pos.x) < 4.0 &&
+                           std::abs(m.pos.z) < 4.0;
+                });
+    for (int z = -3; z <= 3; ++z)
+        for (int x = -3; x <= 3; ++x)
+            for (int y = 40; y < 90; ++y)
+                if (r.blockOf(world.getBlock({x, y, z})) == blocks::EndPortal) {
+                    world.updateBlock({x, y, z}, 0);
+                    edits.push_back({x, y, z});
+                }
+    killed = false;
+    uuidHi = uuidLo = 0;
+    m_scanClock = 99; // (spawns the dragon on the next tick)
+    m_respawnTicks = -1;
+}
+
+void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, const glm::dvec3& playerPos,
+                       ExperienceOrbs& orbs, Xoroshiro& rng, std::vector<BlockPos>& edits) {
+    if (!gatewaysReady) { // the 20 gateways in a random order
+        gateways.clear();
+        for (int i = 0; i < 20; ++i)
+            gateways.push_back(i);
+        for (int i = 19; i > 0; --i)
+            std::swap(gateways[size_t(i)], gateways[size_t(rng.nextInt(uint32_t(i + 1)))]);
+        gatewaysReady = true;
+    }
     for (const glm::dvec3& at : mobs.dragonDeaths()) {
         orbs.drop(at, previouslyKilled ? 500 : 12000, rng);
         openExitPortal(world, !previouslyKilled, edits);
+        if (!gateways.empty()) { // the next gateway opens
+            buildGateway(world, gatewayPos(gateways.front()), edits);
+            gateways.erase(gateways.begin());
+        }
         killed = true;
         previouslyKilled = true;
         uuidHi = uuidLo = 0;
         missingScans = 0;
     }
-    if (killed) return;
+    if (m_pendingExit && world.chunk(m_pendingExit->chunk())) {
+        buildGateway(world, *m_pendingExit, edits);
+        m_pendingExit.reset();
+    }
+    if (killed) {
+        if (m_respawnTicks >= 0) {
+            respawnStep(world, gen, rng, edits);
+            return;
+        }
+        // A crystal on each side of the open portal starts a respawn.
+        bool side[4] = {};
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (const Chunk* c = world.chunk({dx, dz}))
+                    for (const MobData& m : c->mobs()) {
+                        if (m.type != MobType::EndCrystal || m.health <= 0.0f) continue;
+                        const double x = m.pos.x - 0.5, z = m.pos.z - 0.5, d2 = x * x + z * z;
+                        if (d2 < 6.5 || d2 > 12.5) continue; // on the rim
+                        side[std::abs(x) > std::abs(z) ? (x > 0 ? 0 : 1) : (z > 0 ? 2 : 3)] = true;
+                    }
+        if (side[0] && side[1] && side[2] && side[3]) m_respawnTicks = 0;
+        return;
+    }
     // Every 5 s near the middle: is the dragon there? Spawn it the first time, or
     // again if it went missing for three scans in a row (vanilla rescans for it too).
     if (++m_scanClock < 100) return;

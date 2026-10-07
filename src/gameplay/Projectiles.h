@@ -26,7 +26,25 @@ namespace mc {
 // Dragon fireballs (M20.2) fly straight and leave a cloud of dragon's breath where they
 // hit: radius 3 for 30 s, Instant Damage to the player in it once a second (wiki:
 // Dragon Fireball, Dragon's Breath; the cloud's numbers are our reading).
-enum class ProjectileKind : uint8_t { Arrow, Egg, EyeOfEnder, GhastFireball, BlazeFireball, SplashPotion, DragonFireball };
+// Ender pearls (M20.3) fly like eggs and take their thrower where they land (wiki: Ender
+// Pearl - 5 damage on landing); into an end gateway, through it.
+enum class ProjectileKind : uint8_t {
+    Arrow,
+    Egg,
+    EyeOfEnder,
+    GhastFireball,
+    BlazeFireball,
+    SplashPotion,
+    DragonFireball,
+    EnderPearl
+};
+
+// Where a thrown ender pearl came down: the player goes there (main).
+struct PearlLanding {
+    glm::dvec3 pos{0.0};
+    bool gateway = false; // it went into an end gateway at `gatewayBlock`
+    world::BlockPos gatewayBlock{0, 0, 0};
+};
 
 // A lingering cloud of dragon's breath (vanilla: an area effect cloud).
 struct BreathCloud {
@@ -64,6 +82,7 @@ public:
         m_explosions.reserve(16);
         m_edits.reserve(64);
         m_clouds.reserve(kMaxClouds);
+        m_pearls.reserve(16);
     }
     static constexpr int kMaxClouds = 32;
     // A breath cloud (dragon fireballs, the perched dragon's flames).
@@ -71,6 +90,8 @@ public:
         if (int(m_clouds.size()) < kMaxClouds) m_clouds.push_back({at, radius, ticks, 0});
     }
     const std::vector<BreathCloud>& clouds() const { return m_clouds; }
+    // Ender pearls that came down this tick.
+    const std::vector<PearlLanding>& pearls() const { return m_pearls; }
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
     // Returns false if the pool is full of flying arrows (nothing was shot).
@@ -104,6 +125,7 @@ private:
     std::vector<glm::dvec3> m_explosions;
     std::vector<world::BlockPos> m_edits;
     std::vector<BreathCloud> m_clouds;
+    std::vector<PearlLanding> m_pearls;
 };
 
 // The bow's draw (wiki: Bow): after `ticks` of drawing, power 0..1 =
@@ -127,6 +149,9 @@ void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const 
 // item (80%) or shatters (20%). Survival uses it up.
 void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::ivec2 stronghold,
               Projectiles& projectiles);
+// Throwing the held ender pearl (speed 1.5, like a snowball; wiki).
+void throwPearl(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
+                Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held splash potion (speed 0.5, aimed 20 degrees up; wiki).
 void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
                        Projectiles& projectiles, world::Xoroshiro& rng);

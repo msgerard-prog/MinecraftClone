@@ -48,7 +48,7 @@ ItemRegistry buildItems() {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
         // Placed by another item (redstone dust, torches on walls) or never an item.
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead ||
-            b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::Fire || b == blocks::Wheat ||
+            b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire || b == blocks::Wheat ||
             b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots) // crops: planted by seeds
             continue;
         const std::string& id = blocks.block(b).id;

@@ -546,6 +546,17 @@ double EndGenerator::outerValue(int32_t x, int32_t z) const {
     return islandValue(cells.data(), n, x + 0.5, z + 0.5);
 }
 
+namespace {
+// An outer island column's top from its strength and roughness (generateOuter, outerTop).
+int outerTopFrom(double v, double rough) { return 50 + static_cast<int>(v * 0.14 + rough * 2.0); }
+} // namespace
+
+int EndGenerator::outerTop(int32_t x, int32_t z) const {
+    if (m_version < 2) return -1;
+    const double v = outerValue(x, z);
+    return v > 0.0 ? outerTopFrom(v, m_edge.noise2d(x * 2.0, z * 2.0)) : -1;
+}
+
 Biome EndGenerator::biomeAt(int32_t x, int32_t z) const {
     // Vanilla: the_end around the main island, outside it by the island strength
     // (wiki: End biomes - highlands in the middle of islands, midlands at their edges,
@@ -623,7 +634,7 @@ void EndGenerator::generateOuter(Chunk& out, BlockStateId* blocks, std::array<Bi
             if (v <= 0.0) continue;
             // A lens: the top rises gently to ~Y 61, the underside hangs deeper.
             const double rough = m_edge.noise2d(wx * 2.0, wz * 2.0);
-            const int top = 50 + static_cast<int>(v * 0.14 + rough * 2.0);
+            const int top = outerTopFrom(v, rough);
             const int bottom = top - 1 - static_cast<int>(v * 0.45 * (0.8 + 0.2 * rough));
             for (int y = bottom; y <= top; ++y)
                 set(x, y, z, endStone);

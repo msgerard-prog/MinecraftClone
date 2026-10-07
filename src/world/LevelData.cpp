@@ -207,7 +207,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
         if (dragonUuidHi != 0 || dragonUuidLo != 0)
             fight.put("Dragon", std::vector<int32_t>{int32_t(dragonUuidHi >> 32), int32_t(dragonUuidHi),
                                                      int32_t(dragonUuidLo >> 32), int32_t(dragonUuidLo)});
-        fight.put("Gateways", gateways);
+        if (hasGateways) fight.put("Gateways", gateways);
         data.put("DragonFight", std::move(fight));
     }
 
@@ -336,7 +336,10 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.dragonUuidLo = uint64_t(uint32_t((*a)[2])) << 32 | uint32_t((*a)[3]);
                 }
             if (const Tag* g = f->find("Gateways"))
-                if (const auto* a = g->get<std::vector<int32_t>>()) l.gateways = *a;
+                if (const auto* a = g->get<std::vector<int32_t>>()) {
+                    l.gateways = *a;
+                    l.hasGateways = true;
+                }
         }
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))

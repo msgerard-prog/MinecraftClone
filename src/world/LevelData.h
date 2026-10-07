@@ -72,6 +72,7 @@ struct LevelData {
     bool dragonKilled = false, dragonPreviouslyKilled = false;
     uint64_t dragonUuidHi = 0, dragonUuidLo = 0;
     std::vector<int32_t> gateways;
+    bool hasGateways = false; // (the Gateways list exists: the fight has started)
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
     // Inventory slots 0..35 (0..8 hotbar), worn armor 100 (feet)..103 (head) and the

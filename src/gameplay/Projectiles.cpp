@@ -94,6 +94,14 @@ void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::i
     if (survival) inventory.consumeSelected(1);
 }
 
+void throwPearl(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
+                Projectiles& projectiles, Xoroshiro& rng) {
+    if (!projectiles.shoot(ProjectileKind::EnderPearl, eye, glm::dvec3(lookVector(yaw, pitch)), 1.5, 1.0, true, false, rng))
+        return;
+    projectiles.last().pickup = false;
+    if (survival) inventory.consumeSelected(1);
+}
+
 void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
                        Projectiles& projectiles, Xoroshiro& rng) {
     const ItemStack held = inventory.selectedStack();
@@ -136,6 +144,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_chicks.clear();
     m_eyeDrops.clear();
     m_explosions.clear();
+    m_pearls.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
     for (size_t i = 0; i < m_clouds.size();) {
         BreathCloud& c = m_clouds[i];
@@ -202,7 +211,17 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 }
             }
             const bool fireball = p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
-            if (p.kind == ProjectileKind::DragonFireball && (target != Target::None || block)) {
+            if (p.kind == ProjectileKind::EnderPearl && (target != Target::None || block)) {
+                PearlLanding l;
+                l.pos = p.pos + dir * std::max(0.0, reach - 0.3); // (just short of what it hit)
+                if (block && target == Target::None &&
+                    blockRegistry().blockOf(world.getBlock(block->block)) == blocks::EndGateway) {
+                    l.gateway = true;
+                    l.gatewayBlock = block->block;
+                }
+                if (m_pearls.size() < m_pearls.capacity()) m_pearls.push_back(l);
+                remove = true;
+            } else if (p.kind == ProjectileKind::DragonFireball && (target != Target::None || block)) {
                 // Its breath lingers where it burst, on the floor below (wiki: Dragon Fireball).
                 glm::dvec3 at = p.pos + dir * reach;
                 for (int k = 0; k < 8 && !blockRegistry().collides(world.getBlock(
@@ -369,7 +388,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     p.kind != ProjectileKind::DragonFireball) { // (fireballs fly straight)
                     const double drag = inWater ? 0.6 : 0.99;
                     p.vel *= drag;
-                    p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ? 0.05 : 0.03;
+                    p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ? 0.05 : 0.03; // (pearls 0.03)
                 }
                 if (p.pos.y < world.height().minY - 64 || p.life > 1200) remove = true;
             }

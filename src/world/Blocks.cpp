@@ -446,6 +446,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("dragon_egg", {.hardness = 3.0f, .resistance = 9.0f, .lightEmission = 1, .opaqueCube = false,
                                .layer = RenderLayer::Cutout}),
           blocks::DragonEgg);
+    // wiki: End Gateway - unbreakable, light 15, no collision (entities pass into it).
+    check(r.add("end_gateway", {.hardness = -1.0f, .resistance = 3600000.0f, .lightEmission = 15, .opaqueCube = false,
+                                .collision = false, .layer = RenderLayer::Cutout}),
+          blocks::EndGateway);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

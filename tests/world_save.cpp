@@ -1057,6 +1057,7 @@ TEST_CASE("level.dat keeps the dragon fight as vanilla's DragonFight") {
     l.dragonUuidHi = 0x1234567890ABCDEFull;
     l.dragonUuidLo = 0x0FEDCBA987654321ull;
     l.gateways = {3, 17};
+    l.hasGateways = true;
     REQUIRE(l.save(dir.path));
     const auto r = LevelData::load(dir.path);
     REQUIRE(r);
@@ -1065,4 +1066,5 @@ TEST_CASE("level.dat keeps the dragon fight as vanilla's DragonFight") {
     CHECK(r->dragonUuidHi == l.dragonUuidHi);
     CHECK(r->dragonUuidLo == l.dragonUuidLo);
     CHECK(r->gateways == l.gateways);
+    CHECK(r->hasGateways);
 }

@@ -293,6 +293,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 if (on("east")) addBox(hi, y0, lo, 16, y1, hi);
                 if (!bars && on("down")) addBox(lo, 0, lo, hi, lo, hi);
                 if (!bars && on("up")) addBox(lo, hi, lo, hi, 16, hi);
+            } else if (name == "end_gateway") { // (vanilla: the end portal's starfield on every side)
+                m = single(cubeAll(sprite("end_portal")));
             } else if (name == "dragon_egg") {
                 // An egg of stacked layers, widest low down (vanilla: eight layers).
                 static constexpr uint8_t kLayers[6][3] = {{4, 0, 1}, {3, 1, 6}, {4, 6, 10}, {5, 10, 13}, {6, 13, 15}, {7, 15, 16}};

@@ -1113,7 +1113,7 @@ TEST_CASE("dragon fight: the dragon appears over the shut exit portal; its death
     Xoroshiro rng(1);
     std::vector<BlockPos> edits;
     for (int i = 0; i < 100; ++i)
-        fight.tick(w, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
+        fight.tick(w, gen, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
     int dragons = 0;
     w.forEachChunk([&](Chunk& c) {
         for (const MobData& m : c.mobs())
@@ -1122,7 +1122,7 @@ TEST_CASE("dragon fight: the dragon appears over the shut exit portal; its death
     CHECK(dragons == 1);
     CHECK(fight.uuidHi != 0);
     for (int i = 0; i < 400; ++i) // found again on later scans: no second dragon
-        fight.tick(w, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
+        fight.tick(w, gen, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
     dragons = 0;
     w.forEachChunk([&](Chunk& c) {
         for (const MobData& m : c.mobs())
@@ -1136,4 +1136,97 @@ TEST_CASE("dragon fight: the dragon appears over the shut exit portal; its death
     CHECK(blockRegistry().blockOf(w.getBlock({0, top + 1, 0})) == blocks::DragonEgg);
     CHECK(DragonFight::teleportEgg(w, {0, top + 1, 0}, rng, edits));
     CHECK(w.getBlock({0, top + 1, 0}) == 0);
+}
+
+TEST_CASE("end gateways: 20 on a ring 96 out at Y 75; out to an outer island, back to the main island") {
+    for (int i = 0; i < 20; ++i) {
+        const BlockPos g = DragonFight::gatewayPos(i);
+        CHECK(g.y == 75);
+        CHECK(std::hypot(g.x + 0.5, g.z + 0.5) == doctest::Approx(96.0).epsilon(0.02));
+    }
+    const EndGenerator gen(42, 2);
+    DragonFight fight;
+    int found = 0;
+    for (int i = 0; i < 20; ++i) {
+        const auto to = fight.gatewayTarget(gen, DragonFight::gatewayPos(i));
+        if (!to) continue;
+        ++found;
+        const double r = std::hypot(to->x, to->z);
+        CHECK(r > 1000.0);
+        CHECK(gen.outerTop(int(std::floor(to->x)), int(std::floor(to->z) - 2)) >= 0); // above an island
+        // And the exit gateway out there leads home, onto the main island.
+        const BlockPos exit{int(std::floor(to->x)), int(to->y) + 9, int(std::floor(to->z)) - 2};
+        const auto back = fight.gatewayTarget(gen, exit);
+        REQUIRE(back);
+        CHECK(std::hypot(back->x, back->z) < 100.0);
+        CHECK(gen.islandTop(int(std::floor(back->x)), int(std::floor(back->z))) >= 0);
+    }
+    CHECK(found >= 15); // (most directions reach an island within 4096 blocks)
+}
+
+TEST_CASE("respawning the dragon: four crystals on the open portal's rim rebuild the pillars and bring it back") {
+    const EndGenerator gen(42, 2);
+    World w;
+    w.setHeight(kEndHeight);
+    for (int cz = -4; cz <= 4; ++cz)
+        for (int cx = -4; cx <= 4; ++cx) {
+            auto c = std::make_unique<Chunk>(ChunkPos{cx, cz}, kEndHeight);
+            gen.generate(*c);
+            w.insertChunk(std::move(c));
+        }
+    std::vector<BlockPos> edits;
+    DragonFight::openExitPortal(w, false, edits);
+    const auto& p0 = gen.pillar(0);
+    w.setBlock({p0.x, p0.height, p0.z}, 0); // a damaged pillar
+    DragonFight fight;
+    fight.killed = fight.previouslyKilled = true;
+    Mobs mobs;
+    ExperienceOrbs orbs;
+    Xoroshiro rng(2);
+    const int rim = gen.islandTop(0, 0) + 1;
+    for (const auto& [x, z] : {std::pair{3, 0}, std::pair{-3, 0}, std::pair{0, 3}, std::pair{0, -3}})
+        REQUIRE(Mobs::placeEndCrystal(w, {x, rim, z}, rng));
+    for (int i = 0; i < 205; ++i)
+        fight.tick(w, gen, mobs, {0.5, 70.0, 0.5}, orbs, rng, edits);
+    CHECK_FALSE(fight.killed);
+    CHECK(blockRegistry().blockOf(w.getBlock({p0.x, p0.height, p0.z})) == blocks::Obsidian);
+    int dragons = 0, rimCrystals = 0;
+    w.forEachChunk([&](Chunk& c) {
+        for (const MobData& m : c.mobs()) {
+            dragons += m.type == MobType::EnderDragon;
+            rimCrystals += m.type == MobType::EndCrystal && !m.showBottom;
+        }
+    });
+    CHECK(dragons == 1);
+    CHECK(rimCrystals == 0);
+    CHECK(w.getBlock({1, rim, 1}) == 0); // the portal shut again
+}
+
+TEST_CASE("ender pearls land where they hit and report it (into a gateway: flagged)") {
+    MobScene s;
+    Projectiles proj;
+    Inventory inventory;
+    REQUIRE(proj.shoot(ProjectileKind::EnderPearl, {5.5, 70.0, 5.5}, {0.0, -1.0, 0.0}, 0.5, 0.0, true, false, s.rng));
+    bool landed = false;
+    for (int i = 0; i < 40 && !landed; ++i) {
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+        if (!proj.pearls().empty()) {
+            landed = true;
+            CHECK(proj.pearls()[0].pos.y == doctest::Approx(64.0).epsilon(0.01));
+            CHECK_FALSE(proj.pearls()[0].gateway);
+        }
+    }
+    CHECK(landed);
+    s.world.setBlock({8, 66, 8}, blockRegistry().defaultState(blocks::EndGateway));
+    REQUIRE(proj.shoot(ProjectileKind::EnderPearl, {8.5, 70.0, 8.5}, {0.0, -1.0, 0.0}, 0.5, 0.0, true, false, s.rng));
+    landed = false;
+    for (int i = 0; i < 40 && !landed; ++i) {
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+        if (!proj.pearls().empty()) {
+            landed = true;
+            CHECK(proj.pearls()[0].gateway);
+            CHECK(proj.pearls()[0].gatewayBlock == BlockPos{8, 66, 8});
+        }
+    }
+    CHECK(landed);
 }

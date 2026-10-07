@@ -89,8 +89,10 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            respawn { pos [I; x, y, z], dimension, yaw, pitch, forced }
                            (a bed's respawn point) },
                            DragonFight { DragonKilled, PreviouslyKilled, NeedsStateScanning 0
-                           (bytes), Dragon [I; uuid] (while one lives), Gateways [I; ...] } (M20,
-                           vanilla's tag; written for every world, used by end2),
+                           (bytes), Dragon [I; uuid] (while one lives), Gateways [I; ...] (the
+                           ring gateways still to open, shuffled when the fight starts; written
+                           once it has) } (M20, vanilla's tag; written for every world, used by
+                           end2),
                            MinecraftClone { generator: "overworld2" (M18, new worlds) |
                            "overworld" (M8) | "terrain" (M3) | "flat",
                            portals [ { dimension, x, y, z } ] (known nether portals, M12),

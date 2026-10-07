@@ -68,8 +68,8 @@ public:
 };
 
 // The End (M12, wiki: The End › Generation): the central end stone island, ten
-// obsidian pillars around it, and the exit portal (active from the start: there is
-// no ender dragon). No outer islands.
+// obsidian pillars around it, and the exit portal (active from the start in "end";
+// shut in "end2" until the dragon dies).
 class EndGenerator final : public ChunkGenerator {
 public:
     // version 1: "end" (M12, the main island only); 2: "end2" (M20, new worlds) adds
@@ -82,6 +82,8 @@ public:
     // from island centres on a 16-block grid beyond 1024 blocks (wiki: The End).
     double outerValue(int32_t x, int32_t z) const;
     Biome biomeAt(int32_t x, int32_t z) const;
+    // end2: the top of the outer island at a column (-1: void there).
+    int outerTop(int32_t x, int32_t z) const;
     // Players arrive on the obsidian platform at (100, 49, 0) (wiki: The End).
     glm::dvec3 findSpawn() const override { return {100.5, 49.0, 0.5}; }
     std::string_view kind() const override { return m_version >= 2 ? "end2" : "end"; }
