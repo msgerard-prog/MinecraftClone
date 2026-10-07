@@ -38,13 +38,18 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   (a chunk plus its 8 neighbours' border data) and return results through a lock-free
   or mutex-guarded queue; only the main thread mutates the world.
 
-## World model (planned, M2)
-- `ChunkPos {x,z}`, `BlockPos {x,y,z}` (int32). See `world/Coords.h` for conversions.
-- `Chunk` = 24 `Section`s (Y −64..319). `Section` = 4096 block states stored as a
-  **palette + packed index array** (as vanilla does) so most sections cost a few bytes.
-- `BlockState` = compact `uint16` id into a global state table generated from the
-  block registry (each block × its property combinations, like vanilla's
-  `Block.STATE_REGISTRY`).
+## World model (M2.1–M2.2, ADR 0005)
+- `ChunkPos {x,z}` (`key()` packs like vanilla's `ChunkPos.toLong`), `BlockPos {x,y,z}`
+  (int32), in `world/Chunk.h`. Conversions in `world/Coords.h`.
+- `BlockRegistry` / `Blocks.h`: dense `uint16` `BlockStateId`s, air = 0; per-state
+  flag arrays (`opaqueCube`) for hot loops. Global instance: `blockRegistry()`.
+- `Section`: 4096 states as vanilla's PalettedContainer (single value → 4–8 bit local
+  palette → direct ids), index `(y*16+z)*16+x`; `copyTo()` decodes all at once for
+  meshing; tracks `nonAirCount` so empty sections are skipped.
+- `Chunk` = 24 sections (Y −64..319). `World` = map of `ChunkPos` → `Chunk`;
+  unloaded chunks read as air.
+- `FlatGenerator`: superflat from vanilla's preset string (default Classic Flat:
+  bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
 
 ## Rendering
 Current (M1):
