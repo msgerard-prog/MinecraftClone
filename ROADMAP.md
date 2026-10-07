@@ -56,6 +56,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   copies the whole buffer: a ~100 ms frame once at RD32); `cornerLight` offset table;
   Section copy-on-write allocates when a worker still holds the section (rare).
 
+## Decisions (2026-10-07, user)
+- Target patch: **1.21.11** (ADR 0002 update). Migration to do: DataVersion 4671 and
+  1.21.5+ NBT names in saves, 1.21.11 defaults (render/graphics presets, mipmaps,
+  Nether fog 10-96, sneak-sprint), then 1.21.9-1.21.11 content as milestones.
+- The newest generator of each dimension is the default for new worlds, always;
+  older generators stay only for worlds created with them (their pinned hashes).
+
 ## Texture plan (agreed 2026-10-06)
 Textures arrive with their blocks (add-block skill makes the placeholder), by
 milestone: M3 stone types, ores, gravel, water, sand, sandstone, clay · M5 light
@@ -84,9 +91,6 @@ and GUI textures are made with their systems.
   generated chunk is saved (vanilla), so worlds are larger on disk than "edits only".
 - M8 in-game checks: sky light under a surface lava pool (lava opacity), the
   default Biome Blend radius, snow line heights in windswept hills/taiga.
-- **M8 generator (needs your OK to become the default):** new worlds use a new
-  generator kind "overworld"; the M3 placeholder ("terrain", pinned hash) is kept
-  for worlds that already use it. `--generator terrain` will select the old one.
 - M7 in-game check: load one of our worlds' chunks in vanilla? (not a goal; vanilla
   probably refuses without WorldGenSettings.dimensions).
 - M6 in-game checks: exact feedback of `/tp 100 64 -20`, `/give @s oak_log 64` and an
@@ -107,14 +111,10 @@ and GUI textures are made with their systems.
     the wiki's 21.6 b/s.
 - In your game (spectator + F3): how much of Y -60 is bedrock compared with Y -63?
   (Ours thins 4/5, 3/5, 2/5, 1/5 over -63..-60; the wiki only says "rare gaps".)
-- The 1.21 patch decision (below) also sets the render distance default (12 up to
-  1.21.10; graphics presets from 1.21.11) and mipmap levels (4 vs 2).
 - Try your own textures: copy your 1.21.x client jar into `resourcepacks/` (README ›
   Using your own Minecraft textures) and run `tools/run.sh`.
 - Try the controls by hand: `tools/run.sh`, click the window, WASD + mouse, Esc.
   Tell me if the mouse feel or speeds are off.
-- Decide which exact 1.21 patch ADR 0002 targets (e.g. 1.21.10 vs 1.21.11): some
-  defaults changed in 1.21.11 (mipmap levels 4 → 2 with graphics presets).
 - In your game, check horizontal oak logs (axis x and z) against ours
   (`tools/screenshot.sh logs --pos -1.2,-58.5,-2.8 --look 45,15`): the face rotations
   in `BlockModels.cpp` were derived from vanilla model files a review agent should not
