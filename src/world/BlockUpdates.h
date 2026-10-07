@@ -91,6 +91,18 @@ public:
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool isLeaves(BlockId b);
+    // Farming (M17.1, Farming.cpp).
+    static bool isCrop(BlockId b);
+    static int cropMaxAge(BlockId b);
+    static int cropAge(BlockStateId s);
+    // A hoe used on `face` of the block at p (dirt/grass -> farmland). True if it acted.
+    static bool till(World& world, const BlockPos& p, Direction face);
+    // Bone meal used on the block at p. True if it was used up.
+    bool boneMeal(const BlockPos& p);
+    // An entity landed hard on this farmland (the caller rolls the chance).
+    void trample(const BlockPos& farmland);
+    // A crop's growth speed level (public for tests).
+    float growthPoints(const BlockPos& p, BlockId crop) const;
     // Falling blocks (M16; wiki: Falling Block): sand, red sand and gravel fall 2 ticks
     // after the block below becomes free (air, fire, fluid, replaceable plants). The
     // block is removed and listed here for gameplay to turn into a falling entity.
@@ -132,6 +144,9 @@ private:
     int leafDistance(const BlockPos& p) const;
     void leavesChanged(const BlockPos& p, BlockStateId s);
     bool growTree(const BlockPos& p, BlockStateId sapling);
+    bool nearWater(const BlockPos& p) const;
+    void tickFarmland(const BlockPos& p, BlockStateId s);
+    void tickCrop(const BlockPos& p, BlockStateId s);
     bool nextToFlammable(const BlockPos& p) const;
     void placeFire(const BlockPos& p, int age);
     void fireNeighbourChanged(const BlockPos& p);

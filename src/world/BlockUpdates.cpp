@@ -397,6 +397,15 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Water:
     case B::Lava: fluidNeighbourChanged(p, s); break;
     case B::Fire: fireNeighbourChanged(p); break;
+    case B::Farmland: // a solid block on top turns it to dirt (wiki: Farmland)
+        if (R().collides(at(rel(p, Direction::Up)))) set(p, R().defaultState(B::Dirt));
+        break;
+    case B::Wheat:
+    case B::Carrots:
+    case B::Potatoes:
+    case B::Beetroots:
+        if (blockOf(at(rel(p, Direction::Down))) != B::Farmland) pop(p); // lost its farmland
+        break;
     case B::Sand:
     case B::RedSand:
     case B::Gravel:
@@ -852,6 +861,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::SpruceSapling:
     case B::AcaciaSapling:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
+        return state;
+    case B::Wheat:
+    case B::Carrots:
+    case B::Potatoes:
+    case B::Beetroots: // planted on farmland only
+        if (blockOf(world.getBlock(rel(at, Direction::Down))) != B::Farmland) return std::nullopt;
         return state;
     case B::RedstoneWire: {
         if (!solid(Direction::Down)) return std::nullopt;

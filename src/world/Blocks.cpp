@@ -39,6 +39,9 @@ const Property fireNorth{"north", {"true", "false"}};
 const Property fireEast{"east", {"true", "false"}};
 const Property fireSouth{"south", {"true", "false"}};
 const Property fireWest{"west", {"true", "false"}};
+const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
+const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
+const Property age3{"age", {"0", "1", "2", "3"}};
 } // namespace properties
 
 namespace {
@@ -278,6 +281,16 @@ BlockRegistry buildVanillaBlocks() {
     for (int c = 0; c < 16; ++c)
         check(r.add(std::string(kColours[c]) + "_wool", {.hardness = 0.8f, .resistance = 0.8f}),
               static_cast<BlockId>(blocks::WhiteWool + c));
+    // Farming (M17.1; wiki: Farmland - hardness 0.6, 15/16 tall: a full cube here;
+    // crops break instantly, no collision).
+    check(r.add("farmland", {.hardness = 0.6f, .resistance = 0.6f, .randomTicks = true}, {{&moisture, "0"}}),
+          blocks::Farmland);
+    BlockSettings crop = kPlant;
+    crop.randomTicks = true;
+    check(r.add("wheat", crop, {{&age7, "0"}}), blocks::Wheat);
+    check(r.add("carrots", crop, {{&age7, "0"}}), blocks::Carrots);
+    check(r.add("potatoes", crop, {{&age7, "0"}}), blocks::Potatoes);
+    check(r.add("beetroots", crop, {{&age3, "0"}}), blocks::Beetroots);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

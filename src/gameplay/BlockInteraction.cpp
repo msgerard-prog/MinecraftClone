@@ -137,9 +137,12 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     if (pausing) --m_destroyCooldown;
     m_useCooldown = input.useClick ? 0 : input.use ? std::max(0, m_useCooldown - 1) : 0;
 
-    // Eating: hold use with food while hungry (wiki: Food).
+    // Eating: hold use with food while hungry (wiki: Food). Food that plants (carrots,
+    // potatoes) is planted instead when aimed at farmland's top.
     const world::ItemDef& held = items.item(inventory.selectedStack().item);
-    if (use && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
+    const bool planting = held.block && hit && hit->face == world::Direction::Up &&
+                          world::blockRegistry().blockOf(world.getBlock(hit->block)) == world::blocks::Farmland;
+    if (use && !planting && held.food > 0 && vitals.food() < Vitals::kMaxFood) {
         if (++m_eatTicks >= kEatTicks) {
             vitals.eat(held.food, held.saturation);
             inventory.consumeSelected(1);

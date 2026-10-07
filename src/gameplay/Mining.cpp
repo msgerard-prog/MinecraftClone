@@ -1,5 +1,6 @@
 #include "gameplay/Mining.h"
 
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
 #include <cmath>
@@ -123,7 +124,7 @@ namespace {
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
     ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple, quartz, seeds, oakSapling, birchSapling, spruceSapling, acaciaSapling;
+        flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato, poisonous, beetroot, beetrootSeeds, oakSapling, birchSapling, spruceSapling, acaciaSapling;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
@@ -133,6 +134,9 @@ struct DropIds {
         clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
         quartz = *i.find("quartz");
         seeds = *i.find("wheat_seeds");
+        wheat = *i.find("wheat"), carrot = *i.find("carrot"), potato = *i.find("potato");
+        poisonous = *i.find("poisonous_potato"), beetroot = *i.find("beetroot");
+        beetrootSeeds = *i.find("beetroot_seeds");
         oakSapling = *i.find("oak_sapling"), birchSapling = *i.find("birch_sapling");
         spruceSapling = *i.find("spruce_sapling"), acaciaSapling = *i.find("acacia_sapling");
     }
@@ -195,6 +199,26 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::PistonHead: // the base drops the piston
     case blocks::Fire:
         return;
+    // Crops (wiki: each crop): ripe wheat 1 wheat + 1-4 seeds; carrots and potatoes
+    // 2-5 (potatoes: 2% a poisonous one); beetroots 1 + 1-4 seeds; unripe: the seed.
+    case blocks::Wheat:
+    case blocks::Carrots:
+    case blocks::Potatoes:
+    case blocks::Beetroots: {
+        const bool ripe = world::BlockUpdates::cropAge(state) >= world::BlockUpdates::cropMaxAge(b);
+        if (b == blocks::Wheat) {
+            if (ripe) add(d.wheat);
+            add(d.seeds, ripe ? between(1, 4) : 1);
+        } else if (b == blocks::Beetroots) {
+            if (ripe) add(d.beetroot);
+            add(d.beetrootSeeds, ripe ? between(1, 4) : 1);
+        } else {
+            add(b == blocks::Carrots ? d.carrot : d.potato, ripe ? between(2, 5) : 1);
+            if (ripe && b == blocks::Potatoes && rng.nextFloat() < 0.02f) add(d.poisonous);
+        }
+        return;
+    }
+    case blocks::Farmland: add(d.dirt); return;
     case blocks::ShortGrass:
     case blocks::Fern: // wiki: Wheat Seeds - grass and ferns drop seeds 1 in 8
         if (rng.nextInt(8) == 0) add(d.seeds);

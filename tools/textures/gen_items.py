@@ -400,6 +400,56 @@ def ender_pearl():
     return img
 
 
+def potato(base, spots, name):
+    rng = random.Random(name)
+    pal = ramp(hexc(base), 5, spread=0.3)
+    s = Shape()
+    pts = {(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 5.2) ** 2 + ((y - 8.5) / 4.0) ** 2 < 1}
+    s.add(pts, pal)
+    img = s.render()
+    for (x, y) in pts:
+        if rng.random() < 0.06:
+            img.set(x, y, hexc(spots))
+    return img
+
+
+def beetroot():
+    pal = ramp(hexc("#A8243A"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 9.5) < 4.6 or (x == 8 and y > 13)}, pal)
+    s.add({(6, 3), (7, 4), (9, 3), (8, 4), (7, 2), (10, 2), (8, 5)}, ramp(hexc("#4C9A2A"), 5))
+    return s.render()
+
+
+def beetroot_seeds():
+    pal = ramp(hexc("#B89A5A"), 5, spread=0.35)
+    s = Shape()
+    for cx, cy in ((5, 6), (10, 5), (8, 9), (11, 11), (4, 11)):
+        s.add({(cx, cy), (cx + 1, cy), (cx, cy + 1), (cx + 1, cy + 1)}, pal)
+    return s.render()
+
+
+def bread():
+    pal = ramp(hexc("#C08840"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 6.5) ** 2 + ((y - 9) / 3.6) ** 2 < 1}, pal)
+    img = s.render()
+    for x in (5, 8, 11):
+        img.set(x, 7, hexc("#E8C070"))
+        img.set(x - 1, 8, hexc("#E8C070"))
+    return img
+
+
+def bone_meal():
+    rng = random.Random("bone_meal")
+    pal = ramp(hexc("#ECECE4"), 5, spread=0.2)
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - 8) / 5.5) ** 2 + ((y - 10) / 3.5) ** 2 < 1 and rng.random() < 0.85}
+    s = Shape()
+    s.add(pts, pal)
+    return s.render()
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -451,6 +501,13 @@ def all_items():
     items["string"] = string_item()
     items["spider_eye"] = spider_eye()
     items["ender_pearl"] = ender_pearl()
+    items["potato"] = potato("#C8A050", "#8A6A30", "potato")
+    items["baked_potato"] = potato("#D89838", "#F0C860", "baked_potato")
+    items["poisonous_potato"] = potato("#A8B048", "#5A7A20", "poisonous_potato")
+    items["beetroot"] = beetroot()
+    items["beetroot_seeds"] = beetroot_seeds()
+    items["bread"] = bread()
+    items["bone_meal"] = bone_meal()
     return items
 
 

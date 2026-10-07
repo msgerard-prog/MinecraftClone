@@ -15,7 +15,7 @@ systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf)
 
 M17 — Items and survival 2 (wiki: Farming, Chest, Bed, Armor, Shield, Enchanting,
 Anvil, Brewing):
-1. M17.1 — Farming: hoes till dirt/grass into farmland (moisture from water within 4,
+1. ✅ M17.1 — Farming: hoes till dirt/grass into farmland (moisture from water within 4,
    trampling), wheat/carrots/potatoes/beetroots (age stages, growth chance by
    farmland moisture and neighbours), bone meal (from bones; grows crops and saplings),
    crop drops and seeds, bread/baked potato recipes.

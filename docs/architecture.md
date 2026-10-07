@@ -172,6 +172,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Farming (M17.1, `world/Farming.cpp`, part of `BlockUpdates`): farmland moisture and
+  crop growth on random ticks (vanilla's speed points), `till` (hoes), `boneMeal`,
+  `trample` (main rolls the fall chance); crops pop without farmland. Seeds,
+  carrots and potatoes are items whose `block` is the crop.
 - Monsters 2 (M16.5, `gameplay/Monsters.cpp`, part of `Mobs`): `mayTarget` (spiders
   in the dark, angry endermen), `monsterTick` (creeper fuse -> `Explosion`, skeleton
   bow into `Context::projectiles`, spider leap/climb, enderman stare, water,

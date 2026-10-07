@@ -33,6 +33,10 @@ extern const Property eye;   // true | false (end portal frame)
 extern const Property stage; // 0..1 (saplings)
 extern const Property age;   // 0..15 (fire)
 extern const Property fireUp, fireNorth, fireEast, fireSouth, fireWest; // "up"...: true | false
+// Farming (M17.1).
+extern const Property moisture; // 0..7 (farmland)
+extern const Property age7;     // "age": 0..7 (wheat, carrots, potatoes)
+extern const Property age3;     // "age": 0..3 (beetroots)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -154,6 +158,12 @@ enum : BlockId {
     GreenWool,
     RedWool,
     BlackWool,
+    // Farming (M17.1).
+    Farmland, // moisture
+    Wheat,    // age 0..7 (the crop; the wheat item is separate)
+    Carrots,
+    Potatoes,
+    Beetroots, // age 0..3
     Count
 };
 } // namespace blocks

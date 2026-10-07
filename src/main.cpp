@@ -378,6 +378,7 @@ int main(int argc, char** argv) {
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
     int bowTicks = 0;                // how long the bow has been drawn
+    double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -851,6 +852,18 @@ int main(int argc, char** argv) {
             const glm::dvec3 feet = player.position();
             const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
             const bool inWater = reg.blockOf(world.getBlock(feetBlock)) == mc::world::blocks::Water;
+            // Landing on farmland may trample it: chance fall distance - 0.5 (wiki: Farmland).
+            if (player.onGround() || player.flying() || inWater) {
+                if (player.onGround() && !wasOnGround && !player.flying()) {
+                    const mc::world::BlockPos below{feetBlock.x, int(std::floor(feet.y - 0.01)), feetBlock.z};
+                    if (reg.blockOf(world.getBlock(below)) == mc::world::blocks::Farmland &&
+                        gameRng.nextFloat() < float(airPeakY - feet.y - 0.5))
+                        blockUpdates.trample(below);
+                }
+                airPeakY = feet.y;
+            } else {
+                airPeakY = std::max(airPeakY, feet.y);
+            }
             if (survival && !dead) {
                 // Exhaustion (wiki: Hunger): sprinting 0.1 per metre, jumps 0.05 (0.2
                 // sprinting).
@@ -945,6 +958,27 @@ int main(int argc, char** argv) {
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
+                }
+            }
+            // Hoes and bone meal (M17.1; wiki: Hoe, Bone Meal) on the targeted block.
+            if (!dead && clicks.useClick && lastHit && !inventory.selectedStack().empty()) {
+                const mc::world::ItemStack held = inventory.selectedStack();
+                const auto& def = mc::world::itemRegistry().item(held.item);
+                static const mc::world::ItemId boneMealItem = *mc::world::itemRegistry().find("bone_meal");
+                if (def.tool == mc::world::ToolType::Hoe &&
+                    mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
+                    frameEdits.push_back(lastHit->block);
+                    if (survival) { // a hoe wears 1 per tilled block
+                        mc::world::ItemStack worn = held;
+                        worn.damage = static_cast<uint16_t>(worn.damage + 1);
+                        inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? mc::world::ItemStack{} : worn);
+                    }
+                    clicks.useClick = false;
+                    clicks.use = false;
+                } else if (held.item == boneMealItem && blockUpdates.boneMeal(lastHit->block)) {
+                    if (survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
                 }
             }
             // Feeding and shearing animals (M16.3): right-click the mob in front.

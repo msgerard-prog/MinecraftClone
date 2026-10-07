@@ -48,7 +48,8 @@ ItemRegistry buildItems() {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
         // Placed by another item (redstone dust, torches on walls) or never an item.
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead ||
-            b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::Fire)
+            b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::Fire || b == blocks::Wheat ||
+            b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots) // crops: planted by seeds
             continue;
         const std::string& id = blocks.block(b).id;
         r.mapBlock(b, r.add({.id = id, .block = b}));
@@ -118,12 +119,22 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:cooked_mutton", .food = 6, .saturation = 9.6f, .texture = "item/cooked_mutton"});
     r.add({.id = "minecraft:chicken", .food = 2, .saturation = 1.2f, .texture = "item/chicken"});
     r.add({.id = "minecraft:cooked_chicken", .food = 6, .saturation = 7.2f, .texture = "item/cooked_chicken"});
-    r.add({.id = "minecraft:carrot", .food = 3, .saturation = 3.6f, .texture = "item/carrot"});
+    // Seeds and planted vegetables place their crop (M17.1).
+    r.add({.id = "minecraft:carrot", .block = blocks::Carrots, .food = 3, .saturation = 3.6f, .texture = "item/carrot"});
     r.add({.id = "minecraft:wheat", .texture = "item/wheat"});
-    r.add({.id = "minecraft:wheat_seeds", .texture = "item/wheat_seeds"});
+    r.add({.id = "minecraft:wheat_seeds", .block = blocks::Wheat, .texture = "item/wheat_seeds"});
     r.add({.id = "minecraft:feather", .texture = "item/feather"});
     r.add({.id = "minecraft:egg", .maxStack = 16, .texture = "item/egg"});
     r.add({.id = "minecraft:shears", .maxStack = 1, .durability = 238, .texture = "item/shears"});
+    // Farming (M17.1; wiki: Potato 1 / 0.6, Baked Potato 5 / 6, Poisonous Potato 2 / 1.2,
+    // Beetroot 1 / 1.2, Bread 5 / 6).
+    r.add({.id = "minecraft:potato", .block = blocks::Potatoes, .food = 1, .saturation = 0.6f, .texture = "item/potato"});
+    r.add({.id = "minecraft:baked_potato", .food = 5, .saturation = 6.0f, .texture = "item/baked_potato"});
+    r.add({.id = "minecraft:poisonous_potato", .food = 2, .saturation = 1.2f, .texture = "item/poisonous_potato"});
+    r.add({.id = "minecraft:beetroot", .food = 1, .saturation = 1.2f, .texture = "item/beetroot"});
+    r.add({.id = "minecraft:beetroot_seeds", .block = blocks::Beetroots, .texture = "item/beetroot_seeds"});
+    r.add({.id = "minecraft:bread", .food = 5, .saturation = 6.0f, .texture = "item/bread"});
+    r.add({.id = "minecraft:bone_meal", .texture = "item/bone_meal"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});
     r.add({.id = "minecraft:arrow", .texture = "item/arrow"});
@@ -134,6 +145,11 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:string", .texture = "item/string"});
     r.add({.id = "minecraft:spider_eye", .food = 2, .saturation = 3.2f, .texture = "item/spider_eye"});
     r.add({.id = "minecraft:ender_pearl", .maxStack = 16, .texture = "item/ender_pearl"});
+    // Crops' items (pick block, drops of an immature crop).
+    r.mapBlock(blocks::Wheat, *r.find("wheat_seeds"));
+    r.mapBlock(blocks::Carrots, *r.find("carrot"));
+    r.mapBlock(blocks::Potatoes, *r.find("potato"));
+    r.mapBlock(blocks::Beetroots, *r.find("beetroot_seeds"));
     return r;
 }
 

@@ -105,6 +105,9 @@ std::vector<Recipe> build() {
     // (wiki: Bow - 3 sticks and 3 string; White Wool - 4 string)
     r.push_back(shaped({".SX", "S.X", ".SX"}, {{'S', stick}, {'X', item("string")}}, "bow"));
     r.push_back(shaped({"##", "##"}, {{'#', item("string")}}, "white_wool"));
+    // (wiki: Bread - 3 wheat in a row; Bone Meal - a bone makes 3)
+    r.push_back(shaped({"###"}, {{'#', item("wheat")}}, "bread"));
+    r.push_back(shapeless({item("bone")}, "bone_meal", 3));
     // (wiki: Arrow - flint, stick, feather -> 4)
     r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
     return r;
@@ -240,6 +243,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "porkchop") return out("cooked_porkchop");
     if (n == "mutton") return out("cooked_mutton");
     if (n == "chicken") return out("cooked_chicken");
+    if (n == "potato") return out("baked_potato");
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;

@@ -220,7 +220,21 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling"};
-            if (name == "fire") {
+            if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
+                // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
+                // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
+                const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
+                const int stage = name == "wheat" || name == "beetroots" ? a : a < 2 ? 0 : a < 4 ? 1 : a < 7 ? 2 : 3;
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite((name + "_stage" + std::to_string(stage)).c_str());
+            } else if (name == "farmland") {
+                // Dirt sides; the top darkens when fully wet (moisture 7).
+                BakedVariant v = cubeAll(sprite("dirt"));
+                v.faces[int(Direction::Up)].sprite =
+                    sprite(registry.value(state, "moisture") == "7" ? "farmland_moist" : "farmland");
+                m = single(v);
+            } else if (name == "fire") {
                 // Placeholder: vanilla's fire is 4 inward-leaning planes (floor) or planes
                 // on the burning sides; a cross of the animated fire_0 for now.
                 m.visible = true;

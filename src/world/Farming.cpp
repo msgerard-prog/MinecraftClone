@@ -1,0 +1,128 @@
+// Farming (M17.1; wiki: Farmland, Wheat Seeds, Carrot, Potato, Beetroot Seeds, Bone
+// Meal, Tutorial:Crop farming). Part of BlockUpdates.
+#include "world/BlockUpdates.h"
+
+#include "world/Blocks.h"
+
+#include <cmath>
+
+namespace mc::world {
+
+namespace {
+
+using namespace properties;
+namespace B = blocks;
+
+const BlockRegistry& R() { return blockRegistry(); }
+BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
+
+const Property& ageOf(BlockId crop) { return crop == B::Beetroots ? age3 : age7; }
+
+} // namespace
+
+bool BlockUpdates::isCrop(BlockId b) {
+    return b == B::Wheat || b == B::Carrots || b == B::Potatoes || b == B::Beetroots;
+}
+
+int BlockUpdates::cropMaxAge(BlockId b) { return b == B::Beetroots ? 3 : 7; }
+
+int BlockUpdates::cropAge(BlockStateId s) { return R().get(s, ageOf(blockOf(s))); }
+
+bool BlockUpdates::till(World& world, const BlockPos& p, Direction side) {
+    // A hoe turns dirt or grass into farmland (coarse dirt into dirt), from any side
+    // but below, if the block above is free (wiki: Hoe).
+    if (side == Direction::Down) return false;
+    const BlockId b = blockOf(world.getBlock(p));
+    if (b != B::Dirt && b != B::GrassBlock && b != B::CoarseDirt) return false;
+    if (world.getBlock({p.x, p.y + 1, p.z}) != 0) return false;
+    world.updateBlock(p, R().defaultState(b == B::CoarseDirt ? B::Dirt : B::Farmland));
+    return true;
+}
+
+bool BlockUpdates::nearWater(const BlockPos& p) const {
+    // Water within 4 blocks horizontally, at the farmland's level or one above.
+    for (int dy = 0; dy <= 1; ++dy)
+        for (int dz = -4; dz <= 4; ++dz)
+            for (int dx = -4; dx <= 4; ++dx)
+                if (blockOf(at({p.x + dx, p.y + dy, p.z + dz})) == B::Water) return true;
+    return false;
+}
+
+void BlockUpdates::tickFarmland(const BlockPos& p, BlockStateId s) {
+    const int m = R().get(s, moisture);
+    if (nearWater(p)) {
+        if (m != 7) setRaw(p, R().set(s, moisture, 7)); // hydrated at once
+    } else if (m > 0) {
+        setRaw(p, R().set(s, moisture, m - 1)); // dries a step per random tick
+    } else if (!isCrop(blockOf(at({p.x, p.y + 1, p.z})))) {
+        set(p, R().defaultState(B::Dirt)); // dry and bare: back to dirt
+    }
+}
+
+void BlockUpdates::trample(const BlockPos& farmland) {
+    // Jumped on: dirt again; the crop on it pops off (its neighbour update).
+    if (blockOf(at(farmland)) == B::Farmland) set(farmland, R().defaultState(B::Dirt));
+}
+
+float BlockUpdates::growthPoints(const BlockPos& p, BlockId crop) const {
+    // The speed level (wiki: Tutorial:Crop farming): its own farmland 2 (4 if moist),
+    // each of the 8 farmland around 0.25 (0.75 moist); halved when the same crop is
+    // on a diagonal, or both north/south and east/west.
+    float points = 0.0f;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const BlockStateId f = at({p.x + dx, p.y - 1, p.z + dz});
+            if (blockOf(f) != B::Farmland) continue;
+            const bool wet = R().get(f, moisture) > 0;
+            points += (dx == 0 && dz == 0) ? (wet ? 4.0f : 2.0f) : (wet ? 0.75f : 0.25f);
+        }
+    auto same = [&](int dx, int dz) { return blockOf(at({p.x + dx, p.y, p.z + dz})) == crop; };
+    const bool diagonal = same(-1, -1) || same(1, -1) || same(1, 1) || same(-1, 1);
+    const bool rows = (same(0, -1) || same(0, 1)) && (same(-1, 0) || same(1, 0));
+    if (diagonal || rows) points /= 2.0f;
+    return points;
+}
+
+void BlockUpdates::tickCrop(const BlockPos& p, BlockStateId s) {
+    // Light 9+, then a 1 / (floor(25 / points) + 1) chance to grow a stage.
+    if (rawBrightness(p) < 9) return;
+    const BlockId crop = blockOf(s);
+    const int a = cropAge(s);
+    if (a >= cropMaxAge(crop)) return;
+    const float points = growthPoints(p, crop);
+    if (points <= 0.0f) return;
+    if (m_random.nextInt(uint32_t(std::floor(25.0f / points)) + 1) == 0) setRaw(p, R().set(s, ageOf(crop), a + 1));
+}
+
+bool BlockUpdates::boneMeal(const BlockPos& p) {
+    // wiki: Bone Meal - crops grow 2-5 stages (beetroots 1); saplings advance a stage
+    // 45% of the time; a grass block sprouts grass and flowers around it.
+    const BlockStateId s = at(p);
+    const BlockId b = blockOf(s);
+    if (isCrop(b)) {
+        const int a = cropAge(s), max = cropMaxAge(b);
+        if (a >= max) return false;
+        const int add = b == B::Beetroots ? 1 : 2 + static_cast<int>(m_random.nextInt(4));
+        set(p, R().set(s, ageOf(b), std::min(max, a + add)));
+        return true;
+    }
+    if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling) {
+        if (m_random.nextFloat() < 0.45f) {
+            if (R().get(s, stage) == 0) setRaw(p, R().set(s, stage, 1));
+            else growTree(p, s);
+        }
+        return true; // used up either way
+    }
+    if (b == B::GrassBlock && at({p.x, p.y + 1, p.z}) == 0) {
+        for (int i = 0; i < 32; ++i) {
+            const BlockPos q{p.x + int(m_random.nextInt(7)) - 3, p.y + 1, p.z + int(m_random.nextInt(7)) - 3};
+            if (at(q) != 0 || blockOf(at({q.x, q.y - 1, q.z})) != B::GrassBlock) continue;
+            const BlockId plant = m_random.nextInt(8) == 0 ? (m_random.nextInt(2) ? B::Dandelion : B::Poppy) : B::ShortGrass;
+            set(q, R().defaultState(plant));
+        }
+        return true;
+    }
+    return false;
+}
+
+} // namespace mc::world
