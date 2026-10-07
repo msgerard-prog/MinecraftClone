@@ -51,7 +51,7 @@ glm::dvec3 endPlatform(world::World& world, std::vector<world::BlockPos>& change
 // space fills with end_portal (wiki: End Portal Frame). Returns true if it opened.
 bool completeEndPortal(world::World& world, const world::BlockPos& frame, std::vector<world::BlockPos>& changed);
 
-// Right-click with flint and steel (fire in front of the clicked face, or a portal when
+// Right-click with flint and steel or a fire charge (fire in front of the clicked face, or a portal when
 // that fire would be inside an obsidian frame - not in the End) or an eye of ender
 // (into an empty frame). `changed` gets edited positions. Returns true if the item was used
 // (the caller wears the flint and steel or uses up the eye).

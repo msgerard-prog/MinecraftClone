@@ -885,3 +885,75 @@ TEST_CASE("splash potions: harming hurts the living and heals the undead, scaled
         proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
     CHECK(s.vitals.effectLevel(Effect::Regeneration) > 0);
 }
+
+TEST_CASE("a zombified piglin killed in one hit still angers its group (M19 review regression)") {
+    MobScene s;
+    s.mobs = Mobs();
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::ZombifiedPiglin, {4.5, 64.0, 4.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::ZombifiedPiglin, {8.5, 64.0, 4.5}, s.rng)));
+    MobData* first = s.all()[0];
+    Mobs::attack(*first, 100.0f, s.player.position());
+    s.tick(1);
+    int angry = 0;
+    for (MobData* m : s.all())
+        angry += m->health > 0.0f && m->angry;
+    CHECK(angry == 1);
+}
+
+TEST_CASE("hitting a piglin angers it and cancels its barter") {
+    MobScene s;
+    s.mobs = Mobs();
+    MobData p = Mobs::make(MobType::Piglin, {4.5, 64.0, 4.5}, s.rng);
+    p.admireTicks = 60;
+    REQUIRE(Mobs::add(s.world, p));
+    Mobs::attack(*s.all()[0], 1.0f, s.player.position());
+    CHECK(s.all()[0]->angry);
+    CHECK(s.all()[0]->admireTicks == 0);
+}
+
+TEST_CASE("splash: water hurts blazes and puts out fire; a creative player gets regeneration but no harm") {
+    MobScene s;
+    s.mobs = Mobs();
+    s.player.setPosition({-20.5, 64.0, 0.5});
+    MobData b = Mobs::make(MobType::Blaze, {5.5, 64.0, 6.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, b));
+    const float before = s.all()[0]->health;
+    s.world.setBlock({6, 64, 5}, BlockUpdates::fireState(0));
+    Projectiles proj;
+    Inventory inventory;
+    REQUIRE(proj.shoot(ProjectileKind::SplashPotion, {5.5, 66.0, 5.5}, {0.0, -1.0, 0.0}, 0.3, 0.0, true, false, s.rng));
+    proj.last().potion = static_cast<uint8_t>(Potion::Water);
+    for (int i = 0; i < 20 && !proj.items().empty(); ++i)
+        proj.tick(s.world, s.player, &s.vitals, inventory, true, s.rng);
+    CHECK(s.all()[0]->health == doctest::Approx(before - 1.0f));
+    CHECK(blockRegistry().blockOf(s.world.getBlock({6, 64, 5})) == blocks::Air);
+
+    // A potion at the feet: the nearest point of the box is ~0 away - full strength.
+    s.player.setPosition({5.5, 64.0, 5.5});
+    s.player.setCreative(true);
+    for (const Potion pot : {Potion::Regeneration, Potion::Harming}) {
+        REQUIRE(proj.shoot(ProjectileKind::SplashPotion, {5.5, 64.4, 4.0}, {0.0, -1.0, 0.0}, 0.3, 0.0, true, false,
+                           s.rng));
+        proj.last().potion = static_cast<uint8_t>(pot);
+        for (int i = 0; i < 20 && !proj.items().empty(); ++i)
+            proj.tick(s.world, s.player, &s.vitals, inventory, false, s.rng);
+    }
+    CHECK(s.vitals.effectLevel(Effect::Regeneration) > 0);
+    CHECK(s.vitals.health() == doctest::Approx(20.0f));
+}
+
+#include "world/Loot.h"
+
+TEST_CASE("bartered potions are fire resistance (wiki: Bartering), never contentless") {
+    Xoroshiro rng(5);
+    const ItemId potion = *itemRegistry().find("potion"), splash = *itemRegistry().find("splash_potion");
+    int potions = 0;
+    for (int i = 0; i < 4000; ++i) {
+        const ItemStack s = rollOne(LootTable::PiglinBartering, rng);
+        if (s.item != potion && s.item != splash) continue;
+        ++potions;
+        CHECK(s.potion != 0);
+        CHECK((s.potion == static_cast<uint8_t>(Potion::FireResistance) || s.potion == static_cast<uint8_t>(Potion::Water)));
+    }
+    CHECK(potions > 0);
+}

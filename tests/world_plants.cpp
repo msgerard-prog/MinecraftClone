@@ -178,3 +178,22 @@ TEST_CASE("mycelium spreads to dirt like grass; podzol and mycelium drop dirt") 
     CHECK(countAround(s, {8, 63, 8}, blocks::Mycelium, 2, 0) > 3);
     CHECK(BlockUpdates::plantableSoil(S(blocks::Podzol)));
 }
+
+TEST_CASE("nether plants stay through neighbour updates; nether wart pops off soul sand (M19 review regression)") {
+    Scene s(blocks::CrimsonNylium, 0);
+    s.world.setBlock({4, 64, 4}, S(blocks::CrimsonRoots));
+    s.world.setBlock({6, 64, 4}, S(blocks::CrimsonFungus));
+    s.world.setBlock({8, 70, 8}, S(blocks::Netherrack)); // weeping vines hang from it
+    s.world.setBlock({8, 69, 8}, S(blocks::WeepingVinesPlant));
+    s.world.setBlock({8, 68, 8}, S(blocks::WeepingVines));
+    s.world.setBlock({10, 64, 4}, S(blocks::NetherWart)); // nylium below: no soul sand
+    s.put({5, 64, 4}, S(blocks::Stone));                    // updates the roots and the fungus
+    s.put({7, 69, 8}, S(blocks::Stone));                    // updates the vine
+    s.put({11, 64, 4}, S(blocks::Stone));                   // updates the wart
+    s.tick(2);
+    CHECK(s.block({4, 64, 4}) == blocks::CrimsonRoots);
+    CHECK(s.block({6, 64, 4}) == blocks::CrimsonFungus);
+    CHECK(s.block({8, 69, 8}) == blocks::WeepingVinesPlant);
+    CHECK(s.block({8, 68, 8}) == blocks::WeepingVines);
+    CHECK(s.block({10, 64, 4}) == blocks::Air);
+}

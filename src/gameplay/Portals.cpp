@@ -222,9 +222,10 @@ bool completeEndPortal(World& world, const BlockPos& frame, std::vector<BlockPos
 bool useItem(World& world, Dimension dimension, ItemId item, const BlockPos& block, Direction face,
              std::vector<BlockPos>& changed) {
     const std::string_view id = itemRegistry().item(item).id;
-    if (id == "minecraft:flint_and_steel") {
+    if (id == "minecraft:flint_and_steel" || id == "minecraft:fire_charge") {
         // Fire goes in front of the clicked face; inside an obsidian frame it becomes a
-        // portal instead (wiki: Flint and Steel, Nether portal - not in the End).
+        // portal instead (wiki: Flint and Steel, Fire Charge, Nether portal - not in the
+        // End). A fire charge is used up (the caller), flint and steel wears.
         const glm::ivec3 n = normal(face);
         const BlockPos at{block.x + n.x, block.y + n.y, block.z + n.z};
         if (dimension != Dimension::End && light(world, at, changed)) return true;

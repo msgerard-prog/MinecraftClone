@@ -385,7 +385,8 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
     if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
-    if (m.type == MobType::Spider || m.type == MobType::Enderman) { // provoked (wiki)
+    if (m.type == MobType::Piglin) m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
+    if (m.type == MobType::Spider || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
         m.angry = true;
         m.targeting = true;
         m.angerTicks = 600;
@@ -533,6 +534,10 @@ void Mobs::tick(Context& ctx) {
             m.prevPitch = m.pitch;
             if (m.hurtTime > 0) --m.hurtTime;
             bool remove = false;
+            if (m.angerAlert) { // (also from one killed by the hit)
+                m.angerAlert = false;
+                if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
+            }
             if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
                 if (++m.deathTime == 1) die(ctx, m);
                 if (m.deathTime >= 20) remove = true;
@@ -540,10 +545,6 @@ void Mobs::tick(Context& ctx) {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_striders += m.type == MobType::Strider;
-                if (m.angerAlert) {
-                    m.angerAlert = false;
-                    if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
-                }
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
                 // vanish; beyond 32 they may after 30 s without a player near.
                 const double d2 = glm::dot(m.pos - playerPos, m.pos - playerPos);

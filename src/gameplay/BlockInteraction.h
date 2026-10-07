@@ -65,6 +65,10 @@ public:
                       Vitals& vitals, const InteractionInput& input, bool eyesInWater,
                       world::Xoroshiro& rng, std::vector<world::BlockPos>& changed,
                       std::vector<Drop>& drops);
+    // Drinking (M19.4; wiki: Potion, Milk Bucket): 32 ticks of holding use, in any
+    // mode; survival swaps the potion for a glass bottle (milk: the bucket), creative
+    // keeps it. Returns true while the held item is a drink being used.
+    bool tickDrinking(Inventory& inventory, Vitals& vitals, bool use, bool survival);
     // Crack overlay: the block being broken and progress 0..1 (no block: nullopt).
     std::optional<world::BlockPos> breakingBlock() const { return m_breaking; }
     float breakProgress() const { return m_progress; }

@@ -190,7 +190,9 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         }
         m_fallStartY = std::max(m_fallStartY, feetY);
     } else if (m_falling) {
-        const float amount = static_cast<float>(std::ceil(m_fallStartY - feetY - 3.0));
+        // Jump Boost: one block less per level (wiki: Jump Boost).
+        const float amount =
+            static_cast<float>(std::ceil(m_fallStartY - feetY - 3.0 - effectLevel(world::Effect::JumpBoost)));
         // Armor doesn't help with falls; Feather Falling and Protection do.
         const float reduced = protectionReduced(amount, Hit::Generic, true);
         if (reduced > 0.0f && damage(reduced, false)) hurt += reduced;

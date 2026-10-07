@@ -52,6 +52,8 @@ struct BrewingData {
     ItemStack ingredient, fuel;
     int fuelLeft = 0;
     int brewTime = 0;
+    ItemId brewing = 0; // the ingredient the running brew started with (not saved: a
+                        // loaded brew takes the slot's; vanilla also keeps it in memory)
 };
 
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.

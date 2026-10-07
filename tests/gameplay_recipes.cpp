@@ -191,3 +191,17 @@ TEST_CASE("brewing: water + nether wart = awkward in 400 ticks on one blaze powd
     CHECK(s.brewTime == 0);
     CHECK(s.bottles[0].potion == static_cast<uint8_t>(Potion::Awkward));
 }
+
+TEST_CASE("brewing: swapping the ingredient mid-brew stops the brew (M19 review)") {
+    BrewingData s;
+    s.bottles[0] = potionOf(Potion::Awkward);
+    s.ingredient = I("sugar");
+    s.fuelLeft = 5;
+    for (int t = 0; t < 10; ++t)
+        tickBrewing(s);
+    REQUIRE(s.brewTime > 0);
+    s.ingredient = I("fermented_spider_eye");
+    tickBrewing(s);
+    CHECK(s.bottles[0].potion == static_cast<uint8_t>(Potion::Awkward));
+    CHECK(s.ingredient.count == 1);
+}

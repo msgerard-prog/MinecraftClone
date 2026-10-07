@@ -115,7 +115,8 @@ bool tickBrewing(BrewingData& b) {
     for (const ItemStack& bottle : b.bottles)
         canBrew = canBrew || brewResult(b.ingredient, bottle).has_value();
     if (b.brewTime > 0) {
-        if (!canBrew) { // ingredient or bottles taken away: the brew stops (wiki)
+        if (b.brewing == 0) b.brewing = b.ingredient.item; // (after loading)
+        if (!canBrew || b.ingredient.item != b.brewing) { // ingredient changed or bottles taken: the brew stops
             b.brewTime = 0;
             return true;
         }
@@ -128,6 +129,7 @@ bool tickBrewing(BrewingData& b) {
     }
     if (canBrew && b.fuelLeft > 0) {
         b.brewTime = kBrewTicks;
+        b.brewing = b.ingredient.item;
         --b.fuelLeft;
         changed = true;
     }

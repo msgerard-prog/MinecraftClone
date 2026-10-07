@@ -626,6 +626,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         if (!R().opaqueCube(at(rel(p, Direction::Down))))
             pop(p); // (light is checked on placing and spreading)
         break;
+    case B::NetherWart: // grows only on soul sand (wiki: Nether Wart)
+        if (blockOf(at(rel(p, Direction::Down))) != B::SoulSand) pop(p);
+        break;
     case B::CrimsonFungus:
     case B::WarpedFungus:
     case B::CrimsonRoots:
@@ -634,9 +637,6 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::WeepingVines:
     case B::WeepingVinesPlant:
     case B::TwistingVines:
-    case B::NetherWart:
-        if (blockOf(at(rel(p, Direction::Down))) != B::SoulSand) pop(p);
-        break;
     case B::TwistingVinesPlant: {
         const BlockId b = blockOf(s);
         if (!netherPlantCanStay(m_world, p, b)) {

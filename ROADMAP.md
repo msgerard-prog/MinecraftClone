@@ -4,28 +4,30 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M18 done (reviews applied; v0.18.0): new worlds use the "overworld2" generator -
-ravines, lava lakes, springs, sugar cane/pumpkins/cacti/mushrooms, 10 more biomes
-(jungle, dark forest, cherry grove, ice spikes, mushroom fields...), jungle/dark oak/
-cherry woods, dungeons with spawners and loot, desert pyramids, jungle temples, igloos,
-swamp huts, mineshafts, strongholds with portal rooms and eyes of ender, villages
-(no villagers). M8 "overworld" worlds are unchanged. M1-M17 done (v0.17.1).
+M19 done (reviews applied; v0.19.0): new worlds use the "nether2" generator -
+crimson/warped forests, soul sand valleys, basalt deltas, fortresses (blaze spawners,
+nether wart, loot) and bastions (piglins, gold, loot); ghasts, blazes, magma cubes,
+zombified piglins, piglins (bartering), hoglins, striders; 14 status effects, potions,
+brewing stands, splash potions; eyes of ender are craftable. Older worlds keep the
+M12 Nether. M1-M18 done.
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M19 — Nether 2 (wiki: The Nether, Nether biomes, Nether Fortress, Bastion Remnant;
-a new Nether generator kind, the old one stays for existing worlds):
-1. ✅ M19.1 — Nether biomes: crimson and warped forests (nylium, fungi, stems, wart
-   blocks, shroomlights, vines), soul sand valley (soul soil, basalt pillars, bone
-   fossils), basalt deltas (basalt, blackstone, magma); 3D multi-noise biomes.
-2. ✅ M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,
-   gold), zombified piglins, hoglins, striders; spawning per biome.
-3. ✅ M19.3 — Nether fortresses (bridges, corridors, blaze spawners, nether wart, loot)
-   and bastion remnants (simplified, piglins, loot).
-4. M19.4 — Brewing: blaze powder, nether wart, brewing stand, the main potions and
-   their effects (status effects system); eyes of ender become craftable.
+M20 — The End 2 (wiki: The End, Ender Dragon, End Crystal, End Gateway, End City,
+Chorus Plant, Shulker; a new End generator kind, the old one stays for existing worlds):
+1. M20.1 — End generator kind "end2": iron cages and end crystals on the pillars,
+   outer islands beyond 1000 blocks, chorus plants and flowers, end stone bricks,
+   purpur blocks.
+2. M20.2 — Ender dragon: a multi-part flying entity with vanilla's phases (circling,
+   strafing with dragon fireballs, landing on the fountain, charging), crystals
+   healing it and exploding; its boss bar, death animation, experience, the exit
+   portal opening and the dragon egg; the fight saved in level.dat (DragonFight).
+3. M20.3 — End gateways (one per kill, up to 20, to the outer islands), respawning
+   the dragon with four crystals on the exit portal.
+4. M20.4 — End cities and end ships: shulkers (bullets, levitation, shells), loot,
+   elytra (gliding) in the ship.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -41,6 +43,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Terrain: whole-section fast paths (all air / all stone) using column min/max height.
 - Translucent sort: keep last order, insertion-sort.
 - Animated textures with HD packs: upload frames once to the GPU, copy per tick.
+- From the M19 perf review: path searches for angry zombified-piglin herds (30
+  chasers ~1-3 ms a tick, the first routine case near the 4 ms trigger: do the M16
+  pathfinder items plus a cap of ~4 chase searches a tick first); blazes/ghasts check
+  sight every tick (cache it for 5-10 ticks; a last-chunk cache in `raycastBlocks`);
+  piglins scan all dropped items for gold every tick (a gold-stack count, or every
+  10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
+  striders and blazes compute fluid contact twice a tick.
 - From the M16 perf review: classify each probed cell once per path search (cache
   standable/danger in the hash slot) and a 3x3 chunk-pointer cache in the pathfinder;
   explosion de-dup with a bitset over the blast cube (no sort) and per-ray chunk
@@ -106,6 +115,9 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M19 checks:** in creative, does drinking a potion keep it (ours: yes, and no
+  bottle)? Swap a brewing stand's ingredient mid-brew for another valid one: does the
+  brew stop (ours: yes)? Try it: `tools/run.sh --world "M19 test" --dimension nether`.
 - **M18 note:** "overworld2" is frozen as of v0.18.0 (pinned hash). Worlds you
   created with an M18 development build (before this tag) may show seams where later
   steps changed generation; re-create them. Try it: `tools/run.sh --world "M18 test"`,
@@ -187,7 +199,7 @@ and GUI textures are made with their systems.
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | ✅ 2026-10-07 v0.16.0 |
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, farming (brewing moved to M19) | ✅ 2026-10-07 v0.17.0 |
 | M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | ✅ 2026-10-07 v0.18.0 (basic structures, no aquifers: see deviations) |
-| M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | Nether as in 1.21 |
+| M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | ✅ 2026-10-07 v0.19.0 (basic structures, player-only effects: see deviations) |
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | Dragon can be beaten |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
@@ -201,6 +213,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M19 (v0.19.0): nether2 - 4 Nether biomes, fortresses, bastions, 7 Nether mobs, status effects, potions, brewing, splash potions.
 - 2026-10-07 M18 (v0.18.0): overworld2 - ravines, lakes, springs, 10 biomes, 3 woods, dungeons, temples, mineshafts, strongholds, villages.
 - 2026-10-07 M17 (v0.17.0): farming, chests, armor/shields, beds, experience, enchanting, anvils.
 - 2026-10-07 M16 (v0.16.0): falling blocks, pathfinding, farm animals, bows/arrows/eggs, explosions, skeletons, creepers, spiders, endermen.

@@ -1,6 +1,7 @@
 #include "world/Loot.h"
 
 #include "world/Enchantments.h"
+#include "world/Potions.h"
 
 #include <string>
 
@@ -100,12 +101,14 @@ constexpr LootEntry kDesertHouse1[] = {{"wheat", 1, 7, 10},   {"bread", 1, 4, 10
                                        {"clay_ball", 1, 1, 1}, {"green_dye", 1, 1, 1}};
 constexpr LootPool kDesertHouse[] = {{3, 8, kDesertHouse1}, {1, 1, kHouse2}};
 
-// wiki: Bartering (Java Edition; total 469 - the 1.21.6 dried ghast included). Items we
-// don't have yet (soul speed gear, potions, iron nuggets, crying obsidian, nether
-// bricks, spectral arrows, dried ghasts) give nothing.
+// wiki: Bartering (Java Edition; total 469 - the 1.21.6 dried ghast included). The
+// potions are Fire Resistance, the bottle water. Items we don't have yet (iron nuggets,
+// crying obsidian, nether bricks, spectral arrows, dried ghasts) give nothing; the
+// book and boots come without Soul Speed (no such enchantment yet).
+constexpr uint8_t kFireRes = static_cast<uint8_t>(Potion::FireResistance);
 constexpr LootEntry kBarter1[] = {
-    {"enchanted_book", 1, 1, 5},     {"iron_boots", 1, 1, 8},       {"potion", 1, 1, 8},
-    {"splash_potion", 1, 1, 8},      {"water_bottle", 1, 1, 10},    {"iron_nugget", 10, 36, 10},
+    {"enchanted_book", 1, 1, 5},     {"iron_boots", 1, 1, 8},       {"potion", 1, 1, 8, false, kFireRes},
+    {"splash_potion", 1, 1, 8, false, kFireRes}, {"potion", 1, 1, 10, false, static_cast<uint8_t>(Potion::Water)},    {"iron_nugget", 10, 36, 10},
     {"ender_pearl", 2, 4, 10},       {"string", 3, 9, 20},          {"quartz", 5, 12, 20},
     {"obsidian", 1, 1, 40},          {"crying_obsidian", 1, 3, 40}, {"fire_charge", 1, 1, 40},
     {"leather", 2, 4, 40},           {"soul_sand", 2, 8, 40},       {"nether_brick", 2, 8, 40},
@@ -179,7 +182,9 @@ ItemStack rollOne(LootTable table, Xoroshiro& rng) {
         const int n = e.min + static_cast<int>(rng.nextInt(uint32_t(e.max - e.min + 1)));
         const auto id = e.item.empty() ? std::nullopt : itemRegistry().find(e.item);
         if (!id) return {};
-        return {*id, static_cast<uint8_t>(std::min<int>(n, itemRegistry().item(*id).maxStack))};
+        ItemStack s{*id, static_cast<uint8_t>(std::min<int>(n, itemRegistry().item(*id).maxStack))};
+        s.potion = e.potion;
+        return s;
     }
     return {};
 }
@@ -208,6 +213,7 @@ void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots
             const auto id = chosen->item.empty() ? std::nullopt : items.find(chosen->item);
             if (!id || count >= 27) continue; // an item we don't have yet: nothing
             ItemStack s{*id, static_cast<uint8_t>(std::min<int>(n, items.item(*id).maxStack))};
+            s.potion = chosen->potion;
             if (chosen->enchant) { // one random enchantment at a random level (vanilla enchant_randomly)
                 for (int tries = 0; tries < 64; ++tries) { // (Thorns has no effect yet: never handed out)
                     const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));

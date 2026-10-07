@@ -116,6 +116,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   source plus a pending fluid tick, `Chunk::ticksRelative`) and more vegetation;
   "overworld" (version 1) stays for worlds created with it. `TerrainGenerator`
   (M3 placeholder, kind "terrain") stays too. Each pins a hash.
+  `NetherGenerator` is versioned the same way: "nether2" (M19, new worlds; level.dat
+  `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
+  Nether biomes (`biomeAt`), their surfaces and features (`netherFeatures`) and
+  fortresses/bastions; "nether" (M12) stays for older worlds.
 - Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
@@ -190,6 +194,16 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   picking from the player's XpSeed) and `gameplay/Anvil` (repair, combine, books,
   costs, prior work) back `ContainerScreen::Type::Enchanting/Anvil`; level spending
   and anvil wear happen in the tick (main) from the screen's requests.
+- Effects and potions (M19.4, `world/Potions`): `Effect` and `Potion` tables (vanilla
+  ids, durations, colours); `ItemStack::potion` is saved as `minecraft:potion_contents`.
+  `Vitals` holds up to 16 active effects (`addEffect`, `tickEffects`, saved as
+  active_effects); movement effects reach `Player::setEffects`, night vision
+  `WorldRenderer::setNightVision`, strength/weakness the melee damage in main.
+  Drinking is `BlockInteraction::tickDrinking` (both game modes). Brewing:
+  `gameplay/Brewing` (`brewResult`, `tickBrewing`) over `world::BrewingData` block
+  entities (`Chunk::brewingStands()`, ticked by main, `ContainerScreen::Type::Brewing`).
+  Splash potions are `ProjectileKind::SplashPotion` (`throwSplashPotion`; the area
+  effect on impact in `Projectiles::tick`).
 - Experience (M17.5): levels in `Vitals` (vanilla's points per level), `gameplay/
   ExperienceOrbs` (pooled orbs drawn to the player), sources: player kills
   (`Mobs::Context::orbs`), breeding, ores (`blockExperience`), furnaces (stored per

@@ -185,50 +185,78 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             }
             const bool fireball = p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
             if (p.kind == ProjectileKind::SplashPotion && (target != Target::None || block)) {
-                // Splash: everything within 4 blocks gets the effect, scaled by
-                // 1 - distance / 4 (a direct hit: full); healing and harming swap on the
-                // undead (wiki: Splash Potion, Undead).
+                // Splash (wiki: Splash Potion): entities whose hitbox touches an
+                // 8.25 x 4.25 x 8.25 box around the impact and whose nearest point is
+                // within 4 blocks get the effect, scaled by 1 - distance / 4 (a direct hit:
+                // full); healing and harming swap on the undead (wiki: Undead).
                 const glm::dvec3 at = p.pos + dir * reach;
-                const PotionInfo& info = potionInfo(static_cast<Potion>(p.potion));
+                const Aabb area{at - glm::dvec3(4.125, 2.125, 4.125), at + glm::dvec3(4.125, 2.125, 4.125)};
+                auto scaleFor = [&](const Aabb& box, bool direct) {
+                    if (direct) return 1.0;
+                    if (!box.intersects(area)) return 0.0;
+                    const glm::dvec3 nearest = glm::clamp(at, box.min, box.max);
+                    const double d = glm::length(nearest - at);
+                    return d < 4.0 ? 1.0 - d / 4.0 : 0.0;
+                };
+                const Potion potion = static_cast<Potion>(p.potion);
+                const PotionInfo& info = potionInfo(potion);
+                const bool water = potion == Potion::Water;
+                const MobData* direct =
+                    target == Target::Mob ? &world.chunk(mob.chunk)->mobs()[size_t(mob.index)] : nullptr;
                 if (info.effect != Effect::None) {
-                    auto scaleFor = [&](const Aabb& box, bool direct) {
-                        if (direct) return 1.0;
-                        const glm::dvec3 c = (box.min + box.max) * 0.5;
-                        const double d = glm::length(c - at);
-                        return d < 4.0 ? 1.0 - d / 4.0 : 0.0;
-                    };
                     const double sp = scaleFor(player.box(), target == Target::Player);
                     const bool hurtsPlayer = info.effect == Effect::InstantDamage || info.effect == Effect::Poison;
                     if (sp > 0.0 && vitals && (survival || !hurtsPlayer)) { // (creative takes no harm)
                         const int duration = int(info.duration * sp + 0.5);
-                        if (effectInfo(info.effect).instant || duration > 20)
+                        if (effectInfo(info.effect).instant || duration > 20) // (1 s or less: dropped)
                             vitals->addEffect(info.effect, info.amplifier, duration, sp);
                     }
-                    if (info.effect == Effect::InstantHealth || info.effect == Effect::InstantDamage) {
-                        const MobData* direct = target == Target::Mob ? &world.chunk(mob.chunk)->mobs()[size_t(mob.index)]
-                                                                      : nullptr;
-                        const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
-                        for (int dz = -1; dz <= 1; ++dz)
-                            for (int dx = -1; dx <= 1; ++dx)
-                                if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
-                                    for (MobData& m : ch->mobs()) {
-                                        const double sm = scaleFor(Mobs::box(m), &m == direct);
-                                        if (sm <= 0.0 || m.health <= 0.0f) continue;
+                }
+                // Mobs: instant health/damage (other effects reach only the player, our
+                // simplification); water hurts blazes, endermen and striders by 1.
+                if (info.effect == Effect::InstantHealth || info.effect == Effect::InstantDamage || water) {
+                    const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx)
+                            if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
+                                for (MobData& m : ch->mobs()) {
+                                    const double sm = scaleFor(Mobs::box(m), &m == direct);
+                                    if (sm <= 0.0 || m.health <= 0.0f) continue;
+                                    float amount = 0.0f;
+                                    bool harm = true;
+                                    if (water) {
+                                        if (m.type != MobType::Blaze && m.type != MobType::Enderman &&
+                                            m.type != MobType::Strider)
+                                            continue;
+                                        amount = 1.0f;
+                                    } else {
                                         const bool undead = m.type == MobType::Zombie || m.type == MobType::Skeleton ||
                                                             m.type == MobType::ZombifiedPiglin;
-                                        const bool harm = (info.effect == Effect::InstantDamage) != undead;
-                                        const float amount = float(harm ? 6 << info.amplifier
-                                                                                                : 4 << info.amplifier) *
-                                                             float(sm);
-                                        if (harm) {
-                                            m.health -= amount;
-                                            m.hurtTime = 10;
-                                            if (p.fromPlayer) m.lastHurtByPlayer = true;
-                                        } else {
-                                            m.health = std::min(mobInfo(m.type).maxHealth, m.health + amount);
-                                        }
+                                        harm = (info.effect == Effect::InstantDamage) != undead;
+                                        amount = float((harm ? 6 : 4) << info.amplifier) * float(sm);
                                     }
-                    }
+                                    if (harm) {
+                                        m.health -= amount;
+                                        m.hurtTime = 10;
+                                        if (p.fromPlayer) m.lastHurtByPlayer = true;
+                                    } else {
+                                        m.health = std::min(mobInfo(m.type).maxHealth, m.health + amount);
+                                    }
+                                }
+                }
+                if (water) { // puts out fire in the cell it broke in and the 4 beside it
+                    const BlockPos c = block && target == Target::None
+                                           ? BlockPos{block->block.x + normal(block->face).x,
+                                                      block->block.y + normal(block->face).y,
+                                                      block->block.z + normal(block->face).z}
+                                           : BlockPos{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
+                    const BlockPos cells[5] = {c, {c.x + 1, c.y, c.z}, {c.x - 1, c.y, c.z}, {c.x, c.y, c.z + 1},
+                                               {c.x, c.y, c.z - 1}};
+                    for (const BlockPos& f : cells)
+                        if (world.isInHeight(f.y) && blockRegistry().blockOf(world.getBlock(f)) == blocks::Fire) {
+                            world.updateBlock(f, 0);
+                            if (m_edits.size() < m_edits.capacity()) m_edits.push_back(f);
+                        }
                 }
                 remove = true;
             } else if (fireball && (target != Target::None || block)) {

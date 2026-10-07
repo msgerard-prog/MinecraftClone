@@ -35,6 +35,7 @@ struct LootEntry {
     uint8_t min = 1, max = 1;
     uint16_t weight = 1;
     bool enchant = false; // an enchanted book / item with one random enchantment
+    uint8_t potion = 0;   // potion items: their world::Potion
 };
 struct LootPool {
     uint8_t minRolls, maxRolls;

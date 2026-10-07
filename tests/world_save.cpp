@@ -1036,3 +1036,15 @@ TEST_CASE("brewing stands save their bottles, ingredient, fuel and timers") {
     CHECK(r->fuelLeft == 17);
     CHECK(r->brewTime == 123);
 }
+
+TEST_CASE("level.dat keeps the Nether generator kind as written, even one this build lacks") {
+    for (const char* kind : {"nether", "nether2", "nether9"}) {
+        TempDir dir("mc_test_nethergen");
+        LevelData l;
+        l.netherGenerator = kind;
+        REQUIRE(l.save(dir.path));
+        const auto r = LevelData::load(dir.path);
+        REQUIRE(r);
+        CHECK(r->netherGenerator == kind);
+    }
+}

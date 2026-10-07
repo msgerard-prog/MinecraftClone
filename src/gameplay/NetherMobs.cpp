@@ -174,7 +174,9 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
                     if (ctx.projectiles)
                         ctx.projectiles->shoot(ProjectileKind::BlazeFireball, centre + dir * 0.8, dir, 0.9,
                                                std::sqrt(d) * 0.5, false, false, ctx.rng, m.uuidHi);
-                    if (--m.volley == 0) m.chargeTicks = 0;
+                    // After the third shot: 0.3 s, then 5 s of rest before the next 3 s charge
+                    // (wiki: Blaze).
+                    if (--m.volley == 0) m.chargeTicks = -106;
                 }
             }
         } else {
@@ -267,7 +269,7 @@ void Mobs::spawnNether(Context& ctx) {
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit() || !c->biomes()) return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
-    if (c->blockLight(lx, y, lz) > 11) return;
+    const bool bright = c->blockLight(lx, y, lz) > 11; // (ghasts ignore light)
     if (!blockRegistry().collides(ctx.world.getBlock({x, y - 1, z}))) return;
     struct Entry {
         MobType type;
@@ -289,7 +291,7 @@ void Mobs::spawnNether(Context& ctx) {
     } else
         switch (biome) {
     case Biome::SoulSandValley:
-        table = {{{MobType::Ghast, 50, 1, 1}, {MobType::Skeleton, 20, 5, 5}, {MobType::Enderman, 1, 4, 4}}};
+        table = {{{MobType::Ghast, 50, 1, 1}, {MobType::Skeleton, 20, 4, 4}, {MobType::Enderman, 1, 1, 4}}};
         n = 3;
         break;
     case Biome::BasaltDeltas:
@@ -325,6 +327,9 @@ void Mobs::spawnNether(Context& ctx) {
         }
         roll -= table[size_t(i)].weight;
     }
+    // Ghasts: any light, but only 5% of the attempts that pick them succeed (wiki:
+    // Nether Wastes et al.); every other mob needs block light 11 or less.
+    if (e.type == MobType::Ghast ? ctx.rng.nextInt(20) != 0 : bright) return;
     const int group = e.minGroup + static_cast<int>(ctx.rng.nextInt(uint32_t(e.maxGroup - e.minGroup + 1)));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + (i == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);

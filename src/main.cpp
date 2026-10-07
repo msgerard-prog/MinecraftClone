@@ -308,6 +308,11 @@ int main(int argc, char** argv) {
     const std::string generatorKind = level ? level->generator : opts->generator;
     // The Nether's generator (M19): new worlds get the newest; old ones keep theirs.
     const std::string netherKind = level ? level->netherGenerator : std::string("nether2");
+    if (netherKind != "nether" && netherKind != "nether2") {
+        MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have", worldName.c_str(),
+                     netherKind.c_str());
+        return 1;
+    }
     if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
@@ -854,6 +859,7 @@ int main(int argc, char** argv) {
         }
 
         const double now = mc::timeSeconds();
+        const double frameSeconds = now - last;
         // Full frame period (includes swap, i.e. waiting for the GPU / vsync).
         // Skips the first frame after meshing: it includes one-off driver warm-up
         // (first multi-draw), which is not a steady-state cost.
@@ -1426,6 +1432,7 @@ int main(int argc, char** argv) {
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             } else {
+                interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
                 interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
                                  mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
                                      mc::world::ToolType::Sword);
@@ -1489,7 +1496,7 @@ int main(int argc, char** argv) {
                 else if (inventory.offhand().item == shieldItem)
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
-            projectiles.tick(world, player, survival && !dead ? &vitals : nullptr, inventory, survival, gameRng);
+            projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival, gameRng);
             // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
             // third of the open spots around it); blaze fireballs lit blocks.
             for (const glm::dvec3& at : projectiles.explosions()) {
@@ -1630,7 +1637,8 @@ int main(int argc, char** argv) {
                                          .fog;
                 if (fog) {
                     const glm::vec3 target(float(fog >> 16) / 255.0f, float((fog >> 8) & 255) / 255.0f, float(fog & 255) / 255.0f);
-                    netherFog = glm::mix(netherFog, target, 0.03f);
+                    // (3% per 1/60 s, whatever the frame rate)
+                    netherFog = glm::mix(netherFog, target, 1.0f - std::pow(0.97f, float(frameSeconds * 60.0)));
                 }
             }
             renderer.setNetherFog(netherFog);

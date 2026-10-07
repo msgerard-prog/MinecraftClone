@@ -285,7 +285,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             l.flat = *g == "flat";
             if (!l.flat) l.generator = *g;
         }
-        if (auto g = ours->string("nether_generator"); g && (*g == "nether" || *g == "nether2")) l.netherGenerator = *g;
+        if (auto g = ours->string("nether_generator")) l.netherGenerator = *g; // (unknown kinds: main refuses)
         if (const List* portals = ours->list("portals"))
             for (const Tag& t : portals->items)
                 if (const Compound* c = t.get<Compound>(); c && c->string("dimension"))

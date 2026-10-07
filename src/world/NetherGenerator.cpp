@@ -187,12 +187,10 @@ void NetherGenerator::generate(Chunk& out) const {
                         if (floor) blocks[at(x, y, z)] = warpedNylium;
                         break;
                     case Biome::SoulSandValley: // soul sand and soul soil, a few deep, on every open face
-                        if (floor || ceiling || positional(m_seed, baseX + x, y, baseZ + z, 0x5501) < 0.15) {
+                        if (floor || ceiling) {
                             const BlockStateId s = n > 0.0 ? soulSand : soulSoil;
-                            if (floor || ceiling) {
-                                blocks[at(x, y, z)] = s;
-                                if (floor && y > 1 && blocks[at(x, y - 1, z)] == netherrack) blocks[at(x, y - 1, z)] = s;
-                            }
+                            blocks[at(x, y, z)] = s;
+                            if (floor && y > 1 && blocks[at(x, y - 1, z)] == netherrack) blocks[at(x, y - 1, z)] = s;
                         }
                         break;
                     case Biome::BasaltDeltas: // basalt with blackstone patches over everything open
@@ -420,17 +418,27 @@ void NetherGenerator::netherFeatures(BlockStateId* blocks, ChunkPos pos, const s
     // Basalt deltas: shallow lava pools rimmed with magma, basalt columns.
     if (centre == Biome::BasaltDeltas) {
         for (int d = 0; d < 6; ++d) {
-            const int x = 2 + static_cast<int>(rng.nextInt(12)), z = 2 + static_cast<int>(rng.nextInt(12));
+            // (kept 3 from the chunk edge so a pool and its rim never cross into a
+            // neighbour chunk)
+            const int x = 3 + static_cast<int>(rng.nextInt(10)), z = 3 + static_cast<int>(rng.nextInt(10));
             const int y = floorBelow(x, 32 + static_cast<int>(rng.nextInt(80)), z);
             if (y < 0) continue;
             const int rad = 1 + static_cast<int>(rng.nextInt(2));
+            const int g = y - 1;
             for (int dx = -rad - 1; dx <= rad + 1; ++dx)
                 for (int dz = -rad - 1; dz <= rad + 1; ++dz) {
-                    const int g = y - 1;
                     if (get(x + dx, g, z + dz) == 0 || get(x + dx, g + 1, z + dz) != 0) continue;
                     const bool rim = std::abs(dx) > rad || std::abs(dz) > rad;
                     set(x + dx, g, z + dz, rim ? magma : lava);
                 }
+            // Lava open to the air at its own level (a cliff edge) would pour out as
+            // soon as anything updates it: such cells become magma too.
+            for (int dx = -rad; dx <= rad; ++dx)
+                for (int dz = -rad; dz <= rad; ++dz)
+                    if (get(x + dx, g, z + dz) == lava &&
+                        (get(x + dx - 1, g, z + dz) == 0 || get(x + dx + 1, g, z + dz) == 0 ||
+                         get(x + dx, g, z + dz - 1) == 0 || get(x + dx, g, z + dz + 1) == 0))
+                        set(x + dx, g, z + dz, magma);
         }
         for (int c = 0; c < 8; ++c) {
             const int x = static_cast<int>(rng.nextInt(16)), z = static_cast<int>(rng.nextInt(16));

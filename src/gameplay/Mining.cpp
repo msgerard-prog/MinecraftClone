@@ -26,7 +26,6 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Sandstone:
     case blocks::RedSandstone:
     case blocks::Terracotta:
-    case blocks::BrewingStand: // (wiki: any pickaxe)
     case blocks::NetherBricks:
     case blocks::NetherBrickFence:
     case blocks::PolishedBlackstoneBricks:
@@ -92,6 +91,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::StickyPiston:
     case blocks::PistonHead:
     case blocks::StoneButton:
+    case blocks::BrewingStand: // wiki: Brewing Stand - any tool, a pickaxe is fastest
         return {T::Pickaxe, -1};
     case blocks::OakButton:
         return {T::Axe, -1};

@@ -1,5 +1,6 @@
 // Health, hunger and fall damage (wiki: Health, Hunger, Fall damage).
 #include "gameplay/Vitals.h"
+#include "world/Potions.h"
 
 #include <doctest/doctest.h>
 
@@ -167,4 +168,11 @@ TEST_CASE("effects: regeneration heals, poison stops at 1, instant health/damage
     CHECK(v.effectLevel(Effect::Speed) == 2);
     v.reset();
     CHECK(v.effectLevel(Effect::Speed) == 0); // death clears effects
+}
+
+TEST_CASE("jump boost takes one block per level off a fall") {
+    Vitals a, b;
+    b.addEffect(mc::world::Effect::JumpBoost, 1, 1000); // level II
+    CHECK(fall(a, 6.0) == 3.0f);
+    CHECK(fall(b, 6.0) == 1.0f);
 }
