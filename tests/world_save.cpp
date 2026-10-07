@@ -459,3 +459,43 @@ TEST_CASE("level.dat keeps game mode, health and hunger") {
     CHECK(back->saturation == 1.5f);
     CHECK(back->exhaustion == 2.25f);
 }
+
+TEST_CASE("furnaces save as block entities with their contents and timers") {
+    Chunk c({-2, 3});
+    World w;
+    FurnaceData& f = c.addFurnace(4, 70, 9);
+    f.input = {*itemRegistry().find("raw_iron"), 5};
+    f.fuel = {*itemRegistry().find("coal"), 2};
+    f.output = {*itemRegistry().find("iron_ingot"), 3};
+    f.burnLeft = 800;
+    f.cookTime = 120;
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    REQUIRE(nbt.list("block_entities"));
+    const auto* e = nbt.list("block_entities")->items[0].get<mc::nbt::Compound>();
+    CHECK(*e->string("id") == "minecraft:furnace");
+    CHECK(e->integer("x") == -32 + 4);
+    CHECK(e->integer("z") == 48 + 9);
+    CHECK(e->find("BurnTime")->type() == mc::nbt::TagType::Short);
+    Chunk d({-2, 3});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(nbt)), d));
+    const FurnaceData* back = d.furnace(4, 70, 9);
+    REQUIRE(back);
+    CHECK(back->input.count == 5);
+    CHECK(back->fuel.count == 2);
+    CHECK(itemRegistry().item(back->output.item).id == "minecraft:iron_ingot");
+    CHECK(back->burnLeft == 800);
+    CHECK(back->cookTime == 120);
+}
+
+TEST_CASE("placing and breaking a furnace block creates and removes its block entity") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 64, 1}, S(blocks::Furnace));
+    CHECK(w.chunk({0, 0})->furnace(1, 64, 1) != nullptr);
+    const auto lit = *blockRegistry().with(S(blocks::Furnace), "lit", "true");
+    w.setBlock({1, 64, 1}, lit); // a state change keeps it
+    CHECK(w.chunk({0, 0})->furnace(1, 64, 1) != nullptr);
+    CHECK(blockRegistry().lightEmission(lit) == 13);
+    w.setBlock({1, 64, 1}, 0);
+    CHECK(w.chunk({0, 0})->furnace(1, 64, 1) == nullptr);
+}

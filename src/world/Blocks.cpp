@@ -14,6 +14,7 @@ const Property lit{"lit", {"true", "false"}};
 const Property distance{"distance", {"1", "2", "3", "4", "5", "6", "7"}};
 const Property persistent{"persistent", {"true", "false"}};
 const Property layers{"layers", {"1", "2", "3", "4", "5", "6", "7", "8"}};
+const Property facing{"facing", {"north", "south", "west", "east"}};
 } // namespace properties
 
 namespace {
@@ -164,6 +165,14 @@ BlockRegistry buildVanillaBlocks() {
                          .layer = RenderLayer::Cutout},
                 {{&layers, "1"}}),
           blocks::Snow);
+    // Workstations (wiki: Crafting Table 2.5; Furnace 3.5, emits 13 when lit).
+    check(r.add("crafting_table", {.hardness = 2.5f, .resistance = 2.5f}), blocks::CraftingTable);
+    check(r.add("furnace", {.hardness = 3.5f, .resistance = 3.5f}, {{&facing, "north"}, {&lit, "false"}}),
+          blocks::Furnace);
+    for (uint32_t i = 0; i < r.block(blocks::Furnace).stateCount; ++i) {
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::Furnace).firstState + i);
+        if (r.value(s, "lit") == "true") r.setStateEmission(s, 13);
+    }
     return r;
 }
 

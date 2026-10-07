@@ -239,6 +239,26 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
                 m = single(v);
+            } else if (name == "crafting_table") {
+                BakedVariant v = cubeAll(sprite("crafting_table_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("crafting_table_top");
+                v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
+                v.faces[int(Direction::North)].sprite = sprite("crafting_table_front");
+                v.faces[int(Direction::West)].sprite = sprite("crafting_table_front");
+                m = single(v);
+            } else if (name == "furnace") {
+                // Orientable: the front faces `facing`, lit shows the burning front.
+                const bool lit = registry.value(state, "lit") == "true";
+                const auto facing = registry.value(state, "facing").value_or("north");
+                BakedVariant v = cubeAll(sprite("furnace_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("furnace_top");
+                v.faces[int(Direction::Down)].sprite = sprite("furnace_top");
+                const Direction front = facing == "south" ? Direction::South
+                                        : facing == "west" ? Direction::West
+                                        : facing == "east" ? Direction::East
+                                                           : Direction::North;
+                v.faces[int(front)].sprite = sprite(lit ? "furnace_front_on" : "furnace_front");
+                m = single(v);
             } else if (name == "snow") {
                 // Layers: a box 2 texels per layer high (vanilla snow_height* models).
                 const int layers = std::stoi(std::string(registry.value(state, "layers").value_or("1")));

@@ -13,6 +13,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.pos = chunk.pos();
     s.gameTime = gameTime;
     s.biomes = chunk.biomes();
+    s.furnaces = chunk.furnaces();
     for (int i = 0; i < kSectionsPerChunk; ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
@@ -71,6 +72,32 @@ std::vector<int8_t> nibbles(const LightLayer& layer) {
         out[size_t(i)] = static_cast<int8_t>(lo | (hi << 4));
     }
     return out;
+}
+
+} // namespace
+
+namespace {
+
+// An item stack as vanilla 1.20.5+ saves it: id, count, components.
+nbt::Compound itemNbt(const ItemStack& s, int slot) {
+    nbt::Compound c;
+    c.put("Slot", static_cast<int8_t>(slot));
+    c.put("id", itemRegistry().item(s.item).id);
+    c.put("count", int32_t{s.count});
+    nbt::Compound components;
+    if (s.damage) components.put("minecraft:damage", int32_t{s.damage});
+    if (!components.entries.empty()) c.put("components", std::move(components));
+    return c;
+}
+
+ItemStack itemFromNbt(const nbt::Compound& c) {
+    const std::string* id = c.string("id");
+    const auto item = id ? itemRegistry().find(*id) : std::nullopt;
+    if (!item) return {};
+    ItemStack s{*item, static_cast<uint8_t>(std::clamp<int64_t>(c.integer("count").value_or(1), 1, 64))};
+    if (const nbt::Compound* comps = c.compound("components"))
+        s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
+    return s;
 }
 
 } // namespace
@@ -158,6 +185,26 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         sections.emplace_back(std::move(sec));
     }
     root.put("sections", nbt::listOf(nbt::TagType::Compound, std::move(sections)));
+    // Block entities (wiki: Chunk format › block_entities; Furnace › Block data, 1.21.1).
+    std::vector<nbt::Tag> entities;
+    for (const auto& f : chunk.furnaces) {
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:furnace"));
+        e.put("x", int32_t{chunk.pos.x * 16 + f.x});
+        e.put("y", int32_t{f.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + f.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items;
+        const ItemStack* slots[3] = {&f.data.input, &f.data.fuel, &f.data.output};
+        for (int i = 0; i < 3; ++i)
+            if (!slots[i]->empty()) items.emplace_back(itemNbt(*slots[i], i));
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        e.put("BurnTime", static_cast<int16_t>(f.data.burnLeft));
+        e.put("CookTime", static_cast<int16_t>(f.data.cookTime));
+        e.put("CookTimeTotal", int16_t{200});
+        entities.emplace_back(std::move(e));
+    }
+    root.put("block_entities", nbt::listOf(nbt::TagType::Compound, std::move(entities)));
     return root;
 }
 
@@ -248,6 +295,28 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
         }
         chunk.mutableSection(index).assign(states.data());
     }
+    // Block entities (furnaces) inside this chunk.
+    if (const nbt::List* entities = root.list("block_entities"))
+        for (const nbt::Tag& t : entities->items) {
+            const nbt::Compound* e = t.get<nbt::Compound>();
+            const std::string* id = e ? e->string("id") : nullptr;
+            if (!id || *id != "minecraft:furnace") continue;
+            const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
+            const int y = static_cast<int>(e->integer("y").value_or(kMinY - 1));
+            const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
+            if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(y)) continue;
+            FurnaceData& f = chunk.addFurnace(x, y, z);
+            if (const nbt::List* items = e->list("Items"))
+                for (const nbt::Tag& it : items->items)
+                    if (const nbt::Compound* c = it.get<nbt::Compound>()) {
+                        const auto slot = c->integer("Slot").value_or(-1);
+                        ItemStack* dst = slot == 0 ? &f.input : slot == 1 ? &f.fuel : slot == 2 ? &f.output : nullptr;
+                        if (dst) *dst = itemFromNbt(*c);
+                    }
+            f.burnLeft = static_cast<int>(e->integer("BurnTime").value_or(0));
+            f.burnDuration = f.burnLeft; // not saved by vanilla: the gauge restarts full
+            f.cookTime = static_cast<int>(e->integer("CookTime").value_or(0));
+        }
     chunk.setBiomes(std::move(biomes));
     return true;
 }

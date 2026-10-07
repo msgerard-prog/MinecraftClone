@@ -41,8 +41,11 @@ bool ChunkStorage::load(Chunk& chunk) {
         std::lock_guard lock(m_mutex);
         if (auto it = m_pending.find(pos); it != m_pending.end()) {
             // Not written yet: copy the queued snapshot's sections.
+            const ChunkSnapshot& snap = it->second.snapshot;
             for (int s = 0; s < kSectionsPerChunk; ++s)
-                chunk.mutableSection(s) = *it->second.snapshot.sections[size_t(s)];
+                chunk.mutableSection(s) = *snap.sections[size_t(s)];
+            if (snap.biomes) chunk.setBiomes(snap.biomes);
+            chunk.furnaces() = snap.furnaces;
             chunk.clearDirty();
             return true;
         }

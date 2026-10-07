@@ -14,6 +14,7 @@ extern const Property lit;        // true | false (redstone ore, furnace...)
 extern const Property distance;   // 1..7 (leaves: steps to the nearest log)
 extern const Property persistent; // true | false (leaves placed by a player)
 extern const Property layers;     // 1..8 (snow)
+extern const Property facing;     // north | south | west | east (horizontal facing)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -86,6 +87,8 @@ enum : BlockId {
     OxeyeDaisy,
     DeadBush,
     Snow, // snow layers (1..8)
+    CraftingTable,
+    Furnace, // facing, lit
     Count
 };
 } // namespace blocks

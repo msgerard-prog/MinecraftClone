@@ -75,6 +75,8 @@ public:
     bool collides(BlockStateId state) const { return m_stateCollides[state] != 0; }
     uint8_t lightOpacity(BlockStateId state) const { return m_stateOpacity[state]; }
     uint8_t lightEmission(BlockStateId state) const { return m_stateEmission[state]; }
+    // Registration time: light depending on state (furnace lit=true emits 13).
+    void setStateEmission(BlockStateId state, uint8_t level) { m_stateEmission[state] = level; }
     RenderLayer layer(BlockStateId state) const;
 
     // Property access by name. Return nullopt for unknown property/value.

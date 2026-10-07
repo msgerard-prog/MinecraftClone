@@ -1,0 +1,83 @@
+// Crafting and smelting (wiki: Crafting, each item's recipe, Smelting, Fuel).
+#include "gameplay/Recipes.h"
+
+#include <doctest/doctest.h>
+
+#include <array>
+
+using namespace mc;
+using namespace mc::world;
+
+namespace {
+
+ItemStack I(const char* name, int n = 1) { return {*itemRegistry().find(name), static_cast<uint8_t>(n)}; }
+std::string out(std::span<const ItemStack> grid, int size) {
+    const auto r = craft(grid, size);
+    return r ? itemRegistry().item(r->item).id + "x" + std::to_string(r->count) : "";
+}
+
+} // namespace
+
+TEST_CASE("crafting: logs -> 4 planks anywhere; planks -> sticks; 2x2 crafting table") {
+    std::array<ItemStack, 4> g{};
+    g[3] = I("birch_log");
+    CHECK(out(g, 2) == "minecraft:birch_planksx4");
+    g = {I("oak_planks"), {}, I("spruce_planks"), {}}; // mixed planks still make sticks
+    CHECK(out(g, 2) == "minecraft:stickx4");
+    g = {I("oak_planks"), I("oak_planks"), I("oak_planks"), I("oak_planks")};
+    CHECK(out(g, 2) == "minecraft:crafting_tablex1");
+    g = {I("oak_planks"), I("oak_planks"), I("oak_planks"), {}};
+    CHECK(out(g, 2).empty());
+}
+
+TEST_CASE("crafting: tools need the 3x3 table; shapes may be mirrored but not rotated") {
+    const ItemStack p = I("oak_planks"), s = I("stick"), c = I("cobblestone"), e{};
+    std::array<ItemStack, 9> pick = {p, p, p, e, s, e, e, s, e};
+    CHECK(out(pick, 3) == "minecraft:wooden_pickaxex1");
+    std::array<ItemStack, 9> axe = {c, c, e, c, s, e, e, s, e};
+    CHECK(out(axe, 3) == "minecraft:stone_axex1");
+    std::array<ItemStack, 9> axeMirrored = {e, c, c, e, s, c, e, s, e};
+    CHECK(out(axeMirrored, 3) == "minecraft:stone_axex1");
+    std::array<ItemStack, 9> sword = {e, e, I("diamond"), e, e, I("diamond"), e, e, s};
+    CHECK(out(sword, 3) == "minecraft:diamond_swordx1");
+    std::array<ItemStack, 9> furnace = {c, c, c, c, e, c, c, c, c};
+    CHECK(out(furnace, 3) == "minecraft:furnacex1");
+    std::array<ItemStack, 9> torch = {e, I("charcoal"), e, e, s, e, e, e, e};
+    CHECK(out(torch, 3) == "minecraft:torchx4");
+    std::array<ItemStack, 9> broken = {p, p, p, e, s, e, e, e, s};
+    CHECK(out(broken, 3).empty());
+}
+
+TEST_CASE("smelting and fuel: raw iron -> ingot, logs -> charcoal; coal burns 1600 ticks") {
+    CHECK(itemRegistry().item(smelt(I("raw_iron"))->item).id == "minecraft:iron_ingot");
+    CHECK(itemRegistry().item(smelt(I("spruce_log"))->item).id == "minecraft:charcoal");
+    CHECK(itemRegistry().item(smelt(I("sand"))->item).id == "minecraft:glass");
+    CHECK_FALSE(smelt(I("stick")).has_value());
+    CHECK(fuelTicks(I("coal")) == 1600);
+    CHECK(fuelTicks(I("oak_planks")) == 300);
+    CHECK(fuelTicks(I("stick")) == 100);
+    CHECK(fuelTicks(I("wooden_pickaxe")) == 200);
+    CHECK(fuelTicks(I("diamond")) == 0);
+}
+
+#include "gameplay/Furnace.h"
+
+TEST_CASE("furnace: one coal smelts 8 items, 200 ticks each; no fuel used without input") {
+    Furnace f;
+    f.fuel = I("coal", 2);
+    for (int t = 0; t < 50; ++t)
+        tickFurnace(f);
+    CHECK(f.fuel.count == 2); // nothing to smelt: fuel not lit
+    CHECK_FALSE(f.lit());
+    f.input = I("raw_iron", 10);
+    int litChanges = 0;
+    for (int t = 0; t < 1600; ++t)
+        litChanges += tickFurnace(f);
+    CHECK(f.output.count == 8); // 1600 ticks of coal = 8 items
+    CHECK(itemRegistry().item(f.output.item).id == "minecraft:iron_ingot");
+    CHECK(f.input.count == 2);
+    CHECK(litChanges >= 1);
+    for (int t = 0; t < 400; ++t)
+        tickFurnace(f);
+    CHECK(f.output.count == 10); // second coal took over
+}

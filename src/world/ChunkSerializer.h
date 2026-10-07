@@ -5,6 +5,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 namespace mc::world {
 
@@ -19,6 +20,7 @@ struct ChunkSnapshot {
     std::array<std::shared_ptr<const Section>, kSectionsPerChunk> sections;
     std::array<std::shared_ptr<const SectionLight>, kSectionsPerChunk> light; // may be null
     std::shared_ptr<const ChunkBiomes> biomes;
+    std::vector<Chunk::FurnaceEntry> furnaces; // block entities
     int64_t gameTime = 0; // written as LastUpdate
 
     static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);

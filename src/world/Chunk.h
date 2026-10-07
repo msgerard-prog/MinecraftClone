@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Biome.h"
+#include "world/BlockEntity.h"
 #include "world/Coords.h"
 #include "world/Light.h"
 #include "world/Section.h"
@@ -10,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace mc::world {
 
@@ -51,6 +53,7 @@ public:
         m_lit = false;
         m_dirty = false;
         m_biomes = defaultBiomes();
+        m_furnaces.clear();
         lightJob = {};
         for (auto& l : m_light)
             l.reset();
@@ -99,6 +102,29 @@ public:
         return plains;
     }
 
+    // Block entities (M9: furnaces), keyed by position inside the chunk. Main thread.
+    struct FurnaceEntry {
+        int x, y, z; // local x/z, world y
+        FurnaceData data;
+    };
+    FurnaceData* furnace(int x, int y, int z) {
+        for (auto& f : m_furnaces)
+            if (f.x == x && f.y == y && f.z == z) return &f.data;
+        return nullptr;
+    }
+    FurnaceData& addFurnace(int x, int y, int z) {
+        if (FurnaceData* f = furnace(x, y, z)) return *f;
+        m_dirty = true;
+        m_furnaces.push_back({x, y, z, {}});
+        return m_furnaces.back().data;
+    }
+    void removeBlockEntity(int x, int y, int z) {
+        std::erase_if(m_furnaces, [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
+    }
+    std::vector<FurnaceEntry>& furnaces() { return m_furnaces; }
+    const std::vector<FurnaceEntry>& furnaces() const { return m_furnaces; }
+    void markDirty() { m_dirty = true; }
+
     // Changed since it was generated / loaded / last saved (needs saving).
     bool dirty() const { return m_dirty; }
     void clearDirty() { m_dirty = false; }
@@ -120,6 +146,7 @@ private:
     bool m_lit = false;
     bool m_dirty = false;
     std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();
+    std::vector<FurnaceEntry> m_furnaces;
 };
 
 } // namespace mc::world

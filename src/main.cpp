@@ -24,7 +24,9 @@
 #include "rendering/EntityRenderer.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
+#include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
+#include "gameplay/Furnace.h"
 #include "ui/Hud.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
@@ -198,8 +200,14 @@ int main(int argc, char** argv) {
     mc::gfx::ItemIcons itemIcons;
     itemIcons.build(renderer.atlas());
     mc::ui::CreativeInventory creative;
+    mc::ui::ContainerScreen container; // survival inventory, crafting table, furnace
+    mc::world::BlockPos containerBlock{};
+    std::vector<mc::world::ItemStack> screenDrops;
+    screenDrops.reserve(16);
     creative.build(renderer.models());
-    if (opts->inventory) creative.open();
+    // --inventory: the creative screen, or in survival the inventory (2x2 crafting) screen;
+    // opened after the first tick so --command "/gamemode ..." applies first.
+    bool openInventoryPending = opts->inventory;
     bool numberWasDown[mc::Inventory::kHotbar] = {};
     bool showDebug = opts->debugScreen;
     std::array<char, 64> typed{};
@@ -422,6 +430,20 @@ int main(int argc, char** argv) {
 
     while (!window.shouldClose()) {
         window.pollEvents();
+        // The open furnace screen follows its block (closed if it was broken).
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
+            mc::world::Chunk* c = world.chunk(containerBlock.chunk());
+            mc::world::FurnaceData* f =
+                c ? c->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                               mc::world::blockToLocal(containerBlock.z))
+                  : nullptr;
+            if (f) container.setFurnace(f);
+            else {
+                screenDrops.clear();
+                container.close(inventory, screenDrops);
+                if (!screenshotMode) window.setCursorCaptured(true);
+            }
+        }
         // Text typed this frame (only the chat consumes it).
         const int typedCount = window.takeText(typed.data(), static_cast<int>(typed.size()));
         if (chat.isOpen()) {
@@ -445,6 +467,33 @@ int main(int argc, char** argv) {
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
                            mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
+        } else if (container.isOpen()) {
+            int fw = 0, fh = 0;
+            window.framebufferSize(fw, fh);
+            const int scale = mc::gfx::GuiRenderer::guiScale(fw, fh);
+            double mx = 0, my = 0;
+            window.cursorPos(mx, my);
+            mx /= scale;
+            my /= scale;
+            const bool shift = window.keyDown(mc::Key::LeftShift);
+            screenDrops.clear();
+            for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
+                container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale, fh / scale,
+                                inventory, screenDrops);
+            for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n)
+                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale, fh / scale,
+                                inventory, screenDrops);
+            if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
+                container.close(inventory, screenDrops);
+                if (!screenshotMode) window.setCursorCaptured(true);
+                attackArmed = false;
+            }
+            for (const auto& d : screenDrops) // thrown out of the screen
+                droppedItems.throwFrom(player.eyePosition(1.0),
+                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), d, gameRng);
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Backspace,
+                           mc::Press::Up, mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
+                window.takePresses(p);
         } else if (creative.isOpen()) {
             int fw = 0, fh = 0;
             window.framebufferSize(fw, fh);
@@ -488,8 +537,23 @@ int main(int argc, char** argv) {
                     chat.open();
                     window.setCursorCaptured(false);
                 } else if (window.takePresses(mc::Press::Inventory) > 0) {
-                    creative.open();
+                    if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
+                    else creative.open();
                     window.setCursorCaptured(false);
+                } else if (lastHit && !window.keyDown(mc::Key::LeftShift) && window.takePresses(mc::Press::RightMouse) > 0) {
+                    // Using a workstation opens its screen (sneaking places against it).
+                    const auto& reg = mc::world::blockRegistry();
+                    const auto block = reg.blockOf(world.getBlock(lastHit->block));
+                    if (block == mc::world::blocks::CraftingTable) {
+                        container.open(mc::ui::ContainerScreen::Type::Crafting);
+                        window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::Furnace) {
+                        containerBlock = lastHit->block;
+                        container.open(mc::ui::ContainerScreen::Type::Furnace);
+                        window.setCursorCaptured(false);
+                    } else {
+                        window.addPress(mc::Press::RightMouse); // not a workstation: a normal use
+                    }
                 }
             } else {
                 window.takePresses(mc::Press::Chat);
@@ -611,6 +675,20 @@ int main(int argc, char** argv) {
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
             droppedItems.tick(world, player.box(), !dead, inventory);
+            // Furnaces smelt in every loaded chunk (block entities tick, wiki).
+            world.forEachChunk([&](mc::world::Chunk& c) {
+                for (auto& f : c.furnaces()) {
+                    const bool changedLit = mc::tickFurnace(f.data);
+                    if (f.data.lit() || f.data.cookTime > 0 || changedLit) c.markDirty();
+                    if (!changedLit) continue;
+                    const mc::world::BlockPos p{c.pos().x * 16 + f.x, f.y, c.pos().z * 16 + f.z};
+                    const auto state = world.getBlock(p);
+                    world.setBlock(p, mc::world::blockRegistry()
+                                          .with(state, "lit", f.data.lit() ? "true" : "false")
+                                          .value_or(state));
+                    frameEdits.push_back(p); // relit, then re-meshed
+                }
+            });
             renderer.tick();
             ++dayTime; // the daylight cycle advances one tick per tick
             ++gameTime;
@@ -627,6 +705,11 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        if (openInventoryPending && gameTime > 0) {
+            openInventoryPending = false;
+            if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
+            else creative.open();
+        }
         if (spawnPending) { // new player: stand on solid ground once it's generated
             if (const auto safe = settleSpawn(world, spawn)) {
                 player.setPosition(*safe);
@@ -699,6 +782,10 @@ int main(int argc, char** argv) {
                 fpsFrames = 0;
                 fpsStart = now;
             }
+            if (container.isOpen())
+                container.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH,
+                               [&] { double x = 0, y = 0; window.cursorPos(x, y); return x / scale; }(),
+                               [&] { double x = 0, y = 0; window.cursorPos(x, y); return y / scale; }());
             if (creative.isOpen()) {
                 double mx = 0, my = 0;
                 window.cursorPos(mx, my);

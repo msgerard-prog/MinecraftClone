@@ -76,6 +76,7 @@ public:
     double scrollDelta() const { return m_scrollDelta; }
     void setTitle(const char* title);
     // Presses since the last call (and resets the count).
+    void addPress(Press p) { ++m_presses[static_cast<int>(p)]; } // re-queue a press
     int takePresses(Press p) {
         const int n = m_presses[static_cast<int>(p)];
         m_presses[static_cast<int>(p)] = 0;

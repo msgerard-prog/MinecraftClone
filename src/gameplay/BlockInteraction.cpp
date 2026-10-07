@@ -2,10 +2,25 @@
 
 #include "gameplay/Mining.h"
 
+#include <cmath>
+
 #include "world/Blocks.h"
 #include "world/Rotation.h"
 
 namespace mc {
+
+namespace {
+
+// A container's contents drop when it breaks (wiki: Furnace › Breaking).
+void dropContents(world::World& world, const world::BlockPos& p, std::vector<BlockInteraction::Drop>* drops) {
+    world::Chunk* c = world.chunk(p.chunk());
+    if (!c || !drops) return;
+    if (const world::FurnaceData* f = c->furnace(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
+        for (const world::ItemStack* s : {&f->input, &f->fuel, &f->output})
+            if (!s->empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, *s});
+}
+
+} // namespace
 
 std::optional<world::RayHit> BlockInteraction::target(const world::World& world,
                                                       const Player& player) {
@@ -76,7 +91,15 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         if (torch &&
             (hit->face != world::Direction::Up || !reg.collides(world.getBlock(hit->block))))
             return;
-        world.setBlock(at, orientedState(placeState, hit->face));
+        world::BlockStateId state = orientedState(placeState, hit->face);
+        // Horizontal facing blocks (furnace) face the player (wiki: Furnace).
+        if (reg.value(state, "facing")) {
+            const float yaw = std::fmod(std::fmod(player.yaw(), 360.0f) + 360.0f, 360.0f);
+            const int q = static_cast<int>(std::floor((yaw + 45.0f) / 90.0f)) % 4; // 0 S,1 W,2 N,3 E (look)
+            static constexpr const char* kTowardPlayer[4] = {"north", "east", "south", "west"};
+            state = reg.with(state, "facing", kTowardPlayer[q]).value_or(state);
+        }
+        world.setBlock(at, state);
         changed.push_back(at);
         placed = true;
     }
@@ -127,6 +150,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             if (m_heldTicks >= ticks) {
                 for (const world::ItemStack& d : blockDrops(state, inventory.selectedStack(), rng))
                     drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
+                dropContents(world, hit->block, &drops);
                 world.setBlock(hit->block, 0);
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block

@@ -1,5 +1,7 @@
 #include "world/World.h"
 
+#include "world/Blocks.h"
+
 namespace mc::world {
 
 Chunk& World::createChunk(ChunkPos pos) {
@@ -38,7 +40,14 @@ BlockStateId World::getBlock(const BlockPos& p) const {
 }
 
 void World::setBlock(const BlockPos& p, BlockStateId state) {
-    if (Chunk* c = chunk(p.chunk())) c->set(blockToLocal(p.x), p.y, blockToLocal(p.z), state);
+    Chunk* c = chunk(p.chunk());
+    if (!c) return;
+    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    c->set(x, p.y, z, state);
+    // Block entities follow their block (a furnace's contents are dropped by the
+    // caller before it breaks it).
+    if (blockRegistry().blockOf(state) == blocks::Furnace) c->addFurnace(x, p.y, z);
+    else if (!c->furnaces().empty()) c->removeBlockEntity(x, p.y, z);
 }
 
 } // namespace mc::world
