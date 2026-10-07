@@ -210,6 +210,47 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         if (ctx.changed) ctx.changed->push_back(at);
         return {true, format("Changed the block at %d, %d, %d", at.x, at.y, at.z)};
     }
+    if (a[0] == "fill") {
+        // /fill <from> <to> <block> (wiki: Commands/fill): every block is placed first,
+        // then the neighbours are updated; at most 32768 blocks.
+        if (!ctx.world || a.size() != 8) return fail("Usage: /fill <x1> <y1> <z1> <x2> <y2> <z2> <block>");
+        const glm::dvec3 p = ctx.player.position();
+        std::optional<double> c[6];
+        for (int i = 0; i < 6; ++i)
+            c[i] = coordinate(a[size_t(1 + i)], i % 3 == 0 ? p.x : i % 3 == 1 ? p.y : p.z, false);
+        for (const auto& v : c)
+            if (!v) return fail("Invalid position");
+        const auto state = world::blockRegistry().parse(a[7]);
+        if (!state) return fail(format("Unknown block '%.*s'", int(a[7].size()), a[7].data()));
+        int lo[3], hi[3];
+        for (int i = 0; i < 3; ++i) {
+            const int u = int(std::floor(*c[i])), v = int(std::floor(*c[i + 3]));
+            lo[i] = std::min(u, v);
+            hi[i] = std::max(u, v);
+        }
+        const int64_t volume = int64_t(hi[0] - lo[0] + 1) * (hi[1] - lo[1] + 1) * (hi[2] - lo[2] + 1);
+        if (volume > 32768) return fail(format("Too many blocks in the specified area (maximum 32768, specified %lld)", (long long)volume));
+        for (int y = lo[1]; y <= hi[1]; ++y)
+            for (int z = lo[2]; z <= hi[2]; ++z)
+                for (int x = lo[0]; x <= hi[0]; ++x)
+                    if (!world::isInBuildHeight(y) || !ctx.world->chunk(world::BlockPos{x, y, z}.chunk()))
+                        return fail("That position is not loaded");
+        std::vector<std::pair<world::BlockPos, world::BlockStateId>> old;
+        for (int y = lo[1]; y <= hi[1]; ++y)
+            for (int z = lo[2]; z <= hi[2]; ++z)
+                for (int x = lo[0]; x <= hi[0]; ++x) {
+                    const world::BlockPos at{x, y, z};
+                    const world::BlockStateId was = ctx.world->getBlock(at);
+                    if (was == *state) continue;
+                    old.emplace_back(at, was);
+                    ctx.world->setBlock(at, *state);
+                    if (ctx.changed) ctx.changed->push_back(at);
+                }
+        if (old.empty()) return fail("No blocks were filled");
+        for (const auto& [at, was] : old)
+            ctx.world->notifyChanged(at, was, *state);
+        return {true, format("Successfully filled %d block(s)", int(old.size()))};
+    }
     if (a[0] == "summon") {
         // /summon <zombie|cow> [x y z] (wiki: Commands/summon).
         if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5)) return fail("Usage: /summon <entity> [x y z]");
@@ -236,7 +277,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp"};
+    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

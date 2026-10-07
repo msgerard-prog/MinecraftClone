@@ -42,6 +42,10 @@ public:
         if (m_listener) m_listener->onBlockChanged(p, old, state);
     }
     void setListener(BlockUpdateListener* listener) { m_listener = listener; }
+    // Neighbour updates for a change already made with setBlock (/fill).
+    void notifyChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
+        if (m_listener) m_listener->onBlockChanged(p, old, now);
+    }
 
     // Dimension property: the Nether and the End have no sky light.
     bool hasSkyLight() const { return m_hasSkyLight; }

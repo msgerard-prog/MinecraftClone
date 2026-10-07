@@ -667,9 +667,16 @@ int main(int argc, char** argv) {
         for (int i = 0; i < clock.ticksDue; ++i) {
             redstone.setTime(gameTime);
             redstone.setCreative(!survival);
-            for (const auto& line : pendingChat)
-                runChatLine(line);
-            pendingChat.clear();
+            // Commands wait until the player's chunk is there (--command scripts run
+            // before the world has streamed in otherwise).
+            if (!pendingChat.empty() && world.chunk(mc::world::ChunkPos{
+                                            mc::world::blockToChunk(int(std::floor(player.position().x))),
+                                            mc::world::blockToChunk(int(std::floor(player.position().z)))}) &&
+                !spawnPending && !arrival) {
+                for (const auto& line : pendingChat)
+                    runChatLine(line);
+                pendingChat.clear();
+            }
             for (const auto& t : pendingThrows)
                 droppedItems.throwFrom(player.eyePosition(1.0),
                                        glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), t, gameRng);
