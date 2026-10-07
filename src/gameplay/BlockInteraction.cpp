@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "world/Blocks.h"
+#include "world/Redstone.h"
 #include "world/Rotation.h"
 
 namespace mc {
@@ -59,16 +60,25 @@ void BlockInteraction::tick(world::World& world, const Player& player,
 
     if (attack && m_destroyCooldown == 0 && !holdingSword) {
         dropContents(world, hit->block, drops); // containers drop their items in every mode
-        world.setBlock(hit->block, 0);
+        world.updateBlock(hit->block, 0);
         changed.push_back(hit->block);
         m_destroyCooldown = kDestroyDelay;
         return; // one action per tick
     }
-    if (use && m_useCooldown == 0 && placeState != 0) {
+    if (use && m_useCooldown == 0) {
+        if (useBlock(player, *hit)) return;
+        if (placeState == 0) return;
         m_useCooldown = kUseDelay;
         bool placed = false;
         place(world, player, *hit, placeState, changed, placed);
     }
+}
+
+bool BlockInteraction::useBlock(const Player& player, const world::RayHit& hit) {
+    // Right-click acts on usable blocks unless sneaking (vanilla), repeating while held.
+    if (!m_redstone || player.sneaking() || !m_redstone->use(hit.block)) return false;
+    m_useCooldown = kUseDelay;
+    return true;
 }
 
 void BlockInteraction::place(world::World& world, const Player& player, const world::RayHit& hitRef,
@@ -80,9 +90,9 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world::isInBuildHeight(at.y)) return;
         const world::BlockStateId existing = world.getBlock(at);
-        // Air and fluids can be replaced (not by torches: they can't exist in water).
+        // Air and fluids can be replaced (not by torches, dust...: they can't exist in water).
         const bool torch = reg.blockOf(placeState) == world::blocks::Torch;
-        if (existing != 0 && (reg.blockOf(existing) != world::blocks::Water || torch)) return;
+        if (existing != 0 && (reg.blockOf(existing) != world::blocks::Water || !reg.collides(placeState))) return;
         const Aabb blockBox{{at.x, at.y, at.z}, {at.x + 1.0, at.y + 1.0, at.z + 1.0}};
         if (reg.collides(placeState) && player.box().intersects(blockBox))
             return; // not inside the player
@@ -96,13 +106,17 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             return;
         world::BlockStateId state = orientedState(placeState, hit->face);
         // Horizontal facing blocks (furnace) face the player (wiki: Furnace).
-        if (reg.value(state, "facing")) {
+        if (reg.blockOf(state) == world::blocks::Furnace) {
             const float yaw = std::fmod(std::fmod(player.yaw(), 360.0f) + 360.0f, 360.0f);
             const int q = static_cast<int>(std::floor((yaw + 45.0f) / 90.0f)) % 4; // 0 S,1 W,2 N,3 E (look)
             static constexpr const char* kTowardPlayer[4] = {"north", "east", "south", "west"};
             state = reg.with(state, "facing", kTowardPlayer[q]).value_or(state);
         }
-        world.setBlock(at, state);
+        // Redstone components: wall torches, attachment faces, facings, support.
+        const auto fitted = world::Redstone::placement(world, state, at, hit->face, player.yaw(), player.pitch());
+        if (!fitted) return;
+        state = *fitted;
+        world.updateBlock(at, state);
         changed.push_back(at);
         placed = true;
     }
@@ -157,7 +171,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 for (const world::ItemStack& d : m_dropScratch)
                     drops.push_back({{hit->block.x + 0.5, hit->block.y + 0.25, hit->block.z + 0.5}, d});
                 dropContents(world, hit->block, &drops);
-                world.setBlock(hit->block, 0);
+                world.updateBlock(hit->block, 0);
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
                 // Tools wear 1 per block, swords 2 (wiki: Durability); blocks that break
@@ -180,8 +194,10 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         }
     }
 
-    // Placing uses up the held block.
-    if (use && m_useCooldown == 0 && hit && held.block) {
+    // Using a block (lever, button...), else placing, which uses up the held block.
+    if (use && m_useCooldown == 0 && hit && useBlock(player, *hit)) {
+        // used
+    } else if (use && m_useCooldown == 0 && hit && held.block) {
         m_useCooldown = kUseDelay;
         bool placed = false;
         place(world, player, *hit, inventory.placeState(), changed, placed);

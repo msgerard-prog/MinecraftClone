@@ -25,6 +25,7 @@
 #include "rendering/EntityRenderer.h"
 #include "rendering/Frustum.h"
 #include "world/DayTime.h"
+#include "world/Redstone.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
@@ -409,6 +410,8 @@ int main(int argc, char** argv) {
     };
     if (storage && !level) saveWorld(false); // a new world gets its level.dat at once
     mc::BlockInteraction interaction;
+    mc::world::Redstone redstone(world); // block updates, scheduled ticks, redstone (M11)
+    interaction.setRedstone(&redstone);
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
     bool attackArmed = false; // the click that captures the mouse must not break a block
@@ -617,6 +620,8 @@ int main(int argc, char** argv) {
         clock.advance(now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
+            redstone.setTime(gameTime);
+            redstone.setCreative(!survival);
             for (const auto& line : pendingChat)
                 runChatLine(line);
             pendingChat.clear();
@@ -723,6 +728,13 @@ int main(int argc, char** argv) {
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems};
+            // Scheduled block ticks and block events (vanilla: before entities).
+            redstone.tick();
+            frameEdits.insert(frameEdits.end(), redstone.changed().begin(), redstone.changed().end());
+            redstone.changed().clear();
+            for (const auto& d : redstone.drops())
+                droppedItems.spawn({d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5}, d.stack, gameRng);
+            redstone.drops().clear();
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
@@ -781,6 +793,7 @@ int main(int argc, char** argv) {
             const mc::world::ChunkPos center{
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.x))),
                 mc::world::blockToChunk(static_cast<int32_t>(std::floor(camera.position.z)))};
+            loader->setGameTime(gameTime);
             loader->update(center, loadedChunks, unloadedChunks);
         }
         // Lighting follows loading and edits; meshing follows lighting.

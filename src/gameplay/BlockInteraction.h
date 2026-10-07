@@ -10,6 +10,10 @@
 #include <optional>
 #include <vector>
 
+namespace mc::world {
+class Redstone;
+}
+
 namespace mc {
 
 // Mouse buttons for one tick.
@@ -67,10 +71,15 @@ public:
     static constexpr int kEatTicks = 32; // wiki: Food (1.61 s)
     static constexpr int kSurvivalBreakDelay = 6; // wiki: Breaking - 6 ticks before the next block
 
+    // Levers, buttons, repeaters and dust react to right-clicks through this.
+    void setRedstone(world::Redstone* redstone) { m_redstone = redstone; }
+
 private:
+    bool useBlock(const Player& player, const world::RayHit& hit);
     void place(world::World& world, const Player& player, const world::RayHit& hit,
                world::BlockStateId state, std::vector<world::BlockPos>& changed, bool& placed);
 
+    world::Redstone* m_redstone = nullptr;
     int m_destroyCooldown = 0;
     int m_useCooldown = 0;
     std::optional<world::BlockPos> m_breaking;
