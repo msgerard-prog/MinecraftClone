@@ -2,6 +2,7 @@
 
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
 
 #include <cmath>
 #include <string_view>
@@ -105,6 +106,9 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     const ItemDef& item = itemRegistry().item(held.item);
     if (!held.empty() && h.tool != ToolType::None && item.tool == h.tool && harvest)
         speed = tierInfo(item.tier).speed;
+    // Efficiency adds level^2 + 1 when the tool speeds this block up (wiki: Efficiency).
+    if (const int eff = enchantLevel(held, Enchantment::Efficiency); eff > 0 && speed > 1.0f)
+        speed += float(eff * eff + 1);
     // Swords cut leaves and plants 1.5x faster (wiki: Sword).
     if (!held.empty() && item.tool == ToolType::Sword) {
         const std::string_view id = reg.block(reg.blockOf(state)).id;
@@ -148,6 +152,20 @@ const DropIds& dropIds() {
 
 } // namespace
 
+namespace {
+void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>& out);
+} // namespace
+
+ItemStack wearItem(ItemStack s, int amount, Xoroshiro& rng) {
+    if (s.empty()) return s;
+    const int durability = itemRegistry().item(s.item).durability;
+    if (durability <= 0) return s;
+    const int unbreaking = enchantLevel(s, Enchantment::Unbreaking);
+    for (int i = 0; i < amount; ++i)
+        if (unbreaking == 0 || rng.nextInt(uint32_t(unbreaking + 1)) == 0) ++s.damage;
+    return s.damage >= durability ? ItemStack{} : s;
+}
+
 int blockExperience(BlockStateId state, Xoroshiro& rng) {
     auto between = [&](int lo, int hi) { return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1))); };
     switch (blockRegistry().blockOf(state)) {
@@ -169,6 +187,48 @@ int blockExperience(BlockStateId state, Xoroshiro& rng) {
 
 void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out, bool anyTool) {
     if (!anyTool && !canHarvest(state, held)) return;
+    // Silk Touch: the block itself, for blocks that otherwise drop something else
+    // (wiki: Silk Touch).
+    if (enchantLevel(held, Enchantment::SilkTouch) > 0) {
+        switch (blockRegistry().blockOf(state)) {
+        case blocks::Stone: case blocks::GrassBlock: case blocks::Glass: case blocks::Ice: case blocks::PackedIce:
+        case blocks::CoalOre: case blocks::DeepslateCoalOre: case blocks::DiamondOre: case blocks::DeepslateDiamondOre:
+        case blocks::EmeraldOre: case blocks::DeepslateEmeraldOre: case blocks::LapisOre: case blocks::DeepslateLapisOre:
+        case blocks::RedstoneOre: case blocks::DeepslateRedstoneOre: case blocks::IronOre: case blocks::DeepslateIronOre:
+        case blocks::GoldOre: case blocks::DeepslateGoldOre: case blocks::CopperOre: case blocks::DeepslateCopperOre:
+        case blocks::NetherQuartzOre: case blocks::NetherGoldOre: case blocks::Gravel: case blocks::Clay:
+        case blocks::OakLeaves: case blocks::BirchLeaves: case blocks::SpruceLeaves: case blocks::AcaciaLeaves:
+        case blocks::Deepslate: case blocks::Snow: case blocks::ShortGrass: case blocks::Fern:
+            if (const ItemId it = itemRegistry().blockItem(blockRegistry().blockOf(state))) {
+                out.push_back({it, 1});
+                return;
+            }
+            break;
+        default: break;
+        }
+    }
+    const size_t before = out.size();
+    blockDropsPlain(state, rng, out);
+    // Fortune: ore drops x (1 + max(0, rand(level + 2) - 1)) (wiki: Fortune).
+    if (const int fortune = enchantLevel(held, Enchantment::Fortune); fortune > 0) {
+        switch (blockRegistry().blockOf(state)) {
+        case blocks::CoalOre: case blocks::DeepslateCoalOre: case blocks::DiamondOre: case blocks::DeepslateDiamondOre:
+        case blocks::EmeraldOre: case blocks::DeepslateEmeraldOre: case blocks::LapisOre: case blocks::DeepslateLapisOre:
+        case blocks::RedstoneOre: case blocks::DeepslateRedstoneOre: case blocks::NetherQuartzOre:
+        case blocks::IronOre: case blocks::DeepslateIronOre: case blocks::GoldOre: case blocks::DeepslateGoldOre:
+        case blocks::CopperOre: case blocks::DeepslateCopperOre: {
+            const int mult = 1 + std::max(0, int(rng.nextInt(uint32_t(fortune + 2))) - 1);
+            for (size_t i = before; i < out.size(); ++i)
+                out[i].count = uint8_t(std::min(64, out[i].count * mult));
+            break;
+        }
+        default: break;
+        }
+    }
+}
+
+namespace {
+void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>& out) {
     const auto& reg = blockRegistry();
     const DropIds& d = dropIds();
     const BlockId b = reg.blockOf(state);
@@ -250,5 +310,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
         return;
     }
 }
+
+} // namespace
 
 } // namespace mc

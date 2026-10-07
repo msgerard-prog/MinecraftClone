@@ -29,6 +29,10 @@ int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onG
 // What a broken block drops (wiki: each block's "Drops"). Empty if it can't be
 // harvested with `held`.
 // Appends to `out` (no allocation when it has room).
+// A durable item used `amount` times: each use is skipped with chance level/(level+1)
+// under Unbreaking (wiki: Unbreaking); returns the stack, empty once it breaks.
+world::ItemStack wearItem(world::ItemStack s, int amount, world::Xoroshiro& rng);
+
 // Experience a mined block gives (wiki: Experience › ores): coal 0-2, diamond and
 // emerald 3-7, lapis and quartz 2-5, redstone 1-5, nether gold 0-1; 0 otherwise.
 int blockExperience(world::BlockStateId state, world::Xoroshiro& rng);

@@ -157,6 +157,14 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             }
             components.put("minecraft:block_state", std::move(props));
         }
+        if (!it.enchantments.empty()) {
+            Compound ench;
+            for (const auto& [id, lvl] : it.enchantments)
+                ench.put(id, int32_t{lvl});
+            components.put(it.storedEnchantments ? "minecraft:stored_enchantments" : "minecraft:enchantments",
+                           std::move(ench));
+        }
+        if (it.repairCost) components.put("minecraft:repair_cost", int32_t{it.repairCost});
         if (!components.entries.empty()) item.put("components", std::move(components));
         if (it.slot >= 100) { // equipment: no Slot field
             static constexpr const char* kKeys[4] = {"feet", "legs", "chest", "head"};
@@ -299,7 +307,17 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             saved.count = static_cast<int>(item.integer("count").value_or(1));
             std::string st = *id;
             const Compound* comps = item.compound("components");
-            if (comps) saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
+            if (comps) {
+                saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
+                saved.repairCost = static_cast<int>(comps->integer("minecraft:repair_cost").value_or(0));
+                for (const char* key : {"minecraft:enchantments", "minecraft:stored_enchantments"})
+                    if (const Compound* ench = comps->compound(key)) {
+                        const Compound* levels = ench->compound("levels") ? ench->compound("levels") : ench;
+                        saved.storedEnchantments = std::string_view(key) == "minecraft:stored_enchantments";
+                        for (const auto& e : levels->entries)
+                            if (const auto lvl = levels->integer(e.name)) saved.enchantments.emplace_back(e.name, int(*lvl));
+                    }
+            }
             const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
             if (props && !props->entries.empty()) {
                 st += '[';

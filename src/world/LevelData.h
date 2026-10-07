@@ -54,6 +54,9 @@ struct LevelData {
         std::string state;
         int count = 1;
         int damage = 0;
+        std::vector<std::pair<std::string, int>> enchantments; // ("minecraft:sharpness", 5)
+        int repairCost = 0;
+        bool storedEnchantments = false; // an enchanted book's (minecraft:stored_enchantments)
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;

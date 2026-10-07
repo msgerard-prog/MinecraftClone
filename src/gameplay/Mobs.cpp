@@ -403,7 +403,9 @@ void Mobs::die(Context& ctx, MobData& m) {
                 break;
             }
         }
-        const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1)));
+        // Looting: up to one more per level (wiki: Looting).
+        const int extra = m.lastHurtByPlayer ? static_cast<int>(ctx.rng.nextInt(uint32_t(m.looting) + 1)) : 0;
+        const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1))) + extra;
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)

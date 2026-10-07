@@ -35,9 +35,10 @@ TEST_CASE("inventory armor: points, toughness, equipping from the hand, wear bre
     inv.setSlot(0, I("golden_helmet")); // swaps with the worn helmet
     CHECK(inv.equipSelected());
     CHECK(inv.slot(0).item == I("iron_helmet").item);
-    inv.wearArmor(76); // golden helmet: 77 uses
+    Xoroshiro rng(1);
+    inv.wearArmor(76, rng); // golden helmet: 77 uses
     CHECK_FALSE(inv.armor(0).empty());
-    inv.wearArmor(1);
+    inv.wearArmor(1, rng);
     CHECK(inv.armor(0).empty());
     inv.setSlot(1, I("stick"));
     inv.select(1);

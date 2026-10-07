@@ -33,6 +33,7 @@
 #include "core/Version.h"
 #include "world/DayTime.h"
 #include "world/BlockUpdates.h"
+#include "world/Enchantments.h"
 #include "world/NetherGenerator.h"
 #include "gameplay/Buckets.h"
 #include "gameplay/FluidContact.h"
@@ -422,6 +423,10 @@ int main(int argc, char** argv) {
                 if (st.starts_with("minecraft:")) st.remove_prefix(10);
                 if (const auto bs = mc::world::blockRegistry().parse(st)) s.state = *bs;
             }
+            for (const auto& [eid, lvl] : it.enchantments)
+                if (const auto e = mc::world::findEnchantment(eid))
+                    mc::world::setEnchantment(s, *e, std::clamp(lvl, 1, 255));
+            s.repairCost = static_cast<uint8_t>(std::clamp(it.repairCost, 0, 255));
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
             else if (it.slot == 150) inventory.setOffhand(s);
@@ -508,9 +513,15 @@ int main(int argc, char** argv) {
         l.fire = vitals.fireTicks();
         auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
             if (s.empty()) return;
-            l.inventory.push_back({slot, mc::world::itemRegistry().item(s.item).id,
-                                   s.state ? mc::world::blockRegistry().toString(s.state) : std::string(),
-                                   s.count, s.damage});
+            mc::world::LevelData::SavedItem it{slot, mc::world::itemRegistry().item(s.item).id,
+                                               s.state ? mc::world::blockRegistry().toString(s.state) : std::string(),
+                                               s.count, s.damage};
+            for (const uint16_t v : s.enchantments)
+                if (v) it.enchantments.emplace_back(
+                    std::string(mc::world::enchantmentInfo(mc::world::Enchantment(v >> 8)).id), int(v & 0xFF));
+            it.repairCost = s.repairCost;
+            it.storedEnchantments = it.id == "minecraft:enchanted_book";
+            l.inventory.push_back(std::move(it));
         };
         for (int i = 0; i < mc::Inventory::kSlots; ++i)
             saveSlot(i, inventory.slot(i));
@@ -1023,9 +1034,11 @@ int main(int argc, char** argv) {
                 if (!arrival) {
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying());
                     // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
-                    vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water));
+                    const int respiration = mc::world::enchantLevel(inventory.armor(0), mc::world::Enchantment::Respiration);
+                    vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water),
+                                   respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
                     if (player.inLava()) {
-                        vitals.attacked(4.0f); // lava: armor reduces it (wiki: Armor)
+                        vitals.attacked(4.0f, nullptr, mc::Vitals::Hit::Fire); // lava: armor reduces it (wiki: Armor)
                         vitals.setOnFire(300); // 15 s
                     }
                     vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
@@ -1086,9 +1099,7 @@ int main(int argc, char** argv) {
                         }
                     if (survival) {
                         if (def.durability > 0) { // flint and steel wears 1 per use
-                            mc::world::ItemStack worn = held;
-                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
-                            inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? mc::world::ItemStack{} : worn);
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                         } else {
                             inventory.consumeSelected(1);
                         }
@@ -1107,6 +1118,19 @@ int main(int argc, char** argv) {
                 shieldTicks = !dead && clicks.use && shieldInHand ? shieldTicks + 1 : 0;
                 const glm::dvec3 facing(mc::world::forwardFlat(player.yaw()));
                 vitals.setArmor(inventory.armorPoints(), inventory.armorToughness());
+                {
+                    using E = mc::world::Enchantment;
+                    int prot[5] = {};
+                    for (int piece = 0; piece < 4; ++piece) {
+                        const auto& a = inventory.armor(piece);
+                        prot[0] += mc::world::enchantLevel(a, E::Protection);
+                        prot[1] += mc::world::enchantLevel(a, E::FireProtection);
+                        prot[2] += mc::world::enchantLevel(a, E::BlastProtection);
+                        prot[3] += mc::world::enchantLevel(a, E::ProjectileProtection);
+                        prot[4] += mc::world::enchantLevel(a, E::FeatherFalling);
+                    }
+                    vitals.setProtection(prot[0], prot[1], prot[2], prot[3], prot[4]);
+                }
                 vitals.setShield(shieldTicks >= 5, player.eyePosition(1.0), facing);
                 if (!dead && clicks.useClick && inventory.equipSelected()) { // armor in hand: put it on
                     clicks.useClick = false;
@@ -1140,11 +1164,7 @@ int main(int argc, char** argv) {
                 if (def.tool == mc::world::ToolType::Hoe &&
                     mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
                     frameEdits.push_back(lastHit->block);
-                    if (survival) { // a hoe wears 1 per tilled block
-                        mc::world::ItemStack worn = held;
-                        worn.damage = static_cast<uint16_t>(worn.damage + 1);
-                        inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? mc::world::ItemStack{} : worn);
-                    }
+                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng)); // 1 per block
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (held.item == boneMealItem && blockUpdates.boneMeal(lastHit->block)) {
@@ -1165,14 +1185,8 @@ int main(int argc, char** argv) {
                     if (use != mc::Mobs::Use::None) {
                         world.chunk(mh->chunk)->markDirty();
                         if (survival && use == mc::Mobs::Use::Fed) inventory.consumeSelected(1);
-                        if (survival && use == mc::Mobs::Use::Sheared) { // shears wear 1 per sheep
-                            mc::world::ItemStack worn = held;
-                            worn.damage = static_cast<uint16_t>(worn.damage + 1);
-                            inventory.setSlot(inventory.selected(),
-                                              worn.damage >= mc::world::itemRegistry().item(held.item).durability
-                                                  ? mc::world::ItemStack{}
-                                                  : worn);
-                        }
+                        if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                         clicks.useClick = false;
                         clicks.use = false;
                     }
@@ -1237,8 +1251,33 @@ int main(int argc, char** argv) {
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, reach);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    const auto& held = mc::world::itemRegistry().item(inventory.selectedStack().item);
-                    mc::Mobs::attack(m, inventory.selectedStack().empty() ? 1.0f : held.attackDamage, player.position());
+                    const auto& stack = inventory.selectedStack();
+                    const auto& held = mc::world::itemRegistry().item(stack.item);
+                    // Weapon enchantments (wiki): Sharpness +0.5 per level +0.5, Smite and
+                    // Bane of Arthropods +2.5 per level against their mobs.
+                    using E = mc::world::Enchantment;
+                    float dmg = stack.empty() ? 1.0f : held.attackDamage;
+                    if (const int s = mc::world::enchantLevel(stack, E::Sharpness)) dmg += 0.5f * float(s) + 0.5f;
+                    if (m.type == mc::world::MobType::Zombie || m.type == mc::world::MobType::Skeleton)
+                        dmg += 2.5f * float(mc::world::enchantLevel(stack, E::Smite));
+                    if (m.type == mc::world::MobType::Spider)
+                        dmg += 2.5f * float(mc::world::enchantLevel(stack, E::BaneOfArthropods));
+                    const bool hit = m.hurtTime == 0 && m.deathTime == 0;
+                    m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
+                    mc::Mobs::attack(m, dmg, player.position());
+                    if (hit) {
+                        // Knockback: farther per level; Fire Aspect: alight 4 s per level.
+                        if (const int kb = mc::world::enchantLevel(stack, E::Knockback)) {
+                            glm::dvec2 d(m.pos.x - player.position().x, m.pos.z - player.position().z);
+                            if (glm::length(d) > 1e-6) d = glm::normalize(d) * (0.5 * kb);
+                            m.vel += glm::dvec3(d.x, 0.1, d.y);
+                        }
+                        if (const int fa = mc::world::enchantLevel(stack, E::FireAspect))
+                            m.fireTicks = std::max<int16_t>(m.fireTicks, int16_t(80 * fa));
+                        if (survival && held.durability > 0) // weapons wear 1 per hit (wiki: Durability)
+                            inventory.setSlot(inventory.selected(),
+                                              mc::wearItem(stack, held.tool == mc::world::ToolType::Sword ? 1 : 2, gameRng));
+                    }
                     if (survival) vitals.exhaust(0.1f); // wiki: attacking
                     clicks.attackClick = false;
                     clicks.attack = false;
@@ -1251,7 +1290,10 @@ int main(int argc, char** argv) {
                 const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)), int(std::floor(feet.y + player.eyeHeight())),
                                                    int(std::floor(feet.z))};
                 const bool eyesInWater = reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
-                interaction.tickSurvival(world, player, lastHit, inventory, vitals, clicks, eyesInWater,
+                // Aqua Affinity: no slower mining under water (wiki).
+                interaction.tickSurvival(world, player, lastHit, inventory, vitals, clicks,
+                                         eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
+                                                                                 mc::world::Enchantment::AquaAffinity),
                                          gameRng, changedBlocks, drops);
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
@@ -1304,13 +1346,10 @@ int main(int argc, char** argv) {
             blockUpdates.fallingStarts().clear();
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
             // Wear from this tick's hits (armor pieces; the shield that blocked).
-            if (const int wear = vitals.takeArmorWear(); wear > 0 && survival) inventory.wearArmor(wear);
+            if (const int wear = vitals.takeArmorWear(); wear > 0 && survival) inventory.wearArmor(wear, gameRng);
             if (const int wear = vitals.takeShieldWear(); wear > 0 && survival) {
                 static const mc::world::ItemId shieldItem = *mc::world::itemRegistry().find("shield");
-                auto wearShield = [&](mc::world::ItemStack s) {
-                    s.damage = static_cast<uint16_t>(s.damage + wear);
-                    return s.damage >= mc::world::itemRegistry().item(s.item).durability ? mc::world::ItemStack{} : s;
-                };
+                auto wearShield = [&](mc::world::ItemStack s) { return mc::wearItem(s, wear, gameRng); };
                 if (inventory.selectedStack().item == shieldItem)
                     inventory.setSlot(inventory.selected(), wearShield(inventory.selectedStack()));
                 else if (inventory.offhand().item == shieldItem)

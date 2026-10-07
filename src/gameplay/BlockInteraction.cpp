@@ -190,9 +190,8 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 const auto& breg = world::blockRegistry();
                 const bool handInstant = breg.block(breg.blockOf(state)).settings.hardness == 0.0f;
                 if (def.durability > 0 && !handInstant) {
-                    world::ItemStack worn = tool;
-                    worn.damage = static_cast<uint16_t>(worn.damage + (def.tool == world::ToolType::Sword ? 2 : 1));
-                    inventory.setSlot(inventory.selected(), worn.damage >= def.durability ? world::ItemStack{} : worn);
+                    inventory.setSlot(inventory.selected(),
+                                      wearItem(tool, def.tool == world::ToolType::Sword ? 2 : 1, rng));
                 }
                 m_breaking.reset();
                 m_progress = 0.0f;

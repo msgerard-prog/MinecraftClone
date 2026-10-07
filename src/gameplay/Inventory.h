@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Items.h"
+#include "world/Random.h"
 
 #include <array>
 
@@ -46,7 +47,8 @@ public:
     int armorPoints() const;
     float armorToughness() const;
     // Wears every worn piece by `amount` (pieces at their durability break).
-    void wearArmor(int amount);
+    // (Unbreaking: each point lands with chance 60% + 40% / (level + 1); wiki.)
+    void wearArmor(int amount, world::Xoroshiro& rng);
     // Right-click with an armor piece: it goes on (swapping with what was worn).
     bool equipSelected();
 

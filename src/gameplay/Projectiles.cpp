@@ -1,8 +1,10 @@
 #include "gameplay/Projectiles.h"
 
 #include "gameplay/FluidContact.h"
+#include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
 #include "world/Raycast.h"
 
 #include <cmath>
@@ -52,14 +54,17 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
                 Projectiles& projectiles, Xoroshiro& rng) {
     static const ItemId arrow = *itemRegistry().find("arrow");
     const float power = bowPower(ticks);
-    if (power < 0.1f || (survival && !inventory.takeOne(arrow))) return false;
-    projectiles.shoot(ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f, rng);
-    if (survival) {
-        ItemStack bow = inventory.selectedStack();
-        bow.damage = static_cast<uint16_t>(bow.damage + 1);
-        inventory.setSlot(inventory.selected(),
-                          bow.damage >= itemRegistry().item(bow.item).durability ? ItemStack{} : bow);
-    }
+    const ItemStack bow = inventory.selectedStack();
+    // Infinity: needs an arrow but doesn't use it up (wiki: Infinity).
+    const bool infinity = enchantLevel(bow, Enchantment::Infinity) > 0;
+    if (power < 0.1f || (survival && !(infinity ? inventory.has(arrow) : inventory.takeOne(arrow)))) return false;
+    if (!projectiles.shoot(ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f, rng)) return false;
+    Projectile& p = projectiles.last();
+    p.power = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Power));
+    p.punch = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Punch));
+    p.flame = enchantLevel(bow, Enchantment::Flame) > 0;
+    p.pickup = !infinity;
+    if (survival) inventory.setSlot(inventory.selected(), wearItem(inventory.selectedStack(), 1, rng));
     return true;
 }
 
@@ -69,7 +74,7 @@ void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const 
     if (survival) inventory.consumeSelected(1);
 }
 
-void Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
+bool Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
                         double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng, uint64_t owner) {
     if (m_items.size() >= size_t(kMax)) {
         // Full: the oldest arrow stuck in a block (not the player's) makes room.
@@ -78,7 +83,7 @@ void Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::
             if (m_items[i].stuck && !m_items[i].fromPlayer &&
                 (oldest == m_items.size() || m_items[i].life > m_items[oldest].life))
                 oldest = i;
-        if (oldest == m_items.size()) return;
+        if (oldest == m_items.size()) return false;
         m_items[oldest] = m_items.back();
         m_items.pop_back();
     }
@@ -92,6 +97,7 @@ void Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::
     p.critical = critical;
     p.owner = owner;
     m_items.push_back(p);
+    return true;
 }
 
 Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals, Inventory& inventory,
@@ -111,7 +117,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
         }
         if (p.stuck) {
             // Stuck arrows: picked up by a survival player who shot them (wiki: Arrow).
-            if (p.fromPlayer && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)})) {
+            if (p.fromPlayer && p.pickup && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)})) {
                 if (!survival || inventory.add({arrowItem, 1}) == 0) remove = true;
             }
             if (p.life > 1200 || blockRegistry().blockOf(world.getBlock(cell)) == 0) remove = true; // its block gone
@@ -138,10 +144,12 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             }
             if (target != Target::None) {
                 if (p.kind == ProjectileKind::Arrow) {
-                    float damage = float(std::ceil(speed * 2.0));
+                    // Base damage 2, Power adds 0.5 per level + 0.5 (wiki: Power).
+                    const double base = 2.0 + (p.power ? 0.5 * p.power + 0.5 : 0.0);
+                    float damage = float(std::ceil(speed * base));
                     if (p.critical) damage += float(rng.nextInt(uint32_t(damage / 2.0f + 2.0f)));
                     if (target == Target::Player) {
-                        if (vitals && survival && vitals->attacked(damage, &p.pos)) {
+                        if (vitals && survival && vitals->attacked(damage, &p.pos, Vitals::Hit::Projectile)) {
                             player.knockback(p.vel.x, p.vel.z, 0.6 * 0.5); // wiki: Arrow knockback
                             hits.playerDamage += damage;
                         }
@@ -154,7 +162,9 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             m.health -= damage;
                             m.hurtTime = 10;
                             const glm::dvec2 h(p.vel.x, p.vel.z);
-                            if (glm::length(h) > 1e-6) m.vel += glm::dvec3(h.x, 0, h.y) / glm::length(h) * 0.3;
+                            if (glm::length(h) > 1e-6)
+                                m.vel += glm::dvec3(h.x, 0, h.y) / glm::length(h) * (0.3 + 0.6 * p.punch); // Punch
+                            if (p.flame) m.fireTicks = std::max<int16_t>(m.fireTicks, 100); // Flame: 5 s
                             ++hits.mobsHit;
                         }
                     }

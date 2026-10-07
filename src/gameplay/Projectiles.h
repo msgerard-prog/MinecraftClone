@@ -26,6 +26,9 @@ struct Projectile {
     bool fromPlayer = false; // shot by the player (can be picked up; doesn't hit them at once)
     uint64_t owner = 0;      // the shooting mob's UUID (high half): never hit by its own arrow
     bool critical = false;
+    uint8_t power = 0, punch = 0; // bow enchantments (damage, knockback)
+    bool flame = false;           // sets what it hits on fire
+    bool pickup = true;           // (Infinity arrows can't be picked up)
     bool stuck = false;
     glm::dvec3 facing{0.0, -1.0, 0.0}; // flight direction (kept when stuck, for drawing)
     int life = 0; // ticks alive (stuck arrows vanish at 1200)
@@ -42,7 +45,8 @@ public:
     }
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
-    void shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed, double inaccuracy,
+    // Returns false if the pool is full of flying arrows (nothing was shot).
+    bool shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed, double inaccuracy,
                bool fromPlayer, bool critical, world::Xoroshiro& rng, uint64_t owner = 0);
 
     struct Hits {
@@ -56,6 +60,7 @@ public:
               world::Xoroshiro& rng);
 
     const std::vector<Projectile>& items() const { return m_items; }
+    Projectile& last() { return m_items.back(); } // the one just shot
     void clear() { m_items.clear(); }
 
 private:

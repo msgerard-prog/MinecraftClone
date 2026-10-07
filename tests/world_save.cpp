@@ -158,6 +158,7 @@ TEST_CASE("chunks are dirty after edits, not after a clean load") {
     CHECK_FALSE(c.dirty());
 }
 
+#include "world/Enchantments.h"
 #include "world/LevelData.h"
 #include "gameplay/Inventory.h"
 
@@ -869,4 +870,24 @@ TEST_CASE("level.dat keeps the bed respawn point (1.21.5+ respawn compound)") {
     REQUIRE(back);
     CHECK(back->hasRespawn);
     CHECK(back->respawn[2] == 33);
+}
+
+TEST_CASE("enchanted items save as 1.21.5+ minecraft:enchantments and load back (also the old 'levels' form)") {
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 70, 1}, blockRegistry().defaultState(blocks::Chest));
+    Chunk& c = *w.chunk({0, 0});
+    ItemStack sword{*itemRegistry().find("diamond_sword"), 1, 3};
+    setEnchantment(sword, Enchantment::Sharpness, 5);
+    setEnchantment(sword, Enchantment::Looting, 2);
+    sword.repairCost = 3;
+    c.chest(1, 70, 1)->items[0] = sword;
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(c));
+    Chunk e({0, 0});
+    REQUIRE(chunkFromNbt(nbt, e));
+    const ItemStack& back = e.chest(1, 70, 1)->items[0];
+    CHECK(enchantLevel(back, Enchantment::Sharpness) == 5);
+    CHECK(enchantLevel(back, Enchantment::Looting) == 2);
+    CHECK(back.repairCost == 3);
+    CHECK(back.damage == 3);
 }

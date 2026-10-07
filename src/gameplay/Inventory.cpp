@@ -1,6 +1,7 @@
 #include "gameplay/Inventory.h"
 
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
 
 #include <algorithm>
 #include <cmath>
@@ -84,10 +85,12 @@ float Inventory::armorToughness() const {
     return t;
 }
 
-void Inventory::wearArmor(int amount) {
+void Inventory::wearArmor(int amount, world::Xoroshiro& rng) {
     for (auto& a : m_armor) {
         if (a.empty() || amount <= 0) continue;
-        a.damage = static_cast<uint16_t>(a.damage + amount);
+        const int unbreaking = world::enchantLevel(a, world::Enchantment::Unbreaking);
+        for (int i = 0; i < amount; ++i)
+            if (unbreaking == 0 || rng.nextFloat() < 0.6f + 0.4f / float(unbreaking + 1)) ++a.damage;
         if (a.damage >= world::itemRegistry().item(a.item).durability) a = {}; // broke
     }
 }

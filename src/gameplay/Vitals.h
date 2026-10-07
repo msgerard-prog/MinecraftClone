@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include <algorithm>
+#include <array>
 #include <utility>
 
 #include <cstdint>
@@ -39,7 +40,16 @@ public:
     //   damage x (1 - min(20, max(armor / 5, armor - 4 x damage / (toughness + 8))) / 25)
     // and each worn piece wears floor(damage / 4), at least 1. `from`: where it came
     // from (null: no direction, the shield can't help). Returns true if it hurt.
-    bool attacked(float amount, const glm::dvec3* from = nullptr);
+    enum class Hit : uint8_t { Generic, Fire, Explosion, Projectile };
+    bool attacked(float amount, const glm::dvec3* from = nullptr, Hit kind = Hit::Generic);
+    // Protection enchantments worn (levels summed over the pieces): each hit adds up
+    // "enchantment protection" - Protection 1 per level, Fire/Blast/Projectile
+    // Protection 2 for their kind, Feather Falling 3 for falls - capped at 20, and
+    // the damage left after armor is cut by EPF/25 (wiki: Armor › Enchantments).
+    void setProtection(int all, int fire, int blast, int projectile, int feather) {
+        m_protection = {all, fire, blast, projectile, feather};
+    }
+    float protectionReduced(float amount, Hit kind, bool fall) const;
     static float armorReduced(float amount, int armor, float toughness);
     // Set each tick from the inventory and the player.
     void setArmor(int points, float toughness) {
@@ -74,7 +84,8 @@ public:
     // water it refills 4 a tick (public write-ups; the wiki's "1 bubble every 0.2 s"
     // would be 7.5 a tick - in-game check). Returns damage taken.
     static constexpr int kMaxAir = 300;
-    float breathe(bool eyesInWater);
+    // `keepBreath`: this tick's air loss is skipped (Respiration: chance level/(level+1)).
+    float breathe(bool eyesInWater, bool keepBreath = false);
     int air() const { return m_air; }
     void setAir(int a) { m_air = a; }
     // Burning (wiki: Fire, Lava): lava sets the player on fire for 15 s; burning hurts
@@ -124,6 +135,7 @@ private:
     int m_xpLevel = 0;
     float m_xpProgress = 0.0f;
     int m_xpTotal = 0;
+    std::array<int, 5> m_protection{};
     int m_armorPoints = 0;
     float m_armorToughness = 0.0f;
     int m_armorWear = 0, m_shieldWear = 0;

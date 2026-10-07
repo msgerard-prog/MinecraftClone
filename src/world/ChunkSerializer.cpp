@@ -1,6 +1,7 @@
 #include "world/ChunkSerializer.h"
 
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
 
 #include <algorithm>
 #include <bit>
@@ -172,6 +173,15 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         }
         components.put("minecraft:block_state", std::move(props));
     }
+    if (isEnchanted(s)) { // 1.21.5+: minecraft:enchantments is a plain id -> level map
+        nbt::Compound ench;
+        for (const uint16_t v : s.enchantments)
+            if (v) ench.put(std::string(enchantmentInfo(Enchantment(v >> 8)).id), int32_t(v & 0xFF));
+        components.put(itemRegistry().item(s.item).id == "minecraft:enchanted_book" ? "minecraft:stored_enchantments"
+                                                                                  : "minecraft:enchantments",
+                       std::move(ench));
+    }
+    if (s.repairCost) components.put("minecraft:repair_cost", int32_t{s.repairCost});
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
 }
@@ -192,6 +202,16 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                     st = blockRegistry().with(st, p.name, *v).value_or(st);
             if (st != blockRegistry().defaultState(def.block)) s.state = st;
         }
+        for (const char* key : {"minecraft:enchantments", "minecraft:stored_enchantments"})
+            if (const nbt::Compound* ench = comps->compound(key)) {
+                // (pre-1.21.5 saves nest them under "levels")
+                const nbt::Compound* levels = ench->compound("levels") ? ench->compound("levels") : ench;
+                for (const auto& e : levels->entries)
+                    if (const auto kind = findEnchantment(e.name))
+                        if (const auto lvl = levels->integer(e.name))
+                            setEnchantment(s, *kind, int(std::clamp<int64_t>(*lvl, 1, 255)));
+            }
+        s.repairCost = static_cast<uint8_t>(std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
     }
     return s;
 }

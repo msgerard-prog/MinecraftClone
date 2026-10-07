@@ -2,6 +2,7 @@
 
 #include "world/BlockRegistry.h"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -71,9 +72,16 @@ struct ItemStack {
     uint8_t count = 0;
     uint16_t damage = 0;
     BlockStateId state = 0;
+    // Enchantments (M17.5, world/Enchantments.h): id << 8 | level, 0 = none; and the
+    // anvil's prior-work penalty (vanilla minecraft:repair_cost).
+    std::array<uint16_t, 4> enchantments{};
+    uint8_t repairCost = 0;
 
     bool empty() const { return item == kNoItem || count == 0; }
-    bool sameKind(const ItemStack& o) const { return item == o.item && state == o.state && damage == o.damage; }
+    bool sameKind(const ItemStack& o) const {
+        return item == o.item && state == o.state && damage == o.damage && enchantments == o.enchantments &&
+               repairCost == o.repairCost;
+    }
 };
 
 } // namespace mc::world

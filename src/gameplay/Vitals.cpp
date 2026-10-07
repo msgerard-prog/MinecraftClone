@@ -5,11 +5,12 @@
 
 namespace mc {
 
-float Vitals::breathe(bool eyesInWater) {
+float Vitals::breathe(bool eyesInWater, bool keepBreath) {
     if (!eyesInWater) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
+    if (keepBreath) return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
         if (damage(2.0f, false)) return 2.0f;
@@ -23,7 +24,7 @@ float Vitals::touchFire(bool inFire) {
         return 0.0f;
     }
     if (++m_fireContact >= 20) setOnFire(160);
-    return attacked(1.0f) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
+    return attacked(1.0f, nullptr, Hit::Fire) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
 float Vitals::tickFire(bool inWater) {
@@ -72,7 +73,16 @@ float Vitals::armorReduced(float amount, int armor, float toughness) {
     return amount * (1.0f - reduction / 25.0f);
 }
 
-bool Vitals::attacked(float amount, const glm::dvec3* from) {
+float Vitals::protectionReduced(float amount, Hit kind, bool fall) const {
+    int epf = m_protection[0];
+    if (kind == Hit::Fire) epf += 2 * m_protection[1];
+    if (kind == Hit::Explosion) epf += 2 * m_protection[2];
+    if (kind == Hit::Projectile) epf += 2 * m_protection[3];
+    if (fall) epf += 3 * m_protection[4];
+    return amount * (1.0f - float(std::min(epf, 20)) / 25.0f);
+}
+
+bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
     if (m_shieldRaised && from) {
         glm::dvec3 to = *from - m_eye;
@@ -83,7 +93,7 @@ bool Vitals::attacked(float amount, const glm::dvec3* from) {
         }
     }
     if (m_armorPoints > 0) m_armorWear += std::max(1, int(amount / 4.0f));
-    return damage(armorReduced(amount, m_armorPoints, m_armorToughness));
+    return damage(protectionReduced(armorReduced(amount, m_armorPoints, m_armorToughness), kind, false));
 }
 
 void Vitals::addExperience(int points) {
@@ -133,7 +143,9 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         m_fallStartY = std::max(m_fallStartY, feetY);
     } else if (m_falling) {
         const float amount = static_cast<float>(std::ceil(m_fallStartY - feetY - 3.0));
-        if (amount > 0.0f && damage(amount, false)) hurt += amount;
+        // Armor doesn't help with falls; Feather Falling and Protection do.
+        const float reduced = protectionReduced(amount, Hit::Generic, true);
+        if (reduced > 0.0f && damage(reduced, false)) hurt += reduced;
         m_falling = false;
     }
     m_lastY = feetY;
