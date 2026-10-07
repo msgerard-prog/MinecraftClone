@@ -2,7 +2,7 @@
 // (wiki: Redstone circuits, Redstone Dust, Redstone Torch, Redstone Repeater, Piston).
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 
 #include <doctest/doctest.h>
 
@@ -21,7 +21,7 @@ std::string_view val(BlockStateId s, std::string_view p) { return *R().value(s, 
 // A stone floor (top at y 63) over 3x3 chunks around the origin.
 struct Scene {
     World world;
-    Redstone redstone{world};
+    BlockUpdates redstone{world};
     int64_t time = 0;
     Scene() {
         for (int cz = -1; cz <= 1; ++cz)
@@ -290,17 +290,17 @@ TEST_CASE("placement: wall torches, repeater and piston facings, support") {
     c.set(5, 64, 5, S(blocks::Stone));
     c.set(5, 63, 6, S(blocks::Stone));
     // Clicking the east face of the stone: a wall torch facing east.
-    auto t = Redstone::placement(w, S(blocks::RedstoneTorch), {6, 64, 5}, Direction::East, 0, 0);
+    auto t = BlockUpdates::placement(w, S(blocks::RedstoneTorch), {6, 64, 5}, Direction::East, 0, 0);
     REQUIRE(t);
     CHECK(R().blockOf(*t) == blocks::RedstoneWallTorch);
     CHECK(val(*t, "facing") == "east");
-    CHECK_FALSE(Redstone::placement(w, S(blocks::RedstoneWire), {9, 64, 9}, Direction::Up, 0, 0));
+    CHECK_FALSE(BlockUpdates::placement(w, S(blocks::RedstoneWire), {9, 64, 9}, Direction::Up, 0, 0));
     // Looking north (yaw 180): the repeater outputs north, so it faces (inputs) south.
-    auto r = Redstone::placement(w, S(blocks::Repeater), {5, 64, 6}, Direction::Up, 180.0f, 30.0f);
+    auto r = BlockUpdates::placement(w, S(blocks::Repeater), {5, 64, 6}, Direction::Up, 180.0f, 30.0f);
     REQUIRE(r);
     CHECK(val(*r, "facing") == "south");
     // Pistons face the player: looking down, it faces up.
-    auto p = Redstone::placement(w, S(blocks::Piston), {5, 64, 6}, Direction::Up, 0.0f, 80.0f);
+    auto p = BlockUpdates::placement(w, S(blocks::Piston), {5, 64, 6}, Direction::Up, 0.0f, 80.0f);
     REQUIRE(p);
     CHECK(val(*p, "facing") == "up");
 }
@@ -427,7 +427,7 @@ TEST_CASE("player-powered pistons start a tick later; in-line repeaters schedule
 TEST_CASE("dust can't stand on leaves; pistons break leaves and can't move obsidian") {
     Scene s;
     s.put({0, 64, 0}, S(blocks::OakLeaves));
-    CHECK_FALSE(Redstone::placement(s.world, S(blocks::RedstoneWire), {0, 65, 0}, Direction::Up, 0, 0));
+    CHECK_FALSE(BlockUpdates::placement(s.world, S(blocks::RedstoneWire), {0, 65, 0}, Direction::Up, 0, 0));
     s.put({3, 64, 3}, with(S(blocks::Piston), "facing", "east"));
     s.put({4, 64, 3}, S(blocks::OakLeaves));
     s.put({3, 64, 4}, S(blocks::RedstoneBlock));

@@ -26,7 +26,7 @@
 #include "rendering/Frustum.h"
 #include "core/Version.h"
 #include "world/DayTime.h"
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 #include "world/NetherGenerator.h"
 #include "gameplay/Portals.h"
 #include "rendering/GuiRenderer.h"
@@ -481,8 +481,8 @@ int main(int argc, char** argv) {
     };
     if (storage && !level) saveWorld(false); // a new world gets its level.dat at once
     mc::BlockInteraction interaction;
-    mc::world::Redstone redstone(world); // block updates, scheduled ticks, redstone (M11)
-    interaction.setRedstone(&redstone);
+    mc::world::BlockUpdates blockUpdates(world); // block updates, scheduled ticks, redstone (M11)
+    interaction.setBlockUpdates(&blockUpdates);
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
     bool attackArmed = false; // the click that captures the mouse must not break a block
@@ -799,8 +799,8 @@ int main(int argc, char** argv) {
                     vitals.resetFall();
                 }
             }
-            redstone.setTime(gameTime);
-            redstone.setCreative(!survival);
+            blockUpdates.setTime(gameTime);
+            blockUpdates.setCreative(!survival);
             // Commands wait until the player's chunk is there (--command scripts run
             // before the world has streamed in otherwise).
             if (!pendingChat.empty() && world.chunk(mc::world::ChunkPos{
@@ -960,14 +960,14 @@ int main(int argc, char** argv) {
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems, dimension == Dimension::Overworld};
             // Scheduled block ticks and block events (vanilla: before entities).
-            redstone.tick();
-            frameEdits.insert(frameEdits.end(), redstone.changed().begin(), redstone.changed().end());
-            redstone.changed().clear();
-            frameRemesh.insert(frameRemesh.end(), redstone.remeshOnly().begin(), redstone.remeshOnly().end());
-            redstone.remeshOnly().clear();
-            for (const auto& d : redstone.drops())
+            blockUpdates.tick();
+            frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
+            blockUpdates.changed().clear();
+            frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(), blockUpdates.remeshOnly().end());
+            blockUpdates.remeshOnly().clear();
+            for (const auto& d : blockUpdates.drops())
                 droppedItems.spawn({d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5}, d.stack, gameRng);
-            redstone.drops().clear();
+            blockUpdates.drops().clear();
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();

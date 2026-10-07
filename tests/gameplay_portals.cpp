@@ -1,7 +1,7 @@
 // Portals (wiki: Nether portal, End portal, End Portal Frame).
 #include "gameplay/Portals.h"
 #include "world/Blocks.h"
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 
 #include <doctest/doctest.h>
 
@@ -14,7 +14,7 @@ BlockStateId S(BlockId b) { return blockRegistry().defaultState(b); }
 
 struct Scene {
     World world;
-    Redstone updates{world}; // block updates (portals break with their frame)
+    BlockUpdates updates{world}; // block updates (portals break with their frame)
     std::vector<BlockPos> changed;
     Scene() {
         for (int cz = -2; cz <= 2; ++cz)

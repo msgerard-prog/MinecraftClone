@@ -22,12 +22,12 @@ namespace mc::world {
 // Power follows vanilla's model: a component sends weak power to a neighbour, and may
 // strongly power a conductor (an opaque full block). A conductor passes on the strong
 // power it receives to every neighbour; dust only reads strongly powered blocks.
-class Redstone final : public BlockUpdateListener {
+class BlockUpdates final : public BlockUpdateListener {
 public:
-    explicit Redstone(World& world);
-    ~Redstone() override;
-    Redstone(const Redstone&) = delete;
-    Redstone& operator=(const Redstone&) = delete;
+    explicit BlockUpdates(World& world);
+    ~BlockUpdates() override;
+    BlockUpdates(const BlockUpdates&) = delete;
+    BlockUpdates& operator=(const BlockUpdates&) = delete;
 
     // Game time of the tick being run (call at the start of each game tick, before
     // players act: their changes schedule ticks relative to it).

@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "world/Blocks.h"
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 #include "world/Rotation.h"
 
 namespace mc {
@@ -77,7 +77,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
 bool BlockInteraction::useBlock(const Player& player, const world::RayHit& hit, bool holding) {
     // Right-click acts on usable blocks, repeating while held; sneaking with an item in
     // hand places it instead (vanilla).
-    if (!m_redstone || (player.sneaking() && holding) || !m_redstone->use(hit.block)) return false;
+    if (!m_updates || (player.sneaking() && holding) || !m_updates->use(hit.block)) return false;
     m_useCooldown = kUseDelay;
     return true;
 }
@@ -114,7 +114,7 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             state = reg.with(state, "facing", kTowardPlayer[q]).value_or(state);
         }
         // Redstone components: wall torches, attachment faces, facings, support.
-        const auto fitted = world::Redstone::placement(world, state, at, hit->face, player.yaw(), player.pitch());
+        const auto fitted = world::BlockUpdates::placement(world, state, at, hit->face, player.yaw(), player.pitch());
         if (!fitted) return;
         state = *fitted;
         world.updateBlock(at, state);

@@ -1,4 +1,4 @@
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 
 #include "core/Log.h"
 #include "world/Blocks.h"
@@ -114,7 +114,7 @@ Push pushKind(BlockStateId s) {
 
 } // namespace
 
-Redstone::Redstone(World& world) : m_world(world) {
+BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_world.setListener(this);
     m_due.reserve(1024);
     m_events.reserve(64);
@@ -126,9 +126,9 @@ Redstone::Redstone(World& world) : m_world(world) {
     m_toggles.reserve(64);
 }
 
-Redstone::~Redstone() { m_world.setListener(nullptr); }
+BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
 
-bool Redstone::conductor(BlockStateId s) {
+bool BlockUpdates::conductor(BlockStateId s) {
     // Opaque full blocks conduct, except these (wiki: Redstone circuits › Conductivity).
     const BlockId b = blockOf(s);
     return R().opaqueCube(s) && b != B::RedstoneBlock && !isPiston(b) && b != B::Glowstone;
@@ -136,7 +136,7 @@ bool Redstone::conductor(BlockStateId s) {
 
 // --- Power ------------------------------------------------------------------------
 
-int Redstone::weak(BlockStateId s, Direction toward) const {
+int BlockUpdates::weak(BlockStateId s, Direction toward) const {
     switch (blockOf(s)) {
     case B::RedstoneWire: {
         if (m_wiresMuted || toward == Direction::Up) return 0;
@@ -155,7 +155,7 @@ int Redstone::weak(BlockStateId s, Direction toward) const {
     }
 }
 
-int Redstone::strong(BlockStateId s, Direction toward) const {
+int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     switch (blockOf(s)) {
     case B::RedstoneWire:
     case B::Repeater: return weak(s, toward);
@@ -168,7 +168,7 @@ int Redstone::strong(BlockStateId s, Direction toward) const {
     }
 }
 
-int Redstone::strongInto(const BlockPos& p) const {
+int BlockUpdates::strongInto(const BlockPos& p) const {
     int best = 0;
     for (int d = 0; d < kDirectionCount && best < 15; ++d) {
         const Direction dir = static_cast<Direction>(d);
@@ -177,12 +177,12 @@ int Redstone::strongInto(const BlockPos& p) const {
     return best;
 }
 
-int Redstone::signalFrom(const BlockPos& p, Direction toward) const {
+int BlockUpdates::signalFrom(const BlockPos& p, Direction toward) const {
     const BlockStateId s = at(p);
     return conductor(s) ? strongInto(p) : weak(s, toward);
 }
 
-int Redstone::bestNeighbourSignal(const BlockPos& p) const {
+int BlockUpdates::bestNeighbourSignal(const BlockPos& p) const {
     int best = 0;
     for (int d = 0; d < kDirectionCount && best < 15; ++d) {
         const Direction dir = static_cast<Direction>(d);
@@ -193,7 +193,7 @@ int Redstone::bestNeighbourSignal(const BlockPos& p) const {
 
 // --- Updates ----------------------------------------------------------------------
 
-void Redstone::set(const BlockPos& p, BlockStateId s) {
+void BlockUpdates::set(const BlockPos& p, BlockStateId s) {
     const BlockStateId old = at(p);
     if (old == s) return;
     m_world.setBlock(p, s);
@@ -201,21 +201,21 @@ void Redstone::set(const BlockPos& p, BlockStateId s) {
     afterChange(p, old, s);
 }
 
-void Redstone::setDiode(const BlockPos& p, BlockStateId s) {
+void BlockUpdates::setDiode(const BlockPos& p, BlockStateId s) {
     // A repeater turning on/off updates only the block in front and its neighbours
     // (wiki: Block update - exceptions).
     setRaw(p, s);
     reach(p, s);
 }
 
-void Redstone::setRaw(const BlockPos& p, BlockStateId s) {
+void BlockUpdates::setRaw(const BlockPos& p, BlockStateId s) {
     const BlockStateId old = at(p);
     if (old == s) return;
     m_world.setBlock(p, s);
     record(p, old, s);
 }
 
-void Redstone::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
+void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
     // Light only needs recomputing when emission or opacity changed (dust power,
     // repeater and lever states only change the model).
     const auto& r = R();
@@ -225,12 +225,12 @@ void Redstone::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
     if (list.empty() || !(list.back() == p)) list.push_back(p); // a block changing again: once
 }
 
-void Redstone::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
+void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
     afterChange(p, old, now);
     neighbourChanged(p); // the new block checks its surroundings (vanilla onPlace)
 }
 
-void Redstone::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now) {
+void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now) {
     const BlockId was = blockOf(old), is = blockOf(now);
     // A piston and its head go together (wiki: Piston › Behavior).
     if (isPiston(was) && flag(old, extended) && !(isPiston(is) && flag(now, extended))) {
@@ -256,7 +256,7 @@ void Redstone::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now
     if (!sameTarget) reach(p, now);
 }
 
-void Redstone::reach(const BlockPos& p, BlockStateId s) {
+void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
     // Components also update around the blocks they power (vanilla: dust and torches
     // all six neighbours' neighbours, levers/buttons the block they hang on, repeaters
     // the block in front; a block of redstone only its own neighbours).
@@ -283,18 +283,18 @@ void Redstone::reach(const BlockPos& p, BlockStateId s) {
     }
 }
 
-void Redstone::notifyNeighbours(const BlockPos& p) {
+void BlockUpdates::notifyNeighbours(const BlockPos& p) {
     for (const Direction d : kUpdateOrder)
         neighbourChanged(rel(p, d));
 }
 
-void Redstone::pop(const BlockPos& p) {
+void BlockUpdates::pop(const BlockPos& p) {
     const BlockStateId s = at(p);
     if (const ItemId item = itemRegistry().blockItem(blockOf(s))) m_drops.push_back({p, {item, 1}});
     set(p, 0);
 }
 
-bool Redstone::survives(const BlockPos& p, BlockStateId s) const {
+bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     switch (blockOf(s)) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
@@ -307,7 +307,7 @@ bool Redstone::survives(const BlockPos& p, BlockStateId s) const {
     }
 }
 
-void Redstone::neighbourChanged(const BlockPos& p) {
+void BlockUpdates::neighbourChanged(const BlockPos& p) {
     if (!m_world.isInHeight(p.y)) return;
     if (m_depth > 2048) { // runaway update chain: stop (vanilla also caps its updates)
         static bool logged = false;
@@ -393,7 +393,7 @@ void Redstone::neighbourChanged(const BlockPos& p) {
 
 // --- Scheduled ticks --------------------------------------------------------------
 
-void Redstone::schedule(const BlockPos& p, BlockId block, int ticks, int priority) {
+void BlockUpdates::schedule(const BlockPos& p, BlockId block, int ticks, int priority) {
     Chunk* c = m_world.chunk(p.chunk());
     if (!c || hasTick(p, block)) return; // one pending tick per block (vanilla)
     makeAbsolute(*c);
@@ -404,7 +404,7 @@ void Redstone::schedule(const BlockPos& p, BlockId block, int ticks, int priorit
     m_world.markTicking(c->pos());
 }
 
-void Redstone::makeAbsolute(Chunk& c) {
+void BlockUpdates::makeAbsolute(Chunk& c) {
     // Loaded from disk: delays count from now, in their saved order.
     if (!c.ticksRelative) return;
     auto& ticks = c.blockTicks();
@@ -416,7 +416,7 @@ void Redstone::makeAbsolute(Chunk& c) {
     c.ticksRelative = false;
 }
 
-bool Redstone::hasTick(const BlockPos& p, BlockId block) const {
+bool BlockUpdates::hasTick(const BlockPos& p, BlockId block) const {
     const Chunk* c = m_world.chunk(p.chunk());
     if (!c) return false;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
@@ -425,7 +425,7 @@ bool Redstone::hasTick(const BlockPos& p, BlockId block) const {
     return false;
 }
 
-void Redstone::tick() {
+void BlockUpdates::tick() {
     m_inTick = true;
     m_due.clear();
     m_world.forEachTickingChunk([&](Chunk& c) {
@@ -467,7 +467,7 @@ void Redstone::tick() {
     std::erase_if(m_toggles, [&](const Toggle& t) { return m_now - t.time > 60; });
 }
 
-void Redstone::tickBlock(const BlockPos& p, BlockStateId s) {
+void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     switch (blockOf(s)) {
     case B::RedstoneTorch:
     case B::RedstoneWallTorch: {
@@ -508,12 +508,12 @@ void Redstone::tickBlock(const BlockPos& p, BlockStateId s) {
 
 // --- Dust -------------------------------------------------------------------------
 
-int Redstone::wirePower(const BlockPos& p) const {
+int BlockUpdates::wirePower(const BlockPos& p) const {
     const BlockStateId s = at(p);
     return blockOf(s) == B::RedstoneWire ? R().get(s, power) : 0;
 }
 
-BlockStateId Redstone::wireShape(const BlockPos& p, BlockStateId s) const {
+BlockStateId BlockUpdates::wireShape(const BlockPos& p, BlockStateId s) const {
     // Which way the dust runs (wiki: Redstone Dust › Behavior): to dust beside it, one
     // block up (unless a conductor above cuts it) or down (unless the side block is a
     // conductor), and to components that accept a connection from that side.
@@ -559,7 +559,7 @@ BlockStateId Redstone::wireShape(const BlockPos& p, BlockStateId s) const {
     return s;
 }
 
-int Redstone::wireTarget(const BlockPos& p) const {
+int BlockUpdates::wireTarget(const BlockPos& p) const {
     // Power from components and strongly powered blocks (other dust muted), or from
     // neighbouring dust (including one block up/down) minus 1.
     m_wiresMuted = true;
@@ -580,7 +580,7 @@ int Redstone::wireTarget(const BlockPos& p) const {
     return std::max(strongest, fromWire - 1);
 }
 
-void Redstone::updateWire(const BlockPos& p) {
+void BlockUpdates::updateWire(const BlockPos& p) {
     const BlockStateId s = at(p);
     if (!survives(p, s)) {
         pop(p);
@@ -595,13 +595,13 @@ void Redstone::updateWire(const BlockPos& p) {
 
 // --- Torches, repeaters, pistons ----------------------------------------------------
 
-bool Redstone::torchInput(const BlockPos& p, BlockStateId s) const {
+bool BlockUpdates::torchInput(const BlockPos& p, BlockStateId s) const {
     // Off while the block it's attached to is powered (wiki: Redstone Torch).
     const Direction toTorch = blockOf(s) == B::RedstoneTorch ? Direction::Up : hFacing(s);
     return signalFrom(rel(p, opposite(toTorch)), toTorch) > 0;
 }
 
-bool Redstone::toggledTooOften(const BlockPos& p, bool add) {
+bool BlockUpdates::toggledTooOften(const BlockPos& p, bool add) {
     if (add) m_toggles.push_back({p, m_now});
     int n = 0;
     for (const Toggle& t : m_toggles)
@@ -609,13 +609,13 @@ bool Redstone::toggledTooOften(const BlockPos& p, bool add) {
     return n > 8; // "more than eight" turn-offs (wiki; user decision: the 9th burns out)
 }
 
-int Redstone::repeaterInput(const BlockPos& p, BlockStateId s) const {
+int BlockUpdates::repeaterInput(const BlockPos& p, BlockStateId s) const {
     const Direction back = hFacing(s); // facing points to the input side
     const BlockPos in = rel(p, back);
     return std::max(signalFrom(in, opposite(back)), wirePower(in));
 }
 
-bool Redstone::repeaterLocked(const BlockPos& p, BlockStateId s) const {
+bool BlockUpdates::repeaterLocked(const BlockPos& p, BlockStateId s) const {
     // Locked by a powered repeater pointing into either side (wiki: Redstone Repeater).
     const Direction f = hFacing(s);
     for (const Direction side : kHorizontal) {
@@ -626,7 +626,7 @@ bool Redstone::repeaterLocked(const BlockPos& p, BlockStateId s) const {
     return false;
 }
 
-bool Redstone::pistonPowered(const BlockPos& p, Direction f) const {
+bool BlockUpdates::pistonPowered(const BlockPos& p, Direction f) const {
     // Any side but the front, or the block above it (quasi-connectivity, wiki: Piston).
     for (int d = 0; d < kDirectionCount; ++d) {
         const Direction dir = static_cast<Direction>(d);
@@ -640,7 +640,7 @@ bool Redstone::pistonPowered(const BlockPos& p, Direction f) const {
     return false;
 }
 
-bool Redstone::pushList(const BlockPos& base, Direction f, std::optional<BlockPos>& destroy) {
+bool BlockUpdates::pushList(const BlockPos& base, Direction f, std::optional<BlockPos>& destroy) {
     m_push.clear();
     destroy.reset();
     BlockPos p = rel(base, f);
@@ -658,7 +658,7 @@ bool Redstone::pushList(const BlockPos& base, Direction f, std::optional<BlockPo
     }
 }
 
-void Redstone::extend(const BlockPos& p) {
+void BlockUpdates::extend(const BlockPos& p) {
     const BlockStateId s = at(p);
     const Direction f = facing6Of(s);
     std::optional<BlockPos> destroy;
@@ -700,7 +700,7 @@ void Redstone::extend(const BlockPos& p) {
     }
 }
 
-void Redstone::retract(const BlockPos& p) {
+void BlockUpdates::retract(const BlockPos& p) {
     const BlockStateId s = at(p);
     const Direction f = facing6Of(s);
     const BlockPos front = rel(p, f);
@@ -726,12 +726,12 @@ void Redstone::retract(const BlockPos& p) {
 
 // --- Players ----------------------------------------------------------------------
 
-bool Redstone::usable(BlockStateId s) {
+bool BlockUpdates::usable(BlockStateId s) {
     const BlockId b = blockOf(s);
     return b == B::Lever || isButton(b) || b == B::Repeater || b == B::RedstoneWire;
 }
 
-bool Redstone::use(const BlockPos& p) {
+bool BlockUpdates::use(const BlockPos& p) {
     const BlockStateId s = at(p);
     switch (blockOf(s)) {
     case B::Lever: set(p, withFlag(s, powered, !flag(s, powered))); return true;
@@ -761,7 +761,7 @@ bool Redstone::use(const BlockPos& p) {
     }
 }
 
-std::optional<BlockStateId> Redstone::placement(const World& world, BlockStateId state, const BlockPos& at,
+std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockStateId state, const BlockPos& at,
                                                 Direction faceDir, float yaw, float pitch) {
     const auto& r = R();
     auto solid = [&](Direction d) { return supports(world.getBlock(rel(at, d))); };

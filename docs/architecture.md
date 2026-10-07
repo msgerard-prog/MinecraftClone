@@ -130,7 +130,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   are unchanged). `rendering/MobModels` holds the cuboid models (vanilla box-UV
   layout on our own 64×64 skins, `tools/textures/gen_entities.py`); `EntityRenderer`
   draws them with world light, limb swing, head look, death tilt and the hurt tint.
-- Block updates and redstone (M11, `world/Redstone`): gameplay edits go through
+- Block updates and redstone (M11, `world/BlockUpdates`): gameplay edits go through
   `World::updateBlock`, which tells the listener (`Redstone`); it notifies the six
   neighbours in vanilla order (W, E, down, up, N, S) and lets components reach
   further (dust and torches: neighbours' neighbours). Scheduled block ticks live in

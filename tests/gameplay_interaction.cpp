@@ -1,7 +1,7 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/Inventory.h"
 #include "world/Blocks.h"
-#include "world/Redstone.h"
+#include "world/BlockUpdates.h"
 
 #include <doctest/doctest.h>
 
@@ -322,8 +322,8 @@ TEST_CASE("right-clicking a lever uses it (sneaking places instead); dust can't 
     World& w = s.world;
     const auto t = BlockInteraction::target(w, s.player);
     REQUIRE(t);
-    mc::world::Redstone redstone(w);
-    s.interaction.setRedstone(&redstone);
+    mc::world::BlockUpdates redstone(w);
+    s.interaction.setBlockUpdates(&redstone);
     const auto lever = *blockRegistry().with(*blockRegistry().with(S(blocks::Lever), "face", "floor"), "facing", "north");
     const BlockPos above{t->block.x, t->block.y + 1, t->block.z};
     w.setBlock(above, lever); // the ray now hits the lever
