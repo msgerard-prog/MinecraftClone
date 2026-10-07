@@ -51,6 +51,9 @@ const Property hinge{"hinge", {"left", "right"}};
 const Property slabHalf{"half", {"top", "bottom"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
+const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
+const Property enabled{"enabled", {"true", "false"}};
+const Property triggered{"triggered", {"true", "false"}};
 const Property age5{"age", {"0", "1", "2", "3", "4", "5"}};
 const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
@@ -497,6 +500,14 @@ BlockRegistry buildVanillaBlocks() {
           blocks::Comparator);
     check(r.add("observer", {.hardness = 3.0f, .resistance = 3.0f}, {{&facing6, "south"}, {&powered, "false"}}),
           blocks::Observer);
+    // wiki: Hopper (3.0/4.8, pickaxe), Dispenser and Dropper (3.5/3.5, pickaxe).
+    check(r.add("hopper", {.hardness = 3.0f, .resistance = 4.8f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&enabled, "true"}, {&hopperFacing, "down"}}),
+          blocks::Hopper);
+    check(r.add("dispenser", {.hardness = 3.5f, .resistance = 3.5f}, {{&facing6, "north"}, {&triggered, "false"}}),
+          blocks::Dispenser);
+    check(r.add("dropper", {.hardness = 3.5f, .resistance = 3.5f}, {{&facing6, "north"}, {&triggered, "false"}}),
+          blocks::Dropper);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

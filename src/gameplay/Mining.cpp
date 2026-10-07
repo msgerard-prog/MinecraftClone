@@ -55,7 +55,10 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::NetherGoldOre:
     case blocks::MagmaBlock:
     case blocks::EndStone:
-    case blocks::Observer: // (wiki: Observer - any pickaxe)
+    case blocks::Observer: // (wiki: Observer, Hopper, Dispenser, Dropper - any pickaxe)
+    case blocks::Hopper:
+    case blocks::Dispenser:
+    case blocks::Dropper:
     case blocks::IronDoor: // (wiki: Iron Door, Iron Trapdoor, Stone/Weighted Pressure Plates - any pickaxe)
     case blocks::IronTrapdoor:
     case blocks::StonePressurePlate:

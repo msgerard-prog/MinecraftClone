@@ -72,6 +72,11 @@ public:
             }
     }
     void clear() { m_items.clear(); }
+    // Hoppers (M21.3) take from stacks in place; emptied ones are swept after.
+    std::vector<ItemEntity>& mutableItems() { return m_items; }
+    void sweepEmpty() {
+        std::erase_if(m_items, [](const ItemEntity& e) { return e.stack.empty() || e.stack.count == 0; });
+    }
 
 private:
     void move(const world::World& world, ItemEntity& e);

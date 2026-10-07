@@ -62,6 +62,18 @@ struct ComparatorData {
     int output = 0;
 };
 
+// A hopper's 5 slots and its transfer cooldown (M21.3; wiki: Hopper › Block data:
+// Items, TransferCooldown).
+struct HopperData {
+    std::array<ItemStack, 5> items{};
+    int cooldown = 0;
+};
+// A dispenser's or dropper's 9 slots (wiki: Dispenser, Dropper › Block data: Items).
+struct DispenserData {
+    std::array<ItemStack, 9> items{};
+    bool dropper = false; // (saved as minecraft:dropper)
+};
+
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.
 struct ChestData {
     std::array<ItemStack, 27> items{};

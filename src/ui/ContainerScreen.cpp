@@ -83,6 +83,7 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
     m_result = {};
     m_furnace = nullptr;
     m_chests = {};
+    m_store = {};
     m_open = false;
 }
 
@@ -91,7 +92,7 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         std::vector<Slot> out;
         using K = Slot::Kind;
         // Chests (vanilla generic_9xN): their rows from y 18, the inventory below.
-        const int invY = type == Type::Chest ? 32 + rows * 18 : 84;
+        const int invY = type == Type::Chest ? 32 + rows * 18 : type == Type::Hopper ? 51 : 84;
         for (int i = 0; i < 27; ++i) // main inventory 9..35
             out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, invY + (i / 9) * 18});
         for (int i = 0; i < 9; ++i) // hotbar
@@ -106,6 +107,12 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         } else if (type == Type::Chest) {
             for (int i = 0; i < rows * 9; ++i)
                 out.push_back({K::Chest, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
+        } else if (type == Type::Hopper) { // (vanilla hopper: 5 in a row)
+            for (int i = 0; i < 5; ++i)
+                out.push_back({K::Store, i, 44 + i * 18, 20});
+        } else if (type == Type::Dispenser) { // (vanilla generic_3x3)
+            for (int i = 0; i < 9; ++i)
+                out.push_back({K::Store, i, 62 + (i % 3) * 18, 17 + (i / 3) * 18});
         } else if (type == Type::Inventory) {
             for (int i = 0; i < 4; ++i) // armor: head to feet down the left (vanilla)
                 out.push_back({K::Armor, i, 8, 8 + i * 18});
@@ -134,7 +141,10 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
     static const std::vector<Slot> inventory = build(Type::Inventory, 0), crafting = build(Type::Crafting, 0),
                                    furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
                                    chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
-                                   anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0);
+                                   anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0),
+                                   hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0);
+    if (m_type == Type::Hopper) return hopper;
+    if (m_type == Type::Dispenser) return dispenser;
     if (m_type == Type::Chest) return chestRows() == 6 ? chest6 : chest3;
     if (m_type == Type::Enchanting) return enchanting;
     if (m_type == Type::Anvil) return anvil;
@@ -159,12 +169,15 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
         world::ChestData* c = m_chests[size_t(s.index / 27)];
         return c ? &c->items[size_t(s.index % 27)] : nullptr;
     }
+    case Slot::Kind::Store: return size_t(s.index) < m_store.size() ? &m_store[size_t(s.index)] : nullptr;
     }
     return nullptr;
 }
 
 void ContainerScreen::updateResult() {
-    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Brewing) return;
+    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Brewing ||
+        m_type == Type::Hopper || m_type == Type::Dispenser)
+        return;
     if (m_type == Type::Anvil) {
         const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
         m_result = r.out;
@@ -310,6 +323,23 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     m_type == Type::Inventory && piece > 0 && inventory.armor(piece - 1).empty()) {
                     inventory.setArmor(piece - 1, v);
                     v = {};
+                    store();
+                    return;
+                }
+                if ((m_type == Type::Hopper || m_type == Type::Dispenser) && !m_store.empty()) { // into its slots
+                    for (int pass = 0; pass < 2 && !v.empty(); ++pass)
+                        for (world::ItemStack& t : m_store) {
+                            if (v.empty()) break;
+                            if (pass == 0 && !t.empty() && t.sameKind(v) && t.count < maxStack(t)) {
+                                const int n = std::min<int>(v.count, maxStack(t) - t.count);
+                                t.count = uint8_t(t.count + n);
+                                v.count = uint8_t(v.count - n);
+                            } else if (pass == 1 && t.empty()) {
+                                t = v;
+                                v = {};
+                            }
+                        }
+                    if (v.count == 0) v = {};
                     store();
                     return;
                 }
@@ -475,7 +505,9 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 1, top + 1, 2, float(h - 3), kLight);
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
-    const char* title = m_type == Type::Brewing      ? "Brewing Stand"
+    const char* title = m_type == Type::Hopper      ? "Item Hopper"
+                        : m_type == Type::Dispenser ? (m_dropper ? "Dropper" : "Dispenser")
+                        : m_type == Type::Brewing   ? "Brewing Stand"
                         : m_type == Type::Furnace    ? "Furnace"
                         : m_type == Type::Chest      ? (chestRows() == 6 ? "Large Chest" : "Chest")
                         : m_type == Type::Enchanting ? "Enchant"
@@ -483,12 +515,16 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
                                                      : "Crafting";
     const float titleX = m_type == Type::Inventory ? 97.0f
                          : m_type == Type::Crafting ? 28.0f
-                         : m_type == Type::Chest || m_type == Type::Enchanting ? 8.0f
+                         : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper ? 8.0f
                          : m_type == Type::Anvil ? 60.0f
                                                  : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
     if (m_type != Type::Inventory)
-        b.text("Inventory", left + 8, top + (m_type == Type::Chest ? float(20 + chestRows() * 18) : 72.0f), kLabel, false);
+        b.text("Inventory", left + 8,
+               top + (m_type == Type::Chest    ? float(20 + chestRows() * 18)
+                      : m_type == Type::Hopper ? 40.0f
+                                               : 72.0f),
+               kLabel, false);
 
     // Crafting arrow / furnace gauges.
     auto arrow = [&](float x, float y, float fill) {

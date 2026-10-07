@@ -165,6 +165,12 @@ std::vector<Recipe> build() {
                        {{'T', item("redstone_torch")}, {'Q', item("quartz")}, {'S', item("stone")}}, "comparator"));
     r.push_back(shaped({"CCC", "RRQ", "CCC"},
                        {{'C', item("cobblestone")}, {'R', item("redstone")}, {'Q', item("quartz")}}, "observer"));
+    // (wiki: Hopper - 5 iron ingots round a chest; Dispenser - cobblestone round a bow
+    // over redstone; Dropper - cobblestone with redstone)
+    r.push_back(shaped({"I.I", "ICI", ".I."}, {{'I', item("iron_ingot")}, {'C', item("chest")}}, "hopper"));
+    r.push_back(shaped({"###", "#B#", "#R#"}, {{'#', item("cobblestone")}, {'B', item("bow")}, {'R', item("redstone")}},
+                       "dispenser"));
+    r.push_back(shaped({"###", "#.#", "#R#"}, {{'#', item("cobblestone")}, {'R', item("redstone")}}, "dropper"));
     // (wiki: End Rod - a blaze rod over popped chorus fruit makes 4)
     r.push_back(shaped({"B", "P"}, {{'B', item("blaze_rod")}, {'P', item("popped_chorus_fruit")}}, "end_rod", 4));
     // (wiki: End Crystal - glass around an eye of ender over a ghast tear)

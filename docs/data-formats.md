@@ -139,7 +139,9 @@ recipe's experience, paid when the output is taken or the furnace broken; ids we
 kept; v0.17.0's float `clone_experience` is read as uses of minecraft:stone, 0.1 each) }, chests: { id
 "minecraft:chest", x, y, z, keepPacked, Items [ { Slot 0..26, id, count, components } ] } ]
 (a double chest is two chests); brewing stands: { id "minecraft:brewing_stand", x, y, z, Items [ Slot
-0-2 bottles, 3 ingredient, 4 fuel ], BrewTime (short), Fuel (byte) } (M19.4); comparators: { id "minecraft:comparator",
+0-2 bottles, 3 ingredient, 4 fuel ], BrewTime (short), Fuel (byte) } (M19.4); hoppers: { id "minecraft:hopper", x, y, z, Items [ Slot 0-4 ],
+TransferCooldown (Int) }, dispensers/droppers: { id "minecraft:dispenser" | "minecraft:dropper", x, y, z,
+Items [ Slot 0-8 ] } (M21.3); comparators: { id "minecraft:comparator",
 x, y, z, OutputSignal (Int 0-15) } (M21.2); spawners: { id "minecraft:mob_spawner", x, y, z, Delay (short),
 SpawnData { entity { id } }, MinSpawnDelay 200, MaxSpawnDelay 800, SpawnCount 4,
 MaxNearbyEntities 6, RequiredPlayerRange 16, SpawnRange 4 } (M18.3; the fixed values are

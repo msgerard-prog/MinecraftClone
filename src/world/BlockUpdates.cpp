@@ -283,6 +283,14 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
             count(d->fuel);
             count(d->output);
         }
+    } else if (b == B::Hopper) {
+        if (const HopperData* d = c->hopper(x, p.y, z))
+            for (const ItemStack& st : d->items)
+                count(st);
+    } else if (b == B::Dispenser || b == B::Dropper) {
+        if (const DispenserData* d = c->dispenser(x, p.y, z))
+            for (const ItemStack& st : d->items)
+                count(st);
     } else if (b == B::BrewingStand) {
         if (const BrewingData* d = c->brewing(x, p.y, z)) {
             for (const ItemStack& st : d->bottles)
@@ -901,6 +909,11 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::OakFence:
         set(p, fenceConnected(m_world, p, s));
         break;
+    case B::Hopper: { // power turns it off (wiki: Hopper)
+        const bool on = bestNeighbourSignal(p) == 0;
+        if (on != flag(s, enabled)) set(p, withFlag(s, enabled, on));
+        break;
+    }
     case B::Comparator:
         if (!supports(at(rel(p, Direction::Down)))) {
             pop(p);
@@ -1560,6 +1573,14 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     }
     case B::OakFenceGate:
         return withHFacing(state, look);
+    case B::Hopper: // points into the block it was put against (down when put on top)
+        if (horizontal(faceDir)) return r.set(state, hopperFacing, static_cast<int>(opposite(faceDir)) - 1);
+        return r.set(state, hopperFacing, 0);
+    case B::Dispenser:
+    case B::Dropper: { // its front faces the player (wiki)
+        const Direction f = pitch > 45.0f ? Direction::Up : pitch < -45.0f ? Direction::Down : opposite(look);
+        return r.set(state, facing6, static_cast<int>(f));
+    }
     case B::Comparator:
         if (!solid(Direction::Down)) return std::nullopt;
         return withHFacing(state, opposite(look)); // like a repeater: the output away from the player

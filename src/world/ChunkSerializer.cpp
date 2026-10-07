@@ -25,6 +25,8 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.spawners = chunk.spawners();
     s.brewing = chunk.brewingStands();
     s.comparators = chunk.comparators();
+    s.hoppers = chunk.hoppers();
+    s.dispensers = chunk.dispensers();
     s.mobs = chunk.mobs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
@@ -386,6 +388,33 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("Fuel", int8_t(br.data.fuelLeft));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& h : chunk.hoppers) { // wiki: Hopper › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:hopper"));
+        e.put("x", int32_t{chunk.pos.x * 16 + h.x});
+        e.put("y", int32_t{h.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + h.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items;
+        for (int i = 0; i < 5; ++i)
+            if (!h.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(h.data.items[size_t(i)], i));
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        e.put("TransferCooldown", int32_t(h.data.cooldown));
+        entities.emplace_back(std::move(e));
+    }
+    for (const auto& d : chunk.dispensers) { // wiki: Dispenser, Dropper › Block data
+        nbt::Compound e;
+        e.put("id", std::string(d.data.dropper ? "minecraft:dropper" : "minecraft:dispenser"));
+        e.put("x", int32_t{chunk.pos.x * 16 + d.x});
+        e.put("y", int32_t{d.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + d.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items;
+        for (int i = 0; i < 9; ++i)
+            if (!d.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(d.data.items[size_t(i)], i));
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& cp : chunk.comparators) { // wiki: Redstone Comparator › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:comparator"));
@@ -567,12 +596,36 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
-                        *id != "minecraft:brewing_stand" && *id != "minecraft:comparator"))
+                        *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
+                        *id != "minecraft:dispenser" && *id != "minecraft:dropper"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
+            if (*id == "minecraft:hopper") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Hopper) continue;
+                HopperData& h = chunk.addHopper(x, y, z);
+                if (const nbt::List* items = e->list("Items"))
+                    for (const nbt::Tag& it : items->items)
+                        if (const nbt::Compound* ic = it.get<nbt::Compound>())
+                            if (const auto slot = ic->integer("Slot").value_or(-1); slot >= 0 && slot < 5)
+                                h.items[size_t(slot)] = itemFromNbt(*ic);
+                h.cooldown = static_cast<int>(std::clamp<int64_t>(e->integer("TransferCooldown").value_or(0), 0, 8));
+                continue;
+            }
+            if (*id == "minecraft:dispenser" || *id == "minecraft:dropper") {
+                const BlockId b = blockRegistry().blockOf(chunk.get(x, y, z));
+                if (b != blocks::Dispenser && b != blocks::Dropper) continue;
+                DispenserData& d = chunk.addDispenser(x, y, z);
+                d.dropper = b == blocks::Dropper;
+                if (const nbt::List* items = e->list("Items"))
+                    for (const nbt::Tag& it : items->items)
+                        if (const nbt::Compound* ic = it.get<nbt::Compound>())
+                            if (const auto slot = ic->integer("Slot").value_or(-1); slot >= 0 && slot < 9)
+                                d.items[size_t(slot)] = itemFromNbt(*ic);
+                continue;
+            }
             if (*id == "minecraft:comparator") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =

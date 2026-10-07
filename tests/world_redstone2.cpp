@@ -190,3 +190,13 @@ TEST_CASE("observers: a change in front of the face sends a 2-tick pulse out of 
     s.tick(2);
     CHECK(val(s.at({4, 64, 4}), "powered") == "false");
 }
+
+TEST_CASE("a comparator still notices its chest filling after its chunk has been quiet for a while (regression)") {
+    Scene s;
+    s.place(blocks::Comparator, {4, 64, 4}, Direction::Up, 0.0f);
+    s.put({4, 64, 3}, S(blocks::Chest));
+    s.tick(100); // nothing scheduled: the chunk must stay ticking for the comparator
+    s.world.chunk({0, 0})->chest(4, 64, 3)->items[0] = ItemStack{*itemRegistry().find("stone"), 64};
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "true");
+}

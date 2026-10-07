@@ -69,6 +69,8 @@ public:
         m_spawners.clear();
         m_brewing.clear();
         m_comparators.clear();
+        m_hoppers.clear();
+        m_dispensers.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -212,7 +214,43 @@ public:
     }
     std::vector<ComparatorEntry>& comparators() { return m_comparators; }
     const std::vector<ComparatorEntry>& comparators() const { return m_comparators; }
+    struct HopperEntry {
+        int x, y, z; // local x/z, world y
+        HopperData data;
+    };
+    HopperData* hopper(int x, int y, int z) {
+        for (auto& h : m_hoppers)
+            if (h.x == x && h.y == y && h.z == z) return &h.data;
+        return nullptr;
+    }
+    HopperData& addHopper(int x, int y, int z) {
+        if (HopperData* h = hopper(x, y, z)) return *h;
+        m_dirty = true;
+        m_hoppers.push_back({x, y, z, {}});
+        return m_hoppers.back().data;
+    }
+    std::vector<HopperEntry>& hoppers() { return m_hoppers; }
+    const std::vector<HopperEntry>& hoppers() const { return m_hoppers; }
+    struct DispenserEntry {
+        int x, y, z; // local x/z, world y (dispensers and droppers)
+        DispenserData data;
+    };
+    DispenserData* dispenser(int x, int y, int z) {
+        for (auto& d : m_dispensers)
+            if (d.x == x && d.y == y && d.z == z) return &d.data;
+        return nullptr;
+    }
+    DispenserData& addDispenser(int x, int y, int z) {
+        if (DispenserData* d = dispenser(x, y, z)) return *d;
+        m_dirty = true;
+        m_dispensers.push_back({x, y, z, {}});
+        return m_dispensers.back().data;
+    }
+    std::vector<DispenserEntry>& dispensers() { return m_dispensers; }
+    const std::vector<DispenserEntry>& dispensers() const { return m_dispensers; }
     void removeBlockEntity(int x, int y, int z) {
+        std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
+        std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
@@ -298,6 +336,8 @@ private:
     std::vector<ChestEntry> m_chests;
     std::vector<SpawnerEntry> m_spawners;
     std::vector<ComparatorEntry> m_comparators;
+    std::vector<HopperEntry> m_hoppers;
+    std::vector<DispenserEntry> m_dispensers;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;

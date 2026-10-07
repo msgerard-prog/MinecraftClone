@@ -28,6 +28,7 @@
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Brewing.h"
 #include "gameplay/Explosion.h"
+#include "gameplay/Hoppers.h"
 #include "gameplay/ItemEntities.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
@@ -634,6 +635,34 @@ int main(int argc, char** argv) {
 
     // The open chest screen's storage, looked up again each frame (chunks may reload);
     // a broken chest closes the screen.
+    // Hoppers and dispensers/droppers (M21.3): their slots at a block (empty: none).
+    auto storeAt = [&](const mc::world::BlockPos& b) -> std::span<mc::world::ItemStack> {
+        mc::world::Chunk* c = world.chunk(b.chunk());
+        if (!c) return {};
+        const int x = mc::world::blockToLocal(b.x), z = mc::world::blockToLocal(b.z);
+        if (mc::world::HopperData* h = c->hopper(x, b.y, z)) return h->items;
+        if (mc::world::DispenserData* d = c->dispenser(x, b.y, z)) return d->items;
+        return {};
+    };
+    auto pointStore = [&] { // the open screen follows its block (closed if broken)
+        const auto slots = storeAt(containerBlock);
+        container.setStore(slots);
+        if (slots.empty()) {
+            screenDrops.clear();
+            container.close(inventory, screenDrops);
+            if (!screenshotMode) window.setCursorCaptured(true);
+        }
+    };
+    auto openStoreAt = [&](const mc::world::BlockPos& b) {
+        const auto block = mc::world::blockRegistry().blockOf(world.getBlock(b));
+        const auto slots = storeAt(b);
+        if (slots.empty()) return false;
+        containerBlock = b;
+        container.openStore(block == mc::world::blocks::Hopper ? mc::ui::ContainerScreen::Type::Hopper
+                                                                 : mc::ui::ContainerScreen::Type::Dispenser,
+                            slots, block == mc::world::blocks::Dropper);
+        return true;
+    };
     auto pointChests = [&] {
         auto chestAt = [&](const mc::world::BlockPos& p) -> mc::world::ChestData* {
             mc::world::Chunk* c = world.chunk(p.chunk());
@@ -671,6 +700,9 @@ int main(int argc, char** argv) {
         window.pollEvents();
         // An open chest screen follows its block(s) (closed if broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
+        if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
+                                   container.type() == mc::ui::ContainerScreen::Type::Dispenser))
+            pointStore();
         // An open brewing stand screen follows its block (closed if it was broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -827,6 +859,10 @@ int main(int argc, char** argv) {
                         container.openBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
                                                                mc::world::blockToLocal(containerBlock.z))
                                                  : nullptr);
+                        window.setCursorCaptured(false);
+                    } else if ((block == mc::world::blocks::Hopper || block == mc::world::blocks::Dispenser ||
+                                block == mc::world::blocks::Dropper) &&
+                               openStoreAt(lastHit->block)) {
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
                         pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
@@ -1709,6 +1745,7 @@ int main(int argc, char** argv) {
             }
             vitals.addExperience(orbs.tick(world, player.box(), !dead));
             mobs.tick(mobCtx);
+            mc::tickHoppers(world, droppedItems); // (M21.3)
             const auto* endGen = dynamic_cast<const mc::world::EndGenerator*>(generatorPtr.get());
             if (dimension == Dimension::End && endKind == "end2" && endGen)
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng, frameEdits);
@@ -1766,8 +1803,9 @@ int main(int argc, char** argv) {
                 mc::world::Chunk* bc = world.chunk(ob.chunk());
                 container.openBrewing(
                     bc ? bc->brewing(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr);
-            } else
+            } else if (!openStoreAt(ob)) {
                 openChestAt(ob);
+            }
         }
         if (openInventoryPending && gameTime > 0) {
             openInventoryPending = false;
@@ -1963,6 +2001,9 @@ int main(int argc, char** argv) {
             }
             // Chests may have moved in memory or gone during this frame's ticks: re-point.
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
+            if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
+                                       container.type() == mc::ui::ContainerScreen::Type::Dispenser))
+                pointStore();
             if (container.isOpen())
                 container.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH,
                                [&] { double x = 0, y = 0; window.cursorPos(x, y); return x / scale; }(),

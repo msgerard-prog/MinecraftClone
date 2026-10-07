@@ -265,6 +265,44 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Hopper: {
+        // A wide bowl on top, a narrower middle, and a spout down or to its side
+        // (vanilla's shape, our boxes).
+        Builder b(atlas, out);
+        BoxSpec bowl = allFaces({0, 10, 0}, {16, 16, 16}, "hopper_outside", {0, 0, 16, 6});
+        bowl.faces[int(Direction::Up)] = {"hopper_top"};
+        bowl.faces[int(Direction::Down)] = {"hopper_outside"};
+        b.box(bowl);
+        b.box(allFaces({4, 4, 4}, {12, 10, 12}, "hopper_outside", {4, 6, 12, 12}));
+        const int f = r.get(s, P::hopperFacing); // down, north, south, west, east
+        if (f == 0) {
+            b.box(allFaces({6, 0, 6}, {10, 4, 10}, "hopper_outside", {6, 12, 10, 16}));
+        } else {
+            static constexpr int kTurns[5] = {0, 0, 2, 3, 1}; // north as built, then turned
+            b.box(allFaces({6, 4, 0}, {10, 8, 4}, "hopper_outside", {6, 8, 10, 12}), {0, kTurns[f]});
+        }
+        return true;
+    }
+    case B::Dispenser:
+    case B::Dropper: {
+        // Built facing north: the front (its mouth) at -Z, furnace-like sides and top.
+        Builder b(atlas, out);
+        const auto facing = static_cast<Direction>(r.get(s, P::facing6));
+        const bool vertical = facing == Direction::Up || facing == Direction::Down;
+        const bool dropper = block == B::Dropper;
+        const char* front = dropper ? (vertical ? "dropper_front_vertical" : "dropper_front")
+                                    : (vertical ? "dispenser_front_vertical" : "dispenser_front");
+        static constexpr Rot kFacingRot[6] = {{3, 0}, {1, 0}, {0, 0}, {0, 2}, {0, 3}, {0, 1}}; // by Direction
+        FaceSpec faces[6];
+        faces[int(Direction::North)] = {front};
+        faces[int(Direction::South)] = {"furnace_side"};
+        faces[int(Direction::Up)] = {vertical ? "furnace_side" : "furnace_top"};
+        faces[int(Direction::Down)] = {vertical ? "furnace_side" : "furnace_top"};
+        faces[int(Direction::East)] = {"furnace_side"};
+        faces[int(Direction::West)] = {"furnace_side"};
+        b.cube(faces, kFacingRot[int(facing)]);
+        return true;
+    }
     case B::Lever: {
         // A cobblestone base and a handle leaning to the off or on side.
         Builder b(atlas, out);

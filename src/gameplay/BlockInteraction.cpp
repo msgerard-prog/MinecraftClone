@@ -30,6 +30,12 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
     if (const world::ChestData* ch = c->chest(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
         for (const world::ItemStack& s : ch->items)
             if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
+    if (const world::HopperData* h = c->hopper(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) // (M21.3)
+        for (const world::ItemStack& s : h->items)
+            if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
+    if (const world::DispenserData* d = c->dispenser(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
+        for (const world::ItemStack& s : d->items)
+            if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
 }
 
 } // namespace

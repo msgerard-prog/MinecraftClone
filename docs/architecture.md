@@ -289,6 +289,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `watchComparators` each tick for comparators reading containers. Observers are
   scheduled by `afterChange` when the block they face changes; their pulse is a full
   update, so observer chains work.
+- Hoppers (M21.3, `gameplay/Hoppers`): `HopperData`/`DispenserData` block entities;
+  `tickHoppers` (each tick, ticking chunks) pushes into and pulls from containers with
+  vanilla's per-side slot rules (`insertOne`/`extractOne`, reused by droppers) and picks
+  up dropped items; power disables them (`enabled`). Screens: `ContainerScreen::Type::
+  Hopper/Dispenser` over the entity's slots (`openStore`).
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push

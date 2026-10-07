@@ -22,10 +22,12 @@ namespace mc::ui {
 // as fit); clicking outside drops the carried stack. GL-free.
 class ContainerScreen {
 public:
-    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil, Brewing };
+    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil, Brewing, Hopper, Dispenser };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
-    int height() const { return m_type == Type::Chest ? 114 + chestRows() * 18 : kHeight; }
+    int height() const {
+        return m_type == Type::Chest ? 114 + chestRows() * 18 : m_type == Type::Hopper ? 133 : kHeight;
+    }
     int chestRows() const { return m_chests[1] ? 6 : 3; }
 
     bool isOpen() const { return m_open; }
@@ -67,6 +69,14 @@ public:
         m_brewing = stand;
     }
     void setBrewing(world::BrewingData* stand) { m_brewing = stand; }
+    // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by
+    // the world; re-pointed every frame like chests.
+    void openStore(Type type, std::span<world::ItemStack> slots, bool dropper = false) {
+        open(type);
+        m_store = slots;
+        m_dropper = dropper;
+    }
+    void setStore(std::span<world::ItemStack> slots) { m_store = slots; }
     const world::ItemStack& carried() const { return m_carried; }
     // Recipe uses whose experience was earned by taking smelted items out of a
     // furnace since the last call (main pays them with recipesExperience).
@@ -93,7 +103,8 @@ private:
             Offhand,
             BrewBottle,
             BrewIngredient,
-            BrewFuel
+            BrewFuel,
+            Store
         } kind;
         int index;
         int x, y; // panel coordinates of the 16x16 item area
@@ -111,6 +122,8 @@ private:
     Type m_type = Type::Inventory;
     Furnace* m_furnace = nullptr;
     world::BrewingData* m_brewing = nullptr;
+    std::span<world::ItemStack> m_store;
+    bool m_dropper = false;
     std::array<world::ChestData*, 2> m_chests{};
     std::array<world::ItemStack, 9> m_grid{};
     world::ItemStack m_result;

@@ -1,0 +1,29 @@
+#pragma once
+
+#include "gameplay/ItemEntities.h"
+#include "world/Direction.h"
+#include "world/World.h"
+
+namespace mc {
+
+// Containers as hoppers and droppers see them (M21.3; wiki: Hopper › Behavior): which
+// slots take an item put in from a side, and which give one up.
+//   chests (double: both halves), hoppers, dispensers, droppers: any slot;
+//   furnaces: from above into the input, from a side the fuel (fuel only); taken from
+//     below: the output;
+//   brewing stands: from above the ingredient, from a side bottles (potions) or blaze
+//     powder (fuel); taken from below: the bottles.
+// `from`: the side of the container the item comes in through (or goes out of).
+bool insertOne(world::World& world, const world::BlockPos& container, world::Direction from,
+               const world::ItemStack& one);
+// Takes one item out of the container through its side `from` into `out` (count 1).
+bool extractOne(world::World& world, const world::BlockPos& container, world::Direction from, world::ItemStack& out);
+bool isContainer(const world::World& world, const world::BlockPos& p);
+
+// Every hopper in the ticking chunks, each game tick (wiki: Hopper): while enabled
+// (not powered) and its 8-tick cooldown is over, it pushes one item into the container
+// it points into, then pulls one from the container above - or picks up dropped items
+// over it; either resets the cooldown.
+void tickHoppers(world::World& world, ItemEntities& items);
+
+} // namespace mc

@@ -1381,3 +1381,36 @@ TEST_CASE("TNT: redstone lights it, it hops, falls and blows up after 4 s; its b
     CHECK(primed.items()[0].fuse <= 30);
     CHECK(primed.items()[0].fuse >= 10);
 }
+
+#include "gameplay/Hoppers.h"
+
+TEST_CASE("hoppers: pull from the chest above, push into the chest below, 1 item per 8 ticks; power stops them; they pick up items") {
+    MobScene s;
+    s.mobs = Mobs();
+    BlockUpdates updates(s.world);
+    const auto& r = blockRegistry();
+    s.world.updateBlock({4, 66, 4}, r.defaultState(blocks::Chest));
+    s.world.updateBlock({4, 65, 4}, r.defaultState(blocks::Hopper)); // facing down
+    s.world.updateBlock({4, 64, 4}, r.defaultState(blocks::Chest));
+    const ItemId stone = *itemRegistry().find("stone");
+    s.world.chunk({0, 0})->chest(4, 66, 4)->items[0] = ItemStack{stone, 10};
+    for (int i = 0; i < 80; ++i)
+        tickHoppers(s.world, s.items);
+    const ChestData* below = s.world.chunk({0, 0})->chest(4, 64, 4);
+    const int moved = below->items[0].count;
+    CHECK(moved >= 8);
+    CHECK(moved <= 10);
+    CHECK(s.world.chunk({0, 0})->chest(4, 66, 4)->items[0].count + moved +
+              s.world.chunk({0, 0})->hopper(4, 65, 4)->items[0].count ==
+          10);
+    // A redstone block beside it turns it off.
+    s.world.updateBlock({5, 65, 4}, r.defaultState(blocks::RedstoneBlock));
+    CHECK(r.get(s.world.getBlock({4, 65, 4}), properties::enabled) == 1);
+    // Dropped items over a free hopper are picked up.
+    s.world.updateBlock({8, 64, 8}, r.defaultState(blocks::Hopper));
+    s.items.spawn({8.5, 65.2, 8.5}, ItemStack{stone, 3}, s.rng);
+    for (int i = 0; i < 40; ++i)
+        tickHoppers(s.world, s.items);
+    const HopperData* h = s.world.chunk({0, 0})->hopper(8, 64, 8);
+    CHECK(h->items[0].count == 3);
+}
