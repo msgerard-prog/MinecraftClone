@@ -15,6 +15,21 @@ const Property distance{"distance", {"1", "2", "3", "4", "5", "6", "7"}};
 const Property persistent{"persistent", {"true", "false"}};
 const Property layers{"layers", {"1", "2", "3", "4", "5", "6", "7", "8"}};
 const Property facing{"facing", {"north", "south", "west", "east"}};
+const Property power{
+    "power",
+    {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
+const Property north{"north", {"up", "side", "none"}};
+const Property east{"east", {"up", "side", "none"}};
+const Property south{"south", {"up", "side", "none"}};
+const Property west{"west", {"up", "side", "none"}};
+const Property delay{"delay", {"1", "2", "3", "4"}};
+const Property locked{"locked", {"true", "false"}};
+const Property powered{"powered", {"true", "false"}};
+const Property face{"face", {"floor", "wall", "ceiling"}};
+const Property facing6{"facing", {"down", "up", "north", "south", "west", "east"}};
+const Property extended{"extended", {"true", "false"}};
+const Property shortArm{"short", {"true", "false"}};
+const Property pistonType{"type", {"normal", "sticky"}};
 } // namespace properties
 
 namespace {
@@ -173,6 +188,51 @@ BlockRegistry buildVanillaBlocks() {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::Furnace).firstState + i);
         if (r.value(s, "lit") == "true") r.setStateEmission(s, 13);
     }
+
+    // --- Redstone (M11; wiki: Redstone Dust, Redstone Torch, Redstone Repeater, Lever,
+    // Button, Block of Redstone, Redstone Lamp, Piston). Components without full
+    // collision are walked through (vanilla: thin boxes; known deviation).
+    constexpr BlockSettings kComponent{
+        .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout};
+    check(r.add("redstone_wire", kComponent,
+                {{&east, "none"}, {&north, "none"}, {&power, "0"}, {&south, "none"}, {&west, "none"}}),
+          blocks::RedstoneWire);
+    check(r.add("redstone_torch", kComponent, {{&lit, "true"}}), blocks::RedstoneTorch);
+    check(r.add("redstone_wall_torch", kComponent, {{&facing, "north"}, {&lit, "true"}}),
+          blocks::RedstoneWallTorch);
+    check(r.add("repeater", kComponent,
+                {{&delay, "1"}, {&facing, "north"}, {&locked, "false"}, {&powered, "false"}}),
+          blocks::Repeater);
+    BlockSettings lever = kComponent;
+    lever.hardness = lever.resistance = 0.5f;
+    check(r.add("lever", lever, {{&face, "wall"}, {&facing, "north"}, {&powered, "false"}}), blocks::Lever);
+    check(r.add("stone_button", lever, {{&face, "wall"}, {&facing, "north"}, {&powered, "false"}}),
+          blocks::StoneButton);
+    check(r.add("oak_button", lever, {{&face, "wall"}, {&facing, "north"}, {&powered, "false"}}),
+          blocks::OakButton);
+    check(r.add("redstone_block", {.hardness = 5.0f, .resistance = 6.0f}), blocks::RedstoneBlock);
+    check(r.add("redstone_lamp", {.hardness = 0.3f, .resistance = 0.3f}, {{&lit, "false"}}),
+          blocks::RedstoneLamp);
+    check(r.add("piston", {.hardness = 1.5f, .resistance = 1.5f}, {{&extended, "false"}, {&facing6, "north"}}),
+          blocks::Piston);
+    check(r.add("sticky_piston", {.hardness = 1.5f, .resistance = 1.5f},
+                {{&extended, "false"}, {&facing6, "north"}}),
+          blocks::StickyPiston);
+    check(r.add("piston_head", {.hardness = 1.5f, .resistance = 1.5f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&facing6, "north"}, {&shortArm, "false"}, {&pistonType, "normal"}}),
+          blocks::PistonHead);
+    // Light: lit torches 7, lit lamps 15 (wiki: Light).
+    for (BlockId b : {blocks::RedstoneTorch, blocks::RedstoneWallTorch, blocks::RedstoneLamp})
+        for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
+            if (r.get(s, lit) == 0) r.setStateEmission(s, b == blocks::RedstoneLamp ? 15 : 7);
+        }
+    // An extended piston's base is not a full cube (light and faces pass its front).
+    for (BlockId b : {blocks::Piston, blocks::StickyPiston})
+        for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
+            if (r.get(s, extended) == 0) r.setStateOpaque(s, false);
+        }
     return r;
 }
 

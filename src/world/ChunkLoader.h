@@ -30,6 +30,8 @@ public:
     ChunkLoader& operator=(const ChunkLoader&) = delete;
 
     void setRenderDistance(int chunks);
+    // The current game time (unloaded chunks save their scheduled ticks relative to it).
+    void setGameTime(int64_t t) { m_gameTime = t; }
     int renderDistance() const { return m_renderDistance; }
 
     // Main thread, once per frame. Appends chunks inserted / removed this call to
@@ -50,6 +52,7 @@ public:
     static bool wanted(int dx, int dz, int renderDistance);
 
 private:
+    int64_t m_gameTime = 0;
     void rebuildQueue(ChunkPos center);
     bool isRequested(ChunkPos p) const;
     void run();

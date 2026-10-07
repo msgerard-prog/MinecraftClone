@@ -77,7 +77,18 @@ public:
     uint8_t lightEmission(BlockStateId state) const { return m_stateEmission[state]; }
     // Registration time: light depending on state (furnace lit=true emits 13).
     void setStateEmission(BlockStateId state, uint8_t level) { m_stateEmission[state] = level; }
+    // Registration time: per-state shape (an extended piston is not a full cube).
+    void setStateOpaque(BlockStateId state, bool opaque) {
+        m_stateOpaque[state] = opaque ? 1 : 0;
+        m_stateOpacity[state] = opaque ? 15 : 0;
+    }
     RenderLayer layer(BlockStateId state) const;
+
+    // Fast property access by Property object (hot paths: redstone). `get` returns
+    // the value's index in the property's list (-1 if the block lacks it); `set`
+    // returns the state with that value index (unchanged if the block lacks it).
+    int get(BlockStateId state, const Property& property) const;
+    BlockStateId set(BlockStateId state, const Property& property, int valueIndex) const;
 
     // Property access by name. Return nullopt for unknown property/value.
     std::optional<std::string_view> value(BlockStateId state, std::string_view property) const;

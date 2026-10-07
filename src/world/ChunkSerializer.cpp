@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <climits>
 #include <cmath>
 #include <unordered_map>
 
@@ -16,6 +17,10 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.biomes = chunk.biomes();
     s.furnaces = chunk.furnaces();
     s.mobs = chunk.mobs();
+    s.blockTicks = chunk.blockTicks();
+    if (!chunk.ticksRelative) // saved as delays (vanilla "t")
+        for (auto& t : s.blockTicks)
+            t.time -= gameTime;
     for (int i = 0; i < kSectionsPerChunk; ++i) {
         s.sections[size_t(i)] = chunk.shareSection(i);
         s.light[size_t(i)] = chunk.light(i);
@@ -232,6 +237,24 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         entities.emplace_back(std::move(e));
     }
     root.put("block_entities", nbt::listOf(nbt::TagType::Compound, std::move(entities)));
+    // Scheduled block ticks (wiki: Chunk format › block_ticks): i block id, p
+    // priority, t delay, x/y/z world position; in scheduling order.
+    std::vector<nbt::Tag> ticks;
+    std::vector<const Chunk::BlockTick*> ordered;
+    for (const auto& t : chunk.blockTicks)
+        ordered.push_back(&t);
+    std::sort(ordered.begin(), ordered.end(), [](const auto* a, const auto* b) { return a->order < b->order; });
+    for (const Chunk::BlockTick* t : ordered) {
+        nbt::Compound e;
+        e.put("i", blockRegistry().block(t->block).id);
+        e.put("p", int32_t{t->priority});
+        e.put("t", static_cast<int32_t>(std::max<int64_t>(0, t->time)));
+        e.put("x", int32_t{chunk.pos.x * 16 + t->x});
+        e.put("y", int32_t{t->y});
+        e.put("z", int32_t{chunk.pos.z * 16 + t->z});
+        ticks.emplace_back(std::move(e));
+    }
+    root.put("block_ticks", nbt::listOf(nbt::TagType::Compound, std::move(ticks)));
     return root;
 }
 
@@ -347,6 +370,25 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks) {
             f.cookTime = static_cast<int>(e->integer("CookTime").value_or(0));
             f.cooking = f.input.item; // not saved (vanilla neither): progress belongs to the input
         }
+    chunk.blockTicks().clear();
+    if (const nbt::List* ticks = root.list("block_ticks")) {
+        uint64_t order = 0;
+        for (const nbt::Tag& t : ticks->items) {
+            const nbt::Compound* e = t.get<nbt::Compound>();
+            const std::string* id = e ? e->string("i") : nullptr;
+            const auto block = id ? reg.findBlock(*id) : std::nullopt;
+            if (!block) continue;
+            const int64_t x = e->integer("x").value_or(INT32_MIN) - int64_t{chunk.pos().x} * 16;
+            const int64_t z = e->integer("z").value_or(INT32_MIN) - int64_t{chunk.pos().z} * 16;
+            const int64_t y = e->integer("y").value_or(INT32_MIN);
+            if (x < 0 || x > 15 || z < 0 || z > 15 || !isInBuildHeight(static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
+                continue;
+            chunk.blockTicks().push_back({static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y),
+                                          static_cast<int8_t>(std::clamp<int64_t>(e->integer("p").value_or(0), -3, 3)), *block,
+                                          std::clamp<int64_t>(e->integer("t").value_or(0), 0, 1 << 20), order++});
+        }
+        chunk.ticksRelative = true;
+    }
     chunk.setBiomes(std::move(biomes));
     return true;
 }

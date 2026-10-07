@@ -26,6 +26,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Terracotta:
     case blocks::MossyCobblestone:
     case blocks::Furnace:
+    case blocks::RedstoneBlock: // wiki: Block of Redstone - any pickaxe
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre: return {T::Pickaxe, 0};
     case blocks::IronOre:
@@ -43,7 +44,12 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::EmeraldOre:
     case blocks::DeepslateEmeraldOre: return {T::Pickaxe, 2};
     case blocks::Ice:
-    case blocks::PackedIce: return {T::Pickaxe, -1};
+    case blocks::PackedIce:
+    case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
+    case blocks::StickyPiston:
+    case blocks::PistonHead:
+    case blocks::StoneButton: return {T::Pickaxe, -1};
+    case blocks::OakButton: return {T::Axe, -1};
     // Shovel (faster, not required).
     case blocks::Dirt:
     case blocks::GrassBlock:
@@ -170,7 +176,9 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::PackedIce:
     case blocks::ShortGrass:
     case blocks::Fern:
-    case blocks::Snow: return; // snowballs: not added yet
+    case blocks::Snow:       // snowballs: not added yet
+    case blocks::PistonHead: // the base drops the piston
+        return;
     case blocks::DeadBush: // wiki: Dead Bush - 0-2 sticks without shears
         if (const int n = between(0, 2)) add(d.stick, n);
         return;

@@ -95,6 +95,23 @@ uint32_t BlockRegistry::valueIndex(const BlockDef& def, BlockStateId state, int 
     return offset / def.strides[prop] % static_cast<uint32_t>(def.properties[prop]->values.size());
 }
 
+int BlockRegistry::get(BlockStateId state, const Property& property) const {
+    const BlockDef& def = m_blocks[m_stateBlock[state]];
+    for (size_t i = 0; i < def.properties.size(); ++i)
+        if (def.properties[i] == &property) return static_cast<int>(valueIndex(def, state, static_cast<int>(i)));
+    return -1;
+}
+
+BlockStateId BlockRegistry::set(BlockStateId state, const Property& property, int index) const {
+    const BlockDef& def = m_blocks[m_stateBlock[state]];
+    for (size_t i = 0; i < def.properties.size(); ++i)
+        if (def.properties[i] == &property) {
+            const uint32_t old = valueIndex(def, state, static_cast<int>(i));
+            return static_cast<BlockStateId>(state + (uint32_t(index) - old) * def.strides[i]);
+        }
+    return state;
+}
+
 std::optional<std::string_view> BlockRegistry::value(BlockStateId state,
                                                      std::string_view property) const {
     const BlockDef& def = m_blocks[m_stateBlock[state]];

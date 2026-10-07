@@ -14,7 +14,8 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     auto& slot = m_chunks[chunk->pos()];
     slot = std::move(chunk);
     slot->inTickingList = false;
-    if (!slot->furnaces().empty() || !slot->mobs().empty()) markTicking(slot->pos());
+    if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty())
+        markTicking(slot->pos());
     return *slot;
 }
 

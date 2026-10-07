@@ -9,6 +9,13 @@
 
 namespace mc::world {
 
+// Told about block changes made through World::updateBlock (redstone, supports).
+class BlockUpdateListener {
+public:
+    virtual ~BlockUpdateListener() = default;
+    virtual void onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) = 0;
+};
+
 // All loaded chunks. Only the main thread mutates it (see docs/architecture.md).
 class World {
 public:
@@ -26,6 +33,15 @@ public:
     // World coordinates. Unloaded chunks read as air; writes to them are ignored.
     BlockStateId getBlock(const BlockPos& p) const;
     void setBlock(const BlockPos& p, BlockStateId state);
+    // A gameplay change (players breaking/placing): sets the block, then notifies the
+    // listener so neighbours react (vanilla Level.setBlock with block updates).
+    void updateBlock(const BlockPos& p, BlockStateId state) {
+        const BlockStateId old = getBlock(p);
+        if (old == state || !chunk(p.chunk())) return;
+        setBlock(p, state);
+        if (m_listener) m_listener->onBlockChanged(p, old, state);
+    }
+    void setListener(BlockUpdateListener* listener) { m_listener = listener; }
 
     // Chunks with something that ticks (block entities, mobs), so game ticks never
     // scan every loaded chunk (vanilla keeps level-wide ticking lists too).
@@ -37,7 +53,7 @@ public:
         for (size_t r = 0; r < m_ticking.size(); ++r) {
             Chunk* c = chunk(m_ticking[r]);
             if (!c) continue; // unloaded: drop it
-            if (c->furnaces().empty() && c->mobs().empty()) {
+            if (c->furnaces().empty() && c->mobs().empty() && c->blockTicks().empty()) {
                 c->inTickingList = false; // nothing left: drop it
                 continue;
             }
@@ -59,6 +75,7 @@ public:
 private:
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
+    BlockUpdateListener* m_listener = nullptr;
 };
 
 } // namespace mc::world

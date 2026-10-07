@@ -57,6 +57,8 @@ public:
         m_biomes = defaultBiomes();
         m_furnaces.clear();
         m_mobs.clear();
+        m_blockTicks.clear();
+        ticksRelative = false;
         inTickingList = false;
         lightJob = {};
         for (auto& l : m_light)
@@ -134,6 +136,21 @@ public:
     std::vector<MobData>& mobs() { return m_mobs; }
     const std::vector<MobData>& mobs() const { return m_mobs; }
 
+    // Scheduled block ticks in this chunk (wiki: Tick › Scheduled tick; redstone
+    // delays). Ordered by time, then priority, then scheduling order.
+    struct BlockTick {
+        int8_t x, z;      // local
+        int16_t y;        // world
+        int8_t priority;  // lower runs first
+        BlockId block;    // runs only if this block is still there
+        int64_t time;     // game time it runs at (a delay while `ticksRelative`)
+        uint64_t order;   // scheduling order within the same time and priority
+    };
+    std::vector<BlockTick>& blockTicks() { return m_blockTicks; }
+    const std::vector<BlockTick>& blockTicks() const { return m_blockTicks; }
+    // Loaded from disk: tick times are delays until the chunk's first game tick.
+    bool ticksRelative = false;
+
     // Changed since it was generated / loaded / last saved (needs saving).
     bool dirty() const { return m_dirty; }
     void clearDirty() { m_dirty = false; }
@@ -160,6 +177,7 @@ private:
     std::shared_ptr<const ChunkBiomes> m_biomes = defaultBiomes();
     std::vector<FurnaceEntry> m_furnaces;
     std::vector<MobData> m_mobs;
+    std::vector<BlockTick> m_blockTicks;
 };
 
 } // namespace mc::world

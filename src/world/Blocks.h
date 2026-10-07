@@ -15,6 +15,17 @@ extern const Property distance;   // 1..7 (leaves: steps to the nearest log)
 extern const Property persistent; // true | false (leaves placed by a player)
 extern const Property layers;     // 1..8 (snow)
 extern const Property facing;     // north | south | west | east (horizontal facing)
+// Redstone (M11, wiki: each block's "Block states").
+extern const Property power;      // 0..15
+extern const Property north, east, south, west; // redstone wire: up | side | none
+extern const Property delay;      // 1..4 (repeater)
+extern const Property locked;     // true | false
+extern const Property powered;    // true | false
+extern const Property face;       // floor | wall | ceiling (lever, buttons)
+extern const Property facing6;    // "facing": down | up | north | south | west | east
+extern const Property extended;   // true | false (pistons)
+extern const Property shortArm;   // "short": true | false (piston head)
+extern const Property pistonType; // "type": normal | sticky (piston head)
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -89,6 +100,19 @@ enum : BlockId {
     Snow, // snow layers (1..8)
     CraftingTable,
     Furnace, // facing, lit
+    // Redstone (M11).
+    RedstoneWire,      // north/east/south/west, power
+    RedstoneTorch,     // lit
+    RedstoneWallTorch, // facing, lit
+    Repeater,          // facing (toward the input), delay, locked, powered
+    Lever,             // face, facing, powered
+    StoneButton,       // face, facing, powered
+    OakButton,
+    RedstoneBlock,
+    RedstoneLamp, // lit
+    Piston,       // facing (6), extended
+    StickyPiston,
+    PistonHead, // facing (6), short, type
     Count
 };
 } // namespace blocks

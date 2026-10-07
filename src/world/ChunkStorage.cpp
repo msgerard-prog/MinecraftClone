@@ -54,6 +54,8 @@ bool ChunkStorage::load(Chunk& chunk) {
             if (snap.biomes) chunk.setBiomes(snap.biomes);
             chunk.furnaces() = snap.furnaces;
             chunk.mobs() = snap.mobs;
+            chunk.blockTicks() = snap.blockTicks; // delays (see ChunkSnapshot::of)
+            chunk.ticksRelative = true;
             chunk.clearDirty();
             return true;
         }

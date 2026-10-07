@@ -45,6 +45,8 @@ ItemRegistry buildItems() {
     const auto& blocks = blockRegistry();
     for (BlockId b = 1; b < blocks.blockCount(); ++b) {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
+        // Placed by another item (redstone dust, torches on walls) or never an item.
+        if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead) continue;
         const std::string& id = blocks.block(b).id;
         r.mapBlock(b, r.add({.id = id, .block = b}));
     }
@@ -84,7 +86,12 @@ ItemRegistry buildItems() {
     for (const char* name : {"stick", "coal", "charcoal", "raw_iron", "raw_gold", "raw_copper",
                              "iron_ingot", "gold_ingot", "copper_ingot", "diamond", "emerald",
                              "lapis_lazuli", "redstone", "flint", "leather"})
-        r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
+        r.add({.id = std::string("minecraft:") + name,
+               .block = std::string_view(name) == "redstone" ? BlockId(blocks::RedstoneWire) : BlockId(0),
+               .texture = std::string("item/") + name});
+    // Redstone dust is placed as redstone_wire; wall torches drop the torch item.
+    r.mapBlock(blocks::RedstoneWire, *r.find("redstone"));
+    r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)

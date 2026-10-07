@@ -106,7 +106,7 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
         });
         for (const ChunkPos& p : m_far) {
             if (auto chunk = m_world.removeChunk(p)) {
-                if (m_storage && chunk->dirty()) m_storage->save(ChunkSnapshot::of(*chunk));
+                if (m_storage && chunk->dirty()) m_storage->save(ChunkSnapshot::of(*chunk, m_gameTime));
                 m_recycled.push(std::move(chunk));
             }
             unloaded.push_back(p);
