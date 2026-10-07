@@ -17,7 +17,7 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     slot = std::move(chunk);
     slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
-        !slot->brewingStands().empty())
+        !slot->brewingStands().empty() || !slot->comparators().empty())
         markTicking(slot->pos());
     return *slot;
 }
@@ -67,7 +67,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     // caller before it breaks it).
     const BlockId b = blockRegistry().blockOf(state);
     if (was != b && (was == blocks::Furnace || was == blocks::Chest || was == blocks::Spawner ||
-                     was == blocks::BrewingStand))
+                     was == blocks::BrewingStand || was == blocks::Comparator))
         c->removeBlockEntity(x, p.y, z); // replaced
     if (b == blocks::Furnace) {
         c->addFurnace(x, p.y, z);
@@ -79,6 +79,9 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         markTicking(c->pos());
     } else if (b == blocks::BrewingStand) {
         c->addBrewing(x, p.y, z);
+        markTicking(c->pos());
+    } else if (b == blocks::Comparator) { // (ticking: they watch containers, M21.2)
+        c->addComparator(x, p.y, z);
         markTicking(c->pos());
     }
 }

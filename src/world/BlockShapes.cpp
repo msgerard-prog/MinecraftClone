@@ -83,6 +83,7 @@ BlockShape compute(BlockStateId s) {
         return sh;
     }
     case B::Cactus: return box(1, 0, 1, 15, 15, 15);
+    case B::Comparator: return box(0, 0, 0, 16, 2, 16);
     case B::Farmland:
     case B::DirtPath: return box(0, 0, 0, 16, 15, 16);
     case B::SoulSand: return box(0, 0, 0, 16, 14, 16);

@@ -56,6 +56,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.chests() = snap.chests;
             chunk.spawners() = snap.spawners;
             chunk.brewingStands() = snap.brewing;
+            chunk.comparators() = snap.comparators;
             chunk.mobs() = snap.mobs;
             chunk.blockTicks() = snap.blockTicks; // delays (see ChunkSnapshot::of)
             chunk.ticksRelative = !snap.blockTicks.empty();

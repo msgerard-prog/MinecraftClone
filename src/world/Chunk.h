@@ -68,6 +68,7 @@ public:
         m_chests.clear();
         m_spawners.clear();
         m_brewing.clear();
+        m_comparators.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -194,7 +195,25 @@ public:
     }
     std::vector<BrewingEntry>& brewingStands() { return m_brewing; }
     const std::vector<BrewingEntry>& brewingStands() const { return m_brewing; }
+    struct ComparatorEntry {
+        int x, y, z; // local x/z, world y
+        ComparatorData data;
+    };
+    ComparatorData* comparator(int x, int y, int z) {
+        for (auto& c : m_comparators)
+            if (c.x == x && c.y == y && c.z == z) return &c.data;
+        return nullptr;
+    }
+    ComparatorData& addComparator(int x, int y, int z) {
+        if (ComparatorData* c = comparator(x, y, z)) return *c;
+        m_dirty = true;
+        m_comparators.push_back({x, y, z, {}});
+        return m_comparators.back().data;
+    }
+    std::vector<ComparatorEntry>& comparators() { return m_comparators; }
+    const std::vector<ComparatorEntry>& comparators() const { return m_comparators; }
     void removeBlockEntity(int x, int y, int z) {
+        std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
         std::erase_if(m_furnaces, [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
@@ -278,6 +297,7 @@ private:
     std::vector<FurnaceEntry> m_furnaces;
     std::vector<ChestEntry> m_chests;
     std::vector<SpawnerEntry> m_spawners;
+    std::vector<ComparatorEntry> m_comparators;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;

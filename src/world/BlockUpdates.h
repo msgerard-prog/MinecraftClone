@@ -307,6 +307,13 @@ private:
     std::vector<Plate> m_plates;
     std::vector<BlockPos> m_tntPrimed;
     int plateTarget(BlockId b, int count) const;
+    // Comparators and observers (M21.2).
+    int weakAt(const BlockPos& q, Direction toward) const;   // weak() with block entities
+    int strongAt(const BlockPos& q, Direction toward) const; // strong() likewise
+    int containerSignal(const BlockPos& p) const;            // -1: not a container
+    int comparatorTarget(const BlockPos& p, BlockStateId s) const;
+    void comparatorChanged(const BlockPos& p, BlockStateId s);
+    void watchComparators();
     void setDoor(const BlockPos& lower, BlockStateId lowerState, bool open, bool poweredNow);
 };
 

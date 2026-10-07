@@ -65,7 +65,7 @@ bool isTorch(BlockId b) { return b == B::RedstoneTorch || b == B::RedstoneWallTo
 // Blocks that give power themselves (vanilla isSignalSource).
 bool signalSource(BlockId b) {
     return b == B::RedstoneWire || isTorch(b) || b == B::Repeater || b == B::Lever || isButton(b) ||
-           b == B::RedstoneBlock;
+           b == B::RedstoneBlock || b == B::Comparator;
 }
 
 // Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
@@ -92,6 +92,7 @@ Push pushKind(BlockStateId s) {
     case B::RedstoneTorch:
     case B::RedstoneWallTorch:
     case B::Repeater:
+    case B::Comparator:
     case B::Lever:
     case B::StoneButton:
     case B::OakButton:
@@ -175,7 +176,7 @@ BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
 bool BlockUpdates::conductor(BlockStateId s) {
     // Opaque full blocks conduct, except these (wiki: Redstone circuits › Conductivity).
     const BlockId b = blockOf(s);
-    return R().opaqueCube(s) && b != B::RedstoneBlock && !isPiston(b) && b != B::Glowstone;
+    return R().opaqueCube(s) && b != B::RedstoneBlock && !isPiston(b) && b != B::Glowstone && b != B::Observer;
 }
 
 // --- Power ------------------------------------------------------------------------
@@ -206,6 +207,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
     case B::LightWeightedPressurePlate:
     case B::HeavyWeightedPressurePlate:
         return R().get(s, power);
+    case B::Observer: // out of its back (wiki: Observer)
+        return flag(s, powered) && toward == opposite(facing6Of(s)) ? 15 : 0;
     default:
         return 0;
     }
@@ -215,6 +218,7 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     switch (blockOf(s)) {
     case B::RedstoneWire:
     case B::Repeater:
+    case B::Observer:
         return weak(s, toward);
     case B::RedstoneTorch:
     case B::RedstoneWallTorch:
@@ -233,18 +237,122 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     }
 }
 
+int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
+    const BlockStateId s = at(q);
+    if (blockOf(s) != B::Comparator) return weak(s, toward);
+    // Out of its front only, at the strength it keeps (wiki: Redstone Comparator).
+    if (toward != opposite(hFacing(s))) return 0;
+    const Chunk* c = chunkAt(q);
+    const ComparatorData* d = c ? const_cast<Chunk*>(c)->comparator(blockToLocal(q.x), q.y, blockToLocal(q.z)) : nullptr;
+    return d ? d->output : 0;
+}
+
+int BlockUpdates::strongAt(const BlockPos& q, Direction toward) const {
+    const BlockStateId s = at(q);
+    return blockOf(s) == B::Comparator ? weakAt(q, toward) : strong(s, toward);
+}
+
+int BlockUpdates::containerSignal(const BlockPos& p) const {
+    // Fullness 0..15: 0 when empty, else floor(1 + (sum of count / max stack) / slots x 14)
+    // (wiki: Redstone Comparator › Measure block state).
+    const BlockId b = blockOf(at(p));
+    Chunk* c = chunkAt(p);
+    if (!c) return -1;
+    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    double fill = 0.0;
+    int slots = 0;
+    bool any = false;
+    auto count = [&](const ItemStack& st) {
+        ++slots;
+        if (st.empty()) return;
+        any = true;
+        fill += double(st.count) / std::max(1, int(itemRegistry().item(st.item).maxStack));
+    };
+    if (b == B::Chest) {
+        if (const ChestData* d = c->chest(x, p.y, z))
+            for (const ItemStack& st : d->items)
+                count(st);
+        if (const auto partner = chestPartner(m_world, p)) // a double chest counts both halves
+            if (Chunk* pc = chunkAt(*partner))
+                if (const ChestData* d = pc->chest(blockToLocal(partner->x), partner->y, blockToLocal(partner->z)))
+                    for (const ItemStack& st : d->items)
+                        count(st);
+    } else if (b == B::Furnace) {
+        if (const FurnaceData* d = c->furnace(x, p.y, z)) {
+            count(d->input);
+            count(d->fuel);
+            count(d->output);
+        }
+    } else if (b == B::BrewingStand) {
+        if (const BrewingData* d = c->brewing(x, p.y, z)) {
+            for (const ItemStack& st : d->bottles)
+                count(st);
+            count(d->ingredient);
+            count(d->fuel);
+        }
+    } else {
+        return -1;
+    }
+    if (!any || slots == 0) return 0;
+    return std::min(15, static_cast<int>(std::floor(1.0 + fill / slots * 14.0)));
+}
+
+int BlockUpdates::comparatorTarget(const BlockPos& p, BlockStateId s) const {
+    // Rear: a container's fullness (also through one solid block), else its signal;
+    // sides: only dust, repeaters, comparators and redstone blocks count.
+    const Direction back = hFacing(s);
+    const BlockPos in = rel(p, back);
+    int rear = std::max(signalFrom(in, opposite(back)), wirePower(in));
+    if (const int c = containerSignal(in); c >= 0) rear = std::max(rear, c);
+    else if (conductor(at(in)))
+        if (const int c2 = containerSignal(rel(in, back)); c2 >= 0) rear = std::max(rear, c2);
+    int side = 0;
+    for (const Direction d : kHorizontal) {
+        if (d == back || d == opposite(back)) continue;
+        const BlockPos q = rel(p, d);
+        const BlockId nb = blockOf(at(q));
+        if (nb == B::RedstoneWire) side = std::max(side, wirePower(q));
+        else if (nb == B::Repeater || nb == B::Comparator || nb == B::RedstoneBlock)
+            side = std::max(side, weakAt(q, opposite(d)));
+    }
+    return R().get(s, comparatorMode) == 0 ? (rear >= side ? rear : 0) : std::max(0, rear - side);
+}
+
+void BlockUpdates::comparatorChanged(const BlockPos& p, BlockStateId s) {
+    // A change takes 1 redstone tick (2 game ticks) to show (wiki).
+    const Chunk* c = chunkAt(p);
+    const ComparatorData* d = c ? const_cast<Chunk*>(c)->comparator(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+    const int have = d ? d->output : 0;
+    if (comparatorTarget(p, s) != have && !hasTick(p, B::Comparator)) schedule(p, B::Comparator, 2, -1);
+}
+
+void BlockUpdates::watchComparators() {
+    // Containers don't send updates here; comparators reading one look each tick.
+    m_world.forEachTickingChunk([&](Chunk& c) {
+        for (const auto& e : std::as_const(c).comparators()) {
+            const BlockPos p{c.pos().x * 16 + e.x, e.y, c.pos().z * 16 + e.z};
+            const BlockStateId s = c.get(e.x, e.y, e.z);
+            if (blockOf(s) != B::Comparator) continue;
+            const Direction back = hFacing(s);
+            const BlockPos in = rel(p, back);
+            if (containerSignal(in) >= 0 || (conductor(at(in)) && containerSignal(rel(in, back)) >= 0))
+                comparatorChanged(p, s);
+        }
+    });
+}
+
 int BlockUpdates::strongInto(const BlockPos& p) const {
     int best = 0;
     for (int d = 0; d < kDirectionCount && best < 15; ++d) {
         const Direction dir = static_cast<Direction>(d);
-        best = std::max(best, strong(at(rel(p, dir)), opposite(dir)));
+        best = std::max(best, strongAt(rel(p, dir), opposite(dir)));
     }
     return best;
 }
 
 int BlockUpdates::signalFrom(const BlockPos& p, Direction toward) const {
     const BlockStateId s = at(p);
-    return conductor(s) ? strongInto(p) : weak(s, toward);
+    return conductor(s) ? strongInto(p) : weakAt(p, toward);
 }
 
 int BlockUpdates::bestNeighbourSignal(const BlockPos& p) const {
@@ -550,6 +658,16 @@ void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId
             set(base, 0);
         }
     }
+    // Observers looking at this block notice the change (wiki: Observer).
+    if (old != now)
+        for (int d = 0; d < kDirectionCount; ++d) {
+            const Direction dir = static_cast<Direction>(d);
+            const BlockPos q = rel(p, dir);
+            const BlockStateId o = at(q);
+            if (blockOf(o) == B::Observer && facing6Of(o) == opposite(dir) && !flag(o, powered) &&
+                !hasTick(q, B::Observer))
+                schedule(q, B::Observer, 2, 0);
+        }
     notifyNeighbours(p);
     reach(p, old);
     // Same block in a new state: its reach only moves if what it points at changed.
@@ -586,6 +704,12 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
     case B::HeavyWeightedPressurePlate:
         notifyNeighbours(rel(p, Direction::Down));
         break;
+    case B::Observer: {
+        const BlockPos back = rel(p, opposite(facing6Of(s)));
+        neighbourChanged(back);
+        notifyNeighbours(back);
+        break;
+    }
     case B::Repeater: {
         const BlockPos front = rel(p, opposite(hFacing(s)));
         neighbourChanged(front);
@@ -777,6 +901,13 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::OakFence:
         set(p, fenceConnected(m_world, p, s));
         break;
+    case B::Comparator:
+        if (!supports(at(rel(p, Direction::Down)))) {
+            pop(p);
+            break;
+        }
+        comparatorChanged(p, s);
+        break;
     case B::Tnt: // lit by redstone power (also when placed next to it)
         if (bestNeighbourSignal(p) > 0) primeTnt(p);
         break;
@@ -938,6 +1069,7 @@ void BlockUpdates::tick() {
         const BlockStateId s = at(d.pos);
         if (blockOf(s) == d.tick.block) tickBlock(d.pos, s);
     }
+    watchComparators();
     runRandomTicks(); // (vanilla: after block and fluid ticks, before block events)
     // Block events (pistons), including ones these cause (wiki: Tick › Block events).
     // Pistons powered by a player act in the next tick's block events (wiki: Piston ›
@@ -1027,6 +1159,30 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::StoneButton:
     case B::OakButton:
         if (flag(s, powered)) set(p, withFlag(s, powered, false));
+        break;
+    case B::Comparator: {
+        const int want = comparatorTarget(p, s);
+        if (Chunk* c = chunkAt(p))
+            if (ComparatorData* d = c->comparator(blockToLocal(p.x), p.y, blockToLocal(p.z))) {
+                if (d->output == want) break;
+                d->output = want;
+                c->markDirty();
+            }
+        const BlockStateId now = withFlag(s, powered, want > 0);
+        if (now != s) setRaw(p, now);
+        // What it points into hears about it, even when only the strength changed.
+        const BlockPos front = rel(p, opposite(hFacing(s)));
+        neighbourChanged(front);
+        notifyNeighbours(front);
+        break;
+    }
+    case B::Observer: // (a full update: observers watching this one see it too)
+        if (flag(s, powered)) {
+            set(p, withFlag(s, powered, false));
+        } else {
+            set(p, withFlag(s, powered, true));
+            schedule(p, B::Observer, 2, 0); // a 2-tick pulse (wiki: Observer)
+        }
         break;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
@@ -1282,7 +1438,7 @@ void BlockUpdates::retract(const BlockPos& p) {
 bool BlockUpdates::usable(BlockStateId s) {
     const BlockId b = blockOf(s);
     return b == B::Lever || isButton(b) || b == B::Repeater || b == B::RedstoneWire || b == B::OakDoor ||
-           b == B::OakTrapdoor || b == B::OakFenceGate;
+           b == B::OakTrapdoor || b == B::OakFenceGate || b == B::Comparator;
 }
 
 bool BlockUpdates::use(const BlockPos& p) {
@@ -1314,6 +1470,12 @@ bool BlockUpdates::use(const BlockPos& p) {
     case B::OakFenceGate:
         set(p, withFlag(s, open, !flag(s, open)));
         return true;
+    case B::Comparator: { // compare <-> subtract
+        const BlockStateId now = R().set(s, comparatorMode, 1 - R().get(s, comparatorMode));
+        set(p, now);
+        comparatorChanged(p, now);
+        return true;
+    }
     case B::RedstoneWire: {
         // Unconnected dust toggles between a cross and a dot (wiki: Redstone Dust).
         BlockStateId dotState = s;
@@ -1398,6 +1560,13 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     }
     case B::OakFenceGate:
         return withHFacing(state, look);
+    case B::Comparator:
+        if (!solid(Direction::Down)) return std::nullopt;
+        return withHFacing(state, opposite(look)); // like a repeater: the output away from the player
+    case B::Observer: { // its face looks where the player looks (wiki: Observer)
+        const Direction f = pitch > 45.0f ? Direction::Down : pitch < -45.0f ? Direction::Up : look;
+        return r.set(state, facing6, static_cast<int>(f));
+    }
     case B::OakFence:
         return fenceConnected(world, at, state);
     case B::OakPressurePlate:

@@ -50,6 +50,7 @@ const Property doorHalf{"half", {"upper", "lower"}};
 const Property hinge{"hinge", {"left", "right"}};
 const Property slabHalf{"half", {"top", "bottom"}};
 const Property inWall{"in_wall", {"true", "false"}};
+const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property age5{"age", {"0", "1", "2", "3", "4", "5"}};
 const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25"}};
@@ -488,6 +489,14 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("stone_pressure_plate", kPlate, {{&powered, "false"}}), blocks::StonePressurePlate);
     check(r.add("light_weighted_pressure_plate", kPlate, {{&power, "0"}}), blocks::LightWeightedPressurePlate);
     check(r.add("heavy_weighted_pressure_plate", kPlate, {{&power, "0"}}), blocks::HeavyWeightedPressurePlate);
+    // wiki: Redstone Comparator (breaks at once, a 2/16 slab like the repeater),
+    // Observer (hardness 3.0, a pickaxe to drop).
+    check(r.add("comparator",
+                {.hardness = 0.0f, .resistance = 0.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&facing, "north"}, {&comparatorMode, "compare"}, {&powered, "false"}}),
+          blocks::Comparator);
+    check(r.add("observer", {.hardness = 3.0f, .resistance = 3.0f}, {{&facing6, "south"}, {&powered, "false"}}),
+          blocks::Observer);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

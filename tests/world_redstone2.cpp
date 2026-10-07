@@ -135,3 +135,58 @@ TEST_CASE("pressure plates: pressed while something stands on them, released aft
     s.redstone.settlePlates();
     CHECK(R().get(s.at({8, 64, 4}), power) == 5);
 }
+
+#include "world/ChunkSerializer.h"
+#include "world/Items.h"
+
+TEST_CASE("comparators: pass the rear signal on, compare against or subtract the sides, read container fullness") {
+    Scene s;
+    // Facing north: input from the north (z 3), output south (z 5).
+    s.place(blocks::Comparator, {4, 64, 4}, Direction::Up, 0.0f); // (yaw 0: looking south -> facing north)
+    CHECK(val(s.at({4, 64, 4}), "facing") == "north");
+    s.put({4, 64, 5}, S(blocks::RedstoneLamp));
+    s.put({4, 64, 3}, S(blocks::RedstoneBlock)); // rear 15
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "true");
+    CHECK(val(s.at({4, 64, 5}), "lit") == "true");
+    // A side input of 15 in subtract mode: 15 - 15 = 0.
+    s.put({5, 64, 4}, S(blocks::RedstoneBlock));
+    s.redstone.setTime(s.time);
+    s.redstone.use({4, 64, 4}); // -> subtract
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "false");
+    // Compare mode: rear 15 >= side 15 -> 15 again.
+    s.redstone.use({4, 64, 4});
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "true");
+
+    // A chest behind: 1 stack of 64 in 27 slots -> floor(1 + 1/27 x 14) = 1.
+    s.put({5, 64, 4}, 0);
+    s.put({4, 64, 3}, S(blocks::Chest));
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "false"); // empty
+    s.world.chunk({0, 0})->chest(4, 64, 3)->items[0] = ItemStack{*itemRegistry().find("stone"), 64};
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "true");
+    CHECK(s.world.chunk({0, 0})->comparator(4, 64, 4)->output == 1);
+    // OutputSignal saves.
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(*mc::nbt::read(mc::nbt::write(chunkToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}))))), back));
+    REQUIRE(back.comparator(4, 64, 4));
+    CHECK(back.comparator(4, 64, 4)->output == 1);
+}
+
+TEST_CASE("observers: a change in front of the face sends a 2-tick pulse out of the back") {
+    Scene s;
+    s.place(blocks::Observer, {4, 64, 4}, Direction::Up, 180.0f); // looking north: face north
+    CHECK(val(s.at({4, 64, 4}), "facing") == "north");
+    s.put({4, 64, 5}, S(blocks::RedstoneLamp)); // behind it (south)
+    s.tick(3);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "false");
+    s.put({4, 64, 3}, S(blocks::Stone)); // the watched block changes
+    s.tick(2);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "true");
+    CHECK(val(s.at({4, 64, 5}), "lit") == "true");
+    s.tick(2);
+    CHECK(val(s.at({4, 64, 4}), "powered") == "false");
+}

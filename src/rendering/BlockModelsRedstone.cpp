@@ -231,6 +231,40 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         }
         return true;
     }
+    case B::Comparator: {
+        // Like the repeater (input north, output south): two torches at the back lit
+        // while it outputs, one at the front lit in subtract mode (wiki: Comparator).
+        Builder b(atlas, out);
+        const bool on = r.get(s, P::powered) == 0;
+        const bool subtract = r.get(s, P::comparatorMode) == 1;
+        const Rot rot{0, yTurns(hFacing(r, s))};
+        BoxSpec base = allFaces({0, 0, 0}, {16, 2, 16}, "smooth_stone", {0, 14, 16, 16});
+        base.faces[int(Direction::Up)] = {on ? "comparator_on" : "comparator"};
+        base.faces[int(Direction::Down)] = {"smooth_stone"};
+        b.box(base, rot);
+        const char* back = on ? "redstone_torch" : "redstone_torch_off";
+        b.box(torchStick({4, 2, 2}, 5, back), rot);
+        b.box(torchStick({10, 2, 2}, 5, back), rot);
+        b.box(torchStick({7, 2, 11}, subtract ? 5 : 4, subtract ? "redstone_torch" : "redstone_torch_off"), rot);
+        return true;
+    }
+    case B::Observer: {
+        // Built looking north: the face at -Z, the back (red when on) at +Z, the arrow
+        // on top pointing from face to back.
+        Builder b(atlas, out);
+        const auto facing = static_cast<Direction>(r.get(s, P::facing6));
+        static constexpr Rot kFacingRot[6] = {{3, 0}, {1, 0}, {0, 0}, {0, 2}, {0, 3}, {0, 1}}; // by Direction
+        FaceSpec faces[6];
+        const glm::ivec3 north{0, 0, -1};
+        faces[int(Direction::North)] = {"observer_front"};
+        faces[int(Direction::South)] = {r.get(s, P::powered) == 0 ? "observer_back_on" : "observer_back"};
+        faces[int(Direction::Up)] = {"observer_top", {0, 0, 16, 16}, north};
+        faces[int(Direction::Down)] = {"observer_top", {0, 0, 16, 16}, north};
+        faces[int(Direction::East)] = {"observer_side", {0, 0, 16, 16}, north};
+        faces[int(Direction::West)] = {"observer_side", {0, 0, 16, 16}, north};
+        b.cube(faces, kFacingRot[int(facing)]);
+        return true;
+    }
     case B::Lever: {
         // A cobblestone base and a handle leaning to the off or on side.
         Builder b(atlas, out);

@@ -159,6 +159,12 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"##"}, {{'#', item("gold_ingot")}}, "light_weighted_pressure_plate"));
         r.push_back(shaped({"##"}, {{'#', item("iron_ingot")}}, "heavy_weighted_pressure_plate"));
     }
+    // (wiki: Redstone Comparator - 3 redstone torches round a quartz over 3 stone;
+    // Observer - cobblestone, 2 redstone dust and a quartz)
+    r.push_back(shaped({".T.", "TQT", "SSS"},
+                       {{'T', item("redstone_torch")}, {'Q', item("quartz")}, {'S', item("stone")}}, "comparator"));
+    r.push_back(shaped({"CCC", "RRQ", "CCC"},
+                       {{'C', item("cobblestone")}, {'R', item("redstone")}, {'Q', item("quartz")}}, "observer"));
     // (wiki: End Rod - a blaze rod over popped chorus fruit makes 4)
     r.push_back(shaped({"B", "P"}, {{'B', item("blaze_rod")}, {'P', item("popped_chorus_fruit")}}, "end_rod", 4));
     // (wiki: End Crystal - glass around an eye of ender over a ghast tear)

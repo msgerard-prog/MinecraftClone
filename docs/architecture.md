@@ -283,6 +283,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   trapdoors, fence gates open by hand (wood) or redstone; pressure plates are pressed by
   main each tick (`BlockUpdates::pressPlate`/`settlePlates`) and spring up on their
   scheduled tick when nothing is left on them.
+- Comparators and observers (M21.2): `ComparatorData` block entities keep the output
+  strength (`weakAt`/`strongAt` read it); `comparatorTarget` (rear signal or container
+  fullness via `containerSignal`, side inputs, compare/subtract), 2-tick updates, and
+  `watchComparators` each tick for comparators reading containers. Observers are
+  scheduled by `afterChange` when the block they face changes; their pulse is a full
+  update, so observer chains work.
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push

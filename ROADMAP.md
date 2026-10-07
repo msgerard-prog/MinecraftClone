@@ -20,7 +20,7 @@ order where documented):
 1. ✅ M21.1 — Doors, trapdoors, fence gates (wood and iron; redstone opens them),
    pressure plates (wood/stone/weighted) and TNT (lit by redstone or fire, primed TNT
    entity, its explosion; the desert pyramid trap starts working).
-2. M21.2 — Comparators (compare/subtract, reading containers' fullness) and
+2. ✅ M21.2 — Comparators (compare/subtract, reading containers' fullness) and
    observers (block-state change pulses).
 3. M21.3 — Hoppers (moving items between containers, picking up items), droppers and
    dispensers (dispense behaviours: arrows, buckets, items).

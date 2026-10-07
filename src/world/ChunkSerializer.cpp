@@ -24,6 +24,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.chests = chunk.chests();
     s.spawners = chunk.spawners();
     s.brewing = chunk.brewingStands();
+    s.comparators = chunk.comparators();
     s.mobs = chunk.mobs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
@@ -385,6 +386,16 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("Fuel", int8_t(br.data.fuelLeft));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& cp : chunk.comparators) { // wiki: Redstone Comparator › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:comparator"));
+        e.put("x", int32_t{chunk.pos.x * 16 + cp.x});
+        e.put("y", int32_t{cp.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + cp.z});
+        e.put("keepPacked", int8_t{0});
+        e.put("OutputSignal", int32_t(cp.data.output));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& sp : chunk.spawners) { // wiki: Monster Spawner › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:mob_spawner"));
@@ -556,12 +567,18 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
-                        *id != "minecraft:brewing_stand"))
+                        *id != "minecraft:brewing_stand" && *id != "minecraft:comparator"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
             const int z = static_cast<int>(e->integer("z").value_or(0)) - chunk.pos().z * 16;
             if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(y)) continue;
+            if (*id == "minecraft:comparator") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
+                chunk.addComparator(x, y, z).output =
+                    static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
             if (*id == "minecraft:brewing_stand") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::BrewingStand) continue;
                 BrewingData& br = chunk.addBrewing(x, y, z);

@@ -49,6 +49,7 @@ extern const Property doorHalf;  // "half": upper | lower
 extern const Property hinge;     // left | right
 extern const Property slabHalf;  // "half": top | bottom (trapdoors)
 extern const Property inWall;    // "in_wall": true | false (fence gates)
+extern const Property comparatorMode; // "mode": compare | subtract
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -278,6 +279,8 @@ enum : BlockId {
     StonePressurePlate, // powered
     LightWeightedPressurePlate, // power (gold)
     HeavyWeightedPressurePlate, // power (iron)
+    Comparator, // facing, mode (compare | subtract), powered (M21.2)
+    Observer,   // facing (6: where its face looks), powered
     Count
 };
 } // namespace blocks
