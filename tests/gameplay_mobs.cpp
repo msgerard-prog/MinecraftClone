@@ -1230,3 +1230,49 @@ TEST_CASE("ender pearls land where they hit and report it (into a gateway: flagg
     }
     CHECK(landed);
 }
+
+TEST_CASE("shulkers: open for a nearby survival player and shoot homing bullets that levitate; closed, they shrug off hits") {
+    MobScene s;
+    s.mobs = Mobs();
+    MobData sh = Mobs::make(MobType::Shulker, {6.5, 64.0, 0.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, sh));
+    Projectiles proj;
+    bool hit = false;
+    for (int i = 0; i < 300 && !hit; ++i) {
+        tickWith(s, proj, 1);
+        hit = s.vitals.effectLevel(Effect::Levitation) > 0;
+    }
+    CHECK(hit);
+    CHECK(s.vitals.health() < 20.0f);
+    MobData* m = nullptr;
+    for (MobData* o : s.all())
+        if (o->type == MobType::Shulker) m = o;
+    REQUIRE(m);
+    CHECK(m->peek == 100); // open while it fights
+    // Levitating: the player drifts up.
+    const double y0 = s.player.position().y;
+    for (int i = 0; i < 40; ++i) {
+        s.player.setEffects(0, 0, 0, false, s.vitals.effectLevel(Effect::Levitation));
+        s.player.tick(s.world, {});
+    }
+    CHECK(s.player.position().y > y0 + 1.0);
+    // Closed, it takes a fifth of a hit.
+    m->peek = 0;
+    const float before = m->health;
+    m->hurtTime = 0;
+    Mobs::attack(*m, 10.0f, s.player.position());
+    CHECK(m->health == doctest::Approx(before - 2.0f));
+}
+
+TEST_CASE("end cities hold shulkers") {
+    const EndGenerator gen(42, 2);
+    int shulkers = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = 0; dx <= 2; ++dx) {
+            Chunk c({104 + dx, -132 + dz}, kEndHeight);
+            gen.generate(c);
+            for (const MobData& m : c.mobs())
+                shulkers += m.type == MobType::Shulker;
+        }
+    CHECK(shulkers >= 2);
+}

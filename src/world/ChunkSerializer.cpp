@@ -707,6 +707,11 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
         if (m.type == MobType::EnderDragon) e.put("DragonPhase", int32_t(m.phase)); // (vanilla's numbers)
+        if (m.type == MobType::Shulker) {
+            e.put("AttachFace", int8_t{0}); // (ours always sit on a floor: down)
+            e.put("Peek", int8_t(m.peek));
+            e.put("Color", int8_t{16}); // (no colour)
+        }
         if (m.type == MobType::MagmaCube) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::Zombie) {
@@ -772,6 +777,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
         m.showBottom = e->integer("ShowBottom").value_or(1) != 0;
+        if (m.type == MobType::Shulker) m.peek = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Peek").value_or(0), 0, 100));
         if (m.type == MobType::EnderDragon) {
             m.phase = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("DragonPhase").value_or(0), 0, 10));
             if (m.phase == 9) m.phase = 0; // (a dying dragon saved mid-death comes back flying; vanilla: dies again)

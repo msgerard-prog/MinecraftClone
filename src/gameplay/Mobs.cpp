@@ -2,6 +2,7 @@
 
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/FluidContact.h"
+#include "gameplay/Projectiles.h"
 
 #include "world/Blocks.h"
 #include "world/Coords.h"
@@ -229,6 +230,29 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (m.phaseTicks > 30000) m.phaseTicks = 30000;
         return;
     }
+    if (m.type == MobType::Shulker) {
+        // Stays put on its block (wiki: Shulker): while the player is within 16 blocks
+        // (and in survival) it opens and shoots a bullet every 1-5.5 s; otherwise it
+        // peeks now and then and closes again.
+        m.vel = glm::dvec3(0.0);
+        const glm::dvec3 to = ctx.player.position() - m.pos;
+        const bool target = ctx.survival && !ctx.playerDead && glm::dot(to, to) < 16.0 * 16.0;
+        int want = target ? 100 : (m.goalTicks > 0 ? 30 : 0);
+        if (!target && ctx.rng.nextInt(400) == 0) m.goalTicks = 40 + static_cast<int>(ctx.rng.nextInt(60)); // a peek
+        if (m.goalTicks > 0) --m.goalTicks;
+        if (m.peek < want) m.peek = static_cast<uint8_t>(std::min(want, m.peek + 5));
+        else if (m.peek > want) m.peek = static_cast<uint8_t>(std::max(want, m.peek - 5));
+        if (target && ctx.projectiles && --m.chargeTicks <= 0) {
+            const glm::dvec3 from = m.pos + glm::dvec3(0.0, 0.5, 0.0);
+            const glm::dvec3 dir = glm::length(to) > 1e-6 ? glm::normalize(to) : glm::dvec3(0, 1, 0);
+            ctx.projectiles->shoot(ProjectileKind::ShulkerBullet, from + dir * 0.8, dir, 0.15, 0.0, false, false,
+                                   ctx.rng, m.uuidHi);
+            m.chargeTicks = static_cast<int16_t>(20 + ctx.rng.nextInt(90)); // (wiki: 1-5.5 s)
+        }
+        m.yaw = 0.0f; // (the shell never turns; vanilla's head inside does)
+        m.headYaw = float(std::atan2(-to.x, to.z) * 180.0 / 3.14159265358979);
+        return;
+    }
     if (m.type == MobType::EndCrystal) {
         // Doesn't move; its glass cubes turn (the yaw only animates the model).
         m.vel = glm::dvec3(0.0);
@@ -412,6 +436,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
+    if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
     m.health -= damage;
     m.hurtTime = 10;
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
@@ -525,6 +550,9 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (m.carried)
             if (const ItemId it = items.blockItem(blockRegistry().blockOf(m.carried)))
                 ctx.items.spawn(m.pos + glm::dvec3(0, 1, 0), {it, 1}, ctx.rng);
+        break;
+    case MobType::Shulker: // wiki: Shulker - a shell half the time
+        drop("shulker_shell", 0, 1);
         break;
     // Nether mobs (M19.2; wiki): ghast - gunpowder 0-2, ghast tear 0-1; blaze - a blaze
     // rod 0-1 for player kills; magma cube - magma cream 25% (not the smallest), and

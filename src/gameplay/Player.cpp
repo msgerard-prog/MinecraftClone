@@ -275,6 +275,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     if (m_flying) {
         m_velocity.y *= kFlyVerticalDamping;
         if (m_onGround) m_flying = false; // landing ends creative flight
+    } else if (m_levitation > 0) {
+        m_velocity.y += (0.05 * m_levitation - m_velocity.y) * 0.2;
     } else {
         m_velocity.y = (m_velocity.y - (m_slowFalling && m_velocity.y <= 0.0 ? 0.01 : kGravity)) * kVerticalDrag;
     }

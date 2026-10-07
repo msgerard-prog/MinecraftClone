@@ -274,6 +274,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `Projectiles::pearls`) and touching a gateway move the player (main). Four rim
   crystals start `respawnStep`: pillars rebuilt from the generator's pillar data,
   the portal shut, a new dragon.
+- Shulkers (M20.4b, in `Mobs::ai`): fixed in place, `peek` opens the lid (a `Lift`
+  model part), `ProjectileKind::ShulkerBullet` homes in and gives Levitation, which
+  `Player::setEffects` turns into a rise.
 - Nether mobs (M19.2, `gameplay/NetherMobs.cpp`, part of `Mobs`): `netherAi` (ghast,
   blaze, magma cube; zombified piglin anger), `spawnNether` (biome weights); flying
   mobs (`MobInfo::flies`) ease their velocity to a 3D wish in `physics`; fireballs are

@@ -79,11 +79,13 @@ public:
     void setFlySpeedMultiplier(double k) { m_flyMultiplier = k; }
     // Effects (M19.4; wiki: Speed, Slowness, Jump Boost, Slow Falling): walking speed
     // x (1 + 0.2 speed) x (1 - 0.15 slowness); jumps 0.1 higher per jump boost level;
-    // slow falling: gravity 0.01 while falling.
-    void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling) {
+    // slow falling: gravity 0.01 while falling; levitation (M20.4): drifts up toward
+    // 0.05 blocks a tick per level instead of falling (wiki: Levitation, ~0.9 b/s).
+    void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling, int levitation = 0) {
         m_walkMultiplier = std::max(0.0, (1.0 + 0.2 * speed) * (1.0 - 0.15 * slowness));
         m_jumpBoost = jumpBoost;
         m_slowFalling = slowFalling;
+        m_levitation = levitation;
     }
 
     // One game tick. Does nothing while the player's chunk isn't loaded (vanilla
@@ -137,6 +139,7 @@ private:
     double m_walkMultiplier = 1.0;
     int m_jumpBoost = 0;
     bool m_slowFalling = false;
+    int m_levitation = 0;
     std::vector<Aabb> m_boxes; // reused collision box buffer (reserved: no tick allocation)
 
 public:

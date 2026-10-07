@@ -789,6 +789,20 @@ void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& c
             Xoroshiro rng(mixSeed(mixSeed(m_seed ^ 0xC17E5, static_cast<uint32_t>(start.x)), static_cast<uint32_t>(start.z)));
             const int storeys = 3 + static_cast<int>(rng.nextInt(3));
             const bool ship = rng.nextInt(2) == 0;
+            // Shulkers sit on floors (vanilla: in the walls and on the ceilings too); each
+            // belongs to the chunk it is in.
+            auto addShulker = [&](int32_t wx, int sy, int32_t wz) {
+                Xoroshiro ur(mixSeed(mixSeed(m_seed ^ 0x5A1C, static_cast<uint32_t>(wx)), static_cast<uint32_t>(wz * 512 + sy)));
+                if (blockToChunk(wx) != out.pos().x || blockToChunk(wz) != out.pos().z) return;
+                MobData m;
+                m.type = MobType::Shulker;
+                m.uuidHi = (ur.nextLong() & ~0xF000ull) | 0x4000ull;
+                m.uuidLo = (ur.nextLong() & ~(3ull << 62)) | (2ull << 62);
+                m.pos = m.prevPos = m.goal = glm::dvec3(wx + 0.5, double(sy), wz + 0.5);
+                m.health = 30.0f;
+                m.persistent = true;
+                out.mobs().push_back(m);
+            };
             // The base: an 11x11 end stone brick plinth down into the island.
             box(cx - 5, gy - 3, cz - 5, cx + 5, gy, cz + 5, bricks);
             // The tower: 7x7 purpur walls, a floor and an end rod per 4-high storey.
@@ -804,6 +818,7 @@ void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& c
                     set(wx, y + 2, wz, air);
                 if (s == 0) box(cx, y + 1, cz + 3, cx, y + 2, cz + 3, air);
                 set(cx, y + 3, cz, rodDown);
+                if (s % 2 == 1) addShulker(cx + 2, y + 1, cz + 2);
             }
             // The top room: 11x11, walls 4 high, two chests, rods on the roof's corners.
             box(cx - 5, y, cz - 5, cx + 5, y + 5, cz + 5, purpur);
@@ -823,6 +838,8 @@ void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& c
             set(cx, y + 4, cz, rodDown);
             addChest(cx - 3, y + 1, cz - 3, false);
             addChest(cx - 3, y + 1, cz + 3, false);
+            addShulker(cx + 3, y + 1, cz - 3);
+            addShulker(cx + 3, y + 1, cz + 3);
             if (!ship) continue;
             // A bridge east, then the ship floating beside the city, pointing east.
             box(cx + 5, y + 1, cz - 1, cx + 5, y + 3, cz + 1, air); // (the room's east door)
@@ -846,6 +863,7 @@ void EndGenerator::placeEndCities(Chunk& out, BlockStateId* blocks, EndChests& c
             addChest(sx + 8, sy + 2, cz - 2, false);
             addChest(sx + 8, sy + 2, cz + 2, false);
             addChest(sx + 12, sy + 2, cz, true);
+            addShulker(sx + 5, sy + 2, cz);
         }
 }
 

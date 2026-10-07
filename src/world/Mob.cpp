@@ -40,6 +40,9 @@ const MobInfo& mobInfo(MobType t) {
         // through blocks; drawn 4x its model (about 14 blocks long, 12 across the wings).
         // Our box is its body (vanilla: several part boxes, 16 x 8 overall).
         {"minecraft:ender_dragon", 200.0f, 6.0, 3.0, 0.0, 10.0f, true, true, true, 4.0f},
+        // wiki: Shulker - 30 health, a 1x1x1 box stuck to a block, its bullets hit for
+        // 4 and levitate; armour 20 while closed (our: 80% less damage).
+        {"minecraft:shulker", 30.0f, 1.0, 1.0, 0.0, 4.0f, true, true, true},
     };
     return kInfo[static_cast<int>(t)];
 }

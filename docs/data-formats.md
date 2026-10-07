@@ -117,7 +117,7 @@ entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position
                            ExplosionRadius, ignited, powered; enderman carriedBlockState
                            {Name, Properties}; end_crystal ShowBottom (byte; M20, with the mob
                            fields vanilla ignores); ender_dragon DragonPhase (Int, vanilla's
-                           phase numbers) } ] }
+                           phase numbers); shulker AttachFace (0), Peek, Color 16 } ] }
 region/r.<x>.<z>.mca       32x32 chunks: 4 KiB location table + timestamps, payloads in
                            4 KiB sectors (BE length, type 2 = zlib, NBT)
 ```

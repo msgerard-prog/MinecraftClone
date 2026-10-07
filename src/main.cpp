@@ -1122,7 +1122,8 @@ int main(int argc, char** argv) {
                 using E = mc::world::Effect;
                 vitals.tickEffects(); // (M19.4: in any game mode)
                 player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
-                                  vitals.effectLevel(E::JumpBoost), vitals.effectLevel(E::SlowFalling) > 0);
+                                  vitals.effectLevel(E::JumpBoost), vitals.effectLevel(E::SlowFalling) > 0,
+                                  vitals.effectLevel(E::Levitation));
             }
             if (!arrival) player.tick(world, input); // waiting for a destination: held in place
             const auto& reg = mc::world::blockRegistry();
@@ -1783,6 +1784,7 @@ int main(int argc, char** argv) {
             static const mc::world::ItemId splashItem = *mc::world::itemRegistry().find("splash_potion");
             static const mc::world::ItemId fireItem = *mc::world::itemRegistry().find("fire_charge");
             static const mc::world::ItemId pearlItem = *mc::world::itemRegistry().find("ender_pearl");
+            static const mc::world::ItemId shellItem = *mc::world::itemRegistry().find("shulker_shell");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
@@ -1791,6 +1793,7 @@ int main(int argc, char** argv) {
                                           : pr.kind == mc::ProjectileKind::SplashPotion ? splashItem
                                           : pr.kind == mc::ProjectileKind::Egg          ? eggItem
                                           : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
+                                          : pr.kind == mc::ProjectileKind::ShulkerBullet ? shellItem
                                                                                         : fireItem,
                                           1};
                 look.potion = pr.potion;

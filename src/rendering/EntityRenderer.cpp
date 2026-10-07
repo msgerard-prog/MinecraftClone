@@ -339,6 +339,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         for (int i = 0; i < 8; ++i) {
             glm::vec3 c(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z);
             if (anim) c = *anim * (c - pivot) + pivot;
+            if (part.anim == MobPart::Anim::Lift) c.y += float(mob.peek) * 0.08f;
             corners[i] = base + body * c * (scale / 16.0f); // pixels -> blocks
         }
         const float uv[6][4] = {

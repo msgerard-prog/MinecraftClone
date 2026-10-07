@@ -21,6 +21,7 @@ constexpr EffectInfo kEffects[] = {
     {"minecraft:water_breathing", false, 0x98DAC0},
     {"minecraft:jump_boost", false, 0xFDFF84},
     {"minecraft:slow_falling", false, 0xF3CFB9},
+    {"minecraft:levitation", false, 0xCEFFFF},
 };
 static_assert(std::size(kEffects) == size_t(Effect::Count));
 

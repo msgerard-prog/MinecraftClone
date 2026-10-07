@@ -24,6 +24,7 @@ enum class Effect : uint8_t {
     WaterBreathing,
     JumpBoost,
     SlowFalling,
+    Levitation, // (M20.4: shulker bullets)
     Count
 };
 struct EffectInfo {

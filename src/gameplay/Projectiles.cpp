@@ -174,7 +174,27 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             p.skyLight = c->skyLight(blockToLocal(cell.x), cell.y, blockToLocal(cell.z));
             p.blockLight = c->blockLight(blockToLocal(cell.x), cell.y, blockToLocal(cell.z));
         }
-        if (p.kind == ProjectileKind::EyeOfEnder) {
+        if (p.kind == ProjectileKind::ShulkerBullet) {
+            // Homes in on the player's middle, turning a little each tick (vanilla moves
+            // it axis by axis; ours steers smoothly); hits blocks and the player only.
+            const glm::dvec3 aim = player.position() + glm::dvec3(0.0, 0.9, 0.0) - p.pos;
+            const double len = glm::length(aim);
+            if (len > 1e-6) p.vel += (aim / len * 0.2 - p.vel) * 0.1;
+            p.facing = p.vel;
+            const double speed = glm::length(p.vel);
+            if (player.box().intersects(Aabb{p.pos - glm::dvec3(0.15), p.pos + glm::dvec3(0.15)})) {
+                if (vitals && survival && vitals->attacked(4.0f, &p.pos, Vitals::Hit::Projectile)) {
+                    vitals->addEffect(Effect::Levitation, 0, 200);
+                    hits.playerDamage += 4.0f;
+                }
+                remove = true;
+            } else if (speed > 1e-9 && raycastBlocks(world, p.pos, p.vel / speed, speed)) {
+                remove = true;
+            } else {
+                p.pos += p.vel;
+            }
+            if (p.life > 400) remove = true;
+        } else if (p.kind == ProjectileKind::EyeOfEnder) {
             // Glides toward its target (through blocks), then comes down (wiki).
             p.vel = (p.target - p.pos) * 0.06;
             p.pos += p.vel;
@@ -348,7 +368,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         }
                     } else {
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
-                        const bool perchedDragon = m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6);
+                        const bool perchedDragon = (m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6)) ||
+                                                   (m.type == MobType::Shulker && m.peek == 0); // (closed shells too)
                         if (m.type == MobType::Enderman) {
                             m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
                         } else if (perchedDragon) {

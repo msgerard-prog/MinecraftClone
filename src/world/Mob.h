@@ -30,6 +30,7 @@ enum class MobType : uint8_t {
     // The End (M20).
     EndCrystal, // not a mob in vanilla but an entity; it lives with the mobs here
     EnderDragon,
+    Shulker,
     Count
 };
 
@@ -120,6 +121,7 @@ struct MobData {
     float lastHealth = 0.0f;  // health at the last tick (damage taken while perched)
     float perchDamage = 0.0f; // damage taken since it landed (takes off at 50)
     bool hasBeam = false;     // an end crystal heals it: the beam starts at `beam`
+    uint8_t peek = 0;         // shulker: how far its lid is open, 0..100 (saved as Peek)
     glm::dvec3 beam{0.0};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

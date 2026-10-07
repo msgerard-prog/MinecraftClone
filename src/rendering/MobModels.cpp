@@ -205,6 +205,13 @@ constexpr std::array<MobPart, 8> kEnderDragon = {{
     {{-24, 5, -5}, {-4, 6, 5}, {-4, 5.5f, 0}, 0, 46, A::WingR},
 }};
 
+// Shulker: a shell base, a lid that lifts as it opens, and the head inside.
+constexpr std::array<MobPart, 3> kShulker = {{
+    {{-7.9f, 0, -7.9f}, {7.9f, 8, 7.9f}, {0, 0, 0}, 0, 28, A::None},
+    {{-8, 4, -8}, {8, 16, 8}, {0, 0, 0}, 0, 0, A::Lift},
+    {{-3, 5, -3}, {3, 11, 3}, {0, 0, 0}, 0, 52, A::Lift},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -226,6 +233,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Strider: return kStrider;
     case world::MobType::EndCrystal: return kEndCrystal;
     case world::MobType::EnderDragon: return kEnderDragon;
+    case world::MobType::Shulker: return kShulker;
     default: return kCow;
     }
 }

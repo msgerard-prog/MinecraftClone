@@ -36,7 +36,8 @@ enum class ProjectileKind : uint8_t {
     BlazeFireball,
     SplashPotion,
     DragonFireball,
-    EnderPearl
+    EnderPearl,
+    ShulkerBullet // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
