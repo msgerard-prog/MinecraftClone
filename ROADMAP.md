@@ -4,24 +4,30 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M6 done and reviewed (code, perf, parity findings fixed or recorded): HUD hotbar
-with isometric block icons, F3 debug screen, chat (T and /, history, fade, wrap),
-commands /tp /time /give /seed /help run on the tick, creative inventory (E).
-GUI is one batched draw (~0.02 ms CPU with F3). Original font/hotbar art.
-M5 done: sky + block light on workers, smooth lighting/AO, daylight cycle,
-sun/moon/stars. M7 started: NBT, zlib/gzip, Anvil region files, Java 1.21 chunk
-NBT, level.dat, chunk storage on an IO thread (all tested; not yet wired in).
-Measured (release, RTX 5080): RD32 auto-fly CPU work p99 0.70 ms, GPU avg 0.22 ms;
-static RD32 load 0.58 s.
+M7 done and reviewed (code + parity findings fixed or recorded): worlds save in
+vanilla's Anvil layout (ADR 0007, proposed) - every generated chunk is saved,
+autosave every 6000 ticks, on pause (Esc) and on exit; level.dat restores seed,
+generator, time, player and hotbar; crash-safe region writes; session.lock.
+`saves/New World` by default, `--world NAME`, `--no-save`.
+M6 done: HUD, F3, chat + commands, creative inventory. M5 done: lighting, day/night.
+M8 started: generator interface (placeholder kept unchanged as kind "terrain"),
+50 worldgen blocks (ores, stones, sandstones, ice, lava, woods, leaves, plants)
+with name-driven models and cross plants.
+Measured (release, RTX 5080): RD32 auto-fly CPU work p99 0.70 ms, GPU avg 0.22 ms.
 
 ## Next
-M7 — Save/load (format: vanilla Anvil, ADR 0007 *proposed*, see Waiting on the user).
-1. M7.2 — Loader integration: chunks load from region files before generating;
-   dirty chunks save on unload, every 6000 ticks (autosave) and on exit.
-2. M7.3 — level.dat: seed, generator, time, player, hotbar restored on start;
-   `--world NAME` (default "New World" for interactive runs), `--no-save`.
-3. M7.4 — Round-trip tests (save, restart, compare), docs, reviews.
-Then M8 (1.21 worldgen).
+M8 — 1.21-style overworld (new generator kind "overworld" for new worlds; existing
+worlds keep theirs). Pipeline as vanilla documents it, constants our own (vanilla's
+noise settings and biome tables are Mojang data we don't read):
+1. M8.2 — Biomes: registry with wiki colours, 4x4x4 biome storage per section (saved),
+   per-vertex biome tints (grass, foliage, water).
+2. M8.3 — Terrain: climate noises (continentalness, erosion, weirdness/PV,
+   temperature, humidity), spline-shaped 3D density on 4x8x4 cells, sea level 63.
+3. M8.4 — Caves and aquifers: cheese, spaghetti, noodle caves; lava below -55;
+   water where caves meet the sea.
+4. M8.5 — Biome placement (multi-noise lookup) and surface rules per biome.
+5. M8.6 — Features: ores (wiki distributions), trees (oak, birch, spruce, acacia),
+   grass and flowers; spawn search; tests, docs, reviews.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -56,7 +62,13 @@ and GUI textures are made with their systems.
 ## Waiting on the user
 - **Save format (ADR 0007, proposed):** vanilla's own Anvil format (region .mca,
   Java 1.21 chunk NBT, gzip level.dat, DataVersion 3955 = 1.21.1). Built because no
-  saves existed yet; say if you want something else before worlds matter.
+  saves existed yet; say if you want something else before worlds matter. Every
+  generated chunk is saved (vanilla), so worlds are larger on disk than "edits only".
+- **M8 generator (needs your OK to become the default):** new worlds use a new
+  generator kind "overworld"; the M3 placeholder ("terrain", pinned hash) is kept
+  for worlds that already use it. `--generator terrain` will select the old one.
+- M7 in-game check: load one of our worlds' chunks in vanilla? (not a goal; vanilla
+  probably refuses without WorldGenSettings.dimensions).
 - M6 in-game checks: exact feedback of `/tp 100 64 -20`, `/give @s oak_log 64` and an
   unknown command; does Return open the chat; carrying a creative item and clicking
   another - is the cursor empty afterwards; compare hotbar / creative panel offsets
@@ -101,7 +113,7 @@ and GUI textures are made with their systems.
 | M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | ✅ 2026-10-06 |
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | ✅ 2026-10-07 |
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | ✅ 2026-10-07 |
-| M7 | Save/load: region files (format chosen by ADR) | Worlds survive restart; round-trip tests |
+| M7 | Save/load: region files (format chosen by ADR) | ✅ 2026-10-07 |
 | M8 | Faithful 1.21 worldgen: noise router/density functions, multi-noise biomes, aquifers, caves, features | Terrain shapes recognisably vanilla for the same kinds of seeds |
 | M9 | Survival basics: items, tools, mining speed/drops, crafting table, furnace, recipes (vanilla JSON) | Wood → stone → iron progression works |
 | M10 | Entities & mobs: entity system, physics, AI goals, spawning, health/damage | Zombies/cows behave like vanilla |
@@ -117,6 +129,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M7: saves (Anvil regions, level.dat, autosave, session lock).
 - 2026-10-07 M6: HUD, F3, chat + commands, creative inventory.
 - 2026-10-07 M5: light engine, smooth lighting/AO, daylight cycle, sun/moon/stars.
 - 2026-10-06 M4: player physics, raycast/outline/crosshair, break/place, hotbar.
