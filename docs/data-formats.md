@@ -70,11 +70,14 @@ level.dat                  gzip NBT: Data { DataVersion 3955, version 19133, Lev
                            foodSaturationLevel, foodExhaustionLevel,
                            SelectedItemSlot, Inventory [ { Slot 0..35, id, count,
                            components { "minecraft:block_state", "minecraft:damage" } } ] },
-                           MinecraftClone { generator: "overworld" | "terrain" | "flat" } }
+                           MinecraftClone { generator: "overworld" | "terrain" | "flat",
+                           portals [ { dimension, x, y, z } ] (known nether portals, M12) } }
+                           (Player.Dimension: "minecraft:overworld" | "the_nether" | "the_end")
 level.dat_old              backup copy of the previous level.dat (load falls back to it,
                            then to level.dat_new); level.dat_new is written first and
                            renamed over level.dat in one step
 session.lock               held exclusively while the world is open (one instance)
+DIM-1/region, DIM-1/entities   the Nether (M12), same layouts; DIM1/... the End
 entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
                            Entities [ mobs: { id, Pos, Motion, Rotation, Health,
                            OnGround, FallDistance, Fire, HurtTime, DeathTime,

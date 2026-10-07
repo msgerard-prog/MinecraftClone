@@ -135,6 +135,18 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   mobs, and drains `changed()` (relight/re-mesh) and `drops()`. Models are in
   `rendering/BlockModelsRedstone.cpp` (rotated boxes; dust tinted by power through
   palette slots 238-253).
+- Dimensions (M12, `world/Dimension.h`): one dimension is loaded at a time in the
+  single `World`. Travelling (main.cpp) saves, unloads every chunk, swaps the
+  generator (`OverworldGenerator`/`TerrainGenerator`, `NetherGenerator`,
+  `EndGenerator` in `world/NetherGenerator.*`) and the `ChunkStorage` folder
+  (vanilla `DIM-1/`, `DIM1/`), sets `World::setHasSkyLight` (the light engine then
+  keeps sky light 0) and `WorldRenderer::setDimension` (fog colour/range, no
+  sun/moon/stars, ambient light uniform 8, End bright lightmap uniform 9), then waits
+  for the destination's chunks and finds or builds the way in. `gameplay/Portals`
+  holds the rules: lighting frames, 8:1 coordinates, the known-portal list (saved in
+  level.dat, our tag; vanilla uses poi/ files), portal building, end portal frames
+  and the End platform. Portal blocks check their frame on block updates
+  (`Redstone::neighbourChanged`), so portals are placed all at once, then updated.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
   furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.

@@ -97,4 +97,10 @@ many hostile mobs are around.
 Redstone: dust (the `redstone` item), redstone torches, repeaters (right-click for the
 delay), levers and buttons (right-click), blocks of redstone, lamps and pistons work
 like vanilla's, including torch burnout, repeater locking and quasi-connectivity.
-`/setblock x y z <block>` places any block state, e.g. `repeater[facing=west,delay=3]`.
+`/setblock x y z <block>` places any block state, e.g. `repeater[facing=west,delay=3]`;
+`/fill x1 y1 z1 x2 y2 z2 <block>` fills a box.
+The Nether and the End: build an obsidian frame (inside 2x3 or larger) and right-click
+inside it with flint and steel (iron ingot + flint), then stand in the portal (4 s in
+survival). Twelve end portal frames around a 3x3 hole, each given an eye of ender
+(creative inventory), open an end portal; the End's exit portal brings you back.
+`--dimension nether|end` starts a run there.

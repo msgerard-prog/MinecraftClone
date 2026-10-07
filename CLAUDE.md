@@ -27,7 +27,7 @@ Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60
 `--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
-runs default to "New World"), `--no-save`, `--generator overworld|terrain` (new worlds), `--pos x,y,z`, `--look yaw,pitch` (vanilla
+runs default to "New World"), `--no-save`, `--generator overworld|terrain` (new worlds), `--dimension overworld|nether|end` (start there), `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`
@@ -35,7 +35,7 @@ with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
 shift sneak / fly down, ctrl sprint, left click break (or hit the mob in front), right click place, 1-9 / wheel
-select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /setblock /summon /seed /help),
+select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /setblock /fill /summon /seed /help),
 E inventory (creative: item list; survival: 2x2 crafting), Q drop item, right-click crafting
 table/furnace to use them (`--inventory` opens the inventory screen for screenshots). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.
 New keys go in `Key` / `kGlfwKeys` (`core/Window.*`); list them here and in README.

@@ -22,6 +22,25 @@ void put(World& w, const BlockPos& p, BlockStateId s, std::vector<BlockPos>& cha
     changed.push_back(p);
 }
 
+// Places every block first, then sends the updates (a portal checks its whole frame:
+// filled one by one, the first blocks would see an incomplete one and break).
+struct Batch {
+    World& world;
+    std::vector<BlockPos>& changed;
+    std::vector<std::pair<BlockPos, BlockStateId>> old;
+    void put(const BlockPos& p, BlockStateId s) {
+        const BlockStateId was = world.getBlock(p);
+        if (was == s || !world.chunk(p.chunk())) return;
+        world.setBlock(p, s);
+        old.emplace_back(p, was);
+        changed.push_back(p);
+    }
+    ~Batch() {
+        for (const auto& [p, was] : old)
+            world.notifyChanged(p, was, world.getBlock(p));
+    }
+};
+
 int floorDiv(int a, int b) { return static_cast<int>(std::floor(double(a) / b)); }
 
 } // namespace
@@ -63,9 +82,10 @@ std::optional<BlockPos> light(World& world, const BlockPos& p, std::vector<Block
         }
         if (!closed || height < 3) continue;
         const BlockStateId portal = R().set(R().defaultState(blocks::NetherPortal), properties::haxis, axis);
+        Batch batch{world, changed, {}};
         for (int h = 0; h < height; ++h)
             for (int i = 0; i < width; ++i)
-                put(world, add(b, ax * i, h, az * i), portal, changed);
+                batch.put(add(b, ax * i, h, az * i), portal);
         return b;
     }
     return std::nullopt;
@@ -123,29 +143,30 @@ BlockPos build(World& world, const BlockPos& target, int minY, int maxY, std::ve
                     }
             }
     const BlockStateId obsidian = r.defaultState(blocks::Obsidian);
+    Batch batch{world, changed, {}};
     if (!spot) { // no room: make some at the target height, on an obsidian floor
         const BlockPos c{target.x, std::clamp(target.y, minY + 2, maxY - 4), target.z};
         for (int i = -1; i <= 2; ++i)
             for (int dz = -1; dz <= 1; ++dz) {
-                put(world, {c.x + i, c.y - 2, c.z + dz}, obsidian, changed);
+                batch.put({c.x + i, c.y - 2, c.z + dz}, obsidian);
                 for (int h = -1; h <= 3; ++h)
-                    put(world, {c.x + i, c.y + h, c.z + dz}, 0, changed);
+                    batch.put({c.x + i, c.y + h, c.z + dz}, 0);
             }
         spot = c;
     }
     const BlockPos c = *spot;
     for (int i = -1; i <= 2; ++i) {
-        put(world, {c.x + i, c.y - 1, c.z}, obsidian, changed);
-        put(world, {c.x + i, c.y + 3, c.z}, obsidian, changed);
+        batch.put({c.x + i, c.y - 1, c.z}, obsidian);
+        batch.put({c.x + i, c.y + 3, c.z}, obsidian);
     }
     for (int h = 0; h <= 2; ++h) {
-        put(world, {c.x - 1, c.y + h, c.z}, obsidian, changed);
-        put(world, {c.x + 2, c.y + h, c.z}, obsidian, changed);
+        batch.put({c.x - 1, c.y + h, c.z}, obsidian);
+        batch.put({c.x + 2, c.y + h, c.z}, obsidian);
     }
     const BlockStateId portal = r.defaultState(blocks::NetherPortal); // axis x
     for (int h = 0; h <= 2; ++h)
         for (int i = 0; i <= 1; ++i)
-            put(world, {c.x + i, c.y + h, c.z}, portal, changed);
+            batch.put({c.x + i, c.y + h, c.z}, portal);
     return c;
 }
 
