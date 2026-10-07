@@ -107,7 +107,8 @@ Push pushKind(BlockStateId s) {
     case B::BirchSapling:
     case B::SpruceSapling:
     case B::AcaciaSapling:
-    case B::Fire: return Push::Destroy;
+    case B::Fire:
+    case B::RedBed: return Push::Destroy; // (wiki: Piston - beds break)
     case B::Obsidian:  // (wiki: Piston/Table)
     case B::Furnace:   // block entities don't move
     case B::Chest:
@@ -276,6 +277,11 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
 }
 
 void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    // A bed's foot placed by a player brings its head (one block toward its facing).
+    if (blockOf(now) == B::RedBed && R().get(now, bedPart) == 1) {
+        const BlockPos head = rel(p, hFacing(now));
+        if (blockOf(at(head)) != B::RedBed && replaceable(at(head))) set(head, R().set(now, bedPart, 0));
+    }
     afterChange(p, old, now);
     neighbourChanged(p); // the new block checks its surroundings (vanilla onPlace)
 }
@@ -440,6 +446,15 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
             }
         }
         if (want != R().get(s, chestType)) setRaw(p, R().set(s, chestType, want));
+        break;
+    }
+    case B::RedBed: {
+        // The two halves go together: the foot's head is toward `facing`.
+        const bool foot = R().get(s, bedPart) == 1;
+        const BlockPos other = rel(p, foot ? hFacing(s) : opposite(hFacing(s)));
+        const BlockStateId o = at(other);
+        if (blockOf(o) != B::RedBed || hFacing(o) != hFacing(s) || R().get(o, bedPart) == R().get(s, bedPart))
+            set(p, 0); // (no drop: the half that was broken dropped the bed)
         break;
     }
     case B::Farmland: // a solid block on top turns it to dirt (wiki: Farmland)
@@ -907,6 +922,16 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::AcaciaSapling:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
+    case B::RedBed: {
+        // The foot where clicked, the head one block further in the player's look;
+        // both need room and a solid block below (wiki: Bed).
+        const BlockPos head = rel(at, look);
+        const BlockStateId h = world.getBlock(head);
+        if (!replaceable(h) || !R().collides(world.getBlock(rel(at, Direction::Down))) ||
+            !R().collides(world.getBlock(rel(head, Direction::Down))))
+            return std::nullopt;
+        return r.set(withHFacing(state, look), bedPart, 1);
+    }
     case B::Chest: {
         // The front faces the player; next to a single chest with the same facing
         // (on its left or right) it becomes the other half of a double chest.

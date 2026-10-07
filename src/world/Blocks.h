@@ -38,6 +38,8 @@ extern const Property moisture; // 0..7 (farmland)
 extern const Property age7;     // "age": 0..7 (wheat, carrots, potatoes)
 extern const Property age3;     // "age": 0..3 (beetroots)
 extern const Property chestType; // "type": single | left | right
+extern const Property bedPart;   // "part": head | foot
+extern const Property occupied;  // true | false
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -166,6 +168,7 @@ enum : BlockId {
     Potatoes,
     Beetroots, // age 0..3
     Chest,     // facing, type (single | left | right)
+    RedBed,    // facing (foot -> head), occupied, part
     Count
 };
 } // namespace blocks

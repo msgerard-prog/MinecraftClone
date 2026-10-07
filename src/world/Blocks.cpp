@@ -43,6 +43,8 @@ const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
 const Property chestType{"type", {"single", "left", "right"}};
+const Property bedPart{"part", {"head", "foot"}};
+const Property occupied{"occupied", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -296,6 +298,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("chest", {.hardness = 2.5f, .resistance = 2.5f, .opaqueCube = false, .layer = RenderLayer::Cutout},
                 {{&facing, "north"}, {&chestType, "single"}}),
           blocks::Chest);
+    // Bed (M17.4; wiki: Bed - hardness 0.2, 9/16 tall: not a full cube).
+    check(r.add("red_bed", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&facing, "north"}, {&occupied, "false"}, {&bedPart, "foot"}}),
+          blocks::RedBed);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

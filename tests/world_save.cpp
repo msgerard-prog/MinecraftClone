@@ -858,3 +858,15 @@ TEST_CASE("level.dat: worn armor and the offhand save in 1.21.5+'s equipment com
     }
     CHECK(found == 4);
 }
+
+TEST_CASE("level.dat keeps the bed respawn point (1.21.5+ respawn compound)") {
+    TempDir dir("mc_test_level_respawn");
+    LevelData l;
+    l.hasRespawn = true;
+    l.respawn[0] = -12, l.respawn[1] = 70, l.respawn[2] = 33;
+    REQUIRE(l.save(dir.path));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back);
+    CHECK(back->hasRespawn);
+    CHECK(back->respawn[2] == 33);
+}

@@ -59,6 +59,7 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"C", "S"}, {{'C', kCoal}, {'S', item("stick")}}, "torch", 4));
     r.push_back(shaped({"###", "#.#", "###"}, {{'#', kStoneTool}}, "furnace"));
     r.push_back(shaped({"###", "#.#", "###"}, {{'#', kPlanks}}, "chest")); // wiki: Chest
+    r.push_back(shaped({"WWW", "PPP"}, {{'W', item("red_wool")}, {'P', kPlanks}}, "red_bed")); // wiki: Bed
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword), per material.
     const std::pair<const char*, Ingredient> materials[] = {{"wooden", kPlanks},
                                                             {"stone", kStoneTool},

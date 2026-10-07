@@ -104,6 +104,15 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("OnGround", int8_t{1});
     player.put("fall_distance", 0.0);
     player.put("Air", static_cast<int16_t>(air));
+    if (hasRespawn) { // 1.21.5+: respawn {pos, dimension, yaw, pitch, forced} (wiki: Player.dat)
+        Compound r;
+        r.put("pos", std::vector<int32_t>{respawn[0], respawn[1], respawn[2]});
+        r.put("dimension", std::string("minecraft:overworld"));
+        r.put("yaw", 0.0f);
+        r.put("pitch", 0.0f);
+        r.put("forced", int8_t{0});
+        player.put("respawn", std::move(r));
+    }
     player.put("Fire", static_cast<int16_t>(fire > 0 ? fire : -20));
     player.put("XpLevel", int32_t{0});
     player.put("XpP", 0.0f);
@@ -263,6 +272,13 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         if (auto d = p->string("Dimension")) l.dimension = *d;
         l.air = static_cast<int>(std::clamp<int64_t>(p->integer("Air").value_or(300), -20, 300));
         l.fire = static_cast<int>(std::clamp<int64_t>(p->integer("Fire").value_or(-20), -20, 32767));
+        if (const Compound* r = p->compound("respawn"))
+            if (const Tag* pos = r->find("pos"))
+                if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {
+                    l.hasRespawn = true;
+                    for (int i = 0; i < 3; ++i)
+                        l.respawn[i] = (*a)[size_t(i)];
+                }
         if (const Compound* a = p->compound("abilities")) l.flying = a->integer("flying").value_or(0) != 0;
         l.survival = p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)) == 0;
         if (auto h = p->real("Health")) l.health = static_cast<float>(*h);

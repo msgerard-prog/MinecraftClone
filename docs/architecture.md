@@ -172,6 +172,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in
   it. Decaying leaves report `Drop::loot`, rolled by `blockDrops` in main.
+- Beds (M17.4, `gameplay/Beds`): two-block red bed (the foot brings its head in
+  `BlockUpdates::onBlockChanged`; halves break together), `useBed` rules (night,
+  monsters, occupied, explodes outside the Overworld), `bedStandSpot`; main handles
+  sleeping (100 ticks, then the next morning), the respawn point (level.dat
+  `respawn`) and respawning there.
 - Armor and shields (M17.3): armor items carry `armorSlot`/`armor`/`toughness`;
   `Inventory` holds 4 worn pieces and the offhand (saved as level.dat `equipment`);
   `Vitals::attacked` (mob hits, arrows, explosions, lava, fire blocks) applies the

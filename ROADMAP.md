@@ -25,7 +25,7 @@ Anvil, Brewing):
    toughness damage reduction, durability, armor slots in the inventory, worn on mobs
    and the player model later); shields (blocking with right-click, 5-tick delay,
    axe disabling).
-4. M17.4 — Beds (placing two halves, sleeping at night skips to morning, respawn
+4. ✅ M17.4 — Beds (placing two halves, sleeping at night skips to morning, respawn
    point, explode in the Nether/End).
 5. M17.5 — Enchanting (table, lapis, levels/XP orbs from mobs and ores, enchantment
    choices by bookshelves, efficiency/sharpness/protection/unbreaking...), anvils

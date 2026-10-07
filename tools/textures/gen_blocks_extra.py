@@ -46,10 +46,37 @@ def chest(face):
     return img
 
 
+def bed(face):
+    """Red bed (our drawing): blanket on top, a white pillow at the head, wooden frame
+    sides; ends show the frame."""
+    rng = random.Random("bed_" + face)
+    img = Img(16, 16, (0, 0, 0, 255))
+    red = ramp(hexc("#B0242A"), 5, spread=0.3)
+    wood = ramp(hexc("#8A5A30"), 5, spread=0.3)
+    white = ramp(hexc("#E8E8E0"), 5, spread=0.15)
+    for y in range(16):
+        for x in range(16):
+            r = rng.random()
+            i = 2 if r > 0.3 else 3 if r > 0.15 else 1
+            if face in ("head_top", "foot_top"):
+                pillow = face == "head_top" and 3 <= x <= 12 and 1 <= y <= 6
+                c = white[i] if pillow else red[i]
+                if x in (0, 15):
+                    c = red[0]
+            else:  # sides / ends: blanket band on top, frame below
+                c = red[i] if y < 7 else wood[i]
+                if y == 7 or (y >= 7 and x in (0, 15)):
+                    c = wood[0]
+            img.set(x, y, c)
+    return img
+
+
 def main():
     for face in ("top", "side", "front"):
         (OUT / f"chest_{face}.png").write_bytes(encode_png(chest(face)))
-    print("wrote chest textures")
+    for face in ("head_top", "foot_top", "side", "end"):
+        (OUT / f"red_bed_{face}.png").write_bytes(encode_png(bed(face)))
+    print("wrote chest and bed textures")
 
 
 if __name__ == "__main__":

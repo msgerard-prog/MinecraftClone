@@ -3,6 +3,7 @@
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
+#include "gameplay/Beds.h"
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/FallingBlocks.h"
 #include "gameplay/Inventory.h"
@@ -21,6 +22,7 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/Explosion.h"
 #include "gameplay/ItemEntities.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
@@ -381,6 +383,14 @@ int main(int argc, char** argv) {
     int bowTicks = 0;                // how long the bow has been drawn
     double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;             // how long right-click has held a shield up
+    // Beds (M17.4): the respawn point, sleeping (ticks asleep, the bed's head).
+    std::optional<mc::world::BlockPos> bedSpawn;
+    if (level && level->hasRespawn)
+        bedSpawn = mc::world::BlockPos{level->respawn[0], level->respawn[1], level->respawn[2]};
+    int sleepTicks = 0;
+    mc::world::BlockPos sleepBed{};
+    bool bedRespawnPending = false; // respawned at the bed: check it once its chunks load
+    mc::Explosion bedExplosion;     // beds in the Nether and the End
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -487,6 +497,8 @@ int main(int argc, char** argv) {
         l.exhaustion = vitals.exhaustion();
         l.foodTimer = vitals.foodTimer();
         l.air = vitals.air();
+        l.hasRespawn = bedSpawn.has_value();
+        if (bedSpawn) l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
         auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
             if (s.empty()) return;
@@ -669,10 +681,14 @@ int main(int argc, char** argv) {
                            mc::Press::Drop})
                 window.takePresses(p);
         } else {
-            if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at world spawn
+            if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at the bed or world spawn
                 dead = false;
                 vitals.reset();
-                if (dimension != Dimension::Overworld) {
+                if (bedSpawn && dimension == Dimension::Overworld) {
+                    player.setPosition({bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
+                    player.setVelocity(glm::dvec3(0.0));
+                    bedRespawnPending = true; // checked once its chunks are loaded
+                } else if (dimension != Dimension::Overworld) {
                     pendingTravel = Travel{Dimension::Overworld, Travel::Via::Respawn, {}}; // spawn is in the Overworld
                 } else {
                     player.setPosition(glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
@@ -706,6 +722,42 @@ int main(int argc, char** argv) {
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::RedBed) {
+                        switch (mc::useBed(world, lastHit->block, dayTime, dimension)) {
+                        case mc::BedUse::Sleep:
+                            bedSpawn = *mc::bedHead(world, lastHit->block);
+                            sleepBed = *bedSpawn;
+                            sleepTicks = 1;
+                            world.updateBlock(sleepBed, reg.set(world.getBlock(sleepBed), mc::world::properties::occupied, 0));
+                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::NotNight:
+                            bedSpawn = *mc::bedHead(world, lastHit->block);
+                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                            chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::Monsters:
+                            chat.addMessage("You may not rest now; there are monsters nearby", 0xFFFFFFFFu, gameTime,
+                                            gui.batch());
+                            break;
+                        case mc::BedUse::Occupied:
+                            chat.addMessage("This bed is occupied", 0xFFFFFFFFu, gameTime, gui.batch());
+                            break;
+                        case mc::BedUse::Explodes: { // wiki: Bed - power 5 outside the Overworld
+                            const mc::world::BlockPos head = *mc::bedHead(world, lastHit->block);
+                            world.updateBlock(head, 0); // (the foot follows)
+                            frameEdits.push_back(head);
+                            mc::ExplosionTargets t;
+                            if (survival) {
+                                t.player = &player;
+                                t.vitals = &vitals;
+                            }
+                            bedExplosion.explode(world, {head.x + 0.5, head.y + 0.5, head.z + 0.5}, 5.0f, gameRng,
+                                                 droppedItems, frameEdits, t);
+                            break;
+                        }
+                        case mc::BedUse::NotABed: break;
+                        }
                     } else if (block == mc::world::blocks::Chest) {
                         if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
@@ -867,6 +919,29 @@ int main(int argc, char** argv) {
                     vitals.resetFall();
                 }
             }
+            if (bedRespawnPending && bedSpawn) { // the bed's chunks are in: stand next to it
+                const mc::world::ChunkPos bc = bedSpawn->chunk();
+                bool loaded = true;
+                for (int dz = -1; dz <= 1 && loaded; ++dz)
+                    for (int dx = -1; dx <= 1 && loaded; ++dx)
+                        loaded = world.chunk({bc.x + dx, bc.z + dz}) != nullptr;
+                if (loaded) {
+                    bedRespawnPending = false;
+                    if (const auto spot = mc::bedStandSpot(world, *bedSpawn)) {
+                        player.setPosition(*spot);
+                    } else { // gone or blocked: the world spawn (wiki: Bed)
+                        chat.addMessage("You have no home bed or charged respawn anchor, or it was obstructed",
+                                        0xFFFFFFFFu, gameTime, gui.batch());
+                        bedSpawn.reset();
+                        spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                        player.setPosition(spawn);
+                        spawnPending = !flatWorld;
+                    }
+                    vitals.resetFall();
+                } else {
+                    player.setVelocity(glm::dvec3(0.0));
+                }
+            }
             blockUpdates.setTime(gameTime);
             blockUpdates.setCreative(!survival);
             // Commands wait until the player's chunk is there (--command scripts run
@@ -893,6 +968,24 @@ int main(int argc, char** argv) {
             player.setCreative(!survival);
             if (survival && player.flying()) player.setFlying(false);
             if (dead) input = {};
+            // Asleep (M17.4): lying on the bed; after 100 ticks the night is skipped;
+            // sneaking gets up early (vanilla: Leave Bed).
+            if (sleepTicks > 0) {
+                const bool getUp = input.sneak || dead;
+                input = {};
+                const bool stillBed = mc::bedHead(world, sleepBed).has_value();
+                if (!getUp && stillBed && ++sleepTicks < 100) {
+                    player.setPosition({sleepBed.x + 0.5, sleepBed.y + 0.5625, sleepBed.z + 0.5});
+                    player.setVelocity(glm::dvec3(0.0));
+                } else {
+                    if (sleepTicks >= 100) dayTime = mc::morningAfter(dayTime); // the night passes
+                    if (stillBed) {
+                        world.updateBlock(sleepBed, mc::world::blockRegistry().set(world.getBlock(sleepBed), mc::world::properties::occupied, 1));
+                        if (const auto spot = mc::bedStandSpot(world, sleepBed)) player.setPosition(*spot);
+                    }
+                    sleepTicks = 0;
+                }
+            }
             input.canSprint = !survival || vitals.canSprint(); // hunger ends a sprint too
             const glm::dvec3 before = player.position();
             const bool wasOnGround = player.onGround();
@@ -1375,6 +1468,9 @@ int main(int argc, char** argv) {
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(), inventory.armorPoints());
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
+            if (sleepTicks > 0) // falling asleep: the screen darkens (vanilla)
+                batch.fill(0, 0, float(guiW), float(guiH),
+                           mc::gfx::rgba(0, 0, 0, uint8_t(std::min(1.0f, sleepTicks / 100.0f) * 230.0f)));
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;
             if (now - fpsStart >= 1.0) {
