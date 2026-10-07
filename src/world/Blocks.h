@@ -29,6 +29,10 @@ extern const Property pistonType; // "type": normal | sticky (piston head)
 // Dimensions (M12).
 extern const Property haxis; // "axis": x | z (nether portal)
 extern const Property eye;   // true | false (end portal frame)
+// Random ticks and fire (M15).
+extern const Property stage; // 0..1 (saplings)
+extern const Property age;   // 0..15 (fire)
+extern const Property fireUp, fireNorth, fireEast, fireSouth, fireWest; // "up"...: true | false
 } // namespace properties
 
 // Block ids in registration order; Blocks.cpp asserts this matches.
@@ -127,6 +131,12 @@ enum : BlockId {
     EndStone,
     EndPortalFrame, // eye, facing
     EndPortal,
+    // Random ticks and fire (M15).
+    OakSapling, // stage
+    BirchSapling,
+    SpruceSapling,
+    AcaciaSapling,
+    Fire, // age, east, north, south, up, west (faces it clings to)
     Count
 };
 } // namespace blocks

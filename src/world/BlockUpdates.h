@@ -2,6 +2,7 @@
 
 #include "world/Direction.h"
 #include "world/Items.h"
+#include "world/Random.h"
 #include "world/World.h"
 
 #include <climits>
@@ -54,6 +55,9 @@ public:
     struct Drop {
         BlockPos pos;
         ItemStack stack;
+        // Or: the block's loot (leaves decaying: saplings, sticks, apples), rolled by
+        // gameplay's block drop rules as if broken by hand.
+        BlockStateId loot = 0;
     };
     std::vector<Drop>& drops() { return m_drops; }
     // Creative players breaking a piston head don't get the piston back (vanilla).
@@ -72,6 +76,23 @@ public:
 
     void onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) override;
 
+    // Random ticks (M15, RandomTicks.cpp; wiki: Tick › Random tick): each game tick,
+    // `speed` random blocks of every 16^3 section in the chunks within `distance` of
+    // `centre` (the simulation distance) get a random tick, after the scheduled ticks.
+    void setRandomTicks(ChunkPos centre, int distance, int speed) {
+        m_rtCentre = centre;
+        m_rtDistance = distance;
+        m_rtSpeed = speed;
+    }
+    static constexpr int kDefaultRandomTickSpeed = 3; // game rule random_tick_speed
+    // Sky light levels lost to the time of day (0 by day .. 11 at night): growth reads
+    // max(block light, sky light - this), vanilla's raw brightness.
+    void setSkyDarken(int levels) { m_skyDarken = levels; }
+    // Dirt-like blocks saplings can be planted on (wiki: Sapling).
+    static bool plantableSoil(BlockStateId s);
+    static bool isLeaves(BlockId b);
+    static bool isLog(BlockId b);
+
     // Fluids (M14, Fluids.cpp). Amount 1..8 (8 = source or falling); 0 if not a fluid.
     static bool isFluid(BlockId b);
     static int fluidAmount(BlockStateId s);
@@ -79,6 +100,16 @@ public:
     static bool breaksInFluid(BlockId b); // washed away (plants, torches, redstone...)
 
 private:
+    void runRandomTicks();
+    void randomTick(const BlockPos& p, BlockStateId s);
+    int rawBrightness(const BlockPos& p) const;
+    int blockLightAt(const BlockPos& p) const;
+    bool grassSurvives(const BlockPos& p) const;
+    void tickGrass(const BlockPos& p);
+    int leafDistance(const BlockPos& p) const;
+    void leavesChanged(const BlockPos& p, BlockStateId s);
+    bool growTree(const BlockPos& p, BlockStateId sapling);
+
     enum class FluidInto { No, Empty, Same, Breaks };
     int fluidDelay(BlockId kind) const;
     int fluidDrop(BlockId kind) const;
@@ -154,6 +185,11 @@ private:
 
     World& m_world;
     int64_t m_now = 0;
+    Xoroshiro m_random{0x5eed'7a11'0b10'cc5ull}; // random ticks (not worldgen: any sequence)
+    ChunkPos m_rtCentre{0, 0};
+    int m_rtDistance = -1; // no random ticks until set
+    int m_rtSpeed = kDefaultRandomTickSpeed;
+    int m_skyDarken = 0;
     uint64_t m_order = 0;
     mutable bool m_wiresMuted = false; // dust ignores other dust's power through blocks
     int m_depth = 0;                   // update recursion guard

@@ -14,16 +14,23 @@ M1-M13 done (v0.13.0).
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M14 — Fluids (wiki: Water, Lava, Fluid):
-1. M14.1 — Flow: water and lava levels (water -1 per block, Overworld lava -2), falling
-   fluid, spreading toward the nearest drop (water 4, Overworld lava 2), fluid ticks
-   (water 5, lava 30 / Nether 10), new sources, drying up; saved as `fluid_ticks`.
-2. M14.2 — Fluids break plants/torches/redstone; lava + water make obsidian,
-   cobblestone, stone; flowing surfaces render at their heights.
-3. M14.3 — Entities in fluids: swimming (drag, rising, current push), drowning (air
-   300), lava damage and burning, mobs and items in currents.
-4. M14.4 — Buckets: empty/water/lava buckets, picking up and placing sources, lava
-   bucket fuel; the Nether evaporates water.
+M14 — Fluids: done (reviews being applied), then v0.14.0.
+
+M15 — Random ticks and fire (wiki: Tick › Random tick, Grass Block, Leaves, Sapling,
+Fire, Snow, Ice):
+1. ✅ M15.1 — Random ticks: 3 random blocks per 16³ section per game tick in chunks within
+   the simulation distance (`randomTickSpeed` game rule). Grass spreads to dirt (light
+   ≥ 9) and dies under opaque blocks; snow layers and ice melt at block light > 11;
+   leaves track `distance` to the nearest log (updated by scheduled ticks) and decay at
+   7 unless persistent, dropping saplings 1/20, sticks 1/50, apples 1/200 (oak).
+2. ✅ M15.2 — Saplings (oak, birch, spruce, acacia): block + item, planted on dirt/grass,
+   `stage` 0→1→tree on random ticks (1/7 chance, light ≥ 9), trees grown with the
+   worldgen shapes (same code, shared).
+3. M15.3 — Fire: fire block (age 0-15, scheduled every 30-40 ticks), spread and
+   burn odds per block (flammability table from the wiki), burning out, infiniburn on
+   netherrack/magma, lava igniting nearby flammable blocks, flint and steel places
+   fire (and lights portals through it), fire damages and ignites entities, animated
+   fire rendering.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:

@@ -48,7 +48,7 @@ ItemRegistry buildItems() {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
         // Placed by another item (redstone dust, torches on walls) or never an item.
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead ||
-            b == blocks::NetherPortal || b == blocks::EndPortal)
+            b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::Fire)
             continue;
         const std::string& id = blocks.block(b).id;
         r.mapBlock(b, r.add({.id = id, .block = b}));

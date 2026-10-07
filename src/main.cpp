@@ -20,6 +20,7 @@
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
 #include "gameplay/ItemEntities.h"
+#include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Vitals.h"
 #include "rendering/EntityRenderer.h"
@@ -222,6 +223,8 @@ int main(int argc, char** argv) {
     screenDrops.reserve(16);
     std::vector<mc::world::ItemStack> pendingThrows; // thrown from screens: spawned in the tick
     std::vector<mc::world::BlockPos> litChanges;
+    std::vector<mc::world::ItemStack> lootScratch; // decayed leaves' loot (reused)
+    lootScratch.reserve(8);
     litChanges.reserve(16);
     pendingThrows.reserve(16);
     creative.build(renderer.models());
@@ -1007,14 +1010,32 @@ int main(int argc, char** argv) {
             mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime,
                                      float(mc::world::skyDarken(mc::world::celestialAngle(dayTime))), gameRng,
                                      droppedItems, dimension == Dimension::Overworld};
-            // Scheduled block ticks and block events (vanilla: before entities).
+            // Scheduled block ticks, random ticks within the simulation distance, block
+            // events (vanilla: before entities).
+            {
+                const mc::world::BlockPos at{int(std::floor(feet.x)), 0, int(std::floor(feet.z))};
+                blockUpdates.setRandomTicks(at.chunk(), mobs.simulationDistance(),
+                                            mc::world::BlockUpdates::kDefaultRandomTickSpeed);
+                blockUpdates.setSkyDarken(dimension == Dimension::Overworld
+                                              ? int(mc::world::skyDarken(mc::world::celestialAngle(dayTime)))
+                                              : 0);
+            }
             blockUpdates.tick();
             frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
             blockUpdates.changed().clear();
             frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(), blockUpdates.remeshOnly().end());
             blockUpdates.remeshOnly().clear();
-            for (const auto& d : blockUpdates.drops())
-                droppedItems.spawn({d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5}, d.stack, gameRng);
+            for (const auto& d : blockUpdates.drops()) {
+                const glm::dvec3 where{d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5};
+                if (d.loot) { // the block's own loot, as if broken by hand
+                    lootScratch.clear();
+                    mc::blockDrops(d.loot, {}, gameRng, lootScratch);
+                    for (const auto& stack : lootScratch)
+                        droppedItems.spawn(where, stack, gameRng);
+                } else {
+                    droppedItems.spawn(where, d.stack, gameRng);
+                }
+            }
             blockUpdates.drops().clear();
             mobs.tick(mobCtx);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).

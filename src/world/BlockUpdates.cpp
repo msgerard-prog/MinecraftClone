@@ -371,6 +371,16 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     case B::Water:
     case B::Lava: fluidNeighbourChanged(p, s); break;
+    case B::OakLeaves:
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: leavesChanged(p, s); break;
+    case B::OakSapling:
+    case B::BirchSapling:
+    case B::SpruceSapling:
+    case B::AcaciaSapling:
+        if (!plantableSoil(at(rel(p, Direction::Down)))) pop(p); // lost its soil
+        break;
     case B::NetherPortal: {
         // A portal block needs portal or obsidian above, below and along its axis
         // (wiki: Nether portal - breaking the frame breaks the portal).
@@ -448,6 +458,7 @@ void BlockUpdates::tick() {
         const BlockStateId s = at(d.pos);
         if (blockOf(s) == d.tick.block) tickBlock(d.pos, s);
     }
+    runRandomTicks(); // (vanilla: after block and fluid ticks, before block events)
     // Block events (pistons), including ones these cause (wiki: Tick › Block events).
     // Pistons powered by a player act in the next tick's block events (wiki: Piston ›
     // Start delay); they wait one tick here.
@@ -500,6 +511,14 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     }
     case B::Water:
     case B::Lava: tickFluid(p, s); break;
+    case B::OakLeaves:
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: {
+        const int d = leafDistance(p);
+        if (d != R().get(s, distance) + 1) set(p, R().set(s, distance, d - 1)); // neighbours follow
+        break;
+    }
     case B::RedstoneLamp:
         if (flag(s, lit) && bestNeighbourSignal(p) == 0) set(p, withFlag(s, lit, false));
         break;
@@ -672,8 +691,7 @@ void BlockUpdates::extend(const BlockPos& p) {
     if (destroy) {
         destroyed = at(*destroy);
         const BlockId b = blockOf(destroyed);
-        if (b != B::Water && b != B::Lava)
-            if (const ItemId item = itemRegistry().blockItem(b)) m_drops.push_back({*destroy, {item, 1}});
+        if (b != B::Water && b != B::Lava) m_drops.push_back({*destroy, {}, destroyed}); // its loot
         setRaw(*destroy, 0);
     }
     // Moves happen at once (vanilla animates them over 2 ticks: known deviation).
@@ -775,6 +793,26 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     static constexpr Direction kLook[4] = {Direction::South, Direction::West, Direction::North, Direction::East};
     const Direction look = kLook[static_cast<int>(std::floor((y + 45.0f) / 90.0f)) % 4];
     switch (blockOf(state)) {
+    case B::OakLeaves:
+    case B::BirchLeaves:
+    case B::SpruceLeaves:
+    case B::AcaciaLeaves: {
+        // Placed leaves are persistent (never decay; wiki: Leaves), with their distance.
+        BlockStateId s = r.set(state, persistent, 0);
+        int best = 7;
+        for (int d = 0; d < kDirectionCount; ++d) {
+            const BlockStateId n = world.getBlock(rel(at, static_cast<Direction>(d)));
+            if (isLog(blockOf(n))) best = 1;
+            else if (isLeaves(blockOf(n))) best = std::min(best, r.get(n, distance) + 2);
+        }
+        return r.set(s, distance, best - 1);
+    }
+    case B::OakSapling:
+    case B::BirchSapling:
+    case B::SpruceSapling:
+    case B::AcaciaSapling:
+        if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
+        return state;
     case B::RedstoneWire: {
         if (!solid(Direction::Down)) return std::nullopt;
         BlockStateId s = state; // placed as a cross; its neighbours shape it

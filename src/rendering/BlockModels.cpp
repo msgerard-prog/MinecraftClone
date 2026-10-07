@@ -219,8 +219,14 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             const auto ends = [&](std::string_view s) { return name.ends_with(s); };
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
-                "oxeye_daisy", "dead_bush"};
-            if (std::find(std::begin(kPlants), std::end(kPlants), name) != std::end(kPlants)) {
+                "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling"};
+            if (name == "fire") {
+                // Placeholder: vanilla's fire is 4 inward-leaning planes (floor) or planes
+                // on the burning sides; a cross of the animated fire_0 for now.
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("fire_0");
+            } else if (std::find(std::begin(kPlants), std::end(kPlants), name) != std::end(kPlants)) {
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite(name.c_str());

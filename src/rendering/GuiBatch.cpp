@@ -98,11 +98,13 @@ void GuiBatch::blockIcon(const BakedModel& model, float x, float y, uint32_t gra
             uv[i][1] = v0 + p[1] * cell;
         }
     };
-    if (model.boxCount > 0) { // flat item sprite (vanilla: torch item = its texture)
+    if (model.boxCount > 0 || model.cross) { // flat item sprite (vanilla: torch, plants = their texture)
         float uv[4][2];
-        spriteUv(model.boxes[0].faces[int(world::Direction::North)].sprite, uv, 0, false);
+        spriteUv(model.cross ? model.crossSprite : model.boxes[0].faces[int(world::Direction::North)].sprite, uv, 0,
+                 false);
         const float px[4][2] = {{x, y}, {x, y + 16}, {x + 16, y + 16}, {x + 16, y}};
-        quad(px, uv, rgba(255, 255, 255), GuiTexture::Atlas);
+        quad(px, uv, model.cross && model.crossTint == Tint::Grass ? grassTint : rgba(255, 255, 255),
+             GuiTexture::Atlas);
         return;
     }
     // Isometric cube fitting 16x16: top rhombus and two side parallelograms.

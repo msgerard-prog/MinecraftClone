@@ -62,6 +62,7 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
                                                        : 0;
     m_stateOpacity.insert(m_stateOpacity.end(), def.stateCount, opacity);
     m_stateEmission.insert(m_stateEmission.end(), def.stateCount, settings.lightEmission);
+    m_stateRandomTicks.insert(m_stateRandomTicks.end(), def.stateCount, settings.randomTicks ? 1 : 0);
     m_blocks.push_back(std::move(def));
     return blockId;
 }

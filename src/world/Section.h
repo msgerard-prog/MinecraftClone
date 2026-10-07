@@ -36,6 +36,9 @@ public:
 
     bool isEmpty() const { return m_nonAir == 0; } // all air: skip in meshing
     int nonAirCount() const { return m_nonAir; }
+    // Blocks that receive random ticks (vanilla's tickingBlockCount): sections without
+    // any are skipped by random ticking.
+    int randomTickingCount() const { return m_randomTicking; }
     int bitsPerEntry() const { return m_bits; }
     bool isDirect() const { return m_direct; }
     size_t paletteSize() const { return m_palette.size(); }
@@ -61,6 +64,7 @@ private:
     uint8_t m_bits = 0;
     bool m_direct = false;
     uint16_t m_nonAir = 0;
+    uint16_t m_randomTicking = 0;
     std::vector<BlockStateId> m_palette{0}; // starts as all air
     std::vector<uint64_t> m_data;
 };

@@ -123,7 +123,7 @@ namespace {
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
     ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple, quartz;
+        flint, gravel, clay, stick, apple, quartz, oakSapling, birchSapling, spruceSapling, acaciaSapling;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
@@ -132,6 +132,8 @@ struct DropIds {
         emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
         clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
         quartz = *i.find("quartz");
+        oakSapling = *i.find("oak_sapling"), birchSapling = *i.find("birch_sapling");
+        spruceSapling = *i.find("spruce_sapling"), acaciaSapling = *i.find("acacia_sapling");
     }
 };
 const DropIds& dropIds() {
@@ -176,8 +178,12 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
     case blocks::AcaciaLeaves:
-        // wiki: Leaves - sticks 2% (1-2), oak leaves also apples 0.5%; saplings (5%)
-        // don't exist yet.
+        // wiki: Leaves - saplings 5%, sticks 2% (1-2), oak leaves also apples 0.5%.
+        if (rng.nextFloat() < 0.05f)
+            add(b == blocks::BirchLeaves    ? d.birchSapling
+                : b == blocks::SpruceLeaves ? d.spruceSapling
+                : b == blocks::AcaciaLeaves ? d.acaciaSapling
+                                            : d.oakSapling);
         if (rng.nextFloat() < 0.02f) add(d.stick, between(1, 2));
         if (b == blocks::OakLeaves && rng.nextFloat() < 0.005f) add(d.apple);
         return;
@@ -188,6 +194,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     case blocks::Fern:
     case blocks::Snow:       // snowballs: not added yet
     case blocks::PistonHead: // the base drops the piston
+    case blocks::Fire:
         return;
     case blocks::DeadBush: // wiki: Dead Bush - 0-2 sticks without shears
         if (const int n = between(0, 2)) add(d.stick, n);

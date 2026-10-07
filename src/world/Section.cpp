@@ -1,5 +1,7 @@
 #include "world/Section.h"
 
+#include "world/Blocks.h"
+
 #include <algorithm>
 #include <cassert>
 
@@ -102,6 +104,8 @@ void Section::set(int x, int y, int z, BlockStateId state) {
     writeRaw(i, value);
     if (old == 0) ++m_nonAir;
     if (state == 0) --m_nonAir;
+    const auto& reg = blockRegistry();
+    m_randomTicking = static_cast<uint16_t>(m_randomTicking - reg.randomTicks(old) + reg.randomTicks(state));
 }
 
 void Section::fill(BlockStateId state) {
@@ -110,13 +114,16 @@ void Section::fill(BlockStateId state) {
     m_palette.assign(1, state);
     m_data.clear();
     m_nonAir = state == 0 ? 0 : kVolume;
+    m_randomTicking = blockRegistry().randomTicks(state) ? kVolume : 0;
 }
 
 void Section::assign(const BlockStateId* states) {
     // State -> palette index via a per-thread lookup table (reset after use).
     static thread_local std::vector<int16_t> index(65536, -1);
+    const auto& reg = blockRegistry();
     m_palette.clear();
     m_nonAir = 0;
+    m_randomTicking = 0;
     for (int i = 0; i < kVolume; ++i) {
         const BlockStateId s = states[i];
         if (index[s] < 0) {
@@ -124,6 +131,7 @@ void Section::assign(const BlockStateId* states) {
             m_palette.push_back(s);
         }
         if (s != 0) ++m_nonAir;
+        m_randomTicking = static_cast<uint16_t>(m_randomTicking + reg.randomTicks(s));
     }
     if (m_palette.size() == 1) {
         index[m_palette[0]] = -1;

@@ -32,6 +32,13 @@ const Property shortArm{"short", {"true", "false"}};
 const Property pistonType{"type", {"normal", "sticky"}};
 const Property haxis{"axis", {"x", "z"}};
 const Property eye{"eye", {"true", "false"}};
+const Property stage{"stage", {"0", "1"}};
+const Property age{"age", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
+const Property fireUp{"up", {"true", "false"}};
+const Property fireNorth{"north", {"true", "false"}};
+const Property fireEast{"east", {"true", "false"}};
+const Property fireSouth{"south", {"true", "false"}};
+const Property fireWest{"west", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -250,6 +257,31 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("end_portal", {.hardness = -1.0f, .resistance = 3600000.0f, .lightEmission = 15,
                                .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout}),
           blocks::EndPortal);
+
+    // --- Random ticks and fire (M15; wiki: Sapling, Fire).
+    BlockSettings sapling = kPlant;
+    sapling.randomTicks = true;
+    check(r.add("oak_sapling", sapling, {{&stage, "0"}}), blocks::OakSapling);
+    check(r.add("birch_sapling", sapling, {{&stage, "0"}}), blocks::BirchSapling);
+    check(r.add("spruce_sapling", sapling, {{&stage, "0"}}), blocks::SpruceSapling);
+    check(r.add("acacia_sapling", sapling, {{&stage, "0"}}), blocks::AcaciaSapling);
+    // Fire: light 15, no collision, broken by hand instantly; ticks are scheduled (not
+    // random). Its side properties say which neighbours it burns on (model only).
+    check(r.add("fire", {.lightEmission = 15, .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                {{&age, "0"}, {&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"},
+                 {&fireUp, "false"}, {&fireWest, "false"}}),
+          blocks::Fire);
+    // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
+    // melt, lava sets fires; leaves only while they can decay (distance 7, not
+    // persistent: vanilla's isRandomlyTicking).
+    for (BlockId b : {blocks::GrassBlock, blocks::Snow, blocks::Ice, blocks::Lava})
+        for (uint32_t i = 0; i < r.block(b).stateCount; ++i)
+            r.setStateRandomTicks(static_cast<BlockStateId>(r.block(b).firstState + i), true);
+    for (BlockId b : {blocks::OakLeaves, blocks::BirchLeaves, blocks::SpruceLeaves, blocks::AcaciaLeaves})
+        for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
+            r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);
+        }
 
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})

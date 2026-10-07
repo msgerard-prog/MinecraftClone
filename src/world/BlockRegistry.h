@@ -34,6 +34,8 @@ struct BlockSettings {
     // Entities collide with it (a full cube for now; shaped boxes come with slabs etc.).
     bool collision = true;
     RenderLayer layer = RenderLayer::Solid;
+    // Receives random ticks (wiki: Tick › Random tick): grass, leaves, saplings, ice...
+    bool randomTicks = false;
 };
 
 // A property plus the value this block uses in its default state.
@@ -75,6 +77,9 @@ public:
     bool collides(BlockStateId state) const { return m_stateCollides[state] != 0; }
     uint8_t lightOpacity(BlockStateId state) const { return m_stateOpacity[state]; }
     uint8_t lightEmission(BlockStateId state) const { return m_stateEmission[state]; }
+    bool randomTicks(BlockStateId state) const { return m_stateRandomTicks[state] != 0; }
+    // Registration time: only some states tick (persistent leaves, lit redstone ore).
+    void setStateRandomTicks(BlockStateId state, bool ticks) { m_stateRandomTicks[state] = ticks ? 1 : 0; }
     // Registration time: light depending on state (furnace lit=true emits 13).
     void setStateEmission(BlockStateId state, uint8_t level) { m_stateEmission[state] = level; }
     // Registration time: per-state shape (an extended piston is not a full cube).
@@ -111,6 +116,7 @@ private:
     std::vector<uint8_t> m_stateCollides; // state -> collision
     std::vector<uint8_t> m_stateOpacity;  // state -> light opacity 0..15
     std::vector<uint8_t> m_stateEmission; // state -> light emission 0..15
+    std::vector<uint8_t> m_stateRandomTicks; // state -> receives random ticks
 };
 
 } // namespace mc::world

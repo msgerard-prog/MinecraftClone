@@ -2,6 +2,7 @@
 
 #include "world/Blocks.h"
 #include "world/Random.h"
+#include "world/TreeFeature.h"
 
 #include <algorithm>
 #include <array>
@@ -455,39 +456,20 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
         const int32_t wx = tree.wx, wz = tree.wz;
         const int ground = tree.ground, height = tree.height;
         const auto kind = static_cast<TreeShape::Kind>(tree.kind);
-        BlockStateId log = B.oakLog, leaves = B.oakLeaves;
+        BlockStateId log = B.oakLog;
         switch (kind) {
         case TreeShape::Oak: break;
-        case TreeShape::Birch:
-            log = B.birchLog;
-            leaves = B.birchLeaves;
-            break;
-        case TreeShape::Spruce:
-            log = B.spruceLog;
-            leaves = B.spruceLeaves;
-            break;
-        case TreeShape::Acacia:
-            log = B.acaciaLog;
-            leaves = B.acaciaLeaves;
-            break;
+        case TreeShape::Birch: log = B.birchLog; break;
+        case TreeShape::Spruce: log = B.spruceLog; break;
+        case TreeShape::Acacia: log = B.acaciaLog; break;
         }
         // Writes into this chunk only; logs replace air/leaves/plants, leaves only air.
         // Generated leaves carry their distance to the trunk (vanilla: 1..6, so they
-        // never decay): taxicab steps to the nearest trunk block of this tree.
+        // never decay).
         const int kindIndex = static_cast<int>(kind);
-        std::array<std::array<int32_t, 3>, 16> trunk{};
-        int trunkCount = 0;
-        auto leafFor = [&](int32_t x, int32_t y, int32_t z) {
-            int best = 7;
-            for (int t2 = 0; t2 < trunkCount; ++t2) {
-                const auto& tb = trunk[size_t(t2)];
-                best = std::min(best, std::abs(x - tb[0]) + std::abs(y - tb[1]) + std::abs(z - tb[2]));
-            }
-            return B.leaves[kindIndex][std::clamp(best, 1, 7) - 1];
-        };
-        auto put = [&](int32_t x, int32_t y, int32_t z, BlockStateId s, bool isLog) {
-            if (isLog && trunkCount < 16) trunk[size_t(trunkCount++)] = {x, y, z};
-            if (!isLog) s = leafFor(x, y, z);
+        auto put = [&](int32_t x, int32_t y, int32_t z, int distance) {
+            const bool isLog = distance == 0;
+            const BlockStateId s = isLog ? log : B.leaves[kindIndex][distance - 1];
             const int lx = x - baseX, lz = z - baseZ;
             if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
             const BlockStateId cur = chunk.get(lx, y, lz);
@@ -499,58 +481,7 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
             }
         };
         Xoroshiro shape(chunkSeed(m_seed, wx, wz, 301)); // leaf corners: per tree
-        const int32_t y0 = ground + 1;
-        int32_t topX = wx, topZ = wz;
-        if (kind == TreeShape::Acacia) {
-            // A trunk that leans 2 blocks in a random direction, flat wide canopy.
-            const int dir = static_cast<int>(shape.nextInt(4));
-            const int dx[4] = {1, -1, 0, 0}, dz[4] = {0, 0, 1, -1};
-            for (int i = 0; i < height; ++i) {
-                if (i >= height - 2) {
-                    topX += dx[dir];
-                    topZ += dz[dir];
-                }
-                put(topX, y0 + i, topZ, log, true);
-            }
-            const int32_t ty = y0 + height - 1;
-            for (int ox = -3; ox <= 3; ++ox)
-                for (int oz = -3; oz <= 3; ++oz)
-                    if (std::abs(ox) + std::abs(oz) <= 4) put(topX + ox, ty + 1, topZ + oz, leaves, false);
-            for (int ox = -1; ox <= 1; ++ox)
-                for (int oz = -1; oz <= 1; ++oz)
-                    put(topX + ox, ty + 2, topZ + oz, leaves, false);
-        } else if (kind == TreeShape::Spruce) {
-            for (int i = 0; i < height; ++i)
-                put(wx, y0 + i, wz, log, true);
-            // Cone: radius alternates 1, 2 going down from the tip, starting 2 above
-            // the ground layer.
-            const int32_t tip = y0 + height;
-            put(wx, tip, wz, leaves, false);
-            int r = 0;
-            for (int32_t y = tip - 1; y >= y0 + 2; --y) {
-                r = (r >= 2 || (tip - y) % 2 == 1) ? 1 : 2;
-                if (tip - y <= 1) r = 1;
-                for (int ox = -r; ox <= r; ++ox)
-                    for (int oz = -r; oz <= r; ++oz)
-                        if (!(std::abs(ox) == r && std::abs(oz) == r && r > 1))
-                            put(wx + ox, y, wz + oz, leaves, false);
-            }
-        } else {
-            // Oak/birch: vanilla's blob canopy - two wide layers, two narrow ones.
-            for (int i = 0; i < height; ++i)
-                put(wx, y0 + i, wz, log, true);
-            const int32_t top = y0 + height - 1;
-            for (int32_t y = top - 2; y <= top + 1; ++y) {
-                const int r = y >= top ? 1 : 2;
-                for (int ox = -r; ox <= r; ++ox)
-                    for (int oz = -r; oz <= r; ++oz) {
-                        const bool corner = std::abs(ox) == r && std::abs(oz) == r;
-                        if (corner && (y == top + 1 || shape.nextInt(2) == 0)) continue;
-                        if (y == top + 1 && std::abs(ox) + std::abs(oz) > 1) continue;
-                        put(wx + ox, y, wz + oz, leaves, false);
-                    }
-            }
-        }
+        treeShape(static_cast<TreeKind>(kindIndex), wx, ground + 1, wz, height, shape, put);
         // The ground under the trunk becomes dirt (vanilla), in this chunk only.
         const int lx = wx - baseX, lz = wz - baseZ;
         if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && reg.blockOf(chunk.get(lx, ground, lz)) == blocks::GrassBlock)
