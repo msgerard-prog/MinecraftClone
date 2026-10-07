@@ -64,7 +64,7 @@ and GUI textures are made with their systems.
 | M0 | Setup: build, window, tests, screenshot, docs, Claude tooling | ✅ 2026-10-06 |
 | M1 | Camera + texture atlas + one textured cube | ✅ 2026-10-06 |
 | M2 | Block registry + block states, chunk sections (paletted), face-culled meshing on worker threads | ✅ 2026-10-06 |
-| M3 ✅ 2026-10-06 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | Walkable rolling terrain at render distance 12 |
+| M3 | Resource-pack loader; simple noise terrain (placeholder for M8), grass/dirt/stone/water layers, chunk loading around the player | ✅ 2026-10-06 |
 | M4 | Player: vanilla movement & AABB collision, gravity, jumping, sprint/sneak; block raycast, break/place | Movement constants match the wiki; can build a house |
 | M5 | Lighting: sky light + block light propagation, smooth lighting / AO, day–night cycle | Caves dark, torches light correctly, matches vanilla light levels |
 | M6 | UI: crosshair, hotbar, inventory screen, F3 debug screen, chat/commands (`/tp`, `/time`, `/give`) | Usable creative-mode inventory |
