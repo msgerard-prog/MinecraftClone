@@ -1,5 +1,7 @@
 #include "world/Enchantments.h"
 
+#include <vector>
+
 namespace mc::world {
 
 namespace {
@@ -49,9 +51,31 @@ std::optional<Enchantment> findEnchantment(std::string_view id) {
     return std::nullopt;
 }
 
+namespace {
+// Item ids resolved once (no string compares on hot paths).
+struct Ids {
+    ItemId book, enchantedBook, bow;
+    std::vector<int> enchantability; // per item
+    Ids() {
+        const auto& r = itemRegistry();
+        book = *r.find("book");
+        enchantedBook = *r.find("enchanted_book");
+        bow = *r.find("bow");
+        enchantability.resize(r.count());
+        for (size_t i = 0; i < r.count(); ++i)
+            enchantability[i] = computeEnchantability(ItemId(i));
+    }
+    static int computeEnchantability(ItemId item);
+};
+const Ids& ids() {
+    static const Ids instance;
+    return instance;
+}
+} // namespace
+
 bool canEnchant(ItemId item, Enchantment e) {
     const ItemDef& d = itemRegistry().item(item);
-    if (d.id == "minecraft:book" || d.id == "minecraft:enchanted_book") return true;
+    if (item == ids().book || item == ids().enchantedBook) return true;
     switch (enchantmentInfo(e).target) {
     case EnchantTarget::Armor: return d.armorSlot != 0;
     case EnchantTarget::Head: return d.armorSlot == 1;
@@ -61,12 +85,14 @@ bool canEnchant(ItemId item, Enchantment e) {
         return d.tool == ToolType::Pickaxe || d.tool == ToolType::Axe || d.tool == ToolType::Shovel ||
                d.tool == ToolType::Hoe;
     case EnchantTarget::Durable: return d.durability > 0;
-    case EnchantTarget::Bow: return d.id == "minecraft:bow";
+    case EnchantTarget::Bow: return item == ids().bow;
     }
     return false;
 }
 
-int enchantability(ItemId item) {
+int enchantability(ItemId item) { return item < ids().enchantability.size() ? ids().enchantability[item] : 0; }
+
+int Ids::computeEnchantability(ItemId item) {
     // wiki: Enchanting mechanics › Enchantability.
     const ItemDef& d = itemRegistry().item(item);
     const std::string_view id = d.id;

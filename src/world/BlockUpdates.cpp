@@ -282,6 +282,15 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
                                          blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling ||
                                          blockOf(now) == B::SugarCane))
         return;
+    // Farmland moisture below 7 looks the same; carrots/potatoes share a texture
+    // across ages 0-1, 2-3, 4-6.
+    if (blockOf(old) == blockOf(now) && blockOf(now) == B::Farmland &&
+        (R().get(old, moisture) == 7) == (R().get(now, moisture) == 7))
+        return;
+    if (blockOf(old) == blockOf(now) && (blockOf(now) == B::Carrots || blockOf(now) == B::Potatoes)) {
+        auto stageOf = [](int a) { return a < 2 ? 0 : a < 4 ? 1 : a < 7 ? 2 : 3; };
+        if (stageOf(R().get(old, age7)) == stageOf(R().get(now, age7))) return;
+    }
     // Light only needs recomputing when emission or opacity changed (dust power,
     // repeater and lever states only change the model).
     const auto& r = R();

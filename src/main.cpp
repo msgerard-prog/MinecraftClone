@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
-    drops.reserve(16);
+    drops.reserve(64); // (a full chest: 27 stacks and the chest)
     bool dead = false;
     mc::gfx::EntityRenderer entities;
     if (!entities.init(renderer.atlas(), renderer.models(), itemIcons, renderer.packs())) return 1;
@@ -1589,6 +1589,8 @@ int main(int argc, char** argv) {
                                                       mc::world::blockToLocal(containerBlock.z))
                                         : nullptr);
             }
+            // Chests may have moved in memory or gone during this frame's ticks: re-point.
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
             if (container.isOpen())
                 container.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH,
                                [&] { double x = 0, y = 0; window.cursorPos(x, y); return x / scale; }(),

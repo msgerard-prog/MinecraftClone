@@ -60,6 +60,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     Chunk* c = chunk(p.chunk());
     if (!c) return;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    const BlockId was = blockRegistry().blockOf(c->get(x, p.y, z));
     c->set(x, p.y, z, state);
     // Block entities follow their block (a furnace's contents are dropped by the
     // caller before it breaks it).
@@ -69,7 +70,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         markTicking(c->pos());
     } else if (b == blocks::Chest) {
         if (c->chest(x, p.y, z) == nullptr) c->addChest(x, p.y, z);
-    } else if (!c->furnaces().empty() || !c->chests().empty()) {
+    } else if (was == blocks::Furnace || was == blocks::Chest) { // only when one is replaced
         c->removeBlockEntity(x, p.y, z);
     }
 }

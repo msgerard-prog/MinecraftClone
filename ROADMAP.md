@@ -31,6 +31,21 @@ Anvil, Brewing):
    choices by bookshelves, efficiency/sharpness/protection/unbreaking...), anvils
    (repair, combine, naming), brewing (stand, blaze powder... where ingredients exist).
 
+M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator kind
+"overworld2", default for new worlds; "overworld" stays for existing worlds):
+1. M18.1 — Generator kind and features: lakes (water, lava below), ravines (canyon
+   carver), sugar cane and other vegetation (pumpkins, cactus, mushrooms), springs.
+2. M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
+   cherry grove, badlands variants, ice spikes, stony peaks... with their trees and
+   new wood types (jungle, dark oak, cherry) and blocks (cactus, mushrooms, mud...).
+3. M18.3 — Structure framework: placement grids (spacing, separation, salt per the
+   wiki), structure starts/references saved in chunks, pieces spanning chunks; chest
+   loot tables; mob spawners (block entity spawning its mob).
+4. M18.4 — Small structures: dungeons (spawner + loot), desert and jungle temples,
+   igloos, shipwreck-free subset.
+5. M18.5 — Mineshafts and strongholds (eyes of ender fly toward them; portal room
+   with end portal frames); villages as a simplified template set (no villagers yet).
+
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Dense ring-indexed section grid (vanilla ViewArea) instead of hash maps; column culling.
@@ -108,10 +123,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M17 question (worldgen):** sugar cane now exists (paper -> books -> bookshelves,
-  enchanting) but no world generates it; adding it to the Overworld generator (next to
-  water on sand/grass, as vanilla) changes generated blocks, so the pinned hashes
-  would change for new chunks. OK to do it?
+- **M17 note (worldgen):** sugar cane exists (paper -> books -> enchanting) but isn't
+  generated yet; per the 2026-10-07 decision it arrives with M18's new Overworld
+  generator kind (old worlds keep their generator and pinned hash). Say if you'd
+  rather have it sooner.
 - **M15 question (save compatibility):** leaves you placed in worlds saved before
   v0.15.0 were stored as `distance=7, persistent=false` (placement didn't set
   persistent yet), so they now decay. Shall I add a one-time load upgrade that marks
