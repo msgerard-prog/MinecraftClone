@@ -1,5 +1,9 @@
 #include "rendering/EntityRenderer.h"
 
+#include "core/Log.h"
+#include "rendering/MobModels.h"
+#include "rendering/ResourcePack.h"
+#include "rendering/SpriteImage.h"
 #include "rendering/TextureAtlas.h"
 #include "world/Blocks.h"
 
@@ -37,12 +41,36 @@ glm::vec3 lightColor(int sky, int block, float skyDarken) {
 }
 
 EntityRenderer::~EntityRenderer() {
+    if (m_mobTexture) glDeleteTextures(1, &m_mobTexture);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
 
-bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, const ItemIcons& icons) {
+bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, const ItemIcons& icons,
+                          const PackStack& packs) {
     if (!m_shader.load("entity")) return false;
+    // Mob textures stacked vertically: 64 x 64 per mob type.
+    {
+        constexpr int n = static_cast<int>(world::MobType::Count);
+        Image strip{64, 64 * n, std::vector<uint8_t>(size_t(64) * 64 * n * 4, 0)};
+        for (int t = 0; t < n; ++t) {
+            const char* path = mobTexturePath(static_cast<world::MobType>(t));
+            const auto bytes = packs.read(path);
+            const auto img = bytes ? decodePng(*bytes) : std::nullopt;
+            if (!img || img->width != 64 || img->height != 64) {
+                MC_LOG_WARN("Mob texture %s missing or not 64x64", path);
+                continue;
+            }
+            std::copy(img->pixels.begin(), img->pixels.end(), strip.pixels.begin() + size_t(t) * 64 * 64 * 4);
+        }
+        glCreateTextures(GL_TEXTURE_2D, 1, &m_mobTexture);
+        glTextureStorage2D(m_mobTexture, 1, GL_RGBA8, strip.width, strip.height);
+        glTextureSubImage2D(m_mobTexture, 0, 0, 0, strip.width, strip.height, GL_RGBA, GL_UNSIGNED_BYTE,
+                            strip.pixels.data());
+        glTextureParameteri(m_mobTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(m_mobTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        m_mobs.reserve(size_t(kMaxQuads) * 6);
+    }
     m_atlasTexture = atlas.texture();
     m_columns = atlas.columns();
     m_cell = atlas.cellSize();
@@ -146,6 +174,67 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
     quad(q, u0 + m_cell, v0, u0, v0 + m_cell, pack(light), m_items);
 }
 
+void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
+                            const glm::vec3& light, const glm::dvec3& cameraPos) {
+    constexpr float kDeg = 3.14159265f / 180.0f;
+    const float yaw = bodyYaw * kDeg;
+    const float headRel = (headYaw - bodyYaw) * kDeg, headPitch = mob.pitch * kDeg;
+    const float swing = std::cos(mob.limbSwing * 0.6662f) * 1.4f * mob.limbSwingAmount;
+    // Dying: tip over sideways over 20 ticks (vanilla's death animation).
+    const float fall = std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg;
+    const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
+    const glm::vec3 base(pos - cameraPos);
+    const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
+    auto rotX = [](glm::vec3 p, float a) {
+        return glm::vec3(p.x, p.y * std::cos(a) - p.z * std::sin(a), p.y * std::sin(a) + p.z * std::cos(a));
+    };
+    auto rotY = [](glm::vec3 p, float a) {
+        return glm::vec3(p.x * std::cos(a) + p.z * std::sin(a), p.y, -p.x * std::sin(a) + p.z * std::cos(a));
+    };
+    auto rotZ = [](glm::vec3 p, float a) {
+        return glm::vec3(p.x * std::cos(a) - p.y * std::sin(a), p.x * std::sin(a) + p.y * std::cos(a), p.z);
+    };
+    const glm::vec3 tint = red ? glm::vec3(1.0f, 0.45f, 0.45f) : glm::vec3(1.0f);
+    for (const MobPart& part : mobModel(mob.type)) {
+        const glm::vec3 mn(part.from[0], part.from[1], part.from[2]), mx(part.to[0], part.to[1], part.to[2]);
+        const glm::vec3 pivot(part.pivot[0], part.pivot[1], part.pivot[2]);
+        const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z;
+        const float u = float(part.u), v = float(part.v) + vrow;
+        auto place = [&](glm::vec3 p) { // part animation, body yaw, death tilt; pixels -> blocks
+            p -= pivot;
+            switch (part.anim) {
+            case MobPart::Anim::Head: p = rotY(rotX(p, -headPitch), headRel); break;
+            case MobPart::Anim::LegA: p = rotX(p, swing); break;
+            case MobPart::Anim::LegB: p = rotX(p, -swing); break;
+            case MobPart::Anim::ArmForward: p = rotX(p, -90.0f * kDeg + swing * 0.2f); break;
+            case MobPart::Anim::None: break;
+            }
+            p += pivot;
+            p = rotZ(p, fall);
+            p = rotY(p, -yaw); // vanilla yaw: positive turns from +Z towards -X
+            return base + p / 16.0f;
+        };
+        // Faces: (corner TL, BL, BR, TR as seen from outside) and their box-UV region.
+        struct Face {
+            glm::vec3 c[4];
+            float u0, v0, uw, vh;
+            float shade;
+        };
+        const Face faces[6] = {
+            {{{mn.x, mx.y, mx.z}, {mn.x, mn.y, mx.z}, {mx.x, mn.y, mx.z}, {mx.x, mx.y, mx.z}}, u + d, v + d, w, h, 0.8f},      // front +Z
+            {{{mx.x, mx.y, mn.z}, {mx.x, mn.y, mn.z}, {mn.x, mn.y, mn.z}, {mn.x, mx.y, mn.z}}, u + 2 * d + w, v + d, w, h, 0.8f}, // back -Z
+            {{{mn.x, mx.y, mn.z}, {mn.x, mn.y, mn.z}, {mn.x, mn.y, mx.z}, {mn.x, mx.y, mx.z}}, u, v + d, d, h, 0.6f},          // right -X
+            {{{mx.x, mx.y, mx.z}, {mx.x, mn.y, mx.z}, {mx.x, mn.y, mn.z}, {mx.x, mx.y, mn.z}}, u + d + w, v + d, d, h, 0.6f},  // left +X
+            {{{mn.x, mx.y, mn.z}, {mn.x, mx.y, mx.z}, {mx.x, mx.y, mx.z}, {mx.x, mx.y, mn.z}}, u + d, v, w, d, 1.0f},          // top
+            {{{mn.x, mn.y, mx.z}, {mn.x, mn.y, mn.z}, {mx.x, mn.y, mn.z}, {mx.x, mn.y, mx.z}}, u + d + w, v, w, d, 0.5f},      // bottom
+        };
+        for (const Face& f : faces) {
+            const glm::vec3 p[4] = {place(f.c[0]), place(f.c[1]), place(f.c[2]), place(f.c[3])};
+            quad(p, f.u0, f.v0, f.u0 + f.uw, f.v0 + f.vh, pack(light * tint * f.shade), m_mobs);
+        }
+    }
+}
+
 void EntityRenderer::setCrack(const world::BlockPos& block, int stage) {
     m_crackBlock = block;
     m_crackStage = std::clamp(stage, 0, 9);
@@ -161,12 +250,16 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         static constexpr uint32_t kWhite[6] = {0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF};
         cube(o - glm::vec3(g), o + glm::vec3(1.0f + g), s, glm::vec3(1.0f), kWhite, m_crack, false);
     }
-    const size_t items = m_items.size(), crack = m_crack.size();
-    if (items + crack == 0) return;
+    const size_t items = m_items.size(), crack = m_crack.size(),
+                 mobs = std::min(m_mobs.size(), size_t(kMaxQuads) * 6 - items - crack);
+    if (items + crack + mobs == 0) return;
     glNamedBufferSubData(m_vbo, 0, GLsizeiptr(items * sizeof(Vertex)), m_items.data());
     if (crack)
         glNamedBufferSubData(m_vbo, GLintptr(items * sizeof(Vertex)), GLsizeiptr(crack * sizeof(Vertex)),
                              m_crack.data());
+    if (mobs)
+        glNamedBufferSubData(m_vbo, GLintptr((items + crack) * sizeof(Vertex)), GLsizeiptr(mobs * sizeof(Vertex)),
+                             m_mobs.data());
     m_shader.bind();
     glBindVertexArray(m_vao);
     const glm::mat4 vp = camera.viewProjectionAtOrigin(aspect);
@@ -176,6 +269,12 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     if (items) {
         glUniform1f(1, 0.1f); // alpha cutoff
         glDrawArrays(GL_TRIANGLES, 0, GLsizei(items));
+    }
+    if (mobs) {
+        glUniform1f(1, 0.1f);
+        glBindTextureUnit(0, m_mobTexture);
+        glDrawArrays(GL_TRIANGLES, GLint(items + crack), GLsizei(mobs));
+        glBindTextureUnit(0, m_atlasTexture);
     }
     if (crack) { // vanilla crumbling: multiply the block underneath
         glUniform1f(1, 0.01f);
@@ -188,6 +287,7 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     }
     glEnable(GL_CULL_FACE);
     m_items.clear();
+    m_mobs.clear();
 }
 
 } // namespace mc::gfx

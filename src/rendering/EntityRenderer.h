@@ -31,7 +31,12 @@ public:
     EntityRenderer(const EntityRenderer&) = delete;
     EntityRenderer& operator=(const EntityRenderer&) = delete;
 
-    bool init(const TextureAtlas& atlas, const BlockModels& models, const ItemIcons& icons);
+    bool init(const TextureAtlas& atlas, const BlockModels& models, const ItemIcons& icons,
+              const class PackStack& packs);
+    // A mob at its render position (interpolated by the caller): cuboid model with
+    // walk / head animation, red when hurt, falling over while dying.
+    void addMob(const world::MobData& mob, const glm::dvec3& pos, float bodyYaw, float headYaw,
+                const glm::vec3& light, const glm::dvec3& cameraPos);
 
     // A dropped item at `pos` (feet of its 0.25 box): block items as 1/4-size cubes,
     // others as their sprite; spinning about Y and bobbing (wiki: Item (entity)).
@@ -65,6 +70,8 @@ private:
     int m_crackStage = -1;
     world::BlockPos m_crackBlock{};
     std::vector<Vertex> m_items; // reserved once
+    std::vector<Vertex> m_mobs;  // mob atlas pass
+    uint32_t m_mobTexture = 0;
     std::vector<Vertex> m_crack;
 };
 
