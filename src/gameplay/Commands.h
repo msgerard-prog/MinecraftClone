@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace mc {
 
@@ -23,6 +24,7 @@ struct CommandContext {
     Vitals* vitals = nullptr; // /kill
     world::World* world = nullptr; // /summon
     world::Xoroshiro* rng = nullptr;
+    std::vector<world::BlockPos>* changed = nullptr; // /setblock: edited positions (relight)
 };
 
 struct CommandResult {
@@ -31,7 +33,8 @@ struct CommandResult {
 };
 
 // Runs one chat command (with or without the leading '/'), vanilla syntax
-// (wiki: Commands). Supported: /tp, /teleport, /time, /give, /gamemode, /kill, /summon, /seed, /help.
+// (wiki: Commands). Supported: /tp, /teleport, /time, /give, /gamemode, /kill, /setblock,
+// /summon, /seed, /help.
 // Selectors: only @s / @p (the player). Coordinates accept ~ (relative).
 CommandResult runCommand(std::string_view line, CommandContext& ctx);
 

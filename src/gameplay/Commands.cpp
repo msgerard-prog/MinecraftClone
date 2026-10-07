@@ -195,6 +195,21 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, *ctx.survival ? "Set own game mode to Survival Mode"
                                     : "Set own game mode to Creative Mode"};
     }
+    if (a[0] == "setblock") {
+        // /setblock <x> <y> <z> <block> (wiki: Commands/setblock): neighbours update.
+        if (!ctx.world || a.size() != 5) return fail("Usage: /setblock <x> <y> <z> <block>");
+        const glm::dvec3 p = ctx.player.position();
+        const auto x = coordinate(a[1], p.x, false), y = coordinate(a[2], p.y, false), z = coordinate(a[3], p.z, false);
+        if (!x || !y || !z) return fail("Invalid position");
+        const auto state = world::blockRegistry().parse(a[4]);
+        if (!state) return fail(format("Unknown block '%.*s'", int(a[4].size()), a[4].data()));
+        const world::BlockPos at{int(std::floor(*x)), int(std::floor(*y)), int(std::floor(*z))};
+        if (!world::isInBuildHeight(at.y) || !ctx.world->chunk(at.chunk())) return fail("That position is not loaded");
+        if (ctx.world->getBlock(at) == *state) return fail("Could not set the block");
+        ctx.world->updateBlock(at, *state);
+        if (ctx.changed) ctx.changed->push_back(at);
+        return {true, format("Changed the block at %d, %d, %d", at.x, at.y, at.z)};
+    }
     if (a[0] == "summon") {
         // /summon <zombie|cow> [x y z] (wiki: Commands/summon).
         if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5)) return fail("Usage: /summon <entity> [x y z]");
@@ -221,7 +236,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /summon /teleport /time /tp"};
+    if (a[0] == "help") return {true, "/gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

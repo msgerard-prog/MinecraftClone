@@ -432,7 +432,8 @@ int main(int argc, char** argv) {
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals, &world, &gameRng};
+            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals, &world, &gameRng,
+                                  &frameEdits};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),

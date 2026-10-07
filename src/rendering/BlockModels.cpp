@@ -117,6 +117,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
     for (size_t s = 0; s < registry.stateCount(); ++s) {
         const auto state = static_cast<BlockStateId>(s);
         BakedModel& m = m_models[s];
+        if (bakeRedstoneModel(registry, state, atlas, m)) continue;
         switch (registry.blockOf(state)) {
         case blocks::Air:
             break;

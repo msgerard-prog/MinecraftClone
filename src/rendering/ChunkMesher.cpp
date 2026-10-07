@@ -152,8 +152,10 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                                 v[c].z16 = uint32_t(z * 16 + (k.z ? box.to[2] : box.from[2]));
                                 v[c].face = uint32_t(f);
                                 v[c].sprite = face.sprite;
-                                v[c].u = kCornerU[c] ? face.uv[2] : face.uv[0];
-                                v[c].v = kCornerV[c] ? face.uv[3] : face.uv[1];
+                                const uint32_t uvc = uint32_t(c + face.rotation) & 3u; // as cube faces
+                                v[c].u = kCornerU[uvc] ? face.uv[2] : face.uv[0];
+                                v[c].v = kCornerV[uvc] ? face.uv[3] : face.uv[1];
+                                v[c].tint = face.tint;
                                 v[c].sky4 = sky[i] * 4u;
                                 v[c].block4 = bl[i] * 4u;
                                 v[c].biome = biome;

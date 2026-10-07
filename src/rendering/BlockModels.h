@@ -35,12 +35,14 @@ struct BakedBox {
         uint16_t sprite = 0;
         uint8_t uv[4] = {0, 0, 16, 16};
         bool present = true;
+        uint8_t rotation = 0; // quarter turns clockwise, as BakedFace
+        Tint tint = Tint::None;
     } faces[world::kDirectionCount];
 };
 
 struct BakedModel {
     static constexpr int kMaxVariants = 4;
-    static constexpr int kMaxBoxes = 2;
+    static constexpr int kMaxBoxes = 10; // redstone dust: centre, 4 arms, 4 climbs
     bool visible = false;     // false for air / invisible blocks
     bool translucent = false; // drawn in the blended pass (water, ice, stained glass)
     bool fluid = false;       // surface at 8/9 (source fluid)
@@ -80,6 +82,11 @@ private:
 // Our own hash: vanilla's per-position seed isn't documented on the wiki, so the
 // variant chosen at a given position differs from vanilla (known deviation).
 uint32_t variantIndex(int32_t x, int32_t y, int32_t z, uint32_t variantCount);
+
+// Redstone component models (BlockModelsRedstone.cpp): dust, torches, repeaters,
+// levers, buttons, lamps, pistons. Returns false for other blocks.
+bool bakeRedstoneModel(const world::BlockRegistry& registry, world::BlockStateId state,
+                       const TextureAtlas& atlas, BakedModel& out);
 
 // Rotation helpers (exposed for tests and for the future JSON loader).
 // Vanilla blockstate "y" rotation applied to a cube whose side faces share one
