@@ -6,6 +6,8 @@
 
 #include <glad/gl.h>
 
+#include <algorithm>
+
 #include <vector>
 
 namespace mc::gfx {
@@ -86,6 +88,9 @@ void ChunkRenderer::ensureDrawCapacity(size_t sections) {
                          nullptr, GL_DYNAMIC_STORAGE_BIT);
     m_commands.resize(capacity);
     m_offsets.resize(capacity);
+    m_sort.resize(capacity);
+    m_sortedCommands.resize(capacity);
+    m_sortedOffsets.resize(capacity);
     m_drawCapacity = capacity;
 }
 
@@ -113,7 +118,8 @@ void ChunkRenderer::uploadSection(world::SectionPos pos, std::span<const PackedV
     ensureDrawCapacity(m_sections.size());
 }
 
-void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin) {
+void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin,
+                         bool backToFront) {
     const Frustum frustum = Frustum::fromMatrix(viewProjAtOrigin);
     uint32_t drawCount = 0;
     uint64_t quads = 0;
@@ -132,8 +138,27 @@ void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin
                m_quadsTotal, m_arenaAlloc.capacity()};
     if (drawCount == 0) return;
 
-    glNamedBufferSubData(m_commandBuffer, 0, drawCount * sizeof(DrawCommand), m_commands.data());
-    glNamedBufferSubData(m_offsetBuffer, 0, drawCount * sizeof(glm::vec4), m_offsets.data());
+    const DrawCommand* commands = m_commands.data();
+    const glm::vec4* offsets = m_offsets.data();
+    if (backToFront) {
+        // Blending needs far sections first. Sort indices by distance to the section
+        // centre, then gather; baseInstance is renumbered to match the new order.
+        for (uint32_t i = 0; i < drawCount; ++i) {
+            const glm::vec3 c = glm::vec3(m_offsets[i]) + glm::vec3(8.0f);
+            m_sort[i] = {glm::dot(c, c), i};
+        }
+        std::sort(m_sort.begin(), m_sort.begin() + drawCount,
+                  [](const SortItem& a, const SortItem& b) { return a.distance2 > b.distance2; });
+        for (uint32_t i = 0; i < drawCount; ++i) {
+            m_sortedCommands[i] = m_commands[m_sort[i].index];
+            m_sortedCommands[i].baseInstance = i;
+            m_sortedOffsets[i] = m_offsets[m_sort[i].index];
+        }
+        commands = m_sortedCommands.data();
+        offsets = m_sortedOffsets.data();
+    }
+    glNamedBufferSubData(m_commandBuffer, 0, drawCount * sizeof(DrawCommand), commands);
+    glNamedBufferSubData(m_offsetBuffer, 0, drawCount * sizeof(glm::vec4), offsets);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m_commandBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_offsetBuffer); // binding 0: offsets

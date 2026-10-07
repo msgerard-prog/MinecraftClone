@@ -10,6 +10,7 @@
 #include "rendering/WorldRenderer.h"
 #include "world/Blocks.h"
 #include "world/FlatGenerator.h"
+#include "world/TerrainGenerator.h"
 #include "world/World.h"
 
 #include <span>
@@ -84,11 +85,25 @@ int main(int argc, char** argv) {
                                                    : opts->resourcePacks))
         return 1;
     mc::world::World world;
-    buildTestWorld(world);
+    glm::dvec3 spawn(0.5, -57.0, -6.0);
+    if (opts->flat) {
+        buildTestWorld(world);
+    } else {
+        // M3.2: a fixed 16x16-chunk area of generated terrain (streaming comes in M3.3).
+        const mc::world::TerrainGenerator gen(opts->seed);
+        for (int cz = -8; cz < 8; ++cz) {
+            for (int cx = -8; cx < 8; ++cx)
+                gen.generate(world.createChunk({cx, cz}));
+        }
+        spawn = {0.5,
+                 std::max(gen.surfaceHeight(0, 0), mc::world::TerrainGenerator::kSeaLevel) + 12.0,
+                 0.5};
+    }
+    renderer.setRenderDistance(8);
     renderer.markAllDirty(world);
 
     mc::FlyController player;
-    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.5, -57.0, -6.0));
+    player.setPosition(opts->hasPos ? opts->pos : spawn);
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
     mc::GameClock clock;
@@ -166,5 +181,8 @@ int main(int argc, char** argv) {
                 summary.p99Ms, summary.maxMs, opts->vsync ? " [vsync on]" : "");
     MC_LOG_INFO("Last frame: sections drawn %d/%d, quads drawn %llu", st.sectionsDrawn, st.sections,
                 static_cast<unsigned long long>(st.quadsDrawn));
+    const auto& tst = renderer.translucentStats();
+    MC_LOG_INFO("Last frame (translucent): sections drawn %d/%d, quads drawn %llu",
+                tst.sectionsDrawn, tst.sections, static_cast<unsigned long long>(tst.quadsDrawn));
     return exitCode;
 }

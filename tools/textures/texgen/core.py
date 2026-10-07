@@ -13,8 +13,11 @@ N = 16
 CLEAR = (0, 0, 0, 0)
 
 
-def rgba(c, a=255):
-    return (c[0], c[1], c[2], a) if len(c) == 3 else tuple(c)
+def rgba(c, a=None):
+    """Colour as RGBA. With `a`, the alpha is replaced (also for RGBA input)."""
+    if a is None:
+        return (c[0], c[1], c[2], 255) if len(c) == 3 else tuple(c)
+    return (c[0], c[1], c[2], a)
 
 
 def clamp(v):

@@ -21,6 +21,8 @@ constexpr float kSkyG = 0xA7 / 255.0f;
 constexpr float kSkyB = 0xFF / 255.0f;
 // Vanilla plains grass colour (#91BD59), until biomes exist (M8).
 constexpr glm::vec3 kPlainsGrass(0x91 / 255.0f, 0xBD / 255.0f, 0x59 / 255.0f);
+// Vanilla's default water colour (#3F76E4), until biomes exist (M8).
+constexpr glm::vec3 kWater(0x3F / 255.0f, 0x76 / 255.0f, 0xE4 / 255.0f);
 
 constexpr int kMinSectionY = world::kMinY >> 4; // -4
 constexpr int kMaxSectionY = world::kMaxY >> 4; // 19
@@ -36,7 +38,7 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     packs.addAllIn(resourcePacksDir);
     if (!m_atlas.build(packs, "assets/minecraft/textures/block/")) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
-    if (!m_chunks.init()) return false;
+    if (!m_chunks.init() || !m_translucent.init()) return false;
     // Half the cores: leaves room for the main thread and the GL driver's own thread.
     const int threads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
     m_maxInFlight = threads * 4; // bounds job memory and per-frame dispatch work
@@ -87,7 +89,8 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
         if (it != m_states.end()) {
             --it->second.inFlight;
             if (it->second.version == job->version) {
-                m_chunks.uploadSection(job->pos, job->vertices);
+                m_chunks.uploadSection(job->pos, job->mesh.opaque);
+                m_translucent.uploadSection(job->pos, job->mesh.translucent);
             }
             eraseIfIdle(job->pos);
         }
@@ -120,6 +123,7 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
         if (!chunk || chunk->section(pos.y - kMinSectionY).isEmpty()) {
             ++st.version; // drops any in-flight result for it
             m_chunks.removeSection(pos);
+            m_translucent.removeSection(pos);
             eraseIfIdle(pos);
             continue;
         }
@@ -144,8 +148,26 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
     glUniform1i(1, m_atlas.columns());
     glUniform3fv(2, 1, glm::value_ptr(kPlainsGrass));
+    glUniform3fv(3, 1, glm::value_ptr(kWater));
+    // Distance fog toward the sky colour so the edge of the loaded world fades out.
+    const float fogEnd = static_cast<float>(m_renderDistance * 16);
+    glUniform2f(4, fogEnd * 0.75f, fogEnd);
+    glUniform3f(5, kSkyR, kSkyG, kSkyB);
     glBindTextureUnit(0, m_atlas.texture());
+
+    // Opaque pass.
     m_chunks.draw(camera, viewProj);
+
+    // Translucent pass: blended, no depth writes, both sides visible (the water
+    // surface seen from below), far sections first.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    m_translucent.draw(camera, viewProj, /*backToFront=*/true);
+    glEnable(GL_CULL_FACE);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 } // namespace mc::gfx

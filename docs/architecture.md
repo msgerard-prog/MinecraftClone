@@ -83,12 +83,21 @@ Fixed bindings (add new ones here):
 | uniform location | 0 | `uViewProj` (camera at origin) |
 | uniform location | 1 | `uAtlasColumns` |
 | uniform location | 2 | `uGrassColor` |
+| uniform location | 3 | `uWaterColor` |
+| uniform location | 4 | `uFog` (start, end in blocks) |
+| uniform location | 5 | `uFogColor` (sky) |
 | texture unit | 0 | block atlas |
 | SSBO binding | 0 | section offsets (block pass) |
 
+Passes (M3.2): **opaque**, then **translucent** (`BakedModel::translucent`: water...)
+with alpha blending, no depth writes, no back-face culling (water seen from below),
+sections sorted far→near each frame. Fluids hide faces against the same fluid and
+lower their top vertices by 1/9 (`fluidTop` vertex flag; vanilla source height 8/9).
+Linear-smoothstep distance fog to the sky colour from 75% of the render distance.
+
 Known simplifications: uploads use `glNamedBufferSubData` (persistent-mapped staging
-when uploads get heavy); one opaque pass only (cutout/translucent with the first
-non-opaque block). Meshing threads: see Threading.
+when uploads get heavy); translucent sorting is per section, not per quad; no cutout
+pass yet (leaves/glass panes come with their blocks). Meshing threads: see Threading.
 
 ## Files outside src/
 - `assets/shaders/<name>.vert|.frag` — loaded at runtime from the source tree

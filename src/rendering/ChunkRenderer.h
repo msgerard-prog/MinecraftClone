@@ -34,8 +34,9 @@ public:
     void uploadSection(world::SectionPos pos, std::span<const PackedVertex> vertices);
     void removeSection(world::SectionPos pos);
 
-    // Issues the draw; the block shader and atlas must already be bound.
-    void draw(const Camera& camera, const glm::mat4& viewProjAtOrigin);
+    // Issues the draw; the block shader, atlas and pass GL state must already be set.
+    // backToFront: sort sections far -> near (translucent pass blending order).
+    void draw(const Camera& camera, const glm::mat4& viewProjAtOrigin, bool backToFront = false);
 
     struct Stats {
         int sections = 0;      // with a mesh
@@ -69,6 +70,13 @@ private:
     std::unordered_map<world::SectionPos, Entry> m_sections;
     std::vector<DrawCommand> m_commands; // reused every frame (no per-frame allocation)
     std::vector<glm::vec4> m_offsets;
+    struct SortItem {
+        float distance2;
+        uint32_t index;
+    };
+    std::vector<SortItem> m_sort; // reused (translucent ordering)
+    std::vector<DrawCommand> m_sortedCommands;
+    std::vector<glm::vec4> m_sortedOffsets;
     Stats m_stats;
     uint64_t m_quadsTotal = 0;
 };

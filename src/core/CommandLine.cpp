@@ -98,6 +98,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             auto v = needValue();
             if (!v) return std::nullopt;
             opts.resourcePacks = std::string(*v);
+        } else if (arg == "--flat") {
+            opts.flat = true;
         } else if (arg == "--no-vsync") {
             opts.vsync = false;
         } else if (arg == "--hidden") {

@@ -2,6 +2,7 @@
 
 #include "core/WorkQueue.h"
 #include "rendering/BlockModels.h"
+#include "rendering/ChunkMesher.h"
 #include "rendering/PackedVertex.h"
 #include "world/BlockRegistry.h"
 #include "world/SectionSnapshot.h"
@@ -19,7 +20,7 @@ struct MeshJob {
     world::SectionPos pos;
     uint32_t version = 0;                    // stale results are dropped by the owner
     std::vector<world::BlockStateId> padded; // input: 18^3 snapshot
-    std::vector<PackedVertex> vertices;      // output
+    SectionMesh mesh;                        // output (opaque + translucent)
 };
 
 // Worker threads that run meshSection on snapshots. GL-free: uploads happen on the

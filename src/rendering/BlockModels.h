@@ -28,7 +28,9 @@ struct BakedVariant {
 // block position (e.g. grass tops randomly rotated so the ground doesn't tile).
 struct BakedModel {
     static constexpr int kMaxVariants = 4;
-    bool visible = false; // false for air / invisible blocks
+    bool visible = false;     // false for air / invisible blocks
+    bool translucent = false; // drawn in the blended pass (water, ice, stained glass)
+    bool fluid = false;       // faces against the same block are hidden; surface at 8/9
     uint8_t variantCount = 1;
     BakedVariant variants[kMaxVariants];
 };

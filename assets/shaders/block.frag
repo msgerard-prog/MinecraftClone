@@ -1,10 +1,16 @@
 #version 460 core
 layout(binding = 0) uniform sampler2D uAtlas; // rendering/TextureAtlas
+layout(location = 4) uniform vec2 uFog;       // start, end (blocks)
+layout(location = 5) uniform vec3 uFogColor;  // sky colour
 
 in vec2 vUv;
 in vec3 vColor;
+in float vDistance;
 out vec4 fragColor;
 
 void main() {
-    fragColor = vec4(texture(uAtlas, vUv).rgb * vColor, 1.0);
+    const vec4 texel = texture(uAtlas, vUv);
+    vec3 color = texel.rgb * vColor;
+    const float fog = smoothstep(uFog.x, uFog.y, vDistance);
+    fragColor = vec4(mix(color, uFogColor, fog), texel.a); // alpha used by the blended pass
 }

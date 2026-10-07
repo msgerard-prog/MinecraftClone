@@ -16,14 +16,24 @@ namespace mc::gfx {
 // the vertex's face index; keep the shader's table in sync with this one.
 inline constexpr float kFaceShade[world::kDirectionCount] = {0.5f, 1.0f, 0.8f, 0.8f, 0.6f, 0.6f};
 
+// One section's quads, split by render pass.
+struct SectionMesh {
+    std::vector<PackedVertex> opaque;
+    std::vector<PackedVertex> translucent;
+    void clear() {
+        opaque.clear();
+        translucent.clear();
+    }
+};
+
 // Builds the quads of one section from a padded 18^3 snapshot (world/SectionSnapshot.h).
 // A face is emitted only if the neighbouring block is not an opaque full cube (vanilla
-// face culling). Appends 4 vertices per quad to `out` (cleared first); quads are drawn
+// face culling; fluids also hide faces against the same fluid). Writes 4 vertices per
+// quad to `out` (cleared first), opaque and translucent separately; quads are drawn
 // as two CCW triangles with indices 0-1-2, 0-2-3. GL-free and thread-safe.
 // `origin` is the section's block origin (picks per-position model variants).
 void meshSection(const world::BlockStateId* padded, const glm::ivec3& origin,
-                 const world::BlockRegistry& registry, const BlockModels& models,
-                 std::vector<PackedVertex>& out);
+                 const world::BlockRegistry& registry, const BlockModels& models, SectionMesh& out);
 
 // Upper bound of vertices for one section (every block, every face).
 inline constexpr size_t kMaxSectionVertices = 4096 * 6 * 4;

@@ -45,13 +45,19 @@ public:
     // Clears to the sky colour and draws the world from `camera`.
     void drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight);
 
+    // Fog reaches the sky colour at the edge of the render distance (in chunks).
+    void setRenderDistance(int chunks) { m_renderDistance = chunks; }
+
     const ChunkRenderer::Stats& stats() const { return m_chunks.stats(); }
+    const ChunkRenderer::Stats& translucentStats() const { return m_translucent.stats(); }
 
 private:
     Shader m_blockShader;
     TextureAtlas m_atlas;
     BlockModels m_models;
-    ChunkRenderer m_chunks;
+    ChunkRenderer m_chunks;      // opaque pass
+    ChunkRenderer m_translucent; // blended pass (water...), drawn back to front
+    int m_renderDistance = 12;
     // Per-section scheduling state. Entries are erased once a section has no mesh
     // work pending. (M3 replaces this map with a dense grid around the camera.)
     struct SectionState {

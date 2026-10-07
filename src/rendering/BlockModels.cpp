@@ -135,6 +135,24 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         case blocks::OakPlanks:
             m = single(cubeAll(sprite("oak_planks")));
             break;
+        case blocks::Deepslate:
+            m = single(cubeColumn(sprite("deepslate"), sprite("deepslate_top"),
+                                  registry.value(state, "axis").value_or("y")));
+            break;
+        case blocks::Gravel:
+            m = single(cubeAll(sprite("gravel")));
+            break;
+        case blocks::Water: {
+            // Every level uses the still texture for now (flowing texture with
+            // direction comes with fluid flow).
+            BakedVariant v = cubeAll(sprite("water_still"));
+            for (auto& f : v.faces)
+                f.tint = Tint::Water;
+            m = single(v);
+            m.translucent = true;
+            m.fluid = true;
+            break;
+        }
         case blocks::OakLog:
             m = single(cubeColumn(sprite("oak_log"), sprite("oak_log_top"),
                                   registry.value(state, "axis").value_or("y")));

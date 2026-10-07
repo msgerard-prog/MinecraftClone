@@ -745,11 +745,13 @@ for prefix, hx in STAGES.items():
     reg(f"{prefix}copper_trapdoor", lambda r, p=pal: M.trapdoor(r, p, "window"))
 
 # --- Fluids, fire, campfire, cracks ----------------------------------------------------
-WATER = [grey(150), grey(170), grey(190), grey(210), grey(232)]  # tinted blue in game
+# Tinted blue in game. Water stays subtle (narrow range) and see-through: the
+# "pop" rule is relaxed here - a contrasty water texture tiles visibly.
+WATER = [grey(178), grey(188), grey(198), grey(210), grey(226)]
 LAVA = [hexc("a8300a"), hexc("d8501a"), hexc("f07a20"), hexc("f8a830"), hexc("ffd860")]
-reg("water_still", lambda r: U.fluid_frames(r, WATER, 16, alpha=190), animated(2))
-reg("water_flow", lambda r: U.fluid_frames(r, WATER, 16, flow=True, alpha=190), animated(1))
-reg("water_overlay", lambda r: U.fluid_frames(r, WATER, 1, alpha=190))
+reg("water_still", lambda r: U.fluid_frames(r, WATER, 16, alpha=150), animated(2))
+reg("water_flow", lambda r: U.fluid_frames(r, WATER, 16, flow=True, alpha=150), animated(1))
+reg("water_overlay", lambda r: U.fluid_frames(r, WATER, 1, alpha=150))
 reg("lava_still", lambda r: U.fluid_frames(r, LAVA, 20), animated(2))
 reg("lava_flow", lambda r: U.fluid_frames(r, LAVA, 16, flow=True), animated(2))
 FIRE = [hexc("7a1a0a"), hexc("c83a10"), hexc("f07a1a"), hexc("f8b030"), hexc("fff0a0")]

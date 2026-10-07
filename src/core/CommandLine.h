@@ -19,6 +19,7 @@ struct LaunchOptions {
     bool hidden = false;        // no visible window (screenshot runs)
     bool vsync = true;          // --no-vsync: measure real frame cost
     std::string resourcePacks;  // --resourcepacks DIR (default: <repo>/resourcepacks)
+    bool flat = false;          // --flat: the M2 superflat test world instead of terrain
     bool hasPos = false;        // --pos x,y,z  camera position
     glm::dvec3 pos{0.0};
     bool hasLook = false; // --look yaw,pitch  vanilla degrees (yaw 0 = south, +pitch = down)

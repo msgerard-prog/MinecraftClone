@@ -33,10 +33,10 @@ mc::gfx::BlockModels testModels() {
 std::vector<PackedVertex> meshOf(const World& world, SectionPos pos) {
     std::vector<BlockStateId> padded(kPaddedVolume);
     snapshotSection(world, pos, padded.data());
-    std::vector<PackedVertex> out;
+    mc::gfx::SectionMesh out;
     mc::gfx::meshSection(padded.data(), glm::ivec3(pos.x * 16, pos.y * 16, pos.z * 16),
                          blockRegistry(), testModels(), out);
-    return out;
+    return out.opaque;
 }
 
 BlockStateId stone() { return blockRegistry().defaultState(blocks::Stone); }
@@ -139,10 +139,10 @@ TEST_CASE("a tinted face carries its tint into the vertices (grass top)") {
     w.setBlock({0, 0, 0}, r.defaultState(blocks::GrassBlock));
     std::vector<BlockStateId> padded(kPaddedVolume);
     snapshotSection(w, {0, 0, 0}, padded.data());
-    std::vector<PackedVertex> out;
+    mc::gfx::SectionMesh out;
     mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
     int tinted = 0;
-    for (const auto& v : out) {
+    for (const auto& v : out.opaque) {
         const auto u = unpackVertex(v);
         if (u.tint == mc::gfx::Tint::Grass) {
             ++tinted;
@@ -196,10 +196,10 @@ TEST_CASE("rotation and mirroring move UV corners as documented") {
     std::vector<BlockStateId> padded(kPaddedVolume);
     snapshotSection(w, {0, 0, 0}, padded.data());
     auto southCorners = [&]() {
-        std::vector<PackedVertex> out;
+        mc::gfx::SectionMesh out;
         mc::gfx::meshSection(padded.data(), glm::ivec3(0), blockRegistry(), models, out);
         std::vector<uint32_t> uv;
-        for (const auto& v : out)
+        for (const auto& v : out.opaque)
             if (unpackVertex(v).face == uint32_t(Direction::South))
                 uv.push_back(unpackVertex(v).uvCorner);
         return uv;
@@ -243,4 +243,38 @@ TEST_CASE("log textures: ends on the axis faces, side rotations as vanilla horiz
     CHECK(rot(x, Direction::Down) == 1);
     CHECK(rot(x, Direction::North) == 3);
     CHECK(rot(x, Direction::South) == 1);
+}
+
+TEST_CASE("water: translucent pass, hidden against water, surface lowered under air") {
+    const auto& r = blockRegistry();
+    mc::gfx::BlockModels models = testModels();
+    const BlockStateId water = r.defaultState(blocks::Water);
+    auto& wm = models.at(water);
+    wm.translucent = true;
+    wm.fluid = true;
+    World w;
+    w.createChunk({0, 0});
+    // A 2x1x1 pool of water with a stone floor under it.
+    w.setBlock({4, 5, 4}, water);
+    w.setBlock({5, 5, 4}, water);
+    w.setBlock({4, 4, 4}, stone());
+    w.setBlock({5, 4, 4}, stone());
+    std::vector<BlockStateId> padded(kPaddedVolume);
+    snapshotSection(w, {0, 0, 0}, padded.data());
+    mc::gfx::SectionMesh out;
+    mc::gfx::meshSection(padded.data(), glm::ivec3(0), r, models, out);
+    // Water: 2 blocks x 6 faces - 2 shared - 2 on the stone floor = 8 faces.
+    CHECK(out.translucent.size() == 8 * 4);
+    int lowered = 0;
+    for (const auto& v : out.translucent) {
+        const auto u = mc::gfx::unpackVertex(v);
+        if (u.fluidTop) {
+            ++lowered;
+            CHECK(u.y == 6); // only top-edge vertices (y + 1) are lowered
+        }
+    }
+    CHECK(lowered == 2 * 4 + 6 * 2); // 2 top faces x 4 + 6 side faces x 2 top corners
+    // Water isn't opaque, so the stone floor's top faces stay visible through it:
+    // 2 stones x 6 faces - 2 shared = 10 opaque faces.
+    CHECK(out.opaque.size() == 10 * 4);
 }
