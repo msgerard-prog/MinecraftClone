@@ -53,6 +53,21 @@ constexpr LootEntry kIgloo1[] = {{"wheat", 2, 3, 10}, {"gold_nugget", 1, 3, 10},
 constexpr LootEntry kIgloo2[] = {{"golden_apple", 1, 1, 1}};
 constexpr LootPool kIgloo[] = {{2, 8, kIgloo1}, {1, 1, kIgloo2}};
 
+// wiki: Mineshaft › Loot (the chest minecarts; Java Edition).
+constexpr LootEntry kMine1[] = {{"name_tag", 1, 1, 30},       {"golden_apple", 1, 1, 20},
+                                {"enchanted_book", 1, 1, 10, true}, {"iron_pickaxe", 1, 1, 5},
+                                {"enchanted_golden_apple", 1, 1, 1}, {"", 1, 1, 5}};
+constexpr LootEntry kMine2[] = {{"glow_berries", 3, 6, 15},  {"bread", 1, 3, 15},          {"beetroot_seeds", 2, 4, 10},
+                                {"coal", 3, 8, 10},          {"melon_seeds", 2, 4, 10},    {"pumpkin_seeds", 2, 4, 10},
+                                {"iron_ingot", 1, 5, 10},    {"lapis_lazuli", 4, 9, 5},    {"redstone", 4, 9, 5},
+                                {"gold_ingot", 1, 3, 5},     {"diamond", 1, 2, 3}};
+constexpr LootEntry kMine3[] = {{"rail", 4, 8, 20},
+                                {"torch", 1, 16, 15},
+                                {"activator_rail", 1, 4, 5},
+                                {"detector_rail", 1, 4, 5},
+                                {"powered_rail", 1, 4, 5}};
+constexpr LootPool kMine[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}};
+
 } // namespace
 
 std::span<const LootPool> lootPools(LootTable table) {
@@ -61,6 +76,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::DesertPyramid: return kDesert;
     case LootTable::JunglePyramid: return kJungle;
     case LootTable::Igloo: return kIgloo;
+    case LootTable::Mineshaft: return kMine;
     default: return {}; // (filled in as their structures arrive)
     }
 }

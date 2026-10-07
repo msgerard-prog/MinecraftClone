@@ -57,7 +57,7 @@ TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld
     CHECK(chunkHash(o) == 1773355576298667210ull); // the M8 pin (world_overworld.cpp)
     // Pinned. overworld2 grows through M18 (biomes, structures) and is re-pinned at
     // each M18 step until v0.18.0 freezes it; after that, changing it needs the user's OK.
-    CHECK(h == 15665559353877595738ull);
+    CHECK(h == 7532567044456039393ull);
 }
 
 TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
@@ -221,4 +221,31 @@ TEST_CASE("overworld2: a desert pyramid - sandstone, a terracotta floor, 4 loot 
     CHECK(loot > 8);
     CHECK(tnt == 9);
     CHECK(terracotta > 20);
+}
+
+TEST_CASE("overworld2: mineshafts carve plank-supported corridors from a dirt-floored room") {
+    const OverworldGenerator gen(42);
+    ChunkPos start{0, 0};
+    bool found = false;
+    for (int z = -40; z <= 40 && !found; ++z)
+        for (int x = -40; x <= 40 && !found; ++x)
+            if (isMineshaftCandidate(42, {x, z})) {
+                start = {x, z};
+                found = true;
+            }
+    REQUIRE(found);
+    int planks = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            Chunk c({start.x + dx, start.z + dz});
+            gen.generate(c);
+            for (int y = -60; y < 40; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x)
+                        planks += blockRegistry().blockOf(c.get(x, y, z)) == blocks::OakPlanks;
+        }
+    CHECK(planks > 30); // supports and bridges
+    // The start room opens into corridors: air right outside its walls somewhere.
+    Chunk room(start);
+    gen.generate(room);
 }

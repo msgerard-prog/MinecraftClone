@@ -109,6 +109,10 @@ private:
     // from the random-spread grids; each chunk builds the parts of the structures
     // whose start lies within 2 chunks of it.
     void placeStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
+    // Mineshafts (M18.5; wiki: Mineshaft): a start room and a tree of corridors,
+    // crossings and stairs reaching up to 80 blocks out; each chunk builds the pieces
+    // that cross it.
+    void placeMineshafts(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& biomes) const;
 

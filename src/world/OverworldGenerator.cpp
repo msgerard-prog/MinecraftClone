@@ -86,7 +86,7 @@ struct Blocks {
     BlockStateId sugarCane, cactus, pumpkin, brownMushroom, redMushroom, coarseDirt;
     BlockStateId jungleLog, darkOakLog, cherryLog, podzol, mycelium;
     BlockStateId brownCap, redCap, stem; // huge mushroom blocks (cap: pale underside; stem: no ends)
-    BlockStateId cobblestone, mossyCobblestone, chest, spawner;
+    BlockStateId cobblestone, mossyCobblestone, chest, spawner, oakPlanks;
     BlockStateId chiseledSandstone, cutSandstone, smoothSandstone, orangeTerracotta, blueTerracotta, stoneBricks,
         mossyStoneBricks, crackedStoneBricks, chiseledStoneBricks, tnt, sprucePlanks, craftingTable, furnace,
         redstoneTorch, bedFoot, bedHead;
@@ -161,6 +161,7 @@ const Blocks& blockSet() {
         x.bedFoot = r.with(S(blocks::RedBed), "facing", "east").value_or(0);
         x.bedHead = r.with(x.bedFoot, "part", "head").value_or(0);
         x.cobblestone = S(blocks::Cobblestone);
+        x.oakPlanks = S(blocks::OakPlanks);
         x.mossyCobblestone = S(blocks::MossyCobblestone);
         x.chest = S(blocks::Chest);
         x.spawner = S(blocks::Spawner);
@@ -876,10 +877,12 @@ void OverworldGenerator::generate(Chunk& out) const {
         carveRavines(blockArray.data(), cx, cz, topY);
         placeLavaLakes(blockArray.data(), cx, cz, topY);
     }
-    // 4c. Dungeons (vanilla's underground structures step, before ores).
+    // 4c. Dungeons and mineshafts (vanilla's underground structures step, before ores).
     GeneratedEntities entities;
-    if (m_version >= 2)
+    if (m_version >= 2) {
         placeDungeons(blockArray.data(), cx, cz, *std::max_element(topY.begin(), topY.end()), entities);
+        placeMineshafts(blockArray.data(), cx, cz, entities);
+    }
 
     // 5. Ores and stone blobs (wiki: Ore - attempts per chunk, sizes, height ranges).
     Xoroshiro ores(chunkSeed(m_seed, cx, cz, 200));
@@ -1615,6 +1618,196 @@ void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32
                 }
             }
     }
+}
+
+namespace {
+
+// A mineshaft piece: a box in world coordinates and what it is.
+struct MinePiece {
+    enum Kind : uint8_t { Room, Corridor, Crossing, Stairs } kind;
+    int32_t x0, y0, z0, x1, y1, z1;
+    uint8_t dir; // corridors and stairs: 0 +z, 1 -x, 2 -z, 3 +x
+    int8_t chestAt = -1; // corridor: the section with a chest (-1 none)
+    bool intersects(const MinePiece& o) const {
+        return x0 <= o.x1 && x1 >= o.x0 && y0 <= o.y1 && y1 >= o.y0 && z0 <= o.z1 && z1 >= o.z0;
+    }
+};
+
+struct MinePlan {
+    int count = 0;
+    std::array<MinePiece, 96> pieces{};
+};
+
+// The whole mineshaft from its start chunk (deterministic; wiki: Mineshaft - a 10x10
+// room, 3x3 corridors with supports, 5x5 crossings, stairs; ours: depth 8, 80 blocks
+// out, no overlapping pieces).
+void planMineshaft(uint64_t seed, int32_t cx, int32_t cz, int startY, MinePlan& plan) {
+    Xoroshiro r(mixSeed(mixSeed(mixSeed(seed, 0x4d494e45u), static_cast<uint32_t>(cx)), static_cast<uint32_t>(cz)));
+    r.nextDouble(); // (the candidate roll)
+    plan.count = 0;
+    const int32_t sx = cx * 16 + 3, sz = cz * 16 + 3;
+    auto fits = [&](const MinePiece& p) {
+        if (plan.count >= int(plan.pieces.size())) return false;
+        if (std::abs(p.x0 - sx) > 80 || std::abs(p.x1 - sx) > 80 || std::abs(p.z0 - sz) > 80 || std::abs(p.z1 - sz) > 80)
+            return false;
+        if (p.y0 < kOverworldHeight.minY + 6) return false;
+        for (int i = 0; i < plan.count; ++i)
+            if (plan.pieces[size_t(i)].intersects(p)) return false;
+        return true;
+    };
+    static constexpr int kDx[4] = {0, -1, 0, 1}, kDz[4] = {1, 0, -1, 0};
+    // Grows a piece leaving (x, y, z) heading `dir`.
+    auto grow = [&](auto& self, int32_t x, int32_t y, int32_t z, int dir, int depth) -> void {
+        if (depth > 8) return;
+        const uint32_t roll = r.nextInt(100);
+        MinePiece p{};
+        p.dir = static_cast<uint8_t>(dir);
+        // A box `len` long, `half` to each side of the axis, `h` tall, starting at (x,y,z).
+        auto box = [&](int len, int half, int h, int dy) {
+            const int32_t ex = x + kDx[dir] * (len - 1), ez = z + kDz[dir] * (len - 1);
+            const int32_t sideX = kDz[dir] != 0 ? half : 0, sideZ = kDx[dir] != 0 ? half : 0;
+            p.x0 = std::min(x, ex) - sideX;
+            p.x1 = std::max(x, ex) + sideX;
+            p.z0 = std::min(z, ez) - sideZ;
+            p.z1 = std::max(z, ez) + sideZ;
+            p.y0 = std::min(y, y + dy);
+            p.y1 = std::max(y, y + dy) + h - 1;
+        };
+        if (roll < 70 || depth == 0) {
+            p.kind = MinePiece::Corridor;
+            const int sections = 2 + static_cast<int>(r.nextInt(3));
+            box(sections * 5, 1, 3, 0);
+            p.chestAt = r.nextInt(30) == 0 ? static_cast<int8_t>(r.nextInt(uint32_t(sections))) : int8_t{-1};
+            if (!fits(p)) return;
+            plan.pieces[size_t(plan.count++)] = p;
+            const int32_t ex = x + kDx[dir] * sections * 5, ez = z + kDz[dir] * sections * 5;
+            self(self, ex, y, ez, dir, depth + 1);
+            // Side branches now and then.
+            if (r.nextInt(3) == 0) {
+                const int at = 2 + static_cast<int>(r.nextInt(uint32_t(sections * 5 - 4)));
+                const int side = r.nextInt(2) == 0 ? 1 : 3;
+                const int nd = (dir + side) & 3;
+                self(self, x + kDx[dir] * at + kDx[nd] * 2, y, z + kDz[dir] * at + kDz[nd] * 2, nd, depth + 1);
+            }
+        } else if (roll < 90) {
+            p.kind = MinePiece::Crossing;
+            box(5, 2, 3, 0);
+            if (!fits(p)) return;
+            plan.pieces[size_t(plan.count++)] = p;
+            const int32_t mx = x + kDx[dir] * 2, mz = z + kDz[dir] * 2;
+            for (int t : {0, 1, 3}) {
+                const int nd = (dir + t) & 3;
+                self(self, mx + kDx[nd] * 3, y, mz + kDz[nd] * 3, nd, depth + 1);
+            }
+        } else {
+            p.kind = MinePiece::Stairs; // 8 long, 5 down
+            box(8, 1, 3, -5);
+            if (!fits(p)) return;
+            plan.pieces[size_t(plan.count++)] = p;
+            self(self, x + kDx[dir] * 8, y - 5, z + kDz[dir] * 8, dir, depth + 1);
+        }
+    };
+    MinePiece room{MinePiece::Room, sx - 5, startY, sz - 5, sx + 4, startY + 4, sz + 4, 0};
+    plan.pieces[size_t(plan.count++)] = room;
+    for (int side = 0; side < 4; ++side) {
+        const int exits = 1 + static_cast<int>(r.nextInt(4));
+        for (int e = 0; e < exits; ++e) {
+            const int along = -3 + static_cast<int>(r.nextInt(7));
+            // Just outside the room's wall (it spans s-5 .. s+4).
+            const int32_t x = sx + (kDx[side] > 0 ? 5 : kDx[side] < 0 ? -6 : along);
+            const int32_t z = sz + (kDz[side] > 0 ? 5 : kDz[side] < 0 ? -6 : along);
+            grow(grow, x, startY, z, side, 0);
+        }
+    }
+}
+
+} // namespace
+
+void OverworldGenerator::placeMineshafts(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    const int32_t baseX = cx * 16, baseZ = cz * 16;
+    static thread_local MinePlan plan;
+    for (int32_t sz = cz - 6; sz <= cz + 6; ++sz)
+        for (int32_t sx = cx - 6; sx <= cx + 6; ++sx) {
+            if (!isMineshaftCandidate(m_seed, {sx, sz})) continue;
+            // Start height: well under the surface there (ours: y -40..30).
+            const int surface = surfaceY(sx * 16 + 8, sz * 16 + 8);
+            const int startY = std::min(surface - 20, -40 + static_cast<int>(positional(m_seed, sx, 0, sz, 17) * 70.0));
+            planMineshaft(m_seed, sx, sz, startY, plan);
+            for (int i = 0; i < plan.count; ++i) {
+                const MinePiece& p = plan.pieces[size_t(i)];
+                if (p.x1 < baseX || p.x0 > baseX + 15 || p.z1 < baseZ || p.z0 > baseZ + 15) continue;
+                auto carve = [&](int32_t x, int32_t y, int32_t z, BlockStateId s) {
+                    const int lx = x - baseX, lz = z - baseZ;
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
+                    const BlockStateId cur = chunk.get(lx, y, lz);
+                    if (cur == B.bedrock || cur == B.water || cur == B.chest || cur == B.spawner) return;
+                    chunk.set(lx, y, lz, s);
+                };
+                auto floorUnder = [&](int32_t x, int32_t y, int32_t z) { // a plank bridge over gaps
+                    const int lx = x - baseX, lz = z - baseZ;
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
+                    if (!reg.collides(chunk.get(lx, y, lz))) chunk.set(lx, y, lz, B.oakPlanks);
+                };
+                if (p.kind == MinePiece::Stairs) {
+                    // A slope: each step one lower every 8/5 blocks along the way.
+                    const int dx = p.dir == 3 ? 1 : p.dir == 1 ? -1 : 0, dz = p.dir == 0 ? 1 : p.dir == 2 ? -1 : 0;
+                    const bool alongX = dx != 0;
+                    const int32_t len = alongX ? p.x1 - p.x0 + 1 : p.z1 - p.z0 + 1;
+                    for (int32_t t = 0; t < len; ++t) {
+                        const int32_t step = p.y1 - 2 - (t * 5) / 8;
+                        for (int s = -1; s <= 1; ++s) {
+                            const int32_t x = alongX ? (dx > 0 ? p.x0 + t : p.x1 - t) : (p.x0 + p.x1) / 2 + s;
+                            const int32_t z = alongX ? (p.z0 + p.z1) / 2 + s : (dz > 0 ? p.z0 + t : p.z1 - t);
+                            for (int h = 0; h < 3; ++h)
+                                carve(x, step + h, z, B.air);
+                            floorUnder(x, step - 1, z);
+                        }
+                    }
+                    continue;
+                }
+                for (int32_t x = p.x0; x <= p.x1; ++x)
+                    for (int32_t z = p.z0; z <= p.z1; ++z) {
+                        for (int32_t y = p.y0; y <= p.y1; ++y)
+                            carve(x, y, z, B.air);
+                        floorUnder(x, p.y0 - 1, z);
+                    }
+                if (p.kind == MinePiece::Room) // a dirt floor (wiki)
+                    for (int32_t x = p.x0; x <= p.x1; ++x)
+                        for (int32_t z = p.z0; z <= p.z1; ++z)
+                            carve(x, p.y0 - 1, z, B.dirt);
+                if (p.kind != MinePiece::Corridor) continue;
+                // Supports every 5 blocks: two posts and a beam (vanilla: fences under
+                // planks; ours: planks), and the chest on one side.
+                const bool alongX = p.dir == 1 || p.dir == 3;
+                const int32_t len = alongX ? p.x1 - p.x0 + 1 : p.z1 - p.z0 + 1;
+                for (int32_t t = 2; t < len; t += 5) {
+                    for (int s = -1; s <= 1; ++s) {
+                        const int32_t x = alongX ? p.x0 + t : (p.x0 + p.x1) / 2 + s;
+                        const int32_t z = alongX ? (p.z0 + p.z1) / 2 + s : p.z0 + t;
+                        if (s != 0) {
+                            carve(x, p.y0, z, B.oakPlanks);
+                            carve(x, p.y0 + 1, z, B.oakPlanks);
+                        }
+                        carve(x, p.y0 + 2, z, B.oakPlanks);
+                    }
+                }
+                if (p.chestAt >= 0) {
+                    const int32_t t = p.chestAt * 5 + 4;
+                    const int32_t x = alongX ? p.x0 + t : p.x0, z = alongX ? p.z0 : p.z0 + t;
+                    const int lx = x - baseX, lz = z - baseZ;
+                    if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && kOverworldHeight.contains(p.y0) &&
+                        out.count < int(out.list.size())) {
+                        chunk.set(lx, p.y0, lz, B.chest);
+                        out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                         static_cast<int16_t>(p.y0), true, MobType::Zombie,
+                                                         LootTable::Mineshaft};
+                    }
+                }
+            }
+        }
 }
 
 void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz,
