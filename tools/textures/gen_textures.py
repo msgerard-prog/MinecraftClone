@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from texgen import (blocks_colored, blocks_nether_end, blocks_plants, blocks_stone,  # noqa: F401,E402
-                    blocks_wood)  # registration
+                    blocks_misc, blocks_utility, blocks_wood)  # registration
 from texgen.core import Img, encode_png, tint  # noqa: E402
 from texgen.registry import TEXTURES  # noqa: E402
 
@@ -42,6 +42,9 @@ PREVIEW_TINT = {
     "lily_pad": (0x20, 0x80, 0x30),
     **{n: (0x7A, 0xB0, 0x30) for n in ("melon_stem", "pumpkin_stem", "attached_melon_stem",
                                          "attached_pumpkin_stem")},
+    **{n: (0x3F, 0x76, 0xE4) for n in ("water_still", "water_flow", "water_overlay")},
+    **{n: (0xE0, 0x20, 0x10) for n in ("redstone_dust_dot", "redstone_dust_line0",
+                                         "redstone_dust_line1")},
 }
 
 

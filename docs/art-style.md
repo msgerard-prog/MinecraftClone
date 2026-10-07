@@ -2,7 +2,8 @@
 
 The user's direction (2026-10-06): **recreate Minecraft's look as our own original
 art, and make it a little sharper and more vivid than vanilla.** Every texture,
-current and future, follows this page.
+current and future, follows this page. Status: every vanilla 1.21.4 block texture
+(~1,030) has an original version; items, entities and GUI come with their systems.
 
 ## The line we don't cross (ADR 0004, ADR 0006)
 Same *style and subject*, independently made — never the same *pixels*.
@@ -41,6 +42,10 @@ Same *style and subject*, independently made — never the same *pixels*.
   cracked, mossy, ores, metal/gem blocks, soils, grass, ice, planks, bark, log ends...).
 - `blocks_*.py`: tables mapping every vanilla texture name to a painter + palette.
   Base colours are picked from a description of the material, never sampled.
+  `blocks_stone` (stone, terrain, ores, minerals), `blocks_wood` (all woods),
+  `blocks_colored` (16 dye colours), `blocks_plants` (+ `plants.py` painters),
+  `blocks_nether_end`, `blocks_utility` (+ `utility.py`: workstations, redstone,
+  copper, sculk, fluids, fire, cracks), `blocks_misc` (the rest).
 - `registry.py`: name → painter, family, optional animation `.mcmeta`.
 Each texture's RNG is seeded by its name, so editing one never changes another.
 ```

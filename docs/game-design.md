@@ -67,6 +67,7 @@ fine until a system works.
 | Free flight uses constant speeds (10.92 / 21.6 / 7.49 b/s), no acceleration or drag; sprint needs Ctrl held (vanilla keeps sprinting until you stop moving forward) | Camera needed before player physics | M4 |
 | No dynamic FOV: vanilla widens FOV ~10% while flying and more when sprinting (FOV Effects scale) | Needs player abilities state | M4 |
 | Sky is a flat #78A7FF clear colour: no gradient into fog colour near the horizon, no time-of-day change | No fog or day cycle yet | M5 (day–night) |
+| Flowing water/lava textures are 16px frames (vanilla: 32px) | One 32px sprite would force 32px atlas cells for every texture | When the atlas packs mixed sizes |
 | Animated textures ignore `.mcmeta` custom `frames` order and `interpolate`; non-square or non-power-of-two sprites are skipped; all sprites share one cell size (vanilla packs mixed sizes) | Minimal .mcmeta reader, grid atlas | When a pack needs it |
 | Random model variants are picked with our own position hash, so a given position may show a different variant than vanilla | Vanilla's per-position seed isn't documented on the wiki | When documented / observed |
 | `grass_block[snowy=true]` renders like snowy=false (vanilla: snowy side, untinted top) | No snow yet | When snow is added |

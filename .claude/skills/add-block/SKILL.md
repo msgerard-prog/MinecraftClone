@@ -22,7 +22,9 @@ description: Add a vanilla block (with its block states, model, texture and test
    table in `src/rendering/` (see docs/data-formats.md › Resource formats).
 3. **Behaviour** beyond plain cubes: subclass/behaviour hook in `src/world/blocks/`.
    Logic is tick-based and deterministic.
-4. **Resources** (our own, ADR 0004): run the `add-asset` skill for the texture(s),
+4. **Resources** (our own, ADR 0004/0006): the block's textures already exist in
+   `assets/minecraft/textures/block/` (every vanilla block texture was generated) —
+   check the names; use `add-asset` only if one is missing or needs redesign,
    then add `assets/minecraft/blockstates/<id>.json` and
    `assets/minecraft/models/block/<id>.json` in vanilla's format (`cube_all`,
    `cube_column`, `cross` ...).

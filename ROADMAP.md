@@ -4,8 +4,10 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-06)
-Texture pass done: all 10 textures redesigned as original Minecraft-style art,
-sharper and more vivid (docs/art-style.md, ADR 0006).
+All block textures done (2026-10-06): 1,028 original Minecraft-style block textures
+(every vanilla 1.21.4 block texture: stone, wood, colours, plants, Nether/End,
+utility/redstone/copper, fluids, fire, cracks), 16 animated; full atlas loads fine.
+Items/entities/GUI textures come with their systems (M6, M9, M10).
 M3.0 done: resource packs (folders, .zip, client .jar) override our placeholders;
 HD sprites and animated textures work (verified with our own test pack). Waiting on
 the user to try their own jar.
@@ -35,8 +37,9 @@ milestone: M3 stone types, ores, gravel, water, sand, sandstone, clay · M5 ligh
 sources · M8 biome blocks, all woods, leaves · M9 items, crafting table, furnace ·
 M10–M12 mobs, redstone, Nether/End. Cutout (glass, leaves), translucent (water, ice)
 and animated textures get renderer support with the first block that needs them.
-Every texture is original art in vanilla's style, sharper than vanilla
-(docs/art-style.md, ADR 0006) — made when its block is added.
+Every block texture already exists as original art (docs/art-style.md, ADR 0006);
+adding a block now means registering it and its model, not drawing. Items, entities
+and GUI textures are made with their systems.
 
 ## Waiting on the user
 - Try your own textures: copy your 1.21.x client jar into `resourcepacks/` (README ›
@@ -79,6 +82,7 @@ Every texture is original art in vanilla's style, sharper than vanilla
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-06 All block textures (6 batches, 1,028 textures, texgen library).
 - 2026-10-06 Texture pass: original vanilla-style textures, art style guide, ADR 0006.
 - 2026-10-06 M3.0: resource packs, HD + animated sprites.
 - 2026-10-06 M2: block states, paletted chunks, flat world, chunk renderer, worker meshing.
