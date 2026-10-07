@@ -355,11 +355,11 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::DirtPath: // (wiki: Dirt Path - drops dirt)
         add(d.dirt);
         return;
-    // Huge mushroom caps: 0-2 mushrooms (wiki: Mushroom Block - rand(-7..2), at least 0);
+    // Huge mushroom caps: 0-2 mushrooms (wiki: Mushroom Block - 77.8% none, 11.1% one, 11.1% two);
     // stems drop nothing without Silk Touch.
     case blocks::BrownMushroomBlock:
     case blocks::RedMushroomBlock:
-        if (const int n = static_cast<int>(rng.nextInt(10)) - 7; n > 0)
+        if (const int n = static_cast<int>(rng.nextInt(9)) - 6; n > 0) // 0/1/2 at 7/9, 1/9, 1/9
             add(itemRegistry().blockItem(b == blocks::BrownMushroomBlock ? blocks::BrownMushroom : blocks::RedMushroom), n);
         return;
     case blocks::MushroomStem:

@@ -361,7 +361,7 @@ int main(int argc, char** argv) {
     relitSections.reserve(256);
     frameEdits.reserve(4096);
     std::vector<mc::world::BlockPos> editsReady;
-    editsReady.reserve(16);
+    editsReady.reserve(4096); // (settling fluids come straight back through it)
 
     int64_t dayTime = level ? level->dayTime : opts->time; // world day time (world/DayTime.h)
     int64_t gameTime = level ? level->gameTime : 0;        // ticks since the world began

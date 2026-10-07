@@ -591,6 +591,9 @@ void Mobs::spawnHostiles(Context& ctx) {
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit()) return;
     if (!canSpawnAt(ctx.world, x, y, z)) return;
+    // No monsters spawn in mushroom fields (wiki: Mushroom Fields); spawners still work.
+    if (c->biomes() && c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::MushroomFields)
+        return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
     if (c->blockLight(lx, y, lz) > 0) return;
     const int sky = c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken);

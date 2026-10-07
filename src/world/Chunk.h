@@ -240,6 +240,8 @@ public:
         uint32_t version = 0; // latest submitted job (0: none); globally unique
         bool queued = false;  // waiting in a LightManager queue
         uint8_t priority = 0; // of the queue it waits in: 0 settling, 1 streaming, 2 edits
+        bool settleWanted = false;  // fluid flowed here; relight when its turn comes
+        uint32_t lastSettle = 0;    // LightManager frame of its last settling request
     } lightJob;
 
     // Light at local x/z, world y (above the world: full sky light).

@@ -129,6 +129,7 @@ Push pushKind(BlockStateId s) {
     case B::RedBed:
         return Push::Destroy; // (wiki: Piston - beds break)
     case B::Obsidian:         // (wiki: Piston/Table)
+    case B::Spawner:          // (wiki: Monster Spawner - immovable)
     case B::Furnace:          // block entities don't move
     case B::Chest:
     case B::PistonHead:
@@ -148,6 +149,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_due.reserve(16384); // a /fill of fluid sources makes thousands due at once
     m_events.reserve(64);
     m_changed.reserve(4096);
+    m_settling.reserve(4096);
     m_remesh.reserve(4096);
     m_drops.reserve(256); // leaf decay bursts
     m_falling.reserve(256);

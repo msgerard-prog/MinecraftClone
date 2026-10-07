@@ -248,6 +248,9 @@ TEST_CASE("LightManager: settling edits (flowing fluids) come back at once and a
     run.ready.clear();
     run.step(lm, {}, {}, {}, {hole});
     REQUIRE(run.ready.size() == 1); // re-meshed now (stale light for a moment)
+    CHECK(lm.pending() == 0);       // background work doesn't count as pending
+    for (int f = 0; f < 25; ++f)    // its settle slot comes (every 20 frames at most)
+        run.step(lm, {}, {}, {});
     run.finish(lm);
     CHECK(w.chunk({0, 0})->skyLight(8, 64, 8) == 15); // then relit
     // A player edit after a settling one still jumps the queue: it waits for its relight.
@@ -257,6 +260,9 @@ TEST_CASE("LightManager: settling edits (flowing fluids) come back at once and a
     run.ready.clear();
     run.step(lm, {}, {}, {hole2}, {{10, 64, 8}});
     CHECK(run.ready.size() == 1); // only the settling one
+    run.finish(lm);
+    for (int f = 0; f < 25; ++f)
+        run.step(lm, {}, {}, {});
     run.finish(lm);
     CHECK(run.ready.size() == 2);
     CHECK(w.chunk({0, 0})->skyLight(9, 64, 8) == 15);

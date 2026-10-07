@@ -25,7 +25,9 @@ struct LevelData {
     std::string name = "New World";
     uint64_t seed = 0;
     bool flat = false;                 // the superflat test world
-    std::string generator = "overworld"; // non-flat: "overworld" (M8) or "terrain" (M3 placeholder)
+    // Non-flat: "overworld2" (M18, new worlds), "overworld" (M8) or "terrain" (M3
+    // placeholder); level.dat files without one are M8 worlds.
+    std::string generator = "overworld";
     // The format the world was created with (kept across saves; see kCloneFormat).
     // Vanilla worlds (no MinecraftClone compound) count as current: nothing to upgrade.
     int32_t cloneFormat = kCloneFormat;

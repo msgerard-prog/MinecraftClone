@@ -143,9 +143,12 @@ void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots
             if (!id || count >= 27) continue; // an item we don't have yet: nothing
             ItemStack s{*id, static_cast<uint8_t>(std::min<int>(n, items.item(*id).maxStack))};
             if (chosen->enchant) { // one random enchantment at a random level (vanilla enchant_randomly)
-                const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));
-                if (e != Enchantment::Thorns && canEnchant(*id, e))
+                for (int tries = 0; tries < 64; ++tries) { // (Thorns has no effect yet: never handed out)
+                    const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));
+                    if (e == Enchantment::Thorns || !canEnchant(*id, e)) continue;
                     setEnchantment(s, e, 1 + static_cast<int>(rng.nextInt(uint32_t(enchantmentInfo(e).maxLevel))));
+                    break;
+                }
             }
             rolled[size_t(count++)] = s;
         }

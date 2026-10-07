@@ -4,40 +4,28 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M18 in progress: M18.1-2 done - new worlds use "overworld2" (ravines, lava lakes,
-springs, sugar cane, pumpkins, cacti, mushrooms; 10 more biomes - jungle, dark forest,
-cherry grove, ice spikes, mushroom fields...; jungle/dark oak/cherry woods, podzol,
-mycelium, huge mushrooms); M18.3: dungeons with loot chests and monster spawners,
-structure placement grids (vanilla spacing/separation/salt); M18.4: desert pyramids,
-jungle temples, igloos, swamp huts (basic versions) with their loot tables; M18.5:
-mineshafts, strongholds (8 rings, portal rooms, eyes of ender), villages (no villagers).
-M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
-cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
-explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
-table, anvils. v0.17.1: furnaces store vanilla's RecipesUsed (experience paid as orbs
-on taking or breaking), leaves placed before v0.15.0 load persistent (level.dat
-`format` + chunk `clone_format`). M16 falling blocks and mobs 2 (v0.16.0); M1-M15 done.
+M18 done (reviews applied; v0.18.0): new worlds use the "overworld2" generator -
+ravines, lava lakes, springs, sugar cane/pumpkins/cacti/mushrooms, 10 more biomes
+(jungle, dark forest, cherry grove, ice spikes, mushroom fields...), jungle/dark oak/
+cherry woods, dungeons with spawners and loot, desert pyramids, jungle temples, igloos,
+swamp huts, mineshafts, strongholds with portal rooms and eyes of ender, villages
+(no villagers). M8 "overworld" worlds are unchanged. M1-M17 done (v0.17.1).
 
 ## Next
 Agreed plan (2026-10-07): M13 the 1.21.11 migration, then the missing gameplay
 systems M14-M22, then tag the codebase **v1.0** before polish (deviations, perf).
 
-M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator kind
-"overworld2", default for new worlds; "overworld" stays for existing worlds):
-1. ✅ M18.1 — Generator kind "overworld2" and features: lava lakes (water lakes are
-   gone since 1.18), ravines (canyon carver), sugar cane, pumpkins, cacti,
-   mushrooms, springs; scheduled ticks only within the simulation distance; fluid
-   flow relights at the lowest priority.
-2. ✅ M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
-   cherry grove, badlands variants, ice spikes, stony peaks... with their trees and
-   new wood types (jungle, dark oak, cherry) and blocks (cactus, mushrooms, mud...).
-3. ✅ M18.3 — Structure framework: placement grids (spacing, separation, salt per the
-   wiki), structure starts/references saved in chunks, pieces spanning chunks; chest
-   loot tables; mob spawners (block entity spawning its mob).
-4. ✅ M18.4 — Small structures: dungeons (spawner + loot), desert and jungle temples,
-   igloos, shipwreck-free subset.
-5. ✅ M18.5 — Mineshafts and strongholds (eyes of ender fly toward them; portal room
-   with end portal frames); villages as a simplified template set (no villagers yet).
+M19 — Nether 2 (wiki: The Nether, Nether biomes, Nether Fortress, Bastion Remnant;
+a new Nether generator kind, the old one stays for existing worlds):
+1. M19.1 — Nether biomes: crimson and warped forests (nylium, fungi, stems, wart
+   blocks, shroomlights, vines), soul sand valley (soul soil, basalt pillars, bone
+   fossils), basalt deltas (basalt, blackstone, magma); 3D multi-noise biomes.
+2. M19.2 — Nether mobs: ghasts (fireballs), blazes, magma cubes, piglins (bartering,
+   gold), zombified piglins, hoglins, striders; spawning per biome.
+3. M19.3 — Nether fortresses (bridges, corridors, blaze spawners, nether wart, loot)
+   and bastion remnants (simplified, piglins, loot).
+4. M19.4 — Brewing: blaze powder, nether wart, brewing stand, the main potions and
+   their effects (status effects system); eyes of ender become craftable.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -118,11 +106,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M18 note:** new worlds use the generator kind "overworld2", which keeps growing
-  through M18 (biomes, structures) and is frozen at v0.18.0. A world created with an
-  M18 development build may show seams where later steps changed generation; make
-  test worlds with `--no-save` or re-create them after v0.18.0. Existing worlds keep
-  their own generator and are unaffected.
+- **M18 note:** "overworld2" is frozen as of v0.18.0 (pinned hash). Worlds you
+  created with an M18 development build (before this tag) may show seams where later
+  steps changed generation; re-create them. Try it: `tools/run.sh --world "M18 test"`,
+  `/give @s ender_eye 16` and right-click to follow eyes to a stronghold.
 - **M15 in-game checks:** does grass under one block of still water
   in sunlight turn to dirt; how long does a sapling take to grow at light 15?
 - **M14 checks:** empty the air bar under water, surface and time the refill (ours
@@ -199,7 +186,7 @@ and GUI textures are made with their systems.
 | M15 | Random ticks & fire: saplings, leaf decay, grass spread, fire, flint and steel (crops moved to M17 farming) | ✅ 2026-10-07 v0.15.0 |
 | M16 | Falling blocks; mobs 2: pathfinding, sheep/pig/chicken, skeleton/creeper/spider/enderman, projectiles, breeding | ✅ 2026-10-07 v0.16.0 |
 | M17 | Items & survival 2: armor, bows, shields, chests/containers, beds, enchanting, anvils, farming (brewing moved to M19) | ✅ 2026-10-07 v0.17.0 |
-| M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | Seeds look like vanilla's kind of world |
+| M18 | Overworld 2: remaining biomes, aquifers, lakes, ravines; structures (villages, dungeons, mineshafts, temples, strongholds) | ✅ 2026-10-07 v0.18.0 (basic structures, no aquifers: see deviations) |
 | M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | Nether as in 1.21 |
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | Dragon can be beaten |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | Common farms/contraptions work |
@@ -214,6 +201,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M18 (v0.18.0): overworld2 - ravines, lakes, springs, 10 biomes, 3 woods, dungeons, temples, mineshafts, strongholds, villages.
 - 2026-10-07 M17 (v0.17.0): farming, chests, armor/shields, beds, experience, enchanting, anvils.
 - 2026-10-07 M16 (v0.16.0): falling blocks, pathfinding, farm animals, bows/arrows/eggs, explosions, skeletons, creepers, spiders, endermen.
 - 2026-10-07 M15 (v0.15.0): random ticks, grass, leaves, saplings, snow/ice melt, fire.

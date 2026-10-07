@@ -39,10 +39,9 @@ public:
                 std::vector<ChunkPos>& newlyLit, std::vector<SectionPos>& relitSections,
                 std::vector<BlockPos>& editsReady);
 
-    // Light jobs queued or running.
-    int pending() const {
-        return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head + m_settleQueue.size()) + m_inFlight;
-    }
+    // Light jobs queued or running for streaming and edits (fluids settling in the
+    // background are left out: flowing springs would keep it from ever reaching 0).
+    int pending() const { return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head) + m_inFlight; }
 
 private:
     struct Job {
@@ -67,6 +66,12 @@ private:
     std::vector<ChunkPos> m_editQueue;
     std::vector<ChunkPos> m_queue;
     std::vector<ChunkPos> m_settleQueue;
+    // Chunks fluid flowed in, waiting for their settle slot: each chunk is relit for
+    // flow at most every kSettleFrames frames, so a running spring costs one relight
+    // per chunk per interval instead of one per flowing block.
+    std::vector<ChunkPos> m_settleWanted;
+    uint32_t m_frame = 0;
+    static constexpr uint32_t kSettleFrames = 20;
     size_t m_head = 0;
     std::vector<BlockPos> m_pendingEdits; // waiting for their chunk's relight
     uint32_t m_nextVersion = 1;            // global: versions never repeat

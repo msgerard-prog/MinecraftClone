@@ -51,6 +51,7 @@ bool holdable(BlockId b) {
     case blocks::AzureBluet:
     case blocks::OxeyeDaisy:
     case blocks::Podzol:
+    case blocks::Tnt:
     case blocks::Mycelium:
     case blocks::Cactus: // (wiki: Enderman › #enderman_holdable)
     case blocks::Pumpkin:

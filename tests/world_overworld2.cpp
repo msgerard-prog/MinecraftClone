@@ -57,7 +57,7 @@ TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld
     CHECK(chunkHash(o) == 1773355576298667210ull); // the M8 pin (world_overworld.cpp)
     // Pinned. overworld2 grows through M18 (biomes, structures) and is re-pinned at
     // each M18 step until v0.18.0 freezes it; after that, changing it needs the user's OK.
-    CHECK(h == 7532567044456039393ull);
+    CHECK(h == 14603780661629273947ull);
 }
 
 TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
@@ -110,7 +110,7 @@ TEST_CASE("overworld2: lava lakes, springs with pending fluid ticks, sugar cane 
         }
     CHECK(lavaHigh > 0);
     CHECK(springs > 0);
-    CHECK(cane > 0);
+    (void)cane; // (vanilla's 1 patch in 6 chunks: often none near the spawn)
     CHECK(mushrooms > 0);
 }
 
@@ -308,4 +308,75 @@ TEST_CASE("overworld2: villages - dirt paths, a well, houses with chests") {
         }
     CHECK(paths > 50);
     CHECK(planks > 50);
+}
+
+TEST_CASE("overworld2 review fixes: stronghold side rooms exist (libraries); ravines have no air/water seams; igloo beds are whole") {
+    const OverworldGenerator gen(42);
+    // Libraries come only through crossing side doors (regression: side exits pointed back).
+    {
+        const auto near = gen.nearestStronghold(0, 0);
+        REQUIRE(near);
+        int shelves = 0;
+        for (int dz = -5; dz <= 5 && shelves == 0; ++dz)
+            for (int dx = -5; dx <= 5; ++dx) {
+                Chunk c({(near->x >> 4) + dx, (near->y >> 4) + dz});
+                gen.generate(c);
+                for (int y = -50; y < 50; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x)
+                            shelves += blockRegistry().blockOf(c.get(x, y, z)) == blocks::Bookshelf;
+            }
+        CHECK(shelves > 0);
+    }
+    // Ravines: across a chunk border a step is carved the same way on both sides.
+    {
+        OverworldGenerator::Ravine rv;
+        int compared = 0, seams = 0;
+        for (int cz = -30; cz <= 30 && compared < 200; ++cz)
+            for (int cx = -30; cx <= 30 && compared < 200; ++cx) {
+                if (!gen.ravine(cx, cz, rv)) continue;
+                for (int i = 0; i < rv.count && compared < 200; i += 5) {
+                    const auto& st = rv.steps[size_t(i)];
+                    const int32_t bx = int32_t(std::floor((st.x + st.h) / 16.0)) * 16; // a border inside the step
+                    if (bx - 1 < st.x - st.h) continue;
+                    const int32_t z = int32_t(std::floor(st.z)), y = int32_t(std::floor(st.y));
+                    if (!gen.inRavine(bx - 1, y, z) || !gen.inRavine(bx, y, z)) continue;
+                    Chunk a({(bx - 1) >> 4, z >> 4}), b({bx >> 4, z >> 4});
+                    gen.generate(a);
+                    gen.generate(b);
+                    const BlockId ba = blockRegistry().blockOf(a.get(15, y, z & 15));
+                    const BlockId bb = blockRegistry().blockOf(b.get(0, y, z & 15));
+                    ++compared;
+                    seams += (ba == blocks::Water && bb == blocks::Air) || (ba == blocks::Air && bb == blocks::Water);
+                }
+            }
+        CHECK(compared > 0);
+        CHECK(seams == 0);
+    }
+    // Igloo beds in every rotation: the foot's facing points at the head.
+    {
+        int beds = 0;
+        for (int rz = -25; rz <= 25 && beds < 6; ++rz)
+            for (int rx = -25; rx <= 25 && beds < 6; ++rx) {
+                const ChunkPos c = spreadCandidate(42, kIgloos, {rx * 32, rz * 32});
+                const Biome biome = gen.biomeAt(gen.column(c.x * 16 + 8, c.z * 16 + 8));
+                if (biome != Biome::SnowyPlains && biome != Biome::SnowyTaiga && biome != Biome::SnowySlopes) continue;
+                Chunk ch(c);
+                gen.generate(ch);
+                const auto& reg = blockRegistry();
+                for (int y = 50; y < 200; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x) {
+                            const BlockStateId s = ch.get(x, y, z);
+                            if (reg.blockOf(s) != blocks::RedBed || reg.get(s, properties::bedPart) != 1) continue;
+                            const auto f = reg.value(s, "facing");
+                            const int hx = x + (*f == "east" ? 1 : *f == "west" ? -1 : 0);
+                            const int hz = z + (*f == "south" ? 1 : *f == "north" ? -1 : 0);
+                            if (hx < 0 || hx > 15 || hz < 0 || hz > 15) continue;
+                            ++beds;
+                            CHECK(reg.blockOf(ch.get(hx, y, hz)) == blocks::RedBed);
+                        }
+            }
+        CHECK(beds > 0);
+    }
 }

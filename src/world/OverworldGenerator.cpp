@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <cmath>
 #include <numbers>
 #include <string>
@@ -572,13 +573,16 @@ const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int
     // (they all need it). Direct-mapped by chunk position; keyed by generator too.
     struct Entry {
         const OverworldGenerator* gen = nullptr;
+        uint64_t seed = 0;
+        int version = 0;
         int32_t cx = 0, cz = 0;
         TreePlan plan;
     };
-    static thread_local std::array<Entry, 64> cache;
-    Entry& e = cache[size_t((uint32_t(cx) * 31u + uint32_t(cz) * 17u) & 63u)];
-    if (e.gen == this && e.cx == cx && e.cz == cz) return e.plan;
-    e = {this, cx, cz, {}};
+    static thread_local std::array<Entry, 512> cache;
+    Entry& e = cache[size_t((uint32_t(cx) * 0x9E3779B1u ^ uint32_t(cz) * 0x85EBCA77u) >> 23)]; // (9 bits)
+    // (keyed by seed and version too: another generator may reuse a freed address)
+    if (e.gen == this && e.seed == m_seed && e.version == m_version && e.cx == cx && e.cz == cz) return e.plan;
+    e = {this, m_seed, m_version, cx, cz, {}};
     Xoroshiro rng(chunkSeed(m_seed, cx, cz, 300));
     const int attempts = 10;
     for (int a = 0; a < attempts; ++a) {
@@ -1100,7 +1104,13 @@ void OverworldGenerator::generate(Chunk& out) const {
     out.setBiomes(biomes);
     for (int i = 0; i < entities.count; ++i) {
         const GeneratedEntity& e = entities.list[size_t(i)];
-        if (out.get(e.x, e.y, e.z) == (e.chest ? B.chest : B.spawner)) { // (not overwritten since)
+        if (out.chest(e.x, e.y, e.z) || out.spawner(e.x, e.y, e.z) || out.furnace(e.x, e.y, e.z)) continue; // (once)
+        const BlockId here = reg.blockOf(out.get(e.x, e.y, e.z));
+        if (e.furnace) {
+            if (here == blocks::Furnace) out.addFurnace(e.x, e.y, e.z);
+            continue;
+        }
+        if (here == (e.chest ? blocks::Chest : blocks::Spawner)) { // (not overwritten since; any facing)
             if (e.chest) {
                 Xoroshiro loot(chunkSeed(m_seed, cx, cz, 640 + uint64_t(i)));
                 fillChest(e.loot, loot, out.addChest(e.x, e.y, e.z).items);
@@ -1244,13 +1254,11 @@ void OverworldGenerator::carveRavines(BlockStateId* blocks, int32_t cx, int32_t 
                 if (x0 > x1 || z0 > z1) continue;
                 const int y0 = std::max(kOverworldHeight.minY + 1, int(std::floor(st.y - st.v)));
                 const int y1 = std::min(kOverworldHeight.maxY(), int(std::floor(st.y + st.v)));
-                // A step touching water (under seas and rivers) fills with water below the
-                // sea level instead of air, as vanilla's ravines under oceans.
-                bool wet = false;
-                for (int x = x0; x <= x1 && !wet; ++x)
-                    for (int z = z0; z <= z1 && !wet; ++z)
-                        for (int y = y0 - 1; y <= y1 + 1 && !wet; ++y)
-                            wet = chunk.get(x, y, z) == B.water;
+                // A step that reaches the floor of a sea or river fills with water below
+                // the sea level instead of air (vanilla's flooded ravines). Decided from
+                // the step alone, so every chunk it crosses agrees (no seams).
+                const Column col = column(int32_t(std::floor(st.x)), int32_t(std::floor(st.z)));
+                const bool wet = col.height < kSeaLevel - 0.5 && st.y + st.v >= col.height - 2.0;
                 for (int x = x0; x <= x1; ++x)
                     for (int z = z0; z <= z1; ++z)
                         for (int y = y1; y >= y0; --y) { // top down: grass moves onto the dirt below
@@ -1401,6 +1409,7 @@ void OverworldGenerator::placeDungeons(BlockStateId* blocks, int32_t cx, int32_t
     Buf chunk{blocks};
     Xoroshiro r(chunkSeed(m_seed, cx, cz, 650));
     for (int attempt = 0; attempt < 14; ++attempt) {
+        if (out.count + 3 > int(out.list.size())) break; // room for a room's chests and spawner
         const int rx = 2 + static_cast<int>(r.nextInt(2)), rz = 2 + static_cast<int>(r.nextInt(2));
         const int ox = rx + 1 + static_cast<int>(r.nextInt(uint32_t(14 - 2 * rx))); // walls inside 0..15
         const int oz = rz + 1 + static_cast<int>(r.nextInt(uint32_t(14 - 2 * rz)));
@@ -1413,16 +1422,21 @@ void OverworldGenerator::placeDungeons(BlockStateId* blocks, int32_t cx, int32_t
         for (int s = 0; s < 24 && !found; ++s) {
             y0 = std::min(yTry, maxTop - 5) - s;
             if (y0 - 1 <= kOverworldHeight.minY || (attempt >= 10 && y0 < -58)) break;
-            bool ok = true;
+            // Openings on the wall ring first (cheap to reject in solid rock), then a
+            // solid floor and ceiling under and over the whole room.
             int openings = 0;
-            for (int dx = -rx - 1; dx <= rx + 1 && ok; ++dx)
-                for (int dz = -rz - 1; dz <= rz + 1 && ok; ++dz) {
+            for (int dx = -rx - 1; dx <= rx + 1 && openings <= 5; ++dx)
+                for (int dz = -rz - 1; dz <= rz + 1; ++dz) {
+                    if (std::abs(dx) != rx + 1 && std::abs(dz) != rz + 1) continue;
                     const int x = ox + dx, z = oz + dz;
-                    if (!reg.collides(chunk.get(x, y0 - 1, z)) || !reg.collides(chunk.get(x, y0 + 4, z))) ok = false;
-                    const bool wall = std::abs(dx) == rx + 1 || std::abs(dz) == rz + 1;
-                    if (wall && chunk.get(x, y0, z) == B.air && chunk.get(x, y0 + 1, z) == B.air) ++openings;
+                    if (chunk.get(x, y0, z) == B.air && chunk.get(x, y0 + 1, z) == B.air) ++openings;
                 }
-            found = ok && openings >= 1 && openings <= 5;
+            if (openings < 1 || openings > 5) continue;
+            bool ok = true;
+            for (int dx = -rx - 1; dx <= rx + 1 && ok; ++dx)
+                for (int dz = -rz - 1; dz <= rz + 1 && ok; ++dz)
+                    ok = reg.collides(chunk.get(ox + dx, y0 - 1, oz + dz)) && reg.collides(chunk.get(ox + dx, y0 + 4, oz + dz));
+            found = ok;
         }
         if (!found) continue;
         Xoroshiro room(roomSeed);
@@ -1492,6 +1506,17 @@ struct StructureBuilder {
         int lx, lz;
         if (toChunk(x, z, lx, lz)) chunk.set(lx, oy + y, lz, s);
     }
+    // A state with a horizontal "facing" turned like the structure (local east = +x
+    // ends up south, west or north for rotations 1-3).
+    BlockStateId turned(BlockStateId s) const {
+        static constexpr std::string_view kOrder[4] = {"east", "south", "west", "north"};
+        const auto& reg = blockRegistry();
+        const auto f = reg.value(s, "facing");
+        if (!f) return s;
+        for (int i = 0; i < 4; ++i)
+            if (*f == kOrder[i]) return reg.with(s, "facing", kOrder[(i + rot) & 3]).value_or(s);
+        return s;
+    }
     void fill(int x0, int y0, int z0, int x1, int y1, int z1, BlockStateId s) {
         for (int y = y0; y <= y1; ++y)
             for (int z = z0; z <= z1; ++z)
@@ -1517,11 +1542,19 @@ struct StructureBuilder {
             chunk.set(lx, y, lz, s);
         }
     }
+    void furnace(int x, int y, int z) {
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz) || entities->full()) return;
+        chunk.set(lx, oy + y, lz, turned(blockSet().furnace));
+        entities->list[size_t(entities->count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                     static_cast<int16_t>(oy + y), false, MobType::Zombie,
+                                                     LootTable::SimpleDungeon, true};
+    }
     void chest(int x, int y, int z, LootTable loot) {
         int lx, lz;
-        if (!toChunk(x, z, lx, lz)) return;
+        if (!toChunk(x, z, lx, lz) || entities->full()) return; // (no chest without its contents)
         const Blocks& B = blockSet();
-        chunk.set(lx, oy + y, lz, B.chest);
+        chunk.set(lx, oy + y, lz, turned(B.chest));
         if (entities->count < int(entities->list.size()))
             entities->list[size_t(entities->count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
                                                          static_cast<int16_t>(oy + y), true, MobType::Zombie, loot};
@@ -1637,9 +1670,9 @@ void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32
                     sb.fill(3, 1, 0, 3, 2, 1, 0); // doorway
                     sb.set(0, 2, 3, B.ice);
                     sb.set(6, 2, 3, B.ice);
-                    sb.set(2, 1, 5, B.bedFoot);
-                    sb.set(3, 1, 5, B.bedHead);
-                    sb.set(4, 1, 2, B.furnace);
+                    sb.set(2, 1, 5, sb.turned(B.bedFoot)); // facing local +x: the head
+                    sb.set(3, 1, 5, sb.turned(B.bedHead));
+                    sb.furnace(4, 1, 2);
                     sb.set(5, 1, 3, B.craftingTable);
                     sb.set(1, 1, 3, B.redstoneTorch);
                 } else { // ---- Swamp hut (wiki: Swamp Hut) ----
@@ -1771,14 +1804,25 @@ void OverworldGenerator::placeMineshafts(BlockStateId* blocks, int32_t cx, int32
     const auto& reg = blockRegistry();
     Buf chunk{blocks};
     const int32_t baseX = cx * 16, baseZ = cz * 16;
-    static thread_local MinePlan plan;
+    // Plans are cached per worker: the ~170 chunks around a start all need it.
+    struct Cached {
+        uint64_t seed = 0;
+        int32_t sx = INT32_MIN, sz = 0;
+        MinePlan plan;
+    };
+    static thread_local std::array<Cached, 16> cache;
     for (int32_t sz = cz - 6; sz <= cz + 6; ++sz)
         for (int32_t sx = cx - 6; sx <= cx + 6; ++sx) {
             if (!isMineshaftCandidate(m_seed, {sx, sz})) continue;
-            // Start height: well under the surface there (ours: y -40..30).
-            const int surface = surfaceY(sx * 16 + 8, sz * 16 + 8);
-            const int startY = std::min(surface - 20, -40 + static_cast<int>(positional(m_seed, sx, 0, sz, 17) * 70.0));
-            planMineshaft(m_seed, sx, sz, startY, plan);
+            Cached& e = cache[size_t((uint32_t(sx) * 7u + uint32_t(sz) * 13u) & 15u)];
+            if (e.seed != m_seed || e.sx != sx || e.sz != sz) {
+                // Start height: well under the surface there (ours: y -40..30).
+                const int surface = surfaceY(sx * 16 + 8, sz * 16 + 8);
+                const int startY = std::min(surface - 20, -40 + static_cast<int>(positional(m_seed, sx, 0, sz, 17) * 70.0));
+                e.seed = m_seed, e.sx = sx, e.sz = sz;
+                planMineshaft(m_seed, sx, sz, startY, e.plan);
+            }
+            const MinePlan& plan = e.plan;
             for (int i = 0; i < plan.count; ++i) {
                 const MinePiece& p = plan.pieces[size_t(i)];
                 if (p.x1 < baseX || p.x0 > baseX + 15 || p.z1 < baseZ || p.z0 > baseZ + 15) continue;
@@ -1950,8 +1994,8 @@ void planStronghold(uint64_t seed, ChunkPos start, int startY, HoldPlan& plan) {
         case HoldPiece::FiveWay:
         case HoldPiece::Storeroom:
             self(self, me, 0, me.len, dir, depth + 1, false);
-            self(self, me, me.half + 1, me.len / 2, (dir + 3) & 3, depth + 1, false);
-            self(self, me, -me.half - 1, me.len / 2, (dir + 1) & 3, depth + 1, false);
+            self(self, me, me.half + 1, me.len / 2, (dir + 1) & 3, depth + 1, false); // (+u is dir + 1)
+            self(self, me, -me.half - 1, me.len / 2, (dir + 3) & 3, depth + 1, false);
             break;
         default: break; // library, portal: dead ends
         }
@@ -1970,8 +2014,8 @@ void planStronghold(uint64_t seed, ChunkPos start, int startY, HoldPlan& plan) {
     plan.pieces[size_t(plan.count++)] = five;
     const HoldPiece f = five;
     grow(grow, f, 0, f.len, dir, 1, true);
-    grow(grow, f, f.half + 1, f.len / 2, (dir + 3) & 3, 1, false);
-    grow(grow, f, -f.half - 1, f.len / 2, (dir + 1) & 3, 1, false);
+    grow(grow, f, f.half + 1, f.len / 2, (dir + 1) & 3, 1, false);
+    grow(grow, f, -f.half - 1, f.len / 2, (dir + 3) & 3, 1, false);
     (void)portal;
 }
 
@@ -1995,14 +2039,24 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
     const Blocks& B = blockSet();
     Buf chunk{blocks};
     const int32_t baseX = cx * 16, baseZ = cz * 16;
-    static thread_local HoldPlan plan;
+    struct Cached {
+        uint64_t seed = 0;
+        int32_t sx = INT32_MIN, sz = 0;
+        HoldPlan plan;
+    };
+    static thread_local std::array<Cached, 4> cache; // (a worker meets one stronghold at a time)
     for (int s = 0; s < m_strongholdCount; ++s) {
         const ChunkPos start = m_strongholds[size_t(s)];
         if (std::abs(start.x - cx) > 9 || std::abs(start.z - cz) > 9) continue;
-        // Underground: its top well below the surface (ours: floor y 0..30).
-        const int startY = std::min(surfaceY(start.x * 16, start.z * 16) - 22,
-                                    static_cast<int>(positional(m_seed, start.x, 0, start.z, 18) * 30.0));
-        planStronghold(m_seed, start, startY, plan);
+        Cached& e = cache[size_t(s & 3)];
+        if (e.seed != m_seed || e.sx != start.x || e.sz != start.z) {
+            // Underground: its top well below the surface (ours: floor y 0..30).
+            const int startY = std::min(surfaceY(start.x * 16, start.z * 16) - 22,
+                                        static_cast<int>(positional(m_seed, start.x, 0, start.z, 18) * 30.0));
+            e.seed = m_seed, e.sx = start.x, e.sz = start.z;
+            planStronghold(m_seed, start, startY, e.plan);
+        }
+        const HoldPlan& plan = e.plan;
         for (int i = 0; i < plan.count; ++i) {
             const HoldPiece& p = plan.pieces[size_t(i)];
             if (p.x1 < baseX || p.x0 > baseX + 15 || p.z1 < baseZ || p.z0 > baseZ + 15) continue;
@@ -2084,7 +2138,7 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
                 for (int v = 6; v <= 12; ++v)
                     for (int u = -3; u <= 3; ++u) {
                         put(u, 1, v, B.stoneBricks);
-                        put(u, 2, v, std::abs(u) <= 1 && v >= 8 && v <= 10 ? B.lava : B.stoneBricks);
+                        put(u, 2, v, std::abs(u) <= 1 && v >= 7 && v <= 11 ? B.lava : B.stoneBricks); // 15 lava (wiki)
                     }
                 for (int u = -1; u <= 1; ++u) {
                     put(u, 1, 4, B.stoneBricks);
@@ -2093,7 +2147,8 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
                 }
                 // The ring: rows across at v 7 and 11, columns along at u -2 and 2; each
                 // frame faces the middle. Local "forward" is the piece's dir.
-                Xoroshiro eyes(mixSeed(mixSeed(m_seed, 0x45594553u), static_cast<uint64_t>(i)));
+                Xoroshiro eyes(mixSeed(mixSeed(mixSeed(m_seed, 0x45594553u), static_cast<uint32_t>(start.x)),
+                                       static_cast<uint32_t>(start.z) * 131u + static_cast<uint64_t>(i)));
                 const int fwd = p.dir, back = (p.dir + 2) & 3, right = (p.dir + 3) & 3, left = (p.dir + 1) & 3;
                 auto frame = [&](int u, int v, int facing) {
                     const bool eye = eyes.nextInt(10) == 0;
@@ -2103,12 +2158,10 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
                     frame(u, 7, fwd);
                     frame(u, 11, back);
                 }
-                for (int v = 8; v <= 10; ++v) {
-                    frame(-2, v, kFz[p.dir] != 0 ? (kFz[p.dir] > 0 ? 3 : 1) : (kFx[p.dir] > 0 ? 2 : 0));
-                    frame(2, v, kFz[p.dir] != 0 ? (kFz[p.dir] > 0 ? 1 : 3) : (kFx[p.dir] > 0 ? 0 : 2));
+                for (int v = 8; v <= 10; ++v) { // the -u column faces +u (dir + 1), and back
+                    frame(-2, v, left);
+                    frame(2, v, right);
                 }
-                (void)right;
-                (void)left;
                 break;
             }
             default: break;
@@ -2133,7 +2186,8 @@ void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t
             const Biome biome = biomeAt(column(mx, mz));
             const bool desert = biome == Biome::Desert;
             const bool savanna = biome == Biome::Savanna;
-            const bool taiga = biome == Biome::Taiga || biome == Biome::SnowyPlains || biome == Biome::SnowyTaiga;
+            // (snowy taiga villages are Bedrock-only)
+            const bool taiga = biome == Biome::Taiga || biome == Biome::SnowyPlains;
             if (!(biome == Biome::Plains || biome == Biome::Meadow || desert || savanna || taiga)) continue;
             const int ground = surfaceY(mx, mz);
             if (ground < kSeaLevel) continue;
@@ -2209,6 +2263,8 @@ void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t
                 }
             for (int i = 0; i < count; ++i) {
                 const House& h = houses[size_t(i)];
+                const int hw = h.rot & 1 ? h.d : h.w, hd = h.rot & 1 ? h.w : h.d;
+                if (h.x + hw < cx * 16 || h.x > cx * 16 + 15 || h.z + hd < cz * 16 || h.z > cz * 16 + 15) continue;
                 const int hy = surfaceY(h.x + 2, h.z + 2) + 1;
                 StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, h.x, hy, h.z, h.w, h.d, h.rot, &out};
                 Xoroshiro hr(chunkSeed(m_seed, h.x, h.z, 721));
@@ -2276,11 +2332,19 @@ void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32
         }
     };
 
-    // Sugar cane (wiki: Sugar Cane › Generation): on grass, dirt or sand with water
-    // beside the block it stands on, 2-4 tall. 10 patches a chunk (deserts and
-    // swamps more).
+    // Sugar cane (wiki: Sugar Cane › Natural generation): one patch in every desert
+    // chunk, 1 in 3 in swamps, 1 in 5 in badlands, 1 in 6 elsewhere - not in cherry
+    // groves, meadows or the snowy mountains; on grass, dirt or sand with water beside
+    // the block it stands on; 2, 3 or 4 tall at 11, 5 and 2 in 18.
     const Biome centre = biomes[5];
-    const int canePatches = centre == Biome::Swamp ? 20 : centre == Biome::Desert ? 13 : 10;
+    auto tall = [](uint32_t roll) { const uint32_t r = roll % 18; return r < 11 ? 0 : r < 16 ? 1 : 2; };
+    const bool noCane = centre == Biome::CherryGrove || centre == Biome::Meadow || centre == Biome::Grove ||
+                        centre == Biome::SnowySlopes || centre == Biome::FrozenPeaks || centre == Biome::JaggedPeaks ||
+                        centre == Biome::StonyPeaks;
+    const uint32_t caneOdds = centre == Biome::Desert ? 1 : centre == Biome::Swamp ? 3
+                              : centre == Biome::Badlands || centre == Biome::WoodedBadlands || centre == Biome::ErodedBadlands ? 5
+                                                                                                                                 : 6;
+    const int canePatches = !noCane && r.nextInt(caneOdds) == 0 ? 1 : 0;
     for (int p = 0; p < canePatches; ++p)
         patch(20, 4, [&](int x, int y, int z, uint32_t roll) {
             const BlockStateId g = chunk.get(x, y - 1, z);
@@ -2289,7 +2353,7 @@ void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32
             for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}})
                 water = water || (inside(x + d[0], z + d[1]) && chunk.get(x + d[0], y - 1, z + d[1]) == B.water);
             if (!water) return;
-            const int height = 2 + static_cast<int>(roll % 3 == 0 ? (roll >> 2) % 3 : (roll >> 2) % 2); // 2-4, mostly 2-3
+            const int height = 2 + tall(roll);
             for (int k = 0; k < height && chunk.get(x, y + k, z) == B.air; ++k)
                 chunk.set(x, y + k, z, B.sugarCane);
         });
@@ -2302,13 +2366,14 @@ void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32
 
     // Cacti (wiki: Cactus › Generation): deserts and badlands, 1-3 tall, on sand with
     // nothing solid beside them (kept off the chunk edge, where we can't see).
-    const int cactusPatches = centre == Biome::Desert ? 3 : centre == Biome::Badlands ? 2 : 0;
+    // (deserts twice as many as badlands; 1, 2 or 3 tall at 11, 5 and 2 in 18)
+    const int cactusPatches = centre == Biome::Desert ? 2 : centre == Biome::Badlands || centre == Biome::ErodedBadlands ? 1 : 0;
     for (int p = 0; p < cactusPatches; ++p)
         patch(10, 4, [&](int x, int y, int z, uint32_t roll) {
             if (x < 1 || x > 14 || z < 1 || z > 14) return;
             const BlockStateId g = chunk.get(x, y - 1, z);
             if (g != B.sand && g != B.redSand) return;
-            const int height = 1 + static_cast<int>(roll % 3 == 0 ? (roll >> 2) % 3 : (roll >> 2) % 2);
+            const int height = 1 + tall(roll);
             for (int k = 0; k < height; ++k) {
                 bool clear = chunk.get(x, y + k, z) == B.air;
                 for (const auto& d : {std::array{1, 0}, std::array{-1, 0}, std::array{0, 1}, std::array{0, -1}}) {
@@ -2320,13 +2385,11 @@ void OverworldGenerator::placeVegetation(BlockStateId* blocks, int32_t cx, int32
             }
         });
 
-    // Mushrooms (wiki: Mushroom › Generation): in the shade of trees - commonest in
-    // taigas and swamps (brown 1 chunk in 4, red 1 in 8; elsewhere 1 in 32 / 64).
-    const bool shady = centre == Biome::Taiga || centre == Biome::SnowyTaiga || centre == Biome::Swamp ||
-                       centre == Biome::DarkForest || centre == Biome::OldGrowthSpruceTaiga ||
-                       centre == Biome::MushroomFields;
+    // Mushrooms (wiki: Brown Mushroom › Natural generation): a patch in 1 chunk in 4
+    // where the light is 12 or less (red ours: 1 in 8); ours only on the surface where
+    // something covers them, or on mycelium/podzol.
     for (int kind = 0; kind < 2; ++kind) {
-        const uint32_t odds = (shady ? 4u : 32u) << kind;
+        const uint32_t odds = 4u << kind;
         if (r.nextInt(odds) != 0) continue;
         const BlockStateId m = kind == 0 ? B.brownMushroom : B.redMushroom;
         patch(64, 7, [&](int x, int y, int z, uint32_t) {

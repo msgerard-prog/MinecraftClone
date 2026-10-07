@@ -77,10 +77,12 @@ public:
         bool chest;
         MobType mob;
         LootTable loot = LootTable::SimpleDungeon;
+        bool furnace = false; // (instead of a chest or spawner: an empty furnace)
     };
     struct GeneratedEntities {
         int count = 0;
-        std::array<GeneratedEntity, 48> list{};
+        std::array<GeneratedEntity, 128> list{};
+        bool full() const { return count >= int(list.size()); }
     };
     // The ravine starting in a chunk (false if none); whether a block lies in one.
     bool ravine(int32_t cx, int32_t cz, Ravine& out) const;

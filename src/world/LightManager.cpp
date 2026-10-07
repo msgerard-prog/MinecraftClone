@@ -11,6 +11,7 @@ LightManager::LightManager(World& world, int threads)
     m_editQueue.reserve(1024);
     m_queue.reserve(1024);
     m_settleQueue.reserve(1024);
+    m_settleWanted.reserve(1024);
     m_pendingEdits.reserve(4096); // fires and decaying leaves edit continuously
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
@@ -133,17 +134,31 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
             }
     }
 
-    // Settling edits: re-meshed now, relit when the streaming queue gets there.
+    // Settling edits: re-meshed now; their chunks (3x3) relit in the background, each
+    // at most every kSettleFrames frames (a later request waits for its slot, so the
+    // final state always gets relit).
+    ++m_frame;
     for (const BlockPos& b : settling) {
         editsReady.push_back(b);
         const ChunkPos c = b.chunk();
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx) {
                 const ChunkPos q{c.x + dx, c.z + dz};
-                const Chunk* ch = m_world.chunk(q);
-                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, kSettle);
+                Chunk* ch = m_world.chunk(q);
+                if (!ch || !(ch->lit() || ch->lightJob.version != 0) || ch->lightJob.settleWanted) continue;
+                ch->lightJob.settleWanted = true;
+                m_settleWanted.push_back(q);
             }
     }
+    std::erase_if(m_settleWanted, [&](const ChunkPos& q) {
+        Chunk* ch = m_world.chunk(q);
+        if (!ch || !ch->lightJob.settleWanted) return true; // unloaded (reset)
+        if (m_frame - ch->lightJob.lastSettle < kSettleFrames) return false;
+        ch->lightJob.settleWanted = false;
+        ch->lightJob.lastSettle = m_frame;
+        request(q, kSettle);
+        return true;
+    });
 
     // Results: install if still current; report what changed.
     while (auto done = m_done.tryPop()) {
@@ -184,9 +199,11 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
         m_queue.erase(m_queue.begin(), m_queue.begin() + static_cast<std::ptrdiff_t>(m_head));
         m_head = 0;
     }
-    if (m_head < m_queue.size()) return; // settling waits until nothing streams
+    // Settling goes after streaming; while chunks still stream only one a frame (so
+    // flowing lava doesn't stay dark during a long flight).
+    const size_t budget = m_head < m_queue.size() ? 1 : m_settleQueue.size();
     size_t st = 0;
-    while (st < m_settleQueue.size() && !m_free.empty())
+    while (st < m_settleQueue.size() && st < budget && !m_free.empty())
         submit(m_settleQueue[st++], editsReady);
     m_settleQueue.erase(m_settleQueue.begin(), m_settleQueue.begin() + static_cast<std::ptrdiff_t>(st));
 }
