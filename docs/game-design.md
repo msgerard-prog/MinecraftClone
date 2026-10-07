@@ -64,3 +64,6 @@ fine until a system works.
 | Deviation | Why | Remove by |
 |---|---|---|
 | Terrain is simple noise until M8 | Need ground to test M3–M7 | M8 |
+| Free flight uses constant speeds (10.92 / 21.78 / ~7.5 b/s), no acceleration or drag | Camera needed before player physics | M4 |
+| Grass side has a baked green fringe instead of dirt + biome-tinted overlay | Overlay needs a second quad and biome colours | M8 (biomes) |
+| Grass tint is always plains #91BD59 | No biomes yet | M8 |

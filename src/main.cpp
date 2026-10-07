@@ -1,18 +1,22 @@
 #include "core/CommandLine.h"
+#include "core/Files.h"
 #include "core/GameClock.h"
 #include "core/Log.h"
 #include "core/Window.h"
 #include "gameplay/FlyController.h"
 #include "rendering/Camera.h"
+#include "rendering/CubeMesher.h"
 #include "rendering/GlContext.h"
 #include "rendering/Screenshot.h"
 #include "rendering/Shader.h"
+#include "rendering/TextureAtlas.h"
 
 #include <glad/gl.h>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <span>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -30,6 +34,30 @@ mc::MoveInput readMoveInput(const mc::Window& window) {
     in.up = float(window.keyDown(mc::Key::Space)) - float(window.keyDown(mc::Key::LeftShift));
     in.sprint = window.keyDown(mc::Key::LeftControl);
     return in;
+}
+
+// M1 test scene: a grass block in front of a row of every placeholder block.
+// Replaced by real chunks in M2.
+std::vector<mc::gfx::BlockVertex> buildTestScene(const mc::gfx::TextureAtlas& atlas) {
+    using namespace mc::gfx;
+    std::vector<BlockVertex> verts;
+    appendCube(verts, {0, 0, 0}, grassBlock(atlas));
+    const CubeFaces row[] = {
+        cubeAll(atlas, "stone"),
+        cubeAll(atlas, "cobblestone"),
+        cubeAll(atlas, "dirt"),
+        cubeAll(atlas, "oak_planks"),
+        cubeColumn(atlas, "oak_log", "oak_log_top"),
+        cubeAll(atlas, "sand"),
+        cubeAll(atlas, "bedrock"),
+        grassBlock(atlas),
+    };
+    int x = -7;
+    for (const CubeFaces& faces : row) {
+        appendCube(verts, {x, 0, 4}, faces);
+        x += 2;
+    }
+    return verts;
 }
 
 } // namespace
@@ -51,15 +79,19 @@ int main(int argc, char** argv) {
     }
     if (!mc::gfx::initOpenGl()) return 1;
 
-    // M1 placeholder scene; replaced by textured cubes in M1.3.
-    mc::gfx::Shader helloShader;
-    if (!helloShader.load("hello")) return 1;
-    GLuint emptyVao = 0;
-    glCreateVertexArrays(1, &emptyVao);
+    mc::gfx::Shader blockShader;
+    if (!blockShader.load("block")) return 1;
+    mc::gfx::TextureAtlas atlas;
+    if (!atlas.build(mc::assetPath("minecraft/textures/block"))) return 1;
+    mc::gfx::Mesh scene;
+    scene.upload(buildTestScene(atlas));
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE); // back faces (clockwise from the camera) are never visible
 
     mc::FlyController player;
-    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.0, 0.0, 0.0));
-    if (opts->hasLook) player.setRotation(opts->yaw, opts->pitch);
+    player.setPosition(opts->hasPos ? opts->pos : glm::dvec3(0.5, 3.0, -5.0));
+    player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
 
     mc::GameClock clock;
     double last = mc::timeSeconds();
@@ -103,10 +135,10 @@ int main(int argc, char** argv) {
         glViewport(0, 0, fbWidth, fbHeight);
         glClearColor(kSkyR, kSkyG, kSkyB, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        helloShader.bind();
+        blockShader.bind();
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
-        glBindVertexArray(emptyVao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindTextureUnit(0, atlas.texture());
+        scene.draw();
 
         ++frame;
         if (screenshotMode && frame >= opts->screenshotFrames) {
@@ -117,6 +149,5 @@ int main(int argc, char** argv) {
         }
         window.swapBuffers();
     }
-    glDeleteVertexArrays(1, &emptyVao);
     return exitCode;
 }

@@ -88,7 +88,8 @@ bool TextureAtlas::build(const std::string& folder) {
 
     // Smallest power-of-two grid that fits all sprites.
     int cols = 1;
-    while (cols * cols < static_cast<int>(sprites.size())) cols *= 2;
+    while (cols * cols < static_cast<int>(sprites.size()))
+        cols *= 2;
     m_width = cols * kSpriteSize;
     std::vector<uint8_t> atlas(static_cast<size_t>(m_width) * m_width * 4, 0);
 

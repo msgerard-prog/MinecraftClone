@@ -11,10 +11,12 @@ description: Create a new placeholder texture or other asset (our own, never Moj
 3. Make it: 16×16 RGBA PNG (entities/GUI: vanilla's sheet size). Placeholder style:
    the material's base colour + light per-pixel noise + a 1px darker edge where it
    helps read block boundaries. Generate it with a small Python script using
-   only the standard library (zlib + struct PNG writer) placed in `tools/textures/`,
-   so it can be regenerated. Keep the script's palette table in one file.
+   only the standard library: add a function + entry in `TEXTURES` in
+   `tools/textures/gen_placeholders.py` (colour constants at the top), then run it.
+   Each texture has its own seeded RNG, so other textures don't change.
 4. Animated textures: vertical strip of N 16×16 frames + `<name>.png.mcmeta`
    (`{"animation":{"frametime":2}}`).
-5. If the atlas needs registration (pre-M2: hard-coded list), add it there.
+5. No registration needed: `TextureAtlas` stitches every PNG in `textures/block/`.
+   Reference it by file stem (`atlas.sprite("stone")`).
 6. Look at the generated PNG with Read. Then `visual-check` it in-game. Commit
    the PNG and the generator change together.

@@ -18,6 +18,8 @@ depend on layers **above** it in this list (enforced by CMake target links):
 
 `world` and `gameplay` contain **no OpenGL** and are fully unit-testable;
 `tests/` links them directly. Keep simulation logic there, not in `rendering`.
+`tests/` also links `rendering` for its GL-free parts (e.g. `CubeMesher`); tests
+never create a GL context.
 
 ## Main loop (`src/main.cpp`)
 ```
@@ -25,8 +27,9 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
 ```
 - **Tick** (50 ms, fixed): all simulation — player physics, entities, block updates,
   random ticks, scheduled ticks. Deterministic given inputs.
-- **Frame** (vsync): camera interpolated between previous and current tick state with
-  `alpha`; upload finished chunk meshes; draw; UI.
+- **Frame** (vsync): mouse look applied (per frame, as vanilla); camera position
+  interpolated between previous and current tick with `alpha`; upload finished chunk
+  meshes; draw; UI.
 - Screenshot mode: render `--frames` frames, read the back buffer, write PNG, exit.
 
 ## Threading (planned, M2+)
@@ -43,8 +46,21 @@ poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → rend
   block registry (each block × its property combinations, like vanilla's
   `Block.STATE_REGISTRY`).
 
-## Rendering (planned, M1–M5)
-- One texture atlas (later array texture) of 16×16 tiles; nearest filtering.
+## Rendering
+Current (M1):
+- `Camera`: vanilla FOV 70, near plane 0.05; rotation from `world/Rotation.h`.
+- `TextureAtlas`: stitches every PNG in `assets/minecraft/textures/block/` (sorted by
+  name) on a power-of-two grid + generated `missingno` sprite; nearest mag filter,
+  4 mip levels (as vanilla). Sprites are looked up by name at mesh-build time.
+- `CubeMesher`: full-cube faces with vanilla directional shade (up 1.0, N/S 0.8,
+  E/W 0.6, down 0.5) multiplied by a per-face tint (grass top = plains #91BD59).
+  `CubeFaces` helpers mirror vanilla models `cube_all`, `cube_column`, `grass_block`.
+- `Mesh`: static VBO of `BlockVertex` (pos, uv, RGBA8 colour), DSA vertex format.
+- Fixed bindings: uniform location 0 = `uViewProj`; texture unit 0 = block atlas.
+  Shaders: `block` (opaque pass). Add new fixed bindings to this list.
+- Test scene in `main.cpp` (`buildTestScene`) until chunks exist (M2).
+
+Planned (M2–M5):
 - Chunk meshes per section, face-culled against neighbours; opaque, cutout and
   translucent passes (vanilla's `solid`, `cutout_mipped`, `translucent` render types).
 - Vertex: packed position, UV, normal/face, light (sky, block), AO.
