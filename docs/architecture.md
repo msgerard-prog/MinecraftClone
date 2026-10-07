@@ -294,6 +294,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   vanilla's per-side slot rules (`insertOne`/`extractOne`, reused by droppers) and picks
   up dropped items; power disables them (`enabled`). Screens: `ContainerScreen::Type::
   Hopper/Dispenser` over the entity's slots (`openStore`).
+- Dispensers and droppers (M21.3b): `BlockUpdates` fires them 4 ticks after a rising
+  edge of power (`dispensed()`); main calls `gameplay/Dispensers::dispense`, which picks
+  a random slot and drops/inserts (droppers) or uses the item (dispensers).
 - TNT (M21.1b): `BlockUpdates::primeTnt` (redstone, fire, flint and steel) lists lit
   blocks; main turns them into `gameplay/PrimedTnt` entities (pooled), explodes them
   with power 4 (`ExplosionTargets::dropAll`), and explosions light TNT blocks and push

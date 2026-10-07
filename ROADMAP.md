@@ -22,7 +22,7 @@ order where documented):
    entity, its explosion; the desert pyramid trap starts working).
 2. ✅ M21.2 — Comparators (compare/subtract, reading containers' fullness) and
    observers (block-state change pulses).
-3. M21.3 — Hoppers (moving items between containers, picking up items), droppers and
+3. ✅ M21.3 — Hoppers (moving items between containers, picking up items), droppers and
    dispensers (dispense behaviours: arrows, buckets, items).
 4. M21.4 — Rails and minecarts: rails, powered/detector/activator rails, minecart
    physics and riding, chest and hopper minecarts.

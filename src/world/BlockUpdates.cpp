@@ -169,6 +169,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_toggles.reserve(64);
     m_plates.reserve(1024); // (pressure plates being pressed)
     m_tntPrimed.reserve(256);
+    m_dispensed.reserve(256);
 }
 
 BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
@@ -909,6 +910,17 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::OakFence:
         set(p, fenceConnected(m_world, p, s));
         break;
+    case B::Dispenser:
+    case B::Dropper: {
+        const bool on = bestNeighbourSignal(p) > 0 || bestNeighbourSignal(rel(p, Direction::Up)) > 0;
+        if (on && !flag(s, triggered)) {
+            setRaw(p, withFlag(s, triggered, true));
+            schedule(p, blockOf(s), 4, 0); // (wiki: fires 4 game ticks later)
+        } else if (!on && flag(s, triggered)) {
+            setRaw(p, withFlag(s, triggered, false));
+        }
+        break;
+    }
     case B::Hopper: { // power turns it off (wiki: Hopper)
         const bool on = bestNeighbourSignal(p) == 0;
         if (on != flag(s, enabled)) set(p, withFlag(s, enabled, on));
@@ -1189,6 +1201,10 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         notifyNeighbours(front);
         break;
     }
+    case B::Dispenser:
+    case B::Dropper:
+        if (m_dispensed.size() < m_dispensed.capacity()) m_dispensed.push_back(p);
+        break;
     case B::Observer: // (a full update: observers watching this one see it too)
         if (flag(s, powered)) {
             set(p, withFlag(s, powered, false));

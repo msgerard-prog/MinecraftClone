@@ -127,6 +127,10 @@ public:
     // TNT (M21.1b; wiki: TNT): redstone power, fire, flint and steel light it - the
     // block goes and gameplay spawns primed TNT where primedTnt() lists.
     void primeTnt(const BlockPos& p);
+    // Dispensers and droppers fired this tick (M21.3b): a rising edge of power (also
+    // one block above them: quasi-connectivity) fires them 4 ticks later; gameplay does
+    // what their item does.
+    std::vector<BlockPos>& dispensed() { return m_dispensed; }
     std::vector<BlockPos>& primedTnt() { return m_tntPrimed; }
     void settlePlates();
     // Chests (M17.2): the other half of a double chest, if any; partner side rule.
@@ -306,6 +310,7 @@ private:
     };
     std::vector<Plate> m_plates;
     std::vector<BlockPos> m_tntPrimed;
+    std::vector<BlockPos> m_dispensed;
     int plateTarget(BlockId b, int count) const;
     // Comparators and observers (M21.2).
     int weakAt(const BlockPos& q, Direction toward) const;   // weak() with block entities

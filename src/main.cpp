@@ -23,6 +23,7 @@
 #include "world/LevelData.h"
 #include "core/FileLock.h"
 #include "gameplay/Commands.h"
+#include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
@@ -1603,6 +1604,12 @@ int main(int argc, char** argv) {
                 blockUpdates.settlePlates();
             }
             blockUpdates.tick();
+            { // Dispensers and droppers that fired (M21.3b).
+                mc::DispenseContext dctx{world, blockUpdates, droppedItems, projectiles, primedTnt, gameRng, frameEdits};
+                for (const mc::world::BlockPos& b : blockUpdates.dispensed())
+                    mc::dispense(dctx, b);
+                blockUpdates.dispensed().clear();
+            }
             // TNT (M21.1b): lit blocks become primed TNT; fuses run out and explode.
             for (const mc::world::BlockPos& b : blockUpdates.primedTnt())
                 primedTnt.prime(b, 80, gameRng);

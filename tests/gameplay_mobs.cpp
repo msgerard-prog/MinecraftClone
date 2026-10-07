@@ -1414,3 +1414,62 @@ TEST_CASE("hoppers: pull from the chest above, push into the chest below, 1 item
     const HopperData* h = s.world.chunk({0, 0})->hopper(8, 64, 8);
     CHECK(h->items[0].count == 3);
 }
+
+#include "gameplay/Dispensers.h"
+
+TEST_CASE("dispensers and droppers: a power pulse fires one item 4 ticks later - arrows fly, buckets pour, droppers feed chests") {
+    MobScene s;
+    s.mobs = Mobs();
+    BlockUpdates updates(s.world);
+    const auto& r = blockRegistry();
+    auto at = [&](BlockId b, const char* facing) { return *r.with(r.defaultState(b), "facing", facing); };
+    s.world.updateBlock({4, 64, 4}, at(blocks::Dispenser, "east"));
+    s.world.chunk({0, 0})->dispenser(4, 64, 4)->items[0] = ItemStack{*itemRegistry().find("arrow"), 2};
+    s.world.chunk({0, 0})->dispenser(4, 64, 4)->items[1] = ItemStack{*itemRegistry().find("water_bucket"), 1};
+    Projectiles proj;
+    PrimedTnt tnt;
+    std::vector<BlockPos> edits;
+    DispenseContext ctx{s.world, updates, s.items, proj, tnt, s.rng, edits};
+    int64_t time = 0;
+    auto pulse = [&] {
+        updates.setTime(++time);
+        s.world.updateBlock({4, 64, 3}, r.defaultState(blocks::RedstoneBlock));
+        for (int i = 0; i < 5; ++i) {
+            updates.setTime(++time);
+            updates.tick();
+            for (const BlockPos& b : updates.dispensed())
+                dispense(ctx, b);
+            updates.dispensed().clear();
+        }
+        s.world.updateBlock({4, 64, 3}, 0);
+    };
+    for (int i = 0; i < 3; ++i)
+        pulse();
+    const DispenserData* d = s.world.chunk({0, 0})->dispenser(4, 64, 4);
+    int arrowsLeft = 0, buckets = 0;
+    for (const ItemStack& st : d->items) {
+        if (st.empty()) continue;
+        if (itemRegistry().item(st.item).id == "minecraft:arrow") arrowsLeft += st.count;
+        if (itemRegistry().item(st.item).id == "minecraft:bucket") ++buckets;
+    }
+    // 3 shots from {2 arrows, 1 water bucket}: everything used once (random order).
+    CHECK(arrowsLeft == 0);
+    CHECK(buckets == 1);
+    CHECK(r.blockOf(s.world.getBlock({5, 64, 4})) == blocks::Water);
+
+    // A dropper into a chest.
+    s.world.updateBlock({8, 64, 8}, at(blocks::Dropper, "east"));
+    s.world.updateBlock({9, 64, 8}, r.defaultState(blocks::Chest));
+    s.world.chunk({0, 0})->dispenser(8, 64, 8)->items[4] = ItemStack{*itemRegistry().find("stone"), 5};
+    updates.setTime(++time);
+    s.world.updateBlock({8, 65, 8}, r.defaultState(blocks::RedstoneBlock)); // above: quasi-connectivity
+    for (int i = 0; i < 5; ++i) {
+        updates.setTime(++time);
+        updates.tick();
+        for (const BlockPos& b : updates.dispensed())
+            dispense(ctx, b);
+        updates.dispensed().clear();
+    }
+    CHECK(s.world.chunk({0, 0})->chest(9, 64, 8)->items[0].count == 1);
+    CHECK(s.world.chunk({0, 0})->dispenser(8, 64, 8)->items[4].count == 4);
+}
