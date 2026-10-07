@@ -47,6 +47,17 @@ enum class Biome : uint8_t {
     // Other dimensions (M12).
     NetherWastes,
     TheEnd,
+    // Overworld 2 (M18.2; only the "overworld2" generator places these).
+    Jungle,
+    SparseJungle,
+    DarkForest,
+    FlowerForest,
+    OldGrowthSpruceTaiga,
+    CherryGrove,
+    IceSpikes,
+    MushroomFields,
+    WoodedBadlands,
+    ErodedBadlands,
     Count
 };
 

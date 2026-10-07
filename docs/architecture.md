@@ -116,7 +116,8 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   source plus a pending fluid tick, `Chunk::ticksRelative`) and more vegetation;
   "overworld" (version 1) stays for worlds created with it. `TerrainGenerator`
   (M3 placeholder, kind "terrain") stays too. Each pins a hash.
-- Biomes (`world/Biome`): 28 vanilla biomes with wiki colours; each chunk holds a
+- Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
+  overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
   chunk's, vertices carry an 8-bit tint slot (w2 bits 12-19) read from the tint
   palette SSBO.

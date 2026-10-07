@@ -49,6 +49,7 @@ public:
     };
     Column column(int32_t x, int32_t z) const;
     Biome biomeAt(const Column& c) const;
+    Biome baseBiome(const Column& c) const; // the M8 choice (overworld2 refines it)
     // Highest solid y of the interpolated terrain (caves ignored) at a column.
     int surfaceY(int32_t x, int32_t z) const;
 

@@ -56,7 +56,7 @@ TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld
     CHECK(chunkHash(o) == 1773355576298667210ull); // the M8 pin (world_overworld.cpp)
     // Pinned. overworld2 grows through M18 (biomes, structures) and is re-pinned at
     // each M18 step until v0.18.0 freezes it; after that, changing it needs the user's OK.
-    CHECK(h == 18129735563671691549ull);
+    CHECK(h == 3038603871320375383ull);
 }
 
 TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
@@ -140,4 +140,20 @@ TEST_CASE("overworld2: deserts grow cacti with nothing solid beside them") {
                 }
     }
     CHECK(cacti > 0);
+}
+
+TEST_CASE("overworld2: the M18.2 biomes all occur; overworld (M8) never places them") {
+    const OverworldGenerator gen(42), old(42, 1);
+    std::array<bool, size_t(Biome::Count)> seen{}, seenOld{};
+    for (int z = -3000; z <= 3000; z += 64)
+        for (int x = -3000; x <= 3000; x += 64) {
+            seen[size_t(gen.biomeAt(gen.column(x, z)))] = true;
+            seenOld[size_t(old.biomeAt(old.column(x, z)))] = true;
+        }
+    for (Biome b : {Biome::Jungle, Biome::SparseJungle, Biome::DarkForest, Biome::FlowerForest,
+                    Biome::OldGrowthSpruceTaiga, Biome::CherryGrove, Biome::IceSpikes, Biome::MushroomFields,
+                    Biome::ErodedBadlands}) {
+        CHECK_MESSAGE(seen[size_t(b)], biomeInfo(b).id);
+        CHECK_FALSE(seenOld[size_t(b)]);
+    }
 }

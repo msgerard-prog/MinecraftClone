@@ -4,8 +4,10 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M18 in progress: M18.1 done - new worlds use "overworld2" (ravines, lava lakes,
-springs, sugar cane, pumpkins, cacti, mushrooms; cactus/pumpkin/mushroom blocks).
+M18 in progress: M18.1-2 done - new worlds use "overworld2" (ravines, lava lakes,
+springs, sugar cane, pumpkins, cacti, mushrooms; 10 more biomes - jungle, dark forest,
+cherry grove, ice spikes, mushroom fields...; jungle/dark oak/cherry woods, podzol,
+mycelium, huge mushrooms).
 M17 done (reviews applied; v0.17.0): farming (farmland, 4 crops, bone meal, sugar
 cane), chests (double, saved), armor (5 materials) and shields, beds (sleep, respawn,
 explosions), experience (orbs, levels, bar), 22 enchantments with effects, enchanting
@@ -23,7 +25,7 @@ M18 — Overworld 2 (wiki: World generation, Biome, Structure; a new generator k
    gone since 1.18), ravines (canyon carver), sugar cane, pumpkins, cacti,
    mushrooms, springs; scheduled ticks only within the simulation distance; fluid
    flow relights at the lowest priority.
-2. M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
+2. ✅ M18.2 — Biomes and their blocks: jungle, dark forest, swamp, mushroom fields,
    cherry grove, badlands variants, ice spikes, stony peaks... with their trees and
    new wood types (jungle, dark oak, cherry) and blocks (cactus, mushrooms, mud...).
 3. M18.3 — Structure framework: placement grids (spacing, separation, salt per the

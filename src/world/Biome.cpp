@@ -40,6 +40,16 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:frozen_ocean", 0.0f, 0x80B497, 0x60A17B, 0x3938C9},
     {"minecraft:nether_wastes", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4},
     {"minecraft:the_end", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:jungle", 0.95f, 0x59C93C, 0x30BB0B, 0x3F76E4},
+    {"minecraft:sparse_jungle", 0.95f, 0x64C73F, 0x3EB80F, 0x3F76E4},
+    {"minecraft:dark_forest", 0.7f, 0x507A32, 0x59AE30, 0x3F76E4},
+    {"minecraft:flower_forest", 0.7f, 0x79C05A, 0x59AE30, 0x3F76E4},
+    {"minecraft:old_growth_spruce_taiga", 0.25f, 0x86B783, 0x68A464, 0x3F76E4},
+    {"minecraft:cherry_grove", 0.5f, 0xB6DB61, 0xB6DB61, 0x5DB7EF},
+    {"minecraft:ice_spikes", 0.0f, 0x80B497, 0x60A17B, 0x3F76E4},
+    {"minecraft:mushroom_fields", 0.9f, 0x55C93F, 0x2BBB0F, 0x3F76E4},
+    {"minecraft:wooded_badlands", 2.0f, 0x90814D, 0x9E814D, 0x3F76E4},
+    {"minecraft:eroded_badlands", 2.0f, 0x90814D, 0x9E814D, 0x3F76E4},
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 
