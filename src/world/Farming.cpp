@@ -109,7 +109,8 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
         if (add > 0) set(p, R().set(s, ageOf(b), std::min(max, a + add)));
         return true;
     }
-    if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling) {
+    if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling ||
+        b == B::JungleSapling || b == B::DarkOakSapling || b == B::CherrySapling) {
         if (m_random.nextFloat() < 0.45f) {
             if (R().get(s, stage) == 0) setRaw(p, R().set(s, stage, 1));
             else growTree(p, s);

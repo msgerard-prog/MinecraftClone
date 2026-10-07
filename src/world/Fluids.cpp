@@ -26,7 +26,8 @@ BlockPos rel(const BlockPos& p, Direction d) {
     return {p.x + v.x, p.y + v.y, p.z + v.z};
 }
 Direction opposite(Direction d) { return static_cast<Direction>(static_cast<int>(d) ^ 1); }
-constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::West, Direction::East};
+constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::West,
+                                 Direction::East};
 
 int levelOf(BlockStateId s) { return R().get(s, level); }
 
@@ -73,8 +74,13 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
-    case B::AcaciaSapling: return true;
-    default: return false;
+    case B::AcaciaSapling:
+    case B::JungleSapling:
+    case B::DarkOakSapling:
+    case B::CherrySapling:
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -134,7 +140,8 @@ BlockStateId BlockUpdates::newFluidState(const BlockPos& p, BlockId kind) const 
 bool BlockUpdates::lavaMeetsWater(const BlockPos& p, BlockStateId s) {
     // Lava touching water (not from below) hardens: a source into obsidian, flowing
     // lava into cobblestone (wiki: Lava › Water and lava).
-    for (const Direction d : {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
+    for (const Direction d :
+         {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
         if (blockOf(at(rel(p, d))) == B::Water) {
             set(p, R().defaultState(levelOf(s) == 0 ? B::Obsidian : B::Cobblestone));
             return true;
@@ -214,7 +221,8 @@ int BlockUpdates::slopeDistance(const BlockPos& p, int depth, Direction from, Bl
         const FluidInto into = fluidInto(n, kind);
         if (into == FluidInto::No || (into == FluidInto::Same && levelOf(at(n)) == 0)) continue;
         if (isHole(n, kind)) return depth;
-        if (depth < slopeFindDistance(kind)) best = std::min(best, slopeDistance(n, depth + 1, opposite(d), kind));
+        if (depth < slopeFindDistance(kind))
+            best = std::min(best, slopeDistance(n, depth + 1, opposite(d), kind));
     }
     return best;
 }
@@ -241,7 +249,7 @@ void BlockUpdates::spreadSideways(const BlockPos& p, BlockStateId s) {
         const BlockPos n = rel(p, kSides[i]);
         const BlockStateId ns = at(n);
         if (blockOf(ns) == kind && fluidAmount(ns) >= amount) continue; // already as full
-        if (kind == B::Lava && blockOf(ns) == B::Water) continue;      // (the reaction handles it)
+        if (kind == B::Lava && blockOf(ns) == B::Water) continue;       // (the reaction handles it)
         placeFluid(n, flowing);
     }
 }

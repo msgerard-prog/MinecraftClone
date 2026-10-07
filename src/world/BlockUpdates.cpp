@@ -26,26 +26,35 @@ BlockPos rel(const BlockPos& p, Direction d, int n = 1) {
 bool horizontal(Direction d) { return d != Direction::Up && d != Direction::Down; }
 
 // Vanilla's neighbour update order (Level.updateNeighborsAt).
-constexpr Direction kUpdateOrder[6] = {Direction::West, Direction::East, Direction::Down,
+constexpr Direction kUpdateOrder[6] = {Direction::West, Direction::East,  Direction::Down,
                                        Direction::Up,   Direction::North, Direction::South};
-constexpr Direction kHorizontal[4] = {Direction::North, Direction::East, Direction::South, Direction::West};
+constexpr Direction kHorizontal[4] = {Direction::North, Direction::East, Direction::South,
+                                      Direction::West};
 
 // "facing" (horizontal) values are north, south, west, east: Direction 2..5.
 Direction hFacing(BlockStateId s) { return static_cast<Direction>(R().get(s, facing) + 2); }
-BlockStateId withHFacing(BlockStateId s, Direction d) { return R().set(s, facing, static_cast<int>(d) - 2); }
+BlockStateId withHFacing(BlockStateId s, Direction d) {
+    return R().set(s, facing, static_cast<int>(d) - 2);
+}
 // "facing" (6 directions) values are in Direction order.
 Direction facing6Of(BlockStateId s) { return static_cast<Direction>(R().get(s, facing6)); }
 bool flag(BlockStateId s, const Property& p) { return R().get(s, p) == 0; } // [true, false]
-BlockStateId withFlag(BlockStateId s, const Property& p, bool v) { return R().set(s, p, v ? 0 : 1); }
+BlockStateId withFlag(BlockStateId s, const Property& p, bool v) {
+    return R().set(s, p, v ? 0 : 1);
+}
 
 // Wire sides (values up, side, none).
 enum WireSide { kUp = 0, kSide = 1, kNone = 2 };
 const Property& wireProp(Direction d) {
     switch (d) {
-    case Direction::North: return north;
-    case Direction::East: return east;
-    case Direction::South: return south;
-    default: return west;
+    case Direction::North:
+        return north;
+    case Direction::East:
+        return east;
+    case Direction::South:
+        return south;
+    default:
+        return west;
     }
 }
 int wireSide(BlockStateId s, Direction d) { return R().get(s, wireProp(d)); }
@@ -106,20 +115,29 @@ Push pushKind(BlockStateId s) {
     case B::BirchLeaves:
     case B::SpruceLeaves:
     case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves:
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
     case B::AcaciaSapling:
+    case B::JungleSapling:
+    case B::DarkOakSapling:
+    case B::CherrySapling:
     case B::Fire:
-    case B::RedBed: return Push::Destroy; // (wiki: Piston - beds break)
-    case B::Obsidian:  // (wiki: Piston/Table)
-    case B::Furnace:   // block entities don't move
+    case B::RedBed:
+        return Push::Destroy; // (wiki: Piston - beds break)
+    case B::Obsidian:         // (wiki: Piston/Table)
+    case B::Furnace:          // block entities don't move
     case B::Chest:
     case B::PistonHead:
         return Push::Block;
     case B::Piston:
-    case B::StickyPiston: return flag(s, extended) ? Push::Block : Push::Move;
-    default: return R().block(b).settings.hardness < 0.0f ? Push::Block : Push::Move;
+    case B::StickyPiston:
+        return flag(s, extended) ? Push::Block : Push::Move;
+    default:
+        return R().block(b).settings.hardness < 0.0f ? Push::Block : Push::Move;
     }
 }
 
@@ -156,27 +174,37 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         if (toward == Direction::Down) return p;
         return wireSide(s, toward) != kNone ? p : 0;
     }
-    case B::RedstoneTorch: return flag(s, lit) && toward != Direction::Down ? 15 : 0;
-    case B::RedstoneWallTorch: return flag(s, lit) && toward != opposite(hFacing(s)) ? 15 : 0;
-    case B::Repeater: return flag(s, powered) && toward == opposite(hFacing(s)) ? 15 : 0;
+    case B::RedstoneTorch:
+        return flag(s, lit) && toward != Direction::Down ? 15 : 0;
+    case B::RedstoneWallTorch:
+        return flag(s, lit) && toward != opposite(hFacing(s)) ? 15 : 0;
+    case B::Repeater:
+        return flag(s, powered) && toward == opposite(hFacing(s)) ? 15 : 0;
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: return flag(s, powered) ? 15 : 0;
-    case B::RedstoneBlock: return 15;
-    default: return 0;
+    case B::OakButton:
+        return flag(s, powered) ? 15 : 0;
+    case B::RedstoneBlock:
+        return 15;
+    default:
+        return 0;
     }
 }
 
 int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     switch (blockOf(s)) {
     case B::RedstoneWire:
-    case B::Repeater: return weak(s, toward);
+    case B::Repeater:
+        return weak(s, toward);
     case B::RedstoneTorch:
-    case B::RedstoneWallTorch: return flag(s, lit) && toward == Direction::Up ? 15 : 0;
+    case B::RedstoneWallTorch:
+        return flag(s, lit) && toward == Direction::Up ? 15 : 0;
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
-    default: return 0;
+    case B::OakButton:
+        return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
+    default:
+        return 0;
     }
 }
 
@@ -207,10 +235,14 @@ Direction BlockUpdates::chestClockwise(Direction f) {
     // A chest of type "right" has its partner clockwise of its facing, "left"
     // counter-clockwise (N -> E -> S -> W).
     switch (f) {
-    case Direction::North: return Direction::East;
-    case Direction::East: return Direction::South;
-    case Direction::South: return Direction::West;
-    default: return Direction::North;
+    case Direction::North:
+        return Direction::East;
+    case Direction::East:
+        return Direction::South;
+    case Direction::South:
+        return Direction::West;
+    default:
+        return Direction::North;
     }
 }
 
@@ -228,8 +260,8 @@ std::optional<BlockPos> BlockUpdates::chestPartner(const World& world, const Blo
 // --- Falling blocks ---------------------------------------------------------------
 
 bool BlockUpdates::hasGravity(BlockId b) {
-    return b == B::Sand || b == B::RedSand || b == B::Gravel || b == B::Anvil || b == B::ChippedAnvil ||
-           b == B::DamagedAnvil;
+    return b == B::Sand || b == B::RedSand || b == B::Gravel || b == B::Anvil ||
+           b == B::ChippedAnvil || b == B::DamagedAnvil;
 }
 
 bool BlockUpdates::sugarCaneCanStay(const World& world, const BlockPos& p) {
@@ -237,7 +269,9 @@ bool BlockUpdates::sugarCaneCanStay(const World& world, const BlockPos& p) {
     const BlockPos below{p.x, p.y - 1, p.z};
     const BlockId b = blockOf(world.getBlock(below));
     if (b == B::SugarCane) return true;
-    if (b != B::GrassBlock && b != B::Dirt && b != B::CoarseDirt && b != B::Sand && b != B::RedSand) return false;
+    if (b != B::GrassBlock && b != B::Dirt && b != B::CoarseDirt && b != B::Podzol && b != B::Mycelium &&
+        b != B::Sand && b != B::RedSand)
+        return false;
     for (const Direction d : kHorizontal)
         if (blockOf(world.getBlock(rel(below, d))) == B::Water) return true;
     return false;
@@ -255,6 +289,8 @@ bool BlockUpdates::cactusCanStay(const World& world, const BlockPos& p) {
 
 bool BlockUpdates::mushroomCanStay(const World& world, const BlockPos& p) {
     const BlockPos below{p.x, p.y - 1, p.z};
+    const BlockId ground = blockOf(world.getBlock(below));
+    if (ground == B::Mycelium || ground == B::Podzol) return true; // any light (vanilla #mushroom_grow_block)
     if (!R().opaqueCube(world.getBlock(below))) return false;
     // Unlit chunks (just generated, light not computed yet) count as dark.
     const Chunk* c = world.chunk(p.chunk());
@@ -268,8 +304,8 @@ bool BlockUpdates::replaceable(BlockStateId s) {
     // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
     // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
     const BlockId b = blockOf(s);
-    return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass || b == B::Fern ||
-           b == B::DeadBush || (b == B::Snow && R().get(s, layers) == 0);
+    return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass ||
+           b == B::Fern || b == B::DeadBush || (b == B::Snow && R().get(s, layers) == 0);
 }
 
 bool BlockUpdates::fallThrough(BlockStateId below) { return replaceable(below); }
@@ -301,24 +337,28 @@ void BlockUpdates::setRaw(const BlockPos& p, BlockStateId s) {
 void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now) {
     // Leaf distance, sapling stage and fire age change neither light nor the model:
     // nothing to relight or re-mesh.
-    if (blockOf(old) == blockOf(now) && (isLeaves(blockOf(now)) || blockOf(now) == B::Fire ||
-                                         blockOf(now) == B::OakSapling || blockOf(now) == B::BirchSapling ||
-                                         blockOf(now) == B::SpruceSapling || blockOf(now) == B::AcaciaSapling ||
-                                         blockOf(now) == B::SugarCane || blockOf(now) == B::Cactus))
+    if (blockOf(old) == blockOf(now) &&
+        (isLeaves(blockOf(now)) || blockOf(now) == B::Fire || blockOf(now) == B::OakSapling ||
+         blockOf(now) == B::BirchSapling || blockOf(now) == B::SpruceSapling ||
+         blockOf(now) == B::AcaciaSapling || blockOf(now) == B::JungleSapling ||
+         blockOf(now) == B::DarkOakSapling || blockOf(now) == B::CherrySapling ||
+         blockOf(now) == B::SugarCane || blockOf(now) == B::Cactus))
         return;
     // Farmland moisture below 7 looks the same; carrots/potatoes share a texture
     // across ages 0-1, 2-3, 4-6.
     if (blockOf(old) == blockOf(now) && blockOf(now) == B::Farmland &&
         (R().get(old, moisture) == 7) == (R().get(now, moisture) == 7))
         return;
-    if (blockOf(old) == blockOf(now) && (blockOf(now) == B::Carrots || blockOf(now) == B::Potatoes)) {
+    if (blockOf(old) == blockOf(now) &&
+        (blockOf(now) == B::Carrots || blockOf(now) == B::Potatoes)) {
         auto stageOf = [](int a) { return a < 2 ? 0 : a < 4 ? 1 : a < 7 ? 2 : 3; };
         if (stageOf(R().get(old, age7)) == stageOf(R().get(now, age7))) return;
     }
     // Light only needs recomputing when emission or opacity changed (dust power,
     // repeater and lever states only change the model).
     const auto& r = R();
-    const bool light = r.lightEmission(old) != r.lightEmission(now) || r.lightOpacity(old) != r.lightOpacity(now) ||
+    const bool light = r.lightEmission(old) != r.lightEmission(now) ||
+                       r.lightOpacity(old) != r.lightOpacity(now) ||
                        r.opaqueCube(old) != r.opaqueCube(now);
     auto fluidOrAir = [](BlockStateId s) { return s == 0 || isFluid(blockOf(s)); };
     auto& list = !light ? m_remesh : fluidOrAir(old) && fluidOrAir(now) ? m_settling : m_changed;
@@ -329,7 +369,8 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
     // A bed's foot placed by a player brings its head (one block toward its facing).
     if (blockOf(now) == B::RedBed && R().get(now, bedPart) == 1) {
         const BlockPos head = rel(p, hFacing(now));
-        if (blockOf(at(head)) != B::RedBed && replaceable(at(head))) set(head, R().set(now, bedPart, 0));
+        if (blockOf(at(head)) != B::RedBed && replaceable(at(head)))
+            set(head, R().set(now, bedPart, 0));
     }
     afterChange(p, old, now);
     neighbourChanged(p); // the new block checks its surroundings (vanilla onPlace)
@@ -348,16 +389,18 @@ void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId
         const BlockStateId b = at(base);
         if (isPiston(blockOf(b)) && flag(b, extended) && facing6Of(b) == facing6Of(old)) {
             if (!m_creative)
-                if (const ItemId item = itemRegistry().blockItem(blockOf(b))) m_drops.push_back({base, {item, 1}});
+                if (const ItemId item = itemRegistry().blockItem(blockOf(b)))
+                    m_drops.push_back({base, {item, 1}});
             set(base, 0);
         }
     }
     notifyNeighbours(p);
     reach(p, old);
     // Same block in a new state: its reach only moves if what it points at changed.
-    const bool sameTarget = blockOf(now) == blockOf(old) &&
-                            ((is != B::Lever && !isButton(is)) || attachDir(old) == attachDir(now)) &&
-                            (is != B::Repeater || hFacing(old) == hFacing(now));
+    const bool sameTarget =
+        blockOf(now) == blockOf(old) &&
+        ((is != B::Lever && !isButton(is)) || attachDir(old) == attachDir(now)) &&
+        (is != B::Repeater || hFacing(old) == hFacing(now));
     if (!sameTarget) reach(p, now);
 }
 
@@ -371,20 +414,24 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
             notifyNeighbours(rel(p, d));
         break;
     case B::RedstoneTorch:
-    case B::RedstoneWallTorch: // outer order down, up, north, south, west, east (wiki: Block update)
+    case B::RedstoneWallTorch: // outer order down, up, north, south, west, east (wiki: Block
+                               // update)
         for (int d = 0; d < kDirectionCount; ++d)
             notifyNeighbours(rel(p, static_cast<Direction>(d)));
         break;
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: notifyNeighbours(rel(p, attachDir(s))); break;
+    case B::OakButton:
+        notifyNeighbours(rel(p, attachDir(s)));
+        break;
     case B::Repeater: {
         const BlockPos front = rel(p, opposite(hFacing(s)));
         neighbourChanged(front);
         notifyNeighbours(front);
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -402,12 +449,16 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     switch (blockOf(s)) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
-    case B::Repeater: return supports(at(rel(p, Direction::Down)));
-    case B::RedstoneWallTorch: return supports(at(rel(p, opposite(hFacing(s)))));
+    case B::Repeater:
+        return supports(at(rel(p, Direction::Down)));
+    case B::RedstoneWallTorch:
+        return supports(at(rel(p, opposite(hFacing(s)))));
     case B::Lever:
     case B::StoneButton:
-    case B::OakButton: return supports(at(rel(p, attachDir(s))));
-    default: return true;
+    case B::OakButton:
+        return supports(at(rel(p, attachDir(s))));
+    default:
+        return true;
     }
 }
 
@@ -422,11 +473,15 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     ++m_depth;
     const BlockStateId s = at(p);
     switch (blockOf(s)) {
-    case B::RedstoneWire: updateWire(p); break;
+    case B::RedstoneWire:
+        updateWire(p);
+        break;
     case B::RedstoneTorch:
     case B::RedstoneWallTorch:
-        if (!survives(p, s)) pop(p);
-        else if (flag(s, lit) == torchInput(p, s) && !hasTick(p, blockOf(s))) schedule(p, blockOf(s), 2, 0);
+        if (!survives(p, s))
+            pop(p);
+        else if (flag(s, lit) == torchInput(p, s) && !hasTick(p, blockOf(s)))
+            schedule(p, blockOf(s), 2, 0);
         break;
     case B::Repeater: {
         if (!survives(p, s)) {
@@ -434,7 +489,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
             break;
         }
         const bool lockedNow = repeaterLocked(p, s);
-        if (lockedNow != flag(s, locked)) setRaw(p, withFlag(s, locked, lockedNow)); // no updates (vanilla)
+        if (lockedNow != flag(s, locked))
+            setRaw(p, withFlag(s, locked, lockedNow)); // no updates (vanilla)
         if (lockedNow) break;
         const BlockStateId cur = at(p);
         const bool should = repeaterInput(p, cur) > 0;
@@ -442,9 +498,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
             // Priorities (wiki: Tick › Scheduled tick): -3 when the repeater faces into
             // the side or back of another repeater, -2 when turning off, else -1.
             const BlockStateId front = at(rel(p, opposite(hFacing(cur))));
-            const int priority = blockOf(front) == B::Repeater && hFacing(front) != opposite(hFacing(cur)) ? -3
-                                 : flag(cur, powered)                                             ? -2
-                                                                                                   : -1;
+            const int priority =
+                blockOf(front) == B::Repeater && hFacing(front) != opposite(hFacing(cur)) ? -3
+                : flag(cur, powered)                                                      ? -2
+                                                                                          : -1;
             schedule(p, B::Repeater, (R().get(cur, delay) + 1) * 2, priority);
         }
         break;
@@ -468,13 +525,18 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::StickyPiston: {
         const bool should = pistonPowered(p, facing6Of(s));
         if (should != flag(s, extended) &&
-            std::none_of(m_events.begin(), m_events.end(), [&](const Event& e) { return e.pos == p && e.extend == should; }))
+            std::none_of(m_events.begin(), m_events.end(),
+                         [&](const Event& e) { return e.pos == p && e.extend == should; }))
             m_events.push_back({p, should, !m_inTick});
         break;
     }
     case B::Water:
-    case B::Lava: fluidNeighbourChanged(p, s); break;
-    case B::Fire: fireNeighbourChanged(p); break;
+    case B::Lava:
+        fluidNeighbourChanged(p, s);
+        break;
+    case B::Fire:
+        fireNeighbourChanged(p);
+        break;
     case B::Chest: {
         // Keep double chests paired: a half whose partner is gone turns single; a
         // single chest takes the free side of a neighbour half pointing at it.
@@ -502,7 +564,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         const bool foot = R().get(s, bedPart) == 1;
         const BlockPos other = rel(p, foot ? hFacing(s) : opposite(hFacing(s)));
         const BlockStateId o = at(other);
-        if (blockOf(o) != B::RedBed || hFacing(o) != hFacing(s) || R().get(o, bedPart) == R().get(s, bedPart))
+        if (blockOf(o) != B::RedBed || hFacing(o) != hFacing(s) ||
+            R().get(o, bedPart) == R().get(s, bedPart))
             set(p, 0); // (no drop: the half that was broken dropped the bed)
         break;
     }
@@ -521,7 +584,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Anvil:
     case B::ChippedAnvil:
     case B::DamagedAnvil:
-        if (fallThrough(at(rel(p, Direction::Down)))) schedule(p, blockOf(s), 2, 0); // wiki: 2 ticks
+        if (fallThrough(at(rel(p, Direction::Down))))
+            schedule(p, blockOf(s), 2, 0); // wiki: 2 ticks
         break;
     case B::SugarCane:
         if (!sugarCaneCanStay(m_world, p)) pop(p);
@@ -531,16 +595,25 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     case B::BrownMushroom:
     case B::RedMushroom:
-        if (!R().opaqueCube(at(rel(p, Direction::Down)))) pop(p); // (light is checked on placing and spreading)
+        if (!R().opaqueCube(at(rel(p, Direction::Down))))
+            pop(p); // (light is checked on placing and spreading)
         break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: leavesChanged(p, s); break;
+    case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves:
+        leavesChanged(p, s);
+        break;
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
     case B::AcaciaSapling:
+    case B::JungleSapling:
+    case B::DarkOakSapling:
+    case B::CherrySapling:
         if (!plantableSoil(at(rel(p, Direction::Down)))) pop(p); // lost its soil
         break;
     case B::NetherPortal: {
@@ -561,7 +634,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         if (!(isPiston(blockOf(b)) && flag(b, extended) && facing6Of(b) == facing6Of(s))) set(p, 0);
         break;
     }
-    default: break;
+    default:
+        break;
     }
     --m_depth;
 }
@@ -584,7 +658,8 @@ void BlockUpdates::makeAbsolute(Chunk& c) {
     // Loaded from disk: delays count from now, in their saved order.
     if (!c.ticksRelative) return;
     auto& ticks = c.blockTicks();
-    std::sort(ticks.begin(), ticks.end(), [](const auto& a, const auto& b) { return a.order < b.order; });
+    std::sort(ticks.begin(), ticks.end(),
+              [](const auto& a, const auto& b) { return a.order < b.order; });
     for (auto& t : ticks) {
         t.time += m_now - 1; // it was loaded before this tick began
         t.order = m_order++;
@@ -605,8 +680,8 @@ void BlockUpdates::tick() {
         // Beyond the simulation distance scheduled ticks wait (vanilla ticks blocks and
         // fluids only in ticking chunks): a far spring stays a lone source until you
         // come near. Their delays start counting once the chunk is in range.
-        if (m_rtDistance >= 0 &&
-            (std::abs(c.pos().x - m_rtCentre.x) > m_rtDistance || std::abs(c.pos().z - m_rtCentre.z) > m_rtDistance))
+        if (m_rtDistance >= 0 && (std::abs(c.pos().x - m_rtCentre.x) > m_rtDistance ||
+                                  std::abs(c.pos().z - m_rtCentre.z) > m_rtDistance))
             return;
         makeAbsolute(c);
         if (c.takeDueTicks(m_now, [&](const Chunk::BlockTick& t) {
@@ -640,8 +715,10 @@ void BlockUpdates::tick() {
         const BlockStateId s = at(e.pos);
         if (!isPiston(blockOf(s))) continue;
         const bool should = pistonPowered(e.pos, facing6Of(s));
-        if (e.extend && should && !flag(s, extended)) extend(e.pos);
-        else if (!e.extend && !should && flag(s, extended)) retract(e.pos);
+        if (e.extend && should && !flag(s, extended))
+            extend(e.pos);
+        else if (!e.extend && !should && flag(s, extended))
+            retract(e.pos);
     }
     m_events.resize(kept);
     m_inTick = false;
@@ -678,8 +755,12 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         break;
     }
     case B::Water:
-    case B::Lava: tickFluid(p, s); break;
-    case B::Fire: tickFire(p, s); break;
+    case B::Lava:
+        tickFluid(p, s);
+        break;
+    case B::Fire:
+        tickFire(p, s);
+        break;
     case B::Sand:
     case B::RedSand:
     case B::Gravel:
@@ -694,7 +775,10 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: {
+    case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves: {
         const int d = leafDistance(p);
         if (d != R().get(s, distance) + 1) set(p, R().set(s, distance, d - 1)); // neighbours follow
         break;
@@ -706,7 +790,8 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::OakButton:
         if (flag(s, powered)) set(p, withFlag(s, powered, false));
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -733,9 +818,13 @@ BlockStateId BlockUpdates::wireShape(const BlockPos& p, BlockStateId s) const {
             side = R().opaqueCube(ns) ? kUp : kSide;
         if (side == kNone) {
             const BlockId nb = blockOf(ns);
-            const bool connects = nb == B::RedstoneWire ||
-                                  (nb == B::Repeater ? (hFacing(ns) == d || hFacing(ns) == opposite(d)) : signalSource(nb));
-            if (connects || (!conductor(ns) && blockOf(at(rel(n, Direction::Down))) == B::RedstoneWire)) side = kSide;
+            const bool connects =
+                nb == B::RedstoneWire ||
+                (nb == B::Repeater ? (hFacing(ns) == d || hFacing(ns) == opposite(d))
+                                   : signalSource(nb));
+            if (connects ||
+                (!conductor(ns) && blockOf(at(rel(n, Direction::Down))) == B::RedstoneWire))
+                side = kSide;
         }
         sides[i] = side;
         any = any || side != kNone;
@@ -749,7 +838,8 @@ BlockStateId BlockUpdates::wireShape(const BlockPos& p, BlockStateId s) const {
             sides[i] = dot ? kNone : kSide;
     } else {
         // Dust connected along one axis only runs straight through.
-        const bool ns = sides[0] != kNone || sides[2] != kNone, ew = sides[1] != kNone || sides[3] != kNone;
+        const bool ns = sides[0] != kNone || sides[2] != kNone,
+                   ew = sides[1] != kNone || sides[3] != kNone;
         if (ns && !ew) {
             if (sides[0] == kNone) sides[0] = kSide;
             if (sides[2] == kNone) sides[2] = kSide;
@@ -793,8 +883,10 @@ void BlockUpdates::updateWire(const BlockPos& p) {
     const BlockStateId next = R().set(wireShape(p, s), power, wireTarget(p));
     if (next == s) return;
     // Only a power change updates other components (wiki: Redstone Dust).
-    if (R().get(next, power) == R().get(s, power)) setRaw(p, next);
-    else set(p, next);
+    if (R().get(next, power) == R().get(s, power))
+        setRaw(p, next);
+    else
+        set(p, next);
 }
 
 // --- Torches, repeaters, pistons ----------------------------------------------------
@@ -914,7 +1006,8 @@ void BlockUpdates::retract(const BlockPos& p) {
     std::optional<BlockPos> pulled;
     if (blockOf(s) == B::StickyPiston) {
         const BlockPos far = rel(p, f, 2);
-        if (m_world.isInHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 && pushKind(at(far)) == Push::Move) {
+        if (m_world.isInHeight(far.y) && m_world.chunk(far.chunk()) && at(front) == 0 &&
+            pushKind(at(far)) == Push::Move) {
             setRaw(front, at(far));
             setRaw(far, 0);
             pulled = far;
@@ -937,7 +1030,9 @@ bool BlockUpdates::usable(BlockStateId s) {
 bool BlockUpdates::use(const BlockPos& p) {
     const BlockStateId s = at(p);
     switch (blockOf(s)) {
-    case B::Lever: set(p, withFlag(s, powered, !flag(s, powered))); return true;
+    case B::Lever:
+        set(p, withFlag(s, powered, !flag(s, powered)));
+        return true;
     case B::StoneButton:
     case B::OakButton:
         if (!flag(s, powered)) {
@@ -946,7 +1041,9 @@ bool BlockUpdates::use(const BlockPos& p) {
             schedule(p, blockOf(s), blockOf(s) == B::StoneButton ? 20 : 30, 0);
         }
         return true;
-    case B::Repeater: set(p, R().set(s, delay, (R().get(s, delay) + 1) % 4)); return true;
+    case B::Repeater:
+        set(p, R().set(s, delay, (R().get(s, delay) + 1) % 4));
+        return true;
     case B::RedstoneWire: {
         // Unconnected dust toggles between a cross and a dot (wiki: Redstone Dust).
         BlockStateId dotState = s;
@@ -960,30 +1057,38 @@ bool BlockUpdates::use(const BlockPos& p) {
         set(p, next);
         return true;
     }
-    default: return false;
+    default:
+        return false;
     }
 }
 
-std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockStateId state, const BlockPos& at,
-                                                Direction faceDir, float yaw, float pitch) {
+std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockStateId state,
+                                                    const BlockPos& at, Direction faceDir,
+                                                    float yaw, float pitch) {
     const auto& r = R();
     auto solid = [&](Direction d) { return supports(world.getBlock(rel(at, d))); };
     // The player's horizontal look direction (vanilla yaw: 0 south, 90 west).
     const float y = std::fmod(std::fmod(yaw, 360.0f) + 360.0f, 360.0f);
-    static constexpr Direction kLook[4] = {Direction::South, Direction::West, Direction::North, Direction::East};
+    static constexpr Direction kLook[4] = {Direction::South, Direction::West, Direction::North,
+                                           Direction::East};
     const Direction look = kLook[static_cast<int>(std::floor((y + 45.0f) / 90.0f)) % 4];
     switch (blockOf(state)) {
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: {
+    case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves: {
         // Placed leaves are persistent (never decay; wiki: Leaves), with their distance.
         BlockStateId s = r.set(state, persistent, 0);
         int best = 7;
         for (int d = 0; d < kDirectionCount; ++d) {
             const BlockStateId n = world.getBlock(rel(at, static_cast<Direction>(d)));
-            if (isLog(blockOf(n))) best = 1;
-            else if (isLeaves(blockOf(n))) best = std::min(best, r.get(n, distance) + 2);
+            if (isLog(blockOf(n)))
+                best = 1;
+            else if (isLeaves(blockOf(n)))
+                best = std::min(best, r.get(n, distance) + 2);
         }
         return r.set(s, distance, best - 1);
     }
@@ -991,6 +1096,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::BirchSapling:
     case B::SpruceSapling:
     case B::AcaciaSapling:
+    case B::JungleSapling:
+    case B::DarkOakSapling:
+    case B::CherrySapling:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
     case B::RedBed: {
@@ -1012,13 +1120,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case B::Anvil:
     case B::ChippedAnvil:
-    case B::DamagedAnvil: return withHFacing(state, look);
+    case B::DamagedAnvil:
+        return withHFacing(state, look);
     case B::Chest: {
         // The front faces the player; next to a single chest with the same facing
         // (on its left or right) it becomes the other half of a double chest.
         BlockStateId s = withHFacing(state, opposite(look));
         const Direction cw = chestClockwise(opposite(look));
-        for (const auto& [side, myType] : {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) { // right, left
+        for (const auto& [side, myType] :
+             {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) { // right, left
             const BlockStateId n = world.getBlock(rel(at, side));
             if (blockOf(n) == B::Chest && r.get(n, chestType) == 0 && hFacing(n) == opposite(look))
                 return r.set(s, chestType, myType);
@@ -1061,11 +1171,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         const glm::vec3 v = lookVector(yaw, pitch);
         const glm::vec3 a = glm::abs(v);
         Direction d = a.y >= a.x && a.y >= a.z ? (v.y > 0 ? Direction::Up : Direction::Down)
-                      : a.x >= a.z            ? (v.x > 0 ? Direction::East : Direction::West)
-                                              : (v.z > 0 ? Direction::South : Direction::North);
+                      : a.x >= a.z             ? (v.x > 0 ? Direction::East : Direction::West)
+                                               : (v.z > 0 ? Direction::South : Direction::North);
         return r.set(state, facing6, static_cast<int>(opposite(d)));
     }
-    default: return state;
+    default:
+        return state;
     }
 }
 

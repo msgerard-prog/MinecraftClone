@@ -46,9 +46,12 @@ bool ignitedByLava(BlockId b) {
     case B::Poppy:
     case B::Cornflower:
     case B::AzureBluet:
-    case B::OxeyeDaisy: return false;
-    case B::CraftingTable: return true;
-    default: return BlockUpdates::igniteOdds(b) > 0;
+    case B::OxeyeDaisy:
+        return false;
+    case B::CraftingTable:
+        return true;
+    default:
+        return BlockUpdates::igniteOdds(b) > 0;
     }
 }
 
@@ -62,14 +65,25 @@ int BlockUpdates::igniteOdds(BlockId b) {
     case B::BirchPlanks:
     case B::SprucePlanks:
     case B::AcaciaPlanks:
+    case B::JunglePlanks:
+    case B::DarkOakPlanks:
+    case B::CherryPlanks:
     case B::OakLog:
     case B::BirchLog:
     case B::SpruceLog:
-    case B::AcaciaLog: return 5;
+    case B::AcaciaLog:
+    case B::JungleLog:
+    case B::DarkOakLog:
+    case B::CherryLog:
+        return 5;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: return 30;
+    case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves:
+        return 30;
     case B::ShortGrass:
     case B::Fern:
     case B::Dandelion:
@@ -77,8 +91,10 @@ int BlockUpdates::igniteOdds(BlockId b) {
     case B::Cornflower:
     case B::AzureBluet:
     case B::OxeyeDaisy:
-    case B::DeadBush: return 60;
-    default: return b >= B::WhiteWool && b <= B::BlackWool ? 30 : 0; // wool: 30 / 60 like leaves (wiki)
+    case B::DeadBush:
+        return 60;
+    default:
+        return b >= B::WhiteWool && b <= B::BlackWool ? 30 : 0; // wool: 30 / 60 like leaves (wiki)
     }
 }
 
@@ -88,15 +104,27 @@ int BlockUpdates::burnOdds(BlockId b) {
     case B::OakPlanks:
     case B::BirchPlanks:
     case B::SprucePlanks:
-    case B::AcaciaPlanks: return 20;
+    case B::AcaciaPlanks:
+    case B::JunglePlanks:
+    case B::DarkOakPlanks:
+    case B::CherryPlanks:
+        return 20;
     case B::OakLog:
     case B::BirchLog:
     case B::SpruceLog:
-    case B::AcaciaLog: return 5;
+    case B::AcaciaLog:
+    case B::JungleLog:
+    case B::DarkOakLog:
+    case B::CherryLog:
+        return 5;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
-    case B::AcaciaLeaves: return 60;
+    case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves:
+        return 60;
     case B::ShortGrass:
     case B::Fern:
     case B::Dandelion:
@@ -104,8 +132,10 @@ int BlockUpdates::burnOdds(BlockId b) {
     case B::Cornflower:
     case B::AzureBluet:
     case B::OxeyeDaisy:
-    case B::DeadBush: return 100;
-    default: return b >= B::WhiteWool && b <= B::BlackWool ? 60 : 0;
+    case B::DeadBush:
+        return 100;
+    default:
+        return b >= B::WhiteWool && b <= B::BlackWool ? 60 : 0;
     }
 }
 
@@ -135,7 +165,9 @@ bool BlockUpdates::nearPlayer(const BlockPos& p) const {
     return dx * dx + dz * dz <= double(kFireRadius) * kFireRadius;
 }
 
-BlockStateId BlockUpdates::fireState(int fireAge) { return R().set(R().defaultState(B::Fire), age, std::min(fireAge, 15)); }
+BlockStateId BlockUpdates::fireState(int fireAge) {
+    return R().set(R().defaultState(B::Fire), age, std::min(fireAge, 15));
+}
 
 void BlockUpdates::placeFire(const BlockPos& p, int fireAge) {
     set(p, fireState(fireAge));
@@ -172,7 +204,7 @@ void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
     const BlockId below = blockOf(at(rel(p, Direction::Down)));
     int a = R().get(s, age);
     if (a < 15 && m_random.nextInt(3) == 0) { // ages 1 in 3 ticks (wiki)
-        m_world.setBlock(p, fireState(++a)); // the model ignores age: no re-mesh, no updates
+        m_world.setBlock(p, fireState(++a));  // the model ignores age: no re-mesh, no updates
         if (Chunk* c = chunkAt(p)) c->markDirty();
     }
     if (!infiniburn(m_world, below)) {
@@ -206,7 +238,8 @@ void BlockUpdates::tickFire(const BlockPos& p, BlockStateId s) {
                 if (!m_world.isInHeight(q.y) || at(q) != 0 || !chunkAt(q)) continue;
                 int best = 0;
                 for (int d = 0; d < kDirectionCount; ++d)
-                    best = std::max(best, igniteOdds(blockOf(at(rel(q, static_cast<Direction>(d))))));
+                    best =
+                        std::max(best, igniteOdds(blockOf(at(rel(q, static_cast<Direction>(d))))));
                 if (best == 0) continue;
                 const int base = dy > 1 ? 100 + (dy - 1) * 100 : 100;
                 const int degree = (best + 40 + 7 * kDifficulty) / (a + 30);
@@ -222,7 +255,8 @@ void BlockUpdates::lavaIgnites(const BlockPos& p) {
         // Rise 1 block per step, drifting up to 1 sideways; stop at anything solid.
         BlockPos q = p;
         for (int i = 0; i < steps; ++i) {
-            q = {q.x + static_cast<int>(m_random.nextInt(3)) - 1, q.y + 1, q.z + static_cast<int>(m_random.nextInt(3)) - 1};
+            q = {q.x + static_cast<int>(m_random.nextInt(3)) - 1, q.y + 1,
+                 q.z + static_cast<int>(m_random.nextInt(3)) - 1};
             if (!m_world.isInHeight(q.y) || !chunkAt(q)) return;
             const BlockStateId s = at(q);
             if (s == 0) {

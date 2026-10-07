@@ -51,7 +51,7 @@ Recipe shapeless(std::initializer_list<Ingredient> list, std::string_view result
 std::vector<Recipe> build() {
     std::vector<Recipe> r;
     // Wood (wiki: Planks, Stick, Crafting Table).
-    for (std::string_view wood : {"oak", "birch", "spruce", "acacia"})
+    for (std::string_view wood : {"oak", "birch", "spruce", "acacia", "jungle", "dark_oak", "cherry"})
         r.push_back(shapeless({item(std::string(wood) + "_log")}, std::string(wood) + "_planks", 4));
     r.push_back(shaped({"#", "#"}, {{'#', kPlanks}}, "stick", 4));
     r.push_back(shaped({"##", "##"}, {{'#', kPlanks}}, "crafting_table"));

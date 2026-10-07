@@ -153,7 +153,7 @@ private:
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
     bool grassSurvives(const BlockPos& p) const;
-    void tickGrass(const BlockPos& p);
+    void tickGrass(const BlockPos& p, BlockId kind); // grass or mycelium (same rules)
     int leafDistance(const BlockPos& p) const;
     void leavesChanged(const BlockPos& p, BlockStateId s);
     bool growTree(const BlockPos& p, BlockStateId sapling);

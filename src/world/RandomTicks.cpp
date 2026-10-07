@@ -19,7 +19,9 @@ namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
 BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
-BlockPos offset(const BlockPos& p, int dx, int dy, int dz) { return {p.x + dx, p.y + dy, p.z + dz}; }
+BlockPos offset(const BlockPos& p, int dx, int dy, int dz) {
+    return {p.x + dx, p.y + dy, p.z + dz};
+}
 BlockPos rel(const BlockPos& p, Direction d) {
     const glm::ivec3 v = normal(d);
     return {p.x + v.x, p.y + v.y, p.z + v.z};
@@ -31,37 +33,54 @@ struct TreeBlocks {
 };
 TreeBlocks treeOf(BlockId sapling) {
     switch (sapling) {
-    case B::BirchSapling: return {TreeKind::Birch, B::BirchLog, B::BirchLeaves};
-    case B::SpruceSapling: return {TreeKind::Spruce, B::SpruceLog, B::SpruceLeaves};
-    case B::AcaciaSapling: return {TreeKind::Acacia, B::AcaciaLog, B::AcaciaLeaves};
-    default: return {TreeKind::Oak, B::OakLog, B::OakLeaves};
+    case B::BirchSapling:
+        return {TreeKind::Birch, B::BirchLog, B::BirchLeaves};
+    case B::SpruceSapling:
+        return {TreeKind::Spruce, B::SpruceLog, B::SpruceLeaves};
+    case B::AcaciaSapling:
+        return {TreeKind::Acacia, B::AcaciaLog, B::AcaciaLeaves};
+    case B::JungleSapling:
+        return {TreeKind::Jungle, B::JungleLog, B::JungleLeaves};
+    case B::DarkOakSapling:
+        return {TreeKind::DarkOak, B::DarkOakLog, B::DarkOakLeaves};
+    case B::CherrySapling:
+        return {TreeKind::Cherry, B::CherryLog, B::CherryLeaves};
+    default:
+        return {TreeKind::Oak, B::OakLog, B::OakLeaves};
     }
 }
 
 bool isSapling(BlockId b) {
-    return b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling;
+    return b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling ||
+           b == B::AcaciaSapling || b == B::JungleSapling || b == B::DarkOakSapling ||
+           b == B::CherrySapling;
 }
 
 // Blocks a growing tree's logs may replace (vanilla: air, leaves, plants, saplings).
 bool treeReplaceable(BlockStateId s) {
     const BlockId b = blockOf(s);
-    return s == 0 || BlockUpdates::isLeaves(b) || BlockUpdates::isLog(b) || isSapling(b) || b == B::ShortGrass ||
-           b == B::Fern || b == B::Snow;
+    return s == 0 || BlockUpdates::isLeaves(b) || BlockUpdates::isLog(b) || isSapling(b) ||
+           b == B::ShortGrass || b == B::Fern || b == B::Snow;
 }
 
 } // namespace
 
 bool BlockUpdates::plantableSoil(BlockStateId s) {
     const BlockId b = blockOf(s);
-    return b == B::Dirt || b == B::GrassBlock || b == B::CoarseDirt; // (+ podzol, moss... when added)
+    // vanilla #dirt: dirt, grass, coarse dirt, podzol, mycelium (+ moss, rooted dirt, mud later)
+    return b == B::Dirt || b == B::GrassBlock || b == B::CoarseDirt || b == B::Podzol ||
+           b == B::Mycelium;
 }
 
 bool BlockUpdates::isLeaves(BlockId b) {
-    return b == B::OakLeaves || b == B::BirchLeaves || b == B::SpruceLeaves || b == B::AcaciaLeaves;
+    return b == B::OakLeaves || b == B::BirchLeaves || b == B::SpruceLeaves ||
+           b == B::AcaciaLeaves || b == B::JungleLeaves || b == B::DarkOakLeaves ||
+           b == B::CherryLeaves;
 }
 
 bool BlockUpdates::isLog(BlockId b) {
-    return b == B::OakLog || b == B::BirchLog || b == B::SpruceLog || b == B::AcaciaLog;
+    return b == B::OakLog || b == B::BirchLog || b == B::SpruceLog || b == B::AcaciaLog ||
+           b == B::JungleLog || b == B::DarkOakLog || b == B::CherryLog;
 }
 
 int BlockUpdates::blockLightAt(const BlockPos& p) const {
@@ -119,11 +138,17 @@ void BlockUpdates::runRandomTicks() {
 void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     const BlockId b = blockOf(s);
     switch (b) {
-    case B::GrassBlock: tickGrass(p); break;
+    case B::GrassBlock:
+    case B::Mycelium:
+        tickGrass(p, b);
+        break;
     case B::OakLeaves:
     case B::BirchLeaves:
     case B::SpruceLeaves:
     case B::AcaciaLeaves:
+    case B::JungleLeaves:
+    case B::DarkOakLeaves:
+    case B::CherryLeaves:
         // Leaves without a log within 6 blocks decay, dropping their loot (wiki: Leaves).
         // Only states with distance 7, not persistent, random-tick at all.
         m_drops.push_back({p, {}, s});
@@ -137,20 +162,28 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
         // Ice melts when the block light next to it is above 11 (wiki: Ice): ice lets
         // light through with 1 lost, so above 10 at the ice. Into water, or nothing in
         // the Nether.
-        if (blockLightAt(p) > 10) set(p, m_world.isUltrawarm() ? BlockStateId{0} : R().defaultState(B::Water));
+        if (blockLightAt(p) > 10)
+            set(p, m_world.isUltrawarm() ? BlockStateId{0} : R().defaultState(B::Water));
         break;
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
     case B::AcaciaSapling:
+    case B::JungleSapling:
+    case B::DarkOakSapling:
+    case B::CherrySapling:
         // Light 9+ above, then a 1 in 7 chance to advance: stage 0 -> 1 -> a tree
         // (wiki: Sapling).
         if (rawBrightness(rel(p, Direction::Up)) >= 9 && m_random.nextInt(7) == 0) {
-            if (R().get(s, stage) == 0) setRaw(p, R().set(s, stage, 1)); // (no updates, vanilla)
-            else growTree(p, s);
+            if (R().get(s, stage) == 0)
+                setRaw(p, R().set(s, stage, 1)); // (no updates, vanilla)
+            else
+                growTree(p, s);
         }
         break;
-    case B::Farmland: tickFarmland(p, s); break;
+    case B::Farmland:
+        tickFarmland(p, s);
+        break;
     case B::Cactus: {
         // As sugar cane: age +1 a random tick, a new piece on top at 15, 3 tall at most;
         // a piece that can't stand there breaks at once (wiki: Cactus).
@@ -191,7 +224,8 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
             if (m_world.isInHeight(to.y) && at(to) == 0 && mushroomCanStay(m_world, to)) from = to;
             to = step(from);
         }
-        if (m_world.isInHeight(to.y) && at(to) == 0 && mushroomCanStay(m_world, to)) set(to, R().defaultState(kind));
+        if (m_world.isInHeight(to.y) && at(to) == 0 && mushroomCanStay(m_world, to))
+            set(to, R().defaultState(kind));
         break;
     }
     case B::SugarCane: {
@@ -214,11 +248,14 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::Wheat:
     case B::Carrots:
     case B::Potatoes:
-    case B::Beetroots: tickCrop(p, s); break;
+    case B::Beetroots:
+        tickCrop(p, s);
+        break;
     case B::Lava:
         lavaIgnites(p); // sources and flowing lava alike
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -234,7 +271,8 @@ bool BlockUpdates::grassSurvives(const BlockPos& p) const {
     return R().lightOpacity(above) < 15;
 }
 
-void BlockUpdates::tickGrass(const BlockPos& p) {
+void BlockUpdates::tickGrass(const BlockPos& p, BlockId kind) {
+    // Mycelium spreads and dies exactly like grass (wiki: Mycelium › Spreading).
     if (!grassSurvives(p)) {
         set(p, R().defaultState(B::Dirt));
         return;
@@ -247,9 +285,10 @@ void BlockUpdates::tickGrass(const BlockPos& p) {
                                   int(m_random.nextInt(3)) - 1);
         if (blockOf(at(q)) != B::Dirt || !grassSurvives(q)) continue;
         const BlockId above = blockOf(at(rel(q, Direction::Up)));
-        if (above == B::Water || above == B::Lava) continue; // (the target's own light doesn't matter)
+        if (above == B::Water || above == B::Lava)
+            continue; // (the target's own light doesn't matter)
         const bool snowAbove = above == B::Snow;
-        set(q, R().set(R().defaultState(B::GrassBlock), properties::snowy, snowAbove ? 0 : 1));
+        set(q, R().set(R().defaultState(kind), properties::snowy, snowAbove ? 0 : 1));
     }
 }
 
@@ -261,7 +300,8 @@ int BlockUpdates::leafDistance(const BlockPos& p) const {
     int best = 7;
     for (int d = 0; d < kDirectionCount; ++d) {
         const BlockPos q = rel(p, static_cast<Direction>(d));
-        if (m_world.isInHeight(q.y) && !chunkAt(q)) return R().get(at(p), distance) + 1; // unknown: keep
+        if (m_world.isInHeight(q.y) && !chunkAt(q))
+            return R().get(at(p), distance) + 1; // unknown: keep
         const BlockStateId n = at(q);
         const BlockId b = blockOf(n);
         if (isLog(b)) return 1;
@@ -278,21 +318,42 @@ void BlockUpdates::leavesChanged(const BlockPos& p, BlockStateId s) {
 
 // --- Saplings ----------------------------------------------------------------------
 
-bool BlockUpdates::growTree(const BlockPos& p, BlockStateId sapling) {
-    const TreeBlocks t = treeOf(blockOf(sapling));
+bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
+    TreeBlocks t = treeOf(blockOf(sapling));
+    // Jungle and dark oak saplings in a 2x2 square grow one big tree from its corner;
+    // a lone dark oak sapling never grows (wiki: Sapling › Growth).
+    BlockPos p = sapPos;
+    bool square = false;
+    if (t.kind == TreeKind::Jungle || t.kind == TreeKind::DarkOak) {
+        const BlockId kind = blockOf(sapling);
+        for (const auto& c : {std::array{0, 0}, std::array{-1, 0}, std::array{0, -1}, std::array{-1, -1}}) {
+            const BlockPos corner{sapPos.x + c[0], sapPos.y, sapPos.z + c[1]};
+            bool all = true;
+            for (int k = 0; k < 4 && all; ++k)
+                all = blockOf(at({corner.x + (k & 1), corner.y, corner.z + (k >> 1)})) == kind;
+            if (all) {
+                p = corner;
+                square = true;
+                break;
+            }
+        }
+        if (t.kind == TreeKind::Jungle && square) t.kind = TreeKind::MegaJungle;
+        if (t.kind == TreeKind::DarkOak && !square) return false;
+    }
     const int height = treeHeight(t.kind, m_random);
     const uint64_t shapeSeed = m_random.nextLong();
-    // Room to grow: every log position must be free (air, leaves, plants) and inside
-    // the world (wiki: Sapling - otherwise it stays a sapling and tries again later).
-    bool fits = p.y + height <= m_world.height().maxY();
+    // Room to grow: every log position must be free (air, leaves, plants, its own
+    // saplings) and the tree inside the world (wiki: Sapling - otherwise it stays a
+    // sapling and tries again later).
+    bool fits = p.y + height + 2 <= m_world.height().maxY();
     Xoroshiro check(shapeSeed);
     treeShape(t.kind, p.x, p.y, p.z, height, check, [&](int32_t x, int32_t y, int32_t z, int dist) {
-        if (dist == 0 && fits && !((x == p.x && y == p.y && z == p.z) || treeReplaceable(at({x, y, z}))))
-            fits = false;
+        if (dist == 0 && fits && !treeReplaceable(at({x, y, z}))) fits = false;
     });
     if (!fits) return false;
-    setRaw(p, 0);
-    const BlockStateId log = R().defaultState(t.log); // axis y
+    for (int k = 0; k < (square ? 4 : 1); ++k)
+        setRaw({p.x + (k & 1), p.y, p.z + (k >> 1)}, 0);
+    const BlockStateId log = R().defaultState(t.log);                             // axis y
     const BlockStateId leaf = R().set(R().defaultState(t.leaves), persistent, 1); // not persistent
     Xoroshiro shape(shapeSeed);
     treeShape(t.kind, p.x, p.y, p.z, height, shape, [&](int32_t x, int32_t y, int32_t z, int dist) {
@@ -305,8 +366,10 @@ bool BlockUpdates::growTree(const BlockPos& p, BlockStateId sapling) {
         }
     });
     // The ground under the trunk becomes dirt (vanilla).
-    const BlockPos ground = rel(p, Direction::Down);
-    if (blockOf(at(ground)) == B::GrassBlock) set(ground, R().defaultState(B::Dirt));
+    for (int k = 0; k < (square ? 4 : 1); ++k) {
+        const BlockPos ground{p.x + (k & 1), p.y - 1, p.z + (k >> 1)};
+        if (blockOf(at(ground)) == B::GrassBlock) set(ground, R().defaultState(B::Dirt));
+    }
     return true;
 }
 

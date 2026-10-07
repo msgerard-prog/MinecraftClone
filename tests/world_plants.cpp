@@ -98,3 +98,83 @@ TEST_CASE("pumpkins need an axe to mine fast but drop by hand") {
     CHECK(R().block(blocks::Pumpkin).settings.hardness == doctest::Approx(1.0f));
     CHECK(R().opaqueCube(S(blocks::Pumpkin)));
 }
+
+namespace {
+
+// Bone meal until the sapling at `p` is gone (grown) or `tries` run out.
+bool growWithBoneMeal(Scene& s, BlockPos p, int tries = 200) {
+    const BlockId sapling = s.block(p);
+    for (int i = 0; i < tries && s.block(p) == sapling; ++i)
+        s.updates.boneMeal(p);
+    return s.block(p) != sapling;
+}
+
+int countAround(const Scene& s, BlockPos p, BlockId b, int r, int h) {
+    int n = 0;
+    for (int y = p.y; y <= p.y + h; ++y)
+        for (int z = p.z - r; z <= p.z + r; ++z)
+            for (int x = p.x - r; x <= p.x + r; ++x)
+                n += s.block({x, y, z}) == b;
+    return n;
+}
+
+} // namespace
+
+TEST_CASE("woods: jungle, dark oak and cherry register like the others; huge mushroom faces default to cap") {
+    CHECK(R().block(blocks::JungleLog).id == "minecraft:jungle_log");
+    CHECK(R().block(blocks::CherrySapling).id == "minecraft:cherry_sapling");
+    CHECK(R().block(blocks::BrownMushroomBlock).stateCount == 64);
+    CHECK(R().toString(S(blocks::RedMushroomBlock)) ==
+          "minecraft:red_mushroom_block[down=true,east=true,north=true,south=true,up=true,west=true]");
+    CHECK(R().toString(S(blocks::Podzol)) == "minecraft:podzol[snowy=false]");
+}
+
+TEST_CASE("saplings: a jungle sapling grows a small tree, four in a square a 2x2 giant; dark oak needs four") {
+    Scene s(blocks::Dirt, 15);
+    s.put({4, 64, 4}, S(blocks::JungleSapling));
+    REQUIRE(growWithBoneMeal(s, {4, 64, 4}));
+    CHECK(s.block({4, 64, 4}) == blocks::JungleLog);
+    CHECK(s.block({5, 64, 4}) != blocks::JungleLog); // one trunk
+    CHECK(countAround(s, {4, 64, 4}, blocks::JungleLeaves, 3, 16) > 10);
+
+    s.put({8, 64, 8}, S(blocks::DarkOakSapling));
+    CHECK_FALSE(growWithBoneMeal(s, {8, 64, 8}, 60)); // alone: never grows
+    s.put({9, 64, 8}, S(blocks::DarkOakSapling));
+    s.put({8, 64, 9}, S(blocks::DarkOakSapling));
+    s.put({9, 64, 9}, S(blocks::DarkOakSapling));
+    REQUIRE(growWithBoneMeal(s, {9, 64, 9}));
+    for (const auto& c : {BlockPos{8, 64, 8}, BlockPos{9, 64, 8}, BlockPos{8, 64, 9}, BlockPos{9, 64, 9}})
+        CHECK(s.block(c) == blocks::DarkOakLog); // 2x2 trunk
+    CHECK(countAround(s, {8, 64, 8}, blocks::DarkOakLeaves, 5, 12) > 30);
+
+    Scene j(blocks::Dirt, 15);
+    for (const auto& c : {BlockPos{4, 64, 4}, BlockPos{5, 64, 4}, BlockPos{4, 64, 5}, BlockPos{5, 64, 5}})
+        j.put(c, S(blocks::JungleSapling));
+    REQUIRE(growWithBoneMeal(j, {4, 64, 5}));
+    CHECK(j.block({5, 73, 5}) == blocks::JungleLog); // at least 10 tall, 2x2
+    CHECK(j.block({4, 73, 4}) == blocks::JungleLog);
+}
+
+TEST_CASE("grown leaves are within 6 of a log (they never decay); cherry leaves too") {
+    Scene s(blocks::GrassBlock, 15);
+    s.put({8, 64, 8}, S(blocks::CherrySapling));
+    REQUIRE(growWithBoneMeal(s, {8, 64, 8}));
+    int leaves = 0;
+    for (int y = 64; y < 80; ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const BlockStateId st = s.world.getBlock({x, y, z});
+                if (R().blockOf(st) != blocks::CherryLeaves) continue;
+                ++leaves;
+                CHECK(R().get(st, properties::distance) + 1 <= 6);
+            }
+    CHECK(leaves > 20);
+}
+
+TEST_CASE("mycelium spreads to dirt like grass; podzol and mycelium drop dirt") {
+    Scene s(blocks::Dirt, 15);
+    s.put({8, 63, 8}, S(blocks::Mycelium));
+    s.tick(20000);
+    CHECK(countAround(s, {8, 63, 8}, blocks::Mycelium, 2, 0) > 3);
+    CHECK(BlockUpdates::plantableSoil(S(blocks::Podzol)));
+}

@@ -1,6 +1,8 @@
 #include "world/Blocks.h"
 
 #include <cassert>
+#include <string>
+#include <tuple>
 
 namespace mc::world {
 
@@ -39,6 +41,7 @@ const Property fireNorth{"north", {"true", "false"}};
 const Property fireEast{"east", {"true", "false"}};
 const Property fireSouth{"south", {"true", "false"}};
 const Property fireWest{"west", {"true", "false"}};
+const Property faceDown{"down", {"true", "false"}};
 const Property moisture{"moisture", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age7{"age", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property age3{"age", {"0", "1", "2", "3"}};
@@ -331,13 +334,35 @@ BlockRegistry buildVanillaBlocks() {
     brownMushroom.lightEmission = 1;
     check(r.add("brown_mushroom", brownMushroom), blocks::BrownMushroom);
     check(r.add("red_mushroom", mushroom), blocks::RedMushroom);
+    // M18.2 woods (wiki: Log 2.0, Planks 2.0 / 3.0, Leaves 0.2) and biome blocks
+    // (Podzol 0.5, Mycelium 0.6 - spreads like grass, Mushroom Block 0.2).
+    for (const auto& [wood, log, planks, leaves, saplingId] :
+         {std::tuple{"jungle", blocks::JungleLog, blocks::JunglePlanks, blocks::JungleLeaves, blocks::JungleSapling},
+          std::tuple{"dark_oak", blocks::DarkOakLog, blocks::DarkOakPlanks, blocks::DarkOakLeaves, blocks::DarkOakSapling},
+          std::tuple{"cherry", blocks::CherryLog, blocks::CherryPlanks, blocks::CherryLeaves, blocks::CherrySapling}}) {
+        const std::string w(wood);
+        check(r.add(w + "_log", {.hardness = 2.0f, .resistance = 2.0f}, {{&axis, "y"}}), log);
+        check(r.add(w + "_planks", {.hardness = 2.0f, .resistance = 3.0f}), planks);
+        check(r.add(w + "_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), leaves);
+        check(r.add(w + "_sapling", sapling, {{&stage, "0"}}), saplingId);
+    }
+    check(r.add("podzol", {.hardness = 0.5f, .resistance = 0.5f}, {{&snowy, "false"}}), blocks::Podzol);
+    check(r.add("mycelium", {.hardness = 0.6f, .resistance = 0.6f, .randomTicks = true}, {{&snowy, "false"}}),
+          blocks::Mycelium);
+    const std::initializer_list<PropertyDefault> capFaces = {{&faceDown, "true"},  {&fireEast, "true"},
+                                                             {&fireNorth, "true"}, {&fireSouth, "true"},
+                                                             {&fireUp, "true"},    {&fireWest, "true"}};
+    check(r.add("brown_mushroom_block", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::BrownMushroomBlock);
+    check(r.add("red_mushroom_block", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::RedMushroomBlock);
+    check(r.add("mushroom_stem", {.hardness = 0.2f, .resistance = 0.2f}, capFaces), blocks::MushroomStem);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).
     for (BlockId b : {blocks::GrassBlock, blocks::Snow, blocks::Ice, blocks::Lava})
         for (uint32_t i = 0; i < r.block(b).stateCount; ++i)
             r.setStateRandomTicks(static_cast<BlockStateId>(r.block(b).firstState + i), true);
-    for (BlockId b : {blocks::OakLeaves, blocks::BirchLeaves, blocks::SpruceLeaves, blocks::AcaciaLeaves})
+    for (BlockId b : {blocks::OakLeaves, blocks::BirchLeaves, blocks::SpruceLeaves, blocks::AcaciaLeaves,
+                      blocks::JungleLeaves, blocks::DarkOakLeaves, blocks::CherryLeaves})
         for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
             r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);

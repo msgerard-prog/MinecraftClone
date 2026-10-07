@@ -33,6 +33,7 @@ extern const Property eye;   // true | false (end portal frame)
 extern const Property stage; // 0..1 (saplings)
 extern const Property age;   // 0..15 (fire)
 extern const Property fireUp, fireNorth, fireEast, fireSouth, fireWest; // "up"...: true | false
+extern const Property faceDown; // "down": true | false (with the fire ones: huge mushroom faces)
 // Farming (M17.1).
 extern const Property moisture; // 0..7 (farmland)
 extern const Property age7;     // "age": 0..7 (wheat, carrots, potatoes)
@@ -182,6 +183,24 @@ enum : BlockId {
     Pumpkin,
     BrownMushroom,
     RedMushroom,
+    // M18.2 woods and biome blocks.
+    JungleLog, // axis
+    JunglePlanks,
+    JungleLeaves, // distance, persistent
+    JungleSapling, // stage
+    DarkOakLog,
+    DarkOakPlanks,
+    DarkOakLeaves,
+    DarkOakSapling,
+    CherryLog,
+    CherryPlanks,
+    CherryLeaves,
+    CherrySapling,
+    Podzol,   // snowy
+    Mycelium, // snowy
+    BrownMushroomBlock, // down, east, north, south, up, west (cap faces)
+    RedMushroomBlock,
+    MushroomStem,
     Count
 };
 } // namespace blocks

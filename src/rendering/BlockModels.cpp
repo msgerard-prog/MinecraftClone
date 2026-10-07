@@ -220,7 +220,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
-                "brown_mushroom", "red_mushroom"};
+                "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling"};
             if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
                 // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
@@ -233,6 +233,22 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 BakedVariant v = cubeAll(sprite("bookshelf"));
                 v.faces[int(Direction::Up)].sprite = sprite("oak_planks");
                 v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
+                m = single(v);
+            } else if (name == "podzol" || name == "mycelium") { // side, own top, dirt bottom
+                BakedVariant v = cubeAll(sprite((name + "_side").c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
+                v.faces[int(Direction::Down)].sprite = sprite("dirt");
+                m = single(v);
+            } else if (name.ends_with("mushroom_block") || name == "mushroom_stem") {
+                // Each face shows the cap (or stem) where its property is true, the pale
+                // inside where false (vanilla multipart).
+                BakedVariant v = cubeAll(sprite(name.c_str()));
+                static constexpr std::pair<Direction, const char*> kFaces[] = {
+                    {Direction::Down, "down"},   {Direction::Up, "up"},     {Direction::North, "north"},
+                    {Direction::South, "south"}, {Direction::West, "west"}, {Direction::East, "east"}};
+                for (const auto& [d, prop] : kFaces)
+                    if (registry.value(state, prop).value_or("true") == "false")
+                        v.faces[int(d)].sprite = sprite("mushroom_block_inside");
                 m = single(v);
             } else if (name == "pumpkin") { // vanilla: cube_column, the stem end on top and bottom
                 m = single(cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y"));
@@ -353,11 +369,12 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                                       registry.value(state, "axis").value_or("y")));
             } else if (ends("_leaves")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
-                for (auto& f : v.faces)
-                    f.tint = Tint::Foliage;
+                for (auto& f : v.faces) // cherry leaves are pink in their texture: no biome tint
+                    f.tint = name == "cherry_leaves" ? Tint::None : Tint::Foliage;
                 m = single(v); // all faces drawn (fancy leaves): no cullSame
                 if (name == "birch_leaves") m.fixedTintSlot = world::kBirchFoliageSlot;
                 if (name == "spruce_leaves") m.fixedTintSlot = world::kSpruceFoliageSlot;
+
             } else if (ends("sandstone")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());

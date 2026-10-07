@@ -39,14 +39,16 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DamagedAnvil:
     case blocks::EnchantingTable:
     case blocks::CoalOre:
-    case blocks::DeepslateCoalOre: return {T::Pickaxe, 0};
+    case blocks::DeepslateCoalOre:
+        return {T::Pickaxe, 0};
     case blocks::IronBlock: // wiki: Block of Iron - stone pickaxe or better
     case blocks::IronOre:
     case blocks::DeepslateIronOre:
     case blocks::CopperOre:
     case blocks::DeepslateCopperOre:
     case blocks::LapisOre:
-    case blocks::DeepslateLapisOre: return {T::Pickaxe, 1};
+    case blocks::DeepslateLapisOre:
+        return {T::Pickaxe, 1};
     case blocks::GoldOre:
     case blocks::DeepslateGoldOre:
     case blocks::RedstoneOre:
@@ -54,46 +56,69 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DiamondOre:
     case blocks::DeepslateDiamondOre:
     case blocks::EmeraldOre:
-    case blocks::DeepslateEmeraldOre: return {T::Pickaxe, 2};
-    case blocks::Obsidian: return {T::Pickaxe, 3}; // wiki: Obsidian - diamond pickaxe
+    case blocks::DeepslateEmeraldOre:
+        return {T::Pickaxe, 2};
+    case blocks::Obsidian:
+        return {T::Pickaxe, 3}; // wiki: Obsidian - diamond pickaxe
     case blocks::Ice:
     case blocks::PackedIce:
     case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
     case blocks::StickyPiston:
     case blocks::PistonHead:
-    case blocks::StoneButton: return {T::Pickaxe, -1};
-    case blocks::OakButton: return {T::Axe, -1};
+    case blocks::StoneButton:
+        return {T::Pickaxe, -1};
+    case blocks::OakButton:
+        return {T::Axe, -1};
     // Shovel (faster, not required).
     case blocks::Dirt:
+    case blocks::Podzol:
+    case blocks::Mycelium:
     case blocks::GrassBlock:
     case blocks::Sand:
     case blocks::RedSand:
     case blocks::Gravel:
     case blocks::Clay:
     case blocks::SoulSand:
-    case blocks::CoarseDirt: return {T::Shovel, -1};
+    case blocks::CoarseDirt:
+        return {T::Shovel, -1};
     case blocks::SnowBlock:
-    case blocks::Snow: return {T::Shovel, 0}; // wiki: Snow Block - needs a shovel to drop
+    case blocks::Snow:
+        return {T::Shovel, 0}; // wiki: Snow Block - needs a shovel to drop
     // Axe.
     case blocks::OakLog:
     case blocks::BirchLog:
     case blocks::SpruceLog:
     case blocks::AcaciaLog:
+    case blocks::JungleLog:
+    case blocks::DarkOakLog:
+    case blocks::CherryLog:
     case blocks::OakPlanks:
     case blocks::BirchPlanks:
     case blocks::SprucePlanks:
     case blocks::AcaciaPlanks:
+    case blocks::JunglePlanks:
+    case blocks::DarkOakPlanks:
+    case blocks::CherryPlanks:
     case blocks::CraftingTable:
     case blocks::Chest:
     case blocks::Bookshelf:
     case blocks::Pumpkin:
-    case blocks::RedBed: return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
+    case blocks::BrownMushroomBlock:
+    case blocks::RedMushroomBlock:
+    case blocks::MushroomStem:
+    case blocks::RedBed:
+        return {T::Axe, -1}; // (wiki: axe is faster; no tool needed)
     // Hoe (leaves).
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
-    case blocks::AcaciaLeaves: return {T::Hoe, -1};
-    default: return {};
+    case blocks::AcaciaLeaves:
+    case blocks::JungleLeaves:
+    case blocks::DarkOakLeaves:
+    case blocks::CherryLeaves:
+        return {T::Hoe, -1};
+    default:
+        return {};
     }
 }
 
@@ -107,8 +132,8 @@ bool canHarvest(BlockStateId state, const ItemStack& held) {
 int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater) {
     const auto& reg = blockRegistry();
     const float hardness = reg.block(reg.blockOf(state)).settings.hardness;
-    if (hardness < 0.0f) return -1;  // unbreakable
-    if (hardness == 0.0f) return 0;  // instant (plants, torches)
+    if (hardness < 0.0f) return -1; // unbreakable
+    if (hardness == 0.0f) return 0; // instant (plants, torches)
     const HarvestInfo h = harvestInfo(reg.blockOf(state));
     const bool harvest = canHarvest(state, held);
     float speed = 1.0f;
@@ -121,8 +146,8 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     // Swords cut leaves and plants 1.5x faster (wiki: Sword).
     if (!held.empty() && item.tool == ToolType::Sword) {
         const std::string_view id = reg.block(reg.blockOf(state)).id;
-        if (id.ends_with("_leaves") || reg.blockOf(state) == blocks::ShortGrass || reg.blockOf(state) == blocks::Fern ||
-            reg.blockOf(state) == blocks::DeadBush)
+        if (id.ends_with("_leaves") || reg.blockOf(state) == blocks::ShortGrass ||
+            reg.blockOf(state) == blocks::Fern || reg.blockOf(state) == blocks::DeadBush)
             speed = std::max(speed, 1.5f);
     }
     if (eyesInWater) speed /= 5.0f;
@@ -137,12 +162,15 @@ namespace {
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
     ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato, poisonous, beetroot, beetrootSeeds, oakSapling, birchSapling, spruceSapling, acaciaSapling;
+        flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato, poisonous,
+        beetroot, beetrootSeeds;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
-        rawIron = *i.find("raw_iron"), rawGold = *i.find("raw_gold"), rawCopper = *i.find("raw_copper");
-        redstone = *i.find("redstone"), lapis = *i.find("lapis_lazuli"), diamond = *i.find("diamond");
+        rawIron = *i.find("raw_iron"), rawGold = *i.find("raw_gold"),
+        rawCopper = *i.find("raw_copper");
+        redstone = *i.find("redstone"), lapis = *i.find("lapis_lazuli"),
+        diamond = *i.find("diamond");
         emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
         clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
         quartz = *i.find("quartz");
@@ -150,8 +178,6 @@ struct DropIds {
         wheat = *i.find("wheat"), carrot = *i.find("carrot"), potato = *i.find("potato");
         poisonous = *i.find("poisonous_potato"), beetroot = *i.find("beetroot");
         beetrootSeeds = *i.find("beetroot_seeds");
-        oakSapling = *i.find("oak_sapling"), birchSapling = *i.find("birch_sapling");
-        spruceSapling = *i.find("spruce_sapling"), acaciaSapling = *i.find("acacia_sapling");
     }
 };
 const DropIds& dropIds() {
@@ -176,44 +202,87 @@ ItemStack wearItem(ItemStack s, int amount, Xoroshiro& rng) {
 }
 
 int blockExperience(BlockStateId state, Xoroshiro& rng) {
-    auto between = [&](int lo, int hi) { return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1))); };
+    auto between = [&](int lo, int hi) {
+        return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
+    };
     switch (blockRegistry().blockOf(state)) {
     case blocks::CoalOre:
-    case blocks::DeepslateCoalOre: return between(0, 2);
+    case blocks::DeepslateCoalOre:
+        return between(0, 2);
     case blocks::DiamondOre:
     case blocks::DeepslateDiamondOre:
     case blocks::EmeraldOre:
-    case blocks::DeepslateEmeraldOre: return between(3, 7);
+    case blocks::DeepslateEmeraldOre:
+        return between(3, 7);
     case blocks::LapisOre:
     case blocks::DeepslateLapisOre:
-    case blocks::NetherQuartzOre: return between(2, 5);
+    case blocks::NetherQuartzOre:
+        return between(2, 5);
     case blocks::RedstoneOre:
-    case blocks::DeepslateRedstoneOre: return between(1, 5);
-    case blocks::NetherGoldOre: return between(0, 1);
-    default: return 0;
+    case blocks::DeepslateRedstoneOre:
+        return between(1, 5);
+    case blocks::NetherGoldOre:
+        return between(0, 1);
+    default:
+        return 0;
     }
 }
 
-void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::vector<ItemStack>& out, bool anyTool) {
+void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
+                std::vector<ItemStack>& out, bool anyTool) {
     if (!anyTool && !canHarvest(state, held)) return;
     // Silk Touch: the block itself, for blocks that otherwise drop something else
     // (wiki: Silk Touch).
     if (enchantLevel(held, Enchantment::SilkTouch) > 0) {
         switch (blockRegistry().blockOf(state)) {
-        case blocks::Stone: case blocks::GrassBlock: case blocks::Glass: case blocks::Ice: case blocks::PackedIce:
-        case blocks::CoalOre: case blocks::DeepslateCoalOre: case blocks::DiamondOre: case blocks::DeepslateDiamondOre:
-        case blocks::EmeraldOre: case blocks::DeepslateEmeraldOre: case blocks::LapisOre: case blocks::DeepslateLapisOre:
-        case blocks::RedstoneOre: case blocks::DeepslateRedstoneOre: case blocks::IronOre: case blocks::DeepslateIronOre:
-        case blocks::GoldOre: case blocks::DeepslateGoldOre: case blocks::CopperOre: case blocks::DeepslateCopperOre:
-        case blocks::NetherQuartzOre: case blocks::NetherGoldOre: case blocks::Gravel: case blocks::Clay:
-        case blocks::OakLeaves: case blocks::BirchLeaves: case blocks::SpruceLeaves: case blocks::AcaciaLeaves:
-        case blocks::Deepslate: case blocks::Snow: case blocks::ShortGrass: case blocks::Fern:
+        case blocks::Stone:
+        case blocks::GrassBlock:
+        case blocks::Podzol:
+        case blocks::Mycelium:
+        case blocks::BrownMushroomBlock:
+        case blocks::RedMushroomBlock:
+        case blocks::MushroomStem:
+        case blocks::Glass:
+        case blocks::Ice:
+        case blocks::PackedIce:
+        case blocks::CoalOre:
+        case blocks::DeepslateCoalOre:
+        case blocks::DiamondOre:
+        case blocks::DeepslateDiamondOre:
+        case blocks::EmeraldOre:
+        case blocks::DeepslateEmeraldOre:
+        case blocks::LapisOre:
+        case blocks::DeepslateLapisOre:
+        case blocks::RedstoneOre:
+        case blocks::DeepslateRedstoneOre:
+        case blocks::IronOre:
+        case blocks::DeepslateIronOre:
+        case blocks::GoldOre:
+        case blocks::DeepslateGoldOre:
+        case blocks::CopperOre:
+        case blocks::DeepslateCopperOre:
+        case blocks::NetherQuartzOre:
+        case blocks::NetherGoldOre:
+        case blocks::Gravel:
+        case blocks::Clay:
+        case blocks::OakLeaves:
+        case blocks::BirchLeaves:
+        case blocks::SpruceLeaves:
+        case blocks::AcaciaLeaves:
+        case blocks::JungleLeaves:
+        case blocks::DarkOakLeaves:
+        case blocks::CherryLeaves:
+        case blocks::Deepslate:
+        case blocks::Snow:
+        case blocks::ShortGrass:
+        case blocks::Fern:
             if (const ItemId it = itemRegistry().blockItem(blockRegistry().blockOf(state))) {
                 out.push_back({it, 1});
                 return;
             }
             break;
-        default: break;
+        default:
+            break;
         }
     }
     const size_t before = out.size();
@@ -221,11 +290,21 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
     // Fortune: ore drops x (1 + max(0, rand(level + 2) - 1)) (wiki: Fortune).
     if (const int fortune = enchantLevel(held, Enchantment::Fortune); fortune > 0) {
         switch (blockRegistry().blockOf(state)) {
-        case blocks::CoalOre: case blocks::DeepslateCoalOre: case blocks::DiamondOre: case blocks::DeepslateDiamondOre:
-        case blocks::EmeraldOre: case blocks::DeepslateEmeraldOre: case blocks::LapisOre: case blocks::DeepslateLapisOre:
+        case blocks::CoalOre:
+        case blocks::DeepslateCoalOre:
+        case blocks::DiamondOre:
+        case blocks::DeepslateDiamondOre:
+        case blocks::EmeraldOre:
+        case blocks::DeepslateEmeraldOre:
+        case blocks::LapisOre:
+        case blocks::DeepslateLapisOre:
         case blocks::NetherQuartzOre:
-        case blocks::IronOre: case blocks::DeepslateIronOre: case blocks::GoldOre: case blocks::DeepslateGoldOre:
-        case blocks::CopperOre: case blocks::DeepslateCopperOre: {
+        case blocks::IronOre:
+        case blocks::DeepslateIronOre:
+        case blocks::GoldOre:
+        case blocks::DeepslateGoldOre:
+        case blocks::CopperOre:
+        case blocks::DeepslateCopperOre: {
             const int mult = 1 + std::max(0, int(rng.nextInt(uint32_t(fortune + 2))) - 1);
             for (size_t i = before; i < out.size(); ++i)
                 out[i].count = uint8_t(std::min(64, out[i].count * mult));
@@ -236,7 +315,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng, std::
             for (size_t i = before; i < out.size(); ++i)
                 out[i].count = uint8_t(out[i].count + rng.nextInt(uint32_t(fortune + 1)));
             break;
-        default: break;
+        default:
+            break;
         }
     }
 }
@@ -247,43 +327,91 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     const DropIds& d = dropIds();
     const BlockId b = reg.blockOf(state);
     auto add = [&](ItemId id, int count = 1) { out.push_back({id, static_cast<uint8_t>(count)}); };
-    auto between = [&](int lo, int hi) { return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1))); };
+    auto between = [&](int lo, int hi) {
+        return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
+    };
     switch (b) {
     case blocks::Stone:
-    case blocks::Deepslate: add(d.cobblestone); return; // vanilla deepslate: cobbled deepslate
-    case blocks::GrassBlock: add(d.dirt); return;
+    case blocks::Deepslate:
+        add(d.cobblestone);
+        return; // vanilla deepslate: cobbled deepslate
+    case blocks::GrassBlock:
+    case blocks::Podzol: // (wiki: Podzol, Mycelium - drop dirt without Silk Touch)
+    case blocks::Mycelium:
+        add(d.dirt);
+        return;
+    // Huge mushroom caps: 0-2 mushrooms (wiki: Mushroom Block - rand(-7..2), at least 0);
+    // stems drop nothing without Silk Touch.
+    case blocks::BrownMushroomBlock:
+    case blocks::RedMushroomBlock:
+        if (const int n = static_cast<int>(rng.nextInt(10)) - 7; n > 0)
+            add(itemRegistry().blockItem(b == blocks::BrownMushroomBlock ? blocks::BrownMushroom : blocks::RedMushroom), n);
+        return;
+    case blocks::MushroomStem:
+        return;
     case blocks::CoalOre:
-    case blocks::DeepslateCoalOre: add(d.coal); return;
+    case blocks::DeepslateCoalOre:
+        add(d.coal);
+        return;
     case blocks::IronOre:
-    case blocks::DeepslateIronOre: add(d.rawIron); return;
+    case blocks::DeepslateIronOre:
+        add(d.rawIron);
+        return;
     case blocks::GoldOre:
-    case blocks::DeepslateGoldOre: add(d.rawGold); return;
+    case blocks::DeepslateGoldOre:
+        add(d.rawGold);
+        return;
     case blocks::CopperOre:
-    case blocks::DeepslateCopperOre: add(d.rawCopper, between(2, 5)); return;
+    case blocks::DeepslateCopperOre:
+        add(d.rawCopper, between(2, 5));
+        return;
     case blocks::RedstoneOre:
-    case blocks::DeepslateRedstoneOre: add(d.redstone, between(4, 5)); return;
+    case blocks::DeepslateRedstoneOre:
+        add(d.redstone, between(4, 5));
+        return;
     case blocks::LapisOre:
-    case blocks::DeepslateLapisOre: add(d.lapis, between(4, 9)); return;
+    case blocks::DeepslateLapisOre:
+        add(d.lapis, between(4, 9));
+        return;
     case blocks::DiamondOre:
-    case blocks::DeepslateDiamondOre: add(d.diamond); return;
+    case blocks::DeepslateDiamondOre:
+        add(d.diamond);
+        return;
     case blocks::EmeraldOre:
-    case blocks::DeepslateEmeraldOre: add(d.emerald); return;
-    case blocks::Gravel: add(rng.nextFloat() < 0.1f ? d.flint : d.gravel); return; // wiki: 10% flint
-    case blocks::NetherQuartzOre: add(d.quartz); return;
+    case blocks::DeepslateEmeraldOre:
+        add(d.emerald);
+        return;
+    case blocks::Gravel:
+        add(rng.nextFloat() < 0.1f ? d.flint : d.gravel);
+        return; // wiki: 10% flint
+    case blocks::NetherQuartzOre:
+        add(d.quartz);
+        return;
     // (wiki: Nether Gold Ore - 2-6 gold nuggets; nuggets don't exist yet: the ore drops itself)
-    case blocks::Clay: add(d.clay); return; // vanilla: 4 clay balls (item not added yet)
+    case blocks::Clay:
+        add(d.clay);
+        return; // vanilla: 4 clay balls (item not added yet)
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
     case blocks::AcaciaLeaves:
-        // wiki: Leaves - saplings 5%, sticks 2% (1-2), oak leaves also apples 0.5%.
-        if (rng.nextFloat() < 0.05f)
-            add(b == blocks::BirchLeaves    ? d.birchSapling
-                : b == blocks::SpruceLeaves ? d.spruceSapling
-                : b == blocks::AcaciaLeaves ? d.acaciaSapling
-                                            : d.oakSapling);
+    case blocks::JungleLeaves:
+    case blocks::DarkOakLeaves:
+    case blocks::CherryLeaves:
+        // wiki: Leaves - saplings 5% (jungle 2.5%), sticks 2% (1-2), oak and dark oak
+        // leaves also apples 0.5%.
+        if (rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
+            const BlockId sapling = b == blocks::BirchLeaves     ? blocks::BirchSapling
+                                    : b == blocks::SpruceLeaves  ? blocks::SpruceSapling
+                                    : b == blocks::AcaciaLeaves  ? blocks::AcaciaSapling
+                                    : b == blocks::JungleLeaves  ? blocks::JungleSapling
+                                    : b == blocks::DarkOakLeaves ? blocks::DarkOakSapling
+                                    : b == blocks::CherryLeaves  ? blocks::CherrySapling
+                                                                 : blocks::OakSapling;
+            add(itemRegistry().blockItem(sapling));
+        }
         if (rng.nextFloat() < 0.02f) add(d.stick, between(1, 2));
-        if (b == blocks::OakLeaves && rng.nextFloat() < 0.005f) add(d.apple);
+        if ((b == blocks::OakLeaves || b == blocks::DarkOakLeaves) && rng.nextFloat() < 0.005f) add(d.apple);
         return;
     case blocks::Glass:
     case blocks::Ice:
@@ -319,8 +447,12 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         }
         return;
     }
-    case blocks::Farmland: add(d.dirt); return;
-    case blocks::Bookshelf: add(*itemRegistry().find("book"), 3); return; // wiki: 3 books
+    case blocks::Farmland:
+        add(d.dirt);
+        return;
+    case blocks::Bookshelf:
+        add(*itemRegistry().find("book"), 3);
+        return; // wiki: 3 books
     case blocks::ShortGrass:
     case blocks::Fern: // wiki: Wheat Seeds - grass and ferns drop seeds 1 in 8
         if (rng.nextInt(8) == 0) add(d.seeds);
