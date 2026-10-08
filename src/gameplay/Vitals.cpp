@@ -97,7 +97,7 @@ float Vitals::tickFire(bool inWater) {
     return hurt ? d : 0.0f;
 }
 
-void Vitals::reset() {
+void Vitals::reset(bool keepExperience) {
     m_effects = {}; // (death clears effects)
     m_timeSinceRest = 0; // (and the time awake: phantoms - M26.4a)
     m_health = kMaxHealth;
@@ -109,9 +109,11 @@ void Vitals::reset() {
     m_air = kMaxAir;
     m_fire = 0;
     m_fireContact = 0;
-    m_xpLevel = 0; // (dropped as orbs by the caller)
-    m_xpProgress = 0.0f;
-    m_xpTotal = 0;
+    if (!keepExperience) {
+        m_xpLevel = 0; // (dropped as orbs by the caller)
+        m_xpProgress = 0.0f;
+        m_xpTotal = 0;
+    }
     m_falling = false;
     m_started = false;
 }

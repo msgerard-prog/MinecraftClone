@@ -1266,10 +1266,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                            mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
                 window.takePresses(p);
         } else {
-            if (dead &&
-                window.takePresses(mc::Press::Enter) > 0) { // respawn at the bed or world spawn
+            // Respawn at the bed or world spawn (game rule immediate_respawn: no death screen).
+            if (dead && (rules.immediateRespawn || window.takePresses(mc::Press::Enter) > 0)) {
                 dead = false;
-                vitals.reset();
+                vitals.reset(rules.keepInventory);
                 if (bedSpawn && dimension == Dimension::Overworld) {
                     player.setPosition({bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
                     player.setVelocity(glm::dvec3(0.0));

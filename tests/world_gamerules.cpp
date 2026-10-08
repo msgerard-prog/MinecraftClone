@@ -128,3 +128,14 @@ TEST_CASE("Peaceful: health and food come back, food never drops") {
     v.tick(64.0, true, false, false);
     CHECK(v.food() == 20);
 }
+
+TEST_CASE("keep_inventory: experience survives the respawn") {
+    Vitals v;
+    v.addExperience(100);
+    const int level = v.xpLevel();
+    REQUIRE(level > 0);
+    v.reset(true);
+    CHECK(v.xpLevel() == level);
+    v.reset();
+    CHECK(v.xpLevel() == 0);
+}
