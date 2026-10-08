@@ -15,7 +15,9 @@ layout(std430, binding = 1) readonly buffer TintPalette {
 layout(location = 7) uniform float uSkyDarken;  // 0 (day) .. 11 (night): sky light lost
 layout(location = 8) uniform float uAmbient;    // dimension ambient light (Nether 0.1)
 layout(location = 9) uniform float uForceBright; // 1 in the End: forced bright lightmap
+layout(location = 10) uniform vec3 uCameraFrac;  // the camera's position within its block
 
+// Section origins relative to the camera's block (whole numbers: exact, crack-free).
 layout(std430, binding = 0) readonly buffer SectionOffsets { vec4 offsets[]; };
 
 // Vanilla directional shading by face (down, up, north, south, west, east).
@@ -26,6 +28,7 @@ const float kShade[6] = float[](0.5, 1.0, 0.8, 0.8, 0.6, 0.6);
 const float kAo[4] = float[](1.0, 0.8, 0.6, 0.4);
 
 out vec2 vUv;
+flat out vec4 vSprite; // the sprite's rect in the atlas (min uv, max uv): the fragment clamps into it
 out vec3 vColor;
 out float vDistance;
 
@@ -52,13 +55,15 @@ void main() {
     const float sky = float(w2 & 63u) / 4.0;
     const float blockLight = float((w2 >> 6) & 63u) / 4.0;
 
-    const vec3 pos = local + offsets[gl_BaseInstance].xyz;
+    const vec3 pos = (local + offsets[gl_BaseInstance].xyz) - uCameraFrac;
     gl_Position = uViewProj * vec4(pos, 1.0);
     // Vanilla terrain fog is cylindrical (since 1.18).
     vDistance = max(length(pos.xz), abs(pos.y));
 
     const uint cols = uint(uAtlasColumns);
-    vUv = (vec2(sprite % cols, sprite / cols) + texel / 16.0) / float(cols);
+    const vec2 cell = vec2(sprite % cols, sprite / cols);
+    vUv = (cell + texel / 16.0) / float(cols);
+    vSprite = vec4(cell, cell + 1.0) / float(cols);
 
     // Light: sky light dimmed at night, block light slightly warm; added and clamped.
     const vec3 skyPart = vec3(brightness(sky - uSkyDarken));

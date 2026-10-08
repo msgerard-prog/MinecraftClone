@@ -536,8 +536,13 @@ multi-draw) → screen.
 - `ChunkRenderer`: one vertex arena buffer sub-allocated in quads (`RangeAllocator`,
   grows by copying), one shared quad index buffer (baseVertex per section), per-frame
   CPU frustum culling, then one `glMultiDrawElementsIndirect`. Each draw's
-  `sectionOrigin − cameraPos` (double → float) goes to an SSBO read with
-  `gl_BaseInstance`. Command/offset arrays are reused (no per-frame allocation).
+  `sectionOrigin − cameraBlock` (whole numbers, exact in float) goes to an SSBO read with
+  `gl_BaseInstance`; the shader subtracts the camera's fraction within its block
+  (uniform 10), so shared section edges are bit-identical. Command/offset arrays are
+  reused (no per-frame allocation). The arena is reserved from the render distance
+  (~4000 quads a column, exactly, no copy while empty). The block fragment shader clamps
+  its UVs half a texel (at the sampled mip) inside the face's sprite (`vSprite`), so
+  distant filtering never blends in the neighbouring atlas sprite.
 - `OverlayRenderer` (shader `overlay`): targeted-block outline (12 thin edge boxes,
   black 40%) and the crosshair (vanilla 15x15 GUI px, inverting blend, auto GUI
   scale = largest that fits 320x240). Targeting: `world::raycastBlocks` (voxel DDA,
@@ -563,6 +568,7 @@ Fixed bindings (add new ones here):
 | uniform location | 5 | `uFogColor` (sky) |
 | uniform location | 6 | `uAlphaCutoff` (0.5 opaque/cutout pass, 0 translucent) |
 | uniform location | 7 | `uSkyDarken` (sky light levels lost at night, 0..11) |
+| uniform location | 10 | `uCameraFrac` (the camera's position within its block; block pass) |
 | texture unit | 0 | block atlas |
 | SSBO binding | 0 | section offsets (block pass) |
 | uniform location (overlay) | 0, 1 | `uTransform`, `uColor` (outline, crosshair) |

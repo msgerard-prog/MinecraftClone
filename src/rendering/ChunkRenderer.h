@@ -75,7 +75,7 @@ private:
         RangeAllocator::Range range; // in quads
     };
 
-    void growArena(uint32_t minQuads);
+    void growArena(uint32_t minQuads, bool exact = false);
     void ensureDrawCapacity(size_t sections);
 
     uint32_t m_vao = 0;

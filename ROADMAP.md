@@ -29,7 +29,7 @@ M26 - Mobs 3 (wiki pages of each mob):
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
 - Dense ring-indexed section grid (vanilla ViewArea) instead of hash maps; column culling.
-- Static section origins + camera block/fraction uniforms; persistent-mapped command ring.
+- Static section origins (camera block/fraction uniforms done 2026-10-08); persistent-mapped command ring.
 - Arena pages + size classes, per-frame upload budget.
 - Faster snapshots / immutable sections readable by workers.
 - Per-face-direction draw commands, cave culling.
@@ -129,8 +129,8 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   per-cell interpolation stepping; all-solid section fast path.
 - From the M5 perf review: re-mesh only neighbours on the sides whose border light
   changed (an edit marks ~20–100 sections today); incremental light updates instead of
-  the 3x3 full relight; pre-size the vertex arena from the render distance (growth
-  copies the whole buffer: a ~100 ms frame once at RD32); `cornerLight` offset table;
+  the 3x3 full relight; `cornerLight` offset table (the arena is pre-sized since
+  2026-10-08);
   Section copy-on-write allocates when a worker still holds the section (rare).
 
 ## Decisions (2026-10-07, user)
@@ -280,14 +280,10 @@ and GUI textures are made with their systems.
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
-- Two thin dark lines cross the screen near the horizon over the sea when looking down
-  from high up (seen since at least M24: `tools/screenshot.sh x --seed 42 --pos 8,95,-60
-  --look 180,30`) - find which pass draws them.
 - F2 screenshot key (vanilla) for interactive play.
-- NVIDIA debug output: "vertex shader recompiled based on GL state" (id 131218) on the
-  block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-08 Fixed known issues: thin dark lines over far water (atlas filtering at sprite edges; UVs now clamped inside the sprite), exact section offsets (no cracks), the arena reserved exactly (no 200-400 MB growth copy, NVIDIA 131186); the old 131218 recompile warning no longer appears.
 - 2026-10-08 M25 (v0.25.0): oceans - waterlogging, ocean plants and corals, deep oceans, flooded caves, icebergs, water mobs, fishing, boats, drowned, tridents, dolphins, turtles, shipwrecks, ruins, buried treasure, guardians and monuments, sponges.
 - 2026-10-08 M24 (v0.24.0): villagers, trading, breeding, zombie villagers, iron golems, witches, wandering traders, pillagers, patrols, outposts, illagers, raids.
 - 2026-10-07 M23 (v0.23.0): building blocks, woods, signs, copper, workstations, ender chests, shulker boxes, netherite, beacons, conduits, note blocks, jukeboxes.

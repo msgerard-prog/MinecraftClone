@@ -5,6 +5,7 @@
 #include "rendering/Frustum.h"
 
 #include <glad/gl.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
 
@@ -24,7 +25,7 @@ void sortDrawsBackToFront(std::span<const DrawCommand> commands, std::span<const
                           std::span<glm::vec4> outOffsets) {
     const size_t n = commands.size();
     for (size_t i = 0; i < n; ++i) {
-        const glm::vec3 c = glm::vec3(offsets[i]) + glm::vec3(8.0f); // section centre
+        const glm::vec3 c = glm::vec3(offsets[i]) + glm::vec3(8.0f); // section centre (to within a block)
         scratch[i] = {glm::dot(c, c), static_cast<uint32_t>(i)};
     }
     std::sort(
@@ -71,18 +72,24 @@ bool ChunkRenderer::init() {
 void ChunkRenderer::reserve(uint32_t quads) {
     // Sized up front (cheap while empty) so streaming doesn't have to grow - and copy -
     // the whole arena mid-game.
-    if (m_vao && m_arenaAlloc.capacity() < quads) growArena(quads);
+    if (m_vao && m_arenaAlloc.capacity() < quads) growArena(quads, /*exact=*/true);
 }
 
-void ChunkRenderer::growArena(uint32_t minQuads) {
+void ChunkRenderer::growArena(uint32_t minQuads, bool exact) {
+    // Reserving asks for an exact size (no doubling past it: at render distance 16 that
+    // was a 400 MB buffer); growing while streaming doubles.
     uint32_t capacity = m_arenaAlloc.capacity() ? m_arenaAlloc.capacity() : kInitialArenaQuads;
+    if (exact) capacity = minQuads;
     while (capacity < minQuads)
         capacity *= 2;
     GLuint buffer = 0;
     glCreateBuffers(1, &buffer);
     glNamedBufferStorage(buffer, static_cast<GLsizeiptr>(capacity) * 4 * sizeof(PackedVertex),
                          nullptr, GL_DYNAMIC_STORAGE_BIT);
-    if (m_arena) {
+    if (m_arena && m_quadsTotal == 0) { // (nothing stored yet: a fresh arena, no copy)
+        glDeleteBuffers(1, &m_arena);
+        m_arenaAlloc.reset(capacity);
+    } else if (m_arena) {
         // Keep existing meshes: copy the old arena into the start of the new one.
         glCopyNamedBufferSubData(m_arena, buffer, 0, 0,
                                  static_cast<GLsizeiptr>(m_arenaAlloc.capacity()) * 4 *
@@ -152,6 +159,14 @@ void ChunkRenderer::uploadSection(world::SectionPos pos, std::span<const PackedV
 void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin, bool backToFront,
                          float maxDistance) {
     const Frustum frustum = Frustum::fromMatrix(viewProjAtOrigin);
+    // Section origins go to the GPU relative to the camera's *block* (whole numbers,
+    // exact in float), and the shader subtracts the camera's fraction within its block
+    // (uniform 10). Neighbouring sections then place their shared edges at bit-identical
+    // positions: no hairline cracks between sections (a straight line across far water
+    // before - each offset used to be rounded on its own).
+    const glm::dvec3 cameraBlock = glm::floor(camera.position);
+    const glm::vec3 cameraFrac(camera.position - cameraBlock);
+    glUniform3fv(10, 1, glm::value_ptr(cameraFrac));
     uint32_t drawCount = 0;
     uint64_t quads = 0;
     for (const auto& [pos, entry] : m_sections) {
@@ -165,7 +180,7 @@ void ChunkRenderer::draw(const Camera& camera, const glm::mat4& viewProjAtOrigin
         if (glm::dot(h, h) > (maxDistance + 12.0f) * (maxDistance + 12.0f)) continue;
         m_commands[drawCount] = {entry.range.size * 6, 1, 0,
                                  static_cast<int32_t>(entry.range.offset * 4), drawCount};
-        m_offsets[drawCount] = glm::vec4(offset, 0.0f);
+        m_offsets[drawCount] = glm::vec4(glm::vec3(origin - cameraBlock), 0.0f);
         ++drawCount;
         quads += entry.range.size;
     }

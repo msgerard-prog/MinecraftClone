@@ -129,7 +129,10 @@ void WorldRenderer::setDayTime(int64_t dayTime, float partialTick, float rain, f
 void WorldRenderer::setRenderDistance(int chunks) {
     m_renderDistance = chunks;
     const uint64_t columns = uint64_t(2 * chunks + 1) * uint64_t(2 * chunks + 1);
-    m_chunks.reserve(static_cast<uint32_t>(std::bit_ceil(std::min<uint64_t>(columns * 2700, 1u << 26))));
+    // ~4000 quads a chunk column (overworld4's oceans and plants: 2.4-3.5M quads over the
+    // 625 columns of render distance 12), so streaming doesn't grow - and copy - the
+    // arena; growing once was moving ~200 MB through host memory (NVIDIA 131186).
+    m_chunks.reserve(static_cast<uint32_t>(std::min<uint64_t>(columns * 4000, 1u << 26)));
 }
 
 void WorldRenderer::setDimension(world::Dimension d) {
