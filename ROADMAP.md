@@ -4,30 +4,27 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-08)
-M25 done (reviews applied; v0.25.0): waterlogging, kelp, seagrass, corals, sea pickles,
-deep oceans, flooded caves, icebergs, underwater fog (overworld4); fish, squid, glow
-squid, fish buckets, fishing, boats; drowned and tridents; dolphins, turtles; shipwrecks,
-ocean ruins, buried treasure; guardians, elder guardians, ocean monuments, sponges.
-M1-M24 done. v1.0 waits for M26-M28.
+M26 done (reviews applied; v0.26.0): wolves, cats, ocelots, parrots; horses, donkeys,
+mules, llamas, trader llamas, camels (saddles, armor, chests); rabbits, foxes, polar
+bears, pandas, goats, armadillos, bees (nests, hives, honey), frogs, tadpoles, axolotls;
+cave spiders, silverfish, wither skeletons, phantoms, mob heads, the Wither, the breeze
+and wind charges; allays, nautiluses, happy ghasts, copper golems and copper chests.
+New worlds use overworld5 (bee nests, berry bushes, infested veins, mineshaft cobwebs,
+allay cages), frozen as of v0.26.0. M1-M26 done. v1.0 waits for M27-M28.
 
 ## Next
-M26 - Mobs 3 (wiki pages of each mob):
-1. ✅ M26.1 - Companions: wolves (taming, sitting, following, wolf armor, variants), cats
-   and ocelots (taming, gifts, scaring creepers and phantoms), parrots (shoulders,
-   dancing, imitating).
-2. ✅ M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,
-   breeding stats), llamas and trader llamas (spit; caravans need leads - M28), camels;
-   chest boats.
-3. M26.3 - Wildlife: ✅ a) rabbits, foxes (sleeping, carrying items, sweet berry bushes),
-   polar bears, pandas (genes), goats (ramming, horns, goat horns), armadillos and wolf
-   armor; ✅ b) bees (nests, hives, honey, pollination; overworld5: nests on trees, berry
-   bushes); ✅ c) frogs and tadpoles (frogspawn, froglights), axolotls (buckets, play dead).
-4. M26.4 - Monsters: ✅ a) phantoms (insomnia), silverfish (infested blocks), cave
-   spiders (mineshaft spawners, cobwebs), wither skeletons; ✅ b) mob heads, the Wither
-   (summoning, nether star, beacon); ✅ c) the breeze and wind charges. (The warden comes
-   with the deep dark in M27.)
-5. ✅ M26.5 - 1.21.x mobs: a) allays, the nautilus; b) the happy ghast (dried ghast,
-   harness), the copper golem (copper chests).
+M27 - World 3 (wiki pages of each biome and structure):
+1. M27.1 - Remaining biomes: bamboo jungle, mangrove swamp, pale garden, savanna
+   plateau, windswept savanna, old growth pine taiga, ice spikes, eroded badlands,
+   mushroom fields, stony peaks..., with their trees and features (new generator version).
+2. M27.2 - Lush caves (azalea, moss, glow berries, dripleaves, spore blossoms) and
+   dripstone caves (pointed dripstone: falling, dripping, cauldron filling).
+3. M27.3 - The deep dark: sculk blocks, sensors, shriekers, catalysts; ancient cities;
+   the warden (darkness, sonic boom, digging out).
+4. M27.4 - Structures: woodland mansions (vindicators, allay cells), ruined portals,
+   trail ruins, trial chambers (trial spawners, vaults, breezes), amethyst geodes.
+5. M27.5 - Archaeology: brushes, suspicious sand/gravel, pottery sherds and decorated
+   pots; sniffers and their eggs (torchflowers, pitcher plants).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -50,6 +47,11 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M26 perf review (bench: CPU p99 1.08 -> 1.35 ms, GPU 0.25 ms): fox item scans
+  every tick (stagger like allays could); mob-store push_back allocates on the first
+  chest per chunk; `pointMount` marks the chunk dirty every frame while a mount screen is
+  open; hive chunks stay in the ticking list; `findCart` runs several times a tick; the
+  mineshaft cobweb loop could clamp to the chunk (output unchanged).
 - From the M25 perf review (streaming bench: no CPU change, p99 ~1.4-1.6 ms on both
   overworld3/4; GPU avg 0.17 -> 0.27 ms): overworld4 has +8-29% quads and 2.5x the
   translucent sections (ocean-floor plants; flooded-cave water surfaces and new cave
@@ -166,6 +168,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M26 note:** new worlds use "overworld5" (bee nests, berry bushes, infested blocks),
+  frozen as of v0.26.0. Try it: `tools/run.sh --world "M26 test"`, tame a wolf
+  (`/give @s bone 8`), ride a horse (`--mount`), build a Wither in creative
+  (soul sand T + 3 wither skeleton skulls) - or a copper golem (carved pumpkin on copper).
 - **M25 note:** new worlds use "overworld4" (oceans), frozen as of v0.25.0. Try it:
   `tools/run.sh --world "M25 test"`, swim in a warm ocean (reefs), fish with a rod
   (`/give @s fishing_rod`), sail a boat (`/give @s oak_boat`), find a monument in a deep
@@ -277,7 +283,7 @@ and GUI textures are made with their systems.
 | M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | ✅ 2026-10-07 v0.23.0 (our own disc tunes, loom/cartography screens only: see deviations) |
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | ✅ 2026-10-08 v0.24.0 (no gossip, bell-centred raids: see deviations) |
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | ✅ 2026-10-08 v0.25.0 (simple flooded caves, own monument design, no chest boats: see deviations) |
-| M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
+| M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | ✅ 2026-10-08 v0.26.0 (no leads, shoulders or statues; the warden moves to M27.3: see deviations) |
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
@@ -286,6 +292,7 @@ and GUI textures are made with their systems.
 - F2 screenshot key (vanilla) for interactive play.
 
 ## Done (latest 10)
+- 2026-10-08 M26 (v0.26.0): pets, mounts, wildlife, bees, frogs, axolotls, cave spiders, silverfish, wither skeletons, phantoms, heads, the Wither, the breeze, allays, nautiluses, happy ghasts, copper golems.
 - 2026-10-08 Fixed known issues: thin dark lines over far water (atlas filtering at sprite edges; UVs now clamped inside the sprite), exact section offsets (no cracks), the arena reserved exactly (no 200-400 MB growth copy, NVIDIA 131186); the old 131218 recompile warning no longer appears.
 - 2026-10-08 M25 (v0.25.0): oceans - waterlogging, ocean plants and corals, deep oceans, flooded caves, icebergs, water mobs, fishing, boats, drowned, tridents, dolphins, turtles, shipwrecks, ruins, buried treasure, guardians and monuments, sponges.
 - 2026-10-08 M24 (v0.24.0): villagers, trading, breeding, zombie villagers, iron golems, witches, wandering traders, pillagers, patrols, outposts, illagers, raids.

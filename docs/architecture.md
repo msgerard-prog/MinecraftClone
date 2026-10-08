@@ -464,7 +464,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   with Poison, `stung` bees die) and `tickHives` (per ticking chunk: bees in
   `BeehiveData` leave by day after 600/2400 ticks, pollen -> `honey_level`). Bees that go
   in set `vanish` (removed without a death). `world/Beehives` (`beeFromHive`,
-  `releaseBees` - World::setBlock lets them out angry when a hive goes, `hiveSmoked`);
+  `releaseBees` - World::setBlock lets them out angry when a hive goes, queued with `World::queueMob` and added by `Mobs::tick` after its pass, since a block can break mid-loop, `hiveSmoked`);
   harvesting in main; nests from saplings near flowers (`growTree`) and in overworld5
   (`placeBeeNests`: per-tree streams so the owning chunk places them; `placeBerryBushes`).
 - Frogs and axolotls (M26.3c): frogs in `wildlifeGoal` (tongue: small slimes -> slime ball,
