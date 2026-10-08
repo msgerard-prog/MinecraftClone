@@ -5,6 +5,9 @@
 
 #include <doctest/doctest.h>
 
+#include <set>
+#include <string>
+
 using namespace mc;
 using namespace mc::world;
 
@@ -85,4 +88,13 @@ TEST_CASE("items burn up in fire, as in lava") {
     const Aabb far = Aabb::fromFeet({100, 64, 100}, 0.6, 1.8);
     items.tick(w, far, true, inv);
     CHECK(items.items().empty());
+}
+
+TEST_CASE("every item id is registered once (review fix: M25.3 registered the heart of the sea twice)") {
+    const auto& items = mc::world::itemRegistry();
+    std::set<std::string> seen;
+    for (size_t i = 0; i < items.count(); ++i) {
+        const std::string id(items.item(mc::world::ItemId(i)).id);
+        CHECK_MESSAGE(seen.insert(id).second, id);
+    }
 }
