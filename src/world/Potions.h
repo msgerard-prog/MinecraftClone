@@ -37,6 +37,7 @@ enum class Effect : uint8_t {
     Wither,           // (M26.4a: wither skeletons) like Poison, but it can kill
     BreathOfTheNautilus, // (M26.5a: riding a nautilus) the air bar doesn't drop under water
     Darkness,            // (M27.3: shriekers, wardens) the world pulses dark around you
+    Glowing,             // (M28.4b: spectral arrows) outlined through walls (ours: no outline yet)
     Count
 };
 struct EffectInfo {

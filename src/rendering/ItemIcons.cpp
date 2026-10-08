@@ -20,6 +20,8 @@ void ItemIcons::build(const TextureAtlas& atlas) {
         if (!def.texture.empty()) m_sprites[i] = static_cast<uint16_t>(atlas.spriteIndex(def.texture));
     }
     m_potionOverlay = static_cast<uint16_t>(atlas.spriteIndex("item/potion_overlay"));
+    m_tippedHead = static_cast<uint16_t>(atlas.spriteIndex("item/tipped_arrow_head"));
+    m_tipped = items.find("tipped_arrow").value_or(0);
     char name[48];
     for (int f = 0; f < 32; ++f) {
         std::snprintf(name, sizeof(name), "item/compass_%02d", f);
@@ -91,7 +93,11 @@ void ItemIcons::draw(GuiBatch& batch, const BlockModels& models, const world::It
     if (stack.empty()) return;
     const world::ItemDef& def = world::itemRegistry().item(stack.item);
     const uint16_t sprite = dialSprite(stack, stack.item < m_sprites.size() ? m_sprites[stack.item] : 0);
-    if (sprite && stack.potion && m_potionOverlay) {
+    if (sprite && stack.potion && stack.item == m_tipped && m_tipped) { // (M28.4b) the tip in the potion's colour
+        const uint32_t c = world::potionColour(static_cast<world::Potion>(stack.potion));
+        batch.atlasSprite(sprite, x, y);
+        batch.atlasSprite(m_tippedHead, x, y, rgba(uint8_t(c >> 16), uint8_t(c >> 8), uint8_t(c)));
+    } else if (sprite && stack.potion && m_potionOverlay) {
         // Potions (M19.4): the liquid, tinted by the potion's colour, under the bottle.
         const uint32_t c = world::potionColour(static_cast<world::Potion>(stack.potion));
         batch.atlasSprite(m_potionOverlay, x, y, rgba(uint8_t(c >> 16), uint8_t(c >> 8), uint8_t(c)));

@@ -650,6 +650,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   three arrows, `Projectile::pierce` for Piercing: the arrow flies on, skipping the mob it
   went through). Quick Charge, Multishot, Piercing come after Swift Sneak (random loot keeps
   its range).
+- Arrows and lingering potions (M28.4b, `gameplay/Projectiles`): `ammoSlot` (offhand, then
+  the inventory) feeds bows and crossbows; a fired arrow keeps its ammunition in
+  `Projectile::stack` (picked up as itself), a tipped arrow's `potion` (an eighth of the
+  effect on the player, instant effects on mobs) and `spectral` (Glowing). Lingering
+  potions (`ProjectileKind::LingeringPotion`, brewed from splash potions with dragon's
+  breath) leave a `BreathCloud` with a `potion` and `shrink`; clouds give their effect a
+  quarter as long once a second.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -2389,7 +2389,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     clicks.useClick = false;
                 }
-                if (!dead && heldId == "minecraft:splash_potion" && clicks.useClick) { // (M19.4)
+                if (!dead && (heldId == "minecraft:splash_potion" || heldId == "minecraft:lingering_potion") &&
+                    clicks.useClick) { // (M19.4; M28.4b lingering)
                     mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(),
                                           projectiles, gameRng);
                     clicks.useClick = false;
@@ -2852,6 +2853,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const bool blockUse =
                     lastHit && !player.sneaking() &&
                     mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
+                // A glass bottle in a cloud of dragon's breath bottles it (M28.4b; wiki: Dragon's Breath).
+                if (heldId == "minecraft:glass_bottle" && clicks.useClick && !blockUse)
+                    for (const auto& c : projectiles.clouds()) {
+                        const glm::dvec3 f = player.position();
+                        if (c.potion != 0 || glm::length(glm::dvec2(f.x - c.pos.x, f.z - c.pos.z)) > c.radius + 1.0 ||
+                            std::abs(f.y - c.pos.y) > 2.0)
+                            continue;
+                        static const mc::world::ItemId breathItem = *mc::world::itemRegistry().find("dragon_breath");
+                        if (survival) inventory.consumeSelected(1);
+                        if (inventory.add({breathItem, 1}) > 0) droppedItems.spawn(player.position(), {breathItem, 1}, gameRng);
+                        clicks.useClick = false;
+                        break;
+                    }
                 // A glass bottle fills from water (wiki: Glass Bottle): a water bottle.
                 if (heldId == "minecraft:glass_bottle" && clicks.useClick && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
@@ -4323,7 +4337,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 entities.addItem(pr.stack, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
             else {
                 mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder     ? eyeItem
-                                          : pr.kind == mc::ProjectileKind::SplashPotion ? splashItem
+                                          : pr.kind == mc::ProjectileKind::SplashPotion ||
+                                                  pr.kind == mc::ProjectileKind::LingeringPotion
+                                              ? splashItem
                                           : pr.kind == mc::ProjectileKind::Egg          ? eggItem
                                           : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
                                           : pr.kind == mc::ProjectileKind::ShulkerBullet ? shellItem
@@ -4524,9 +4540,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
         }
-        for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
-            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha),
-                              camera.position);
+        for (const auto& c : projectiles.clouds()) { // (M20.2) dragon's breath; (M28.4b) lingering potions
+            const uint32_t pc = c.potion ? mc::world::potionColour(static_cast<mc::world::Potion>(c.potion)) : 0xBF4DF2u;
+            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position,
+                              glm::vec3(float(pc >> 16 & 255), float(pc >> 8 & 255), float(pc & 255)) / 255.0f);
+        }
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value,
                             float(o.age) + float(clock.alpha), camera.position);

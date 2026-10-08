@@ -601,6 +601,24 @@ def arrow():
     return s.render()
 
 
+def arrow_variant(head):
+    """M28.4b: an arrow with a coloured head (spectral: glowing yellow; tipped: the base
+    with a white head that the potion tints - drawn by a separate overlay)."""
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(3, 12)}, ramp(hexc("#8A6A42"), 5))
+    s.add({(2, 13), (3, 13), (2, 12), (4, 14), (3, 14), (1, 12), (2, 14)}, ramp(hexc("#E8E8E8"), 5))
+    if head:
+        s.add({(11, 4), (12, 3), (13, 2), (12, 2), (13, 3), (11, 3), (12, 4)}, ramp(hexc(head), 5))
+    return s.render()
+
+
+def arrow_head_overlay():
+    img = Img(16, 16, CLEAR)
+    for (x, y) in ((11, 4), (12, 3), (13, 2), (12, 2), (13, 3), (11, 3), (12, 4)):
+        img.set(x, y, (255, 255, 255, 255))
+    return img
+
+
 def bone():
     pal = ramp(hexc("#E8E2CC"), 5, spread=0.25)
     s = Shape()
@@ -1403,6 +1421,19 @@ def all_items():
     items["potion"] = bottle()
     items["splash_potion"] = bottle(splash=True)
     items["potion_overlay"] = potion_overlay()
+    # (M28.4b) a lingering potion: the splash bottle with a long neck; dragon's breath
+    lingering = bottle(splash=True)
+    for y in (1, 2):
+        for x in (7, 8):
+            lingering.set(x, y, (205, 225, 240, 255))
+    items["lingering_potion"] = lingering
+    breath = bottle()
+    for (x, y) in {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 10.5) < 3.6}:
+        breath.set(x, y, (225, 120, 200, 255) if (x + y) % 3 else (250, 180, 230, 255))
+    items["dragon_breath"] = breath
+    items["tipped_arrow_base"] = arrow_variant(None)
+    items["tipped_arrow_head"] = arrow_head_overlay()
+    items["spectral_arrow"] = arrow_variant("#F4D040")
     items["sugar"] = sugar()
     items["fermented_spider_eye"] = fermented_spider_eye()
     items["golden_carrot"] = golden_carrot()

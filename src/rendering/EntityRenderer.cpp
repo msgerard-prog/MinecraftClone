@@ -562,7 +562,8 @@ void EntityRenderer::addText(std::string_view text, const glm::dvec3& centre, co
     }
 }
 
-void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos) {
+void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos,
+                              const glm::vec3& colour) {
     // 13 puffs: the middle and two rings, drifting slowly.
     for (int i = 0; i < 13; ++i) {
         const float ring = i == 0 ? 0.0f : i <= 4 ? 0.45f : 0.85f;
@@ -573,7 +574,7 @@ void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time
         const glm::vec3 toCam = glm::length(c) > 1e-4f ? -glm::normalize(c) : glm::vec3(0, 0, 1);
         const glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), toCam)) * 0.6f;
         const glm::vec3 up = glm::cross(toCam, right);
-        const uint32_t color = pack(glm::vec3(0.75f, 0.3f, 0.95f));
+        const uint32_t color = pack(colour);
         const float u0 = float(m_orbSprite % m_columns) * m_cell, v0 = float(m_orbSprite / m_columns) * m_cell;
         const glm::vec3 q[4] = {c - right + up, c - right - up, c + right - up, c + right + up};
         quad(q, u0, v0, u0 + m_cell, v0 + m_cell, color, m_items);

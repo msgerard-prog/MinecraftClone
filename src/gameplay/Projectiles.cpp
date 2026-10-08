@@ -49,26 +49,63 @@ float bowPower(int ticks) {
     return std::min(1.0f, (f * f + f * 2.0f) / 3.0f);
 }
 
-bool canDrawBow(const Inventory& inventory, bool survival) {
-    static const ItemId arrow = *itemRegistry().find("arrow");
-    return !survival || inventory.has(arrow);
+int ammoSlot(const Inventory& inventory) {
+    static const ItemId arrow = *itemRegistry().find("arrow"), tipped = *itemRegistry().find("tipped_arrow"),
+                        spectral = *itemRegistry().find("spectral_arrow");
+    auto isAmmo = [&](const ItemStack& s) { return !s.empty() && (s.item == arrow || s.item == tipped || s.item == spectral); };
+    if (isAmmo(inventory.offhand())) return -1;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        if (isAmmo(inventory.slot(i))) return i;
+    return -2;
 }
+
+namespace {
+// Takes one of the ammunition (survival) and returns it; creative shoots plain arrows
+// unless it holds others.
+ItemStack takeAmmo(Inventory& inventory, bool survival, bool keep) {
+    static const ItemId arrow = *itemRegistry().find("arrow");
+    const int slot = ammoSlot(inventory);
+    if (slot == -2) return survival ? ItemStack{} : ItemStack{arrow, 1};
+    ItemStack s = slot == -1 ? inventory.offhand() : inventory.slot(slot);
+    ItemStack one = s;
+    one.count = 1;
+    if (survival && !keep) {
+        s.count = uint8_t(s.count - 1);
+        if (s.count == 0) s = {};
+        if (slot == -1) inventory.setOffhand(s);
+        else inventory.setSlot(slot, s);
+    }
+    return one;
+}
+// What a fired arrow carries from its ammunition: a tipped arrow's potion, spectral glow.
+void loadArrow(Projectile& p, const ItemStack& ammo) {
+    static const ItemId tipped = *itemRegistry().find("tipped_arrow"), spectral = *itemRegistry().find("spectral_arrow");
+    if (ammo.item == tipped) p.potion = ammo.potion;
+    p.spectral = ammo.item == spectral;
+    p.stack = ammo; // (picked up as itself)
+}
+} // namespace
+
+bool canDrawBow(const Inventory& inventory, bool survival) { return !survival || ammoSlot(inventory) != -2; }
 
 bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                 Projectiles& projectiles, Xoroshiro& rng) {
     static const ItemId arrow = *itemRegistry().find("arrow");
     const float power = bowPower(ticks);
     const ItemStack bow = inventory.selectedStack();
-    // Infinity: needs an arrow but doesn't use it up (wiki: Infinity).
+    // Infinity: needs an arrow but doesn't use it up (wiki: Infinity) - plain arrows only.
     const bool infinity = enchantLevel(bow, Enchantment::Infinity) > 0;
-    if (power < 0.1f || (survival && !inventory.has(arrow))) return false;
+    if (power < 0.1f || (survival && ammoSlot(inventory) == -2)) return false;
+    const int slot = ammoSlot(inventory);
+    const ItemStack peek = slot == -2 ? ItemStack{arrow, 1} : slot == -1 ? inventory.offhand() : inventory.slot(slot);
     if (!projectiles.shoot(ProjectileKind::Arrow, eye, look, power * 3.0, 1.0, true, power >= 1.0f, rng)) return false;
-    if (survival && !infinity) inventory.takeOne(arrow); // (only once it flew)
+    const ItemStack ammo = takeAmmo(inventory, survival, infinity && peek.item == arrow); // (only once it flew)
     Projectile& p = projectiles.last();
+    loadArrow(p, ammo);
     p.power = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Power));
     p.punch = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Punch));
     p.flame = enchantLevel(bow, Enchantment::Flame) > 0;
-    p.pickup = !infinity;
+    p.pickup = !(infinity && ammo.item == arrow) && survival;
     if (survival) inventory.setSlot(inventory.selected(), wearItem(inventory.selectedStack(), 1, rng));
     return true;
 }
@@ -78,19 +115,24 @@ int crossbowChargeTicks(const ItemStack& crossbow) {
 }
 
 bool loadCrossbow(Inventory& inventory, bool survival) {
-    static const ItemId arrow = *itemRegistry().find("arrow");
+    static const ItemId tipped = *itemRegistry().find("tipped_arrow"), spectral = *itemRegistry().find("spectral_arrow");
     ItemStack bow = inventory.selectedStack();
-    if (bow.state != 0 || (survival && !inventory.has(arrow))) return false;
-    if (survival) inventory.takeOne(arrow);
-    bow.state = kCrossbowArrow;
+    if (bow.state != 0 || (survival && ammoSlot(inventory) == -2)) return false;
+    const ItemStack ammo = takeAmmo(inventory, survival, false);
+    bow.state = ammo.item == spectral ? kCrossbowSpectral : ammo.item == tipped ? kCrossbowTipped : kCrossbowArrow;
+    bow.potion = ammo.item == tipped ? ammo.potion : 0;
     inventory.setSlot(inventory.selected(), bow);
     return true;
 }
 
 bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                   Projectiles& projectiles, Xoroshiro& rng) {
+    static const ItemId arrowItem = *itemRegistry().find("arrow"), tipped = *itemRegistry().find("tipped_arrow"),
+                        spectralItem = *itemRegistry().find("spectral_arrow");
     ItemStack bow = inventory.selectedStack();
-    if (bow.state != kCrossbowArrow) return false;
+    if (bow.state == 0) return false;
+    ItemStack ammo{bow.state == kCrossbowSpectral ? spectralItem : bow.state == kCrossbowTipped ? tipped : arrowItem, 1};
+    ammo.potion = bow.state == kCrossbowTipped ? bow.potion : 0;
     const bool multishot = enchantLevel(bow, Enchantment::Multishot) > 0;
     const uint8_t pierce = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Piercing));
     for (const float turn : {0.0f, -10.0f, 10.0f}) {
@@ -99,10 +141,12 @@ bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, co
         const glm::dvec3 dir(look.x * std::cos(a) - look.z * std::sin(a), look.y, look.x * std::sin(a) + look.z * std::cos(a));
         if (!projectiles.shoot(ProjectileKind::Arrow, eye, dir, 3.15, 1.0, true, false, rng)) continue;
         Projectile& p = projectiles.last();
+        loadArrow(p, ammo);
         p.pickup = turn == 0.0f && survival;
         p.pierce = pierce;
     }
     bow.state = 0;
+    bow.potion = 0;
     if (survival) bow = wearItem(bow, multishot ? 3 : 1, rng); // (wiki: Multishot wears it 3)
     inventory.setSlot(inventory.selected(), bow);
     return true;
@@ -176,7 +220,10 @@ void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& ey
                        Projectiles& projectiles, Xoroshiro& rng) {
     const ItemStack held = inventory.selectedStack();
     const glm::dvec3 dir(lookVector(yaw, pitch - 20.0f));
-    if (!projectiles.shoot(ProjectileKind::SplashPotion, eye, dir, 0.5, 1.0, true, false, rng)) return;
+    const bool lingering = itemRegistry().item(held.item).id == "minecraft:lingering_potion";
+    if (!projectiles.shoot(lingering ? ProjectileKind::LingeringPotion : ProjectileKind::SplashPotion, eye, dir, 0.5,
+                           1.0, true, false, rng))
+        return;
     projectiles.last().potion = held.potion;
     projectiles.last().pickup = false;
     if (survival) inventory.consumeSelected(1);
@@ -219,17 +266,31 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_pearls.clear();
     m_channeled.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
+    // Lingering clouds (M28.4b; wiki: Lingering Potion): their effect, a quarter as long,
+    // once a second, shrinking from 3 blocks to nothing over 30 s.
     for (size_t i = 0; i < m_clouds.size();) {
         BreathCloud& c = m_clouds[i];
         if (c.cooldown > 0) --c.cooldown;
         const glm::dvec3 feet = player.position();
         const double dx = feet.x - c.pos.x, dz = feet.z - c.pos.z;
-        if (vitals && survival && c.cooldown == 0 && dx * dx + dz * dz < double(c.radius) * c.radius &&
-            feet.y > c.pos.y - 1.0 && feet.y < c.pos.y + 1.5) {
-            vitals->addEffect(Effect::InstantDamage, 0, 1);
-            c.cooldown = 20;
+        if (vitals && c.cooldown == 0 && dx * dx + dz * dz < double(c.radius) * c.radius && feet.y > c.pos.y - 1.0 &&
+            feet.y < c.pos.y + 1.5) {
+            if (c.potion == 0) {
+                if (survival) {
+                    vitals->addEffect(Effect::InstantDamage, 0, 1);
+                    c.cooldown = 20;
+                }
+            } else if (const PotionInfo& info = potionInfo(static_cast<Potion>(c.potion)); info.effect != Effect::None) {
+                const bool hurts = info.effect == Effect::InstantDamage || info.effect == Effect::Poison;
+                if (survival || !hurts) {
+                    vitals->addEffect(info.effect, info.amplifier, effectInfo(info.effect).instant ? 1 : std::max(1, info.duration / 4));
+                    c.radius -= 0.5f; // (each use takes some of it - wiki)
+                }
+                c.cooldown = 20;
+            }
         }
-        if (--c.ticks <= 0) {
+        c.radius -= c.shrink;
+        if (--c.ticks <= 0 || c.radius < 0.5f) {
             m_clouds[i] = m_clouds.back();
             m_clouds.pop_back();
         } else {
@@ -310,7 +371,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             }
             // Stuck arrows: picked up by a survival player who shot them (wiki: Arrow).
             if (p.fromPlayer && p.pickup && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)})) {
-                if (!survival || inventory.add({arrowItem, 1}) == 0) remove = true;
+                if (!survival || inventory.add(p.stack.empty() ? ItemStack{arrowItem, 1} : p.stack) == 0) remove = true;
             }
             if (p.life > 1200 || blockRegistry().blockOf(world.getBlock(cell)) == 0) remove = true; // its block gone
         } else {
@@ -354,6 +415,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                      ++k)
                     at.y -= 1.0;
                 addCloud(at, 3.0f, 600);
+                remove = true;
+            } else if (p.kind == ProjectileKind::LingeringPotion && (target != Target::None || block)) {
+                // (M28.4b) a cloud of its effect on the floor where it broke: 3 blocks, 30 s
+                glm::dvec3 at = p.pos + dir * reach;
+                world.levelEvent(LevelEvent::Type::PotionSplash, at.x, at.y, at.z, potionColour(static_cast<Potion>(p.potion)));
+                for (int k = 0; k < 8 && !blockRegistry().collides(world.getBlock(
+                                             {int(std::floor(at.x)), int(std::floor(at.y - 0.5)), int(std::floor(at.z))}));
+                     ++k)
+                    at.y -= 1.0;
+                addCloud(at, 3.0f, 600, p.potion, 3.0f / 600.0f);
                 remove = true;
             } else if (p.kind == ProjectileKind::SplashPotion && (target != Target::None || block)) {
                 // Splash (wiki: Splash Potion): entities whose hitbox touches an
@@ -575,6 +646,12 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         if (vitals && survival && vitals->attacked(damage, &p.pos, Vitals::Hit::Projectile)) {
                             player.knockback(p.vel.x, p.vel.z, 0.6 * 0.5); // wiki: Arrow knockback
                             hits.playerDamage += damage;
+                            // (M28.4b) a tipped arrow's effect, an eighth as long; spectral: Glowing 10 s
+                            if (p.potion)
+                                if (const PotionInfo& info = potionInfo(static_cast<Potion>(p.potion)); info.effect != Effect::None)
+                                    vitals->addEffect(info.effect, info.amplifier,
+                                                      effectInfo(info.effect).instant ? 1 : std::max(1, info.duration / 8));
+                            if (p.spectral) vitals->addEffect(Effect::Glowing, 0, 200);
                         }
                     } else {
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
@@ -599,6 +676,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             if (glm::length(h) > 1e-6)
                                 m.vel += glm::dvec3(h.x, 0, h.y) / glm::length(h) * (0.3 + 0.6 * p.punch); // Punch
                             if (p.flame) m.fireTicks = std::max<int16_t>(m.fireTicks, 100); // Flame: 5 s
+                            if (p.potion) { // (M28.4b) a tipped arrow's instant effects on mobs (healing hurts the undead)
+                                const PotionInfo& info = potionInfo(static_cast<Potion>(p.potion));
+                                const bool undead = isUndead(m.type);
+                                const float amount = float(1 << info.amplifier);
+                                if ((info.effect == Effect::InstantDamage) != undead &&
+                                    (info.effect == Effect::InstantDamage || info.effect == Effect::InstantHealth))
+                                    m.health -= 6.0f * amount;
+                                else if (info.effect == Effect::InstantDamage || info.effect == Effect::InstantHealth)
+                                    m.health = std::min(maxHealthOf(m), m.health + 4.0f * amount);
+                            }
                             ++hits.mobsHit;
                         }
                         if (p.pierce > 0) { // (M28.4a) Piercing: on through it, never hitting it again
@@ -643,6 +730,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     const double drag = inWater && p.kind != ProjectileKind::Trident ? 0.6 : 0.99; // (tridents keep going in water)
                     p.vel *= drag;
                     p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ||
+                                       p.kind == ProjectileKind::LingeringPotion ||
                                        p.kind == ProjectileKind::Trident
                                    ? 0.05
                                    : 0.03; // (pearls 0.03)

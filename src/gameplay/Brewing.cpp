@@ -77,9 +77,17 @@ constexpr Step kSteps[] = {
 } // namespace
 
 std::optional<ItemStack> brewResult(const ItemStack& ingredient, const ItemStack& bottle) {
-    static const ItemId potion = item("potion"), splash = item("splash_potion"), gunpowder = item("gunpowder");
-    if (ingredient.empty() || bottle.empty() || (bottle.item != potion && bottle.item != splash) || !bottle.potion)
+    static const ItemId potion = item("potion"), splash = item("splash_potion"), gunpowder = item("gunpowder"),
+                        lingering = item("lingering_potion"), breath = item("dragon_breath");
+    if (ingredient.empty() || bottle.empty() ||
+        (bottle.item != potion && bottle.item != splash && bottle.item != lingering) || !bottle.potion)
         return std::nullopt;
+    if (ingredient.item == breath) { // (M28.4b) a splash potion to its lingering form
+        if (bottle.item != splash) return std::nullopt;
+        ItemStack s = bottle;
+        s.item = lingering;
+        return s;
+    }
     if (ingredient.item == gunpowder) { // any potion to its splash form
         if (bottle.item == splash) return std::nullopt;
         ItemStack s = bottle;
@@ -99,7 +107,7 @@ std::optional<ItemStack> brewResult(const ItemStack& ingredient, const ItemStack
 bool isBrewingIngredient(const ItemStack& itemStack) {
     if (itemStack.empty()) return false;
     const std::string_view id = itemRegistry().item(itemStack.item).id;
-    if (id == "minecraft:gunpowder") return true;
+    if (id == "minecraft:gunpowder" || id == "minecraft:dragon_breath") return true;
     for (const Step& st : kSteps)
         if (id.substr(10) == st.ingredient) return true;
     return false;

@@ -215,6 +215,7 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###", "#W#", "###"}, {{'#', item("stick")}, {'W', item("white_wool")}}, "painting"));
     r.push_back(shaped({"###", ".#.", "#S#"}, {{'#', item("stick")}, {'S', item("smooth_stone_slab")}}, "armor_stand"));
     r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
+    r.push_back(shaped({".G.", "GAG", ".G."}, {{'G', item("glowstone_dust")}, {'A', item("arrow")}}, "spectral_arrow", 2));
     // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern; no vines yet for
     // bordure indented).
     for (const char* c : kDyeColours)
@@ -636,6 +637,17 @@ std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size);
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
     if (auto map = craftMap(grid, size)) return map; // (M28.2b: copying, zooming out)
     if (auto book = craftBookCopy(grid)) return book; // (M28.2c)
+    if (size == 3) { // (M28.4b; wiki: Tipped Arrow) 8 arrows around a lingering potion: 8 of its tipped arrows
+        static const ItemId arrow = id("arrow"), lingering = id("lingering_potion"), tipped = id("tipped_arrow");
+        bool ok = grid[4].item == lingering && grid[4].potion != 0 && !grid[4].empty();
+        for (int i = 0; i < 9 && ok; ++i)
+            if (i != 4) ok = !grid[size_t(i)].empty() && grid[size_t(i)].item == arrow;
+        if (ok) {
+            ItemStack out{tipped, 8};
+            out.potion = grid[4].potion;
+            return out;
+        }
+    }
     std::optional<ItemStack> out = craftPlain(grid, size);
     if (out)
         for (const ItemStack& s : grid)

@@ -63,6 +63,8 @@ private:
     Dials m_dials;
     world::ItemId m_compass = 0, m_recovery = 0, m_clock = 0, m_crossbow = 0;
     uint16_t m_crossbowLoaded = 0;
+    world::ItemId m_tipped = 0;
+    uint16_t m_tippedHead = 0;
     std::array<uint16_t, 32> m_compassFrames{}, m_recoveryFrames{};
     std::array<uint16_t, 64> m_clockFrames{};
     std::vector<uint16_t> m_bannerMasks;

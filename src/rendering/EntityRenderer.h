@@ -72,7 +72,8 @@ public:
     void addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos,
                  const glm::vec3& colour = {1.0f, 0.55f, 0.95f}, float halfWidth = 0.08f);
     // A cloud of dragon's breath: glowing purple puffs over its disc (vanilla: particles).
-    void addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos);
+    void addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos,
+                  const glm::vec3& colour = {0.75f, 0.3f, 0.95f});
     // An arrow (M16.4) with its tip at `tip`, pointing along `dir`: two crossed quads.
     void addArrow(const glm::dvec3& tip, const glm::dvec3& dir, const glm::vec3& light, const glm::dvec3& cameraPos);
     // The crack on a block being broken: stage 0..9 (destroy_stage_N).

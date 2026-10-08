@@ -42,7 +42,8 @@ enum class ProjectileKind : uint8_t {
     LlamaSpit,     // (M26.2: 1 damage)
     WitherSkull,   // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
     WindCharge,    // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
-    Snowball       // (M26.5b: knocks back; 3 damage to blazes)
+    Snowball,      // (M26.5b: knocks back; 3 damage to blazes)
+    LingeringPotion // (M28.4b: leaves a cloud of its effect)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -58,6 +59,8 @@ struct BreathCloud {
     float radius = 3.0f;
     int ticks = 0;    // left
     int cooldown = 0; // until it can hurt the player again
+    uint8_t potion = 0;  // (M28.4b) a lingering potion's (world::Potion); 0 = dragon's breath
+    float shrink = 0.0f; // radius lost each tick
 };
 
 struct Projectile {
@@ -79,6 +82,7 @@ struct Projectile {
     world::ItemStack stack{}; // tridents: the item itself (enchantments, wear), given back on pickup
     bool dealt = false;       // tridents: has hit something (drops away, hits nothing more)
     uint8_t pierce = 0;       // (M28.4a) crossbow Piercing: mobs it may still go through
+    bool spectral = false;    // (M28.4b) a spectral arrow: Glowing on what it hits (`potion`: a tipped arrow's)
 };
 
 class Projectiles {
@@ -99,8 +103,8 @@ public:
     }
     static constexpr int kMaxClouds = 32;
     // A breath cloud (dragon fireballs, the perched dragon's flames).
-    void addCloud(const glm::dvec3& at, float radius, int ticks) {
-        if (int(m_clouds.size()) < kMaxClouds) m_clouds.push_back({at, radius, ticks, 0});
+    void addCloud(const glm::dvec3& at, float radius, int ticks, uint8_t potion = 0, float shrink = 0.0f) {
+        if (int(m_clouds.size()) < kMaxClouds) m_clouds.push_back({at, radius, ticks, 0, potion, shrink});
     }
     const std::vector<BreathCloud>& clouds() const { return m_clouds; }
     // Ender pearls that came down this tick.
@@ -178,7 +182,10 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
 // Charge level) they load an arrow (survival uses one up) and stay loaded (ItemStack::state
 // kCrossbowArrow); a right-click fires it at 3.15 blocks a tick - with Multishot three, 10
 // degrees apart (the side ones can't be picked up), with Piercing through level + 1 mobs.
-inline constexpr world::BlockStateId kCrossbowArrow = 1;
+inline constexpr world::BlockStateId kCrossbowArrow = 1, kCrossbowSpectral = 2, kCrossbowTipped = 3;
+// (M28.4b) the ammunition a bow or crossbow uses: the offhand, then the inventory in order
+// (vanilla); -1 offhand, 0..35 a slot, -2 none. Arrows, tipped arrows, spectral arrows.
+int ammoSlot(const Inventory& inventory);
 int crossbowChargeTicks(const world::ItemStack& crossbow);
 bool loadCrossbow(Inventory& inventory, bool survival);
 bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
@@ -207,7 +214,8 @@ void throwEye(Inventory& inventory, bool survival, const glm::dvec3& eye, glm::i
 // Throwing the held ender pearl (speed 1.5, like a snowball; wiki).
 void throwPearl(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
                 Projectiles& projectiles, world::Xoroshiro& rng);
-// Throwing the held splash potion (speed 0.5, aimed 20 degrees up; wiki).
+// Throwing the held splash potion (speed 0.5, aimed 20 degrees up; wiki) - or a lingering
+// one (M28.4b), which leaves a cloud of its effect where it breaks.
 void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
                        Projectiles& projectiles, world::Xoroshiro& rng);
 

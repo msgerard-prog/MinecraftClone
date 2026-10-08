@@ -381,6 +381,11 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:glass_bottle", .texture = "item/glass_bottle"});
     r.add({.id = "minecraft:potion", .maxStack = 1, .texture = "item/potion"});
     r.add({.id = "minecraft:splash_potion", .maxStack = 1, .texture = "item/splash_potion"});
+    // (M28.4b; wiki: Lingering Potion, Dragon's Breath, Tipped Arrow, Spectral Arrow)
+    r.add({.id = "minecraft:lingering_potion", .maxStack = 1, .texture = "item/lingering_potion"});
+    r.add({.id = "minecraft:dragon_breath", .texture = "item/dragon_breath"});
+    r.add({.id = "minecraft:tipped_arrow", .texture = "item/tipped_arrow_base"});
+    r.add({.id = "minecraft:spectral_arrow", .texture = "item/spectral_arrow"});
     r.add({.id = "minecraft:sugar", .texture = "item/sugar"});
     r.add({.id = "minecraft:fermented_spider_eye", .texture = "item/fermented_spider_eye"});
     r.add({.id = "minecraft:golden_carrot", .food = 6, .saturation = 14.4f, .texture = "item/golden_carrot"});
