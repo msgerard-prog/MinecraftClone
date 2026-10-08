@@ -1210,6 +1210,26 @@ BlockRegistry buildVanillaBlocks() {
                 {{&shrieking, "false"}, {&canSummon, "false"}, {&waterlogged, "false"}}),
           blocks::SculkShrieker);
     check(r.add("reinforced_deepslate", {.hardness = 55.0f, .resistance = 1200.0f}), blocks::ReinforcedDeepslate);
+    // Geodes (M27.4a; wiki: amethyst 1.5, buds and clusters 1.5, smooth basalt 1.25 / 4.2,
+    // all pickaxe; buds glow 1, 2, 4 and clusters 5; tinted glass 0.3 and blocks light).
+    check(r.add("amethyst_block", {.hardness = 1.5f, .resistance = 1.5f, .tool = HarvestTool::Pickaxe}),
+          blocks::AmethystBlock);
+    check(r.add("budding_amethyst", {.hardness = 1.5f, .resistance = 1.5f, .randomTicks = true,
+                                     .tool = HarvestTool::Pickaxe}),
+          blocks::BuddingAmethyst);
+    for (const auto& [id, b, glow] : {std::tuple{"small_amethyst_bud", blocks::SmallAmethystBud, 1},
+                                       std::tuple{"medium_amethyst_bud", blocks::MediumAmethystBud, 2},
+                                       std::tuple{"large_amethyst_bud", blocks::LargeAmethystBud, 4},
+                                       std::tuple{"amethyst_cluster", blocks::AmethystCluster, 5}})
+        check(r.add(id, {.hardness = 1.5f, .resistance = 1.5f, .lightEmission = uint8_t(glow), .opaqueCube = false,
+                         .collision = false, .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                    {{&facing6, "up"}, {&waterlogged, "false"}}),
+              b);
+    check(r.add("smooth_basalt", {.hardness = 1.25f, .resistance = 4.2f, .tool = HarvestTool::Pickaxe, .tier = 0}),
+          blocks::SmoothBasalt);
+    check(r.add("tinted_glass", {.hardness = 0.3f, .resistance = 0.3f, .lightOpacity = 15, .opaqueCube = false,
+                                 .layer = RenderLayer::Cutout}),
+          blocks::TintedGlass);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

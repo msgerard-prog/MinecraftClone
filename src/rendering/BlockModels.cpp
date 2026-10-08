@@ -964,6 +964,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
                 else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
                 else addBox(m, 15, 0, 0, 16, 16, 16, sp);
+            } else if (name.ends_with("amethyst_bud") || name == "amethyst_cluster") { // (M27.4a)
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(name.c_str());
             } else if (name == "sculk_vein") { // (M27.3) a thin layer on its face
                 const std::string_view f = registry.value(state, "facing").value_or("down");
                 const uint16_t sp = sprite("sculk_vein");

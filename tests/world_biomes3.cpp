@@ -316,3 +316,52 @@ TEST_CASE("overworld6: the deep dark under the mountains with sculk; ancient cit
     CHECK(summoning > 0);
     CHECK(chests >= 4);
 }
+
+TEST_CASE("overworld6 amethyst geodes: basalt, calcite and amethyst shells with buds inside (M27.4a)") {
+    const OverworldGenerator gen(42);
+    int amethyst = 0, budding = 0, buds = 0, calcite = 0, basalt = 0;
+    for (int cz = 0; cz < 10 && budding == 0; ++cz)
+        for (int cx = 0; cx < 10; ++cx) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (int y = -60; y < 40; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = R().blockOf(c.get(x, y, z));
+                        amethyst += b == blocks::AmethystBlock;
+                        budding += b == blocks::BuddingAmethyst;
+                        buds += isAmethystBud(b);
+                        calcite += b == blocks::Calcite;
+                        basalt += b == blocks::SmoothBasalt;
+                    }
+        }
+    CHECK(amethyst > 20);
+    CHECK(budding > 0);
+    CHECK(buds > 0);
+    CHECK(calcite > 20);
+    CHECK(basalt > 20);
+}
+
+TEST_CASE("budding amethyst grows buds to clusters; a cluster gives 4 shards to a pickaxe (M27.4a)") {
+    Garden g;
+    g.world.updateBlock({4, 66, 4}, S(blocks::BuddingAmethyst));
+    g.updates.setRandomTicks({0, 0}, 1, 1000);
+    bool cluster = false;
+    for (int t = 1; t < 20000 && !cluster; ++t) {
+        g.updates.setTime(t);
+        g.updates.tick();
+        for (int d = 0; d < 6 && !cluster; ++d) {
+            const glm::ivec3 n = kDirectionNormals[d];
+            cluster = g.at(4 + n.x, 66 + n.y, 4 + n.z) == blocks::AmethystCluster;
+        }
+    }
+    CHECK(cluster);
+    Xoroshiro rng(3);
+    std::vector<ItemStack> out;
+    blockDrops(S(blocks::AmethystCluster), {*itemRegistry().find("iron_pickaxe"), 1}, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].count == 4);
+    out.clear();
+    blockDrops(S(blocks::BuddingAmethyst), {*itemRegistry().find("iron_pickaxe"), 1}, rng, out);
+    CHECK(out.empty());
+}

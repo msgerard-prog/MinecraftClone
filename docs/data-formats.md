@@ -331,6 +331,8 @@ M27.3: blocks `sculk`, `sculk_vein[facing]` (ours: one face), `sculk_catalyst[bl
 ticks_since_last_warning, cooldown_ticks}. Entity `minecraft:warden` (anger and phase
 not saved: a reloaded warden is calm). M27.3b: biome `deep_dark`; item `echo_shard`;
 enchantment `minecraft:swift_sneak`; loot entries can carry a given enchantment.
+M27.4a: blocks `amethyst_block`, `budding_amethyst`, `small_amethyst_bud`/`medium_`/`large_`,
+`amethyst_cluster` [facing,waterlogged], `smooth_basalt`, `tinted_glass`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

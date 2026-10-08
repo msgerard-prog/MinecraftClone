@@ -473,6 +473,9 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"##", "##"}, {{'#', item("packed_mud")}}, "mud_bricks", 4));
         r.push_back(shaped({"##"}, {{'#', item("moss_block")}}, "moss_carpet", 3));
         r.push_back(shaped({"##"}, {{'#', item("pale_moss_block")}}, "pale_moss_carpet", 3));
+        // Amethyst (M27.4a; wiki: Block of Amethyst, Tinted Glass).
+        r.push_back(shaped({"##", "##"}, {{'#', item("amethyst_shard")}}, "amethyst_block"));
+        r.push_back(shaped({" S ", "SGS", " S "}, {{'S', item("amethyst_shard")}, {'G', item("glass")}}, "tinted_glass", 2));
         // Resin and eyeblossoms (M27.1c; wiki: Block of Resin, Orange Dye, Gray Dye).
         r.push_back(shaped({"###", "###", "###"}, {{'#', item("resin_clump")}}, "resin_block"));
         r.push_back(shapeless({item("resin_block")}, "resin_clump", 9));

@@ -1,6 +1,7 @@
 #include "world/OverworldGenerator.h"
 
 #include "world/Blocks.h"
+#include "world/Direction.h"
 #include "world/Loot.h"
 #include "world/StructurePlacement.h"
 #include "world/Random.h"
@@ -1328,6 +1329,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     }
     if (m_version >= 6) {
         placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
+        placeGeodes(blockArray.data(), cx, cz);                          // (M27.4a)
         placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
         placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
     }
@@ -3668,6 +3670,67 @@ void OverworldGenerator::placeAncientCities(BlockStateId* blocks, int32_t cx, in
                 sb.set(px, -1, pz, sculk);
                 sb.set(px, 0, pz, k % 3 == 0 ? shrieker : sensor);
             }
+        }
+}
+
+void OverworldGenerator::placeGeodes(BlockStateId* blocks, int32_t cx, int32_t cz) const {
+    // Amethyst geodes (wiki: Amethyst Geode): in 1 chunk of 24, y -58..30 - a hollow
+    // ball lined with amethyst (1 in 12 of it budding, with buds and clusters growing
+    // into the hollow), inside a calcite shell inside smooth basalt; a geode only
+    // replaces stone and the cave air around it. Each one is planned from its start chunk
+    // (reaching at most 8 blocks), so neighbours build their parts of it.
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    Buf chunk{blocks};
+    static const BlockStateId amethyst = reg.defaultState(blocks::AmethystBlock);
+    static const BlockStateId budding = reg.defaultState(blocks::BuddingAmethyst);
+    static const BlockStateId calcite = B.calcite;
+    static const BlockStateId basalt = reg.defaultState(blocks::SmoothBasalt);
+    auto stone = [&](BlockStateId s) {
+        return s == B.stone || s == B.deepslate || s == B.granite || s == B.diorite || s == B.andesite || s == B.tuff ||
+               s == B.gravel || s == B.dirt;
+    };
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int32_t gx = cx + dx, gz = cz + dz;
+            Xoroshiro r(chunkSeed(m_seed, gx, gz, 730));
+            r.nextLong();
+            if (r.nextInt(24) != 0) continue;
+            const double ox = gx * 16 + 4 + r.nextInt(8), oy = -58 + int(r.nextInt(89)), oz = gz * 16 + 4 + r.nextInt(8);
+            const double core = 3.0 + r.nextDouble() * 1.5; // hollow radius
+            const uint64_t buds = r.nextLong();
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    const double wx = cx * 16 + x + 0.5 - ox, wz = cz * 16 + z + 0.5 - oz;
+                    if (wx * wx + wz * wz > (core + 3.5) * (core + 3.5)) continue;
+                    for (int y = int(oy - core - 4); y <= int(oy + core + 4); ++y) {
+                        if (!kOverworldHeight.contains(y) || y <= kOverworldHeight.minY + 4) continue;
+                        const double wy = y + 0.5 - oy;
+                        const double d = std::sqrt(wx * wx + wy * wy + wz * wz);
+                        const BlockStateId cur = chunk.get(x, y, z);
+                        if (d > core + 3.0 || !(stone(cur) || cur == B.air)) continue;
+                        if (d < core) chunk.set(x, y, z, B.air);
+                        else if (d < core + 1.0)
+                            chunk.set(x, y, z, positional(buds, cx * 16 + x, y, cz * 16 + z, 1) < 1.0 / 12.0 ? budding : amethyst);
+                        else if (d < core + 2.0) chunk.set(x, y, z, cur == B.air ? cur : calcite);
+                        else if (cur != B.air) chunk.set(x, y, z, basalt);
+                    }
+                }
+            // Buds and clusters on the budding blocks, growing into the hollow.
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x)
+                    for (int y = int(oy - core - 2); y <= int(oy + core + 2); ++y) {
+                        if (!kOverworldHeight.contains(y) || chunk.get(x, y, z) != budding) continue;
+                        for (int d = 0; d < 6; ++d) {
+                            const glm::ivec3 n = kDirectionNormals[d];
+                            const int ax = x + n.x, ay = y + n.y, az = z + n.z;
+                            if (ax < 0 || ax > 15 || az < 0 || az > 15 || chunk.get(ax, ay, az) != B.air) continue;
+                            const double roll = positional(buds, cx * 16 + ax, ay, cz * 16 + az, 2 + d);
+                            if (roll > 0.35) continue;
+                            const BlockId kind = BlockId(blocks::SmallAmethystBud + int(roll / 0.35 * 4.0));
+                            chunk.set(ax, ay, az, reg.set(reg.defaultState(kind), properties::facing6, d));
+                        }
+                    }
         }
 }
 

@@ -96,7 +96,7 @@ Push pushKind(BlockStateId s) {
     if (isTwoBlockPlant(b) || b == B::PaleHangingMoss || b == B::OpenEyeblossom || b == B::ClosedEyeblossom ||
         b == B::ResinClump || b == B::CaveVines || b == B::CaveVinesPlant || b == B::SporeBlossom ||
         b == B::Azalea || b == B::FloweringAzalea || b == B::HangingRoots || b == B::BigDripleaf ||
-        b == B::BigDripleafStem || b == B::PointedDripstone)
+        b == B::BigDripleafStem || b == B::PointedDripstone || isAmethystBud(b) || b == B::BuddingAmethyst)
         return Push::Destroy; // (M27.1: plants break)
     if (b == B::CreakingHeart || b == B::SculkCatalyst || b == B::SculkSensor || b == B::SculkShrieker ||
         b == B::ReinforcedDeepslate)
@@ -1140,6 +1140,12 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    // Amethyst buds hold to the block they grew from (M27.4a).
+    if (isAmethystBud(blockOf(s))) {
+        if (!R().collides(at(rel(p, opposite(static_cast<Direction>(R().get(s, facing6))))))) pop(p);
+        --m_depth;
+        return;
+    }
     // Eyeblossoms need their soil; a resin clump the block it sits on (M27.1c).
     if (blockOf(s) == B::OpenEyeblossom || blockOf(s) == B::ClosedEyeblossom || blockOf(s) == B::ResinClump) {
         const BlockStateId support =
@@ -2179,6 +2185,10 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     if (blockOf(state) == B::OpenEyeblossom || blockOf(state) == B::ClosedEyeblossom) {
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
+    }
+    if (isAmethystBud(blockOf(state))) { // (M27.4a) growing away from the clicked block
+        if (!r.collides(world.getBlock(rel(at, opposite(faceDir))))) return std::nullopt;
+        return r.set(state, facing6, int(faceDir));
     }
     if (blockOf(state) == B::ResinClump) { // on the face it was put against
         const Direction toSupport = opposite(faceDir);

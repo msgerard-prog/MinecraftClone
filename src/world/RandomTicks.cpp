@@ -332,6 +332,22 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     // The pale garden (M27.1c; wiki: Eyeblossom, Creaking Heart): by night eyeblossoms
     // open and creaking hearts set between pale oak logs wake; by day they close and
     // sleep. An awake natural heart calls its creaking (main adds it unless one is out).
+    case B::BuddingAmethyst: { // (M27.4a; wiki: Budding Amethyst - 1 in 5 random ticks a
+        // bud grows on a random side: a new small bud, or the next stage of the one there)
+        if (m_random.nextInt(5) != 0) break;
+        const int d = int(m_random.nextInt(6));
+        const glm::ivec3 n = kDirectionNormals[d];
+        const BlockPos q{p.x + n.x, p.y + n.y, p.z + n.z};
+        const BlockStateId cur = at(q);
+        const BlockId cb = blockOf(cur);
+        const bool water = cb == B::Water && R().get(cur, level) == 0;
+        if (cur == 0 || water) {
+            set(q, R().set(R().set(R().defaultState(B::SmallAmethystBud), facing6, d), waterlogged, water ? 0 : 1));
+        } else if (isAmethystBud(cb) && cb != B::AmethystCluster && R().get(cur, facing6) == d) {
+            set(q, R().set(R().set(R().defaultState(BlockId(cb + 1)), facing6, d), waterlogged, R().get(cur, waterlogged)));
+        }
+        break;
+    }
     case B::PointedDripstone: // (M27.2b) dripping and growing
         tickDripstone(p, s);
         break;

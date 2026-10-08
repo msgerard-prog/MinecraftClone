@@ -150,6 +150,8 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   dark (M27.3b): `deepDark` columns are deep dark below y -16 (sculk floors and ceilings,
   sensors, summoning shriekers, catalysts; no monster spawning); `placeAncientCities`
   (grid `kAncientCities`) builds our 48x48 hall at y -51, walling off fluids around it.
+  `placeGeodes` (M27.4a): geodes planned per start chunk (1 in 24), built by every chunk
+  they reach; budding amethyst grows buds on random ticks (RandomTicks.cpp).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column

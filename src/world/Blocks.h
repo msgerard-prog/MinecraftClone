@@ -473,9 +473,20 @@ enum : BlockId {
     SculkSensor,         // sculk_sensor_phase, power, waterlogged
     SculkShrieker,       // shrieking, can_summon, waterlogged
     ReinforcedDeepslate,
+    // Geodes (M27.4a; wiki: Amethyst Geode, Budding Amethyst, Amethyst Bud, Amethyst Cluster).
+    AmethystBlock,
+    BuddingAmethyst,
+    SmallAmethystBud,  // facing, waterlogged (the side it grows toward)
+    MediumAmethystBud,
+    LargeAmethystBud,
+    AmethystCluster,
+    SmoothBasalt,
+    TintedGlass,
     Count
 };
 } // namespace blocks
+// Amethyst buds and clusters, smallest to grown (M27.4a), in enum order.
+inline bool isAmethystBud(BlockId b) { return b >= blocks::SmallAmethystBud && b <= blocks::AmethystCluster; }
 // Two-block plants (M27.1), in enum order.
 inline bool isTallPlant(BlockId b) { return b >= blocks::Sunflower && b <= blocks::LargeFern; }
 // Two-block plants with halves kept together: those and the small dripleaf (M27.2).

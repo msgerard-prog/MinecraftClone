@@ -363,6 +363,22 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
                 out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
+        // Geodes (M27.4a; wiki): a cluster gives 4 shards to a pickaxe (Fortune more), 2
+        // otherwise; buds only with Silk Touch; budding amethyst never drops.
+        if (ob == blocks::AmethystCluster) {
+            const bool silk = enchantLevel(held, Enchantment::SilkTouch) > 0;
+            if (silk) out.push_back({itemRegistry().blockItem(ob), 1});
+            else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Pickaxe)
+                out.push_back({*itemRegistry().find("amethyst_shard"),
+                               uint8_t(4 * (1 + int(rng.nextInt(uint32_t(enchantLevel(held, Enchantment::Fortune) + 1)))))});
+            else out.push_back({*itemRegistry().find("amethyst_shard"), 2});
+            return;
+        }
+        if (isAmethystBud(ob) || ob == blocks::BuddingAmethyst) {
+            if (ob != blocks::BuddingAmethyst && enchantLevel(held, Enchantment::SilkTouch) > 0)
+                out.push_back({itemRegistry().blockItem(ob), 1});
+            return;
+        }
         if (ob == blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)
             if (enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
             else out.push_back({itemRegistry().blockItem(blocks::ResinClump), uint8_t(1 + rng.nextInt(3))});

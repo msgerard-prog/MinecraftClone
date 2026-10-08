@@ -148,6 +148,8 @@ private:
     // and ceilings, azalea trees above.
     void placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
                           const std::array<int, 256>& topY) const;
+    // overworld6 (M27.4a): amethyst geodes from this chunk's and its neighbours' plans.
+    void placeGeodes(BlockStateId* blocks, int32_t cx, int32_t cz) const;
     // overworld6 (M27.3b): ancient cities in the deep dark, on their grid.
     void placeAncientCities(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
 
