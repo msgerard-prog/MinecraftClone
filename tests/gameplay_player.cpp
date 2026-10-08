@@ -590,3 +590,38 @@ TEST_CASE("melee: a critical hit multiplies the base damage, not the enchantment
     h.critical = true;
     CHECK(mc::meleeDamage(h) == doctest::Approx(0.0f));
 }
+
+TEST_CASE("ladders: walking into one climbs at 0.2 a tick; sneaking holds on (wiki: Ladder)") {
+    World w = floorWorld();
+    const auto& r = world::blockRegistry();
+    // A wall at z = 2 with a ladder in front of it (facing north) from the floor up.
+    for (int y = kFloorY + 1; y <= kFloorY + 6; ++y) {
+        w.setBlock({0, y, 2}, r.defaultState(world::blocks::Stone));
+        w.setBlock({0, y, 1}, *r.with(r.defaultState(world::blocks::Ladder), "facing", "north"));
+    }
+    Player p = standingPlayer(w);
+    p.setPosition({0.5, kFloorY + 1.0, 1.4});
+    PlayerInput in;
+    in.forward = 1.0f; // facing south (yaw 0): into the wall
+    for (int i = 0; i < 10; ++i)
+        p.tick(w, in);
+    CHECK(p.climbing());
+    // Steady climbing: 0.2 minus gravity, with drag = 0.1176 a tick (wiki: 2.35 m/s).
+    const double start = p.position().y;
+    for (int i = 0; i < 10; ++i)
+        p.tick(w, in);
+    CHECK((p.position().y - start) / 10.0 == Approx(0.1176).epsilon(0.02));
+    // Sneaking on the ladder: no sliding down.
+    PlayerInput hold;
+    hold.sneak = true;
+    p.tick(w, hold);
+    const double y = p.position().y;
+    for (int i = 0; i < 10; ++i)
+        p.tick(w, hold);
+    CHECK(p.position().y == Approx(y).epsilon(0.001));
+    // Letting go: a slow slide, at most 0.15 a tick.
+    const double before = p.position().y;
+    p.tick(w, {});
+    p.tick(w, {});
+    CHECK(before - p.position().y <= 0.31);
+}

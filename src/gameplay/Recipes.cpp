@@ -251,6 +251,49 @@ std::vector<Recipe> build() {
         pillarOf("polished_blackstone_slab", "chiseled_polished_blackstone", 1);
         r.push_back(shaped({"NW", "WN"}, {{'N', item("nether_brick")}, {'W', item("nether_wart")}}, "red_nether_bricks"));
     }
+    // Thin and small blocks, dyes (M23.2; wiki: each item's page).
+    {
+        auto has = [](std::string_view n) { return itemRegistry().find(n).has_value(); };
+        const Ingredient nugget = item("iron_nugget");
+        r.push_back(shaped({"###", "###"}, {{'#', item("glass")}}, "glass_pane", 16));
+        r.push_back(shaped({"S.S", "SSS", "S.S"}, {{'S', stick}}, "ladder", 3));
+        r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("torch")}}, "lantern"));
+        r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("soul_torch")}}, "soul_lantern"));
+        r.push_back(shaped({"N", "I", "N"}, {{'N', nugget}, {'I', item("iron_ingot")}}, "chain"));
+        for (const char* soil : {"soul_sand", "soul_soil"})
+            r.push_back(shaped({"C", "S", "X"}, {{'C', kCoal}, {'S', stick}, {'X', item(soil)}}, "soul_torch", 4));
+        r.push_back(shapeless({item("iron_ingot")}, "iron_nugget", 9));
+        r.push_back(shaped({"###", "###", "###"}, {{'#', nugget}}, "iron_ingot"));
+        r.push_back(shapeless({item("gold_ingot")}, "gold_nugget", 9));
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("gold_nugget")}}, "gold_ingot"));
+        for (const char* c : kDyeColours) {
+            const std::string colour(c);
+            const Ingredient dye = item(colour + "_dye");
+            r.push_back(shaped({"GGG", "GDG", "GGG"}, {{'G', item("glass")}, {'D', dye}}, colour + "_stained_glass", 8));
+            r.push_back(shaped({"###", "###"}, {{'#', item(colour + "_stained_glass")}}, colour + "_stained_glass_pane", 16));
+            r.push_back(shaped({"PPP", "PDP", "PPP"}, {{'P', item("glass_pane")}, {'D', dye}}, colour + "_stained_glass_pane", 8));
+            r.push_back(shaped({"##"}, {{'#', item(colour + "_wool")}}, colour + "_carpet", 3));
+            if (colour != "white") r.push_back(shapeless({item("white_wool"), dye}, colour + "_wool"));
+        }
+        // Dyes from flowers and minerals, and mixed (wiki: Dye). Black (ink sacs,
+        // wither roses) and brown (cocoa beans) wait for their sources.
+        static constexpr std::pair<const char*, const char*> kFrom[] = {
+            {"dandelion", "yellow_dye"},    {"poppy", "red_dye"},          {"cornflower", "blue_dye"},
+            {"azure_bluet", "light_gray_dye"}, {"oxeye_daisy", "light_gray_dye"}, {"white_tulip", "light_gray_dye"},
+            {"allium", "magenta_dye"},      {"blue_orchid", "light_blue_dye"}, {"red_tulip", "red_dye"},
+            {"orange_tulip", "orange_dye"}, {"pink_tulip", "pink_dye"},    {"lily_of_the_valley", "white_dye"},
+            {"bone_meal", "white_dye"},     {"lapis_lazuli", "blue_dye"}};
+        for (const auto& [from, to] : kFrom)
+            if (has(from)) r.push_back(shapeless({item(from)}, to));
+        static constexpr std::array<const char*, 3> kMix[] = {
+            {"red_dye", "yellow_dye", "orange_dye"}, {"red_dye", "white_dye", "pink_dye"},
+            {"blue_dye", "white_dye", "light_blue_dye"}, {"blue_dye", "green_dye", "cyan_dye"},
+            {"blue_dye", "red_dye", "purple_dye"},   {"purple_dye", "pink_dye", "magenta_dye"},
+            {"green_dye", "white_dye", "lime_dye"},  {"black_dye", "white_dye", "gray_dye"},
+            {"gray_dye", "white_dye", "light_gray_dye"}};
+        for (const auto& m : kMix)
+            r.push_back(shapeless({item(m[0]), item(m[1])}, m[2], 2));
+    }
     return r;
 }
 
@@ -407,6 +450,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "clay") return out("terracotta");
     // Building blocks (M23.1; wiki: Smelting): bricks, smooth and cracked variants.
     if (n == "clay_ball") return out("brick");
+    if (n == "cactus") return out("green_dye"); // (wiki: Green Dye)
     if (n == "netherrack") return out("nether_brick");
     if (n == "stone") return out("smooth_stone");
     if (n == "sandstone") return out("smooth_sandstone");
@@ -440,6 +484,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
     if (n == "clay_ball") return 0.3f; // (wiki: Brick)
+    if (n == "cactus") return 1.0f;
     if (n == "netherrack" || n == "stone" || n == "sandstone" || n == "red_sandstone" || n == "quartz_block" ||
         n == "stone_bricks" || n == "cobbled_deepslate" || n == "deepslate_bricks" || n == "deepslate_tiles" ||
         n == "polished_blackstone_bricks")

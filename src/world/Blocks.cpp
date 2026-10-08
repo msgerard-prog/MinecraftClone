@@ -56,6 +56,7 @@ const Property wallNorth{"north", {"none", "low", "tall"}};
 const Property wallEast{"east", {"none", "low", "tall"}};
 const Property wallSouth{"south", {"none", "low", "tall"}};
 const Property wallWest{"west", {"none", "low", "tall"}};
+const Property hanging{"hanging", {"true", "false"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
@@ -76,6 +77,29 @@ const Property occupied{"occupied", {"true", "false"}};
 } // namespace properties
 
 namespace {
+
+// Stained glass and panes, carpets (M23.2; wiki: Stained Glass, Stained Glass Pane,
+// Carpet): 16 colours each.
+void addColouredBlocks(BlockRegistry& r) {
+    using namespace properties;
+    for (int c = 0; c < 16; ++c) {
+        const std::string colour(kDyeColours[c]);
+        r.add(colour + "_stained_glass",
+              {.hardness = 0.3f, .resistance = 0.3f, .opaqueCube = false, .layer = RenderLayer::Translucent});
+    }
+    for (int c = 0; c < 16; ++c) {
+        const std::string colour(kDyeColours[c]);
+        r.add(colour + "_stained_glass_pane",
+              {.hardness = 0.3f, .resistance = 0.3f, .opaqueCube = false, .layer = RenderLayer::Translucent,
+               .kind = BlockKind::Pane, .base = *r.findBlock(colour + "_stained_glass")},
+              {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}});
+    }
+    for (int c = 0; c < 16; ++c) {
+        const std::string colour(kDyeColours[c]);
+        r.add(colour + "_carpet", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false,
+                                   .kind = BlockKind::Carpet, .base = *r.findBlock(colour + "_wool")});
+    }
+}
 
 // Building blocks (M23.1; wiki: each block's page): the full blocks the families need
 // that weren't registered yet, then the slabs, stairs and walls of vanilla's stone,
@@ -442,11 +466,8 @@ BlockRegistry buildVanillaBlocks() {
                  {&fireUp, "false"}, {&fireWest, "false"}}),
           blocks::Fire);
     // Wool (wiki: Wool - hardness 0.8), 16 dye colours in vanilla's order.
-    static constexpr const char* kColours[16] = {"white", "orange", "magenta", "light_blue", "yellow", "lime",
-                                                 "pink", "gray", "light_gray", "cyan", "purple", "blue",
-                                                 "brown", "green", "red", "black"};
     for (int c = 0; c < 16; ++c)
-        check(r.add(std::string(kColours[c]) + "_wool", {.hardness = 0.8f, .resistance = 0.8f}),
+        check(r.add(std::string(kDyeColours[c]) + "_wool", {.hardness = 0.8f, .resistance = 0.8f}),
               static_cast<BlockId>(blocks::WhiteWool + c));
     // Farming (M17.1; wiki: Farmland - hardness 0.6, 15/16 tall: a full cube here;
     // crops break instantly, no collision).
@@ -672,6 +693,35 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("moving_piston", {.hardness = -1.0f, .resistance = 0.0f, .opaqueCube = false, .collision = false},
                 {{&facing6, "north"}, {&pistonType, "normal"}}),
           blocks::MovingPiston);
+    // Thin and small blocks (M23.2; wiki: Torch, Soul Torch, Lantern, Chain, Ladder,
+    // Glass Pane): no collision for torches, small boxes for the rest.
+    const BlockSettings torchLike{.lightEmission = 14, .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout};
+    check(r.add("wall_torch", torchLike, {{&facing, "north"}}), blocks::WallTorch);
+    BlockSettings soul = torchLike;
+    soul.lightEmission = 10; // (wiki: Soul Torch)
+    check(r.add("soul_torch", soul), blocks::SoulTorch);
+    check(r.add("soul_wall_torch", soul, {{&facing, "north"}}), blocks::SoulWallTorch);
+    check(r.add("lantern", {.hardness = 3.5f, .resistance = 3.5f, .lightEmission = 15, .opaqueCube = false,
+                            .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                {{&hanging, "false"}}),
+          blocks::Lantern);
+    check(r.add("soul_lantern", {.hardness = 3.5f, .resistance = 3.5f, .lightEmission = 10, .opaqueCube = false,
+                                 .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                {{&hanging, "false"}}),
+          blocks::SoulLantern);
+    check(r.add("chain", {.hardness = 5.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                          .tool = HarvestTool::Pickaxe},
+                {{&axis, "y"}}),
+          blocks::Chain);
+    check(r.add("ladder", {.hardness = 0.4f, .resistance = 0.4f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                           .tool = HarvestTool::Axe},
+                {{&facing, "north"}}),
+          blocks::Ladder);
+    check(r.add("glass_pane", {.hardness = 0.3f, .resistance = 0.3f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                               .kind = BlockKind::Pane, .base = blocks::Glass},
+                {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
+          blocks::GlassPane);
+    addColouredBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not

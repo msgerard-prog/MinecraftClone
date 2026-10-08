@@ -201,7 +201,7 @@ void Particles::smoke(const glm::dvec3& at, bool large, Xoroshiro& rng) {
     add(p);
 }
 
-void Particles::flame(const glm::dvec3& at, Xoroshiro& rng) {
+Particle& Particles::flame(const glm::dvec3& at, Xoroshiro& rng) {
     Particle p;
     p.pos = at;
     p.vel = glm::dvec3(centred(rng) * 0.002, 0.0, centred(rng) * 0.002);
@@ -211,7 +211,7 @@ void Particles::flame(const glm::dvec3& at, Xoroshiro& rng) {
     p.physics = false;
     p.fullBright = true;
     p.lifetime = int16_t(life(rng, 8.0f, 0.8f, 0.2f) + 4);
-    add(p);
+    return add(p);
 }
 
 void Particles::portal(const glm::dvec3& at, Xoroshiro& rng) {
@@ -266,9 +266,19 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     };
     switch (id) {
     case blocks::Torch: // smoke and a flame over the tip (wiki: Torch)
-        smoke({c.x, b.y + 0.7, c.z}, false, rng);
-        flame({c.x, b.y + 0.7, c.z}, rng);
+    case blocks::SoulTorch:
+    case blocks::WallTorch: // (wall torches: the tip leans out from the wall)
+    case blocks::SoulWallTorch: {
+        glm::dvec3 tip(c.x, b.y + 0.7, c.z);
+        if (id == blocks::WallTorch || id == blocks::SoulWallTorch) { // (our stick stands upright by the wall)
+            const glm::ivec3 out = kDirectionNormals[R().get(s, properties::facing) + 2];
+            tip = {c.x - out.x * 0.3125, b.y + 0.85, c.z - out.z * 0.3125};
+        }
+        smoke(tip, false, rng);
+        Particle& f = flame(tip, rng);
+        if (id == blocks::SoulTorch || id == blocks::SoulWallTorch) f.color = glm::vec3(0.45f, 0.85f, 1.0f); // soul fire
         break;
+    }
     case blocks::RedstoneTorch:
     case blocks::RedstoneWallTorch:
         if (R().get(s, properties::lit) == 0)

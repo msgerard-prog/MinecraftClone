@@ -116,6 +116,7 @@ public:
     float takeImpact() { return std::exchange(m_impact, 0.0f); }
     // Landed on a slime block this tick (the fall is forgiven: main resets it), once.
     bool takeBounce() { return std::exchange(m_bounced, false); }
+    bool climbing() const { return m_climbing; } // on a ladder this tick (M23.2)
     bool inWater() const { return m_inWater; } // touching water (last tick)
     bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
@@ -124,6 +125,7 @@ public:
     Aabb box() const { return Aabb::fromFeet(m_pos, kWidth, m_sneaking ? kSneakHeight : kHeight); }
 
 private:
+    bool m_climbing = false;
     // Moves by `delta` with collision (MCPK: Collisions): returns the actual motion.
     glm::dvec3 move(const world::World& world, glm::dvec3 delta);
     glm::dvec3 collide(const world::World& world, const Aabb& box, const glm::dvec3& delta);

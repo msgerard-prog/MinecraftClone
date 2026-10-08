@@ -24,7 +24,7 @@ enum class RenderLayer : uint8_t { Invisible, Solid, Cutout, Translucent };
 
 // Shaped block families (M23.1): blocks of a kind share placement, shape, model and
 // connection rules, taking textures, tool and sound from their base block.
-enum class BlockKind : uint8_t { Plain, Slab, Stairs, Wall };
+enum class BlockKind : uint8_t { Plain, Slab, Stairs, Wall, Pane, Carpet };
 // The tool that mines a block fastest and is needed for drops (wiki: each block's
 // "Tool"); blocks registered before M23 keep theirs in gameplay/Mining.
 enum class HarvestTool : uint8_t { None, Pickaxe, Axe, Shovel, Hoe };

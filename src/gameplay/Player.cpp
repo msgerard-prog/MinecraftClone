@@ -292,8 +292,21 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     const glm::dvec3 right(world::rightFlat(m_yaw));
     m_velocity += (forward * in.y + right * in.x) * accel;
 
+    // Ladders (M23.2; wiki: Ladder): in a ladder's cell, horizontal speed and the fall
+    // are capped at 0.15; sneaking holds on (no sliding); walking into the wall or
+    // holding jump climbs at 0.2.
+    const world::BlockPos feetCell{int(std::floor(m_pos.x)), int(std::floor(m_pos.y)), int(std::floor(m_pos.z))};
+    m_climbing = !m_flying && world::blockRegistry().blockOf(world.getBlock(feetCell)) == world::blocks::Ladder;
+    if (m_climbing) {
+        m_velocity.x = std::clamp(m_velocity.x, -0.15, 0.15);
+        m_velocity.z = std::clamp(m_velocity.z, -0.15, 0.15);
+        m_velocity.y = std::max(m_velocity.y, -0.15);
+        if (m_sneaking && m_velocity.y < 0.0) m_velocity.y = 0.0;
+    }
+
     const glm::dvec3 before = m_velocity;
     move(world, m_velocity);
+    if (m_climbing && (m_velocity.x != before.x || m_velocity.z != before.z || input.jump)) m_velocity.y = 0.2;
     // Sprinting stops on a wall hit steeper than 8 degrees; glancing contact while
     // running along a wall keeps it (wiki: Sprinting, since 21w41a).
     if (m_sprinting && (m_velocity.x != before.x || m_velocity.z != before.z)) {

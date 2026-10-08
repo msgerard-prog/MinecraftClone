@@ -16,7 +16,7 @@ M23 - Building blocks & workstations (wiki pages of each block):
    are written once; slabs (bottom/top/double merging), stairs (facing, half, corner
    shapes), walls (posts, low/tall sides) for vanilla's stone, brick, sandstone,
    deepslate, nether and end families and every wood; recipes, stonecutter-free.
-2. M23.2 - Thin and small blocks: glass panes, the 16 stained glass blocks and panes,
+2. ✅ M23.2 - Thin and small blocks: glass panes, the 16 stained glass blocks and panes,
    16 carpets, ladders (climbing), lanterns and soul lanterns (standing/hanging),
    chains, wall torches.
 3. M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,

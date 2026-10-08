@@ -200,6 +200,51 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         }
         return true;
     }
+    // Small blocks of M23.2 (they share the torch stick and rotation helpers).
+    case B::SoulTorch: {
+        Builder b(atlas, out);
+        b.box(torchStick({7, 0, 7}, 10, "soul_torch"));
+        return true;
+    }
+    case B::WallTorch:
+    case B::SoulWallTorch: { // upright against the wall (vanilla tilts it: known deviation)
+        Builder b(atlas, out);
+        b.box(torchStick({7, 3, 12}, 10, block == B::WallTorch ? "torch" : "soul_torch"), {0, yTurns(hFacing(r, s))});
+        return true;
+    }
+    case B::Lantern:
+    case B::SoulLantern: {
+        // A 6x7x6 body and a small cap (wiki: Lantern), one pixel lower when standing.
+        Builder b(atlas, out);
+        const char* tex = block == B::Lantern ? "lantern" : "soul_lantern";
+        const int y0 = r.get(s, P::hanging) == 0 ? 1 : 0;
+        // (our lantern art: the glowing body at texels 5..11 x 4..11, the cap above it)
+        BoxSpec body = allFaces({5, y0, 5}, {11, y0 + 7, 11}, tex, {5, 4, 11, 11});
+        body.faces[int(Direction::Up)] = {tex, {5, 4, 11, 10}};
+        body.faces[int(Direction::Down)] = {tex, {5, 4, 11, 10}};
+        b.box(body);
+        BoxSpec cap = allFaces({6, y0 + 7, 6}, {10, y0 + 9, 10}, tex, {6, 2, 10, 4});
+        cap.faces[int(Direction::Up)] = {tex, {6, 2, 10, 4}};
+        b.box(cap);
+        return true;
+    }
+    case B::Chain: { // a thin bar along the axis showing the chain links
+        Builder b(atlas, out);
+        const int a = r.get(s, P::axis);
+        BoxSpec bar = allFaces({7, 0, 7}, {9, 16, 9}, "chain", {6, 0, 10, 16}); // (our chain art: columns 6..9)
+        bar.faces[int(Direction::Up)] = {nullptr};
+        bar.faces[int(Direction::Down)] = {nullptr};
+        b.box(bar, a == 0 ? Rot{1, 1} : a == 2 ? Rot{1, 0} : Rot{});
+        return true;
+    }
+    case B::Ladder: { // a flat panel on the block behind it, the ladder texture facing out
+        Builder b(atlas, out);
+        BoxSpec panel{{0, 0, 15}, {16, 16, 16}, {}};
+        panel.faces[int(Direction::North)] = {"ladder"};
+        panel.faces[int(Direction::South)] = {"ladder"};
+        b.box(panel, {0, yTurns(hFacing(r, s))});
+        return true;
+    }
     case B::RedstoneTorch:
     case B::RedstoneWallTorch: {
         Builder b(atlas, out);

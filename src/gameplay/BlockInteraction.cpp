@@ -141,12 +141,9 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             return; // not inside the player
         if (!world.chunk(world::ChunkPos{world::blockToChunk(at.x), world::blockToChunk(at.z)}))
             return;
-        // Floor torches need a top face that supports its centre (wiki:
-        // Opacity/Placement): any full-collision block, glass included. Wall
-        // torches: not yet (game-design.md › Known deviations).
-        if (torch &&
-            (hit->face != world::Direction::Up || !reg.collides(world.getBlock(hit->block))))
-            return;
+        // Torches stand on a block's top or hang on its side (BlockUpdates::placement);
+        // never on its underside.
+        if (torch && hit->face == world::Direction::Down) return;
         world::BlockStateId state = orientedState(placeState, hit->face);
         // Horizontal facing blocks (furnace) face the player (wiki: Furnace).
         if (reg.blockOf(state) == world::blocks::Furnace || reg.blockOf(state) == world::blocks::EndPortalFrame) {

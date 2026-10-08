@@ -313,6 +313,11 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
     // Silk Touch: the block itself, for blocks that otherwise drop something else
     // (wiki: Silk Touch).
     if (enchantLevel(held, Enchantment::SilkTouch) > 0) {
+        const BlockId sb = blockRegistry().blockOf(state);
+        if (blockRegistry().kind(sb) == BlockKind::Pane || blockRegistry().block(sb).id.ends_with("_stained_glass")) {
+            out.push_back({itemRegistry().blockItem(sb), 1});
+            return;
+        }
         switch (blockRegistry().blockOf(state)) {
         case blocks::Stone:
         case blocks::GrassBlock:
@@ -412,6 +417,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     auto between = [&](int lo, int hi) {
         return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
     };
+    // Glass panes and stained glass drop nothing without Silk Touch (wiki: Glass Pane).
+    if (reg.kind(b) == BlockKind::Pane || reg.block(b).id.ends_with("_stained_glass")) return;
     // A double slab is two slabs (wiki: Slab).
     if (reg.kind(b) == BlockKind::Slab && reg.get(state, properties::slabType) == 2) {
         add(itemRegistry().blockItem(b), 2);
@@ -510,7 +517,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::NetherQuartzOre:
         add(d.quartz);
         return;
-    // (wiki: Nether Gold Ore - 2-6 gold nuggets; nuggets don't exist yet: the ore drops itself)
+    case blocks::NetherGoldOre: // wiki: Nether Gold Ore - 2-6 gold nuggets
+        add(*itemRegistry().find("gold_nugget"), between(2, 6));
+        return;
     case blocks::Clay:
         add(d.clay, 4); // wiki: Clay - 4 clay balls
         return;

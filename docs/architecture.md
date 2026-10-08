@@ -320,7 +320,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   base model's faces), `BlockUpdates::placement` (half from the click height `hitY`),
   `stairsShaped`/`wallConnected` on neighbour updates, slab merging in
   `BlockInteraction::place`, drops/harvest/sounds/recipes derived from the base. New
-  plain blocks carry their tool in `BlockSettings::tool`. `raycastBlocks` hits shaped
+  plain blocks carry their tool in `BlockSettings::tool`. M23.2 adds the `Pane` and `Carpet` kinds
+  (16 colours each, `addColouredBlocks`), wall/soul torches, lanterns, chains and ladders
+  (support checks in `BlockUpdates::survives`; climbing in `Player::tick`), dyes and nuggets. `raycastBlocks` hits shaped
   blocks only on their boxes; the outline spans the shape's bounds.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the

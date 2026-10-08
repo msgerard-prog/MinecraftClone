@@ -43,6 +43,16 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
                     rng);
         return Use::Sheared;
     }
+    // A dye recolours a sheep's wool (wiki: Sheep › Dyeing; M23.2), using up the dye.
+    if (m.type == MobType::Sheep && !m.sheared) {
+        const std::string_view name = itemRegistry().item(held).id;
+        for (int c = 0; c < 16; ++c)
+            if (name.size() > 10 && name.substr(10) == std::string(kDyeColours[c]) + "_dye") {
+                if (m.woolColour == c) return Use::None;
+                m.woolColour = uint8_t(c);
+                return Use::Fed;
+            }
+    }
     // Piglins take a gold ingot to admire for 6 s, then barter (wiki: Bartering).
     static const ItemId goldIngot = itemId("gold_ingot");
     if (m.type == MobType::Piglin && held == goldIngot && !m.isBaby() && m.admireTicks == 0) {

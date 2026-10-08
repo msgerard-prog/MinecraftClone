@@ -94,7 +94,7 @@ void addBoxFrom(BakedModel& m, int x0, int y0, int z0, int x1, int y1, int z1, c
 
 // Models of the shaped families from their base block's (already baked) model.
 bool bakeFamilyModel(const world::BlockRegistry& registry, world::BlockStateId state, const BakedModel& baseModel,
-                     BakedModel& m) {
+                     BakedModel& m, const TextureAtlas& atlas) {
     using namespace world;
     const BlockId b = registry.blockOf(state);
     const BakedVariant& base = baseModel.variants[0];
@@ -134,6 +134,35 @@ bool bakeFamilyModel(const world::BlockRegistry& registry, world::BlockStateId s
         if (m.boxCount == 0) addBoxFrom(m, 4, 0, 4, 12, 16, 12, base, true);
         return true;
     }
+    case BlockKind::Pane: {
+        // A 2-wide post and arms with the glass texture; the edges show the pane's
+        // "_top" strip (wiki: Glass Pane).
+        m.visible = true;
+        m.translucent = baseModel.translucent;
+        std::string name = registry.block(b).id.substr(10);
+        const uint16_t edge = static_cast<uint16_t>(atlas.spriteIndex(name + "_top"));
+        auto arm = [&](int x0, int z0, int x1, int z1, bool alongX) {
+            addBoxFrom(m, x0, 0, z0, x1, 16, z1, base);
+            BakedBox& bx = m.boxes[m.boxCount - 1];
+            for (const Direction d : {Direction::Up, Direction::Down}) {
+                auto& f = bx.faces[int(d)];
+                f.sprite = edge;
+                f.uv[0] = 7, f.uv[2] = 9; // the strip runs along the arm
+                f.uv[1] = uint8_t(alongX ? x0 : z0), f.uv[3] = uint8_t(alongX ? x1 : z1);
+                f.rotation = alongX ? 1 : 0;
+            }
+        };
+        arm(7, 7, 9, 9, false);
+        if (registry.get(state, properties::fireNorth) == 0) arm(7, 0, 9, 7, false);
+        if (registry.get(state, properties::fireSouth) == 0) arm(7, 9, 9, 16, false);
+        if (registry.get(state, properties::fireWest) == 0) arm(0, 7, 7, 9, true);
+        if (registry.get(state, properties::fireEast) == 0) arm(9, 7, 16, 9, true);
+        return true;
+    }
+    case BlockKind::Carpet: // a 1-pixel slab of its wool (wiki: Carpet)
+        m.visible = true;
+        addBoxFrom(m, 0, 0, 0, 16, 1, 16, base);
+        return true;
     case BlockKind::Plain: break;
     }
     return false;
@@ -203,7 +232,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         if (bakeRedstoneModel(registry, state, atlas, m)) continue;
         if (const BlockId fb = registry.blockOf(state); registry.kind(fb) != world::BlockKind::Plain &&
                                                         bakeFamilyModel(registry, state,
-                                                                        m_models[registry.defaultState(registry.block(fb).settings.base)], m))
+                                                                        m_models[registry.defaultState(registry.block(fb).settings.base)], m,
+                                                                        atlas))
             continue;
         switch (registry.blockOf(state)) {
         case blocks::Air:
@@ -332,6 +362,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite(topName.c_str());
                 v.faces[int(Direction::Down)].sprite = sprite(topName.c_str());
                 m = single(v);
+            } else if (ends("_stained_glass")) { // translucent, faces hidden against itself (as glass)
+                m = single(cubeAll(sprite(name.c_str())));
+                m.translucent = true;
+                m.cullSame = true;
             } else if (name == "smooth_quartz") { // vanilla: the quartz block's bottom on every face
                 m = single(cubeAll(sprite("quartz_block_bottom")));
             } else if (name == "nether_wart") { // a cross of its stage (0, 1-2, 3)

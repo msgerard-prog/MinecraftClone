@@ -1389,7 +1389,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
                 if (!arrival) {
                     // (gliding counts as flying for falls: our simplification)
-                    vitals.tick(feet.y, player.onGround(), inWater || player.inWater(), player.flying() || player.gliding());
+                    vitals.tick(feet.y, player.onGround(), inWater || player.inWater(),
+                                player.flying() || player.gliding() || player.climbing()); // (ladders: no fall)
                     if (const float impact = player.takeImpact(); impact > 0.0f) vitals.damage(impact); // (armour doesn't help)
                     if (player.gliding() && ++glideTicks % 20 == 0) // an elytra wears 1 per second of flight
                         inventory.setArmor(1, mc::wearItem(inventory.armor(1), 1, gameRng));

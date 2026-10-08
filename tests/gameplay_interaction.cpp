@@ -144,7 +144,10 @@ TEST_CASE("torches go on top of full blocks (glass too), never on sides or into 
     wall.world.setBlock({0, 65, 3}, S(blocks::Stone));
     wall.world.setBlock({0, 66, 3}, S(blocks::Stone));
     wall.tick(false, true, S(blocks::Torch));
-    CHECK(wall.changed.empty());
+    // M23.2: a wall torch on the side, pointing back at the player (north).
+    REQUIRE(wall.changed.size() == 1);
+    CHECK(blockRegistry().blockOf(wall.world.getBlock(wall.changed[0])) == blocks::WallTorch);
+    CHECK(blockRegistry().value(wall.world.getBlock(wall.changed[0]), "facing") == "north");
     CHECK(torch.y == 65);
 }
 

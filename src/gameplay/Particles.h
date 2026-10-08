@@ -78,7 +78,7 @@ public:
     void splashPotion(const glm::dvec3& at, uint32_t rgb, world::Xoroshiro& rng);
     void crit(const glm::dvec3& at, world::Xoroshiro& rng);
     void smoke(const glm::dvec3& at, bool large, world::Xoroshiro& rng);
-    void flame(const glm::dvec3& at, world::Xoroshiro& rng);
+    Particle& flame(const glm::dvec3& at, world::Xoroshiro& rng);
     void portal(const glm::dvec3& at, world::Xoroshiro& rng);
 
 private:

@@ -51,6 +51,7 @@ extern const Property slabHalf;  // "half": top | bottom (trapdoors, stairs)
 extern const Property slabType;  // "type": top | bottom | double (slabs, M23.1)
 extern const Property stairShape; // "shape": straight | inner_left | inner_right | outer_left | outer_right
 extern const Property wallNorth, wallEast, wallSouth, wallWest; // none | low | tall
+extern const Property hanging; // true | false (lanterns)
 extern const Property inWall;    // "in_wall": true | false (fence gates)
 extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east
@@ -299,9 +300,24 @@ enum : BlockId {
     ActivatorRail, // powered, shape (6)
     SlimeBlock,    // (M21.5)
     MovingPiston,  // facing (6), type: a block being pushed (2 ticks; invisible)
+    // Thin and small blocks (M23.2).
+    WallTorch,     // facing (the way it points out from the wall)
+    SoulTorch,
+    SoulWallTorch, // facing
+    Lantern,       // hanging
+    SoulLantern,   // hanging
+    Chain,         // axis
+    Ladder,        // facing (out from the block it hangs on)
+    GlassPane,     // east, north, south, west: connections
     Count
 };
 } // namespace blocks
+
+// Dye colours in vanilla's order (wiki: Dye › Data values): wool, carpets, stained
+// glass, dyes...
+inline constexpr const char* kDyeColours[16] = {"white", "orange", "magenta", "light_blue", "yellow", "lime",
+                                                "pink",  "gray",   "light_gray", "cyan",     "purple", "blue",
+                                                "brown", "green",  "red",        "black"};
 
 // The global registry, built on first use (thread-safe) and immutable afterwards.
 const BlockRegistry& blockRegistry();

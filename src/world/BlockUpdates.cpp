@@ -561,6 +561,21 @@ BlockStateId BlockUpdates::stairsShaped(const World& world, const BlockPos& p, B
     return r.set(st, stairShape, 0);
 }
 
+BlockStateId BlockUpdates::paneConnected(const World& world, const BlockPos& p, BlockStateId pane) {
+    const auto& r = R();
+    auto joins = [&](Direction d) {
+        const BlockStateId s = world.getBlock(rel(p, d));
+        const BlockId b = blockOf(s);
+        const BlockKind k = r.kind(b);
+        return k == BlockKind::Pane || k == BlockKind::Wall || b == B::IronBars || b == B::Glass ||
+               r.block(b).id.ends_with("_stained_glass") || r.opaqueCube(s);
+    };
+    pane = r.set(pane, fireNorth, joins(Direction::North) ? 0 : 1);
+    pane = r.set(pane, fireSouth, joins(Direction::South) ? 0 : 1);
+    pane = r.set(pane, fireWest, joins(Direction::West) ? 0 : 1);
+    return r.set(pane, fireEast, joins(Direction::East) ? 0 : 1);
+}
+
 BlockStateId BlockUpdates::wallConnected(const World& world, const BlockPos& p, BlockStateId wall) {
     const auto& r = R();
     const BlockStateId above = world.getBlock(rel(p, Direction::Up));
@@ -568,7 +583,8 @@ BlockStateId BlockUpdates::wallConnected(const World& world, const BlockPos& p, 
     auto joins = [&](Direction d) {
         const BlockStateId s = world.getBlock(rel(p, d));
         const BlockId b = blockOf(s);
-        return r.kind(b) == BlockKind::Wall || b == B::IronBars || b == B::OakFenceGate || r.opaqueCube(s);
+        return r.kind(b) == BlockKind::Wall || r.kind(b) == BlockKind::Pane || b == B::IronBars || b == B::OakFenceGate ||
+               r.opaqueCube(s);
     };
     const Property* sides[4] = {&wallNorth, &wallSouth, &wallWest, &wallEast};
     const Direction dirs[4] = {Direction::North, Direction::South, Direction::West, Direction::East};
@@ -671,7 +687,8 @@ BlockStateId BlockUpdates::barsConnected(const World& world, const BlockPos& p, 
     const auto& r = R();
     auto joins = [&](Direction d) {
         const BlockStateId s = world.getBlock(rel(p, d));
-        return blockOf(s) == B::IronBars || r.kind(blockOf(s)) == BlockKind::Wall || r.opaqueCube(s);
+        return blockOf(s) == B::IronBars || r.kind(blockOf(s)) == BlockKind::Wall ||
+               r.kind(blockOf(s)) == BlockKind::Pane || r.opaqueCube(s);
     };
     bars = r.set(bars, fireNorth, joins(Direction::North) ? 0 : 1);
     bars = r.set(bars, fireSouth, joins(Direction::South) ? 0 : 1);
@@ -858,7 +875,18 @@ void BlockUpdates::pop(const BlockPos& p) {
 }
 
 bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
+    if (R().kind(blockOf(s)) == BlockKind::Carpet) return at(rel(p, Direction::Down)) != 0; // (any block below)
     switch (blockOf(s)) {
+    case B::Torch: // (M23.2: plain torches pop too when their support goes)
+    case B::SoulTorch:
+        return supports(at(rel(p, Direction::Down)));
+    case B::WallTorch:
+    case B::SoulWallTorch:
+    case B::Ladder:
+        return supports(at(rel(p, opposite(hFacing(s)))));
+    case B::Lantern: // hanging from the block above, or standing (wiki: Lantern)
+    case B::SoulLantern:
+        return supports(at(rel(p, R().get(s, hanging) == 0 ? Direction::Up : Direction::Down)));
     case B::RedstoneWire:
     case B::RedstoneTorch:
     case B::Repeater:
@@ -884,9 +912,21 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     ++m_depth;
     const BlockStateId s = at(p);
-    if (const BlockKind kind = R().kind(blockOf(s)); kind == BlockKind::Stairs || kind == BlockKind::Wall) {
-        const BlockStateId want = kind == BlockKind::Stairs ? stairsShaped(m_world, p, s) : wallConnected(m_world, p, s);
+    if (const BlockKind kind = R().kind(blockOf(s));
+        kind == BlockKind::Stairs || kind == BlockKind::Wall || kind == BlockKind::Pane) {
+        const BlockStateId want = kind == BlockKind::Stairs ? stairsShaped(m_world, p, s)
+                                  : kind == BlockKind::Wall ? wallConnected(m_world, p, s)
+                                                            : paneConnected(m_world, p, s);
         if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
+    // Small blocks that need their support (M23.2): torches, wall torches, lanterns,
+    // ladders, carpets.
+    if (const BlockId b = blockOf(s); b == B::Torch || b == B::SoulTorch || b == B::WallTorch || b == B::SoulWallTorch ||
+                                      b == B::Lantern || b == B::SoulLantern || b == B::Ladder ||
+                                      R().kind(b) == BlockKind::Carpet) {
+        if (!survives(p, s)) pop(p);
         --m_depth;
         return;
     }
@@ -1803,6 +1843,10 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case BlockKind::Stairs: // facing the way the player looks: they walk up away from themselves
         return stairsShaped(world, at, r.set(withHFacing(state, look), slabHalf, upper ? 0 : 1));
     case BlockKind::Wall: return wallConnected(world, at, state);
+    case BlockKind::Pane: return paneConnected(world, at, state);
+    case BlockKind::Carpet:
+        if (world.getBlock(rel(at, Direction::Down)) == 0) return std::nullopt;
+        return state;
     case BlockKind::Plain: break;
     }
     switch (blockOf(state)) {
@@ -1957,6 +2001,21 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         for (const Direction d : kHorizontal)
             s = r.set(s, wireProp(d), kSide);
         return s;
+    }
+    case B::Torch: // on a wall when clicked on its side, else standing (wiki: Torch)
+    case B::SoulTorch:
+        if (horizontal(faceDir) && solid(opposite(faceDir)))
+            return withHFacing(r.defaultState(blockOf(state) == B::Torch ? B::WallTorch : B::SoulWallTorch), faceDir);
+        if (solid(Direction::Down)) return state;
+        return std::nullopt;
+    case B::Ladder: // only on a block's side, facing out from it (wiki: Ladder)
+        if (!horizontal(faceDir) || !solid(opposite(faceDir))) return std::nullopt;
+        return withHFacing(state, faceDir);
+    case B::Lantern: // hangs when put under a block, else stands (wiki: Lantern)
+    case B::SoulLantern: {
+        const bool hang = faceDir == Direction::Down ? solid(Direction::Up) : !solid(Direction::Down) && solid(Direction::Up);
+        if (!hang && !solid(Direction::Down)) return std::nullopt;
+        return r.set(state, hanging, hang ? 0 : 1);
     }
     case B::RedstoneTorch:
         // On a wall when clicked on its side, else standing (wiki: Redstone Torch).

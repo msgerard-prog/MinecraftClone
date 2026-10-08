@@ -47,7 +47,8 @@ ItemRegistry buildItems() {
     for (BlockId b = 1; b < blocks.blockCount(); ++b) {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
         // Placed by another item (redstone dust, torches on walls) or never an item.
-        if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::PistonHead ||
+        if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::WallTorch ||
+            b == blocks::SoulWallTorch || b == blocks::PistonHead ||
             b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire || b == blocks::Wheat ||
             b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots) // crops: planted by seeds
             continue;
@@ -106,6 +107,8 @@ ItemRegistry buildItems() {
     // Redstone dust is placed as redstone_wire; wall torches drop the torch item.
     r.mapBlock(blocks::RedstoneWire, *r.find("redstone"));
     r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));
+    r.mapBlock(blocks::WallTorch, *r.find("torch")); // (M23.2: picked and dropped as the torch)
+    r.mapBlock(blocks::SoulWallTorch, *r.find("soul_torch"));
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
@@ -183,6 +186,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:blaze_powder", .texture = "item/blaze_powder"});
     r.add({.id = "minecraft:magma_cream", .texture = "item/magma_cream"});
     r.add({.id = "minecraft:gold_nugget", .texture = "item/gold_nugget"});
+    // M23.2: iron nuggets, the 16 dyes (wiki: Iron Nugget, Dye).
+    r.add({.id = "minecraft:iron_nugget", .texture = "item/iron_nugget"});
+    for (const char* colour : kDyeColours)
+        r.add({.id = std::string("minecraft:") + colour + "_dye", .texture = std::string("item/") + colour + "_dye"});
     r.add({.id = "minecraft:fire_charge", .texture = "item/fire_charge"});
     // Brewing (M19.4; wiki: Potion, Glass Bottle, Sugar, Fermented Spider Eye, Golden
     // Carrot - 6 food, 14.4 saturation; Glowstone Dust).

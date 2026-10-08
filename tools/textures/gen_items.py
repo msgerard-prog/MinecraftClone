@@ -721,6 +721,14 @@ def all_items():
     items["brick"] = ingot("#B4553C")
     items["nether_brick"] = ingot("#4E2228")
     items["clay_ball"] = lump("clay_ball", "#A0A6B6", "#C4C8D4", size=5)
+    # Dyes and iron nuggets (M23.2): powder lumps in the dye colours (wiki: Dye).
+    dyes = {"white": "#E8ECEC", "orange": "#F0801E", "magenta": "#C04EB8", "light_blue": "#3CB0DA",
+            "yellow": "#F6D03C", "lime": "#80C020", "pink": "#EE8AA8", "gray": "#4A5154",
+            "light_gray": "#9C9C96", "cyan": "#18989A", "purple": "#8832B4", "blue": "#3C44A8",
+            "brown": "#82542E", "green": "#5E7A18", "red": "#AE2E26", "black": "#24242A"}
+    for colour, base in dyes.items():
+        items[f"{colour}_dye"] = lump(f"{colour}_dye", base, size=4.5)
+    items["iron_nugget"] = lump("iron_nugget", "#C8C8C8", "#F0F0F0", size=3.2)
     items["bucket"] = bucket()
     items["water_bucket"] = bucket("#3C6EE6")
     items["lava_bucket"] = bucket("#E8661A")

@@ -130,6 +130,8 @@ public:
     // Walls (wiki: Wall): arms to walls, bars, panes, fence gates and full blocks; tall
     // under a full block, a post unless a straight run.
     static BlockStateId wallConnected(const World& world, const BlockPos& p, BlockStateId wall);
+    // Glass panes (M23.2; wiki: Glass Pane): arms to panes, bars, glass, walls, full blocks.
+    static BlockStateId paneConnected(const World& world, const BlockPos& p, BlockStateId pane);
     static bool isDoor(BlockId b);
     static bool isPressurePlate(BlockId b);
 

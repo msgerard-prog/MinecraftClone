@@ -100,9 +100,31 @@ BlockShape compute(BlockStateId s) {
         if (sh.count == 0) add(sh, 4, 0, 4, 12, 24, 12);
         return sh;
     }
+    case BlockKind::Pane: { // wiki: Glass Pane - a 2-wide post and arms, like iron bars
+        BlockShape sh = box(7, 0, 7, 9, 16, 9);
+        if (r.get(s, fireNorth) == 0) add(sh, 7, 0, 0, 9, 16, 7);
+        if (r.get(s, fireSouth) == 0) add(sh, 7, 0, 9, 9, 16, 16);
+        if (r.get(s, fireWest) == 0) add(sh, 0, 0, 7, 7, 16, 9);
+        if (r.get(s, fireEast) == 0) add(sh, 9, 0, 7, 16, 16, 9);
+        return sh;
+    }
+    case BlockKind::Carpet: return box(0, 0, 0, 16, 1, 16); // wiki: Carpet - 1/16 tall
     case BlockKind::Plain: break;
     }
     switch (b) {
+    case B::Lantern: // wiki: Lantern - 6x7x6 (with the handle 6x9), hanging one pixel lower
+    case B::SoulLantern: {
+        const int y0 = r.get(s, hanging) == 0 ? 1 : 0;
+        BlockShape sh = box(5, y0, 5, 11, y0 + 7, 11);
+        add(sh, 6, y0 + 7, 6, 10, y0 + 9, 10);
+        return sh;
+    }
+    case B::Chain: { // a 3-thick bar along its axis (wiki: Chain)
+        const int a = r.get(s, axis);
+        return a == 0 ? box(0, 6, 6, 16, 10, 10) : a == 1 ? box(6, 0, 6, 10, 16, 10) : box(6, 6, 0, 10, 10, 16);
+    }
+    case B::Ladder: // against the block behind it: facing north hangs on the south side
+        return panel(oppositeH(r.get(s, facing)));
     case B::OakDoor:
     case B::IronDoor: {
         // Closed: a panel on the side the player placed it from (opposite its
