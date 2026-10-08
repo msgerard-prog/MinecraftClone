@@ -60,6 +60,7 @@ void ItemEntities::move(const world::World& world, ItemEntity& e) {
 int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPickUp,
                        Inventory& inventory) {
     int picked = 0;
+    m_pickedCount = 0;
     const Aabb reach{player.min - glm::dvec3(1.0, 0.5, 1.0), player.max + glm::dvec3(1.0, 0.5, 1.0)};
     for (size_t i = 0; i < m_items.size();) {
         ItemEntity& e = m_items[i];
@@ -105,7 +106,11 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
         if (!remove && canPickUp && e.pickupDelay == 0 &&
             reach.intersects(Aabb::fromFeet(e.pos, kSize, kSize))) {
             const int left = inventory.add(e.stack);
-            if (left < e.stack.count) ++picked;
+            if (left < e.stack.count) {
+                ++picked;
+                if (m_pickedCount < int(m_picked.size()))
+                    m_picked[size_t(m_pickedCount++)] = {e.stack.item, uint8_t(e.stack.count - left)};
+            }
             e.stack.count = static_cast<uint8_t>(left);
             remove = left == 0;
         }

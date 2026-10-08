@@ -64,6 +64,7 @@
 #include "world/Enchantments.h"
 #include "world/FlatGenerator.h"
 #include "world/LevelData.h"
+#include "world/Statistics.h"
 #include "world/LightManager.h"
 #include "world/NetherGenerator.h"
 #include "world/OverworldGenerator.h"
@@ -561,6 +562,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         playerUuidLo = (uuidRng.nextLong() & ~(3ull << 62)) | (2ull << 62);
     }
     mc::world::setPlayerUuid(playerUuidHi, playerUuidLo); // (written as pets' Owner)
+    // Statistics (M28.1d): saves/<world>/stats/<uuid>.json, as vanilla.
+    mc::world::Statistics stats;
+    if (!worldDir.empty())
+        if (auto s = mc::world::Statistics::load(mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
+            stats = std::move(*s);
+    shared.menuState.stats = &stats;
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
@@ -831,6 +838,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             saveSlot(200 + i, inventory.enderChest().items[size_t(i)]);
         l.selectedSlot = inventory.selected();
         if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
+        if (!stats.save(mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
+            MC_LOG_ERROR("Failed to write the statistics");
         if (wait) storage->flush();
         MC_LOG_INFO("Saved world \"%s\" (%d changed chunks)", worldName.c_str(), chunks);
     };
@@ -1050,6 +1059,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         container.openChest(nullptr, nullptr);
         pointChests();
         playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f, true);
+        stats.add(mc::world::Stat::OpenChest); // (chests and copper chests; vanilla counts barrels apart)
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
@@ -1317,11 +1327,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const auto& reg = mc::world::blockRegistry();
                     const auto block = reg.blockOf(world.getBlock(lastHit->block));
                     if (block == mc::world::blocks::CraftingTable) {
+                        stats.add(mc::world::Stat::InteractWithCraftingTable);
                         container.open(mc::ui::ContainerScreen::Type::Crafting);
                         window.setCursorCaptured(false);
                     } else if (reg.likeOf(block) ==
                                mc::world::blocks::Furnace) { // (smokers, blast furnaces)
                         containerBlock = lastHit->block;
+                        stats.add(mc::world::Stat::InteractWithFurnace);
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::Beacon) { // (M23.6)
@@ -1603,6 +1615,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     bedSpawn = *mc::bedHead(world, bedPos);
                     sleepBed = *bedSpawn;
                     sleepTicks = 1;
+                    stats.add(mc::world::Stat::SleepInBed);
                     chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
                     break;
                 case mc::BedUse::NotNight:
@@ -1822,6 +1835,41 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)),
                                                 int(std::floor(feet.z))};
             const bool inWater = reg.blockOf(world.getBlock(feetBlock)) == mc::world::blocks::Water;
+            // Statistics (M28.1d; vanilla's movement stats in cm): riding by vehicle, else
+            // swimming, under/on water, climbing, walking/sprinting/crouching, elytra,
+            // flight (horizontal where vanilla counts it so); jumps; falls of 2+ on landing.
+            if (!dead && !arrival) {
+                using S = mc::world::Stat;
+                const glm::dvec3 d = feet - before;
+                const int64_t full = std::llround(glm::length(d) * 100.0);
+                const int64_t horiz = std::llround(glm::length(glm::dvec2(d.x, d.z)) * 100.0);
+                const bool eyesWet = mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
+                if (ridingCart != 0) {
+                    if (const mc::world::MobData* v = findCart())
+                        stats.add(v->type == mc::world::MobType::Minecart ? S::MinecartOneCm
+                                  : v->type == mc::world::MobType::Boat   ? S::BoatOneCm
+                                                                          : S::HorseOneCm,
+                                  full);
+                } else if (eyesWet && player.sprinting()) {
+                    stats.add(S::SwimOneCm, full);
+                } else if (eyesWet) {
+                    stats.add(S::WalkUnderWaterOneCm, full);
+                } else if (player.inWater()) {
+                    stats.add(S::WalkOnWaterOneCm, horiz);
+                } else if (player.climbing() && d.y > 0.0) {
+                    stats.add(S::ClimbOneCm, std::llround(d.y * 100.0));
+                } else if (player.onGround()) {
+                    stats.add(player.sprinting() ? S::SprintOneCm : player.sneaking() ? S::CrouchOneCm : S::WalkOneCm, horiz);
+                } else if (player.gliding()) {
+                    stats.add(S::AviateOneCm, full);
+                } else if (player.flying()) {
+                    stats.add(S::FlyOneCm, horiz);
+                }
+                if (wasOnGround && !player.onGround() && player.velocity().y > 0.0 && !player.flying() && ridingCart == 0)
+                    stats.add(S::Jump);
+                if (player.onGround() && !wasOnGround && !player.flying() && airPeakY - feet.y >= 2.0)
+                    stats.add(S::FallOneCm, std::llround((airPeakY - feet.y) * 100.0));
+            }
             // Landing on farmland may trample it: chance fall distance - 0.5 (wiki: Farmland).
             if (player.onGround() || player.flying() || inWater) {
                 if (player.onGround() && !wasOnGround && !player.flying()) {
@@ -1946,6 +1994,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
+                stats.add(mc::world::Stat::Deaths);
+                stats.set(mc::world::Stat::TimeSinceDeath, 0);
+                if (const mc::world::MobData* killer = mobs.playerAttacker()
+                                                           ? mc::Mobs::mobByUuid(world, feet, mobs.playerAttacker())
+                                                           : nullptr)
+                    stats.addKilledBy(killer->type);
                 if (rules.keepInventory) {
                     screenDrops.clear();
                     if (container.isOpen()) container.close(inventory, screenDrops);
@@ -1989,6 +2043,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     player.eyePosition(1.0),
                     glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), one, gameRng);
                 inventory.consumeSelected(1);
+                stats.add(mc::world::Stat::Drop);
+                stats.addItem(mc::world::ItemStat::Dropped, one.item);
             }
             mc::InteractionInput clicks;
             clicks.attack = window.cursorCaptured() && attackArmed && window.leftMousePressed();
@@ -2252,6 +2308,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!dead && heldId == "minecraft:fishing_rod" && clicks.useClick) { // (M25.2: cast / reel in)
                     const mc::world::ItemStack rod = inventory.selectedStack();
                     if (fishing.active()) {
+                        if (fishing.biting()) stats.add(mc::world::Stat::FishCaught);
                         const int wear = fishing.reel(world, player.position(), droppedItems, &orbs, gameRng);
                         if (survival && wear > 0) inventory.setSlot(inventory.selected(), mc::wearItem(rod, wear, gameRng));
                     } else {
@@ -2764,6 +2821,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
+                    stats.add(mc::world::Stat::DamageDealt, std::lround(dmg * 10.0f));
                     playerTargetUuid = m.uuidHi; // (tamed wolves join in - M26.1)
                     playerTargetTicks = 0;
                     if (m.type == mc::world::MobType::Villager) { // golems defend villagers (wiki)
@@ -3252,9 +3310,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const glm::dvec3 blockCentre(containerBlock.x + 0.5, containerBlock.y + 0.5,
                                          containerBlock.z + 0.5);
             if (container.takeEnchanted()) {
+                stats.add(mc::world::Stat::EnchantItem);
                 vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
                 playSound(mc::world::Sound::Enchant, blockCentre, 1.0f, 1.0f, true);
             }
+            stats.add(mc::world::Stat::TradedWithVillager, container.takeTrades());
+            for (const mc::world::ItemStack& c : container.crafted())
+                stats.addItem(mc::world::ItemStat::Crafted, c.item, c.count);
+            container.clearCrafted();
             if (const int tradeXp = container.takeTradeExperience();
                 tradeXp > 0) // (M24.2: orbs from trading)
                 orbs.drop(player.position() + glm::dvec3(0.0, 0.5, 0.0), tradeXp, gameRng);
@@ -3630,6 +3693,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               top > eye.y + 1.0 ? 0.5f : 1.0f, top > eye.y + 1.0 ? 0.5f : 1.0f,
                               true);
             }
+            stats.add(mc::world::Stat::PlayTime); // (M28.1d)
+            stats.add(mc::world::Stat::TotalWorldTime);
+            if (!dead) stats.add(mc::world::Stat::TimeSinceDeath);
+            stats.set(mc::world::Stat::TimeSinceRest, vitals.timeSinceRest());
+            stats.add(mc::world::Stat::DamageTaken, std::lround(vitals.takeDamageTaken() * 10.0f));
+            for (const mc::world::MobType k : mobs.playerKills()) {
+                stats.add(mc::world::Stat::MobKills);
+                stats.addKilled(k);
+            }
+            mobs.clearPlayerKills();
+            stats.add(mc::world::Stat::AnimalsBred, mobs.takeBred());
+            for (const mc::world::ItemStack& p : droppedItems.pickedUp())
+                stats.addItem(mc::world::ItemStat::PickedUp, p.item, p.count);
+            if (const auto b = interaction.takeBroken()) stats.addMined(b);
+            if (const auto u = interaction.takeUsed()) stats.addItem(mc::world::ItemStat::Used, u);
+            if (const auto t = interaction.takeBrokenTool()) stats.addItem(mc::world::ItemStat::Broken, t);
             if (rules.advanceTime) ++dayTime; // the daylight cycle advances one tick per tick
             if (rules.advanceWeather) weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
@@ -4408,7 +4487,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
          screenDrops) // didn't fit: drop at the player (saved later... lost: see deviations)
         droppedItems.spawn(player.position(), d, gameRng);
     blockUpdates.landAll();
+    stats.add(mc::world::Stat::LeaveGame);
     saveWorld(true);
+    shared.menuState.stats = nullptr; // (the session's counters go away with it)
     const auto summary = frameStats.summarize();
     const auto& st = renderer.stats();
     // Frame times count only frames after meshing finished (steady state).
@@ -4561,7 +4642,7 @@ int main(int argc, char** argv) {
     if (!interactive || opts->renderDistanceSet) shared.cliRenderDistance = launch.renderDistance;
     shared.cliNoVsync = !opts->vsync;
     // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
-    if (!opts->menu.empty() && opts->menu != "pause") {
+    if (!opts->menu.empty() && opts->menu != "pause" && opts->menu != "statistics") {
         menuState.worlds = mc::world::listWorlds(MC_SAVES_DIR);
         menuState.selected = menuState.worlds.empty() ? -1 : 0;
         menuState.screen = opts->menu == "title"    ? mc::ui::MenuScreen::Title
@@ -4592,7 +4673,9 @@ int main(int argc, char** argv) {
     // interactive ones come back to the title on "Save and Quit to Title".
     if (!interactive || !opts->world.empty() || opts->noSave) {
         menuState.screen =
-            opts->menu == "pause" ? mc::ui::MenuScreen::Pause : mc::ui::MenuScreen::None;
+            opts->menu == "pause"        ? mc::ui::MenuScreen::Pause
+            : opts->menu == "statistics" ? mc::ui::MenuScreen::Statistics
+                                         : mc::ui::MenuScreen::None;
         SessionEnd end;
         const int code = runSession(shared, &launch, end);
         if (!interactive || end != SessionEnd::ToTitle || window.shouldClose()) return code;

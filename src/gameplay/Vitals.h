@@ -26,6 +26,8 @@ public:
     // caused by mobs (and every explosion) scale with it; starving stops at 10 health on
     // Easy, at 1 on Normal, never on Hard; Peaceful refills health and food.
     void setDifficulty(int d) { m_difficulty = d; }
+    // Damage taken since the last call (statistics, M28.1d).
+    float takeDamageTaken() { return std::exchange(m_damageTaken, 0.0f); }
     int difficulty() const { return m_difficulty; }
     static float scaledDamage(float amount, int difficulty);
     // Game rules (M28.1): fall_damage, fire_damage, drowning_damage, natural_health_regeneration.
@@ -216,6 +218,7 @@ private:
     bool m_stalagmite = false;
     bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true, m_naturalRegen = true; // (M28.1)
     int m_difficulty = 2;
+    float m_damageTaken = 0.0f;
     int m_peacefulTicks = 0;
     int m_wardenLevel = 0, m_wardenTicks = 0, m_wardenCooldown = 0; // (M27.3)
     float m_health = kMaxHealth;

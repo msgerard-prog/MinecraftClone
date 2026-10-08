@@ -13,6 +13,8 @@
 
 #include <optional>
 #include <array>
+#include <span>
+#include <utility>
 #include <vector>
 
 namespace mc {
@@ -132,8 +134,16 @@ public:
 
     int hostileCount() const { return m_hostiles; }
     static Aabb box(const world::MobData& m);
+    // Statistics (M28.1d): mobs the player killed and animals bred since the last call.
+    std::span<const world::MobType> playerKills() const { return {m_kills.data(), size_t(m_killCount)}; }
+    void clearPlayerKills() { m_killCount = 0; }
+    int takeBred() { return std::exchange(m_bred, 0); }
+    // The mob with this UUID, searched from the chunks around `near` outward.
+    static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
 
 private:
+    std::array<world::MobType, 32> m_kills{};
+    int m_killCount = 0, m_bred = 0;
     world::Xoroshiro m_soundRng{0xa3b1'e47cull}; // ambient sound timing only
     void ai(Context& ctx, world::MobData& m);
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
@@ -228,7 +238,6 @@ private:
     // Zombies hunting villagers, zombie villagers' cure (M24.3, Villagers.cpp).
     bool villageHunt(Context& ctx, world::MobData& z);
     static void zombieVillagerTick(world::MobData& m);
-    static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
     // Iron golems (M24.3, Golems.cpp): fighting monsters / patrolling (true: chasing),
     // villagers calling one.
     bool golemGoal(Context& ctx, world::MobData& g, double& speed);

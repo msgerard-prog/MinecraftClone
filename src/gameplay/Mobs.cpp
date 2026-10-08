@@ -798,6 +798,7 @@ void Mobs::die(Context& ctx, MobData& m) {
         const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1))) + extra;
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
+    if (m.lastHurtByPlayer && m_killCount < int(m_kills.size())) m_kills[size_t(m_killCount++)] = m.type; // (statistics)
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
     // Game rule mob_drops off: no loot and no experience (what it wore or carried still falls).
     if (!ctx.mobDrops) return;

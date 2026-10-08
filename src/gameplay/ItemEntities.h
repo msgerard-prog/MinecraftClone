@@ -7,6 +7,8 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
+#include <span>
 #include <vector>
 
 namespace mc {
@@ -81,7 +83,12 @@ public:
         std::erase_if(m_items, [](const ItemEntity& e) { return e.stack.empty() || e.stack.count == 0; });
     }
 
+    // Stacks the player picked up in the last tick (statistics, M28.1d; up to 16).
+    std::span<const world::ItemStack> pickedUp() const { return {m_picked.data(), size_t(m_pickedCount)}; }
+
 private:
+    std::array<world::ItemStack, 16> m_picked{};
+    int m_pickedCount = 0;
     void move(const world::World& world, ItemEntity& e);
     std::vector<ItemEntity> m_items;
     std::vector<Aabb> m_boxes; // reused

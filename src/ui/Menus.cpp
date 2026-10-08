@@ -213,11 +213,104 @@ MenuAction pause(Menu& m, MenuState& st) {
     const float top = float(m.height()) / 4.0f;
     m.text("Game Menu", cx, top - 16.0f, argb(0xFFFFFFFF), true);
     if (m.button("Back to Game", cx - 102.0f, top + 8.0f, 204.0f) || m.input().escape) return MenuAction::Resume;
-    if (m.button("Options...", cx - 102.0f, top + 32.0f, 204.0f)) {
+    m.button("Advancements", cx - 102.0f, top + 32.0f, 100.0f, false); // (M28.5)
+    if (m.button("Statistics", cx + 2.0f, top + 32.0f, 100.0f, st.stats != nullptr)) {
+        st.screen = MenuScreen::Statistics;
+        st.statsScroll = 0;
+    }
+    if (m.button("Options...", cx - 102.0f, top + 56.0f, 204.0f)) {
         st.optionsBack = MenuScreen::Pause;
         st.screen = MenuScreen::Options;
     }
-    if (m.button("Save and Quit to Title", cx - 102.0f, top + 56.0f, 204.0f)) return MenuAction::SaveAndQuit;
+    if (m.button("Save and Quit to Title", cx - 102.0f, top + 80.0f, 204.0f)) return MenuAction::SaveAndQuit;
+    return MenuAction::None;
+}
+
+// "minecraft:oak_log" -> "Oak Log" (our names come from the ids).
+void prettyName(std::string_view id, char* out, size_t size) {
+    if (id.starts_with("minecraft:")) id.remove_prefix(10);
+    size_t n = 0;
+    bool start = true;
+    for (char c : id) {
+        if (n + 1 >= size) break;
+        if (c == '_') {
+            out[n++] = ' ';
+            start = true;
+        } else {
+            out[n++] = start && c >= 'a' && c <= 'z' ? char(c - 32) : c;
+            start = false;
+        }
+    }
+    out[n] = 0;
+}
+
+MenuAction statisticsScreen(Menu& m, MenuState& st) {
+    // Vanilla's Statistics screen (wiki: Statistics): General, then per item and per mob.
+    // Ours draws rows straight from the counters each frame (no lists kept).
+    m.dim();
+    const float cx = float(m.width()) / 2.0f;
+    m.text("Statistics", cx, 8.0f, argb(0xFFFFFFFF), true);
+    static constexpr const char* kTabs[3] = {"General", "Items", "Mobs"};
+    for (int t = 0; t < 3; ++t)
+        if (m.button(kTabs[t], cx - 154.0f + float(t) * 104.0f, 22.0f, 100.0f, st.statsTab != t)) {
+            st.statsTab = t;
+            st.statsScroll = 0;
+        }
+    const float listTop = 48.0f, listBottom = float(m.height()) - 32.0f, rowH = 11.0f;
+    const int visible = std::max(1, int((listBottom - listTop) / rowH));
+    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f, gfx::rgba(0, 0, 0, 110));
+    const world::Statistics* s = st.stats;
+    const float left = cx - 150.0f, right = cx + 150.0f;
+    int row = 0; // rows counted so far (scrolled ones are skipped)
+    char name[64], value[32];
+    auto line = [&](const char* label, const char* text, uint32_t colour) {
+        const int r = row++ - st.statsScroll;
+        if (r < 0 || r >= visible) return;
+        const float y = listTop + float(r) * rowH;
+        m.text(label, left, y, colour);
+        m.text(text, right - float(m.batch().textWidth(text)), y, colour);
+    };
+    if (s && st.statsTab == 0) {
+        for (int i = 0; i < int(world::Stat::Count); ++i) {
+            const auto stat = world::Stat(i);
+            world::Statistics::formatValue(stat, s->get(stat), value, sizeof(value));
+            std::snprintf(name, sizeof(name), "%.*s", int(world::Statistics::label(stat).size()),
+                          world::Statistics::label(stat).data());
+            line(name, value, row % 2 ? argb(0xFFFFFFFF) : argb(0xFFB0B0B0));
+        }
+    } else if (s && st.statsTab == 1) {
+        line("Item: mined / crafted / used / broken / picked up / dropped", "", argb(0xFFFFFF55));
+        const auto& items = world::itemRegistry();
+        for (size_t it = 1; it < items.count(); ++it) {
+            const auto id = world::ItemId(it);
+            const world::BlockId b = items.item(id).block;
+            const int64_t mined = b ? s->mined(b) : 0;
+            int64_t any = mined;
+            for (int k = 1; k < int(world::ItemStat::Count); ++k)
+                any += s->item(world::ItemStat(k), id);
+            if (any == 0) continue;
+            prettyName(items.item(id).id, name, sizeof(name));
+            std::snprintf(value, sizeof(value), "%lld / %lld / %lld / %lld / %lld / %lld", (long long)mined,
+                          (long long)s->item(world::ItemStat::Crafted, id), (long long)s->item(world::ItemStat::Used, id),
+                          (long long)s->item(world::ItemStat::Broken, id), (long long)s->item(world::ItemStat::PickedUp, id),
+                          (long long)s->item(world::ItemStat::Dropped, id));
+            line(name, value, row % 2 ? argb(0xFFFFFFFF) : argb(0xFFB0B0B0));
+        }
+    } else if (s) {
+        for (int t = 0; t < int(world::MobType::Count); ++t) {
+            const auto type = world::MobType(t);
+            if (s->killed(type) == 0 && s->killedBy(type) == 0) continue;
+            prettyName(world::mobInfo(type).id, name, sizeof(name));
+            std::snprintf(value, sizeof(value), "killed %lld, killed you %lld", (long long)s->killed(type),
+                          (long long)s->killedBy(type));
+            line(name, value, row % 2 ? argb(0xFFFFFFFF) : argb(0xFFB0B0B0));
+        }
+    }
+    if (row == 0 || (st.statsTab == 1 && row == 1))
+        m.text("Nothing yet", cx, listTop + 20.0f, argb(0xFFA0A0A0), true);
+    if (m.input().wheel != 0.0) st.statsScroll -= int(m.input().wheel) * 3;
+    st.statsScroll = std::clamp(st.statsScroll, 0, std::max(0, row - visible));
+    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape) st.screen = MenuScreen::Pause;
     return MenuAction::None;
 }
 
@@ -231,6 +324,7 @@ MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t
     case MenuScreen::ConfirmDelete: return confirmDelete(menu, state, dirtSprite);
     case MenuScreen::Options: return optionsScreen(menu, state, options, dirtSprite);
     case MenuScreen::Pause: return pause(menu, state);
+    case MenuScreen::Statistics: return statisticsScreen(menu, state);
     case MenuScreen::None: break;
     }
     return MenuAction::None;

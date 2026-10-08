@@ -116,10 +116,28 @@ TEST_CASE("menus: the game menu resumes or saves and quits") {
     Ui ui;
     ui.state.screen = MenuScreen::Pause;
     CHECK(ui.click(160, 78) == MenuAction::Resume);         // Back to Game (y 68)
-    CHECK(ui.click(160, 126) == MenuAction::SaveAndQuit);   // (y 116)
-    ui.click(160, 102);                                      // Options...
+    CHECK(ui.click(160, 150) == MenuAction::SaveAndQuit);   // (y 140)
+    ui.click(160, 126);                                      // Options... (y 116)
     CHECK(ui.state.screen == MenuScreen::Options);
     CHECK(ui.state.optionsBack == MenuScreen::Pause);
+}
+
+TEST_CASE("menus: Statistics opens from the game menu with the session's counters") {
+    Ui ui;
+    ui.state.screen = MenuScreen::Pause;
+    ui.click(210, 102); // Statistics (right half of the row at y 92): disabled without counters
+    CHECK(ui.state.screen == MenuScreen::Pause);
+    mc::world::Statistics stats;
+    stats.add(mc::world::Stat::Jump, 5);
+    ui.state.stats = &stats;
+    ui.click(210, 102);
+    CHECK(ui.state.screen == MenuScreen::Statistics);
+    ui.click(160, 32); // the Items tab
+    CHECK(ui.state.statsTab == 1);
+    MenuInput esc;
+    esc.escape = true;
+    ui.frame(esc);
+    CHECK(ui.state.screen == MenuScreen::Pause);
 }
 
 TEST_CASE("options.txt round-trips in vanilla's format") {

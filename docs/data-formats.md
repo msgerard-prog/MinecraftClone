@@ -107,6 +107,12 @@ level.dat_old              backup copy of the previous level.dat (load falls bac
                            then to level.dat_new); level.dat_new is written first and
                            renamed over level.dat in one step
 session.lock               held exclusively while the world is open (one instance)
+stats/<uuid>.json          (M28.1d) the player's statistics, vanilla's JSON: { "stats": {
+                           "minecraft:custom": { "minecraft:play_time": ticks, ...distances
+                           in cm, damage in tenths }, "minecraft:mined" (blocks),
+                           "minecraft:crafted" | "used" | "broken" | "picked_up" | "dropped"
+                           (items), "minecraft:killed" | "killed_by" (mobs) }, "DataVersion"
+                           4671 }; zero counters and empty groups are left out
 DIM-1/region, DIM-1/entities   the Nether (M12), same layouts; DIM1/... the End
 entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
                            Entities [ mobs: { id, Pos, Motion, Rotation, Health,

@@ -262,6 +262,7 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     if (isMount(m.type)) mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
                     wildlifeOffspring(m, *partner, baby, ctx.rng);                  // (genes, trust - M26.3)
                     m_births.push_back(baby);
+                    ++m_bred; // (statistics: animals bred)
                     if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng); // wiki: 1-7
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;

@@ -122,6 +122,11 @@ public:
         if (m_type == Type::Trading) updateResult(); // (the prices changed)
     }
     int takeTradeExperience() { return std::exchange(m_tradeXp, 0); }
+    // Statistics (M28.1d): what was crafted (crafting grid, smithing, furnace outputs
+    // taken) and trades made since the last call.
+    std::span<const world::ItemStack> crafted() const { return {m_crafted.data(), size_t(m_craftedCount)}; }
+    void clearCrafted() { m_craftedCount = 0; }
+    int takeTrades() { return std::exchange(m_trades, 0); }
     int tradeChoice() const { return m_tradeChoice; }
     // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by
     // the world; re-pointed every frame like chests.
@@ -194,6 +199,9 @@ private:
     void setGear(int slot, const world::ItemStack& s);
     int m_heroLevel = 0;
     int m_tradeChoice = -1, m_tradeXp = 0;
+    std::array<world::ItemStack, 8> m_crafted{};
+    int m_craftedCount = 0, m_trades = 0;
+    void noteCrafted(const world::ItemStack& s);
     world::Xoroshiro m_tradeRng{0x7a4d'e5u}; // (trade rewards and new trades)
     uint8_t m_beaconPrimary = 0, m_beaconSecondary = 0; // (the choice before paying)
     std::span<world::ItemStack> m_store;

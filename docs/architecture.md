@@ -590,7 +590,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   with `survival` = survival or adventure; adventure sets `BlockInteraction::setMayBuild`
   (and main's `mayBuild` gates block-changing items: buckets, flint and steel, hoes, bone
   meal, TNT); spectator is `Player::setSpectator` (always flying, `move` without
-  collision), no clicks, pickups, inventory, hotbar or outline.
+  collision), no clicks, pickups, inventory, hotbar or outline. Statistics (M28.1d,
+  `world/Statistics`): fixed counter arrays sized from the registries, saved with the
+  level as `stats/<uuid>.json`; main counts times, movement by kind, deaths and screens
+  and drains small per-tick queues (`Vitals::takeDamageTaken`, `Mobs::playerKills`/
+  `takeBred`, `ItemEntities::pickedUp`, `BlockInteraction::takeBroken/takeUsed/
+  takeBrokenTool`, `ContainerScreen::crafted`/`takeTrades`); `ui/Menus` shows them
+  (Game Menu > Statistics: General, Items, Mobs).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

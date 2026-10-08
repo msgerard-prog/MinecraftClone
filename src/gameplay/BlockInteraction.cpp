@@ -103,6 +103,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
 
     if (attack && m_destroyCooldown == 0 && !holdingSword) {
         dropContents(world, hit->block, drops); // containers drop their items in every mode
+        m_broken = world::blockRegistry().blockOf(world.getBlock(hit->block));
         world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z,
                          world.getBlock(hit->block));
         world.updateBlock(hit->block, world::leftAfterBreaking(world.getBlock(hit->block))); // (its water stays)
@@ -116,6 +117,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         m_useCooldown = kUseDelay;
         bool placed = false;
         place(world, player, *hit, placeState, changed, placed);
+        if (placed) m_used = world::itemRegistry().blockItem(world::blockRegistry().blockOf(placeState));
     }
 }
 
@@ -371,6 +373,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                             fc->furnace(world::blockToLocal(hit->block.x), hit->block.y, world::blockToLocal(hit->block.z)))
                         m_experience += takeFurnaceExperience(*f, rng);
                 world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z, state);
+                m_broken = world::blockRegistry().blockOf(state);
                 world.updateBlock(hit->block, world::leftAfterBreaking(state)); // (its water stays)
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
@@ -381,8 +384,11 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 const auto& breg = world::blockRegistry();
                 const bool handInstant = breg.block(breg.blockOf(state)).settings.hardness == 0.0f;
                 if (def.durability > 0 && !handInstant) {
+                    m_used = tool.item;
+                    const world::ItemId toolItem = tool.item;
                     inventory.setSlot(inventory.selected(),
                                       wearItem(tool, def.tool == world::ToolType::Sword ? 2 : 1, rng));
+                    if (inventory.selectedStack().empty()) m_brokenTool = toolItem;
                 }
                 m_breaking.reset();
                 m_progress = 0.0f;
@@ -400,6 +406,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         m_useCooldown = kUseDelay;
         bool placed = false;
         place(world, player, *hit, inventory.placeState(), changed, placed);
+        if (placed) m_used = inventory.selectedStack().item;
         if (placed) inventory.consumeSelected(1);
     }
 }

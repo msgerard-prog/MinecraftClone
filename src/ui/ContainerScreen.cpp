@@ -431,6 +431,7 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
             if (!b.empty() && (m_grid[1].count = uint8_t(m_grid[1].count - b.count)) == 0)
                 m_grid[1] = {};
             world::useOffer(*m_trader, m_tradeChoice, m_tradeRng);
+            ++m_trades;
             m_tradeXp += 3 + int(m_tradeRng.nextInt(4)); // (wiki: 3-6 experience a trade)
             updateResult();
             if (!shift) return;
@@ -440,6 +441,7 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
     if (m_type == Type::Smithing) { // one of each input is used
         if (m_result.empty() || !m_carried.empty()) return;
         m_carried = m_result;
+        noteCrafted(m_result);
         for (int i = 0; i < 3; ++i)
             if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
                 m_grid[size_t(i)] = {};
@@ -494,12 +496,23 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
             else
                 m_carried.count = uint8_t(m_carried.count + made.count);
         }
+        noteCrafted(made.empty() ? m_result : made);
         for (int i = 0; i < n * n; ++i) // each ingredient is used once
             if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
                 m_grid[size_t(i)] = {};
         updateResult();
         if (!shift) return;
     }
+}
+
+void ContainerScreen::noteCrafted(const world::ItemStack& s) {
+    if (s.item == 0 || s.count == 0) return;
+    for (int i = 0; i < m_craftedCount; ++i)
+        if (m_crafted[size_t(i)].item == s.item) {
+            m_crafted[size_t(i)].count = uint8_t(std::min(255, m_crafted[size_t(i)].count + s.count));
+            return;
+        }
+    if (m_craftedCount < int(m_crafted.size())) m_crafted[size_t(m_craftedCount++)] = {s.item, s.count};
 }
 
 void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth,
@@ -509,8 +522,10 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
     // since the last take (vanilla RecipesUsed, wiki: Furnace): the counts move here
     // and main turns them into orbs at the player.
     const int outBefore = m_type == Type::Furnace && m_furnace ? m_furnace->output.count : 0;
+    const world::ItemId outItem = m_type == Type::Furnace && m_furnace ? m_furnace->output.item : world::ItemId(0);
     clickSlots(mx, my, button, shift, guiWidth, guiHeight, inventory, drops);
     if (m_type == Type::Furnace && m_furnace && m_furnace->output.count < outBefore) {
+        noteCrafted({outItem, uint8_t(outBefore - m_furnace->output.count)});
         for (const auto& u : m_furnace->recipesUsed)
             if (u.recipe != world::kNoRecipe) m_takenRecipes.countRecipe(u.recipe, u.count);
         m_furnace->recipesUsed = {};

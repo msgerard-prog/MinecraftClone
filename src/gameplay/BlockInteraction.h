@@ -99,10 +99,17 @@ public:
     // Adventure mode (M28.1c; wiki: Adventure): no breaking or placing blocks; using
     // them (doors, buttons, containers) still works.
     void setMayBuild(bool on) { m_mayBuild = on; }
+    // Statistics (M28.1d): the block broken, the item used (a placed block, a mining
+    // tool) and a tool worn out this tick (0: none).
+    world::BlockId takeBroken() { return std::exchange(m_broken, world::BlockId(0)); }
+    world::ItemId takeUsed() { return std::exchange(m_used, world::ItemId(0)); }
+    world::ItemId takeBrokenTool() { return std::exchange(m_brokenTool, world::ItemId(0)); }
 
 private:
     bool m_blockDrops = true;
     bool m_mayBuild = true;
+    world::BlockId m_broken = 0;
+    world::ItemId m_used = 0, m_brokenTool = 0;
     int m_experience = 0;
     world::BlockPos m_xpAt{};
     bool useBlock(const Player& player, const world::RayHit& hit, bool holding);

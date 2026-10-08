@@ -133,6 +133,7 @@ bool Vitals::damage(float amount, bool exhausts) {
         if (amount <= 0.0f) return false;
     }
     m_health = std::max(0.0f, m_health - amount);
+    m_damageTaken += amount;
     m_invulnerable = 10;
     if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;

@@ -2,6 +2,7 @@
 
 #include "core/Options.h"
 #include "ui/Menu.h"
+#include "world/Statistics.h"
 #include "world/WorldList.h"
 
 #include <cstdint>
@@ -13,7 +14,7 @@ namespace mc::ui {
 // The menu screens (M22.5; vanilla: title, Select World, Create New World, delete
 // confirmation, Options, Game Menu). GL-free: they draw into a GuiBatch through Menu
 // and report what the player chose; main acts on it.
-enum class MenuScreen { None, Title, WorldList, CreateWorld, ConfirmDelete, Options, Pause };
+enum class MenuScreen { None, Title, WorldList, CreateWorld, ConfirmDelete, Options, Pause, Statistics };
 
 enum class MenuAction {
     None,
@@ -41,6 +42,10 @@ struct MenuState {
     int newDifficulty = 2;   // Normal (vanilla's default; M28.1b)
     bool newFlat = false;
     std::string splash = "Made from scratch!"; // the title's yellow line (ours)
+    // Statistics (M28.1d, from the Game Menu): the session's counters, the tab (General,
+    // Items, Mobs) and its scroll.
+    const world::Statistics* stats = nullptr;
+    int statsTab = 0, statsScroll = 0;
 };
 
 // Draws the current screen and handles its input. `dirtSprite`: the atlas cell tiled
