@@ -323,6 +323,11 @@ def mob_sounds(name, rng):
                      breath=0.1, attack=0.03) for _ in range(3)]
         hurt = [voice(rng, 0.3, r(220, 240), 160, wave="saw", formant=(500, 2600), breath=0.2) for _ in range(2)]
         return say, hurt, voice(rng, 0.8, 200, 90, wave="saw", formant=(400, 2400), breath=0.3)
+    if name == "zombie_villager":  # a groaning, nasal "hmm" (ours)
+        say = [voice(rng, r(0.6, 0.9), r(110, 130), r(85, 100), wave="saw", formant=(300, 2000), vibrato=0.05,
+                     breath=0.4) for _ in range(3)]
+        hurt = [voice(rng, 0.35, r(160, 180), 120, wave="saw", formant=(350, 2000), breath=0.4) for _ in range(2)]
+        return say, hurt, voice(rng, 1.0, 140, 60, wave="saw", formant=(250, 1800), breath=0.5)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -333,7 +338,7 @@ def mob_sounds(name, rng):
 
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
-        "ender_dragon", "player", "villager"]
+        "ender_dragon", "player", "villager", "zombie_villager"]
 
 
 # --- Everything else ----------------------------------------------------------------

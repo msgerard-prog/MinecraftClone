@@ -191,7 +191,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     } else if (inWater) {
         // Cows swim up to the surface; zombies sink (wiki: Zombie - they sink and later
         // become drowned).
-        m.vel.y = m.vel.y * 0.8 + (m.type == MobType::Zombie ? -0.02 : 0.04);
+        m.vel.y = m.vel.y * 0.8 + (isZombie(m.type) ? -0.02 : 0.04);
         m.vel.x *= 0.8;
         m.vel.z *= 0.8;
     } else {
@@ -303,6 +303,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
+    if (m.type == MobType::ZombieVillager) {
+        zombieVillagerTick(m);
+        if (m.type == MobType::Villager) return; // (cured this tick)
+    }
     if (m.type == MobType::Villager) {
         villagerFear(ctx, m);
         double unused = 0.0;
@@ -323,7 +327,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
-    const double follow = m.type == MobType::Zombie ? 35.0 : m.type == MobType::Enderman ? 64.0 : 16.0;
+    const double follow = isZombie(m.type) ? 35.0 : m.type == MobType::Enderman ? 64.0 : 16.0;
     if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
@@ -340,6 +344,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+    } else if (isZombie(m.type) && zombieHunt(ctx, m)) {
+        chase = true; // (after a villager: Villagers.cpp)
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
         // (home, work, the bell, sleep: Villagers.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
@@ -449,7 +455,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
     // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
-    const bool undead = m.type == MobType::Zombie || m.type == MobType::Skeleton;
+    const bool undead = isZombie(m.type) || m.type == MobType::Skeleton;
     if (undead || m.fireTicks > 0) {
         const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
                             int(std::floor(m.pos.z))};
@@ -597,7 +603,8 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop(burning ? "cooked_beef" : "beef", 1, 3);
         drop("leather", 0, 2);
         break;
-    case MobType::Zombie: drop("rotten_flesh", 0, 2); break;
+    case MobType::Zombie:
+    case MobType::ZombieVillager: drop("rotten_flesh", 0, 2); break;
     case MobType::Sheep: // wiki: Sheep - its wool unless sheared, 1-2 mutton
         if (!m.sheared)
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0),
@@ -950,7 +957,10 @@ void Mobs::spawnHostiles(Context& ctx) {
         const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
         if (!canSpawnAt(ctx.world, gx, y, gz)) continue;
         if (kind == MobType::Enderman && solidAt(ctx.world, gx, y + 2, gz)) continue; // 3 tall
-        if (add(ctx.world, make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
+        MobData mob = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
+        // 5% of zombies come as zombie villagers (wiki: Zombie Villager › Spawning).
+        if (kind == MobType::Zombie && ctx.rng.nextInt(20) == 0) mob.type = MobType::ZombieVillager;
+        if (add(ctx.world, mob)) ++m_hostiles;
     }
 }
 

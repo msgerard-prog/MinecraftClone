@@ -53,6 +53,15 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
                 return Use::Fed;
             }
     }
+    // A zombie villager under Weakness fed a golden apple starts curing: it shakes for
+    // 3-5 minutes, then turns back into a villager (wiki: Zombie Villager › Curing).
+    static const ItemId goldenApple = itemRegistry().find("golden_apple").value_or(kNoItem);
+    if (m.type == MobType::ZombieVillager && held == goldenApple && held != kNoItem && m.weaknessTicks > 0 &&
+        m.convertTicks == 0) {
+        m.convertTicks = int16_t(3600 + rng.nextInt(2401));
+        m.persistent = true;
+        return Use::Fed;
+    }
     // Piglins take a gold ingot to admire for 6 s, then barter (wiki: Bartering).
     static const ItemId goldIngot = itemId("gold_ingot");
     if (m.type == MobType::Piglin && held == goldIngot && !m.isBaby() && m.admireTicks == 0) {

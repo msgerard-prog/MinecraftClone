@@ -1652,3 +1652,57 @@ TEST_CASE("villagers claim a job site (profession), a bed and the bell; they wor
     CHECK(v[0]->profession == uint8_t(Profession::None));
     CHECK_FALSE(v[0]->sleeping); // (morning)
 }
+
+TEST_CASE("zombies hunt villagers and infect them; weakness and a golden apple cure them (M24.3)") {
+    MobScene s;
+    MobData v = Mobs::make(MobType::Villager, {6.5, 64.0, 0.5}, s.rng);
+    v.profession = uint8_t(Profession::Mason);
+    v.health = 3.0f; // one hit from death
+    TradeOffer o;
+    o.buyA = *itemRegistry().find("emerald");
+    o.buyACount = 10;
+    o.sell = *itemRegistry().find("stone");
+    o.sellCount = 1;
+    o.maxUses = 12;
+    v.offers[v.offerCount++] = o;
+    // A pen (x 3..8, z -2..2, 2 high): a panicking villager outruns a zombie in the open.
+    for (int x = 3; x <= 8; ++x)
+        for (int z = -2; z <= 2; ++z)
+            if (x == 3 || x == 8 || z == -2 || z == 2)
+                for (int y = 64; y <= 65; ++y)
+                    s.world.setBlock({x, y, z}, blockRegistry().defaultState(blocks::Stone));
+    REQUIRE(Mobs::add(s.world, v));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {4.5, 64.0, 0.5}, s.rng)));
+    s.player.setPosition({40.5, 64.0, 40.5}); // far: the zombie wants the villager
+    int infected = 0, killed = 0;
+    for (int t = 0; t < 400 && infected + killed == 0; ++t) {
+        s.tick();
+        bool villager = false;
+        for (MobData* m : s.all()) {
+            if (m->type == MobType::ZombieVillager) infected = 1;
+            if (m->type == MobType::Villager && m->health > 0.0f) villager = true;
+        }
+        if (!villager && !infected) killed = 1;
+    }
+    CHECK(infected + killed == 1); // hit: either way it no longer lives as a villager
+    if (!infected) return; // (the 50% roll went the other way with this seed)
+    MobData* zv = nullptr;
+    for (MobData* m : s.all())
+        if (m->type == MobType::ZombieVillager) zv = m;
+    REQUIRE(zv);
+    CHECK(zv->profession == uint8_t(Profession::Mason)); // keeps its job and trades
+    const ItemId apple = *itemRegistry().find("golden_apple");
+    CHECK(Mobs::interact(*zv, apple, s.rng, s.items) == Mobs::Use::None); // no Weakness yet
+    zv->weaknessTicks = 600;
+    CHECK(Mobs::interact(*zv, apple, s.rng, s.items) == Mobs::Use::Fed);
+    REQUIRE(zv->convertTicks > 0);
+    zv->convertTicks = 2;
+    s.tick(3);
+    bool cured = false;
+    for (MobData* m : s.all())
+        if (m->type == MobType::Villager) {
+            cured = true;
+            CHECK(m->offers[0].specialPrice == -5); // grateful: half off
+        }
+    CHECK(cured);
+}

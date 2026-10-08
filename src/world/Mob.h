@@ -36,6 +36,7 @@ enum class MobType : uint8_t {
     Minecart, // (M21.4: a vehicle, kept with the mobs)
     Slime,    // (M21.5)
     Villager, // (M24.1)
+    ZombieVillager, // (M24.3)
     Count
 };
 
@@ -52,6 +53,8 @@ struct MobInfo {
     float modelScale = 1.0f; // drawn this much larger than its model (ghast 4.5)
 };
 const MobInfo& mobInfo(MobType t);
+// Zombies and zombie villagers share their behaviour (targets, burning, drops).
+inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager; }
 
 // Inside the world bounds vanilla accepts for entities (+-30,000,000 horizontally,
 // +-20,000,000 vertically; wiki: World boundary) and finite.
@@ -145,6 +148,11 @@ struct MobData {
     int64_t lastRestockDay = -1;
     uint8_t offerCount = 0;
     int16_t tradingTicks = 0; // (not saved) a player has its trading screen open: it stands still
+    // Zombie villagers (M24.3): Weakness from a splash potion (a golden apple then cures),
+    // the cure's countdown (saved as ConversionTime); a zombie's villager target.
+    int16_t weaknessTicks = 0;
+    int16_t convertTicks = 0;
+    uint64_t targetUuid = 0;
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

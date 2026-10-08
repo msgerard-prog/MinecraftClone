@@ -257,7 +257,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Shulker: return kShulker;
     case world::MobType::Minecart: return kMinecart;
     case world::MobType::Slime: return kMagmaCube; // (the same cube, its own skin)
-    case world::MobType::Villager: return kVillager;
+    case world::MobType::Villager:
+    case world::MobType::ZombieVillager: return kVillager; // (its own skin)
     default: return kCow;
     }
 }

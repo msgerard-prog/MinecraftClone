@@ -49,6 +49,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:slime", 16.0f, 2.08, 2.08, 0.2, 4.0f, true},
         // wiki: Villager - 20 health, 0.6 x 1.95, movement speed 0.5 (strolls at 0.6 of it).
         {"minecraft:villager", 20.0f, 0.6, 1.95, 0.5, 0.0f, false},
+        // wiki: Zombie Villager - as a zombie (20, 0.6 x 1.95, 0.23, 3 on normal).
+        {"minecraft:zombie_villager", 20.0f, 0.6, 1.95, 0.23, 3.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

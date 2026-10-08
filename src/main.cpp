@@ -2272,7 +2272,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.sharpness = mc::world::enchantLevel(stack, E::Sharpness);
                     mhit.smite = mc::world::enchantLevel(stack, E::Smite);
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
-                    mhit.undead = m.type == mc::world::MobType::Zombie ||
+                    mhit.undead = mc::world::isZombie(m.type) ||
                                   m.type == mc::world::MobType::Skeleton;
                     mhit.arthropod = m.type == mc::world::MobType::Spider;
                     float dmg = mc::meleeDamage(mhit);

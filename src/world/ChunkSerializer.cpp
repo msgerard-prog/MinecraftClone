@@ -987,7 +987,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         }
         if (m.type == MobType::MagmaCube || m.type == MobType::Slime) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
-        if (m.type == MobType::Villager) { // wiki: Villager › Entity data
+        if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
+        if (m.type == MobType::Villager || m.type == MobType::ZombieVillager) { // wiki: Villager › Entity data
             nbt::Compound data;
             data.put("type", std::string(villagerTypeId(static_cast<VillagerType>(m.villagerType))));
             data.put("profession", std::string(professionInfo(static_cast<Profession>(m.profession)).id));
@@ -1114,7 +1115,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.angry = m.angerTicks > 0;
         }
         m.eggTicks = static_cast<int>(std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
-        if (m.type == MobType::Villager) {
+        if (m.type == MobType::ZombieVillager)
+            m.convertTicks = int16_t(std::clamp<int64_t>(e->integer("ConversionTime").value_or(-1), 0, 6000));
+        if (m.type == MobType::Villager || m.type == MobType::ZombieVillager) {
             if (const nbt::Compound* data = e->compound("VillagerData")) {
                 if (const std::string* vt = data->string("type"))
                     m.villagerType = uint8_t(findVillagerType(*vt).value_or(VillagerType::Plains));

@@ -121,6 +121,10 @@ private:
     // it chose the goal) and running from zombies.
     bool villagerGoal(Context& ctx, world::MobData& m, double& speed);
     void villagerFear(Context& ctx, world::MobData& m);
+    // Zombies hunting villagers, zombie villagers' cure (M24.3, Villagers.cpp).
+    bool zombieHunt(Context& ctx, world::MobData& z);
+    static void zombieVillagerTick(world::MobData& m);
+    static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
     // (breeding partner, tempting food, parent); true if a goal was set.

@@ -221,16 +221,84 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
     return false; // the general random stroll
 }
 
+MobData* Mobs::mobByUuid(World& world, const glm::dvec3& near, uint64_t uuid) {
+    const ChunkPos c{blockToChunk(int(std::floor(near.x))), blockToChunk(int(std::floor(near.z)))};
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx)
+            if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
+                for (MobData& o : ch->mobs())
+                    if (o.uuidHi == uuid) return &o;
+    return nullptr;
+}
+
+// Zombies (and zombie villagers) go after villagers too (wiki: Zombie › Behavior): the
+// nearest within 16 blocks, looked for once a second, chased while within 35. A
+// villager they kill turns into a zombie villager half the time (Normal difficulty),
+// keeping its profession and trades. Returns true while hunting one.
+bool Mobs::zombieHunt(Context& ctx, MobData& z) {
+    MobData* v = z.targetUuid ? mobByUuid(ctx.world, z.pos, z.targetUuid) : nullptr;
+    if (v && (v->type != MobType::Villager || v->health <= 0.0f || glm::length(v->pos - z.pos) > 35.0)) v = nullptr;
+    if (!v) z.targetUuid = 0;
+    if (!v && ctx.rng.nextInt(20) == 0) { // (about once a second)
+        double best = 16.0 * 16.0;
+        const ChunkPos c{blockToChunk(int(std::floor(z.pos.x))), blockToChunk(int(std::floor(z.pos.z)))};
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
+                    for (MobData& o : ch->mobs()) {
+                        if (o.type != MobType::Villager || o.health <= 0.0f) continue;
+                        const double d = glm::dot(o.pos - z.pos, o.pos - z.pos);
+                        if (d < best) best = d, v = &o;
+                    }
+        if (v) z.targetUuid = v->uuidHi;
+    }
+    if (!v) return false;
+    z.goal = v->pos;
+    const double reach = mobInfo(z.type).width * 2.0 + 0.6;
+    if (z.attackCooldown == 0 && glm::dot(v->pos - z.pos, v->pos - z.pos) < reach * reach &&
+        std::abs(v->pos.y - z.pos.y) < 1.5) {
+        z.attackCooldown = 20;
+        v->health -= mobInfo(z.type).attackDamage;
+        v->hurtTime = 10;
+        v->panicTicks = 100;
+        v->sleeping = false;
+        if (v->health <= 0.0f && ctx.rng.nextInt(2) == 0) { // infected: a zombie villager from now on
+            v->type = MobType::ZombieVillager;
+            v->health = mobInfo(MobType::ZombieVillager).maxHealth;
+            v->hurtTime = 0;
+            v->panicTicks = 0;
+            v->persistent = true; // (vanilla: infected villagers never despawn)
+            z.targetUuid = 0;
+        }
+    }
+    return true;
+}
+
+// A zombie villager's Weakness wears off; a curing one becomes a villager when its
+// countdown ends, with lower prices out of gratitude (wiki: Zombie Villager › Curing;
+// ours: half the base price off each trade).
+void Mobs::zombieVillagerTick(MobData& m) {
+    if (m.weaknessTicks > 0) --m.weaknessTicks;
+    if (m.convertTicks <= 0 || --m.convertTicks > 0) return;
+    m.type = MobType::Villager;
+    m.health = mobInfo(MobType::Villager).maxHealth;
+    m.targeting = false;
+    m.targetUuid = 0;
+    m.fireTicks = 0;
+    for (int i = 0; i < m.offerCount; ++i)
+        m.offers[size_t(i)].specialPrice = int16_t(-std::max(1, m.offers[size_t(i)].buyACount / 2));
+}
+
 // Villagers run from zombies within 8 blocks (wiki: Villager › Behavior).
 void Mobs::villagerFear(Context& ctx, MobData& m) {
-    if ((uint64_t(ctx.dayTime) + m.uuidLo) % 10 != 0 || m.sleeping) return;
+    if (m.sleeping || ctx.rng.nextInt(10) != 0) return; // (about twice a second)
     const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
                      blockToChunk(int(std::floor(m.pos.z)))};
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
             if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& o : ch->mobs()) {
-                    if (o.type != MobType::Zombie || o.health <= 0.0f) continue;
+                    if (!isZombie(o.type) || o.health <= 0.0f) continue;
                     const glm::dvec3 away = m.pos - o.pos;
                     if (glm::dot(away, away) > 8.0 * 8.0) continue;
                     m.panicTicks = 60;

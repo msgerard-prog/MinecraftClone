@@ -591,6 +591,32 @@ def villager():
     return img
 
 
+def zombie_villager():
+    """A villager's build in zombie green, with dark eye sockets (M24.3)."""
+    rng = random.Random("zombie_villager")
+    img = Img(64, 64, CLEAR)
+    skin = ramp(hexc("#5A8C3C"), 5, spread=0.25)
+    robe = ramp(hexc("#4A3A2A"), 5, spread=0.25)
+    for f in box_faces(0, 0, 8, 10, 8).values():
+        paint(img, f, skin, rng, noise=0.3)
+    fx, fy = 8, 8
+    for x in range(1, 7):
+        img.set(fx + x, fy + 3, skin[0])
+    for x, c in ((2, (24, 30, 20, 255)), (3, (160, 30, 30, 255)), (4, (160, 30, 30, 255)), (5, (24, 30, 20, 255))):
+        img.set(fx + x, fy + 4, c)
+    for f in box_faces(24, 0, 2, 4, 2).values():
+        paint(img, f, skin, rng, noise=0.2)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, robe, rng)
+    for name, f in box_faces(0, 40, 8, 4, 4).items():
+        paint(img, f, robe, rng)
+        if name == "front":
+            paint(img, (f[0] + 2, f[1], 4, f[3]), skin, rng, noise=0.2)
+    for f in box_faces(0, 48, 4, 12, 4).values():
+        paint(img, f, ramp(hexc("#3A3A2A"), 5, spread=0.25), rng)
+    return img
+
+
 def villager_apron():
     """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
     the game tints per profession, with a darker belt."""
@@ -616,7 +642,8 @@ def main():
               "hoglin": hoglin(), "strider": strider(),
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
               "shulker": shulker(), "minecart": minecart(),
-              "slime": slime(), "villager": villager(), "villager_apron": villager_apron()}
+              "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
+              "zombie_villager": zombie_villager()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

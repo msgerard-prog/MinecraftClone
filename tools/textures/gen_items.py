@@ -186,8 +186,8 @@ def flint():
     return s.render()
 
 
-def apple():
-    pal = ramp(hexc("#D02A1C"), 5, spread=0.35)
+def apple(base="#D02A1C"):
+    pal = ramp(hexc(base), 5, spread=0.35)
     s = Shape()
     s.add({(x, y) for x in range(16) for y in range(16)
            if ((x - 7.5) / 5.5) ** 2 + ((y - 9) / 5) ** 2 < 1 and not (abs(x - 7.5) < 1 and y < 5)}, pal)
@@ -849,6 +849,7 @@ def all_items():
     items["nautilus_shell"] = lump("nautilus_shell", "#E8D8C0", "#B07850", size=5.6)
     items["prismarine_shard"] = gem("#5AA898", "emerald")
     items["prismarine_crystals"] = lump("prismarine_crystals", "#9AD8C8", "#F0FFF8", size=4.6)
+    items["golden_apple"] = apple("#F2C83C")  # (M24.3)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

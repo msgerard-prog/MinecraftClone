@@ -468,7 +468,9 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
     const glm::mat3 wingL = rotZ(flap), wingR = rotZ(-flap);
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
-    const glm::vec3 base(pos - cameraPos);
+    glm::vec3 base(pos - cameraPos);
+    if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
+        base.x += 0.05f * std::sin(float(mob.convertTicks) * 2.5f);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
     const glm::vec3 tint = red ? glm::vec3(1.0f, 0.45f, 0.45f) : glm::vec3(1.0f);
     // Box corners: bit 0 = max x, bit 1 = max y, bit 2 = max z. Faces list their

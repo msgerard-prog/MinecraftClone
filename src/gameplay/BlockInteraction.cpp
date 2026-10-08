@@ -265,6 +265,8 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                !(m_chorusCooldown > 0 && held.id == "minecraft:chorus_fruit")) {
         if (++m_eatTicks >= kEatTicks) {
             vitals.eat(held.food, held.saturation);
+            if (held.id == "minecraft:golden_apple") // (wiki: Regeneration II for 5 s; no Absorption yet)
+                vitals.addEffect(world::Effect::Regeneration, 1, 100);
             if (held.id == "minecraft:chorus_fruit") { // main teleports (wiki: 1 s cooldown)
                 m_ateChorus = true;
                 m_chorusCooldown = 20;

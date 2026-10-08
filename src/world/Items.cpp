@@ -159,6 +159,9 @@ ItemRegistry buildItems() {
         r.mapBlock(c, *r.find("cauldron")); // (filled cauldrons pick and drop as the cauldron)
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
+    // (M24.3; wiki: Golden Apple - 4 hunger, 9.6 saturation, always edible)
+    r.add({.id = "minecraft:golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
+           .texture = "item/golden_apple"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
     r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
     r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});

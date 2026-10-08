@@ -280,6 +280,19 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             vitals->addEffect(info.effect, info.amplifier, duration, sp);
                     }
                 }
+                // Weakness on zombie villagers (M24.3: the first half of curing them).
+                if (info.effect == Effect::Weakness) {
+                    const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx)
+                            if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
+                                for (MobData& m : ch->mobs())
+                                    if (m.type == MobType::ZombieVillager && m.health > 0.0f) {
+                                        const double sm = scaleFor(Mobs::box(m), &m == direct);
+                                        if (sm > 0.0)
+                                            m.weaknessTicks = int16_t(std::max<int>(m.weaknessTicks, int(info.duration * sm)));
+                                    }
+                }
                 // Mobs: instant health/damage (other effects reach only the player, our
                 // simplification); water hurts blazes, endermen and striders by 1.
                 if (info.effect == Effect::InstantHealth || info.effect == Effect::InstantDamage || water) {
@@ -300,7 +313,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                             continue;
                                         amount = 1.0f;
                                     } else {
-                                        const bool undead = m.type == MobType::Zombie || m.type == MobType::Skeleton ||
+                                        const bool undead = isZombie(m.type) || m.type == MobType::Skeleton ||
                                                             m.type == MobType::ZombifiedPiglin;
                                         harm = (info.effect == Effect::InstantDamage) != undead;
                                         amount = float((harm ? 6 : 4) << info.amplifier) * float(sm);
