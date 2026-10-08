@@ -97,7 +97,7 @@ ItemStack Fishing::rollCatch(int luck, Xoroshiro& rng) {
         if (s.item == item("bow") || s.item == item("fishing_rod") || s.item == item("enchanted_book")) {
             const ItemId target = s.item == item("enchanted_book") ? item("fishing_rod") : s.item;
             for (int k = 0, n = 1 + int(rng.nextInt(2)); k < n; ++k) {
-                const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));
+                const auto e = static_cast<Enchantment>(1 + rng.nextInt(kRandomEnchantments));
                 if (!canEnchant(target, e) && s.item != item("enchanted_book")) continue;
                 if (enchantmentInfo(e).target == EnchantTarget::Armor && s.item == item("enchanted_book") && k > 0)
                     continue;

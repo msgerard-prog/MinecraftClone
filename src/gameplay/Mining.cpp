@@ -321,6 +321,8 @@ int blockExperience(BlockStateId state, Xoroshiro& rng) {
         return between(15, 43); // wiki: Monster Spawner
     case blocks::NetherGoldOre:
         return between(0, 1);
+    case blocks::CreakingHeart: // (M27 review; wiki: a natural heart gives 20-24)
+        return blockRegistry().get(state, properties::natural) == 0 ? between(20, 24) : 0;
     case blocks::Sculk: // (M27.3; wiki: Sculk and sensors 1, catalysts and shriekers 5)
     case blocks::SculkSensor:
         return 1;
@@ -369,9 +371,11 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         if (ob == blocks::AmethystCluster) {
             const bool silk = enchantLevel(held, Enchantment::SilkTouch) > 0;
             if (silk) out.push_back({itemRegistry().blockItem(ob), 1});
-            else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Pickaxe)
-                out.push_back({*itemRegistry().find("amethyst_shard"),
-                               uint8_t(4 * (1 + int(rng.nextInt(uint32_t(enchantLevel(held, Enchantment::Fortune) + 1)))))});
+            else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Pickaxe) {
+                const int f = enchantLevel(held, Enchantment::Fortune); // (the ore formula)
+                const int mult = std::max(0, int(rng.nextInt(uint32_t(f + 2))) - 1) + 1;
+                out.push_back({*itemRegistry().find("amethyst_shard"), uint8_t(4 * mult)});
+            }
             else out.push_back({*itemRegistry().find("amethyst_shard"), 2});
             return;
         }
@@ -382,7 +386,9 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         }
         if (ob == blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)
             if (enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
-            else out.push_back({itemRegistry().blockItem(blocks::ResinClump), uint8_t(1 + rng.nextInt(3))});
+            else // (Fortune adds to the most it can give, up to 6)
+                out.push_back({itemRegistry().blockItem(blocks::ResinClump),
+                               uint8_t(1 + rng.nextInt(uint32_t(std::min(6, 3 + enchantLevel(held, Enchantment::Fortune)))))});
             return;
         }
         // Lush caves (M27.2; wiki): cave vines drop glow berries if they bear them; small

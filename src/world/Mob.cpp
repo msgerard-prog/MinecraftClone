@@ -141,9 +141,9 @@ const MobInfo& mobInfo(MobType t) {
         // ~3.6 blocks/s), drawn as a ghast; Copper Golem - 12, 0.49 x 0.98, 0.2.
         {"minecraft:happy_ghast", 20.0f, 4.0, 4.0, 0.05, 0.0f, false, false, true, 4.5f},
         {"minecraft:copper_golem", 12.0f, 0.49, 0.98, 0.2, 0.0f, false},
-        // wiki: Creaking - 1 health (only its heart can end it), 0.9 x 2.7, speed 0.4, hits
+        // wiki: Creaking - 1 health (only its heart can end it), 0.9 x 2.7, speed 0.3, hits
         // for 3 (Normal).
-        {"minecraft:creaking", 1.0f, 0.9, 2.7, 0.4, 3.0f, true},
+        {"minecraft:creaking", 1.0f, 0.9, 2.7, 0.3, 3.0f, true},
         // wiki: Warden - 500 health, 0.9 x 2.9, speed 0.3 (fast when angry), hits for 30
         // (Normal); its model is drawn twice size (half-size boxes on a 64x64 skin).
         {"minecraft:warden", 500.0f, 0.9, 2.9, 0.3, 30.0f, true, false, false, 2.0f},

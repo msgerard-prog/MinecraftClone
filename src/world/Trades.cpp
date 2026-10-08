@@ -210,7 +210,7 @@ uint16_t randomEnchantment(ItemId item, Xoroshiro& rng, bool book) {
     int n = 0;
     for (int e = 1; e < int(Enchantment::Count); ++e) {
         const auto kind = static_cast<Enchantment>(e);
-        if (kind == Enchantment::Thorns) continue; // (no effect yet)
+        if (kind == Enchantment::Thorns || kind == Enchantment::SwiftSneak) continue; // (no effect yet; a treasure)
         if (book || canEnchant(item, kind)) choices[n++] = kind;
     }
     if (n == 0) return 0;

@@ -1,7 +1,7 @@
 // Sniffers (M27.5c; wiki: Sniffer). Part of Mobs.
 //
 // An adult sniffer wanders and, every few minutes, stops on diggable ground (grass, dirt,
-// coarse dirt, podzol, rooted dirt, moss or mud) to dig for 4 s, turning up torchflower
+// coarse dirt, podzol, rooted dirt, moss, pale moss, mud or muddy roots) to dig for 4 s, turning up torchflower
 // seeds or a pitcher pod. Fed torchflower seeds, two of them lay a sniffer egg (Animals.cpp);
 // eggs hatch into snifflets (BlockUpdates).
 #include "gameplay/Mobs.h"
@@ -35,7 +35,8 @@ bool Mobs::snifferTick(Context& ctx, MobData& m) {
     const BlockId under = blockRegistry().blockOf(
         ctx.world.getBlock({int(std::floor(m.pos.x)), int(std::floor(m.pos.y - 0.2)), int(std::floor(m.pos.z))}));
     if (under != blocks::GrassBlock && under != blocks::Dirt && under != blocks::CoarseDirt && under != blocks::Podzol &&
-        under != blocks::RootedDirt && under != blocks::MossBlock && under != blocks::Mud) {
+        under != blocks::RootedDirt && under != blocks::MossBlock && under != blocks::Mud &&
+        under != blocks::PaleMossBlock && under != blocks::MuddyMangroveRoots) {
         m.eggTicks = 200; // (try again soon somewhere else)
         return false;
     }

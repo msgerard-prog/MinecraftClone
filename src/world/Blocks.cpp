@@ -1278,6 +1278,16 @@ BlockRegistry buildVanillaBlocks() {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::CaveVines).firstState + i);
         r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);
     }
+    // (M27 review; wiki) trial spawners glow 0 asleep, 4 waiting, 8 active; vaults 6, 12 open.
+    for (uint32_t i = 0; i < r.block(blocks::TrialSpawner).stateCount; ++i) {
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::TrialSpawner).firstState + i);
+        const int st = r.get(s, trialState);
+        r.setStateEmission(s, st == 0 ? 0 : st == 1 || st == 5 ? 4 : 8);
+    }
+    for (uint32_t i = 0; i < r.block(blocks::Vault).stateCount; ++i) {
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::Vault).firstState + i);
+        r.setStateEmission(s, r.get(s, vaultState) == 0 ? 6 : 12);
+    }
     for (uint32_t i = 0; i < r.block(blocks::CaveVinesPlant).stateCount; ++i) {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::CaveVinesPlant).firstState + i);
         r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);

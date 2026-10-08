@@ -1,8 +1,8 @@
 // Trial spawners (M27.4d; wiki: Trial Spawner). Part of Mobs.
 //
 // A trial spawner wakes when a player comes within 14 blocks and sends out its mobs - 6
-// for one player - at most 3 at a time, one every 2 s, near it. When every one of them is
-// beaten it ejects a trial key and a reward, and rests for 30 minutes.
+// for one player - at most 2 at a time, one every 2 s, near it. When every one of them is
+// beaten it ejects a trial key or (half the time) a consumable, and rests for 30 minutes.
 #include "gameplay/Mobs.h"
 
 #include "gameplay/ItemEntities.h"
@@ -41,7 +41,18 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
     const glm::dvec3 centre(p.x + 0.5, p.y + 0.5, p.z + 0.5);
     const glm::dvec3 player = ctx.player.position();
     const bool near = !ctx.playerDead && ctx.survival && glm::dot(player - centre, player - centre) <= 14.0 * 14.0;
-    chunk.markDirty();
+    // (saved when something changes; while resting, every minute - M27 review)
+    const SpawnerData before = s;
+    struct Dirty {
+        Chunk& c;
+        const SpawnerData& was;
+        const SpawnerData& now;
+        ~Dirty() {
+            if (was.total != now.total || was.spawned != now.spawned || (was.cooldown > 0) != (now.cooldown > 0) ||
+                (now.cooldown > 0 && now.cooldown % 1200 == 0))
+                c.markDirty();
+        }
+    } dirty{chunk, before, s};
     if (s.cooldown > 0) { // resting after its reward
         if (--s.cooldown == 0) setState(1);
         else setState(5);
@@ -61,14 +72,14 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
     // A round: its living mobs (tagged with it as their home).
     int alive = 0;
     const ChunkPos c = p.chunk();
-    for (int dz = -2; dz <= 2; ++dz)
-        for (int dx = -2; dx <= 2; ++dx)
+    for (int dz = -3; dz <= 3; ++dz) // (they may chase a player a little way)
+        for (int dx = -3; dx <= 3; ++dx)
             if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& m : ch->mobs())
                     alive += m.health > 0.0f && m.home == glm::ivec3(p.x, p.y, p.z) && m.type == s.mob;
     for (const MobData& m : m_births) alive += m.home == glm::ivec3(p.x, p.y, p.z);
     if (s.spawned < s.total) {
-        if (alive < 3 && --s.delay <= 0) {
+        if (alive < 2 && --s.delay <= 0) { // (wiki: 2 at a time for one player)
             for (int tries = 0; tries < 8; ++tries) {
                 const int x = p.x + int(ctx.rng.nextInt(9)) - 4, z = p.z + int(ctx.rng.nextInt(9)) - 4;
                 const int y = p.y + int(ctx.rng.nextInt(3)) - 1;
@@ -76,6 +87,7 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
                 MobData m = make(s.mob, {x + 0.5, double(y), z + 0.5}, ctx.rng);
                 m.home = {p.x, p.y, p.z};
                 m.persistent = true;
+                if (m_births.size() >= m_births.capacity()) break; // (hard rule 1: next tick)
                 m_births.push_back(m);
                 ++s.spawned;
                 ctx.world.levelEvent(LevelEvent::Type::MobDeath, x + 0.5, y, z + 0.5, 60 | 180 << 16); // (a puff)
@@ -92,9 +104,9 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
     // Beaten: the key and a reward, then the rest.
     static const ItemId key = *itemRegistry().find("trial_key");
     const glm::dvec3 out = centre + glm::dvec3(0.0, 0.8, 0.0);
-    ctx.items.spawn(out, {key, 1}, ctx.rng);
-    for (int k = 1 + int(ctx.rng.nextInt(2)); k > 0; --k)
-        if (const ItemStack it = rollOne(LootTable::TrialReward, ctx.rng); !it.empty()) ctx.items.spawn(out, it, ctx.rng);
+    // (wiki: Trial Spawner › Loot - half the time a trial key, else one consumable)
+    if (ctx.rng.nextInt(2) == 0) ctx.items.spawn(out, {key, 1}, ctx.rng);
+    else if (const ItemStack it = rollOne(LootTable::TrialReward, ctx.rng); !it.empty()) ctx.items.spawn(out, it, ctx.rng);
     s.total = s.spawned = 0;
     s.cooldown = 36000;
     setState(5);

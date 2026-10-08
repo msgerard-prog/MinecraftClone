@@ -78,12 +78,12 @@ TEST_CASE("a player's vibration heard by a sensor sets off a shrieker near it; o
 TEST_CASE("four warnings call the warden; one at most every 10 s; they wear off after 10 minutes (M27.3)") {
     Vitals v;
     for (int i = 0; i < 3; ++i) {
-        CHECK_FALSE(v.wardenWarn());
-        CHECK_FALSE(v.wardenWarn()); // (within 10 s: no change)
+        CHECK(v.wardenWarn() == 0);
+        CHECK(v.wardenWarn() == -1); // (within 10 s: nothing)
         for (int t = 0; t < 200; ++t) v.tickWardenTracker();
     }
     CHECK(v.wardenLevel() == 3);
-    CHECK(v.wardenWarn()); // the 4th
+    CHECK(v.wardenWarn() == 1); // the 4th
     CHECK(v.wardenLevel() == 4);
     for (int t = 0; t < 12000; ++t) v.tickWardenTracker();
     CHECK(v.wardenLevel() == 3);

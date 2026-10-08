@@ -102,6 +102,8 @@ Push pushKind(BlockStateId s) {
         b == B::ReinforcedDeepslate)
         return Push::Block; // (vanilla: block entities; reinforced deepslate never moves)
     if (b == B::SculkVein) return Push::Destroy;
+    // (M27 review) suspicious blocks break - their loot can't travel - and so do pots and eggs
+    if (isSuspicious(b) || b == B::DecoratedPot || b == B::SnifferEgg) return Push::Destroy;
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
     // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
     // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
@@ -1140,7 +1142,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         } else {
             const BlockStateId us = at({p.x, p.y + 1, p.z});
             const BlockStateId soil = at(rel(p, Direction::Down));
-            const bool rooted = blockOf(s) == B::SmallDripleaf ? dripleafSoil(soil) : plantableSoil(soil);
+            const bool rooted = blockOf(s) == B::SmallDripleaf ? dripleafSoil(soil)
+                                                               : plantableSoil(soil) || blockOf(soil) == B::Farmland;
             if (blockOf(us) != blockOf(s) || R().get(us, doorHalf) != 0 || !rooted) pop(p);
         }
         --m_depth;
@@ -1153,10 +1156,13 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         return;
     }
     // Eyeblossoms need their soil; a resin clump the block it sits on (M27.1c).
-    if (blockOf(s) == B::OpenEyeblossom || blockOf(s) == B::ClosedEyeblossom || blockOf(s) == B::ResinClump) {
+    if (blockOf(s) == B::OpenEyeblossom || blockOf(s) == B::ClosedEyeblossom || blockOf(s) == B::ResinClump ||
+        blockOf(s) == B::Torchflower) {
         const BlockStateId support =
             blockOf(s) == B::ResinClump ? at(rel(p, static_cast<Direction>(R().get(s, facing6)))) : at(rel(p, Direction::Down));
-        if (blockOf(s) == B::ResinClump ? !R().collides(support) : !plantableSoil(support)) pop(p);
+        if (blockOf(s) == B::ResinClump ? !R().collides(support)
+                                         : !plantableSoil(support) && blockOf(support) != B::Farmland)
+            pop(p);
         --m_depth;
         return;
     }

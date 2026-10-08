@@ -12,6 +12,7 @@
 
 #include "world/Blocks.h"
 
+#include <array>
 #include <cmath>
 
 namespace mc::world {
@@ -36,10 +37,13 @@ template <typename F> void forEachNear(const World& world, const glm::dvec3& c, 
             for (int sy = std::max(lo.y, h.minY) >> 4; sy <= (std::min(hi.y, h.maxY()) >> 4); ++sy) {
                 const Section& sec = ch->section(h.sectionIndex(sy * 16));
                 if (sec.allPaletteStates([&](BlockStateId s) { return R().blockOf(s) != kind; })) continue;
+                // (decoded once, then read straight from the array - M27 perf review)
+                static thread_local std::array<BlockStateId, Section::kVolume> cells;
+                sec.copyTo(cells.data());
                 for (int y = std::max(lo.y, sy * 16); y <= std::min(hi.y, sy * 16 + 15); ++y)
                     for (int z = std::max(lo.z, scz * 16); z <= std::min(hi.z, scz * 16 + 15); ++z)
                         for (int x = std::max(lo.x, scx * 16); x <= std::min(hi.x, scx * 16 + 15); ++x) {
-                            const BlockStateId s = ch->get(blockToLocal(x), y, blockToLocal(z));
+                            const BlockStateId s = cells[size_t(Section::index(blockToLocal(x), y - sy * 16, blockToLocal(z)))];
                             if (R().blockOf(s) == kind) f(BlockPos{x, y, z}, s);
                         }
             }
@@ -50,6 +54,13 @@ template <typename F> void forEachNear(const World& world, const glm::dvec3& c, 
 
 void BlockUpdates::vibrate(const glm::dvec3& at, bool byPlayer) {
     m_world.vibration(at, byPlayer); // (wardens hear it too)
+    // The shriekers a sensor here could reach (within 8 of a sensor within 8), found once.
+    std::array<BlockPos, 32> shriekers;
+    int nShriekers = 0;
+    if (byPlayer)
+        forEachNear(m_world, at, 16, B::SculkShrieker, [&](const BlockPos& q, BlockStateId) {
+            if (nShriekers < int(shriekers.size())) shriekers[size_t(nShriekers++)] = q;
+        });
     forEachNear(m_world, at, 8, B::SculkSensor, [&](const BlockPos& p, BlockStateId s) {
         if (R().get(s, sculkPhase) != 0) return; // (active or resting)
         const glm::dvec3 c(p.x + 0.5, p.y + 0.5, p.z + 0.5);
@@ -59,8 +70,10 @@ void BlockUpdates::vibrate(const glm::dvec3& at, bool byPlayer) {
         const int strength = std::clamp(15 - int(std::floor(d * 14.0 / 8.0)), 1, 15);
         set(p, R().set(R().set(s, sculkPhase, 1), power, strength));
         schedule(p, B::SculkSensor, 30, 0);
-        if (byPlayer)
-            forEachNear(m_world, c, 8, B::SculkShrieker, [&](const BlockPos& q, BlockStateId) { shriek(q); });
+        for (int k = 0; k < nShriekers; ++k) {
+            const BlockPos& q = shriekers[size_t(k)];
+            if (glm::length(glm::dvec3(q.x + 0.5, q.y + 0.5, q.z + 0.5) - c) <= 8.5) shriek(q);
+        }
     });
 }
 

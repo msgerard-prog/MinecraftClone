@@ -13,6 +13,7 @@
 #include "world/Raycast.h"
 #include "world/Rotation.h"
 
+#include <array>
 #include <cmath>
 
 namespace mc {
@@ -28,21 +29,31 @@ bool night(int64_t dayTime) {
     return t >= 12600 && t < 23400; // (as the heart keeps it: BlockUpdates::nightTime)
 }
 
-// A hit grows 1-3 resin clumps on the pale oak logs around the heart (wiki: Resin Clump).
+// A hit grows 2-3 resin clumps on the pale oak logs around the heart (wiki: Resin Clump).
 void growResin(World& world, const glm::ivec3& heart, Xoroshiro& rng) {
+    // The open sides of the pale oak logs around it (within 2 across, 4 up or down), then
+    // 2-3 of them at random.
     const auto& r = blockRegistry();
-    int want = 1 + int(rng.nextInt(3));
+    std::array<std::pair<BlockPos, Direction>, 96> sides;
+    int n = 0;
     static constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::West, Direction::East};
-    for (int tries = 0; tries < 24 && want > 0; ++tries) {
-        const BlockPos log{heart.x + int(rng.nextInt(5)) - 2, heart.y + int(rng.nextInt(9)) - 4,
-                           heart.z + int(rng.nextInt(5)) - 2};
-        const Direction d = kSides[rng.nextInt(4)];
-        if (r.blockOf(world.getBlock(log)) != blocks::PaleOakLog) continue;
-        const glm::ivec3 n = kDirectionNormals[int(d)];
-        const BlockPos at{log.x + n.x, log.y + n.y, log.z + n.z};
+    for (int dy = -4; dy <= 4; ++dy)
+        for (int dz = -2; dz <= 2; ++dz)
+            for (int dx = -2; dx <= 2; ++dx) {
+                const BlockPos log{heart.x + dx, heart.y + dy, heart.z + dz};
+                if (r.blockOf(world.getBlock(log)) != blocks::PaleOakLog) continue;
+                for (const Direction d : kSides) {
+                    const glm::ivec3 nv = kDirectionNormals[int(d)];
+                    const BlockPos at{log.x + nv.x, log.y + nv.y, log.z + nv.z};
+                    if (world.getBlock(at) == 0 && n < int(sides.size())) sides[size_t(n++)] = {at, d};
+                }
+            }
+    for (int want = 2 + int(rng.nextInt(2)); want > 0 && n > 0; --want) { // (wiki: 2-3)
+        const int k = int(rng.nextInt(uint32_t(n)));
+        const auto [at, d] = sides[size_t(k)];
+        sides[size_t(k)] = sides[size_t(--n)];
         if (world.getBlock(at) != 0) continue;
         world.updateBlock(at, r.set(r.defaultState(blocks::ResinClump), properties::facing6, int(d) ^ 1)); // (toward the log)
-        --want;
     }
 }
 
@@ -76,7 +87,12 @@ bool Mobs::creakingTick(Context& ctx, MobData& m) {
             m.lastHurtByPlayer = false;
             return true;
         }
-        if (m.hurtTime == 9) growResin(ctx.world, m.home, ctx.rng); // (hit this tick)
+        // A hit (this tick) grows resin, at most once in 5 s (wiki).
+        if (m.chargeTicks > 0) --m.chargeTicks;
+        if (m.hurtTime == 9 && m.chargeTicks == 0) {
+            growResin(ctx.world, m.home, ctx.rng);
+            m.chargeTicks = 100;
+        }
         m.health = maxHealthOf(m); // (its heart keeps it whole)
     }
     // Frozen while the player looks at it (any game mode but spectator).

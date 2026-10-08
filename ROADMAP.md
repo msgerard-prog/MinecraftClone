@@ -4,30 +4,26 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-08)
-M26 done (reviews applied; v0.26.0): wolves, cats, ocelots, parrots; horses, donkeys,
-mules, llamas, trader llamas, camels (saddles, armor, chests); rabbits, foxes, polar
-bears, pandas, goats, armadillos, bees (nests, hives, honey), frogs, tadpoles, axolotls;
-cave spiders, silverfish, wither skeletons, phantoms, mob heads, the Wither, the breeze
-and wind charges; allays, nautiluses, happy ghasts, copper golems and copper chests.
-New worlds use overworld5 (bee nests, berry bushes, infested veins, mineshaft cobwebs,
-allay cages), frozen as of v0.26.0. M1-M26 done. v1.0 waits for M27-M28.
+M27 done (reviews applied; v0.27.0): new worlds use "overworld6", frozen as of v0.27.0 -
+the remaining surface biomes (sunflower plains, old growth birch/pine, savanna plateau,
+windswept kinds, bamboo jungle, mangrove swamp, pale garden with the creaking), lush and
+dripstone caves, the deep dark with sculk, the warden and ancient cities, amethyst
+geodes, ruined portals, woodland mansions, trial chambers, trail ruins and archaeology,
+sniffers. M1-M27 done. v1.0 waits for M28.
 
 ## Next
-M27 - World 3 (wiki pages of each biome and structure):
-1. ✅ M27.1 - Remaining biomes: ✅ a) their blocks (two-block plants, mud, moss, pale moss);
-   ✅ b) "overworld6": sunflower plains, old growth birch/pine, savanna plateau, windswept
-   savanna/forest/gravelly hills, bamboo jungle, mangrove swamp, pale garden (giant
-   spruces, mangrove roots, bamboo, hanging moss); ✅ c) the creaking and creaking hearts,
-   eyeblossoms, resin.
-2. ✅ M27.2 - Lush caves (azalea, moss, glow berries, dripleaves, spore blossoms) and
-   dripstone caves (pointed dripstone: falling, dripping, cauldron filling).
-3. ✅ M27.3 - The deep dark: sculk blocks, sensors, shriekers, catalysts; ancient cities;
-   the warden (darkness, sonic boom, digging out).
-4. ✅ M27.4 - Structures: woodland mansions (vindicators, allay cells), ruined portals,
-   trial chambers (trial spawners, vaults, breezes), amethyst geodes.
-5. ✅ M27.5 - Archaeology: a) brushes, suspicious sand/gravel, pottery sherds and decorated
-   pots; b) trail ruins, suspicious blocks in desert pyramids, wells and ocean ruins;
-   c) sniffers and their eggs (torchflowers, pitcher plants), brushing armadillos.
+M28 - Progression & game (wiki pages of each feature):
+1. M28.1 - Game settings: difficulty (Peaceful..Hard: damage, hunger, mob rules), the
+   adventure and spectator modes, /gamerule with vanilla's rules, statistics.
+2. M28.2 - Navigation and writing: compasses, lodestones, recovery compasses, clocks,
+   maps (empty, filled, drawn, zoom, cartography), books and quills, written books.
+3. M28.3 - Decorations: item frames, paintings, armor stands, banners (patterns, the
+   loom), leads (fences, llama caravans).
+4. M28.4 - Combat items: crossbows (multishot, piercing, quick charge), tipped and
+   spectral arrows, lingering potions, fireworks (rockets for elytra), the mace (heavy
+   core from ominous vaults), spears.
+5. M28.5 - Advancements; the remaining blocks: candles, 1.21.5 plants (firefly bushes,
+   leaf litter, wildflowers, bushes, cactus flowers, dry grass), disc fragments and disc 5.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -50,6 +46,12 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M27 perf review (bench: no change - CPU p99 ~1.2 ms, GPU ~0.35 ms on both
+  overworld5/6): per-chunk sculk listener lists instead of scanning for sensors (done:
+  each section decoded once); budding amethyst relights 3x3 chunks per bud (the M15
+  incremental-light item); trial spawners recount their mobs over 7x7 chunks a tick
+  (keep a count); ancient city/mansion/chamber boxes looped whole per chunk (clip first);
+  under Darkness the full render distance is still drawn.
 - From the M26 perf review (bench: CPU p99 1.08 -> 1.35 ms, GPU 0.25 ms): fox item scans
   every tick (stagger like allays could); mob-store push_back allocates on the first
   chest per chunk; `pointMount` marks the chunk dirty every frame while a mount screen is
@@ -171,6 +173,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M27 note:** new worlds use "overworld6" (all of vanilla's biomes, cave biomes and the
+  M27 structures), frozen as of v0.27.0. Try it: `tools/run.sh --world "M27 test"`, look
+  for a pale garden at night (creakings), a lush cave, an ancient city deep under the
+  mountains (sneak!), a trial chamber, trail ruins with a brush (`/give @s brush`).
 - **M26 note:** new worlds use "overworld5" (bee nests, berry bushes, infested blocks),
   frozen as of v0.26.0. Try it: `tools/run.sh --world "M26 test"`, tame a wolf
   (`/give @s bone 8`), ride a horse (`--mount`), build a Wither in creative
@@ -287,7 +293,7 @@ and GUI textures are made with their systems.
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | ✅ 2026-10-08 v0.24.0 (no gossip, bell-centred raids: see deviations) |
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | ✅ 2026-10-08 v0.25.0 (simple flooded caves, own monument design, no chest boats: see deviations) |
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | ✅ 2026-10-08 v0.26.0 (no leads, shoulders or statues; the warden moves to M27.3: see deviations) |
-| M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
+| M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | ✅ 2026-10-08 v0.27.0 (our own structure designs, cave biomes by column climate: see deviations) |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
@@ -295,6 +301,7 @@ and GUI textures are made with their systems.
 - F2 screenshot key (vanilla) for interactive play.
 
 ## Done (latest 10)
+- 2026-10-08 M27 (v0.27.0): overworld6 - the remaining biomes, creakings, lush and dripstone caves, the deep dark, sculk, the warden, ancient cities, geodes, ruined portals, mansions, trial chambers, archaeology, sniffers.
 - 2026-10-08 M26 (v0.26.0): pets, mounts, wildlife, bees, frogs, axolotls, cave spiders, silverfish, wither skeletons, phantoms, heads, the Wither, the breeze, allays, nautiluses, happy ghasts, copper golems.
 - 2026-10-08 Fixed known issues: thin dark lines over far water (atlas filtering at sprite edges; UVs now clamped inside the sprite), exact section offsets (no cracks), the arena reserved exactly (no 200-400 MB growth copy, NVIDIA 131186); the old 131218 recompile warning no longer appears.
 - 2026-10-08 M25 (v0.25.0): oceans - waterlogging, ocean plants and corals, deep oceans, flooded caves, icebergs, water mobs, fishing, boats, drowned, tridents, dolphins, turtles, shipwrecks, ruins, buried treasure, guardians and monuments, sponges.

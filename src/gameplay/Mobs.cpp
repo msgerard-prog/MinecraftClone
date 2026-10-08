@@ -1090,6 +1090,21 @@ void Mobs::tick(Context& ctx) {
                 }
                 m.lastHealth = m.health;
             }
+            // (M27 review) whatever hurt them - arrows, explosions, fire, golems - a creaking
+            // whose heart stands and a warden still emerging or digging take no damage.
+            if (m.type == MobType::Creaking || m.type == MobType::Warden) {
+                const bool shielded =
+                    m.type == MobType::Warden
+                        ? m.phase != 1
+                        : m.home.y != kNoPoint &&
+                              blockRegistry().blockOf(ctx.world.getBlock({m.home.x, m.home.y, m.home.z})) ==
+                                  blocks::CreakingHeart;
+                if (shielded && m.deathTime < 19 && m.lastHealth > 0.0f && m.health < m.lastHealth) {
+                    m.health = m.lastHealth;
+                    m.deathTime = 0;
+                }
+                m.lastHealth = m.health;
+            }
             // Sounds (M22.4): hurt since last tick (hurtTime was set to 10), and now and
             // then its ambient call - vanilla: 1/1000 chance growing each tick, then 80
             // ticks of quiet. Babies squeak half an octave higher.

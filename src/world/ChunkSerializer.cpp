@@ -1191,7 +1191,14 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
             if (m.home.y != kNoPoint) e.put("hive_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
-        if (m.type == MobType::Creaking && m.home.y != kNoPoint) { // (M27.1c; wiki: Creaking - home_pos)
+        if (m.type == MobType::Warden) { // (M27 review; wiki: Warden - our tags beside vanilla's anger)
+            e.put("clone_phase", int8_t(m.phase));
+            e.put("clone_phase_ticks", int16_t(m.phaseTicks));
+            e.put("clone_anger", int16_t(m.angerTicks));
+        }
+        // (M27.1c: a creaking's heart - wiki: Creaking, home_pos; M27 review: a trial spawner's
+        // mobs keep their spawner the same way - our tag on them)
+        if (m.home.y != kNoPoint && m.type != MobType::Turtle && m.type != MobType::Bee && m.type != MobType::Villager) {
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
         if (m.type == MobType::Armadillo) {
@@ -1599,7 +1606,12 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (const nbt::Tag* hp = e->find("hive_pos"))
                 if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
-        if (m.type == MobType::Creaking)
+        if (m.type == MobType::Warden) {
+            m.phase = uint8_t(std::clamp<int64_t>(e->integer("clone_phase").value_or(1), 0, 2));
+            m.phaseTicks = int16_t(std::clamp<int64_t>(e->integer("clone_phase_ticks").value_or(0), 0, 200));
+            m.angerTicks = int16_t(std::clamp<int64_t>(e->integer("clone_anger").value_or(0), 0, 150));
+        }
+        if (m.type != MobType::Turtle && m.type != MobType::Bee && m.type != MobType::Villager)
             if (const nbt::Tag* hp = e->find("home_pos"))
                 if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         if (m.type == MobType::Armadillo) {

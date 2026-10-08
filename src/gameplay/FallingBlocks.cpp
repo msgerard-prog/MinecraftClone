@@ -70,10 +70,10 @@ void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng, std:
                 items.spawn(f.pos + glm::dvec3(0, 0.25, 0), {item, 1}, rng);
         };
         if (landed && reg.blockOf(f.state) == blocks::PointedDripstone) {
-            // A stalactite breaks where it lands, hurting what's there: 1 a block fallen,
-            // at least 6, at most 40 (wiki: Pointed Dripstone).
-            const float dmg = float(std::clamp(int(std::ceil(f.startY - f.pos.y)), 6, 40));
-            if (m_impacts.size() < m_impacts.capacity()) m_impacts.push_back({f.pos, dmg});
+            // A stalactite breaks where it lands, hurting what's there: 6 for each block it
+            // fell after the first, at most 40 (wiki: Pointed Dripstone).
+            const float dmg = float(std::min(40, 6 * std::max(0, int(std::ceil(f.startY - f.pos.y)) - 1)));
+            if (dmg > 0.0f && m_impacts.size() < m_impacts.capacity()) m_impacts.push_back({f.pos, dmg});
             dropItem();
             remove = true;
         } else if (landed) {

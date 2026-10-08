@@ -47,7 +47,7 @@ bool Mobs::wardenTick(Context& ctx, MobData& m) {
     ++m.goalTicks; // (ticks since something disturbed it)
     // Vibrations it hears.
     for (const World::Vibration& v : ctx.world.vibrations()) {
-        if (glm::dot(v.pos - m.pos, v.pos - m.pos) > 16.0 * 16.0) continue;
+        if (glm::dot(v.pos - m.pos, v.pos - m.pos) > 15.0 * 15.0) continue; // (wiki: 15)
         m.goal = v.pos;
         m.goalTicks = 0;
         if (v.byPlayer && reachable) m.angerTicks = int16_t(std::min(150, m.angerTicks + 35));
@@ -68,19 +68,19 @@ bool Mobs::wardenTick(Context& ctx, MobData& m) {
     const double flat = glm::length(glm::dvec2(player.x - m.pos.x, player.z - m.pos.z));
     if (m.spellTicks > 0) {
         m.goal = m.pos;
-        if (--m.spellTicks == 0 && angry && flat <= 15.0 && std::abs(player.y - m.pos.y) <= 20.0) {
+        if (--m.spellTicks == 0 && angry && flat <= 14.0 && std::abs(player.y - m.pos.y) <= 20.0) {
             ctx.vitals.damage(10.0f);
             setPlayerAttacker(m.uuidHi);
             const glm::dvec2 push = flat > 1e-6 ? glm::dvec2(player.x - m.pos.x, player.z - m.pos.z) / flat : glm::dvec2(0.0);
             ctx.player.knockback(-push.x, -push.y, 1.2);
-            ctx.world.levelEvent(LevelEvent::Type::Explosion, (m.pos.x + player.x) * 0.5, m.pos.y + 1.5,
-                                 (m.pos.z + player.z) * 0.5, 0);
+            ctx.world.levelEvent(LevelEvent::Type::Crit, (m.pos.x + player.x) * 0.5, m.pos.y + 1.5,
+                                 (m.pos.z + player.z) * 0.5); // (a puff; not an explosion it would hear)
         }
         return true;
     }
-    if (angry && m.chargeTicks == 0 && dist > 3.0 && flat <= 15.0 && std::abs(player.y - m.pos.y) <= 20.0) {
+    if (angry && m.chargeTicks == 0 && dist > 3.0 && flat <= 14.0 && std::abs(player.y - m.pos.y) <= 20.0) {
         m.spellTicks = 34;
-        m.chargeTicks = 40;
+        m.chargeTicks = 100; // (wiki: at most once in 5 s)
         m.yaw = m.headYaw = float(std::atan2(-(player.x - m.pos.x), player.z - m.pos.z) * 180.0 / 3.14159265358979);
         return true;
     }

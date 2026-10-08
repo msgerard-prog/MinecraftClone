@@ -120,12 +120,13 @@ public:
     // The warden's warnings (M27.3; wiki: Sculk Shrieker): a shrieker that can summon
     // raises the level by 1 (at most once in 10 s, up to 4) and the 4th calls a warden;
     // the level drops by 1 after 10 minutes without a warning. True: a warden comes.
-    bool wardenWarn() {
-        if (m_wardenCooldown > 0) return false;
+    // (-1: too soon - the shrieker does nothing; 0: warned; 1: the warden comes)
+    int wardenWarn() {
+        if (m_wardenCooldown > 0) return -1;
         m_wardenCooldown = 200;
         m_wardenTicks = 0;
         m_wardenLevel = std::min(4, m_wardenLevel + 1);
-        return m_wardenLevel >= 4;
+        return m_wardenLevel >= 4 ? 1 : 0;
     }
     void tickWardenTracker() {
         if (m_wardenCooldown > 0) --m_wardenCooldown;

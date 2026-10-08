@@ -189,20 +189,24 @@ constexpr LootEntry kBuried6[] = {{"potion", 1, 1, 1, false, uint8_t(Potion::Wat
 constexpr LootPool kBuried[] = {{1, 1, kBuried1}, {5, 8, kBuried2}, {1, 3, kBuried3}, {0, 1, kBuried4}, {2, 2, kBuried5},
                                 {0, 2, kBuried6}};
 
-// wiki: Ancient City › Loot (Java; ours without disc fragments, the disc 5 and the
-// recovery compass, which aren't in the game yet - their weights left out).
+// wiki: Ancient City › Loot (Java 1.21.11; the compass, disc fragments and disc 5 aren't
+// in the game yet: those entries give nothing, keeping the others' odds).
 constexpr LootEntry kAncient1[] = {
-    {"enchanted_golden_apple", 1, 1, 1}, {"music_disc_otherside", 1, 1, 1}, {"diamond_hoe", 1, 1, 2, true},
-    {"lead", 1, 1, 2},                   {"diamond_horse_armor", 1, 1, 2},  {"saddle", 1, 1, 2},
-    {"music_disc_13", 1, 1, 2},          {"music_disc_cat", 1, 1, 2},       {"diamond_leggings", 1, 1, 2, true},
-    {"enchanted_book", 1, 1, 3, true},   {"sculk_catalyst", 1, 2, 3},       {"name_tag", 1, 1, 3},
-    {"echo_shard", 1, 3, 4},             {"potion", 1, 3, 5, false, uint8_t(Potion::LongRegeneration)},
-    {"book", 3, 10, 5},                  {"glow_berries", 1, 15, 5},        {"iron_leggings", 1, 1, 5, true},
-    {"sculk", 4, 10, 6},                 {"sculk_sensor", 1, 3, 6},         {"candle", 1, 4, 6},
-    {"amethyst_shard", 1, 15, 6},        {"experience_bottle", 1, 3, 6},    {"bone", 1, 15, 6},
-    {"soul_torch", 1, 15, 6},            {"snowball", 1, 7, 6},             {"golden_apple", 1, 2, 7},
-    {"coal", 6, 15, 7}, {"enchanted_book", 1, 1, 4, false, 0, uint8_t(Enchantment::SwiftSneak)}};
-constexpr LootPool kAncientCity[] = {{5, 10, kAncient1}};
+    {"coal", 6, 15, 7},             {"bone", 1, 15, 5},            {"soul_torch", 1, 15, 5},
+    {"book", 3, 10, 5},             {"potion", 1, 3, 5, false, uint8_t(Potion::Regeneration)},
+    {"enchanted_book", 1, 1, 5, true}, {"echo_shard", 1, 3, 4},    {"amethyst_shard", 1, 15, 3},
+    {"glow_berries", 1, 15, 3},     {"sculk", 4, 10, 3},           {"candle", 1, 4, 3},
+    {"experience_bottle", 1, 3, 3}, {"sculk_sensor", 1, 3, 3},
+    {"enchanted_book", 1, 1, 3, false, 0, uint8_t(Enchantment::SwiftSneak)}, {"iron_leggings", 1, 1, 3, true},
+    {"leather", 1, 5, 2},           {"sculk_catalyst", 1, 2, 2},   {"compass", 1, 1, 2},
+    {"name_tag", 1, 1, 2},          {"music_disc_13", 1, 1, 2},    {"music_disc_cat", 1, 1, 2},
+    {"lead", 1, 1, 2},              {"diamond_hoe", 1, 1, 2, true}, {"diamond_horse_armor", 1, 1, 2},
+    {"diamond_leggings", 1, 1, 2, true}, {"disc_fragment_5", 1, 3, 4},
+    {"enchanted_golden_apple", 1, 2, 1}, {"music_disc_otherside", 1, 1, 1}};
+constexpr LootEntry kAncient2[] = {{"ward_armor_trim_smithing_template", 1, 1, 4},
+                                   {"silence_armor_trim_smithing_template", 1, 1, 1},
+                                   {"", 1, 1, 75}};
+constexpr LootPool kAncientCity[] = {{5, 10, kAncient1}, {1, 1, kAncient2}};
 
 // wiki: Ruined Portal › Loot (Java).
 constexpr LootEntry kRuined1[] = {
@@ -215,19 +219,22 @@ constexpr LootEntry kRuined1[] = {
     {"light_weighted_pressure_plate", 1, 1, 5}, {"golden_carrot", 4, 12, 5}, {"clock", 1, 1, 5},
     {"gold_ingot", 2, 8, 5},       {"bell", 1, 1, 1},            {"enchanted_golden_apple", 1, 1, 1},
     {"gold_block", 1, 2, 1}};
-constexpr LootPool kRuinedPortal[] = {{4, 8, kRuined1}};
+constexpr LootEntry kRuined2[] = {{"lodestone", 1, 2, 2}, {"", 1, 1, 1}}; // (since 1.21.5; no lodestone yet)
+constexpr LootPool kRuinedPortal[] = {{4, 8, kRuined1}, {1, 1, kRuined2}};
 
 // wiki: Woodland Mansion › Loot (Java).
 constexpr LootEntry kMansion1[] = {
     {"lead", 1, 1, 20},           {"golden_apple", 1, 1, 15},     {"music_disc_13", 1, 1, 15},
     {"music_disc_cat", 1, 1, 15}, {"name_tag", 1, 1, 20},         {"chainmail_chestplate", 1, 1, 10},
-    {"diamond_hoe", 1, 1, 15},    {"diamond_chestplate", 1, 1, 5}, {"enchanted_book", 1, 1, 10, true}};
+    {"diamond_hoe", 1, 1, 15},    {"diamond_chestplate", 1, 1, 5}, {"enchanted_book", 1, 1, 10, true},
+    {"enchanted_golden_apple", 1, 1, 2}};
 constexpr LootEntry kMansion2[] = {
     {"iron_ingot", 1, 4, 10},   {"gold_ingot", 1, 4, 5},      {"bread", 1, 1, 20},       {"wheat", 1, 4, 20},
     {"bucket", 1, 1, 10},       {"redstone", 1, 4, 15},       {"coal", 1, 4, 15},        {"melon_seeds", 2, 4, 10},
-    {"pumpkin_seeds", 2, 4, 10}, {"beetroot_seeds", 2, 4, 10}};
+    {"pumpkin_seeds", 2, 4, 10}, {"beetroot_seeds", 2, 4, 10}, {"resin_clump", 2, 4, 50}};
 constexpr LootEntry kMansion3[] = {{"bone", 1, 8, 10}, {"gunpowder", 1, 8, 10}, {"rotten_flesh", 1, 8, 10}, {"string", 1, 8, 10}};
-constexpr LootPool kMansion[] = {{1, 3, kMansion1}, {1, 4, kMansion2}, {3, 3, kMansion3}};
+constexpr LootEntry kMansion4[] = {{"vex_armor_trim_smithing_template", 1, 1, 1}, {"", 1, 1, 1}};
+constexpr LootPool kMansion[] = {{1, 3, kMansion1}, {1, 4, kMansion2}, {3, 3, kMansion3}, {1, 1, kMansion4}};
 
 // wiki: Vault › Loot, Trial Spawner › Loot, Trial Chambers › Loot (Java; ours: without
 // ominous bottles, guster banner patterns, heavy cores and the mace - M28 - and without
@@ -239,13 +246,17 @@ constexpr LootEntry kVault1[] = {
     {"crossbow", 1, 1, 2, true}, {"iron_axe", 1, 1, 2, true}, {"iron_chestplate", 1, 1, 2, true},
     {"diamond_axe", 1, 1, 1, true}, {"enchanted_golden_apple", 1, 1, 1}};
 constexpr LootPool kVault[] = {{1, 3, kVault1}};
+// (a trial spawner's consumable - given instead of the key half the time)
 constexpr LootEntry kTrialReward1[] = {
-    {"bread", 1, 3, 3},        {"cooked_chicken", 1, 3, 3}, {"baked_potato", 1, 3, 3}, {"golden_carrot", 1, 2, 2},
-    {"arrow", 4, 8, 3},        {"emerald", 1, 3, 2},        {"iron_ingot", 1, 2, 2},   {"honey_bottle", 1, 1, 2}};
-constexpr LootPool kTrialReward[] = {{1, 2, kTrialReward1}};
+    {"cooked_chicken", 1, 1, 3}, {"bread", 1, 3, 3}, {"baked_potato", 1, 3, 2},
+    {"potion", 1, 1, 1, false, uint8_t(Potion::Regeneration)}, {"potion", 1, 1, 1, false, uint8_t(Potion::Swiftness)}};
+constexpr LootPool kTrialReward[] = {{1, 1, kTrialReward1}};
 constexpr LootEntry kTrialSupply1[] = {
-    {"arrow", 4, 14, 2}, {"baked_potato", 2, 4, 2}, {"glow_berries", 2, 10, 2}, {"ladder", 5, 5, 1},
-    {"torch", 3, 6, 1},  {"bread", 1, 3, 1},        {"wind_charge", 1, 3, 1},   {"iron_ingot", 1, 3, 1}};
+    {"arrow", 4, 14, 2},     {"glow_berries", 2, 10, 2}, {"baked_potato", 2, 4, 2}, {"stone_pickaxe", 1, 1, 2},
+    {"tuff", 8, 20, 1},      {"", 1, 1, 1}, // (tipped arrows: not in the game yet)
+    {"acacia_planks", 3, 6, 1}, {"torch", 3, 6, 1}, {"bone_meal", 2, 5, 1},    {"moss_block", 2, 5, 1},
+    {"potion", 1, 1, 1, false, uint8_t(Potion::Strength)}, {"potion", 1, 1, 1, false, uint8_t(Potion::Regeneration)},
+    {"milk_bucket", 1, 1, 1}};
 constexpr LootPool kTrialSupply[] = {{3, 5, kTrialSupply1}};
 
 // wiki: Archaeology (Java) - one item from each table when brushed.
@@ -269,10 +280,12 @@ constexpr LootPool kArchWarm[] = {{1, 1, kArchWarm1}};
 constexpr LootEntry kArchTrailCommon1[] = {
     {"emerald", 1, 1, 2},        {"wheat", 1, 1, 2},           {"wooden_hoe", 1, 1, 2},   {"clay", 1, 1, 2},
     {"brick", 1, 1, 2},          {"yellow_dye", 1, 1, 2},      {"blue_dye", 1, 1, 2},     {"light_blue_dye", 1, 1, 2},
-    {"white_dye", 1, 1, 2},      {"orange_dye", 1, 1, 2},      {"red_stained_glass_pane", 1, 1, 2},
-    {"yellow_stained_glass_pane", 1, 1, 2}, {"blue_stained_glass_pane", 1, 1, 2}, {"magenta_stained_glass_pane", 1, 1, 2},
-    {"lead"},                    {"beetroot_seeds"},           {"dead_bush"},             {"flower_pot"},
-    {"string"},                  {"wheat_seeds"}};
+    {"white_dye", 1, 1, 2},      {"orange_dye", 1, 1, 2},      {"red_candle", 1, 1, 2},   {"green_candle", 1, 1, 2},
+    {"purple_candle", 1, 1, 2},  {"brown_candle", 1, 1, 2},    {"magenta_stained_glass_pane"}, {"pink_stained_glass_pane"},
+    {"blue_stained_glass_pane"}, {"light_blue_stained_glass_pane"}, {"red_stained_glass_pane"},
+    {"yellow_stained_glass_pane"}, {"purple_stained_glass_pane"}, {"spruce_hanging_sign"}, {"oak_hanging_sign"},
+    {"gold_nugget"},             {"coal"},                     {"wheat_seeds"},           {"beetroot_seeds"},
+    {"dead_bush"},               {"flower_pot"},               {"string"},                {"lead"}};
 constexpr LootPool kArchTrailCommon[] = {{1, 1, kArchTrailCommon1}};
 constexpr LootEntry kArchTrailRare1[] = {
     {"burn_pottery_sherd"}, {"danger_pottery_sherd"}, {"friend_pottery_sherd"}, {"heart_pottery_sherd"},
@@ -394,7 +407,7 @@ void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots
                 setEnchantment(s, e, 1 + static_cast<int>(rng.nextInt(uint32_t(enchantmentInfo(e).maxLevel))));
             } else if (chosen->enchant) { // one random enchantment at a random level (vanilla enchant_randomly)
                 for (int tries = 0; tries < 64; ++tries) { // (Thorns has no effect yet: never handed out)
-                    const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));
+                    const auto e = static_cast<Enchantment>(1 + rng.nextInt(kRandomEnchantments));
                     if (e == Enchantment::Thorns || !canEnchant(*id, e)) continue;
                     setEnchantment(s, e, 1 + static_cast<int>(rng.nextInt(uint32_t(enchantmentInfo(e).maxLevel))));
                     break;

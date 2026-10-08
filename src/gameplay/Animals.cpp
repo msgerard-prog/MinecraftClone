@@ -232,9 +232,8 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
             m.goal = partner->pos;
             if (glm::length(partner->pos - m.pos) < 3.0) {
                 if (++m.breedTicks >= 60 && m.type == MobType::Sniffer) {
-                    // Sniffers lay an egg where they stand (M27.5c; wiki: Sniffer › Breeding).
-                    const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
-                    if (ctx.world.getBlock(at) == 0) ctx.world.updateBlock(at, blockRegistry().defaultState(blocks::SnifferEgg));
+                    // Sniffers drop an egg (M27.5c; wiki: Sniffer › Breeding).
+                    ctx.items.spawn(m.pos + glm::dvec3(0.0, 0.3, 0.0), {itemRegistry().blockItem(blocks::SnifferEgg), 1}, ctx.rng);
                     if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;

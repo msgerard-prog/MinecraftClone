@@ -199,7 +199,7 @@ TEST_CASE("overworld6: giant spruces have 2x2 trunks; mangroves stand on roots (
     CHECK(wide > 0);
 }
 
-TEST_CASE("overworld6 output is pinned (re-pinned while M27 builds it)") {
+TEST_CASE("overworld6 output is pinned (frozen as of v0.27.0)") {
     const OverworldGenerator gen(42);
     const auto pale = findBiome6(gen, Biome::PaleGarden);
     REQUIRE(pale);
@@ -532,4 +532,36 @@ TEST_CASE("torchflower and pitcher crops grow into their flowers; a sniffer egg 
     CHECK(g.updates.hatched()[0].type == MobType::Sniffer);
     CHECK(g.at(6, 64, 6) == 0);
     (void)r;
+}
+
+#include "world/Enchantments.h"
+
+TEST_CASE("M27 review regressions: grown pitcher plants keep to farmland; pistons break suspicious blocks; random enchantments keep their old range") {
+    Garden g;
+    g.world.updateBlock({4, 63, 2}, S(blocks::Farmland));
+    g.world.updateBlock({4, 64, 2}, S(blocks::PitcherCrop));
+    for (int i = 0; i < 6; ++i) g.updates.boneMeal({4, 64, 2});
+    REQUIRE(g.at(4, 64, 2) == blocks::PitcherPlant);
+    g.world.updateBlock({5, 64, 2}, S(blocks::Stone)); // (a neighbour update)
+    g.world.updateBlock({5, 64, 2}, 0);
+    CHECK(g.at(4, 64, 2) == blocks::PitcherPlant);
+    CHECK(g.at(4, 65, 2) == blocks::PitcherPlant);
+    // A piston pushing suspicious sand breaks it.
+    g.world.updateBlock({8, 64, 8}, R().set(R().defaultState(blocks::Piston), properties::facing6, 5)); // (east)
+    g.world.updateBlock({9, 64, 8}, S(blocks::SuspiciousSand));
+    g.world.updateBlock({8, 64, 9}, S(blocks::RedstoneBlock));
+    for (int t = 1; t < 6; ++t) {
+        g.updates.setTime(t);
+        g.updates.tick();
+    }
+    CHECK(g.at(10, 64, 8) != blocks::SuspiciousSand);
+    CHECK(g.world.chunk({0, 0})->brushables().empty());
+    // Random enchantments never hand out Swift Sneak and keep the pre-M27 range.
+    CHECK(kRandomEnchantments == uint32_t(Enchantment::Channeling));
+    Xoroshiro rng(2);
+    for (int i = 0; i < 300; ++i) {
+        std::array<ItemStack, 27> slots{};
+        fillChest(LootTable::DesertPyramid, rng, slots);
+        for (const ItemStack& s : slots) CHECK(enchantLevel(s, Enchantment::SwiftSneak) == 0);
+    }
 }

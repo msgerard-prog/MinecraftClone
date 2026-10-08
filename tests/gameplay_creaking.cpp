@@ -210,3 +210,40 @@ TEST_CASE("a creaking keeps its heart through a save; pale gardens hide hearts a
     CHECK(hearts > 0);
     CHECK(blossoms > 0);
 }
+
+TEST_CASE("a heart-bound creaking survives damage from any source - an arrow, a blast (M27 review regression)") {
+    Garden g;
+    MobData m = Mobs::make(MobType::Creaking, {4.5, 64.0, 4.5}, g.rng);
+    m.home = {g.heart.x, g.heart.y, g.heart.z};
+    REQUIRE(Mobs::add(g.world, m));
+    g.player.setRotation(0.0f, 0.0f);
+    g.tick(2);
+    g.creaking()->health -= 50.0f; // (as Projectiles/Explosion write it)
+    g.tick(2);
+    REQUIRE(g.creaking());
+    CHECK(g.creaking()->health > 0.0f);
+    // A heartless one dies of it.
+    g.world.setBlock(g.heart, 0);
+    g.tick(25);
+    CHECK(g.creaking() == nullptr);
+}
+
+TEST_CASE("a trial spawner's mobs keep it through a save; wardens keep their phase and anger (M27 review regression)") {
+    Chunk c({0, 0});
+    Xoroshiro rng(9);
+    MobData z = Mobs::make(MobType::Zombie, {1.5, 65.0, 1.5}, rng);
+    z.home = {3, 60, 4};
+    c.mobs().push_back(z);
+    MobData w = Mobs::make(MobType::Warden, {5.5, 65.0, 5.5}, rng);
+    w.phase = 2;
+    w.phaseTicks = 40;
+    w.angerTicks = 90;
+    c.mobs().push_back(w);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 2);
+    CHECK(back.mobs()[0].home == glm::ivec3(3, 60, 4));
+    CHECK(back.mobs()[1].phase == 2);
+    CHECK(back.mobs()[1].phaseTicks == 40);
+    CHECK(back.mobs()[1].angerTicks == 90);
+}

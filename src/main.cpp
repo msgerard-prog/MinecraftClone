@@ -2569,7 +2569,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const mc::world::BlockPos bp = lastHit->block;
                         const mc::world::BlockStateId bs = world.getBlock(bp);
                         const int d = reg.get(bs, mc::world::properties::dusted);
-                        if (d < 3) {
+                        if (d < 3) { // (a state change only: the renderer re-meshes it, no relight)
                             world.updateBlock(bp, reg.set(bs, mc::world::properties::dusted, d + 1));
                         } else {
                             mc::world::ItemStack found;
@@ -2589,8 +2589,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                                        : mc::world::blocks::Gravel));
                             if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                             brushTicks = 0;
+                            frameEdits.push_back(bp);
                         }
-                        frameEdits.push_back(bp);
                     }
                 } else if (!clicks.use) {
                     brushTicks = 0;
@@ -3036,8 +3036,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 c(sh.pos.x + 0.5, sh.pos.y + 0.5, sh.pos.z + 0.5);
                 world.levelEvent(mc::world::LevelEvent::Type::Note, c.x, c.y + 0.6, c.z, 0); // (a visible cue)
                 if (!sh.canSummon || !survival || dead || glm::length(player.position() - c) > 40.0) continue;
-                vitals.addEffect(mc::world::Effect::Darkness, 0, 260);
-                if (vitals.wardenWarn()) mc::Mobs::summonWarden(world, sh.pos, gameRng);
+                const int warned = vitals.wardenWarn();
+                if (warned < 0) continue; // (within its 10 s: nothing)
+                vitals.addEffect(mc::world::Effect::Darkness, 0, 240);
+                if (warned > 0) mc::Mobs::summonWarden(world, sh.pos, gameRng);
             }
             blockUpdates.shrieks().clear();
             for (const auto& sp : blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)

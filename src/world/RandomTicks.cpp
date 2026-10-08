@@ -403,7 +403,14 @@ int BlockUpdates::heartState(const BlockPos& p, BlockStateId s) const {
     // by night, dormant (1) by day.
     const int a = R().get(s, axis);
     const Direction lo = a == 0 ? Direction::West : a == 1 ? Direction::Down : Direction::North;
-    const auto log = [&](Direction d) { return blockOf(at(rel(p, d))) == B::PaleOakLog; };
+    // (a pale oak log, wood or their stripped kinds - M27 review)
+    static const BlockId wood = R().findBlock("pale_oak_wood").value_or(B::PaleOakLog);
+    static const BlockId strippedLog = R().findBlock("stripped_pale_oak_log").value_or(B::PaleOakLog);
+    static const BlockId strippedWood = R().findBlock("stripped_pale_oak_wood").value_or(B::PaleOakLog);
+    const auto log = [&](Direction d) {
+        const BlockId b = blockOf(at(rel(p, d)));
+        return b == B::PaleOakLog || b == wood || b == strippedLog || b == strippedWood;
+    };
     if (!log(lo) || !log(static_cast<Direction>(int(lo) ^ 1))) return 0; // (the opposite side)
     return nightTime() ? 2 : 1;
 }

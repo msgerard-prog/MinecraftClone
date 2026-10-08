@@ -130,10 +130,14 @@ TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, 
         });
     });
     CHECK(most >= 1);
-    CHECK(most <= 3);
-    int keys = 0;
-    for (const auto& it : d.items.items()) keys += it.stack.item == *itemRegistry().find("trial_key");
-    CHECK(keys == 1);
+    CHECK(most <= 2);
+    int rewards = 0; // (a key, or half the time a consumable)
+    for (const auto& it : d.items.items()) {
+        const std::string_view id = itemRegistry().item(it.stack.item).id;
+        rewards += id == "minecraft:trial_key" || id == "minecraft:cooked_chicken" || id == "minecraft:bread" ||
+                   id == "minecraft:baked_potato" || id == "minecraft:potion";
+    }
+    CHECK(rewards == 1);
     CHECK(r.get(d.world.getBlock({0, 60, 0}), properties::trialState) == 5); // cooldown
     CHECK(d.world.chunk({0, 0})->spawner(0, 60, 0)->cooldown > 30000);
 }
@@ -160,12 +164,10 @@ TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay
             if (m.type == MobType::Sniffer)
                 CHECK(Mobs::interact(m, *itemRegistry().find("torchflower_seeds"), d.rng, d.items) == Mobs::Use::Fed);
     });
-    bool egg = false;
-    d.tick(400, [&] {
-        for (int z = -6; z <= 6 && !egg; ++z)
-            for (int x = -6; x <= 6 && !egg; ++x) egg = r.blockOf(d.world.getBlock({x, 60, z})) == blocks::SnifferEgg;
-    });
-    CHECK(egg);
+    d.tick(400);
+    int eggs = 0; // (dropped as an item - wiki)
+    for (const auto& it : d.items.items()) eggs += it.stack.item == itemRegistry().blockItem(blocks::SnifferEgg);
+    CHECK(eggs == 1);
 }
 
 TEST_CASE("a brush gets a scute from an armadillo (M27.5c)") {

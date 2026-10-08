@@ -42,6 +42,10 @@ enum class Enchantment : uint8_t {
     SwiftSneak,   // (M27.3) leggings: sneaking 15% faster a level (ancient cities only)
     Count
 };
+// Random enchantments (loot enchant_randomly, fishing treasure) draw from the ones before
+// Swift Sneak (M27 review): a treasure found only in ancient cities, and a fixed range keeps
+// chests and catches of existing seeds rolling as they did.
+inline constexpr uint32_t kRandomEnchantments = uint32_t(Enchantment::Channeling);
 
 // What an enchantment fits on.
 enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs };

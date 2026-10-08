@@ -64,8 +64,8 @@ struct LevelData {
     float xpProgress = 0.0f;
     int xpTotal = 0;
     int32_t xpSeed = 0;    // XpSeed: the enchanting table's seed
-    int32_t timeSinceRest = 0;
-    int32_t wardenLevel = 0, wardenTicks = 0, wardenCooldown = 0; // (M27.3) vanilla warden_spawn_tracker // (M26.4a) ticks awake (our tag TimeSinceRest; vanilla keeps it in stats/)
+    int32_t timeSinceRest = 0; // (M26.4a) ticks awake (our tag TimeSinceRest; vanilla keeps it in stats/)
+    int32_t wardenLevel = 0, wardenTicks = 0, wardenCooldown = 0; // (M27.3) vanilla warden_spawn_tracker
     // Status effects (M19.4): Player.active_effects [{id, amplifier, duration, ...}].
     struct SavedEffect {
         std::string id; // "minecraft:speed"

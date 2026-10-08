@@ -909,6 +909,7 @@ void OverworldGenerator::generate(Chunk& out) const {
                     biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = columnBiome[size_t(qz * 4 + qx)];
     // Cave biomes (overworld6, M27.2c): cells well under the surface take the column's
     // cave biome (vanilla picks them from the same climate plus depth).
+    bool caveCells = false; // (any: else the cave pass has nothing to do - M27 perf review)
     if (m_version >= 6)
         for (int qz = 0; qz < 4; ++qz)
             for (int qx = 0; qx < 4; ++qx) {
@@ -916,6 +917,7 @@ void OverworldGenerator::generate(Chunk& out) const {
                 const Biome cave = caveBiome(col);
                 const bool deep = deepDark(col);
                 if (cave == Biome::Count && !deep) continue;
+                caveCells = true;
                 for (int s = 0; s < kOverworldHeight.sections(); ++s)
                     for (int qy = 0; qy < 4; ++qy) {
                         const int y = kOverworldHeight.minY + s * 16 + qy * 4 + 2;
@@ -1330,7 +1332,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     if (m_version >= 6) {
         placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
         placeGeodes(blockArray.data(), cx, cz);                          // (M27.4a)
-        placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
+        if (caveCells) placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY); // (M27.2c)
         placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
         placeRuinedPortals(blockArray.data(), cx, cz, entities);         // (M27.4b)
         placeMansions(blockArray.data(), cx, cz, entities);              // (M27.4c)
@@ -3992,8 +3994,8 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
     // old growth forests and jungles, buried - rooms of mud bricks and terracotta filled
     // with gravel, 1 block in 24 of it suspicious (1 in 8 of those from the rare table), a
     // tower stub or two showing above the grass (vanilla: a tower and roads of templates).
-    // Desert wells (wiki: Desert Well): in 1 desert chunk of 500, a sandstone well with a
-    // suspicious sand under its water.
+    // Desert wells (wiki: Desert Well): in 1 desert chunk of 1000, a sandstone well with a
+    // suspicious sand under its water (Java: 1 in 1000).
     const auto& reg = blockRegistry();
     const Blocks& B = blockSet();
     static const BlockStateId mud = *reg.parse("minecraft:mud_bricks");
@@ -4033,7 +4035,7 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
     // A desert well.
     if (columnBiome[5] != Biome::Desert) return;
     Xoroshiro w(chunkSeed(m_seed, cx, cz, 771));
-    if (w.nextInt(500) != 0) return;
+    if (w.nextInt(1000) != 0) return;
     const int ground = topY[size_t(8 * 16 + 8)];
     if (ground < kSeaLevel || chunk.get(8, ground, 8) != B.sand) return;
     StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, cx * 16 + 6, ground, cz * 16 + 6, 5, 5, 0, &out};
