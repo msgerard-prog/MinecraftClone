@@ -914,7 +914,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             if (*id == "minecraft:chest" || *id == "minecraft:barrel" || *id == "minecraft:shulker_box") {
                 const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
                 const bool shulker = blockRegistry().likeOf(cb) == blocks::ShulkerBox;
-                if (cb != blocks::Chest && cb != blocks::Barrel && !shulker) continue;
+                if (blockRegistry().likeOf(cb) != blocks::Chest && cb != blocks::Barrel && !shulker) continue; // (copper chests too)
                 ChestData& c = chunk.addChest(x, y, z);
                 c.barrel = cb == blocks::Barrel;
                 c.shulker = shulker;
@@ -1109,7 +1109,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 };
                 if (m.saddled) piece("saddle", "saddle");
                 if (m.horseArmor > 0 && m.horseArmor < 5) piece("body", kHorseArmorItems[m.horseArmor]);
-                if (m.decor > 0 && m.decor <= 16) piece("body", std::string(kDyeColours[m.decor - 1]) + "_carpet");
+                if (m.decor > 0 && m.decor <= 16)
+                    piece("body", std::string(kDyeColours[m.decor - 1]) + (m.type == MobType::HappyGhast ? "_harness" : "_carpet"));
                 if (!eq.entries.empty()) e.put("equipment", std::move(eq));
             }
             if (canCarryChest(m.type)) e.put("ChestedHorse", int8_t(m.hasChest ? 1 : 0));
@@ -1144,6 +1145,11 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
         }
         if (m.type == MobType::Frog) e.put("variant", "minecraft:" + std::string(kFrogVariants[m.woolColour % 3].name)); // (M26.3c)
+        if (m.type == MobType::CopperGolem) { // (M26.5b)
+            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
+            e.put("weather_state", std::string(kWeather[m.woolColour % 4]));
+            e.put("Waxed", int8_t(m.sheared ? 1 : 0));
+        }
         if (m.type == MobType::Bee) { // (M26.3b; wiki: Bee › Entity data)
             e.put("HasNectar", int8_t(m.nectar ? 1 : 0));
             e.put("HasStung", int8_t(m.stung ? 1 : 0));
@@ -1479,7 +1485,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         for (int k = 1; k < 5; ++k)
                             if (*bid == std::string("minecraft:") + kHorseArmorItems[k]) m.horseArmor = uint8_t(k);
                         for (int c = 0; c < 16; ++c)
-                            if (*bid == std::string("minecraft:") + kDyeColours[c] + "_carpet") m.decor = uint8_t(c + 1);
+                            if (*bid == std::string("minecraft:") + kDyeColours[c] + "_carpet" ||
+                                *bid == std::string("minecraft:") + kDyeColours[c] + "_harness")
+                                m.decor = uint8_t(c + 1);
                     }
             }
             if (canCarryChest(m.type)) m.hasChest = e->integer("ChestedHorse").value_or(0) != 0;
@@ -1527,6 +1535,13 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 for (int k = 0; k < 3; ++k)
                     if (*v == "minecraft:" + std::string(kFrogVariants[k].name)) m.woolColour = uint8_t(k);
         if (m.type == MobType::Axolotl) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
+        if (m.type == MobType::CopperGolem) {
+            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
+            if (const std::string* ws = e->string("weather_state"))
+                for (int k = 0; k < 4; ++k)
+                    if (*ws == kWeather[k]) m.woolColour = uint8_t(k);
+            m.sheared = e->integer("Waxed").value_or(0) != 0;
+        }
         if (m.type == MobType::Bee) {
             m.nectar = e->integer("HasNectar").value_or(0) != 0;
             m.stung = e->integer("HasStung").value_or(0) != 0;

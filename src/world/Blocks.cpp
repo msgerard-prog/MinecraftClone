@@ -91,6 +91,7 @@ const Property hasBook{"has_book", {"true", "false"}};
 const Property waterlogged{"waterlogged", {"true", "false"}};
 const Property pickles{"pickles", {"1", "2", "3", "4"}};
 const Property honeyLevel{"honey_level", {"0", "1", "2", "3", "4", "5"}};
+const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
 } // namespace properties
@@ -1105,6 +1106,11 @@ BlockRegistry buildVanillaBlocks() {
         check(r.add(wall, {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false}, {{&facing, "north"}}),
               static_cast<BlockId>(b + 1));
     }
+    // (M26.5b; wiki: Dried Ghast - breaks at once; waterlogged, it soaks up water in
+    // three stages on random ticks and becomes a ghastling)
+    check(r.add("dried_ghast", {.opaqueCube = false, .layer = RenderLayer::Cutout, .randomTicks = true},
+                {{&facing, "north"}, {&hydration, "0"}, {&waterlogged, "false"}}),
+          blocks::DriedGhast);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
@@ -1121,6 +1127,15 @@ BlockRegistry buildVanillaBlocks() {
     addColouredBlocks(r);
     addCopperBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
+    // Copper chests (M26.5b; wiki: Copper Chest): chests (like) of every oxidation stage,
+    // each waxed too; they age as copper does (Copper.cpp finds them by name).
+    for (const bool waxed : {false, true})
+        for (const char* rust : {"", "exposed_", "weathered_", "oxidized_"}) {
+            BlockSettings s{.hardness = 3.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                            .tool = HarvestTool::Axe, .like = blocks::Chest};
+            s.randomTicks = !waxed && std::string(rust) != "oxidized_";
+            r.add(std::string(waxed ? "waxed_" : "") + rust + "copper_chest", s, {{&facing, "north"}, {&chestType, "single"}});
+        }
     addWoodSets(r);
     for (const char* colour : kDyeColours) // (M23.6: dyed shulker boxes behave like the plain one)
         r.add(std::string(colour) + "_shulker_box",

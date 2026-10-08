@@ -102,6 +102,12 @@ void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye,
         inventory.consumeSelected(1);
 }
 
+void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                   Projectiles& projectiles, Xoroshiro& rng) {
+    projectiles.shoot(ProjectileKind::Snowball, eye, look, 1.5, 1.0, true, false, rng);
+    if (survival) inventory.consumeSelected(1);
+}
+
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, Xoroshiro& rng) {
     projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng);
@@ -561,6 +567,16 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 } else if (target == Target::Mob) {
                     ++hits.mobsHit; // eggs only knock (no damage)
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (p.kind == ProjectileKind::Snowball && m.type == MobType::Blaze && m.hurtTime == 0) { // (M26.5b)
+                        m.health -= 3.0f;
+                        m.hurtTime = 10;
+                    }
+                    const glm::dvec2 h(p.vel.x, p.vel.z);
+                    if (p.kind == ProjectileKind::Snowball && glm::length(h) > 1e-6)
+                        m.vel += glm::dvec3(h.x, 0.0, h.y) / glm::length(h) * 0.3;
+                } else if (target == Target::Player && p.kind == ProjectileKind::Snowball && !p.fromPlayer) {
+                    player.knockback(p.vel.x, p.vel.z, 0.3);
                 }
                 if (p.kind == ProjectileKind::Egg) m_chicks.push_back(p.pos + dir * reach);
                 remove = true;
@@ -572,7 +588,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     p.stuck = true;
                     p.life = 0;
                 } else {
-                    m_chicks.push_back(p.pos + dir * block->distance);
+                    if (p.kind == ProjectileKind::Egg) m_chicks.push_back(p.pos + dir * block->distance); // (snowballs just break)
                     remove = true;
                 }
             } else {

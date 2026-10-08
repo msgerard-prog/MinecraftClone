@@ -463,12 +463,12 @@ Direction BlockUpdates::chestClockwise(Direction f) {
 
 std::optional<BlockPos> BlockUpdates::chestPartner(const World& world, const BlockPos& p) {
     const BlockStateId s = world.getBlock(p);
-    if (blockOf(s) != B::Chest) return std::nullopt;
+    if (R().blockOf(s) != B::Chest) return std::nullopt; // (copper chests stay single: M26.5b)
     const int t = R().get(s, chestType);
     if (t == 0) return std::nullopt;
     const Direction cw = chestClockwise(hFacing(s));
     const BlockPos q = rel(p, t == 2 ? cw : opposite(cw));
-    if (blockOf(world.getBlock(q)) != B::Chest) return std::nullopt;
+    if (R().blockOf(world.getBlock(q)) != B::Chest) return std::nullopt;
     return q;
 }
 
@@ -1180,7 +1180,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         for (const auto& [side, myType] : {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) {
             const BlockPos q = rel(p, side);
             const BlockStateId n = at(q);
-            if (blockOf(n) == B::Chest && hFacing(n) == f) {
+            if (R().blockOf(n) == B::Chest && R().blockOf(s) == B::Chest && hFacing(n) == f) {
                 const auto back = partnerOf(n, q);
                 if (back && *back == p) want = myType;
             }
@@ -2210,7 +2210,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         for (const auto& [side, myType] :
              {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) { // right, left
             const BlockStateId n = world.getBlock(rel(at, side));
-            if (blockOf(n) == B::Chest && r.get(n, chestType) == 0 && hFacing(n) == opposite(look))
+            if (R().blockOf(n) == B::Chest && R().blockOf(state) == B::Chest && r.get(n, chestType) == 0 &&
+                hFacing(n) == opposite(look))
                 return r.set(s, chestType, myType);
         }
         return s;

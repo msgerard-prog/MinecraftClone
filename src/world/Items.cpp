@@ -223,6 +223,11 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M26.5b; wiki: Snowball - stacks of 16; Harness - 16 colours, unstackable)
+    r.add({.id = "minecraft:snowball", .maxStack = 16, .texture = "item/snowball"});
+    for (const char* colour : kDyeColours)
+        r.add({.id = std::string("minecraft:") + colour + "_harness", .maxStack = 1,
+               .texture = std::string("item/") + colour + "_harness"});
     // (M26.5a; wiki: Amethyst Shard - an allay dancing to a jukebox duplicates with one;
     // the geodes it comes from arrive in M27)
     r.add({.id = "minecraft:amethyst_shard", .texture = "item/amethyst_shard"});

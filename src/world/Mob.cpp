@@ -137,6 +137,10 @@ const MobInfo& mobInfo(MobType t) {
         // swims (6.5 blocks/s), bites for 3 when provoked.
         {"minecraft:allay", 20.0f, 0.35, 0.6, 0.4, 0.0f, false, false, true},
         {"minecraft:nautilus", 15.0f, 0.875, 0.95, 0.3, 3.0f, false, false, false, 1.0f, true},
+        // wiki: Happy Ghast - 20 health, 4 x 4 (ghastlings 0.95), flies at 0.05 (ridden
+        // ~3.6 blocks/s), drawn as a ghast; Copper Golem - 12, 0.49 x 0.98, 0.2.
+        {"minecraft:happy_ghast", 20.0f, 4.0, 4.0, 0.05, 0.0f, false, false, true, 4.5f},
+        {"minecraft:copper_golem", 12.0f, 0.49, 0.98, 0.2, 0.0f, false},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

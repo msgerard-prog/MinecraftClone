@@ -26,7 +26,7 @@ M26 - Mobs 3 (wiki pages of each mob):
    spiders (mineshaft spawners, cobwebs), wither skeletons; ✅ b) mob heads, the Wither
    (summoning, nether star, beacon); ✅ c) the breeze and wind charges. (The warden comes
    with the deep dark in M27.)
-5. M26.5 - 1.21.x mobs: ✅ a) allays, the nautilus; b) the happy ghast (dried ghast,
+5. ✅ M26.5 - 1.21.x mobs: a) allays, the nautilus; b) the happy ghast (dried ghast,
    harness), the copper golem (copper chests).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

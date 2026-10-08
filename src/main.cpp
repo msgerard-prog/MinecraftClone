@@ -1028,7 +1028,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       true);
             return true;
         }
-        if (creg.blockOf(world.getBlock(p)) != mc::world::blocks::Chest) return false;
+        if (creg.likeOf(creg.blockOf(world.getBlock(p))) != mc::world::blocks::Chest) return false; // (copper chests too)
         const auto partner = mc::world::BlockUpdates::chestPartner(world, p);
         const bool blocked =
             creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
@@ -1362,7 +1362,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         containerBlock = lastHit->block;
                         container.openAnvil();
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Chest ||
+                    } else if (reg.likeOf(block) == mc::world::blocks::Chest ||
                                block == mc::world::blocks::Barrel ||
                                block == mc::world::blocks::EnderChest ||
                                reg.likeOf(block) == mc::world::blocks::ShulkerBox) {
@@ -1779,6 +1779,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
                     cart->headYaw = player.yaw();
                     cart->pitch = player.pitch(); // (a nautilus swims where the rider looks - M26.5a)
+                    if (cart->type == mc::world::MobType::HappyGhast && input.jump) cart->paddleTurn = 2; // (M26.5b: up)
                     if (cart->type == mc::world::MobType::Nautilus) // (its rider keeps their breath)
                         vitals.addEffect(mc::world::Effect::BreathOfTheNautilus, 0, 40);
                     if (input.jump) {
@@ -2171,6 +2172,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!dead && heldId == "minecraft:wind_charge" && clicks.useClick && windCooldown == 0) {
                     mc::throwWindCharge(inventory, survival, eye, look, projectiles, gameRng); // (M26.4c)
                     windCooldown = 10; // (wiki: half a second between throws)
+                    clicks.useClick = false;
+                }
+                if (!dead && heldId == "minecraft:snowball" && clicks.useClick) { // (M26.5b)
+                    mc::throwSnowball(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
@@ -2902,6 +2907,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             blockUpdates.drops().clear();
             for (const auto& h : blockUpdates.hatched()) // (M25.3b: baby turtles from eggs, at home there)
                 for (int k = 0; k < h.count; ++k) {
+                    if (h.type == mc::world::MobType::HappyGhast) { // (M26.5b: a soaked dried ghast's ghastling)
+                        mc::world::MobData g = mc::Mobs::make(mc::world::MobType::HappyGhast,
+                                                              {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                        g.age = -24000;
+                        g.persistent = true;
+                        mc::Mobs::add(world, g);
+                        continue;
+                    }
                     if (h.type == mc::world::MobType::Tadpole) { // (M26.3c: frogspawn, into its water)
                         mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Tadpole,
                                                             {h.pos.x + 0.3 + 0.1 * k, h.pos.y - 0.6, h.pos.z + 0.5}, gameRng));
@@ -3317,8 +3330,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A carved pumpkin on a T of iron blocks makes an iron golem (M24.3).
                     if (mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)) ==
                         mc::world::blocks::CarvedPumpkin)
-                        mc::Mobs::buildIronGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
-                                                 gameRng);
+                        if (!mc::Mobs::buildIronGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                                      gameRng)) // (M26.5b: on copper, a copper golem)
+                            mc::Mobs::buildCopperGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                                       gameRng);
                     // A wither skeleton skull topping a T of soul sand makes the Wither (M26.4b).
                     if (const auto pb = mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data));
                         pb == mc::world::blocks::WitherSkeletonSkull || pb == mc::world::blocks::WitherSkeletonWallSkull)
@@ -3697,6 +3712,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 *mc::world::itemRegistry().find("ender_pearl");
             static const mc::world::ItemId shellItem =
                 *mc::world::itemRegistry().find("shulker_shell");
+            // (M26.2-M26.5: spit, wither skulls, wind charges, snowballs)
+            static const mc::world::ItemId snowItem = *mc::world::itemRegistry().find("snowball");
+            static const mc::world::ItemId windItem = *mc::world::itemRegistry().find("wind_charge");
+            static const mc::world::ItemId skullItem = *mc::world::itemRegistry().find("wither_skeleton_skull");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
@@ -3708,6 +3727,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                           : pr.kind == mc::ProjectileKind::Egg          ? eggItem
                                           : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
                                           : pr.kind == mc::ProjectileKind::ShulkerBullet ? shellItem
+                                          : pr.kind == mc::ProjectileKind::Snowball || pr.kind == mc::ProjectileKind::LlamaSpit
+                                              ? snowItem
+                                          : pr.kind == mc::ProjectileKind::WindCharge  ? windItem
+                                          : pr.kind == mc::ProjectileKind::WitherSkull ? skullItem
                                                                                          : fireItem,
                                           1};
                 look.potion = pr.potion;

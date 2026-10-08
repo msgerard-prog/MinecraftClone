@@ -502,6 +502,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   a mount that swims (`isMount`): tamed with pufferfish in `mountInteract`, steered in 3D
   by the rider's look (`MobData::pitch`) with a dash in `mountTick`, neutral in `waterAi`;
   its rider gets `Effect::BreathOfTheNautilus` (no air loss).
+- Happy ghasts and copper golems (M26.5b): dried ghast blocks hydrate when waterlogged
+  (RandomTicks -> `Hatch{type = HappyGhast}`); `gameplay/HappyGhasts.cpp` (snowballs,
+  harness in `decor`, mount steering in `mountTick` by look and jump; healing, tempting).
+  Copper chests are `like = Chest` blocks of the copper family (aged by Copper.cpp, kept
+  single, World::setBlock keeps their ChestData across stages);
+  `gameplay/CopperGolems.cpp` (`buildCopperGolem` from main's BlockPlace, `copperGolemGoal`
+  moves up to 16 items from copper chests to matching or empty chests, oxidation in
+  `woolColour`, wax in `sheared`). Snowballs: `ProjectileKind::Snowball`, snow drops.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

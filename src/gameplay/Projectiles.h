@@ -41,7 +41,8 @@ enum class ProjectileKind : uint8_t {
     Trident,       // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
     LlamaSpit,     // (M26.2: 1 damage)
     WitherSkull,   // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
-    WindCharge     // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
+    WindCharge,    // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
+    Snowball       // (M26.5b: knocks back; 3 damage to blazes)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -182,6 +183,9 @@ double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, 
 // Throwing the held wind charge (M26.4c; wiki: Wind Charge - speed 1.5, flies straight).
 void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                      Projectiles& projectiles, world::Xoroshiro& rng);
+// Throwing the held snowball (M26.5b; wiki: Snowball - speed 1.5, stacks of 16).
+void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                   Projectiles& projectiles, world::Xoroshiro& rng);
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing an eye of ender toward the nearest stronghold at (x, z) (wiki: Eye of

@@ -625,10 +625,15 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         if (rng.nextFloat() < 0.02f) add(d.stick, between(1, 2));
         if ((b == blocks::OakLeaves || b == blocks::DarkOakLeaves) && rng.nextFloat() < 0.005f) add(d.apple);
         return;
+    case blocks::SnowBlock: // (M26.5b; wiki: Snow Block - 4 snowballs; shovel only: harvestInfo)
+        out.push_back({*itemRegistry().find("snowball"), 4});
+        return;
+    case blocks::Snow: // (M26.5b; wiki: Snow - a snowball a layer)
+        out.push_back({*itemRegistry().find("snowball"), uint8_t(blockRegistry().get(state, properties::layers) + 1)});
+        return;
     case blocks::Glass:
     case blocks::Ice:
     case blocks::PackedIce:
-    case blocks::Snow:       // snowballs: not added yet
     case blocks::PistonHead: // the base drops the piston
     case blocks::Fire:
         return;

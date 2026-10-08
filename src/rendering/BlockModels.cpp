@@ -728,6 +728,22 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     f.uv[0] = f.uv[1] = 0;
                     f.uv[2] = f.uv[3] = 16;
                 }
+            } else if (name == "dried_ghast") { // (M26.5b) a shrivelled ghast, its face toward `facing`
+                const auto f = registry.value(state, "facing").value_or("north");
+                BakedVariant v = cubeAll(sprite("clone_dried_ghast_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("clone_dried_ghast_top");
+                v.faces[int(Direction::Down)].sprite = sprite("clone_dried_ghast_top");
+                const Direction front = f == "south" ? Direction::South
+                                        : f == "west" ? Direction::West
+                                        : f == "east" ? Direction::East
+                                                      : Direction::North;
+                v.faces[int(front)].sprite = sprite("clone_dried_ghast_front");
+                m.visible = true;
+                addBoxFrom(m, 3, 0, 3, 13, 10, 13, v);
+                for (auto& bf : m.boxes[m.boxCount - 1].faces) {
+                    bf.uv[0] = bf.uv[1] = 0;
+                    bf.uv[2] = bf.uv[3] = 16;
+                }
             } else if (name == "cobweb") {
                 m.visible = true;
                 m.cross = true;
@@ -853,7 +869,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 // The top turns with the bed so the pillow lies at the head's far end.
                 const auto f = registry.value(state, "facing").value_or("north");
                 b.faces[int(Direction::Up)].rotation = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;
-            } else if (name == "chest" || name == "ender_chest") {
+            } else if (name == "chest" || name == "ender_chest" || name.ends_with("copper_chest")) {
                 // A 14/16 box (vanilla's chest model), front toward `facing`; the halves
                 // of a double chest reach across to their partner (type left: the
                 // partner is counter-clockwise of facing, right: clockwise).
@@ -881,8 +897,15 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     }
                 }
                 const std::string tex = name; // (ender chests: the same box, their own faces)
-                const uint16_t sideS = sprite((tex + "_side").c_str()), topS = sprite((tex + "_top").c_str()),
-                               frontS = sprite((tex + "_front").c_str());
+                uint16_t sideS = 0, topS = 0, frontS = 0;
+                if (name.ends_with("copper_chest")) { // (M26.5b) the copper block of its stage, all round
+                    std::string stage = name.starts_with("waxed_") ? name.substr(6) : name;
+                    stage = stage.substr(0, stage.size() - std::string("copper_chest").size());
+                    sideS = topS = frontS = sprite(stage.empty() ? "copper_block" : (stage + "copper").c_str());
+                } else {
+                    sideS = sprite((tex + "_side").c_str()), topS = sprite((tex + "_top").c_str()),
+                    frontS = sprite((tex + "_front").c_str());
+                }
                 for (int d = 0; d < 6; ++d) {
                     auto& face = b.faces[d];
                     face.sprite = d == int(Direction::Up) || d == int(Direction::Down) ? topS

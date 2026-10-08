@@ -57,6 +57,7 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     if (m.health <= 0.0f) return Use::None;
     if (isMount(m.type)) return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
     if (m.type == MobType::Allay) return allayInteract(m, held, rng, items); // (M26.5a)
+    if (m.type == MobType::CopperGolem) return copperGolemInteract(m, held, rng, items); // (M26.5b)
     static const ItemId shearsItem = itemId("shears");
     if (m.type == MobType::Wolf && m.tamed && held == shearsItem && m.horseArmor > 0) { // (M26.3) armor off
         ItemStack armor{itemId("wolf_armor"), 1};

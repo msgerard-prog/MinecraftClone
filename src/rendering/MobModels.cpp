@@ -705,6 +705,36 @@ constexpr std::array<MobPart, 6> kNautilus = {{
     {{-3, 4, 7}, {-2, 5, 11}, {0, 4, 7}, 0, 16, A::Tail},
 }};
 
+// Happy ghast (M26.5b): the ghast's body and tentacles (its own gentle skin) and a
+// harness over the top (layer 12, tinted by its dye) when it wears one.
+constexpr std::array<MobPart, 11> kHappyGhast = {{
+    {{-8, 0, -8}, {8, 16, 8}, {0, 8, 0}, 0, 0, A::None},
+    {{-6, -9, -6}, {-4, 0, -4}, {-5, 0, -5}, 0, 32, A::LegA},
+    {{-1, -9, -6}, {1, 0, -4}, {0, 0, -5}, 0, 32, A::LegB},
+    {{4, -9, -6}, {6, 0, -4}, {5, 0, -5}, 0, 32, A::LegA},
+    {{-6, -9, -1}, {-4, 0, 1}, {-5, 0, 0}, 0, 32, A::LegB},
+    {{-1, -9, -1}, {1, 0, 1}, {0, 0, 0}, 0, 32, A::LegA},
+    {{4, -9, -1}, {6, 0, 1}, {5, 0, 0}, 0, 32, A::LegB},
+    {{-6, -9, 4}, {-4, 0, 6}, {-5, 0, 5}, 0, 32, A::LegA},
+    {{-1, -9, 4}, {1, 0, 6}, {0, 0, 5}, 0, 32, A::LegB},
+    {{4, -9, 4}, {6, 0, 6}, {5, 0, 5}, 0, 32, A::LegA},
+    {{-7, 15, -7}, {7, 16, 7}, {0, 8, 0}, 0, 48, A::None, 12, 0.6f},
+}};
+// Copper golem (M26.5b; tinted by its oxidation, layer 8): a big head with a nose and a
+// lightning-rod antenna, a small body, arms and legs. Head 8x5x6 @ (0,0), nose 2x3x2 @
+// (28,0), rod 1x4x1 @ (36,0), body 4x6x3 @ (0,11), arm 2x6x2 @ (14,11), leg 2x5x2 @
+// (22,11).
+constexpr std::array<MobPart, 8> kCopperGolem = {{
+    {{-4, 11, -3}, {4, 16, 3}, {0, 11, 0}, 0, 0, A::Head, 8},
+    {{-1, 10, 3}, {1, 13, 5}, {0, 11, 0}, 28, 0, A::Head, 8},
+    {{-0.5f, 16, -0.5f}, {0.5f, 20, 0.5f}, {0, 11, 0}, 36, 0, A::Head, 8},
+    {{-2, 5, -1.5f}, {2, 11, 1.5f}, {0, 8, 0}, 0, 11, A::None, 8},
+    {{-4, 5, -1}, {-2, 11, 1}, {-3, 11, 0}, 14, 11, A::LegB, 8},
+    {{2, 5, -1}, {4, 11, 1}, {3, 11, 0}, 14, 11, A::LegA, 8},
+    {{-2, 0, -1}, {0, 5, 1}, {-1, 5, 0}, 22, 11, A::LegA, 8},
+    {{0, 0, -1}, {2, 5, 1}, {1, 5, 0}, 22, 11, A::LegB, 8},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -781,6 +811,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Breeze: return kBreeze;
     case world::MobType::Allay: return kAllay;
     case world::MobType::Nautilus: return kNautilus;
+    case world::MobType::HappyGhast: return kHappyGhast;
+    case world::MobType::CopperGolem: return kCopperGolem;
     default: return kCow;
     }
 }

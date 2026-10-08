@@ -490,7 +490,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         {{2, 6, 7, 3}, 1.0f}, // top
         {{4, 0, 1, 5}, 0.5f}, // bottom
     };
-    float scale = mob.age < 0 ? 0.5f : 1.0f; // babies: half size
+    float scale = mob.age < 0 ? (mob.type == world::MobType::HappyGhast ? 0.2375f : 0.5f) : 1.0f; // babies: half size (ghastlings: 0.95 of 4)
     scale *= world::mobInfo(mob.type).modelScale; // (ghasts: 4.5)
     if (mob.type == world::MobType::MagmaCube || mob.type == world::MobType::Slime)
         scale *= float(mob.size); // its model is the size-1 cube
@@ -541,6 +541,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                : mob.type == world::MobType::Llama  ? world::kLlamaVariants[mob.woolColour % 4].colour
                                : mob.type == world::MobType::Rabbit ? world::kRabbitKinds[mob.woolColour % 6].colour
                                : mob.type == world::MobType::Frog   ? world::kFrogVariants[mob.woolColour % 3].colour
+                               : mob.type == world::MobType::CopperGolem
+                                   ? std::array<uint32_t, 4>{0xD07A50u, 0xB08C6Cu, 0x6EA07Au, 0x52B096u}[mob.woolColour % 4]
                                : mob.type == world::MobType::Axolotl ? world::kAxolotlColours[mob.woolColour % 5].colour
                                : mob.type == world::MobType::Fox    ? (mob.woolColour == 1 ? 0xF2F2F2u : 0xD87A30u)
                                : mob.type == world::MobType::Panda && world::pandaPersonality(mob.woolColour, mob.color2) == 4

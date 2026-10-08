@@ -87,6 +87,8 @@ enum class MobType : uint8_t {
     Breeze,         // (M26.4c) leaps about and shoots wind charges (trial chambers: M27)
     Allay,          // (M26.5a) holds a liked item (`mouthItem`), gathers more of it (`allayCount`)
     Nautilus,       // (M26.5a) tamed with pufferfish, ridden under water with a saddle
+    HappyGhast,     // (M26.5b) grown from a dried ghast; worn harness colour in `decor`
+    CopperGolem,    // (M26.5b) sorts items out of copper chests; oxidation in `woolColour`, waxed in `sheared`
     Count
 };
 
@@ -141,7 +143,7 @@ inline constexpr uint32_t kParrotColours[5] = {0xD02A20, 0x2850D8, 0x50C830, 0x3
 // Mounts (M26.2; wiki: Horse, Donkey, Mule, Llama, Camel): ridden by the player.
 inline bool isMount(MobType t) {
     return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule || t == MobType::Llama ||
-           t == MobType::TraderLlama || t == MobType::Camel || t == MobType::Nautilus;
+           t == MobType::TraderLlama || t == MobType::Camel || t == MobType::Nautilus || t == MobType::HappyGhast;
 }
 inline bool isHorseKind(MobType t) { return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule; }
 inline bool isLlama(MobType t) { return t == MobType::Llama || t == MobType::TraderLlama; }

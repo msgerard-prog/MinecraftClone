@@ -297,7 +297,12 @@ names).
 M26.4c: entity `minecraft:breeze`; items `breeze_rod`, `wind_charge`.
 M26.5a: entities `minecraft:allay` (equipment.mainhand: its item, `Inventory`,
 `DuplicationCooldown`), `nautilus` (Tame, Owner, equipment.saddle); item `amethyst_shard`;
-effect `minecraft:breath_of_the_nautilus`. Items `saddle`,
+effect `minecraft:breath_of_the_nautilus`.
+M26.5b: entities `minecraft:happy_ghast` (equipment.body `<colour>_harness`), `copper_golem`
+(`weather_state`, `Waxed` - our tag); blocks `dried_ghast[facing,hydration,waterlogged]`,
+`[waxed_][exposed_|weathered_|oxidized_]copper_chest[facing,type]` (block entity
+minecraft:chest); items `snowball`, `<colour>_harness`. Block textures
+`clone_dried_ghast_{front,side,top}` are ours. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

@@ -174,6 +174,17 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::Frogspawn: // (M26.3c, Ocean.cpp)
         tickFrogspawn(p);
         break;
+    case B::DriedGhast: // (M26.5b; wiki: Dried Ghast - about 20 minutes soaking: 3 stages, then a ghastling)
+        if (R().get(s, waterlogged) == 0 && m_random.nextInt(5) == 0) {
+            const int h = R().get(s, hydration);
+            if (h < 3) {
+                set(p, R().set(s, hydration, h + 1));
+            } else {
+                m_hatched.push_back({p, 1, MobType::HappyGhast});
+                set(p, R().defaultState(B::Water));
+            }
+        }
+        break;
     case B::Bamboo: { // grows a block on top up to 12-16 tall, at light 9+ (wiki: Bamboo)
         const BlockPos up = rel(p, Direction::Up);
         if (at(up) != 0 || !m_world.isInHeight(up.y) || rawBrightness(up) < 9 || m_random.nextInt(3) != 0) break;

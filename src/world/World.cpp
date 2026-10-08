@@ -105,7 +105,10 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         const BlockKind k = blockRegistry().kind(b);
         c->addSign(x, p.y, z).hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;
     }
-    if (was != b && (blockRegistry().likeOf(was) == blocks::Furnace || was == blocks::Chest || was == blocks::Barrel ||
+    // (M26.5b: copper chests are chests - `like` - and keep their contents as they age)
+    const bool chestNow = blockRegistry().likeOf(b) == blocks::Chest;
+    if (was != b && (blockRegistry().likeOf(was) == blocks::Furnace ||
+                     (blockRegistry().likeOf(was) == blocks::Chest && !chestNow) || was == blocks::Barrel ||
                      blockRegistry().likeOf(was) == blocks::ShulkerBox || was == blocks::Spawner ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
                      ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper)))
@@ -113,7 +116,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     if (blockRegistry().likeOf(b) == blocks::Furnace) { // (smokers and blast furnaces too: M23.5)
         c->addFurnace(x, p.y, z).kind = b == blocks::Smoker ? 1 : b == blocks::BlastFurnace ? 2 : 0;
         markTicking(c->pos());
-    } else if (b == blocks::Chest || b == blocks::Barrel || blockRegistry().likeOf(b) == blocks::ShulkerBox) {
+    } else if (chestNow || b == blocks::Barrel || blockRegistry().likeOf(b) == blocks::ShulkerBox) {
         if (c->chest(x, p.y, z) == nullptr) {
             ChestData& d = c->addChest(x, p.y, z);
             d.barrel = b == blocks::Barrel;

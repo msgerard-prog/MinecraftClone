@@ -44,6 +44,26 @@ def main():
                              ("top", faces["top"])):
             (OUT / f"clone_head_{kind}_{name}.png").write_bytes(encode_png(face16(skin, region)))
     print(f"wrote {len(heads) * 4} head textures to {OUT}")
+    # (M26.5b) the dried ghast: a shrivelled grey-brown ghast, eyes shut; soaked stages
+    # look the same (ours).
+    import random
+    from texgen.core import hexc, ramp
+    rng = random.Random("dried_ghast")
+    pal = ramp(hexc("#9A8E84"), 5, spread=0.3)
+    for name in ("front", "side", "top"):
+        img = Img(16, 16, CLEAR)
+        for y in range(16):
+            for x in range(16):
+                c = pal[2 if rng.random() > 0.35 else (1 if rng.random() < 0.5 else 3)]
+                if (x + 2 * y) % 7 == 0:
+                    c = pal[0]  # wrinkles
+                img.set(x, y, c)
+        if name == "front":
+            for x in (4, 5, 10, 11):
+                img.set(x, 6, (60, 52, 48, 255))  # closed eyes
+            for x in range(6, 10):
+                img.set(x, 10, (70, 60, 56, 255))
+        (OUT / f"clone_dried_ghast_{name}.png").write_bytes(encode_png(img))
 
 
 if __name__ == "__main__":

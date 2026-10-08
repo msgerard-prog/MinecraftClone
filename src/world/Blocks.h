@@ -53,6 +53,7 @@ extern const Property waterlogged;    // true | false (M25.1: corals, sea pickle
 extern const Property pickles;        // 1..4 (sea pickles)
 extern const Property eggs;           // 1..4 (turtle eggs)
 extern const Property hatch;          // 0..2 (turtle eggs)
+extern const Property hydration;      // "hydration": 0..3 (M26.5b: dried ghasts)
 extern const Property honeyLevel;     // "honey_level": 0..5 (M26.3b: bee nests and beehives)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
@@ -412,6 +413,7 @@ enum : BlockId {
     PiglinWallHead,
     DragonHead,
     DragonWallHead,
+    DriedGhast, // facing, hydration 0..3, waterlogged (M26.5b: soaked, it becomes a ghastling)
     Count
 };
 } // namespace blocks

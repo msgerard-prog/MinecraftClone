@@ -93,7 +93,7 @@ bool Mobs::isMountFood(MobType type, ItemId item) {
 void Mobs::initMount(MobData& m, Xoroshiro& rng) {
     // Spawn stats (wiki: Horse › Statistics): health 15 + 0-7 + 0-8; speed and jump
     // strength from three averaged rolls.
-    if (m.type == MobType::Camel || m.type == MobType::Nautilus) return; // (fixed stats)
+    if (m.type == MobType::Camel || m.type == MobType::Nautilus || m.type == MobType::HappyGhast) return; // (fixed stats)
     m.maxHealth = 15.0f + float(rng.nextInt(8) + rng.nextInt(9));
     m.health = m.maxHealth;
     if (m.type == MobType::Horse) {
@@ -114,7 +114,7 @@ void Mobs::mountOffspring(const MobData& a, const MobData& b, MobData& baby, Xor
     // A horse and a donkey have a mule (wiki: Mule).
     if ((a.type == MobType::Horse && b.type == MobType::Donkey) || (a.type == MobType::Donkey && b.type == MobType::Horse))
         baby.type = MobType::Mule;
-    if (baby.type == MobType::Camel || baby.type == MobType::Nautilus) return;
+    if (baby.type == MobType::Camel || baby.type == MobType::Nautilus || baby.type == MobType::HappyGhast) return;
     // A foal's stat: the parents' average + (their difference + 30% of the range) x a
     // centred random factor, reflected back inside the range (wiki: Horse › Breeding).
     auto stat = [&](double x, double y, double lo, double hi) {
@@ -158,6 +158,7 @@ bool Mobs::canMate(const MobData& a, const MobData& b) {
 
 Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     const std::string_view id = held != kNoItem ? itemRegistry().item(held).id : std::string_view{};
+    if (m.type == MobType::HappyGhast) return happyGhastInteract(m, held, rng, items); // (M26.5b)
     if (m.type == MobType::Nautilus) { // (M26.5a; wiki: Nautilus)
         const bool puffer = id == "minecraft:pufferfish" || id == "minecraft:pufferfish_bucket";
         const bool fish = puffer || id == "minecraft:cod" || id == "minecraft:salmon" || id == "minecraft:tropical_fish" ||
@@ -280,6 +281,7 @@ double Mobs::seatHeight(const MobData& m) {
     case MobType::Minecart: return 0.3;
     case MobType::Camel: return 1.75;
     case MobType::Nautilus: return 0.55;
+    case MobType::HappyGhast: return 4.0; // (on its back)
     case MobType::Llama:
     case MobType::TraderLlama: return 1.15;
     case MobType::Donkey:
@@ -293,6 +295,18 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
     const MobInfo& info = mobInfo(m.type);
     m.sitting = false;
     if (m.dashCooldown > 0) --m.dashCooldown;
+    if (m.type == MobType::HappyGhast) {
+        // Ridden (M26.5b; wiki: Happy Ghast): forward flies where the rider looks (about
+        // 3.6 blocks/s), back the other way, jump straight up.
+        m.yaw = m.headYaw;
+        const glm::dvec3 look(lookVector(m.headYaw, m.pitch));
+        glm::dvec3 wish = look * (m.paddleForward > 0 ? 0.18 : m.paddleForward < 0 ? -0.18 : 0.0);
+        if (m.riderJump > 0 || m.paddleTurn == 2) wish.y += 0.18;
+        m.riderJump = 0;
+        m.paddleForward = m.paddleTurn = 0;
+        physics(ctx.world, m, wish, false);
+        return true;
+    }
     if (!m.tamed && m.type != MobType::Camel) {
         // Being tamed: it fidgets and turns about, then keeps the rider or throws them.
         m.yaw += (ctx.rng.nextFloat() - 0.5f) * 30.0f;
@@ -438,7 +452,9 @@ void Mobs::dropMountGear(Context& ctx, MobData& m) {
     const glm::dvec3 at = m.pos + glm::dvec3(0.0, 0.5, 0.0);
     if (m.saddled) dropNamed(ctx.items, at, "saddle", ctx.rng);
     if (m.horseArmor > 0 && m.horseArmor < 5) dropNamed(ctx.items, at, kHorseArmorItems[m.horseArmor], ctx.rng);
-    if (m.decor > 0 && m.decor <= 16) dropNamed(ctx.items, at, std::string(kDyeColours[m.decor - 1]) + "_carpet", ctx.rng);
+    if (m.decor > 0 && m.decor <= 16)
+        dropNamed(ctx.items, at, std::string(kDyeColours[m.decor - 1]) + (m.type == MobType::HappyGhast ? "_harness" : "_carpet"),
+                  ctx.rng);
     if (m.hasChest && m.type != MobType::Boat) dropNamed(ctx.items, at, "chest", ctx.rng);
     m.saddled = m.hasChest = false;
     m.horseArmor = m.decor = 0;

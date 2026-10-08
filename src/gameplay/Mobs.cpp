@@ -70,7 +70,7 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 
 Aabb Mobs::box(const MobData& m) {
     const MobInfo& info = mobInfo(m.type);
-    double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
+    double s = m.isBaby() ? (m.type == MobType::HappyGhast ? 0.2375 : 0.5) : 1.0; // babies are half size (ghastlings 0.95)
     if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
     // (a sitting camel is 0.945 tall - wiki: Camel)
     const double h = m.type == MobType::Camel && m.sitting ? 0.945 : info.height;
@@ -365,6 +365,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (phantomAi(ctx, m)) return; // (M26.4a, Phantoms.cpp)
     if (witherAi(ctx, m)) return;  // (M26.4b, Wither.cpp)
     if (allayAi(ctx, m)) return;   // (M26.5a, Allays.cpp)
+    if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -464,6 +465,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // (sitting, following, fighting, dancing: Pets.cpp)
     } else if (isWildlife(m.type) && wildlifeGoal(ctx, m, speed)) {
         // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos: Wildlife.cpp)
+    } else if (m.type == MobType::CopperGolem && copperGolemGoal(ctx, m, speed)) {
+        // (sorting copper chests' items: CopperGolems.cpp)
     } else if (isMount(m.type) && m.panicTicks == 0 && mountGoal(ctx, m, speed)) {
         // (camels resting, trader llamas with their trader: Mounts.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
@@ -904,6 +907,10 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Phantom:
         if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
+        break;
+    case MobType::CopperGolem: // (M26.5b; wiki: 1-3 copper ingots, and what it carried)
+        drop("copper_ingot", 1, 3);
+        if (m.mouthItem != kNoItem && m.allayCount > 0) ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
         break;
     case MobType::Allay: // (M26.5a) what it held and carried
         if (m.mouthItem != kNoItem) {

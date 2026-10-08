@@ -168,6 +168,18 @@ private:
     // Allays (Allays.cpp, M26.5a).
     bool allayAi(Context& ctx, world::MobData& m);
     static Use allayInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    // Happy ghasts and copper golems (HappyGhasts.cpp, CopperGolems.cpp, M26.5b).
+    bool happyGhastAi(Context& ctx, world::MobData& m);
+    static Use happyGhastInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    bool copperGolemGoal(Context& ctx, world::MobData& m, double& speed);
+    static Use copperGolemInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+
+public:
+    // A carved pumpkin on a block of copper: a copper golem, and the copper becomes a
+    // copper chest (false: not on copper).
+    static bool buildCopperGolem(world::World& world, const world::BlockPos& pumpkin, world::Xoroshiro& rng);
+
+private:
 
 public:
     // Wither skeleton skulls on a T of soul sand / soil (the last skull just placed at

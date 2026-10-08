@@ -322,6 +322,22 @@ def wind_charge():
     return s.render()
 
 
+def harness(base):
+    """A happy ghast's harness (M26.5b): a coloured strap frame with a goggle lens."""
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(3, 13) if x in (2, 3, 12, 13) or y in (3, 4, 11, 12)},
+          ramp(hexc(base), 5, spread=0.35))
+    s.add({(x, y) for x in range(6, 10) for y in range(6, 10)}, ramp(hexc("#8AC8E8"), 5, spread=0.2))
+    return s.render()
+
+
+def snowball():
+    """A packed ball of snow (M26.5b)."""
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if (x - 7.5) ** 2 + (y - 8) ** 2 < 22}, ramp(hexc("#F4F8FC"), 5, spread=0.15))
+    return s.render()
+
+
 def meat(name, base, fat, marbled=True):
     rng = random.Random(name)
     pal = ramp(hexc(base), 5, spread=0.35)
@@ -1022,6 +1038,8 @@ def all_items():
             "brown": "#82542E", "green": "#5E7A18", "red": "#AE2E26", "black": "#24242A"}
     for colour, base in dyes.items():
         items[f"{colour}_dye"] = lump(f"{colour}_dye", base, size=4.5)
+    for colour, base in dyes.items():  # (M26.5b) harnesses: a strap in the colour, with goggles
+        items[f"{colour}_harness"] = harness(base)
     items["iron_nugget"] = lump("iron_nugget", "#C8C8C8", "#F0F0F0", size=3.2)
     items["honeycomb"] = lump("honeycomb", "#E8A824", "#F8D860", size=5)  # (M23.4b: waxes copper)
     items["bucket"] = bucket()
@@ -1045,6 +1063,7 @@ def all_items():
     items["sweet_berries"] = sweet_berries()
     items["honey_bottle"] = honey_bottle()
     items["wind_charge"] = wind_charge()  # (M26.4c)
+    items["snowball"] = snowball()  # (M26.5b)
     items["amethyst_shard"] = gem("#A87AE0", "emerald")  # (M26.5a)
     items["breeze_rod"] = blaze_rod("#8AB0E0", "#E0F0FF")
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)

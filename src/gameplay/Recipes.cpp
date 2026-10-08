@@ -219,6 +219,13 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"BB", "BB"}, {{'B', item("honey_bottle")}}, "honey_block"));
     r.push_back(shaped({"HH", "HH"}, {{'H', item("honeycomb")}}, "honeycomb_block"));
     r.push_back(shapeless({item("breeze_rod")}, "wind_charge", 4)); // (M26.4c)
+    // (M26.5b; wiki: Dried Ghast - 8 ghast tears round soul sand; Harness - leather over
+    // glass and a wool of its colour (our layout assumption); Snow Block - 4 snowballs)
+    r.push_back(shaped({"TTT", "TST", "TTT"}, {{'T', item("ghast_tear")}, {'S', item("soul_sand")}}, "dried_ghast"));
+    for (const char* colour : kDyeColours)
+        r.push_back(shaped({"LLL", "GWG"}, {{'L', item("leather")}, {'G', item("glass")}, {'W', item(std::string(colour) + "_wool")}},
+                           std::string(colour) + "_harness"));
+    r.push_back(shaped({"##", "##"}, {{'#', item("snowball")}}, "snow_block"));
     r.push_back(shapeless({item("honey_bottle")}, "sugar", 3));
     // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
     r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));

@@ -397,7 +397,8 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 else if (key == "ChestedHorse" && world::canCarryChest(*type)) mob.hasChest = v != 0.0;
                 else if (key == "Saddle" && world::isMount(*type)) mob.saddled = v != 0.0;
                 else if (key == "Armor" && *type == world::MobType::Horse) mob.horseArmor = uint8_t(std::clamp(int(v), 0, 4));
-                else if (key == "Decor" && world::isLlama(*type)) mob.decor = uint8_t(std::clamp(int(v), 0, 16));
+                else if (key == "Decor" && (world::isLlama(*type) || *type == world::MobType::HappyGhast)) // (harness too)
+                    mob.decor = uint8_t(std::clamp(int(v), 0, 16));
                 // Wildlife (M26.3): RabbitType, IsScreamingGoat; our shorthands FoxType (0 red,
                 // 1 snow) and MainGene / HiddenGene (0-6: kPandaGenes order).
                 else if (key == "RabbitType" && *type == world::MobType::Rabbit) mob.woolColour = uint8_t(std::clamp(int(v), 0, 5));
