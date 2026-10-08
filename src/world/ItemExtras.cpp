@@ -12,13 +12,17 @@ template <typename T> struct Table {
     std::mutex lock;
     std::deque<T> entries; // index + 1 = id within its kind
 };
-// Both kinds share the id space: lodestones even (2k + 2), books odd (2k + 1).
+// The kinds share the id space: id = index x 4 + kind (books 1, lodestones 2, banners 3).
 Table<LodestoneTarget>& lodestones() {
     static Table<LodestoneTarget> t;
     return t;
 }
 Table<BookContent>& books() {
     static Table<BookContent> t;
+    return t;
+}
+Table<BannerLayers>& banners() {
+    static Table<BannerLayers> t;
     return t;
 }
 
@@ -28,28 +32,45 @@ uint32_t addLodestoneTarget(const LodestoneTarget& target) {
     auto& t = lodestones();
     const std::lock_guard guard(t.lock);
     t.entries.push_back(target);
-    return static_cast<uint32_t>(t.entries.size()) * 2;
+    return static_cast<uint32_t>(t.entries.size() - 1) * 4 + 2;
 }
 
 std::optional<LodestoneTarget> lodestoneTarget(uint32_t id) {
     auto& t = lodestones();
     const std::lock_guard guard(t.lock);
-    if (id == 0 || id % 2 != 0 || id / 2 > t.entries.size()) return std::nullopt;
-    return t.entries[id / 2 - 1];
+    if (id % 4 != 2 || id / 4 >= t.entries.size()) return std::nullopt;
+    return t.entries[id / 4];
 }
 
 uint32_t addBook(BookContent book) {
     auto& t = books();
     const std::lock_guard guard(t.lock);
     t.entries.push_back(std::move(book));
-    return static_cast<uint32_t>(t.entries.size()) * 2 - 1;
+    return static_cast<uint32_t>(t.entries.size() - 1) * 4 + 1;
 }
 
 std::optional<BookContent> bookContent(uint32_t id) {
     auto& t = books();
     const std::lock_guard guard(t.lock);
-    if (id % 2 != 1 || (id + 1) / 2 > t.entries.size()) return std::nullopt;
-    return t.entries[(id + 1) / 2 - 1];
+    if (id % 4 != 1 || id / 4 >= t.entries.size()) return std::nullopt;
+    return t.entries[id / 4];
+}
+
+uint32_t addBannerLayers(const BannerLayers& layers) {
+    if (layers.count == 0) return 0;
+    auto& t = banners();
+    const std::lock_guard guard(t.lock);
+    for (size_t i = 0; i < t.entries.size(); ++i)
+        if (t.entries[i] == layers) return static_cast<uint32_t>(i) * 4 + 3;
+    t.entries.push_back(layers);
+    return static_cast<uint32_t>(t.entries.size() - 1) * 4 + 3;
+}
+
+std::optional<BannerLayers> bannerLayers(uint32_t id) {
+    auto& t = banners();
+    const std::lock_guard guard(t.lock);
+    if (id % 4 != 3 || id / 4 >= t.entries.size()) return std::nullopt;
+    return t.entries[id / 4];
 }
 
 } // namespace mc::world

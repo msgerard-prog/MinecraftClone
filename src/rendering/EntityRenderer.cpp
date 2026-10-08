@@ -1,5 +1,6 @@
 #include "rendering/EntityRenderer.h"
 
+#include "world/Banners.h"
 #include "world/Paintings.h"
 
 #include "core/Log.h"
@@ -90,6 +91,13 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     m_glowFrameSprite = static_cast<uint16_t>(atlas.spriteIndex("glow_item_frame"));
     m_frameWood = static_cast<uint16_t>(atlas.spriteIndex("birch_planks"));
     m_paintingBack = static_cast<uint16_t>(atlas.spriteIndex("painting/back"));
+    m_bannerMasks.clear();
+    for (size_t i = 0; i <= world::kBannerPatterns.size(); ++i) {
+        const std::string name = i < world::kBannerPatterns.size() ? std::string(world::kBannerPatterns[i].name) : "base";
+        m_bannerMasks.push_back({static_cast<uint16_t>(atlas.spriteIndex("clone_banner/" + name + ":0,0")),
+                                 static_cast<uint16_t>(atlas.spriteIndex("clone_banner/" + name + ":0,1"))});
+    }
+    m_bannerWood = static_cast<uint16_t>(atlas.spriteIndex("oak_planks"));
     m_paintingTiles.clear();
     for (const world::PaintingVariant& v : world::kPaintings) {
         std::vector<uint16_t>& tiles = m_paintingTiles.emplace_back();
@@ -293,6 +301,61 @@ void EntityRenderer::addItemFrame(const glm::dvec3& centre, int facing, bool glo
     const glm::vec3 p[4] = {o - rr * s + uu * s, o - rr * s - uu * s, o + rr * s - uu * s, o + rr * s + uu * s};
     const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, pack(glow ? glm::vec3(1.0f) : light), m_items);
+}
+
+void EntityRenderer::addBanner(const glm::dvec3& cell, bool wall, int turn, int base, const world::BannerLayers& layers,
+                               const glm::vec3& light, const glm::dvec3& cameraPos) {
+    // Which way the cloth faces, and its right as seen from in front.
+    glm::vec3 out;
+    if (wall) {
+        out = glm::vec3(world::kDirectionNormals[turn % 6]);
+    } else {
+        const float a = float(turn & 15) * 22.5f * 0.0174533f;
+        out = glm::vec3(-std::sin(a), 0.0f, std::cos(a));
+    }
+    const glm::vec3 up(0.0f, 1.0f, 0.0f), right(out.z, 0.0f, -out.x);
+    const glm::vec3 centre = glm::vec3(cell - cameraPos) + glm::vec3(0.5f, 0.0f, 0.5f);
+    const float px = 1.0f / 16.0f;
+    // The wood: a pole and crossbar (standing) or a bar against the wall.
+    uint16_t sprites[6];
+    uint32_t tints[6];
+    for (int f = 0; f < 6; ++f) {
+        sprites[f] = m_bannerWood;
+        tints[f] = 0xFFFFFFu;
+    }
+    glm::vec3 barCentre, flagTop;
+    if (wall) {
+        const glm::vec3 back = centre - out * (0.5f - 1.5f * px);
+        barCentre = back + up * (15.0f * px);
+        flagTop = back + out * (0.5f * px) + up * (14.0f * px);
+    } else {
+        cube(centre + glm::vec3(-px, 0.0f, -px), centre + glm::vec3(px, 42.0f * px, px), sprites, light, tints, m_items, true);
+        barCentre = centre + up * (43.0f * px);
+        flagTop = centre + out * (1.5f * px) + up * (42.0f * px);
+    }
+    const glm::vec3 bh = glm::abs(right) * (10.0f * px) + up * px + glm::abs(out) * px;
+    cube(barCentre - bh, barCentre + bh, sprites, light, tints, m_items, true);
+    // The cloth: 20 x 40 pixels in two halves, the base colour then each layer in its dye.
+    const float hw = 10.0f * px, hh = 20.0f * px;
+    auto layer = [&](int mask, int dye, float lift) {
+        const uint32_t c = kWoolColours[dye & 15];
+        const glm::vec3 tint = light * glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        for (int half = 0; half < 2; ++half) {
+            const glm::vec3 o = flagTop - up * (hh * 0.5f + float(half) * hh) + out * lift;
+            const uint16_t s = m_bannerMasks[size_t(mask)][size_t(half)];
+            const float u0 = float(s % m_columns) * m_cell, v0 = float(s / m_columns) * m_cell;
+            const glm::vec3 front[4] = {o - right * hw + up * (hh * 0.5f), o - right * hw - up * (hh * 0.5f),
+                                        o + right * hw - up * (hh * 0.5f), o + right * hw + up * (hh * 0.5f)};
+            quad(front, u0, v0, u0 + m_cell, v0 + m_cell, pack(tint), m_items);
+            const glm::vec3 b = -out * (2.0f * lift); // (the back: mirrored, as vanilla shows it)
+            const glm::vec3 backQ[4] = {front[3] + b, front[2] + b, front[1] + b, front[0] + b};
+            quad(backQ, u0 + m_cell, v0, u0, v0 + m_cell, pack(tint * 0.8f), m_items);
+        }
+    };
+    const int baseMask = int(world::kBannerPatterns.size());
+    layer(baseMask, base, 0.001f);
+    for (int i = 0; i < layers.count && i < world::BannerLayers::kMax; ++i)
+        layer(layers.pattern[size_t(i)] % baseMask, layers.colour[size_t(i)], 0.001f * float(i + 2));
 }
 
 void EntityRenderer::addKnot(const glm::dvec3& pos, const glm::dvec3& cameraPos) {

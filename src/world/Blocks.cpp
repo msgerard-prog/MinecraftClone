@@ -1334,6 +1334,18 @@ BlockRegistry buildVanillaBlocks() {
             r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);
         }
 
+    // Banners (M28.3d; wiki: Banner - 1 / 1, axe; no collision): standing (16 turns) and
+    // on walls, each dye colour; registered last so earlier state ids stay put.
+    for (int c = 0; c < 16; ++c) {
+        const std::string colour(kDyeColours[c]);
+        const BlockSettings banner{.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false, .collision = false,
+                                   .layer = RenderLayer::Cutout, .tool = HarvestTool::Axe};
+        BlockSettings standing = banner, wall = banner;
+        standing.kind = BlockKind::Banner;
+        wall.kind = BlockKind::WallBanner;
+        r.add(colour + "_banner", standing, {{&rotation16, "0"}});
+        r.add(colour + "_wall_banner", wall, {{&facing, "north"}});
+    }
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})
         for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {

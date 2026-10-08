@@ -5,6 +5,7 @@
 #include "core/Log.h"
 #include "world/Blocks.h"
 #include "world/ItemContainers.h"
+#include "world/ItemExtras.h"
 #include "world/Rotation.h"
 
 #include <algorithm>
@@ -111,7 +112,7 @@ Push pushKind(BlockStateId s) {
     const BlockKind kind = R().kind(b);
     if (R().likeOf(b) == B::ShulkerBox || b == B::Campfire || b == B::SoulCampfire || kind == BlockKind::Sign ||
         kind == BlockKind::WallSign || kind == BlockKind::HangingSign || kind == BlockKind::WallHangingSign ||
-        b == B::WallTorch || b == B::SoulTorch || b == B::SoulWallTorch || b == B::Lantern || b == B::SoulLantern ||
+        kind == BlockKind::Banner || kind == BlockKind::WallBanner || b == B::WallTorch || b == B::SoulTorch || b == B::SoulWallTorch || b == B::Lantern || b == B::SoulLantern ||
         b == B::Ladder || b == B::Bamboo || b == B::TurtleEgg ||
         (BlockUpdates::isOceanPlant(b) && !R().block(b).id.ends_with("_coral_block"))) // (M25 review: plants break off)
         return Push::Destroy;
@@ -1033,6 +1034,15 @@ void BlockUpdates::pistonDrops(const BlockPos& p, BlockStateId s) {
 }
 
 void BlockUpdates::pop(const BlockPos& p) {
+    const BlockKind k = R().kind(blockOf(at(p)));
+    if (k == BlockKind::Banner || k == BlockKind::WallBanner) { // (M28.3d) a banner keeps its layers
+        ItemStack s{itemRegistry().blockItem(blockOf(at(p))), 1};
+        if (const Chunk* c = m_world.chunk(p.chunk()))
+            if (const BannerLayers* l = c->banner(blockToLocal(p.x), p.y, blockToLocal(p.z))) s.extra = addBannerLayers(*l);
+        m_drops.push_back({p, s, 0});
+        set(p, 0);
+        return;
+    }
     m_drops.push_back({p, {}, at(p)}); // its loot, as if broken by hand
     set(p, leftAfterBreaking(at(p))); // (waterlogged: its water stays)
 }
@@ -1044,6 +1054,8 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     case BlockKind::HangingSign: return supports(at(rel(p, Direction::Up)));
     case BlockKind::WallSign:
     case BlockKind::WallHangingSign: return supports(at(rel(p, opposite(hFacing(s)))));
+    case BlockKind::Banner: return supports(at(rel(p, Direction::Down))); // (M28.3d)
+    case BlockKind::WallBanner: return supports(at(rel(p, opposite(hFacing(s)))));
     default: break;
     }
     switch (blockOf(s)) {
@@ -1185,7 +1197,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
                                       b == B::Lantern || b == B::SoulLantern || b == B::Ladder || b == B::Bamboo ||
                                       R().kind(b) == BlockKind::Carpet || R().kind(b) == BlockKind::Sign ||
                                       R().kind(b) == BlockKind::WallSign || R().kind(b) == BlockKind::HangingSign ||
-                                      R().kind(b) == BlockKind::WallHangingSign) {
+                                      R().kind(b) == BlockKind::WallHangingSign || R().kind(b) == BlockKind::Banner ||
+                                      R().kind(b) == BlockKind::WallBanner) {
         if (!survives(p, s)) pop(p);
         --m_depth;
         return;
@@ -2161,6 +2174,17 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case BlockKind::WallSign:
     case BlockKind::WallHangingSign:
         return state;
+    case BlockKind::Banner: { // (M28.3d) on a side: the wall banner; on top: turned to the player
+        if (horizontal(faceDir)) {
+            if (!solid(opposite(faceDir))) return std::nullopt;
+            std::string id = r.block(blockOf(state)).id;
+            id.insert(id.rfind("_banner"), "_wall");
+            return withHFacing(r.defaultState(*r.findBlock(id)), faceDir);
+        }
+        if (!solid(Direction::Down)) return std::nullopt;
+        return r.set(state, rotation16, int(std::floor((yaw + 180.0f) * 16.0f / 360.0f + 0.5f)) & 15);
+    }
+    case BlockKind::WallBanner: return state;
     case BlockKind::Plain: break;
     }
     // Lush caves (M27.2): glow berries plant cave vines under a block or vine; spore

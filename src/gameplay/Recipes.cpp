@@ -215,6 +215,14 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###", "#W#", "###"}, {{'#', item("stick")}, {'W', item("white_wool")}}, "painting"));
     r.push_back(shaped({"###", ".#.", "#S#"}, {{'#', item("stick")}, {'S', item("smooth_stone_slab")}}, "armor_stand"));
     r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
+    // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern; no vines yet for
+    // bordure indented).
+    for (const char* c : kDyeColours)
+        r.push_back(shaped({"WWW", "WWW", ".|."}, {{'W', item(std::string(c) + "_wool")}, {'|', item("stick")}},
+                           std::string(c) + "_banner"));
+    for (const auto& [pattern, with] : {std::pair{"flower", "oxeye_daisy"}, std::pair{"creeper", "creeper_head"},
+                                        std::pair{"skull", "wither_skeleton_skull"}, std::pair{"field_masoned", "bricks"}})
+        r.push_back(shapeless({item("paper"), item(with)}, std::string(pattern) + "_banner_pattern"));
     // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("gold_ingot")}, {'R', item("redstone")}}, "clock"));

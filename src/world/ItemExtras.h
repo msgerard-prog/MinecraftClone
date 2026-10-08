@@ -1,5 +1,6 @@
 #pragma once
 
+#include "world/Banners.h"
 #include "world/Chunk.h"
 
 #include <cstdint>
@@ -34,5 +35,10 @@ struct BookContent {
 };
 uint32_t addBook(BookContent book);
 std::optional<BookContent> bookContent(uint32_t id);
+
+// A banner item's layers (M28.3d; vanilla minecraft:banner_patterns). Identical layers
+// share one entry, so such banners stack.
+uint32_t addBannerLayers(const BannerLayers& layers);
+std::optional<BannerLayers> bannerLayers(uint32_t id);
 
 } // namespace mc::world

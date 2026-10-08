@@ -86,6 +86,7 @@ public:
     // The held item's carried slots (a shulker box, M23.6), set before each tick: a
     // placed box gets them.
     void setPlaceContents(uint32_t contents) { m_placeContents = contents; }
+    void setPlaceExtra(uint32_t extra) { m_placeExtra = extra; } // (M28.3d: banner layers)
 
     // Experience from blocks mined this tick (ores), and where (orbs spawn there).
     int takeExperience() { return std::exchange(m_experience, 0); }
@@ -107,6 +108,7 @@ public:
 
 private:
     bool m_blockDrops = true;
+    uint32_t m_placeExtra = 0; // (M28.3d) the held banner's layers
     bool m_mayBuild = true;
     world::BlockId m_broken = 0;
     world::ItemId m_used = 0, m_brokenTool = 0;

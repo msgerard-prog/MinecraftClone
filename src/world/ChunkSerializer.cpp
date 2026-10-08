@@ -33,6 +33,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.spawners = chunk.spawners();
     s.brewing = chunk.brewingStands();
     s.signs = chunk.signs();
+    s.banners = chunk.banners();
     s.campfires = chunk.campfires();
     s.beacons = chunk.beacons();
     s.jukeboxes = chunk.jukeboxes();
@@ -174,6 +175,36 @@ std::vector<int8_t> nibbles(const LightLayer& layer) {
 
 namespace {
 
+// Banner layers as vanilla's list [{pattern: "minecraft:<id>", color: "<dye>"}] (M28.3d).
+nbt::Tag bannerPatternsNbt(const BannerLayers& l) {
+    std::vector<nbt::Tag> list;
+    for (int i = 0; i < l.count && i < BannerLayers::kMax; ++i) {
+        nbt::Compound p;
+        p.put("pattern", "minecraft:" + std::string(kBannerPatterns[l.pattern[size_t(i)] % kBannerPatterns.size()].name));
+        p.put("color", std::string(kDyeColours[l.colour[size_t(i)] & 15]));
+        list.emplace_back(std::move(p));
+    }
+    return nbt::listOf(nbt::TagType::Compound, std::move(list));
+}
+
+BannerLayers bannerPatternsFromNbt(const nbt::List& list) {
+    BannerLayers l;
+    for (const nbt::Tag& t : list.items) {
+        const nbt::Compound* p = t.get<nbt::Compound>();
+        const std::string* pat = p ? p->string("pattern") : nullptr;
+        const std::string* col = p ? p->string("color") : nullptr;
+        const auto pi = pat ? findBannerPattern(*pat) : std::nullopt;
+        if (!pi || !col || l.count >= BannerLayers::kMax) continue;
+        int c = 0;
+        for (int k = 0; k < 16; ++k)
+            if (*col == kDyeColours[k]) c = k;
+        l.pattern[l.count] = uint8_t(*pi);
+        l.colour[l.count] = uint8_t(c);
+        ++l.count;
+    }
+    return l;
+}
+
 // An item stack as vanilla 1.20.5+ saves it: id, count, components.
 nbt::Compound itemNbt(const ItemStack& s, int slot) {
     nbt::Compound c;
@@ -253,6 +284,8 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         tracker.put("tracked", int8_t(t->tracked ? 1 : 0));
         components.put("minecraft:lodestone_tracker", std::move(tracker));
     }
+    if (const auto layers = s.extra ? bannerLayers(s.extra) : std::nullopt) // (M28.3d)
+        components.put("minecraft:banner_patterns", bannerPatternsNbt(*layers));
     if (const auto book = s.extra ? bookContent(s.extra) : std::nullopt) {
         // 1.20.5+ writable_book_content {pages: [{raw}]} / written_book_content {title: {raw},
         // author, generation, pages: [{raw: text component}], resolved} (pages are plain
@@ -356,6 +389,7 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             }
             s.extra = addLodestoneTarget(t);
         }
+        if (const nbt::List* pats = comps->list("minecraft:banner_patterns")) s.extra = addBannerLayers(bannerPatternsFromNbt(*pats));
         for (const char* key : {"minecraft:writable_book_content", "minecraft:written_book_content"})
             if (const nbt::Compound* content = comps->compound(key)) {
                 BookContent book;
@@ -597,6 +631,16 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
         e.put("CookingTimes", std::move(times));
         e.put("CookingTotalTimes", std::move(totals));
+        entities.emplace_back(std::move(e));
+    }
+    for (const auto& bn : chunk.banners) { // (M28.3d; wiki: Banner › Block data: patterns [{pattern, color}])
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:banner"));
+        e.put("x", int32_t{chunk.pos.x * 16 + bn.x});
+        e.put("y", int32_t{bn.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + bn.z});
+        e.put("keepPacked", int8_t{0});
+        e.put("patterns", bannerPatternsNbt(bn.data));
         entities.emplace_back(std::move(e));
     }
     for (const auto& sg : chunk.signs) { // wiki: Sign › Block data (front_text / back_text)
@@ -856,7 +900,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" && *id != "minecraft:shulker_box" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
-                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" &&
+                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" && *id != "minecraft:banner" &&
                         *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
                         *id != "minecraft:brushable_block" &&
                         *id != "minecraft:beehive"))
@@ -961,6 +1005,12 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                     if (const auto* a = times->get<std::vector<int32_t>>())
                         for (size_t i = 0; i < a->size() && i < 4; ++i)
                             cf.cookTime[i] = int16_t(std::clamp((*a)[i], 0, 600));
+                continue;
+            }
+            if (*id == "minecraft:banner") { // (M28.3d)
+                const BlockKind k = blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
+                if (k != BlockKind::Banner && k != BlockKind::WallBanner) continue;
+                if (const nbt::List* pats = e->list("patterns")) chunk.addBanner(x, y, z) = bannerPatternsFromNbt(*pats);
                 continue;
             }
             if (*id == "minecraft:sign" || *id == "minecraft:hanging_sign") {

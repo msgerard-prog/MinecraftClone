@@ -3109,6 +3109,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Aqua Affinity: no slower mining under water (wiki).
                 interaction.setPlaceContents(
                     inventory.selectedStack().contents); // (shulker boxes, M23.6)
+                interaction.setPlaceExtra(inventory.selectedStack().extra); // (banner layers, M28.3d)
                 const size_t silverfishBefore = blockUpdates.silverfishOut().size();
                 const bool silk = mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::SilkTouch) > 0;
                 interaction.tickSurvival(
@@ -3128,6 +3129,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             } else {
                 interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
                 interaction.setPlaceContents(inventory.selectedStack().contents);
+                interaction.setPlaceExtra(inventory.selectedStack().extra);
                 const size_t silverfishBefore = blockUpdates.silverfishOut().size();
                 interaction.tick(
                     world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
@@ -4425,6 +4427,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 entities.addItem(cf.data.items[size_t(i)], at, float(i) * 90.0f,
                                                  0.0f, lightTable[15 * 16 + 15], camera.position);
                             }
+                    for (const auto& bn : ch->banners()) { // (M28.3d) the cloth and its layers
+                        const auto st = ch->get(bn.x, bn.y, bn.z);
+                        const auto& breg = mc::world::blockRegistry();
+                        const mc::world::BlockKind k = breg.kind(breg.blockOf(st));
+                        const bool wallBanner = k == mc::world::BlockKind::WallBanner;
+                        if (!wallBanner && k != mc::world::BlockKind::Banner) continue;
+                        int bs = 15, bb = 0;
+                        if (ch->lit()) {
+                            bs = ch->skyLight(bn.x, bn.y, bn.z);
+                            bb = ch->blockLight(bn.x, bn.y, bn.z);
+                        }
+                        entities.addBanner(glm::dvec3(ch->pos().x * 16 + bn.x, bn.y, ch->pos().z * 16 + bn.z), wallBanner,
+                                           wallBanner ? breg.get(st, mc::world::properties::facing) + 2
+                                                      : breg.get(st, mc::world::properties::rotation16),
+                                           mc::world::bannerColour(breg.block(breg.blockOf(st)).id), bn.data,
+                                           lightTable[size_t(bs * 16 + bb)], camera.position);
+                    }
                     for (const auto& sg : ch->signs()) {
                         bool written = false; // (blank signs: nothing to draw)
                         for (const auto& line : sg.data.front.lines)

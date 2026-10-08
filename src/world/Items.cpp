@@ -63,7 +63,13 @@ ItemRegistry buildItems() {
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
-        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) continue;
+        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign ||
+            blocks.kind(b) == BlockKind::WallBanner)
+            continue;
+        if (blocks.kind(b) == BlockKind::Banner) { // (M28.3d) stacks of 16, drawn from their own icon
+            r.mapBlock(b, r.add({.id = id, .maxStack = 16, .block = b, .texture = "item/" + id.substr(10)}));
+            continue;
+        }
         if (isMobHead(b)) continue; // (M26.4b: below - worn on the head, wall kinds from the standing ones)
         const bool sign = blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
         r.mapBlock(b, r.add({.id = id, .maxStack = uint8_t(sign ? 16 : 64), .block = b})); // (signs stack to 16)
@@ -82,9 +88,10 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::TallSeagrass, *r.find("seagrass"));
     // Wall signs pick and drop as their sign.
     for (BlockId b = 1; b < blocks.blockCount(); ++b)
-        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) {
+        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign ||
+            blocks.kind(b) == BlockKind::WallBanner) {
             std::string id = blocks.block(b).id;
-            id.erase(id.find("_wall"), 5); // "oak_wall_sign" -> "oak_sign"
+            id.erase(id.find("_wall"), 5); // "oak_wall_sign" -> "oak_sign", "red_wall_banner" -> "red_banner"
             if (const auto item = r.find(id)) r.mapBlock(b, *item);
         }
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword - attack damage per tier).
@@ -340,6 +347,11 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:painting", .texture = "item/painting"});
     r.add({.id = "minecraft:armor_stand", .maxStack = 16, .texture = "item/armor_stand"}); // (M28.3b)
     r.add({.id = "minecraft:lead", .texture = "item/lead"}); // (M28.3c)
+    // Banner patterns (M28.3d; wiki: Banner Pattern): kept in the loom's third slot.
+    for (const char* p : {"field_masoned", "bordure_indented", "creeper", "skull", "flower", "mojang", "globe",
+                          "piglin", "flow", "guster"})
+        r.add({.id = "minecraft:" + std::string(p) + "_banner_pattern", .maxStack = 1,
+               .texture = "item/" + std::string(p) + "_banner_pattern"});
     r.add({.id = "minecraft:written_book", .maxStack = 16, .texture = "item/written_book"});
     r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).

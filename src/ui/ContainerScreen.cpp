@@ -7,6 +7,7 @@
 #include "gameplay/Beacons.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Loom.h"
 #include "gameplay/Recipes.h"
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
@@ -103,6 +104,8 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
     }
     m_result = {};
     m_stoneChoice = -1;
+    m_loomChoice = -1;
+    m_loomScroll = 0;
     m_stoneInput = 0;
     m_furnace = nullptr;
     m_chests = {};
@@ -369,7 +372,11 @@ void ContainerScreen::updateResult() {
         m_result = cartography(m_grid[0], m_grid[1]);
         return;
     }
-    if (m_type == Type::Loom || m_type == Type::Beacon) { // (no result slot)
+    if (m_type == Type::Loom) { // (M28.3d) the chosen pattern woven in the dye's colour
+        m_result = loomResult(m_grid[0], m_grid[1], m_loomChoice);
+        return;
+    }
+    if (m_type == Type::Beacon) { // (no result slot)
         m_result = {};
         return;
     }
@@ -449,6 +456,15 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         for (int i = 0; i < 3; ++i)
             if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
                 m_grid[size_t(i)] = {};
+        updateResult();
+        return;
+    }
+    if (m_type == Type::Loom) { // the banner and one dye are used; the pattern item stays
+        if (m_result.empty() || !m_carried.empty()) return;
+        m_carried = m_result;
+        noteCrafted(m_result);
+        for (int i = 0; i < 2; ++i)
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
         updateResult();
         return;
     }
@@ -628,6 +644,23 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             m_stoneChoice = i;
             updateResult();
         }
+        return;
+    }
+    if (m_type == Type::Loom && px >= 58 && px < 58 + 4 * 16 && py >= 13 && py < 13 + 4 * 14) {
+        // A pattern button (4 x 4 visible, 16 x 14 each; wiki: Loom).
+        std::array<int, 48> pats{};
+        const int n = loomPatterns(m_grid[2], pats);
+        const int i = (m_loomScroll + int((py - 13) / 14)) * 4 + int((px - 58) / 16);
+        if (i < n && !m_grid[0].empty()) {
+            m_loomChoice = pats[size_t(i)];
+            updateResult();
+        }
+        return;
+    }
+    if (m_type == Type::Loom && px >= 124 && px < 136 && py >= 13 && py < 69) { // its scroll bar
+        std::array<int, 48> pats{};
+        const int rows = (loomPatterns(m_grid[2], pats) + 3) / 4;
+        m_loomScroll = rows > 4 ? std::clamp(int((py - 13) / 56.0 * (rows - 3)), 0, rows - 4) : 0;
         return;
     }
     if (m_type == Type::Stonecutter && px >= 119 && px < 131 && py >= 15 &&
@@ -1036,6 +1069,28 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
         b.fill(left + 119, top + 15, 12, 54, kDark);
         const float knob = rows > 3 ? float(m_stoneScroll) / float(rows - 3) * 39.0f : 0.0f;
         b.fill(left + 119, top + 15 + knob, 12, 15, rows > 3 ? kLight : kSlotFill);
+    }
+    if (m_type == Type::Loom) { // (M28.3d) the pattern buttons and their scroll bar
+        std::array<int, 48> pats{};
+        const int n = loomPatterns(m_grid[2], pats);
+        const double hx = mx - left, hy = my - top;
+        for (int k = 0; k < 16; ++k) {
+            const int i = m_loomScroll * 4 + k;
+            if (m_grid[0].empty() || i >= n) continue;
+            const float bx = left + 58 + float(k % 4) * 16, by = top + 13 + float(k / 4) * 14;
+            const bool hover = hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 14;
+            b.fill(bx, by, 16, 14, pats[size_t(i)] == m_loomChoice ? gfx::rgba(120, 160, 120) : hover ? kLight : kSlotFill);
+            b.fill(bx + 5, by + 1, 6, 12, gfx::rgba(230, 230, 230)); // the cloth, both halves of the mask
+            for (int half = 0; half < 2; ++half)
+                if (const uint16_t mask = icons.bannerMask(pats[size_t(i)], half))
+                    b.sprite(gfx::GuiTexture::Atlas, bx + 5, by + 1 + 6.0f * float(half), 6, 6, float(icons.spriteU(mask)),
+                             float(icons.spriteV(mask)), float(icons.cellSize()), float(icons.cellSize()), gfx::rgba(60, 60, 60));
+            b.fill(bx, by + 13, 16, 1, kDark);
+        }
+        const int rows = (n + 3) / 4;
+        b.fill(left + 124, top + 13, 12, 56, kDark);
+        const float knob = rows > 4 ? float(m_loomScroll) / float(rows - 4) * 41.0f : 0.0f;
+        b.fill(left + 124, top + 13 + knob, 12, 15, rows > 4 ? kLight : kSlotFill);
     }
     if (m_type == Type::Grindstone) arrow(98, 34, 0);
     if (m_type == Type::Smithing) arrow(68, 48, 0);

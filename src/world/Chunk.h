@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Biome.h"
+#include "world/Banners.h"
 #include "world/BlockEntity.h"
 #include "world/Mob.h"
 #include "world/Coords.h"
@@ -73,6 +74,7 @@ public:
         m_hoppers.clear();
         m_dispensers.clear();
         m_signs.clear();
+        m_banners.clear();
         m_campfires.clear();
         m_beacons.clear();
         m_jukeboxes.clear();
@@ -276,6 +278,28 @@ public:
     }
     std::vector<SignEntry>& signs() { return m_signs; }
     const std::vector<SignEntry>& signs() const { return m_signs; }
+    struct BannerEntry { // (M28.3d) the layers over its base colour
+        int x, y, z;
+        BannerLayers data;
+    };
+    BannerLayers* banner(int x, int y, int z) {
+        for (auto& b : m_banners)
+            if (b.x == x && b.y == y && b.z == z) return &b.data;
+        return nullptr;
+    }
+    const BannerLayers* banner(int x, int y, int z) const {
+        for (const auto& b : m_banners)
+            if (b.x == x && b.y == y && b.z == z) return &b.data;
+        return nullptr;
+    }
+    BannerLayers& addBanner(int x, int y, int z) {
+        if (BannerLayers* b = banner(x, y, z)) return *b;
+        m_dirty = true;
+        m_banners.push_back({x, y, z, {}});
+        return m_banners.back().data;
+    }
+    std::vector<BannerEntry>& banners() { return m_banners; }
+    const std::vector<BannerEntry>& banners() const { return m_banners; }
     struct CampfireEntry { // (M23.4c)
         int x, y, z;
         CampfireData data;
@@ -365,6 +389,7 @@ public:
         std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
         std::erase_if(m_signs, [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
+        std::erase_if(m_banners, [&](const BannerEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
@@ -485,6 +510,7 @@ private:
     std::vector<HopperEntry> m_hoppers;
     std::vector<DispenserEntry> m_dispensers;
     std::vector<SignEntry> m_signs;
+    std::vector<BannerEntry> m_banners; // (M28.3d)
     std::vector<CampfireEntry> m_campfires;
     std::vector<BeaconEntry> m_beacons;
     std::vector<JukeboxEntry> m_jukeboxes;

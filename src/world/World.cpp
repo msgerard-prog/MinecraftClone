@@ -103,6 +103,12 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         c->addBeacon(x, p.y, z).conduit = b == blocks::Conduit;
         markTicking(c->pos());
     }
+    const auto isBanner = [](BlockId id) {
+        const BlockKind k = blockRegistry().kind(id);
+        return k == BlockKind::Banner || k == BlockKind::WallBanner;
+    };
+    if (was != b && isBanner(was)) c->removeBlockEntity(x, p.y, z); // (M28.3d)
+    if (b != was && isBanner(b)) c->addBanner(x, p.y, z);
     if (b != was && isSign(b)) {
         const BlockKind k = blockRegistry().kind(b);
         c->addSign(x, p.y, z).hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;

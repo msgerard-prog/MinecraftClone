@@ -209,7 +209,8 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             const nbt::Compound full = itemToNbt(carrier, -1);
             if (const Compound* fc = full.compound("components"))
                 for (const char* key : {"minecraft:container", "minecraft:trim", "minecraft:lodestone_tracker",
-                                        "minecraft:writable_book_content", "minecraft:written_book_content"})
+                                        "minecraft:writable_book_content", "minecraft:written_book_content",
+                                        "minecraft:banner_patterns"})
                     if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
@@ -490,7 +491,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     }
                 if (comps->list("minecraft:container") || comps->compound("minecraft:trim") ||
                     comps->compound("minecraft:lodestone_tracker") || comps->compound("minecraft:writable_book_content") ||
-                    comps->compound("minecraft:written_book_content")) {
+                    comps->compound("minecraft:written_book_content") || comps->list("minecraft:banner_patterns")) {
                     const ItemStack parsed = itemFromNbtPublic(item);
                     saved.contents = parsed.contents;
                     saved.trim = parsed.trim;

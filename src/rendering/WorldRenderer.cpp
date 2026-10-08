@@ -50,7 +50,10 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     };
     const TextureAtlas::AtlasFolder folders[] = {{"assets/minecraft/textures/block/", ""},
                                                  {"assets/minecraft/textures/item/", "item/"},
-                                                 {"assets/minecraft/textures/painting/", "painting/", +paintingWidth}};
+                                                 {"assets/minecraft/textures/painting/", "painting/", +paintingWidth},
+                                                 // (M28.3d) banner masks, top and bottom halves
+                                                 {"assets/minecraft/textures/clone_banner/", "clone_banner/",
+                                                  +[](std::string_view) { return 1; }}};
     if (!m_atlas.build(packs, folders)) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;

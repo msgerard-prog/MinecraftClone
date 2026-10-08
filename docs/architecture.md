@@ -637,6 +637,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (`tieToFence`, `takeFromKnot`, `breakKnot`, `knotTick` removes unused knots); llama
   caravans through `caravanHead` (`caravanTick`: up to 10, joining at the tail). Main
   draws leads as beams and knots with `EntityRenderer::addKnot`.
+- Banners (M28.3d): `BlockKind::Banner/WallBanner` (16 colours, registered last),
+  `Chunk::banners()` (`world::BannerLayers`: pattern + dye per layer, saved as vanilla
+  `patterns`; items carry them as `ItemStack::extra` / minecraft:banner_patterns, shared
+  entries so equal banners stack); block models are invisible and main draws each banner
+  per frame with `EntityRenderer::addBanner` (wood, then the base mask and each layer's
+  mask from `textures/clone_banner/`, cut into atlas halves, tinted by dye). The loom
+  (`gameplay/Loom`: `loomPatterns`, `loomResult`) backs `ContainerScreen::Type::Loom`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -1,5 +1,7 @@
 #include "gameplay/BlockInteraction.h"
 
+#include "world/ItemExtras.h"
+
 #include "gameplay/Furnace.h"
 
 #include "gameplay/Mining.h"
@@ -50,6 +52,14 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
             for (const world::ItemStack& s : ch->items)
                 if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
         }
+    }
+    if (const world::BannerLayers* bl = c->banner(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) {
+        // A banner keeps its layers (M28.3d): on its own drop, or (creative) none.
+        const uint32_t id = world::addBannerLayers(*bl);
+        for (BlockInteraction::Drop& d : *drops)
+            if (world::blockRegistry().kind(world::itemRegistry().item(d.stack.item).block) == world::BlockKind::Banner &&
+                d.stack.extra == 0)
+                d.stack.extra = id;
     }
     if (const world::CampfireData* cf = c->campfire(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
         for (const world::ItemStack& s : cf->items) // (its food: wiki: Campfire)
@@ -222,6 +232,11 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         if (reg.get(state, world::properties::waterlogged) >= 0) // (holds the water it went into)
             state = reg.set(state, world::properties::waterlogged, waterSource ? 0 : 1);
         world.updateBlock(at, state);
+        if (m_placeExtra) // (M28.3d) a banner item's layers go onto the placed banner
+            if (const auto layers = world::bannerLayers(m_placeExtra))
+                if (world::Chunk* pc = world.chunk(at.chunk()))
+                    if (world::BannerLayers* bl = pc->banner(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z)))
+                        *bl = *layers;
         if (m_placeContents) // a shulker box item's slots go back into the placed box (M23.6)
             if (world::Chunk* pc = world.chunk(at.chunk()))
                 if (world::ChestData* box = pc->chest(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));

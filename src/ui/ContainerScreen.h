@@ -219,6 +219,8 @@ private:
     int m_stoneChoice = -1;     // the stonecutter's selected recipe
     world::ItemId m_stoneInput = 0; // the input the choice belongs to (a new kind clears it)
     int m_stoneScroll = 0;      // first shown row of recipes (4 per row, 3 rows shown)
+    int m_loomChoice = -1;      // (M28.3d) the loom's chosen pattern (world::kBannerPatterns index)
+    int m_loomScroll = 0;       // first shown row of patterns (4 per row, 4 rows shown)
 };
 
 } // namespace mc::ui

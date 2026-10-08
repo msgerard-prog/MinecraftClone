@@ -1,5 +1,7 @@
 #include "gameplay/Commands.h"
 
+#include "world/ItemExtras.h"
+
 #include "world/Potions.h"
 
 #include "world/Blocks.h"
@@ -145,6 +147,61 @@ CommandResult time(const std::vector<std::string_view>& a, CommandContext& ctx) 
     return fail("Usage: /time set|add|query ...");
 }
 
+// An item with its components as commands write it: "oak_log[axis=x]",
+// "potion[potion_contents={potion:\"swiftness\"}]", "red_banner[banner_patterns=[...]]".
+std::optional<world::ItemStack> parseStack(std::string_view id, std::string& error) {
+    auto failed = [&](std::string msg) -> std::optional<world::ItemStack> {
+        error = std::move(msg);
+        return std::nullopt;
+    };
+    if (id.starts_with("minecraft:")) id.remove_prefix(10);
+    const std::string_view name = id.substr(0, id.find('['));
+    const auto item = world::itemRegistry().find(name);
+    if (!item || *item == world::kNoItem)
+        return failed(format("Unknown item '%.*s'", int(id.size()), id.data()));
+    world::ItemStack stack{*item, 1};
+    if (const size_t bp = id.find("[banner_patterns=["); bp != std::string_view::npos) {
+        // red_banner[banner_patterns=[{pattern:"cross",color:"white"},...]] (M28.3d; vanilla components)
+        world::BannerLayers layers;
+        std::string_view rest = id.substr(bp + 18);
+        while (layers.count < world::BannerLayers::kMax) {
+            const size_t p = rest.find("pattern:"), c = rest.find("color:");
+            if (p == std::string_view::npos || c == std::string_view::npos) break;
+            auto value = [&](size_t at) {
+                std::string_view v = rest.substr(at);
+                if (!v.empty() && v.front() == '"') v.remove_prefix(1);
+                return v.substr(0, v.find_first_of("\",}]"));
+            };
+            const auto pat = world::findBannerPattern(value(p + 8));
+            const std::string_view col = value(c + 6);
+            int dye = -1;
+            for (int k = 0; k < 16; ++k)
+                if (col == world::kDyeColours[k]) dye = k;
+            if (!pat || dye < 0) return failed("Unknown banner pattern or colour");
+            layers.pattern[layers.count] = uint8_t(*pat);
+            layers.colour[layers.count] = uint8_t(dye);
+            ++layers.count;
+            rest = rest.substr(std::max(p, c) + 6);
+            if (const size_t next = rest.find('{'); next != std::string_view::npos) rest = rest.substr(next);
+            else break;
+        }
+        stack.extra = world::addBannerLayers(layers);
+    } else if (const size_t pc = id.find("[potion_contents={potion:"); pc != std::string_view::npos) {
+        // potion[potion_contents={potion:"minecraft:swiftness"}] (vanilla components)
+        std::string_view rest = id.substr(pc + 25);
+        if (!rest.empty() && rest.front() == '"') rest.remove_prefix(1);
+        rest = rest.substr(0, rest.find_first_of("\"}"));
+        const auto potion = world::findPotion(rest);
+        if (!potion) return failed(format("Unknown potion '%.*s'", int(rest.size()), rest.data()));
+        stack.potion = static_cast<uint8_t>(*potion);
+    } else if (name.size() != id.size()) { // a block state
+        const auto state = world::blockRegistry().parse(id);
+        if (!state) return failed(format("Unknown item '%.*s'", int(id.size()), id.data()));
+        stack = Inventory::blockStack(*state);
+    }
+    return stack;
+}
+
 CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) {
     // /give @s <item> [count] (wiki: Commands/give): into the inventory, stacking
     // like picked-up items. Block items may carry a state (oak_log[axis=x]).
@@ -157,25 +214,10 @@ CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) 
         count = static_cast<int>(std::min<int64_t>(*n, 36 * 64)); // at most a full inventory
     }
     std::string_view id = a[2];
-    if (id.starts_with("minecraft:")) id.remove_prefix(10);
-    const std::string_view name = id.substr(0, id.find('['));
-    const auto item = world::itemRegistry().find(name);
-    if (!item || *item == world::kNoItem)
-        return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
-    world::ItemStack stack{*item, 1};
-    if (const size_t pc = id.find("[potion_contents={potion:"); pc != std::string_view::npos) {
-        // potion[potion_contents={potion:"minecraft:swiftness"}] (vanilla components)
-        std::string_view rest = id.substr(pc + 25);
-        if (!rest.empty() && rest.front() == '"') rest.remove_prefix(1);
-        rest = rest.substr(0, rest.find_first_of("\"}"));
-        const auto potion = world::findPotion(rest);
-        if (!potion) return fail(format("Unknown potion '%.*s'", int(rest.size()), rest.data()));
-        stack.potion = static_cast<uint8_t>(*potion);
-    } else if (name.size() != id.size()) { // a block state
-        const auto state = world::blockRegistry().parse(id);
-        if (!state) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
-        stack = Inventory::blockStack(*state);
-    }
+    std::string error;
+    auto parsed = parseStack(id, error);
+    if (!parsed) return fail(error);
+    world::ItemStack stack = *parsed;
     const int max = world::itemRegistry().item(stack.item).maxStack;
     int given = 0;
     for (int left = count; left > 0;) {
@@ -195,16 +237,18 @@ CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) 
     if (a.size() < 7 || a.size() > 8 || a[1] != "replace" || a[2] != "entity" || !isSelf(a[3]) || a[5] != "with")
         return fail("Usage: /item replace entity @s <slot> with <item> [count]");
     std::string_view id = a[6];
-    if (id.starts_with("minecraft:")) id.remove_prefix(10);
-    const auto it = world::itemRegistry().find(id);
-    if (!it || *it == world::kNoItem) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
+    std::string error;
+    const auto parsed = parseStack(id, error);
+    if (!parsed) return fail(error);
+    const auto it = std::optional<world::ItemId>(parsed->item);
     int count = 1;
     if (a.size() == 8) {
         const auto n = number<int64_t>(a[7]);
         if (!n || *n < 1 || *n > 99) return fail("Invalid count");
         count = int(std::min<int64_t>(*n, world::itemRegistry().item(*it).maxStack));
     }
-    const world::ItemStack stack{*it, uint8_t(count)};
+    world::ItemStack stack = *parsed;
+    stack.count = uint8_t(count);
     const std::string_view slot = a[4];
     static constexpr std::string_view kArmor[4] = {"armor.head", "armor.chest", "armor.legs", "armor.feet"};
     if (slot == "weapon.mainhand" || slot == "weapon") {

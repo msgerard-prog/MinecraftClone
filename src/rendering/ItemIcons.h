@@ -49,6 +49,14 @@ public:
     static int compassFrame(const glm::dvec3& player, float yaw, const glm::dvec3& target);
     // The clock's frame (of 64): 0 at noon.
     static int clockFrame(double celestial);
+    // (M28.3d) a banner pattern's mask (its top half) for the loom's buttons; atlas texel
+    // origin of a sprite and the cell size.
+    uint16_t bannerMask(int pattern, int half = 0) const {
+        return pattern >= 0 && pattern * 2 + half < int(m_bannerMasks.size()) ? m_bannerMasks[size_t(pattern * 2 + half)] : 0;
+    }
+    int spriteU(uint16_t sprite) const { return int(sprite % m_columns) * m_cell; }
+    int spriteV(uint16_t sprite) const { return int(sprite / m_columns) * m_cell; }
+    int cellSize() const { return m_cell; }
 
 private:
     uint16_t dialSprite(const world::ItemStack& stack, uint16_t sprite) const;
@@ -56,6 +64,8 @@ private:
     world::ItemId m_compass = 0, m_recovery = 0, m_clock = 0;
     std::array<uint16_t, 32> m_compassFrames{}, m_recoveryFrames{};
     std::array<uint16_t, 64> m_clockFrames{};
+    std::vector<uint16_t> m_bannerMasks;
+    int m_columns = 1, m_cell = 16;
     std::vector<uint16_t> m_sprites; // per item; 0 = use the block model
     uint16_t m_potionOverlay = 0;
 };

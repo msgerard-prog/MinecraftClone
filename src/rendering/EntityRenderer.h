@@ -6,6 +6,7 @@
 #include "rendering/ItemIcons.h"
 #include "rendering/Shader.h"
 #include "world/Chunk.h"
+#include "world/Banners.h"
 #include "world/Items.h"
 #include "world/ParticleSprite.h"
 
@@ -54,6 +55,11 @@ public:
     // A painting (M28.3a): its canvas tiles (world::kPaintings[variant]) facing `facing`.
     void addPainting(int variant, const glm::dvec3& centre, int facing, const glm::vec3& light,
                      const glm::dvec3& cameraPos);
+    // A banner (M28.3d) in the block at `cell` (its minimum corner): standing (`turn` =
+    // rotation 0..15) or on a wall (`turn` = its facing, world::Direction); the flag in
+    // `base` (dye 0..15) with its layers, front and back.
+    void addBanner(const glm::dvec3& cell, bool wall, int turn, int base, const world::BannerLayers& layers,
+                   const glm::vec3& light, const glm::dvec3& cameraPos);
     // A leash knot (M28.3c): a small wooden knot on its fence post, its bottom at `pos`.
     void addKnot(const glm::dvec3& pos, const glm::dvec3& cameraPos);
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
@@ -130,6 +136,9 @@ private:
     // (M28.3a) frame and painting sprites; painting tiles per variant, row by row from the top
     uint16_t m_frameSprite = 0, m_glowFrameSprite = 0, m_frameWood = 0, m_paintingBack = 0;
     std::vector<std::vector<uint16_t>> m_paintingTiles;
+    // (M28.3d) banner masks: top and bottom halves per pattern (index kBannerPatterns), then base
+    std::vector<std::array<uint16_t, 2>> m_bannerMasks;
+    uint16_t m_bannerWood = 0;
 };
 
 } // namespace mc::gfx

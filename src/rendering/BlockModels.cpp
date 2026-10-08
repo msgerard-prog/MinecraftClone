@@ -159,6 +159,10 @@ bool bakeFamilyModel(const world::BlockRegistry& registry, world::BlockStateId s
         if (registry.get(state, properties::fireEast) == 0) arm(9, 7, 16, 9, true);
         return true;
     }
+    case BlockKind::Banner: // (M28.3d) drawn each frame by EntityRenderer::addBanner (its layers)
+    case BlockKind::WallBanner:
+        m.visible = false;
+        return true;
     case BlockKind::Carpet: // a 1-pixel slab of its wool (wiki: Carpet)
         m.visible = true;
         addBoxFrom(m, 0, 0, 0, 16, 1, 16, base);

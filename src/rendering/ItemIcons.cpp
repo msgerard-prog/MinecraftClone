@@ -1,6 +1,7 @@
 #include "rendering/ItemIcons.h"
 
 #include "rendering/TextureAtlas.h"
+#include "world/Banners.h"
 #include "world/Blocks.h"
 #include "world/ItemExtras.h"
 #include "world/Potions.h"
@@ -30,6 +31,12 @@ void ItemIcons::build(const TextureAtlas& atlas) {
         std::snprintf(name, sizeof(name), "item/clock_%02d", f);
         m_clockFrames[size_t(f)] = static_cast<uint16_t>(atlas.spriteIndex(name));
     }
+    m_columns = atlas.columns();
+    m_cell = atlas.cellSize();
+    m_bannerMasks.clear();
+    for (const world::BannerPattern& p : world::kBannerPatterns)
+        for (const char* half : {":0,0", ":0,1"})
+            m_bannerMasks.push_back(static_cast<uint16_t>(atlas.spriteIndex("clone_banner/" + std::string(p.name) + half)));
     m_compass = items.find("compass").value_or(0);
     m_recovery = items.find("recovery_compass").value_or(0);
     m_clock = items.find("clock").value_or(0);

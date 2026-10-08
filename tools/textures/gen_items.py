@@ -989,6 +989,35 @@ def lead_item():
     return s.render()
 
 
+DYES = [("white", "#F9FFFE"), ("orange", "#F9801D"), ("magenta", "#C74EBD"), ("light_blue", "#3AB3DA"),
+        ("yellow", "#FED83D"), ("lime", "#80C71F"), ("pink", "#F38BAA"), ("gray", "#474F52"),
+        ("light_gray", "#9D9D97"), ("cyan", "#169C9C"), ("purple", "#8932B8"), ("blue", "#3C44AA"),
+        ("brown", "#835432"), ("green", "#5E7C16"), ("red", "#B02E26"), ("black", "#1D1D21")]
+
+
+def banner_item(colour):
+    """M28.3d: a cloth hanging from a crossbar on a pole, in the dye's colour."""
+    s = Shape()
+    wood = ramp(hexc("#9A7A4E"), 5, spread=0.3)
+    s.add({(x, 1) for x in range(3, 13)}, wood)
+    s.add({(7, y) for y in range(2, 15)}, wood)
+    s.add({(x, y) for x in range(4, 12) for y in range(2, 13) if not (y == 12 and x % 2)}, ramp(hexc(colour), 5, spread=0.2))
+    return s.render()
+
+
+def pattern_item(seed):
+    """M28.3d: a banner pattern (paper with a stencilled emblem)."""
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(2, 14)}, ramp(hexc("#E8E0C8"), 5, spread=0.15))
+    img = s.render()
+    rng = random.Random(seed)
+    for y in range(5, 11):
+        for x in range(5, 11):
+            if rng.random() < 0.45 or (x in (7, 8) and y in (7, 8)):
+                img.set(x, y, hexc("#6A5A48"))
+    return img
+
+
 def ghast_tear():
     pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
     s = Shape()
@@ -1335,6 +1364,11 @@ def all_items():
     items["painting"] = frame_item("#5E8A3C", picture=True)
     items["armor_stand"] = armor_stand_item()  # (M28.3b)
     items["lead"] = lead_item()  # (M28.3c)
+    for dye, colour in DYES:  # (M28.3d)
+        items[f"{dye}_banner"] = banner_item(colour)
+    for pat in ("field_masoned", "bordure_indented", "creeper", "skull", "flower", "mojang", "globe", "piglin",
+                "flow", "guster"):
+        items[f"{pat}_banner_pattern"] = pattern_item(pat)
     items["enchanted_book"] = book(True)
     # Nether mobs (M19.2).
     items["ghast_tear"] = ghast_tear()

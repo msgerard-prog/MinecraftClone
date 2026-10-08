@@ -18,8 +18,8 @@ M28 - Progression & game (wiki pages of each feature):
    (stats/<uuid>.json, the Statistics screen).
 2. ✅ M28.2 - Navigation and writing: a) compasses, lodestones, recovery compasses, clocks;
    b) maps (empty, filled, drawn, zoom, cartography); c) books and quills, written books.
-3. M28.3 - Decorations: item frames, paintings, armor stands, banners (patterns, the
-   loom), leads (fences, llama caravans).
+3. ✅ M28.3 - Decorations: a) item frames, paintings; b) armor stands; c) leads (fences,
+   llama caravans); d) banners (patterns, the loom).
 4. M28.4 - Combat items: crossbows (multishot, piercing, quick charge), tipped and
    spectral arrows, lingering potions, fireworks (rockets for elytra), the mace (heavy
    core from ominous vaults), spears.
