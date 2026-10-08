@@ -954,6 +954,12 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    if (blockOf(s) == B::Campfire || blockOf(s) == B::SoulCampfire) { // signal fire follows the hay below
+        const BlockStateId want = R().set(s, signalFire, blockOf(at(rel(p, Direction::Down))) == B::HayBlock ? 0 : 1);
+        if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
     if (R().block(R().blockOf(s)).id.ends_with("copper_bulb")) { // (M23.4b)
         updateBulb(p, s);
         --m_depth;
@@ -2098,6 +2104,10 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
             return std::nullopt;
         return state;
     }
+    case B::Campfire: // faces the player; over a hay bale its smoke goes higher (wiki: Campfire)
+    case B::SoulCampfire:
+        return r.set(withHFacing(state, opposite(look)), signalFire,
+                     blockOf(world.getBlock(rel(at, Direction::Down))) == B::HayBlock ? 0 : 1);
     case B::Ladder: // only on a block's side, facing out from it (wiki: Ladder)
         if (!horizontal(faceDir) || !solid(opposite(faceDir))) return std::nullopt;
         return withHFacing(state, faceDir);

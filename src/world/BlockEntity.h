@@ -70,6 +70,13 @@ struct SignData {
     bool hanging = false; // saved as minecraft:hanging_sign
 };
 
+// A campfire's food (M23.4c; wiki: Campfire › Block data): up to 4 items, each with its
+// cooking time so far (done at 600 ticks).
+struct CampfireData {
+    std::array<ItemStack, 4> items{};
+    std::array<int16_t, 4> cookTime{};
+};
+
 // A redstone comparator's output strength (M21.2; wiki: Redstone Comparator › Block
 // data: OutputSignal) - its block state only says whether it is on.
 struct ComparatorData {

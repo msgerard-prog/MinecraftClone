@@ -52,6 +52,7 @@
 #include "gameplay/Buckets.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Portals.h"
+#include "gameplay/Recipes.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Menus.h"
 #include "ui/SignEditor.h"
@@ -1415,6 +1416,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
                 if (!arrival) {
                     // (gliding counts as flying for falls: our simplification)
+                    {
+                        const mc::world::BlockPos under{int(std::floor(feet.x)), int(std::floor(feet.y - 0.2)),
+                                                        int(std::floor(feet.z))};
+                        vitals.setLandingFactor(reg.blockOf(world.getBlock(under)) == mc::world::blocks::HayBlock ? 0.2f
+                                                                                                             : 1.0f);
+                    }
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(),
                                 player.flying() || player.gliding() || player.climbing()); // (ladders: no fall)
                     if (const float impact = player.takeImpact(); impact > 0.0f) vitals.damage(impact); // (armour doesn't help)
@@ -1429,6 +1436,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         vitals.setOnFire(300); // 15 s
                     }
                     vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
+                    // A lit campfire burns what stands in it: 1, soul campfires 2 (wiki: Campfire).
+                    {
+                        const mc::world::BlockPos in{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+                        const auto inState = world.getBlock(in);
+                        const auto inBlock = reg.blockOf(inState);
+                        if ((inBlock == mc::world::blocks::Campfire || inBlock == mc::world::blocks::SoulCampfire) &&
+                            reg.get(inState, mc::world::properties::lit) == 0)
+                            vitals.attacked(inBlock == mc::world::blocks::SoulCampfire ? 2.0f : 1.0f, nullptr,
+                                            mc::Vitals::Hit::Fire);
+                    }
                     // Touching a cactus (beside or on top) hurts 1 (wiki: Cactus); our
                     // cactus collides as a full cube, so the box reaches out a hair.
                     if (mc::portals::touching(world, player.box().inflated(0.001), mc::world::blocks::Cactus))
@@ -1481,6 +1498,51 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
+            // Campfires (M23.4c): raw food goes on (any lit or unlit campfire with room), a
+            // shovel puts it out, flint and steel lights it again (wiki: Campfire).
+            if (!dead && clicks.useClick && lastHit) {
+                const auto cst = world.getBlock(lastHit->block);
+                const auto cb = reg.blockOf(cst);
+                if (cb == mc::world::blocks::Campfire || cb == mc::world::blocks::SoulCampfire) {
+                    const mc::world::ItemStack held = inventory.selectedStack();
+                    const auto& hdef = mc::world::itemRegistry().item(held.item);
+                    const bool isLit = reg.get(cst, mc::world::properties::lit) == 0;
+                    mc::world::Chunk* cc = world.chunk(lastHit->block.chunk());
+                    mc::world::CampfireData* cf =
+                        cc ? cc->campfire(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
+                                          mc::world::blockToLocal(lastHit->block.z))
+                           : nullptr;
+                    bool acted = false;
+                    if (cf && hdef.food > 0 && mc::smelt(held)) {
+                        for (auto& slot : cf->items)
+                            if (slot.empty()) {
+                                slot = {held.item, 1};
+                                if (survival) inventory.consumeSelected(1);
+                                cc->markDirty();
+                                acted = true;
+                                break;
+                            }
+                    } else if (isLit && hdef.tool == mc::world::ToolType::Shovel) {
+                        world.updateBlock(lastHit->block, reg.set(cst, mc::world::properties::lit, 1));
+                        world.playSound(mc::world::Sound::Fizz, lastHit->block.x + 0.5, lastHit->block.y + 0.5,
+                                        lastHit->block.z + 0.5);
+                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish, lastHit->block.x + 0.5,
+                                         lastHit->block.y + 0.5, lastHit->block.z + 0.5);
+                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        frameEdits.push_back(lastHit->block);
+                        acted = true;
+                    } else if (!isLit && hdef.id == "minecraft:flint_and_steel") {
+                        world.updateBlock(lastHit->block, reg.set(cst, mc::world::properties::lit, 0));
+                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        frameEdits.push_back(lastHit->block);
+                        acted = true;
+                    }
+                    if (acted) {
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
+            }
             if (!dead && clicks.useClick && lastHit &&
                 reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Tnt) {
                 // Flint and steel or a fire charge lights TNT (wiki: TNT).
@@ -2140,6 +2202,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
                 for (auto& br : c.brewingStands()) // brewing stands brew (M19.4)
                     if (mc::tickBrewing(br.data)) c.markDirty();
+                // Campfires cook each item for 600 ticks, then drop it cooked above
+                // (M23.4c; wiki: Campfire).
+                for (auto& cf : c.campfires()) {
+                    if (reg.get(c.get(cf.x, cf.y, cf.z), mc::world::properties::lit) != 0) continue; // (out: no cooking)
+                    std::array<mc::world::ItemStack, 4> done{};
+                    const int n = mc::tickCampfire(cf.data, done);
+                    for (int i = 0; i < n; ++i)
+                        droppedItems.spawn({c.pos().x * 16 + cf.x + 0.5, cf.y + 1.0, c.pos().z * 16 + cf.z + 0.5},
+                                           done[size_t(i)], gameRng);
+                    if (n > 0) c.markDirty();
+                }
                 for (auto& f : c.furnaces()) {
                     const bool changedLit = mc::tickFurnace(f.data);
                     if (f.data.lit() || f.data.cookTime > 0 || changedLit) c.markDirty();
@@ -2528,6 +2601,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 for (int dx = -3; dx <= 3; ++dx) {
                     const mc::world::Chunk* ch = world.chunk({cc.x + dx, cc.z + dz});
                     if (!ch) continue;
+                    for (const auto& cf : ch->campfires()) // food cooking on campfires (M23.4c)
+                        for (int i = 0; i < 4; ++i)
+                            if (!cf.data.items[size_t(i)].empty()) {
+                                static constexpr double kSlot[4][2] = {{0.3, 0.3}, {0.7, 0.3}, {0.7, 0.7}, {0.3, 0.7}};
+                                const glm::dvec3 at(ch->pos().x * 16 + cf.x + kSlot[i][0], cf.y + 0.45,
+                                                    ch->pos().z * 16 + cf.z + kSlot[i][1]);
+                                entities.addItem(cf.data.items[size_t(i)], at, float(i) * 90.0f, 0.0f,
+                                                 lightTable[15 * 16 + 15], camera.position);
+                            }
                     for (const auto& sg : ch->signs()) {
                         const auto st = ch->get(sg.x, sg.y, sg.z);
                         const mc::world::BlockKind k = reg.kind(reg.blockOf(st));

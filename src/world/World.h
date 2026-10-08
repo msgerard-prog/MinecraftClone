@@ -111,7 +111,8 @@ public:
             Chunk* c = chunk(m_ticking[r]);
             if (!c) continue; // unloaded: drop it
             if (c->furnaces().empty() && c->mobs().empty() && c->blockTicks().empty() && c->spawners().empty() &&
-                c->brewingStands().empty() && c->comparators().empty() && c->hoppers().empty()) {
+                c->brewingStands().empty() && c->comparators().empty() && c->hoppers().empty() &&
+                c->campfires().empty()) {
                 c->inTickingList = false; // nothing left: drop it
                 continue;
             }

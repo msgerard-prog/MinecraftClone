@@ -25,6 +25,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.spawners = chunk.spawners();
     s.brewing = chunk.brewingStands();
     s.signs = chunk.signs();
+    s.campfires = chunk.campfires();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
@@ -372,6 +373,25 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& cf : chunk.campfires) { // wiki: Campfire › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:campfire"));
+        e.put("x", int32_t{chunk.pos.x * 16 + cf.x});
+        e.put("y", int32_t{cf.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + cf.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> items;
+        std::vector<int32_t> times, totals;
+        for (int i = 0; i < 4; ++i) {
+            if (!cf.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(cf.data.items[size_t(i)], i));
+            times.push_back(cf.data.cookTime[size_t(i)]);
+            totals.push_back(600);
+        }
+        e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+        e.put("CookingTimes", std::move(times));
+        e.put("CookingTotalTimes", std::move(totals));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& sg : chunk.signs) { // wiki: Sign › Block data (front_text / back_text)
         nbt::Compound e;
         e.put("id", std::string(sg.data.hanging ? "minecraft:hanging_sign" : "minecraft:sign"));
@@ -621,7 +641,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
-                        *id != "minecraft:hanging_sign"))
+                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -654,6 +674,22 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =
                     static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
+            if (*id == "minecraft:campfire") {
+                const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
+                if (cb != blocks::Campfire && cb != blocks::SoulCampfire) continue;
+                CampfireData& cf = chunk.addCampfire(x, y, z);
+                if (const nbt::List* items = e->list("Items"))
+                    for (const nbt::Tag& it : items->items)
+                        if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                            const auto slot = ic->integer("Slot").value_or(-1);
+                            if (slot >= 0 && slot < 4) cf.items[size_t(slot)] = itemFromNbt(*ic);
+                        }
+                if (const nbt::Tag* times = e->find("CookingTimes"))
+                    if (const auto* a = times->get<std::vector<int32_t>>())
+                        for (size_t i = 0; i < a->size() && i < 4; ++i)
+                            cf.cookTime[i] = int16_t(std::clamp((*a)[i], 0, 600));
                 continue;
             }
             if (*id == "minecraft:sign" || *id == "minecraft:hanging_sign") {

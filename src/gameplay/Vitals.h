@@ -20,6 +20,8 @@ public:
     static constexpr int kMaxFood = 20;
 
     float health() const { return m_health; }
+    // The fall damage factor of the block being landed on (hay bale 0.2), set each tick.
+    void setLandingFactor(float f) { m_landingFactor = f; }
     void setVoidY(double y) { m_voidY = y; } // per dimension
     int food() const { return m_food; }
     float saturation() const { return m_saturation; }
@@ -153,6 +155,7 @@ public:
     void setState(float health, int food, float saturation, float exhaustion);
 
 private:
+    float m_landingFactor = 1.0f;
     float m_health = kMaxHealth;
     int m_food = kMaxFood;
     float m_saturation = 5.0f;

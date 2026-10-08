@@ -323,8 +323,14 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("torch")}}, "lantern"));
         r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("soul_torch")}}, "soul_lantern"));
         r.push_back(shaped({"N", "I", "N"}, {{'N', nugget}, {'I', item("iron_ingot")}}, "chain"));
-        for (const char* soil : {"soul_sand", "soul_soil"})
+        for (const char* soil : {"soul_sand", "soul_soil"}) {
             r.push_back(shaped({"C", "S", "X"}, {{'C', kCoal}, {'S', stick}, {'X', item(soil)}}, "soul_torch", 4));
+            r.push_back(shaped({".S.", "SXS", "LLL"}, {{'S', stick}, {'X', item(soil)}, {'L', kLogs}}, "soul_campfire"));
+        }
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("wheat")}}, "hay_block")); // (wiki: Hay Bale)
+        r.push_back(shapeless({item("hay_block")}, "wheat", 9));
+        // Campfire (wiki): sticks around coal over three logs.
+        r.push_back(shaped({".S.", "SCS", "LLL"}, {{'S', stick}, {'C', kCoal}, {'L', kLogs}}, "campfire"));
         r.push_back(shapeless({item("iron_ingot")}, "iron_nugget", 9));
         r.push_back(shaped({"###", "###", "###"}, {{'#', nugget}}, "iron_ingot"));
         r.push_back(shapeless({item("gold_ingot")}, "gold_nugget", 9));

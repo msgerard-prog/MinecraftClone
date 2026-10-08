@@ -22,7 +22,7 @@ M23 - Building blocks & workstations (wiki pages of each block):
 3. ✅ M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,
    trapdoors, fences, gates, buttons and plates (the M21 oak-only code generalised by
    kind); signs and hanging signs with text editing and rendering.
-4. M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16
+4. ✅ M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16
    terracottas and glazed terracottas, the copper family (oxidation on random ticks,
    honeycomb waxing, axe scraping, copper bulbs), campfires (cooking, smoke, damage).
 5. M23.5 - Workstations 1: stonecutter, smoker, blast furnace, barrel, composter,

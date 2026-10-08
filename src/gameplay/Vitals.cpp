@@ -194,7 +194,8 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         const float amount =
             static_cast<float>(std::ceil(m_fallStartY - feetY - 3.0 - effectLevel(world::Effect::JumpBoost)));
         // Armor doesn't help with falls; Feather Falling and Protection do.
-        const float reduced = protectionReduced(amount, Hit::Generic, true);
+        // Landing on a hay bale takes 80% off (wiki: Hay Bale; main tells us the block).
+        const float reduced = protectionReduced(amount, Hit::Generic, true) * m_landingFactor;
         if (reduced > 0.0f && damage(reduced, false)) hurt += reduced;
         m_falling = false;
     }

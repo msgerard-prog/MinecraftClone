@@ -66,4 +66,17 @@ int takeFurnaceExperience(Furnace& f, world::Xoroshiro& rng) {
     return xp;
 }
 
+int tickCampfire(world::CampfireData& campfire, std::array<world::ItemStack, 4>& done) {
+    int n = 0;
+    for (size_t i = 0; i < 4; ++i) {
+        world::ItemStack& it = campfire.items[i];
+        if (it.empty() || ++campfire.cookTime[i] < 600) continue;
+        const auto cooked = smelt(it);
+        done[size_t(n++)] = cooked ? *cooked : it;
+        it = {};
+        campfire.cookTime[i] = 0;
+    }
+    return n;
+}
+
 } // namespace mc

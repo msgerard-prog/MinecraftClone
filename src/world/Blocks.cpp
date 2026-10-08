@@ -61,6 +61,7 @@ const Property hanging{"hanging", {"true", "false"}};
 const Property bambooLeaves{"leaves", {"none", "small", "large"}};
 const Property rotation16{"rotation", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
 const Property attached{"attached", {"true", "false"}};
+const Property signalFire{"signal_fire", {"true", "false"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
@@ -890,6 +891,21 @@ BlockRegistry buildVanillaBlocks() {
                            .randomTicks = true, .tool = HarvestTool::Axe},
                 {{&bambooLeaves, "none"}, {&stage, "0"}}),
           blocks::Bamboo);
+    // Campfires (M23.4c; wiki: Campfire - 2.0 hardness, light 15 / soul 10 when lit).
+    for (const auto& [id, block, light] : {std::tuple{"campfire", blocks::Campfire, uint8_t(15)},
+                                           std::tuple{"soul_campfire", blocks::SoulCampfire, uint8_t(10)}}) {
+        check(r.add(id, {.hardness = 2.0f, .resistance = 2.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                         .tool = HarvestTool::Axe},
+                    {{&facing, "north"}, {&lit, "true"}, {&signalFire, "false"}}),
+              block);
+        for (uint32_t k = 0; k < r.block(block).stateCount; ++k) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(block).firstState + k);
+            r.setStateEmission(s, r.get(s, lit) == 0 ? light : 0);
+        }
+    }
+    // Hay bale (wiki: Hay Bale - 0.5, hoe; landing on it takes 80% of the fall damage).
+    check(r.add("hay_block", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Hoe}, {{&axis, "y"}}),
+          blocks::HayBlock);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

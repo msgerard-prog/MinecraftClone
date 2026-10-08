@@ -170,7 +170,7 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                         emitQuad(dst, v, false);
                         emitReversed(dst, v);
                     }
-                    continue;
+                    if (model.boxCount == 0) continue; // (campfires: a cross over boxes)
                 }
                 if (model.boxCount > 0) {
                     // Non-cube model: box faces, lit by the block's own cell, no AO.

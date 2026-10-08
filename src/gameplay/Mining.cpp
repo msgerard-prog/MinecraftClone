@@ -526,6 +526,12 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::NetherQuartzOre:
         add(d.quartz);
         return;
+    case blocks::Campfire: // wiki: Campfire - 2 charcoal; soul campfires a soul soil
+        add(*itemRegistry().find("charcoal"), 2);
+        return;
+    case blocks::SoulCampfire:
+        add(*itemRegistry().find("soul_soil"));
+        return;
     case blocks::NetherGoldOre: // wiki: Nether Gold Ore - 2-6 gold nuggets
         add(*itemRegistry().find("gold_nugget"), between(2, 6));
         return;

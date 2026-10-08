@@ -190,6 +190,10 @@ straight|inner_left|inner_right|outer_left|outer_right) and walls (`up`, `north`
 states read back by name. Vanilla's `waterlogged` property isn't modelled (states with
 it load with it ignored). New materials: brick, nether_brick, clay_ball items.
 
+## Campfires (M23.4c)
+block_entities `minecraft:campfire`: `Items` (Slot 0-3), `CookingTimes` and
+`CookingTotalTimes` (int arrays, 600).
+
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are

@@ -423,6 +423,23 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite(topName.c_str());
                 v.faces[int(Direction::Down)].sprite = sprite(topName.c_str());
                 m = single(v);
+            } else if (name == "campfire" || name == "soul_campfire") {
+                // Two logs one way under two the other way, embers between, and the
+                // flames as a cross when lit (wiki: Campfire).
+                const bool on = registry.value(state, "lit") == "true";
+                const bool soul = name == "soul_campfire";
+                m.visible = true;
+                const uint16_t log = sprite("campfire_log");
+                const uint16_t burning = sprite(soul ? "soul_campfire_log_lit" : "campfire_log_lit");
+                addBox(m, 1, 0, 0, 5, 4, 16, log);
+                addBox(m, 11, 0, 0, 15, 4, 16, log);
+                addBox(m, 0, 3, 1, 16, 7, 5, on ? burning : log);
+                addBox(m, 0, 3, 11, 16, 7, 15, on ? burning : log);
+                addBox(m, 5, 0, 5, 11, 1, 11, on ? burning : log); // the embers
+                if (on) {
+                    m.cross = true;
+                    m.crossSprite = sprite(soul ? "soul_campfire_fire" : "campfire_fire");
+                }
             } else if (ends("copper_bulb")) { // lit and powered textures (wiki: Copper Bulb)
                 const bool on = registry.value(state, "lit") == "true", pow = registry.value(state, "powered") == "true";
                 m = single(cubeAll(sprite((name + (on ? "_lit" : "") + (pow ? "_powered" : "")).c_str())));
@@ -880,6 +897,11 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m = single(cubeAll(sprite("lava_still")));
                 m.fluid = true;
                 m.cullSame = true;
+            } else if (!atlas.has(name) && atlas.has(name + "_side") && registry.value(state, "axis") &&
+                       atlas.has(name + "_top")) {
+                // A pillar with "_side"/"_top" textures (hay bale).
+                m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
             } else if (!atlas.has(name) && atlas.has(name + "_side")) {
                 // <name>_side / _top / _bottom textures (quartz block...)
                 BakedVariant v = cubeAll(sprite((name + "_side").c_str()));

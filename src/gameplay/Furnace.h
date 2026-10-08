@@ -23,4 +23,9 @@ int recipesExperience(std::span<const world::FurnaceData::RecipeUse> used, world
 // taken, or the furnace is broken).
 int takeFurnaceExperience(Furnace& f, world::Xoroshiro& rng);
 
+// A lit campfire's tick (M23.4c; wiki: Campfire): each item cooks for 600 ticks, then
+// comes off cooked (written to `done`, the count returned; items that don't cook are
+// dropped as they are).
+int tickCampfire(world::CampfireData& campfire, std::array<world::ItemStack, 4>& done);
+
 } // namespace mc

@@ -17,7 +17,8 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     slot = std::move(chunk);
     slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
-        !slot->brewingStands().empty() || !slot->comparators().empty() || !slot->hoppers().empty())
+        !slot->brewingStands().empty() || !slot->comparators().empty() || !slot->hoppers().empty() ||
+        !slot->campfires().empty())
         markTicking(slot->pos());
     return *slot;
 }
@@ -72,6 +73,12 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
                k == BlockKind::WallHangingSign;
     };
     if (was != b && isSign(was)) c->removeBlockEntity(x, p.y, z); // (M23.3c)
+    const auto isCampfire = [](BlockId id) { return id == blocks::Campfire || id == blocks::SoulCampfire; };
+    if (was != b && isCampfire(was)) c->removeBlockEntity(x, p.y, z); // (M23.4c)
+    if (b != was && isCampfire(b)) {
+        c->addCampfire(x, p.y, z);
+        markTicking(c->pos());
+    }
     if (b != was && isSign(b)) {
         const BlockKind k = blockRegistry().kind(b);
         c->addSign(x, p.y, z).hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;

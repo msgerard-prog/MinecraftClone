@@ -1,4 +1,5 @@
 // Building blocks (M23.1): slabs, stairs, walls (wiki: Slab, Stairs, Wall).
+#include "gameplay/Furnace.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Recipes.h"
 #include "world/BlockShapes.h"
@@ -352,4 +353,42 @@ TEST_CASE("copper: oxidizes over random ticks unless waxed; axes scrape, honeyco
     // Copper doors open by hand, need a pickaxe and never burn.
     CHECK(harvestInfo(B("copper_door")).tool == ToolType::Pickaxe);
     CHECK(BlockUpdates::igniteOdds(B("copper_door")) == 0);
+}
+
+TEST_CASE("campfires: cook in 30 s, signal over hay, drop charcoal, save their food (M23.4c)") {
+    CampfireData cf;
+    cf.items[0] = {*itemRegistry().find("beef"), 1};
+    std::array<ItemStack, 4> done{};
+    int n = 0;
+    for (int t = 0; t < 599 && n == 0; ++t)
+        n = tickCampfire(cf, done);
+    CHECK(n == 0);
+    n = tickCampfire(cf, done); // the 600th tick
+    REQUIRE(n == 1);
+    CHECK(done[0].item == *itemRegistry().find("cooked_beef"));
+    CHECK(cf.items[0].empty());
+    Scene s;
+    s.world.setBlock({0, 64, 0}, R().defaultState(blocks::HayBlock));
+    const auto signal = BlockUpdates::placement(s.world, R().defaultState(blocks::Campfire), {0, 65, 0}, Direction::Up, 0, 0);
+    REQUIRE(signal);
+    CHECK(R().value(*signal, "signal_fire") == "true");
+    CHECK(R().lightEmission(R().defaultState(blocks::Campfire)) == 15);
+    CHECK(R().lightEmission(R().set(R().defaultState(blocks::SoulCampfire), properties::lit, 1)) == 0);
+    Xoroshiro rng(2);
+    std::vector<ItemStack> drops;
+    blockDrops(R().defaultState(blocks::Campfire), {}, rng, drops);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].item == *itemRegistry().find("charcoal"));
+    CHECK(drops[0].count == 2);
+    // The food on it saves with the chunk.
+    s.world.updateBlock({4, 64, 4}, R().defaultState(blocks::Campfire));
+    Chunk* c = s.world.chunk({0, 0});
+    REQUIRE(c->campfire(4, 64, 4));
+    c->campfire(4, 64, 4)->items[2] = {*itemRegistry().find("porkchop"), 1};
+    c->campfire(4, 64, 4)->cookTime[2] = 123;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*c, 0)), back));
+    REQUIRE(back.campfire(4, 64, 4));
+    CHECK(back.campfire(4, 64, 4)->items[2].item == *itemRegistry().find("porkchop"));
+    CHECK(back.campfire(4, 64, 4)->cookTime[2] == 123);
 }

@@ -124,6 +124,8 @@ BlockShape compute(BlockStateId s) {
         return a == 0 ? box(0, 6, 6, 16, 10, 10) : a == 1 ? box(6, 0, 6, 10, 16, 10) : box(6, 6, 0, 10, 10, 16);
     }
     case B::Bamboo: return box(6, 0, 6, 9, 16, 9); // (vanilla: 3x3, offset per position)
+    case B::Campfire: // (wiki: Campfire - 7 pixels tall)
+    case B::SoulCampfire: return box(0, 0, 0, 16, 7, 16);
     case B::MangroveRoots: return BlockShape{}; // (a full block to stand on)
     case B::Ladder: // against the block behind it: facing north hangs on the south side
         return panel(oppositeH(r.get(s, facing)));

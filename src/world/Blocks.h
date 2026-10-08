@@ -55,6 +55,7 @@ extern const Property hanging; // true | false (lanterns)
 extern const Property bambooLeaves; // "leaves": none | small | large
 extern const Property rotation16;   // "rotation": 0..15 (standing signs; 22.5 degrees each, 0 = facing south)
 extern const Property attached;     // true | false (hanging signs on chains to one block)
+extern const Property signalFire;   // "signal_fire": true | false (campfires over hay)
 extern const Property inWall;    // "in_wall": true | false (fence gates)
 extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east
@@ -327,6 +328,9 @@ enum : BlockId {
     BambooPlanks,
     BambooMosaic,
     Bamboo,            // leaves (none | small | large), stage (0 | 1: ready to grow)
+    Campfire,          // facing, lit, signal_fire (M23.4c)
+    SoulCampfire,
+    HayBlock,          // axis (M23.4c; signal fires, softer landings)
     Count
 };
 } // namespace blocks

@@ -290,6 +290,17 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
             dust({b.x + rng.nextDouble(), b.y + 0.06, b.z + rng.nextDouble()}, redstoneColor(power));
         break;
     }
+    case blocks::Campfire: // campfire smoke: tall columns, taller from a signal fire (wiki: Campfire)
+    case blocks::SoulCampfire:
+        if (R().get(s, properties::lit) == 0 && rng.nextInt(3) == 0) {
+            smoke({c.x + centred(rng) * 0.3, b.y + 0.5, c.z + centred(rng) * 0.3}, true, rng);
+            Particle& last = m_particles[m_particles.size() < size_t(kMax) ? m_particles.size() - 1 : (m_next + kMax - 1) % kMax];
+            last.lifetime = int16_t(R().get(s, properties::signalFire) == 0 ? 240 : 100); // (rises 5+ blocks)
+            last.gravity = -0.006f;
+            last.color = glm::vec3(0.55f);
+            if (rng.nextInt(10) == 0) world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f, 1.0f);
+        }
+        break;
     case blocks::Fire: // rising large smoke (wiki: Fire); crackling 1 in 24
         if (rng.nextInt(24) == 0)
             world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f + rng.nextFloat(), 1.0f);
