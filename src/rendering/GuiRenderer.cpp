@@ -47,7 +47,8 @@ GuiRenderer::~GuiRenderer() {
 }
 
 int GuiRenderer::guiScale(int width, int height) {
-    return std::max(1, std::min(width / 320, height / 240));
+    const int fits = std::max(1, std::min(width / 320, height / 240)); // vanilla auto: the largest that fits
+    return s_scaleSetting > 0 ? std::min(s_scaleSetting, fits) : fits;
 }
 
 bool GuiRenderer::init(const PackStack& packs, const TextureAtlas& atlas) {

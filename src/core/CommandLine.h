@@ -20,10 +20,12 @@ struct LaunchOptions {
     bool hidden = false;        // no visible window (screenshot runs)
     bool mute = false;          // --mute: no sound (also implied by --hidden and --screenshot)
     bool sound = false;         // --sound: sound even in hidden/screenshot runs (audio checks)
+    std::string menu;           // --menu title|worlds|create|options|pause: show that screen (screenshots)
     bool vsync = true;          // --no-vsync: measure real frame cost
     std::string resourcePacks;  // --resourcepacks DIR (default: <repo>/resourcepacks)
     bool flat = false;          // --flat: the M2 superflat test world instead of terrain
     int renderDistance = 16; // --render-distance N (chunks, 2..32; 1.21.11 default "Far", 16)
+    bool renderDistanceSet = false; // given on the command line (overrides options.txt)
     bool autoFly = false;  // --auto-fly: fly forward at 4x sprint speed (streaming benchmark)
     int maxFps = 0;        // --max-fps N: sleep to cap the frame rate (0 = uncapped)
     bool demoEdit = false; // --demo-edit: scripted break/place after loading (visual test)
@@ -39,6 +41,8 @@ struct LaunchOptions {
     int openBlock[3] = {0, 0, 0};
     std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start
     std::string world;                 // --world NAME: saves/<NAME> (created if missing)
+    std::string worldTitle;            // a new world's LevelName (menus; default: the folder)
+    bool survival = false;             // new worlds start in survival (menus; default creative)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit
     std::string generator = "overworld2"; // --generator overworld2|overworld|terrain (new worlds; newest default)

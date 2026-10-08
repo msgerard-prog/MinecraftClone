@@ -24,7 +24,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
+`--hidden`, `--menu title|worlds|create|options|pause` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
 runs default to "New World"), `--no-save`, `--generator overworld2|overworld|terrain` (new worlds; overworld2 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--pos x,y,z`, `--look yaw,pitch` (vanilla
@@ -33,7 +33,7 @@ Each run logs "World meshed in …" and frame-time stats at exit; measure perfor
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`
 (streaming stress: add `--auto-fly --max-fps 240 --frames 2400`; logs CPU work and GPU time).
 Add new args in `core/CommandLine.*` + its test and list them here.
-Controls: click to capture mouse, Esc releases; WASD walk, space jump (double-tap: fly),
+Controls: title screen first (interactive runs without --world); click to capture mouse, Esc = Game Menu (pauses); WASD walk, space jump (double-tap: fly),
 shift sneak / fly down, ctrl sprint, left click break (or hit the mob in front), right click place, 1-9 / wheel
 select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /setblock /fill /summon (with {Color:14b,Age:-24000,...}; lightning_bolt) /weather /xp /seed /help),
 E inventory (creative: item list; survival: 2x2 crafting), Q drop item, right-click animals

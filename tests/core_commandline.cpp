@@ -161,4 +161,8 @@ TEST_CASE("command line: --mute") {
     REQUIRE(opts.has_value());
     CHECK(opts->mute);
     CHECK(opts->sound);
+    std::array<const char*, 2> menu = {"--menu", "worlds"};
+    CHECK(mc::parseCommandLine(menu, error)->menu == "worlds");
+    std::array<const char*, 2> bad = {"--menu", "nope"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }

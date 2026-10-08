@@ -29,6 +29,8 @@ public:
         "hud/armor_full.png", "hud/armor_half.png", "hud/armor_empty.png"};
     // Vanilla "auto" GUI scale: the largest whole scale that keeps 320x240 GUI pixels.
     static int guiScale(int width, int height);
+    // The GUI Scale option (M22.5): 0 = auto, else that scale when it fits.
+    static void setScaleSetting(int scale) { s_scaleSetting = scale; }
 
     // A batch set up with this renderer's font and atlas layout (reserve done).
     GuiBatch& batch() { return m_batch; }
@@ -36,6 +38,7 @@ public:
     void draw(int framebufferWidth, int framebufferHeight);
 
 private:
+    static inline int s_scaleSetting = 0;
     Shader m_shader;
     uint32_t m_vao = 0;
     uint32_t m_vbo = 0;

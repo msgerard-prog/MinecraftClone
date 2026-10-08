@@ -25,6 +25,13 @@ never create a GL context.
 ```
 poll input → clock.advance(frameTime) → tick() × ticksDue (20 TPS) → render(alpha) → swap
 ```
+M22.5: `main()` creates the window, renderer, GUI and audio once, loads `options.txt`
+(`core/GameOptions`, vanilla keys) and runs the menus (`runMenus`: title, world list,
+create world, options; `ui/Menus` draws them through the immediate-mode `ui/Menu`
+widgets) until a world is chosen; `runSession` is one world from loading to saving
+(the loop above) and returns to the title on "Save and Quit to Title". `--world`,
+`--no-save`, screenshot and hidden runs go straight to `runSession`. The Game Menu
+(Esc) pauses the session: the clock advances by 0, the menu takes the input.
 - **Tick** (50 ms, fixed): all simulation — player physics (`gameplay/Player`:
   vanilla acceleration/friction/gravity, axis-by-axis AABB collision, step-up,
   sneak edge protection, creative flight), block interaction (`BlockInteraction`:

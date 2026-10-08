@@ -175,6 +175,8 @@ bool Window::rightMousePressed() const {
     return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 }
 
+void Window::setVsync(bool on) { glfwSwapInterval(on ? 1 : 0); }
+
 void Window::setTitle(const char* title) { glfwSetWindowTitle(m_window, title); }
 
 void Window::setCursorCaptured(bool captured) {

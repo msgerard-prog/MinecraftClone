@@ -91,6 +91,11 @@ public:
     const glm::vec3& skyColor() const { return m_skyColor; }
     // Game ticks + partial tick: the clouds' drift (wiki: Cloud - set by world time).
     void setCloudTime(double ticks) { m_cloudTime = ticks; }
+    void setClouds(bool on) { m_cloudsOn = on; } // options: Clouds Fancy / OFF
+    // Menus with no world behind them: clear the screen (a dark background).
+    void clearScreen(int framebufferWidth, int framebufferHeight);
+    // Drops every section mesh (a new world, or another dimension).
+    void clearWorld();
     // Night vision (M19.4): everything lit as if at full light (vanilla scales the
     // lightmap to full brightness).
     void setNightVision(bool on) { m_nightVision = on; }
@@ -145,6 +150,7 @@ private:
     SkyRenderer m_sky;
     CloudRenderer m_clouds;
     double m_cloudTime = 0.0;
+    bool m_cloudsOn = true;
     glm::vec4 m_cloudColor{1.0f};
     uint32_t m_tintPalette = 0; // SSBO binding 1: biome tint colours
     static constexpr int kQueryRing = 4;

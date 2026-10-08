@@ -79,7 +79,7 @@ with the old M3 placeholder terrain instead of the default "overworld2". Screens
 given `--world`.
 
 ## Controls
-Click the window to capture the mouse (Esc releases it). WASD to walk, Space to jump,
+`tools/run.sh` opens the title screen: Singleplayer lists your worlds (or create one: name, seed, Survival/Creative, Default/Superflat); Options... sets FOV, render/simulation distance, sensitivity, GUI scale, volume, clouds and VSync (saved in `options.txt`). In a world, Esc opens the Game Menu (the game pauses; Save and Quit to Title). Click the window to capture the mouse. WASD to walk, Space to jump,
 Left Shift to sneak, Left Ctrl to sprint. Double-tap Space to start/stop flying
 (creative); while flying, Space rises and Shift descends. Left click breaks the block
 under the crosshair, right click places the selected block; 1-9 or the mouse wheel

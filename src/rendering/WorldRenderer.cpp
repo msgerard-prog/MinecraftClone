@@ -138,6 +138,10 @@ void WorldRenderer::setDimension(world::Dimension d) {
     m_minSection = world::dimensionInfo(d).height.minSection(); // vanilla heights per dimension
     m_maxSection = world::dimensionInfo(d).height.maxSection();
     if (!changed) return;
+    clearWorld();
+}
+
+void WorldRenderer::clearWorld() {
     m_chunks.removeAll();
     m_translucent.removeAll();
     m_dirtyList.clear();
@@ -414,11 +418,17 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glDisable(GL_BLEND);
     // Clouds (Overworld; none below render distance 4, wiki: Cloud), last: they're
     // translucent and almost always farther than water surfaces.
-    if (m_dimension == world::Dimension::Overworld && m_renderDistance >= 4)
+    if (m_dimension == world::Dimension::Overworld && m_renderDistance >= 4 && m_cloudsOn)
         m_clouds.draw(camera, viewProj, m_cloudTime, float(m_renderDistance * 16), m_cloudColor);
     glEndQuery(GL_TIME_ELAPSED);
     m_queryPending[q] = true;
     m_queryIndex = (q + 1) % kQueryRing;
+}
+
+void WorldRenderer::clearScreen(int framebufferWidth, int framebufferHeight) {
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 } // namespace mc::gfx

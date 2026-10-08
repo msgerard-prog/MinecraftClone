@@ -23,7 +23,7 @@ M22 - World & presentation:
 4. ✅ M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
    synthesized sounds - footsteps by block, breaking/placing, mobs, explosions,
    ambience, music later.
-5. M22.5 - Menus: title screen, world list and creation (name, seed, game mode -
+5. ✅ M22.5 - Menus: title screen, world list and creation (name, seed, game mode -
    survival by default, generator), pause menu, options (render distance, FOV,
    sensitivity, GUI scale, volume, graphics).
 

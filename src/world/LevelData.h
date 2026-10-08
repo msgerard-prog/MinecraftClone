@@ -36,6 +36,7 @@ struct LevelData {
     // Vanilla worlds (no MinecraftClone compound) count as current: nothing to upgrade.
     int32_t cloneFormat = kCloneFormat;
     int64_t dayTime = 0;
+    int64_t lastPlayed = 0; // LastPlayed (read only: saving writes the current time)
     // Weather (M22.1; vanilla raining, rainTime, thundering, thunderTime, clearWeatherTime).
     bool raining = false, thundering = false;
     int32_t rainTime = 0, thunderTime = 0, clearWeatherTime = 0;

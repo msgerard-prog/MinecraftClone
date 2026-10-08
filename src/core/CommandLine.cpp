@@ -169,6 +169,7 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
                 error = "--render-distance needs 2..32";
                 return std::nullopt;
             }
+            opts.renderDistanceSet = true;
         } else if (arg == "--max-fps") {
             auto v = needValue();
             if (!v) return std::nullopt;
@@ -190,6 +191,15 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.mute = true;
         } else if (arg == "--sound") {
             opts.sound = true;
+        } else if (arg == "--menu") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            opts.menu = std::string(*v);
+            if (opts.menu != "title" && opts.menu != "worlds" && opts.menu != "create" && opts.menu != "options" &&
+                opts.menu != "pause") {
+                error = "--menu needs title|worlds|create|options|pause";
+                return std::nullopt;
+            }
         } else {
             error = "unknown option: " + std::string(arg);
             return std::nullopt;

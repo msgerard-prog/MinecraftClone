@@ -14,3 +14,4 @@ compile_commands.json
 .cache/
 # Python bytecode caches
 __pycache__/
+/options.txt

@@ -75,6 +75,7 @@ public:
     // Mouse wheel steps since the previous pollEvents (+ = up / away from you).
     double scrollDelta() const { return m_scrollDelta; }
     void setTitle(const char* title);
+    void setVsync(bool on); // (the window's context must be current: the main thread)
     // Presses since the last call (and resets the count).
     void addPress(Press p) { ++m_presses[static_cast<int>(p)]; } // re-queue a press
     int takePresses(Press p) {

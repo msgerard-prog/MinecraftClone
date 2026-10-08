@@ -2,6 +2,7 @@
 #include "core/CommandLine.h"
 #include "core/FrameStats.h"
 #include "core/GameClock.h"
+#include "core/Options.h"
 #include "core/Log.h"
 #include "core/Window.h"
 #include "gameplay/Beds.h"
@@ -17,6 +18,7 @@
 #include "rendering/OverlayRenderer.h"
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
+#include "world/WorldList.h"
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
@@ -49,6 +51,7 @@
 #include "gameplay/FluidContact.h"
 #include "gameplay/Portals.h"
 #include "rendering/GuiRenderer.h"
+#include "ui/Menus.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
@@ -198,36 +201,74 @@ void runDemoEdit(mc::world::World& world, mc::Player& player, mc::Inventory& inv
 
 } // namespace
 
-int main(int argc, char** argv) {
-    std::string error;
-    const auto opts = mc::parseCommandLine(
-        std::span<const char* const>(argv + 1, static_cast<size_t>(argc - 1)), error);
-    if (!opts) {
-        MC_LOG_ERROR("%s", error.c_str());
-        return 2;
-    }
-    if (opts->printVersion) {
-        std::printf("MinecraftClone %s (%s)\n", mc::version(), mc::buildString());
-        return 0;
-    }
-    MC_LOG_INFO("MinecraftClone %s (%s)", mc::version(), mc::buildString());
+namespace {
+
+// What a world session needs from main (M22.5: sessions start and end from the menus).
+struct Shared {
+    mc::Window& window;
+    mc::gfx::WorldRenderer& renderer;
+    mc::gfx::OverlayRenderer& overlay;
+    mc::gfx::GuiRenderer& gui;
+    mc::audio::SoundEngine& audio;
+    std::vector<std::vector<int>>& soundHandles;
+    mc::GameOptions& options;
+    std::filesystem::path optionsFile;
+    mc::ui::Menu& menu;
+    mc::ui::MenuState& menuState;
+    uint16_t dirtSprite;
+};
+enum class SessionEnd { Quit, ToTitle };
+
+// Settings that live outside a world (volume, VSync, GUI scale).
+void applyGlobalOptions(Shared& shared) {
+    shared.audio.setMasterVolume(shared.options.masterVolume);
+    shared.window.setVsync(shared.options.vsync);
+    mc::gfx::GuiRenderer::setScaleSetting(shared.options.guiScale);
+}
+
+// One frame of the menu screen: input in GUI pixels, the widgets, the GUI draw. With
+// `clear` the screen is cleared first (no world behind it).
+mc::ui::MenuAction drawMenuFrame(Shared& shared, int fbWidth, int fbHeight, bool clear) {
+    mc::Window& window = shared.window;
+    const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
+    mc::ui::MenuInput in;
+    window.cursorPos(in.mx, in.my);
+    in.mx /= scale;
+    in.my /= scale;
+    in.click = window.takePresses(mc::Press::LeftMouse) > 0;
+    in.mouseDown = window.leftMousePressed();
+    in.wheel = window.scrollDelta();
+    static char typed[64];
+    int n = window.takeText(typed, int(sizeof(typed)));
+    for (int b = window.takePresses(mc::Press::Backspace); b > 0 && n < int(sizeof(typed)); --b)
+        typed[n++] = '\b';
+    in.typed = std::string_view(typed, size_t(n));
+    in.enter = window.takePresses(mc::Press::Enter) > 0;
+    in.escape = window.takePresses(mc::Press::Escape) > 0;
+    in.timeMs = int64_t(mc::timeSeconds() * 1000.0);
+    if (clear) shared.renderer.clearScreen(fbWidth, fbHeight);
+    shared.menu.begin(shared.gui.batch(), fbWidth / scale, fbHeight / scale, in);
+    const auto action =
+        mc::ui::drawMenu(shared.menu, shared.menuState, shared.options, shared.dirtSprite, mc::version());
+    if (action == mc::ui::MenuAction::OptionsChanged || action == mc::ui::MenuAction::OptionsClosed)
+        applyGlobalOptions(shared);
+    if (action == mc::ui::MenuAction::OptionsClosed) shared.options.save(shared.optionsFile);
+    shared.gui.draw(fbWidth, fbHeight);
+    return action;
+}
+
+// One world from loading to saving: the game loop. Returns the exit code; `end` says
+// whether the player quit the game or went back to the title screen.
+int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) {
+    mc::Window& window = shared.window;
+    mc::gfx::WorldRenderer& renderer = shared.renderer;
+    mc::gfx::OverlayRenderer& overlay = shared.overlay;
+    mc::gfx::GuiRenderer& gui = shared.gui;
+    mc::audio::SoundEngine& audio = shared.audio;
+    std::vector<std::vector<int>>& soundHandles = shared.soundHandles;
     const bool screenshotMode = !opts->screenshotPath.empty();
-
-    mc::Window window;
-    if (!window.create(opts->width, opts->height, "MinecraftClone", !opts->hidden, opts->vsync)) {
-        MC_LOG_ERROR("Could not create an OpenGL 4.6 window");
-        return 1;
-    }
-    if (!mc::gfx::initOpenGl()) return 1;
-
-    mc::gfx::WorldRenderer renderer;
-    if (!renderer.init(opts->resourcePacks.empty() ? std::string(MC_RESOURCEPACKS_DIR)
-                                                   : opts->resourcePacks))
-        return 1;
-    mc::gfx::OverlayRenderer overlay;
-    if (!overlay.init()) return 1;
-    mc::gfx::GuiRenderer gui;
-    if (!gui.init(renderer.packs(), renderer.atlas())) return 1;
+    sessionEnd = SessionEnd::Quit;
+    renderer.clearWorld(); // (the previous world's meshes)
     mc::ui::Chat chat;
     mc::ui::DebugScreen debugScreen;
     mc::gfx::ItemIcons itemIcons;
@@ -426,7 +467,7 @@ int main(int argc, char** argv) {
     if (opts->autoFly) player.setFlySpeedMultiplier(4.0);
     mc::Inventory inventory;
     // Survival (M9): game mode, health/hunger, dropped items.
-    bool survival = level && level->survival;
+    bool survival = level ? level->survival : opts->survival; // (new worlds: the menu's game mode)
     mc::Vitals vitals;
     vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
     if (level) {
@@ -475,25 +516,6 @@ int main(int argc, char** argv) {
     mc::gfx::EntityRenderer entities;
     if (!entities.init(renderer.atlas(), renderer.models(), itemIcons, renderer.packs())) return 1;
 
-    // Sound (M22.4, ADR 0008): every sound event's files, loaded through the pack stack
-    // (a pack may replace any WAV). Screenshot and hidden runs stay silent.
-    mc::audio::SoundEngine audio;
-    std::vector<std::vector<int>> soundHandles(static_cast<size_t>(mc::world::kSoundCount));
-    if (!opts->mute && (opts->sound || (!opts->hidden && opts->screenshotPath.empty())) && audio.init()) {
-        int loaded = 0;
-        for (int s = 0; s < mc::world::kSoundCount; ++s)
-            for (const std::string& f : mc::world::soundInfo(static_cast<mc::world::Sound>(s)).files) {
-                const auto bytes = renderer.packs().read("assets/minecraft/sounds/" + f + ".wav");
-                const int h = bytes ? audio.load(*bytes) : -1;
-                if (h >= 0) {
-                    soundHandles[size_t(s)].push_back(h);
-                    ++loaded;
-                } else {
-                    MC_LOG_WARN("Sound: missing or unusable %s.wav", f.c_str());
-                }
-            }
-        MC_LOG_INFO("Sound: %d files loaded", loaded);
-    }
     mc::world::Xoroshiro soundRng(0x50'0d'5eedull);
     // Plays a sound event: one of its files at random, its volume and a pitch in its range.
     auto playSound = [&](mc::world::Sound s, const glm::dvec3& pos, float volume, float pitch, bool positional) {
@@ -603,7 +625,7 @@ int main(int argc, char** argv) {
             ++chunks;
         });
         mc::world::LevelData l;
-        l.name = worldName;
+        l.name = level ? level->name : (opts->worldTitle.empty() ? worldName : opts->worldTitle);
         l.seed = seed;
         l.flat = flatWorld;
         l.generator = generatorKind;
@@ -779,8 +801,24 @@ int main(int argc, char** argv) {
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
+    // Settings that touch this world (M22.5): view and simulation distance, clouds.
+    auto applySessionOptions = [&] {
+        const mc::GameOptions& o = shared.options;
+        if (loader && !screenshotMode && !opts->hidden && o.renderDistance != opts->renderDistance) {
+            opts->renderDistance = o.renderDistance;
+            loader->setRenderDistance(o.renderDistance);
+            renderer.setRenderDistance(o.renderDistance);
+        }
+        mobs.setSimulationDistance(o.simulationDistance);
+        renderer.setClouds(o.clouds);
+    };
+    applySessionOptions();
+    applyGlobalOptions(shared);
+    if (!screenshotMode && !opts->hidden) window.setCursorCaptured(true); // (into the game)
     while (!window.shouldClose()) {
         window.pollEvents();
+        // The Game Menu (Esc) pauses the game: no ticks, the menu takes the input.
+        const bool paused = shared.menuState.screen != mc::ui::MenuScreen::None;
         // An open chest screen follows its block(s) (closed if broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
         if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
@@ -815,8 +853,10 @@ int main(int argc, char** argv) {
             }
         }
         // Text typed this frame (only the chat consumes it).
-        const int typedCount = window.takeText(typed.data(), static_cast<int>(typed.size()));
-        if (chat.isOpen()) {
+        const int typedCount = paused ? 0 : window.takeText(typed.data(), static_cast<int>(typed.size()));
+        if (paused) {
+            // (the menu reads clicks, keys and text when it is drawn)
+        } else if (chat.isOpen()) {
             chat.type({typed.data(), size_t(typedCount)}); // backspaces included, in order
             window.takePresses(mc::Press::Backspace);
             for (int n = window.takePresses(mc::Press::Up); n > 0; --n)
@@ -979,10 +1019,11 @@ int main(int argc, char** argv) {
                     attackArmed = false;
                     window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
                 }
-                if (window.takePresses(mc::Press::Escape) > 0 && window.cursorCaptured()) {
+                if (window.takePresses(mc::Press::Escape) > 0) { // the Game Menu (vanilla pauses and saves)
                     window.setCursorCaptured(false);
                     blockUpdates.landAll();
-                    saveWorld(false); // vanilla saves when the game pauses
+                    saveWorld(false);
+                    shared.menuState.screen = mc::ui::MenuScreen::Pause;
                 }
             }
         }
@@ -997,7 +1038,7 @@ int main(int argc, char** argv) {
             window.takePresses(mc::Press::RightMouse);
             window.takePresses(mc::Press::Drop);
         }
-        player.turn(window.mouseDx(), window.mouseDy());
+        player.turn(window.mouseDx(), window.mouseDy(), shared.options.sensitivity);
         if (!window.leftMousePressed()) attackArmed = true;
 
         // Hotbar: number keys 1-9 and the mouse wheel.
@@ -1015,7 +1056,7 @@ int main(int argc, char** argv) {
         // Skips the first frame after meshing: it includes one-off driver warm-up
         // (first multi-draw), which is not a steady-state cost.
         if (frame > 1) frameStats.add((now - last) * 1000.0);
-        clock.advance(now - last);
+        clock.advance(paused ? 0.0 : now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
             // Changing dimension (M12): save, unload everything, switch the generator and
@@ -2163,6 +2204,7 @@ int main(int argc, char** argv) {
             }
         }
         mc::gfx::Camera camera;
+        camera.fovDegrees = shared.options.fov;
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
         audio.setListener(camera.position, camera.yaw);
@@ -2505,6 +2547,19 @@ int main(int argc, char** argv) {
             gui.draw(fbWidth, fbHeight);
         }
 
+        if (paused) { // the Game Menu over the world
+            const auto action = drawMenuFrame(shared, fbWidth, fbHeight, false);
+            if (action == mc::ui::MenuAction::Resume) {
+                shared.menuState.screen = mc::ui::MenuScreen::None;
+                window.setCursorCaptured(true);
+                last = mc::timeSeconds(); // (no catching up on the paused time)
+            } else if (action == mc::ui::MenuAction::SaveAndQuit) {
+                sessionEnd = SessionEnd::ToTitle;
+                break;
+            } else if (action == mc::ui::MenuAction::OptionsChanged || action == mc::ui::MenuAction::OptionsClosed) {
+                applySessionOptions();
+            }
+        }
         if (!meshed && renderer.pendingMeshes() == 0 && lighting.pending() == 0 &&
             (!loader || loader->pending() == 0) && renderer.stats().sections > 0) {
             meshed = true;
@@ -2556,4 +2611,170 @@ int main(int argc, char** argv) {
     MC_LOG_INFO("Last frame (translucent): sections drawn %d/%d, quads drawn %llu",
                 tst.sectionsDrawn, tst.sections, static_cast<unsigned long long>(tst.quadsDrawn));
     return exitCode;
+}
+
+
+// The menus between worlds (M22.5): draws the current screen each frame until the
+// player picks a world, creates one or quits.
+mc::ui::MenuAction runMenus(Shared& shared) {
+    mc::Window& window = shared.window;
+    mc::ui::MenuState& st = shared.menuState;
+    window.setCursorCaptured(false);
+    double last = mc::timeSeconds();
+    while (!window.shouldClose()) {
+        window.pollEvents();
+        int fbWidth = 0, fbHeight = 0;
+        window.framebufferSize(fbWidth, fbHeight);
+        if (fbWidth == 0 || fbHeight == 0) { // minimised
+            window.waitEvents(0.1);
+            continue;
+        }
+        const auto action = drawMenuFrame(shared, fbWidth, fbHeight, true);
+        window.swapBuffers();
+        const double now = mc::timeSeconds();
+        if (now - last < 1.0 / 120.0) std::this_thread::sleep_for(std::chrono::milliseconds(2)); // (menus: no need to spin)
+        last = now;
+        if (action == mc::ui::MenuAction::PlayWorld && st.selected >= 0 && st.selected < int(st.worlds.size()))
+            return action;
+        if (action == mc::ui::MenuAction::CreateWorld || action == mc::ui::MenuAction::Quit) return action;
+        if (action == mc::ui::MenuAction::DeleteWorld && st.selected >= 0 && st.selected < int(st.worlds.size())) {
+            // (vanilla deletes the whole folder; the confirmation screen came first)
+            std::error_code ec;
+            std::filesystem::remove_all(std::filesystem::path(MC_SAVES_DIR) / st.worlds[size_t(st.selected)].folder, ec);
+            st.worlds = mc::world::listWorlds(MC_SAVES_DIR);
+            st.selected = st.worlds.empty() ? -1 : 0;
+            st.screen = mc::ui::MenuScreen::WorldList;
+        }
+    }
+    return mc::ui::MenuAction::Quit;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::string error;
+    const auto opts = mc::parseCommandLine(
+        std::span<const char* const>(argv + 1, static_cast<size_t>(argc - 1)), error);
+    if (!opts) {
+        MC_LOG_ERROR("%s", error.c_str());
+        return 2;
+    }
+    if (opts->printVersion) {
+        std::printf("MinecraftClone %s (%s)\n", mc::version(), mc::buildString());
+        return 0;
+    }
+    MC_LOG_INFO("MinecraftClone %s (%s)", mc::version(), mc::buildString());
+    const bool screenshotMode = !opts->screenshotPath.empty();
+
+    mc::Window window;
+    if (!window.create(opts->width, opts->height, "MinecraftClone", !opts->hidden, opts->vsync)) {
+        MC_LOG_ERROR("Could not create an OpenGL 4.6 window");
+        return 1;
+    }
+    if (!mc::gfx::initOpenGl()) return 1;
+
+    mc::gfx::WorldRenderer renderer;
+    if (!renderer.init(opts->resourcePacks.empty() ? std::string(MC_RESOURCEPACKS_DIR)
+                                                   : opts->resourcePacks))
+        return 1;
+    mc::gfx::OverlayRenderer overlay;
+    if (!overlay.init()) return 1;
+    mc::gfx::GuiRenderer gui;
+    if (!gui.init(renderer.packs(), renderer.atlas())) return 1;
+
+    // Sound (M22.4, ADR 0008), options (M22.5) and the menus: shared by every session.
+    // Sound (M22.4, ADR 0008): every sound event's files, loaded through the pack stack
+    // (a pack may replace any WAV). Screenshot and hidden runs stay silent.
+    mc::audio::SoundEngine audio;
+    std::vector<std::vector<int>> soundHandles(static_cast<size_t>(mc::world::kSoundCount));
+    if (!opts->mute && (opts->sound || (!opts->hidden && opts->screenshotPath.empty())) && audio.init()) {
+        int loaded = 0;
+        for (int s = 0; s < mc::world::kSoundCount; ++s)
+            for (const std::string& f : mc::world::soundInfo(static_cast<mc::world::Sound>(s)).files) {
+                const auto bytes = renderer.packs().read("assets/minecraft/sounds/" + f + ".wav");
+                const int h = bytes ? audio.load(*bytes) : -1;
+                if (h >= 0) {
+                    soundHandles[size_t(s)].push_back(h);
+                    ++loaded;
+                } else {
+                    MC_LOG_WARN("Sound: missing or unusable %s.wav", f.c_str());
+                }
+            }
+        MC_LOG_INFO("Sound: %d files loaded", loaded);
+    }
+
+    mc::LaunchOptions launch = *opts; // (sessions change world, seed, mode...)
+    mc::GameOptions options;
+    const std::filesystem::path optionsFile = std::filesystem::path(MC_SAVES_DIR).parent_path() / "options.txt";
+    const bool interactive = !screenshotMode && !opts->hidden;
+    if (interactive) {
+        options.load(optionsFile);
+        if (!opts->renderDistanceSet) launch.renderDistance = options.renderDistance;
+        if (!opts->vsync) options.vsync = false; // (--no-vsync wins)
+    } else {
+        options.renderDistance = launch.renderDistance; // (scripted runs: the command line only)
+        options.clouds = true;
+        options.vsync = launch.vsync;
+    }
+    audio.setMasterVolume(options.masterVolume);
+    mc::ui::Menu menu;
+    mc::ui::MenuState menuState;
+    menuState.splash = mc::ui::splashText(uint32_t(mc::timeSeconds() * 1000.0));
+    Shared shared{window, renderer, overlay, gui, audio, soundHandles, options, optionsFile, menu, menuState,
+                  static_cast<uint16_t>(renderer.atlas().spriteIndex("dirt"))};
+    // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
+    if (!opts->menu.empty() && opts->menu != "pause") {
+        menuState.worlds = mc::world::listWorlds(MC_SAVES_DIR);
+        menuState.selected = menuState.worlds.empty() ? -1 : 0;
+        menuState.screen = opts->menu == "title"    ? mc::ui::MenuScreen::Title
+                           : opts->menu == "worlds" ? mc::ui::MenuScreen::WorldList
+                           : opts->menu == "create" ? mc::ui::MenuScreen::CreateWorld
+                                                    : mc::ui::MenuScreen::Options;
+        for (int f = 0; !window.shouldClose(); ++f) {
+            window.pollEvents();
+            int fbWidth = 0, fbHeight = 0;
+            window.framebufferSize(fbWidth, fbHeight);
+            drawMenuFrame(shared, fbWidth, fbHeight, true);
+            if (screenshotMode && f + 1 >= opts->screenshotFrames)
+                return mc::gfx::saveScreenshot(opts->screenshotPath.c_str(), fbWidth, fbHeight) ? 0 : 1;
+            window.swapBuffers();
+        }
+        return 0;
+    }
+    // With --world, --no-save, screenshots or hidden runs: straight into the world.
+    if (!interactive || !opts->world.empty() || opts->noSave) {
+        menuState.screen = opts->menu == "pause" ? mc::ui::MenuScreen::Pause : mc::ui::MenuScreen::None;
+        SessionEnd end;
+        return runSession(shared, &launch, end);
+    }
+    const std::filesystem::path savesDir(MC_SAVES_DIR);
+    std::error_code ec;
+    std::filesystem::create_directories(savesDir, ec);
+    menuState.worlds = mc::world::listWorlds(savesDir);
+    while (!window.shouldClose()) {
+        // The title screen and world selection (vanilla), until a world is chosen.
+        const auto choice = runMenus(shared);
+        if (choice == mc::ui::MenuAction::Quit || window.shouldClose()) break;
+        const bool create = choice == mc::ui::MenuAction::CreateWorld;
+        if (create) {
+            launch.world = mc::world::folderForWorld(menuState.newName, savesDir);
+            launch.worldTitle = menuState.newName.empty() ? launch.world : menuState.newName;
+            launch.seed = mc::world::seedFromText(menuState.newSeed,
+                                                  uint64_t(std::chrono::steady_clock::now().time_since_epoch().count()) *
+                                                      0x9E3779B97F4A7C15ull);
+            launch.flat = menuState.newFlat;
+            launch.survival = menuState.newSurvival;
+        } else {
+            launch.world = menuState.worlds[size_t(menuState.selected)].folder;
+            launch.worldTitle.clear();
+        }
+        menuState.screen = mc::ui::MenuScreen::None;
+        SessionEnd end;
+        const int code = runSession(shared, &launch, end);
+        launch.commands.clear(); // (--command lines run in the first world only)
+        if (end == SessionEnd::Quit || code != 0) return code;
+        menuState.worlds = mc::world::listWorlds(savesDir);
+        menuState.screen = mc::ui::MenuScreen::Title;
+    }
+    return 0;
 }

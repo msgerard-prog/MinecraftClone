@@ -280,6 +280,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     if (auto s = data->string("LevelName")) l.name = *s;
     l.dayTime = data->integer("DayTime").value_or(0);
     l.gameTime = data->integer("Time").value_or(0);
+    l.lastPlayed = data->integer("LastPlayed").value_or(0);
     l.raining = data->integer("raining").value_or(0) != 0;
     l.thundering = data->integer("thundering").value_or(0) != 0;
     l.rainTime = static_cast<int32_t>(data->integer("rainTime").value_or(0));
