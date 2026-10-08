@@ -74,6 +74,8 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:bamboo_jungle", 0.95f, 0x59C93C, 0x30BB0B, 0x3F76E4},
     {"minecraft:mangrove_swamp", 0.8f, 0x6A7039, 0x8DB127, 0x3A7A6A},
     {"minecraft:pale_garden", 0.7f, 0x778272, 0x878D76, 0x76889D, 0x817770, 0xB9B9B9}, // (grey sky and fog)
+    {"minecraft:lush_caves", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:dripstone_caves", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

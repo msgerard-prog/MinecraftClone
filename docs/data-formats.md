@@ -323,7 +323,7 @@ M27.2: blocks `cave_vines[age,berries]`, `cave_vines_plant[berries]`, `spore_blo
 `rooted_dirt`, `hanging_roots`, `small_dripleaf[half,facing]`, `big_dripleaf[facing,tilt]`,
 `big_dripleaf_stem[facing]`, `pointed_dripstone[thickness,vertical_direction,waterlogged]`,
 `dripstone_block` (new properties `berries`, `tilt`, `thickness`, `vertical_direction`);
-item `glow_berries`.
+item `glow_berries`. Biomes `lush_caves`, `dripstone_caves` (overworld6, M27.2c).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

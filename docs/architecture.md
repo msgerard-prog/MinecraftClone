@@ -143,7 +143,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `TreeKind::MegaSpruce`, in old growth taigas); mangroves stand on roots; mud and the new
   surfaces in the surface rules; `placeBiomeFeatures6` adds two-block plants, bamboo, pale
   moss and hanging moss. `BiomeInfo::sky`/`fog` give the pale garden its grey sky (main's
-  5x5 sky blend).
+  5x5 sky blend). Cave biomes (M27.2c): `caveBiome` (humid -> lush caves, far inland ->
+  dripstone caves) fills the biome cells more than 14 under the column's surface, and
+  `placeCaveBiomes6` decorates their cave floors and ceilings (moss, vines, dripleaves,
+  azaleas; dripstone blocks and spikes) and puts azalea trees over lush caves.
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
@@ -159,7 +162,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   vanilla's grid on high highlands; each chunk builds the parts of the cities
   starting within 2 chunks west/2 north-south (tower, top room, bridge, ship) and
   fills their chests (loot or the elytra) after encoding.
-- Biomes (`world/Biome`): 48 vanilla biomes with wiki colours (10 only from
+- Biomes (`world/Biome`): 50 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
   chunk's, vertices carry an 8-bit tint slot (w2 bits 12-19) read from the tint

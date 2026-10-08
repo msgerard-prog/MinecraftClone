@@ -240,3 +240,43 @@ TEST_CASE("double slabs and mangrove roots are solid to walk on; a tipped big dr
     CHECK(collisionShape(leaf).count == 1);
     CHECK(collisionShape(R().set(leaf, properties::tilt, 3)).count == 0);
 }
+
+TEST_CASE("overworld6 lush caves and dripstone caves under the land, with their features (M27.2c)") {
+    const OverworldGenerator gen(42);
+    for (const Biome want : {Biome::LushCaves, Biome::DripstoneCaves}) {
+        INFO(biomeInfo(want).id);
+        std::optional<ChunkPos> at;
+        for (int ring = 0; ring <= 200 && !at; ring += 2)
+            for (int cz = -ring; cz <= ring && !at; cz += 2)
+                for (int cx = -ring; cx <= ring && !at; cx += 2)
+                    if (std::max(std::abs(cx), std::abs(cz)) == ring &&
+                        OverworldGenerator::caveBiome(gen.column(cx * 16 + 8, cz * 16 + 8)) == want)
+                        at = ChunkPos{cx, cz};
+        REQUIRE(at);
+        int moss = 0, vines = 0, drip = 0, points = 0, cells = 0;
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx) {
+                Chunk c({at->x + dx, at->z + dz});
+                gen.generate(c);
+                REQUIRE(c.biomes());
+                cells += c.biomes()->at(8, 0, 8) == want;
+                for (int y = kOverworldHeight.minY; y < 100; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x) {
+                            const BlockId b = R().blockOf(c.get(x, y, z));
+                            moss += b == blocks::MossBlock;
+                            vines += b == blocks::CaveVines || b == blocks::CaveVinesPlant;
+                            drip += b == blocks::DripstoneBlock;
+                            points += b == blocks::PointedDripstone;
+                        }
+            }
+        CHECK(cells > 0);
+        if (want == Biome::LushCaves) {
+            CHECK(moss > 20);
+            CHECK(vines > 0);
+        } else {
+            CHECK(drip > 20);
+            CHECK(points > 0);
+        }
+    }
+}

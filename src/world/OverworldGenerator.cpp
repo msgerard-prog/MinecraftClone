@@ -906,6 +906,21 @@ void OverworldGenerator::generate(Chunk& out) const {
             for (int qz = 0; qz < 4; ++qz)
                 for (int qx = 0; qx < 4; ++qx)
                     biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = columnBiome[size_t(qz * 4 + qx)];
+    // Cave biomes (overworld6, M27.2c): cells well under the surface take the column's
+    // cave biome (vanilla picks them from the same climate plus depth).
+    if (m_version >= 6)
+        for (int qz = 0; qz < 4; ++qz)
+            for (int qx = 0; qx < 4; ++qx) {
+                const Column& col = columnCol[size_t(qz * 4 + qx)];
+                const Biome cave = caveBiome(col);
+                if (cave == Biome::Count) continue;
+                for (int s = 0; s < kOverworldHeight.sections(); ++s)
+                    for (int qy = 0; qy < 4; ++qy) {
+                        const int y = kOverworldHeight.minY + s * 16 + qy * 4 + 2;
+                        if (y < col.height - 14.0 && y > kOverworldHeight.minY + 6)
+                            biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = cave;
+                    }
+            }
 
     // Flooded caves (overworld4, our simple aquifers): a column is wet where its terrain
     // height (interpolated from the corner columns, the same in every chunk) is below
@@ -1309,7 +1324,10 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeBeeNests(blockArray.data(), pos, entities);
         placeBerryBushes(blockArray.data(), cx, cz, topY, columnBiome);
     }
-    if (m_version >= 6) placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
+    if (m_version >= 6) {
+        placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
+        placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
+    }
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -3424,6 +3442,129 @@ void OverworldGenerator::placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, i
                 if (k > 1) chunk.set(x, y - k + 1, z, B.hangingMossTip);
             }
         }
+}
+
+Biome OverworldGenerator::caveBiome(const Column& c) {
+    // (wiki: Lush Caves - very humid; Dripstone Caves - far inland; our thresholds)
+    if (c.continentalness < -0.11) return Biome::Count; // (not under the sea)
+    if (c.humidity > 0.55) return Biome::LushCaves;
+    if (c.continentalness > 0.6) return Biome::DripstoneCaves;
+    return Biome::Count;
+}
+
+void OverworldGenerator::placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
+                                          const std::array<int, 256>& topY) const {
+    // Lush caves (wiki: Lush Caves): moss on floors and ceilings, moss carpets, azaleas,
+    // grass and big dripleaves on the floor, cave vines (some with glow berries) and spore
+    // blossoms hanging from the ceiling. Dripstone caves (wiki: Dripstone Caves): dripstone
+    // blocks in the floors and ceilings with stalagmites and stalactites. Above lush caves,
+    // now and then an azalea tree on rooted dirt (ours: 1 chunk in 3 over them).
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 710));
+    r.nextLong();
+    auto stone = [&](BlockStateId s) {
+        return s == B.stone || s == B.deepslate || s == B.granite || s == B.diorite || s == B.andesite || s == B.tuff;
+    };
+    const BlockStateId dripBlock = reg.defaultState(blocks::DripstoneBlock);
+    const BlockStateId point = reg.defaultState(blocks::PointedDripstone);
+    // A column of n pointed dripstone from its root at y0 going `dir` (+1 up, -1 down).
+    auto spike = [&](int x, int y0, int z, int dir, int n) {
+        int len = 0;
+        while (len < n && kOverworldHeight.contains(y0 + dir * len) && chunk.get(x, y0 + dir * len, z) == B.air &&
+               (len + 1 >= n || chunk.get(x, y0 + dir * (len + 1), z) == B.air))
+            ++len;
+        for (int i = 0; i < len; ++i) {
+            const int t = i == len - 1 ? 1 : i == len - 2 ? 2 : i == 0 ? 4 : 3;
+            chunk.set(x, y0 + dir * i, z,
+                      reg.set(reg.set(point, properties::thickness, t), properties::verticalDirection, dir > 0 ? 0 : 1));
+        }
+    };
+    const BlockStateId moss = B.mossBlock, carpet = reg.defaultState(blocks::MossCarpet);
+    const BlockStateId vine = reg.defaultState(blocks::CaveVinesPlant), vineTip = reg.set(reg.defaultState(blocks::CaveVines), properties::age25, 25);
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const int top = std::min(topY[size_t(z * 16 + x)] - 4, kOverworldHeight.maxY() - 8);
+            for (int y = kOverworldHeight.minY + 6; y < top; ++y) {
+                if (chunk.get(x, y, z) != B.air) continue;
+                const Biome b = biomes.at(x, y, z);
+                if (b != Biome::LushCaves && b != Biome::DripstoneCaves) continue;
+                const bool floor = stone(chunk.get(x, y - 1, z)), ceiling = stone(chunk.get(x, y + 1, z));
+                if (!floor && !ceiling) continue;
+                const float f = r.nextFloat(), c = r.nextFloat();
+                const uint32_t pick = r.nextInt(1u << 16);
+                if (b == Biome::LushCaves) {
+                    if (floor && f < 0.85f) {
+                        chunk.set(x, y - 1, z, moss);
+                        const float g = float(pick % 1000) / 1000.0f;
+                        if (g < 0.25f) chunk.set(x, y, z, carpet);
+                        else if (g < 0.29f) chunk.set(x, y, z, reg.defaultState(pick & 1 ? blocks::Azalea : blocks::FloweringAzalea));
+                        else if (g < 0.39f) chunk.set(x, y, z, B.shortGrass);
+                        else if (g < 0.42f && chunk.get(x, y + 1, z) == B.air && chunk.get(x, y + 2, z) == B.air) {
+                            const int stem = int(pick >> 10) % 2;
+                            for (int k = 0; k < stem; ++k) chunk.set(x, y + k, z, reg.defaultState(blocks::BigDripleafStem));
+                            chunk.set(x, y + stem, z, reg.defaultState(blocks::BigDripleaf));
+                        }
+                    }
+                    if (ceiling) {
+                        if (c < 0.5f) chunk.set(x, y + 1, z, moss);
+                        if (c < 0.12f) { // a cave vine 1-6 long, a quarter of its pieces with berries
+                            const int len = 1 + int(pick % 6);
+                            int k = 0;
+                            while (k < len && chunk.get(x, y - k, z) == B.air && chunk.get(x, y - k - 1, z) == B.air) ++k;
+                            for (int i = 0; i < k; ++i) {
+                                BlockStateId s = i == k - 1 ? vineTip : vine;
+                                if (((pick >> (4 + i)) & 3) == 0) s = reg.set(s, properties::berries, 0);
+                                chunk.set(x, y - i, z, s);
+                            }
+                        } else if (c > 0.995f) {
+                            chunk.set(x, y, z, reg.defaultState(blocks::SporeBlossom));
+                        }
+                    }
+                } else { // dripstone caves
+                    if (floor) {
+                        if (f < 0.55f) chunk.set(x, y - 1, z, dripBlock);
+                        if (f < 0.14f) spike(x, y, z, 1, 1 + int(pick % 4));
+                    }
+                    if (ceiling) {
+                        if (c < 0.55f) chunk.set(x, y + 1, z, dripBlock);
+                        if (c < 0.2f) spike(x, y, z, -1, 1 + int(pick % 6));
+                    }
+                }
+            }
+        }
+    // An azalea tree over a lush cave (1 chunk in 3): its trunk on rooted dirt reaching 4
+    // down, hanging roots under that.
+    const int tx = 4 + int(r.nextInt(8)), tz = 4 + int(r.nextInt(8));
+    const bool tree = r.nextInt(3) == 0;
+    const int ground = topY[size_t(tz * 16 + tx)];
+    if (!tree || !kOverworldHeight.contains(ground + 12) || chunk.get(tx, ground, tz) != B.grass ||
+        biomes.at(tx, ground - 20, tz) != Biome::LushCaves)
+        return;
+    const BlockStateId leaves = reg.defaultState(blocks::AzaleaLeaves), flowering = reg.defaultState(blocks::FloweringAzaleaLeaves);
+    Xoroshiro shape(chunkSeed(m_seed, cx, cz, 711));
+    treeShape(TreeKind::Oak, cx * 16 + tx, ground + 1, cz * 16 + tz, 4 + int(shape.nextInt(2)), shape,
+              [&](int32_t wx, int32_t y, int32_t wz, int dist) {
+                  const int lx = wx - cx * 16, lz = wz - cz * 16;
+                  if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
+                  const BlockStateId cur = chunk.get(lx, y, lz);
+                  if (dist == 0) {
+                      if (cur == B.air || cur == B.shortGrass || cur == B.fern) chunk.set(lx, y, lz, B.oakLog);
+                      return;
+                  }
+                  if (cur == B.air)
+                      chunk.set(lx, y, lz, reg.set(shape.nextInt(4) == 0 ? flowering : leaves, properties::distance, dist - 1));
+              });
+    for (int k = 0; k < 4; ++k) {
+        const BlockStateId cur = chunk.get(tx, ground - k, tz);
+        if (cur != B.grass && cur != B.dirt && !stone(cur)) break;
+        chunk.set(tx, ground - k, tz, reg.defaultState(blocks::RootedDirt));
+        if (chunk.get(tx, ground - k - 1, tz) == B.air) {
+            chunk.set(tx, ground - k - 1, tz, reg.defaultState(blocks::HangingRoots));
+            break;
+        }
+    }
 }
 
 } // namespace mc::world

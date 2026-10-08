@@ -73,6 +73,8 @@ public:
     Column column(int32_t x, int32_t z) const;
     Biome biomeAt(const Column& c) const;
     Biome baseBiome(const Column& c) const; // the M8 choice (overworld2 refines it)
+    // overworld6 (M27.2c): the cave biome under a column (Count: none).
+    static Biome caveBiome(const Column& c);
     // Highest solid y of the interpolated terrain (caves ignored) at a column.
     int surfaceY(int32_t x, int32_t z) const;
 
@@ -140,6 +142,10 @@ private:
     // overworld6 (M27.1): two-block plants, bamboo, pale moss and hanging moss.
     void placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                              const std::array<Biome, 16>& columnBiome) const;
+    // overworld6 (M27.2c): the features of lush and dripstone caves on their cave floors
+    // and ceilings, azalea trees above.
+    void placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
+                          const std::array<int, 256>& topY) const;
 
     // --- Overworld 2 features (M18.1) ---
     void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;

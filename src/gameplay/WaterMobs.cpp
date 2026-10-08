@@ -336,10 +336,11 @@ void Mobs::spawnWater(Context& ctx) {
         if (add(ctx.world, d)) ++m_hostiles;
         return;
     }
-    if (y < 30 && c->skyLight(lx, y, lz) == 0 && c->blockLight(lx, y, lz) == 0) { // dark caves
-        // Axolotls (M26.3c; wiki: groups of 4-6 in lush caves' water - ours in deep cave
-        // water below y 0 until lush caves come in M27), else glow squid.
-        if (y < 0 && m_axolotls < 5 && ctx.rng.nextInt(3) == 0) kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
+    const bool lush = biome == Biome::LushCaves;
+    if ((y < 30 || lush) && c->skyLight(lx, y, lz) == 0 && c->blockLight(lx, y, lz) == 0) { // dark caves
+        // Axolotls (M26.3c; wiki: groups of 4-6 in lush caves' water - M27.2c; worlds from
+        // before cave biomes: deep cave water below y 0), else glow squid.
+        if ((lush || y < 0) && m_axolotls < 5 && ctx.rng.nextInt(3) == 0) kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
         else if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
     } else if (y >= 38 && y <= 58 && sea && biome != Biome::River && biome != Biome::FrozenRiver && roll < 4 &&
                m_squid < 5) {

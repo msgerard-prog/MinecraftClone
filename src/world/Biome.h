@@ -83,6 +83,9 @@ enum class Biome : uint8_t {
     BambooJungle,
     MangroveSwamp,
     PaleGarden,
+    // Cave biomes (M27.2c; overworld6): under the surface, by climate.
+    LushCaves,
+    DripstoneCaves,
     Count
 };
 
