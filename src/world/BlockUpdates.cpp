@@ -2134,6 +2134,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Repeater:
         if (!solid(Direction::Down)) return std::nullopt;
         return withHFacing(state, opposite(look)); // the output points away from the player
+    case B::Grindstone: // floor, wall or ceiling like a lever, but needs no support (wiki)
+        if (faceDir == Direction::Up) return withHFacing(r.set(state, face, 0), look);
+        if (faceDir == Direction::Down) return withHFacing(r.set(state, face, 2), look);
+        return withHFacing(r.set(state, face, 1), faceDir);
+    case B::Stonecutter:
+        return withHFacing(state, look);
     case B::Lever:
     case B::StoneButton:
     case B::OakButton: {

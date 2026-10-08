@@ -936,6 +936,15 @@ BlockRegistry buildVanillaBlocks() {
     lavaCauldron.lightEmission = 15; // (wiki: a lava cauldron gives light 15)
     check(r.add("lava_cauldron", lavaCauldron), blocks::LavaCauldron);
     check(r.add("powder_snow_cauldron", cauldron, {{&cauldronLevel, "1"}}), blocks::PowderSnowCauldron);
+    // wiki: Stonecutter (3.5, pickaxe), Grindstone (2.0 / 6.0, pickaxe).
+    check(r.add("stonecutter", {.hardness = 3.5f, .resistance = 3.5f, .opaqueCube = false,
+                                .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                {{&facing, "north"}}),
+          blocks::Stonecutter);
+    check(r.add("grindstone", {.hardness = 2.0f, .resistance = 6.0f, .opaqueCube = false,
+                               .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                {{&face, "wall"}, {&facing, "north"}}),
+          blocks::Grindstone);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

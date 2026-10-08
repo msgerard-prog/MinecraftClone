@@ -1,5 +1,6 @@
 #include "rendering/GuiBatch.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace mc::gfx {
@@ -98,6 +99,56 @@ void GuiBatch::blockIcon(const BakedModel& model, float x, float y, uint32_t gra
             uv[i][1] = v0 + p[1] * cell;
         }
     };
+    if (model.boxCount > 0 && model.icon3d) { // the boxes, isometric like the cube below
+        // Block units (0..16) to icon pixels, matching the cube: X goes right-down, Z
+        // left-down, Y up (7.5 px per block).
+        auto at = [&](float bx, float by, float bz, float (&p)[2]) {
+            p[0] = x + 8 + (bx - bz) * (7.0f / 16.0f);
+            p[1] = y + 0.5f + (bx + bz) * (3.75f / 16.0f) + (16.0f - by) * (7.5f / 16.0f);
+        };
+        // Far boxes first (painter's order: the viewer looks from above south-east).
+        int order[BakedModel::kMaxBoxes];
+        for (int i = 0; i < model.boxCount; ++i)
+            order[i] = i;
+        auto depth = [&](int i) {
+            const BakedBox& bb = model.boxes[i];
+            return bb.from[0] + bb.to[0] + bb.from[1] + bb.to[1] + bb.from[2] + bb.to[2];
+        };
+        std::sort(order, order + model.boxCount, [&](int a, int b) { return depth(a) < depth(b); });
+        for (int oi = 0; oi < model.boxCount; ++oi) {
+            const BakedBox& bb = model.boxes[order[oi]];
+            const float fx = bb.from[0], fy = bb.from[1], fz = bb.from[2], tx = bb.to[0], ty = bb.to[1], tz = bb.to[2];
+            auto face = [&](world::Direction d, const float (&corners)[4][3], float shade) {
+                const BakedBox::Face& f = bb.faces[int(d)];
+                if (!f.present) return;
+                const float u0 = static_cast<float>(f.sprite % m_atlas.columns) * cell;
+                const float v0 = static_cast<float>(f.sprite / m_atlas.columns) * cell;
+                const float c[4][2] = {{float(f.uv[0]), float(f.uv[1])},
+                                       {float(f.uv[0]), float(f.uv[3])},
+                                       {float(f.uv[2]), float(f.uv[3])},
+                                       {float(f.uv[2]), float(f.uv[1])}};
+                float px[4][2], uv[4][2];
+                for (int i = 0; i < 4; ++i) {
+                    at(corners[i][0], corners[i][1], corners[i][2], px[i]);
+                    const auto& t = c[(i + f.rotation) % 4];
+                    uv[i][0] = u0 + t[0] / 16.0f * cell;
+                    uv[i][1] = v0 + t[1] / 16.0f * cell;
+                }
+                const uint32_t col = f.tint == Tint::Grass ? grassTint : rgba(255, 255, 255);
+                const auto ch = [&](int shift) {
+                    return static_cast<uint8_t>(std::lround(((col >> shift) & 0xFF) * shade));
+                };
+                quad(px, uv, rgba(ch(0), ch(8), ch(16)), GuiTexture::Atlas);
+            };
+            const float up[4][3] = {{fx, ty, fz}, {fx, ty, tz}, {tx, ty, tz}, {tx, ty, fz}};
+            const float south[4][3] = {{fx, ty, tz}, {fx, fy, tz}, {tx, fy, tz}, {tx, ty, tz}};
+            const float east[4][3] = {{tx, ty, tz}, {tx, fy, tz}, {tx, fy, fz}, {tx, ty, fz}};
+            face(world::Direction::Up, up, 1.0f);
+            face(world::Direction::South, south, 0.8f);
+            face(world::Direction::East, east, 0.6f);
+        }
+        return;
+    }
     if (model.boxCount > 0 || model.cross) { // flat item sprite (vanilla: torch, plants = their texture)
         float uv[4][2];
         spriteUv(model.cross ? model.crossSprite : model.boxes[0].faces[int(world::Direction::North)].sprite, uv, 0,

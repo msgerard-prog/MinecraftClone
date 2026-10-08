@@ -932,6 +932,21 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         }
         }
     }
+    // Box models whose item looks like the block (vanilla's block-shaped GUI models).
+    for (size_t s = 0; s < registry.stateCount(); ++s) {
+        BakedModel& m = m_models[s];
+        if (m.boxCount == 0 || m.cross) continue;
+        const BlockId b = registry.blockOf(static_cast<BlockStateId>(s));
+        const BlockKind k = registry.kind(b);
+        const BlockId like = registry.likeOf(b);
+        m.icon3d = k == BlockKind::Slab || k == BlockKind::Stairs || k == BlockKind::Wall || k == BlockKind::Carpet ||
+                   like == blocks::OakFence || like == blocks::NetherBrickFence || like == blocks::OakFenceGate ||
+                   like == blocks::Composter || like == blocks::Stonecutter || like == blocks::Grindstone ||
+                   like == blocks::Chest || like == blocks::EnchantingTable || like == blocks::OakTrapdoor ||
+                   like == blocks::IronTrapdoor || like == blocks::Snow || like == blocks::OakPressurePlate ||
+                   like == blocks::StonePressurePlate || like == blocks::LightWeightedPressurePlate ||
+                   like == blocks::HeavyWeightedPressurePlate || like == blocks::Campfire || like == blocks::SoulCampfire;
+    }
 }
 
 } // namespace mc::gfx

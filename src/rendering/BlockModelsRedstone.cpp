@@ -349,6 +349,35 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Stonecutter: {
+        // A 9-high base and the saw blade standing across it (animated, cutout).
+        Builder b(atlas, out);
+        BoxSpec base = allFaces({0, 0, 0}, {16, 9, 16}, "stonecutter_side", {0, 7, 16, 16});
+        base.faces[int(Direction::Up)] = {"stonecutter_top"};
+        base.faces[int(Direction::Down)] = {"stonecutter_bottom"};
+        b.box(base);
+        // (our saw texture draws the blade in rows 6-9: 4 pixels above the base)
+        BoxSpec saw{{1, 9, 8}, {15, 13, 8}, {}};
+        saw.faces[int(Direction::North)] = {"stonecutter_saw", {1, 6, 15, 10}};
+        saw.faces[int(Direction::South)] = {"stonecutter_saw", {1, 6, 15, 10}};
+        b.box(saw, {0, yTurns(hFacing(r, s))});
+        return true;
+    }
+    case B::Grindstone: {
+        // Built on the floor facing north: the stone wheel between two pivots on dark
+        // oak legs; turned like a lever for walls and ceilings.
+        Builder b(atlas, out);
+        const Rot rot = attachRot(r, s);
+        BoxSpec wheel = allFaces({4, 4, 2}, {12, 16, 14}, "grindstone_round", {0, 0, 8, 12});
+        wheel.faces[int(Direction::East)] = {"grindstone_side", {2, 0, 14, 12}};
+        wheel.faces[int(Direction::West)] = {"grindstone_side", {2, 0, 14, 12}};
+        b.box(wheel, rot);
+        for (const int x : {2, 12}) {
+            b.box(allFaces({x, 7, 5}, {x + 2, 13, 11}, "grindstone_pivot", {0, 0, 6, 6}), rot);
+            b.box(allFaces({x, 0, 6}, {x + 2, 7, 10}, "dark_oak_log", {6, 9, 10, 16}), rot);
+        }
+        return true;
+    }
     case B::Composter:
     case B::Cauldron:
     case B::WaterCauldron:

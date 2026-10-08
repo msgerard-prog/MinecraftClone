@@ -3,6 +3,8 @@
 #include "gameplay/Brewing.h"
 
 #include "gameplay/Anvil.h"
+#include "gameplay/Grindstone.h"
+#include "gameplay/Stonecutter.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/Recipes.h"
 #include "ui/Hud.h"
@@ -81,6 +83,8 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
         m_carried = {};
     }
     m_result = {};
+    m_stoneChoice = -1;
+    m_stoneInput = 0;
     m_furnace = nullptr;
     m_chests = {};
     m_store = {};
@@ -100,6 +104,13 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         if (type == Type::Enchanting) { // item, lapis (vanilla layout)
             out.push_back({K::Grid, 0, 15, 47});
             out.push_back({K::Grid, 1, 35, 47});
+        } else if (type == Type::Stonecutter) { // input, result (vanilla layout)
+            out.push_back({K::Grid, 0, 20, 33});
+            out.push_back({K::Result, 0, 143, 33});
+        } else if (type == Type::Grindstone) { // two inputs, result
+            out.push_back({K::Grid, 0, 49, 19});
+            out.push_back({K::Grid, 1, 49, 40});
+            out.push_back({K::Result, 0, 129, 34});
         } else if (type == Type::Anvil) { // left, right, result
             out.push_back({K::Grid, 0, 27, 47});
             out.push_back({K::Grid, 1, 76, 47});
@@ -142,7 +153,10 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
                                    furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
                                    chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
                                    anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0),
-                                   hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0);
+                                   hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0),
+                                   stonecutter = build(Type::Stonecutter, 0), grindstone = build(Type::Grindstone, 0);
+    if (m_type == Type::Stonecutter) return stonecutter;
+    if (m_type == Type::Grindstone) return grindstone;
     if (m_type == Type::Hopper) return hopper;
     if (m_type == Type::Dispenser) return dispenser;
     if (m_type == Type::Chest) return chestRows() == 6 ? chest6 : chest3;
@@ -178,6 +192,22 @@ void ContainerScreen::updateResult() {
     if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Brewing ||
         m_type == Type::Hopper || m_type == Type::Dispenser)
         return;
+    if (m_type == Type::Stonecutter) { // the chosen recipe while the same kind of input stays
+        if (m_grid[0].item != m_stoneInput) {
+            m_stoneInput = m_grid[0].item;
+            m_stoneChoice = -1;
+            m_stoneScroll = 0;
+        }
+        const auto recipes = stonecutterRecipes(m_grid[0].item);
+        m_result = !m_grid[0].empty() && m_stoneChoice >= 0 && size_t(m_stoneChoice) < recipes.size()
+                       ? recipes[size_t(m_stoneChoice)]
+                       : world::ItemStack{};
+        return;
+    }
+    if (m_type == Type::Grindstone) {
+        m_result = grind(m_grid[0], m_grid[1]).out;
+        return;
+    }
     if (m_type == Type::Anvil) {
         const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
         m_result = r.out;
@@ -212,6 +242,15 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 }
 
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
+    if (m_type == Type::Grindstone) { // both inputs are used up; their enchantments pay experience
+        if (m_result.empty() || !m_carried.empty()) return;
+        m_grindCost += grind(m_grid[0], m_grid[1]).xpCost;
+        m_carried = m_result;
+        for (int i = 0; i < 2; ++i)
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+        updateResult();
+        return;
+    }
     if (m_type == Type::Anvil) { // pay the levels, use up the inputs (wiki: Anvil)
         if (m_result.empty() || m_anvilTooExpensive || (!m_creative && m_levels - m_levelsSpent < m_anvilCost)) return;
         if (!m_carried.empty()) return;
@@ -278,6 +317,20 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             m_carried = {};
         }
         drops.push_back(thrown);
+        return;
+    }
+    if (m_type == Type::Stonecutter && px >= 52 && px < 52 + 4 * 16 && py >= 14 && py < 14 + 3 * 18) {
+        // A recipe button (4 x 3 visible, 16 x 18 each): choose it (wiki: Stonecutter).
+        const int i = (m_stoneScroll + int((py - 14) / 18)) * 4 + int((px - 52) / 16);
+        if (size_t(i) < stonecutterRecipes(m_grid[0].item).size() && !m_grid[0].empty()) {
+            m_stoneChoice = i;
+            updateResult();
+        }
+        return;
+    }
+    if (m_type == Type::Stonecutter && px >= 119 && px < 131 && py >= 15 && py < 69) { // the scroll bar
+        const int rows = (int(stonecutterRecipes(m_grid[0].item).size()) + 3) / 4;
+        m_stoneScroll = rows > 3 ? std::clamp(int((py - 15) / 54.0 * (rows - 2)), 0, rows - 3) : 0;
         return;
     }
     if (m_type == Type::Enchanting && px >= 60 && px < 168 && py >= 14 && py < 14 + 3 * 19) {
@@ -505,10 +558,15 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 1, top + 1, 2, float(h - 3), kLight);
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
-    const char* title = m_type == Type::Hopper      ? "Item Hopper"
+    const int furnaceKind = m_furnace ? m_furnace->kind : 0;
+    const char* title = m_type == Type::Stonecutter ? "Stonecutter"
+                        : m_type == Type::Grindstone ? "Repair & Disenchant"
+                        : m_type == Type::Hopper      ? "Item Hopper"
                         : m_type == Type::Dispenser ? (m_dropper ? "Dropper" : "Dispenser")
                         : m_type == Type::Brewing   ? "Brewing Stand"
-                        : m_type == Type::Furnace    ? "Furnace"
+                        : m_type == Type::Furnace    ? (furnaceKind == 1   ? "Smoker"
+                                                        : furnaceKind == 2 ? "Blast Furnace"
+                                                                           : "Furnace")
                         : m_type == Type::Chest      ? (chestRows() == 6 ? "Large Chest" : "Chest")
                         : m_type == Type::Enchanting ? "Enchant"
                         : m_type == Type::Anvil      ? "Repair & Name"
@@ -561,6 +619,24 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
         b.text(std::string_view(line, size_t(std::max(0, n))), left + 168 - float(b.textWidth({line, size_t(n)})), top + 69,
                ok ? gfx::rgba(128, 255, 32) : gfx::rgba(255, 96, 96), true);
     }
+    if (m_type == Type::Stonecutter) { // the recipe buttons and the scroll bar
+        const auto recipes = stonecutterRecipes(m_grid[0].item);
+        const double hx = mx - left, hy = my - top;
+        for (int k = 0; k < 12; ++k) {
+            const int i = m_stoneScroll * 4 + k;
+            const float bx = left + 52 + float(k % 4) * 16, by = top + 14 + float(k / 4) * 18;
+            if (m_grid[0].empty() || size_t(i) >= recipes.size()) continue;
+            const bool hover = hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 18;
+            b.fill(bx, by, 16, 18, i == m_stoneChoice ? gfx::rgba(120, 160, 120) : hover ? kLight : kSlotFill);
+            b.fill(bx, by + 17, 16, 1, kDark);
+            icons.draw(b, models, recipes[size_t(i)], bx, by + 1, kIconGrassTint);
+        }
+        const int rows = (int(recipes.size()) + 3) / 4;
+        b.fill(left + 119, top + 15, 12, 54, kDark);
+        const float knob = rows > 3 ? float(m_stoneScroll) / float(rows - 3) * 39.0f : 0.0f;
+        b.fill(left + 119, top + 15 + knob, 12, 15, rows > 3 ? kLight : kSlotFill);
+    }
+    if (m_type == Type::Grindstone) arrow(98, 34, 0);
     if (m_type == Type::Inventory) arrow(134, 28, 0);
     if (m_type == Type::Crafting) arrow(90, 35, 0);
     if (m_type == Type::Brewing && m_brewing) {
@@ -573,7 +649,7 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
             b.fill(left + 16, top + 38, 18.0f * float(m_brewing->fuelLeft) / float(kBrewFuel), 4, gfx::rgba(240, 140, 30));
     }
     if (m_type == Type::Furnace && m_furnace) {
-        arrow(79, 34, float(m_furnace->cookTime) / float(kFurnaceCookTicks));
+        arrow(79, 34, float(m_furnace->cookTime) / float(furnaceKind ? kFurnaceCookTicks / 2 : kFurnaceCookTicks));
         // Flame gauge between input and fuel: burn time left.
         const float flame = m_furnace->burnDuration ? float(m_furnace->burnLeft) / float(m_furnace->burnDuration) : 0.0f;
         b.fill(left + 57, top + 37, 14, 14, kDark);

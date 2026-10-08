@@ -22,7 +22,19 @@ namespace mc::ui {
 // as fit); clicking outside drops the carried stack. GL-free.
 class ContainerScreen {
 public:
-    enum class Type { Inventory, Crafting, Furnace, Chest, Enchanting, Anvil, Brewing, Hopper, Dispenser };
+    enum class Type {
+        Inventory,
+        Crafting,
+        Furnace,
+        Chest,
+        Enchanting,
+        Anvil,
+        Brewing,
+        Hopper,
+        Dispenser,
+        Stonecutter,
+        Grindstone
+    };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
     int height() const {
@@ -50,6 +62,11 @@ public:
     int takeLevelsSpent() { return std::exchange(m_levelsSpent, 0); }
     bool takeEnchanted() { return std::exchange(m_enchanted, false); }
     bool takeAnvilUsed() { return std::exchange(m_anvilUsed, false); }
+    // The grindstone's removed enchantments' cost since the last call (main turns it
+    // into experience orbs with grindExperience, M23.5).
+    int takeGrindCost() { return std::exchange(m_grindCost, 0); }
+    // The stonecutter's chosen recipe (index into stonecutterRecipes of the input), -1 none.
+    int stonecutterChoice() const { return m_stoneChoice; }
     void setChests(world::ChestData* first, world::ChestData* second) {
         m_chests[0] = first;
         m_chests[1] = second;
@@ -133,6 +150,10 @@ private:
     uint64_t m_seed = 0;
     bool m_creative = false, m_enchanted = false, m_anvilUsed = false, m_anvilTooExpensive = false;
     int m_anvilMaterial = 1;
+    int m_grindCost = 0;        // (taken by main)
+    int m_stoneChoice = -1;     // the stonecutter's selected recipe
+    world::ItemId m_stoneInput = 0; // the input the choice belongs to (a new kind clears it)
+    int m_stoneScroll = 0;      // first shown row of recipes (4 per row, 3 rows shown)
 };
 
 } // namespace mc::ui

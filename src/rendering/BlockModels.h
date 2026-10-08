@@ -56,6 +56,9 @@ struct BakedModel {
     uint16_t crossSprite = 0;
     // Tint palette slot overriding the biome (birch/spruce leaves, dust power); 0 = biome.
     uint8_t fixedTintSlot = 0;
+    // Its item icon is drawn as its boxes in 3D (vanilla: slabs, stairs, walls, fences...),
+    // not as one flat sprite like torches and plants.
+    bool icon3d = false;
     BakedVariant variants[kMaxVariants];
     BakedBox boxes[kMaxBoxes];
 };

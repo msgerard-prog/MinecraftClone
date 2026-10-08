@@ -87,6 +87,8 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"PSP", "P.P", "PSP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "barrel"));
     r.push_back(shaped({"S.S", "S.S", "SSS"}, {{'S', kWoodenSlab}}, "composter")); // wiki: Composter
     r.push_back(shaped({"I.I", "I.I", "III"}, {{'I', item("iron_ingot")}}, "cauldron")); // wiki: Cauldron
+    r.push_back(shaped({".I.", "SSS"}, {{'I', item("iron_ingot")}, {'S', item("stone")}}, "stonecutter"));
+    r.push_back(shaped({"T#T", "P.P"}, {{'T', item("stick")}, {'#', item("stone_slab")}, {'P', kPlanks}}, "grindstone"));
     r.push_back(shaped({"WWW", "PPP"}, {{'W', item("red_wool")}, {'P', kPlanks}}, "red_bed")); // wiki: Bed
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword), per material.
     const std::pair<const char*, Ingredient> materials[] = {{"wooden", kPlanks},

@@ -173,6 +173,12 @@ BlockShape compute(BlockStateId s) {
     case B::DirtPath: return box(0, 0, 0, 16, 15, 16);
     case B::SoulSand: return box(0, 0, 0, 16, 14, 16);
     case B::Chest: return box(1, 0, 1, 15, 14, 15);
+    case B::Stonecutter: return box(0, 0, 0, 16, 9, 16); // (wiki: 9 pixels tall)
+    case B::Grindstone: { // its wheel and legs' bounds, turned with the face
+        const int f = r.get(s, face), dir = r.get(s, facing); // facing: north, south, west, east
+        if (f != 1) return box(2, 0, 2, 14, 16, 14);
+        return dir < 2 ? box(2, 2, 0, 14, 14, 16) : box(0, 2, 2, 16, 14, 14);
+    }
     case B::Composter: { // a 2-thick open box with a 2-high floor (wiki: Composter)
         BlockShape sh = box(0, 0, 0, 16, 2, 16);
         add(sh, 0, 0, 0, 16, 16, 2);

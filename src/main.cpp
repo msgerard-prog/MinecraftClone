@@ -33,6 +33,7 @@
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
+#include "gameplay/Grindstone.h"
 #include "gameplay/Brewing.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/Hoppers.h"
@@ -1059,6 +1060,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
                         pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
+                    } else if (block == mc::world::blocks::Stonecutter || block == mc::world::blocks::Grindstone) {
+                        containerBlock = lastHit->block; // (M23.5)
+                        container.open(block == mc::world::blocks::Stonecutter ? mc::ui::ContainerScreen::Type::Stonecutter
+                                                                               : mc::ui::ContainerScreen::Type::Grindstone);
+                        window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::EnchantingTable) {
                         containerBlock = lastHit->block;
                         container.openEnchanting(mc::countBookshelves(world, lastHit->block), vitals.enchantSeed());
@@ -2211,6 +2217,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
                 playSound(mc::world::Sound::Enchant, blockCentre, 1.0f, 1.0f, true);
             }
+            if (const int grindCost = container.takeGrindCost(); grindCost > 0) // (M23.5: orbs at the grindstone)
+                orbs.drop({containerBlock.x + 0.5, containerBlock.y + 0.5, containerBlock.z + 0.5},
+                          mc::grindExperience(grindCost, gameRng), gameRng);
             const bool anvilUsed = container.takeAnvilUsed();
             if (anvilUsed) playSound(mc::world::Sound::AnvilUse, blockCentre, 1.0f, 1.0f, true);
             if (anvilUsed && survival && gameRng.nextFloat() < 0.12f) {
@@ -2457,6 +2466,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 obc ? obc->sign(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr;
             if (obSign) // (M23.3c: the sign editor)
                 signEditor.open(ob, obSign->front);
+            else if (obBlock == mc::world::blocks::Stonecutter)
+                container.open(mc::ui::ContainerScreen::Type::Stonecutter);
+            else if (obBlock == mc::world::blocks::Grindstone)
+                container.open(mc::ui::ContainerScreen::Type::Grindstone);
             else if (obBlock == mc::world::blocks::EnchantingTable)
                 container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
             else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||

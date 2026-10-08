@@ -341,6 +341,8 @@ enum : BlockId {
     WaterCauldron,     // level 1..3
     LavaCauldron,      // full
     PowderSnowCauldron, // level 1..3
+    Stonecutter,       // facing
+    Grindstone,        // face, facing (like a lever)
     Count
 };
 } // namespace blocks

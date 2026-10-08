@@ -1,8 +1,15 @@
 // Container screens: slot clicks and crafting (wiki: Inventory › Controls, Crafting).
 #include "ui/ContainerScreen.h"
+#include "gameplay/Grindstone.h"
+#include "gameplay/Stonecutter.h"
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
 
 #include <doctest/doctest.h>
+
+#include <algorithm>
+#include <string>
+#include <vector>
 
 using namespace mc;
 using namespace mc::ui;
@@ -161,4 +168,71 @@ TEST_CASE("inventory screen: armor slots take only their piece; shift-click puts
     CHECK_FALSE(f.screen.carried().empty());
     f.left(sx(77), sy(62)); // the offhand takes anything
     CHECK(f.inv.offhand().count == 5);
+}
+
+TEST_CASE("stonecutter: recipes from families and conversions; choosing one cuts one input each (M23.5)") {
+    auto ids = [](const char* input) {
+        std::vector<std::string> out;
+        for (const ItemStack& s : stonecutterRecipes(I(input).item))
+            out.push_back(itemRegistry().item(s.item).id.substr(10) + "x" + std::to_string(s.count));
+        return out;
+    };
+    const auto stone = ids("stone");
+    CHECK(stone == std::vector<std::string>{"chiseled_stone_bricksx1", "stone_brick_slabx2", "stone_brick_stairsx1",
+                                            "stone_brick_wallx1", "stone_bricksx1", "stone_slabx2", "stone_stairsx1"});
+    const auto copper = ids("copper_block");
+    CHECK(std::find(copper.begin(), copper.end(), "cut_copper_slabx8") != copper.end());
+    CHECK(ids("oak_planks").empty()); // wood isn't cut here
+    Fixture f;
+    f.inv.setSlot(0, I("stone", 3));
+    f.screen.open(ContainerScreen::Type::Stonecutter);
+    f.left(invX(0), hotbarY()); // carry the stone
+    f.left(sx(20), sy(33));     // into the input
+    CHECK(f.screen.result().empty()); // nothing chosen yet
+    f.left(sx(52 + 16 + 4) - 8, sy(14 + 4) - 8); // the second button: stone brick slabs
+    CHECK(f.screen.stonecutterChoice() == 1);
+    CHECK(f.screen.result().count == 2);
+    f.left(sx(143), sy(33), true); // shift: cut all
+    CHECK(f.screen.grid(0).empty());
+    int slabs = 0;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        if (f.inv.slot(i).item == I("stone_brick_slab").item) slabs += f.inv.slot(i).count;
+    CHECK(slabs == 6);
+}
+
+TEST_CASE("grindstone: strips enchantments for experience; merges two worn tools (+5%) (M23.5)") {
+    ItemStack sword = I("iron_sword");
+    sword.damage = 200;
+    setEnchantment(sword, Enchantment::Sharpness, 3);
+    sword.repairCost = 3;
+    const GrindResult one = grind(sword, {});
+    CHECK(one.out.item == sword.item);
+    CHECK_FALSE(isEnchanted(one.out));
+    CHECK(one.out.repairCost == 0);
+    CHECK(one.out.damage == 200);
+    CHECK(one.xpCost == enchantmentInfo(Enchantment::Sharpness).minBase + 2 * enchantmentInfo(Enchantment::Sharpness).minPerLevel);
+    Xoroshiro rng(3);
+    const int xp = grindExperience(one.xpCost, rng);
+    CHECK(xp >= (one.xpCost + 1) / 2);
+    CHECK(xp < 2 * ((one.xpCost + 1) / 2));
+    CHECK(grind(I("iron_sword"), {}).out.empty()); // nothing to remove
+    ItemStack book = I("enchanted_book");
+    setEnchantment(book, Enchantment::Efficiency, 1);
+    CHECK(grind({}, book).out.item == I("book").item);
+    ItemStack worn = I("iron_sword");
+    worn.damage = 240; // iron: 250 uses
+    const GrindResult two = grind(sword, worn);
+    CHECK(two.out.damage == 250 - (50 + 10 + 12)); // remaining 50 + 10 + 5% of 250
+    CHECK(grind(sword, I("diamond_sword")).out.empty()); // must be the same item
+    // Through the screen: taking the result uses both inputs and reports the cost.
+    Fixture f;
+    f.inv.setSlot(0, sword);
+    f.screen.open(ContainerScreen::Type::Grindstone);
+    f.left(invX(0), hotbarY());
+    f.left(sx(49), sy(19));
+    REQUIRE_FALSE(f.screen.result().empty());
+    f.left(sx(129), sy(34));
+    CHECK(f.screen.grid(0).empty());
+    CHECK_FALSE(isEnchanted(f.screen.carried()));
+    CHECK(f.screen.takeGrindCost() == one.xpCost);
 }
