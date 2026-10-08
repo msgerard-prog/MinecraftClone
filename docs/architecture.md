@@ -459,6 +459,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `spawnWildlife` / `wildlifeOffspring`. Wolf armor: `horseArmor`/`armorWear` on wolves,
   absorbed at the start of the wolf's tick from `lastHealth`. Sweet berry bushes
   (`SweetBerryBush`, age 0-3, Farming/RandomTicks) slow and prick the player (main).
+- Bees (M26.3b, `gameplay/Bees.cpp`, part of `Mobs`): `beeAi` (flies; pollen from flowers
+  near home -> `nectar`, crops grown on the way, home at night/rain/with pollen, stinging
+  with Poison, `stung` bees die) and `tickHives` (per ticking chunk: bees in
+  `BeehiveData` leave by day after 600/2400 ticks, pollen -> `honey_level`). Bees that go
+  in set `vanish` (removed without a death). `world/Beehives` (`beeFromHive`,
+  `releaseBees` - World::setBlock lets them out angry when a hive goes, `hiveSmoked`);
+  harvesting in main; nests from saplings near flowers (`growTree`) and in overworld5
+  (`placeBeeNests`: per-tree streams so the owning chunk places them; `placeBerryBushes`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

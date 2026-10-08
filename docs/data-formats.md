@@ -275,7 +275,12 @@ M26.3a: entities `minecraft:rabbit` (`RabbitType` 0-5), `fox` (`Type` red/snow, 
 `scute_time`); wolves' equipment.body `wolf_armor` (its damage). Block
 `sweet_berry_bush[age]`; items `sweet_berries`, `rabbit`, `cooked_rabbit`, `rabbit_hide`,
 `rabbit_foot`, `goat_horn` (component `minecraft:instrument` "minecraft:<name>_goat_horn"),
-`armadillo_scute`, `wolf_armor`. /summon shorthands `FoxType`, `MainGene`, `HiddenGene`. Items `saddle`,
+`armadillo_scute`, `wolf_armor`. /summon shorthands `FoxType`, `MainGene`, `HiddenGene`.
+M26.3b: entity `minecraft:bee` (`HasNectar`, `HasStung`, `AngerTime`, `hive_pos`); blocks
+`bee_nest`/`beehive[facing,honey_level]` with block entity `minecraft:beehive` {bees:
+[{entity_data {id, Health, Age, HasNectar, UUID}, ticks_in_hive, min_ticks_in_hive}]},
+`honey_block`, `honeycomb_block`; item `honey_bottle`. Generator kind "overworld5" (new
+worlds): bee nests, sweet berry patches. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 
