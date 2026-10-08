@@ -710,6 +710,15 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     if (registry.value(state, prop).value_or("true") == "false")
                         v.faces[int(d)].sprite = sprite("mushroom_block_inside");
                 m = single(v);
+            } else if (name == "carved_pumpkin") { // the face toward `facing`
+                const auto facing = registry.value(state, "facing").value_or("north");
+                BakedVariant v = cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y");
+                const Direction front = facing == "south" ? Direction::South
+                                        : facing == "west" ? Direction::West
+                                        : facing == "east" ? Direction::East
+                                                           : Direction::North;
+                v.faces[int(front)].sprite = sprite("carved_pumpkin");
+                m = single(v);
             } else if (name == "pumpkin") { // vanilla: cube_column, the stem end on top and bottom
                 m = single(cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y"));
             } else if (name == "cactus") {

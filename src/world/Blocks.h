@@ -366,6 +366,7 @@ enum : BlockId {
     Lectern,           // facing, has_book (M24.1: the librarian's job site)
     FletchingTable,
     Bell,              // facing (M24.1: the village meeting point)
+    CarvedPumpkin,     // facing (M24.3: shears on a pumpkin; tops iron golems)
     Count
 };
 } // namespace blocks

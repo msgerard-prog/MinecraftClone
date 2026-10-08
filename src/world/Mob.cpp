@@ -51,6 +51,9 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:villager", 20.0f, 0.6, 1.95, 0.5, 0.0f, false},
         // wiki: Zombie Villager - as a zombie (20, 0.6 x 1.95, 0.23, 3 on normal).
         {"minecraft:zombie_villager", 20.0f, 0.6, 1.95, 0.23, 3.0f, true},
+        // wiki: Iron Golem - 100 health, 1.4 x 2.7, speed 0.25, hits for 7.5-21.5 (ours:
+        // the attack adds up to 15 at random), never hostile on its own.
+        {"minecraft:iron_golem", 100.0f, 1.4, 2.7, 0.25, 7.5f, false},
     };
     return kInfo[static_cast<int>(t)];
 }

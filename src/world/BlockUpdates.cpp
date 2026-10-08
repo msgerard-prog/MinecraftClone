@@ -2235,6 +2235,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::NoteBlock:
         return r.set(state, properties::noteInstrument,
                      BlockUpdates::noteInstrument(world.getBlock(rel(at, Direction::Down))));
+    case B::CarvedPumpkin: // (wiki: Carved Pumpkin - its face toward the player)
     case B::Lectern: // (wiki: Lectern - faces the player)
     case B::Bell:
     case B::Loom: // (wiki: Loom - its front faces the player)

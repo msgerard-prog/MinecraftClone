@@ -1008,6 +1008,8 @@ BlockRegistry buildVanillaBlocks() {
                          .tool = HarvestTool::Pickaxe},
                 {{&facing, "north"}}),
           blocks::Bell);
+    check(r.add("carved_pumpkin", {.hardness = 1.0f, .resistance = 1.0f, .tool = HarvestTool::Axe}, {{&facing, "north"}}),
+          blocks::CarvedPumpkin);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

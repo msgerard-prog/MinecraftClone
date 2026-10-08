@@ -2073,7 +2073,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     *mc::world::itemRegistry().find("bone_meal");
                 static const mc::world::ItemId honeycombItem =
                     *mc::world::itemRegistry().find("honeycomb");
-                if (held.item == honeycombItem &&
+                static const mc::world::ItemId shearsItem = *mc::world::itemRegistry().find("shears");
+                if (held.item == shearsItem && !player.sneaking() &&
+                    reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Pumpkin) {
+                    // Shears carve a pumpkin: the face toward the clicked side (or the
+                    // player, from above or below) (wiki: Pumpkin › Carving; M24.3).
+                    const auto face = lastHit->face;
+                    const float yaw = std::fmod(std::fmod(player.yaw(), 360.0f) + 360.0f, 360.0f);
+                    static constexpr const char* kToward[4] = {"north", "east", "south", "west"};
+                    const char* facing = face == mc::world::Direction::North   ? "north"
+                                         : face == mc::world::Direction::South ? "south"
+                                         : face == mc::world::Direction::West  ? "west"
+                                         : face == mc::world::Direction::East  ? "east"
+                                                                               : kToward[int(std::floor((yaw + 45.0f) / 90.0f)) % 4];
+                    const auto carved = reg.with(reg.defaultState(mc::world::blocks::CarvedPumpkin), "facing", facing);
+                    world.updateBlock(lastHit->block, *carved);
+                    frameEdits.push_back(lastHit->block);
+                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    clicks.useClick = false;
+                    clicks.use = false;
+                } else if (held.item == honeycombItem &&
                     mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
                     frameEdits.push_back(lastHit->block);
                     if (survival) inventory.consumeSelected(1);
@@ -2287,6 +2306,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
+                    if (m.type == mc::world::MobType::Villager) { // golems defend villagers (wiki)
+                        const mc::world::ChunkPos vc{mc::world::blockToChunk(int(std::floor(m.pos.x))),
+                                                     mc::world::blockToChunk(int(std::floor(m.pos.z)))};
+                        for (int dz = -1; dz <= 1; ++dz)
+                            for (int dx = -1; dx <= 1; ++dx)
+                                if (mc::world::Chunk* gc = world.chunk({vc.x + dx, vc.z + dz}))
+                                    for (auto& g : gc->mobs())
+                                        if (g.type == mc::world::MobType::IronGolem &&
+                                            glm::length(g.pos - m.pos) < 16.0) {
+                                            g.angry = true;
+                                            g.angerTicks = 600;
+                                        }
+                    }
                     if (hit) {
                         // Knockback: farther per level; Fire Aspect: alight 4 s per level.
                         if (const int kb = mc::world::enchantLevel(stack, E::Knockback)) {
@@ -2825,6 +2857,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     playSound(
                         mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place),
                         centre, 1.0f, 1.0f, true);
+                    // A carved pumpkin on a T of iron blocks makes an iron golem (M24.3).
+                    if (mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)) ==
+                        mc::world::blocks::CarvedPumpkin)
+                        mc::Mobs::buildIronGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                                 gameRng);
                     // A placed sign opens its editor (vanilla).
                     const auto kind = mc::world::blockRegistry().kind(
                         mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));

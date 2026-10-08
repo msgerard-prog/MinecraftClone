@@ -1706,3 +1706,67 @@ TEST_CASE("zombies hunt villagers and infect them; weakness and a golden apple c
         }
     CHECK(cured);
 }
+
+TEST_CASE("iron golems: built from iron and a carved pumpkin, fight monsters, called by villagers, mended by iron (M24.3)") {
+    MobScene s;
+    auto S = [](BlockId b) { return blockRegistry().defaultState(b); };
+    // A T of iron blocks (along x) with the pumpkin on top.
+    s.world.setBlock({0, 64, 5}, S(blocks::IronBlock));
+    s.world.setBlock({0, 65, 5}, S(blocks::IronBlock));
+    s.world.setBlock({-1, 65, 5}, S(blocks::IronBlock));
+    s.world.setBlock({1, 65, 5}, S(blocks::IronBlock));
+    s.world.setBlock({0, 66, 5}, S(blocks::CarvedPumpkin));
+    CHECK(Mobs::buildIronGolem(s.world, {0, 66, 5}, s.rng));
+    CHECK(s.world.getBlock({0, 65, 5}) == 0);
+    auto golems = [&] {
+        int n = 0;
+        for (MobData* m : s.all()) n += m->type == MobType::IronGolem && m->health > 0.0f;
+        return n;
+    };
+    CHECK(golems() == 1);
+    s.world.setBlock({5, 64, 9}, S(blocks::IronBlock)); // no T: nothing
+    s.world.setBlock({5, 65, 9}, S(blocks::CarvedPumpkin));
+    CHECK_FALSE(Mobs::buildIronGolem(s.world, {5, 65, 9}, s.rng));
+    // It goes for a zombie nearby and kills it (7.5-22.5 a hit, 20 health).
+    const MobData zombie = Mobs::make(MobType::Zombie, {6.5, 64.0, 5.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, zombie));
+    s.player.setPosition({30.5, 64.0, 30.5});
+    s.survival = false; // (the zombie leaves the player be)
+    bool zombieAlive = true;
+    for (int t = 0; t < 400 && zombieAlive; ++t) {
+        s.tick();
+        zombieAlive = false; // (that zombie: others may spawn in the dark meanwhile)
+        for (MobData* m : s.all()) zombieAlive = zombieAlive || (m->uuidHi == zombie.uuidHi && m->health > 0.0f);
+    }
+    CHECK_FALSE(zombieAlive);
+    // An iron ingot mends it by 25.
+    MobData* g = nullptr;
+    for (MobData* m : s.all())
+        if (m->type == MobType::IronGolem) g = m;
+    REQUIRE(g);
+    g->health = 50.0f;
+    CHECK(Mobs::interact(*g, *itemRegistry().find("iron_ingot"), s.rng, s.items) == Mobs::Use::Fed);
+    CHECK(g->health == doctest::Approx(75.0f));
+    CHECK(mobInfo(MobType::IronGolem).maxHealth == 100.0f);
+}
+
+TEST_CASE("three villagers with beds call an iron golem when none is near (M24.3)") {
+    MobScene s;
+    for (int i = 0; i < 3; ++i) {
+        s.world.setBlock({4 + i, 64, 8}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=head]"));
+        s.world.setBlock({4 + i, 64, 9}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=foot]"));
+        MobData v = Mobs::make(MobType::Villager, {4.5 + i, 64.0, 4.5}, s.rng);
+        v.home = {4 + i, 64, 8};
+        REQUIRE(Mobs::add(s.world, v));
+    }
+    s.player.setPosition({30.5, 64.0, 30.5});
+    int golems = 0;
+    for (int t = 0; t < 4000 && golems == 0; ++t) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, false, false, 3000, 0.0f, s.rng, s.items};
+        ctx.naturalSpawning = false;
+        s.mobs.tick(ctx);
+        for (MobData* m : s.all()) golems += m->type == MobType::IronGolem;
+    }
+    CHECK(golems == 1);
+}

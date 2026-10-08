@@ -125,6 +125,16 @@ private:
     bool zombieHunt(Context& ctx, world::MobData& z);
     static void zombieVillagerTick(world::MobData& m);
     static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
+    // Iron golems (M24.3, Golems.cpp): fighting monsters / patrolling (true: chasing),
+    // villagers calling one.
+    bool golemGoal(Context& ctx, world::MobData& g, double& speed);
+    void villagersCallGolem(Context& ctx, world::MobData& v);
+
+public:
+    // A carved pumpkin on a T of iron blocks: an iron golem (false: not a golem shape).
+    static bool buildIronGolem(world::World& world, const world::BlockPos& pumpkin, world::Xoroshiro& rng);
+
+private:
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
     // (breeding partner, tempting food, parent); true if a goal was set.

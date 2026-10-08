@@ -53,6 +53,12 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
                 return Use::Fed;
             }
     }
+    // An iron ingot mends an iron golem by 25 (wiki: Iron Golem › Healing).
+    static const ItemId ironIngot = itemId("iron_ingot");
+    if (m.type == MobType::IronGolem && held == ironIngot && m.health < mobInfo(m.type).maxHealth) {
+        m.health = std::min(mobInfo(m.type).maxHealth, m.health + 25.0f);
+        return Use::Fed;
+    }
     // A zombie villager under Weakness fed a golden apple starts curing: it shakes for
     // 3-5 minutes, then turns back into a villager (wiki: Zombie Villager › Curing).
     static const ItemId goldenApple = itemRegistry().find("golden_apple").value_or(kNoItem);

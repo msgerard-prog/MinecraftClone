@@ -37,6 +37,7 @@ enum class MobType : uint8_t {
     Slime,    // (M21.5)
     Villager, // (M24.1)
     ZombieVillager, // (M24.3)
+    IronGolem,      // (M24.3)
     Count
 };
 

@@ -233,6 +233,18 @@ constexpr std::array<MobPart, 7> kVillager = {{
     {{-4, 6, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None, 3, 0.5f},
 }};
 
+// Iron golem (M24.3): a big body on a narrow waist, long arms swinging with the legs.
+constexpr std::array<MobPart, 8> kIronGolem = {{
+    {{-4, 33, -4}, {4, 43, 4}, {0, 33, 0}, 0, 0, A::Head},
+    {{-1, 35, 4}, {1, 39, 6}, {0, 33, 0}, 32, 0, A::Head},
+    {{-9, 21, -5.5f}, {9, 33, 5.5f}, {0, 21, 0}, 0, 41, A::None},
+    {{-4.5f, 16, -3}, {4.5f, 21, 3}, {0, 16, 0}, 0, 41, A::None},
+    {{-13, 10, -3}, {-9, 40, 3}, {-11, 38, 0}, 40, 0, A::LegB},
+    {{9, 10, -3}, {13, 40, 3}, {11, 38, 0}, 40, 0, A::LegA},
+    {{-7, 0, -2.5f}, {-1, 16, 2.5f}, {-4, 16, 0}, 0, 18, A::LegA},
+    {{1, 0, -2.5f}, {7, 16, 2.5f}, {4, 16, 0}, 0, 18, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -259,6 +271,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Slime: return kMagmaCube; // (the same cube, its own skin)
     case world::MobType::Villager:
     case world::MobType::ZombieVillager: return kVillager; // (its own skin)
+    case world::MobType::IronGolem: return kIronGolem;
     default: return kCow;
     }
 }

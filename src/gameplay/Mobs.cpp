@@ -95,6 +95,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
+    if (type == MobType::IronGolem) m.persistent = true;
     if (type == MobType::Villager) {
         m.persistent = true; // (villagers never despawn)
         m.poiSearch = int16_t(rng.nextInt(40)); // (look around soon after appearing)
@@ -308,6 +309,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (m.type == MobType::Villager) return; // (cured this tick)
     }
     if (m.type == MobType::Villager) {
+        villagersCallGolem(ctx, m);
         villagerFear(ctx, m);
         double unused = 0.0;
         if (m.sleeping && villagerGoal(ctx, m, unused) && m.sleeping) { // asleep: nothing else turns or moves it
@@ -328,7 +330,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
     const double follow = isZombie(m.type) ? 35.0 : m.type == MobType::Enderman ? 64.0 : 16.0;
-    if (!info.hostile || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
+    // An angered iron golem goes for the player like a monster (wiki: Iron Golem).
+    const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry);
+    if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
         // Targets are picked on sight (wiki: Zombie): a line of sight check twice a second.
@@ -344,6 +348,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+    } else if (m.type == MobType::IronGolem && golemGoal(ctx, m, speed)) {
+        chase = true; // (after a monster: Golems.cpp)
+    } else if (m.type == MobType::IronGolem) {
+        // (patrolling: the goal is set)
     } else if (isZombie(m.type) && zombieHunt(ctx, m)) {
         chase = true; // (after a villager: Villagers.cpp)
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
@@ -446,7 +454,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const double reach = info.width * 2.0 + 0.6;
         if (playerDist2 < reach * reach && box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
                                                                   ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
-            if (ctx.vitals.attacked(info.attackDamage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
+            // (golems: 7.5 + up to 15 and a throw upward)
+            const float hit = info.attackDamage + (m.type == MobType::IronGolem ? ctx.rng.nextFloat() * 15.0f : 0.0f);
+            if (ctx.vitals.attacked(hit, &m.pos)) {
+                ctx.player.knockback(toPlayer.x, toPlayer.z);
+                if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
+            }
             m.attackCooldown = 20;
         }
     }
@@ -504,7 +517,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
     m.lastHurtBySkeleton = false;
-    if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
+    if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki)
+        m.angry = true;
+        m.angerTicks = 600;
+    } else if (!mobInfo(m.type).hostile) {
+        m.panicTicks = 100; // passive mobs flee (wiki: Cow)
+    }
     if (m.type == MobType::Piglin) m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
     if (m.type == MobType::Spider || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
         m.angry = true;
@@ -605,6 +623,10 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Zombie:
     case MobType::ZombieVillager: drop("rotten_flesh", 0, 2); break;
+    case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
+        drop("iron_ingot", 3, 5);
+        drop("poppy", 0, 2);
+        break;
     case MobType::Sheep: // wiki: Sheep - its wool unless sheared, 1-2 mutton
         if (!m.sheared)
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0),
