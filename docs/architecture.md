@@ -597,6 +597,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `takeBred`, `ItemEntities::pickedUp`, `BlockInteraction::takeBroken/takeUsed/
   takeBrokenTool`, `ContainerScreen::crafted`/`takeTrades`); `ui/Menus` shows them
   (Game Menu > Statistics: General, Items, Mobs).
+  Advancements (M28.5c, `world/Advancements`): a table of 67 vanilla advancements (id,
+  title, description, tab, frame) each earned by items carried, a kill or an `AdvEvent`;
+  main loads/saves `advancements/<uuid>.json`, scans the inventory once a second
+  (`onItem`), feeds kills, events from the same queues as statistics plus
+  `BlockInteraction::takeAte`, `Mobs::takeCured`, `DragonFight::respawning` and its own
+  hooks (bows, vaults, waxing, golems...), and announces each one (chat if the game rule
+  `show_advancement_messages` allows, a 5 s toast). `ui/Menus` lists them per tab.
 - Navigation (M28.2a): `world/ItemExtras` holds what items carry beyond ItemStack's
   fields (`ItemStack::extra`: lodestone targets, book pages; saved as vanilla's
   minecraft:lodestone_tracker / *_book_content components); `gfx::ItemIcons::setDials`

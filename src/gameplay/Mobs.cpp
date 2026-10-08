@@ -1183,6 +1183,7 @@ void Mobs::tick(Context& ctx) {
                 if (m.deathTime >= 200) {
                     remove = true;
                     if (m_dragonDeaths.size() < m_dragonDeaths.capacity()) m_dragonDeaths.push_back(m.pos);
+                    if (m_killCount < int(m_kills.size())) m_kills[size_t(m_killCount++)] = m.type; // (M28.5c)
                 }
             } else if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
                 if (++m.deathTime == 1) {

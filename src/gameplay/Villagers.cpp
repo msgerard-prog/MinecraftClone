@@ -402,9 +402,15 @@ bool Mobs::villageHunt(Context& ctx, MobData& z) {
 // countdown ends, with lower prices out of gratitude (wiki: Zombie Villager › Curing:
 // the cure's 125 reputation takes price multiplier x 125 off - 0.05 trades 6, 0.2 trades
 // 25 - so many trades fall to 1 emerald; ours only on the trades it has now).
+namespace {
+int g_cured = 0; // (M28.5c) cures since main last asked (main thread only)
+}
+int Mobs::takeCured() { return std::exchange(g_cured, 0); }
+
 void Mobs::zombieVillagerTick(MobData& m) {
     if (m.weaknessTicks > 0) --m.weaknessTicks;
     if (m.convertTicks <= 0 || --m.convertTicks > 0) return;
+    ++g_cured;
     m.type = MobType::Villager;
     m.health = mobInfo(MobType::Villager).maxHealth;
     m.targeting = false;

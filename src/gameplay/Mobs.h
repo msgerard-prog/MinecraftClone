@@ -139,6 +139,7 @@ public:
     std::span<const world::MobType> playerKills() const { return {m_kills.data(), size_t(m_killCount)}; }
     void clearPlayerKills() { m_killCount = 0; }
     int takeBred() { return std::exchange(m_bred, 0); }
+    static int takeCured(); // (M28.5c) zombie villagers cured since the last call
     // Item frames and paintings (M28.3a, Hanging.cpp; wiki: Item Frame, Painting): hung on
     // the face `face` of `support` (paintings on walls only: the biggest canvases that fit,
     // one at random); false if there is no room.

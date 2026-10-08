@@ -32,6 +32,7 @@ constexpr Rule kRules[] = {
     {"minecraft:spawn_patrols", "doPatrolSpawning", &GameRules::spawnPatrols, nullptr},
     {"minecraft:spawn_wandering_traders", "doTraderSpawning", &GameRules::spawnWanderingTraders, nullptr},
     {"minecraft:spawn_wardens", "doWardenSpawning", &GameRules::spawnWardens, nullptr},
+    {"minecraft:show_advancement_messages", "announceAdvancements", &GameRules::announceAdvancements, nullptr},
     {"minecraft:random_tick_speed", "randomTickSpeed", nullptr, &GameRules::randomTickSpeed},
 };
 static_assert(std::size(kRules) == size_t(GameRules::kCount));

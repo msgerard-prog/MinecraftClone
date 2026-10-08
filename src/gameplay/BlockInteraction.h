@@ -105,6 +105,7 @@ public:
     world::BlockId takeBroken() { return std::exchange(m_broken, world::BlockId(0)); }
     world::ItemId takeUsed() { return std::exchange(m_used, world::ItemId(0)); }
     world::ItemId takeBrokenTool() { return std::exchange(m_brokenTool, world::ItemId(0)); }
+    bool takeAte() { return std::exchange(m_ate, false); } // (M28.5c) finished eating something
 
 private:
     bool m_blockDrops = true;
@@ -112,6 +113,7 @@ private:
     bool m_mayBuild = true;
     world::BlockId m_broken = 0;
     world::ItemId m_used = 0, m_brokenTool = 0;
+    bool m_ate = false;
     int m_experience = 0;
     world::BlockPos m_xpAt{};
     bool useBlock(const Player& player, const world::RayHit& hit, bool holding);

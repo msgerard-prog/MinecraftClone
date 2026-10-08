@@ -57,6 +57,11 @@ struct DragonFight {
 private:
     int m_scanClock = 0;
     int m_respawnTicks = -1; // the respawn under way (not saved: it starts over)
+
+public:
+    bool respawning() const { return m_respawnTicks >= 0; } // (M28.5c: advancements)
+
+private:
     // Builds waiting for their chunks to load (not saved: lost if the game quits first).
     std::vector<world::BlockPos> m_pendingGateways;
     int m_pendingPortal = 0; // 1: open the exit portal, 2: and the egg

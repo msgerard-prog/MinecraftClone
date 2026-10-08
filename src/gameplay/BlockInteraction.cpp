@@ -350,6 +350,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         // (dried kelp is eaten twice as fast - wiki: Dried Kelp)
         if (++m_eatTicks >= (held.id == "minecraft:dried_kelp" ? kEatTicks / 2 : kEatTicks)) {
             vitals.eat(held.food, held.saturation);
+            m_ate = true;
             if (held.id == "minecraft:golden_apple") // (wiki: Regeneration II for 5 s; no Absorption yet)
                 vitals.addEffect(world::Effect::Regeneration, 1, 100);
             if (held.id == "minecraft:pufferfish") { // (wiki: Hunger III 15 s, Poison II 60 s; no Nausea yet)

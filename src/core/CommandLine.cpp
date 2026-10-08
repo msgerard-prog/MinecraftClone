@@ -222,8 +222,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             if (!v) return std::nullopt;
             opts.menu = std::string(*v);
             if (opts.menu != "title" && opts.menu != "worlds" && opts.menu != "create" && opts.menu != "options" &&
-                opts.menu != "pause" && opts.menu != "statistics") {
-                error = "--menu needs title|worlds|create|options|pause|statistics";
+                opts.menu != "pause" && opts.menu != "statistics" && opts.menu != "advancements") {
+                error = "--menu needs title|worlds|create|options|pause|statistics|advancements";
                 return std::nullopt;
             }
         } else {

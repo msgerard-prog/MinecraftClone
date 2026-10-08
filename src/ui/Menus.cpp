@@ -213,7 +213,10 @@ MenuAction pause(Menu& m, MenuState& st) {
     const float top = float(m.height()) / 4.0f;
     m.text("Game Menu", cx, top - 16.0f, argb(0xFFFFFFFF), true);
     if (m.button("Back to Game", cx - 102.0f, top + 8.0f, 204.0f) || m.input().escape) return MenuAction::Resume;
-    m.button("Advancements", cx - 102.0f, top + 32.0f, 100.0f, false); // (M28.5)
+    if (m.button("Advancements", cx - 102.0f, top + 32.0f, 100.0f, st.adv != nullptr)) { // (M28.5c)
+        st.screen = MenuScreen::Advancements;
+        st.advScroll = 0;
+    }
     if (m.button("Statistics", cx + 2.0f, top + 32.0f, 100.0f, st.stats != nullptr)) {
         st.screen = MenuScreen::Statistics;
         st.statsScroll = 0;
@@ -314,6 +317,52 @@ MenuAction statisticsScreen(Menu& m, MenuState& st) {
     return MenuAction::None;
 }
 
+MenuAction advancementsScreen(Menu& m, MenuState& st) {
+    // Vanilla's Advancements screen (wiki: Advancement) is a tree per tab; ours lists each
+    // tab's advancements in order: made ones lit (frame colour), the rest grey.
+    m.dim();
+    const float cx = float(m.width()) / 2.0f;
+    const auto all = world::advancements();
+    char head[64];
+    std::snprintf(head, sizeof(head), "Advancements (%d/%d)", st.adv ? st.adv->doneCount() : 0, int(all.size()));
+    m.text(head, cx, 8.0f, argb(0xFFFFFFFF), true);
+    static constexpr const char* kTabs[5] = {"Minecraft", "Nether", "The End", "Adventure", "Husbandry"};
+    for (int t = 0; t < 5; ++t)
+        if (m.button(kTabs[t], cx - 160.0f + float(t) * 64.0f, 22.0f, 62.0f, st.advTab != t)) {
+            st.advTab = t;
+            st.advScroll = 0;
+        }
+    const float listTop = 48.0f, listBottom = float(m.height()) - 32.0f, rowH = 11.0f;
+    const int visible = std::max(1, int((listBottom - listTop) / rowH));
+    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f, gfx::rgba(0, 0, 0, 110));
+    const float left = cx - 150.0f;
+    int row = 0;
+    char text[128];
+    auto line = [&](const char* s, float indent, uint32_t colour) {
+        const int r = row++ - st.advScroll;
+        if (r < 0 || r >= visible) return;
+        m.text(s, left + indent, listTop + float(r) * rowH, colour);
+    };
+    for (size_t i = 0; i < all.size(); ++i) {
+        const world::Advancement& a = all[i];
+        if (int(a.tab) != st.advTab) continue;
+        const bool made = st.adv && st.adv->done(int(i));
+        // Vanilla frames: task (square), goal (rounded), challenge (spiked, purple title).
+        const char* mark = a.frame == world::AdvFrame::Challenge ? "*" : a.frame == world::AdvFrame::Goal ? "o" : "-";
+        std::snprintf(text, sizeof(text), "%s %s %.*s", made ? "[x]" : "[ ]", mark, int(a.title.size()), a.title.data());
+        line(text, 0.0f,
+             !made ? argb(0xFF909090)
+             : a.frame == world::AdvFrame::Challenge ? argb(0xFFFF55FF)
+                                                     : argb(0xFFFFFF55));
+        std::snprintf(text, sizeof(text), "%.*s", int(a.description.size()), a.description.data());
+        line(text, 24.0f, made ? argb(0xFF55FF55) : argb(0xFF707070));
+    }
+    if (m.input().wheel != 0.0) st.advScroll -= int(m.input().wheel) * 3;
+    st.advScroll = std::clamp(st.advScroll, 0, std::max(0, row - visible));
+    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape) st.screen = MenuScreen::Pause;
+    return MenuAction::None;
+}
+
 } // namespace
 
 MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite, const char* version) {
@@ -325,6 +374,7 @@ MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t
     case MenuScreen::Options: return optionsScreen(menu, state, options, dirtSprite);
     case MenuScreen::Pause: return pause(menu, state);
     case MenuScreen::Statistics: return statisticsScreen(menu, state);
+    case MenuScreen::Advancements: return advancementsScreen(menu, state);
     case MenuScreen::None: break;
     }
     return MenuAction::None;

@@ -23,7 +23,7 @@ M28 - Progression & game (wiki pages of each feature):
 4. ✅ M28.4 - Combat items: a) crossbows (multishot, piercing, quick charge), b) tipped and
    spectral arrows, lingering potions, c) fireworks (rockets for elytra), d) the mace (heavy
    core from ominous vaults; Trial Omen), e) spears.
-5. M28.5 - Advancements; the remaining blocks: candles, 1.21.5 plants (firefly bushes,
+5. ✅ M28.5 - c) Advancements; a, b) the remaining blocks: candles, 1.21.5 plants (firefly bushes,
    leaf litter, wildflowers, bushes, cactus flowers, dry grass), disc fragments and disc 5.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

@@ -122,6 +122,10 @@ stats/<uuid>.json          (M28.1d) the player's statistics, vanilla's JSON: { "
                            "minecraft:crafted" | "used" | "broken" | "picked_up" | "dropped"
                            (items), "minecraft:killed" | "killed_by" (mobs) }, "DataVersion"
                            4671 }; zero counters and empty groups are left out
+advancements/<uuid>.json   (M28.5c) the player's advancements, vanilla's JSON: {
+                           "minecraft:story/mine_stone": { "criteria": { "requirement":
+                           "2026-10-08 12:00:00 +0000" }, "done": true }, ..., "DataVersion":
+                           4671 }; only made ones are written (one criterion each, ours)
 DIM-1/region, DIM-1/entities   the Nether (M12), same layouts; DIM1/... the End
 entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
                            Entities [ mobs: { id, Pos, Motion, Rotation, Health,

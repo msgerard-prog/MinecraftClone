@@ -2,6 +2,7 @@
 
 #include "core/Options.h"
 #include "ui/Menu.h"
+#include "world/Advancements.h"
 #include "world/Statistics.h"
 #include "world/WorldList.h"
 
@@ -14,7 +15,7 @@ namespace mc::ui {
 // The menu screens (M22.5; vanilla: title, Select World, Create New World, delete
 // confirmation, Options, Game Menu). GL-free: they draw into a GuiBatch through Menu
 // and report what the player chose; main acts on it.
-enum class MenuScreen { None, Title, WorldList, CreateWorld, ConfirmDelete, Options, Pause, Statistics };
+enum class MenuScreen { None, Title, WorldList, CreateWorld, ConfirmDelete, Options, Pause, Statistics, Advancements };
 
 enum class MenuAction {
     None,
@@ -46,6 +47,9 @@ struct MenuState {
     // Items, Mobs) and its scroll.
     const world::Statistics* stats = nullptr;
     int statsTab = 0, statsScroll = 0;
+    // Advancements (M28.5c, from the Game Menu): the player's, the tab and its scroll.
+    const world::Advancements* adv = nullptr;
+    int advTab = 0, advScroll = 0;
 };
 
 // Draws the current screen and handles its input. `dirtSprite`: the atlas cell tiled
