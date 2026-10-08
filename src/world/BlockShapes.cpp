@@ -113,6 +113,8 @@ BlockShape compute(BlockStateId s) {
     }
     switch (b) {
     case B::Mud: return box(0, 0, 0, 16, 14, 16); // (M27.1; wiki: Mud - 14 pixels, so things sink a little)
+    case B::SculkSensor: // (M27.3; wiki: half a block)
+    case B::SculkShrieker: return box(0, 0, 0, 16, 8, 16);
     case B::PointedDripstone: { // (M27.2b; ours: thinner toward the tip)
         const int t = r.get(s, thickness);
         return t >= 3 ? box(4, 0, 4, 12, 16, 12) : t == 2 ? box(5, 0, 5, 11, 16, 11) : box(6, 0, 6, 10, 16, 10);

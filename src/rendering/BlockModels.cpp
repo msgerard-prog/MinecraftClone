@@ -964,6 +964,39 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
                 else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
                 else addBox(m, 15, 0, 0, 16, 16, 16, sp);
+            } else if (name == "sculk_vein") { // (M27.3) a thin layer on its face
+                const std::string_view f = registry.value(state, "facing").value_or("down");
+                const uint16_t sp = sprite("sculk_vein");
+                m.visible = true;
+                if (f == "down") addBox(m, 0, 0, 0, 16, 1, 16, sp);
+                else if (f == "up") addBox(m, 0, 15, 0, 16, 16, 16, sp);
+                else if (f == "north") addBox(m, 0, 0, 0, 16, 16, 1, sp);
+                else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
+                else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
+                else addBox(m, 15, 0, 0, 16, 16, 16, sp);
+            } else if (name == "sculk_catalyst") {
+                const bool b = registry.value(state, "bloom") == "true";
+                BakedVariant v = cubeAll(sprite(b ? "sculk_catalyst_side_bloom" : "sculk_catalyst_side"));
+                v.faces[int(Direction::Up)].sprite = sprite(b ? "sculk_catalyst_top_bloom" : "sculk_catalyst_top");
+                v.faces[int(Direction::Down)].sprite = sprite("sculk_catalyst_bottom");
+                m = single(v);
+            } else if (name == "reinforced_deepslate") {
+                BakedVariant v = cubeAll(sprite("reinforced_deepslate_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("reinforced_deepslate_top");
+                v.faces[int(Direction::Down)].sprite = sprite("reinforced_deepslate_bottom");
+                m = single(v);
+            } else if (name == "sculk_sensor" || name == "sculk_shrieker") { // a half-block base
+                const bool sensor = name == "sculk_sensor";
+                m.visible = true;
+                addBox(m, 0, 0, 0, 16, 8, 16, sprite((name + "_side").c_str()));
+                m.boxes[0].faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
+                m.boxes[0].faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
+                if (sensor) { // tendrils over it, lit while active
+                    m.cross = true;
+                    m.crossSprite = sprite(registry.value(state, "sculk_sensor_phase") == "active"
+                                               ? "sculk_sensor_tendril_active"
+                                               : "sculk_sensor_tendril_inactive");
+                }
             } else if (name == "pointed_dripstone") { // (M27.2b) a cross by direction and thickness
                 m.visible = true;
                 m.cross = true;

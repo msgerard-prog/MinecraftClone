@@ -321,6 +321,12 @@ int blockExperience(BlockStateId state, Xoroshiro& rng) {
         return between(15, 43); // wiki: Monster Spawner
     case blocks::NetherGoldOre:
         return between(0, 1);
+    case blocks::Sculk: // (M27.3; wiki: Sculk and sensors 1, catalysts and shriekers 5)
+    case blocks::SculkSensor:
+        return 1;
+    case blocks::SculkCatalyst:
+    case blocks::SculkShrieker:
+        return 5;
     default:
         return 0;
     }
@@ -345,6 +351,16 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             } else {
                 out.push_back({itemRegistry().blockItem(ob), 1});
             }
+            return;
+        }
+        // The deep dark (M27.3; wiki): sculk blocks drop themselves only with Silk Touch
+        // (their experience otherwise); reinforced deepslate never drops.
+        if (ob == blocks::Sculk || ob == blocks::SculkVein || ob == blocks::SculkCatalyst || ob == blocks::SculkSensor ||
+            ob == blocks::SculkShrieker || ob == blocks::ReinforcedDeepslate) {
+            // (a sensor drops itself with any tool)
+            if (ob == blocks::SculkSensor ||
+                (ob != blocks::ReinforcedDeepslate && enchantLevel(held, Enchantment::SilkTouch) > 0))
+                out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
         if (ob == blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)

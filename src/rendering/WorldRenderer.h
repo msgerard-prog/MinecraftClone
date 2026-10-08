@@ -105,6 +105,8 @@ public:
     // Night vision (M19.4): everything lit as if at full light (vanilla scales the
     // lightmap to full brightness).
     void setNightVision(bool on) { m_nightVision = on; }
+    // Darkness (M27.3; wiki: Darkness): 0..1, the fog closes in and the sky light dims.
+    void setDarkness(float amount) { m_darkness = amount; }
     // A lightning flash (vanilla skyFlashTime): full daylight for this frame.
     void setSkyFlash() { m_skyDarken = 0.0f; }
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
@@ -194,6 +196,7 @@ private:
     bool m_underwater = false;
     glm::vec3 m_waterFog{0.0f};
     bool m_nightVision = false;
+    float m_darkness = 0.0f;
 };
 
 } // namespace mc::gfx

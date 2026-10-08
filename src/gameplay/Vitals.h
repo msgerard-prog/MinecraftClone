@@ -117,6 +117,31 @@ public:
     // phantoms come for players awake 3 days or more. Counted by main while alive; sleeping
     // and dying reset it.
     int timeSinceRest() const { return m_timeSinceRest; }
+    // The warden's warnings (M27.3; wiki: Sculk Shrieker): a shrieker that can summon
+    // raises the level by 1 (at most once in 10 s, up to 4) and the 4th calls a warden;
+    // the level drops by 1 after 10 minutes without a warning. True: a warden comes.
+    bool wardenWarn() {
+        if (m_wardenCooldown > 0) return false;
+        m_wardenCooldown = 200;
+        m_wardenTicks = 0;
+        m_wardenLevel = std::min(4, m_wardenLevel + 1);
+        return m_wardenLevel >= 4;
+    }
+    void tickWardenTracker() {
+        if (m_wardenCooldown > 0) --m_wardenCooldown;
+        if (m_wardenLevel > 0 && ++m_wardenTicks >= 12000) {
+            --m_wardenLevel;
+            m_wardenTicks = 0;
+        }
+    }
+    int wardenLevel() const { return m_wardenLevel; }
+    int wardenTicks() const { return m_wardenTicks; }
+    int wardenCooldown() const { return m_wardenCooldown; }
+    void setWardenTracker(int level, int ticks, int cooldown) {
+        m_wardenLevel = std::clamp(level, 0, 4);
+        m_wardenTicks = std::max(0, ticks);
+        m_wardenCooldown = std::max(0, cooldown);
+    }
     void setTimeSinceRest(int t) { m_timeSinceRest = std::max(0, t); }
     void addRestTime() { if (m_timeSinceRest < 0x7fffffff) ++m_timeSinceRest; }
     // Spends whole levels (enchanting, anvils); false if there aren't enough.
@@ -156,6 +181,11 @@ public:
             if (e.type == type && e.duration > 0) return e.amplifier + 1;
         return 0;
     }
+    int effectTicks(world::Effect type) const { // ticks left (0: not active)
+        for (const ActiveEffect& e : m_effects)
+            if (e.type == type && e.duration > 0) return e.duration;
+        return 0;
+    }
     const std::array<ActiveEffect, kMaxEffects>& effects() const { return m_effects; }
     void clearEffects() { m_effects = {}; } // death, milk
     void removeEffect(world::Effect type) { // (Bad Omen turning into Raid Omen)
@@ -170,6 +200,7 @@ public:
 private:
     float m_landingFactor = 1.0f;
     bool m_stalagmite = false;
+    int m_wardenLevel = 0, m_wardenTicks = 0, m_wardenCooldown = 0; // (M27.3)
     float m_health = kMaxHealth;
     int m_food = kMaxFood;
     float m_saturation = 5.0f;

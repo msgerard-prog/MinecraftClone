@@ -515,6 +515,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
         vitals.setEnchantSeed(uint32_t(level->xpSeed));
         vitals.setTimeSinceRest(level->timeSinceRest);
+        vitals.setWardenTracker(level->wardenLevel, level->wardenTicks, level->wardenCooldown);
         for (const auto& e : level->effects) // (kinds we don't have are dropped)
             if (const auto kind = mc::world::findEffect(e.id))
                 vitals.addEffect(*kind, e.amplifier, e.duration);
@@ -782,6 +783,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.xpTotal = vitals.xpTotal();
         l.xpSeed = int32_t(uint32_t(vitals.enchantSeed()));
         l.timeSinceRest = vitals.timeSinceRest();
+        l.wardenLevel = vitals.wardenLevel();
+        l.wardenTicks = vitals.wardenTicks();
+        l.wardenCooldown = vitals.wardenCooldown();
         for (const auto& e : vitals.effects())
             if (e.duration > 0)
                 l.effects.push_back(
@@ -2824,7 +2828,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (!item && reg.blockOf(world.getBlock(c)) == mc::world::blocks::BigDripleaf)
                         blockUpdates.tiltDripleaf(c); // (M27.2: it tips under them)
                 };
-                if (!dead && !player.flying()) pressAt(player.position(), 0.3, false);
+                if (!dead && !player.flying()) {
+                    pressAt(player.position(), 0.3, false);
+                    // (M27.3) stepping on a shrieker sets it off, unless sneaking
+                    const glm::dvec3 f = player.position();
+                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y - 0.01)), int(std::floor(f.z))};
+                    if (player.onGround() && !player.sneaking() &&
+                        reg.blockOf(world.getBlock(c)) == mc::world::blocks::SculkShrieker)
+                        blockUpdates.shriek(c);
+                }
                 world.forEachTickingChunk([&](mc::world::Chunk& c) {
                     for (const auto& m : c.mobs()) {
                         const bool cart = m.type == mc::world::MobType::Minecart;
@@ -2959,6 +2971,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::Mobs::add(world, baby);
                 }
             blockUpdates.hatched().clear();
+            // Shriekers (M27.3; wiki: Sculk Shrieker): one that can summon warns the player
+            // (Darkness for 12 s) and the 4th warning calls a warden.
+            for (const auto& sh : blockUpdates.shrieks()) {
+                const glm::dvec3 c(sh.pos.x + 0.5, sh.pos.y + 0.5, sh.pos.z + 0.5);
+                world.levelEvent(mc::world::LevelEvent::Type::Note, c.x, c.y + 0.6, c.z, 0); // (a visible cue)
+                if (!sh.canSummon || !survival || dead || glm::length(player.position() - c) > 40.0) continue;
+                vitals.addEffect(mc::world::Effect::Darkness, 0, 260);
+                if (vitals.wardenWarn()) mc::Mobs::summonWarden(world, sh.pos, gameRng);
+            }
+            blockUpdates.shrieks().clear();
             for (const auto& sp : blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)
                 mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Silverfish, {sp.x + 0.5, double(sp.y), sp.z + 0.5}, gameRng));
             blockUpdates.silverfishOut().clear();
@@ -3422,6 +3444,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     break;
                 }
             }
+            // Vibrations (M27.3): blocks broken and placed (by the player), explosions.
+            for (size_t ev = 0, n = world.levelEvents().size(); ev < n; ++ev) {
+                const auto e = world.levelEvents()[ev];
+                using T = mc::world::LevelEvent::Type;
+                if (e.type == T::BlockBreak || e.type == T::BlockPlace)
+                    blockUpdates.vibrate({e.x + 0.5, e.y + 0.5, e.z + 0.5}, true);
+                else if (e.type == T::Explosion)
+                    blockUpdates.vibrate({e.x, e.y, e.z}, false);
+            }
             world.levelEvents().clear();
             for (const auto& s : world.soundEvents())
                 playSound(s.sound, {s.x, s.y, s.z}, s.volume, s.pitch, true);
@@ -3444,6 +3475,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (us != 0 && !player.inWater())
                             playSound(mc::world::blockSoundOf(us, mc::world::BlockSound::Step),
                                       feetNow, 1.0f, 1.0f, false);
+                        if (!player.sneaking()) blockUpdates.vibrate(feetNow, true); // (M27.3: sneaking is silent)
                     }
                 } else if (player.inWater()) {
                     stepDistance += glm::length(feetNow - lastFeet) * 0.6;
@@ -3502,6 +3534,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (hornCooldown > 0) --hornCooldown;
             if (windCooldown > 0) --windCooldown;
             if (!dead && survival) vitals.addRestTime(); // (M26.4a: insomnia - phantoms)
+            vitals.tickWardenTracker();                 // (M27.3)
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) {
                 blockUpdates.landAll(); // (blocks in flight land before saving)
@@ -3632,6 +3665,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             renderer.setNetherFog(netherFog);
+        }
+        { // Darkness (M27.3): the dark pulses while it lasts.
+            const int darkTicks = vitals.effectTicks(mc::world::Effect::Darkness);
+            const float pulse = 0.65f + 0.3f * float(std::sin((double(gameTime) + clock.alpha) * 0.08));
+            renderer.setDarkness(darkTicks > 0 ? pulse * std::min(1.0f, darkTicks / 20.0f) : 0.0f);
         }
         renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0 ||
                                 vitals.effectLevel(mc::world::Effect::ConduitPower) >

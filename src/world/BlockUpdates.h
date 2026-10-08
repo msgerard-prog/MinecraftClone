@@ -97,6 +97,19 @@ public:
     void setSkyDarken(int levels) { m_skyDarken = levels; }
     void setDayTime(int64_t dayTime) { m_dayTime = dayTime; } // (M25: turtle eggs crack before dawn)
     bool nightTime() const; // (M27.1c: eyeblossoms, creaking hearts)
+    // Sculk (M27.3, Sculk.cpp): a vibration at `at` (a player's sets off shriekers too);
+    // a shrieker set off (also by a player stepping on it); shriekers that shrieked this
+    // tick for main (warnings, Darkness, the warden; main clears them).
+    void vibrate(const glm::dvec3& at, bool byPlayer);
+    void shriek(const BlockPos& p);
+    struct Shriek {
+        BlockPos pos;
+        bool canSummon;
+    };
+    std::vector<Shriek>& shrieks() { return m_shrieks; }
+    // A creature with `charge` experience died at `at`: true if a sculk catalyst within 8
+    // bloomed sculk with it (the experience isn't dropped then).
+    static bool sculkBloom(World& world, const glm::dvec3& at, int charge, Xoroshiro& rng);
     // Someone stands on a big dripleaf (M27.2): it starts to tip.
     void tiltDripleaf(const BlockPos& p);
     // Ground azaleas and dripleaves grow on: #dirt and clay (M27.2).
@@ -301,6 +314,7 @@ private:
     // Pointed dripstone (M27.2b, Dripstone.cpp).
     bool dripstoneChanged(const BlockPos& p, BlockStateId s); // true: dripstone, handled
     void tickDripstone(const BlockPos& tip, BlockStateId s);
+    bool tickSculk(const BlockPos& p, BlockStateId s); // true: a sensor's or shrieker's tick
     bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
@@ -422,6 +436,7 @@ private:
     std::vector<BlockPos> m_silverfish; // (M26.4a)
     std::vector<Drop> m_drops;
     std::vector<FallStart> m_falling;
+    std::vector<Shriek> m_shrieks;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)
     std::vector<BlockStateId> m_pushStates;
     struct Toggle {

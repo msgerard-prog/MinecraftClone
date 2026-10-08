@@ -181,6 +181,9 @@ public:
     // 32 and none of its own is out (M27.1c; false: none came).
     static bool spawnCreaking(world::World& world, const world::BlockPos& heart, const glm::dvec3& player,
                               world::Xoroshiro& rng);
+    // A shrieker's 4th warning calls a warden out of the ground near it (M27.3; false: none
+    // came - one is already within 48 blocks, or no room).
+    static bool summonWarden(world::World& world, const world::BlockPos& shrieker, world::Xoroshiro& rng);
     // Whether a player at `eye` looking along `look` sees the creaking (M27.1c).
     static bool watched(const world::World& world, const world::MobData& m, const glm::dvec3& eye,
                         const glm::dvec3& look);

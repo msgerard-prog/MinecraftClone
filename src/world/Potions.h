@@ -36,6 +36,7 @@ enum class Effect : uint8_t {
     MiningFatigue,    // (M25.5: elder guardians) mining x 0.3 per level
     Wither,           // (M26.4a: wither skeletons) like Poison, but it can kill
     BreathOfTheNautilus, // (M26.5a: riding a nautilus) the air bar doesn't drop under water
+    Darkness,            // (M27.3: shriekers, wardens) the world pulses dark around you
     Count
 };
 struct EffectInfo {

@@ -7,6 +7,7 @@
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Coords.h"
 #include "world/Items.h"
@@ -801,15 +802,16 @@ void Mobs::die(Context& ctx, MobData& m) {
     // (wiki: blazes, evokers and breezes 10, ravagers 20, magma cubes their size; villagers,
     // wandering traders and iron golems none)
     const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader || m.type == MobType::IronGolem;
-    if (ctx.orbs && m.lastHurtByPlayer && !noXp)
-        ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
-                       m.type == MobType::Wither                              ? 50 // (M26.4b)
-                       : m.type == MobType::Ravager                           ? 20
+    if (ctx.orbs && m.lastHurtByPlayer && !noXp) {
+        const int xp = m.type == MobType::Wither                                                      ? 50 // (M26.4b)
+                       : m.type == MobType::Ravager                                                   ? 20
                        : m.type == MobType::Blaze || m.type == MobType::Evoker || m.type == MobType::Breeze ? 10
-                       : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
-                       : mobInfo(m.type).hostile      ? 5
-                                                      : 1 + static_cast<int>(ctx.rng.nextInt(3)),
-                       ctx.rng);
+                       : m.type == MobType::MagmaCube || m.type == MobType::Slime                     ? int(m.size)
+                       : mobInfo(m.type).hostile                                                      ? 5
+                                                                 : 1 + static_cast<int>(ctx.rng.nextInt(3));
+        // (M27.3) a sculk catalyst nearby takes it and blooms sculk instead
+        if (!BlockUpdates::sculkBloom(ctx.world, m.pos, xp, ctx.rng)) ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0), xp, ctx.rng);
+    }
     const bool burning = m.fireTicks > 0; // meat drops cooked
     switch (m.type) {
     case MobType::Cow:

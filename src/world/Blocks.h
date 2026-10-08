@@ -62,6 +62,10 @@ extern const Property berries;        // true | false (M27.2: cave vines)
 extern const Property tilt;           // none | unstable | partial | full (big dripleaf)
 extern const Property thickness;      // tip_merge | tip | frustum | middle | base (pointed dripstone)
 extern const Property verticalDirection; // "vertical_direction": up | down
+extern const Property sculkPhase;     // "sculk_sensor_phase": inactive | active | cooldown (M27.3)
+extern const Property bloom;          // true | false (sculk catalyst)
+extern const Property shrieking;      // true | false (sculk shrieker)
+extern const Property canSummon;      // "can_summon": true | false
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -461,6 +465,14 @@ enum : BlockId {
     // Dripstone caves (M27.2b; wiki: Pointed Dripstone, Dripstone Block).
     PointedDripstone, // thickness, vertical_direction, waterlogged
     DripstoneBlock,
+    // The deep dark (M27.3; wiki: Sculk, Sculk Vein, Sculk Catalyst, Sculk Sensor, Sculk
+    // Shrieker, Reinforced Deepslate).
+    Sculk,
+    SculkVein,           // facing (the side it covers - ours: one face)
+    SculkCatalyst,       // bloom
+    SculkSensor,         // sculk_sensor_phase, power, waterlogged
+    SculkShrieker,       // shrieking, can_summon, waterlogged
+    ReinforcedDeepslate,
     Count
 };
 } // namespace blocks

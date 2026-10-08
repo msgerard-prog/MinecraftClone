@@ -98,6 +98,10 @@ const Property berries{"berries", {"true", "false"}};
 const Property tilt{"tilt", {"none", "unstable", "partial", "full"}};
 const Property thickness{"thickness", {"tip_merge", "tip", "frustum", "middle", "base"}};
 const Property verticalDirection{"vertical_direction", {"up", "down"}};
+const Property sculkPhase{"sculk_sensor_phase", {"inactive", "active", "cooldown"}};
+const Property bloom{"bloom", {"true", "false"}};
+const Property shrieking{"shrieking", {"true", "false"}};
+const Property canSummon{"can_summon", {"true", "false"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1187,6 +1191,25 @@ BlockRegistry buildVanillaBlocks() {
           blocks::PointedDripstone);
     check(r.add("dripstone_block", {.hardness = 1.5f, .resistance = 1.0f, .tool = HarvestTool::Pickaxe}),
           blocks::DripstoneBlock);
+    // The deep dark (M27.3; wiki: sculk 0.2, vein 0.2, catalyst 3, sensor 1.5, shrieker 3, all
+    // hoes; reinforced deepslate 55 / 1200, unbreakable by hand in survival practice).
+    check(r.add("sculk", {.hardness = 0.2f, .resistance = 0.2f, .tool = HarvestTool::Hoe}), blocks::Sculk);
+    check(r.add("sculk_vein", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .collision = false,
+                               .layer = RenderLayer::Cutout, .tool = HarvestTool::Hoe},
+                {{&facing6, "down"}}),
+          blocks::SculkVein);
+    check(r.add("sculk_catalyst", {.hardness = 3.0f, .resistance = 3.0f, .lightEmission = 6, .tool = HarvestTool::Hoe},
+                {{&bloom, "false"}}),
+          blocks::SculkCatalyst);
+    check(r.add("sculk_sensor", {.hardness = 1.5f, .resistance = 1.5f, .lightEmission = 1, .opaqueCube = false,
+                                 .layer = RenderLayer::Cutout, .tool = HarvestTool::Hoe},
+                {{&sculkPhase, "inactive"}, {&power, "0"}, {&waterlogged, "false"}}),
+          blocks::SculkSensor);
+    check(r.add("sculk_shrieker", {.hardness = 3.0f, .resistance = 3.0f, .opaqueCube = false,
+                                   .layer = RenderLayer::Cutout, .tool = HarvestTool::Hoe},
+                {{&shrieking, "false"}, {&canSummon, "false"}, {&waterlogged, "false"}}),
+          blocks::SculkShrieker);
+    check(r.add("reinforced_deepslate", {.hardness = 55.0f, .resistance = 1200.0f}), blocks::ReinforcedDeepslate);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

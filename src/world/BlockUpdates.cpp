@@ -98,7 +98,10 @@ Push pushKind(BlockStateId s) {
         b == B::Azalea || b == B::FloweringAzalea || b == B::HangingRoots || b == B::BigDripleaf ||
         b == B::BigDripleafStem || b == B::PointedDripstone)
         return Push::Destroy; // (M27.1: plants break)
-    if (b == B::CreakingHeart) return Push::Block; // (vanilla: a block entity)
+    if (b == B::CreakingHeart || b == B::SculkCatalyst || b == B::SculkSensor || b == B::SculkShrieker ||
+        b == B::ReinforcedDeepslate)
+        return Push::Block; // (vanilla: block entities; reinforced deepslate never moves)
+    if (b == B::SculkVein) return Push::Destroy;
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
     // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
     // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
@@ -211,6 +214,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_lightning.reserve(64);
     m_silverfish.reserve(256); // (M26.4a: a mined vein)
     m_hatched.reserve(64);
+    m_shrieks.reserve(16);
     m_changed.reserve(4096);
     m_settling.reserve(4096);
     m_remesh.reserve(4096);
@@ -266,6 +270,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return R().get(s, power);
     case B::Observer: // out of its back (wiki: Observer)
         return flag(s, powered) && toward == opposite(facing6Of(s)) ? 15 : 0;
+    case B::SculkSensor: // (M27.3) while active, by how near the vibration was
+        return R().get(s, sculkPhase) == 1 ? R().get(s, power) : 0;
     default:
         return 0;
     }
@@ -284,6 +290,8 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     case B::StoneButton:
     case B::OakButton:
         return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
+    case B::SculkSensor: // (M27.3) strongly the block it stands on
+        return toward == Direction::Down ? weak(s, toward) : 0;
     case B::OakPressurePlate: // plates power the block under them strongly (wiki)
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -1553,6 +1561,7 @@ void BlockUpdates::tick() {
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     if (tickOcean(p, s)) return; // (M25.1: coral drying out)
     if (tickDripleaf(p, s)) return; // (M27.2: tipping)
+    if (tickSculk(p, s)) return;    // (M27.3: sensors resting, shriekers falling quiet)
     switch (blockOf(s)) {
     case B::Composter: // 20 ticks after reaching 7: bone meal ready (wiki: Composter)
         if (R().get(s, properties::composterLevel) == 7) set(p, R().set(s, properties::composterLevel, 8));

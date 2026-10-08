@@ -542,6 +542,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   or lava source: drips into cauldrons, mud to clay, growth). `FallingBlocks::impacts()`
   lists landed stalactites for main to hurt the player and mobs there;
   `Vitals::setStalagmite` doubles a landing's fall damage.
+- Sculk (M27.3a, `world/Sculk.cpp`, part of `BlockUpdates`): `vibrate` (main: steps of a
+  non-sneaking player, broken/placed blocks, explosions) wakes sculk sensors within 8
+  (sections without one skipped by palette): power by distance for 30 ticks, 10 resting;
+  a player's vibration sets off shriekers within 8 of the sensor (`shriek`, also stepping
+  on one) into `shrieks()`; main turns summoning shrieks into Darkness and
+  `Vitals::wardenWarn` (warning level, saved as warden_spawn_tracker), the 4th calling
+  `Mobs::summonWarden`. `sculkBloom` (from `Mobs::die`) lets a catalyst within 8 take the
+  experience and spread sculk. `WorldRenderer::setDarkness` pulls the fog in.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
