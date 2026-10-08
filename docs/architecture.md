@@ -334,6 +334,16 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   its next/previous stage and waxed copy; `tickCopper` (random ticks, wiki algorithm),
   `waxCopper`/`scrapeCopper`, `updateBulb` (rising-edge toggles). `raycastBlocks` hits shaped
   blocks only on their boxes; the outline spans the shape's bounds.
+- Workstations 1 (M23.5): smokers and blast furnaces are furnaces (`like`) whose
+  `FurnaceData::kind` filters inputs (food / ores and metal) and halves cook time;
+  barrels are 27-slot `ChestData` (`barrel`). Composters and cauldrons live in
+  `world/Workstations.cpp` (part of `BlockUpdates`: `compost`, `takeCompost`,
+  `useCauldron`, rain filling from `runWeatherTicks`, `cauldronSignal` for
+  comparators); hoppers reach composters through `setHopperBlockUpdates`.
+  `gameplay/Stonecutter` builds the recipe lists from block families plus a
+  conversion table; `gameplay/Grindstone` strips/merges items. Both are
+  `ContainerScreen` types. `BakedModel::icon3d` makes `GuiBatch::blockIcon` draw a box
+  model's boxes isometrically (slabs, stairs, fences...).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

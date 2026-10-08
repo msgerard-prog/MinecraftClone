@@ -25,8 +25,10 @@ M23 - Building blocks & workstations (wiki pages of each block):
 4. ✅ M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16
    terracottas and glazed terracottas, the copper family (oxidation on random ticks,
    honeycomb waxing, axe scraping, copper bulbs), campfires (cooking, smoke, damage).
-5. M23.5 - Workstations 1: stonecutter, smoker, blast furnace, barrel, composter,
-   cauldrons (water/lava/powder snow, buckets and bottles, rain), grindstone.
+5. ✅ M23.5 - Workstations 1: stonecutter, smoker, blast furnace, barrel, composter,
+   cauldrons (water/lava/powder snow, buckets and bottles, rain), grindstone; 3D
+   item icons for block-shaped items. (No powder snow block or bucket yet: a powder
+   snow cauldron fills from snowfall only.)
 6. M23.6 - Workstations 2: smithing table (netherite upgrades, armor trims), loom
    and cartography table (their screens; banners and maps come in M28), ender chest,
    shulker boxes, beacon (pyramid, beam, effects), conduit, note blocks, jukebox.

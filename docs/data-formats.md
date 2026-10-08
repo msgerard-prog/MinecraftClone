@@ -194,6 +194,14 @@ it load with it ignored). New materials: brick, nether_brick, clay_ball items.
 block_entities `minecraft:campfire`: `Items` (Slot 0-3), `CookingTimes` and
 `CookingTotalTimes` (int arrays, 600).
 
+## Workstations 1 (M23.5)
+block_entities `minecraft:smoker` and `minecraft:blast_furnace` save like furnaces
+(`FurnaceData::kind` 1/2 comes from the id); `minecraft:barrel` saves `Items` like a
+chest (`ChestData::barrel`). Composters (`level` 0..8) and the four cauldron blocks
+(`cauldron`, `water_cauldron` and `powder_snow_cauldron` with `level` 1..3,
+`lava_cauldron`) are block states only, as in vanilla. Stonecutters (`facing`) and
+grindstones (`face`, `facing`) have no block entity.
+
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are
