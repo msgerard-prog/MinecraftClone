@@ -149,15 +149,22 @@ std::vector<Recipe> build() {
     // Redstone 2 (M21.1; wiki: Door 3 from 6 planks/ingots, Trapdoor 2 from 6 planks /
     // 1 from 4 iron, Fence 3, Fence Gate 1, Pressure Plates from 2 of their material).
     {
-        const Ingredient planks = kPlanks;
-        r.push_back(shaped({"##", "##", "##"}, {{'#', planks}}, "oak_door", 3));
+        // (each wood's planks make its own set: M23.3)
+        for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped"}) {
+            const std::string wood(w);
+            const Ingredient planks = item(wood + "_planks");
+            r.push_back(shaped({"##", "##", "##"}, {{'#', planks}}, wood + "_door", 3));
+            r.push_back(shaped({"###", "###"}, {{'#', planks}}, wood + "_trapdoor", 2));
+            r.push_back(shaped({"#S#", "#S#"}, {{'#', planks}, {'S', stick}}, wood + "_fence", 3));
+            r.push_back(shaped({"S#S", "S#S"}, {{'#', planks}, {'S', stick}}, wood + "_fence_gate"));
+            r.push_back(shaped({"##"}, {{'#', planks}}, wood + "_pressure_plate"));
+            if (wood != "oak") r.push_back(shapeless({planks}, wood + "_button"));
+        }
         r.push_back(shaped({"##", "##", "##"}, {{'#', item("iron_ingot")}}, "iron_door", 3));
-        r.push_back(shaped({"###", "###"}, {{'#', planks}}, "oak_trapdoor", 2));
         r.push_back(shaped({"##", "##"}, {{'#', item("iron_ingot")}}, "iron_trapdoor"));
-        r.push_back(shaped({"#S#", "#S#"}, {{'#', planks}, {'S', stick}}, "oak_fence", 3));
-        r.push_back(shaped({"S#S", "S#S"}, {{'#', planks}, {'S', stick}}, "oak_fence_gate"));
-        r.push_back(shaped({"##"}, {{'#', planks}}, "oak_pressure_plate"));
         r.push_back(shaped({"##"}, {{'#', item("stone")}}, "stone_pressure_plate"));
+        r.push_back(shaped({"##"}, {{'#', item("polished_blackstone")}}, "polished_blackstone_pressure_plate"));
+        r.push_back(shapeless({item("polished_blackstone")}, "polished_blackstone_button"));
         r.push_back(shaped({"##"}, {{'#', item("gold_ingot")}}, "light_weighted_pressure_plate"));
         r.push_back(shaped({"##"}, {{'#', item("iron_ingot")}}, "heavy_weighted_pressure_plate"));
     }

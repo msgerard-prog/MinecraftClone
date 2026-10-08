@@ -80,7 +80,7 @@ namespace {
 
 BlockShape compute(BlockStateId s) {
     const auto& r = blockRegistry();
-    const BlockId b = r.blockOf(s);
+    const BlockId b = r.likeOf(r.blockOf(s)); // (M23.3: wood sets take the oak shapes)
     if (!r.collides(s)) return {};
     switch (r.kind(b)) {
     case BlockKind::Slab: { // wiki: Slab - bottom, top or a full double slab

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <string>
 #include <tuple>
+#include <vector>
 
 namespace mc::world {
 
@@ -235,6 +236,44 @@ void addBuildingFamilies(BlockRegistry& r) {
                   {{&fireUp, "true"}, {&wallNorth, "none"}, {&wallEast, "none"}, {&wallSouth, "none"}, {&wallWest, "none"}});
         }
     }
+}
+
+// Every wood's doors, trapdoors, fences, fence gates, buttons and pressure plates (M23.3;
+// wiki: Door, Trapdoor, Fence, Fence Gate, Button, Pressure Plate): copies of the oak
+// ones that behave like them (`like`); polished blackstone's button and plate behave
+// like stone's.
+void addWoodSets(BlockRegistry& r) {
+    using namespace properties;
+    static constexpr const char* kWoods[] = {"spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped"};
+    auto copy = [&](BlockId oak, const std::string& id, HarvestTool tool = HarvestTool::Axe) {
+        BlockSettings st = r.block(oak).settings;
+        st.like = oak;
+        st.tool = tool;
+        std::vector<PropertyDefault> props;
+        const BlockDef& def = r.block(oak);
+        const BlockStateId d = def.defaultState;
+        for (const Property* p : def.properties)
+            props.push_back({p, p->values[size_t(r.get(d, *p))]});
+        // (the registry takes an initializer list: rebuild one per property count)
+        switch (props.size()) {
+        case 1: r.add(id, st, {props[0]}); break;
+        case 3: r.add(id, st, {props[0], props[1], props[2]}); break;
+        case 4: r.add(id, st, {props[0], props[1], props[2], props[3]}); break;
+        case 5: r.add(id, st, {props[0], props[1], props[2], props[3], props[4]}); break;
+        default: assert(false && "unexpected property count");
+        }
+    };
+    for (const char* w : kWoods) {
+        const std::string wood(w);
+        copy(blocks::OakDoor, wood + "_door");
+        copy(blocks::OakTrapdoor, wood + "_trapdoor");
+        copy(blocks::OakFence, wood + "_fence");
+        copy(blocks::OakFenceGate, wood + "_fence_gate");
+        copy(blocks::OakButton, wood + "_button");
+        copy(blocks::OakPressurePlate, wood + "_pressure_plate");
+    }
+    copy(blocks::StoneButton, "polished_blackstone_button", HarvestTool::Pickaxe);
+    copy(blocks::StonePressurePlate, "polished_blackstone_pressure_plate", HarvestTool::Pickaxe);
 }
 
 // Values from each block's minecraft.wiki infobox (Java Edition).
@@ -723,6 +762,7 @@ BlockRegistry buildVanillaBlocks() {
           blocks::GlassPane);
     addColouredBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
+    addWoodSets(r);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

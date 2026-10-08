@@ -164,7 +164,8 @@ Rot attachRot(const world::BlockRegistry& r, world::BlockStateId s) {
 
 bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, const TextureAtlas& atlas,
                        BakedModel& out) {
-    const world::BlockId block = r.blockOf(s);
+    const world::BlockId block = r.likeOf(r.blockOf(s)); // (wood sets: the oak geometry)
+    const std::string_view realName = std::string_view(r.block(r.blockOf(s)).id).substr(10);
     switch (block) {
     case B::RedstoneWire: {
         // Flat pieces 1/16 above the ground (vanilla 1/64: our vertices are in 1/16),
@@ -362,7 +363,10 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
     case B::StoneButton:
     case B::OakButton: {
         Builder b(atlas, out);
-        const char* sprite = block == B::StoneButton ? "stone" : "oak_planks";
+        // Its material: planks for wooden buttons, else stone / polished blackstone.
+        const std::string prefix(realName.substr(0, realName.size() - 7));
+        const std::string tex = prefix == "stone" || prefix == "polished_blackstone" ? prefix : prefix + "_planks";
+        const char* sprite = tex.c_str();
         const int h = r.get(s, P::powered) == 0 ? 1 : 2; // pressed buttons sink in
         b.box(allFaces({5, 0, 6}, {11, h, 10}, sprite, {5, 6, 11, 10}), attachRot(r, s));
         return true;

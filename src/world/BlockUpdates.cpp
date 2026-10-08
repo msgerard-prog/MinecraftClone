@@ -18,7 +18,8 @@ using namespace properties;
 namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
-BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
+// Family members act like their prototype (M23.3: every wooden door like the oak door).
+BlockId blockOf(BlockStateId s) { return R().likeOf(R().blockOf(s)); }
 
 Direction opposite(Direction d) { return static_cast<Direction>(static_cast<int>(d) ^ 1); }
 BlockPos rel(const BlockPos& p, Direction d, int n = 1) {

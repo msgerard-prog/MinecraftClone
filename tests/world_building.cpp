@@ -163,3 +163,30 @@ TEST_CASE("building: rays hit a slab's top half-way up and pass over its empty h
     const auto past = raycastBlocks(s.world, {-1.5, 64.75, 0.5}, {1, 0, 0}, 3.0);
     CHECK_FALSE(past);
 }
+
+TEST_CASE("wood sets: every wood's doors, fences and buttons behave like oak's (M23.3)") {
+    Scene s;
+    const BlockStateId door = R().defaultState(B("birch_door"));
+    REQUIRE(R().likeOf(B("birch_door")) == blocks::OakDoor);
+    s.world.updateBlock({0, 64, 0}, door);
+    s.world.updateBlock({0, 65, 0}, R().set(door, properties::doorHalf, 0));
+    CHECK(s.updates.use({0, 64, 0})); // wooden: opens by hand
+    CHECK(R().value(s.at({0, 64, 0}), "open") == "true");
+    CHECK(R().blockOf(s.at({0, 64, 0})) == B("birch_door")); // still birch
+    // Fences of different woods join; crimson doesn't burn (wiki: Fire).
+    s.world.updateBlock({3, 64, 0}, R().defaultState(blocks::OakFence));
+    s.world.updateBlock({4, 64, 0}, R().defaultState(B("crimson_fence")));
+    CHECK(R().value(s.at({4, 64, 0}), "west") == "true");
+    CHECK(BlockUpdates::igniteOdds(B("crimson_fence")) == 0);
+    CHECK(BlockUpdates::igniteOdds(B("birch_fence")) == BlockUpdates::igniteOdds(blocks::OakFence));
+    CHECK(collisionShape(R().defaultState(B("jungle_fence_gate"))).count ==
+          collisionShape(R().defaultState(blocks::OakFenceGate)).count);
+    // Each wood's planks make its own door.
+    const ItemId planks = *itemRegistry().find("spruce_planks");
+    std::array<ItemStack, 9> grid{};
+    for (const int i : {0, 1, 3, 4, 6, 7})
+        grid[size_t(i)] = {planks, 1};
+    const auto out = craft(grid, 3);
+    REQUIRE(out);
+    CHECK(out->item == *itemRegistry().find("spruce_door"));
+}

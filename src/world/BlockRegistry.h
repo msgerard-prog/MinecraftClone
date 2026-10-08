@@ -47,6 +47,9 @@ struct BlockSettings {
     BlockId base = 0; // slabs, stairs, walls: the full block they are cut from
     HarvestTool tool = HarvestTool::None;
     uint8_t tier = 0; // 0 any, 1 stone, 2 iron, 3 diamond (needed for drops)
+    // Behaves like this block (M23.3: a birch door like the oak door) in block
+    // updates, shapes and mining; 0 = itself. Models and drops keep the real block.
+    BlockId like = 0;
 };
 
 // A property plus the value this block uses in its default state.
@@ -100,6 +103,10 @@ public:
     }
     RenderLayer layer(BlockStateId state) const;
     BlockKind kind(BlockId id) const { return m_blocks[id].settings.kind; }
+    BlockId likeOf(BlockId id) const {
+        const BlockId l = m_blocks[id].settings.like;
+        return l ? l : id;
+    }
 
     // Fast property access by Property object (hot paths: redstone). `get` returns
     // the value's index in the property's list (-1 if the block lacks it); `set`

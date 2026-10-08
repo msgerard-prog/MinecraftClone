@@ -23,6 +23,10 @@ namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
 BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
+bool netherWood(BlockId b) {
+    const std::string_view id = R().block(b).id;
+    return id.starts_with("minecraft:crimson_") || id.starts_with("minecraft:warped_");
+}
 BlockPos rel(const BlockPos& p, Direction d) {
     const glm::ivec3 v = normal(d);
     return {p.x + v.x, p.y + v.y, p.z + v.z};
@@ -59,8 +63,10 @@ bool ignitedByLava(BlockId b) {
 
 int BlockUpdates::igniteOdds(BlockId b) {
     // How readily fire spreads next to the block (wiki: Fire › Flammable blocks, the
-    // "ignite odds" column).
-    switch (b) {
+    // "ignite odds" column). Wood sets burn like their oak versions (M23.3), but
+    // crimson and warped wood never burns.
+    if (netherWood(b)) return 0;
+    switch (R().likeOf(b)) {
     case B::OakPlanks:
     case B::BirchPlanks:
     case B::SprucePlanks:
@@ -102,7 +108,8 @@ int BlockUpdates::igniteOdds(BlockId b) {
 
 int BlockUpdates::burnOdds(BlockId b) {
     // How quickly fire destroys the block (wiki: Fire, the "burn odds" column).
-    switch (b) {
+    if (netherWood(b)) return 0;
+    switch (R().likeOf(b)) {
     case B::OakPlanks:
     case B::BirchPlanks:
     case B::SprucePlanks:

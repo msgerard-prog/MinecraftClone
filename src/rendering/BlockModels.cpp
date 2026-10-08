@@ -430,8 +430,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     const auto& b = sh.boxes[size_t(i)];
                     addBox(m, b.from[0], b.from[1], b.from[2], b.to[0], b.to[1], b.to[2], sp);
                 }
-            } else if (name == "oak_fence") { // a post with two rails to each neighbour
-                const uint16_t sp = sprite("oak_planks");
+            } else if (ends("_fence") && name != "nether_brick_fence") { // a post with two rails to each neighbour
+                const uint16_t sp = sprite((name.substr(0, name.size() - 6) + "_planks").c_str());
                 m.visible = true;
                 addBox(m, 6, 0, 6, 10, 16, 10, sp);
                 auto on = [&](const char* p) { return registry.value(state, p).value_or("false") == "true"; };
@@ -441,9 +441,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     if (on("west")) addBox(m, 0, y, 7, 6, y + 3, 9, sp);
                     if (on("east")) addBox(m, 10, y, 7, 16, y + 3, 9, sp);
                 }
-            } else if (name == "oak_fence_gate") {
+            } else if (ends("_fence_gate")) {
                 // Two posts and two rails across; open, the rails fold back to the posts.
-                const uint16_t sp = sprite("oak_planks");
+                const uint16_t sp = sprite((name.substr(0, name.size() - 11) + "_planks").c_str());
                 const std::string_view f = registry.value(state, "facing").value_or("north");
                 const bool alongX = f == "north" || f == "south"; // (the gate spans x)
                 const bool isOpen = registry.value(state, "open").value_or("false") == "true";
@@ -498,12 +498,14 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     }
                 }
             } else if (name.ends_with("_pressure_plate")) {
-                const char* tex = name == "oak_pressure_plate"     ? "oak_planks"
-                                  : name == "stone_pressure_plate" ? "stone"
-                                  : name.starts_with("light")      ? "gold_block"
-                                                                   : "iron_block";
+                // The material it's made of (wiki: Pressure Plate): planks, stone, gold, iron.
+                const std::string prefix = name.substr(0, name.size() - 15);
+                const std::string tex = prefix == "stone" || prefix == "polished_blackstone" ? prefix
+                                        : prefix == "light_weighted"                     ? "gold_block"
+                                        : prefix == "heavy_weighted"                     ? "iron_block"
+                                                                                         : prefix + "_planks";
                 m.visible = true;
-                addBox(m, 1, 0, 1, 15, 1, 15, sprite(tex));
+                addBox(m, 1, 0, 1, 15, 1, 15, sprite(tex.c_str()));
             } else if (name == "end_rod") {
                 // A 2x15 rod on a 4x1 base, built pointing up, then turned to its facing.
                 const std::string_view f = registry.value(state, "facing").value_or("up");

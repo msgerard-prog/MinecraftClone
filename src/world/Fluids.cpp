@@ -20,7 +20,8 @@ using namespace properties;
 namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
-BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
+// Family members act like their prototype (M23.3: every wooden door like the oak door).
+BlockId blockOf(BlockStateId s) { return R().likeOf(R().blockOf(s)); }
 BlockPos rel(const BlockPos& p, Direction d) {
     const glm::ivec3 v = normal(d);
     return {p.x + v.x, p.y + v.y, p.z + v.z};

@@ -13,7 +13,7 @@ using namespace world;
 
 HarvestInfo harvestInfo(BlockId b) {
     using T = ToolType;
-    switch (b) {
+    switch (blockRegistry().likeOf(b)) { // (wood sets mine like the oak ones: M23.3)
     // Pickaxe blocks; ores need the tier listed on the wiki.
     case blocks::Stone:
     case blocks::Cobblestone:
@@ -424,7 +424,7 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         add(itemRegistry().blockItem(b), 2);
         return;
     }
-    switch (b) {
+    switch (reg.likeOf(b)) {
     case blocks::Stone:
         add(d.cobblestone);
         return;
