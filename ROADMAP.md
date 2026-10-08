@@ -121,6 +121,9 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   Nether fog 10-96, sneak-sprint), then 1.21.9-1.21.11 content as milestones.
 - The newest generator of each dimension is the default for new worlds, always;
   older generators stay only for worlds created with them (their pinned hashes).
+- (2026-10-07) Small parity details that can't be checked from the wiki: make the
+  best assumption and move on (kept: note-block bass drum guess, disc lengths, our
+  composed disc tunes). The clone is a base to study and spin off, not a 100% match.
 - Recipe ids (furnace RecipesUsed, later recipe books): follow vanilla's naming
   pattern with our own rules where the exact id can't be looked up (no in-game check).
 
@@ -135,12 +138,6 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M23 checks:** a note block on a diamond block and on a copper block in 1.21.11 -
-  harp or bass drum (ours: bass drum, a guess for blocks not on the wiki's table)?
-  Time "wait" and "Pigstep" with a comparator/hopper clock (ours 237 s / 148 s, the
-  wiki's 3:57 / 2:28). Listen to the jukebox: our discs play tunes composed from
-  note-block sounds (no recordings) - say if they need a pass. Try it:
-  `tools/run.sh --world "M23 test"`.
 - **M23 note:** new worlds use the "nether3" Nether (ancient debris); nether2 is now
   pinned too and older worlds keep it.
 - **M22 checks:** listen to the sounds (`tools/run.sh`): ours are synthesized - say if
