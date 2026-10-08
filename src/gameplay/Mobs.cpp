@@ -479,6 +479,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.hurtTime = 10;
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
+    m.lastHurtBySkeleton = false;
     if (!mobInfo(m.type).hostile) m.panicTicks = 100;    // passive mobs flee (wiki: Cow)
     if (m.type == MobType::Piglin) m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
     if (m.type == MobType::Spider || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
@@ -544,7 +545,7 @@ void Mobs::die(Context& ctx, MobData& m) {
             const char* name;
             ItemId item;
         };
-        static Cached cache[32] = {};
+        static Cached cache[64] = {}; // (room for every name dropped here)
         ItemId item = 0;
         for (Cached& c : cache) {
             if (c.name == id) { // same literal
@@ -590,7 +591,16 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop("bone", 0, 2);
         drop("arrow", 0, 2);
         break;
-    case MobType::Creeper: drop("gunpowder", 0, 2); break; // wiki: Creeper
+    case MobType::Creeper: // wiki: Creeper - gunpowder 0-2; killed by a skeleton's arrow, a music disc
+        drop("gunpowder", 0, 2);
+        if (m.lastHurtBySkeleton) {
+            static constexpr const char* kDiscs[12] = {"music_disc_13",   "music_disc_cat",     "music_disc_blocks",
+                                                       "music_disc_chirp", "music_disc_far",     "music_disc_mall",
+                                                       "music_disc_mellohi", "music_disc_stal",  "music_disc_strad",
+                                                       "music_disc_ward",  "music_disc_11",      "music_disc_wait"};
+            drop(kDiscs[ctx.rng.nextInt(12)], 1, 1);
+        }
+        break;
     case MobType::Spider: // wiki: Spider - string 0-2, spider eye 1 in 3
         drop("string", 0, 2);
         if (m.lastHurtByPlayer && ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1); // player kills only

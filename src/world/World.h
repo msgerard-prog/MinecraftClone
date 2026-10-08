@@ -31,6 +31,7 @@ struct LevelEvent {
         Crit,         // pos = where the hit landed
         Extinguish,   // pos = centre (fire or a burning thing put out: smoke)
         Portal,       // pos = where an entity teleported (portal/ender particles)
+        Note,         // pos = above a note block, data = the note 0..24 (its colour)
     };
     Type type;
     double x, y, z;
@@ -112,7 +113,7 @@ public:
             if (!c) continue; // unloaded: drop it
             if (c->furnaces().empty() && c->mobs().empty() && c->blockTicks().empty() && c->spawners().empty() &&
                 c->brewingStands().empty() && c->comparators().empty() && c->hoppers().empty() &&
-                c->campfires().empty() && c->beacons().empty()) {
+                c->campfires().empty() && c->beacons().empty() && c->jukeboxes().empty()) {
                 c->inTickingList = false; // nothing left: drop it
                 continue;
             }

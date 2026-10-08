@@ -124,6 +124,7 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     m_particleSprites[int(ParticleSprite::Crit)] = static_cast<uint16_t>(atlas.spriteIndex("particle_crit"));
     m_particleSprites[int(ParticleSprite::Effect)] = static_cast<uint16_t>(atlas.spriteIndex("particle_effect"));
     m_particleSprites[int(ParticleSprite::Drip)] = static_cast<uint16_t>(atlas.spriteIndex("particle_drip"));
+    m_particleSprites[int(ParticleSprite::Note)] = static_cast<uint16_t>(atlas.spriteIndex("particle_note"));
     m_weather.reserve(size_t(kMaxWeatherQuads) * 6);
     m_text.reserve(size_t(4096) * 6);
     { // the font sheet for sign text (as the GUI's)

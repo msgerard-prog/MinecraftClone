@@ -855,6 +855,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
                 m = single(v);
+            } else if (name == "jukebox") {
+                BakedVariant v = cubeAll(sprite("jukebox_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("jukebox_top");
+                m = single(v);
             } else if (name == "ancient_debris") {
                 m = single(cubeColumn(sprite("ancient_debris_side"), sprite("ancient_debris_top"), "y"));
             } else if (name == "smithing_table") { // (fronts on the north and south sides)

@@ -81,6 +81,12 @@ const Property bedPart{"part", {"head", "foot"}};
 const Property occupied{"occupied", {"true", "false"}};
 const Property composterLevel{"level", {"0", "1", "2", "3", "4", "5", "6", "7", "8"}};
 const Property cauldronLevel{"level", {"1", "2", "3"}};
+const Property noteInstrument{"instrument",
+                              {"harp", "basedrum", "snare", "hat", "bass", "flute", "bell", "guitar", "chime",
+                               "xylophone", "iron_xylophone", "cow_bell", "didgeridoo", "bit", "banjo", "pling"}};
+const Property note{"note", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
+                             "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"}};
+const Property hasRecord{"has_record", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -983,6 +989,12 @@ BlockRegistry buildVanillaBlocks() {
           blocks::LapisBlock);
     check(r.add("coal_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}), blocks::CoalBlock);
     check(r.add("sea_lantern", {.hardness = 0.3f, .resistance = 0.3f, .lightEmission = 15}), blocks::SeaLantern);
+    // wiki: Note Block (0.8, axe), Jukebox (2.0 / 6.0, axe).
+    check(r.add("note_block", {.hardness = 0.8f, .resistance = 0.8f, .tool = HarvestTool::Axe},
+                {{&noteInstrument, "harp"}, {&note, "0"}, {&powered, "false"}}),
+          blocks::NoteBlock);
+    check(r.add("jukebox", {.hardness = 2.0f, .resistance = 6.0f, .tool = HarvestTool::Axe}, {{&hasRecord, "false"}}),
+          blocks::Jukebox);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

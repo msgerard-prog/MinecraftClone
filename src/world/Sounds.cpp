@@ -70,6 +70,16 @@ std::vector<SoundInfo> buildTable() {
     set(Sound::DoorOpen, "block.wooden_door.open", {"random/door_open"}, 1.0f, 0.9f, 1.0f);
     set(Sound::DoorClose, "block.wooden_door.close", {"random/door_close"}, 1.0f, 0.9f, 1.0f);
     set(Sound::ChestOpen, "block.chest.open", {"random/chestopen"}, 0.5f, 0.9f, 1.0f);
+    { // note blocks: a fixed pitch per sample, shifted by the note (M23.6)
+        static constexpr const char* kInstruments[16][2] = {
+            {"harp", "harp"}, {"basedrum", "bd"}, {"snare", "snare"}, {"hat", "hat"}, {"bass", "bass"},
+            {"flute", "flute"}, {"bell", "bell"}, {"guitar", "guitar"}, {"chime", "chime"},
+            {"xylophone", "xylophone"}, {"iron_xylophone", "iron_xylophone"}, {"cow_bell", "cow_bell"},
+            {"didgeridoo", "didgeridoo"}, {"bit", "bit"}, {"banjo", "banjo"}, {"pling", "pling"}};
+        for (int i = 0; i < 16; ++i)
+            set(static_cast<Sound>(int(Sound::NoteHarp) + i), std::string("block.note_block.") + kInstruments[i][0],
+                {std::string("note/") + kInstruments[i][1]}, 3.0f, 1.0f, 1.0f);
+    }
     set(Sound::ChestClose, "block.chest.close", {"random/chestclosed"}, 0.5f, 0.9f, 1.0f);
     set(Sound::Click, "block.lever.click", {"random/click"}, 0.3f, 0.6f, 0.6f); // (0.5 switching off)
     set(Sound::WoodClick, "block.wooden_button.click_on", {"random/wood_click"}, 0.3f, 0.6f, 0.6f);

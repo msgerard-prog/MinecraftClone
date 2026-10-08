@@ -715,6 +715,30 @@ def smithing_template(accent, base="#3A3540"):
     return img
 
 
+def music_disc(label):
+    """A black record with grooves and a coloured label (our drawing)."""
+    img = Img(16, 16, CLEAR)
+    lab = ramp(hexc(label), 5, spread=0.3)
+    for y in range(16):
+        for x in range(16):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d < 7.2:
+                c = (24, 24, 28, 255) if int(d * 2) % 3 else (48, 48, 56, 255)
+                if d < 3.0:
+                    c = lab[3] if d > 1.0 else (16, 16, 16, 255)
+                if 6.5 <= d < 7.2:
+                    c = (10, 10, 12, 255)
+                img.set(x, y, c)
+    for (x, y) in ((4, 4), (5, 4), (4, 5)):  # a shine
+        img.set(x, y, (110, 110, 120, 255))
+    return img
+
+
+DISC_LABELS = {"13": "#E8D040", "cat": "#60D040", "blocks": "#E05030", "chirp": "#C03028", "far": "#90E060",
+               "mall": "#8060D0", "mellohi": "#E0A0E0", "stal": "#303030", "strad": "#F0F0F0", "ward": "#208040",
+               "11": "#606060", "wait": "#40A0E0", "pigstep": "#C06030", "otherside": "#40A8C0"}
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -818,6 +842,8 @@ def all_items():
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     # Netherite and smithing (M23.6).
+    for disc, label in DISC_LABELS.items():
+        items[f"music_disc_{disc}"] = music_disc(label)
     items["nether_star"] = gem("#F4F0E0", "diamond")
     items["heart_of_the_sea"] = lump("heart_of_the_sea", "#2A6AC8", "#7AE0F0", size=5.4)
     items["nautilus_shell"] = lump("nautilus_shell", "#E8D8C0", "#B07850", size=5.6)

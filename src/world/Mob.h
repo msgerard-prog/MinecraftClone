@@ -107,6 +107,7 @@ struct MobData {
     int16_t repathTicks = 0;
     glm::ivec3 pathRequest{0, -100000, 0}; // the goal cell the current path was asked for
     bool lastHurtByPlayer = false;          // (spider eyes drop only for player kills)
+    bool lastHurtBySkeleton = false;        // (M23.6: creepers shot by skeletons drop a disc)
     uint8_t looting = 0;                    // Looting level of the player's last hit
     int16_t stareTicks = 0;                 // enderman: ticks the player has looked at it
     int16_t angerTicks = 0;                 // enderman: anger left (calms down at 0)

@@ -15,6 +15,7 @@ enum class ParticleSprite : uint8_t {
     Splash0, // .. Splash3
     Drip = 16,
     Terrain, // a 4x4-texel piece of a block's texture
+    Note,    // (M23.6: note blocks, tinted by pitch)
     Count
 };
 

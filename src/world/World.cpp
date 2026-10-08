@@ -18,7 +18,7 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
         !slot->brewingStands().empty() || !slot->comparators().empty() || !slot->hoppers().empty() ||
-        !slot->campfires().empty() || !slot->beacons().empty())
+        !slot->campfires().empty() || !slot->beacons().empty() || !slot->jukeboxes().empty())
         markTicking(slot->pos());
     return *slot;
 }
@@ -77,6 +77,11 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     if (was != b && isCampfire(was)) c->removeBlockEntity(x, p.y, z); // (M23.4c)
     if (b != was && isCampfire(b)) {
         c->addCampfire(x, p.y, z);
+        markTicking(c->pos());
+    }
+    if (was != b && was == blocks::Jukebox) c->removeBlockEntity(x, p.y, z); // (M23.6)
+    if (b != was && b == blocks::Jukebox) {
+        c->addJukebox(x, p.y, z);
         markTicking(c->pos());
     }
     const auto isBeacon = [](BlockId id) { return id == blocks::Beacon || id == blocks::Conduit; };

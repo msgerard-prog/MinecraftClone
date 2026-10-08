@@ -102,6 +102,8 @@ std::vector<Recipe> build() {
                        {{'D', item("diamond")}, {'T', item("netherite_upgrade_smithing_template")}, {'N', item("netherrack")}},
                        "netherite_upgrade_smithing_template", 2));
     r.push_back(shaped({"II", "PP", "PP"}, {{'I', item("iron_ingot")}, {'P', kPlanks}}, "smithing_table"));
+    r.push_back(shaped({"PPP", "PRP", "PPP"}, {{'P', kPlanks}, {'R', item("redstone")}}, "note_block")); // wiki
+    r.push_back(shaped({"PPP", "PDP", "PPP"}, {{'P', kPlanks}, {'D', item("diamond")}}, "jukebox"));     // wiki
     r.push_back(shaped({"SS", "PP"}, {{'S', item("string")}, {'P', kPlanks}}, "loom"));                   // wiki: Loom
     r.push_back(shaped({"AA", "PP", "PP"}, {{'A', item("paper")}, {'P', kPlanks}}, "cartography_table")); // wiki
 

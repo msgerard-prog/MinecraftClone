@@ -122,6 +122,12 @@ ItemRegistry buildItems() {
     // heart and shells with oceans (M25); prismarine shards and crystals from guardians.
     for (const char* name : {"nether_star", "heart_of_the_sea", "nautilus_shell", "prismarine_shard", "prismarine_crystals"})
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
+    // Music discs (M23.6; wiki: Music Disc - stack to 1). Ours play tunes the game makes
+    // from note-block sounds (gameplay/Jukebox), not recordings.
+    for (const char* name : {"13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward", "11",
+                             "wait", "pigstep", "otherside"})
+        r.add({.id = std::string("minecraft:music_disc_") + name, .maxStack = 1,
+               .texture = std::string("item/music_disc_") + name});
     for (const char* name : {"netherite_scrap", "netherite_ingot", "netherite_upgrade_smithing_template"})
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     for (const std::string_view pattern : kTrimPatterns) { // (wiki: one template per armor trim)

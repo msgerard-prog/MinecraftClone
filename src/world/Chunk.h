@@ -74,6 +74,7 @@ public:
         m_signs.clear();
         m_campfires.clear();
         m_beacons.clear();
+        m_jukeboxes.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -307,12 +308,30 @@ public:
     }
     std::vector<BeaconEntry>& beacons() { return m_beacons; }
     const std::vector<BeaconEntry>& beacons() const { return m_beacons; }
+    struct JukeboxEntry { // (M23.6)
+        int x, y, z;
+        JukeboxData data;
+    };
+    JukeboxData* jukebox(int x, int y, int z) {
+        for (auto& j : m_jukeboxes)
+            if (j.x == x && j.y == y && j.z == z) return &j.data;
+        return nullptr;
+    }
+    JukeboxData& addJukebox(int x, int y, int z) {
+        if (JukeboxData* j = jukebox(x, y, z)) return *j;
+        m_dirty = true;
+        m_jukeboxes.push_back({x, y, z, {}});
+        return m_jukeboxes.back().data;
+    }
+    std::vector<JukeboxEntry>& jukeboxes() { return m_jukeboxes; }
+    const std::vector<JukeboxEntry>& jukeboxes() const { return m_jukeboxes; }
     void removeBlockEntity(int x, int y, int z) {
         std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
         std::erase_if(m_signs, [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
+        std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
@@ -403,6 +422,7 @@ private:
     std::vector<SignEntry> m_signs;
     std::vector<CampfireEntry> m_campfires;
     std::vector<BeaconEntry> m_beacons;
+    std::vector<JukeboxEntry> m_jukeboxes;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;

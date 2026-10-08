@@ -61,6 +61,23 @@ enum class Sound : uint16_t {
     ToolBreak,   // entity.item.break
     Minecart,
     SuccessfulHit,
+    // Note block instruments (M23.6), in vanilla's instrument order (NoteBlocks.cpp).
+    NoteHarp,
+    NoteBasedrum,
+    NoteSnare,
+    NoteHat,
+    NoteBass,
+    NoteFlute,
+    NoteBell,
+    NoteGuitar,
+    NoteChime,
+    NoteXylophone,
+    NoteIronXylophone,
+    NoteCowBell,
+    NoteDidgeridoo,
+    NoteBit,
+    NoteBanjo,
+    NotePling,
     kMiscCount,
 };
 inline constexpr int kBlockSoundBase = int(Sound::kMiscCount);

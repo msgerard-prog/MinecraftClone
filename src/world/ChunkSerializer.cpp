@@ -29,6 +29,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.signs = chunk.signs();
     s.campfires = chunk.campfires();
     s.beacons = chunk.beacons();
+    s.jukeboxes = chunk.jukeboxes();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
@@ -419,6 +420,20 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& jb : chunk.jukeboxes) { // wiki: Jukebox › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:jukebox"));
+        e.put("x", int32_t{chunk.pos.x * 16 + jb.x});
+        e.put("y", int32_t{jb.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + jb.z});
+        e.put("keepPacked", int8_t{0});
+        if (!jb.data.record.empty()) {
+            nbt::Compound rec = itemNbt(jb.data.record, -1);
+            e.put("RecordItem", std::move(rec));
+            e.put("ticks_since_song_started", int64_t{jb.data.playing ? jb.data.ticks : 0});
+        }
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& bc : chunk.beacons) { // wiki: Beacon › Block data; Conduit
         nbt::Compound e;
         e.put("id", std::string(bc.data.conduit ? "minecraft:conduit" : "minecraft:beacon"));
@@ -707,7 +722,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" &&
-                        *id != "minecraft:beacon" && *id != "minecraft:conduit"))
+                        *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -740,6 +755,15 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =
                     static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
+            if (*id == "minecraft:jukebox") {
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Jukebox) continue;
+                JukeboxData& jd = chunk.addJukebox(x, y, z);
+                if (const nbt::Compound* rec = e->compound("RecordItem")) jd.record = itemFromNbt(*rec);
+                const auto played = e->integer("ticks_since_song_started").value_or(0);
+                jd.playing = !jd.record.empty() && played > 0;
+                jd.ticks = int(std::clamp<int64_t>(played, 0, 1 << 20));
                 continue;
             }
             if (*id == "minecraft:beacon" || *id == "minecraft:conduit") {

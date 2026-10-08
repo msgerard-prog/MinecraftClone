@@ -35,6 +35,7 @@
 #include "gameplay/Beacons.h"
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Jukebox.h"
 #include "gameplay/Brewing.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/Hoppers.h"
@@ -1779,7 +1780,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockId hb = reg.blockOf(world.getBlock(at));
                 const mc::world::ItemStack held = inventory.selectedStack();
                 bool acted = false;
-                if (hb == mc::world::blocks::Composter) {
+                if (hb == mc::world::blocks::Jukebox) { // (M23.6) eject the disc, or put the held one in
+                    mc::world::Chunk* jc = world.chunk(at.chunk());
+                    mc::world::JukeboxData* jd =
+                        jc ? jc->jukebox(mc::world::blockToLocal(at.x), at.y, mc::world::blockToLocal(at.z)) : nullptr;
+                    if (jd && !jd->record.empty()) {
+                        droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, jd->record, gameRng);
+                        jd->record = {};
+                        jd->playing = false;
+                        world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 1));
+                        jc->markDirty();
+                        acted = true;
+                    } else if (jd && mc::discIndex(held.item) >= 0) {
+                        jd->record = held;
+                        jd->record.count = 1;
+                        jd->ticks = 0;
+                        jd->playing = true;
+                        if (survival) inventory.consumeSelected(1);
+                        world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 0));
+                        jc->markDirty();
+                        acted = true;
+                    }
+                } else if (hb == mc::world::blocks::Composter) {
                     if (const mc::world::ItemStack meal = blockUpdates.takeCompost(at); !meal.empty()) {
                         droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, meal, gameRng);
                         acted = true;
@@ -2344,6 +2366,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             for (int g = 0, n = mc::beaconGifts(bc.data, bp, player.position(), gifts); g < n; ++g)
                                 vitals.addEffect(gifts[size_t(g)].type, gifts[size_t(g)].amplifier, gifts[size_t(g)].duration);
                     }
+                // Jukeboxes play their disc's tune note by note until the song's length (M23.6).
+                for (auto& jb : c.jukeboxes()) {
+                    if (!jb.data.playing) continue;
+                    const int disc = mc::discIndex(jb.data.record.item);
+                    if (disc < 0 || jb.data.ticks >= mc::discInfo(disc).lengthTicks) {
+                        jb.data.playing = false;
+                        c.markDirty();
+                        continue;
+                    }
+                    std::array<mc::JukeboxNote, 3> notes{};
+                    const double jx = c.pos().x * 16 + jb.x + 0.5, jz = c.pos().z * 16 + jb.z + 0.5;
+                    for (int k = 0, n = mc::jukeboxNotes(disc, jb.data.ticks, notes); k < n; ++k)
+                        world.playSound(notes[size_t(k)].sound, jx, jb.y + 1.0, jz, 1.3f, notes[size_t(k)].pitch);
+                    ++jb.data.ticks;
+                }
                 for (auto& br : c.brewingStands()) // brewing stands brew (M19.4)
                     if (mc::tickBrewing(br.data)) c.markDirty();
                 // Campfires cook each item for 600 ticks, then drop it cooked above

@@ -458,6 +458,22 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
             for (int i = 0; i < 8; ++i)
                 smoke(at + glm::dvec3(centred(rng), rng.nextDouble(), centred(rng)) * 0.5, true, rng);
             break;
+        case LevelEvent::Type::Note: { // one note rising, its colour around the wheel by pitch (wiki)
+            Particle p;
+            p.pos = at;
+            p.vel = {0.0, 0.2, 0.0};
+            const float h = float(e.data) / 24.0f;
+            auto ch = [&](float o) { return std::clamp(std::sin((h + o) * 6.2832f) * 0.65f + 0.35f, 0.0f, 1.0f); };
+            p.color = glm::vec3(ch(0.0f), ch(0.33f), ch(0.67f));
+            p.size = 0.15f;
+            p.sprite = ParticleSprite::Note;
+            p.friction = 0.66f;
+            p.lifetime = 6;
+            p.physics = false;
+            p.fullBright = true;
+            add(p);
+            break;
+        }
         case LevelEvent::Type::Portal:
             for (int i = 0; i < 32; ++i)
                 portal(at + glm::dvec3(centred(rng) * 0.5, rng.nextDouble() * 2.0, centred(rng) * 0.5), rng);

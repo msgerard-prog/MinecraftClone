@@ -91,6 +91,14 @@ struct BeaconData {
     bool beam = false;      // beacon: the sky is open above it (its beam shows)
 };
 
+// A jukebox's disc and how long it has played (M23.6; wiki: Jukebox › Block data:
+// RecordItem, ticks_since_song_started).
+struct JukeboxData {
+    ItemStack record;
+    int ticks = 0;        // since the song started
+    bool playing = false; // (stops at the song's end; the disc stays in)
+};
+
 // A redstone comparator's output strength (M21.2; wiki: Redstone Comparator › Block
 // data: OutputSignal) - its block state only says whether it is on.
 struct ComparatorData {

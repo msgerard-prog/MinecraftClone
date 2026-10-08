@@ -14,6 +14,7 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 
 using namespace mc;
@@ -596,4 +597,74 @@ TEST_CASE("beacons count pyramid tiers and give powers; conduits count their fra
     const ItemStack pick{*itemRegistry().find("iron_pickaxe"), 1};
     CHECK(breakTicks(R().defaultState(blocks::Stone), pick, true, false, 2) <
           breakTicks(R().defaultState(blocks::Stone), pick, true, false, 0));
+}
+
+#include "gameplay/Jukebox.h"
+
+TEST_CASE("note blocks: instrument from below, tuned by use, played by power edges; jukebox discs (M23.6)") {
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::GoldBlock)) == 6);   // bell
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::OakPlanks)) == 4);   // bass
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::Stone)) == 1);       // bass drum
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::Sand)) == 2);        // snare
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::Glass)) == 3);       // hat
+    CHECK(BlockUpdates::noteInstrument(S("minecraft:white_wool")) == 7);             // guitar
+    CHECK(BlockUpdates::noteInstrument(R().defaultState(blocks::Dirt)) == 0);        // harp
+    Scene s;
+    const BlockPos p{2, 64, 2};
+    s.world.setBlock({2, 63, 2}, R().defaultState(blocks::GoldBlock));
+    const auto placed = BlockUpdates::placement(s.world, R().defaultState(blocks::NoteBlock), p, Direction::Up, 0, 0);
+    REQUIRE(placed);
+    CHECK(R().value(*placed, "instrument") == "bell");
+    s.world.updateBlock(p, *placed);
+    s.world.soundEvents().clear();
+    CHECK(s.updates.use(p));
+    CHECK(R().get(s.at(p), properties::note) == 1);
+    REQUIRE(s.world.soundEvents().size() == 1);
+    CHECK(s.world.soundEvents()[0].sound == Sound::NoteBell);
+    CHECK(s.world.soundEvents()[0].pitch == doctest::Approx(std::pow(2.0f, -11.0f / 12.0f)));
+    for (int i = 0; i < 24; ++i)
+        s.updates.use(p);
+    CHECK(R().get(s.at(p), properties::note) == 0); // 24 wraps to 0
+    // A lever beside it: switching on plays once, staying on doesn't.
+    s.world.soundEvents().clear();
+    s.world.updateBlock({3, 64, 2}, S("minecraft:lever[face=floor,facing=north,powered=false]"));
+    s.updates.use({3, 64, 2});
+    int notes = 0;
+    for (const auto& e : s.world.soundEvents())
+        notes += e.sound == Sound::NoteBell;
+    CHECK(notes == 1);
+    s.world.setBlock({2, 65, 2}, R().defaultState(blocks::Stone)); // a block on top silences it
+    s.world.soundEvents().clear();
+    s.updates.use(p);
+    CHECK(s.world.soundEvents().empty());
+    // Discs and the jukebox's tune: deterministic, with notes in it.
+    const int cat = mc::discIndex(*itemRegistry().find("music_disc_cat"));
+    REQUIRE(cat >= 0);
+    CHECK(mc::discInfo(cat).comparator == 2);
+    CHECK(mc::discInfo(cat).lengthTicks == 185 * 20);
+    CHECK(mc::discIndex(*itemRegistry().find("stone")) == -1);
+    int count = 0;
+    std::array<mc::JukeboxNote, 3> a{}, b{};
+    for (int t = 0; t < 400; ++t) {
+        const int n = mc::jukeboxNotes(cat, t, a);
+        CHECK(n == mc::jukeboxNotes(cat, t, b));
+        for (int k = 0; k < n; ++k) {
+            CHECK(a[size_t(k)].pitch >= 0.49f);
+            CHECK(a[size_t(k)].pitch <= 2.01f);
+        }
+        count += n;
+    }
+    CHECK(count > 50);
+    // A jukebox keeps its disc in the save.
+    s.world.updateBlock({5, 64, 5}, R().defaultState(blocks::Jukebox));
+    Chunk* c = s.world.chunk({0, 0});
+    REQUIRE(c->jukebox(5, 64, 5));
+    c->jukebox(5, 64, 5)->record = {*itemRegistry().find("music_disc_cat"), 1};
+    c->jukebox(5, 64, 5)->playing = true;
+    c->jukebox(5, 64, 5)->ticks = 77;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*c, 0)), back));
+    REQUIRE(back.jukebox(5, 64, 5));
+    CHECK(back.jukebox(5, 64, 5)->record.item == *itemRegistry().find("music_disc_cat"));
+    CHECK(back.jukebox(5, 64, 5)->ticks == 77);
 }

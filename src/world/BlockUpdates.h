@@ -195,6 +195,10 @@ public:
     ItemStack takeCompost(const BlockPos& p);
     std::optional<ItemStack> useCauldron(const BlockPos& p, const ItemStack& held);
     static int cauldronSignal(BlockStateId s); // comparator level; -1: not one of them
+    // Note blocks (M23.6, NoteBlocks.cpp): the instrument a block below gives; playing
+    // one (a left click, a power pulse; right-click tunes it up a note first).
+    static int noteInstrument(BlockStateId below);
+    void playNote(const BlockPos& p);
     // Bone meal used on the block at p. True if it was used up.
     bool boneMeal(const BlockPos& p);
     // An entity landed hard on this farmland (the caller rolls the chance).
@@ -240,6 +244,7 @@ private:
     void tickCopper(const BlockPos& p, BlockStateId s);    // oxidation (Copper.cpp)
     void updateBulb(const BlockPos& p, BlockStateId s);    // copper bulbs on power changes
     void fillCauldronByWeather(const BlockPos& p, bool snow); // rain/snow into a cauldron
+    void noteBlockChanged(const BlockPos& p, BlockStateId s);  // instrument, power edges
     // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
     void fizz(const BlockPos& p) {
         m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);

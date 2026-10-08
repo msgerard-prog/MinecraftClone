@@ -420,6 +420,40 @@ def misc(rng):
                              mul(tone(0.2, 900, 500, "square"), env(int(0.2 * RATE), 0.001, 0.03)))
     out["damage/hit"] = mul(lowpass(noise(int(0.15 * RATE), rng), 900), env(int(0.15 * RATE), 0.001, 0.03))
     out["random/break"] = crunch(rng, 0.3, 30, 800, 4000, decay=0.08)  # tools breaking
+    # Note block instruments (M23.6; wiki: Note Block › Instruments): each sample is the
+    # instrument's middle F# (note 12), the game shifts the pitch per note. Our own
+    # synthesis of each instrument's character.
+    def pluck(f, seconds, decay, wave="triangle", bright=0.0):
+        n = int(seconds * RATE)
+        body = mul(tone(seconds, f, wave=wave), env(n, 0.002, decay))
+        if bright:
+            body = add(body, [s * bright for s in mul(tone(seconds, f * 2, wave="sine"), env(n, 0.001, decay / 3))])
+        return body
+    def bell(f, seconds, decay, partials=(1.0, 2.76, 5.4)):
+        n = int(seconds * RATE)
+        return add(*[[s / (k + 1) for s in mul(tone(seconds, f * p), env(n, 0.001, decay / (k + 1)))]
+                     for k, p in enumerate(partials)])
+    fs = 369.99  # F#4
+    out["note/harp"] = pluck(fs, 1.2, 0.35, bright=0.3)
+    out["note/bass"] = pluck(fs / 4, 1.0, 0.3, wave="saw")
+    out["note/guitar"] = lowpass(pluck(fs / 2, 1.0, 0.3, wave="saw", bright=0.2), 2500)
+    out["note/banjo"] = highpass(pluck(fs, 0.6, 0.12, wave="saw"), 400)
+    out["note/bit"] = mul(tone(0.5, fs, wave="square"), env(int(0.5 * RATE), 0.001, 0.25, 0.3))
+    out["note/pling"] = add(pluck(fs, 1.2, 0.4, wave="sine"), [s * 0.4 for s in pluck(fs * 2, 1.2, 0.2, wave="sine")])
+    out["note/flute"] = mul(tone(0.9, fs * 2, wave="sine", vibrato=0.006, vib_rate=5), env(int(0.9 * RATE), 0.05, 0.3, 0.4))
+    out["note/didgeridoo"] = lowpass(mul(tone(1.0, fs / 4, wave="saw", vibrato=0.02, vib_rate=3),
+                                         env(int(1.0 * RATE), 0.05, 0.4, 0.5)), 600)
+    out["note/bell"] = bell(fs * 4, 1.5, 0.6)
+    out["note/chime"] = bell(fs * 4, 2.0, 0.9, partials=(1.0, 2.0, 3.01))
+    out["note/xylophone"] = bell(fs * 4, 0.5, 0.08, partials=(1.0, 3.93))
+    out["note/iron_xylophone"] = bell(fs, 0.8, 0.2, partials=(1.0, 3.0, 5.2))
+    out["note/cow_bell"] = bell(fs * 2, 0.6, 0.12, partials=(1.0, 1.5, 2.6))
+    bd = int(0.4 * RATE)
+    out["note/bd"] = add(mul(tone(0.4, 120, 45), env(bd, 0.001, 0.09)),
+                         [s * 0.3 for s in mul(lowpass(noise(bd, rng), 300), env(bd, 0.001, 0.03))])
+    out["note/snare"] = add(mul(bandpass(noise(bd, rng), 800, 6000), env(bd, 0.001, 0.07)),
+                            [s * 0.5 for s in mul(tone(0.4, 200, 160), env(bd, 0.001, 0.04))])
+    out["note/hat"] = mul(highpass(noise(int(0.2 * RATE), rng), 6000), env(int(0.2 * RATE), 0.001, 0.03))
     out["random/minecart"] = mul(lowpass(noise(int(2.0 * RATE), rng), 500),
                                  [0.7 + 0.3 * math.sin(2 * math.pi * 6 * k / RATE) for k in range(int(2.0 * RATE))])
     return out

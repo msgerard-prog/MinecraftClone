@@ -51,6 +51,8 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
                 if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
         }
     }
+    if (const world::JukeboxData* j = c->jukebox(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)); j && !j->record.empty())
+        drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, j->record}); // (M23.6: its disc)
     if (const world::HopperData* h = c->hopper(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) // (M21.3)
         for (const world::ItemStack& s : h->items)
             if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
@@ -280,6 +282,9 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         if (!m_breaking || !(*m_breaking == hit->block)) { // a new target starts over
             m_breaking = hit->block;
             m_progressExact = 0.0;
+            // Hitting a note block plays it (wiki: Note Block; M23.6).
+            if (m_updates && world::blockRegistry().blockOf(world.getBlock(hit->block)) == world::blocks::NoteBlock)
+                m_updates->playNote(hit->block);
         }
         const world::BlockStateId state = world.getBlock(hit->block);
         // Conduit Power lifts the underwater slow-down; Haste speeds mining (M23.6).

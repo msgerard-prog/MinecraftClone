@@ -45,6 +45,9 @@ extern const Property bedPart;   // "part": head | foot
 extern const Property occupied;  // true | false
 extern const Property composterLevel; // "level": 0..8 (M23.5)
 extern const Property cauldronLevel;  // "level": 1..3 (water and powder snow cauldrons)
+extern const Property noteInstrument; // "instrument": harp | basedrum | ... (16, M23.6)
+extern const Property note;           // 0..24
+extern const Property hasRecord;      // "has_record": true | false (jukebox)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -357,6 +360,8 @@ enum : BlockId {
     LapisBlock,
     CoalBlock,
     SeaLantern,
+    NoteBlock,         // instrument, note 0..24, powered
+    Jukebox,           // has_record
     Count
 };
 } // namespace blocks

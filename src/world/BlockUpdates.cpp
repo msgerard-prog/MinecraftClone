@@ -288,6 +288,17 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // Fullness 0..15: 0 when empty, else floor(1 + (sum of count / max stack) / slots x 14)
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
+    if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
+        static constexpr std::string_view kDiscs[] = {"13",   "cat",  "blocks", "chirp", "far", "mall",    "mellohi",
+                                                      "stal", "strad", "ward",  "11",    "wait", "pigstep", "otherside"};
+        Chunk* jc = chunkAt(p);
+        const JukeboxData* jd = jc ? jc->jukebox(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        if (!jd || jd->record.empty()) return 0;
+        const std::string_view id = itemRegistry().item(jd->record.item).id;
+        for (int i = 0; i < int(std::size(kDiscs)); ++i)
+            if (id.size() > 21 && id.substr(21) == kDiscs[i]) return i + 1; // ("minecraft:music_disc_")
+        return 0;
+    }
     const BlockId b = R().likeOf(blockOf(at(p))); // (smokers and blast furnaces count as furnaces)
     Chunk* c = chunkAt(p);
     if (!c) return -1;
@@ -965,6 +976,11 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     if (blockOf(s) == B::Campfire || blockOf(s) == B::SoulCampfire) { // signal fire follows the hay below
         const BlockStateId want = R().set(s, signalFire, blockOf(at(rel(p, Direction::Down))) == B::HayBlock ? 0 : 1);
         if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
+    if (blockOf(s) == B::NoteBlock) { // (M23.6)
+        noteBlockChanged(p, s);
         --m_depth;
         return;
     }
@@ -1836,12 +1852,16 @@ void BlockUpdates::finishMoves(bool force) {
 bool BlockUpdates::usable(BlockStateId s) {
     const BlockId b = blockOf(s);
     return b == B::Lever || isButton(b) || b == B::Repeater || b == B::RedstoneWire || b == B::OakDoor ||
-           b == B::OakTrapdoor || b == B::OakFenceGate || b == B::Comparator;
+           b == B::OakTrapdoor || b == B::OakFenceGate || b == B::Comparator || b == B::NoteBlock;
 }
 
 bool BlockUpdates::use(const BlockPos& p) {
     const BlockStateId s = at(p);
     switch (blockOf(s)) {
+    case B::NoteBlock: // one note up (24 wraps to 0), then play it (wiki: Note Block)
+        setRaw(p, R().set(s, note, (R().get(s, note) + 1) % 25));
+        playNote(p);
+        return true;
     case B::Lever:
         // Vanilla: pitch 0.6 switching on, 0.5 off.
         m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, flag(s, powered) ? 0.5f / 0.6f : 1.0f);
@@ -2146,6 +2166,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return withHFacing(r.set(state, face, 1), faceDir);
     case B::Stonecutter:
         return withHFacing(state, look);
+    case B::NoteBlock:
+        return r.set(state, properties::noteInstrument,
+                     BlockUpdates::noteInstrument(world.getBlock(rel(at, Direction::Down))));
     case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));
