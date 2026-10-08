@@ -200,6 +200,11 @@ float maxHealthOf(const MobData& m);
 inline bool isSpider(MobType t) { return t == MobType::Spider || t == MobType::CaveSpider; }
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
+// The undead (wiki: Undead): Smite hits them harder, the Wither leaves them alone.
+inline bool isUndead(MobType t) {
+    return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
+           t == MobType::Phantom || t == MobType::Wither;
+}
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.
 inline bool isRaider(MobType t) {
     return t == MobType::Pillager || t == MobType::Vindicator || t == MobType::Evoker || t == MobType::Ravager ||

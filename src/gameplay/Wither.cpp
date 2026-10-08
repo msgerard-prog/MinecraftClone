@@ -121,9 +121,7 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
             for (int dx = -2; dx <= 2; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const MobData& o : ch->mobs()) {
-                        const bool undead = isZombie(o.type) || o.type == MobType::Skeleton || o.type == MobType::WitherSkeleton ||
-                                            o.type == MobType::ZombifiedPiglin || o.type == MobType::Phantom ||
-                                            o.type == MobType::Wither;
+                        const bool undead = isUndead(o.type);
                         if (undead || o.health <= 0.0f || o.type == MobType::Boat || o.type == MobType::Minecart ||
                             o.type == MobType::EndCrystal)
                             continue;

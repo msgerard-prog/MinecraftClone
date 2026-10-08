@@ -240,8 +240,14 @@ private:
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
     int m_fish = 0, m_squid = 0, m_glowSquid = 0, m_axolotls = 0; // (M25.2: water mob caps; M26.3c axolotls)
+    int m_felines = 0, m_felinesLastTick = 0; // (cats + ocelots: creepers skip their cat scan without any)
     int m_creatures = 0, m_cats = 0, m_creatureTicks = 0; // (M26.1: animal spawning)
     uint64_t m_playerAttacker = 0; // (M26.1) the mob that last hurt the player
+    int m_playerAttackerTicks = 0; // (forgotten after 100 ticks, like vanilla's last-hurt-by memory)
+    void setPlayerAttacker(uint64_t uuid) {
+        m_playerAttacker = uuid;
+        m_playerAttackerTicks = 0;
+    }
     int m_striders = 0;
     float m_bossHealth = -1.0f;
     world::MobType m_bossType = world::MobType::EnderDragon;

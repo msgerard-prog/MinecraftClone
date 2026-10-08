@@ -84,7 +84,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     if (was != b && was == blocks::Jukebox) c->removeBlockEntity(x, p.y, z); // (M23.6)
     const auto isHive = [](BlockId id) { return id == blocks::BeeNest || id == blocks::Beehive; };
     if (was != b && isHive(was)) { // (M26.3b) the bees inside come out angry
-        if (BeehiveData* h = c->beehive(x, p.y, z)) releaseBees(*c, p, *h, true);
+        if (BeehiveData* h = c->beehive(x, p.y, z)) releaseBees(*this, p, *h, true);
         c->removeBlockEntity(x, p.y, z);
     }
     if (b != was && isHive(b)) {

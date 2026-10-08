@@ -49,7 +49,7 @@ constexpr MountFood kHorseFood[] = {{"sugar", 1.0f, 600, 3, false},          {"w
                                     {"apple", 3.0f, 1200, 3, false},         {"carrot", 3.0f, 1200, 0, false},
                                     {"golden_carrot", 4.0f, 1200, 5, true},  {"golden_apple", 10.0f, 4800, 10, true},
                                     {"hay_block", 20.0f, 3600, 0, false}};
-constexpr MountFood kLlamaFood[] = {{"wheat", 2.0f, 200, 3, false}, {"hay_block", 10.0f, 200, 6, true}};
+constexpr MountFood kLlamaFood[] = {{"wheat", 2.0f, 200, 3, false}, {"hay_block", 10.0f, 1800, 6, true}};
 constexpr MountFood kCamelFood[] = {{"cactus", 2.0f, 200, 0, true}};
 
 const MountFood* mountFood(MobType t, std::string_view id) {
@@ -410,6 +410,7 @@ bool Mobs::mountGoal(Context& ctx, MobData& m, double& speed) {
         m.goal = m.pos;
         return true;
     }
+    m.targetUuid = 0; // (its trader is gone: it wanders on its own, no lookups each tick)
     return false;
 }
 

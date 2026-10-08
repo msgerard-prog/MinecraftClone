@@ -555,3 +555,18 @@ TEST_CASE("a playing jukebox gives redstone power 15 (M23 parity)") {
     s.tick(6);
     CHECK_FALSE(s.on({1, 64, 0}));
 }
+
+TEST_CASE("pistons don't move copper chests, bee nests or beehives (block entities stay - M26 review)") {
+    Scene s;
+    for (const BlockId b : {BlockId(*R().findBlock("copper_chest")), BlockId(blocks::BeeNest), BlockId(blocks::Beehive)}) {
+        s.put({0, 64, 0}, with(S(blocks::Piston), "facing", "east"));
+        s.put({1, 64, 0}, S(b));
+        s.put({0, 64, 1}, S(blocks::RedstoneBlock));
+        s.tick(4);
+        CHECK_FALSE(s.on({0, 64, 0}, "extended"));
+        CHECK(R().blockOf(s.at({1, 64, 0})) == b);
+        s.put({0, 64, 1}, 0);
+        s.put({1, 64, 0}, 0);
+        s.tick(4);
+    }
+}

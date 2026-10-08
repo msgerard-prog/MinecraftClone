@@ -95,7 +95,7 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             if (m.attackCooldown > 0) --m.attackCooldown;
             if (m.attackCooldown == 0 &&
                 box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)})) {
-                if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) m_playerAttacker = m.uuidHi;
+                if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) setPlayerAttacker(m.uuidHi);
                 m.attackCooldown = 20;
             }
         }

@@ -576,7 +576,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
             // (golems: 7.5 + 0-14 and a throw upward)
             const float hit = info.attackDamage + (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
             if (ctx.vitals.attacked(hit, &m.pos)) {
-                m_playerAttacker = m.uuidHi; // (tamed wolves go for it - M26.1)
+                setPlayerAttacker(m.uuidHi); // (tamed wolves go for it - M26.1)
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
                 if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
                 // (M26.4a; wiki, Normal) a cave spider's bite poisons for 7 s, a wither
@@ -796,14 +796,14 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (head) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find(head), 1}, ctx.rng); // (one, Looting or not)
     }
     // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
-    // (wiki: blazes and evokers 10, ravagers 20, magma cubes their size; villagers,
+    // (wiki: blazes, evokers and breezes 10, ravagers 20, magma cubes their size; villagers,
     // wandering traders and iron golems none)
     const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader || m.type == MobType::IronGolem;
     if (ctx.orbs && m.lastHurtByPlayer && !noXp)
         ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
                        m.type == MobType::Wither                              ? 50 // (M26.4b)
                        : m.type == MobType::Ravager                           ? 20
-                       : m.type == MobType::Blaze || m.type == MobType::Evoker ? 10
+                       : m.type == MobType::Blaze || m.type == MobType::Evoker || m.type == MobType::Breeze ? 10
                        : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
                        : mobInfo(m.type).hostile      ? 5
                                                       : 1 + static_cast<int>(ctx.rng.nextInt(3)),
@@ -885,7 +885,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Llama:
     case MobType::TraderLlama: drop("leather", 0, 2); break;
     // (M26.3; wiki) rabbit: hide 0-1, meat 0-1, a rabbit's foot 10% (+3% a Looting level)
-    // for player kills; polar bear: cod 0-2 (3 in 4) or salmon 0-2; panda: bamboo 0-2.
+    // for player kills; polar bear: cod 0-2 (3 in 4) or salmon 0-2; panda: bamboo 1 (Java); cat: string 0-2; parrot: feathers 1-2.
     case MobType::Rabbit:
         drop("rabbit_hide", 0, 1);
         drop(burning ? "cooked_rabbit" : "rabbit", 0, 1);
@@ -895,7 +895,9 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (ctx.rng.nextInt(4) != 0) drop(burning ? "cooked_cod" : "cod", 0, 2);
         else drop(burning ? "cooked_salmon" : "salmon", 0, 2);
         break;
-    case MobType::Panda: drop("bamboo", 0, 2); break;
+    case MobType::Panda: drop("bamboo", 1, 1); break;
+    case MobType::Cat: drop("string", 0, 2); break;
+    case MobType::Parrot: drop("feather", 1, 2); break;
     // (M26.4a; wiki) wither skeleton: coal 0-1 (1 in 3), bones 0-2; phantom: a membrane
     // 0-1 for player kills.
     case MobType::WitherSkeleton:
@@ -1030,8 +1032,11 @@ void Mobs::die(Context& ctx, MobData& m) {
 void Mobs::tick(Context& ctx) {
     m_moves.clear();
     m_births.clear();
+    if (m_playerAttacker != 0 && ++m_playerAttackerTicks > 100) m_playerAttacker = 0;
     m_hostiles = 0;
     m_fish = m_squid = m_glowSquid = m_axolotls = 0;
+    m_felinesLastTick = m_felines;
+    m_felines = 0;
     m_creatures = m_cats = 0;
     m_striders = 0;
     m_angerAlertCount = 0;
@@ -1137,6 +1142,7 @@ void Mobs::tick(Context& ctx) {
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_axolotls += m.type == MobType::Axolotl;
+                m_felines += m.type == MobType::Cat || m.type == MobType::Ocelot;
                 m_striders += m.type == MobType::Strider;
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
                 // vanish; beyond 32 they may after 30 s without a player near.
@@ -1188,6 +1194,9 @@ void Mobs::tick(Context& ctx) {
         }
     for (const MobData& baby : m_births)
         add(ctx.world, baby);
+    // Mobs that came out of blocks during the pass (bees from broken hives - M26.5 review).
+    for (const MobData& q : ctx.world.queuedMobs()) add(ctx.world, q);
+    ctx.world.queuedMobs().clear();
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
     for (int a = 0; a < m_angerAlertCount; ++a) {

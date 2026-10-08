@@ -22,7 +22,7 @@ using namespace world;
 
 namespace {
 
-constexpr int kOxidizeTicks = 504000; // (about 7 real hours a stage - wiki)
+constexpr int kOxidizeTicks = 504000; // (420-460 minutes a stage - wiki)
 constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
 
 // The oxidation stage and waxing of a copper block id (-1: not a copper block).
@@ -79,7 +79,7 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
     if (m.type != MobType::CopperGolem) return false;
     // Oxidation.
     if (!m.sheared && m.woolColour < 3) {
-        if (m.eggTicks <= 0 || m.eggTicks > kOxidizeTicks) m.eggTicks = kOxidizeTicks + int(ctx.rng.nextInt(40000));
+        if (m.eggTicks <= 0 || m.eggTicks > kOxidizeTicks + 48000) m.eggTicks = kOxidizeTicks + int(ctx.rng.nextInt(48000));
         if (--m.eggTicks <= 0) ++m.woolColour;
     }
     if (m.woolColour >= 3 && !m.sheared) { // fully oxidized: frozen

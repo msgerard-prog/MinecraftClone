@@ -572,6 +572,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::PrimedTnt primedTnt;
     int bowTicks = 0;      // how long the bow has been drawn
     uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
+    int playerTargetTicks = 0;     // (forgotten after 100 ticks, like vanilla's last-hurt memory)
     int tridentTicks = 0;  // how long a trident has been held back (M25.3)
     double airPeakY = 0.0; // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;   // how long right-click has held a shield up
@@ -2326,7 +2327,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (mc::world::Chunk* hc = world.chunk(at.chunk()))
                             if (mc::world::BeehiveData* hd =
                                     hc->beehive(mc::world::blockToLocal(at.x), at.y, mc::world::blockToLocal(at.z))) {
-                                mc::world::releaseBees(*hc, at, *hd, true);
+                                mc::world::releaseBees(world, at, *hd, true);
                                 world.markTicking(at.chunk());
                             }
                     acted = true;
@@ -2645,8 +2646,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.sharpness = mc::world::enchantLevel(stack, E::Sharpness);
                     mhit.smite = mc::world::enchantLevel(stack, E::Smite);
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
-                    mhit.undead = mc::world::isZombie(m.type) ||
-                                  m.type == mc::world::MobType::Skeleton;
+                    mhit.undead = mc::world::isUndead(m.type);
                     mhit.arthropod = m.type == mc::world::MobType::Spider || m.type == mc::world::MobType::CaveSpider ||
                                      m.type == mc::world::MobType::Silverfish || m.type == mc::world::MobType::Bee;
                     mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
@@ -2664,6 +2664,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
                     playerTargetUuid = m.uuidHi; // (tamed wolves join in - M26.1)
+                    playerTargetTicks = 0;
                     if (m.type == mc::world::MobType::Villager) { // golems defend villagers (wiki)
                         const mc::world::ChunkPos vc{mc::world::blockToChunk(int(std::floor(m.pos.x))),
                                                      mc::world::blockToChunk(int(std::floor(m.pos.z)))};
@@ -2711,11 +2712,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Aqua Affinity: no slower mining under water (wiki).
                 interaction.setPlaceContents(
                     inventory.selectedStack().contents); // (shulker boxes, M23.6)
+                const size_t silverfishBefore = blockUpdates.silverfishOut().size();
+                const bool silk = mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::SilkTouch) > 0;
                 interaction.tickSurvival(
                     world, player, lastHit, inventory, vitals, clicks,
                     eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
                                                             mc::world::Enchantment::AquaAffinity),
                     gameRng, changedBlocks, drops);
+                if (silk) // (wiki: Infested Block - Silk Touch takes the block, silverfish and all)
+                    blockUpdates.silverfishOut().resize(silverfishBefore);
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
                 if (interaction.takeChorusTeleport())
@@ -2726,10 +2731,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             } else {
                 interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
                 interaction.setPlaceContents(inventory.selectedStack().contents);
+                const size_t silverfishBefore = blockUpdates.silverfishOut().size();
                 interaction.tick(
                     world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
                     mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
                         mc::world::ToolType::Sword);
+                blockUpdates.silverfishOut().resize(silverfishBefore); // (creative breaks release none - wiki)
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             }
@@ -2762,6 +2769,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
             mobCtx.raidCentre = overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
             mobCtx.raidId = raid.id();
+            if (playerTargetUuid != 0 && ++playerTargetTicks > 100) playerTargetUuid = 0;
             mobCtx.playerTargetUuid = playerTargetUuid;
             mobCtx.timeSinceRest = vitals.timeSinceRest(); // (M26.4a: phantoms)
             mobCtx.playerAttackerUuid = mobs.playerAttacker();

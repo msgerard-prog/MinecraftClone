@@ -136,8 +136,10 @@ TEST_CASE("breaking a hive lets its bees out angry; a campfire below smokes it; 
     CHECK_FALSE(hiveSmoked(g.world, hp));
     g.world.updateBlock({0, 63, 0}, blockRegistry().defaultState(blocks::Campfire));
     CHECK(hiveSmoked(g.world, hp));
-    // Broken: both bees come out angry.
+    // Broken: both bees come out angry (queued, then added by the mob pass).
     g.world.updateBlock(hp, 0);
+    CHECK(g.world.queuedMobs().size() == 2);
+    g.tick(1);
     int angry = 0;
     g.world.forEachChunk([&](Chunk& c) {
         for (auto& m : c.mobs()) angry += m.type == MobType::Bee && m.angry;

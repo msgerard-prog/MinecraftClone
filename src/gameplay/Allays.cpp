@@ -51,7 +51,7 @@ bool Mobs::allayAi(Context& ctx, MobData& m) {
         MobData twin = make(MobType::Allay, m.pos + glm::dvec3(0.3, 0.2, 0.0), ctx.rng);
         twin.age = 6000;
         twin.persistent = true;
-        m_births.push_back(twin);
+        if (m_births.size() < m_births.capacity()) m_births.push_back(twin);
     }
     // Dancing within 10 blocks of a playing jukebox (as parrots do).
     const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
@@ -89,13 +89,15 @@ bool Mobs::allayAi(Context& ctx, MobData& m) {
     }
     if (m.attackCooldown > 0) --m.attackCooldown;
     bool fetching = false;
-    if (m.mouthItem != kNoItem && m.allayCount < 64 && (noteBlock || followPlayer)) {
+    // (it carries one stack: up to the item's own stack size - 16 pearls, 1 sword)
+    const int carry = m.mouthItem != kNoItem ? std::max<int>(1, itemRegistry().item(m.mouthItem).maxStack) : 0;
+    if (m.mouthItem != kNoItem && m.allayCount < carry && (noteBlock || followPlayer)) {
         // The nearest stack of its item within 32 blocks of what it follows.
         const ItemEntity* best = nullptr;
         double bestD = 1e18;
         for (const ItemEntity& e : ctx.items.items())
             if (e.stack.item == m.mouthItem && e.stack.count > 0 && e.pickupDelay == 0 &&
-                glm::length(e.pos - anchor) < 32.0 && glm::dot(e.pos - m.pos, e.pos - m.pos) < bestD) {
+                glm::dot(e.pos - anchor, e.pos - anchor) < 32.0 * 32.0 && glm::dot(e.pos - m.pos, e.pos - m.pos) < bestD) {
                 bestD = glm::dot(e.pos - m.pos, e.pos - m.pos);
                 best = &e;
             }
@@ -104,7 +106,7 @@ bool Mobs::allayAi(Context& ctx, MobData& m) {
             goal = best->pos + glm::dvec3(0.0, 0.3, 0.0);
             speed = 0.25;
             if (glm::length(best->pos - m.pos) < 1.3) { // (picked up: as much as it can carry)
-                while (m.allayCount < 64 && best && best->stack.count > 0) {
+                while (m.allayCount < carry && best && best->stack.count > 0) {
                     const bool last = best->stack.count == 1;
                     ctx.items.takeOne(best);
                     ++m.allayCount;

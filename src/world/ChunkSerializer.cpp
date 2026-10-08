@@ -1145,6 +1145,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
         }
         if (m.type == MobType::Frog) e.put("variant", "minecraft:" + std::string(kFrogVariants[m.woolColour % 3].name)); // (M26.3c)
+        if (m.type == MobType::Wither) e.put("Invul", int32_t(m.spellTicks)); // (M26 review: still charging)
         if (m.type == MobType::CopperGolem) { // (M26.5b)
             static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
             e.put("weather_state", std::string(kWeather[m.woolColour % 4]));
@@ -1166,10 +1167,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.allayCount > 0 && m.mouthItem != kNoItem) inv.emplace_back(itemNbt({m.mouthItem, m.allayCount}, -1));
             e.put("Inventory", nbt::listOf(nbt::TagType::Compound, std::move(inv)));
         }
-        if (((m.type == MobType::Fox || m.type == MobType::Allay) && m.mouthItem != kNoItem) ||
+        if (((m.type == MobType::Fox || m.type == MobType::Allay || m.type == MobType::CopperGolem) &&
+             m.mouthItem != kNoItem) ||
             (m.type == MobType::Wolf && m.horseArmor > 0)) {
             nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's armor)
             if (m.type == MobType::Fox || m.type == MobType::Allay) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
+            if (m.type == MobType::CopperGolem) // (what it carries between chests)
+                eq.put("mainhand", itemNbt({m.mouthItem, uint8_t(std::max<int>(1, m.allayCount))}, -1));
             if (m.type == MobType::Wolf) {
                 ItemStack armor{*itemRegistry().find("wolf_armor"), 1};
                 armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
@@ -1535,12 +1539,19 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 for (int k = 0; k < 3; ++k)
                     if (*v == "minecraft:" + std::string(kFrogVariants[k].name)) m.woolColour = uint8_t(k);
         if (m.type == MobType::Axolotl) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
+        if (m.type == MobType::Wither) m.spellTicks = int16_t(std::clamp<int64_t>(e->integer("Invul").value_or(0), 0, 220));
         if (m.type == MobType::CopperGolem) {
             static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
             if (const std::string* ws = e->string("weather_state"))
                 for (int k = 0; k < 4; ++k)
                     if (*ws == kWeather[k]) m.woolColour = uint8_t(k);
             m.sheared = e->integer("Waxed").value_or(0) != 0;
+            if (const nbt::Compound* eq = e->compound("equipment"))
+                if (const nbt::Compound* hand = eq->compound("mainhand")) {
+                    const ItemStack st = itemFromNbt(*hand);
+                    m.mouthItem = st.item;
+                    m.allayCount = st.empty() ? 0 : st.count;
+                }
         }
         if (m.type == MobType::Bee) {
             m.nectar = e->integer("HasNectar").value_or(0) != 0;

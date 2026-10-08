@@ -45,7 +45,16 @@ public:
         m_ticking.reserve(4096);
         m_events.reserve(1024);
         m_sounds.reserve(512);
+        m_newMobs.reserve(64);
     }
+
+    // Mobs that appear out of blocks (M26.5 review: bees let out of a broken hive) are
+    // queued here and added by Mobs::tick after its pass - never pushed into a chunk's
+    // mob list while it may be iterating it. Dropped beyond the reserved capacity.
+    void queueMob(const MobData& m) {
+        if (m_newMobs.size() < m_newMobs.capacity()) m_newMobs.push_back(m);
+    }
+    std::vector<MobData>& queuedMobs() { return m_newMobs; }
 
     // Sounds (M22.4, world/Sounds.h): queued for main to play; dropped when full.
     void playSound(Sound sound, double x, double y, double z, float volume = 1.0f, float pitch = 1.0f) {
@@ -134,6 +143,7 @@ public:
 
 private:
     std::vector<LevelEvent> m_events;
+    std::vector<MobData> m_newMobs;
     std::vector<SoundEvent> m_sounds;
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;

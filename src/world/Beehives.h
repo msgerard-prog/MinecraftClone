@@ -11,8 +11,10 @@ namespace mc::world {
 
 // A mob for a bee leaving its hive at `at` (its home is the hive at `hive`).
 MobData beeFromHive(const HiveBee& b, const glm::dvec3& at, const BlockPos& hive);
-// Every bee inside comes out (above the hive), angry or not; the hive is emptied.
-void releaseBees(Chunk& chunk, const BlockPos& hive, BeehiveData& data, bool angry);
+// Every bee inside comes out (above the hive), angry or not; the hive is emptied. The
+// bees are queued in the world (World::queueMob) - this runs inside block changes that
+// can happen during the mob pass.
+void releaseBees(World& world, const BlockPos& hive, BeehiveData& data, bool angry);
 // Whether a lit campfire within 5 blocks below calms the hive's bees (wiki: Campfire ›
 // Smoke): then harvesting doesn't anger them.
 bool hiveSmoked(const World& world, const BlockPos& hive);

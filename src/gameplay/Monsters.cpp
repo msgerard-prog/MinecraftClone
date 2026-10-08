@@ -88,6 +88,7 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     // Drowned go after players in water, or anywhere at night (wiki: Drowned).
     case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
     case MobType::Creeper: { // creepers keep away from cats and ocelots (wiki: Creeper › Behavior)
+        if (m_felines == 0 && m_felinesLastTick == 0) return true;
         const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
@@ -453,7 +454,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             !raycastBlocks(ctx.world, eye, to / dist, dist)) {
             ctx.projectiles->shoot(ProjectileKind::WindCharge, eye + to / dist * 0.8, to / dist, 0.7, 1.0, false, false,
                                    ctx.rng, m.uuidHi);
-            m.chargeTicks = int16_t(40 + ctx.rng.nextInt(20));
+            m.chargeTicks = 32; // (wiki: a wind charge every 32 ticks)
         }
         if (m.onGround && ctx.rng.nextInt(40) == 0) {
             glm::dvec3 flat(to.x, 0.0, to.z);

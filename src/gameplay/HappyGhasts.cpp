@@ -52,14 +52,17 @@ bool Mobs::happyGhastAi(Context& ctx, MobData& m) {
     // Healing: 1 every 30 s; 1 a second in rain with the sky open (wiki).
     const BlockPos top{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 4.0)), int(std::floor(m.pos.z))};
     const bool rained = ctx.weather && ctx.weather->raining && rainingAt(ctx.world, *ctx.weather, top);
-    if (++m.goalTicks % (rained ? 20 : 600) == 0) m.health = std::min(maxHealthOf(m), m.health + 1.0f);
+    const bool clouds = m.pos.y >= 187.0 && m.pos.y <= 196.0; // (and at cloud level - wiki)
+    if (++m.goalTicks % (rained || clouds ? 20 : 600) == 0) m.health = std::min(maxHealthOf(m), m.health + 1.0f);
     if (m.ridden) return false; // (mountTick steers it)
     // Following a player holding a snowball within 16 blocks, keeping a little off;
     // otherwise drifting slowly to a spot nearby now and then.
     const glm::dvec3 player = ctx.player.position() + glm::dvec3(0.0, 1.0, 0.0);
     static const ItemId snowball = itemRegistry().find("snowball").value_or(kNoItem);
     glm::dvec3 goal = m.goal;
-    if (!ctx.playerDead && snowball != kNoItem && ctx.heldItem == snowball && glm::length(player - m.pos) < 16.0) {
+    const bool harness = !m.isBaby() && ctx.heldItem != kNoItem && itemRegistry().item(ctx.heldItem).id.ends_with("_harness");
+    if (!ctx.playerDead && ((snowball != kNoItem && ctx.heldItem == snowball) || harness) &&
+        glm::length(player - m.pos) < 16.0) {
         const glm::dvec3 off = m.pos - player;
         const double l = glm::length(off);
         goal = player + (l > 1e-6 ? off / l : glm::dvec3(1, 0, 0)) * (m.isBaby() ? 2.0 : 5.0);

@@ -70,7 +70,7 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
         speed = 0.6;
         const Aabb reach{ctx.player.box().min - glm::dvec3(0.2), ctx.player.box().max + glm::dvec3(0.2)};
         if (box(m).intersects(reach)) {
-            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) m_playerAttacker = m.uuidHi;
+            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) setPlayerAttacker(m.uuidHi);
             m.phase = 2;
             m.phaseTicks = 30 + int16_t(ctx.rng.nextInt(20));
         } else if (--m.phaseTicks <= 0 || solid(ctx.world, m.pos + glm::normalize(goal - m.pos + glm::dvec3(1e-6)) * 1.0)) {
@@ -122,6 +122,7 @@ void Mobs::spawnPhantoms(Context& ctx) {
     m_phantomTicks += int(ctx.rng.nextInt(1200)); // (the game's random only when phantoms may come)
     if (int(ctx.rng.nextInt(uint32_t(std::max(1, ctx.timeSinceRest)))) < 72000) return;
     const glm::dvec3 p = ctx.player.position();
+    if (p.y < 63.0) return; // (wiki: only above sea level)
     const BlockPos head{int(std::floor(p.x)), int(std::floor(p.y + 1.6)), int(std::floor(p.z))};
     const Chunk* c = ctx.world.chunk(head.chunk());
     if (!c || !c->lit() || !ctx.world.isInHeight(head.y) ||

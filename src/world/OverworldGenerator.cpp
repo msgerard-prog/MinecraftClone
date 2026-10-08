@@ -3106,10 +3106,8 @@ void OverworldGenerator::placeBeeNests(BlockStateId* blocks, ChunkPos pos, Gener
                 static constexpr int kSide[4][3] = {{0, 1, 1}, {0, -1, 0}, {-1, 0, 2}, {1, 0, 3}}; // dx, dz, facing
                 for (const auto& sd : kSide) {
                     const int lx = tree.wx + sd[0] - baseX, lz = tree.wz + sd[1] - baseZ;
-                    // (the side cell must be free: decided the same way in every chunk)
-                    const int tx = tree.wx - baseX, tz = tree.wz - baseZ;
-                    const bool trunkHere = tx >= 0 && tx < 16 && tz >= 0 && tz < 16;
-                    if (trunkHere && reg.blockOf(chunk.get(tx, y, tz)) == 0) break; // (no trunk there)
+                    // (decided from the plan alone - the trunk always reaches this high - so
+                    // the chunk holding the side cell needs nothing from the trunk's chunk)
                     if (lx < 0 || lx > 15 || lz < 0 || lz > 15) break; // (its chunk places it)
                     if (chunk.get(lx, y, lz) != 0) continue;
                     chunk.set(lx, y, lz, reg.set(nest, properties::facing, sd[2]));

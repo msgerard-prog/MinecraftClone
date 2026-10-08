@@ -461,10 +461,10 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 remove = true;
             } else if (p.kind == ProjectileKind::WitherSkull && (target != Target::None || block)) {
                 // A wither skull (M26.4b; wiki: Wither › Wither skulls): 8 damage and
-                // Wither II for 40 s on Normal to what it hits, then a power-1 blast.
+                // Wither II for 10 s on Normal (40 s on Hard) to what it hits, then a power-1 blast.
                 if (target == Target::Player) {
                     if (vitals && survival && vitals->attacked(8.0f, &p.pos, Vitals::Hit::Projectile)) {
-                        vitals->addEffect(Effect::Wither, 1, 800);
+                        vitals->addEffect(Effect::Wither, 1, 200);
                         hits.playerDamage += 8.0f;
                     }
                 } else if (target == Target::Mob) {

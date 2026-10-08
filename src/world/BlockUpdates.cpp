@@ -92,6 +92,7 @@ Push pushKind(BlockStateId s) {
     if (s == 0) return Push::Air;
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
+    if (R().likeOf(b) == B::Chest) return Push::Block; // (copper chests too: block entities don't move)
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
     // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
     // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
@@ -181,6 +182,8 @@ Push pushKind(BlockStateId s) {
     case B::BrewingStand:
     case B::EnchantingTable:
     case B::PistonHead:
+    case B::BeeNest: // (M26 review: hives and nests hold their bees)
+    case B::Beehive:
         return Push::Block;
     case B::Piston:
     case B::StickyPiston:
@@ -198,6 +201,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_due.reserve(16384); // a /fill of fluid sources makes thousands due at once
     m_events.reserve(64);
     m_lightning.reserve(64);
+    m_silverfish.reserve(256); // (M26.4a: a mined vein)
     m_changed.reserve(4096);
     m_settling.reserve(4096);
     m_remesh.reserve(4096);

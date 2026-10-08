@@ -140,3 +140,15 @@ TEST_CASE("a nautilus is tamed with pufferfish, takes a saddle and swims where i
     for (int t = 0; t < 50; ++t) v.breathe(true);
     CHECK(v.air() == air);
 }
+
+TEST_CASE("an allay carries no more than one stack of its item: one sword at a time (M26 review)") {
+    Meadow m;
+    const ItemId sword = *itemRegistry().find("iron_sword");
+    REQUIRE(Mobs::add(m.world, Mobs::make(MobType::Allay, {1.5, 65.0, 1.5}, m.rng)));
+    CHECK(Mobs::interact(*m.find(MobType::Allay), sword, m.rng, m.items) == Mobs::Use::Fed);
+    for (int i = 0; i < 3; ++i) m.items.spawn({10.5, 64.2, 6.5}, {sword, 1}, m.rng, 0);
+    int most = 0;
+    m.tick(400, [&] { most = std::max<int>(most, m.find(MobType::Allay)->allayCount); });
+    CHECK(most == 1);
+    for (const auto& it : m.items.items()) CHECK(it.stack.count <= 1);
+}

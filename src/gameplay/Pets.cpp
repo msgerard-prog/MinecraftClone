@@ -45,7 +45,8 @@ Mobs::Use Mobs::petInteract(MobData& m, ItemId held, Xoroshiro& rng) {
                           (m.type == MobType::Parrot && seeds);
     if (!m.tamed) {
         if (!tameFood || m.angry) return Use::None;
-        if (rng.nextInt(3) == 0) {
+        // (wiki: wolves, cats and ocelots 1 in 3; parrots 1 in 10 per seed)
+        if (rng.nextInt(m.type == MobType::Parrot ? 10 : 3) == 0) {
             m.tamed = true;
             m.sitting = m.type != MobType::Ocelot; // (ocelots only trust)
             m.health = petMaxHealth(m);
@@ -261,7 +262,12 @@ void Mobs::spawnCreatures(Context& ctx) {
     }
     if (kind == MobType::Wolf && (biome == Biome::Forest || biome == Biome::SparseJungle) && ctx.rng.nextInt(4) != 0)
         return; // (rarer there)
-    group = kind == MobType::Wolf ? 4 : kind == MobType::Parrot ? 1 + int(ctx.rng.nextInt(2)) : 1 + int(ctx.rng.nextInt(3));
+    // (wiki: Wolf › pack sizes - chestnut/rusty 2-4, spotted/striped 4-8, snowy alone, else 4)
+    group = kind == MobType::Wolf ? (variant == 4 || variant == 5   ? 2 + int(ctx.rng.nextInt(3))
+                                     : variant == 6 || variant == 7 ? 4 + int(ctx.rng.nextInt(5))
+                                     : variant == 8                 ? 1
+                                                                    : 4)
+            : kind == MobType::Parrot ? 1 + int(ctx.rng.nextInt(2)) : 1 + int(ctx.rng.nextInt(3));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
         if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz)) continue;

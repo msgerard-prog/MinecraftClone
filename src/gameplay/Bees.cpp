@@ -83,7 +83,7 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
         if (m.attackCooldown > 0) --m.attackCooldown;
         if (m.attackCooldown == 0 && box(m).intersects(reach)) {
             if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) ctx.vitals.addEffect(Effect::Poison, 0, 200);
-            m_playerAttacker = m.uuidHi;
+            setPlayerAttacker(m.uuidHi);
             m.stung = true;
             m.angry = false;
             m.despawnDelay = 600 + int(ctx.rng.nextInt(600));

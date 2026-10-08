@@ -66,10 +66,11 @@ void flee(MobData& m, const glm::dvec3& from, double dist) {
 
 void Mobs::initWildlife(MobData& m, Xoroshiro& rng) {
     switch (m.type) {
-    case MobType::Panda: { // (wiki: Panda › Genes - normal is the most common; brown rare)
+    case MobType::Panda: { // (wiki: Panda › Genes - normal 163/256, lazy, worried, playful and
+        // aggressive 1/16 each, weak 25/256, brown 1/64; kPandaGenes order)
         auto gene = [&] {
-            const uint32_t r = rng.nextInt(100);
-            return uint8_t(r < 50 ? 0 : r < 58 ? 1 : r < 66 ? 2 : r < 74 ? 3 : r < 76 ? 4 : r < 84 ? 5 : r < 92 ? 6 : 0);
+            const uint32_t r = rng.nextInt(256);
+            return uint8_t(r < 163 ? 0 : r < 179 ? 1 : r < 195 ? 2 : r < 211 ? 3 : r < 227 ? 6 : r < 252 ? 5 : 4);
         };
         m.woolColour = gene();
         m.color2 = gene();
@@ -98,7 +99,14 @@ void Mobs::wildlifeOffspring(const MobData& a, const MobData& b, MobData& baby, 
     case MobType::Panda: { // one gene from each parent, now and then a new one (wiki)
         baby.woolColour = rng.nextInt(2) ? a.woolColour : a.color2;
         baby.color2 = rng.nextInt(2) ? b.woolColour : b.color2;
-        if (rng.nextInt(32) == 0) baby.woolColour = uint8_t(rng.nextInt(7));
+        // Each gene mutates 1 in 32: normal 5/16, weak 5/16, brown 2/16, the others 1/16 each.
+        auto mutate = [&](uint8_t& g) {
+            if (rng.nextInt(32) != 0) return;
+            const uint32_t r = rng.nextInt(16);
+            g = uint8_t(r < 5 ? 0 : r < 10 ? 5 : r < 12 ? 4 : r == 12 ? 1 : r == 13 ? 2 : r == 14 ? 3 : 6);
+        };
+        mutate(baby.woolColour);
+        mutate(baby.color2);
         baby.maxHealth = pandaPersonality(baby.woolColour, baby.color2) == 5 ? 10.0f : 0.0f;
         baby.health = maxHealthOf(baby);
         break;
@@ -108,7 +116,9 @@ void Mobs::wildlifeOffspring(const MobData& a, const MobData& b, MobData& baby, 
         baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour;
         break;
     case MobType::Rabbit: baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour; break;
-    case MobType::Goat: baby.powered = rng.nextInt(50) == 0; break;
+    case MobType::Goat: // (wiki: about half the kids of a screaming parent scream, else 2%)
+        baby.powered = (a.powered || b.powered) ? rng.nextInt(2) == 0 : rng.nextInt(50) == 0;
+        break;
     case MobType::Axolotl: // a parent's colour, or 1 in 1200 the rare blue (wiki: Axolotl)
         baby.woolColour = rng.nextInt(1200) == 0 ? 4 : rng.nextInt(2) ? a.woolColour : b.woolColour;
         break;
@@ -440,8 +450,10 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
             const BlockId b = blockRegistry().blockOf(
                 ctx.world.getBlock({int(std::floor(front.x)), int(std::floor(front.y)), int(std::floor(front.z))}));
             const std::string& id = blockRegistry().block(b).id;
-            const bool hard = id == "minecraft:stone" || id.ends_with("_log") || id.ends_with("_ore") ||
-                              id == "minecraft:packed_ice" || id.ends_with("copper_ore");
+            // (wiki: stone, logs, coal/copper/iron/emerald ore and packed ice - not deepslate ores)
+            const bool hard = id == "minecraft:stone" || id.ends_with("_log") || id == "minecraft:coal_ore" ||
+                              id == "minecraft:copper_ore" || id == "minecraft:iron_ore" ||
+                              id == "minecraft:emerald_ore" || id == "minecraft:packed_ice";
             if (hard && m.horns != 0) {
                 const uint8_t which = (m.horns & 1) && ((m.horns & 2) == 0 || ctx.rng.nextInt(2)) ? 1 : 2;
                 m.horns = uint8_t(m.horns & ~which);
@@ -543,6 +555,7 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
             : kind == MobType::Fox  ? 2 + int(ctx.rng.nextInt(3))
             : kind == MobType::Goat ? 1 + int(ctx.rng.nextInt(3))
             : kind == MobType::Frog ? 2 + int(ctx.rng.nextInt(4))
+            : kind == MobType::Armadillo && biome == Biome::Savanna ? 2 + int(ctx.rng.nextInt(2)) // (badlands 1-2)
                                     : 1 + int(ctx.rng.nextInt(2));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;

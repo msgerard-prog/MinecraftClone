@@ -19,7 +19,7 @@ MobData beeFromHive(const HiveBee& b, const glm::dvec3& at, const BlockPos& hive
     return m;
 }
 
-void releaseBees(Chunk& chunk, const BlockPos& hive, BeehiveData& data, bool angry) {
+void releaseBees(World& world, const BlockPos& hive, BeehiveData& data, bool angry) {
     for (int i = 0; i < data.count && i < 3; ++i) {
         const glm::dvec3 at(hive.x + 0.5 + (i - 1) * 0.3, hive.y + 1.1, hive.z + 0.5);
         MobData m = beeFromHive(data.bees[size_t(i)], at, hive);
@@ -27,10 +27,10 @@ void releaseBees(Chunk& chunk, const BlockPos& hive, BeehiveData& data, bool ang
             m.angry = true;
             m.angerTicks = int16_t(400 + i * 37);
         }
-        chunk.mobs().push_back(m);
+        world.queueMob(m);
     }
     data.count = 0;
-    chunk.markDirty();
+    if (Chunk* c = world.chunk(hive.chunk())) c->markDirty();
 }
 
 bool hiveSmoked(const World& world, const BlockPos& hive) {
