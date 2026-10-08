@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/Villagers.h"
+
 #include <glm/glm.hpp>
 
 #include <array>
@@ -33,6 +35,7 @@ enum class MobType : uint8_t {
     Shulker,
     Minecart, // (M21.4: a vehicle, kept with the mobs)
     Slime,    // (M21.5)
+    Villager, // (M24.1)
     Count
 };
 
@@ -129,6 +132,19 @@ struct MobData {
     uint8_t peek = 0;         // shulker: how far its lid is open, 0..100 (saved as Peek)
     bool ridden = false;      // minecart: the player sits in it (not saved: vanilla saves passengers)
     glm::dvec3 beam{0.0};
+    // Villagers (M24; saved as VillagerData {type, profession, level}, Xp, Offers and
+    // the Brain's home / job_site / meeting_point memories).
+    uint8_t profession = 0;   // world::Profession
+    uint8_t villagerType = 0; // world::VillagerType
+    uint8_t villagerLevel = 1; // 1 novice .. 5 master
+    int villagerXp = 0;
+    glm::ivec3 home{0, kNoPoint, 0}, jobSite{0, kNoPoint, 0}, meetingPoint{0, kNoPoint, 0};
+    bool sleeping = false;    // in its bed at night (drawn lying down)
+    int16_t poiSearch = 0;    // ticks to the next look for a bed / job site
+    uint8_t restocksToday = 0; // (M24.2) two restocks a day at the job site
+    int64_t lastRestockDay = -1;
+    uint8_t offerCount = 0;
+    std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
 

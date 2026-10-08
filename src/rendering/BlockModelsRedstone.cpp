@@ -349,6 +349,36 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Lectern: {
+        // A base plate, a post, and the sloped reading board (ours: flat) on top.
+        Builder b(atlas, out);
+        BoxSpec base = allFaces({0, 0, 0}, {16, 2, 16}, "lectern_base", {0, 0, 16, 2});
+        base.faces[int(Direction::Up)] = {"lectern_base"};
+        base.faces[int(Direction::Down)] = {"oak_planks"};
+        b.box(base, {0, yTurns(hFacing(r, s))});
+        BoxSpec post = allFaces({4, 2, 4}, {12, 13, 12}, "lectern_sides", {4, 3, 12, 14});
+        post.faces[int(Direction::North)] = {"lectern_front", {4, 3, 12, 14}};
+        b.box(post, {0, yTurns(hFacing(r, s))});
+        BoxSpec top = allFaces({0, 13, 0}, {16, 16, 16}, "lectern_sides", {0, 0, 16, 3});
+        top.faces[int(Direction::Up)] = {"lectern_top"};
+        top.faces[int(Direction::Down)] = {"oak_planks"};
+        b.box(top, {0, yTurns(hFacing(r, s))});
+        return true;
+    }
+    case B::Bell: {
+        // Our floor bell: two stone posts with a bar, the golden bell hanging between.
+        Builder b(atlas, out);
+        const Rot rot{0, yTurns(hFacing(r, s))};
+        b.box(allFaces({0, 0, 7}, {2, 15, 9}, "stone", {0, 1, 2, 16}), rot);
+        b.box(allFaces({14, 0, 7}, {16, 15, 9}, "stone", {14, 1, 16, 16}), rot);
+        b.box(allFaces({2, 13, 7}, {14, 15, 9}, "dark_oak_planks", {2, 1, 14, 3}), rot);
+        BoxSpec bell = allFaces({4, 4, 4}, {12, 11, 12}, "bell_side", {0, 0, 8, 7});
+        bell.faces[int(Direction::Up)] = {"bell_top", {0, 0, 8, 8}};
+        bell.faces[int(Direction::Down)] = {"bell_bottom", {0, 0, 8, 8}};
+        b.box(bell, rot);
+        b.box(allFaces({5, 11, 5}, {11, 13, 11}, "bell_top", {0, 0, 6, 6}), rot);
+        return true;
+    }
     case B::Beacon: {
         // Vanilla's model: an obsidian base and the glowing core inside a glass shell.
         Builder b(atlas, out);

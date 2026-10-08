@@ -462,6 +462,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     // Body: vanilla yaw turns from +Z towards -X; dying tips over sideways over 20 ticks.
     glm::mat3 body = rotY(-bodyYaw * kDeg);
     if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
+    if (mob.sleeping) body = body * rotX(-90.0f * kDeg); // in bed: lying on its back, head toward the pillow
     const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
     const glm::mat3 legA = rotX(swing), legB = rotX(-swing), arm = rotX(-90.0f * kDeg + swing * 0.2f);
     const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
@@ -502,8 +503,14 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         const float w = mx.x - mn.x, h = mx.y - mn.y, d = mx.z - mn.z; // UV size (before inflating)
         mn -= glm::vec3(part.inflate);
         mx += glm::vec3(part.inflate);
-        const float u = float(part.u), v = float(part.v) + (part.layer == 1 ? float(kSheepWoolRow * 64) : vrow);
+        const float u = float(part.u), v = float(part.v) + (part.layer == 1   ? float(kSheepWoolRow * 64)
+                                                             : part.layer == 3 ? float(kVillagerApronRow * 64)
+                                                                               : vrow);
         glm::vec3 partTint = tint;
+        if (part.layer == 3) { // the profession's colour (M24.1)
+            const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
         if (part.layer == 1) {
             const uint32_t c = kWoolColours[mob.woolColour & 15];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;

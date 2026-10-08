@@ -38,7 +38,7 @@ int count(const Chunk& c, BlockId b, int minY = kOverworldHeight.minY) {
 } // namespace
 
 TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld stays as it was") {
-    const OverworldGenerator a(42), b(42), old(42, 1);
+    const OverworldGenerator a(42, 2), b(42, 2), old(42, 1);
     CHECK(a.kind() == "overworld2");
     CHECK(old.kind() == "overworld");
     // Around the spawn (land: lakes, plants, springs) - same twice, then pinned.
@@ -61,7 +61,7 @@ TEST_CASE("overworld2 is the newest kind, deterministic (pinned hash); overworld
 }
 
 TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly across chunks") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     OverworldGenerator::Ravine rv;
     int found = 0, carved = 0, checked = 0;
     for (int cz = -20; cz <= 20 && found < 3; ++cz)
@@ -90,7 +90,7 @@ TEST_CASE("overworld2: ravines are carved where their steps run, seamlessly acro
 }
 
 TEST_CASE("overworld2: lava lakes, springs with pending fluid ticks, sugar cane by water") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     const glm::dvec3 spawn = gen.findSpawn(); // on land
     const int32_t sx = int32_t(std::floor(spawn.x)) >> 4, sz = int32_t(std::floor(spawn.z)) >> 4;
     int lavaHigh = 0, springs = 0, cane = 0, mushrooms = 0;
@@ -115,7 +115,7 @@ TEST_CASE("overworld2: lava lakes, springs with pending fluid ticks, sugar cane 
 }
 
 TEST_CASE("overworld2: deserts grow cacti with nothing solid beside them") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     int32_t dx = 0, dz = 0;
     bool desert = false;
     for (int r = 0; r < 4000 && !desert; r += 64)
@@ -144,7 +144,7 @@ TEST_CASE("overworld2: deserts grow cacti with nothing solid beside them") {
 }
 
 TEST_CASE("overworld2: the M18.2 biomes all occur; overworld (M8) never places them") {
-    const OverworldGenerator gen(42), old(42, 1);
+    const OverworldGenerator gen(42, 2), old(42, 1);
     std::array<bool, size_t(Biome::Count)> seen{}, seenOld{};
     for (int z = -3000; z <= 3000; z += 64)
         for (int x = -3000; x <= 3000; x += 64) {
@@ -160,7 +160,7 @@ TEST_CASE("overworld2: the M18.2 biomes all occur; overworld (M8) never places t
 }
 
 TEST_CASE("overworld2: dungeons - cobblestone rooms with a spawner and loot chests") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     int spawners = 0, chests = 0, loot = 0, mossy = 0;
     for (int cz = -3; cz <= 3; ++cz)
         for (int cx = -3; cx <= 3; ++cx) {
@@ -185,7 +185,7 @@ TEST_CASE("overworld2: dungeons - cobblestone rooms with a spawner and loot ches
 }
 
 TEST_CASE("overworld2: a desert pyramid - sandstone, a terracotta floor, 4 loot chests over TNT") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     // Find the nearest desert pyramid candidate in a desert.
     ChunkPos found{0, 0};
     bool ok = false;
@@ -224,7 +224,7 @@ TEST_CASE("overworld2: a desert pyramid - sandstone, a terracotta floor, 4 loot 
 }
 
 TEST_CASE("overworld2: mineshafts carve plank-supported corridors from a dirt-floored room") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     ChunkPos start{0, 0};
     bool found = false;
     for (int z = -40; z <= 40 && !found; ++z)
@@ -251,7 +251,7 @@ TEST_CASE("overworld2: mineshafts carve plank-supported corridors from a dirt-fl
 }
 
 TEST_CASE("overworld2: strongholds - 3 in the first ring; stone brick rooms with a 12-frame portal room") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     const auto near = gen.nearestStronghold(0, 0);
     REQUIRE(near);
     const double d = std::hypot(double(near->x), double(near->y));
@@ -279,7 +279,7 @@ TEST_CASE("overworld2: strongholds - 3 in the first ring; stone brick rooms with
 }
 
 TEST_CASE("overworld2: villages - dirt paths, a well, houses with chests") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     ChunkPos found{0, 0};
     bool ok = false;
     for (int rz = -12; rz <= 12 && !ok; ++rz)
@@ -311,7 +311,7 @@ TEST_CASE("overworld2: villages - dirt paths, a well, houses with chests") {
 }
 
 TEST_CASE("overworld2 review fixes: stronghold side rooms exist (libraries); ravines have no air/water seams; igloo beds are whole") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 2);
     // Libraries come only through crossing side doors (regression: side exits pointed back).
     {
         const auto near = gen.nearestStronghold(0, 0);
@@ -379,4 +379,58 @@ TEST_CASE("overworld2 review fixes: stronghold side rooms exist (libraries); rav
             }
         CHECK(beds > 0);
     }
+}
+
+TEST_CASE("overworld3: villages get beds, job sites, a bell and a villager per bed (M24.1)") {
+    const OverworldGenerator gen(42), v2(42, 2);
+    CHECK(gen.kind() == "overworld3");
+    ChunkPos found{0, 0};
+    bool ok = false;
+    for (int rz = -12; rz <= 12 && !ok; ++rz)
+        for (int rx = -12; rx <= 12 && !ok; ++rx) {
+            const ChunkPos c = spreadCandidate(42, kVillages, {rx * 34, rz * 34});
+            const Biome b = gen.biomeAt(gen.column(c.x * 16 + 8, c.z * 16 + 8));
+            if (b == Biome::Plains && gen.surfaceY(c.x * 16 + 8, c.z * 16 + 8) >= OverworldGenerator::kSeaLevel) {
+                found = c;
+                ok = true;
+            }
+        }
+    REQUIRE(ok);
+    MESSAGE("village well at " << found.x * 16 + 8 << " " << gen.surfaceY(found.x * 16 + 8, found.z * 16 + 8) << " "
+                               << found.z * 16 + 8);
+    int beds = 0, bells = 0, jobs = 0, villagers = 0, v2Villagers = 0, onBed = 0;
+    for (int dz = -3; dz <= 3; ++dz)
+        for (int dx = -3; dx <= 3; ++dx) {
+            Chunk c({found.x + dx, found.z + dz});
+            gen.generate(c);
+            Chunk o({found.x + dx, found.z + dz});
+            v2.generate(o);
+            for (const MobData& m : c.mobs())
+                if (m.type == MobType::Villager) {
+                    ++villagers;
+                    const auto below = c.get(blockToLocal(int(std::floor(m.pos.x))), int(std::floor(m.pos.y)),
+                                             blockToLocal(int(std::floor(m.pos.z))));
+                    onBed += blockRegistry().blockOf(below) == blocks::RedBed;
+                }
+            for (const MobData& m : o.mobs()) v2Villagers += m.type == MobType::Villager;
+            for (int y = 50; y < 160; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockStateId s = c.get(x, y, z);
+                        const BlockId b = blockRegistry().blockOf(s);
+                        beds += b == blocks::RedBed && blockRegistry().value(s, "part") == "head";
+                        bells += b == blocks::Bell;
+                        jobs += isJobSite(b);
+                    }
+        }
+    CHECK(bells == 1);
+    CHECK(beds >= 3);
+    CHECK(jobs >= 3);
+    CHECK(villagers == beds); // one villager per bed (all inside these 7x7 chunks)
+    CHECK(onBed == villagers); // each starts at its bed's foot
+    CHECK(v2Villagers == 0);    // overworld2 stays as it was
+    // Pinned (re-pinned while M24 builds overworld3, frozen at v0.24.0).
+    Chunk pin(found);
+    gen.generate(pin);
+    CHECK(chunkHash(pin) == 10874715146441309437ull);
 }

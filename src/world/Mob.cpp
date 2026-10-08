@@ -47,6 +47,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:minecart", 2.0f, 0.98, 0.7, 0.0, 0.0f, false, false, true},
         // wiki: Slime (large: 16, 2.08 x 2.08, 4; sizes as the magma cube's)
         {"minecraft:slime", 16.0f, 2.08, 2.08, 0.2, 4.0f, true},
+        // wiki: Villager - 20 health, 0.6 x 1.95, movement speed 0.5 (strolls at 0.6 of it).
+        {"minecraft:villager", 20.0f, 0.6, 1.95, 0.5, 0.0f, false},
     };
     return kInfo[static_cast<int>(t)];
 }

@@ -8,6 +8,7 @@
 #include "world/LevelData.h"
 #include "world/Potions.h"
 #include "world/RecipeIds.h"
+#include "world/Villagers.h"
 
 #include <algorithm>
 #include <bit>
@@ -986,6 +987,31 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         }
         if (m.type == MobType::MagmaCube || m.type == MobType::Slime) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
+        if (m.type == MobType::Villager) { // wiki: Villager › Entity data
+            nbt::Compound data;
+            data.put("type", std::string(villagerTypeId(static_cast<VillagerType>(m.villagerType))));
+            data.put("profession", std::string(professionInfo(static_cast<Profession>(m.profession)).id));
+            data.put("level", int32_t(m.villagerLevel));
+            e.put("VillagerData", std::move(data));
+            e.put("Xp", int32_t(m.villagerXp));
+            e.put("LastRestock", int64_t(m.lastRestockDay));
+            e.put("RestocksToday", int32_t(m.restocksToday));
+            nbt::Compound memories; // Brain.memories: home / job_site / meeting_point {value: {pos, dimension}}
+            auto memory = [&](const char* key, const glm::ivec3& p) {
+                if (p.y == kNoPoint) return;
+                nbt::Compound value, wrap;
+                value.put("pos", std::vector<int32_t>{p.x, p.y, p.z});
+                value.put("dimension", std::string("minecraft:overworld"));
+                wrap.put("value", std::move(value));
+                memories.put(key, std::move(wrap));
+            };
+            memory("minecraft:home", m.home);
+            memory("minecraft:job_site", m.jobSite);
+            memory("minecraft:meeting_point", m.meetingPoint);
+            nbt::Compound brain;
+            brain.put("memories", std::move(memories));
+            e.put("Brain", std::move(brain));
+        }
         if (m.type == MobType::Zombie) {
             e.put("IsBaby", int8_t{0});
             e.put("CanBreakDoors", int8_t{0});
@@ -1065,6 +1091,32 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.angry = m.angerTicks > 0;
         }
         m.eggTicks = static_cast<int>(std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
+        if (m.type == MobType::Villager) {
+            if (const nbt::Compound* data = e->compound("VillagerData")) {
+                if (const std::string* vt = data->string("type"))
+                    m.villagerType = uint8_t(findVillagerType(*vt).value_or(VillagerType::Plains));
+                if (const std::string* p = data->string("profession"))
+                    m.profession = uint8_t(findProfession(*p).value_or(Profession::None));
+                m.villagerLevel = uint8_t(std::clamp<int64_t>(data->integer("level").value_or(1), 1, 5));
+            }
+            m.villagerXp = int(std::clamp<int64_t>(e->integer("Xp").value_or(0), 0, 1000000));
+            m.lastRestockDay = e->integer("LastRestock").value_or(-1);
+            m.restocksToday = uint8_t(std::clamp<int64_t>(e->integer("RestocksToday").value_or(0), 0, 2));
+            if (const nbt::Compound* brain = e->compound("Brain"))
+                if (const nbt::Compound* mem = brain->compound("memories")) {
+                    auto memory = [&](const char* key, glm::ivec3& out) {
+                        const nbt::Compound* wrap = mem->compound(key);
+                        const nbt::Compound* value = wrap ? wrap->compound("value") : nullptr;
+                        const nbt::Tag* pos = value ? value->find("pos") : nullptr;
+                        if (const auto* a = pos ? pos->get<std::vector<int32_t>>() : nullptr; a && a->size() == 3)
+                            out = {(*a)[0], (*a)[1], (*a)[2]};
+                    };
+                    memory("minecraft:home", m.home);
+                    memory("minecraft:job_site", m.jobSite);
+                    memory("minecraft:meeting_point", m.meetingPoint);
+                }
+            m.persistent = true;
+        }
         if (const nbt::Compound* carried = e->compound("carriedBlockState"))
             if (const auto s = blockRegistry().parse(paletteText(*carried))) m.carried = *s;
         if (const nbt::Tag* u = e->find("UUID"))

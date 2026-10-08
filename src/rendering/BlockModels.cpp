@@ -855,6 +855,13 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
                 m = single(v);
+            } else if (name == "fletching_table") { // (fronts north and south)
+                BakedVariant v = cubeAll(sprite("fletching_table_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("fletching_table_top");
+                v.faces[int(Direction::Down)].sprite = sprite("birch_planks");
+                v.faces[int(Direction::North)].sprite = sprite("fletching_table_front");
+                v.faces[int(Direction::South)].sprite = sprite("fletching_table_front");
+                m = single(v);
             } else if (name == "jukebox") {
                 BakedVariant v = cubeAll(sprite("jukebox_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("jukebox_top");

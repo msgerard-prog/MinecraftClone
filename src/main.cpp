@@ -381,7 +381,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                      netherKind.c_str());
         return 1;
     }
-    if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2") {
+    if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2" &&
+        generatorKind != "overworld3") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -394,7 +395,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                                                                 : 3);
         if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
-        return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld" ? 1 : 2);
+        return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld"    ? 1
+                                                                     : generatorKind == "overworld2" ? 2
+                                                                                                     : 3);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);

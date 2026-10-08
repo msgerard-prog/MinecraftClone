@@ -212,6 +212,13 @@ grindstones (`face`, `facing`) have no block entity.
 - block_entities `minecraft:shulker_box` save `Items` (`ChestData::shulker`).
 - `nether_generator` "nether3" (new worlds): nether2 plus ancient debris.
 
+## Villagers (M24.1)
+Entities `minecraft:villager`: `VillagerData` {type, profession, level}, `Xp`,
+`LastRestock`, `RestocksToday`, `Brain.memories` with `minecraft:home`, `job_site`,
+`meeting_point` as {value: {pos: [I; x, y, z], dimension}}. New blocks: lectern
+(`facing`, `has_book`), fletching table, bell (`facing`; ours stands on the floor).
+Level.dat `generator` "overworld3" (new worlds).
+
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are

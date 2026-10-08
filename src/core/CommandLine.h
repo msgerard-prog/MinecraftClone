@@ -45,7 +45,7 @@ struct LaunchOptions {
     bool survival = false;             // new worlds start in survival (menus; default creative)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit
-    std::string generator = "overworld2"; // --generator overworld2|overworld|terrain (new worlds; newest default)
+    std::string generator = "overworld3"; // --generator overworld3|overworld2|overworld|terrain (new worlds; newest default)
     std::string dimension;               // --dimension overworld|nether|end (start there)
 };
 

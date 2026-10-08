@@ -4,6 +4,7 @@
 #include "world/Weather.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
+#include "world/Villagers.h"
 #include "world/ChunkSerializer.h"
 #include "world/OverworldGenerator.h"
 #include "world/Potions.h"
@@ -1612,4 +1613,42 @@ TEST_CASE("rain puts out any burning mob, not only the undead (M22 review)") {
     cow->fireTicks = 100;
     s.tick(1);
     CHECK(s.all()[0]->fireTicks == 0);
+}
+
+TEST_CASE("villagers claim a job site (profession), a bed and the bell; they work by day and sleep at night (M24.1)") {
+    MobScene s;
+    auto S = [](BlockId b) { return blockRegistry().defaultState(b); };
+    s.world.setBlock({3, 64, 4}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=head]"));
+    s.world.setBlock({3, 64, 5}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=foot]"));
+    s.world.setBlock({12, 64, 8}, S(blocks::Composter));
+    s.world.setBlock({0, 64, 12}, S(blocks::Bell));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Villager, {8.5, 64.0, 0.5}, s.rng)));
+    s.player.setPosition({6.5, 64.0, 6.5});
+    auto run = [&](int64_t day, int ticks) {
+        for (int i = 0; i < ticks; ++i) {
+            s.player.tick(s.world, {});
+            Mobs::Context ctx{s.world, s.player, s.vitals, false, false, day + i, 0.0f, s.rng, s.items};
+            ctx.naturalSpawning = false;
+            s.mobs.tick(ctx);
+        }
+    };
+    run(3000, 400); // working hours
+    auto v = s.all();
+    REQUIRE(v.size() == 1);
+    CHECK(v[0]->profession == uint8_t(Profession::Farmer));
+    CHECK(v[0]->jobSite == glm::ivec3(12, 64, 8));
+    CHECK(v[0]->home == glm::ivec3(3, 64, 4));
+    CHECK(v[0]->meetingPoint == glm::ivec3(0, 64, 12));
+    CHECK(glm::length(glm::dvec2(v[0]->pos.x - 12.5, v[0]->pos.z - 8.5)) < 4.0); // at work
+    run(13000, 600); // night: to bed
+    v = s.all();
+    REQUIRE(v.size() == 1);
+    CHECK(v[0]->sleeping);
+    CHECK(glm::length(glm::dvec2(v[0]->pos.x - 3.5, v[0]->pos.z - 6.0)) < 0.1); // feet at the foot end
+    // Breaking the job site before any trade: no longer a farmer.
+    s.world.setBlock({12, 64, 8}, 0);
+    run(25000, 30);
+    v = s.all();
+    CHECK(v[0]->profession == uint8_t(Profession::None));
+    CHECK_FALSE(v[0]->sleeping); // (morning)
 }

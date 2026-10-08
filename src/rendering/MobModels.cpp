@@ -221,6 +221,18 @@ constexpr std::array<MobPart, 5> kMinecart = {{
     {{-5, 3, 7}, {5, 9, 9}, {0, 0, 0}, 40, 20, A::None},
 }};
 
+// Villager (M24.1): a long head with a nose, a body under its profession robe, arms
+// crossed in front, two legs.
+constexpr std::array<MobPart, 7> kVillager = {{
+    {{-4, 24, -4}, {4, 34, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-1, 23, 4}, {1, 27, 6}, {0, 24, 0}, 24, 0, A::Head},
+    {{-4, 12, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None},
+    {{-4, 16, 3}, {4, 20, 7}, {0, 18, 0}, 0, 40, A::None},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 48, A::LegA},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 48, A::LegB},
+    {{-4, 6, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None, 3, 0.5f},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -245,6 +257,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Shulker: return kShulker;
     case world::MobType::Minecart: return kMinecart;
     case world::MobType::Slime: return kMagmaCube; // (the same cube, its own skin)
+    case world::MobType::Villager: return kVillager;
     default: return kCow;
     }
 }

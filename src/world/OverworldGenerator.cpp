@@ -1104,6 +1104,22 @@ void OverworldGenerator::generate(Chunk& out) const {
     out.setBiomes(biomes);
     for (int i = 0; i < entities.count; ++i) {
         const GeneratedEntity& e = entities.list[size_t(i)];
+        if (e.villager) { // (M24.1) a villager of the village, standing on its floor
+            Xoroshiro vr(chunkSeed(m_seed, cx, cz, 660 + uint64_t(i)));
+            MobData v;
+            v.type = MobType::Villager;
+            v.uuidHi = (vr.nextLong() & ~0xF000ull) | 0x4000ull;
+            v.uuidLo = (vr.nextLong() & ~(3ull << 62)) | (2ull << 62);
+            v.pos = v.prevPos = v.goal = glm::dvec3(baseX + e.x + 0.5, e.y + 0.6, baseZ + e.z + 0.5);
+            v.yaw = v.prevYaw = v.headYaw = v.prevHeadYaw = vr.nextFloat() * 360.0f - 180.0f;
+            v.health = mobInfo(MobType::Villager).maxHealth;
+            v.villagerType = e.villagerType;
+            v.profession = uint8_t(e.nitwit ? Profession::Nitwit : Profession::None);
+            v.persistent = true;
+            v.poiSearch = int16_t(vr.nextInt(40));
+            out.mobs().push_back(v);
+            continue;
+        }
         if (out.chest(e.x, e.y, e.z) || out.spawner(e.x, e.y, e.z) || out.furnace(e.x, e.y, e.z)) continue; // (once)
         const BlockId here = reg.blockOf(out.get(e.x, e.y, e.z));
         if (e.furnace) {
@@ -1549,6 +1565,16 @@ struct StructureBuilder {
         entities->list[size_t(entities->count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
                                                      static_cast<int16_t>(oy + y), false, MobType::Zombie,
                                                      LootTable::SimpleDungeon, true};
+    }
+    void villager(int x, int y, int z, uint8_t type, bool nitwit) { // (M24.1)
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz) || entities->full()) return;
+        OverworldGenerator::GeneratedEntity e{static_cast<int8_t>(lx), static_cast<int8_t>(lz), static_cast<int16_t>(oy + y), false,
+                          MobType::Villager};
+        e.villager = true;
+        e.villagerType = type;
+        e.nitwit = nitwit;
+        entities->list[size_t(entities->count++)] = e;
     }
     void chest(int x, int y, int z, LootTable loot) {
         int lx, lz;
@@ -2196,6 +2222,11 @@ void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t
             const BlockStateId roof = desert ? B.smoothSandstone : savanna ? B.acaciaPlanks : taiga ? B.spruceLog : B.oakLog;
             const BlockStateId floor = desert ? B.sandstone : B.cobblestone;
             const LootTable loot = desert ? LootTable::VillageDesertHouse : LootTable::VillagePlainsHouse;
+            const uint8_t villagerType = uint8_t(desert                       ? VillagerType::Desert
+                                                 : savanna                    ? VillagerType::Savanna
+                                                 : biome == Biome::SnowyPlains ? VillagerType::Snow
+                                                 : taiga                      ? VillagerType::Taiga
+                                                                              : VillagerType::Plains);
             Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 720));
             // Paths first (houses go over them). A path cell sits on this chunk's top
             // block, which turns to a dirt path; plants on it go.
@@ -2303,7 +2334,37 @@ void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t
                 sb.set(h.w - 1, 2, h.d / 2, B.glass);
                 sb.set(1, 1, h.d - 2, B.craftingTable);
                 sb.set(h.w - 2, 1, 1, B.torch);
-                if (h.kind == 1) sb.chest(h.w - 2, 1, h.d - 2, loot); // (beds come when facings rotate)
+                if (h.kind == 1) sb.chest(h.w - 2, 1, h.d - 2, loot);
+                if (m_version >= 3) {
+                    // overworld3 (M24.1): a bed per villager (one in small houses, two in big
+                    // ones) and a job site; each bed's villager stands in the house.
+                    static const BlockStateId bedHead =
+                        *reg.parse("minecraft:red_bed[facing=north,occupied=false,part=head]");
+                    static const BlockStateId bedFoot =
+                        *reg.parse("minecraft:red_bed[facing=north,occupied=false,part=foot]");
+                    static const std::array<BlockStateId, 9> jobSites = [&] {
+                        std::array<BlockStateId, 9> j{};
+                        const char* names[9] = {"composter",  "cartography_table", "fletching_table",
+                                                "cauldron",   "lectern",           "stonecutter",
+                                                "loom",       "smithing_table",    "grindstone[face=floor,facing=north]"};
+                        for (int k = 0; k < 9; ++k) j[size_t(k)] = *reg.parse(std::string("minecraft:") + names[k]);
+                        return j;
+                    }();
+                    auto bed = [&](int x, int z) { // the head at (x, z), the foot to its south (local)
+                        sb.set(x, 1, z, sb.turned(bedHead));
+                        sb.set(x, 1, z + 1, sb.turned(bedFoot));
+                        sb.villager(x, 1, z + 1, villagerType, hr.nextInt(10) == 0);
+                    };
+                    bed(1, 1);
+                    if (h.kind == 1) bed(3, 4);
+                    sb.set(h.w - 2, 1, h.d / 2, sb.turned(jobSites[hr.nextInt(9)]));
+                }
+            }
+            if (m_version >= 3) { // the bell by the well: the village's meeting point
+                StructureBuilder bell{Buf{blocks}, cx * 16, cz * 16, mx + 2, ground, mz - 1, 1, 1, 0, &out};
+                bell.foundation(0, 0, B.cobblestone, 8);
+                bell.set(0, 0, 0, B.cobblestone);
+                bell.set(0, 1, 0, reg.defaultState(blocks::Bell));
             }
         }
 }

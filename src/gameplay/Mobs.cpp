@@ -95,6 +95,10 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
+    if (type == MobType::Villager) {
+        m.persistent = true; // (villagers never despawn)
+        m.poiSearch = int16_t(rng.nextInt(40)); // (look around soon after appearing)
+    }
     if (type == MobType::MagmaCube || type == MobType::Slime) { // wiki: sizes 1, 2, 4 at spawn; health size^2
         const uint32_t r = rng.nextInt(3);
         m.size = uint8_t(1u << r);
@@ -299,6 +303,18 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
+    if (m.type == MobType::Villager) {
+        villagerFear(ctx, m);
+        double unused = 0.0;
+        if (m.sleeping && villagerGoal(ctx, m, unused) && m.sleeping) { // asleep: nothing else turns or moves it
+            m.vel = glm::dvec3(0.0);
+            m.prevPos = m.pos; // (no physics this tick: nothing else updates it)
+            m.headYaw = m.prevHeadYaw = m.yaw;
+            m.prevYaw = m.yaw;
+            m.pitch = 0.0f;
+            return;
+        }
+    }
     const glm::dvec3 playerPos = ctx.player.position();
     const glm::dvec3 toPlayer = playerPos - m.pos;
     const double playerDist2 = toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y + toPlayer.z * toPlayer.z;
@@ -324,6 +340,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+    } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
+        // (home, work, the bell, sleep: Villagers.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
         // (breeding partner, food, parent)
     } else if (m.panicTicks > 0) {

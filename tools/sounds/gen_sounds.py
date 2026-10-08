@@ -318,6 +318,11 @@ def mob_sounds(name, rng):
         roar = lambda d, f0, f1: add(voice(rng, d, f0, f1, formant=(80, 1500), breath=0.8, attack=0.2),
                                      [s * 0.5 for s in voice(rng, d, f0 * 1.5, f1 * 1.5, formant=(150, 2500))])
         return [roar(2.0, 70, 55) for _ in range(2)], [roar(0.6, 110, 80)], roar(3.0, 80, 35)
+    if name == "villager":  # a short nasal "hmm" (ours), rising on "yes", falling when hurt
+        say = [voice(rng, r(0.35, 0.5), r(150, 170), r(170, 200), wave="saw", formant=(500, 2600), vibrato=0.03,
+                     breath=0.1, attack=0.03) for _ in range(3)]
+        hurt = [voice(rng, 0.3, r(220, 240), 160, wave="saw", formant=(500, 2600), breath=0.2) for _ in range(2)]
+        return say, hurt, voice(rng, 0.8, 200, 90, wave="saw", formant=(400, 2400), breath=0.3)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -328,7 +333,7 @@ def mob_sounds(name, rng):
 
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
-        "ender_dragon", "player"]
+        "ender_dragon", "player", "villager"]
 
 
 # --- Everything else ----------------------------------------------------------------

@@ -19,6 +19,7 @@ struct MobPart {
     // 1 = sheep wool: drawn from the wool texture, grown by `inflate` pixels (same
     // UV), tinted by the wool colour, hidden once sheared (vanilla's wool layer).
     // 2 = an end crystal's base, hidden without ShowBottom.
+    // 3 = a villager's profession robe: drawn from the apron texture, tinted.
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -26,9 +27,10 @@ struct MobPart {
 std::span<const MobPart> mobModel(world::MobType type);
 // Rows of the stacked mob atlas (64 x 64 each): one per mob type, then sheep wool,
 // then projectiles (the arrow: 16 x 5 at (0,0), tip at +x).
-inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 2;
+inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 3;
 inline constexpr int kSheepWoolRow = static_cast<int>(world::MobType::Count);
 inline constexpr int kProjectileRow = static_cast<int>(world::MobType::Count) + 1;
+inline constexpr int kVillagerApronRow = static_cast<int>(world::MobType::Count) + 2; // (M24.1)
 inline int mobTextureRow(world::MobType type) { return static_cast<int>(type); }
 inline const char* mobTexturePath(int row) {
     static constexpr const char* kPaths[kMobTextureRows] = {
@@ -46,8 +48,10 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/shulker.png",
         "assets/minecraft/textures/entity/clone/minecart.png",
         "assets/minecraft/textures/entity/clone/slime.png",
+        "assets/minecraft/textures/entity/clone/villager.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
-        "assets/minecraft/textures/entity/clone/projectiles.png"};
+        "assets/minecraft/textures/entity/clone/projectiles.png",
+        "assets/minecraft/textures/entity/clone/villager_apron.png"};
     return kPaths[row];
 }
 // Wool colours by dye index (wiki: Dye - the colours of the 16 dyes).

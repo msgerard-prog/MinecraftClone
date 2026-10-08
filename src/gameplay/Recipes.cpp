@@ -116,6 +116,9 @@ std::vector<Recipe> build() {
     }
     r.push_back(shaped({"II", "PP", "PP"}, {{'I', item("iron_ingot")}, {'P', kPlanks}}, "smithing_table"));
     r.push_back(shaped({"PPP", "PRP", "PPP"}, {{'P', kPlanks}, {'R', item("redstone")}}, "note_block")); // wiki
+    // Job sites (M24.1; wiki: Lectern - wooden slabs over a bookshelf; Fletching Table).
+    r.push_back(shaped({"SSS", ".B.", ".S."}, {{'S', kWoodenSlab}, {'B', item("bookshelf")}}, "lectern"));
+    r.push_back(shaped({"FF", "PP", "PP"}, {{'F', item("flint")}, {'P', kPlanks}}, "fletching_table"));
     r.push_back(shaped({"PPP", "PDP", "PPP"}, {{'P', kPlanks}, {'D', item("diamond")}}, "jukebox"));     // wiki
     r.push_back(shaped({"SS", "PP"}, {{'S', item("string")}, {'P', kPlanks}}, "loom"));                   // wiki: Loom
     r.push_back(shaped({"AA", "PP", "PP"}, {{'A', item("paper")}, {'P', kPlanks}}, "cartography_table")); // wiki

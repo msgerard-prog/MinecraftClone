@@ -48,6 +48,7 @@ extern const Property cauldronLevel;  // "level": 1..3 (water and powder snow ca
 extern const Property noteInstrument; // "instrument": harp | basedrum | ... (16, M23.6)
 extern const Property note;           // 0..24
 extern const Property hasRecord;      // "has_record": true | false (jukebox)
+extern const Property hasBook;        // "has_book": true | false (lectern)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -362,6 +363,9 @@ enum : BlockId {
     SeaLantern,
     NoteBlock,         // instrument, note 0..24, powered
     Jukebox,           // has_record
+    Lectern,           // facing, has_book (M24.1: the librarian's job site)
+    FletchingTable,
+    Bell,              // facing (M24.1: the village meeting point)
     Count
 };
 } // namespace blocks

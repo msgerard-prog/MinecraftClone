@@ -123,6 +123,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   source plus a pending fluid tick, `Chunk::ticksRelative`) and more vegetation;
   "overworld" (version 1) stays for worlds created with it. `TerrainGenerator`
   (M3 placeholder, kind "terrain") stays too. Each pins a hash.
+  Version 3, "overworld3" (M24.1, new worlds), furnishes villages: a bed per villager,
+  a job site per house (only job sites without block entities), a bell by the well,
+  and the villagers themselves (`GeneratedEntity::villager`).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
@@ -345,6 +348,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   conversion table; `gameplay/Grindstone` strips/merges items. Both are
   `ContainerScreen` types. `BakedModel::icon3d` makes `GuiBatch::blockIcon` draw a box
   model's boxes isometrically (slabs, stairs, fences...).
+- Villagers (M24.1): `world/Villagers` (professions with their job-site blocks, biome
+  types, the compact `TradeOffer`); villager fields live in `MobData` (saved as
+  VillagerData, Xp and the Brain's home/job_site/meeting_point memories).
+  `gameplay/Villagers.cpp` (part of `Mobs`): `villagerGoal` runs vanilla's schedule
+  (work 2000-9000 at the job site, gather at the bell 9000-11000, sleep in the bed at
+  night, lying on it) and finds beds, job sites and bells within 48 blocks by
+  scanning only sections whose palette has one; `villagerFear` runs from zombies.
+  The model draws a profession-tinted robe layer (`MobPart::layer` 3).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

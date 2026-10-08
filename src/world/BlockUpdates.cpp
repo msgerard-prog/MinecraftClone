@@ -2235,6 +2235,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::NoteBlock:
         return r.set(state, properties::noteInstrument,
                      BlockUpdates::noteInstrument(world.getBlock(rel(at, Direction::Down))));
+    case B::Lectern: // (wiki: Lectern - faces the player)
+    case B::Bell:
     case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));

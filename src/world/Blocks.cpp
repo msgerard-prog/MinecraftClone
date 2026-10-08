@@ -87,6 +87,7 @@ const Property noteInstrument{"instrument",
 const Property note{"note", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "10", "11", "12",
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"}};
 const Property hasRecord{"has_record", {"true", "false"}};
+const Property hasBook{"has_book", {"true", "false"}};
 } // namespace properties
 
 namespace {
@@ -995,6 +996,18 @@ BlockRegistry buildVanillaBlocks() {
           blocks::NoteBlock);
     check(r.add("jukebox", {.hardness = 2.0f, .resistance = 6.0f, .tool = HarvestTool::Axe}, {{&hasRecord, "false"}}),
           blocks::Jukebox);
+    // Job sites and the bell (M24.1; wiki: Lectern 2.5, Fletching Table 2.5 - axe; Bell
+    // 5.0, pickaxe, hung from below here: vanilla's floor attachment only).
+    check(r.add("lectern", {.hardness = 2.5f, .resistance = 2.5f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                            .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&hasBook, "false"}}),
+          blocks::Lectern);
+    check(r.add("fletching_table", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe}),
+          blocks::FletchingTable);
+    check(r.add("bell", {.hardness = 5.0f, .resistance = 5.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                         .tool = HarvestTool::Pickaxe},
+                {{&facing, "north"}}),
+          blocks::Bell);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

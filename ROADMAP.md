@@ -12,10 +12,22 @@ and trims, loom/cartography screens, beacons, conduits, note blocks, jukeboxes.
 M1-M22 done. v1.0 waits for M24-M28.
 
 ## Next
-M24 - Villages 2 (wiki pages of each mob/mechanic): plan the steps at the start of
-the milestone - villagers (professions from workstations, levels, trading screen,
-restocking, breeding, gossip-free first pass), iron golems, wandering traders,
-pillagers, outposts and raids, witches.
+M24 - Villages 2 (wiki pages of each mob/mechanic):
+1. ✅ M24.1 - Villagers: the mob (adult/baby, biome type, 13 professions, nitwits),
+   job site blocks (adds lectern and fletching table), points of interest (beds,
+   job sites, bells), the daily schedule (wander, work, gather, sleep in a bed),
+   models and skins; the "overworld3" generator puts beds, job sites, a bell and
+   villagers in villages (overworld2 stays pinned).
+2. M24.2 - Trading: per-profession trade tables from the wiki, the trading screen,
+   uses and restocking at the job site, villager experience and levels, demand and
+   price changes, emeralds.
+3. M24.3 - Villager breeding (food, beds), iron golems (built and spawned, defend the
+   village), zombie villagers (infection, curing with weakness + golden apple),
+   witches from lightning.
+4. M24.4 - Wandering traders, witches (swamp huts, potion throwing), pillagers and
+   pillager outposts (crossbow shots).
+5. M24.5 - Raids: ominous bottles and Bad Omen, raid waves (pillagers, vindicators,
+   evokers and vexes, ravagers, witches), the raid bar, Hero of the Village.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:

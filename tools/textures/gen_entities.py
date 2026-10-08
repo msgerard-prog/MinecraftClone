@@ -562,6 +562,48 @@ def projectiles():
     return img
 
 
+def villager():
+    """Villager (M24.1, our layout): head 8x10x8 @ (0,0), nose 2x4x2 @ (24,0), body
+    8x12x6 @ (16,20), crossed arms 8x4x4 @ (0,40), leg 4x12x4 @ (0,48)."""
+    rng = random.Random("villager")
+    img = Img(64, 64, CLEAR)
+    skin = ramp(hexc("#B98A65"), 5, spread=0.2)
+    robe = ramp(hexc("#6A4A30"), 5, spread=0.25)
+    for name, f in box_faces(0, 0, 8, 10, 8).items():
+        paint(img, f, skin, rng, noise=0.2)
+    fx, fy = 8, 8  # the face: a unibrow, green eyes, a mouth line
+    for x in range(1, 7):
+        img.set(fx + x, fy + 3, (60, 40, 30, 255))
+    for x, c in ((2, (255, 255, 255, 255)), (3, (40, 140, 60, 255)), (4, (40, 140, 60, 255)), (5, (255, 255, 255, 255))):
+        img.set(fx + x, fy + 4, c)
+    for x in range(3, 5):
+        img.set(fx + x, fy + 8, skin[0])
+    for f in box_faces(24, 0, 2, 4, 2).values():
+        paint(img, f, skin, rng, noise=0.15)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, robe, rng)
+    for name, f in box_faces(0, 40, 8, 4, 4).items():  # arms: sleeves, hands in the middle
+        paint(img, f, robe, rng)
+        if name == "front":
+            paint(img, (f[0] + 2, f[1], 4, f[3]), skin, rng, noise=0.15)
+    for f in box_faces(0, 48, 4, 12, 4).values():
+        paint(img, f, ramp(hexc("#4A3A2A"), 5, spread=0.25), rng)
+    return img
+
+
+def villager_apron():
+    """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
+    the game tints per profession, with a darker belt."""
+    rng = random.Random("villager_apron")
+    img = Img(64, 64, CLEAR)
+    cloth = ramp(hexc("#D8D8D8"), 5, spread=0.2)
+    for name, (x0, y0, w, h) in box_faces(16, 20, 8, 18, 6).items():
+        paint(img, (x0, y0, w, h), cloth, rng, noise=0.25)
+        if name not in ("top", "bottom"):
+            paint(img, (x0, y0 + 6, w, 1), ramp(hexc("#707070"), 5), rng)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for 4x previews")
@@ -574,7 +616,7 @@ def main():
               "hoglin": hoglin(), "strider": strider(),
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
               "shulker": shulker(), "minecart": minecart(),
-              "slime": slime()}
+              "slime": slime(), "villager": villager(), "villager_apron": villager_apron()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

@@ -117,6 +117,10 @@ private:
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp
     void spawnNether(Context& ctx);
+    // Villagers (M24, Villagers.cpp): the daily schedule (home, work, the bell; true if
+    // it chose the goal) and running from zombies.
+    bool villagerGoal(Context& ctx, world::MobData& m, double& speed);
+    void villagerFear(Context& ctx, world::MobData& m);
     void die(Context& ctx, world::MobData& m);
     // Animals (Animals.cpp): per-tick upkeep (growing, eggs, eating grass) and goals
     // (breeding partner, tempting food, parent); true if a goal was set.
