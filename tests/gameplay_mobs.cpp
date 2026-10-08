@@ -1905,3 +1905,51 @@ TEST_CASE("pillager patrols come from day 5 with a captain; pillagers shoot bolt
     for (const auto& p : projectiles.items()) bolts += p.kind == ProjectileKind::Arrow;
     CHECK(bolts >= 1);
 }
+
+TEST_CASE("raid mobs: vindicators hunt villagers, evokers summon vexes that fade (M24.5)") {
+    MobScene s;
+    s.player.setPosition({40.5, 64.0, 40.5});
+    for (int x = 3; x <= 9; ++x) // a pen so the villager can't outrun it
+        for (int z = -3; z <= 3; ++z)
+            if (x == 3 || x == 9 || z == -3 || z == 3)
+                for (int y = 64; y <= 65; ++y) s.world.setBlock({x, y, z}, blockRegistry().defaultState(blocks::Stone));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Villager, {7.5, 64.0, 0.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Vindicator, {4.5, 64.0, 0.5}, s.rng)));
+    bool villagerAlive = true;
+    for (int t = 0; t < 400 && villagerAlive; ++t) {
+        s.tick();
+        villagerAlive = false;
+        for (MobData* m : s.all()) villagerAlive = villagerAlive || (m->type == MobType::Villager && m->health > 0.0f);
+    }
+    CHECK_FALSE(villagerAlive); // two axe hits (13 each)
+    // An evoker near a survival player calls vexes.
+    MobScene e;
+    REQUIRE(Mobs::add(e.world, Mobs::make(MobType::Evoker, {6.5, 64.0, 0.5}, e.rng)));
+    e.player.setPosition({0.5, 64.0, 0.5});
+    int vexes = 0;
+    for (int t = 0; t < 40 && vexes == 0; ++t) {
+        e.player.tick(e.world, {});
+        Mobs::Context ctx{e.world, e.player, e.vitals, true, false, 18000, 11.0f, e.rng, e.items};
+        ctx.naturalSpawning = false;
+        e.mobs.tick(ctx);
+        for (MobData* m : e.all()) vexes += m->type == MobType::Vex;
+    }
+    CHECK(vexes == 3);
+    for (MobData* m : e.all())
+        if (m->type == MobType::Vex) {
+            CHECK(m->spellTicks >= 600);
+            m->spellTicks = 0; // its time is up: it fades
+            m->health = 1.0f;
+        }
+    for (int t = 0; t < 120; ++t) {
+        e.player.tick(e.world, {});
+        Mobs::Context ctx{e.world, e.player, e.vitals, false, false, 18000, 11.0f, e.rng, e.items};
+        ctx.naturalSpawning = false;
+        e.mobs.tick(ctx);
+    }
+    int alive = 0;
+    for (MobData* m : e.all()) alive += m->type == MobType::Vex && m->health > 0.0f;
+    CHECK(alive <= 3); // (more may have been called meanwhile, the first faded)
+    CHECK(mobInfo(MobType::Ravager).maxHealth == 100.0f);
+    CHECK(isRaider(MobType::Vindicator));
+}

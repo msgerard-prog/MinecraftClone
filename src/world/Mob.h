@@ -41,6 +41,10 @@ enum class MobType : uint8_t {
     Witch,          // (M24.4)
     WanderingTrader, // (M24.4)
     Pillager,        // (M24.4)
+    Vindicator,      // (M24.5)
+    Evoker,
+    Vex,
+    Ravager,
     Count
 };
 
@@ -59,6 +63,11 @@ struct MobInfo {
 const MobInfo& mobInfo(MobType t);
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager; }
+// Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.
+inline bool isRaider(MobType t) {
+    return t == MobType::Pillager || t == MobType::Vindicator || t == MobType::Evoker || t == MobType::Ravager ||
+           t == MobType::Witch;
+}
 
 // Inside the world bounds vanilla accepts for entities (+-30,000,000 horizontally,
 // +-20,000,000 vertically; wiki: World boundary) and finite.
@@ -168,6 +177,8 @@ struct MobData {
     int16_t fireResistTicks = 0;
     int despawnDelay = 0; // wandering trader: ticks until it leaves (saved as DespawnDelay)
     bool captain = false; // a patrol / raid captain (M24.4; drops an ominous bottle)
+    bool raider = false;  // (M24.5) part of the current raid (saved as a raider's wave)
+    int16_t spellTicks = 0; // evoker: casting (fangs, vexes); vex: life left
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

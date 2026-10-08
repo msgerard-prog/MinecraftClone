@@ -60,6 +60,13 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:wandering_trader", 20.0f, 0.6, 1.95, 0.5, 0.0f, false},
         // wiki: Pillager - 24 health, 0.6 x 1.95, speed 0.35, shoots a crossbow.
         {"minecraft:pillager", 24.0f, 0.6, 1.95, 0.35, 0.0f, true},
+        // wiki: Vindicator (24, 0.6 x 1.95, 0.35, an axe for 13 on Normal), Evoker (24,
+        // 0.6 x 1.95, 0.5, spells), Vex (14, 0.4 x 0.8, flies, 9), Ravager (100, 1.95 x
+        // 2.2, 0.3, 12).
+        {"minecraft:vindicator", 24.0f, 0.6, 1.95, 0.35, 13.0f, true},
+        {"minecraft:evoker", 24.0f, 0.6, 1.95, 0.5, 0.0f, true},
+        {"minecraft:vex", 14.0f, 0.4, 0.8, 1.0, 9.0f, true, false, true},
+        {"minecraft:ravager", 100.0f, 1.95, 2.2, 0.3, 12.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

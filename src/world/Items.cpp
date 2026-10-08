@@ -166,6 +166,8 @@ ItemRegistry buildItems() {
     // dropped by raid captains, drunk for Bad Omen in M24.5)
     r.add({.id = "minecraft:crossbow", .maxStack = 1, .durability = 465, .texture = "item/crossbow"});
     r.add({.id = "minecraft:ominous_bottle", .texture = "item/ominous_bottle"});
+    // (M24.5; wiki: Totem of Undying - held, it saves its holder from death once)
+    r.add({.id = "minecraft:totem_of_undying", .maxStack = 1, .texture = "item/totem_of_undying"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
     r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
     r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});

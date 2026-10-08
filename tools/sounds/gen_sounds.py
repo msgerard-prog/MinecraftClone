@@ -351,6 +351,19 @@ def mob_sounds(name, rng):
                for _ in range(3)]
         hurt = [voice(rng, 0.3, r(190, 210), 140, wave="saw", formant=(400, 2200), breath=0.3) for _ in range(2)]
         return say, hurt, voice(rng, 0.8, 170, 70, wave="saw", formant=(350, 2000), breath=0.4)
+    if name in ("vindicator", "evoker"):  # grumbles, the evoker higher (ours)
+        f = 125 if name == "vindicator" else 165
+        say = [voice(rng, r(0.35, 0.55), f * r(0.95, 1.05), f * 0.85, wave="saw", formant=(380, 2200), breath=0.3)
+               for _ in range(3)]
+        hurt = [voice(rng, 0.3, f * 1.5, f * 1.1, wave="saw", formant=(400, 2200), breath=0.3) for _ in range(2)]
+        return say, hurt, voice(rng, 0.8, f * 1.3, f * 0.5, wave="saw", formant=(350, 2000), breath=0.4)
+    if name == "vex":  # thin shrieks (ours)
+        say = [voice(rng, r(0.25, 0.4), r(900, 1100), r(1200, 1500), wave="triangle", formant=(800, 5000),
+                     vibrato=0.08, vib_rate=18, breath=0.1) for _ in range(3)]
+        return say, say[:2], voice(rng, 0.6, 1300, 500, wave="triangle", formant=(600, 5000), vibrato=0.1)
+    if name == "ravager":  # deep roars (ours)
+        roar = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(60, 900), breath=0.7, attack=0.05)
+        return [roar(1.0, 70, 55) for _ in range(3)], [roar(0.5, 110, 80) for _ in range(2)], roar(1.6, 90, 35)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -361,7 +374,8 @@ def mob_sounds(name, rng):
 
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
-        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager"]
+        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
+        "vindicator", "evoker", "vex", "ravager"]
 
 
 # --- Everything else ----------------------------------------------------------------

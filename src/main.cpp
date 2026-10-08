@@ -1735,6 +1735,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                int(std::floor(eye.z))})));
                 }
             }
+            // A totem of undying in either hand saves the player once (wiki: Totem of
+            // Undying): 1 health, effects cleared, Regeneration II 45 s, Fire Resistance
+            // 40 s (Absorption: not in the game yet).
+            if (!dead && vitals.dead()) {
+                static const mc::world::ItemId totem = *mc::world::itemRegistry().find("totem_of_undying");
+                const bool inHand = inventory.selectedStack().item == totem;
+                if (inHand || inventory.offhand().item == totem) {
+                    if (inHand) inventory.consumeSelected(1);
+                    else inventory.setOffhand({});
+                    vitals.setHealth(1.0f);
+                    vitals.clearEffects();
+                    vitals.addEffect(mc::world::Effect::Regeneration, 1, 900);
+                    vitals.addEffect(mc::world::Effect::FireResistance, 0, 800);
+                    const glm::dvec3 f = player.position();
+                    world.levelEvent(mc::world::LevelEvent::Type::Crit, f.x, f.y + 1.0, f.z);
+                }
+            }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
                 {
                     // Open screens close first: their grid/carried items drop too.

@@ -322,13 +322,21 @@ MobData* Mobs::mobByUuid(World& world, const glm::dvec3& near, uint64_t uuid) {
     return nullptr;
 }
 
-// Zombies (and zombie villagers) go after villagers too (wiki: Zombie › Behavior): the
-// nearest within 16 blocks, looked for once a second, chased while within 35. A
-// villager they kill turns into a zombie villager half the time (Normal difficulty),
-// keeping its profession and trades. Returns true while hunting one.
-bool Mobs::zombieHunt(Context& ctx, MobData& z) {
+// Zombies (and zombie villagers) go after villagers too (wiki: Zombie › Behavior), and
+// raiders - pillagers, vindicators, ravagers - after villagers, iron golems and
+// wandering traders (wiki: Raid): the nearest within 16 blocks, looked for about once a
+// second, chased while within 35. A villager a zombie kills turns into a zombie
+// villager half the time (Normal difficulty), keeping its profession and trades.
+// Returns true while hunting one.
+bool Mobs::villageHunt(Context& ctx, MobData& z) {
+    const bool zombie = isZombie(z.type);
+    auto wanted = [&](const MobData& o) {
+        if (o.health <= 0.0f) return false;
+        if (o.type == MobType::Villager) return true;
+        return !zombie && (o.type == MobType::IronGolem || o.type == MobType::WanderingTrader);
+    };
     MobData* v = z.targetUuid ? mobByUuid(ctx.world, z.pos, z.targetUuid) : nullptr;
-    if (v && (v->type != MobType::Villager || v->health <= 0.0f || glm::length(v->pos - z.pos) > 35.0)) v = nullptr;
+    if (v && (!wanted(*v) || glm::length(v->pos - z.pos) > 35.0)) v = nullptr;
     if (!v) z.targetUuid = 0;
     if (!v && ctx.rng.nextInt(20) == 0) { // (about once a second)
         double best = 16.0 * 16.0;
@@ -337,7 +345,7 @@ bool Mobs::zombieHunt(Context& ctx, MobData& z) {
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& o : ch->mobs()) {
-                        if (o.type != MobType::Villager || o.health <= 0.0f) continue;
+                        if (!wanted(o)) continue;
                         const double d = glm::dot(o.pos - z.pos, o.pos - z.pos);
                         if (d < best) best = d, v = &o;
                     }
@@ -345,16 +353,25 @@ bool Mobs::zombieHunt(Context& ctx, MobData& z) {
     }
     if (!v) return false;
     z.goal = v->pos;
-    const double reach = mobInfo(z.type).width * 2.0 + 0.6;
-    if (z.attackCooldown == 0 && glm::dot(v->pos - z.pos, v->pos - z.pos) < reach * reach &&
-        std::abs(v->pos.y - z.pos.y) < 1.5) {
+    if (z.type == MobType::Pillager) {
+        // (shoots it from about 8 blocks: Monsters.cpp)
+        if (glm::length(v->pos - z.pos) < 8.0) z.goal = z.pos;
+        return true;
+    }
+    const MobInfo& info = mobInfo(z.type);
+    const double reach = info.width * 0.5 + mobInfo(v->type).width * 0.5 + 0.9;
+    if (info.attackDamage > 0.0f && z.attackCooldown == 0 &&
+        glm::length(glm::dvec2(v->pos.x - z.pos.x, v->pos.z - z.pos.z)) < reach && std::abs(v->pos.y - z.pos.y) < 1.5) {
         z.attackCooldown = 20;
-        v->health -= mobInfo(z.type).attackDamage;
+        v->health -= info.attackDamage;
         v->hurtTime = 10;
-        v->panicTicks = 100;
-        v->sleeping = false;
-        if (v->health <= 0.0f && ctx.rng.nextInt(2) == 0) { // infected: a zombie villager from now on
-            v->type = MobType::ZombieVillager;
+        if (v->type == MobType::Villager) {
+            v->panicTicks = 100;
+            v->sleeping = false;
+        }
+        if (v->type == MobType::IronGolem) v->targetUuid = z.uuidHi; // (it fights back)
+        if (zombie && v->type == MobType::Villager && v->health <= 0.0f && ctx.rng.nextInt(2) == 0) {
+            v->type = MobType::ZombieVillager; // infected: a zombie villager from now on
             v->health = mobInfo(MobType::ZombieVillager).maxHealth;
             v->hurtTime = 0;
             v->panicTicks = 0;

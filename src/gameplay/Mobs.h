@@ -123,7 +123,7 @@ private:
     void villagerFear(Context& ctx, world::MobData& m);
     void villagerUpkeep(Context& ctx, world::MobData& v); // (M24.3) food, bread, sharing
     // Zombies hunting villagers, zombie villagers' cure (M24.3, Villagers.cpp).
-    bool zombieHunt(Context& ctx, world::MobData& z);
+    bool villageHunt(Context& ctx, world::MobData& z);
     static void zombieVillagerTick(world::MobData& m);
     static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
     // Iron golems (M24.3, Golems.cpp): fighting monsters / patrolling (true: chasing),

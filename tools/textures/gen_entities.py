@@ -709,6 +709,85 @@ def pillager():
     return img
 
 
+def vindicator():
+    """Vindicator (M24.5): the pillager's build in a dark grey-blue coat."""
+    img = pillager()
+    rng = random.Random("vindicator")
+    cloth = ramp(hexc("#2A3440"), 5, spread=0.25)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, cloth, rng)
+    for name, (x0, y0, w, h) in box_faces(40, 16, 4, 12, 4).items():
+        paint(img, (x0, y0, w, h), cloth, rng)
+        if name not in ("top", "bottom"):
+            paint(img, (x0, y0 + h - 3, w, 3), ramp(hexc("#8A8A86"), 5, spread=0.2), rng, noise=0.15)
+    return img
+
+
+def evoker():
+    """Evoker (M24.5): an illager in a long black robe with gold trim (the villager layout,
+    arms crossed)."""
+    img = villager()
+    rng = random.Random("evoker")
+    skin = ramp(hexc("#8A8A86"), 5, spread=0.2)
+    robe = ramp(hexc("#202024"), 5, spread=0.25)
+    for f in box_faces(0, 0, 8, 10, 8).values():
+        paint(img, f, skin, rng, noise=0.2)
+    fx, fy = 8, 8
+    for x in range(1, 7):
+        img.set(fx + x, fy + 3, (40, 40, 40, 255))
+    for x in (2, 5):
+        img.set(fx + x, fy + 4, (30, 30, 30, 255))
+    for f in box_faces(24, 0, 2, 4, 2).values():
+        paint(img, f, skin, rng, noise=0.15)
+    for name, (x0, y0, w, h) in box_faces(16, 20, 8, 12, 6).items():
+        paint(img, (x0, y0, w, h), robe, rng)
+        if name in ("front", "back"):
+            paint(img, (x0 + w // 2, y0, 1, h), ramp(hexc("#D8B040"), 5), rng)
+    for name, f in box_faces(0, 40, 8, 4, 4).items():
+        paint(img, f, robe, rng)
+        if name == "front":
+            paint(img, (f[0] + 2, f[1], 4, f[3]), skin, rng, noise=0.15)
+    return img
+
+
+def vex():
+    """Vex (M24.5, our layout): head 5x5x5 @ (0,0), body 3x5x2 @ (0,10), arm 1x5x1 @
+    (20,0), tail 2x3x2 @ (0,17), wing 6x5x1 @ (24,10)."""
+    rng = random.Random("vex")
+    img = Img(64, 64, CLEAR)
+    body = ramp(hexc("#B8C8D8"), 5, spread=0.2)
+    wing = ramp(hexc("#E8F0F8"), 5, spread=0.15)
+    for u, v, w, h, d in ((0, 0, 5, 5, 5), (0, 10, 3, 5, 2), (20, 0, 1, 5, 1), (0, 17, 2, 3, 2)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, body, rng, noise=0.2)
+    for f in box_faces(24, 10, 6, 5, 1).values():
+        paint(img, f, wing, rng, noise=0.15)
+    img.set(6, 7, (40, 40, 60, 255))  # eyes on the face (front: x 5..10, y 5..10)
+    img.set(8, 7, (40, 40, 60, 255))
+    return img
+
+
+def ravager():
+    """Ravager (M24.5, our layout): body 12x14x18 @ (0,0), head 10x10x10 @ (0,32), horn
+    2x6x2 @ (40,32), leg 6x12x6 @ (40,40)."""
+    rng = random.Random("ravager")
+    img = Img(64, 64, CLEAR)
+    hide = ramp(hexc("#5A564E"), 5, spread=0.25)
+    for f in box_faces(0, 0, 12, 14, 18).values():
+        paint(img, f, hide, rng)
+    for name, f in box_faces(0, 32, 10, 10, 10).items():
+        paint(img, f, hide, rng)
+        if name == "front":  # eyes and a dark muzzle
+            img.set(f[0] + 2, f[1] + 3, (220, 200, 120, 255))
+            img.set(f[0] + 7, f[1] + 3, (220, 200, 120, 255))
+            paint(img, (f[0] + 2, f[1] + 6, 6, 3), ramp(hexc("#2A2824"), 5), rng)
+    for f in box_faces(40, 32, 2, 6, 2).values():
+        paint(img, f, ramp(hexc("#D8D0B8"), 5, spread=0.15), rng)
+    for f in box_faces(40, 40, 6, 12, 6).values():
+        paint(img, f, hide, rng)
+    return img
+
+
 def villager_apron():
     """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
     the game tints per profession, with a darker belt."""
@@ -737,7 +816,8 @@ def main():
               "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
               "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
               "witch": witch(), "wandering_trader": wandering_trader(),
-              "pillager": pillager()}
+              "pillager": pillager(), "vindicator": vindicator(), "evoker": evoker(), "vex": vex(),
+              "ravager": ravager()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

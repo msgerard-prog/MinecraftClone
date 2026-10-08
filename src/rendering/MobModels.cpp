@@ -258,6 +258,39 @@ constexpr std::array<MobPart, 7> kIllager = {{
     {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 48, A::LegB},
 }};
 
+// Evoker (M24.5): a robed illager, arms crossed.
+constexpr std::array<MobPart, 6> kEvoker = {{
+    {{-4, 24, -4}, {4, 34, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-1, 23, 4}, {1, 27, 6}, {0, 24, 0}, 24, 0, A::Head},
+    {{-4, 6, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None},
+    {{-4, 16, 3}, {4, 20, 7}, {0, 18, 0}, 0, 40, A::None},
+    {{-4, 0, -2}, {0, 6, 2}, {-2, 6, 0}, 0, 48, A::LegA},
+    {{0, 0, -2}, {4, 6, 2}, {2, 6, 0}, 0, 48, A::LegB},
+}};
+
+// Vex (M24.5): a small floating spirit with flapping wings and a tail.
+constexpr std::array<MobPart, 7> kVex = {{
+    {{-2.5f, 8, -2.5f}, {2.5f, 13, 2.5f}, {0, 8, 0}, 0, 0, A::Head},
+    {{-1.5f, 3, -1}, {1.5f, 8, 1}, {0, 8, 0}, 0, 10, A::None},
+    {{-2.5f, 3, -0.5f}, {-1.5f, 8, 0.5f}, {-2, 8, 0}, 20, 0, A::ArmForward},
+    {{1.5f, 3, -0.5f}, {2.5f, 8, 0.5f}, {2, 8, 0}, 20, 0, A::ArmForward},
+    {{-1, 0, -1}, {1, 3, 1}, {0, 3, 0}, 0, 17, A::None},
+    {{0.5f, 4, -1.5f}, {6.5f, 9, -0.5f}, {0.5f, 6.5f, -1}, 24, 10, A::WingL},
+    {{-6.5f, 4, -1.5f}, {-0.5f, 9, -0.5f}, {-0.5f, 6.5f, -1}, 24, 10, A::WingR},
+}};
+
+// Ravager (M24.5): a heavy body on four legs, a big horned head carried low in front.
+constexpr std::array<MobPart, 8> kRavager = {{
+    {{-6, 12, -9}, {6, 26, 9}, {0, 12, 0}, 0, 0, A::None},
+    {{-5, 14, 9}, {5, 24, 19}, {0, 20, 9}, 0, 32, A::Head},
+    {{-7, 22, 13}, {-5, 28, 15}, {0, 20, 9}, 40, 32, A::Head},
+    {{5, 22, 13}, {7, 28, 15}, {0, 20, 9}, 40, 32, A::Head},
+    {{-6, 0, 3}, {0, 12, 9}, {-3, 12, 6}, 40, 40, A::LegA},
+    {{0, 0, 3}, {6, 12, 9}, {3, 12, 6}, 40, 40, A::LegB},
+    {{-6, 0, -9}, {0, 12, -3}, {-3, 12, -6}, 40, 40, A::LegB},
+    {{0, 0, -9}, {6, 12, -3}, {3, 12, -6}, 40, 40, A::LegA},
+}};
+
 // Iron golem (M24.3): a big body on a narrow waist, long arms swinging with the legs.
 constexpr std::array<MobPart, 8> kIronGolem = {{
     {{-4, 33, -4}, {4, 43, 4}, {0, 33, 0}, 0, 0, A::Head},
@@ -299,7 +332,11 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::IronGolem: return kIronGolem;
     case world::MobType::Witch: return kWitch;
     case world::MobType::WanderingTrader: return kVillager; // (its blue robe in its skin; no apron)
-    case world::MobType::Pillager: return kIllager;
+    case world::MobType::Pillager:
+    case world::MobType::Vindicator: return kIllager;
+    case world::MobType::Evoker: return kEvoker;
+    case world::MobType::Vex: return kVex;
+    case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }
 }

@@ -356,6 +356,19 @@ def crossbow():
     return img
 
 
+def totem():
+    """Totem of Undying (M24.5, ours): a small golden figure with green eyes, arms out."""
+    gold = ramp(hexc("#E8C040"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(5, 11) for y in range(2, 7)}, gold)    # head
+    s.add({(x, y) for x in range(6, 10) for y in range(7, 14)}, gold)   # body
+    s.add({(x, 8) for x in range(2, 14)} | {(x, 9) for x in range(3, 13)}, gold)  # arms
+    img = s.render()
+    img.set(6, 4, (40, 160, 70, 255))
+    img.set(9, 4, (40, 160, 70, 255))
+    return img
+
+
 def arrow():
     # A diagonal shaft, flint head (upper right), feather fletching (lower left).
     s = Shape()
@@ -865,6 +878,7 @@ def all_items():
     items["prismarine_crystals"] = lump("prismarine_crystals", "#9AD8C8", "#F0FFF8", size=4.6)
     items["golden_apple"] = apple("#F2C83C")  # (M24.3)
     items["crossbow"] = crossbow()  # (M24.4)
+    items["totem_of_undying"] = totem()  # (M24.5)
     items["ominous_bottle"] = bottle(filled=True)  # (M24.4; tinted dark below)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)

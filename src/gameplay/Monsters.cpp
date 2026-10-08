@@ -14,6 +14,10 @@
 
 namespace mc {
 
+namespace {
+double centredRand(world::Xoroshiro& rng) { return rng.nextDouble() * 2.0 - 1.0; }
+} // namespace
+
 using namespace world;
 
 namespace {
@@ -163,8 +167,17 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
     }
     case MobType::Pillager: {
         // Loads its crossbow for 25 ticks, then fires a bolt (speed 2, spread 6), then
-        // waits 40 more, at a player within 16 it sees (wiki: Pillager, Crossbow).
-        if (!chase || playerDist2 > 16.0 * 16.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) {
+        // waits 40 more, at a player within 16 it sees (wiki: Pillager, Crossbow) - or
+        // at the villager / golem it hunts (M24.5).
+        glm::dvec3 aim = playerPos;
+        bool haveAim = chase && m.targeting && playerDist2 <= 16.0 * 16.0 && sees(ctx.world, m, ctx.player);
+        if (!haveAim && m.targetUuid)
+            if (const MobData* t = mobByUuid(ctx.world, m.pos, m.targetUuid);
+                t && t->health > 0.0f && glm::length(t->pos - m.pos) <= 16.0) {
+                aim = t->pos + glm::dvec3(0.0, mobInfo(t->type).height * 0.5 - 1.8 / 3.0, 0.0);
+                haveAim = true;
+            }
+        if (!haveAim || !ctx.projectiles) {
             m.shootTicks = 0;
             break;
         }
@@ -173,7 +186,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             m.shootTicks = 0;
             m.attackCooldown = 40;
             const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
-            glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
+            glm::dvec3 d = aim + glm::dvec3(0, 1.8 / 3.0, 0) - from;
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.12;
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
             ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 2.0, 6.0, false, false, ctx.rng, m.uuidHi);
@@ -181,6 +194,43 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
+    case MobType::Evoker: {
+        // Spells (wiki: Evoker): every 5 s fangs bite at a player within 16 (ours: 6
+        // damage where the player stands a second later unless they moved 2 blocks
+        // away), every 17 s three vexes join it (at most 8 around).
+        if (m.spellTicks > 0) --m.spellTicks;
+        if (m.chargeTicks > 0 && --m.chargeTicks == 0) { // (the fangs rise where it aimed: `beam`)
+            if (glm::length(ctx.player.position() - m.beam) < 2.0) ctx.vitals.attacked(6.0f, &m.pos);
+            ctx.world.levelEvent(LevelEvent::Type::Crit, m.beam.x, m.beam.y + 0.5, m.beam.z);
+        }
+        if (!chase || playerDist2 > 16.0 * 16.0) break;
+        if (m.attackCooldown == 0) {
+            m.attackCooldown = 100;
+            m.chargeTicks = 20;
+            m.beam = ctx.player.position();
+        }
+        if (m.spellTicks == 0) {
+            m.spellTicks = 340;
+            int vexes = 0;
+            const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+            for (int dz = -1; dz <= 1; ++dz)
+                for (int dx = -1; dx <= 1; ++dx)
+                    if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
+                        for (const MobData& o : ch->mobs()) vexes += o.type == MobType::Vex && o.health > 0.0f;
+            for (int i = 0; i < 3 && vexes < 8 && m_births.size() < m_births.capacity(); ++i, ++vexes) {
+                MobData vex = make(MobType::Vex, m.pos + glm::dvec3(centredRand(ctx.rng) * 2.0, 1.0, centredRand(ctx.rng) * 2.0),
+                                   ctx.rng);
+                vex.spellTicks = int16_t(20 * (30 + ctx.rng.nextInt(90))); // (lives 30-119 s)
+                vex.raider = m.raider;
+                m_births.push_back(vex);
+            }
+        }
+        break;
+    }
+    case MobType::Vex: // (wiki: Vex) its time up, it fades: 1 damage a second
+        if (m.spellTicks > 0) --m.spellTicks;
+        else if (ctx.rng.nextInt(20) == 0) m.health -= 1.0f;
+        break;
     case MobType::Witch: {
         // Drinks when it needs to (wiki: Witch › Behavior): fire resistance while burning,
         // healing now and then when hurt (5% a tick); drinking takes 32 ticks.

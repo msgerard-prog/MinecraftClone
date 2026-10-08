@@ -76,6 +76,7 @@ public:
     void eat(int food, float saturation);
     void reset(); // respawn: full health and food, fresh saturation
     void kill() { m_health = 0.0f; } // /kill (ignores invulnerability)
+    void setHealth(float h) { m_health = h < 0.0f ? 0.0f : h > kMaxHealth ? kMaxHealth : h; } // (totems, M24.5)
     // Forget the fall in progress (teleports, game-mode changes, respawn): the next
     // tick measures from where the player is now.
     void resetFall() {

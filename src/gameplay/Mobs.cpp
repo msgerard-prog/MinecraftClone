@@ -345,7 +345,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
-    const double follow = isZombie(m.type)                  ? 35.0
+    const double follow = isZombie(m.type) || m.type == MobType::Vex ? 35.0
                           : m.type == MobType::Enderman ? 64.0
                           : m.type == MobType::Pillager ? 32.0 // (wiki: Pillager - follow range 32)
                                                         : 16.0;
@@ -369,6 +369,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0) m.goal = m.pos; // (throws from where it stands)
         if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0) m.goal = m.pos; // (shoots from ~8 blocks)
+        if (m.type == MobType::Evoker && playerDist2 < 10.0 * 10.0) m.goal = m.pos; // (casts from a distance)
     } else if (m.type == MobType::WanderingTrader) {
         // Stands still while traded with, else strolls near where it arrived; its time
         // up, it's gone (wiki: Wandering Trader › Despawning).
@@ -392,7 +393,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
         chase = true; // (after a monster: Golems.cpp)
     } else if (m.type == MobType::IronGolem) {
         // (patrolling: the goal is set)
-    } else if (isZombie(m.type) && zombieHunt(ctx, m)) {
+    } else if ((isZombie(m.type) || m.type == MobType::Pillager || m.type == MobType::Vindicator ||
+                m.type == MobType::Ravager) &&
+               villageHunt(ctx, m)) {
         chase = true; // (after a villager: Villagers.cpp)
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
         // (home, work, the bell, sleep: Villagers.cpp)
@@ -669,6 +672,15 @@ void Mobs::die(Context& ctx, MobData& m) {
         for (int k = 0, n = 1 + int(ctx.rng.nextInt(3)); k < n; ++k) drop(kLoot[ctx.rng.nextInt(7)], 1, 2);
         break;
     }
+    case MobType::Vindicator: // wiki: Vindicator - 0-1 emerald, sometimes its iron axe
+        drop("emerald", 0, 1);
+        if (ctx.rng.nextInt(1000) < 85) drop("iron_axe", 1, 1);
+        if (m.captain && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1);
+        break;
+    case MobType::Evoker: // wiki: Evoker - a totem of undying, 0-1 emerald
+        drop("totem_of_undying", 1, 1);
+        drop("emerald", 0, 1);
+        break;
     case MobType::Pillager: // wiki: Pillager - 0-2 arrows, sometimes its crossbow (8.5%)
         drop("arrow", 0, 2);
         if (ctx.rng.nextInt(1000) < 85) drop("crossbow", 1, 1);
