@@ -40,6 +40,7 @@ enum class MobType : uint8_t {
     IronGolem,      // (M24.3)
     Witch,          // (M24.4)
     WanderingTrader, // (M24.4)
+    Pillager,        // (M24.4)
     Count
 };
 
@@ -166,6 +167,7 @@ struct MobData {
     int16_t drinkTicks = 0;
     int16_t fireResistTicks = 0;
     int despawnDelay = 0; // wandering trader: ticks until it leaves (saved as DespawnDelay)
+    bool captain = false; // a patrol / raid captain (M24.4; drops an ominous bottle)
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

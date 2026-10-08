@@ -129,6 +129,7 @@ private:
     void placeStrongholds(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // Villages (M18.5; wiki: Village): a well, houses and farms around it joined by
     // dirt paths, in the biome's materials (no villagers yet).
+    void placeOutposts(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const; // (M24.4)
     void placeVillages(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                        GeneratedEntities& out) const;
     void placeVegetation(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,

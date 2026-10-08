@@ -162,6 +162,10 @@ ItemRegistry buildItems() {
     // (M24.3; wiki: Golden Apple - 4 hunger, 9.6 saturation, always edible)
     r.add({.id = "minecraft:golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
            .texture = "item/golden_apple"});
+    // (M24.4; wiki: Crossbow - 465 uses (shot by the player in M28); Ominous Bottle -
+    // dropped by raid captains, drunk for Bad Omen in M24.5)
+    r.add({.id = "minecraft:crossbow", .maxStack = 1, .durability = 465, .texture = "item/crossbow"});
+    r.add({.id = "minecraft:ominous_bottle", .texture = "item/ominous_bottle"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
     r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
     r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});

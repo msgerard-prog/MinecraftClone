@@ -342,6 +342,20 @@ def bow():
     return img
 
 
+def crossbow():
+    """A crossbow (M24.4, ours): a wooden stock along the diagonal, an iron-tipped bow
+    across it and the string drawn back."""
+    wood = ramp(hexc("#7A4E28"), 5, spread=0.35)
+    iron = ramp(hexc("#B8B8B8"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(3, 14)} | {(x, 16 - x) for x in range(4, 14)}, wood)  # the stock
+    s.add({(x, x - 2) for x in range(4, 13)}, iron)  # the bow limbs
+    img = s.render()
+    for t in range(6, 11):
+        img.set(t, t + 1, (220, 220, 220, 255))
+    return img
+
+
 def arrow():
     # A diagonal shaft, flint head (upper right), feather fletching (lower left).
     s = Shape()
@@ -850,6 +864,8 @@ def all_items():
     items["prismarine_shard"] = gem("#5AA898", "emerald")
     items["prismarine_crystals"] = lump("prismarine_crystals", "#9AD8C8", "#F0FFF8", size=4.6)
     items["golden_apple"] = apple("#F2C83C")  # (M24.3)
+    items["crossbow"] = crossbow()  # (M24.4)
+    items["ominous_bottle"] = bottle(filled=True)  # (M24.4; tinted dark below)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")
@@ -864,6 +880,13 @@ def main():
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     items = all_items()
+    # The ominous bottle's liquid: a dark teal instead of the potion overlay's white.
+    ob = items["ominous_bottle"]
+    for y in range(16):
+        for x in range(16):
+            c = ob.get(x, y)
+            if c[3] and c[0] > 150 and c[1] > 150 and c[2] > 150 and (x, y) not in ((7, 2), (8, 2)):
+                ob.set(x, y, (40, 90, 80, 255))
     for name, img in items.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
     print(f"wrote {len(items)} item textures to {OUT}")

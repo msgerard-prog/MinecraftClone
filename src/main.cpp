@@ -23,6 +23,7 @@
 #include "gameplay/FluidContact.h"
 #include "gameplay/Furnace.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Patrols.h"
 #include "gameplay/WanderingTraders.h"
 #include "gameplay/Hoppers.h"
 #include "gameplay/Inventory.h"
@@ -518,6 +519,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     mc::DragonFight dragonFight; // (M20.2; end2 worlds)
     mc::WanderingTraderSpawner traderSpawner; // (M24.4)
+    mc::PatrolSpawner patrolSpawner;          // (M24.4)
     if (level) {
         dragonFight.killed = level->dragonKilled;
         traderSpawner.delay = level->traderSpawnDelay;
@@ -2718,7 +2720,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (dimension == Dimension::End && endKind == "end2" && endGen)
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng,
                                  frameEdits);
-            if (dimension == Dimension::Overworld && !dead) traderSpawner.tick(world, player.position(), gameRng); // (M24.4)
+            if (dimension == Dimension::Overworld && !dead) { // (M24.4)
+                traderSpawner.tick(world, player.position(), gameRng);
+                patrolSpawner.tick(world, player.position(), dayTime, gameRng);
+            }
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {

@@ -680,6 +680,35 @@ def wandering_trader():
     return img
 
 
+def pillager():
+    """Pillager (M24.4): an illager - the villager's head in grey skin, a dark tunic,
+    arms 4x12x4 @ (40,16) (held forward with a crossbow), legs as the villager's."""
+    rng = random.Random("pillager")
+    img = Img(64, 64, CLEAR)
+    skin = ramp(hexc("#8A8A86"), 5, spread=0.2)
+    cloth = ramp(hexc("#3A3A40"), 5, spread=0.25)
+    for f in box_faces(0, 0, 8, 10, 8).values():
+        paint(img, f, skin, rng, noise=0.2)
+    fx, fy = 8, 8  # a heavy brow, dark eyes, a frown
+    for x in range(1, 7):
+        img.set(fx + x, fy + 3, (40, 40, 40, 255))
+    for x in (2, 5):
+        img.set(fx + x, fy + 4, (30, 30, 30, 255))
+    for x in range(2, 6):
+        img.set(fx + x, fy + 7, skin[0])
+    for f in box_faces(24, 0, 2, 4, 2).values():
+        paint(img, f, skin, rng, noise=0.15)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, cloth, rng)
+    for name, (x0, y0, w, h) in box_faces(40, 16, 4, 12, 4).items():
+        paint(img, (x0, y0, w, h), cloth, rng)
+        if name not in ("top", "bottom"):
+            paint(img, (x0, y0 + h - 3, w, 3), skin, rng, noise=0.15)
+    for f in box_faces(0, 48, 4, 12, 4).values():
+        paint(img, f, ramp(hexc("#2A2A2E"), 5, spread=0.25), rng)
+    return img
+
+
 def villager_apron():
     """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
     the game tints per profession, with a darker belt."""
@@ -707,7 +736,8 @@ def main():
               "shulker": shulker(), "minecart": minecart(),
               "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
               "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
-              "witch": witch(), "wandering_trader": wandering_trader()}
+              "witch": witch(), "wandering_trader": wandering_trader(),
+              "pillager": pillager()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

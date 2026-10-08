@@ -1871,3 +1871,37 @@ TEST_CASE("wandering traders arrive by chance, sell wares and leave after 40 min
     for (MobData* m : s.all()) traders += m->type == MobType::WanderingTrader;
     CHECK(traders == 0);
 }
+
+#include "gameplay/Patrols.h"
+
+TEST_CASE("pillager patrols come from day 5 with a captain; pillagers shoot bolts (M24.4)") {
+    MobScene s;
+    s.player.setPosition({0.5, 64.0, 0.5});
+    PatrolSpawner patrols;
+    patrols.delay = 1;
+    CHECK(patrols.tick(s.world, s.player.position(), 24000 * 2, s.rng) == 0); // too early
+    int spawned = 0;
+    for (int tries = 0; tries < 50 && spawned == 0; ++tries) {
+        patrols.delay = 1;
+        spawned = patrols.tick(s.world, s.player.position(), 24000 * 6, s.rng);
+    }
+    REQUIRE(spawned >= 1);
+    int captains = 0;
+    for (MobData* m : s.all()) captains += m->type == MobType::Pillager && m->captain;
+    CHECK(captains == 1);
+    // A pillager near the player shoots.
+    MobScene t;
+    Projectiles projectiles;
+    REQUIRE(Mobs::add(t.world, Mobs::make(MobType::Pillager, {7.5, 64.0, 0.5}, t.rng)));
+    t.player.setPosition({0.5, 64.0, 0.5});
+    for (int i = 0; i < 120; ++i) {
+        t.player.tick(t.world, {});
+        Mobs::Context ctx{t.world, t.player, t.vitals, true, false, 18000, 11.0f, t.rng, t.items};
+        ctx.naturalSpawning = false;
+        ctx.projectiles = &projectiles;
+        t.mobs.tick(ctx);
+    }
+    int bolts = 0;
+    for (const auto& p : projectiles.items()) bolts += p.kind == ProjectileKind::Arrow;
+    CHECK(bolts >= 1);
+}

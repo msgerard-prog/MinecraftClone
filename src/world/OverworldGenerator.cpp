@@ -1612,6 +1612,7 @@ struct StructureBuilder {
 
 void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
     const Blocks& B = blockSet();
+    if (m_version >= 3) placeOutposts(blocks, cx, cz, out);
     struct Kind {
         const RandomSpread* spread;
         int w, d;
@@ -2219,6 +2220,70 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
             }
         }
     }
+}
+
+void OverworldGenerator::placeOutposts(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    // Pillager outposts (overworld3, M24.4; wiki: Pillager Outpost): on their grid in
+    // village biomes, never within 10 chunks of a village. Ours: a 7x7 watchtower of
+    // dark oak and birch on a cobblestone base - closed lower rooms, an open top with a
+    // fence and the loot chest, a ladder inside - and pillagers keeping watch.
+    const auto& reg = blockRegistry();
+    static const BlockStateId cobble = reg.defaultState(blocks::Cobblestone);
+    static const BlockStateId log = *reg.parse("minecraft:dark_oak_log[axis=y]");
+    static const BlockStateId darkPlanks = *reg.parse("minecraft:dark_oak_planks");
+    static const BlockStateId birch = *reg.parse("minecraft:birch_planks");
+    static const BlockStateId fence = reg.defaultState(*reg.findBlock("dark_oak_fence"));
+    static const BlockStateId ladder = *reg.parse("minecraft:ladder[facing=north]"); // (on the wall to its south)
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kOutposts, start)) continue;
+            const int32_t sx = start.x * 16 + 4, sz = start.z * 16 + 4;
+            const Biome biome = biomeAt(column(sx + 3, sz + 3));
+            if (!(biome == Biome::Plains || biome == Biome::Desert || biome == Biome::Savanna || biome == Biome::Taiga ||
+                  biome == Biome::SnowyPlains || biome == Biome::Meadow))
+                continue;
+            bool nearVillage = false;
+            for (int vz = -10; vz <= 10 && !nearVillage; ++vz)
+                for (int vx = -10; vx <= 10 && !nearVillage; ++vx)
+                    nearVillage = isSpreadCandidate(m_seed, kVillages, {start.x + vx, start.z + vz});
+            if (nearVillage) continue;
+            const int ground = surfaceY(sx + 3, sz + 3);
+            if (ground < kSeaLevel) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 710));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, ground + 1, sz, 7, 7, static_cast<int>(r.nextInt(4)), &out};
+            for (int x = 0; x < 7; ++x)
+                for (int z = 0; z < 7; ++z)
+                    sb.foundation(x, z, cobble, 12);
+            sb.fill(0, 0, 0, 6, 0, 6, cobble);
+            for (int y = 1; y <= 9; ++y) // walls: dark oak below, birch above; windows and a door
+                for (int x = 0; x < 7; ++x)
+                    for (int z = 0; z < 7; ++z) {
+                        const bool edge = x == 0 || x == 6 || z == 0 || z == 6;
+                        const bool corner = (x == 0 || x == 6) && (z == 0 || z == 6);
+                        if (!edge || corner) continue;
+                        const bool window = (y == 3 || y == 7) && (x == 3 || z == 3);
+                        const bool door = z == 0 && x == 3 && y <= 2;
+                        sb.set(x, y, z, window || door ? BlockStateId{0} : y <= 4 ? darkPlanks : birch);
+                    }
+            sb.fill(1, 1, 1, 5, 4, 5, 0);
+            sb.fill(1, 6, 1, 5, 9, 5, 0);
+            sb.fill(0, 5, 0, 6, 5, 6, birch);   // the floors
+            sb.fill(0, 10, 0, 6, 10, 6, birch);
+            sb.fill(0, 15, 0, 6, 15, 6, birch); // the lookout's floor
+            for (int y = 1; y <= 15; ++y) sb.set(3, y, 5, sb.turned(ladder)); // (a shaft through the floors)
+            for (int y = 1; y <= 16; ++y) // the corner posts, unbroken through the floors
+                for (const auto& [px, pz] : {std::pair{0, 0}, std::pair{6, 0}, std::pair{0, 6}, std::pair{6, 6}})
+                    sb.set(px, y, pz, log);
+            for (int x = 0; x < 7; ++x)
+                for (int z = 0; z < 7; ++z)
+                    if ((x == 0 || x == 6 || z == 0 || z == 6) && !((x == 0 || x == 6) && (z == 0 || z == 6)))
+                        sb.set(x, 16, z, fence);
+            sb.chest(3, 16, 3, LootTable::PillagerOutpost);
+            sb.mob(2, 1, 2, MobType::Pillager);
+            sb.mob(4, 6, 2, MobType::Pillager);
+            sb.mob(2, 16, 2, MobType::Pillager);
+        }
 }
 
 void OverworldGenerator::placeVillages(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,

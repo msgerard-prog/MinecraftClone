@@ -161,6 +161,26 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
+    case MobType::Pillager: {
+        // Loads its crossbow for 25 ticks, then fires a bolt (speed 2, spread 6), then
+        // waits 40 more, at a player within 16 it sees (wiki: Pillager, Crossbow).
+        if (!chase || playerDist2 > 16.0 * 16.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) {
+            m.shootTicks = 0;
+            break;
+        }
+        if (m.attackCooldown > 0) break;
+        if (++m.shootTicks >= 25) {
+            m.shootTicks = 0;
+            m.attackCooldown = 40;
+            const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
+            glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
+            d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.12;
+            const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
+            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 2.0, 6.0, false, false, ctx.rng, m.uuidHi);
+            ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z, 1.0f, 1.3f);
+        }
+        break;
+    }
     case MobType::Witch: {
         // Drinks when it needs to (wiki: Witch › Behavior): fire resistance while burning,
         // healing now and then when hurt (5% a tick); drinking takes 32 ticks.

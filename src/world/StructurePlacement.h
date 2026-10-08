@@ -25,6 +25,7 @@ inline constexpr RandomSpread kDesertPyramids{32, 8, 14357617};
 inline constexpr RandomSpread kIgloos{32, 8, 14357618};
 inline constexpr RandomSpread kJunglePyramids{32, 8, 14357619};
 inline constexpr RandomSpread kSwampHuts{32, 8, 14357620};
+inline constexpr RandomSpread kOutposts{32, 8, 165745296}; // (M24.4; wiki: Pillager Outpost)
 
 inline int32_t floorDivChunks(int32_t a, int32_t b) { return (a >= 0 ? a : a - b + 1) / b; }
 

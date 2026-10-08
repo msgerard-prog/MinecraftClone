@@ -142,6 +142,16 @@ constexpr LootEntry kEndCity1[] = {
 constexpr LootEntry kEndCity2[] = {{"", 1, 1, 14}, {"spire_armor_trim_smithing_template", 1, 1, 1}};
 constexpr LootPool kEndCity[] = {{2, 6, kEndCity1}, {1, 1, kEndCity2}};
 
+// wiki: Pillager Outpost › Loot (authored from the wiki's table; goat horns and
+// banner patterns left out).
+constexpr LootEntry kOutpost1[] = {{"crossbow", 1, 1, 1}};
+constexpr LootEntry kOutpost2[] = {{"wheat", 3, 5, 7}, {"potato", 2, 5, 5}, {"carrot", 3, 5, 5}};
+constexpr LootEntry kOutpost3[] = {{"dark_oak_log", 2, 3, 1}};
+constexpr LootEntry kOutpost4[] = {{"experience_bottle", 1, 1, 7}, {"string", 1, 6, 4}, {"arrow", 2, 7, 4},
+                                   {"tripwire_hook", 1, 3, 3}, {"iron_ingot", 1, 3, 3}, {"book", 1, 1, 1, true}};
+constexpr LootEntry kOutpost5[] = {{"", 1, 1, 3}, {"sentry_armor_trim_smithing_template", 2, 2, 1}};
+constexpr LootPool kOutpost[] = {{0, 1, kOutpost1}, {2, 3, kOutpost2}, {1, 3, kOutpost3}, {2, 3, kOutpost4}, {1, 1, kOutpost5}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -180,6 +190,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::NetherFortress: return kFortress;
     case LootTable::BastionOther: return kBastion;
     case LootTable::EndCityTreasure: return kEndCity;
+    case LootTable::PillagerOutpost: return kOutpost;
     default: return {}; // (filled in as their structures arrive)
     }
 }

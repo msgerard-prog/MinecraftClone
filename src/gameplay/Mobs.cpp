@@ -345,7 +345,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
-    const double follow = isZombie(m.type) ? 35.0 : m.type == MobType::Enderman ? 64.0 : 16.0;
+    const double follow = isZombie(m.type)                  ? 35.0
+                          : m.type == MobType::Enderman ? 64.0
+                          : m.type == MobType::Pillager ? 32.0 // (wiki: Pillager - follow range 32)
+                                                        : 16.0;
     // An angered iron golem goes for the player like a monster (wiki: Iron Golem).
     const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry);
     if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
@@ -365,6 +368,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0) m.goal = m.pos; // (throws from where it stands)
+        if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0) m.goal = m.pos; // (shoots from ~8 blocks)
     } else if (m.type == MobType::WanderingTrader) {
         // Stands still while traded with, else strolls near where it arrived; its time
         // up, it's gone (wiki: Wandering Trader › Despawning).
@@ -665,6 +669,11 @@ void Mobs::die(Context& ctx, MobData& m) {
         for (int k = 0, n = 1 + int(ctx.rng.nextInt(3)); k < n; ++k) drop(kLoot[ctx.rng.nextInt(7)], 1, 2);
         break;
     }
+    case MobType::Pillager: // wiki: Pillager - 0-2 arrows, sometimes its crossbow (8.5%)
+        drop("arrow", 0, 2);
+        if (ctx.rng.nextInt(1000) < 85) drop("crossbow", 1, 1);
+        if (m.captain && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
+        break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
         drop("poppy", 0, 2);

@@ -434,3 +434,41 @@ TEST_CASE("overworld3: villages get beds, job sites, a bell and a villager per b
     gen.generate(pin);
     CHECK(chunkHash(pin) == 10874715146441309437ull);
 }
+
+TEST_CASE("overworld3: pillager outposts - a watchtower with its chest and pillagers, away from villages (M24.4)") {
+    const OverworldGenerator gen(42);
+    ChunkPos found{0, 0};
+    bool ok = false;
+    for (int rz = -16; rz <= 16 && !ok; ++rz)
+        for (int rx = -16; rx <= 16 && !ok; ++rx) {
+            const ChunkPos c = spreadCandidate(42, kOutposts, {rx * 32, rz * 32});
+            const Biome b = gen.biomeAt(gen.column(c.x * 16 + 7, c.z * 16 + 7));
+            if (b != Biome::Plains && b != Biome::Desert && b != Biome::Savanna && b != Biome::Taiga && b != Biome::Meadow)
+                continue;
+            bool nearVillage = false;
+            for (int vz = -10; vz <= 10; ++vz)
+                for (int vx = -10; vx <= 10; ++vx)
+                    nearVillage = nearVillage || isSpreadCandidate(42, kVillages, {c.x + vx, c.z + vz});
+            if (!nearVillage && gen.surfaceY(c.x * 16 + 7, c.z * 16 + 7) >= OverworldGenerator::kSeaLevel) {
+                found = c;
+                ok = true;
+            }
+        }
+    REQUIRE(ok);
+    MESSAGE("outpost at " << found.x * 16 + 7 << " " << found.z * 16 + 7);
+    int pillagers = 0, chests = 0, logs = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk c({found.x + dx, found.z + dz});
+            gen.generate(c);
+            chests += int(c.chests().size());
+            for (const MobData& m : c.mobs()) pillagers += m.type == MobType::Pillager;
+            for (int y = 50; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x)
+                        logs += blockRegistry().block(blockRegistry().blockOf(c.get(x, y, z))).id == "minecraft:dark_oak_log";
+        }
+    CHECK(pillagers == 3);
+    CHECK(chests >= 1);
+    CHECK(logs >= 4 * 16);
+}

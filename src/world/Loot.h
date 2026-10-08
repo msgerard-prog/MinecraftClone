@@ -28,7 +28,8 @@ enum class LootTable : uint8_t {
     PiglinBartering,
     NetherFortress,
     BastionOther,
-    EndCityTreasure // (M20.4)
+    EndCityTreasure, // (M20.4)
+    PillagerOutpost  // (M24.4)
 };
 
 struct LootEntry {

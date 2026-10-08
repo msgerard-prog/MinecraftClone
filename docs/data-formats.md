@@ -222,6 +222,10 @@ Level.dat `generator` "overworld3" (new worlds). `Offers.Recipes`: {buy, buyB, s
 Villager food as `Inventory` (stacks of bread, carrots, potatoes, beetroots, wheat,
 seeds); zombie villagers save `ConversionTime` (-1 when not curing) and the villager
 fields; `minecraft:iron_golem`, block `carved_pumpkin` (`facing`) (M24.3).
+M24.4: `minecraft:witch`, `minecraft:wandering_trader` (`DespawnDelay`, `Offers`),
+`minecraft:pillager` (`PatrolLeader`, `Patrolling`, `CanJoinRaid`); level.dat
+`WanderingTraderSpawnDelay`/`WanderingTraderSpawnChance`; items `crossbow`,
+`ominous_bottle`; loot table `PillagerOutpost`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
