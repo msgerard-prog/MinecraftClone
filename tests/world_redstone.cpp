@@ -513,3 +513,45 @@ TEST_CASE("pistons can't push blocks with block entities: jukebox discs and sign
     REQUIRE(c->jukebox(1, 64, 0));
     CHECK_FALSE(c->jukebox(1, 64, 0)->record.empty());
 }
+
+#include "world/ItemContainers.h"
+
+TEST_CASE("pistons break shulker boxes (keeping their slots), signs and lanterns; grindstones stay (M23 parity)") {
+    Scene s;
+    s.put({0, 64, 0}, with(S(blocks::Piston), "facing", "east"));
+    const BlockId box = *R().findBlock("lime_shulker_box");
+    s.put({1, 64, 0}, S(box));
+    s.world.chunk({0, 0})->chest(1, 64, 0)->items[2] = {*itemRegistry().find("diamond"), 4};
+    s.put({0, 64, 1}, S(blocks::RedstoneBlock));
+    s.tick(4);
+    CHECK(s.on({0, 64, 0}, "extended"));
+    bool kept = false;
+    for (const auto& d : s.redstone.drops())
+        kept = kept || (d.stack.item == itemRegistry().blockItem(box) && itemContents(d.stack.contents)[2].count == 4);
+    CHECK(kept);
+    // A grindstone doesn't move.
+    Scene g;
+    g.put({0, 64, 0}, with(S(blocks::Piston), "facing", "east"));
+    g.put({1, 64, 0}, S(blocks::Grindstone));
+    g.put({0, 64, 1}, S(blocks::RedstoneBlock));
+    g.tick(4);
+    CHECK_FALSE(g.on({0, 64, 0}, "extended"));
+}
+
+TEST_CASE("a playing jukebox gives redstone power 15 (M23 parity)") {
+    Scene s;
+    s.put({0, 64, 0}, S(blocks::Jukebox));
+    s.put({1, 64, 0}, S(blocks::RedstoneLamp));
+    CHECK_FALSE(s.on({1, 64, 0}));
+    JukeboxData* j = s.world.chunk({0, 0})->jukebox(0, 64, 0);
+    REQUIRE(j);
+    j->record = {*itemRegistry().find("music_disc_cat"), 1};
+    j->playing = true;
+    s.redstone.jukeboxChanged({0, 64, 0});
+    s.tick(2);
+    CHECK(s.on({1, 64, 0}));
+    j->playing = false;
+    s.redstone.jukeboxChanged({0, 64, 0});
+    s.tick(6);
+    CHECK_FALSE(s.on({1, 64, 0}));
+}

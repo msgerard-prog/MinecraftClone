@@ -14,8 +14,8 @@ constexpr DiscInfo kDiscs[] = {
     {"music_disc_13", 1, 178 * 20},    {"music_disc_cat", 2, 185 * 20},     {"music_disc_blocks", 3, 345 * 20},
     {"music_disc_chirp", 4, 185 * 20}, {"music_disc_far", 5, 174 * 20},     {"music_disc_mall", 6, 197 * 20},
     {"music_disc_mellohi", 7, 96 * 20}, {"music_disc_stal", 8, 150 * 20},   {"music_disc_strad", 9, 188 * 20},
-    {"music_disc_ward", 10, 251 * 20}, {"music_disc_11", 11, 71 * 20},      {"music_disc_wait", 12, 238 * 20},
-    {"music_disc_pigstep", 13, 149 * 20}, {"music_disc_otherside", 14, 195 * 20}};
+    {"music_disc_ward", 10, 251 * 20}, {"music_disc_11", 11, 71 * 20},      {"music_disc_wait", 12, 237 * 20},
+    {"music_disc_pigstep", 13, 148 * 20}, {"music_disc_otherside", 14, 195 * 20}};
 
 uint32_t hash(uint32_t a, uint32_t b, uint32_t c) {
     uint32_t h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u ^ (c + 0x165667B1u) * 0xC2B2AE3Du;

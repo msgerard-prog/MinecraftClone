@@ -2,6 +2,7 @@
 
 #include "gameplay/Brewing.h"
 #include "gameplay/Recipes.h"
+#include "gameplay/Jukebox.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
@@ -73,7 +74,8 @@ void setHopperBlockUpdates(BlockUpdates* updates) { g_updates = updates; }
 
 bool isContainer(const World& world, const BlockPos& p) {
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
-    return (b == blocks::Composter && g_updates) || b == blocks::ShulkerBox || b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
+    return ((b == blocks::Composter || b == blocks::Jukebox) && g_updates) || b == blocks::ShulkerBox ||
+           b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
            b == blocks::Dropper || b == blocks::Furnace || b == blocks::BrewingStand;
 }
 
@@ -84,6 +86,18 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Jukebox: // a disc into an empty jukebox starts it (wiki: Jukebox, M23 review)
+        if (JukeboxData* d = c->jukebox(x, p.y, z); d && g_updates && d->record.empty() && discIndex(one.item) >= 0) {
+            d->record = one;
+            d->record.count = 1;
+            d->ticks = 0;
+            d->playing = true;
+            world.updateBlock(p, blockRegistry().set(world.getBlock(p), properties::hasRecord, 0));
+            g_updates->jukeboxChanged(p);
+            c->markDirty();
+            ok = true;
+        }
+        break;
     case blocks::Composter: // only from above, while it takes compost (wiki: Composter)
         ok = g_updates && from == Direction::Up && g_updates->compost(p, one.item);
         break;
@@ -158,6 +172,16 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Jukebox: // the disc, once its song has ended, out of the bottom
+        if (JukeboxData* d = c->jukebox(x, p.y, z);
+            d && g_updates && from == Direction::Down && !d->playing && !d->record.empty()) {
+            out = d->record;
+            d->record = {};
+            world.updateBlock(p, blockRegistry().set(world.getBlock(p), properties::hasRecord, 1));
+            c->markDirty();
+            ok = true;
+        }
+        break;
     case blocks::Composter: // its bone meal, only out of the bottom
         if (g_updates && from == Direction::Down) {
             out = g_updates->takeCompost(p);
@@ -258,6 +282,12 @@ void tickHoppers(World& world, ItemEntities& items) {
                         else ++from->count;
                     } else if (r.blockOf(world.getBlock(above)) == blocks::Composter) { // (the bone meal stays)
                         world.updateBlock(above, r.set(world.getBlock(above), properties::composterLevel, 8));
+                    } else if (r.blockOf(world.getBlock(above)) == blocks::Jukebox) { // (the disc stays)
+                        if (Chunk* jc = world.chunk(above.chunk()))
+                            if (JukeboxData* jd = jc->jukebox(blockToLocal(above.x), above.y, blockToLocal(above.z))) {
+                                jd->record = one;
+                                world.updateBlock(above, r.set(world.getBlock(above), properties::hasRecord, 0));
+                            }
                     }
                 }
             } else if (!r.opaqueCube(world.getBlock(above))) { // (only containers and full blocks stop pickup)

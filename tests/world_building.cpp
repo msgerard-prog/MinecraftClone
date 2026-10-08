@@ -6,6 +6,7 @@
 #include "world/BlockUpdates.h"
 #include "world/ChunkSerializer.h"
 #include "world/Blocks.h"
+#include "world/ItemContainers.h"
 #include "world/Items.h"
 #include "world/Potions.h"
 #include "world/Raycast.h"
@@ -681,4 +682,20 @@ TEST_CASE("copper doors wax and scrape both halves together (M23 review)") {
     CHECK(R().value(s.at({1, 65, 1}), "half") == "upper");
     CHECK(BlockUpdates::scrapeCopper(s.world, {1, 64, 1}));
     CHECK(R().blockOf(s.at({1, 65, 1})) == door);
+}
+
+TEST_CASE("a water cauldron washes a dyed shulker box, keeping its slots (M23 parity)") {
+    Scene s;
+    const BlockPos c{3, 64, 3};
+    s.world.updateBlock(c, R().set(R().defaultState(blocks::WaterCauldron), properties::cauldronLevel, 2));
+    ItemStack box{*itemRegistry().find("blue_shulker_box"), 1};
+    ItemContents slots{};
+    slots[5] = {*itemRegistry().find("apple"), 3};
+    box.contents = addItemContents(slots);
+    const auto washed = s.updates.useCauldron(c, box);
+    REQUIRE(washed);
+    CHECK(washed->item == *itemRegistry().find("shulker_box"));
+    CHECK(itemContents(washed->contents)[5].count == 3);
+    CHECK(BlockUpdates::cauldronSignal(s.at(c)) == 2);
+    CHECK_FALSE(s.updates.useCauldron(c, *washed)); // a plain box stays as it is
 }

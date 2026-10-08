@@ -816,8 +816,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     auto openChestAt = [&](const mc::world::BlockPos& p) {
         const auto& creg = mc::world::blockRegistry();
         const mc::world::BlockId ob = creg.blockOf(world.getBlock(p));
+        // An ender chest won't open under a solid block (like a chest); a shulker box
+        // needs room for its lid: the near half of the block it faces must be free of
+        // collision boxes (a top slab above is fine) (wiki: Ender Chest, Shulker Box).
+        if (ob == mc::world::blocks::EnderChest && creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z}))) return false;
+        if (creg.likeOf(ob) == mc::world::blocks::ShulkerBox) {
+            const auto face = static_cast<mc::world::Direction>(creg.get(world.getBlock(p), mc::world::properties::facing6));
+            const glm::ivec3 n = mc::world::normal(face);
+            const mc::world::BlockStateId front = world.getBlock({p.x + n.x, p.y + n.y, p.z + n.z});
+            if (creg.collides(front)) {
+                const auto& shape = mc::world::collisionShape(front);
+                bool blocked = shape.count == 0; // (a full cube)
+                for (int i = 0; i < shape.count && !blocked; ++i) {
+                    const auto& bx = shape.boxes[size_t(i)];
+                    const int axis = n.x ? 0 : n.y ? 1 : 2; // the lid needs [0, 8) on that axis, from our side
+                    const int lo = (n.x + n.y + n.z) > 0 ? 0 : 8, hi = lo + 8;
+                    blocked = bx.from[axis] < hi && bx.to[axis] > lo;
+                }
+                if (blocked) return false;
+            }
+        }
         if (ob == mc::world::blocks::Barrel || ob == mc::world::blocks::EnderChest ||
-            creg.likeOf(ob) == mc::world::blocks::ShulkerBox) { // (M23.5-6: single, the lid never blocked)
+            creg.likeOf(ob) == mc::world::blocks::ShulkerBox) { // (M23.5-6: single chests)
             containerBlock = p;
             chestSecond.reset();
             container.openChest(nullptr, nullptr);
@@ -1790,6 +1810,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         jd->playing = false;
                         world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 1));
                         jc->markDirty();
+                        blockUpdates.jukeboxChanged(at);
                         acted = true;
                     } else if (jd && mc::discIndex(held.item) >= 0) {
                         jd->record = held;
@@ -1799,6 +1820,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (survival) inventory.consumeSelected(1);
                         world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 0));
                         jc->markDirty();
+                        blockUpdates.jukeboxChanged(at);
                         acted = true;
                     }
                 } else if (hb == mc::world::blocks::Composter) {
@@ -2373,6 +2395,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (disc < 0 || jb.data.ticks >= mc::discInfo(disc).lengthTicks) {
                         jb.data.playing = false;
                         c.markDirty();
+                        litChanges.push_back({c.pos().x * 16 + jb.x, jb.y, c.pos().z * 16 + jb.z}); // (power off, below)
                         continue;
                     }
                     std::array<mc::JukeboxNote, 3> notes{};
@@ -2404,6 +2427,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Block states change after the loop (setBlock may touch the furnace lists).
             for (const mc::world::BlockPos& p : litChanges) {
                 const auto state = world.getBlock(p);
+                if (reg.blockOf(state) == mc::world::blocks::Jukebox) { // a song ended: its power stops
+                    blockUpdates.jukeboxChanged(p);
+                    continue;
+                }
                 if (reg.likeOf(reg.blockOf(state)) != mc::world::blocks::Furnace) continue;
                 mc::world::Chunk* fc = world.chunk(p.chunk());
                 const auto* f = fc ? fc->furnace(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z))
@@ -2631,7 +2658,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             renderer.setNetherFog(netherFog);
         }
-        renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0);
+        renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0 ||
+                                vitals.effectLevel(mc::world::Effect::ConduitPower) > 0); // (conduits: vision too)
         if (dimension == Dimension::Overworld) {
             // Biome sky and fog colours, blended over 5x5 biome cells (4 blocks each)
             // around the camera, so crossing a border fades the sky (vanilla samples

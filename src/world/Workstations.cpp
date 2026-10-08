@@ -128,6 +128,16 @@ std::optional<ItemStack> BlockUpdates::useCauldron(const BlockPos& p, const Item
         }
         return std::nullopt; // (powder snow: no powder snow bucket yet)
     }
+    if (b == B::WaterCauldron) { // a dyed shulker box washes plain, keeping its slots (wiki: Shulker Box)
+        const BlockId hb = itemRegistry().item(held.item).block;
+        if (hb != 0 && hb != B::ShulkerBox && R().likeOf(hb) == B::ShulkerBox) {
+            water(level - 1);
+            ItemStack washed = held;
+            washed.item = itemRegistry().blockItem(B::ShulkerBox);
+            washed.count = 1;
+            return washed;
+        }
+    }
     if (is(held.item, "glass_bottle") && b == B::WaterCauldron) {
         water(level - 1);
         ItemStack bottle = item("potion");

@@ -4,38 +4,18 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M22 done (reviews applied; v0.22.0): weather (rain/snow/thunder, lightning, snow and
-ice forming), sky (biome colours, sunrise/sunset, fog, Fancy clouds, End sky),
-particles, sound (XAudio2, our own synthesized sounds), menus (title, world list and
-creation, options.txt, Game Menu that pauses). M1-M21 done. v1.0 waits for M23-M28.
+M23 done (reviews applied; v0.23.0): slabs, stairs, walls, panes, carpets, ladders,
+lanterns, every wood set incl. mangrove/bamboo/pale oak, signs, concrete, terracotta,
+copper ageing, campfires, smoker, blast furnace, barrel, composter, cauldrons,
+stonecutter, grindstone, ender chests, shulker boxes, netherite (nether3), smithing
+and trims, loom/cartography screens, beacons, conduits, note blocks, jukeboxes.
+M1-M22 done. v1.0 waits for M24-M28.
 
 ## Next
-M23 - Building blocks & workstations (wiki pages of each block):
-1. ✅ M23.1 - Block kinds and shapes: a `kind` per block (slab, stairs, wall, pane,
-   carpet, ...) with its base texture, so placement, shapes, models and connections
-   are written once; slabs (bottom/top/double merging), stairs (facing, half, corner
-   shapes), walls (posts, low/tall sides) for vanilla's stone, brick, sandstone,
-   deepslate, nether and end families and every wood; recipes, stonecutter-free.
-2. ✅ M23.2 - Thin and small blocks: glass panes, the 16 stained glass blocks and panes,
-   16 carpets, ladders (climbing), lanterns and soul lanterns (standing/hanging),
-   chains, wall torches.
-3. ✅ M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,
-   trapdoors, fences, gates, buttons and plates (the M21 oak-only code generalised by
-   kind); signs and hanging signs with text editing and rendering.
-4. ✅ M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16
-   terracottas and glazed terracottas, the copper family (oxidation on random ticks,
-   honeycomb waxing, axe scraping, copper bulbs), campfires (cooking, smoke, damage).
-5. ✅ M23.5 - Workstations 1: stonecutter, smoker, blast furnace, barrel, composter,
-   cauldrons (water/lava/powder snow, buckets and bottles, rain), grindstone; 3D
-   item icons for block-shaped items. (No powder snow block or bucket yet: a powder
-   snow cauldron fills from snowfall only.)
-6. ✅ M23.6 - Workstations 2: smithing table (netherite upgrades, armor trims), loom
-   and cartography table (their screens; banners and maps come in M28), ender chest,
-   shulker boxes, beacon (pyramid, beam, effects), conduit, note blocks, jukebox.
-   Also: netherite and ancient debris (new "nether3" generator; nether2 now pinned),
-   storage blocks, sea lanterns, Haste/Resistance/Conduit Power, music discs playing
-   our own note-block tunes. Nether stars, hearts of the sea and nautilus shells exist
-   as items without a source until M25/M26.
+M24 - Villages 2 (wiki pages of each mob/mechanic): plan the steps at the start of
+the milestone - villagers (professions from workstations, levels, trading screen,
+restocking, breeding, gossip-free first pass), iron golems, wandering traders,
+pillagers, outposts and raids, witches.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -58,6 +38,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M23 perf review: one playing jukebox holds 15-25 of the 32 sound voices
+  (a music voice budget, or stop the previous lead note - with the M22 sound item);
+  the item-contents table (`world/ItemContainers`) never frees entries - each chunk
+  load of a stored shulker box adds ~1 KB (intern identical contents or ref-count);
+  cache sign glyph geometry per sign instead of rebuilding it each frame; a dense
+  per-state `likeOf` array; ItemStack grew to ~36 bytes (side table if pools grow);
+  sign/sheep dyeing builds 16 strings per click.
 - From the M22 perf review: sound plays poll `GetState` over 32 voices (TNT chains:
   ~1-3 ms in one tick - keep voice end times, merge identical events per tick, cap
   plays); cloud mesh rebuilt on every 12-block cell crossing (hysteresis of a few
@@ -148,6 +135,14 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M23 checks:** a note block on a diamond block and on a copper block in 1.21.11 -
+  harp or bass drum (ours: bass drum, a guess for blocks not on the wiki's table)?
+  Time "wait" and "Pigstep" with a comparator/hopper clock (ours 237 s / 148 s, the
+  wiki's 3:57 / 2:28). Listen to the jukebox: our discs play tunes composed from
+  note-block sounds (no recordings) - say if they need a pass. Try it:
+  `tools/run.sh --world "M23 test"`.
+- **M23 note:** new worlds use the "nether3" Nether (ancient debris); nether2 is now
+  pinned too and older worlds keep it.
 - **M22 checks:** listen to the sounds (`tools/run.sh`): ours are synthesized - say if
   they need a pass. Cloud colour in rain and in a thunderstorm (the wiki says rgb 191 /
   30; ours ~158 / ~38). On a fresh 1.21.11 install: the default simulation distance and
@@ -245,7 +240,7 @@ and GUI textures are made with their systems.
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | ✅ 2026-10-07 v0.20.0 (basic cities, simplified dragon AI: see deviations) |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | ✅ 2026-10-07 v0.21.0 (plain minecarts; see deviations) |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | ✅ 2026-10-07 v0.22.0 (synthesized sounds, one-page options: see deviations) |
-| M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | Vanilla's building and crafting palette |
+| M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | ✅ 2026-10-07 v0.23.0 (our own disc tunes, loom/cartography screens only: see deviations) |
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | Villages live |
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | Oceans as in 1.21 |
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
@@ -259,6 +254,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M23 (v0.23.0): building blocks, woods, signs, copper, workstations, ender chests, shulker boxes, netherite, beacons, conduits, note blocks, jukeboxes.
 - 2026-10-07 M22 (v0.22.0): weather, sky and clouds, particles, sound, menus and options.
 - 2026-10-07 M21 (v0.21.0): doors, plates, TNT, comparators, observers, hoppers, dispensers, rails, minecarts, slimes, piston animation, collision shapes.
 - 2026-10-07 M20 (v0.20.0): end2 - outer islands, chorus, end cities, shulkers, elytra, crystals, the ender dragon fight, gateways, pearls, respawning.

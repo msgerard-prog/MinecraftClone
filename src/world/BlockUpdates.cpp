@@ -4,6 +4,7 @@
 
 #include "core/Log.h"
 #include "world/Blocks.h"
+#include "world/ItemContainers.h"
 #include "world/Rotation.h"
 
 #include <algorithm>
@@ -86,19 +87,23 @@ Direction attachDir(BlockStateId s) {
 }
 
 // What a piston does to the block in front of it (wiki: Piston › Movable blocks).
-enum class Push { Air, Destroy, Move, Block };
+enum class Push { Air, Destroy, Move, Block, PushOnly }; // PushOnly: pushed, not pulled or stuck
 Push pushKind(BlockStateId s) {
     if (s == 0) return Push::Air;
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
-    // Shulker boxes break off in vanilla, keeping their contents in the drop; ours stay
-    // put until that drop path exists (block entities don't move).
-    if (R().likeOf(b) == B::ShulkerBox) return Push::Block;
-    // Block entities don't move (vanilla Java): their data would be lost (M23 review).
-    if (b == B::Jukebox || b == B::Beacon || b == B::Conduit || b == B::Campfire || b == B::SoulCampfire ||
-        R().kind(b) == BlockKind::Sign || R().kind(b) == BlockKind::WallSign || R().kind(b) == BlockKind::HangingSign ||
-        R().kind(b) == BlockKind::WallHangingSign)
-        return Push::Block;
+    // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
+    // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
+    // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
+    // terracotta is pushed but never pulled and doesn't stick to slime.
+    const BlockKind kind = R().kind(b);
+    if (R().likeOf(b) == B::ShulkerBox || b == B::Campfire || b == B::SoulCampfire || kind == BlockKind::Sign ||
+        kind == BlockKind::WallSign || kind == BlockKind::HangingSign || kind == BlockKind::WallHangingSign ||
+        b == B::WallTorch || b == B::SoulTorch || b == B::SoulWallTorch || b == B::Lantern || b == B::SoulLantern ||
+        b == B::Ladder || b == B::Bamboo)
+        return Push::Destroy;
+    if (b == B::Jukebox || b == B::Beacon || b == B::Conduit || b == B::Grindstone) return Push::Block;
+    if (R().block(b).id.ends_with("_glazed_terracotta")) return Push::PushOnly;
     switch (b) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
@@ -211,7 +216,8 @@ BlockUpdates::~BlockUpdates() { m_world.setListener(nullptr); }
 bool BlockUpdates::conductor(BlockStateId s) {
     // Opaque full blocks conduct, except these (wiki: Redstone circuits › Conductivity).
     const BlockId b = blockOf(s);
-    return R().opaqueCube(s) && b != B::RedstoneBlock && !isPiston(b) && b != B::Glowstone && b != B::Observer;
+    return R().opaqueCube(s) && b != B::RedstoneBlock && !isPiston(b) && b != B::Glowstone && b != B::Observer &&
+           b != B::Jukebox; // (a power source itself, M23.6)
 }
 
 // --- Power ------------------------------------------------------------------------
@@ -274,8 +280,24 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
     }
 }
 
+// A jukebox gives strong power 15 on every side while its song plays (wiki: Jukebox,
+// since 1.19.4; M23 review).
+int BlockUpdates::jukeboxPower(const BlockPos& q) const {
+    Chunk* c = chunkAt(q);
+    const JukeboxData* d = c ? c->jukebox(blockToLocal(q.x), q.y, blockToLocal(q.z)) : nullptr;
+    return d && d->playing ? 15 : 0;
+}
+
+void BlockUpdates::jukeboxChanged(const BlockPos& p) {
+    notifyNeighbours(p);
+    for (const Direction d : {Direction::West, Direction::East, Direction::Down, Direction::Up, Direction::North,
+                              Direction::South})
+        notifyNeighbours(rel(p, d)); // (strong power: what conducts it tells its neighbours)
+}
+
 int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
     const BlockStateId s = at(q);
+    if (blockOf(s) == B::Jukebox) return jukeboxPower(q);
     if (blockOf(s) != B::Comparator) return weak(s, toward);
     // Out of its front only, at the strength it keeps (wiki: Redstone Comparator).
     if (toward != opposite(hFacing(s))) return 0;
@@ -285,6 +307,7 @@ int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
 }
 
 int BlockUpdates::strongAt(const BlockPos& q, Direction toward) const {
+    if (blockOf(at(q)) == B::Jukebox) return jukeboxPower(q);
     const BlockStateId s = at(q);
     return blockOf(s) == B::Comparator ? weakAt(q, toward) : strong(s, toward);
 }
@@ -938,6 +961,23 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
 void BlockUpdates::notifyNeighbours(const BlockPos& p) {
     for (const Direction d : kUpdateOrder)
         neighbourChanged(rel(p, d));
+}
+
+// A block a piston breaks drops as if mined; a shulker box keeps its slots in the box,
+// a campfire drops its food (wiki: Piston, Shulker Box, Campfire).
+void BlockUpdates::pistonDrops(const BlockPos& p, BlockStateId s) {
+    Chunk* c = chunkAt(p);
+    const int x = blockToLocal(p.x), z = blockToLocal(p.z);
+    if (R().likeOf(blockOf(s)) == B::ShulkerBox) {
+        ItemStack box{itemRegistry().blockItem(R().blockOf(s)), 1}; // (the real, dyed box: blockOf here is likeOf)
+        if (const ChestData* d = c ? c->chest(x, p.y, z) : nullptr) box.contents = addItemContents(d->items);
+        m_drops.push_back({p, box});
+        return;
+    }
+    m_drops.push_back({p, {}, s});
+    if (const CampfireData* cf = c ? c->campfire(x, p.y, z) : nullptr)
+        for (const ItemStack& st : cf->items)
+            if (!st.empty()) m_drops.push_back({p, st});
 }
 
 void BlockUpdates::pop(const BlockPos& p) {
@@ -1755,7 +1795,7 @@ void BlockUpdates::extend(const BlockPos& p) {
         const BlockStateId ds = at(d);
         destroyedStates[i] = ds;
         const BlockId b = blockOf(ds);
-        if (b != B::Water && b != B::Lava) m_drops.push_back({d, {}, ds}); // its loot
+        if (b != B::Water && b != B::Lava) pistonDrops(d, ds); // its loot (and what it held)
         setRaw(d, 0);
     }
     // The blocks leave their cells at once; for 2 ticks their targets (and the head's
@@ -1810,7 +1850,7 @@ void BlockUpdates::retract(const BlockPos& p) {
             pushKind(at(far)) == Push::Move && gatherPush(p, far, opposite(f), destroy) &&
             m_moving.size() + m_push.size() <= m_moving.capacity()) {
             for (const BlockPos& d : destroy) {
-                m_drops.push_back({d, {}, at(d)});
+                pistonDrops(d, at(d));
                 setRaw(d, 0);
             }
             m_pushStates.clear();

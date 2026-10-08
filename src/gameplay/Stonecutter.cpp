@@ -83,6 +83,7 @@ struct Table {
                 const std::string block = *stage ? p + "copper" : p + "copper_block";
                 edge(block, p + "cut_copper", 4);
                 edge(block, p + "chiseled_copper", 4);
+                edge(block, p + "copper_grate", 4); // (wiki: Copper Grate)
                 edge(p + "cut_copper", p + "chiseled_copper", 1);
             }
         // Everything reachable from each input, counts multiplied along the way.

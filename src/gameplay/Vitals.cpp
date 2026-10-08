@@ -10,8 +10,11 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
-    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0 || effectLevel(world::Effect::ConduitPower) > 0)
-        return 0.0f; // (conduit power: no air lost either, wiki)
+    if (effectLevel(world::Effect::ConduitPower) > 0) { // refills air under water too (wiki, since 1.21.4)
+        m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
+        return 0.0f;
+    }
+    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0) return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
         // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).

@@ -199,6 +199,8 @@ public:
     // one (a left click, a power pulse; right-click tunes it up a note first).
     static int noteInstrument(BlockStateId below);
     void playNote(const BlockPos& p);
+    // A jukebox's song started or ended: its redstone output changed (call from main).
+    void jukeboxChanged(const BlockPos& p);
     // Bone meal used on the block at p. True if it was used up.
     bool boneMeal(const BlockPos& p);
     // An entity landed hard on this farmland (the caller rolls the chance).
@@ -245,6 +247,8 @@ private:
     void updateBulb(const BlockPos& p, BlockStateId s);    // copper bulbs on power changes
     void fillCauldronByWeather(const BlockPos& p, bool snow); // rain/snow into a cauldron
     void noteBlockChanged(const BlockPos& p, BlockStateId s);  // instrument, power edges
+    void pistonDrops(const BlockPos& p, BlockStateId s);        // what a piston-broken block drops
+    int jukeboxPower(const BlockPos& q) const;                   // 15 while playing
     // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
     void fizz(const BlockPos& p) {
         m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);

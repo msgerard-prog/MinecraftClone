@@ -101,6 +101,19 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"DTD", "DND", "DDD"},
                        {{'D', item("diamond")}, {'T', item("netherite_upgrade_smithing_template")}, {'N', item("netherrack")}},
                        "netherite_upgrade_smithing_template", 2));
+    // Armor trim templates copy like the netherite one, each with its own block (wiki:
+    // Smithing Template; flow needs breeze rods - not in the game yet).
+    for (const auto& [pattern, block] :
+         {std::pair{"sentry", "cobblestone"}, std::pair{"dune", "sandstone"}, std::pair{"coast", "cobblestone"},
+          std::pair{"wild", "mossy_cobblestone"}, std::pair{"ward", "cobbled_deepslate"}, std::pair{"eye", "end_stone"},
+          std::pair{"vex", "cobblestone"}, std::pair{"tide", "prismarine"}, std::pair{"snout", "blackstone"},
+          std::pair{"rib", "netherrack"}, std::pair{"spire", "purpur_block"}, std::pair{"wayfinder", "terracotta"},
+          std::pair{"shaper", "terracotta"}, std::pair{"silence", "cobbled_deepslate"}, std::pair{"raiser", "terracotta"},
+          std::pair{"host", "terracotta"}, std::pair{"bolt", "copper_block"}}) {
+        const std::string t = std::string(pattern) + "_armor_trim_smithing_template";
+        if (!itemRegistry().find(block)) continue;
+        r.push_back(shaped({"DTD", "DBD", "DDD"}, {{'D', item("diamond")}, {'T', item(t)}, {'B', item(block)}}, t, 2));
+    }
     r.push_back(shaped({"II", "PP", "PP"}, {{'I', item("iron_ingot")}, {'P', kPlanks}}, "smithing_table"));
     r.push_back(shaped({"PPP", "PRP", "PPP"}, {{'P', kPlanks}, {'R', item("redstone")}}, "note_block")); // wiki
     r.push_back(shaped({"PPP", "PDP", "PPP"}, {{'P', kPlanks}, {'D', item("diamond")}}, "jukebox"));     // wiki
