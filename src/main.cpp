@@ -1,81 +1,81 @@
 #include "audio/SoundEngine.h"
 #include "core/CommandLine.h"
+#include "core/FileLock.h"
 #include "core/FrameStats.h"
 #include "core/GameClock.h"
-#include "core/Options.h"
 #include "core/Log.h"
+#include "core/Options.h"
+#include "core/Version.h"
 #include "core/Window.h"
+#include "gameplay/Beacons.h"
 #include "gameplay/Beds.h"
 #include "gameplay/BlockInteraction.h"
-#include "gameplay/FallingBlocks.h"
-#include "gameplay/Inventory.h"
-#include "gameplay/PrimedTnt.h"
-#include "gameplay/Projectiles.h"
-#include "gameplay/Particles.h"
-#include "gameplay/Player.h"
-#include "rendering/Camera.h"
-#include "rendering/GlContext.h"
-#include "rendering/OverlayRenderer.h"
-#include "rendering/Screenshot.h"
-#include "rendering/WorldRenderer.h"
-#include "world/WorldList.h"
-#include "world/BlockShapes.h"
-#include "world/Blocks.h"
-#include "world/ChunkLoader.h"
-#include "world/FlatGenerator.h"
-#include "world/LightManager.h"
-#include "world/ChunkStorage.h"
-#include "world/LevelData.h"
-#include "core/FileLock.h"
+#include "gameplay/Brewing.h"
+#include "gameplay/Buckets.h"
 #include "gameplay/Combat.h"
 #include "gameplay/Commands.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
-#include "gameplay/Beacons.h"
 #include "gameplay/ExperienceOrbs.h"
-#include "gameplay/Grindstone.h"
-#include "gameplay/Jukebox.h"
-#include "gameplay/Brewing.h"
 #include "gameplay/Explosion.h"
+#include "gameplay/FallingBlocks.h"
+#include "gameplay/FluidContact.h"
+#include "gameplay/Furnace.h"
+#include "gameplay/Grindstone.h"
 #include "gameplay/Hoppers.h"
+#include "gameplay/Inventory.h"
 #include "gameplay/ItemEntities.h"
+#include "gameplay/Jukebox.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
+#include "gameplay/Particles.h"
+#include "gameplay/Player.h"
+#include "gameplay/Portals.h"
+#include "gameplay/PrimedTnt.h"
+#include "gameplay/Projectiles.h"
+#include "gameplay/Recipes.h"
 #include "gameplay/Vitals.h"
+#include "rendering/Camera.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/Frustum.h"
-#include "core/Version.h"
-#include "world/DayTime.h"
-#include "world/BlockUpdates.h"
-#include "world/Rails.h"
-#include "world/Enchantments.h"
-#include "world/NetherGenerator.h"
-#include "world/Potions.h"
-#include "gameplay/Buckets.h"
-#include "gameplay/FluidContact.h"
-#include "gameplay/Portals.h"
-#include "gameplay/Recipes.h"
+#include "rendering/GlContext.h"
 #include "rendering/GuiRenderer.h"
-#include "ui/Menus.h"
-#include "ui/SignEditor.h"
+#include "rendering/OverlayRenderer.h"
+#include "rendering/Screenshot.h"
+#include "rendering/WorldRenderer.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
-#include "gameplay/Furnace.h"
 #include "ui/Hud.h"
+#include "ui/Menus.h"
+#include "ui/SignEditor.h"
+#include "world/BlockShapes.h"
+#include "world/BlockUpdates.h"
+#include "world/Blocks.h"
+#include "world/ChunkLoader.h"
+#include "world/ChunkStorage.h"
+#include "world/DayTime.h"
+#include "world/Enchantments.h"
+#include "world/FlatGenerator.h"
+#include "world/LevelData.h"
+#include "world/LightManager.h"
+#include "world/NetherGenerator.h"
+#include "world/OverworldGenerator.h"
+#include "world/Potions.h"
+#include "world/Rails.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
-#include "world/OverworldGenerator.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
+#include "world/WorldList.h"
 
-#include <cstdio>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <thread>
@@ -159,7 +159,8 @@ void buildTestWorld(mc::world::World& world) {
 std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 spawn) {
     using namespace mc::world;
     const auto& r = blockRegistry();
-    const int sx = static_cast<int>(std::floor(spawn.x)), sz = static_cast<int>(std::floor(spawn.z));
+    const int sx = static_cast<int>(std::floor(spawn.x)),
+              sz = static_cast<int>(std::floor(spawn.z));
     if (!world.chunk({blockToChunk(sx), blockToChunk(sz)})) return std::nullopt;
     for (int radius = 0; radius <= 8; ++radius)
         for (int dz = -radius; dz <= radius; ++dz)
@@ -171,7 +172,7 @@ std::optional<glm::dvec3> settleSpawn(const mc::world::World& world, glm::dvec3 
                     const BlockStateId s = world.getBlock({x, y, z});
                     const BlockId b = r.blockOf(s);
                     if (b == blocks::Water || b == blocks::Lava) break; // not on a sea floor
-                    if (s == 0 || !r.collides(s)) continue; // air, plants, snow layers
+                    if (s == 0 || !r.collides(s)) continue;             // air, plants, snow layers
                     const std::string_view id = r.block(r.blockOf(s)).id;
                     if (id.ends_with("_log") || id.ends_with("_leaves")) break; // a tree
                     return glm::dvec3(x + 0.5, y + 1.0, z + 0.5);
@@ -225,7 +226,7 @@ struct Shared {
     uint16_t dirtSprite;
     // Command-line overrides (never written to options.txt): --render-distance holds
     // until the slider moves away from options.txt's value; --no-vsync for the run.
-    int cliRenderDistance = 0; // 0: none
+    int cliRenderDistance = 0;     // 0: none
     int optionsRenderDistance = 0; // options.txt's value when the game started
     bool cliNoVsync = false;
 };
@@ -260,8 +261,8 @@ mc::ui::MenuAction drawMenuFrame(Shared& shared, int fbWidth, int fbHeight, bool
     in.timeMs = int64_t(mc::timeSeconds() * 1000.0);
     if (clear) shared.renderer.clearScreen(fbWidth, fbHeight);
     shared.menu.begin(shared.gui.batch(), fbWidth / scale, fbHeight / scale, in);
-    const auto action =
-        mc::ui::drawMenu(shared.menu, shared.menuState, shared.options, shared.dirtSprite, mc::version());
+    const auto action = mc::ui::drawMenu(shared.menu, shared.menuState, shared.options,
+                                         shared.dirtSprite, mc::version());
     if (action == mc::ui::MenuAction::OptionsChanged || action == mc::ui::MenuAction::OptionsClosed)
         applyGlobalOptions(shared);
     if (action == mc::ui::MenuAction::OptionsClosed) shared.options.save(shared.optionsFile);
@@ -315,8 +316,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     std::string worldName = opts->world;
     if (worldName.empty() && !screenshotMode && !opts->hidden) worldName = "New World";
     if (opts->noSave) worldName.clear();
-    const std::filesystem::path worldDir =
-        worldName.empty() ? std::filesystem::path() : std::filesystem::path(MC_SAVES_DIR) / worldName;
+    const std::filesystem::path worldDir = worldName.empty()
+                                               ? std::filesystem::path()
+                                               : std::filesystem::path(MC_SAVES_DIR) / worldName;
     std::optional<mc::world::LevelData> level;
     mc::FileLock sessionLock; // one game instance per world (vanilla session.lock)
     if (!worldName.empty()) {
@@ -337,16 +339,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     const bool flatWorld = level ? level->flat : opts->flat;
     const uint64_t seed = level ? level->seed : opts->seed;
-    if (level) MC_LOG_INFO("Loading world \"%s\" (seed %lld)", worldName.c_str(), static_cast<long long>(seed));
-    else if (!worldName.empty()) MC_LOG_INFO("Creating world \"%s\"", worldName.c_str());
+    if (level)
+        MC_LOG_INFO("Loading world \"%s\" (seed %lld)", worldName.c_str(),
+                    static_cast<long long>(seed));
+    else if (!worldName.empty())
+        MC_LOG_INFO("Creating world \"%s\"", worldName.c_str());
     // The player's dimension (M12): saved in level.dat; --dimension starts elsewhere.
     using mc::world::Dimension;
     Dimension dimension = Dimension::Overworld;
     if (level)
         if (const auto d = mc::world::findDimension(level->dimension)) dimension = *d;
-    if (!opts->dimension.empty() && !flatWorld) dimension = *mc::world::findDimension(opts->dimension);
+    if (!opts->dimension.empty() && !flatWorld)
+        dimension = *mc::world::findDimension(opts->dimension);
     // Each dimension saves in its own folder (vanilla: DIM-1 Nether, DIM1 End).
-    auto dimensionDir = [&](Dimension d) { return worldDir / std::string(mc::world::dimensionInfo(d).folder); };
+    auto dimensionDir = [&](Dimension d) {
+        return worldDir / std::string(mc::world::dimensionInfo(d).folder);
+    };
     // Worlds saved before kCloneFormat keep their old format number, so chunks not
     // saved since are still upgraded on later visits.
     const int32_t cloneFormat = level ? level->cloneFormat : mc::world::kCloneFormat;
@@ -358,7 +366,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     struct RetiringStorage {
         std::filesystem::path dir;
         std::thread thread;
-        RetiringStorage(std::filesystem::path d, std::thread t) : dir(std::move(d)), thread(std::move(t)) {}
+        RetiringStorage(std::filesystem::path d, std::thread t)
+            : dir(std::move(d)), thread(std::move(t)) {}
         RetiringStorage(RetiringStorage&&) = default;
         RetiringStorage& operator=(RetiringStorage&&) = default;
         ~RetiringStorage() {
@@ -372,17 +381,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     const std::string netherKind = level ? level->netherGenerator : std::string("nether3");
     const std::string endKind = level ? level->endGenerator : std::string("end2"); // (M20)
     if (endKind != "end" && endKind != "end2") {
-        MC_LOG_ERROR("World \"%s\" uses End generator \"%s\", which this build doesn't have", worldName.c_str(),
-                     endKind.c_str());
+        MC_LOG_ERROR("World \"%s\" uses End generator \"%s\", which this build doesn't have",
+                     worldName.c_str(), endKind.c_str());
         return 1;
     }
     if (netherKind != "nether" && netherKind != "nether2" && netherKind != "nether3") {
-        MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have", worldName.c_str(),
-                     netherKind.c_str());
+        MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have",
+                     worldName.c_str(), netherKind.c_str());
         return 1;
     }
-    if (generatorKind != "terrain" && generatorKind != "overworld" && generatorKind != "overworld2" &&
-        generatorKind != "overworld3") {
+    if (generatorKind != "terrain" && generatorKind != "overworld" &&
+        generatorKind != "overworld2" && generatorKind != "overworld3") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -390,14 +399,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
         if (d == Dimension::Nether)
-            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether"    ? 1
-                                                                      : netherKind == "nether2" ? 2
-                                                                                                : 3);
-        if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
+            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether" ? 1
+                                                                      : netherKind == "nether2"
+                                                                          ? 2
+                                                                          : 3);
+        if (d == Dimension::End)
+            return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
-        return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld"    ? 1
-                                                                     : generatorKind == "overworld2" ? 2
-                                                                                                     : 3);
+        return std::make_unique<mc::world::OverworldGenerator>(seed,
+                                                               generatorKind == "overworld"    ? 1
+                                                               : generatorKind == "overworld2" ? 2
+                                                                                               : 3);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -414,8 +426,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // Saved chunks replace the generated ones; generated ones save too (vanilla).
         world.forEachChunk([&](mc::world::Chunk& c) {
             if (!storage || storage->load(c)) c.clearDirty();
-            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty() || !c.spawners().empty() ||
-                !c.brewingStands().empty())
+            if (!c.furnaces().empty() || !c.mobs().empty() || !c.blockTicks().empty() ||
+                !c.spawners().empty() || !c.brewingStands().empty())
                 world.markTicking(c.pos());
         });
         renderer.setRenderDistance(8);
@@ -426,7 +438,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // the overworld costs ~1 ms per chunk; meshing has half).
     const int genThreads = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 3);
     if (!flatWorld) {
-        loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
+        loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads,
+                                                          storage.get());
         loader->setRenderDistance(opts->renderDistance);
         renderer.setRenderDistance(opts->renderDistance);
         spawn = generatorPtr->findSpawn();
@@ -436,9 +449,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         world, std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 4));
     std::vector<mc::world::ChunkPos> litChunks;
     std::vector<mc::world::SectionPos> relitSections;
-    std::vector<mc::world::BlockPos> frameEdits; // all block edits this frame (for lighting)
+    std::vector<mc::world::BlockPos> frameEdits;  // all block edits this frame (for lighting)
     std::vector<mc::world::BlockPos> frameRemesh; // edits that don't change light: re-mesh at once
-    std::vector<mc::world::BlockPos> frameSettling; // flowing fluids: re-mesh now, relight in the background
+    std::vector<mc::world::BlockPos>
+        frameSettling; // flowing fluids: re-mesh now, relight in the background
     frameSettling.reserve(4096);
     frameRemesh.reserve(4096);
     litChunks.reserve(256);
@@ -469,16 +483,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     };
     std::vector<Bolt> bolts;
     bolts.reserve(32);
-    int skyFlash = 0; // ticks the sky stays lit by a bolt (vanilla skyFlashTime)
-    mc::Particles particles;                      // M22.3 (visual only)
+    int skyFlash = 0;        // ticks the sky stays lit by a bolt (vanilla skyFlashTime)
+    mc::Particles particles; // M22.3 (visual only)
     mc::world::Xoroshiro particleRng(0x9a77'1c1eull); // (keeps gameRng's sequence for gameplay)
 
     mc::Player player;
     // The flight benchmark starts high above spawn so it never hits terrain.
     // (the flight benchmark flies at Y 220+, above any mountain, so it keeps streaming)
     player.setPosition(opts->hasPos ? opts->pos
-                       : opts->autoFly ? glm::dvec3(spawn.x, std::max(spawn.y + 60.0, 220.0), spawn.z)
-                                       : spawn);
+                       : opts->autoFly
+                           ? glm::dvec3(spawn.x, std::max(spawn.y + 60.0, 220.0), spawn.z)
+                           : spawn);
     // Scripted views (--pos) and the flight benchmark start in the air: fly.
     player.setFlying(opts->hasPos || opts->autoFly);
     player.setRotation(opts->hasLook ? opts->yaw : 0.0f, opts->hasLook ? opts->pitch : 25.0f);
@@ -497,7 +512,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
         vitals.setEnchantSeed(uint32_t(level->xpSeed));
         for (const auto& e : level->effects) // (kinds we don't have are dropped)
-            if (const auto kind = mc::world::findEffect(e.id)) vitals.addEffect(*kind, e.amplifier, e.duration);
+            if (const auto kind = mc::world::findEffect(e.id))
+                vitals.addEffect(*kind, e.amplifier, e.duration);
     }
     mc::DragonFight dragonFight; // (M20.2; end2 worlds)
     if (level) {
@@ -515,9 +531,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Explosion fireballBlast;     // ghast fireballs (M19.2)
     mc::Explosion tntBlast;          // (M21.1b)
     mc::PrimedTnt primedTnt;
-    int bowTicks = 0;                // how long the bow has been drawn
-    double airPeakY = 0.0;           // highest feet height since leaving the ground (trampling)
-    int shieldTicks = 0;             // how long right-click has held a shield up
+    int bowTicks = 0;      // how long the bow has been drawn
+    double airPeakY = 0.0; // highest feet height since leaving the ground (trampling)
+    int shieldTicks = 0;   // how long right-click has held a shield up
     // Beds (M17.4): the respawn point, sleeping (ticks asleep, the bed's head).
     std::optional<mc::world::BlockPos> bedSpawn;
     if (level && level->hasRespawn)
@@ -537,16 +553,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
 
     mc::world::Xoroshiro soundRng(0x50'0d'5eedull);
     // Plays a sound event: one of its files at random, its volume and a pitch in its range.
-    auto playSound = [&](mc::world::Sound s, const glm::dvec3& pos, float volume, float pitch, bool positional) {
+    auto playSound = [&](mc::world::Sound s, const glm::dvec3& pos, float volume, float pitch,
+                         bool positional) {
         if (!audio.active()) return;
         const auto& handles = soundHandles[size_t(s)];
         if (handles.empty()) return;
         const auto& info = mc::world::soundInfo(s);
         const float p = info.pitchMin + (info.pitchMax - info.pitchMin) * soundRng.nextFloat();
-        audio.play(handles[soundRng.nextInt(uint32_t(handles.size()))], pos, info.volume * volume, p * pitch, positional);
+        audio.play(handles[soundRng.nextInt(uint32_t(handles.size()))], pos, info.volume * volume,
+                   p * pitch, positional);
     };
     double stepDistance = 0.0, nextStep = 1.0; // footsteps (vanilla moveDist / nextStep)
-    float lastHealth = vitals.health(); // (the loaded values: no sound on the first tick)
+    float lastHealth = vitals.health();        // (the loaded values: no sound on the first tick)
     int lastXpLevel = vitals.xpLevel(), lastEatTicks = 0, rainSoundTime = 0;
     bool wasInWater = false;
     glm::dvec3 lastFeet(0.0);
@@ -575,14 +593,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (const auto e = mc::world::findEnchantment(eid))
                     mc::world::setEnchantment(s, *e, std::clamp(lvl, 1, 255));
             s.repairCost = static_cast<uint8_t>(std::clamp(it.repairCost, 0, 255));
-            if (const auto p = mc::world::findPotion(it.potion)) s.potion = static_cast<uint8_t>(*p);
+            if (const auto p = mc::world::findPotion(it.potion))
+                s.potion = static_cast<uint8_t>(*p);
             s.contents = it.contents;
             s.trim = it.trim;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
-            if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
-            else if (it.slot == 150) inventory.setOffhand(s);
-            else if (it.slot >= 200 && it.slot < 227) inventory.enderChest().items[size_t(it.slot - 200)] = s;
-            else if (it.slot >= 0 && it.slot < mc::Inventory::kSlots) inventory.setSlot(it.slot, s);
+            if (it.slot >= 100 && it.slot <= 103)
+                inventory.setArmor(103 - it.slot, s);
+            else if (it.slot == 150)
+                inventory.setOffhand(s);
+            else if (it.slot >= 200 && it.slot < 227)
+                inventory.enderChest().items[size_t(it.slot - 200)] = s;
+            else if (it.slot >= 0 && it.slot < mc::Inventory::kSlots)
+                inventory.setSlot(it.slot, s);
         }
         inventory.select(level->selectedSlot);
     }
@@ -593,15 +616,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     if (level)
         for (int i = 0; i < 3; ++i)
             worldSpawn[i] = level->spawn[i];
-    else if (dimension != Dimension::Overworld) { // a new world started elsewhere: spawn is the Overworld's
+    else if (dimension !=
+             Dimension::Overworld) { // a new world started elsewhere: spawn is the Overworld's
         const glm::dvec3 s = makeGenerator(Dimension::Overworld)->findSpawn();
-        worldSpawn[0] = int32_t(std::floor(s.x)), worldSpawn[1] = int32_t(std::floor(s.y)), worldSpawn[2] = int32_t(std::floor(s.z));
+        worldSpawn[0] = int32_t(std::floor(s.x)), worldSpawn[1] = int32_t(std::floor(s.y)),
+        worldSpawn[2] = int32_t(std::floor(s.z));
     }
     // Portals players lit or came through (level.dat, our tag), travel state (M12).
     std::vector<mc::portals::Known> knownPortals;
     if (level)
         for (const auto& p : level->portals)
-            if (const auto d = mc::world::findDimension(p.dimension)) knownPortals.push_back({*d, {p.x, p.y, p.z}});
+            if (const auto d = mc::world::findDimension(p.dimension))
+                knownPortals.push_back({*d, {p.x, p.y, p.z}});
     struct Travel {
         Dimension to;
         enum class Via { NetherPortal, EndPortal, Respawn } via;
@@ -614,7 +640,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     int portalTicks = 0;
     int arrivalWait = 0; // ticks spent waiting for a remembered portal's chunk
     if (!level && dimension == Dimension::End && !opts->hasPos) // (a new run started there)
-        arrival = Travel{Dimension::End, Travel::Via::EndPortal, {100, 49, 0}, Dimension::End, {100.5, 49.0, 0.5}};
+        arrival = Travel{Dimension::End,
+                         Travel::Via::EndPortal,
+                         {100, 49, 0},
+                         Dimension::End,
+                         {100.5, 49.0, 0.5}};
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
@@ -629,13 +659,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if (m.type == mc::world::MobType::Minecart && m.uuidHi == ridingCart) return &m;
+                        if (m.type == mc::world::MobType::Minecart && m.uuidHi == ridingCart)
+                            return &m;
         return nullptr;
     };
     int glideTicks = 0;
     int64_t sessionTicks = 0;
     // (Overworld only: elsewhere the highest ground is a roof; findSpawn is exact.)
-    bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld && dimension == Dimension::Overworld;
+    bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld &&
+                        dimension == Dimension::Overworld;
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
     auto saveWorld = [&](bool wait) {
         if (!storage) return;
@@ -661,9 +693,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.hasGateways = dragonFight.gatewaysReady;
         l.cloneFormat = cloneFormat;
         // Mid-travel the player is still where they left from (a reload re-enters).
-        l.dimension = std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
+        l.dimension =
+            std::string(mc::world::dimensionInfo(arrival ? arrival->fromDimension : dimension).id);
         for (const auto& k : knownPortals)
-            l.portals.push_back({std::string(mc::world::dimensionInfo(k.dimension).id), k.pos.x, k.pos.y, k.pos.z});
+            l.portals.push_back(
+                {std::string(mc::world::dimensionInfo(k.dimension).id), k.pos.x, k.pos.y, k.pos.z});
         for (int i = 0; i < 3; ++i)
             l.spawn[i] = worldSpawn[i];
         l.dayTime = dayTime;
@@ -693,20 +727,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.xpSeed = int32_t(uint32_t(vitals.enchantSeed()));
         for (const auto& e : vitals.effects())
             if (e.duration > 0)
-                l.effects.push_back({std::string(mc::world::effectInfo(e.type).id), e.amplifier, e.duration});
+                l.effects.push_back(
+                    {std::string(mc::world::effectInfo(e.type).id), e.amplifier, e.duration});
         l.hasRespawn = bedSpawn.has_value();
-        if (bedSpawn) l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
+        if (bedSpawn)
+            l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
         auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
             if (s.empty()) return;
-            mc::world::LevelData::SavedItem it{slot, mc::world::itemRegistry().item(s.item).id,
-                                               s.state ? mc::world::blockRegistry().toString(s.state) : std::string(),
-                                               s.count, s.damage};
+            mc::world::LevelData::SavedItem it{
+                slot, mc::world::itemRegistry().item(s.item).id,
+                s.state ? mc::world::blockRegistry().toString(s.state) : std::string(), s.count,
+                s.damage};
             for (const uint16_t v : s.enchantments)
-                if (v) it.enchantments.emplace_back(
-                    std::string(mc::world::enchantmentInfo(mc::world::Enchantment(v >> 8)).id), int(v & 0xFF));
+                if (v)
+                    it.enchantments.emplace_back(
+                        std::string(mc::world::enchantmentInfo(mc::world::Enchantment(v >> 8)).id),
+                        int(v & 0xFF));
             it.repairCost = s.repairCost;
-            if (s.potion) it.potion = std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
+            if (s.potion)
+                it.potion =
+                    std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
             it.storedEnchantments = it.id == "minecraft:enchanted_book";
             it.contents = s.contents;
             it.trim = s.trim;
@@ -752,8 +793,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, inventory, dayTime, gameTime, seed, &survival, &vitals, &world, &gameRng,
-                                  &frameEdits, &weather, &commandBolts};
+            mc::CommandContext ctx{player,   inventory,   dayTime,  gameTime,
+                                   seed,     &survival,   &vitals,  &world,
+                                   &gameRng, &frameEdits, &weather, &commandBolts};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -783,7 +825,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (slots.empty()) {
             screenDrops.clear();
             container.close(inventory, screenDrops);
-            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // (the cursor's stack)
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(),
+                                 screenDrops.end()); // (the cursor's stack)
             if (!screenshotMode) window.setCursorCaptured(true);
         }
     };
@@ -792,27 +835,54 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         const auto slots = storeAt(b);
         if (slots.empty()) return false;
         containerBlock = b;
-        container.openStore(block == mc::world::blocks::Hopper ? mc::ui::ContainerScreen::Type::Hopper
-                                                                 : mc::ui::ContainerScreen::Type::Dispenser,
+        container.openStore(block == mc::world::blocks::Hopper
+                                ? mc::ui::ContainerScreen::Type::Hopper
+                                : mc::ui::ContainerScreen::Type::Dispenser,
                             slots, block == mc::world::blocks::Dropper);
         return true;
     };
     auto pointChests = [&] {
         auto chestAt = [&](const mc::world::BlockPos& p) -> mc::world::ChestData* {
             mc::world::Chunk* c = world.chunk(p.chunk());
-            return c ? c->chest(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z)) : nullptr;
+            return c ? c->chest(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z))
+                     : nullptr;
         };
-        const bool ender = mc::world::blockRegistry().blockOf(world.getBlock(containerBlock)) == mc::world::blocks::EnderChest;
+        const bool ender = mc::world::blockRegistry().blockOf(world.getBlock(containerBlock)) ==
+                           mc::world::blocks::EnderChest;
         mc::world::ChestData* first = ender ? &inventory.enderChest() : chestAt(containerBlock);
         mc::world::ChestData* second = chestSecond ? chestAt(*chestSecond) : nullptr;
         if (!first || (chestSecond && !second)) {
             screenDrops.clear();
             container.close(inventory, screenDrops);
-            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // (spawned in the tick)
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(),
+                                 screenDrops.end()); // (spawned in the tick)
             if (!screenshotMode) window.setCursorCaptured(true);
             return;
         }
         container.setChests(first, second);
+    };
+    // An open trading screen follows its villager (mobs move in memory); it closes if
+    // the villager is gone or more than 8 blocks away (M24.2).
+    uint64_t traderUuid = 0; // the villager whose trading screen is open (M24.2)
+    auto pointTrader = [&] {
+        mc::world::MobData* trader = nullptr;
+        const mc::world::ChunkPos pc{mc::world::blockToChunk(int(std::floor(player.position().x))),
+                                     mc::world::blockToChunk(int(std::floor(player.position().z)))};
+        for (int dz = -1; dz <= 1 && !trader; ++dz)
+            for (int dx = -1; dx <= 1 && !trader; ++dx)
+                if (mc::world::Chunk* tc = world.chunk({pc.x + dx, pc.z + dz}))
+                    for (auto& mob : tc->mobs())
+                        if (mob.uuidHi == traderUuid && mob.health > 0.0f) trader = &mob;
+        if (trader && glm::length(trader->pos - player.position()) > 8.0) trader = nullptr;
+        container.setTrader(trader);
+        if (trader) {
+            trader->tradingTicks = 5;
+        } else {
+            screenDrops.clear();
+            container.close(inventory, screenDrops);
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end());
+            if (!screenshotMode) window.setCursorCaptured(true);
+        }
     };
     // Opens a chest's screen unless a solid block sits on it (wiki: Chest); a double
     // chest shows its "left" half first.
@@ -822,9 +892,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // An ender chest won't open under a solid block (like a chest); a shulker box
         // needs room for its lid: the near half of the block it faces must be free of
         // collision boxes (a top slab above is fine) (wiki: Ender Chest, Shulker Box).
-        if (ob == mc::world::blocks::EnderChest && creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z}))) return false;
+        if (ob == mc::world::blocks::EnderChest &&
+            creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})))
+            return false;
         if (creg.likeOf(ob) == mc::world::blocks::ShulkerBox) {
-            const auto face = static_cast<mc::world::Direction>(creg.get(world.getBlock(p), mc::world::properties::facing6));
+            const auto face = static_cast<mc::world::Direction>(
+                creg.get(world.getBlock(p), mc::world::properties::facing6));
             const glm::ivec3 n = mc::world::normal(face);
             const mc::world::BlockStateId front = world.getBlock({p.x + n.x, p.y + n.y, p.z + n.z});
             if (creg.collides(front)) {
@@ -832,7 +905,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 bool blocked = shape.count == 0; // (a full cube)
                 for (int i = 0; i < shape.count && !blocked; ++i) {
                     const auto& bx = shape.boxes[size_t(i)];
-                    const int axis = n.x ? 0 : n.y ? 1 : 2; // the lid needs [0, 8) on that axis, from our side
+                    const int axis = n.x   ? 0
+                                     : n.y ? 1
+                                           : 2; // the lid needs [0, 8) on that axis, from our side
                     const int lo = (n.x + n.y + n.z) > 0 ? 0 : 8, hi = lo + 8;
                     blocked = bx.from[axis] < hi && bx.to[axis] > lo;
                 }
@@ -845,13 +920,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             chestSecond.reset();
             container.openChest(nullptr, nullptr);
             pointChests();
-            playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f, true);
+            playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f,
+                      true);
             return true;
         }
         if (creg.blockOf(world.getBlock(p)) != mc::world::blocks::Chest) return false;
         const auto partner = mc::world::BlockUpdates::chestPartner(world, p);
-        const bool blocked = creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
-                             (partner && creg.opaqueCube(world.getBlock({partner->x, partner->y + 1, partner->z})));
+        const bool blocked =
+            creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
+            (partner && creg.opaqueCube(world.getBlock({partner->x, partner->y + 1, partner->z})));
         if (blocked) return false;
         const bool leftFirst = creg.value(world.getBlock(p), "type") != "right";
         containerBlock = partner && !leftFirst ? *partner : p;
@@ -862,6 +939,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
+    bool tradePending = opts->trade;
     std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
     // The rain/snow columns around the camera (ground, kind, light), refilled once a
@@ -878,9 +956,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Settings that touch this world (M22.5): view and simulation distance, clouds.
     auto applySessionOptions = [&] {
         const mc::GameOptions& o = shared.options;
-        const int distance = shared.cliRenderDistance > 0 && o.renderDistance == shared.optionsRenderDistance
-                                 ? shared.cliRenderDistance
-                                 : o.renderDistance;
+        const int distance =
+            shared.cliRenderDistance > 0 && o.renderDistance == shared.optionsRenderDistance
+                ? shared.cliRenderDistance
+                : o.renderDistance;
         if (loader && distance != opts->renderDistance) {
             opts->renderDistance = distance;
             loader->setRenderDistance(distance);
@@ -897,16 +976,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // The Game Menu (Esc) pauses the game: no ticks, the menu takes the input.
         const bool paused = shared.menuState.screen != mc::ui::MenuScreen::None;
         // An open chest screen follows its block(s) (closed if broken).
-        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest)
+            pointChests();
         if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
                                    container.type() == mc::ui::ContainerScreen::Type::Dispenser))
             pointStore();
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
+            pointTrader();
         // An open beacon screen follows its block (closed if it was broken) (M23.6).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
-            mc::world::BeaconData* bd = c ? c->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
-                                                      mc::world::blockToLocal(containerBlock.z))
-                                          : nullptr;
+            mc::world::BeaconData* bd =
+                c ? c->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                              mc::world::blockToLocal(containerBlock.z))
+                  : nullptr;
             container.setBeacon(bd);
             if (!bd) {
                 screenDrops.clear();
@@ -918,9 +1001,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // An open brewing stand screen follows its block (closed if it was broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
-            mc::world::BrewingData* b = c ? c->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
-                                                       mc::world::blockToLocal(containerBlock.z))
-                                          : nullptr;
+            mc::world::BrewingData* b =
+                c ? c->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                               mc::world::blockToLocal(containerBlock.z))
+                  : nullptr;
             container.setBrewing(b);
             if (!b) {
                 screenDrops.clear();
@@ -936,7 +1020,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 c ? c->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
                                mc::world::blockToLocal(containerBlock.z))
                   : nullptr;
-            if (f) container.setFurnace(f);
+            if (f)
+                container.setFurnace(f);
             else {
                 screenDrops.clear();
                 container.close(inventory, screenDrops);
@@ -944,13 +1029,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
         }
         // Text typed this frame (only the chat consumes it).
-        const int typedCount = paused ? 0 : window.takeText(typed.data(), static_cast<int>(typed.size()));
+        const int typedCount =
+            paused ? 0 : window.takeText(typed.data(), static_cast<int>(typed.size()));
         if (paused) {
             // (the menu reads clicks, Enter, Esc and text when it is drawn; game keys
             // pressed meanwhile must not act after resuming)
-            for (const mc::Press p : {mc::Press::Chat, mc::Press::Command, mc::Press::Inventory, mc::Press::F3,
-                                      mc::Press::Up, mc::Press::Down, mc::Press::Drop, mc::Press::Jump,
-                                      mc::Press::RightMouse})
+            for (const mc::Press p : {mc::Press::Chat, mc::Press::Command, mc::Press::Inventory,
+                                      mc::Press::F3, mc::Press::Up, mc::Press::Down,
+                                      mc::Press::Drop, mc::Press::Jump, mc::Press::RightMouse})
                 window.takePresses(p);
         } else if (chat.isOpen()) {
             chat.type({typed.data(), size_t(typedCount)}); // backspaces included, in order
@@ -970,8 +1056,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.setCursorCaptured(true);
                 attackArmed = false;
             }
-            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
-                           mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
+                           mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
         } else if (signEditor.isOpen()) {
             // Sign editing (M23.3c): typing goes to the active line; Done or Esc saves.
@@ -979,13 +1065,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             window.takePresses(mc::Press::Backspace);
             for (int n = window.takePresses(mc::Press::Up); n > 0; --n)
                 signEditor.previousLine();
-            for (int n = window.takePresses(mc::Press::Down) + window.takePresses(mc::Press::Enter); n > 0; --n)
+            for (int n = window.takePresses(mc::Press::Down) + window.takePresses(mc::Press::Enter);
+                 n > 0; --n)
                 signEditor.nextLine();
             signClick = window.takePresses(mc::Press::LeftMouse) > 0;
             if (window.takePresses(mc::Press::Escape) > 0 || signDone) {
                 const mc::world::BlockPos sp = signEditor.pos();
                 if (mc::world::Chunk* sc = world.chunk(sp.chunk()))
-                    if (mc::world::SignData* sd = sc->sign(mc::world::blockToLocal(sp.x), sp.y, mc::world::blockToLocal(sp.z))) {
+                    if (mc::world::SignData* sd = sc->sign(mc::world::blockToLocal(sp.x), sp.y,
+                                                           mc::world::blockToLocal(sp.z))) {
                         sd->front.lines = signEditor.text().lines;
                         sc->markDirty();
                     }
@@ -994,7 +1082,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.setCursorCaptured(true);
                 attackArmed = false;
             }
-            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory, mc::Press::RightMouse})
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
+                           mc::Press::RightMouse})
                 window.takePresses(p);
         } else if (container.isOpen()) {
             container.setPlayer(vitals.xpLevel(), !survival, vitals.enchantSeed());
@@ -1008,11 +1097,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const bool shift = window.keyDown(mc::Key::LeftShift);
             screenDrops.clear();
             for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
-                container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale, fh / scale,
-                                inventory, screenDrops);
+                container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale,
+                                fh / scale, inventory, screenDrops);
             for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n)
-                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale, fh / scale,
-                                inventory, screenDrops);
+                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale,
+                                fh / scale, inventory, screenDrops);
             // Contents edited through the screen: the block entity's chunk needs saving.
             if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
                 container.type() == mc::ui::ContainerScreen::Type::Furnace ||
@@ -1023,12 +1112,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (chestSecond)
                     if (mc::world::Chunk* c = world.chunk(chestSecond->chunk())) c->markDirty();
             }
-            if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
+            if (window.takePresses(mc::Press::Escape) > 0 ||
+                window.takePresses(mc::Press::Inventory) > 0) {
                 container.close(inventory, screenDrops);
                 if (!screenshotMode) window.setCursorCaptured(true);
                 attackArmed = false;
             }
-            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end()); // next tick
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(),
+                                 screenDrops.end()); // next tick
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Backspace,
                            mc::Press::Up, mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
                 window.takePresses(p);
@@ -1044,20 +1135,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 creative.click(mx, my, fw / scale, fh / scale, inventory);
             creative.scroll(window.scrollDelta());
             for (int i = 0; i < mc::Inventory::kHotbar; ++i) {
-                const bool down = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
-                if (down && !numberWasDown[i]) creative.numberKey(i, mx, my, fw / scale, fh / scale, inventory);
+                const bool down =
+                    window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
+                if (down && !numberWasDown[i])
+                    creative.numberKey(i, mx, my, fw / scale, fh / scale, inventory);
             }
-            if (window.takePresses(mc::Press::Escape) > 0 || window.takePresses(mc::Press::Inventory) > 0) {
+            if (window.takePresses(mc::Press::Escape) > 0 ||
+                window.takePresses(mc::Press::Inventory) > 0) {
                 creative.close();
                 if (!screenshotMode) window.setCursorCaptured(true);
                 attackArmed = false;
             }
-            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::RightMouse,
-                           mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter,
-                           mc::Press::Drop})
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
+                           mc::Press::RightMouse, mc::Press::Backspace, mc::Press::Up,
+                           mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
                 window.takePresses(p);
         } else {
-            if (dead && window.takePresses(mc::Press::Enter) > 0) { // respawn at the bed or world spawn
+            if (dead &&
+                window.takePresses(mc::Press::Enter) > 0) { // respawn at the bed or world spawn
                 dead = false;
                 vitals.reset();
                 if (bedSpawn && dimension == Dimension::Overworld) {
@@ -1065,11 +1160,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     player.setVelocity(glm::dvec3(0.0));
                     bedRespawnPending = true; // checked once its chunks are loaded
                 } else if (dimension != Dimension::Overworld) {
-                    pendingTravel = Travel{Dimension::Overworld, Travel::Via::Respawn, {}}; // spawn is in the Overworld
+                    pendingTravel = Travel{Dimension::Overworld,
+                                           Travel::Via::Respawn,
+                                           {}}; // spawn is in the Overworld
                 } else {
-                    player.setPosition(glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
+                    player.setPosition(
+                        glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5));
                     spawnPending = !flatWorld; // settle on the ground there again
-                    if (spawnPending) spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                    if (spawnPending)
+                        spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
                 }
             }
             for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
@@ -1084,62 +1183,78 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     chat.open();
                     window.setCursorCaptured(false);
                 } else if (window.takePresses(mc::Press::Inventory) > 0) {
-                    if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
-                    else creative.open();
+                    if (survival)
+                        container.open(mc::ui::ContainerScreen::Type::Inventory);
+                    else
+                        creative.open();
                     window.setCursorCaptured(false);
-                } else if (lastHit && !window.keyDown(mc::Key::LeftShift) && window.takePresses(mc::Press::RightMouse) > 0) {
+                } else if (lastHit && !window.keyDown(mc::Key::LeftShift) &&
+                           window.takePresses(mc::Press::RightMouse) > 0) {
                     // Using a workstation opens its screen (sneaking places against it).
                     const auto& reg = mc::world::blockRegistry();
                     const auto block = reg.blockOf(world.getBlock(lastHit->block));
                     if (block == mc::world::blocks::CraftingTable) {
                         container.open(mc::ui::ContainerScreen::Type::Crafting);
                         window.setCursorCaptured(false);
-                    } else if (reg.likeOf(block) == mc::world::blocks::Furnace) { // (smokers, blast furnaces)
+                    } else if (reg.likeOf(block) ==
+                               mc::world::blocks::Furnace) { // (smokers, blast furnaces)
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::Beacon) { // (M23.6)
                         containerBlock = lastHit->block;
                         mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
-                        container.openBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
-                                                             mc::world::blockToLocal(containerBlock.z))
-                                                : nullptr);
+                        container.openBeacon(
+                            bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x),
+                                            containerBlock.y,
+                                            mc::world::blockToLocal(containerBlock.z))
+                               : nullptr);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::BrewingStand) {
                         containerBlock = lastHit->block;
                         mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
-                        container.openBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
-                                                               mc::world::blockToLocal(containerBlock.z))
-                                                 : nullptr);
+                        container.openBrewing(
+                            bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x),
+                                             containerBlock.y,
+                                             mc::world::blockToLocal(containerBlock.z))
+                               : nullptr);
                         window.setCursorCaptured(false);
-                    } else if ((block == mc::world::blocks::Hopper || block == mc::world::blocks::Dispenser ||
+                    } else if ((block == mc::world::blocks::Hopper ||
+                                block == mc::world::blocks::Dispenser ||
                                 block == mc::world::blocks::Dropper) &&
                                openStoreAt(lastHit->block)) {
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
-                        pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
-                    } else if (block == mc::world::blocks::Stonecutter || block == mc::world::blocks::Grindstone ||
-                               block == mc::world::blocks::SmithingTable || block == mc::world::blocks::Loom ||
+                        pendingBedUse =
+                            lastHit->block; // used in the next tick (simulation stays in ticks)
+                    } else if (block == mc::world::blocks::Stonecutter ||
+                               block == mc::world::blocks::Grindstone ||
+                               block == mc::world::blocks::SmithingTable ||
+                               block == mc::world::blocks::Loom ||
                                block == mc::world::blocks::CartographyTable) {
                         using T = mc::ui::ContainerScreen::Type; // (M23.5-6 workstations)
                         containerBlock = lastHit->block;
                         container.open(block == mc::world::blocks::Stonecutter     ? T::Stonecutter
                                        : block == mc::world::blocks::Grindstone    ? T::Grindstone
                                        : block == mc::world::blocks::SmithingTable ? T::Smithing
-                                       : block == mc::world::blocks::Loom          ? T::Loom
-                                                                                   : T::Cartography);
+                                       : block == mc::world::blocks::Loom ? T::Loom
+                                                                          : T::Cartography);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::EnchantingTable) {
                         containerBlock = lastHit->block;
-                        container.openEnchanting(mc::countBookshelves(world, lastHit->block), vitals.enchantSeed());
+                        container.openEnchanting(mc::countBookshelves(world, lastHit->block),
+                                                 vitals.enchantSeed());
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Anvil || block == mc::world::blocks::ChippedAnvil ||
+                    } else if (block == mc::world::blocks::Anvil ||
+                               block == mc::world::blocks::ChippedAnvil ||
                                block == mc::world::blocks::DamagedAnvil) {
                         containerBlock = lastHit->block;
                         container.openAnvil();
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Chest || block == mc::world::blocks::Barrel ||
-                               block == mc::world::blocks::EnderChest || reg.likeOf(block) == mc::world::blocks::ShulkerBox) {
+                    } else if (block == mc::world::blocks::Chest ||
+                               block == mc::world::blocks::Barrel ||
+                               block == mc::world::blocks::EnderChest ||
+                               reg.likeOf(block) == mc::world::blocks::ShulkerBox) {
                         if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
                         window.addPress(mc::Press::RightMouse); // not a workstation: a normal use
@@ -1157,7 +1272,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     attackArmed = false;
                     window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
                 }
-                if (window.takePresses(mc::Press::Escape) > 0) { // the Game Menu (vanilla pauses and saves)
+                if (window.takePresses(mc::Press::Escape) >
+                    0) { // the Game Menu (vanilla pauses and saves)
                     window.setCursorCaptured(false);
                     blockUpdates.landAll();
                     saveWorld(false);
@@ -1168,7 +1284,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // Key edges for the creative's number keys: tracked every frame, so a key
         // held while the screen opens doesn't count as a fresh press.
         for (int i = 0; i < mc::Inventory::kHotbar; ++i)
-            numberWasDown[i] = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
+            numberWasDown[i] =
+                window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
         // Game presses made while the mouse isn't captured (typing, menus) must not
         // act later (spaces typed in chat would toggle flight).
         if (!window.cursorCaptured()) {
@@ -1205,7 +1322,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 pendingTravel.reset();
                 t.fromDimension = dimension; // saved as the player's place until arrival
                 t.fromPos = player.position();
-                MC_LOG_INFO("Travelling to %s", std::string(mc::world::dimensionInfo(t.to).id).c_str());
+                MC_LOG_INFO("Travelling to %s",
+                            std::string(mc::world::dimensionInfo(t.to).id).c_str());
                 blockUpdates.landAll(); // (blocks in flight land in this dimension first)
                 saveWorld(false);
                 loader.reset(); // joins its workers
@@ -1224,7 +1342,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const Dimension from = dimension;
                 dimension = t.to;
                 world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
-                world.setHeight(mc::world::dimensionInfo(dimension).height); // (no chunks are loaded now)
+                world.setHeight(
+                    mc::world::dimensionInfo(dimension).height); // (no chunks are loaded now)
                 world.setUltrawarm(dimension == Dimension::Nether);
                 renderer.setDimension(dimension);
                 vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
@@ -1232,7 +1351,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // hundreds of chunks would freeze the frame); a folder is reopened only
                 // after its previous storage has finished.
                 if (storage) {
-                    retiringStorage.push_back({dimensionDir(from), std::thread([old = std::move(storage)]() mutable { old.reset(); })});
+                    retiringStorage.push_back(
+                        {dimensionDir(from),
+                         std::thread([old = std::move(storage)]() mutable { old.reset(); })});
                 }
                 if (!worldName.empty()) {
                     const auto dir = dimensionDir(dimension);
@@ -1244,14 +1365,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     storage = std::make_unique<mc::world::ChunkStorage>(dir, legacyWorld);
                 }
                 generatorPtr = makeGenerator(dimension);
-                loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads, storage.get());
+                loader = std::make_unique<mc::world::ChunkLoader>(world, *generatorPtr, genThreads,
+                                                                  storage.get());
                 loader->setRenderDistance(opts->renderDistance);
                 arrival = t;
-                if (t.via == Travel::Via::NetherPortal) arrival->from = mc::portals::destination(from, dimension, t.from);
-                else if (t.via == Travel::Via::EndPortal) arrival->from = {100, 49, 0};
-                else arrival->from = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
+                if (t.via == Travel::Via::NetherPortal)
+                    arrival->from = mc::portals::destination(from, dimension, t.from);
+                else if (t.via == Travel::Via::EndPortal)
+                    arrival->from = {100, 49, 0};
+                else
+                    arrival->from = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
                 // Wait at the destination; unloaded chunks hold the player up meanwhile.
-                player.setPosition({arrival->from.x + 0.5, double(arrival->from.y), arrival->from.z + 0.5});
+                player.setPosition(
+                    {arrival->from.x + 0.5, double(arrival->from.y), arrival->from.z + 0.5});
                 player.setVelocity(glm::dvec3(0.0));
                 vitals.resetFall(); // the wait doesn't count as a fall
                 portalTicks = 0;
@@ -1271,8 +1397,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A remembered portal in a chunk that isn't loaded yet is checked once it
                     // is (it may be gone since), unless that takes too long.
                     if (found && !world.chunk(found->chunk())) {
-                        if (++arrivalWait < 400) ready = false;
-                        else found.reset();
+                        if (++arrivalWait < 400)
+                            ready = false;
+                        else
+                            found.reset();
                     }
                 }
                 if (ready) {
@@ -1283,24 +1411,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::world::BlockPos in;
                         if (found) {
                             in = *found;
-                            while (mc::world::blockRegistry().blockOf(world.getBlock({in.x, in.y - 1, in.z})) ==
-                                   mc::world::blocks::NetherPortal)
+                            while (mc::world::blockRegistry().blockOf(world.getBlock(
+                                       {in.x, in.y - 1, in.z})) == mc::world::blocks::NetherPortal)
                                 --in.y;
                         } else {
                             const bool nether = dimension == Dimension::Nether;
-                            in = mc::portals::build(world, a.from, nether ? 32 : world.height().minY + 8,
-                                                    // vanilla: up to 10 below the logical top
-                                                    mc::world::dimensionInfo(dimension).logicalHeight +
-                                                        world.height().minY - 10,
-                                                    frameEdits);
+                            in = mc::portals::build(
+                                world, a.from, nether ? 32 : world.height().minY + 8,
+                                // vanilla: up to 10 below the logical top
+                                mc::world::dimensionInfo(dimension).logicalHeight +
+                                    world.height().minY - 10,
+                                frameEdits);
                             knownPortals.push_back({dimension, in});
                         }
                         player.setPosition({in.x + 0.5, double(in.y), in.z + 0.5});
                     } else if (a.via == Travel::Via::EndPortal) {
                         player.setPosition(mc::portals::endPlatform(world, frameEdits));
-                        player.setRotation(90.0f, 0.0f); // facing west, toward the island (wiki: End Platform)
+                        player.setRotation(
+                            90.0f, 0.0f);  // facing west, toward the island (wiki: End Platform)
                     } else if (bedSpawn) { // back from the Nether/End to the bed (wiki: Bed)
-                        player.setPosition({bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
+                        player.setPosition(
+                            {bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
                         bedRespawnPending = true;
                     } else {
                         spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
@@ -1322,8 +1453,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (const auto spot = mc::bedStandSpot(world, *bedSpawn)) {
                         player.setPosition(*spot);
                     } else { // gone or blocked: the world spawn (wiki: Bed)
-                        chat.addMessage("You have no home bed or charged respawn anchor, or it was obstructed",
-                                        0xFFFFFFFFu, gameTime, gui.batch());
+                        chat.addMessage(
+                            "You have no home bed or charged respawn anchor, or it was obstructed",
+                            0xFFFFFFFFu, gameTime, gui.batch());
                         bedSpawn.reset();
                         spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
                         player.setPosition(spawn);
@@ -1341,65 +1473,69 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos bedPos = *pendingBedUse;
                 pendingBedUse.reset();
                 const glm::dvec3 feetNow = player.position();
-                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow, weather.raining,
-                                   weather.raining && weather.thundering)) {
-                        case mc::BedUse::Sleep:
-                            bedSpawn = *mc::bedHead(world, bedPos);
-                            sleepBed = *bedSpawn;
-                            sleepTicks = 1;
-                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::NotNight:
-                            bedSpawn = *mc::bedHead(world, bedPos);
-                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
-                            chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::Monsters:
-                            chat.addMessage("You may not rest now; there are monsters nearby", 0xFFFFFFFFu, gameTime,
-                                            gui.batch());
-                            break;
-                        case mc::BedUse::Occupied:
-                            chat.addMessage("This bed is occupied", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::Explodes: { // wiki: Bed - power 5 outside the Overworld
-                            const mc::world::BlockPos head = *mc::bedHead(world, bedPos);
-                            world.updateBlock(head, 0); // (the foot follows)
-                            frameEdits.push_back(head);
-                            mc::ExplosionTargets t;
-                            t.tnt = &primedTnt;
-                            if (survival) {
-                                t.player = &player;
-                                t.vitals = &vitals;
-                            }
-                            bedExplosion.explode(world, {head.x + 0.5, head.y + 0.5, head.z + 0.5}, 5.0f, gameRng,
-                                                 droppedItems, frameEdits, t);
-                            break;
-                        }
-                        case mc::BedUse::TooFar:
-                            chat.addMessage("You can't rest now; the bed is too far away", 0xFFFFFFFFu, gameTime,
-                                            gui.batch());
-                            break;
-                        case mc::BedUse::Obstructed:
-                            chat.addMessage("This bed is obstructed", 0xFFFFFFFFu, gameTime, gui.batch());
-                            break;
-                        case mc::BedUse::NotABed: break;
-                        }
+                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow,
+                                   weather.raining, weather.raining && weather.thundering)) {
+                case mc::BedUse::Sleep:
+                    bedSpawn = *mc::bedHead(world, bedPos);
+                    sleepBed = *bedSpawn;
+                    sleepTicks = 1;
+                    chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                    break;
+                case mc::BedUse::NotNight:
+                    bedSpawn = *mc::bedHead(world, bedPos);
+                    chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                    chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime,
+                                    gui.batch());
+                    break;
+                case mc::BedUse::Monsters:
+                    chat.addMessage("You may not rest now; there are monsters nearby", 0xFFFFFFFFu,
+                                    gameTime, gui.batch());
+                    break;
+                case mc::BedUse::Occupied:
+                    chat.addMessage("This bed is occupied", 0xFFFFFFFFu, gameTime, gui.batch());
+                    break;
+                case mc::BedUse::Explodes: { // wiki: Bed - power 5 outside the Overworld
+                    const mc::world::BlockPos head = *mc::bedHead(world, bedPos);
+                    world.updateBlock(head, 0); // (the foot follows)
+                    frameEdits.push_back(head);
+                    mc::ExplosionTargets t;
+                    t.tnt = &primedTnt;
+                    if (survival) {
+                        t.player = &player;
+                        t.vitals = &vitals;
+                    }
+                    bedExplosion.explode(world, {head.x + 0.5, head.y + 0.5, head.z + 0.5}, 5.0f,
+                                         gameRng, droppedItems, frameEdits, t);
+                    break;
+                }
+                case mc::BedUse::TooFar:
+                    chat.addMessage("You can't rest now; the bed is too far away", 0xFFFFFFFFu,
+                                    gameTime, gui.batch());
+                    break;
+                case mc::BedUse::Obstructed:
+                    chat.addMessage("This bed is obstructed", 0xFFFFFFFFu, gameTime, gui.batch());
+                    break;
+                case mc::BedUse::NotABed:
+                    break;
+                }
             }
             pendingBedUse.reset();
 
             // Commands wait until the player's chunk is there (--command scripts run
             // before the world has streamed in otherwise).
-            if (!pendingChat.empty() && world.chunk(mc::world::ChunkPos{
-                                            mc::world::blockToChunk(int(std::floor(player.position().x))),
-                                            mc::world::blockToChunk(int(std::floor(player.position().z)))}) &&
+            if (!pendingChat.empty() &&
+                world.chunk(mc::world::ChunkPos{
+                    mc::world::blockToChunk(int(std::floor(player.position().x))),
+                    mc::world::blockToChunk(int(std::floor(player.position().z)))}) &&
                 !spawnPending && !arrival) {
                 for (const auto& line : pendingChat)
                     runChatLine(line);
                 pendingChat.clear();
             }
             for (const auto& t : pendingThrows)
-                droppedItems.throwFrom(player.eyePosition(1.0),
-                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), t, gameRng);
+                droppedItems.throwFrom(
+                    player.eyePosition(1.0),
+                    glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), t, gameRng);
             pendingThrows.clear();
             mc::PlayerInput input = readInput(window);
             // Presses since the last tick (only the first tick of a frame sees them).
@@ -1427,7 +1563,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (weather.raining) weather.set(mc::world::Weather::Kind::Clear, 0);
                     }
                     if (stillBed)
-                        if (const auto spot = mc::bedStandSpot(world, sleepBed)) player.setPosition(*spot);
+                        if (const auto spot = mc::bedStandSpot(world, sleepBed))
+                            player.setPosition(*spot);
                     sleepTicks = 0;
                 }
             }
@@ -1438,17 +1575,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 using E = mc::world::Effect;
                 vitals.tickEffects(); // (M19.4: in any game mode)
                 player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
-                                  vitals.effectLevel(E::JumpBoost), vitals.effectLevel(E::SlowFalling) > 0,
+                                  vitals.effectLevel(E::JumpBoost),
+                                  vitals.effectLevel(E::SlowFalling) > 0,
                                   vitals.effectLevel(E::Levitation));
             }
             {
                 // An elytra worn and not about to break can glide (wiki: Elytra - it stops
                 // working at 1 durability left).
-                static const mc::world::ItemId elytraItem = *mc::world::itemRegistry().find("elytra");
+                static const mc::world::ItemId elytraItem =
+                    *mc::world::itemRegistry().find("elytra");
                 const mc::world::ItemStack& chestPiece = inventory.armor(1);
-                player.setCanGlide(!dead && chestPiece.item == elytraItem && chestPiece.damage < 431);
+                player.setCanGlide(!dead && chestPiece.item == elytraItem &&
+                                   chestPiece.damage < 431);
             }
-            if (!arrival && ridingCart == 0) player.tick(world, input); // waiting for a destination: held in place
+            if (!arrival && ridingCart == 0)
+                player.tick(world, input);               // waiting for a destination: held in place
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
             if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
                 mc::world::MobData* cart = findCart();
@@ -1457,11 +1598,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const auto& reg = mc::world::blockRegistry();
                         cart->ridden = false;
                         glm::dvec3 out = cart->pos + glm::dvec3(0.0, 1.0, 0.0);
-                        const mc::world::BlockPos c{int(std::floor(cart->pos.x)), int(std::floor(cart->pos.y)),
+                        const mc::world::BlockPos c{int(std::floor(cart->pos.x)),
+                                                    int(std::floor(cart->pos.y)),
                                                     int(std::floor(cart->pos.z))};
-                        for (const glm::ivec2 d : {glm::ivec2{0, -1}, glm::ivec2{1, 0}, glm::ivec2{0, 1}, glm::ivec2{-1, 0}}) {
+                        for (const glm::ivec2 d : {glm::ivec2{0, -1}, glm::ivec2{1, 0},
+                                                   glm::ivec2{0, 1}, glm::ivec2{-1, 0}}) {
                             const mc::world::BlockPos f{c.x + d.x, c.y, c.z + d.y};
-                            if (!reg.collides(world.getBlock(f)) && !reg.collides(world.getBlock({f.x, f.y + 1, f.z})) &&
+                            if (!reg.collides(world.getBlock(f)) &&
+                                !reg.collides(world.getBlock({f.x, f.y + 1, f.z})) &&
                                 reg.collides(world.getBlock({f.x, f.y - 1, f.z}))) {
                                 out = {f.x + 0.5, double(f.y), f.z + 0.5};
                                 break;
@@ -1472,17 +1616,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     ridingCart = 0;
                 } else if (input.forward > 0.0f) {
                     const glm::dvec3 f(mc::world::forwardFlat(player.yaw()));
-                    if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01) cart->vel += f * 0.04;
+                    if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01)
+                        cart->vel += f * 0.04;
                 }
             }
             const auto& reg = mc::world::blockRegistry();
             const glm::dvec3 feet = player.position();
-            const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+            const mc::world::BlockPos feetBlock{int(std::floor(feet.x)), int(std::floor(feet.y)),
+                                                int(std::floor(feet.z))};
             const bool inWater = reg.blockOf(world.getBlock(feetBlock)) == mc::world::blocks::Water;
             // Landing on farmland may trample it: chance fall distance - 0.5 (wiki: Farmland).
             if (player.onGround() || player.flying() || inWater) {
                 if (player.onGround() && !wasOnGround && !player.flying()) {
-                    const mc::world::BlockPos below{feetBlock.x, int(std::floor(feet.y - 0.01)), feetBlock.z};
+                    const mc::world::BlockPos below{feetBlock.x, int(std::floor(feet.y - 0.01)),
+                                                    feetBlock.z};
                     if (reg.blockOf(world.getBlock(below)) == mc::world::blocks::Farmland &&
                         gameRng.nextFloat() < float(airPeakY - feet.y - 0.5))
                         blockUpdates.trample(below);
@@ -1495,65 +1642,89 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Exhaustion (wiki: Hunger): sprinting 0.1 per metre, jumps 0.05 (0.2
                 // sprinting).
                 if (player.sprinting())
-                    vitals.exhaust(0.1f * float(glm::length(glm::dvec2(feet.x - before.x, feet.z - before.z))));
+                    vitals.exhaust(0.1f * float(glm::length(
+                                              glm::dvec2(feet.x - before.x, feet.z - before.z))));
                 if (wasOnGround && !player.onGround() && player.velocity().y > 0.0)
                     vitals.exhaust(player.sprinting() ? 0.2f : 0.05f);
                 if (!arrival) {
                     // (gliding counts as flying for falls: our simplification)
                     {
-                        const mc::world::BlockPos under{int(std::floor(feet.x)), int(std::floor(feet.y - 0.2)),
+                        const mc::world::BlockPos under{int(std::floor(feet.x)),
+                                                        int(std::floor(feet.y - 0.2)),
                                                         int(std::floor(feet.z))};
-                        vitals.setLandingFactor(reg.blockOf(world.getBlock(under)) == mc::world::blocks::HayBlock ? 0.2f
-                                                                                                             : 1.0f);
+                        vitals.setLandingFactor(reg.blockOf(world.getBlock(under)) ==
+                                                        mc::world::blocks::HayBlock
+                                                    ? 0.2f
+                                                    : 1.0f);
                     }
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(),
-                                player.flying() || player.gliding() || player.climbing()); // (ladders: no fall)
-                    if (const float impact = player.takeImpact(); impact > 0.0f) vitals.damage(impact); // (armour doesn't help)
-                    if (player.gliding() && ++glideTicks % 20 == 0) // an elytra wears 1 per second of flight
+                                player.flying() || player.gliding() ||
+                                    player.climbing()); // (ladders: no fall)
+                    if (const float impact = player.takeImpact(); impact > 0.0f)
+                        vitals.damage(impact); // (armour doesn't help)
+                    if (player.gliding() &&
+                        ++glideTicks % 20 == 0) // an elytra wears 1 per second of flight
                         inventory.setArmor(1, mc::wearItem(inventory.armor(1), 1, gameRng));
                     // Drowning, lava and burning (M14; wiki: Drowning, Lava, Fire).
-                    const int respiration = mc::world::enchantLevel(inventory.armor(0), mc::world::Enchantment::Respiration);
-                    vitals.breathe(mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water),
-                                   respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
+                    const int respiration = mc::world::enchantLevel(
+                        inventory.armor(0), mc::world::Enchantment::Respiration);
+                    vitals.breathe(
+                        mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water),
+                        respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
                     if (player.inLava()) {
-                        vitals.attacked(4.0f, nullptr, mc::Vitals::Hit::Fire); // lava: armor reduces it (wiki: Armor)
-                        vitals.setOnFire(300); // 15 s
+                        vitals.attacked(
+                            4.0f, nullptr,
+                            mc::Vitals::Hit::Fire); // lava: armor reduces it (wiki: Armor)
+                        vitals.setOnFire(300);      // 15 s
                     }
-                    vitals.touchFire(mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
+                    vitals.touchFire(
+                        mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
                     // A lit campfire burns what stands in it: 1, soul campfires 2 (wiki: Campfire).
                     {
-                        const mc::world::BlockPos in{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+                        const mc::world::BlockPos in{int(std::floor(feet.x)),
+                                                     int(std::floor(feet.y)),
+                                                     int(std::floor(feet.z))};
                         const auto inState = world.getBlock(in);
                         const auto inBlock = reg.blockOf(inState);
-                        if ((inBlock == mc::world::blocks::Campfire || inBlock == mc::world::blocks::SoulCampfire) &&
+                        if ((inBlock == mc::world::blocks::Campfire ||
+                             inBlock == mc::world::blocks::SoulCampfire) &&
                             reg.get(inState, mc::world::properties::lit) == 0)
-                            vitals.attacked(inBlock == mc::world::blocks::SoulCampfire ? 2.0f : 1.0f, nullptr,
-                                            mc::Vitals::Hit::Fire);
+                            vitals.attacked(inBlock == mc::world::blocks::SoulCampfire ? 2.0f
+                                                                                       : 1.0f,
+                                            nullptr, mc::Vitals::Hit::Fire);
                         // Cauldrons (M23.5; wiki: Cauldron): inside a lava one burns like lava;
                         // a burning player in a water one is put out and the water drops a level.
                         const double depth = feet.y - in.y;
                         if (inBlock == mc::world::blocks::LavaCauldron && depth < 15.0 / 16.0) {
                             vitals.attacked(4.0f, nullptr, mc::Vitals::Hit::Fire);
                             vitals.setOnFire(300);
-                        } else if (inBlock == mc::world::blocks::WaterCauldron && vitals.burning()) {
-                            const int lvl = reg.get(inState, mc::world::properties::cauldronLevel); // 0..2 = 1..3
+                        } else if (inBlock == mc::world::blocks::WaterCauldron &&
+                                   vitals.burning()) {
+                            const int lvl = reg.get(
+                                inState, mc::world::properties::cauldronLevel); // 0..2 = 1..3
                             if (depth < (6.0 + 3.0 * (lvl + 1)) / 16.0) {
                                 vitals.setFireTicks(0);
-                                world.updateBlock(in, lvl == 0 ? reg.defaultState(mc::world::blocks::Cauldron)
-                                                               : reg.set(inState, mc::world::properties::cauldronLevel, lvl - 1));
+                                world.updateBlock(
+                                    in, lvl == 0
+                                            ? reg.defaultState(mc::world::blocks::Cauldron)
+                                            : reg.set(inState, mc::world::properties::cauldronLevel,
+                                                      lvl - 1));
                             }
                         }
                     }
                     // Touching a cactus (beside or on top) hurts 1 (wiki: Cactus); our
                     // cactus collides as a full cube, so the box reaches out a hair.
-                    if (mc::portals::touching(world, player.box().inflated(0.001), mc::world::blocks::Cactus))
+                    if (mc::portals::touching(world, player.box().inflated(0.001),
+                                              mc::world::blocks::Cactus))
                         vitals.attacked(1.0f);
                     // Rain puts the player out like water does (wiki: Fire).
                     const glm::dvec3 eye = player.eyePosition(1.0);
-                    vitals.tickFire(player.inWater() ||
-                                    (dimension == Dimension::Overworld &&
-                                     mc::world::rainingAt(world, weather,
-                                                          {int(std::floor(eye.x)), int(std::floor(eye.y)), int(std::floor(eye.z))})));
+                    vitals.tickFire(
+                        player.inWater() ||
+                        (dimension == Dimension::Overworld &&
+                         mc::world::rainingAt(world, weather,
+                                              {int(std::floor(eye.x)), int(std::floor(eye.y)),
+                                               int(std::floor(eye.z))})));
                 }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
@@ -1566,26 +1737,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), d, gameRng);
                     dead = true;
                     for (int s = 0; s < mc::Inventory::kSlots; ++s) {
-                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng, 40);
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng,
+                                           40);
                         inventory.setSlot(s, {});
                     }
                     for (int piece = 0; piece < 4; ++piece) { // worn armor and the offhand too
-                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.armor(piece), gameRng, 40);
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.armor(piece),
+                                           gameRng, 40);
                         inventory.setArmor(piece, {});
                     }
-                    droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.offhand(), gameRng, 40);
+                    droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.offhand(), gameRng,
+                                       40);
                     inventory.setOffhand({});
-                    orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(), gameRng); // (the rest is lost)
+                    orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(),
+                              gameRng); // (the rest is lost)
                     chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
             // Q drops one of the held item (wiki: Controls).
-            if (window.cursorCaptured() && window.takePresses(mc::Press::Drop) > 0 && !inventory.selectedStack().empty()) {
+            if (window.cursorCaptured() && window.takePresses(mc::Press::Drop) > 0 &&
+                !inventory.selectedStack().empty()) {
                 mc::world::ItemStack one = inventory.selectedStack();
                 one.count = 1;
-                droppedItems.throwFrom(player.eyePosition(1.0),
-                                       glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), one,
-                                       gameRng);
+                droppedItems.throwFrom(
+                    player.eyePosition(1.0),
+                    glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), one, gameRng);
                 inventory.consumeSelected(1);
             }
             mc::InteractionInput clicks;
@@ -1607,7 +1783,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const bool isLit = reg.get(cst, mc::world::properties::lit) == 0;
                     mc::world::Chunk* cc = world.chunk(lastHit->block.chunk());
                     mc::world::CampfireData* cf =
-                        cc ? cc->campfire(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
+                        cc ? cc->campfire(mc::world::blockToLocal(lastHit->block.x),
+                                          lastHit->block.y,
                                           mc::world::blockToLocal(lastHit->block.z))
                            : nullptr;
                     bool acted = false;
@@ -1621,17 +1798,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 break;
                             }
                     } else if (isLit && hdef.tool == mc::world::ToolType::Shovel) {
-                        world.updateBlock(lastHit->block, reg.set(cst, mc::world::properties::lit, 1));
-                        world.playSound(mc::world::Sound::Fizz, lastHit->block.x + 0.5, lastHit->block.y + 0.5,
-                                        lastHit->block.z + 0.5);
-                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish, lastHit->block.x + 0.5,
-                                         lastHit->block.y + 0.5, lastHit->block.z + 0.5);
-                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        world.updateBlock(lastHit->block,
+                                          reg.set(cst, mc::world::properties::lit, 1));
+                        world.playSound(mc::world::Sound::Fizz, lastHit->block.x + 0.5,
+                                        lastHit->block.y + 0.5, lastHit->block.z + 0.5);
+                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish,
+                                         lastHit->block.x + 0.5, lastHit->block.y + 0.5,
+                                         lastHit->block.z + 0.5);
+                        if (survival)
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                         frameEdits.push_back(lastHit->block);
                         acted = true;
                     } else if (!isLit && hdef.id == "minecraft:flint_and_steel") {
-                        world.updateBlock(lastHit->block, reg.set(cst, mc::world::properties::lit, 0));
-                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        world.updateBlock(lastHit->block,
+                                          reg.set(cst, mc::world::properties::lit, 0));
+                        if (survival)
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                         frameEdits.push_back(lastHit->block);
                         acted = true;
                     }
@@ -1649,8 +1831,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (hid == "minecraft:flint_and_steel" || hid == "minecraft:fire_charge") {
                     blockUpdates.primeTnt(lastHit->block);
                     if (survival) {
-                        if (hid == "minecraft:fire_charge") inventory.consumeSelected(1);
-                        else inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        if (hid == "minecraft:fire_charge")
+                            inventory.consumeSelected(1);
+                        else
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                     }
                     clicks.useClick = false;
                 }
@@ -1659,7 +1843,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const size_t editsBefore = frameEdits.size();
                 if (!held.empty() &&
-                    mc::portals::useItem(world, dimension, held.item, lastHit->block, lastHit->face, frameEdits)) {
+                    mc::portals::useItem(world, dimension, held.item, lastHit->block, lastHit->face,
+                                         frameEdits)) {
                     const auto& def = mc::world::itemRegistry().item(held.item);
                     for (size_t e = editsBefore; e < frameEdits.size(); ++e) // remember lit portals
                         if (mc::world::blockRegistry().blockOf(world.getBlock(frameEdits[e])) ==
@@ -1681,10 +1866,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Armor and shield (M17.3): armor values each tick; a shield in either hand
             // held up with right-click blocks after 5 ticks (wiki: Shield).
             {
-                static const mc::world::ItemId shieldItem = *mc::world::itemRegistry().find("shield");
-                const bool shieldInHand = inventory.selectedStack().item == shieldItem ||
-                                          (inventory.offhand().item == shieldItem &&
-                                           mc::world::itemRegistry().item(inventory.selectedStack().item).food == 0);
+                static const mc::world::ItemId shieldItem =
+                    *mc::world::itemRegistry().find("shield");
+                const bool shieldInHand =
+                    inventory.selectedStack().item == shieldItem ||
+                    (inventory.offhand().item == shieldItem &&
+                     mc::world::itemRegistry().item(inventory.selectedStack().item).food == 0);
                 shieldTicks = !dead && clicks.use && shieldInHand ? shieldTicks + 1 : 0;
                 const glm::dvec3 facing(mc::world::forwardFlat(player.yaw()));
                 vitals.setArmor(inventory.armorPoints(), inventory.armorToughness());
@@ -1702,7 +1889,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.setProtection(prot[0], prot[1], prot[2], prot[3], prot[4]);
                 }
                 vitals.setShield(shieldTicks >= 5, player.eyePosition(1.0), facing);
-                if (!dead && clicks.useClick && inventory.equipSelected()) { // armor in hand: put it on
+                if (!dead && clicks.useClick &&
+                    inventory.equipSelected()) { // armor in hand: put it on
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -1710,24 +1898,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Bows and eggs (M16.4; wiki: Bow, Egg): hold right-click to draw a bow (it
             // needs an arrow in survival), release to shoot; right-click throws an egg.
             {
-                const std::string_view heldId = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                const std::string_view heldId =
+                    mc::world::itemRegistry().item(inventory.selectedStack().item).id;
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (!dead && heldId == "minecraft:bow" && clicks.use && mc::canDrawBow(inventory, survival)) {
+                if (!dead && heldId == "minecraft:bow" && clicks.use &&
+                    mc::canDrawBow(inventory, survival)) {
                     ++bowTicks;
                     clicks.useClick = false;
                 } else if (bowTicks > 0) {
                     if (!dead && heldId == "minecraft:bow" &&
-                        mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles, gameRng))
+                        mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles,
+                                       gameRng))
                         // Vanilla: pitch 1 / (random x 0.4 + 1.2) + power / 2.
-                        playSound(mc::world::Sound::BowShoot, eye, 1.0f, 0.75f + mc::bowPower(bowTicks) * 0.5f, false);
+                        playSound(mc::world::Sound::BowShoot, eye, 1.0f,
+                                  0.75f + mc::bowPower(bowTicks) * 0.5f, false);
                     bowTicks = 0;
                 }
                 // Eyes of ender (M18.5) fly toward the nearest stronghold - in the
                 // Overworld, unless aimed at an end portal frame (that fills it).
-                if (!dead && heldId == "minecraft:ender_eye" && clicks.useClick && dimension == Dimension::Overworld &&
-                    !(lastHit && mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) ==
-                                     mc::world::blocks::EndPortalFrame))
+                if (!dead && heldId == "minecraft:ender_eye" && clicks.useClick &&
+                    dimension == Dimension::Overworld &&
+                    !(lastHit && mc::world::blockRegistry().blockOf(world.getBlock(
+                                     lastHit->block)) == mc::world::blocks::EndPortalFrame))
                     if (const auto s = generatorPtr->nearestStronghold(eye.x, eye.z)) {
                         mc::throwEye(inventory, survival, eye, *s, projectiles);
                         clicks.useClick = false;
@@ -1738,9 +1931,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::DragonFight::teleportEgg(world, lastHit->block, gameRng, frameEdits);
                     clicks.useClick = clicks.attackClick = clicks.attack = false;
                 }
-                if (!dead && heldId == "minecraft:minecart" && clicks.useClick && lastHit) { // (M21.4)
-                    if (mc::Mobs::placeMinecart(world, lastHit->block, gameRng) && survival) inventory.consumeSelected(1);
-                    if (mc::world::isRail(reg.blockOf(world.getBlock(lastHit->block)))) clicks.useClick = false;
+                if (!dead && heldId == "minecraft:minecart" && clicks.useClick &&
+                    lastHit) { // (M21.4)
+                    if (mc::Mobs::placeMinecart(world, lastHit->block, gameRng) && survival)
+                        inventory.consumeSelected(1);
+                    if (mc::world::isRail(reg.blockOf(world.getBlock(lastHit->block))))
+                        clicks.useClick = false;
                 }
                 if (!dead && heldId == "minecraft:end_crystal" && clicks.useClick && lastHit &&
                     lastHit->face == mc::world::Direction::Up) { // (M20.1)
@@ -1750,13 +1946,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
                 if (!dead && heldId == "minecraft:ender_pearl" && clicks.useClick) { // (M20.3)
                     if (pearlCooldown == 0) {
-                        mc::throwPearl(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
+                        mc::throwPearl(inventory, survival, eye, player.yaw(), player.pitch(),
+                                       projectiles, gameRng);
                         pearlCooldown = 20; // (wiki: 1 s between throws)
                     }
                     clicks.useClick = false;
                 }
                 if (!dead && heldId == "minecraft:splash_potion" && clicks.useClick) { // (M19.4)
-                    mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(), projectiles, gameRng);
+                    mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(),
+                                          projectiles, gameRng);
                     clicks.useClick = false;
                 }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
@@ -1767,18 +1965,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Signs (M23.3c): a dye recolours the text, otherwise right-click edits it.
             if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
                 const auto st = world.getBlock(lastHit->block);
-                const auto kind = mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(st));
+                const auto kind =
+                    mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(st));
                 if (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::WallSign ||
-                    kind == mc::world::BlockKind::HangingSign || kind == mc::world::BlockKind::WallHangingSign) {
+                    kind == mc::world::BlockKind::HangingSign ||
+                    kind == mc::world::BlockKind::WallHangingSign) {
                     mc::world::Chunk* sc = world.chunk(lastHit->block.chunk());
-                    mc::world::SignData* sd = sc ? sc->sign(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
-                                                            mc::world::blockToLocal(lastHit->block.z))
-                                                 : nullptr;
+                    mc::world::SignData* sd =
+                        sc ? sc->sign(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
+                                      mc::world::blockToLocal(lastHit->block.z))
+                           : nullptr;
                     if (sd && !sd->waxed) {
-                        const std::string_view held = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                        const std::string_view held =
+                            mc::world::itemRegistry().item(inventory.selectedStack().item).id;
                         int dye = -1;
                         for (int c = 0; c < 16; ++c)
-                            if (held.size() > 10 && held.substr(10) == std::string(mc::world::kDyeColours[c]) + "_dye") dye = c;
+                            if (held.size() > 10 &&
+                                held.substr(10) == std::string(mc::world::kDyeColours[c]) + "_dye")
+                                dye = c;
                         if (dye >= 0) {
                             if (sd->front.colour != dye) {
                                 sd->front.colour = uint8_t(dye);
@@ -1803,15 +2007,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockId hb = reg.blockOf(world.getBlock(at));
                 const mc::world::ItemStack held = inventory.selectedStack();
                 bool acted = false;
-                if (hb == mc::world::blocks::Jukebox) { // (M23.6) eject the disc, or put the held one in
+                if (hb ==
+                    mc::world::blocks::Jukebox) { // (M23.6) eject the disc, or put the held one in
                     mc::world::Chunk* jc = world.chunk(at.chunk());
                     mc::world::JukeboxData* jd =
-                        jc ? jc->jukebox(mc::world::blockToLocal(at.x), at.y, mc::world::blockToLocal(at.z)) : nullptr;
+                        jc ? jc->jukebox(mc::world::blockToLocal(at.x), at.y,
+                                         mc::world::blockToLocal(at.z))
+                           : nullptr;
                     if (jd && !jd->record.empty()) {
-                        droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, jd->record, gameRng);
+                        droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, jd->record,
+                                           gameRng);
                         jd->record = {};
                         jd->playing = false;
-                        world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 1));
+                        world.updateBlock(
+                            at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 1));
                         jc->markDirty();
                         blockUpdates.jukeboxChanged(at);
                         acted = true;
@@ -1821,13 +2030,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         jd->ticks = 0;
                         jd->playing = true;
                         if (survival) inventory.consumeSelected(1);
-                        world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 0));
+                        world.updateBlock(
+                            at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 0));
                         jc->markDirty();
                         blockUpdates.jukeboxChanged(at);
                         acted = true;
                     }
                 } else if (hb == mc::world::blocks::Composter) {
-                    if (const mc::world::ItemStack meal = blockUpdates.takeCompost(at); !meal.empty()) {
+                    if (const mc::world::ItemStack meal = blockUpdates.takeCompost(at);
+                        !meal.empty()) {
                         droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, meal, gameRng);
                         acted = true;
                     } else if (!held.empty() && blockUpdates.compost(at, held.item)) {
@@ -1844,7 +2055,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                   inventory.slot(sl).potion == give->potion);
                         if (survival) inventory.consumeSelected(1);
                         if (!carried && inventory.add(*give) > 0)
-                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), *give, gameRng);
+                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), *give,
+                                               gameRng);
                     }
                     acted = true;
                 }
@@ -1857,29 +2069,53 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick && lastHit && !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const auto& def = mc::world::itemRegistry().item(held.item);
-                static const mc::world::ItemId boneMealItem = *mc::world::itemRegistry().find("bone_meal");
-                static const mc::world::ItemId honeycombItem = *mc::world::itemRegistry().find("honeycomb");
-                if (held.item == honeycombItem && mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
+                static const mc::world::ItemId boneMealItem =
+                    *mc::world::itemRegistry().find("bone_meal");
+                static const mc::world::ItemId honeycombItem =
+                    *mc::world::itemRegistry().find("honeycomb");
+                if (held.item == honeycombItem &&
+                    mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
                     frameEdits.push_back(lastHit->block);
                     if (survival) inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
-                    mc::world::BlockUpdates::strip(world, lastHit->block)) { // (M23.3b)
+                           mc::world::BlockUpdates::strip(world, lastHit->block)) { // (M23.3b)
                     frameEdits.push_back(lastHit->block);
-                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    if (survival)
+                        inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (def.tool == mc::world::ToolType::Hoe &&
-                    mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
+                           mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
                     frameEdits.push_back(lastHit->block);
-                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng)); // 1 per block
+                    if (survival)
+                        inventory.setSlot(inventory.selected(),
+                                          mc::wearItem(held, 1, gameRng)); // 1 per block
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (held.item == boneMealItem && blockUpdates.boneMeal(lastHit->block)) {
                     if (survival) inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
+                }
+            }
+            // Trading (M24.2): right-click an adult villager with a profession and trades.
+            if (!dead && clicks.useClick && !container.isOpen()) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    if (mob.type == mc::world::MobType::Villager && !mob.isBaby() &&
+                        !mob.sleeping && mob.offerCount > 0) {
+                        traderUuid = mob.uuidHi;
+                        mob.tradingTicks = 5;
+                        container.openTrading(&mob);
+                        window.setCursorCaptured(false);
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
                 }
             }
             // Getting into a minecart (M21.4): right-click it (not sneaking).
@@ -1921,23 +2157,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const std::string_view heldId = mc::world::itemRegistry().item(held.item).id;
                 // A usable block (lever, button...) takes the click first unless sneaking.
-                const bool blockUse = lastHit && !player.sneaking() &&
-                                      mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
+                const bool blockUse =
+                    lastHit && !player.sneaking() &&
+                    mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
                 // A glass bottle fills from water (wiki: Glass Bottle): a water bottle.
                 if (heldId == "minecraft:glass_bottle" && clicks.useClick && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
                     const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                    const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
+                    const double reach =
+                        survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
                     for (double t = 0.0; t <= reach; t += 0.1) {
                         const glm::dvec3 q = eye + look * t;
-                        const mc::world::BlockPos b{int(std::floor(q.x)), int(std::floor(q.y)), int(std::floor(q.z))};
+                        const mc::world::BlockPos b{int(std::floor(q.x)), int(std::floor(q.y)),
+                                                    int(std::floor(q.z))};
                         const mc::world::BlockStateId s = world.getBlock(b);
                         if (mc::world::blockRegistry().blockOf(s) == mc::world::blocks::Water) {
-                            static const mc::world::ItemId potionItem = *mc::world::itemRegistry().find("potion");
+                            static const mc::world::ItemId potionItem =
+                                *mc::world::itemRegistry().find("potion");
                             mc::world::ItemStack water{potionItem, 1};
                             water.potion = static_cast<uint8_t>(mc::world::Potion::Water);
                             if (survival) inventory.consumeSelected(1);
-                            if (inventory.add(water) > 0) droppedItems.spawn(player.position(), water, gameRng);
+                            if (inventory.add(water) > 0)
+                                droppedItems.spawn(player.position(), water, gameRng);
                             clicks.useClick = false;
                             break;
                         }
@@ -1947,22 +2188,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (heldId.ends_with("bucket") && heldId != "minecraft:milk_bucket" && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
                     const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                    const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
+                    const double reach =
+                        survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
                     std::optional<mc::BucketResult> result;
                     if (heldId == "minecraft:bucket")
-                        if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
-                            mh && (!lastHit || mh->distance < lastHit->distance) && // not through walls
-                            world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Cow)
-                            result = mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
-                    if (!result) result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
+                        if (const auto mh =
+                                mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                            mh &&
+                            (!lastHit || mh->distance < lastHit->distance) && // not through walls
+                            world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                                mc::world::MobType::Cow)
+                            result =
+                                mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
+                    if (!result)
+                        result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
                     if (result) {
                         if (!result->washed.empty() && survival) {
                             const mc::world::BlockPos w = frameEdits.back();
-                            droppedItems.spawn({w.x + 0.5, w.y + 0.25, w.z + 0.5}, result->washed, gameRng);
+                            droppedItems.spawn({w.x + 0.5, w.y + 0.25, w.z + 0.5}, result->washed,
+                                               gameRng);
                         }
-                        const mc::world::ItemStack extra = mc::applyBucket(inventory, result->filled, survival);
+                        const mc::world::ItemStack extra =
+                            mc::applyBucket(inventory, result->filled, survival);
                         if (!extra.empty())
-                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), extra, gameRng);
+                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), extra,
+                                               gameRng);
                         clicks.useClick = false;
                         clicks.use = false;
                     }
@@ -1972,15 +2222,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // End portal - at once). Arriving players step out before they can go back.
             if (!dead && !flatWorld && !pendingTravel && !arrival) {
                 const mc::Aabb box = player.box();
-                const mc::world::BlockPos portalFeet{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
+                const mc::world::BlockPos portalFeet{
+                    int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))};
                 if (mc::portals::touching(world, box, mc::world::blocks::EndPortal)) {
                     if (!portalCooldown)
-                        pendingTravel = Travel{dimension == Dimension::End ? Dimension::Overworld : Dimension::End,
-                                               dimension == Dimension::End ? Travel::Via::Respawn : Travel::Via::EndPortal,
+                        pendingTravel = Travel{dimension == Dimension::End ? Dimension::Overworld
+                                                                           : Dimension::End,
+                                               dimension == Dimension::End ? Travel::Via::Respawn
+                                                                           : Travel::Via::EndPortal,
                                                portalFeet};
-                } else if (dimension != Dimension::End && mc::portals::touching(world, box, mc::world::blocks::NetherPortal)) {
+                } else if (dimension != Dimension::End &&
+                           mc::portals::touching(world, box, mc::world::blocks::NetherPortal)) {
                     if (!portalCooldown && ++portalTicks >= (survival ? 80 : 1))
-                        pendingTravel = Travel{dimension == Dimension::Nether ? Dimension::Overworld : Dimension::Nether,
+                        pendingTravel = Travel{dimension == Dimension::Nether ? Dimension::Overworld
+                                                                              : Dimension::Nether,
                                                Travel::Via::NetherPortal, portalFeet};
                 } else {
                     portalTicks = 0;
@@ -2005,8 +2260,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A critical hit: falling, not on the ground, in water, flying, gliding,
                     // riding or slow falling - 150% of the base damage, before enchantments
                     // add theirs (wiki: Damage › Critical hit).
-                    const bool crit = !player.onGround() && player.velocity().y < 0.0 && !player.inWater() &&
-                                      !player.flying() && !player.gliding() && ridingCart == 0 && !player.sprinting() &&
+                    const bool crit = !player.onGround() && player.velocity().y < 0.0 &&
+                                      !player.inWater() && !player.flying() && !player.gliding() &&
+                                      ridingCart == 0 && !player.sprinting() &&
                                       vitals.effectLevel(mc::world::Effect::SlowFalling) == 0;
                     mc::MeleeHit mhit;
                     mhit.itemDamage = stack.empty() ? 1.0f : held.attackDamage;
@@ -2016,12 +2272,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.sharpness = mc::world::enchantLevel(stack, E::Sharpness);
                     mhit.smite = mc::world::enchantLevel(stack, E::Smite);
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
-                    mhit.undead = m.type == mc::world::MobType::Zombie || m.type == mc::world::MobType::Skeleton;
+                    mhit.undead = m.type == mc::world::MobType::Zombie ||
+                                  m.type == mc::world::MobType::Skeleton;
                     mhit.arthropod = m.type == mc::world::MobType::Spider;
                     float dmg = mc::meleeDamage(mhit);
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
-                    if (hit && !crit) playSound(mc::world::Sound::AttackHit, eye + look * mh->distance, 1.0f, 1.0f, true);
+                    if (hit && !crit)
+                        playSound(mc::world::Sound::AttackHit, eye + look * mh->distance, 1.0f,
+                                  1.0f, true);
                     if (crit && hit) {
                         const glm::dvec3 at = eye + look * mh->distance;
                         world.levelEvent(mc::world::LevelEvent::Type::Crit, at.x, at.y, at.z);
@@ -2031,15 +2290,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (hit) {
                         // Knockback: farther per level; Fire Aspect: alight 4 s per level.
                         if (const int kb = mc::world::enchantLevel(stack, E::Knockback)) {
-                            glm::dvec2 d(m.pos.x - player.position().x, m.pos.z - player.position().z);
+                            glm::dvec2 d(m.pos.x - player.position().x,
+                                         m.pos.z - player.position().z);
                             if (glm::length(d) > 1e-6) d = glm::normalize(d) * (0.5 * kb);
                             m.vel += glm::dvec3(d.x, 0.1, d.y);
                         }
                         if (const int fa = mc::world::enchantLevel(stack, E::FireAspect))
                             m.fireTicks = std::max<int16_t>(m.fireTicks, int16_t(80 * fa));
-                        if (survival && held.tool != mc::world::ToolType::None) // swords wear 1 per hit, tools 2 (wiki)
-                            inventory.setSlot(inventory.selected(),
-                                              mc::wearItem(stack, held.tool == mc::world::ToolType::Sword ? 1 : 2, gameRng));
+                        if (survival &&
+                            held.tool !=
+                                mc::world::ToolType::None) // swords wear 1 per hit, tools 2 (wiki)
+                            inventory.setSlot(
+                                inventory.selected(),
+                                mc::wearItem(stack, held.tool == mc::world::ToolType::Sword ? 1 : 2,
+                                             gameRng));
                     }
                     if (survival) vitals.exhaust(0.1f); // wiki: attacking
                     clicks.attackClick = false;
@@ -2050,15 +2314,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (dead) {
                 changedBlocks.clear();
             } else if (survival) {
-                const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)), int(std::floor(feet.y + player.eyeHeight())),
+                const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)),
+                                                   int(std::floor(feet.y + player.eyeHeight())),
                                                    int(std::floor(feet.z))};
-                const bool eyesInWater = reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
+                const bool eyesInWater =
+                    reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
                 // Aqua Affinity: no slower mining under water (wiki).
-                interaction.setPlaceContents(inventory.selectedStack().contents); // (shulker boxes, M23.6)
-                interaction.tickSurvival(world, player, lastHit, inventory, vitals, clicks,
-                                         eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
-                                                                                 mc::world::Enchantment::AquaAffinity),
-                                         gameRng, changedBlocks, drops);
+                interaction.setPlaceContents(
+                    inventory.selectedStack().contents); // (shulker boxes, M23.6)
+                interaction.tickSurvival(
+                    world, player, lastHit, inventory, vitals, clicks,
+                    eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
+                                                            mc::world::Enchantment::AquaAffinity),
+                    gameRng, changedBlocks, drops);
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
                 if (interaction.takeChorusTeleport())
@@ -2069,38 +2337,54 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             } else {
                 interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
                 interaction.setPlaceContents(inventory.selectedStack().contents);
-                interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
-                                 mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
-                                     mc::world::ToolType::Sword);
+                interaction.tick(
+                    world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
+                    mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
+                        mc::world::ToolType::Sword);
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
-            if (droppedItems.tick(world, player.box(), !dead, inventory) > 0) // vanilla pitch ((r - r) x 0.7 + 1) x 2
+            if (droppedItems.tick(world, player.box(), !dead, inventory) >
+                0) // vanilla pitch ((r - r) x 0.7 + 1) x 2
                 playSound(mc::world::Sound::ItemPickup, player.position(), 1.0f, 1.0f, false);
             // Game rules read the tick's own time, not the renderer's interpolated value.
             const bool overworld = dimension == Dimension::Overworld;
-            const double tickSkyDarken =
-                mc::world::skyDarken(mc::world::celestialAngle(dayTime), overworld ? weather.rain : 0.0,
-                                     overworld ? weather.thunder : 0.0);
-            mc::Mobs::Context mobCtx{world, player, vitals, survival, dead, dayTime, float(tickSkyDarken), gameRng,
-                                     droppedItems, true, // (the End: endermen, M20)
-                                     inventory.selectedStack().item, &frameEdits, &projectiles, &orbs};
+            const double tickSkyDarken = mc::world::skyDarken(mc::world::celestialAngle(dayTime),
+                                                              overworld ? weather.rain : 0.0,
+                                                              overworld ? weather.thunder : 0.0);
+            mc::Mobs::Context mobCtx{world,
+                                     player,
+                                     vitals,
+                                     survival,
+                                     dead,
+                                     dayTime,
+                                     float(tickSkyDarken),
+                                     gameRng,
+                                     droppedItems,
+                                     true, // (the End: endermen, M20)
+                                     inventory.selectedStack().item,
+                                     &frameEdits,
+                                     &projectiles,
+                                     &orbs};
             mobCtx.tnt = &primedTnt;
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
-            for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
-                if (!inventory.armor(piece).empty() &&
-                    mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
+            for (int piece = 0; piece < 4;
+                 ++piece) // piglins: any golden armor piece (wiki: Piglin)
+                if (!inventory.armor(piece).empty() && mc::world::itemRegistry()
+                                                           .item(inventory.armor(piece).item)
+                                                           .id.starts_with("minecraft:golden_"))
                     mobCtx.wearsGold = true;
             // Scheduled block ticks, random ticks within the simulation distance, block
             // events (vanilla: before entities).
             {
                 const mc::world::BlockPos at{int(std::floor(feet.x)), 0, int(std::floor(feet.z))};
                 // Ticking chunks: within the simulation distance, never past what's loaded.
-                blockUpdates.setRandomTicks(at.chunk(), std::min(mobs.simulationDistance(), opts->renderDistance),
-                                            mc::world::BlockUpdates::kDefaultRandomTickSpeed);
+                blockUpdates.setRandomTicks(
+                    at.chunk(), std::min(mobs.simulationDistance(), opts->renderDistance),
+                    mc::world::BlockUpdates::kDefaultRandomTickSpeed);
                 blockUpdates.setPlayer(feet);
                 blockUpdates.setSkyDarken(overworld ? int(tickSkyDarken) : 0);
                 blockUpdates.setWeather(overworld ? &weather : nullptr);
@@ -2109,10 +2393,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Pressure plates (M21.1): everything standing on one this tick presses it
                 // (its box over the plate's 14x14 middle, feet in the plate's cell).
                 auto pressAt = [&](const glm::dvec3& f, double half, bool item, bool cart = false) {
-                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y + 0.01)), int(std::floor(f.z))};
+                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y + 0.01)),
+                                                int(std::floor(f.z))};
                     const double fx = f.x - c.x, fz = f.z - c.z;
-                    if (fx + half < 1.0 / 16.0 || fx - half > 15.0 / 16.0 || fz + half < 1.0 / 16.0 ||
-                        fz - half > 15.0 / 16.0)
+                    if (fx + half < 1.0 / 16.0 || fx - half > 15.0 / 16.0 ||
+                        fz + half < 1.0 / 16.0 || fz - half > 15.0 / 16.0)
                         return;
                     blockUpdates.pressPlate(c, item, cart);
                 };
@@ -2125,9 +2410,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         // (only when it stands on a plate: read from its own chunk, no lookup)
                         const int fy = int(std::floor(m.pos.y + 0.01));
                         if (!c.height().contains(fy) ||
-                            !mc::world::BlockUpdates::isPressurePlate(reg.blockOf(c.get(
-                                mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
-                                mc::world::blockToLocal(int(std::floor(m.pos.z)))))))
+                            !mc::world::BlockUpdates::isPressurePlate(reg.blockOf(
+                                c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
+                                      mc::world::blockToLocal(int(std::floor(m.pos.z)))))))
                             continue;
                         pressAt(m.pos, info.width * 0.5, false, cart);
                     }
@@ -2148,8 +2433,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         vitals.attacked(5.0f, nullptr, mc::Vitals::Hit::Fire);
                         vitals.setOnFire(160); // 8 s
                     }
-                    if (bolts.size() < bolts.capacity()) bolts.push_back({at, uint32_t(gameRng.nextLong()), 8});
-                    playSound(mc::world::Sound::Thunder, at, 1.0f, 1.0f, true); // (heard everywhere)
+                    if (bolts.size() < bolts.capacity())
+                        bolts.push_back({at, uint32_t(gameRng.nextLong()), 8});
+                    playSound(mc::world::Sound::Thunder, at, 1.0f, 1.0f,
+                              true); // (heard everywhere)
                     skyFlash = 2;
                 };
                 for (const auto& b : blockUpdates.lightning())
@@ -2170,16 +2457,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // (as a push: the entity's own movement then collides with blocks)
                 auto carry = [&](glm::dvec3 v) {
                     for (int a = 0; a < 3; ++a)
-                        if (step[a] != 0.0) v[a] = step[a] > 0 ? std::max(v[a], step[a]) : std::min(v[a], step[a]);
+                        if (step[a] != 0.0)
+                            v[a] = step[a] > 0 ? std::max(v[a], step[a]) : std::min(v[a], step[a]);
                     return v;
                 };
-                if (!dead && player.box().intersects(cell)) player.setVelocity(carry(player.velocity()));
+                if (!dead && player.box().intersects(cell))
+                    player.setVelocity(carry(player.velocity()));
                 if (mc::world::Chunk* mc0 = world.chunk(mv.to.chunk()))
                     for (auto& m : mc0->mobs())
                         if (mc::Mobs::box(m).intersects(cell)) m.vel = carry(m.vel);
             }
             { // Dispensers and droppers that fired (M21.3b).
-                mc::DispenseContext dctx{world, blockUpdates, droppedItems, projectiles, primedTnt, gameRng, frameEdits};
+                mc::DispenseContext dctx{world,     blockUpdates, droppedItems, projectiles,
+                                         primedTnt, gameRng,      frameEdits};
                 for (const mc::world::BlockPos& b : blockUpdates.dispensed())
                     mc::dispense(dctx, b);
                 blockUpdates.dispensed().clear();
@@ -2199,10 +2489,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
                 tntBlast.explode(world, at, 4.0f, gameRng, droppedItems, frameEdits, t);
             }
-            frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(), blockUpdates.changed().end());
+            frameEdits.insert(frameEdits.end(), blockUpdates.changed().begin(),
+                              blockUpdates.changed().end());
             blockUpdates.changed().clear();
-            frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(), blockUpdates.remeshOnly().end());
-            frameSettling.insert(frameSettling.end(), blockUpdates.settling().begin(), blockUpdates.settling().end());
+            frameRemesh.insert(frameRemesh.end(), blockUpdates.remeshOnly().begin(),
+                               blockUpdates.remeshOnly().end());
+            frameSettling.insert(frameSettling.end(), blockUpdates.settling().begin(),
+                                 blockUpdates.settling().end());
             blockUpdates.settling().clear();
             blockUpdates.remeshOnly().clear();
             for (const auto& d : blockUpdates.drops()) {
@@ -2223,34 +2516,43 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             blockUpdates.fallingStarts().clear();
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
             // Wear from this tick's hits (armor pieces; the shield that blocked).
-            if (const int wear = vitals.takeArmorWear(); wear > 0 && survival) inventory.wearArmor(wear, gameRng);
+            if (const int wear = vitals.takeArmorWear(); wear > 0 && survival)
+                inventory.wearArmor(wear, gameRng);
             if (const int wear = vitals.takeShieldWear(); wear > 0 && survival) {
-                static const mc::world::ItemId shieldItem = *mc::world::itemRegistry().find("shield");
-                auto wearShield = [&](mc::world::ItemStack s) { return mc::wearItem(s, wear, gameRng); };
+                static const mc::world::ItemId shieldItem =
+                    *mc::world::itemRegistry().find("shield");
+                auto wearShield = [&](mc::world::ItemStack s) {
+                    return mc::wearItem(s, wear, gameRng);
+                };
                 if (inventory.selectedStack().item == shieldItem)
                     inventory.setSlot(inventory.selected(), wearShield(inventory.selectedStack()));
                 else if (inventory.offhand().item == shieldItem)
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
-            projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival, gameRng);
+            projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival,
+                             gameRng);
             // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
             // third of the open spots around it); blaze fireballs lit blocks.
             for (const glm::dvec3& at : projectiles.explosions()) {
-                fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
-                const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))};
+                fireballBlast.explode(
+                    world, at, 1.0f, gameRng, droppedItems, frameEdits,
+                    {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
+                const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)),
+                                            int(std::floor(at.z))};
                 for (int dx = -2; dx <= 2; ++dx)
                     for (int dy = -2; dy <= 2; ++dy)
                         for (int dz = -2; dz <= 2; ++dz) {
                             const mc::world::BlockPos q{c.x + dx, c.y + dy, c.z + dz};
-                            if (!world.isInHeight(q.y) || world.getBlock(q) != 0 || gameRng.nextInt(3) != 0 ||
+                            if (!world.isInHeight(q.y) || world.getBlock(q) != 0 ||
+                                gameRng.nextInt(3) != 0 ||
                                 !mc::world::BlockUpdates::fireCanStay(world, q))
                                 continue;
                             world.updateBlock(q, mc::world::BlockUpdates::fireState(0));
                             frameEdits.push_back(q);
                         }
             }
-            frameEdits.insert(frameEdits.end(), projectiles.edits().begin(), projectiles.edits().end());
+            frameEdits.insert(frameEdits.end(), projectiles.edits().begin(),
+                              projectiles.edits().end());
             projectiles.edits().clear();
             // Ender pearls (M20.3): the player goes where one lands (5 damage), or
             // through the end gateway it went into.
@@ -2270,16 +2572,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     player.setPosition(pl.pos);
                     vitals.resetFall();
                     // (vanilla: like a fall - armour doesn't help, Feather Falling does)
-                    if (survival) vitals.damage(vitals.protectionReduced(5.0f, mc::Vitals::Hit::Generic, true), false);
+                    if (survival)
+                        vitals.damage(
+                            vitals.protectionReduced(5.0f, mc::Vitals::Hit::Generic, true), false);
                 }
             }
-            if (!dead && dimension == Dimension::End && mc::portals::touching(world, player.box(), mc::world::blocks::EndGateway)) {
+            if (!dead && dimension == Dimension::End &&
+                mc::portals::touching(world, player.box(), mc::world::blocks::EndGateway)) {
                 // Walking (or flying) into a gateway works too (vanilla: any entity).
                 const glm::dvec3 f = player.position();
                 for (int dy = 0; dy <= 2; ++dy)
                     for (int dz = -1; dz <= 1; ++dz)
                         for (int dx = -1; dx <= 1; ++dx) {
-                            const mc::world::BlockPos b{int(std::floor(f.x)) + dx, int(std::floor(f.y)) + dy,
+                            const mc::world::BlockPos b{int(std::floor(f.x)) + dx,
+                                                        int(std::floor(f.y)) + dy,
                                                         int(std::floor(f.z)) + dz};
                             if (reg.blockOf(world.getBlock(b)) == mc::world::blocks::EndGateway) {
                                 gatewayTravel(b);
@@ -2288,7 +2594,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
             }
             for (const glm::dvec3& at : projectiles.eyeDrops()) {
-                static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
+                static const mc::world::ItemId eyeItem =
+                    *mc::world::itemRegistry().find("ender_eye");
                 droppedItems.spawn(at, {eyeItem, 1}, gameRng);
             }
             // Experience: ores just mined, furnace output taken, orbs collected (M17.5).
@@ -2302,12 +2609,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Enchanting and anvils (M17.5): levels spent, a new seed after enchanting,
             // and the anvil's wear: 12% a use - anvil, chipped, damaged, gone (wiki).
             if (const int spent = container.takeLevelsSpent(); spent > 0) vitals.spendLevels(spent);
-            const glm::dvec3 blockCentre(containerBlock.x + 0.5, containerBlock.y + 0.5, containerBlock.z + 0.5);
+            const glm::dvec3 blockCentre(containerBlock.x + 0.5, containerBlock.y + 0.5,
+                                         containerBlock.z + 0.5);
             if (container.takeEnchanted()) {
                 vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
                 playSound(mc::world::Sound::Enchant, blockCentre, 1.0f, 1.0f, true);
             }
-            if (const int grindCost = container.takeGrindCost(); grindCost > 0) // (M23.5: orbs at the grindstone)
+            if (const int tradeXp = container.takeTradeExperience();
+                tradeXp > 0) // (M24.2: orbs from trading)
+                orbs.drop(player.position() + glm::dvec3(0.0, 0.5, 0.0), tradeXp, gameRng);
+            if (const int grindCost = container.takeGrindCost();
+                grindCost > 0) // (M23.5: orbs at the grindstone)
                 orbs.drop({containerBlock.x + 0.5, containerBlock.y + 0.5, containerBlock.z + 0.5},
                           mc::grindExperience(grindCost, gameRng), gameRng);
             const bool anvilUsed = container.takeAnvilUsed();
@@ -2315,13 +2627,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (anvilUsed && survival && gameRng.nextFloat() < 0.12f) {
                 const auto st = world.getBlock(containerBlock);
                 const auto b = reg.blockOf(st);
-                const mc::world::BlockId next = b == mc::world::blocks::Anvil          ? mc::world::BlockId(mc::world::blocks::ChippedAnvil)
-                                                : b == mc::world::blocks::ChippedAnvil ? mc::world::BlockId(mc::world::blocks::DamagedAnvil)
-                                                                                       : mc::world::BlockId(0);
-                if (b == mc::world::blocks::Anvil || b == mc::world::blocks::ChippedAnvil || b == mc::world::blocks::DamagedAnvil) {
-                    const auto ns = next ? reg.with(reg.defaultState(next), "facing", *reg.value(st, "facing"))
-                                               .value_or(reg.defaultState(next))
-                                         : mc::world::BlockStateId{0};
+                const mc::world::BlockId next =
+                    b == mc::world::blocks::Anvil
+                        ? mc::world::BlockId(mc::world::blocks::ChippedAnvil)
+                    : b == mc::world::blocks::ChippedAnvil
+                        ? mc::world::BlockId(mc::world::blocks::DamagedAnvil)
+                        : mc::world::BlockId(0);
+                if (b == mc::world::blocks::Anvil || b == mc::world::blocks::ChippedAnvil ||
+                    b == mc::world::blocks::DamagedAnvil) {
+                    const auto ns =
+                        next ? reg.with(reg.defaultState(next), "facing", *reg.value(st, "facing"))
+                                   .value_or(reg.defaultState(next))
+                             : mc::world::BlockStateId{0};
                     world.updateBlock(containerBlock, ns);
                     frameEdits.push_back(containerBlock);
                     if (!next) { // destroyed: the screen closes, its items come back
@@ -2339,15 +2656,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             mobs.tick(mobCtx);
             mc::tickHoppers(world, droppedItems); // (M21.3)
-            if (ridingCart != 0) { // the rider goes with the cart (an activator rail throws them out)
+            if (ridingCart !=
+                0) { // the rider goes with the cart (an activator rail throws them out)
                 if (mc::world::MobData* cart = findCart()) {
                     player.setPosition(cart->pos + glm::dvec3(0.0, 0.3, 0.0));
                     player.setVelocity(glm::dvec3(0.0));
                     vitals.resetFall();
-                    const mc::world::BlockPos under{int(std::floor(cart->pos.x)), int(std::floor(cart->pos.y)),
+                    const mc::world::BlockPos under{int(std::floor(cart->pos.x)),
+                                                    int(std::floor(cart->pos.y)),
                                                     int(std::floor(cart->pos.z))};
                     const auto us = world.getBlock(under);
-                    if (reg.blockOf(us) == mc::world::blocks::ActivatorRail && reg.get(us, mc::world::properties::powered) == 0) {
+                    if (reg.blockOf(us) == mc::world::blocks::ActivatorRail &&
+                        reg.get(us, mc::world::properties::powered) == 0) {
                         cart->ridden = false;
                         player.setPosition(cart->pos + glm::dvec3(0.0, 1.0, 0.0));
                         ridingCart = 0;
@@ -2358,23 +2678,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             const auto* endGen = dynamic_cast<const mc::world::EndGenerator*>(generatorPtr.get());
             if (dimension == Dimension::End && endKind == "end2" && endGen)
-                dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng, frameEdits);
+                dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng,
+                                 frameEdits);
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
                 // Beacons (every 80 ticks) and conduits (every 40) (M23.6; wiki: Beacon, Conduit).
                 if (gameTime % 40 == 0)
                     for (auto& bc : c.beacons()) {
-                        const mc::world::BlockPos bp{c.pos().x * 16 + bc.x, bc.y, c.pos().z * 16 + bc.z};
+                        const mc::world::BlockPos bp{c.pos().x * 16 + bc.x, bc.y,
+                                                     c.pos().z * 16 + bc.z};
                         if (bc.data.conduit) {
                             const int frame = mc::conduitFrame(world, bp);
                             if (frame != bc.data.levels) bc.data.levels = frame;
-                            const glm::dvec3 d = player.position() - glm::dvec3(bp.x + 0.5, bp.y + 0.5, bp.z + 0.5);
-                            const bool wet = player.inWater() ||
-                                             mc::world::rainingAt(world, weather,
-                                                                  {int(std::floor(player.position().x)),
-                                                                   int(std::floor(player.position().y)),
-                                                                   int(std::floor(player.position().z))});
+                            const glm::dvec3 d =
+                                player.position() - glm::dvec3(bp.x + 0.5, bp.y + 0.5, bp.z + 0.5);
+                            const bool wet =
+                                player.inWater() ||
+                                mc::world::rainingAt(world, weather,
+                                                     {int(std::floor(player.position().x)),
+                                                      int(std::floor(player.position().y)),
+                                                      int(std::floor(player.position().z))});
                             if (frame >= 16 && mc::conduitWet(world, bp) && wet && !dead &&
                                 glm::length(d) <= double(mc::conduitRange(frame)))
                                 vitals.addEffect(mc::world::Effect::ConduitPower, 0, 260); // 13 s
@@ -2388,8 +2712,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         bc.data.beam = sky;
                         std::array<mc::BeaconGift, 2> gifts{};
                         if (!dead)
-                            for (int g = 0, n = mc::beaconGifts(bc.data, bp, player.position(), gifts); g < n; ++g)
-                                vitals.addEffect(gifts[size_t(g)].type, gifts[size_t(g)].amplifier, gifts[size_t(g)].duration);
+                            for (int g = 0,
+                                     n = mc::beaconGifts(bc.data, bp, player.position(), gifts);
+                                 g < n; ++g)
+                                vitals.addEffect(gifts[size_t(g)].type, gifts[size_t(g)].amplifier,
+                                                 gifts[size_t(g)].duration);
                     }
                 // Jukeboxes play their disc's tune note by note until the song's length (M23.6).
                 for (auto& jb : c.jukeboxes()) {
@@ -2398,13 +2725,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (disc < 0 || jb.data.ticks >= mc::discInfo(disc).lengthTicks) {
                         jb.data.playing = false;
                         c.markDirty();
-                        litChanges.push_back({c.pos().x * 16 + jb.x, jb.y, c.pos().z * 16 + jb.z}); // (power off, below)
+                        litChanges.push_back({c.pos().x * 16 + jb.x, jb.y,
+                                              c.pos().z * 16 + jb.z}); // (power off, below)
                         continue;
                     }
                     std::array<mc::JukeboxNote, 3> notes{};
                     const double jx = c.pos().x * 16 + jb.x + 0.5, jz = c.pos().z * 16 + jb.z + 0.5;
                     for (int k = 0, n = mc::jukeboxNotes(disc, jb.data.ticks, notes); k < n; ++k)
-                        world.playSound(notes[size_t(k)].sound, jx, jb.y + 1.0, jz, 1.3f, notes[size_t(k)].pitch);
+                        world.playSound(notes[size_t(k)].sound, jx, jb.y + 1.0, jz, 1.3f,
+                                        notes[size_t(k)].pitch);
                     ++jb.data.ticks;
                 }
                 for (auto& br : c.brewingStands()) // brewing stands brew (M19.4)
@@ -2412,12 +2741,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Campfires cook each item for 600 ticks, then drop it cooked above
                 // (M23.4c; wiki: Campfire).
                 for (auto& cf : c.campfires()) {
-                    if (reg.get(c.get(cf.x, cf.y, cf.z), mc::world::properties::lit) != 0) continue; // (out: no cooking)
+                    if (reg.get(c.get(cf.x, cf.y, cf.z), mc::world::properties::lit) != 0)
+                        continue; // (out: no cooking)
                     std::array<mc::world::ItemStack, 4> done{};
                     const int n = mc::tickCampfire(cf.data, done);
                     for (int i = 0; i < n; ++i)
-                        droppedItems.spawn({c.pos().x * 16 + cf.x + 0.5, cf.y + 1.0, c.pos().z * 16 + cf.z + 0.5},
-                                           done[size_t(i)], gameRng);
+                        droppedItems.spawn(
+                            {c.pos().x * 16 + cf.x + 0.5, cf.y + 1.0, c.pos().z * 16 + cf.z + 0.5},
+                            done[size_t(i)], gameRng);
                     if (n > 0) c.markDirty();
                 }
                 for (auto& f : c.furnaces()) {
@@ -2430,29 +2761,35 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Block states change after the loop (setBlock may touch the furnace lists).
             for (const mc::world::BlockPos& p : litChanges) {
                 const auto state = world.getBlock(p);
-                if (reg.blockOf(state) == mc::world::blocks::Jukebox) { // a song ended: its power stops
+                if (reg.blockOf(state) ==
+                    mc::world::blocks::Jukebox) { // a song ended: its power stops
                     blockUpdates.jukeboxChanged(p);
                     continue;
                 }
                 if (reg.likeOf(reg.blockOf(state)) != mc::world::blocks::Furnace) continue;
                 mc::world::Chunk* fc = world.chunk(p.chunk());
-                const auto* f = fc ? fc->furnace(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z))
+                const auto* f = fc ? fc->furnace(mc::world::blockToLocal(p.x), p.y,
+                                                 mc::world::blockToLocal(p.z))
                                    : nullptr;
                 if (!f) continue;
-                world.setBlock(p, reg.with(state, "lit", f->lit() ? "true" : "false").value_or(state));
+                world.setBlock(p,
+                               reg.with(state, "lit", f->lit() ? "true" : "false").value_or(state));
                 frameEdits.push_back(p); // relit, then re-meshed
             }
             // A barrel's lid shows open while its screen is (vanilla: open=true while viewed).
             {
-                const bool viewing = container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest &&
-                                     reg.blockOf(world.getBlock(containerBlock)) == mc::world::blocks::Barrel;
+                const bool viewing =
+                    container.isOpen() &&
+                    container.type() == mc::ui::ContainerScreen::Type::Chest &&
+                    reg.blockOf(world.getBlock(containerBlock)) == mc::world::blocks::Barrel;
                 if (openBarrel && (!viewing || *openBarrel != containerBlock)) {
                     const auto st = world.getBlock(*openBarrel);
                     if (reg.blockOf(st) == mc::world::blocks::Barrel) {
                         world.setBlock(*openBarrel, reg.with(st, "open", "false").value_or(st));
                         frameEdits.push_back(*openBarrel);
                         playSound(mc::world::Sound::ChestClose,
-                                  {openBarrel->x + 0.5, openBarrel->y + 0.5, openBarrel->z + 0.5}, 1.0f, 1.0f, true);
+                                  {openBarrel->x + 0.5, openBarrel->y + 0.5, openBarrel->z + 0.5},
+                                  1.0f, 1.0f, true);
                     }
                     openBarrel.reset();
                 }
@@ -2469,8 +2806,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead)
                 for (const auto& e : vitals.effects())
                     if (e.duration > 0)
-                        particles.effectSwirl(player.position(), 0.6, 1.8, mc::world::effectInfo(e.type).colour,
-                                              particleRng);
+                        particles.effectSwirl(player.position(), 0.6, 1.8,
+                                              mc::world::effectInfo(e.type).colour, particleRng);
             particles.tick(world, world.levelEvents(), player.eyePosition(1.0),
                            dimension == Dimension::Overworld ? &weather : nullptr, particleRng);
             // Sounds (M22.4): level events that make a sound, then everything queued.
@@ -2480,20 +2817,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 at(e.x, e.y, e.z), centre(e.x + 0.5, e.y + 0.5, e.z + 0.5);
                 switch (e.type) {
                 case T::BlockBreak:
-                    playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Break), centre, 1.0f,
-                              1.0f, true);
+                    playSound(
+                        mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Break),
+                        centre, 1.0f, 1.0f, true);
                     break;
                 case T::BlockPlace: {
-                    playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place), centre, 1.0f,
-                              1.0f, true);
+                    playSound(
+                        mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place),
+                        centre, 1.0f, 1.0f, true);
                     // A placed sign opens its editor (vanilla).
-                    const auto kind = mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));
+                    const auto kind = mc::world::blockRegistry().kind(
+                        mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));
                     const mc::world::BlockPos sp{int(e.x), int(e.y), int(e.z)};
-                    if (!screenshotMode && (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::HangingSign ||
-                                            kind == mc::world::BlockKind::WallSign || kind == mc::world::BlockKind::WallHangingSign))
+                    if (!screenshotMode && (kind == mc::world::BlockKind::Sign ||
+                                            kind == mc::world::BlockKind::HangingSign ||
+                                            kind == mc::world::BlockKind::WallSign ||
+                                            kind == mc::world::BlockKind::WallHangingSign))
                         if (mc::world::Chunk* sc = world.chunk(sp.chunk()))
                             if (const mc::world::SignData* sd =
-                                    sc->sign(mc::world::blockToLocal(sp.x), sp.y, mc::world::blockToLocal(sp.z))) {
+                                    sc->sign(mc::world::blockToLocal(sp.x), sp.y,
+                                             mc::world::blockToLocal(sp.z))) {
                                 signEditor.open(sp, sd->front);
                                 window.setCursorCaptured(false);
                             }
@@ -2501,14 +2844,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
                 case T::BlockHit: // (vanilla: every 4 ticks while mining)
                     if (gameTime % 4 == 0)
-                        playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data & 0xFFFF), BlockSound::Hit),
+                        playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data & 0xFFFF),
+                                                          BlockSound::Hit),
                                   centre, 1.0f, 1.0f, true);
                     break;
-                case T::Explosion: playSound(mc::world::Sound::Explode, at, 1.0f, 1.0f, true); break;
-                case T::PotionSplash: playSound(mc::world::Sound::GlassBreak, at, 1.0f, 1.0f, true); break;
-                case T::Crit: playSound(mc::world::Sound::Crit, at, 1.0f, 1.0f, true); break;
-                case T::Portal: playSound(mc::world::Sound::Teleport, at, 1.0f, 1.0f, true); break;
-                default: break;
+                case T::Explosion:
+                    playSound(mc::world::Sound::Explode, at, 1.0f, 1.0f, true);
+                    break;
+                case T::PotionSplash:
+                    playSound(mc::world::Sound::GlassBreak, at, 1.0f, 1.0f, true);
+                    break;
+                case T::Crit:
+                    playSound(mc::world::Sound::Crit, at, 1.0f, 1.0f, true);
+                    break;
+                case T::Portal:
+                    playSound(mc::world::Sound::Teleport, at, 1.0f, 1.0f, true);
+                    break;
+                default:
+                    break;
                 }
             }
             world.levelEvents().clear();
@@ -2521,15 +2874,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // grows by 0.6 x the horizontal distance), the block underfoot's sound;
                 // swimming splashes instead.
                 if (player.onGround() && !player.flying()) {
-                    stepDistance += glm::length(glm::dvec2(feetNow.x - lastFeet.x,
-                                                          feetNow.z - lastFeet.z)) * 0.6;
+                    stepDistance +=
+                        glm::length(glm::dvec2(feetNow.x - lastFeet.x, feetNow.z - lastFeet.z)) *
+                        0.6;
                     if (stepDistance > nextStep) {
                         nextStep = std::floor(stepDistance) + 1.0;
-                        const mc::world::BlockPos under{int(std::floor(feetNow.x)), int(std::floor(feetNow.y - 0.2)),
+                        const mc::world::BlockPos under{int(std::floor(feetNow.x)),
+                                                        int(std::floor(feetNow.y - 0.2)),
                                                         int(std::floor(feetNow.z))};
                         const auto us = world.getBlock(under);
                         if (us != 0 && !player.inWater())
-                            playSound(mc::world::blockSoundOf(us, mc::world::BlockSound::Step), feetNow, 1.0f, 1.0f, false);
+                            playSound(mc::world::blockSoundOf(us, mc::world::BlockSound::Step),
+                                      feetNow, 1.0f, 1.0f, false);
                     }
                 } else if (player.inWater()) {
                     stepDistance += glm::length(feetNow - lastFeet) * 0.6;
@@ -2550,10 +2906,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Eating and drinking: a bite every 4 ticks after the first 7, a burp
                 // when a food is finished.
                 const int eat = interaction.eatTicks();
-                const auto& heldDef = mc::world::itemRegistry().item(inventory.selectedStack().item);
-                const bool drinkable = heldDef.id == "minecraft:potion" || heldDef.id == "minecraft:milk_bucket";
+                const auto& heldDef =
+                    mc::world::itemRegistry().item(inventory.selectedStack().item);
+                const bool drinkable =
+                    heldDef.id == "minecraft:potion" || heldDef.id == "minecraft:milk_bucket";
                 if (eat > 7 && eat % 4 == 0)
-                    playSound(drinkable ? mc::world::Sound::Drink : mc::world::Sound::Eat, feetNow, 1.0f, 1.0f, false);
+                    playSound(drinkable ? mc::world::Sound::Drink : mc::world::Sound::Eat, feetNow,
+                              1.0f, 1.0f, false);
                 if (eat == 0 && lastEatTicks >= 30 && !drinkable)
                     playSound(mc::world::Sound::Burp, feetNow, 1.0f, 1.0f, false);
                 lastEatTicks = eat;
@@ -2568,9 +2927,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const int x = int(std::floor(eye.x)) + int(soundRng.nextInt(21)) - 10;
                 const int z = int(std::floor(eye.z)) + int(soundRng.nextInt(21)) - 10;
                 const int top = mc::world::rainHeight(world, x, z);
-                if (mc::world::rainFallsOn(world, weather, {x, top, z}) && std::abs(top - eye.y) < 20.0)
-                    playSound(mc::world::Sound::Rain, {x + 0.5, double(top), z + 0.5}, top > eye.y + 1.0 ? 0.5f : 1.0f,
-                              top > eye.y + 1.0 ? 0.5f : 1.0f, true);
+                if (mc::world::rainFallsOn(world, weather, {x, top, z}) &&
+                    std::abs(top - eye.y) < 20.0)
+                    playSound(mc::world::Sound::Rain, {x + 0.5, double(top), z + 0.5},
+                              top > eye.y + 1.0 ? 0.5f : 1.0f, top > eye.y + 1.0 ? 0.5f : 1.0f,
+                              true);
             }
             ++dayTime; // the daylight cycle advances one tick per tick
             weather.tick(gameRng);
@@ -2598,12 +2959,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
 
         if (openBlockPending && gameTime > 2) { // --open-block (screenshots of container screens)
             openBlockPending = false;
-            const mc::world::BlockPos ob{opts->openBlock[0], opts->openBlock[1], opts->openBlock[2]};
+            const mc::world::BlockPos ob{opts->openBlock[0], opts->openBlock[1],
+                                         opts->openBlock[2]};
             const auto obBlock = mc::world::blockRegistry().blockOf(world.getBlock(ob));
             containerBlock = ob;
             mc::world::Chunk* obc = world.chunk(ob.chunk());
             const mc::world::SignData* obSign =
-                obc ? obc->sign(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr;
+                obc ? obc->sign(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z))
+                    : nullptr;
             if (obSign) // (M23.3c: the sign editor)
                 signEditor.open(ob, obSign->front);
             else if (obBlock == mc::world::blocks::Stonecutter)
@@ -2613,25 +2976,47 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             else if (obBlock == mc::world::blocks::SmithingTable)
                 container.open(mc::ui::ContainerScreen::Type::Smithing);
             else if (obBlock == mc::world::blocks::Beacon)
-                container.openBeacon(obc ? obc->beacon(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z))
+                container.openBeacon(obc ? obc->beacon(mc::world::blockToLocal(ob.x), ob.y,
+                                                       mc::world::blockToLocal(ob.z))
                                          : nullptr);
             else if (obBlock == mc::world::blocks::EnchantingTable)
                 container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
-            else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||
+            else if (obBlock == mc::world::blocks::Anvil ||
+                     obBlock == mc::world::blocks::ChippedAnvil ||
                      obBlock == mc::world::blocks::DamagedAnvil)
                 container.openAnvil();
             else if (obBlock == mc::world::blocks::BrewingStand) {
                 mc::world::Chunk* bc = world.chunk(ob.chunk());
-                container.openBrewing(
-                    bc ? bc->brewing(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr);
+                container.openBrewing(bc ? bc->brewing(mc::world::blockToLocal(ob.x), ob.y,
+                                                       mc::world::blockToLocal(ob.z))
+                                         : nullptr);
             } else if (!openStoreAt(ob)) {
                 openChestAt(ob);
             }
         }
+        if (tradePending && gameTime > 2) { // --trade (screenshots of the trading screen)
+            mc::world::MobData* best = nullptr;
+            double bestD = 8.0 * 8.0;
+            world.forEachChunk([&](mc::world::Chunk& c) {
+                for (auto& mob : c.mobs())
+                    if (mob.type == mc::world::MobType::Villager && mob.offerCount > 0) {
+                        const double d =
+                            glm::dot(mob.pos - player.position(), mob.pos - player.position());
+                        if (d < bestD) bestD = d, best = &mob;
+                    }
+            });
+            if (best) {
+                tradePending = false;
+                traderUuid = best->uuidHi;
+                container.openTrading(best);
+            }
+        }
         if (openInventoryPending && gameTime > 0) {
             openInventoryPending = false;
-            if (survival) container.open(mc::ui::ContainerScreen::Type::Inventory);
-            else creative.open();
+            if (survival)
+                container.open(mc::ui::ContainerScreen::Type::Inventory);
+            else
+                creative.open();
         }
         if (spawnPending) { // new player: stand on solid ground once it's generated
             if (const auto safe = settleSpawn(world, spawn)) {
@@ -2646,40 +3031,51 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
         if (dimension == Dimension::Nether) { // fog of the Nether biome at the camera, eased in
-            const mc::world::BlockPos cam{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
+            const mc::world::BlockPos cam{int(std::floor(camera.position.x)),
+                                          int(std::floor(camera.position.y)),
                                           int(std::floor(camera.position.z))};
             if (const mc::world::Chunk* c = world.chunk(cam.chunk()); c && c->biomes()) {
-                const uint32_t fog = mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(cam.x), cam.y,
-                                                                          mc::world::blockToLocal(cam.z),
-                                                                          world.height()))
-                                         .fog;
+                const uint32_t fog =
+                    mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(cam.x), cam.y,
+                                                         mc::world::blockToLocal(cam.z),
+                                                         world.height()))
+                        .fog;
                 if (fog) {
-                    const glm::vec3 target(float(fog >> 16) / 255.0f, float((fog >> 8) & 255) / 255.0f, float(fog & 255) / 255.0f);
+                    const glm::vec3 target(float(fog >> 16) / 255.0f,
+                                           float((fog >> 8) & 255) / 255.0f,
+                                           float(fog & 255) / 255.0f);
                     // (3% per 1/60 s, whatever the frame rate)
-                    netherFog = glm::mix(netherFog, target, 1.0f - std::pow(0.97f, float(frameSeconds * 60.0)));
+                    netherFog = glm::mix(netherFog, target,
+                                         1.0f - std::pow(0.97f, float(frameSeconds * 60.0)));
                 }
             }
             renderer.setNetherFog(netherFog);
         }
         renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0 ||
-                                vitals.effectLevel(mc::world::Effect::ConduitPower) > 0); // (conduits: vision too)
+                                vitals.effectLevel(mc::world::Effect::ConduitPower) >
+                                    0); // (conduits: vision too)
         if (dimension == Dimension::Overworld) {
             // Biome sky and fog colours, blended over 5x5 biome cells (4 blocks each)
             // around the camera, so crossing a border fades the sky (vanilla samples
             // its biome grid with a smooth kernel).
             glm::vec3 sky(0.0f), fog(0.0f);
             int n = 0;
-            const int bx = int(std::floor(camera.position.x)), bz = int(std::floor(camera.position.z));
-            const int by = std::clamp(int(std::floor(camera.position.y)), world.height().minY, world.height().maxY());
+            const int bx = int(std::floor(camera.position.x)),
+                      bz = int(std::floor(camera.position.z));
+            const int by = std::clamp(int(std::floor(camera.position.y)), world.height().minY,
+                                      world.height().maxY());
             for (int dz = -2; dz <= 2; ++dz)
                 for (int dx = -2; dx <= 2; ++dx) {
                     const mc::world::BlockPos p{bx + dx * 4, by, bz + dz * 4};
                     const mc::world::Chunk* c = world.chunk(p.chunk());
                     if (!c || !c->biomes()) continue;
-                    const auto& info = mc::world::biomeInfo(c->biomes()->at(
-                        mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z), world.height()));
+                    const auto& info = mc::world::biomeInfo(
+                        c->biomes()->at(mc::world::blockToLocal(p.x), p.y,
+                                        mc::world::blockToLocal(p.z), world.height()));
                     auto rgb = [](uint32_t v) {
-                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255), float(v & 255)) / 255.0f;
+                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255),
+                                         float(v & 255)) /
+                               255.0f;
                     };
                     sky += rgb(mc::world::skyColorFor(info.temperature));
                     fog += rgb(mc::world::kOverworldFog);
@@ -2703,8 +3099,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             loader->update(center, loadedChunks, unloadedChunks);
         }
         // Lighting follows loading and edits; meshing follows lighting.
-        lighting.update(loadedChunks, unloadedChunks, frameEdits, frameSettling, litChunks, relitSections,
-                        editsReady);
+        lighting.update(loadedChunks, unloadedChunks, frameEdits, frameSettling, litChunks,
+                        relitSections, editsReady);
         frameSettling.clear();
         // Edited blocks are re-meshed once their light is current (no stale-light flash).
         renderer.onBlocksChanged(editsReady);
@@ -2728,13 +3124,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         std::array<glm::vec3, 256> lightTable;
         for (int sky = 0; sky < 16; ++sky)
             for (int blk = 0; blk < 16; ++blk)
-                lightTable[size_t(sky * 16 + blk)] = mc::gfx::lightColor(sky, blk, renderer.skyDarken(),
-                                                                         mc::world::dimensionInfo(dimension).ambientLight,
-                                                                         dimension == Dimension::End);
+                lightTable[size_t(sky * 16 + blk)] = mc::gfx::lightColor(
+                    sky, blk, renderer.skyDarken(),
+                    mc::world::dimensionInfo(dimension).ambientLight, dimension == Dimension::End);
         for (const auto& e : droppedItems.items()) {
             const glm::dvec3 p = glm::mix(e.prevPos, e.pos, clock.alpha);
             const float t = float(e.age) + float(clock.alpha);
-            entities.addItem(e.stack, p, t / 20.0f + e.spinOffset, std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
+            entities.addItem(e.stack, p, t / 20.0f + e.spinOffset,
+                             std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
         }
         for (const auto& pr : projectiles.items()) {
@@ -2742,10 +3139,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const glm::vec3 light = lightTable[size_t(pr.skyLight * 16 + pr.blockLight)];
             static const mc::world::ItemId eggItem = *mc::world::itemRegistry().find("egg");
             static const mc::world::ItemId eyeItem = *mc::world::itemRegistry().find("ender_eye");
-            static const mc::world::ItemId splashItem = *mc::world::itemRegistry().find("splash_potion");
-            static const mc::world::ItemId fireItem = *mc::world::itemRegistry().find("fire_charge");
-            static const mc::world::ItemId pearlItem = *mc::world::itemRegistry().find("ender_pearl");
-            static const mc::world::ItemId shellItem = *mc::world::itemRegistry().find("shulker_shell");
+            static const mc::world::ItemId splashItem =
+                *mc::world::itemRegistry().find("splash_potion");
+            static const mc::world::ItemId fireItem =
+                *mc::world::itemRegistry().find("fire_charge");
+            static const mc::world::ItemId pearlItem =
+                *mc::world::itemRegistry().find("ender_pearl");
+            static const mc::world::ItemId shellItem =
+                *mc::world::itemRegistry().find("shulker_shell");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
@@ -2755,10 +3156,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                           : pr.kind == mc::ProjectileKind::Egg          ? eggItem
                                           : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
                                           : pr.kind == mc::ProjectileKind::ShulkerBullet ? shellItem
-                                                                                        : fireItem,
+                                                                                         : fireItem,
                                           1};
                 look.potion = pr.potion;
-                entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
+                entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light,
+                                 camera.position);
             }
         }
         if (dimension == Dimension::Overworld) {
@@ -2769,7 +3171,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const float rain = weather.rainAt(a);
             if (rain > 0.0f) {
                 constexpr int r = kRainRadius;
-                const int cx = int(std::floor(camera.position.x)), cz = int(std::floor(camera.position.z)),
+                const int cx = int(std::floor(camera.position.x)),
+                          cz = int(std::floor(camera.position.z)),
                           cy = int(std::floor(camera.position.y));
                 if (rainColumnsTick != gameTime || cx != rainCx || cz != rainCz || cy != rainCy) {
                     rainColumnsTick = gameTime;
@@ -2786,8 +3189,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             int sky = 15, blk = 0;
                             const mc::world::Chunk* c = world.chunk(at.chunk());
                             if (c && c->lit() && world.isInHeight(at.y)) {
-                                sky = c->skyLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
-                                blk = c->blockLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
+                                sky = c->skyLight(mc::world::blockToLocal(x), at.y,
+                                                  mc::world::blockToLocal(z));
+                                blk = c->blockLight(mc::world::blockToLocal(x), at.y,
+                                                    mc::world::blockToLocal(z));
                             }
                             col.light = uint8_t(sky * 16 + blk);
                         }
@@ -2798,22 +3203,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const int d2 = dx * dx + dz * dz;
                         if (d2 > r * r) continue;
                         const int x = cx + dx, z = cz + dz;
-                        const RainColumn& col = rainColumns[size_t((dz + r) * (2 * r + 1) + dx + r)];
+                        const RainColumn& col =
+                            rainColumns[size_t((dz + r) * (2 * r + 1) + dx + r)];
                         const int ground = col.ground;
                         const int y0 = std::max(ground, cy - r), y1 = std::max(ground, cy + r);
                         if (y0 >= y1) continue;
                         const auto kind = col.kind;
                         if (kind == mc::world::Precipitation::None) continue;
                         const uint32_t ux = uint32_t(x), uz = uint32_t(z);
-                        const uint32_t h = ux * 3121u + ux * ux * 45238971u + uz * uz * 418711u + uz * 13761u;
-                        const float phase = float(h & 31) / 32.0f, speed = 1.0f + float((h >> 5) & 7) / 16.0f;
+                        const uint32_t h =
+                            ux * 3121u + ux * ux * 45238971u + uz * uz * 418711u + uz * 13761u;
+                        const float phase = float(h & 31) / 32.0f,
+                                    speed = 1.0f + float((h >> 5) & 7) / 16.0f;
                         const bool snow = kind == mc::world::Precipitation::Snow;
                         // Rain: about a block a tick; snow drifts down slowly, swaying.
-                        const float scroll = snow ? t * 0.05f * speed + phase : t * speed + phase; // (grows: falls)
-                        const float drift = snow ? 0.15f * std::sin(t * 0.03f + phase * 6.28f) : 0.0f;
-                        const float alpha = ((1.0f - float(d2) / float(r * r)) * 0.5f + 0.5f) * rain;
-                        entities.addPrecipitation(x, z, y0, y1, snow, scroll, drift, alpha, lightTable[col.light],
-                                                  camera.position);
+                        const float scroll =
+                            snow ? t * 0.05f * speed + phase : t * speed + phase; // (grows: falls)
+                        const float drift =
+                            snow ? 0.15f * std::sin(t * 0.03f + phase * 6.28f) : 0.0f;
+                        const float alpha =
+                            ((1.0f - float(d2) / float(r * r)) * 0.5f + 0.5f) * rain;
+                        entities.addPrecipitation(x, z, y0, y1, snow, scroll, drift, alpha,
+                                                  lightTable[col.light], camera.position);
                     }
             }
             for (const Bolt& b : bolts)
@@ -2825,9 +3236,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const glm::vec3 right = glm::normalize(glm::cross(look, glm::vec3(0, 1, 0)));
             const glm::vec3 up = glm::cross(right, look);
             for (const mc::Particle& p : particles.all()) {
-                const glm::vec3 light = p.fullBright ? glm::vec3(1.0f) : lightTable[size_t(p.skyLight * 16 + p.blockLight)];
-                entities.addParticle(glm::mix(p.prevPos, p.pos, clock.alpha), p.size, p.frame(), p.state, p.u, p.v,
-                                     p.color * light, camera.position, right, up);
+                const glm::vec3 light = p.fullBright
+                                            ? glm::vec3(1.0f)
+                                            : lightTable[size_t(p.skyLight * 16 + p.blockLight)];
+                entities.addParticle(glm::mix(p.prevPos, p.pos, clock.alpha), p.size, p.frame(),
+                                     p.state, p.u, p.v, p.color * light, camera.position, right,
+                                     up);
             }
         }
         {
@@ -2838,27 +3252,32 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 0xFFFFFF, 0xFF681F, 0xFF00FF, 0x9AC0CD, 0xFFFF00, 0xBFFF00, 0xFF69B4, 0x808080,
                 0xD3D3D3, 0x00FFFF, 0xA020F0, 0x0000FF, 0x8B4513, 0x00FF00, 0xFF0000, 0x000000};
             const auto& reg = mc::world::blockRegistry();
-            const mc::world::ChunkPos cc{mc::world::blockToChunk(int32_t(std::floor(camera.position.x))),
-                                         mc::world::blockToChunk(int32_t(std::floor(camera.position.z)))};
+            const mc::world::ChunkPos cc{
+                mc::world::blockToChunk(int32_t(std::floor(camera.position.x))),
+                mc::world::blockToChunk(int32_t(std::floor(camera.position.z)))};
             // Only chunks in view (M23 perf review: no glyphs behind the camera).
-            const mc::gfx::Frustum textFrustum =
-                mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
+            const mc::gfx::Frustum textFrustum = mc::gfx::Frustum::fromMatrix(
+                camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
             for (int dz = -3; dz <= 3; ++dz)
                 for (int dx = -3; dx <= 3; ++dx) {
                     const mc::world::Chunk* ch = world.chunk({cc.x + dx, cc.z + dz});
                     if (!ch) continue;
-                    const glm::vec3 cmin(glm::dvec3(ch->pos().x * 16.0, ch->height().minY, ch->pos().z * 16.0) -
-                                         camera.position);
-                    if (!textFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(ch->height().height), 16.0f)))
+                    const glm::vec3 cmin(
+                        glm::dvec3(ch->pos().x * 16.0, ch->height().minY, ch->pos().z * 16.0) -
+                        camera.position);
+                    if (!textFrustum.intersectsBox(
+                            cmin, cmin + glm::vec3(16.0f, float(ch->height().height), 16.0f)))
                         continue;
                     for (const auto& cf : ch->campfires()) // food cooking on campfires (M23.4c)
                         for (int i = 0; i < 4; ++i)
                             if (!cf.data.items[size_t(i)].empty()) {
-                                static constexpr double kSlot[4][2] = {{0.3, 0.3}, {0.7, 0.3}, {0.7, 0.7}, {0.3, 0.7}};
-                                const glm::dvec3 at(ch->pos().x * 16 + cf.x + kSlot[i][0], cf.y + 0.45,
+                                static constexpr double kSlot[4][2] = {
+                                    {0.3, 0.3}, {0.7, 0.3}, {0.7, 0.7}, {0.3, 0.7}};
+                                const glm::dvec3 at(ch->pos().x * 16 + cf.x + kSlot[i][0],
+                                                    cf.y + 0.45,
                                                     ch->pos().z * 16 + cf.z + kSlot[i][1]);
-                                entities.addItem(cf.data.items[size_t(i)], at, float(i) * 90.0f, 0.0f,
-                                                 lightTable[15 * 16 + 15], camera.position);
+                                entities.addItem(cf.data.items[size_t(i)], at, float(i) * 90.0f,
+                                                 0.0f, lightTable[15 * 16 + 15], camera.position);
                             }
                     for (const auto& sg : ch->signs()) {
                         bool written = false; // (blank signs: nothing to draw)
@@ -2870,73 +3289,92 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         // The board's facing as quarter turns (south 0, west 1, north 2, east 3)
                         // and the centre of its face, as the models build them.
                         int quarter = 0;
-                        if (k == mc::world::BlockKind::WallSign || k == mc::world::BlockKind::WallHangingSign) {
+                        if (k == mc::world::BlockKind::WallSign ||
+                            k == mc::world::BlockKind::WallHangingSign) {
                             const int f = reg.get(st, mc::world::properties::facing);
                             quarter = f == 0 ? 2 : f == 1 ? 0 : f == 2 ? 1 : 3;
-                        } else if (k == mc::world::BlockKind::Sign || k == mc::world::BlockKind::HangingSign) {
-                            quarter = ((reg.get(st, mc::world::properties::rotation16) + 2) / 4) & 3;
+                        } else if (k == mc::world::BlockKind::Sign ||
+                                   k == mc::world::BlockKind::HangingSign) {
+                            quarter =
+                                ((reg.get(st, mc::world::properties::rotation16) + 2) / 4) & 3;
                         } else {
                             continue;
                         }
-                        static constexpr glm::vec3 kOut[4] = {{0, 0, 1}, {-1, 0, 0}, {0, 0, -1}, {1, 0, 0}};
+                        static constexpr glm::vec3 kOut[4] = {
+                            {0, 0, 1}, {-1, 0, 0}, {0, 0, -1}, {1, 0, 0}};
                         const glm::vec3 out = kOut[quarter];
                         const glm::vec3 right(out.z, 0.0f, -out.x); // (as seen looking at the face)
-                        glm::dvec3 centre(ch->pos().x * 16 + sg.x + 0.5, sg.y, ch->pos().z * 16 + sg.z + 0.5);
+                        glm::dvec3 centre(ch->pos().x * 16 + sg.x + 0.5, sg.y,
+                                          ch->pos().z * 16 + sg.z + 0.5);
                         double faceOffset = 1.0 / 16.0 + 0.002; // half the board's thickness
                         switch (k) {
-                        case mc::world::BlockKind::Sign: centre.y += 12.0 / 16.0; break;
+                        case mc::world::BlockKind::Sign:
+                            centre.y += 12.0 / 16.0;
+                            break;
                         case mc::world::BlockKind::WallSign:
                             centre.y += 8.0 / 16.0;
                             faceOffset = 2.0 / 16.0 - 0.5 + 0.002; // board against the wall behind
                             break;
-                        default: centre.y += 5.0 / 16.0; break; // hanging boards
+                        default:
+                            centre.y += 5.0 / 16.0;
+                            break; // hanging boards
                         }
                         centre += glm::dvec3(out) * faceOffset;
                         const float px = 1.0f / 96.0f;
                         for (int i = 0; i < mc::world::SignData::kLines; ++i) {
-                            const glm::dvec3 lineCentre = centre + glm::dvec3(0.0, (1.5 - i) * 10.0 * px, 0.0);
-                            entities.addText(sg.data.front.lines[size_t(i)].data(), lineCentre, right, glm::vec3(0, 1, 0), px,
-                                             kTextColours[sg.data.front.colour & 15], camera.position);
+                            const glm::dvec3 lineCentre =
+                                centre + glm::dvec3(0.0, (1.5 - i) * 10.0 * px, 0.0);
+                            entities.addText(sg.data.front.lines[size_t(i)].data(), lineCentre,
+                                             right, glm::vec3(0, 1, 0), px,
+                                             kTextColours[sg.data.front.colour & 15],
+                                             camera.position);
                         }
                     }
                 }
         }
         for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
-            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position);
+            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha),
+                              camera.position);
         for (const auto& o : orbs.orbs())
-            entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value, float(o.age) + float(clock.alpha),
-                            camera.position);
+            entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value,
+                            float(o.age) + float(clock.alpha), camera.position);
         for (const auto& mv : blockUpdates.moving()) { // blocks in flight (M21.5): 2 ticks a move
             const double progress =
                 std::min(1.0, (double(blockUpdates.now() - mv.start) + clock.alpha) / 2.0);
             const glm::dvec3 to(mv.to.x + 0.5, mv.to.y, mv.to.z + 0.5);
-            entities.addBlock(mv.state, to - glm::dvec3(mc::world::normal(mv.dir)) * (1.0 - progress),
+            entities.addBlock(mv.state,
+                              to - glm::dvec3(mc::world::normal(mv.dir)) * (1.0 - progress),
                               glm::vec3(1.0f), camera.position);
         }
         for (const auto& t : primedTnt.items()) { // flashing white every 5 ticks (wiki)
             static const mc::world::BlockStateId tntState =
                 mc::world::blockRegistry().defaultState(mc::world::blocks::Tnt);
             const glm::vec3 light = (t.fuse / 5) % 2 == 0 ? glm::vec3(2.0f) : glm::vec3(1.0f);
-            entities.addBlock(tntState, glm::mix(t.prevPos, t.pos, clock.alpha), light, camera.position);
+            entities.addBlock(tntState, glm::mix(t.prevPos, t.pos, clock.alpha), light,
+                              camera.position);
         }
         for (const auto& f : fallingBlocks.blocks())
             entities.addBlock(f.state, glm::mix(f.prevPos, f.pos, clock.alpha),
                               lightTable[size_t(f.skyLight * 16 + f.blockLight)], camera.position);
         // Mobs: only chunks in view, and mobs within vanilla's entity render distance
         // (64 blocks x the hitbox's average edge; wiki: Options › Entity Distance).
-        const mc::gfx::Frustum mobFrustum =
-            mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
+        const mc::gfx::Frustum mobFrustum = mc::gfx::Frustum::fromMatrix(
+            camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
         world.forEachTickingChunk([&](mc::world::Chunk& c) {
             // Beacon beams up to the sky from lit beacons (M23.6; wiki: Beacon).
             for (const auto& bc : c.beacons())
                 if (!bc.data.conduit && bc.data.beam && bc.data.levels > 0) {
-                    const glm::dvec3 base(c.pos().x * 16 + bc.x + 0.5, bc.y + 0.75, c.pos().z * 16 + bc.z + 0.5);
-                    entities.addBeam(base, glm::dvec3(base.x, double(c.height().maxY() + 1), base.z), camera.position,
-                                     {0.85f, 0.95f, 1.0f}, 0.2f);
+                    const glm::dvec3 base(c.pos().x * 16 + bc.x + 0.5, bc.y + 0.75,
+                                          c.pos().z * 16 + bc.z + 0.5);
+                    entities.addBeam(base,
+                                     glm::dvec3(base.x, double(c.height().maxY() + 1), base.z),
+                                     camera.position, {0.85f, 0.95f, 1.0f}, 0.2f);
                 }
             if (c.mobs().empty()) return;
-            const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, c.height().minY, c.pos().z * 16.0) - camera.position);
-            if (!mobFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(c.height().height), 16.0f)))
+            const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, c.height().minY, c.pos().z * 16.0) -
+                                 camera.position);
+            if (!mobFrustum.intersectsBox(cmin,
+                                          cmin + glm::vec3(16.0f, float(c.height().height), 16.0f)))
                 return;
             for (const auto& m : c.mobs()) {
                 const glm::dvec3 p = glm::mix(m.prevPos, m.pos, clock.alpha);
@@ -2945,27 +3383,34 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
                 const glm::vec3 bmin(rel - glm::dvec3(info.width * 0.5, 0.0, info.width * 0.5));
-                const float reachOut = m.type == mc::world::MobType::EnderDragon ? 8.0f : 0.0f; // (its tail and wings)
-                if (!mobFrustum.intersectsBox(bmin - glm::vec3(reachOut),
-                                              bmin + glm::vec3(float(info.width), float(info.height), float(info.width)) +
-                                                  glm::vec3(reachOut)))
+                const float reachOut =
+                    m.type == mc::world::MobType::EnderDragon ? 8.0f : 0.0f; // (its tail and wings)
+                if (!mobFrustum.intersectsBox(
+                        bmin - glm::vec3(reachOut),
+                        bmin + glm::vec3(float(info.width), float(info.height), float(info.width)) +
+                            glm::vec3(reachOut)))
                     continue;
-                const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.5)), int(std::floor(p.z))};
+                const mc::world::BlockPos b{int(std::floor(p.x)), int(std::floor(p.y + 0.5)),
+                                            int(std::floor(p.z))};
                 int sky = 15, blk = 0;
                 if (const auto* lc = world.chunk(b.chunk()); lc && lc->lit()) {
-                    sky = lc->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
-                    blk = lc->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+                    sky = lc->skyLight(mc::world::blockToLocal(b.x), b.y,
+                                       mc::world::blockToLocal(b.z));
+                    blk = lc->blockLight(mc::world::blockToLocal(b.x), b.y,
+                                         mc::world::blockToLocal(b.z));
                 }
                 const float a = float(clock.alpha);
-                entities.addMob(m, p, m.prevYaw + (m.yaw - m.prevYaw) * a, m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
-                                m.prevPitch + (m.pitch - m.prevPitch) * a, lightTable[size_t(sky * 16 + blk)],
-                                camera.position);
+                entities.addMob(m, p, m.prevYaw + (m.yaw - m.prevYaw) * a,
+                                m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
+                                m.prevPitch + (m.pitch - m.prevPitch) * a,
+                                lightTable[size_t(sky * 16 + blk)], camera.position);
                 if (m.type == mc::world::MobType::EnderDragon && m.hasBeam && m.deathTime == 0)
                     entities.addBeam(m.beam, p + glm::dvec3(0.0, 0.75, 0.0), camera.position);
             }
         });
         if (survival && interaction.breakingBlock())
-            entities.setCrack(*interaction.breakingBlock(), static_cast<int>(interaction.breakProgress() * 10.0f));
+            entities.setCrack(*interaction.breakingBlock(),
+                              static_cast<int>(interaction.breakProgress() * 10.0f));
         else
             entities.clearCrack();
         entities.draw(camera, float(fbWidth) / float(fbHeight));
@@ -2982,12 +3427,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     for (int i = 0; i < sh.count; ++i)
                         for (int a = 0; a < 3; ++a) {
                             lo[a] = std::min(lo[a], sh.boxes[size_t(i)].from[a] / 16.0f);
-                            hi[a] = std::max(hi[a], std::min<int>(sh.boxes[size_t(i)].to[a], 16) / 16.0f);
+                            hi[a] = std::max(hi[a],
+                                             std::min<int>(sh.boxes[size_t(i)].to[a], 16) / 16.0f);
                         }
                 }
             }
-            overlay.draw(camera, fbWidth, fbHeight, hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt,
-                         lo, hi);
+            overlay.draw(camera, fbWidth, fbHeight,
+                         hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt, lo,
+                         hi);
         }
 
         // HUD: inventory, chat, F3 - one batched GUI draw.
@@ -2997,14 +3444,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             auto& batch = gui.batch();
             mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             if (survival)
-                mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(), inventory.armorPoints());
-            if (survival) mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
+                mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
+                                   inventory.armorPoints());
+            if (survival)
+                mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
             if (mobs.bossHealth() >= 0.0f) // (M20.2)
-                mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f, mc::gfx::rgba(236, 72, 200), guiW);
+                mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f,
+                                    mc::gfx::rgba(236, 72, 200), guiW);
             if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
             if (sleepTicks > 0) // falling asleep: the screen darkens (vanilla)
-                batch.fill(0, 0, float(guiW), float(guiH),
-                           mc::gfx::rgba(0, 0, 0, uint8_t(std::min(1.0f, sleepTicks / 100.0f) * 230.0f)));
+                batch.fill(
+                    0, 0, float(guiW), float(guiH),
+                    mc::gfx::rgba(0, 0, 0, uint8_t(std::min(1.0f, sleepTicks / 100.0f) * 230.0f)));
             chat.draw(batch, guiW, guiH, gameTime);
             ++fpsFrames;
             if (now - fpsStart >= 1.0) {
@@ -3014,31 +3465,47 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Furnace) {
                 mc::world::Chunk* fc = world.chunk(containerBlock.chunk());
-                container.setFurnace(fc ? fc->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                container.setFurnace(fc ? fc->furnace(mc::world::blockToLocal(containerBlock.x),
+                                                      containerBlock.y,
                                                       mc::world::blockToLocal(containerBlock.z))
                                         : nullptr);
             }
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
+                pointTrader();
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
                 mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
-                container.setBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                container.setBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x),
+                                                    containerBlock.y,
                                                     mc::world::blockToLocal(containerBlock.z))
                                        : nullptr);
             }
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
                 mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
-                container.setBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                container.setBrewing(bc ? bc->brewing(mc::world::blockToLocal(containerBlock.x),
+                                                      containerBlock.y,
                                                       mc::world::blockToLocal(containerBlock.z))
                                         : nullptr);
             }
             // Chests may have moved in memory or gone during this frame's ticks: re-point.
-            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest) pointChests();
-            if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
-                                       container.type() == mc::ui::ContainerScreen::Type::Dispenser))
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest)
+                pointChests();
+            if (container.isOpen() &&
+                (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
+                 container.type() == mc::ui::ContainerScreen::Type::Dispenser))
                 pointStore();
             if (container.isOpen())
-                container.draw(batch, itemIcons, renderer.models(), inventory, guiW, guiH,
-                               [&] { double x = 0, y = 0; window.cursorPos(x, y); return x / scale; }(),
-                               [&] { double x = 0, y = 0; window.cursorPos(x, y); return y / scale; }());
+                container.draw(
+                    batch, itemIcons, renderer.models(), inventory, guiW, guiH,
+                    [&] {
+                        double x = 0, y = 0;
+                        window.cursorPos(x, y);
+                        return x / scale;
+                    }(),
+                    [&] {
+                        double x = 0, y = 0;
+                        window.cursorPos(x, y);
+                        return y / scale;
+                    }());
             if (creative.isOpen()) {
                 double mx = 0, my = 0;
                 window.cursorPos(mx, my);
@@ -3073,8 +3540,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                static_cast<int32_t>(std::floor(d.feet.y)),
                                                static_cast<int32_t>(std::floor(d.feet.z))};
                 if (const auto* c = world.chunk(feet.chunk()))
-                    d.biome = mc::world::biomeInfo(c->biomes()->at(mc::world::blockToLocal(feet.x), feet.y,
-                                                                   mc::world::blockToLocal(feet.z), c->height()))
+                    d.biome = mc::world::biomeInfo(
+                                  c->biomes()->at(mc::world::blockToLocal(feet.x), feet.y,
+                                                  mc::world::blockToLocal(feet.z), c->height()))
                                   .id.data();
                 if (const auto* c = world.chunk(feet.chunk()); c && c->lit()) {
                     d.skyLight = c->skyLight(mc::world::blockToLocal(feet.x), feet.y,
@@ -3112,12 +3580,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (action == mc::ui::MenuAction::Resume) {
                 shared.menuState.screen = mc::ui::MenuScreen::None;
                 window.setCursorCaptured(true);
-                attackArmed = false; // (the click on the button mustn't break a block)
+                attackArmed = false;      // (the click on the button mustn't break a block)
                 last = mc::timeSeconds(); // (no catching up on the paused time)
             } else if (action == mc::ui::MenuAction::SaveAndQuit) {
                 sessionEnd = SessionEnd::ToTitle;
                 break;
-            } else if (action == mc::ui::MenuAction::OptionsChanged || action == mc::ui::MenuAction::OptionsClosed) {
+            } else if (action == mc::ui::MenuAction::OptionsChanged ||
+                       action == mc::ui::MenuAction::OptionsClosed) {
                 applySessionOptions();
             }
         }
@@ -3151,7 +3620,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Quitting with a screen open returns its grid and carried stack first (vanilla).
     screenDrops.clear();
     if (container.isOpen()) container.close(inventory, screenDrops);
-    for (const auto& d : screenDrops) // didn't fit: drop at the player (saved later... lost: see deviations)
+    for (const auto& d :
+         screenDrops) // didn't fit: drop at the player (saved later... lost: see deviations)
         droppedItems.spawn(player.position(), d, gameRng);
     blockUpdates.landAll();
     saveWorld(true);
@@ -3174,7 +3644,6 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     return exitCode;
 }
 
-
 // The menus between worlds (M22.5): draws the current screen each frame until the
 // player picks a world, creates one or quits.
 mc::ui::MenuAction runMenus(Shared& shared) {
@@ -3193,19 +3662,25 @@ mc::ui::MenuAction runMenus(Shared& shared) {
         const auto action = drawMenuFrame(shared, fbWidth, fbHeight, true);
         window.swapBuffers();
         const double now = mc::timeSeconds();
-        if (now - last < 1.0 / 120.0) std::this_thread::sleep_for(std::chrono::milliseconds(2)); // (menus: no need to spin)
+        if (now - last < 1.0 / 120.0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2)); // (menus: no need to spin)
         last = now;
-        if (action == mc::ui::MenuAction::PlayWorld && st.selected >= 0 && st.selected < int(st.worlds.size()))
+        if (action == mc::ui::MenuAction::PlayWorld && st.selected >= 0 &&
+            st.selected < int(st.worlds.size()))
             return action;
-        if (action == mc::ui::MenuAction::CreateWorld || action == mc::ui::MenuAction::Quit) return action;
-        if (action == mc::ui::MenuAction::DeleteWorld && st.selected >= 0 && st.selected < int(st.worlds.size())) {
+        if (action == mc::ui::MenuAction::CreateWorld || action == mc::ui::MenuAction::Quit)
+            return action;
+        if (action == mc::ui::MenuAction::DeleteWorld && st.selected >= 0 &&
+            st.selected < int(st.worlds.size())) {
             // (vanilla deletes the whole folder; the confirmation screen came first)
             std::error_code ec;
-            const auto dir = std::filesystem::path(MC_SAVES_DIR) / st.worlds[size_t(st.selected)].folder;
+            const auto dir =
+                std::filesystem::path(MC_SAVES_DIR) / st.worlds[size_t(st.selected)].folder;
             {
                 mc::FileLock lock; // (open in another instance: leave it alone, as vanilla)
                 if (!lock.acquire(dir / "session.lock")) {
-                    MC_LOG_WARN("World \"%s\" is open elsewhere; not deleted", st.worlds[size_t(st.selected)].name.c_str());
+                    MC_LOG_WARN("World \"%s\" is open elsewhere; not deleted",
+                                st.worlds[size_t(st.selected)].name.c_str());
                     st.screen = mc::ui::MenuScreen::WorldList;
                     continue;
                 }
@@ -3257,10 +3732,12 @@ int main(int argc, char** argv) {
     // (a pack may replace any WAV). Screenshot and hidden runs stay silent.
     mc::audio::SoundEngine audio;
     std::vector<std::vector<int>> soundHandles(static_cast<size_t>(mc::world::kSoundCount));
-    if (!opts->mute && (opts->sound || (!opts->hidden && opts->screenshotPath.empty())) && audio.init()) {
+    if (!opts->mute && (opts->sound || (!opts->hidden && opts->screenshotPath.empty())) &&
+        audio.init()) {
         int loaded = 0;
         for (int s = 0; s < mc::world::kSoundCount; ++s)
-            for (const std::string& f : mc::world::soundInfo(static_cast<mc::world::Sound>(s)).files) {
+            for (const std::string& f :
+                 mc::world::soundInfo(static_cast<mc::world::Sound>(s)).files) {
                 const auto bytes = renderer.packs().read("assets/minecraft/sounds/" + f + ".wav");
                 const int h = bytes ? audio.load(*bytes) : -1;
                 if (h >= 0) {
@@ -3275,15 +3752,26 @@ int main(int argc, char** argv) {
 
     mc::LaunchOptions launch = *opts; // (sessions change world, seed, mode...)
     mc::GameOptions options;
-    const std::filesystem::path optionsFile = std::filesystem::path(MC_SAVES_DIR).parent_path() / "options.txt";
+    const std::filesystem::path optionsFile =
+        std::filesystem::path(MC_SAVES_DIR).parent_path() / "options.txt";
     const bool interactive = !screenshotMode && !opts->hidden;
-    if (interactive) options.load(optionsFile); // (scripted runs: defaults and the command line only)
+    if (interactive)
+        options.load(optionsFile); // (scripted runs: defaults and the command line only)
     if (interactive && !opts->renderDistanceSet) launch.renderDistance = options.renderDistance;
     audio.setMasterVolume(options.masterVolume);
     mc::ui::Menu menu;
     mc::ui::MenuState menuState;
     menuState.splash = mc::ui::splashText(uint32_t(mc::timeSeconds() * 1000.0));
-    Shared shared{window, renderer, overlay, gui, audio, soundHandles, options, optionsFile, menu, menuState,
+    Shared shared{window,
+                  renderer,
+                  overlay,
+                  gui,
+                  audio,
+                  soundHandles,
+                  options,
+                  optionsFile,
+                  menu,
+                  menuState,
                   static_cast<uint16_t>(renderer.atlas().spriteIndex("dirt"))};
     shared.optionsRenderDistance = options.renderDistance;
     if (!interactive || opts->renderDistanceSet) shared.cliRenderDistance = launch.renderDistance;
@@ -3302,7 +3790,8 @@ int main(int argc, char** argv) {
             window.framebufferSize(fbWidth, fbHeight);
             drawMenuFrame(shared, fbWidth, fbHeight, true);
             if (screenshotMode && f + 1 >= opts->screenshotFrames)
-                return mc::gfx::saveScreenshot(opts->screenshotPath.c_str(), fbWidth, fbHeight) ? 0 : 1;
+                return mc::gfx::saveScreenshot(opts->screenshotPath.c_str(), fbWidth, fbHeight) ? 0
+                                                                                                : 1;
             window.swapBuffers();
         }
         return 0;
@@ -3312,12 +3801,14 @@ int main(int argc, char** argv) {
         launch.commands.clear(); // (--command lines run in the first world only)
         launch.hasPos = launch.hasLook = false;
         launch.dimension.clear();
-        launch.autoFly = launch.demoEdit = launch.inventory = launch.hasOpenBlock = false;
+        launch.autoFly = launch.demoEdit = launch.inventory = launch.hasOpenBlock = launch.trade =
+            false;
     };
     // With --world, --no-save, screenshots or hidden runs: straight into the world;
     // interactive ones come back to the title on "Save and Quit to Title".
     if (!interactive || !opts->world.empty() || opts->noSave) {
-        menuState.screen = opts->menu == "pause" ? mc::ui::MenuScreen::Pause : mc::ui::MenuScreen::None;
+        menuState.screen =
+            opts->menu == "pause" ? mc::ui::MenuScreen::Pause : mc::ui::MenuScreen::None;
         SessionEnd end;
         const int code = runSession(shared, &launch, end);
         if (!interactive || end != SessionEnd::ToTitle || window.shouldClose()) return code;
@@ -3337,9 +3828,10 @@ int main(int argc, char** argv) {
         if (create) {
             launch.world = mc::world::folderForWorld(menuState.newName, savesDir);
             launch.worldTitle = menuState.newName.empty() ? launch.world : menuState.newName;
-            launch.seed = mc::world::seedFromText(menuState.newSeed,
-                                                  uint64_t(std::chrono::steady_clock::now().time_since_epoch().count()) *
-                                                      0x9E3779B97F4A7C15ull);
+            launch.seed = mc::world::seedFromText(
+                menuState.newSeed,
+                uint64_t(std::chrono::steady_clock::now().time_since_epoch().count()) *
+                    0x9E3779B97F4A7C15ull);
             launch.flat = menuState.newFlat;
             launch.survival = menuState.newSurvival;
         } else {
@@ -3355,7 +3847,8 @@ int main(int argc, char** argv) {
         // A world that couldn't open (locked, unreadable, unknown generator: logged)
         // leaves the player in the world list rather than quitting the game.
         menuState.screen = code != 0 ? mc::ui::MenuScreen::WorldList : mc::ui::MenuScreen::Title;
-        if (code != 0) MC_LOG_WARN("World \"%s\" could not be opened (see above)", launch.world.c_str());
+        if (code != 0)
+            MC_LOG_WARN("World \"%s\" could not be opened (see above)", launch.world.c_str());
         menuState.selected = menuState.worlds.empty() ? -1 : 0;
     }
     return 0;

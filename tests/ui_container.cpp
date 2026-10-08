@@ -309,3 +309,54 @@ TEST_CASE("closing a screen with a full inventory drops whole stacks: shulker co
     CHECK(boxOk);
     CHECK(swordOk);
 }
+
+#include "world/Trades.h"
+
+TEST_CASE("trading: villagers get trades by level; choosing a trade fills the payment; trades level the villager (M24.2)") {
+    MobData v;
+    v.type = MobType::Villager;
+    v.profession = uint8_t(Profession::Librarian);
+    Xoroshiro rng(5);
+    addLevelTrades(v, rng);
+    CHECK(v.offerCount == 2);
+    CHECK(villagerLevelFor(0) == 1);
+    CHECK(villagerLevelFor(10) == 2);
+    CHECK(villagerLevelFor(250) == 5);
+    // Our own trade for the test: 24 paper -> 1 emerald, 16 uses, 2 xp.
+    v.offerCount = 0;
+    TradeOffer paper;
+    paper.buyA = I("paper").item;
+    paper.buyACount = 24;
+    paper.sell = I("emerald").item;
+    paper.sellCount = 1;
+    paper.maxUses = 2;
+    paper.xp = 5;
+    v.offers[v.offerCount++] = paper;
+    Fixture f;
+    // (the trading panel is 222 high: its top sits 28 GUI px above the usual one)
+    auto ty = [](int y) { return sy(y) - 28; };
+    f.inv.setSlot(0, I("paper", 64));
+    f.screen.openTrading(&v);
+    f.left(sx(8 + 4), ty(16 + 4)); // the first offer: 24 paper moves into the first slot
+    CHECK(f.screen.grid(0).count == 24);
+    CHECK(f.inv.slot(0).count == 40);
+    REQUIRE(f.screen.result().item == I("emerald").item);
+    f.left(sx(120), ty(112)); // trade
+    CHECK(f.screen.carried().item == I("emerald").item);
+    CHECK(v.offers[0].uses == 1);
+    CHECK(v.villagerXp == 5);
+    CHECK(f.screen.takeTradeExperience() >= 3);
+    // A second trade levels it up (10 xp): apprentice trades appear.
+    f.left(invX(5), ty(198)); // (put the emerald down)
+    f.left(sx(8 + 4), ty(16 + 4));
+    f.left(sx(120), ty(112));
+    CHECK(v.villagerLevel == 2);
+    CHECK(v.offerCount >= 2);
+    // Out of stock now (2 uses): no result until it restocks; demand then raises the price.
+    f.left(sx(8 + 4), ty(16 + 4));
+    CHECK(f.screen.result().empty());
+    restock(v);
+    CHECK(v.offers[0].uses == 0);
+    CHECK(v.offers[0].demand == 2); // 0 + 2 used - 0 left
+    CHECK(offerPrice(v.offers[0]) == 24 + int(24 * 0.05f * 2));
+}

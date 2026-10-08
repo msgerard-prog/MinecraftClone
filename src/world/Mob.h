@@ -144,6 +144,7 @@ struct MobData {
     uint8_t restocksToday = 0; // (M24.2) two restocks a day at the job site
     int64_t lastRestockDay = -1;
     uint8_t offerCount = 0;
+    int16_t tradingTicks = 0; // (not saved) a player has its trading screen open: it stands still
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

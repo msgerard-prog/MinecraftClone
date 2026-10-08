@@ -6,6 +6,8 @@
 #include "rendering/GuiBatch.h"
 #include "rendering/ItemIcons.h"
 #include "world/BlockEntity.h"
+#include "world/Mob.h"
+#include "world/Random.h"
 
 #include <array>
 #include <span>
@@ -37,12 +39,16 @@ public:
         Smithing,
         Loom,
         Cartography,
-        Beacon
+        Beacon,
+        Trading
     };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
     int height() const {
-        return m_type == Type::Chest ? 114 + chestRows() * 18 : m_type == Type::Hopper ? 133 : kHeight;
+        return m_type == Type::Chest     ? 114 + chestRows() * 18
+               : m_type == Type::Hopper  ? 133
+               : m_type == Type::Trading ? 222
+                                         : kHeight;
     }
     int chestRows() const { return m_chests[1] ? 6 : 3; }
 
@@ -99,6 +105,17 @@ public:
         m_beaconSecondary = beacon ? beacon->secondary : 0;
     }
     void setBeacon(world::BeaconData* beacon) { m_beacon = beacon; }
+    // Trading with a villager (M24.2), owned by its chunk; re-pointed every frame (mobs
+    // move in memory). Experience points the player earned since the last call (main
+    // drops orbs), and whether a trade happened (the villager's sound).
+    void openTrading(world::MobData* villager) {
+        open(Type::Trading);
+        m_trader = villager;
+        m_tradeChoice = -1;
+    }
+    void setTrader(world::MobData* villager) { m_trader = villager; }
+    int takeTradeExperience() { return std::exchange(m_tradeXp, 0); }
+    int tradeChoice() const { return m_tradeChoice; }
     // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by
     // the world; re-pointed every frame like chests.
     void openStore(Type type, std::span<world::ItemStack> slots, bool dropper = false) {
@@ -153,6 +170,9 @@ private:
     Furnace* m_furnace = nullptr;
     world::BrewingData* m_brewing = nullptr;
     world::BeaconData* m_beacon = nullptr;
+    world::MobData* m_trader = nullptr;
+    int m_tradeChoice = -1, m_tradeXp = 0;
+    world::Xoroshiro m_tradeRng{0x7a4d'e5u}; // (trade rewards and new trades)
     uint8_t m_beaconPrimary = 0, m_beaconSecondary = 0; // (the choice before paying)
     std::span<world::ItemStack> m_store;
     bool m_dropper = false;

@@ -356,6 +356,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   night, lying on it) and finds beds, job sites and bells within 48 blocks by
   scanning only sections whose palette has one; `villagerFear` runs from zombies.
   The model draws a profession-tinted robe layer (`MobPart::layer` 3).
+  Trading (M24.2, `world/Trades`): trade pools per profession and level (2 trades per
+  level, templates with missing items skipped), prices with demand, `useOffer`
+  (villager xp and levels at 10/70/150/250), `restock` at the job site twice a day;
+  `ContainerScreen::Type::Trading` (offers in two columns, payments auto-filled;
+  main re-points it at the villager by UUID each frame and drops the player's orbs).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

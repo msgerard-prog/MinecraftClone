@@ -1122,3 +1122,42 @@ TEST_CASE("shulker box contents ride on the item: table, NBT, level.dat and ende
     CHECK(c.chest(1, 64, 1)->shulker);
     CHECK(c.chest(1, 64, 1)->items[0].count == 3);
 }
+
+#include "world/Trades.h"
+
+TEST_CASE("villagers save their data, memories and trades (M24.1-2)") {
+    Chunk c({0, 0});
+    MobData v;
+    v.type = MobType::Villager;
+    v.pos = {3.5, 64.0, 4.5};
+    v.health = 20.0f;
+    v.profession = uint8_t(Profession::Mason);
+    v.villagerType = uint8_t(VillagerType::Desert);
+    v.villagerLevel = 3;
+    v.villagerXp = 77;
+    v.home = {1, 64, 2};
+    v.jobSite = {5, 64, 5};
+    Xoroshiro rng(3);
+    addLevelTrades(v, rng);
+    REQUIRE(v.offerCount > 0);
+    v.offers[0].uses = 4;
+    v.offers[0].demand = 3;
+    c.mobs().push_back(v);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    const MobData& b = back.mobs()[0];
+    CHECK(b.profession == v.profession);
+    CHECK(b.villagerType == v.villagerType);
+    CHECK(b.villagerLevel == 3);
+    CHECK(b.villagerXp == 77);
+    CHECK(b.home == v.home);
+    CHECK(b.jobSite == v.jobSite);
+    CHECK(b.meetingPoint.y == kNoPoint);
+    REQUIRE(b.offerCount == v.offerCount);
+    CHECK(b.offers[0].buyA == v.offers[0].buyA);
+    CHECK(b.offers[0].sell == v.offers[0].sell);
+    CHECK(b.offers[0].uses == 4);
+    CHECK(b.offers[0].demand == 3);
+    CHECK(b.persistent);
+}

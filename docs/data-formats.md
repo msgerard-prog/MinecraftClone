@@ -217,7 +217,8 @@ Entities `minecraft:villager`: `VillagerData` {type, profession, level}, `Xp`,
 `LastRestock`, `RestocksToday`, `Brain.memories` with `minecraft:home`, `job_site`,
 `meeting_point` as {value: {pos: [I; x, y, z], dimension}}. New blocks: lectern
 (`facing`, `has_book`), fletching table, bell (`facing`; ours stands on the floor).
-Level.dat `generator` "overworld3" (new worlds).
+Level.dat `generator` "overworld3" (new worlds). `Offers.Recipes`: {buy, buyB, sell
+(items), uses, maxUses, rewardExp, xp, priceMultiplier, specialPrice, demand} (M24.2).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

@@ -4,12 +4,13 @@
 
 #include "gameplay/Anvil.h"
 #include "gameplay/Beacons.h"
+#include "gameplay/Enchanting.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Recipes.h"
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
-#include "gameplay/Enchanting.h"
-#include "gameplay/Recipes.h"
 #include "ui/Hud.h"
+#include "world/Trades.h"
 
 #include <algorithm>
 #include <cmath>
@@ -83,7 +84,8 @@ void ContainerScreen::openChest(world::ChestData* first, world::ChestData* secon
 void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>& drops) {
     for (auto& s : m_grid) {
         if (s.empty()) continue;
-        if (const int left = inventory.add(s); left > 0) { // the whole stack: contents, trims, enchantments
+        if (const int left = inventory.add(s);
+            left > 0) { // the whole stack: contents, trims, enchantments
             world::ItemStack d = s;
             d.count = uint8_t(left);
             drops.push_back(d);
@@ -112,7 +114,10 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         std::vector<Slot> out;
         using K = Slot::Kind;
         // Chests (vanilla generic_9xN): their rows from y 18, the inventory below.
-        const int invY = type == Type::Chest ? 32 + rows * 18 : type == Type::Hopper ? 51 : 84;
+        const int invY = type == Type::Chest     ? 32 + rows * 18
+                         : type == Type::Hopper  ? 51
+                         : type == Type::Trading ? 140
+                                                 : 84;
         for (int i = 0; i < 27; ++i) // main inventory 9..35
             out.push_back({K::Inv, 9 + i, 8 + (i % 9) * 18, invY + (i / 9) * 18});
         for (int i = 0; i < 9; ++i) // hotbar
@@ -133,6 +138,10 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             out.push_back({K::Grid, 1, 33, 26});
             out.push_back({K::Grid, 2, 23, 45});
             out.push_back({K::Result, 0, 143, 58});
+        } else if (type == Type::Trading) { // the two payments and the result, under the offers
+            out.push_back({K::Grid, 0, 36, 112});
+            out.push_back({K::Grid, 1, 62, 112});
+            out.push_back({K::Result, 0, 120, 112});
         } else if (type == Type::Beacon) { // the payment (our compact layout: buttons above)
             out.push_back({K::Grid, 0, 124, 47});
         } else if (type == Type::Cartography) { // map, paper/glass, result (maps come in M28)
@@ -181,15 +190,22 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         return out;
     };
     // Layouts never change: built on first use, then shared (no per-frame vectors).
-    static const std::vector<Slot> inventory = build(Type::Inventory, 0), crafting = build(Type::Crafting, 0),
-                                   furnace = build(Type::Furnace, 0), chest3 = build(Type::Chest, 3),
-                                   chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
+    static const std::vector<Slot> inventory = build(Type::Inventory, 0),
+                                   crafting = build(Type::Crafting, 0),
+                                   furnace = build(Type::Furnace, 0),
+                                   chest3 = build(Type::Chest, 3), chest6 = build(Type::Chest, 6),
+                                   enchanting = build(Type::Enchanting, 0),
                                    anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0),
-                                   hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0),
-                                   stonecutter = build(Type::Stonecutter, 0), grindstone = build(Type::Grindstone, 0),
+                                   hopper = build(Type::Hopper, 0),
+                                   dispenser = build(Type::Dispenser, 0),
+                                   stonecutter = build(Type::Stonecutter, 0),
+                                   grindstone = build(Type::Grindstone, 0),
                                    smithing = build(Type::Smithing, 0), loom = build(Type::Loom, 0),
-                                   cartography = build(Type::Cartography, 0), beacon = build(Type::Beacon, 0);
+                                   cartography = build(Type::Cartography, 0),
+                                   beacon = build(Type::Beacon, 0),
+                                   trading = build(Type::Trading, 0);
     if (m_type == Type::Beacon) return beacon;
+    if (m_type == Type::Trading) return trading;
     if (m_type == Type::Smithing) return smithing;
     if (m_type == Type::Loom) return loom;
     if (m_type == Type::Cartography) return cartography;
@@ -206,29 +222,41 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
 
 world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) {
     switch (s.kind) {
-    case Slot::Kind::Inv: return const_cast<world::ItemStack*>(&inventory.slot(s.index));
-    case Slot::Kind::Grid: return &m_grid[size_t(s.index)];
-    case Slot::Kind::Result: return &m_result;
-    case Slot::Kind::FurnaceIn: return m_furnace ? &m_furnace->input : nullptr;
-    case Slot::Kind::FurnaceFuel: return m_furnace ? &m_furnace->fuel : nullptr;
-    case Slot::Kind::FurnaceOut: return m_furnace ? &m_furnace->output : nullptr;
-    case Slot::Kind::BrewBottle: return m_brewing ? &m_brewing->bottles[size_t(s.index)] : nullptr;
-    case Slot::Kind::BrewIngredient: return m_brewing ? &m_brewing->ingredient : nullptr;
-    case Slot::Kind::BrewFuel: return m_brewing ? &m_brewing->fuel : nullptr;
-    case Slot::Kind::Armor: return const_cast<world::ItemStack*>(&inventory.armor(s.index));
-    case Slot::Kind::Offhand: return const_cast<world::ItemStack*>(&inventory.offhand());
+    case Slot::Kind::Inv:
+        return const_cast<world::ItemStack*>(&inventory.slot(s.index));
+    case Slot::Kind::Grid:
+        return &m_grid[size_t(s.index)];
+    case Slot::Kind::Result:
+        return &m_result;
+    case Slot::Kind::FurnaceIn:
+        return m_furnace ? &m_furnace->input : nullptr;
+    case Slot::Kind::FurnaceFuel:
+        return m_furnace ? &m_furnace->fuel : nullptr;
+    case Slot::Kind::FurnaceOut:
+        return m_furnace ? &m_furnace->output : nullptr;
+    case Slot::Kind::BrewBottle:
+        return m_brewing ? &m_brewing->bottles[size_t(s.index)] : nullptr;
+    case Slot::Kind::BrewIngredient:
+        return m_brewing ? &m_brewing->ingredient : nullptr;
+    case Slot::Kind::BrewFuel:
+        return m_brewing ? &m_brewing->fuel : nullptr;
+    case Slot::Kind::Armor:
+        return const_cast<world::ItemStack*>(&inventory.armor(s.index));
+    case Slot::Kind::Offhand:
+        return const_cast<world::ItemStack*>(&inventory.offhand());
     case Slot::Kind::Chest: {
         world::ChestData* c = m_chests[size_t(s.index / 27)];
         return c ? &c->items[size_t(s.index % 27)] : nullptr;
     }
-    case Slot::Kind::Store: return size_t(s.index) < m_store.size() ? &m_store[size_t(s.index)] : nullptr;
+    case Slot::Kind::Store:
+        return size_t(s.index) < m_store.size() ? &m_store[size_t(s.index)] : nullptr;
     }
     return nullptr;
 }
 
 void ContainerScreen::updateResult() {
-    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Brewing ||
-        m_type == Type::Hopper || m_type == Type::Dispenser)
+    if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting ||
+        m_type == Type::Brewing || m_type == Type::Hopper || m_type == Type::Dispenser)
         return;
     if (m_type == Type::Stonecutter) { // the chosen recipe while the same kind of input stays
         if (m_grid[0].item != m_stoneInput) {
@@ -237,9 +265,10 @@ void ContainerScreen::updateResult() {
             m_stoneScroll = 0;
         }
         const auto recipes = stonecutterRecipes(m_grid[0].item);
-        m_result = !m_grid[0].empty() && m_stoneChoice >= 0 && size_t(m_stoneChoice) < recipes.size()
-                       ? recipes[size_t(m_stoneChoice)]
-                       : world::ItemStack{};
+        m_result =
+            !m_grid[0].empty() && m_stoneChoice >= 0 && size_t(m_stoneChoice) < recipes.size()
+                ? recipes[size_t(m_stoneChoice)]
+                : world::ItemStack{};
         return;
     }
     if (m_type == Type::Grindstone) {
@@ -250,7 +279,31 @@ void ContainerScreen::updateResult() {
         m_result = smith(m_grid[0], m_grid[1], m_grid[2]);
         return;
     }
-    if (m_type == Type::Loom || m_type == Type::Cartography || m_type == Type::Beacon) { // (no result slot)
+    if (m_type ==
+        Type::Trading) { // the chosen trade, or the first the payments match (wiki: Trading)
+        m_result = {};
+        if (!m_trader) return;
+        auto matches = [&](const world::TradeOffer& o) {
+            if (o.uses >= o.maxUses) return false; // out of stock
+            const world::ItemStack a = world::offerBuyA(o), b = world::offerBuyB(o);
+            if (m_grid[0].item != a.item || m_grid[0].count < a.count) return false;
+            return b.empty() || (m_grid[1].item == b.item && m_grid[1].count >= b.count);
+        };
+        if (m_tradeChoice >= 0 && m_tradeChoice < m_trader->offerCount) {
+            if (matches(m_trader->offers[size_t(m_tradeChoice)]))
+                m_result = world::offerSell(m_trader->offers[size_t(m_tradeChoice)]);
+            return;
+        }
+        for (int i = 0; i < m_trader->offerCount; ++i)
+            if (matches(m_trader->offers[size_t(i)])) {
+                m_tradeChoice = i;
+                m_result = world::offerSell(m_trader->offers[size_t(i)]);
+                return;
+            }
+        return;
+    }
+    if (m_type == Type::Loom || m_type == Type::Cartography ||
+        m_type == Type::Beacon) { // (no result slot)
         m_result = {};
         return;
     }
@@ -266,7 +319,8 @@ void ContainerScreen::updateResult() {
     std::array<world::ItemStack, 9> g{};
     for (int i = 0; i < n * n; ++i)
         g[size_t(i)] = m_grid[size_t(i)];
-    m_result = craft(std::span<const world::ItemStack>(g.data(), size_t(n * n)), n).value_or(world::ItemStack{});
+    m_result = craft(std::span<const world::ItemStack>(g.data(), size_t(n * n)), n)
+                   .value_or(world::ItemStack{});
 }
 
 void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory, int from, int to) {
@@ -288,11 +342,43 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 }
 
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
+    if (m_type == Type::Trading) { // pay, one use of the trade, experience (shift: as many as fit)
+        for (int rounds = 0; rounds < 64 && !m_result.empty() && m_trader && m_tradeChoice >= 0;
+             ++rounds) {
+            const world::TradeOffer& o = m_trader->offers[size_t(m_tradeChoice)];
+            const world::ItemStack a = world::offerBuyA(o), b = world::offerBuyB(o);
+            world::ItemStack made = m_result;
+            if (shift) {
+                Inventory probe = inventory;
+                world::ItemStack test = made;
+                moveToInventory(test, probe, 0, Inventory::kSlots);
+                if (!test.empty()) break;
+                moveToInventory(made, inventory, 0, Inventory::kSlots);
+            } else {
+                if (!m_carried.empty() &&
+                    (!m_carried.sameKind(made) || m_carried.count + made.count > maxStack(made)))
+                    return;
+                if (m_carried.empty())
+                    m_carried = made;
+                else
+                    m_carried.count = uint8_t(m_carried.count + made.count);
+            }
+            if ((m_grid[0].count = uint8_t(m_grid[0].count - a.count)) == 0) m_grid[0] = {};
+            if (!b.empty() && (m_grid[1].count = uint8_t(m_grid[1].count - b.count)) == 0)
+                m_grid[1] = {};
+            world::useOffer(*m_trader, m_tradeChoice, m_tradeRng);
+            m_tradeXp += 3 + int(m_tradeRng.nextInt(4)); // (wiki: 3-6 experience a trade)
+            updateResult();
+            if (!shift) return;
+        }
+        return;
+    }
     if (m_type == Type::Smithing) { // one of each input is used
         if (m_result.empty() || !m_carried.empty()) return;
         m_carried = m_result;
         for (int i = 0; i < 3; ++i)
-            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
+                m_grid[size_t(i)] = {};
         updateResult();
         return;
     }
@@ -301,17 +387,22 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         m_grindCost += grind(m_grid[0], m_grid[1]).xpCost;
         m_carried = m_result;
         for (int i = 0; i < 2; ++i)
-            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
+                m_grid[size_t(i)] = {};
         updateResult();
         return;
     }
     if (m_type == Type::Anvil) { // pay the levels, use up the inputs (wiki: Anvil)
-        if (m_result.empty() || m_anvilTooExpensive || (!m_creative && m_levels - m_levelsSpent < m_anvilCost)) return;
+        if (m_result.empty() || m_anvilTooExpensive ||
+            (!m_creative && m_levels - m_levelsSpent < m_anvilCost))
+            return;
         if (!m_carried.empty()) return;
         m_carried = m_result;
         if (--m_grid[0].count == 0) m_grid[0] = {}; // one item is worked
-        if (m_grid[1].count <= m_anvilMaterial) m_grid[1] = {};
-        else m_grid[1].count = uint8_t(m_grid[1].count - m_anvilMaterial);
+        if (m_grid[1].count <= m_anvilMaterial)
+            m_grid[1] = {};
+        else
+            m_grid[1].count = uint8_t(m_grid[1].count - m_anvilMaterial);
         if (!m_creative) m_levelsSpent += m_anvilCost;
         m_anvilUsed = true;
         updateResult();
@@ -331,20 +422,25 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
             if (!test.empty()) break;
             moveToInventory(made, inventory, 0, Inventory::kSlots);
         } else {
-            if (!m_carried.empty() && (!m_carried.sameKind(made) || m_carried.count + made.count > maxStack(made)))
+            if (!m_carried.empty() &&
+                (!m_carried.sameKind(made) || m_carried.count + made.count > maxStack(made)))
                 return;
-            if (m_carried.empty()) m_carried = made;
-            else m_carried.count = uint8_t(m_carried.count + made.count);
+            if (m_carried.empty())
+                m_carried = made;
+            else
+                m_carried.count = uint8_t(m_carried.count + made.count);
         }
         for (int i = 0; i < n * n; ++i) // each ingredient is used once
-            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
+                m_grid[size_t(i)] = {};
         updateResult();
         if (!shift) return;
     }
 }
 
-void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
-                            Inventory& inventory, std::vector<world::ItemStack>& drops) {
+void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth,
+                            int guiHeight, Inventory& inventory,
+                            std::vector<world::ItemStack>& drops) {
     // Taking smelted items out pays the experience of every recipe the furnace used
     // since the last take (vanilla RecipesUsed, wiki: Furnace): the counts move here
     // and main turns them into orbs at the player.
@@ -357,8 +453,9 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
     }
 }
 
-void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift, int guiWidth, int guiHeight,
-                                 Inventory& inventory, std::vector<world::ItemStack>& drops) {
+void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift, int guiWidth,
+                                 int guiHeight, Inventory& inventory,
+                                 std::vector<world::ItemStack>& drops) {
     const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
     const double px = mx - left, py = my - top;
     if (px < 0 || py < 0 || px >= kWidth || py >= height()) { // outside: throw
@@ -377,27 +474,64 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         // Primary powers (top row), the tier-4 secondary (Regeneration or level II) and
         // "done", which spends the payment (wiki: Beacon › Usage).
         using world::Effect;
-        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance, Effect::JumpBoost,
-                                               Effect::Strength};
+        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance,
+                                               Effect::JumpBoost, Effect::Strength};
         const int tiers = m_beacon->levels;
         const int col = int((px - 10) / 24);
         const bool inButton = px >= 10 && int(px - 10) % 24 < 22;
         if (py < 40 && inButton && col >= 0 && col < 5) {
             if (beaconPrimaryAllowed(kPrimary[col], tiers)) {
                 m_beaconPrimary = static_cast<uint8_t>(kPrimary[col]);
-                if (m_beaconSecondary != static_cast<uint8_t>(Effect::Regeneration)) m_beaconSecondary = 0;
+                if (m_beaconSecondary != static_cast<uint8_t>(Effect::Regeneration))
+                    m_beaconSecondary = 0;
             }
         } else if (py >= 44 && inButton && col >= 0 && col < 2 && tiers >= 4 && m_beaconPrimary) {
-            m_beaconSecondary = col == 0 ? static_cast<uint8_t>(Effect::Regeneration) : m_beaconPrimary;
-        } else if (py >= 44 && px >= 148 && px < 170 && m_beaconPrimary && tiers > 0 && !m_grid[0].empty() &&
-                   isBeaconPayment(m_grid[0].item)) {
+            m_beaconSecondary =
+                col == 0 ? static_cast<uint8_t>(Effect::Regeneration) : m_beaconPrimary;
+        } else if (py >= 44 && px >= 148 && px < 170 && m_beaconPrimary && tiers > 0 &&
+                   !m_grid[0].empty() && isBeaconPayment(m_grid[0].item)) {
             m_beacon->primary = m_beaconPrimary;
             m_beacon->secondary = tiers >= 4 ? m_beaconSecondary : 0;
             if (--m_grid[0].count == 0) m_grid[0] = {};
         }
         if (py < 66 && (px < 120 || px >= 146)) return; // (the payment slot sits between)
     }
-    if (m_type == Type::Stonecutter && px >= 52 && px < 52 + 4 * 16 && py >= 14 && py < 14 + 3 * 18) {
+    if (m_type == Type::Trading && m_trader && py >= 16 && py < 16 + 5 * 18 && px >= 8 &&
+        px < 168) {
+        // An offer (two columns of five): chosen; the payments go back to the inventory
+        // and what it asks moves in from there (vanilla fills the slots for you).
+        const int col = px < 88 ? 0 : 1, row = int((py - 16) / 18);
+        const int i = col * 5 + row;
+        if (i >= m_trader->offerCount) return;
+        m_tradeChoice = i;
+        for (auto& g : {0, 1}) {
+            world::ItemStack& s = m_grid[size_t(g)];
+            if (!s.empty()) moveToInventory(s, inventory, 0, Inventory::kSlots);
+            if (!s.empty()) {
+                drops.push_back(s);
+                s = {};
+            }
+        }
+        const world::TradeOffer& o = m_trader->offers[size_t(i)];
+        auto pull = [&](world::ItemStack& into, const world::ItemStack& want) {
+            if (want.empty()) return;
+            for (int sl = 0; sl < Inventory::kSlots && into.count < want.count; ++sl) {
+                world::ItemStack t = inventory.slot(sl);
+                if (t.empty() || t.item != want.item || t.enchantments[0] != 0) continue;
+                const int n = std::min<int>(t.count, want.count - into.count);
+                if (into.empty()) into = {want.item, 0};
+                into.count = uint8_t(into.count + n);
+                t.count = uint8_t(t.count - n);
+                inventory.setSlot(sl, t.count ? t : world::ItemStack{});
+            }
+        };
+        pull(m_grid[0], world::offerBuyA(o));
+        pull(m_grid[1], world::offerBuyB(o));
+        updateResult();
+        return;
+    }
+    if (m_type == Type::Stonecutter && px >= 52 && px < 52 + 4 * 16 && py >= 14 &&
+        py < 14 + 3 * 18) {
         // A recipe button (4 x 3 visible, 16 x 18 each): choose it (wiki: Stonecutter).
         const int i = (m_stoneScroll + int((py - 14) / 18)) * 4 + int((px - 52) / 16);
         if (size_t(i) < stonecutterRecipes(m_grid[0].item).size() && !m_grid[0].empty()) {
@@ -406,7 +540,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         }
         return;
     }
-    if (m_type == Type::Stonecutter && px >= 119 && px < 131 && py >= 15 && py < 69) { // the scroll bar
+    if (m_type == Type::Stonecutter && px >= 119 && px < 131 && py >= 15 &&
+        py < 69) { // the scroll bar
         const int rows = (int(stonecutterRecipes(m_grid[0].item).size()) + 3) / 4;
         m_stoneScroll = rows > 3 ? std::clamp(int((py - 15) / 54.0 * (rows - 2)), 0, rows - 3) : 0;
         return;
@@ -418,10 +553,12 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         const auto offers = enchantOffers(m_grid[0], m_bookshelves, m_seed);
         const EnchantOffer& o = offers[size_t(slot)];
         static const world::ItemId lapis = *world::itemRegistry().find("lapis_lazuli");
-        const bool affordable = m_creative || (m_levels - m_levelsSpent >= o.cost &&
-                                               m_grid[1].item == lapis && m_grid[1].count >= slot + 1);
+        const bool affordable =
+            m_creative || (m_levels - m_levelsSpent >= o.cost && m_grid[1].item == lapis &&
+                           m_grid[1].count >= slot + 1);
         if (o.cost > 0 && affordable) {
-            m_grid[0] = applyEnchantments(m_grid[0], pickEnchantments(m_grid[0], o.cost, m_seed, slot));
+            m_grid[0] =
+                applyEnchantments(m_grid[0], pickEnchantments(m_grid[0], o.cost, m_seed, slot));
             if (!m_creative) {
                 m_levelsSpent += slot + 1;
                 if ((m_grid[1].count = uint8_t(m_grid[1].count - (slot + 1))) == 0) m_grid[1] = {};
@@ -437,10 +574,14 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         world::ItemStack v = *s; // edit a copy, write back (inventory slots via setSlot)
         auto store = [&] {
             if (v.count == 0) v = {};
-            if (slot.kind == Slot::Kind::Inv) inventory.setSlot(slot.index, v);
-            else if (slot.kind == Slot::Kind::Armor) inventory.setArmor(slot.index, v);
-            else if (slot.kind == Slot::Kind::Offhand) inventory.setOffhand(v);
-            else *s = v;
+            if (slot.kind == Slot::Kind::Inv)
+                inventory.setSlot(slot.index, v);
+            else if (slot.kind == Slot::Kind::Armor)
+                inventory.setArmor(slot.index, v);
+            else if (slot.kind == Slot::Kind::Offhand)
+                inventory.setOffhand(v);
+            else
+                *s = v;
             if (slot.kind == Slot::Kind::Grid) updateResult();
         };
         if (slot.kind == Slot::Kind::Result) {
@@ -457,7 +598,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
-                if ((m_type == Type::Hopper || m_type == Type::Dispenser) && !m_store.empty()) { // into its slots
+                if ((m_type == Type::Hopper || m_type == Type::Dispenser) &&
+                    !m_store.empty()) { // into its slots
                     for (int pass = 0; pass < 2 && !v.empty(); ++pass)
                         for (world::ItemStack& t : m_store) {
                             if (v.empty()) break;
@@ -474,7 +616,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
-                if (m_type == Type::Chest && m_chests[0] && m_chests[0]->shulker && isShulkerBoxItem(v)) {
+                if (m_type == Type::Chest && m_chests[0] && m_chests[0]->shulker &&
+                    isShulkerBoxItem(v)) {
                     store(); // (a shulker box doesn't fit in a shulker box: wiki)
                     return;
                 }
@@ -497,7 +640,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
-                if (m_type == Type::Furnace && m_furnace) { // into the furnace (merging) when it fits
+                if (m_type == Type::Furnace &&
+                    m_furnace) { // into the furnace (merging) when it fits
                     auto into = [&](world::ItemStack& slotStack) {
                         if (slotStack.empty()) {
                             slotStack = v;
@@ -508,10 +652,13 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                             v.count = uint8_t(v.count - n);
                         }
                     };
-                    if (smelt(v)) into(m_furnace->input);
-                    else if (fuelTicks(v) > 0) into(m_furnace->fuel);
+                    if (smelt(v))
+                        into(m_furnace->input);
+                    else if (fuelTicks(v) > 0)
+                        into(m_furnace->fuel);
                 }
-                if (m_type == Type::Brewing && m_brewing) { // potions to free bottle slots, then fuel, ingredient
+                if (m_type == Type::Brewing &&
+                    m_brewing) { // potions to free bottle slots, then fuel, ingredient
                     static const world::ItemId powder = *world::itemRegistry().find("blaze_powder");
                     if (isBottle(v)) {
                         for (auto& b : m_brewing->bottles)
@@ -520,14 +667,17 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                                 b.count = 1;
                                 if (--v.count == 0) v = {};
                             }
-                    } else if (v.item == powder && (m_brewing->fuel.empty() || m_brewing->fuel.sameKind(v))) {
+                    } else if (v.item == powder &&
+                               (m_brewing->fuel.empty() || m_brewing->fuel.sameKind(v))) {
                         const int n = std::min<int>(v.count, 64 - m_brewing->fuel.count);
                         if (m_brewing->fuel.empty()) m_brewing->fuel = {v.item, 0};
                         m_brewing->fuel.count = uint8_t(m_brewing->fuel.count + n);
                         v.count = uint8_t(v.count - n);
                         if (v.count == 0) v = {};
-                    } else if (isBrewingIngredient(v) && (m_brewing->ingredient.empty() || m_brewing->ingredient.sameKind(v))) {
-                        const int n = std::min<int>(v.count, maxStack(v) - m_brewing->ingredient.count);
+                    } else if (isBrewingIngredient(v) && (m_brewing->ingredient.empty() ||
+                                                          m_brewing->ingredient.sameKind(v))) {
+                        const int n =
+                            std::min<int>(v.count, maxStack(v) - m_brewing->ingredient.count);
                         if (m_brewing->ingredient.empty()) m_brewing->ingredient = {v.item, 0};
                         m_brewing->ingredient.count = uint8_t(m_brewing->ingredient.count + n);
                         v.count = uint8_t(v.count - n);
@@ -535,8 +685,10 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     }
                 }
                 if (!v.empty()) {
-                    if (slot.index < Inventory::kHotbar) moveToInventory(v, inventory, 9, 36);
-                    else moveToInventory(v, inventory, 0, 9);
+                    if (slot.index < Inventory::kHotbar)
+                        moveToInventory(v, inventory, 9, 36);
+                    else
+                        moveToInventory(v, inventory, 0, 9);
                 }
             } else {
                 moveToInventory(v, inventory, 0, Inventory::kSlots);
@@ -547,7 +699,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         const bool outputOnly = slot.kind == Slot::Kind::FurnaceOut;
         // The enchanting table's item slot holds one item (vanilla): place one, or swap
         // only a single carried item.
-        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 0 && !m_carried.empty()) {
+        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 0 &&
+            !m_carried.empty()) {
             if (v.empty()) {
                 v = m_carried;
                 v.count = 1;
@@ -559,7 +712,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             return;
         }
         // The enchanting table's second slot takes lapis only.
-        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 1 && !m_carried.empty() &&
+        if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 1 &&
+            !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).id != "minecraft:lapis_lazuli")
             return;
         // Shulker boxes can't go inside a shulker box (wiki: Shulker Box).
@@ -583,18 +737,22 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
             }
             if (m_carried.count != 1) return;
         }
-        if (slot.kind == Slot::Kind::BrewIngredient && !m_carried.empty() && !isBrewingIngredient(m_carried)) return;
+        if (slot.kind == Slot::Kind::BrewIngredient && !m_carried.empty() &&
+            !isBrewingIngredient(m_carried))
+            return;
         if (slot.kind == Slot::Kind::BrewFuel && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).id != "minecraft:blaze_powder")
             return;
         // The fuel slot only takes fuel (wiki: Furnace › Fuel).
-        if (slot.kind == Slot::Kind::FurnaceFuel && !m_carried.empty() && fuelTicks(m_carried) == 0) return;
+        if (slot.kind == Slot::Kind::FurnaceFuel && !m_carried.empty() && fuelTicks(m_carried) == 0)
+            return;
         if (button == Button::Left) {
             if (m_carried.empty()) {
                 m_carried = v;
                 v = {};
             } else if (outputOnly) {
-                if (!v.empty() && v.sameKind(m_carried) && m_carried.count + v.count <= maxStack(v)) {
+                if (!v.empty() && v.sameKind(m_carried) &&
+                    m_carried.count + v.count <= maxStack(v)) {
                     m_carried.count = uint8_t(m_carried.count + v.count);
                     v = {};
                 }
@@ -615,7 +773,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                 m_carried = v;
                 m_carried.count = uint8_t((v.count + 1) / 2); // the larger half
                 v.count = uint8_t(v.count - m_carried.count);
-            } else if (!outputOnly && (v.empty() || (v.sameKind(m_carried) && v.count < maxStack(v)))) {
+            } else if (!outputOnly &&
+                       (v.empty() || (v.sameKind(m_carried) && v.count < maxStack(v)))) {
                 if (v.empty()) {
                     v = m_carried;
                     v.count = 0;
@@ -631,9 +790,11 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
     }
 }
 
-void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const gfx::BlockModels& models,
-                           const Inventory& inventory, int guiWidth, int guiHeight, double mx, double my) const {
-    b.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0xC0101010));
+void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
+                           const gfx::BlockModels& models, const Inventory& inventory, int guiWidth,
+                           int guiHeight, double mx, double my) const {
+    b.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight),
+           gfx::argb(0xC0101010));
     const float left = static_cast<float>((guiWidth - kWidth) / 2);
     const int h = height();
     const float top = static_cast<float>((guiHeight - h) / 2);
@@ -645,37 +806,44 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
     const int furnaceKind = m_furnace ? m_furnace->kind : 0;
-    const char* title = m_type == Type::Beacon        ? "Beacon"
-                        : m_type == Type::Smithing    ? "Upgrade Gear"
-                        : m_type == Type::Loom        ? "Loom"
-                        : m_type == Type::Cartography ? "Cartography Table"
-                        : m_type == Type::Stonecutter ? "Stonecutter"
-                        : m_type == Type::Grindstone ? "Repair & Disenchant"
-                        : m_type == Type::Hopper      ? "Item Hopper"
-                        : m_type == Type::Dispenser ? (m_dropper ? "Dropper" : "Dispenser")
-                        : m_type == Type::Brewing   ? "Brewing Stand"
-                        : m_type == Type::Furnace    ? (furnaceKind == 1   ? "Smoker"
-                                                        : furnaceKind == 2 ? "Blast Furnace"
-                                                                           : "Furnace")
-                        : m_type == Type::Chest      ? (chestRows() == 6                    ? "Large Chest"
-                                                        : m_chests[0] && m_chests[0]->barrel  ? "Barrel"
-                                                        : m_chests[0] && m_chests[0]->shulker ? "Shulker Box"
-                                                        : m_chests[0] && m_chests[0]->ender   ? "Ender Chest"
-                                                                                              : "Chest")
-                        : m_type == Type::Enchanting ? "Enchant"
-                        : m_type == Type::Anvil      ? "Repair & Name"
-                                                     : "Crafting";
-    const float titleX = m_type == Type::Inventory ? 97.0f
-                         : m_type == Type::Crafting ? 28.0f
-                         : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper ? 8.0f
-                         : m_type == Type::Anvil ? 60.0f
-                                                 : 70.0f;
+    static constexpr const char* kLevels[6] = {"",           "Novice", "Apprentice",
+                                               "Journeyman", "Expert", "Master"};
+    const char* title =
+        m_type == Type::Trading
+            ? (m_trader ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)] : "Trading")
+        : m_type == Type::Beacon      ? "Beacon"
+        : m_type == Type::Smithing    ? "Upgrade Gear"
+        : m_type == Type::Loom        ? "Loom"
+        : m_type == Type::Cartography ? "Cartography Table"
+        : m_type == Type::Stonecutter ? "Stonecutter"
+        : m_type == Type::Grindstone  ? "Repair & Disenchant"
+        : m_type == Type::Hopper      ? "Item Hopper"
+        : m_type == Type::Dispenser   ? (m_dropper ? "Dropper" : "Dispenser")
+        : m_type == Type::Brewing     ? "Brewing Stand"
+        : m_type == Type::Furnace     ? (furnaceKind == 1   ? "Smoker"
+                                         : furnaceKind == 2 ? "Blast Furnace"
+                                                            : "Furnace")
+        : m_type == Type::Chest       ? (chestRows() == 6                      ? "Large Chest"
+                                         : m_chests[0] && m_chests[0]->barrel  ? "Barrel"
+                                         : m_chests[0] && m_chests[0]->shulker ? "Shulker Box"
+                                         : m_chests[0] && m_chests[0]->ender   ? "Ender Chest"
+                                                                               : "Chest")
+        : m_type == Type::Enchanting  ? "Enchant"
+        : m_type == Type::Anvil       ? "Repair & Name"
+                                      : "Crafting";
+    const float titleX =
+        m_type == Type::Inventory                                                       ? 97.0f
+        : m_type == Type::Crafting                                                      ? 28.0f
+        : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper || m_type == Type::Trading ? 8.0f
+        : m_type == Type::Anvil                                                         ? 60.0f
+                                                                                        : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
     if (m_type != Type::Inventory)
         b.text("Inventory", left + 8,
-               top + (m_type == Type::Chest    ? float(20 + chestRows() * 18)
-                      : m_type == Type::Hopper ? 40.0f
-                                               : 72.0f),
+               top + (m_type == Type::Chest     ? float(20 + chestRows() * 18)
+                      : m_type == Type::Hopper  ? 40.0f
+                      : m_type == Type::Trading ? 128.0f
+                                                : 72.0f),
                kLabel, false);
 
     // Crafting arrow / furnace gauges.
@@ -690,27 +858,36 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
         for (int i = 0; i < 3; ++i) {
             const EnchantOffer& o = offers[size_t(i)];
             const float bx = left + 60, by = top + 14 + i * 19;
-            const bool ok = o.cost > 0 && (m_creative || (m_levels >= o.cost && m_grid[1].item == lapis &&
-                                                          m_grid[1].count >= i + 1));
-            b.fill(bx, by, 108, 19, o.cost == 0 ? kDark : ok ? gfx::rgba(150, 120, 170) : gfx::rgba(110, 100, 115));
+            const bool ok =
+                o.cost > 0 && (m_creative || (m_levels >= o.cost && m_grid[1].item == lapis &&
+                                              m_grid[1].count >= i + 1));
+            b.fill(bx, by, 108, 19,
+                   o.cost == 0 ? kDark
+                   : ok        ? gfx::rgba(150, 120, 170)
+                               : gfx::rgba(110, 100, 115));
             b.fill(bx, by + 18, 108, 1, kEdge);
             if (o.cost == 0) continue;
             char line[48];
             const auto& info = world::enchantmentInfo(o.hint);
-            const int n = std::snprintf(line, sizeof(line), "%.*s %s", int(info.name.size()), info.name.data(),
+            const int n = std::snprintf(line, sizeof(line), "%.*s %s", int(info.name.size()),
+                                        info.name.data(),
                                         info.maxLevel > 1 ? kRoman[std::min(o.hintLevel, 5)] : "");
-            b.text(std::string_view(line, size_t(std::max(0, n))), bx + 3, by + 2, ok ? kLight : kDark, false);
+            b.text(std::string_view(line, size_t(std::max(0, n))), bx + 3, by + 2,
+                   ok ? kLight : kDark, false);
             const int c = std::snprintf(line, sizeof(line), "%d", o.cost);
-            b.text(std::string_view(line, size_t(std::max(0, c))), bx + 106 - float(b.textWidth({line, size_t(c)})),
-                   by + 10, ok ? gfx::rgba(128, 255, 32) : gfx::rgba(64, 128, 16), true);
+            b.text(std::string_view(line, size_t(std::max(0, c))),
+                   bx + 106 - float(b.textWidth({line, size_t(c)})), by + 10,
+                   ok ? gfx::rgba(128, 255, 32) : gfx::rgba(64, 128, 16), true);
         }
     }
     if (m_type == Type::Anvil && !m_result.empty()) {
         char line[48];
-        const int n = m_anvilTooExpensive ? std::snprintf(line, sizeof(line), "Too Expensive!")
-                                          : std::snprintf(line, sizeof(line), "Enchantment Cost: %d", m_anvilCost);
+        const int n = m_anvilTooExpensive
+                          ? std::snprintf(line, sizeof(line), "Too Expensive!")
+                          : std::snprintf(line, sizeof(line), "Enchantment Cost: %d", m_anvilCost);
         const bool ok = !m_anvilTooExpensive && (m_creative || m_levels >= m_anvilCost);
-        b.text(std::string_view(line, size_t(std::max(0, n))), left + 168 - float(b.textWidth({line, size_t(n)})), top + 69,
+        b.text(std::string_view(line, size_t(std::max(0, n))),
+               left + 168 - float(b.textWidth({line, size_t(n)})), top + 69,
                ok ? gfx::rgba(128, 255, 32) : gfx::rgba(255, 96, 96), true);
     }
     if (m_type == Type::Stonecutter) { // the recipe buttons and the scroll bar
@@ -720,8 +897,12 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
             const int i = m_stoneScroll * 4 + k;
             const float bx = left + 52 + float(k % 4) * 16, by = top + 14 + float(k / 4) * 18;
             if (m_grid[0].empty() || size_t(i) >= recipes.size()) continue;
-            const bool hover = hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 18;
-            b.fill(bx, by, 16, 18, i == m_stoneChoice ? gfx::rgba(120, 160, 120) : hover ? kLight : kSlotFill);
+            const bool hover =
+                hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 18;
+            b.fill(bx, by, 16, 18,
+                   i == m_stoneChoice ? gfx::rgba(120, 160, 120)
+                   : hover            ? kLight
+                                      : kSlotFill);
             b.fill(bx, by + 17, 16, 1, kDark);
             icons.draw(b, models, recipes[size_t(i)], bx, by + 1, kIconGrassTint);
         }
@@ -732,17 +913,49 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     }
     if (m_type == Type::Grindstone) arrow(98, 34, 0);
     if (m_type == Type::Smithing) arrow(68, 48, 0);
+    if (m_type == Type::Trading && m_trader) { // the offers (two columns), the experience bar
+        const double hx = mx - left, hy = my - top;
+        for (int i = 0; i < m_trader->offerCount && i < 10; ++i) {
+            const world::TradeOffer& o = m_trader->offers[size_t(i)];
+            const float rx = left + 8 + float(i / 5) * 80, ry = top + 16 + float(i % 5) * 18;
+            const bool hover =
+                hx >= rx - left && hx < rx - left + 78 && hy >= ry - top && hy < ry - top + 18;
+            b.fill(rx, ry, 78, 17,
+                   i == m_tradeChoice ? gfx::rgba(150, 190, 150)
+                   : hover            ? kLight
+                                      : kSlotFill);
+            icons.draw(b, models, world::offerBuyA(o), rx + 1, ry, kIconGrassTint);
+            icons.draw(b, models, world::offerBuyB(o), rx + 19, ry, kIconGrassTint);
+            b.fill(rx + 38, ry + 7, 12, 3, kDark); // the arrow
+            icons.draw(b, models, world::offerSell(o), rx + 56, ry, kIconGrassTint);
+            if (o.uses >= o.maxUses)
+                b.fill(rx, ry + 7, 78, 3, gfx::rgba(200, 40, 40)); // out of stock
+        }
+        // Experience toward the next level (10 / 70 / 150 / 250).
+        static constexpr int kNeed[6] = {0, 0, 10, 70, 150, 250};
+        const int level = std::clamp<int>(m_trader->villagerLevel, 1, 5);
+        const float fill = level >= 5 ? 1.0f
+                                      : std::clamp(float(m_trader->villagerXp - kNeed[level]) /
+                                                       float(kNeed[level + 1] - kNeed[level]),
+                                                   0.0f, 1.0f);
+        b.fill(left + 100, top + 8, 68, 4, kDark);
+        b.fill(left + 100, top + 8, 68.0f * fill, 4, gfx::rgba(120, 220, 80));
+        arrow(90, 112, 0);
+    }
     if (m_type == Type::Beacon && m_beacon) { // power buttons (abbreviated names) and "done"
         using world::Effect;
-        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance, Effect::JumpBoost,
-                                               Effect::Strength};
+        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance,
+                                               Effect::JumpBoost, Effect::Strength};
         static constexpr const char* kNames[5] = {"Spd", "Hst", "Res", "Jmp", "Str"};
         const int tiers = m_beacon->levels;
         auto button = [&](float x, float y, const char* label, bool enabled, bool selected) {
-            b.fill(left + x, top + y, 22, 22, selected ? gfx::rgba(110, 170, 110) : enabled ? kLight : kDark);
+            b.fill(left + x, top + y, 22, 22,
+                   selected  ? gfx::rgba(110, 170, 110)
+                   : enabled ? kLight
+                             : kDark);
             b.fill(left + x, top + y + 21, 22, 1, kEdge);
-            b.text(label, left + x + 11 - float(b.textWidth(label)) / 2, top + y + 7, enabled ? kLabel : kSlotFill,
-                   false);
+            b.text(label, left + x + 11 - float(b.textWidth(label)) / 2, top + y + 7,
+                   enabled ? kLabel : kSlotFill, false);
         };
         for (int i = 0; i < 5; ++i)
             button(10.0f + 24.0f * i, 18, kNames[i], beaconPrimaryAllowed(kPrimary[i], tiers),
@@ -751,7 +964,8 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
                m_beaconSecondary == static_cast<uint8_t>(Effect::Regeneration));
         button(34, 44, "II", tiers >= 4 && m_beaconPrimary,
                m_beaconSecondary != 0 && m_beaconSecondary == m_beaconPrimary);
-        const bool payable = m_beaconPrimary && tiers > 0 && !m_grid[0].empty() && isBeaconPayment(m_grid[0].item);
+        const bool payable =
+            m_beaconPrimary && tiers > 0 && !m_grid[0].empty() && isBeaconPayment(m_grid[0].item);
         button(148, 44, "OK", payable, false);
         char line[24];
         const int n = std::snprintf(line, sizeof(line), "Tiers: %d", tiers);
@@ -761,19 +975,26 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     if (m_type == Type::Crafting) arrow(90, 35, 0);
     if (m_type == Type::Brewing && m_brewing) {
         // Brewing progress down beside the ingredient; fuel left under the fuel slot.
-        const float done = m_brewing->brewTime > 0 ? 1.0f - float(m_brewing->brewTime) / float(kBrewTicks) : 0.0f;
+        const float done =
+            m_brewing->brewTime > 0 ? 1.0f - float(m_brewing->brewTime) / float(kBrewTicks) : 0.0f;
         b.fill(left + 99, top + 16, 6, 28, kDark);
         if (done > 0) b.fill(left + 99, top + 16, 6, 28 * done, kLight);
         b.fill(left + 16, top + 38, 18, 4, kDark);
         if (m_brewing->fuelLeft > 0)
-            b.fill(left + 16, top + 38, 18.0f * float(m_brewing->fuelLeft) / float(kBrewFuel), 4, gfx::rgba(240, 140, 30));
+            b.fill(left + 16, top + 38, 18.0f * float(m_brewing->fuelLeft) / float(kBrewFuel), 4,
+                   gfx::rgba(240, 140, 30));
     }
     if (m_type == Type::Furnace && m_furnace) {
-        arrow(79, 34, float(m_furnace->cookTime) / float(furnaceKind ? kFurnaceCookTicks / 2 : kFurnaceCookTicks));
+        arrow(79, 34,
+              float(m_furnace->cookTime) /
+                  float(furnaceKind ? kFurnaceCookTicks / 2 : kFurnaceCookTicks));
         // Flame gauge between input and fuel: burn time left.
-        const float flame = m_furnace->burnDuration ? float(m_furnace->burnLeft) / float(m_furnace->burnDuration) : 0.0f;
+        const float flame = m_furnace->burnDuration
+                                ? float(m_furnace->burnLeft) / float(m_furnace->burnDuration)
+                                : 0.0f;
         b.fill(left + 57, top + 37, 14, 14, kDark);
-        if (flame > 0) b.fill(left + 57, top + 37 + 14 * (1 - flame), 14, 14 * flame, gfx::rgba(240, 140, 30));
+        if (flame > 0)
+            b.fill(left + 57, top + 37 + 14 * (1 - flame), 14, 14 * flame, gfx::rgba(240, 140, 30));
     }
 
     Inventory& inv = const_cast<Inventory&>(inventory); // read-only use of stackAt
@@ -794,7 +1015,8 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
         if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17)
             b.fill(x, y, 16, 16, kHover);
     }
-    icons.draw(b, models, m_carried, static_cast<float>(mx) - 8, static_cast<float>(my) - 8, kIconGrassTint);
+    icons.draw(b, models, m_carried, static_cast<float>(mx) - 8, static_cast<float>(my) - 8,
+               kIconGrassTint);
 }
 
 } // namespace mc::ui

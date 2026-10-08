@@ -18,7 +18,7 @@ M24 - Villages 2 (wiki pages of each mob/mechanic):
    job sites, bells), the daily schedule (wander, work, gather, sleep in a bed),
    models and skins; the "overworld3" generator puts beds, job sites, a bell and
    villagers in villages (overworld2 stays pinned).
-2. M24.2 - Trading: per-profession trade tables from the wiki, the trading screen,
+2. ✅ M24.2 - Trading: per-profession trade tables from the wiki, the trading screen,
    uses and restocking at the job site, villager experience and levels, demand and
    price changes, emeralds.
 3. M24.3 - Villager breeding (food, beds), iron golems (built and spawned, defend the

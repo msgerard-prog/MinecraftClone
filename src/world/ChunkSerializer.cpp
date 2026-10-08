@@ -1011,6 +1011,29 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             nbt::Compound brain;
             brain.put("memories", std::move(memories));
             e.put("Brain", std::move(brain));
+            if (m.offerCount > 0) { // Offers {Recipes: [{buy, buyB, sell, uses, maxUses, xp, ...}]}
+                std::vector<nbt::Tag> recipes;
+                for (int i = 0; i < m.offerCount; ++i) {
+                    const TradeOffer& o = m.offers[size_t(i)];
+                    nbt::Compound r;
+                    r.put("buy", itemNbt({o.buyA, o.buyACount}, -1));
+                    if (o.buyB) r.put("buyB", itemNbt({o.buyB, o.buyBCount}, -1));
+                    ItemStack sold{o.sell, o.sellCount};
+                    if (o.sellEnchant) setEnchantment(sold, static_cast<Enchantment>(o.sellEnchant >> 8), o.sellEnchant & 0xFF);
+                    r.put("sell", itemNbt(sold, -1));
+                    r.put("uses", int32_t(o.uses));
+                    r.put("maxUses", int32_t(o.maxUses));
+                    r.put("rewardExp", int8_t{1});
+                    r.put("xp", int32_t(o.xp));
+                    r.put("priceMultiplier", o.priceMultiplier);
+                    r.put("specialPrice", int32_t(o.specialPrice));
+                    r.put("demand", int32_t(o.demand));
+                    recipes.emplace_back(std::move(r));
+                }
+                nbt::Compound offers;
+                offers.put("Recipes", nbt::listOf(nbt::TagType::Compound, std::move(recipes)));
+                e.put("Offers", std::move(offers));
+            }
         }
         if (m.type == MobType::Zombie) {
             e.put("IsBaby", int8_t{0});
@@ -1115,6 +1138,35 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     memory("minecraft:job_site", m.jobSite);
                     memory("minecraft:meeting_point", m.meetingPoint);
                 }
+            if (const nbt::Compound* offers = e->compound("Offers"))
+                if (const nbt::List* recipes = offers->list("Recipes"))
+                    for (const nbt::Tag& rt : recipes->items) {
+                        const nbt::Compound* r = rt.get<nbt::Compound>();
+                        if (!r || m.offerCount >= kMaxOffers) continue;
+                        const nbt::Compound* buyTag = r->compound("buy");
+                        const nbt::Compound* sellTag = r->compound("sell");
+                        if (!buyTag || !sellTag) continue;
+                        const ItemStack a = itemFromNbt(*buyTag), s = itemFromNbt(*sellTag);
+                        if (a.empty() || s.empty()) continue; // (items we don't have yet)
+                        TradeOffer o;
+                        o.buyA = a.item;
+                        o.buyACount = a.count;
+                        if (const nbt::Compound* b = r->compound("buyB")) {
+                            const ItemStack bs = itemFromNbt(*b);
+                            o.buyB = bs.item;
+                            o.buyBCount = bs.count;
+                        }
+                        o.sell = s.item;
+                        o.sellCount = s.count;
+                        o.sellEnchant = s.enchantments[0];
+                        o.uses = uint8_t(std::clamp<int64_t>(r->integer("uses").value_or(0), 0, 255));
+                        o.maxUses = uint8_t(std::clamp<int64_t>(r->integer("maxUses").value_or(12), 1, 255));
+                        o.xp = uint8_t(std::clamp<int64_t>(r->integer("xp").value_or(1), 0, 255));
+                        o.priceMultiplier = float(r->real("priceMultiplier").value_or(0.05));
+                        o.specialPrice = int16_t(std::clamp<int64_t>(r->integer("specialPrice").value_or(0), -64, 64));
+                        o.demand = int8_t(std::clamp<int64_t>(r->integer("demand").value_or(0), 0, 100));
+                        m.offers[m.offerCount++] = o;
+                    }
             m.persistent = true;
         }
         if (const nbt::Compound* carried = e->compound("carriedBlockState"))
