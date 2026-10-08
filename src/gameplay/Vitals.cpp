@@ -151,7 +151,20 @@ float Vitals::protectionReduced(float amount, Hit kind, bool fall) const {
     return amount * (1.0f - float(std::min(epf, 20)) / 25.0f);
 }
 
+float Vitals::scaledDamage(float amount, int difficulty) {
+    switch (difficulty) {
+    case 0: return 0.0f;
+    case 1: return std::min(amount / 2.0f + 1.0f, amount);
+    case 3: return amount * 1.5f;
+    default: return amount;
+    }
+}
+
 bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
+    // Hits with a source position come from mobs; those and explosions scale with the
+    // difficulty (wiki: Difficulty; vanilla's damage types "when caused by a living
+    // non-player" and "always" for explosions). Lava, fire blocks, cactus... don't.
+    if (from || kind == Hit::Explosion) amount = scaledDamage(amount, m_difficulty);
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
     if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
     if (kind == Hit::Fire && !m_fireDamage) return false; // (M28.1: game rule)
@@ -232,10 +245,18 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     while (m_exhaustion >= 4.0f) {
         m_exhaustion -= 4.0f;
         if (m_saturation > 0.0f) m_saturation = std::max(0.0f, m_saturation - 1.0f);
-        else m_food = std::max(0, m_food - 1);
+        else if (m_difficulty > 0) m_food = std::max(0, m_food - 1); // (Peaceful: food never drops)
+    }
+    // Peaceful (wiki: Difficulty, Hunger): health comes back a point a second, food a
+    // point every half second, saturation a point a second (with natural regeneration on).
+    if (m_difficulty == 0 && m_naturalRegen && !dead()) {
+        ++m_peacefulTicks;
+        if (m_peacefulTicks % 20 == 0 && m_health < kMaxHealth) m_health = std::min(kMaxHealth, m_health + 1.0f);
+        if (m_peacefulTicks % 20 == 0 && m_saturation < float(kMaxFood)) m_saturation = std::min(float(m_food), m_saturation + 1.0f);
+        if (m_peacefulTicks % 10 == 0 && m_food < kMaxFood) ++m_food;
     }
 
-    // Regeneration and starvation (wiki: Hunger › Mechanics, normal difficulty).
+    // Regeneration and starvation (wiki: Hunger › Mechanics).
     if (dead()) return hurt;
     if (!m_naturalRegen && m_food > 0) { // (M28.1: game rule - no healing from food)
         m_foodTimer = 0;
@@ -254,7 +275,8 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         }
     } else if (m_food <= 0) {
         if (++m_foodTimer >= 80) {
-            if (m_health > 1.0f) { // normal difficulty: starving stops at half a heart
+            // Starving stops at 10 health on Easy, half a heart on Normal; Hard starves to death.
+            if (m_health > 10.0f || m_difficulty == 3 || (m_health > 1.0f && m_difficulty == 2)) {
                 m_health -= 1.0f;
                 hurt += 1.0f;
             }

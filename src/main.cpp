@@ -507,7 +507,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool survival = level ? level->survival : opts->survival; // (new worlds: the menu's game mode)
     // M28.1: the world's game rules, difficulty and game mode (0 survival .. 3 spectator).
     mc::world::GameRules rules = level ? level->rules : mc::world::GameRules{};
-    int difficulty = level ? level->difficulty : 2;
+    int difficulty = level ? level->difficulty : opts->difficulty;
     int gameMode = level ? level->gameMode : (survival ? 0 : 1);
     mc::Vitals vitals;
     vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
@@ -1708,6 +1708,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 vitals.setRules(rules.fallDamage, rules.fireDamage, rules.drowningDamage,
                                 rules.naturalRegeneration);
                 interaction.setBlockDrops(rules.blockDrops);
+                vitals.setDifficulty(difficulty);
                 vitals.tickEffects(); // (M19.4: in any game mode)
                 player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
                                   vitals.effectLevel(E::JumpBoost),
@@ -3316,8 +3317,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                  frameEdits);
             if (dimension == Dimension::Overworld && !dead) { // (M24.4)
                 if (rules.spawnWanderingTraders) traderSpawner.tick(world, player.position(), gameRng);
-                if (rules.spawnPatrols) patrolSpawner.tick(world, player.position(), dayTime, gameRng);
-                raid.tick(world, vitals, player.position(), gameRng);
+                if (rules.spawnPatrols && difficulty > 0) patrolSpawner.tick(world, player.position(), dayTime, gameRng);
+                if (difficulty > 0) {
+                    raid.tick(world, vitals, player.position(), gameRng);
+                } else if (raid.active() || raid.pending()) { // Peaceful ends raids (wiki: Raid)
+                    mc::Raid::State none = raid.state();
+                    none.active = false;
+                    none.pendingTicks = 0;
+                    raid.restore(none);
+                }
             }
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
@@ -4603,6 +4611,7 @@ int main(int argc, char** argv) {
                     0x9E3779B97F4A7C15ull);
             launch.flat = menuState.newFlat;
             launch.survival = menuState.newSurvival;
+            launch.difficulty = menuState.newDifficulty;
         } else {
             launch.world = menuState.worlds[size_t(menuState.selected)].folder;
             launch.worldTitle.clear();

@@ -464,7 +464,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 // Wither II for 10 s on Normal (40 s on Hard) to what it hits, then a power-1 blast.
                 if (target == Target::Player) {
                     if (vitals && survival && vitals->attacked(8.0f, &p.pos, Vitals::Hit::Projectile)) {
-                        vitals->addEffect(Effect::Wither, 1, 200);
+                        // Wither II 10 s on Normal, 40 s on Hard, none on Easy (wiki: Wither › Wither skull).
+                        if (vitals->difficulty() >= 2) vitals->addEffect(Effect::Wither, 1, vitals->difficulty() == 3 ? 800 : 200);
                         hits.playerDamage += 8.0f;
                     }
                 } else if (target == Target::Mob) {

@@ -384,7 +384,9 @@ bool Mobs::villageHunt(Context& ctx, MobData& z) {
             v->sleeping = false;
         }
         if (v->type == MobType::IronGolem) v->targetUuid = z.uuidHi; // (it fights back)
-        if (zombie && v->type == MobType::Villager && v->health <= 0.0f && ctx.rng.nextInt(2) == 0) {
+        // Infected: always on Hard, half the time on Normal, never on Easy (wiki: Zombie Villager).
+        if (zombie && v->type == MobType::Villager && v->health <= 0.0f &&
+            (ctx.difficulty == 3 || (ctx.difficulty == 2 && ctx.rng.nextInt(2) == 0))) {
             v->type = MobType::ZombieVillager; // infected: a zombie villager from now on
             v->health = mobInfo(MobType::ZombieVillager).maxHealth;
             v->hurtTime = 0;

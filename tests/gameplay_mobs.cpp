@@ -29,6 +29,7 @@ struct MobScene {
     bool thundering = false;
     const Weather* weather = nullptr;
     bool mobDrops = true, mobGriefing = true; // (game rules, M28.1)
+    int difficulty = 2;
     MobScene() {
         for (int cz = -2; cz <= 2; ++cz)
             for (int cx = -2; cx <= 2; ++cx) {
@@ -51,6 +52,7 @@ struct MobScene {
             ctx.weather = weather;
             ctx.mobDrops = mobDrops;
             ctx.mobGriefing = mobGriefing;
+            ctx.difficulty = difficulty;
             mobs.tick(ctx);
         }
     }
@@ -2184,4 +2186,26 @@ TEST_CASE("game rules: mob_drops off - no loot; tnt_explodes off - TNT can't be 
     s.world.updateBlock({5, 64, 4}, blockRegistry().defaultState(blocks::RedstoneBlock));
     CHECK(updates.primedTnt().empty());
     CHECK(blockRegistry().blockOf(s.world.getBlock({4, 64, 4})) == blocks::Tnt);
+}
+
+TEST_CASE("Peaceful: monsters vanish (not shulkers), animals stay; mob hits do nothing") {
+    MobScene s;
+    s.difficulty = 0;
+    s.vitals.setDifficulty(0);
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {3.5, 64.0, 0.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {-6.5, 64.0, 0.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Shulker, {-6.5, 64.0, 6.5}, s.rng)));
+    s.tick(3);
+    int zombies = 0, cows = 0, shulkers = 0;
+    for (MobData* m : s.all()) {
+        zombies += m->type == MobType::Zombie;
+        cows += m->type == MobType::Cow;
+        shulkers += m->type == MobType::Shulker;
+    }
+    CHECK(zombies == 0);
+    CHECK(cows == 1);
+    CHECK(shulkers == 1);
+    const glm::dvec3 from(1.0, 64.0, 0.0);
+    CHECK_FALSE(s.vitals.attacked(5.0f, &from));
+    CHECK(s.vitals.health() == 20.0f);
 }

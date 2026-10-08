@@ -45,6 +45,7 @@ struct LaunchOptions {
     std::string world;                 // --world NAME: saves/<NAME> (created if missing)
     std::string worldTitle;            // a new world's LevelName (menus; default: the folder)
     bool survival = false;             // new worlds start in survival (menus; default creative)
+    int difficulty = 2;                // --difficulty peaceful|easy|normal|hard: new worlds (M28.1b)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit
     std::string generator = "overworld6"; // --generator overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain (new worlds; newest default)

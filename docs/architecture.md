@@ -582,7 +582,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   phantoms), `Vitals::setRules` (damage kinds, regeneration), `BlockInteraction::
   setBlockDrops`, `BlockUpdates::setTntExplodes`, random tick speed, `ExplosionTargets::
   breakBlocks/blockDrops`, the day/weather clocks, keep_inventory on death; `/gamerule`
-  and `/difficulty` edit them.
+  and `/difficulty` edit them. Difficulty (M28.1b): `Vitals::setDifficulty` scales hits
+  that have a source position (mobs) and explosions (`scaledDamage`), sets the starvation
+  floor and Peaceful's refill; `Mobs::Context::difficulty` gates monster spawning,
+  removes `despawnsInPeaceful` mobs and sets poison/infection odds; main stops raids
+  and patrols on Peaceful.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

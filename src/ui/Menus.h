@@ -38,6 +38,7 @@ struct MenuState {
     // Create New World.
     std::string newName = "New World", newSeed;
     bool newSurvival = true; // vanilla's default game mode
+    int newDifficulty = 2;   // Normal (vanilla's default; M28.1b)
     bool newFlat = false;
     std::string splash = "Made from scratch!"; // the title's yellow line (ours)
 };

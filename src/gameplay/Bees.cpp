@@ -82,7 +82,9 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
         const Aabb reach{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)};
         if (m.attackCooldown > 0) --m.attackCooldown;
         if (m.attackCooldown == 0 && box(m).intersects(reach)) {
-            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) ctx.vitals.addEffect(Effect::Poison, 0, 200);
+            // Poison 10 s on Normal, 18 s on Hard, none on Easy (wiki: Bee).
+            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos) && ctx.difficulty >= 2)
+                ctx.vitals.addEffect(Effect::Poison, 0, ctx.difficulty == 3 ? 360 : 200);
             setPlayerAttacker(m.uuidHi);
             m.stung = true;
             m.angry = false;

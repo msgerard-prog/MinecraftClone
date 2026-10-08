@@ -87,3 +87,44 @@ TEST_CASE("game rules: fall_damage and drowning_damage off spare the player") {
     CHECK(hurt == 0.0f);
     CHECK(v.health() == 20.0f);
 }
+
+TEST_CASE("difficulty: mob damage Easy min(d/2+1, d), Hard x1.5; lava doesn't scale") {
+    CHECK(Vitals::scaledDamage(6.0f, 1) == 4.0f);
+    CHECK(Vitals::scaledDamage(1.0f, 1) == 1.0f);
+    CHECK(Vitals::scaledDamage(6.0f, 2) == 6.0f);
+    CHECK(Vitals::scaledDamage(6.0f, 3) == 9.0f);
+    CHECK(Vitals::scaledDamage(6.0f, 0) == 0.0f);
+    Vitals hard;
+    hard.setDifficulty(3);
+    const glm::dvec3 from(1.0, 0.0, 0.0);
+    hard.attacked(4.0f, &from);
+    CHECK(hard.health() == 14.0f);
+    Vitals lava;
+    lava.setDifficulty(3);
+    lava.attacked(4.0f, nullptr, Vitals::Hit::Fire);
+    CHECK(lava.health() == 16.0f);
+}
+
+TEST_CASE("difficulty: starving stops at 10 on Easy and 1 on Normal; Hard starves to death") {
+    for (int d = 1; d <= 3; ++d) {
+        Vitals v;
+        v.setDifficulty(d);
+        v.setState(20.0f, 0, 0.0f, 0.0f);
+        for (int t = 0; t < 80 * 25; ++t)
+            v.tick(64.0, true, false, false);
+        CHECK(v.health() == (d == 1 ? 10.0f : d == 2 ? 1.0f : 0.0f));
+    }
+}
+
+TEST_CASE("Peaceful: health and food come back, food never drops") {
+    Vitals v;
+    v.setDifficulty(0);
+    v.setState(10.0f, 4, 0.0f, 0.0f);
+    for (int t = 0; t < 200; ++t)
+        v.tick(64.0, true, false, false);
+    CHECK(v.health() == 20.0f);
+    CHECK(v.food() == 20);
+    v.exhaust(40.0f);
+    v.tick(64.0, true, false, false);
+    CHECK(v.food() == 20);
+}

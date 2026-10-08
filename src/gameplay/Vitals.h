@@ -22,6 +22,12 @@ public:
     float health() const { return m_health; }
     // The fall damage factor of the block being landed on (hay bale 0.2), set each tick.
     void setLandingFactor(float f) { m_landingFactor = f; }
+    // Difficulty (M28.1b; wiki: Difficulty): 0 peaceful, 1 easy, 2 normal, 3 hard. Hits
+    // caused by mobs (and every explosion) scale with it; starving stops at 10 health on
+    // Easy, at 1 on Normal, never on Hard; Peaceful refills health and food.
+    void setDifficulty(int d) { m_difficulty = d; }
+    int difficulty() const { return m_difficulty; }
+    static float scaledDamage(float amount, int difficulty);
     // Game rules (M28.1): fall_damage, fire_damage, drowning_damage, natural_health_regeneration.
     void setRules(bool fall, bool fire, bool drowning, bool regen) {
         m_fallDamage = fall;
@@ -209,6 +215,8 @@ private:
     float m_landingFactor = 1.0f;
     bool m_stalagmite = false;
     bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true, m_naturalRegen = true; // (M28.1)
+    int m_difficulty = 2;
+    int m_peacefulTicks = 0;
     int m_wardenLevel = 0, m_wardenTicks = 0, m_wardenCooldown = 0; // (M27.3)
     float m_health = kMaxHealth;
     int m_food = kMaxFood;

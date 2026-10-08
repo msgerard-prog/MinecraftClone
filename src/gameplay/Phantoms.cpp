@@ -118,7 +118,7 @@ void Mobs::spawnPhantoms(Context& ctx) {
     if (--m_phantomTicks > 0) return;
     m_phantomTicks = 1200;
     const bool night = ctx.skyDarken >= 4.0f || ctx.thundering;
-    if (!night || !ctx.survival || ctx.playerDead || !ctx.spawnPhantoms || ctx.timeSinceRest < 72000) return;
+    if (!night || !ctx.survival || ctx.playerDead || !ctx.spawnPhantoms || ctx.difficulty == 0 || ctx.timeSinceRest < 72000) return;
     m_phantomTicks += int(ctx.rng.nextInt(1200)); // (the game's random only when phantoms may come)
     if (int(ctx.rng.nextInt(uint32_t(std::max(1, ctx.timeSinceRest)))) < 72000) return;
     const glm::dvec3 p = ctx.player.position();

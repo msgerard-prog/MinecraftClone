@@ -116,6 +116,10 @@ MenuAction createWorld(Menu& m, MenuState& st, uint16_t dirt) {
         st.newSurvival = !st.newSurvival;
     if (m.button(st.newFlat ? "World Type: Superflat" : "World Type: Default", cx - 100.0f, 156.0f, 200.0f))
         st.newFlat = !st.newFlat;
+    static constexpr const char* kDifficulty[4] = {"Difficulty: Peaceful", "Difficulty: Easy", "Difficulty: Normal",
+                                                   "Difficulty: Hard"};
+    if (m.button(kDifficulty[st.newDifficulty & 3], cx - 100.0f, 180.0f, 200.0f))
+        st.newDifficulty = (st.newDifficulty + 1) & 3;
     MenuAction a = MenuAction::None;
     const float b = float(m.height()) - 28.0f;
     if (m.button("Create New World", cx - 154.0f, b, 150.0f) || m.input().enter) a = MenuAction::CreateWorld;

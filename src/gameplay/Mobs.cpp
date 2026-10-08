@@ -587,7 +587,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
                 if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
                 // (M26.4a; wiki, Normal) a cave spider's bite poisons for 7 s, a wither
                 // skeleton's hit withers for 10 s.
-                if (m.type == MobType::CaveSpider) ctx.vitals.addEffect(Effect::Poison, 0, 140);
+                // Poison 7 s on Normal, 15 s on Hard, none on Easy (wiki: Cave Spider).
+                if (m.type == MobType::CaveSpider && ctx.difficulty >= 2)
+                    ctx.vitals.addEffect(Effect::Poison, 0, ctx.difficulty == 3 ? 300 : 140);
                 if (m.type == MobType::WitherSkeleton) ctx.vitals.addEffect(Effect::Wither, 0, 200);
             }
             m.attackCooldown = 20;
@@ -1187,6 +1189,7 @@ void Mobs::tick(Context& ctx) {
                     else if (d2 <= 32.0 * 32.0) m.noPlayerTicks = 0;
                 }
                 if (m.pos.y < ctx.world.height().minY - 64) remove = true; // fell out of the world
+                if (ctx.difficulty == 0 && despawnsInPeaceful(m.type)) remove = true; // (M28.1b)
             }
             const ChunkPos now{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
             if (!remove && !(now == chunk.pos())) {
@@ -1250,7 +1253,7 @@ void Mobs::tick(Context& ctx) {
     }
     if (ctx.naturalSpawning) {
         if (ctx.world.isUltrawarm()) spawnNether(ctx);
-        else spawnHostiles(ctx);
+        else if (ctx.difficulty > 0) spawnHostiles(ctx); // (Peaceful: no monsters)
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnPhantoms(ctx);  // (M26.4a)

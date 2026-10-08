@@ -204,6 +204,11 @@ inline bool isSpider(MobType t) { return t == MobType::Spider || t == MobType::C
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
 // The undead (wiki: Undead): Smite hits them harder, the Wither leaves them alone.
+// Hostile mobs that vanish on Peaceful (wiki: Difficulty; the ender dragon, shulkers
+// and hoglins stay).
+inline bool despawnsInPeaceful(MobType t) {
+    return mobInfo(t).hostile && t != MobType::EnderDragon && t != MobType::Shulker && t != MobType::Hoglin;
+}
 inline bool isUndead(MobType t) {
     return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
            t == MobType::Phantom || t == MobType::Wither;

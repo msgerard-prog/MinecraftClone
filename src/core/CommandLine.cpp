@@ -186,6 +186,15 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.demoEdit = true;
         } else if (arg == "--auto-fly") {
             opts.autoFly = true;
+        } else if (arg == "--difficulty") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            const std::string_view d(*v);
+            opts.difficulty = d == "peaceful" ? 0 : d == "easy" ? 1 : d == "normal" ? 2 : d == "hard" ? 3 : -1;
+            if (opts.difficulty < 0) {
+                error = "--difficulty needs peaceful, easy, normal or hard";
+                return std::nullopt;
+            }
         } else if (arg == "--flat") {
             opts.flat = true;
         } else if (arg == "--no-vsync") {
