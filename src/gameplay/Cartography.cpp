@@ -65,9 +65,12 @@ std::optional<world::ItemStack> craftBookCopy(std::span<const world::ItemStack> 
     int quills = 0;
     for (const world::ItemStack& s : grid) {
         if (s.empty()) continue;
-        if (is(s, "minecraft:written_book") && !original) original = &s;
-        else if (is(s, "minecraft:writable_book")) ++quills;
-        else return std::nullopt;
+        if (is(s, "minecraft:written_book") && !original)
+            original = &s;
+        else if (is(s, "minecraft:writable_book"))
+            ++quills;
+        else
+            return std::nullopt;
     }
     if (!original || quills == 0) return std::nullopt;
     const auto book = world::bookContent(original->extra);

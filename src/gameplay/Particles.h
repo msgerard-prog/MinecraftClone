@@ -19,21 +19,21 @@ namespace mc {
 struct Particle {
     glm::dvec3 pos{0.0}, prevPos{0.0}, vel{0.0};
     glm::vec3 color{1.0f};
-    float size = 0.1f;     // half the quad's side, blocks
-    float gravity = 0.0f;  // blocks/tick^2 pulled down (negative: rises)
+    float size = 0.1f;    // half the quad's side, blocks
+    float gravity = 0.0f; // blocks/tick^2 pulled down (negative: rises)
     float friction = 0.98f;
     int16_t age = 0, lifetime = 20;
     world::BlockStateId state = 0; // Terrain: whose texture
     uint8_t u = 0, v = 0;          // Terrain: the piece's corner in 1/4 of the sprite
     ParticleSprite sprite = ParticleSprite::Generic0;
-    uint8_t frames = 1;        // >1: steps sprite..sprite+frames-1 over its life
+    uint8_t frames = 1;         // >1: steps sprite..sprite+frames-1 over its life
     bool reverseFrames = false; // large to small (smoke) instead of small to large
-    bool physics = true;       // stops against blocks
+    bool physics = true;        // stops against blocks
     bool onGround = false;
-    bool fullBright = false;   // flames, lava, portal sparks glow
-    bool hangs = false;        // drips: wait under the block, then fall
-    bool toOrigin = false;     // portal sparks: drift back toward their start
-    glm::vec3 fade{-1.0f};     // (M28.4c) firework sparks: the colour they fade to half way
+    bool fullBright = false; // flames, lava, portal sparks glow
+    bool hangs = false;      // drips: wait under the block, then fall
+    bool toOrigin = false;   // portal sparks: drift back toward their start
+    glm::vec3 fade{-1.0f};   // (M28.4c) firework sparks: the colour they fade to half way
     glm::dvec3 origin{0.0};
     uint8_t skyLight = 15, blockLight = 0;
     // The current sprite cell (animated ones step through their frames).
@@ -59,10 +59,11 @@ public:
 
     // One tick: spawn from this tick's level events (not cleared here), animate blocks
     // around `player`, rain splashes, then move and age everything.
-    void tick(world::World& world, const std::vector<world::LevelEvent>& events, const glm::dvec3& player,
-              const world::Weather* weather, world::Xoroshiro& rng);
+    void tick(world::World& world, const std::vector<world::LevelEvent>& events,
+              const glm::dvec3& player, const world::Weather* weather, world::Xoroshiro& rng);
     // Status effect swirls around an entity (the player: colour 0xRRGGBB).
-    void effectSwirl(const glm::dvec3& feet, double width, double height, uint32_t rgb, world::Xoroshiro& rng);
+    void effectSwirl(const glm::dvec3& feet, double width, double height, uint32_t rgb,
+                     world::Xoroshiro& rng);
 
     const std::vector<Particle>& all() const { return m_particles; }
     void clear() {
@@ -73,7 +74,8 @@ public:
     // Spawning (also used by tests).
     Particle& add(const Particle& p);
     void blockBreak(world::BlockStateId state, const world::BlockPos& p, world::Xoroshiro& rng);
-    void blockHit(world::BlockStateId state, const world::BlockPos& p, world::Direction face, world::Xoroshiro& rng);
+    void blockHit(world::BlockStateId state, const world::BlockPos& p, world::Direction face,
+                  world::Xoroshiro& rng);
     void explosion(const glm::dvec3& at, float power, world::Xoroshiro& rng);
     void poof(const glm::dvec3& feet, double width, double height, world::Xoroshiro& rng);
     void splashPotion(const glm::dvec3& at, uint32_t rgb, world::Xoroshiro& rng);
@@ -87,7 +89,8 @@ public:
 private:
     // (also plays blocks' ambient sounds: fire, lava pops, portals, furnaces)
     void animate(world::World& world, const world::BlockPos& p, world::Xoroshiro& rng);
-    void rain(const world::World& world, const glm::dvec3& player, const world::Weather& weather, world::Xoroshiro& rng);
+    void rain(const world::World& world, const glm::dvec3& player, const world::Weather& weather,
+              world::Xoroshiro& rng);
     void move(const world::World& world, Particle& p);
     void puff(const glm::dvec3& at, world::Xoroshiro& rng);
     // Chunks within 2 of the player's, looked up once a tick (animate ticks, particle

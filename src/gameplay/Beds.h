@@ -13,13 +13,13 @@ namespace mc {
 // with no monsters near, puts the player to sleep; after 100 ticks asleep the night
 // is skipped. In the Nether and the End the bed explodes instead.
 enum class BedUse {
-    Sleep,       // set spawn and sleep
-    NotNight,    // "You can sleep only at night" (spawn still set)
-    Monsters,    // "You may not rest now; there are monsters nearby"
-    Occupied,    // "This bed is occupied"
-    Explodes,    // not the Overworld
-    TooFar,      // "You can't rest now; the bed is too far away"
-    Obstructed,  // "This bed is obstructed"
+    Sleep,      // set spawn and sleep
+    NotNight,   // "You can sleep only at night" (spawn still set)
+    Monsters,   // "You may not rest now; there are monsters nearby"
+    Occupied,   // "This bed is occupied"
+    Explodes,   // not the Overworld
+    TooFar,     // "You can't rest now; the bed is too far away"
+    Obstructed, // "This bed is obstructed"
     NotABed,
 };
 
@@ -30,9 +30,9 @@ bool canSleepAt(int64_t dayTime, bool raining = false, bool thundering = false);
 // What happens when the player uses the bed block at `p` (either half).
 // `creative`: monsters don't keep a creative player awake. `player`: the player's
 // feet - too far (more than 3 blocks) or a solid block over the head stops it.
-BedUse useBed(const world::World& world, const world::BlockPos& p, int64_t dayTime, world::Dimension dimension,
-              bool creative = false, const glm::dvec3* player = nullptr, bool raining = false,
-              bool thundering = false);
+BedUse useBed(const world::World& world, const world::BlockPos& p, int64_t dayTime,
+              world::Dimension dimension, bool creative = false, const glm::dvec3* player = nullptr,
+              bool raining = false, bool thundering = false);
 
 // The bed's head half (where the player lies and the spawn point is kept).
 std::optional<world::BlockPos> bedHead(const world::World& world, const world::BlockPos& p);

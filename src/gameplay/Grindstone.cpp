@@ -43,7 +43,8 @@ GrindResult grind(const world::ItemStack& top, const world::ItemStack& bottom) {
     const int maxDurability = world::itemRegistry().item(top.item).durability;
     if (top.item != bottom.item || maxDurability <= 0) return {};
     world::ItemStack out = stripped(top);
-    const int remaining = (maxDurability - top.damage) + (maxDurability - bottom.damage) + maxDurability * 5 / 100;
+    const int remaining =
+        (maxDurability - top.damage) + (maxDurability - bottom.damage) + maxDurability * 5 / 100;
     out.damage = static_cast<uint16_t>(maxDurability - std::min(remaining, maxDurability));
     return {out, minCosts(top) + minCosts(bottom)};
 }

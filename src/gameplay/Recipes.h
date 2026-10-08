@@ -19,8 +19,8 @@ struct Ingredient {
 };
 
 struct Recipe {
-    int width = 0, height = 0;        // shaped: pattern size; shapeless: 0
-    std::vector<Ingredient> pattern;  // shaped: width x height, row-major; shapeless: the list
+    int width = 0, height = 0;       // shaped: pattern size; shapeless: 0
+    std::vector<Ingredient> pattern; // shaped: width x height, row-major; shapeless: the list
     world::ItemStack result;
 };
 

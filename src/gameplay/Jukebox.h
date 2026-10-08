@@ -13,9 +13,9 @@ namespace mc {
 // disc's index (fixed phrases, a chord progression, a tempo and instruments per disc),
 // played note by note in the game tick.
 struct DiscInfo {
-    const char* id;     // "music_disc_cat"
-    int comparator;     // 1..15
-    int lengthTicks;    // vanilla's song length
+    const char* id;  // "music_disc_cat"
+    int comparator;  // 1..15
+    int lengthTicks; // vanilla's song length
 };
 // The disc an item is (-1: not a disc).
 int discIndex(world::ItemId item);

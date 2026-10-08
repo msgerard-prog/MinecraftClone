@@ -21,7 +21,7 @@ struct FallingBlock {
     world::BlockStateId state = 0;
     int time = 0;
     uint8_t skyLight = 15, blockLight = 0; // for rendering
-    double startY = 0.0; // (M27.2: a stalactite hurts by how far it fell)
+    double startY = 0.0;                   // (M27.2: a stalactite hurts by how far it fell)
 };
 
 class FallingBlocks {
@@ -38,7 +38,8 @@ public:
     void spawn(const world::BlockPos& p, world::BlockStateId state);
     // One tick: fall, land (placing the block through World::updateBlock, so its
     // neighbours react; position in `changed`) or drop as an item into `items`.
-    void tick(world::World& world, ItemEntities& items, world::Xoroshiro& rng, std::vector<world::BlockPos>& changed);
+    void tick(world::World& world, ItemEntities& items, world::Xoroshiro& rng,
+              std::vector<world::BlockPos>& changed);
 
     const std::vector<FallingBlock>& blocks() const { return m_blocks; }
     void clear() { m_blocks.clear(); }

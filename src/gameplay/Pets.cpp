@@ -23,13 +23,13 @@ const ItemId& itemNamed(const char* name, ItemId& slot) {
     if (slot == 0) slot = itemRegistry().find(name).value_or(kNoItem);
     return slot;
 }
-bool solid(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+bool solid(const World& w, int x, int y, int z) {
+    return blockRegistry().collides(w.getBlock({x, y, z}));
+}
 
 } // namespace
 
-float Mobs::petMaxHealth(const MobData& m) {
-    return maxHealthOf(m);
-}
+float Mobs::petMaxHealth(const MobData& m) { return maxHealthOf(m); }
 
 // Right-clicking a pet or a wild one with its taming food (wiki: Taming): wolves take
 // bones, cats raw cod or salmon, parrots seeds, ocelots fish (trust) - 1 in 3 tames it,
@@ -38,8 +38,10 @@ float Mobs::petMaxHealth(const MobData& m) {
 Mobs::Use Mobs::petInteract(MobData& m, ItemId held, Xoroshiro& rng) {
     static ItemId bone, cod, salmon, wheatSeeds, beetSeeds;
     const auto& items = itemRegistry();
-    const bool fish = held != kNoItem && (held == itemNamed("cod", cod) || held == itemNamed("salmon", salmon));
-    const bool seeds = held != kNoItem && (held == itemNamed("wheat_seeds", wheatSeeds) || held == itemNamed("beetroot_seeds", beetSeeds));
+    const bool fish =
+        held != kNoItem && (held == itemNamed("cod", cod) || held == itemNamed("salmon", salmon));
+    const bool seeds = held != kNoItem && (held == itemNamed("wheat_seeds", wheatSeeds) ||
+                                           held == itemNamed("beetroot_seeds", beetSeeds));
     const bool tameFood = (m.type == MobType::Wolf && held == itemNamed("bone", bone)) ||
                           ((m.type == MobType::Cat || m.type == MobType::Ocelot) && fish) ||
                           (m.type == MobType::Parrot && seeds);
@@ -59,8 +61,8 @@ Mobs::Use Mobs::petInteract(MobData& m, ItemId held, Xoroshiro& rng) {
     if (m.type == MobType::Ocelot) return Use::None;
     // Wolf armor (M26.3; wiki: Wolf Armor) on a tamed wolf; shears take it off again.
     static ItemId wolfArmor;
-    if (m.type == MobType::Wolf && held != kNoItem && held == itemNamed("wolf_armor", wolfArmor) && m.horseArmor == 0 &&
-        !m.isBaby()) {
+    if (m.type == MobType::Wolf && held != kNoItem && held == itemNamed("wolf_armor", wolfArmor) &&
+        m.horseArmor == 0 && !m.isBaby()) {
         m.horseArmor = 1;
         m.armorWear = 0;
         return Use::Fed;
@@ -77,10 +79,12 @@ Mobs::Use Mobs::petInteract(MobData& m, ItemId held, Xoroshiro& rng) {
     }
     // Food: heals a hurt pet (wolves: any meat), else puts it in love (Animals.cpp).
     const ItemDef& def = items.item(held);
-    const bool meat = held != kNoItem && def.food > 0 &&
-                      (def.id.find("beef") != std::string::npos || def.id.find("porkchop") != std::string::npos ||
-                       def.id.find("chicken") != std::string::npos || def.id.find("mutton") != std::string::npos ||
-                       def.id.find("rabbit") != std::string::npos || def.id == "minecraft:rotten_flesh");
+    const bool meat =
+        held != kNoItem && def.food > 0 &&
+        (def.id.find("beef") != std::string::npos || def.id.find("porkchop") != std::string::npos ||
+         def.id.find("chicken") != std::string::npos ||
+         def.id.find("mutton") != std::string::npos || def.id.find("rabbit") != std::string::npos ||
+         def.id == "minecraft:rotten_flesh");
     if ((m.type == MobType::Wolf && meat) || (m.type == MobType::Cat && fish)) {
         if (m.health < petMaxHealth(m)) {
             m.health = std::min(petMaxHealth(m), m.health + float(std::max(2, def.food)));
@@ -102,15 +106,18 @@ bool Mobs::petGoal(Context& ctx, MobData& m, double& speed) {
     const glm::dvec3 p = ctx.player.position();
     const double d = glm::length(p - m.pos);
     // Parrots dance within 3 blocks of a playing jukebox (wiki: Parrot › Dancing).
-    if (m.type == MobType::Parrot && (m.peek > 0 || ctx.rng.nextInt(20) == 0)) { // (looked for about once a second)
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+    if (m.type == MobType::Parrot &&
+        (m.peek > 0 || ctx.rng.nextInt(20) == 0)) { // (looked for about once a second)
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         bool music = false;
         for (int dz = -1; dz <= 1 && !music; ++dz)
             for (int dx = -1; dx <= 1 && !music; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const auto& j : ch->jukeboxes())
                         if (j.data.playing &&
-                            glm::length(glm::dvec3((c.x + dx) * 16 + j.x + 0.5, j.y + 0.5, (c.z + dz) * 16 + j.z + 0.5) -
+                            glm::length(glm::dvec3((c.x + dx) * 16 + j.x + 0.5, j.y + 0.5,
+                                                   (c.z + dz) * 16 + j.z + 0.5) -
                                         m.pos) < 3.5)
                             music = true;
         m.peek = music ? 1 : 0;
@@ -133,12 +140,14 @@ bool Mobs::petGoal(Context& ctx, MobData& m, double& speed) {
     if (m.type == MobType::Wolf && !m.tamed && !m.angry && !m.isBaby() && m.targetUuid == 0 &&
         ctx.rng.nextInt(400) == 0) {
         double best = 16.0 * 16.0;
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& o : ch->mobs())
-                        if (o.type == MobType::Sheep && o.health > 0.0f && glm::dot(o.pos - m.pos, o.pos - m.pos) < best) {
+                        if (o.type == MobType::Sheep && o.health > 0.0f &&
+                            glm::dot(o.pos - m.pos, o.pos - m.pos) < best) {
                             best = glm::dot(o.pos - m.pos, o.pos - m.pos);
                             m.targetUuid = o.uuidHi;
                         }
@@ -154,8 +163,8 @@ bool Mobs::petGoal(Context& ctx, MobData& m, double& speed) {
         for (const uint64_t want : {ctx.playerAttackerUuid, ctx.playerTargetUuid})
             if (want != 0 && want != m.uuidHi)
                 if (MobData* t = mobByUuid(ctx.world, m.pos, want);
-                    t && t->health > 0.0f && t->type != MobType::Creeper && !(isPet(t->type) && t->tamed) &&
-                    glm::length(t->pos - m.pos) < 24.0) {
+                    t && t->health > 0.0f && t->type != MobType::Creeper &&
+                    !(isPet(t->type) && t->tamed) && glm::length(t->pos - m.pos) < 24.0) {
                     m.targetUuid = want;
                     break;
                 }
@@ -168,11 +177,14 @@ bool Mobs::petGoal(Context& ctx, MobData& m, double& speed) {
             m.goal = t->pos;
             speed *= 1.3;
             if (m.attackCooldown > 0) --m.attackCooldown;
-            if (m.attackCooldown == 0 && glm::length(glm::dvec2(t->pos.x - m.pos.x, t->pos.z - m.pos.z)) <
-                                             mobInfo(t->type).width * 0.5 + 0.9) {
+            if (m.attackCooldown == 0 &&
+                glm::length(glm::dvec2(t->pos.x - m.pos.x, t->pos.z - m.pos.z)) <
+                    mobInfo(t->type).width * 0.5 + 0.9) {
                 t->health -= mobInfo(MobType::Wolf).attackDamage;
                 t->hurtTime = 10;
-                if (m.tamed) t->lastHurtByPlayer = true; // (a pet's kill counts as the player's: experience, loot)
+                if (m.tamed)
+                    t->lastHurtByPlayer =
+                        true; // (a pet's kill counts as the player's: experience, loot)
                 if (!mobInfo(t->type).hostile) t->panicTicks = 100;
                 m.attackCooldown = 20;
             }
@@ -184,9 +196,11 @@ bool Mobs::petGoal(Context& ctx, MobData& m, double& speed) {
     // beside them), walk after them past 6, stop within 2 (wiki: Taming › Following).
     if (d >= 12.0) {
         for (int k = 0; k < 10; ++k) {
-            const int x = int(std::floor(p.x)) + int(ctx.rng.nextInt(5)) - 2, z = int(std::floor(p.z)) + int(ctx.rng.nextInt(5)) - 2;
+            const int x = int(std::floor(p.x)) + int(ctx.rng.nextInt(5)) - 2,
+                      z = int(std::floor(p.z)) + int(ctx.rng.nextInt(5)) - 2;
             const int y = int(std::floor(p.y));
-            if (solid(ctx.world, x, y - 1, z) && !solid(ctx.world, x, y, z) && !solid(ctx.world, x, y + 1, z)) {
+            if (solid(ctx.world, x, y - 1, z) && !solid(ctx.world, x, y, z) &&
+                !solid(ctx.world, x, y + 1, z)) {
                 m.pos = m.prevPos = m.goal = {x + 0.5, double(y), z + 0.5};
                 m.vel = glm::dvec3(0.0);
                 break;
@@ -213,9 +227,11 @@ void Mobs::spawnCreatures(Context& ctx) {
     const auto& r = blockRegistry();
     if (m_creatureTicks % 1200 == 0 && m_cats < 5) {
         if (const auto bell = findBell(ctx.world, p, 48)) {
-            const int x = bell->x + int(ctx.rng.nextInt(17)) - 8, z = bell->z + int(ctx.rng.nextInt(17)) - 8;
+            const int x = bell->x + int(ctx.rng.nextInt(17)) - 8,
+                      z = bell->z + int(ctx.rng.nextInt(17)) - 8;
             for (int y = bell->y + 6; y >= bell->y - 6; --y)
-                if (solid(ctx.world, x, y - 1, z) && !solid(ctx.world, x, y, z) && !solid(ctx.world, x, y + 1, z)) {
+                if (solid(ctx.world, x, y - 1, z) && !solid(ctx.world, x, y, z) &&
+                    !solid(ctx.world, x, y + 1, z)) {
                     MobData cat = make(MobType::Cat, {x + 0.5, double(y), z + 0.5}, ctx.rng);
                     if (add(ctx.world, cat)) ++m_cats;
                     break;
@@ -223,18 +239,21 @@ void Mobs::spawnCreatures(Context& ctx) {
         }
     }
     if (m_creatures >= 10) return;
-    const int x = int(std::floor(p.x)) + int(ctx.rng.nextInt(97)) - 48, z = int(std::floor(p.z)) + int(ctx.rng.nextInt(97)) - 48;
+    const int x = int(std::floor(p.x)) + int(ctx.rng.nextInt(97)) - 48,
+              z = int(std::floor(p.z)) + int(ctx.rng.nextInt(97)) - 48;
     if (std::abs(x - p.x) < 24 && std::abs(z - p.z) < 24) return;
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit() || !c->biomes()) return;
     int y = int(std::floor(p.y)) + 32;
-    while (y > int(std::floor(p.y)) - 32 && !solid(ctx.world, x, y - 1, z)) --y;
+    while (y > int(std::floor(p.y)) - 32 && !solid(ctx.world, x, y - 1, z))
+        --y;
     const BlockId ground = r.blockOf(ctx.world.getBlock({x, y - 1, z}));
     if (solid(ctx.world, x, y, z) || c->skyLight(blockToLocal(x), y, blockToLocal(z)) < 9) return;
     const Biome biome = c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height());
     // Horses, donkeys, llamas and camels (M26.2, Mounts.cpp): grass, or a desert's sand.
     if ((ground == blocks::GrassBlock || (biome == Biome::Desert && ground == blocks::Sand)) &&
-        (biome == Biome::Plains || biome == Biome::Savanna || biome == Biome::WindsweptHills || biome == Biome::Desert) &&
+        (biome == Biome::Plains || biome == Biome::Savanna || biome == Biome::WindsweptHills ||
+         biome == Biome::Desert) &&
         ctx.rng.nextInt(2) == 0) {
         spawnMounts(ctx, biome, x, y, z);
         return;
@@ -246,32 +265,59 @@ void Mobs::spawnCreatures(Context& ctx) {
         spawnWildlife(ctx, biome, ground, x, y, z);
         if (m_creatures != before) return;
     }
-    if (ground != blocks::GrassBlock && ground != blocks::Podzol && ground != blocks::Snow && ground != blocks::SnowBlock) return;
+    if (ground != blocks::GrassBlock && ground != blocks::Podzol && ground != blocks::Snow &&
+        ground != blocks::SnowBlock)
+        return;
     MobType kind = MobType::Count;
     int group = 1, variant = 0;
     switch (biome) { // (wiki: Wolf › Variants - each biome's wolf)
-    case Biome::Taiga: kind = MobType::Wolf, variant = 0; break;
-    case Biome::Forest: kind = MobType::Wolf, variant = 1; break;
-    case Biome::SnowyTaiga: kind = MobType::Wolf, variant = 2; break;
-    case Biome::OldGrowthSpruceTaiga: kind = MobType::Wolf, variant = 4; break;
-    case Biome::OldGrowthPineTaiga: kind = MobType::Wolf, variant = 3; break; // (M27.1: black)
-    case Biome::SavannaPlateau: kind = MobType::Wolf, variant = 6; break;    // (spotted)
-    case Biome::SparseJungle: kind = MobType::Wolf, variant = 5; break;
-    case Biome::Savanna: kind = MobType::Wolf, variant = 6; break;
-    case Biome::WoodedBadlands: kind = MobType::Wolf, variant = 7; break;
-    case Biome::Grove: kind = MobType::Wolf, variant = 8; break;
+    case Biome::Taiga:
+        kind = MobType::Wolf, variant = 0;
+        break;
+    case Biome::Forest:
+        kind = MobType::Wolf, variant = 1;
+        break;
+    case Biome::SnowyTaiga:
+        kind = MobType::Wolf, variant = 2;
+        break;
+    case Biome::OldGrowthSpruceTaiga:
+        kind = MobType::Wolf, variant = 4;
+        break;
+    case Biome::OldGrowthPineTaiga:
+        kind = MobType::Wolf, variant = 3;
+        break; // (M27.1: black)
+    case Biome::SavannaPlateau:
+        kind = MobType::Wolf, variant = 6;
+        break; // (spotted)
+    case Biome::SparseJungle:
+        kind = MobType::Wolf, variant = 5;
+        break;
+    case Biome::Savanna:
+        kind = MobType::Wolf, variant = 6;
+        break;
+    case Biome::WoodedBadlands:
+        kind = MobType::Wolf, variant = 7;
+        break;
+    case Biome::Grove:
+        kind = MobType::Wolf, variant = 8;
+        break;
     case Biome::Jungle:
-    case Biome::BambooJungle: kind = ctx.rng.nextInt(3) == 0 ? MobType::Ocelot : MobType::Parrot; break;
-    default: return;
+    case Biome::BambooJungle:
+        kind = ctx.rng.nextInt(3) == 0 ? MobType::Ocelot : MobType::Parrot;
+        break;
+    default:
+        return;
     }
-    if (kind == MobType::Wolf && (biome == Biome::Forest || biome == Biome::SparseJungle) && ctx.rng.nextInt(4) != 0)
+    if (kind == MobType::Wolf && (biome == Biome::Forest || biome == Biome::SparseJungle) &&
+        ctx.rng.nextInt(4) != 0)
         return; // (rarer there)
     // (wiki: Wolf › pack sizes - chestnut/rusty 2-4, spotted/striped 4-8, snowy alone, else 4)
-    group = kind == MobType::Wolf ? (variant >= 3 && variant <= 5 ? 2 + int(ctx.rng.nextInt(3))
+    group = kind == MobType::Wolf ? (variant >= 3 && variant <= 5   ? 2 + int(ctx.rng.nextInt(3))
                                      : variant == 6 || variant == 7 ? 4 + int(ctx.rng.nextInt(5))
                                      : variant == 8                 ? 1
                                                                     : 4)
-            : kind == MobType::Parrot ? 1 + int(ctx.rng.nextInt(2)) : 1 + int(ctx.rng.nextInt(3));
+            : kind == MobType::Parrot ? 1 + int(ctx.rng.nextInt(2))
+                                      : 1 + int(ctx.rng.nextInt(3));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
         if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz)) continue;

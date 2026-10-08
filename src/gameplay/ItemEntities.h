@@ -29,7 +29,7 @@ struct ItemEntity {
 
 class ItemEntities {
 public:
-    static constexpr int kMax = 2048;  // oldest are removed beyond this
+    static constexpr int kMax = 2048; // oldest are removed beyond this
     static constexpr int kDespawnTicks = 6000;
     static constexpr double kSize = 0.25;
 
@@ -80,11 +80,14 @@ public:
     // Hoppers (M21.3) take from stacks in place; emptied ones are swept after.
     std::vector<ItemEntity>& mutableItems() { return m_items; }
     void sweepEmpty() {
-        std::erase_if(m_items, [](const ItemEntity& e) { return e.stack.empty() || e.stack.count == 0; });
+        std::erase_if(m_items,
+                      [](const ItemEntity& e) { return e.stack.empty() || e.stack.count == 0; });
     }
 
     // Stacks the player picked up in the last tick (statistics, M28.1d; up to 16).
-    std::span<const world::ItemStack> pickedUp() const { return {m_picked.data(), size_t(m_pickedCount)}; }
+    std::span<const world::ItemStack> pickedUp() const {
+        return {m_picked.data(), size_t(m_pickedCount)};
+    }
 
 private:
     std::array<world::ItemStack, 16> m_picked{};

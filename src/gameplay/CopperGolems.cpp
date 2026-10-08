@@ -31,10 +31,13 @@ int copperStage(BlockId b, bool& waxed) {
     waxed = id.starts_with("waxed_");
     if (waxed) id.erase(0, 6);
     for (int s = 0; s < 4; ++s)
-        if (id == (s == 0 ? std::string("copper_block") : std::string(kStages[s]) + "copper")) return s;
+        if (id == (s == 0 ? std::string("copper_block") : std::string(kStages[s]) + "copper"))
+            return s;
     return -1;
 }
-bool isCopperChest(BlockId b) { return blockRegistry().likeOf(b) == blocks::Chest && b != blocks::Chest; }
+bool isCopperChest(BlockId b) {
+    return blockRegistry().likeOf(b) == blocks::Chest && b != blocks::Chest;
+}
 
 } // namespace
 
@@ -45,11 +48,13 @@ bool Mobs::buildCopperGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rn
     bool waxed = false;
     const int stage = copperStage(r.blockOf(world.getBlock(below)), waxed);
     if (stage < 0) return false;
-    const auto chest = r.findBlock(std::string(waxed ? "waxed_" : "") + kStages[stage] + "copper_chest");
+    const auto chest =
+        r.findBlock(std::string(waxed ? "waxed_" : "") + kStages[stage] + "copper_chest");
     if (!chest) return false;
     world.updateBlock(pumpkin, 0);
     world.updateBlock(below, r.defaultState(*chest));
-    MobData g = make(MobType::CopperGolem, {pumpkin.x + 0.5, double(pumpkin.y), pumpkin.z + 0.5}, rng);
+    MobData g =
+        make(MobType::CopperGolem, {pumpkin.x + 0.5, double(pumpkin.y), pumpkin.z + 0.5}, rng);
     g.woolColour = uint8_t(stage);
     g.sheared = waxed;
     g.persistent = true;
@@ -66,9 +71,12 @@ Mobs::Use Mobs::copperGolemInteract(MobData& m, ItemId held, Xoroshiro& rng, Ite
         return Use::Fed;
     }
     if (def.tool == ToolType::Axe) { // scraped: the wax, else a stage of oxidation
-        if (m.sheared) m.sheared = false;
-        else if (m.woolColour > 0) --m.woolColour;
-        else return Use::None;
+        if (m.sheared)
+            m.sheared = false;
+        else if (m.woolColour > 0)
+            --m.woolColour;
+        else
+            return Use::None;
         m.goal = m.pos;
         return Use::Sheared; // (the axe wears)
     }
@@ -79,7 +87,8 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
     if (m.type != MobType::CopperGolem) return false;
     // Oxidation.
     if (!m.sheared && m.woolColour < 3) {
-        if (m.eggTicks <= 0 || m.eggTicks > kOxidizeTicks + 48000) m.eggTicks = kOxidizeTicks + int(ctx.rng.nextInt(48000));
+        if (m.eggTicks <= 0 || m.eggTicks > kOxidizeTicks + 48000)
+            m.eggTicks = kOxidizeTicks + int(ctx.rng.nextInt(48000));
         if (--m.eggTicks <= 0) ++m.woolColour;
     }
     if (m.woolColour >= 3 && !m.sheared) { // fully oxidized: frozen
@@ -89,7 +98,8 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
     }
     speed *= 1.2;
     // Waiting at a chest (3 s), then taking or putting.
-    const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+    const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
+                      blockToChunk(int(std::floor(m.pos.z)))};
     auto chestAt = [&](const glm::ivec3& p) -> ChestData* {
         Chunk* ch = ctx.world.chunk({blockToChunk(p.x), blockToChunk(p.z)});
         return ch ? ch->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
@@ -130,7 +140,9 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
                 }
             if (m.allayCount == 0) m.mouthItem = kNoItem;
         }
-        if (Chunk* ch = ctx.world.chunk({blockToChunk(m.workTarget.x), blockToChunk(m.workTarget.z)})) ch->markDirty();
+        if (Chunk* ch =
+                ctx.world.chunk({blockToChunk(m.workTarget.x), blockToChunk(m.workTarget.z)}))
+            ch->markDirty();
         m.workTarget.y = kNoPoint;
         return true;
     }

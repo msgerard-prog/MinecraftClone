@@ -15,8 +15,8 @@
 //   them, take less damage rolled up, and shed a scute every 5-10 minutes.
 #include "gameplay/Mobs.h"
 
-#include "world/Blocks.h"
 #include "world/BlockUpdates.h"
+#include "world/Blocks.h"
 #include "world/Items.h"
 #include "world/Rotation.h"
 #include "world/Sounds.h"
@@ -31,12 +31,17 @@ using namespace world;
 namespace {
 
 ItemId itemNamed(const char* name) { return itemRegistry().find(name).value_or(kNoItem); }
-bool solid(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+bool solid(const World& w, int x, int y, int z) {
+    return blockRegistry().collides(w.getBlock({x, y, z}));
+}
 bool isDay(int64_t dayTime) { return (dayTime % 24000) < 12000; }
-ChunkPos chunkOf(const glm::dvec3& p) { return {blockToChunk(int(std::floor(p.x))), blockToChunk(int(std::floor(p.z)))}; }
+ChunkPos chunkOf(const glm::dvec3& p) {
+    return {blockToChunk(int(std::floor(p.x))), blockToChunk(int(std::floor(p.z)))};
+}
 
 // The nearest live mob within `range` that `want` accepts (3x3 chunks).
-template <typename F> MobData* nearestMob(World& world, const MobData& self, double range, F&& want) {
+template <typename F>
+MobData* nearestMob(World& world, const MobData& self, double range, F&& want) {
     MobData* best = nullptr;
     double bestD = range * range;
     const ChunkPos c = chunkOf(self.pos);
@@ -70,7 +75,13 @@ void Mobs::initWildlife(MobData& m, Xoroshiro& rng) {
         // aggressive 1/16 each, weak 25/256, brown 1/64; kPandaGenes order)
         auto gene = [&] {
             const uint32_t r = rng.nextInt(256);
-            return uint8_t(r < 163 ? 0 : r < 179 ? 1 : r < 195 ? 2 : r < 211 ? 3 : r < 227 ? 6 : r < 252 ? 5 : 4);
+            return uint8_t(r < 163   ? 0
+                           : r < 179 ? 1
+                           : r < 195 ? 2
+                           : r < 211 ? 3
+                           : r < 227 ? 6
+                           : r < 252 ? 5
+                                     : 4);
         };
         m.woolColour = gene();
         m.color2 = gene();
@@ -84,13 +95,18 @@ void Mobs::initWildlife(MobData& m, Xoroshiro& rng) {
         m.powered = rng.nextInt(50) == 0; // (a screaming goat, 2%)
         m.chargeTicks = int16_t(600 + rng.nextInt(5400));
         break;
-    case MobType::Armadillo: m.eggTicks = 6000 + int(rng.nextInt(6000)); break;
+    case MobType::Armadillo:
+        m.eggTicks = 6000 + int(rng.nextInt(6000));
+        break;
     case MobType::Tadpole: // (grows into a frog in 20 minutes; never despawns)
         m.age = -24000;
         m.persistent = true;
         break;
-    case MobType::Axolotl: m.woolColour = uint8_t(rng.nextInt(4)); break; // (blue only from breeding)
-    default: break;
+    case MobType::Axolotl:
+        m.woolColour = uint8_t(rng.nextInt(4));
+        break; // (blue only from breeding)
+    default:
+        break;
     }
 }
 
@@ -103,7 +119,13 @@ void Mobs::wildlifeOffspring(const MobData& a, const MobData& b, MobData& baby, 
         auto mutate = [&](uint8_t& g) {
             if (rng.nextInt(32) != 0) return;
             const uint32_t r = rng.nextInt(16);
-            g = uint8_t(r < 5 ? 0 : r < 10 ? 5 : r < 12 ? 4 : r == 12 ? 1 : r == 13 ? 2 : r == 14 ? 3 : 6);
+            g = uint8_t(r < 5     ? 0
+                        : r < 10  ? 5
+                        : r < 12  ? 4
+                        : r == 12 ? 1
+                        : r == 13 ? 2
+                        : r == 14 ? 3
+                                  : 6);
         };
         mutate(baby.woolColour);
         mutate(baby.color2);
@@ -115,14 +137,17 @@ void Mobs::wildlifeOffspring(const MobData& a, const MobData& b, MobData& baby, 
         baby.tamed = true;
         baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour;
         break;
-    case MobType::Rabbit: baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour; break;
+    case MobType::Rabbit:
+        baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour;
+        break;
     case MobType::Goat: // (wiki: about half the kids of a screaming parent scream, else 2%)
         baby.powered = (a.powered || b.powered) ? rng.nextInt(2) == 0 : rng.nextInt(50) == 0;
         break;
     case MobType::Axolotl: // a parent's colour, or 1 in 1200 the rare blue (wiki: Axolotl)
         baby.woolColour = rng.nextInt(1200) == 0 ? 4 : rng.nextInt(2) ? a.woolColour : b.woolColour;
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -147,11 +172,13 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             }
         // Raids a carrot crop now and then: walks there and nibbles a stage off.
         if (m.workTarget.y == kNoPoint && !m.isBaby() && ctx.rng.nextInt(200) == 0) {
-            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)),
+                      bz = int(std::floor(m.pos.z));
             for (int dy = -1; dy <= 1 && m.workTarget.y == kNoPoint; ++dy)
                 for (int dz = -4; dz <= 4 && m.workTarget.y == kNoPoint; ++dz)
                     for (int dx = -4; dx <= 4; ++dx)
-                        if (blockRegistry().blockOf(ctx.world.getBlock({bx + dx, by + dy, bz + dz})) == blocks::Carrots) {
+                        if (blockRegistry().blockOf(ctx.world.getBlock(
+                                {bx + dx, by + dy, bz + dz})) == blocks::Carrots) {
                             m.workTarget = {bx + dx, by + dy, bz + dz};
                             break;
                         }
@@ -166,7 +193,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             m.goal = {t.x + 0.5, double(t.y), t.z + 0.5};
             if (glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 1.0) {
                 const int age = blockRegistry().get(s, properties::age7);
-                ctx.world.updateBlock(t, age > 0 ? blockRegistry().set(s, properties::age7, age - 1) : BlockStateId{0});
+                ctx.world.updateBlock(t, age > 0 ? blockRegistry().set(s, properties::age7, age - 1)
+                                                 : BlockStateId{0});
                 if (ctx.edits) ctx.edits->push_back(t);
                 m.workTarget.y = kNoPoint;
             }
@@ -185,7 +213,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             return true;
         }
         m.sitting = false;
-        if (!m.tamed && !ctx.playerDead && pd < 16.0 && !ctx.player.sneaking() && !isFood(m.type, ctx.heldItem)) {
+        if (!m.tamed && !ctx.playerDead && pd < 16.0 && !ctx.player.sneaking() &&
+            !isFood(m.type, ctx.heldItem)) {
             flee(m, p, 10.0);
             speed *= 1.5;
             return true;
@@ -205,7 +234,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
                 speed *= 1.4;
                 if (m.attackCooldown > 0) --m.attackCooldown;
                 if (m.attackCooldown == 0 &&
-                    glm::length(glm::dvec2(t->pos.x - m.pos.x, t->pos.z - m.pos.z)) < mobInfo(t->type).width * 0.5 + 0.8) {
+                    glm::length(glm::dvec2(t->pos.x - m.pos.x, t->pos.z - m.pos.z)) <
+                        mobInfo(t->type).width * 0.5 + 0.8) {
                     t->health -= mobInfo(MobType::Fox).attackDamage;
                     t->hurtTime = 10;
                     t->panicTicks = 100;
@@ -216,12 +246,14 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
         }
         // Sweet berries now and then: to a ripe bush within 8 blocks, picked.
         if (m.workTarget.y == kNoPoint && ctx.rng.nextInt(400) == 0) {
-            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)),
+                      bz = int(std::floor(m.pos.z));
             for (int dy = -1; dy <= 1 && m.workTarget.y == kNoPoint; ++dy)
                 for (int dz = -8; dz <= 8 && m.workTarget.y == kNoPoint; dz += 2)
                     for (int dx = -8; dx <= 8; dx += 2) {
                         const BlockStateId s = ctx.world.getBlock({bx + dx, by + dy, bz + dz});
-                        if (blockRegistry().blockOf(s) == blocks::SweetBerryBush && blockRegistry().get(s, properties::age3) >= 2) {
+                        if (blockRegistry().blockOf(s) == blocks::SweetBerryBush &&
+                            blockRegistry().get(s, properties::age3) >= 2) {
                             m.workTarget = {bx + dx, by + dy, bz + dz};
                             break;
                         }
@@ -240,7 +272,9 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
                     m.mouthItem = berries;
                     --left;
                 }
-                if (left > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {berries, uint8_t(left)}, ctx.rng);
+                if (left > 0)
+                    ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {berries, uint8_t(left)},
+                                    ctx.rng);
                 m.workTarget.y = kNoPoint;
             }
             return true;
@@ -249,8 +283,11 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
     }
     case MobType::PolarBear: {
         // A grown bear with a cub nearby fights a player who comes close (wiki).
-        if (!m.isBaby() && !m.angry && ctx.survival && !ctx.playerDead && pd < 8.0 && ctx.rng.nextInt(10) == 0 &&
-            nearestMob(ctx.world, m, 16.0, [](const MobData& o) { return o.type == MobType::PolarBear && o.isBaby(); })) {
+        if (!m.isBaby() && !m.angry && ctx.survival && !ctx.playerDead && pd < 8.0 &&
+            ctx.rng.nextInt(10) == 0 &&
+            nearestMob(
+                ctx.world, m, 16.0,
+                [](const MobData& o) { return o.type == MobType::PolarBear && o.isBaby(); })) {
             m.angry = true;
             m.angerTicks = 400;
         }
@@ -258,7 +295,7 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
     }
     case MobType::Panda: {
         const int personality = pandaPersonality(m.woolColour, m.color2);
-        if (personality == 1) speed *= 0.5; // lazy
+        if (personality == 1) speed *= 0.5;                                              // lazy
         if (personality == 2 && !ctx.playerDead && pd < 8.0 && !ctx.player.sneaking()) { // worried
             flee(m, p, 10.0);
             speed *= 1.5;
@@ -287,7 +324,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
         if (m.hasEgg) {
             if (m.workTarget.y == kNoPoint && ctx.rng.nextInt(10) == 0)
                 for (int k = 0; k < 16; ++k) {
-                    const BlockPos w{int(std::floor(m.pos.x)) + int(ctx.rng.nextInt(17)) - 8, int(std::floor(m.pos.y)) - 1,
+                    const BlockPos w{int(std::floor(m.pos.x)) + int(ctx.rng.nextInt(17)) - 8,
+                                     int(std::floor(m.pos.y)) - 1,
                                      int(std::floor(m.pos.z)) + int(ctx.rng.nextInt(17)) - 8};
                     for (int dy = 1; dy >= -2; --dy) {
                         const BlockPos q{w.x, w.y + dy, w.z};
@@ -303,8 +341,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
                 const BlockPos t{m.workTarget.x, m.workTarget.y, m.workTarget.z};
                 m.goal = {t.x + 0.5, double(t.y), t.z + 0.5};
                 if (glm::length(m.goal - m.pos) < 1.6) {
-                    if (ctx.world.getBlock(t) == 0 &&
-                        blockRegistry().blockOf(ctx.world.getBlock({t.x, t.y - 1, t.z})) == blocks::Water) {
+                    if (ctx.world.getBlock(t) == 0 && blockRegistry().blockOf(ctx.world.getBlock(
+                                                          {t.x, t.y - 1, t.z})) == blocks::Water) {
                         ctx.world.updateBlock(t, blockRegistry().defaultState(blocks::Frogspawn));
                         if (ctx.edits) ctx.edits->push_back(t);
                         m.hasEgg = false;
@@ -318,7 +356,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
         // slime leaves a slime ball, a magma cube the froglight of the frog's kind (wiki).
         if (m.targetUuid == 0 && !m.isBaby() && ctx.rng.nextInt(40) == 0)
             if (const MobData* prey = nearestMob(ctx.world, m, 10.0, [](const MobData& o) {
-                    return (o.type == MobType::Slime || o.type == MobType::MagmaCube) && o.size == 1;
+                    return (o.type == MobType::Slime || o.type == MobType::MagmaCube) &&
+                           o.size == 1;
                 }))
                 m.targetUuid = prey->uuidHi;
         if (m.targetUuid != 0) {
@@ -330,11 +369,12 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             m.goal = t->pos;
             if (glm::length(t->pos - m.pos) < 3.0) {
                 static const ItemId slimeBall = itemNamed("slime_ball");
-                static constexpr BlockId kLights[3] = {blocks::OchreFroglight, blocks::PearlescentFroglight,
-                                                       blocks::VerdantFroglight};
-                const ItemStack drop = t->type == MobType::Slime
-                                           ? ItemStack{slimeBall, 1}
-                                           : ItemStack{itemRegistry().blockItem(kLights[m.woolColour % 3]), 1};
+                static constexpr BlockId kLights[3] = {
+                    blocks::OchreFroglight, blocks::PearlescentFroglight, blocks::VerdantFroglight};
+                const ItemStack drop =
+                    t->type == MobType::Slime
+                        ? ItemStack{slimeBall, 1}
+                        : ItemStack{itemRegistry().blockItem(kLights[m.woolColour % 3]), 1};
                 ctx.items.spawn(t->pos + glm::dvec3(0, 0.3, 0), drop, ctx.rng);
                 t->health = 0.0f;
                 t->deathTime = 19; // (swallowed: no other drops)
@@ -353,7 +393,8 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             return true;
         }
         return false;
-    default: return false;
+    default:
+        return false;
     }
 }
 
@@ -368,8 +409,10 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
                     ctx.items.takeOne(&e);
                     break;
                 }
-        if (m.mouthItem != kNoItem && itemRegistry().item(m.mouthItem).food > 0 && ctx.rng.nextInt(600) == 0) {
-            m.health = std::min(maxHealthOf(m), m.health + float(itemRegistry().item(m.mouthItem).food));
+        if (m.mouthItem != kNoItem && itemRegistry().item(m.mouthItem).food > 0 &&
+            ctx.rng.nextInt(600) == 0) {
+            m.health =
+                std::min(maxHealthOf(m), m.health + float(itemRegistry().item(m.mouthItem).food));
             m.mouthItem = kNoItem;
         }
         break;
@@ -381,7 +424,8 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
         if (m.isBaby() && ctx.rng.nextInt(personality == 5 ? 500 : 6000) == 0) {
             static const ItemId slime = itemNamed("slime_ball");
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.6, 0), {slime, 1}, ctx.rng);
-            ctx.world.playSound(mobSound(m.type, MobSound::Ambient), m.pos.x, m.pos.y, m.pos.z, 1.0f, 1.6f);
+            ctx.world.playSound(mobSound(m.type, MobSound::Ambient), m.pos.x, m.pos.y, m.pos.z,
+                                1.0f, 1.6f);
         }
         break;
     }
@@ -398,13 +442,15 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
                 target = p;
                 have = true;
             } else if (const MobData* o = nearestMob(ctx.world, m, 16.0, [](const MobData& x) {
-                           return x.type != MobType::Goat && !isMount(x.type) && x.type != MobType::Boat &&
-                                  x.type != MobType::Minecart && !mobInfo(x.type).swims;
+                           return x.type != MobType::Goat && !isMount(x.type) &&
+                                  x.type != MobType::Boat && x.type != MobType::Minecart &&
+                                  !mobInfo(x.type).swims;
                        })) {
                 target = o->pos;
                 have = glm::length(o->pos - m.pos) > 4.0;
             }
-            m.chargeTicks = int16_t(m.powered ? 100 + ctx.rng.nextInt(200) : 600 + ctx.rng.nextInt(5400));
+            m.chargeTicks =
+                int16_t(m.powered ? 100 + ctx.rng.nextInt(200) : 600 + ctx.rng.nextInt(5400));
             if (!have) break;
             m.phase = 1;
             m.phaseTicks = 20;
@@ -438,7 +484,9 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
             }
             ctx.world.playSound(Sound::GoatRam, m.pos.x, m.pos.y + 0.6, m.pos.z);
             done = true;
-        } else if (MobData* o = nearestMob(ctx.world, m, 1.6, [](const MobData& x) { return x.type != MobType::Goat; })) {
+        } else if (MobData* o = nearestMob(ctx.world, m, 1.6, [](const MobData& x) {
+                       return x.type != MobType::Goat;
+                   })) {
             o->health -= mobInfo(m.type).attackDamage;
             o->hurtTime = 10;
             o->vel += glm::dvec3(dir.x * 1.5, 0.4, dir.z * 1.5);
@@ -446,19 +494,23 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
             done = true;
         } else if (blockedAhead && m.phaseTicks < 28) {
             // A wall: stone, logs, ores and packed ice break a horn off (wiki: Goat Horn).
-            const glm::dvec3 front = m.pos + dir * (mobInfo(m.type).width * 0.5 + 0.3) + glm::dvec3(0, 0.5, 0);
-            const BlockId b = blockRegistry().blockOf(
-                ctx.world.getBlock({int(std::floor(front.x)), int(std::floor(front.y)), int(std::floor(front.z))}));
+            const glm::dvec3 front =
+                m.pos + dir * (mobInfo(m.type).width * 0.5 + 0.3) + glm::dvec3(0, 0.5, 0);
+            const BlockId b = blockRegistry().blockOf(ctx.world.getBlock(
+                {int(std::floor(front.x)), int(std::floor(front.y)), int(std::floor(front.z))}));
             const std::string& id = blockRegistry().block(b).id;
             // (wiki: stone, logs, coal/copper/iron/emerald ore and packed ice - not deepslate ores)
-            const bool hard = id == "minecraft:stone" || id.ends_with("_log") || id == "minecraft:coal_ore" ||
-                              id == "minecraft:copper_ore" || id == "minecraft:iron_ore" ||
-                              id == "minecraft:emerald_ore" || id == "minecraft:packed_ice";
+            const bool hard = id == "minecraft:stone" || id.ends_with("_log") ||
+                              id == "minecraft:coal_ore" || id == "minecraft:copper_ore" ||
+                              id == "minecraft:iron_ore" || id == "minecraft:emerald_ore" ||
+                              id == "minecraft:packed_ice";
             if (hard && m.horns != 0) {
-                const uint8_t which = (m.horns & 1) && ((m.horns & 2) == 0 || ctx.rng.nextInt(2)) ? 1 : 2;
+                const uint8_t which =
+                    (m.horns & 1) && ((m.horns & 2) == 0 || ctx.rng.nextInt(2)) ? 1 : 2;
                 m.horns = uint8_t(m.horns & ~which);
                 static const ItemId horn = itemNamed("goat_horn");
-                // (vanilla: regular goats drop the first four instruments, screaming ones the others)
+                // (vanilla: regular goats drop the first four instruments, screaming ones the
+                // others)
                 ItemStack h{horn, 1};
                 h.damage = uint16_t((m.powered ? 4 : 0) + ctx.rng.nextInt(4));
                 ctx.items.spawn(front - dir * 0.5, h, ctx.rng);
@@ -485,7 +537,8 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
         if (!scared && !ctx.playerDead && pd < 7.0 && ctx.player.sprinting()) scared = true;
         if (!scared && ctx.rng.nextInt(10) == 0)
             scared = nearestMob(ctx.world, m, 7.0, [](const MobData& o) {
-                         return isZombie(o.type) || o.type == MobType::Skeleton || o.type == MobType::ZombifiedPiglin;
+                         return isZombie(o.type) || o.type == MobType::Skeleton ||
+                                o.type == MobType::ZombifiedPiglin;
                      }) != nullptr;
         if (scared) {
             m.sitting = true;
@@ -495,7 +548,8 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
         }
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -504,8 +558,9 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
     MobType kind = MobType::Count;
     int group = 1;
     uint8_t variant = 0;
-    const bool snowy = biome == Biome::SnowyPlains || biome == Biome::SnowyTaiga || biome == Biome::Grove ||
-                       biome == Biome::SnowySlopes || biome == Biome::IceSpikes;
+    const bool snowy = biome == Biome::SnowyPlains || biome == Biome::SnowyTaiga ||
+                       biome == Biome::Grove || biome == Biome::SnowySlopes ||
+                       biome == Biome::IceSpikes;
     switch (biome) {
     case Biome::Desert:
         if (ground != blocks::Sand) return;
@@ -553,24 +608,30 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
     case Biome::Swamp: // (M26.3c; wiki: Frog - swamps, groups of 2-5, temperate there)
         kind = MobType::Frog;
         break;
-    default: return;
+    default:
+        return;
     }
-    if (kind == MobType::Rabbit && variant == 0) { // white in the snow, else brown / black / salt and pepper
+    if (kind == MobType::Rabbit &&
+        variant == 0) { // white in the snow, else brown / black / salt and pepper
         const uint32_t r = ctx.rng.nextInt(10);
         variant = snowy ? (r < 8 ? 1 : 3) : (r < 5 ? 0 : r < 9 ? 2 : 5);
     }
-    group = kind == MobType::Rabbit ? 2 + int(ctx.rng.nextInt(2))
-            : kind == MobType::Fox  ? 2 + int(ctx.rng.nextInt(3))
-            : kind == MobType::Goat ? 1 + int(ctx.rng.nextInt(3))
-            : kind == MobType::Frog ? 2 + int(ctx.rng.nextInt(4))
-            : kind == MobType::Armadillo && (biome == Biome::Savanna || biome == Biome::SavannaPlateau)
-                ? 2 + int(ctx.rng.nextInt(2)) // (badlands 1-2)
-                                    : 1 + int(ctx.rng.nextInt(2));
+    group =
+        kind == MobType::Rabbit ? 2 + int(ctx.rng.nextInt(2))
+        : kind == MobType::Fox  ? 2 + int(ctx.rng.nextInt(3))
+        : kind == MobType::Goat ? 1 + int(ctx.rng.nextInt(3))
+        : kind == MobType::Frog ? 2 + int(ctx.rng.nextInt(4))
+        : kind == MobType::Armadillo && (biome == Biome::Savanna || biome == Biome::SavannaPlateau)
+            ? 2 + int(ctx.rng.nextInt(2)) // (badlands 1-2)
+            : 1 + int(ctx.rng.nextInt(2));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
-        if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
+        if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) ||
+            solid(ctx.world, gx, y + 1, gz))
+            continue;
         MobData m = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
-        if (kind == MobType::Rabbit || kind == MobType::Fox || kind == MobType::Frog) m.woolColour = variant;
+        if (kind == MobType::Rabbit || kind == MobType::Fox || kind == MobType::Frog)
+            m.woolColour = variant;
         if (kind == MobType::PolarBear && i > 0) m.age = -24000; // (a cub with its mother)
         if (add(ctx.world, m)) ++m_creatures;
     }

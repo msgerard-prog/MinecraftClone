@@ -28,7 +28,8 @@ template <typename F> void forEachNear(World& world, const glm::dvec3& at, int c
     for (int dz = -chunks; dz <= chunks; ++dz)
         for (int dx = -chunks; dx <= chunks; ++dx)
             if (Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
-                for (MobData& m : c->mobs()) f(*c, m);
+                for (MobData& m : c->mobs())
+                    f(*c, m);
 }
 
 void dropLead(ItemEntities& items, const glm::dvec3& at, Xoroshiro& rng) {
@@ -58,7 +59,7 @@ void Mobs::leashTick(Context& ctx, MobData& m) {
     }
     const glm::dvec3 to = holder - (m.pos + glm::dvec3(0.0, mobInfo(m.type).height * 0.5, 0.0));
     const double d = glm::length(to);
-    if (d > 10.0) { // snapped (wiki: beyond 10 blocks)
+    if (d > 12.0) { // snapped (wiki: beyond 12 blocks since 1.21.6)
         m.leash = 0;
         dropLead(ctx.items, m.pos, ctx.rng);
         return;
@@ -75,7 +76,8 @@ void Mobs::caravanTick(Context& ctx, MobData& m) {
     // Following: keep about 2 blocks behind the llama in front (wiki: Llama › Caravans).
     if (m.caravanHead != 0) {
         const MobData* head = mobByUuid(ctx.world, m.pos, m.caravanHead);
-        if (!head || head->health <= 0.0f || m.leash != 0 || glm::length(head->pos - m.pos) > 16.0) {
+        if (!head || head->health <= 0.0f || m.leash != 0 ||
+            glm::length(head->pos - m.pos) > 16.0) {
             m.caravanHead = 0;
             return;
         }
@@ -90,12 +92,16 @@ void Mobs::caravanTick(Context& ctx, MobData& m) {
     MobData* best = nullptr;
     double bestD = 9.0 * 9.0;
     forEachNear(ctx.world, m.pos, 1, [&](Chunk&, MobData& o) {
-        if (&o == &m || !isLlama(o.type) || o.health <= 0.0f || (o.leash == 0 && o.caravanHead == 0)) return;
+        if (&o == &m || !isLlama(o.type) || o.health <= 0.0f ||
+            (o.leash == 0 && o.caravanHead == 0))
+            return;
         const double d2 = glm::dot(o.pos - m.pos, o.pos - m.pos);
         if (d2 >= bestD) return;
         // Only a tail takes a follower, and caravans stay at 10 llamas.
         bool hasFollower = false;
-        forEachNear(ctx.world, o.pos, 1, [&](Chunk&, MobData& f) { hasFollower = hasFollower || f.caravanHead == o.uuidHi; });
+        forEachNear(ctx.world, o.pos, 1, [&](Chunk&, MobData& f) {
+            hasFollower = hasFollower || f.caravanHead == o.uuidHi;
+        });
         int length = 1;
         for (const MobData* h = &o; h && h->caravanHead != 0 && length < 11; ++length)
             h = mobByUuid(ctx.world, h->pos, h->caravanHead);
@@ -114,7 +120,8 @@ bool Mobs::leashToPlayer(MobData& m) {
     return true;
 }
 
-int Mobs::tieToFence(World& world, const BlockPos& fence, const glm::dvec3& player, Xoroshiro& rng) {
+int Mobs::tieToFence(World& world, const BlockPos& fence, const glm::dvec3& player,
+                     Xoroshiro& rng) {
     if (!isFencePost(blockRegistry().blockOf(world.getBlock(fence)))) return 0;
     int tied = 0;
     forEachNear(world, player, 1, [&](Chunk& c, MobData& m) {
@@ -127,10 +134,12 @@ int Mobs::tieToFence(World& world, const BlockPos& fence, const glm::dvec3& play
     if (tied == 0) return 0;
     bool knot = false; // one knot per post
     forEachNear(world, knotCentre({fence.x, fence.y, fence.z}), 0, [&](Chunk&, MobData& m) {
-        knot = knot || (m.type == MobType::LeashKnot && m.home == glm::ivec3(fence.x, fence.y, fence.z) && m.health > 0.0f);
+        knot = knot || (m.type == MobType::LeashKnot &&
+                        m.home == glm::ivec3(fence.x, fence.y, fence.z) && m.health > 0.0f);
     });
     if (!knot) {
-        MobData k = make(MobType::LeashKnot, {fence.x + 0.5, double(fence.y) + 0.25, fence.z + 0.5}, rng);
+        MobData k =
+            make(MobType::LeashKnot, {fence.x + 0.5, double(fence.y) + 0.25, fence.z + 0.5}, rng);
         k.home = {fence.x, fence.y, fence.z};
         k.persistent = true;
         add(world, k);
@@ -169,7 +178,8 @@ void Mobs::knotTick(Context& ctx, MobData& k) {
     k.phaseTicks = 0;
     // Gone with its fence, or once nothing is tied to it any more.
     bool used = false;
-    forEachNear(ctx.world, k.pos, 1, [&](Chunk&, MobData& m) { used = used || (m.leash == 2 && m.leashPos == k.home); });
+    forEachNear(ctx.world, k.pos, 1,
+                [&](Chunk&, MobData& m) { used = used || (m.leash == 2 && m.leashPos == k.home); });
     const BlockPos p{k.home.x, k.home.y, k.home.z};
     if (!used || !isFencePost(blockRegistry().blockOf(ctx.world.getBlock(p)))) {
         k.health = 0.0f;

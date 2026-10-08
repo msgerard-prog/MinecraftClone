@@ -36,7 +36,8 @@ void growResin(World& world, const glm::ivec3& heart, Xoroshiro& rng) {
     const auto& r = blockRegistry();
     std::array<std::pair<BlockPos, Direction>, 96> sides;
     int n = 0;
-    static constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::West, Direction::East};
+    static constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::West,
+                                            Direction::East};
     for (int dy = -4; dy <= 4; ++dy)
         for (int dz = -2; dz <= 2; ++dz)
             for (int dx = -2; dx <= 2; ++dx) {
@@ -45,7 +46,8 @@ void growResin(World& world, const glm::ivec3& heart, Xoroshiro& rng) {
                 for (const Direction d : kSides) {
                     const glm::ivec3 nv = kDirectionNormals[int(d)];
                     const BlockPos at{log.x + nv.x, log.y + nv.y, log.z + nv.z};
-                    if (world.getBlock(at) == 0 && n < int(sides.size())) sides[size_t(n++)] = {at, d};
+                    if (world.getBlock(at) == 0 && n < int(sides.size()))
+                        sides[size_t(n++)] = {at, d};
                 }
             }
     for (int want = 2 + int(rng.nextInt(2)); want > 0 && n > 0; --want) { // (wiki: 2-3)
@@ -53,13 +55,15 @@ void growResin(World& world, const glm::ivec3& heart, Xoroshiro& rng) {
         const auto [at, d] = sides[size_t(k)];
         sides[size_t(k)] = sides[size_t(--n)];
         if (world.getBlock(at) != 0) continue;
-        world.updateBlock(at, r.set(r.defaultState(blocks::ResinClump), properties::facing6, int(d) ^ 1)); // (toward the log)
+        world.updateBlock(at, r.set(r.defaultState(blocks::ResinClump), properties::facing6,
+                                    int(d) ^ 1)); // (toward the log)
     }
 }
 
 } // namespace
 
-bool Mobs::watched(const World& world, const MobData& m, const glm::dvec3& eye, const glm::dvec3& look) {
+bool Mobs::watched(const World& world, const MobData& m, const glm::dvec3& eye,
+                   const glm::dvec3& look) {
     // Any of its feet, middle or head in front of the player's eyes (within ~30 degrees),
     // with nothing in between.
     for (const double h : {0.3, 1.35, 2.4}) {
@@ -77,11 +81,13 @@ bool Mobs::creakingTick(Context& ctx, MobData& m) {
     if (m.type != MobType::Creaking) return false;
     if (hasHome(m)) {
         const BlockPos heart{m.home.x, m.home.y, m.home.z};
-        const bool heartThere = blockRegistry().blockOf(ctx.world.getBlock(heart)) == blocks::CreakingHeart;
+        const bool heartThere =
+            blockRegistry().blockOf(ctx.world.getBlock(heart)) == blocks::CreakingHeart;
         const glm::dvec3 h(heart.x + 0.5, heart.y, heart.z + 0.5);
         if (!heartThere || !night(ctx.dayTime) || glm::dot(m.pos - h, m.pos - h) > 32.0 * 32.0) {
             // Crumbles away (no drops, no experience).
-            ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z, 90 | 270 << 16);
+            ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
+                                 90 | 270 << 16);
             m.health = 0.0f;
             m.deathTime = 19;
             m.lastHurtByPlayer = false;
@@ -109,7 +115,8 @@ bool Mobs::creakingTick(Context& ctx, MobData& m) {
     return false; // (hunting: the monster goals)
 }
 
-bool Mobs::spawnCreaking(World& world, const BlockPos& heart, const glm::dvec3& player, Xoroshiro& rng) {
+bool Mobs::spawnCreaking(World& world, const BlockPos& heart, const glm::dvec3& player,
+                         Xoroshiro& rng) {
     const glm::dvec3 h(heart.x + 0.5, heart.y, heart.z + 0.5);
     if (glm::dot(player - h, player - h) > 32.0 * 32.0) return false;
     const ChunkPos c = heart.chunk();
@@ -117,15 +124,18 @@ bool Mobs::spawnCreaking(World& world, const BlockPos& heart, const glm::dvec3& 
         for (int dx = -2; dx <= 2; ++dx)
             if (const Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& o : ch->mobs())
-                    if (o.type == MobType::Creaking && o.health > 0.0f && o.home == glm::ivec3(heart.x, heart.y, heart.z))
+                    if (o.type == MobType::Creaking && o.health > 0.0f &&
+                        o.home == glm::ivec3(heart.x, heart.y, heart.z))
                         return false; // (its creaking is already out)
     const auto& r = blockRegistry();
     for (int tries = 0; tries < 24; ++tries) {
         const int x = heart.x + int(rng.nextInt(33)) - 16, z = heart.z + int(rng.nextInt(33)) - 16;
         for (int y = heart.y + 8; y >= heart.y - 12; --y) {
             if (!r.collides(world.getBlock({x, y - 1, z}))) continue;
-            if (r.collides(world.getBlock({x, y, z})) || r.collides(world.getBlock({x, y + 1, z})) ||
-                r.collides(world.getBlock({x, y + 2, z})) || world.getBlock({x, y, z}) == r.defaultState(blocks::Water))
+            if (r.collides(world.getBlock({x, y, z})) ||
+                r.collides(world.getBlock({x, y + 1, z})) ||
+                r.collides(world.getBlock({x, y + 2, z})) ||
+                world.getBlock({x, y, z}) == r.defaultState(blocks::Water))
                 break;
             MobData m = make(MobType::Creaking, {x + 0.5, double(y), z + 0.5}, rng);
             m.home = {heart.x, heart.y, heart.z};

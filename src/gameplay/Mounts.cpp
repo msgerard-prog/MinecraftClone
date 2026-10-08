@@ -45,11 +45,13 @@ struct MountFood {
 };
 // wiki: Horse › Food (sugar, wheat, apples, carrots, golden carrots and apples, hay
 // bales); Llama (wheat, hay bales); Camel (cactus).
-constexpr MountFood kHorseFood[] = {{"sugar", 1.0f, 600, 3, false},          {"wheat", 2.0f, 400, 3, false},
-                                    {"apple", 3.0f, 1200, 3, false},         {"carrot", 3.0f, 1200, 0, false},
-                                    {"golden_carrot", 4.0f, 1200, 5, true},  {"golden_apple", 10.0f, 4800, 10, true},
-                                    {"hay_block", 20.0f, 3600, 0, false}};
-constexpr MountFood kLlamaFood[] = {{"wheat", 2.0f, 200, 3, false}, {"hay_block", 10.0f, 1800, 6, true}};
+constexpr MountFood kHorseFood[] = {
+    {"sugar", 1.0f, 600, 3, false},         {"wheat", 2.0f, 400, 3, false},
+    {"apple", 3.0f, 1200, 3, false},        {"carrot", 3.0f, 1200, 0, false},
+    {"golden_carrot", 4.0f, 1200, 5, true}, {"golden_apple", 10.0f, 4800, 10, true},
+    {"hay_block", 20.0f, 3600, 0, false}};
+constexpr MountFood kLlamaFood[] = {{"wheat", 2.0f, 200, 3, false},
+                                    {"hay_block", 10.0f, 1800, 6, true}};
 constexpr MountFood kCamelFood[] = {{"cactus", 2.0f, 200, 0, true}};
 
 const MountFood* mountFood(MobType t, std::string_view id) {
@@ -64,17 +66,23 @@ const MountFood* mountFood(MobType t, std::string_view id) {
     return nullptr;
 }
 
-double attrSpeed(const MobData& m) { return m.moveSpeed > 0.0f ? m.moveSpeed : mobInfo(m.type).speed; }
+double attrSpeed(const MobData& m) {
+    return m.moveSpeed > 0.0f ? m.moveSpeed : mobInfo(m.type).speed;
+}
 double attrJump(const MobData& m) { return m.jumpStrength > 0.0f ? m.jumpStrength : 0.5; }
 int maxTemper(MobType t) { return isLlama(t) ? 30 : 100; }
 // (three rolls averaged: the middle of the range is the most likely)
-double tri(Xoroshiro& rng) { return (rng.nextDouble() + rng.nextDouble() + rng.nextDouble()) / 3.0; }
+double tri(Xoroshiro& rng) {
+    return (rng.nextDouble() + rng.nextDouble() + rng.nextDouble()) / 3.0;
+}
 
 void dropNamed(ItemEntities& items, const glm::dvec3& at, const std::string& name, Xoroshiro& rng) {
     if (const auto id = itemRegistry().find(name)) items.spawn(at, {*id, 1}, rng);
 }
 
-bool solid(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+bool solid(const World& w, int x, int y, int z) {
+    return blockRegistry().collides(w.getBlock({x, y, z}));
+}
 
 float approachAngle(float from, float to, float maxStep) { // (as in Mobs.cpp)
     float d = std::fmod(to - from + 540.0f, 360.0f) - 180.0f;
@@ -93,7 +101,8 @@ bool Mobs::isMountFood(MobType type, ItemId item) {
 void Mobs::initMount(MobData& m, Xoroshiro& rng) {
     // Spawn stats (wiki: Horse › Statistics): health 15 + 0-7 + 0-8; speed and jump
     // strength from three averaged rolls.
-    if (m.type == MobType::Camel || m.type == MobType::Nautilus || m.type == MobType::HappyGhast) return; // (fixed stats)
+    if (m.type == MobType::Camel || m.type == MobType::Nautilus || m.type == MobType::HappyGhast)
+        return; // (fixed stats)
     m.maxHealth = 15.0f + float(rng.nextInt(8) + rng.nextInt(9));
     m.health = m.maxHealth;
     if (m.type == MobType::Horse) {
@@ -112,9 +121,12 @@ void Mobs::initMount(MobData& m, Xoroshiro& rng) {
 
 void Mobs::mountOffspring(const MobData& a, const MobData& b, MobData& baby, Xoroshiro& rng) {
     // A horse and a donkey have a mule (wiki: Mule).
-    if ((a.type == MobType::Horse && b.type == MobType::Donkey) || (a.type == MobType::Donkey && b.type == MobType::Horse))
+    if ((a.type == MobType::Horse && b.type == MobType::Donkey) ||
+        (a.type == MobType::Donkey && b.type == MobType::Horse))
         baby.type = MobType::Mule;
-    if (baby.type == MobType::Camel || baby.type == MobType::Nautilus || baby.type == MobType::HappyGhast) return;
+    if (baby.type == MobType::Camel || baby.type == MobType::Nautilus ||
+        baby.type == MobType::HappyGhast)
+        return;
     // A foal's stat: the parents' average + (their difference + 30% of the range) x a
     // centred random factor, reflected back inside the range (wiki: Horse › Breeding).
     auto stat = [&](double x, double y, double lo, double hi) {
@@ -152,7 +164,8 @@ void Mobs::mountOffspring(const MobData& a, const MobData& b, MobData& baby, Xor
 bool Mobs::canMate(const MobData& a, const MobData& b) {
     if (a.type == MobType::Mule || b.type == MobType::Mule) return false; // (mules never breed)
     if (a.type == b.type) return true;
-    return (a.type == MobType::Horse && b.type == MobType::Donkey) || (a.type == MobType::Donkey && b.type == MobType::Horse) ||
+    return (a.type == MobType::Horse && b.type == MobType::Donkey) ||
+           (a.type == MobType::Donkey && b.type == MobType::Horse) ||
            (isLlama(a.type) && isLlama(b.type));
 }
 
@@ -161,9 +174,9 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
     if (m.type == MobType::HappyGhast) return happyGhastInteract(m, held, rng, items); // (M26.5b)
     if (m.type == MobType::Nautilus) { // (M26.5a; wiki: Nautilus)
         const bool puffer = id == "minecraft:pufferfish" || id == "minecraft:pufferfish_bucket";
-        const bool fish = puffer || id == "minecraft:cod" || id == "minecraft:salmon" || id == "minecraft:tropical_fish" ||
-                          id == "minecraft:cod_bucket" || id == "minecraft:salmon_bucket" ||
-                          id == "minecraft:tropical_fish_bucket";
+        const bool fish = puffer || id == "minecraft:cod" || id == "minecraft:salmon" ||
+                          id == "minecraft:tropical_fish" || id == "minecraft:cod_bucket" ||
+                          id == "minecraft:salmon_bucket" || id == "minecraft:tropical_fish_bucket";
         if (!m.tamed) { // tamed with pufferfish, 1 in 3
             if (!puffer) return Use::None;
             if (rng.nextInt(3) == 0) {
@@ -237,7 +250,8 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
             m.temper = int16_t(std::min(maxTemper(m.type), m.temper + f->temper));
             used = true;
         }
-        if (f->love && tame && !m.isBaby() && m.age == 0 && m.loveTicks == 0 && m.type != MobType::Mule) {
+        if (f->love && tame && !m.isBaby() && m.age == 0 && m.loveTicks == 0 &&
+            m.type != MobType::Mule) {
             m.loveTicks = 600;
             used = true;
         }
@@ -245,17 +259,20 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
     }
     if (m.isBaby()) return Use::None;
     if (tame) { // gear (it uses up the item: Fed)
-        if (id == "minecraft:saddle" && !m.saddled && (isHorseKind(m.type) || m.type == MobType::Camel)) {
+        if (id == "minecraft:saddle" && !m.saddled &&
+            (isHorseKind(m.type) || m.type == MobType::Camel)) {
             m.saddled = true;
             return Use::Fed;
         }
         for (int k = 1; k < 5; ++k)
-            if (m.type == MobType::Horse && m.horseArmor == 0 && id == std::string("minecraft:") + kHorseArmorItems[k]) {
+            if (m.type == MobType::Horse && m.horseArmor == 0 &&
+                id == std::string("minecraft:") + kHorseArmorItems[k]) {
                 m.horseArmor = uint8_t(k);
                 return Use::Fed;
             }
         for (int c = 0; c < 16; ++c)
-            if (isLlama(m.type) && m.decor == 0 && id == std::string("minecraft:") + kDyeColours[c] + "_carpet") {
+            if (isLlama(m.type) && m.decor == 0 &&
+                id == std::string("minecraft:") + kDyeColours[c] + "_carpet") {
                 m.decor = uint8_t(c + 1);
                 return Use::Fed;
             }
@@ -277,16 +294,24 @@ double Mobs::seatHeight(const MobData& m) {
     // Where the rider's feet go above the mount's (our estimates of vanilla's
     // passenger attachment points).
     switch (m.type) {
-    case MobType::Boat: return 0.15;
-    case MobType::Minecart: return 0.3;
-    case MobType::Camel: return 1.75;
-    case MobType::Nautilus: return 0.55;
-    case MobType::HappyGhast: return 4.0; // (on its back)
+    case MobType::Boat:
+        return 0.15;
+    case MobType::Minecart:
+        return 0.3;
+    case MobType::Camel:
+        return 1.75;
+    case MobType::Nautilus:
+        return 0.55;
+    case MobType::HappyGhast:
+        return 4.0; // (on its back)
     case MobType::Llama:
-    case MobType::TraderLlama: return 1.15;
+    case MobType::TraderLlama:
+        return 1.15;
     case MobType::Donkey:
-    case MobType::Mule: return 0.85;
-    default: return 0.95; // horses
+    case MobType::Mule:
+        return 0.85;
+    default:
+        return 0.95; // horses
     }
 }
 
@@ -323,7 +348,8 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
                 m.ridden = false; // (main sees it and puts the rider down)
                 m.vel.y = 0.3;    // (rears up)
                 m.ambientTime = 0;
-                ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x, m.pos.y + 1.0, m.pos.z);
+                ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x, m.pos.y + 1.0,
+                                    m.pos.z);
             }
         }
         return true;
@@ -333,7 +359,9 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
         // (6.5 blocks/s), jump dashes up to 12 blocks (every 2 s).
         m.yaw = m.headYaw;
         const glm::dvec3 look(lookVector(m.headYaw, m.pitch));
-        const glm::dvec3 wish = look * (m.paddleForward > 0 ? 0.325 : m.paddleForward < 0 ? -0.08 : 0.0);
+        const glm::dvec3 wish = look * (m.paddleForward > 0   ? 0.325
+                                        : m.paddleForward < 0 ? -0.08
+                                                              : 0.0);
         if (m.riderJump > 0 && m.dashCooldown == 0) {
             m.vel += look * (1.4 * m.riderJump / 100.0);
             m.dashCooldown = 40;
@@ -356,8 +384,10 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
     const double side = m.paddleTurn * 0.5;
     // A player's walk speed 0.1 is 4.317 blocks/s: 2.1585 blocks a tick per point.
     double speed = attrSpeed(m) * 2.1585;
-    if (m.type == MobType::Camel && m.paddleForward == 2) speed *= 2.11; // (sprinting: 8.2 blocks/s)
-    glm::dvec3 wish = (glm::dvec3(forwardFlat(m.yaw)) * forward + glm::dvec3(rightFlat(m.yaw)) * side) * speed;
+    if (m.type == MobType::Camel && m.paddleForward == 2)
+        speed *= 2.11; // (sprinting: 8.2 blocks/s)
+    glm::dvec3 wish =
+        (glm::dvec3(forwardFlat(m.yaw)) * forward + glm::dvec3(rightFlat(m.yaw)) * side) * speed;
     if (m.riderJump > 0 && m.onGround) {
         const double power = m.riderJump / 100.0;
         if (m.type == MobType::Camel) {
@@ -427,12 +457,14 @@ void Mobs::llamaTick(Context& ctx, MobData& m) {
         have = glm::length(target - eye) < 12.0;
     }
     if (!have && ctx.rng.nextInt(20) == 0) { // (looks for wolves about once a second)
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1 && !have; ++dz)
             for (int dx = -1; dx <= 1 && !have; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const MobData& o : ch->mobs())
-                        if (o.type == MobType::Wolf && !o.tamed && o.health > 0.0f && glm::length(o.pos - m.pos) < 10.0) {
+                        if (o.type == MobType::Wolf && !o.tamed && o.health > 0.0f &&
+                            glm::length(o.pos - m.pos) < 10.0) {
                             target = o.pos + glm::dvec3(0.0, 0.4, 0.0);
                             have = true;
                             break;
@@ -445,22 +477,27 @@ void Mobs::llamaTick(Context& ctx, MobData& m) {
     m.yaw = m.headYaw = float(std::atan2(-to.x, to.z) * 180.0 / 3.14159265358979);
     // (aimed a little high: the spit falls on its way)
     const glm::dvec3 dir = glm::normalize(to + glm::dvec3(0.0, d * 0.1, 0.0));
-    ctx.projectiles->shoot(ProjectileKind::LlamaSpit, eye + dir * 0.6, dir, 1.5, 4.0, false, false, ctx.rng, m.uuidHi);
+    ctx.projectiles->shoot(ProjectileKind::LlamaSpit, eye + dir * 0.6, dir, 1.5, 4.0, false, false,
+                           ctx.rng, m.uuidHi);
     m.attackCooldown = 40;
 }
 
 void Mobs::dropMountGear(Context& ctx, MobData& m) {
     const glm::dvec3 at = m.pos + glm::dvec3(0.0, 0.5, 0.0);
     if (m.saddled) dropNamed(ctx.items, at, "saddle", ctx.rng);
-    if (m.horseArmor > 0 && m.horseArmor < 5) dropNamed(ctx.items, at, kHorseArmorItems[m.horseArmor], ctx.rng);
+    if (m.horseArmor > 0 && m.horseArmor < 5)
+        dropNamed(ctx.items, at, kHorseArmorItems[m.horseArmor], ctx.rng);
     if (m.decor > 0 && m.decor <= 16)
-        dropNamed(ctx.items, at, std::string(kDyeColours[m.decor - 1]) + (m.type == MobType::HappyGhast ? "_harness" : "_carpet"),
+        dropNamed(ctx.items, at,
+                  std::string(kDyeColours[m.decor - 1]) +
+                      (m.type == MobType::HappyGhast ? "_harness" : "_carpet"),
                   ctx.rng);
     if (m.hasChest && m.type != MobType::Boat) dropNamed(ctx.items, at, "chest", ctx.rng);
     m.saddled = m.hasChest = false;
     m.horseArmor = m.decor = 0;
     // The chest's stacks spill out.
-    if (Chunk* c = ctx.world.chunk({blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))}))
+    if (Chunk* c = ctx.world.chunk(
+            {blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))}))
         if (ItemContents* slots = c->mobStore(m.uuidHi)) {
             for (const ItemStack& s : *slots)
                 if (!s.empty()) ctx.items.spawn(at, s, ctx.rng);
@@ -490,7 +527,9 @@ void Mobs::spawnMounts(Context& ctx, Biome biome, int x, int y, int z) {
     uint8_t coat = 255;
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(7)) - 3, gz = z + int(ctx.rng.nextInt(7)) - 3;
-        if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
+        if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) ||
+            solid(ctx.world, gx, y + 1, gz))
+            continue;
         MobData m = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
         if (coat == 255) coat = m.woolColour;
         if (kind == MobType::Horse || kind == MobType::Llama) m.woolColour = coat;

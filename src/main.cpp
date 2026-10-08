@@ -12,22 +12,20 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/Brewing.h"
 #include "gameplay/Buckets.h"
-#include "gameplay/Combat.h"
 #include "gameplay/Cartography.h"
+#include "gameplay/Combat.h"
 #include "gameplay/Commands.h"
-#include "gameplay/Fireworks.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Explosion.h"
 #include "gameplay/FallingBlocks.h"
+#include "gameplay/Fireworks.h"
+#include "gameplay/Fishing.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Furnace.h"
 #include "gameplay/Grindstone.h"
-#include "gameplay/Patrols.h"
-#include "gameplay/Raids.h"
-#include "gameplay/WanderingTraders.h"
 #include "gameplay/Hoppers.h"
 #include "gameplay/Inventory.h"
 #include "gameplay/ItemEntities.h"
@@ -35,13 +33,15 @@
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Particles.h"
+#include "gameplay/Patrols.h"
 #include "gameplay/Player.h"
 #include "gameplay/Portals.h"
 #include "gameplay/PrimedTnt.h"
-#include "gameplay/Fishing.h"
 #include "gameplay/Projectiles.h"
+#include "gameplay/Raids.h"
 #include "gameplay/Recipes.h"
 #include "gameplay/Vitals.h"
+#include "gameplay/WanderingTraders.h"
 #include "rendering/Camera.h"
 #include "rendering/EntityRenderer.h"
 #include "rendering/Frustum.h"
@@ -50,16 +50,16 @@
 #include "rendering/OverlayRenderer.h"
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
+#include "ui/BookScreen.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
 #include "ui/Hud.h"
 #include "ui/Menus.h"
-#include "ui/BookScreen.h"
 #include "ui/SignEditor.h"
-#include "world/BlockShapes.h"
-#include "world/Beehives.h"
 #include "world/Advancements.h"
+#include "world/Beehives.h"
+#include "world/BlockShapes.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
@@ -69,23 +69,23 @@
 #include "world/FlatGenerator.h"
 #include "world/ItemExtras.h"
 #include "world/LevelData.h"
-#include "world/Maps.h"
-#include "world/Statistics.h"
 #include "world/LightManager.h"
+#include "world/Maps.h"
 #include "world/NetherGenerator.h"
 #include "world/OverworldGenerator.h"
 #include "world/Potions.h"
 #include "world/Rails.h"
 #include "world/Raycast.h"
 #include "world/Rotation.h"
+#include "world/Statistics.h"
 #include "world/TerrainGenerator.h"
 #include "world/World.h"
 #include "world/WorldList.h"
 
 #include <array>
 #include <cmath>
-#include <ctime>
 #include <cstdio>
+#include <ctime>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -406,7 +406,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                      worldName.c_str(), netherKind.c_str());
         return 1;
     }
-    if (generatorKind != "terrain" && mc::world::OverworldGenerator::versionOf(generatorKind) == 0) {
+    if (generatorKind != "terrain" &&
+        mc::world::OverworldGenerator::versionOf(generatorKind) == 0) {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -534,7 +535,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (const auto kind = mc::world::findEffect(e.id))
                 vitals.addEffect(*kind, e.amplifier, e.duration);
     }
-    mc::DragonFight dragonFight; // (M20.2; end2 worlds)
+    mc::DragonFight dragonFight;              // (M20.2; end2 worlds)
     mc::WanderingTraderSpawner traderSpawner; // (M24.4)
     mc::PatrolSpawner patrolSpawner;          // (M24.4)
     mc::Raid raid;                            // (M24.5)
@@ -553,7 +554,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       level->raidNextId,
                       level->raidPendingTicks,
                       level->raidPendingLevel,
-                      {level->raidPendingCentre[0], level->raidPendingCentre[1], level->raidPendingCentre[2]}});
+                      {level->raidPendingCentre[0], level->raidPendingCentre[1],
+                       level->raidPendingCentre[2]}});
         dragonFight.killed = level->dragonKilled;
         traderSpawner.delay = level->traderSpawnDelay;
         playerUuidHi = level->playerUuidHi;
@@ -574,14 +576,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Statistics (M28.1d): saves/<world>/stats/<uuid>.json, as vanilla.
     mc::world::Statistics stats;
     if (!worldDir.empty())
-        if (auto s = mc::world::Statistics::load(mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
+        if (auto s = mc::world::Statistics::load(
+                mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
             stats = std::move(*s);
     shared.menuState.stats = &stats;
     // Advancements (M28.5c; wiki: Advancement): saves/<world>/advancements/<uuid>.json. Each
     // one made is announced in the chat (if the game rule allows) and with a toast.
     mc::world::Advancements adv;
     if (!worldDir.empty())
-        if (auto a = mc::world::Advancements::load(mc::world::Advancements::file(worldDir, playerUuidHi, playerUuidLo)))
+        if (auto a = mc::world::Advancements::load(
+                mc::world::Advancements::file(worldDir, playerUuidHi, playerUuidLo)))
             adv = std::move(*a);
     shared.menuState.adv = &adv;
     Dimension advDimension = dimension; // (entering another one is an advancement)
@@ -599,15 +603,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Explosion fireballBlast;     // ghast fireballs (M19.2)
     mc::Explosion tntBlast;          // (M21.1b)
     mc::PrimedTnt primedTnt;
-    int bowTicks = 0;      // how long the bow has been drawn
-    int crossbowTicks = 0; // (M28.4a) how long the crossbow has been loading
-    int elytraBoost = 0;   // (M28.4c) ticks of a firework's push left while gliding
-    int spearCharge = 0;   // (M28.4e) ticks the spear has been held out
+    int bowTicks = 0;              // how long the bow has been drawn
+    int crossbowTicks = 0;         // (M28.4a) how long the crossbow has been loading
+    int elytraBoost = 0;           // (M28.4c) ticks of a firework's push left while gliding
+    int spearCharge = 0;           // (M28.4e) ticks the spear has been held out
     uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
     int playerTargetTicks = 0;     // (forgotten after 100 ticks, like vanilla's last-hurt memory)
-    int tridentTicks = 0;  // how long a trident has been held back (M25.3)
-    double airPeakY = 0.0; // highest feet height since leaving the ground (trampling)
-    int shieldTicks = 0;   // how long right-click has held a shield up
+    int tridentTicks = 0;          // how long a trident has been held back (M25.3)
+    double airPeakY = 0.0;         // highest feet height since leaving the ground (trampling)
+    int shieldTicks = 0;           // how long right-click has held a shield up
     // Beds (M17.4): the respawn point, sleeping (ticks asleep, the bed's head).
     std::optional<mc::world::BlockPos> bedSpawn;
     if (level && level->hasRespawn)
@@ -658,8 +662,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               : a.frame == mc::world::AdvFrame::Goal    ? "reached the goal"
                                                                         : "made the advancement",
                               int(a.title.size()), a.title.data());
-                chat.addMessage(line, a.frame == mc::world::AdvFrame::Challenge ? mc::gfx::argb(0xFFAA00AA)
-                                                                                 : mc::gfx::argb(0xFF55FF55),
+                chat.addMessage(line,
+                                a.frame == mc::world::AdvFrame::Challenge
+                                    ? mc::gfx::argb(0xFFAA00AA)
+                                    : mc::gfx::argb(0xFF55FF55),
                                 gameTime, gui.batch());
             }
             if (toastQueued < int(toastQueue.size())) toastQueue[size_t(toastQueued++)] = i;
@@ -769,8 +775,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Boat ||
-                             mc::world::isMount(m.type)) &&
+                        if ((m.type == mc::world::MobType::Minecart ||
+                             m.type == mc::world::MobType::Boat || mc::world::isMount(m.type)) &&
                             m.uuidHi == ridingCart)
                             return &m;
         return nullptr;
@@ -805,7 +811,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         {
             const mc::Raid::State r = raid.state();
             l.raidActive = r.active;
-            l.raidCentre[0] = r.centre.x, l.raidCentre[1] = r.centre.y, l.raidCentre[2] = r.centre.z;
+            l.raidCentre[0] = r.centre.x, l.raidCentre[1] = r.centre.y,
+            l.raidCentre[2] = r.centre.z;
             l.raidWave = r.wave, l.raidWaves = r.waves, l.raidLevel = r.level;
             l.raidTicks = r.ticks, l.raidCooldown = r.cooldown, l.raidWaveHealth = r.waveHealth;
             l.raidId = r.id, l.raidNextId = r.nextId;
@@ -866,7 +873,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.hasRespawn = bedSpawn.has_value();
         l.hasLastDeath = lastDeath.has_value();
         if (lastDeath) {
-            l.lastDeath[0] = lastDeath->first.x, l.lastDeath[1] = lastDeath->first.y, l.lastDeath[2] = lastDeath->first.z;
+            l.lastDeath[0] = lastDeath->first.x, l.lastDeath[1] = lastDeath->first.y,
+            l.lastDeath[2] = lastDeath->first.z;
             l.lastDeathDimension = int(lastDeath->second);
         }
         if (bedSpawn)
@@ -874,12 +882,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.fire = vitals.fireTicks();
         auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
             if (s.empty()) return;
-            mc::world::LevelData::SavedItem it{
-                slot, mc::world::itemRegistry().item(s.item).id,
-                s.state && mc::world::itemRegistry().item(s.item).block ? mc::world::blockRegistry().toString(s.state)
-                                                                        : std::string(),
-                s.count,
-                s.damage};
+            mc::world::LevelData::SavedItem it{slot, mc::world::itemRegistry().item(s.item).id,
+                                               s.state &&
+                                                       mc::world::itemRegistry().item(s.item).block
+                                                   ? mc::world::blockRegistry().toString(s.state)
+                                                   : std::string(),
+                                               s.count, s.damage};
             for (const uint16_t v : s.enchantments)
                 if (v)
                     it.enchantments.emplace_back(
@@ -1025,7 +1033,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     for (auto& mob : tc->mobs())
                         if (mob.uuidHi == traderUuid && mob.health > 0.0f &&
                             (mob.type == mc::world::MobType::Villager ||
-                             mob.type == mc::world::MobType::WanderingTrader)) // (not once infected or a witch)
+                             mob.type == mc::world::MobType::WanderingTrader)) // (not once infected
+                                                                               // or a witch)
                             trader = &mob;
         if (trader && glm::length(trader->pos - player.position()) > 8.0) trader = nullptr;
         container.setTrader(trader);
@@ -1060,7 +1069,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             std::span<mc::world::ItemStack> chest;
             if (mount->hasChest) {
                 mc::world::ItemContents& slots = in->addMobStore(mount->uuidHi);
-                chest = std::span(slots.data(), size_t(mc::world::chestSlots(mount->type, mount->strength)));
+                chest = std::span(slots.data(),
+                                  size_t(mc::world::chestSlots(mount->type, mount->strength)));
                 in->markDirty();
             }
             container.setMount(mount, chest);
@@ -1117,7 +1127,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       true);
             return true;
         }
-        if (creg.likeOf(creg.blockOf(world.getBlock(p))) != mc::world::blocks::Chest) return false; // (copper chests too)
+        if (creg.likeOf(creg.blockOf(world.getBlock(p))) != mc::world::blocks::Chest)
+            return false; // (copper chests too)
         const auto partner = mc::world::BlockUpdates::chestPartner(world, p);
         const bool blocked =
             creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
@@ -1129,7 +1140,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         container.openChest(nullptr, nullptr);
         pointChests();
         playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f, true);
-        stats.add(mc::world::Stat::OpenChest); // (chests and copper chests; vanilla counts barrels apart)
+        stats.add(
+            mc::world::Stat::OpenChest); // (chests and copper chests; vanilla counts barrels apart)
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
@@ -1181,7 +1193,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             pointStore();
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
             pointTrader();
-        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount) pointMount();
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount)
+            pointMount();
         // An open beacon screen follows its block (closed if it was broken) (M23.6).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -1270,8 +1283,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (esc || bookAction != mc::ui::BookScreen::Action::None) {
                 const bool signedNow = bookAction == mc::ui::BookScreen::Action::Signed;
                 if (bookScreen.editing() && bookScreen.slot() >= 0) {
-                    static const mc::world::ItemId writable = *mc::world::itemRegistry().find("writable_book");
-                    static const mc::world::ItemId written = *mc::world::itemRegistry().find("written_book");
+                    static const mc::world::ItemId writable =
+                        *mc::world::itemRegistry().find("writable_book");
+                    static const mc::world::ItemId written =
+                        *mc::world::itemRegistry().find("written_book");
                     mc::world::ItemStack s = inventory.slot(bookScreen.slot());
                     if (s.item == writable) {
                         mc::world::BookContent content = bookScreen.content();
@@ -1420,7 +1435,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 } else if (window.takePresses(mc::Press::Inventory) > 0) {
                     // (M26.2) on a tamed mount or in a chest boat: its screen
                     const mc::world::MobData* ride = ridingCart ? findCart() : nullptr;
-                    if (ride && ((mc::world::isMount(ride->type) && (ride->tamed || ride->type == mc::world::MobType::Camel)) ||
+                    if (ride && ((mc::world::isMount(ride->type) &&
+                                  (ride->tamed || ride->type == mc::world::MobType::Camel)) ||
                                  (ride->type == mc::world::MobType::Boat && ride->hasChest)))
                         openMountScreen(ride->uuidHi);
                     else if (gameMode == 3)
@@ -1809,13 +1825,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         dayTime = mc::morningAfter(dayTime); // the night passes
                         // A tamed cat near the bed may bring a morning gift (wiki: Cat › Gifts:
                         // 70%; ours from the items we have).
-                        static constexpr const char* kGifts[4] = {"string", "feather", "chicken", "rotten_flesh"};
+                        static constexpr const char* kGifts[4] = {"string", "feather", "chicken",
+                                                                  "rotten_flesh"};
                         world.forEachChunk([&](mc::world::Chunk& gc) {
                             for (const auto& cat : gc.mobs())
-                                if (cat.type == mc::world::MobType::Cat && cat.tamed && !cat.sitting && cat.health > 0.0f &&
-                                    glm::length(cat.pos - player.position()) < 16.0 && gameRng.nextInt(10) < 7)
-                                    if (const auto gift = mc::world::itemRegistry().find(kGifts[gameRng.nextInt(4)]))
-                                        droppedItems.spawn(player.position() + glm::dvec3(0, 0.5, 0), {*gift, 1}, gameRng);
+                                if (cat.type == mc::world::MobType::Cat && cat.tamed &&
+                                    !cat.sitting && cat.health > 0.0f &&
+                                    glm::length(cat.pos - player.position()) < 16.0 &&
+                                    gameRng.nextInt(10) < 7)
+                                    if (const auto gift = mc::world::itemRegistry().find(
+                                            kGifts[gameRng.nextInt(4)]))
+                                        droppedItems.spawn(player.position() +
+                                                               glm::dvec3(0, 0.5, 0),
+                                                           {*gift, 1}, gameRng);
                         });
                         // ...and the rain stops: the weather cycle starts over (wiki: Bed).
                         if (weather.raining) weather.set(mc::world::Weather::Kind::Clear, 0);
@@ -1843,10 +1865,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   vitals.effectLevel(E::SlowFalling) > 0,
                                   vitals.effectLevel(E::Levitation));
                 player.setDolphinsGrace(vitals.effectLevel(E::DolphinsGrace) > 0); // (M25.3b)
-                player.setSwiftSneak(mc::world::enchantLevel(inventory.armor(2), mc::world::Enchantment::SwiftSneak)); // (M27.3)
+                player.setSwiftSneak(mc::world::enchantLevel(
+                    inventory.armor(2), mc::world::Enchantment::SwiftSneak)); // (M27.3)
                 // A turtle shell worn above water gives 10 s of Water Breathing, which then
                 // runs down under water (wiki: Turtle Shell).
-                static const mc::world::ItemId turtleHelmet = *mc::world::itemRegistry().find("turtle_helmet");
+                static const mc::world::ItemId turtleHelmet =
+                    *mc::world::itemRegistry().find("turtle_helmet");
                 if (inventory.armor(0).item == turtleHelmet && !dead) {
                     if (!mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water))
                         vitals.addEffect(E::WaterBreathing, 0, 200);
@@ -1863,8 +1887,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (elytraBoost > 0) { // (M28.4c) a firework pushing the glide along the look
                 if (player.gliding()) {
-                    player.setVelocity(mc::boostedVelocity(player.velocity(),
-                                                           glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch()))));
+                    player.setVelocity(mc::boostedVelocity(
+                        player.velocity(),
+                        glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch()))));
                     --elytraBoost;
                 } else {
                     elytraBoost = 0;
@@ -1878,8 +1903,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // them (1 damage) while they move, once it has grown past its first stage.
                 const glm::dvec3 f = player.position();
                 for (int dy = 0; dy <= 1; ++dy) {
-                    const mc::world::BlockStateId bs =
-                        world.getBlock({int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
+                    const mc::world::BlockStateId bs = world.getBlock(
+                        {int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
                     if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::Cobweb) {
                         // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall
                         const glm::dvec3 v = player.velocity();
@@ -1887,10 +1912,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         vitals.resetFall();
                         break;
                     }
-                    if (mc::world::blockRegistry().blockOf(bs) != mc::world::blocks::SweetBerryBush) continue;
+                    if (mc::world::blockRegistry().blockOf(bs) != mc::world::blocks::SweetBerryBush)
+                        continue;
                     const glm::dvec3 v = player.velocity();
                     player.setVelocity({v.x * 0.8, v.y * 0.75, v.z * 0.8});
-                    if (survival && !dead && mc::world::blockRegistry().get(bs, mc::world::properties::age3) > 0 &&
+                    if (survival && !dead &&
+                        mc::world::blockRegistry().get(bs, mc::world::properties::age3) > 0 &&
                         (std::abs(v.x) > 0.003 || std::abs(v.z) > 0.003))
                         vitals.attacked(1.0f, nullptr);
                     break;
@@ -1926,12 +1953,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // rider's look; holding jump fills the jump bar (vanilla: about a second
                     // to full), letting go jumps; a camel's jump is its dash; sprinting
                     // speeds a camel up.
-                    cart->paddleForward = int8_t(input.forward > 0.0f ? (input.sprint ? 2 : 1) : input.forward < 0.0f ? -1 : 0);
-                    cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
+                    cart->paddleForward = int8_t(input.forward > 0.0f   ? (input.sprint ? 2 : 1)
+                                                 : input.forward < 0.0f ? -1
+                                                                        : 0);
+                    cart->paddleTurn = int8_t(input.strafe > 0.0f   ? 1
+                                              : input.strafe < 0.0f ? -1
+                                                                    : 0);
                     cart->headYaw = player.yaw();
-                    cart->pitch = player.pitch(); // (a nautilus swims where the rider looks - M26.5a)
-                    if (cart->type == mc::world::MobType::HappyGhast && input.jump) cart->paddleTurn = 2; // (M26.5b: up)
-                    if (cart->type == mc::world::MobType::Nautilus) // (its rider keeps their breath)
+                    cart->pitch =
+                        player.pitch(); // (a nautilus swims where the rider looks - M26.5a)
+                    if (cart->type == mc::world::MobType::HappyGhast && input.jump)
+                        cart->paddleTurn = 2; // (M26.5b: up)
+                    if (cart->type ==
+                        mc::world::MobType::Nautilus) // (its rider keeps their breath)
                         vitals.addEffect(mc::world::Effect::BreathOfTheNautilus, 0, 40);
                     if (input.jump) {
                         mountJumpTicks = std::min(mountJumpTicks + 1, 10);
@@ -1941,8 +1975,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 } else if (cart->type == mc::world::MobType::Boat) {
                     // Paddling (M25.2b): W/S forward/back, A/D turn (Boats.cpp applies it).
-                    cart->paddleForward = int8_t(input.forward > 0.0f ? 1 : input.forward < 0.0f ? -1 : 0);
-                    cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
+                    cart->paddleForward = int8_t(input.forward > 0.0f   ? 1
+                                                 : input.forward < 0.0f ? -1
+                                                                        : 0);
+                    cart->paddleTurn = int8_t(input.strafe > 0.0f   ? 1
+                                              : input.strafe < 0.0f ? -1
+                                                                    : 0);
                 } else if (input.forward > 0.0f) {
                     const glm::dvec3 f(mc::world::forwardFlat(player.yaw()));
                     if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01)
@@ -1962,7 +2000,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 d = feet - before;
                 const int64_t full = std::llround(glm::length(d) * 100.0);
                 const int64_t horiz = std::llround(glm::length(glm::dvec2(d.x, d.z)) * 100.0);
-                const bool eyesWet = mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
+                const bool eyesWet =
+                    mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
                 if (ridingCart != 0) {
                     if (const mc::world::MobData* v = findCart())
                         stats.add(v->type == mc::world::MobType::Minecart ? S::MinecartOneCm
@@ -1978,15 +2017,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 } else if (player.climbing() && d.y > 0.0) {
                     stats.add(S::ClimbOneCm, std::llround(d.y * 100.0));
                 } else if (player.onGround()) {
-                    stats.add(player.sprinting() ? S::SprintOneCm : player.sneaking() ? S::CrouchOneCm : S::WalkOneCm, horiz);
+                    stats.add(player.sprinting()  ? S::SprintOneCm
+                              : player.sneaking() ? S::CrouchOneCm
+                                                  : S::WalkOneCm,
+                              horiz);
                 } else if (player.gliding()) {
                     stats.add(S::AviateOneCm, full);
                 } else if (player.flying()) {
                     stats.add(S::FlyOneCm, horiz);
                 }
-                if (wasOnGround && !player.onGround() && player.velocity().y > 0.0 && !player.flying() && ridingCart == 0)
+                if (wasOnGround && !player.onGround() && player.velocity().y > 0.0 &&
+                    !player.flying() && ridingCart == 0)
                     stats.add(S::Jump);
-                if (player.onGround() && !wasOnGround && !player.flying() && airPeakY - feet.y >= 2.0)
+                if (player.onGround() && !wasOnGround && !player.flying() &&
+                    airPeakY - feet.y >= 2.0)
                     stats.add(S::FallOneCm, std::llround((airPeakY - feet.y) * 100.0));
             }
             // Landing on farmland may trample it: chance fall distance - 0.5 (wiki: Farmland).
@@ -2020,10 +2064,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                         mc::world::blocks::HayBlock
                                                     ? 0.2f
                                                     : 1.0f);
-                        const mc::world::BlockStateId us = world.getBlock(under); // (M27.2b: onto a point)
-                        vitals.setStalagmite(reg.blockOf(us) == mc::world::blocks::PointedDripstone &&
-                                             reg.get(us, mc::world::properties::verticalDirection) == 0 &&
-                                             reg.get(us, mc::world::properties::thickness) <= 1);
+                        const mc::world::BlockStateId us =
+                            world.getBlock(under); // (M27.2b: onto a point)
+                        vitals.setStalagmite(
+                            reg.blockOf(us) == mc::world::blocks::PointedDripstone &&
+                            reg.get(us, mc::world::properties::verticalDirection) == 0 &&
+                            reg.get(us, mc::world::properties::thickness) <= 1);
                     }
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(),
                                 player.flying() || player.gliding() ||
@@ -2099,11 +2145,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Undying): 1 health, effects cleared, Regeneration II 45 s, Fire Resistance
             // 40 s (Absorption: not in the game yet).
             if (!dead && vitals.dead()) {
-                static const mc::world::ItemId totem = *mc::world::itemRegistry().find("totem_of_undying");
+                static const mc::world::ItemId totem =
+                    *mc::world::itemRegistry().find("totem_of_undying");
                 const bool inHand = inventory.selectedStack().item == totem;
                 if (inHand || inventory.offhand().item == totem) {
-                    if (inHand) inventory.consumeSelected(1);
-                    else inventory.setOffhand({});
+                    if (inHand)
+                        inventory.consumeSelected(1);
+                    else
+                        inventory.setOffhand({});
                     vitals.setHealth(1.0f);
                     vitals.clearEffects();
                     vitals.addEffect(mc::world::Effect::Regeneration, 1, 900);
@@ -2114,11 +2163,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
                 stats.add(mc::world::Stat::Deaths);
-                lastDeath = {{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))}, dimension};
+                lastDeath = {
+                    {int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))},
+                    dimension};
                 stats.set(mc::world::Stat::TimeSinceDeath, 0);
-                if (const mc::world::MobData* killer = mobs.playerAttacker()
-                                                           ? mc::Mobs::mobByUuid(world, feet, mobs.playerAttacker())
-                                                           : nullptr)
+                if (const mc::world::MobData* killer =
+                        mobs.playerAttacker()
+                            ? mc::Mobs::mobByUuid(world, feet, mobs.playerAttacker())
+                            : nullptr)
                     stats.addKilledBy(killer->type);
                 if (rules.keepInventory) {
                     screenDrops.clear();
@@ -2127,7 +2179,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     for (const auto& d : screenDrops) // (the crafting grid still spills)
                         droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), d, gameRng);
                     dead = true;
-                    if (rules.showDeathMessages) chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
+                    if (rules.showDeathMessages)
+                        chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 } else {
                     // Open screens close first: their grid/carried items drop too.
                     screenDrops.clear();
@@ -2151,11 +2204,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     inventory.setOffhand({});
                     orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(),
                               gameRng); // (the rest is lost)
-                    if (rules.showDeathMessages) chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
+                    if (rules.showDeathMessages)
+                        chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
             // Q drops one of the held item (wiki: Controls).
             if (window.cursorCaptured() && window.takePresses(mc::Press::Drop) > 0 &&
+                gameMode != 3 && // (spectators: none)
                 !inventory.selectedStack().empty()) {
                 mc::world::ItemStack one = inventory.selectedStack();
                 one.count = 1;
@@ -2180,22 +2235,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 scriptedUseAt = gameTime + 10;
             }
             if (gameMode == 3) clicks = {}; // spectators touch nothing (M28.1c)
-            const bool mayBuild = gameMode != 2; // adventure: no breaking, placing or block-changing items
+            const bool mayBuild =
+                gameMode != 2; // adventure: no breaking, placing or block-changing items
             // (M28.3) a click on an item frame or an armor stand is for it, not for the held item
             bool decorInFront = false;
             if (clicks.useClick) {
-                const auto mh = mc::Mobs::raycast(world, player.eyePosition(1.0),
-                                                  glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())),
-                                                  survival ? 3.0 : 5.0, ridingCart);
+                const auto mh = mc::Mobs::raycast(
+                    world, player.eyePosition(1.0),
+                    glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())),
+                    survival ? 3.0 : 5.0, ridingCart);
                 if (mh && (!lastHit || mh->distance < lastHit->distance)) {
                     const auto t = world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type;
                     decorInFront = mc::world::isHanging(t) || t == mc::world::MobType::ArmorStand ||
                                    t == mc::world::MobType::LeashKnot ||
-                                   (inventory.selectedStack().item == *mc::world::itemRegistry().find("lead") &&
+                                   (inventory.selectedStack().item ==
+                                        *mc::world::itemRegistry().find("lead") &&
                                     mc::world::isLeashable(t)) ||
                                    world.chunk(mh->chunk)->mobs()[size_t(mh->index)].leash == 1;
                 }
             }
+            // The click is held back from every held-item action until the decoration handlers
+            // below (an empty map put into a frame must not turn into a filled one).
+            const bool decorClick = decorInFront && clicks.useClick;
+            if (decorClick) clicks.useClick = false;
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
             // Candles and cakes (M28.5a; wiki: Candle, Cake): flint and steel or a fire charge
             // lights candles (not under water), an empty hand puts them out; a cake is eaten a
@@ -2206,41 +2268,57 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos at = lastHit->block;
                 const mc::world::BlockStateId cs = world.getBlock(at);
                 const mc::world::BlockId cb = creg.blockOf(cs), like = creg.likeOf(cb);
-                const std::string_view heldName = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
-                const bool igniter = heldName == "minecraft:flint_and_steel" || heldName == "minecraft:fire_charge";
+                const std::string_view heldName =
+                    mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                const bool igniter =
+                    heldName == "minecraft:flint_and_steel" || heldName == "minecraft:fire_charge";
                 bool used = false;
                 if (like == mc::world::blocks::Candle || like == mc::world::blocks::CandleCake) {
                     const bool isLit = creg.get(cs, mc::world::properties::lit) == 0;
-                    const bool wet = like == mc::world::blocks::Candle && creg.get(cs, mc::world::properties::waterlogged) == 0;
+                    const bool wet = like == mc::world::blocks::Candle &&
+                                     creg.get(cs, mc::world::properties::waterlogged) == 0;
                     if (igniter && !isLit && !wet) {
                         world.updateBlock(at, creg.set(cs, mc::world::properties::lit, 0));
                         if (survival) {
-                            if (heldName == "minecraft:fire_charge") inventory.consumeSelected(1);
-                            else inventory.setSlot(inventory.selected(), mc::wearItem(inventory.selectedStack(), 1, gameRng));
+                            if (heldName == "minecraft:fire_charge")
+                                inventory.consumeSelected(1);
+                            else
+                                inventory.setSlot(
+                                    inventory.selected(),
+                                    mc::wearItem(inventory.selectedStack(), 1, gameRng));
                         }
                         used = true;
                     } else if (inventory.selectedStack().empty() && isLit) {
                         world.updateBlock(at, creg.set(cs, mc::world::properties::lit, 1));
-                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish, at.x + 0.5, at.y + 0.5, at.z + 0.5);
+                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish, at.x + 0.5,
+                                         at.y + 0.5, at.z + 0.5);
                         used = true;
                     }
                 }
                 const bool candleOnCake = like == mc::world::blocks::Candle; // (handled by placing)
-                if (!used && !candleOnCake && (cb == mc::world::blocks::Cake || like == mc::world::blocks::CandleCake) &&
-                    !(cb == mc::world::blocks::Cake && creg.likeOf(mc::world::itemRegistry().item(inventory.selectedStack().item).block) ==
-                                                           mc::world::blocks::Candle &&
+                if (!used && !candleOnCake &&
+                    (cb == mc::world::blocks::Cake || like == mc::world::blocks::CandleCake) &&
+                    !(cb == mc::world::blocks::Cake &&
+                      creg.likeOf(
+                          mc::world::itemRegistry().item(inventory.selectedStack().item).block) ==
+                          mc::world::blocks::Candle &&
                       creg.get(cs, mc::world::properties::bites) == 0) &&
                     (!survival || vitals.food() < mc::Vitals::kMaxFood)) {
-                    if (like == mc::world::blocks::CandleCake) { // its candle comes off, then a slice
+                    if (like ==
+                        mc::world::blocks::CandleCake) { // its candle comes off, then a slice
                         std::string candle(creg.block(cb).id);
                         candle.erase(candle.rfind("_cake"));
                         if (const auto ci = mc::world::itemRegistry().find(candle))
-                            droppedItems.spawn({at.x + 0.5, at.y + 0.9, at.z + 0.5}, {*ci, 1}, gameRng);
-                        world.updateBlock(at, creg.set(creg.defaultState(mc::world::blocks::Cake), mc::world::properties::bites, 1));
+                            droppedItems.spawn({at.x + 0.5, at.y + 0.9, at.z + 0.5}, {*ci, 1},
+                                               gameRng);
+                        world.updateBlock(at, creg.set(creg.defaultState(mc::world::blocks::Cake),
+                                                       mc::world::properties::bites, 1));
                     } else if (creg.get(cs, mc::world::properties::bites) >= 6) {
                         world.updateBlock(at, 0); // (the last slice)
                     } else {
-                        world.updateBlock(at, creg.set(cs, mc::world::properties::bites, creg.get(cs, mc::world::properties::bites) + 1));
+                        world.updateBlock(at,
+                                          creg.set(cs, mc::world::properties::bites,
+                                                   creg.get(cs, mc::world::properties::bites) + 1));
                     }
                     vitals.eat(2, 0.4f);
                     used = true;
@@ -2318,7 +2396,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                 }
             }
-            if (!dead && clicks.useClick && lastHit && mayBuild) { // (sneaking only skips block actions)
+            if (!dead && clicks.useClick && lastHit &&
+                mayBuild) { // (sneaking only skips block actions)
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const size_t editsBefore = frameEdits.size();
                 if (!held.empty() &&
@@ -2384,20 +2463,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // A compass used on a lodestone points at it from then on (M28.2a; wiki:
                 // Lodestone): one compass of the stack becomes a lodestone compass.
                 if (!dead && heldId == "minecraft:compass" && clicks.useClick && lastHit &&
-                    mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Lodestone) {
+                    mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) ==
+                        mc::world::blocks::Lodestone) {
                     mc::world::ItemStack bound = inventory.selectedStack();
                     bound.count = 1;
-                    bound.extra = mc::world::addLodestoneTarget({lastHit->block, uint8_t(dimension)});
+                    bound.extra =
+                        mc::world::addLodestoneTarget({lastHit->block, uint8_t(dimension)});
                     announce(adv.onEvent(mc::world::AdvEvent::UsedLodestone));
                     if (inventory.selectedStack().count == 1) {
                         inventory.setSlot(inventory.selected(), bound);
                     } else {
                         if (survival) inventory.consumeSelected(1);
-                        if (inventory.add(bound) > 0) droppedItems.spawn(player.position(), bound, gameRng);
+                        if (inventory.add(bound) > 0)
+                            droppedItems.spawn(player.position(), bound, gameRng);
                     }
-                    playSound(mc::world::blockSound(mc::world::soundTypeOf(world.getBlock(lastHit->block)),
-                                                    mc::world::BlockSound::Place),
-                              glm::dvec3(lastHit->block.x + 0.5, lastHit->block.y + 0.5, lastHit->block.z + 0.5),
+                    playSound(mc::world::blockSound(
+                                  mc::world::soundTypeOf(world.getBlock(lastHit->block)),
+                                  mc::world::BlockSound::Place),
+                              glm::dvec3(lastHit->block.x + 0.5, lastHit->block.y + 0.5,
+                                         lastHit->block.z + 0.5),
                               1.0f, 1.0f, true);
                     clicks.useClick = false;
                     clicks.use = false;
@@ -2419,23 +2503,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
                 // Spears (M28.4e): held out (right-click) for up to 5 s, the charge hits what is in
                 // front when moving fast - on foot sprinting, faster on a mount.
-                if (!dead && mc::world::itemRegistry().item(inventory.selectedStack().item).tool == mc::world::ToolType::Spear &&
+                if (!dead &&
+                    mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
+                        mc::world::ToolType::Spear &&
                     clicks.use && spearCharge < 100) {
                     ++spearCharge;
                     const mc::world::MobData* steed = ridingCart ? findCart() : nullptr;
                     const glm::dvec3 v = steed ? steed->vel : player.velocity();
                     const double speed = glm::length(glm::dvec2(v.x, v.z));
-                    const float dmg = mc::spearChargeDamage(mc::world::itemRegistry().item(inventory.selectedStack().item).attackDamage, speed);
+                    const float dmg = mc::spearChargeDamage(
+                        mc::world::itemRegistry().item(inventory.selectedStack().item).tier, speed);
                     if (dmg > 0.0f)
-                        if (const auto mh = mc::Mobs::raycast(world, eye, look, mc::kSpearReach, ridingCart);
+                        if (const auto mh =
+                                mc::Mobs::raycast(world, eye, look, mc::kSpearReach, ridingCart);
                             mh && (!lastHit || mh->distance < lastHit->distance)) {
                             auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                            if (m.hurtTime == 0 && m.health > 0.0f && !mc::world::isHanging(m.type)) {
+                            if (m.hurtTime == 0 && m.health > 0.0f &&
+                                !mc::world::isHanging(m.type)) {
                                 mc::Mobs::attack(m, dmg, player.position());
                                 m.vel += glm::dvec3(look.x, 0.2, look.z) * 0.6; // (knocked along)
                                 stats.add(mc::world::Stat::DamageDealt, std::lround(dmg * 10.0f));
                                 playSound(mc::world::Sound::AttackHit, m.pos, 1.0f, 0.8f, true);
-                                if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(inventory.selectedStack(), 1, gameRng));
+                                if (survival)
+                                    inventory.setSlot(
+                                        inventory.selected(),
+                                        mc::wearItem(inventory.selectedStack(), 1, gameRng));
                             }
                         }
                     clicks.useClick = false;
@@ -2445,20 +2537,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Crossbows (M28.4a; wiki: Crossbow): hold right-click to load (an arrow), then
                 // a right-click fires; letting go before it is loaded starts over.
                 if (!dead && heldId == "minecraft:crossbow") {
-                    static const mc::world::ItemId arrowItem = *mc::world::itemRegistry().find("arrow");
+                    static const mc::world::ItemId arrowItem =
+                        *mc::world::itemRegistry().find("arrow");
                     if (inventory.selectedStack().state == 0) {
                         if (clicks.use && mc::canLoadCrossbow(inventory, survival)) {
-                            if (++crossbowTicks >= mc::crossbowChargeTicks(inventory.selectedStack()) &&
+                            if (++crossbowTicks >=
+                                    mc::crossbowChargeTicks(inventory.selectedStack()) &&
                                 mc::loadCrossbow(inventory, survival)) {
                                 crossbowTicks = 0;
-                                playSound(mc::world::Sound::DoorOpen, eye, 0.5f, 1.4f, false); // (our click as it locks)
+                                playSound(mc::world::Sound::DoorOpen, eye, 0.5f, 1.4f,
+                                          false); // (our click as it locks)
                             }
                             clicks.useClick = false;
                         } else {
                             crossbowTicks = 0;
                         }
                     } else if (clicks.useClick) {
-                        if (mc::fireCrossbow(inventory, survival, eye, look, projectiles, gameRng)) {
+                        if (mc::fireCrossbow(inventory, survival, eye, look, projectiles,
+                                             gameRng)) {
                             playSound(mc::world::Sound::BowShoot, eye, 1.0f, 1.1f, false);
                             announce(adv.onEvent(mc::world::AdvEvent::ShotCrossbow));
                         }
@@ -2475,13 +2571,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                 } else if (tridentTicks > 0) {
                     if (!dead && heldId == "minecraft:trident") {
-                        const mc::world::BlockPos at{int(std::floor(eye.x)), int(std::floor(eye.y)), int(std::floor(eye.z))};
-                        const bool wet = player.inWater() || (dimension == Dimension::Overworld &&
-                                                              mc::world::rainingAt(world, weather, at));
-                        const bool throws = tridentTicks >= 10 &&
-                                            mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::Riptide) == 0;
-                        const double launch = mc::releaseTrident(inventory, tridentTicks, survival, wet, eye, look,
-                                                                 projectiles, gameRng);
+                        const mc::world::BlockPos at{int(std::floor(eye.x)), int(std::floor(eye.y)),
+                                                     int(std::floor(eye.z))};
+                        const bool wet =
+                            player.inWater() || (dimension == Dimension::Overworld &&
+                                                 mc::world::rainingAt(world, weather, at));
+                        const bool throws =
+                            tridentTicks >= 10 &&
+                            mc::world::enchantLevel(inventory.selectedStack(),
+                                                    mc::world::Enchantment::Riptide) == 0;
+                        const double launch =
+                            mc::releaseTrident(inventory, tridentTicks, survival, wet, eye, look,
+                                               projectiles, gameRng);
                         if (throws) announce(adv.onEvent(mc::world::AdvEvent::ThrewTrident));
                         if (launch > 0.0) player.setVelocity(player.velocity() + look * launch);
                         playSound(mc::world::Sound::BowShoot, eye, 1.0f, 0.6f, false);
@@ -2525,63 +2626,84 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     clicks.useClick = false;
                 }
-                if (!dead && (heldId == "minecraft:splash_potion" || heldId == "minecraft:lingering_potion") &&
+                if (!dead &&
+                    (heldId == "minecraft:splash_potion" ||
+                     heldId == "minecraft:lingering_potion") &&
                     clicks.useClick) { // (M19.4; M28.4b lingering)
                     mc::throwSplashPotion(inventory, survival, eye, player.yaw(), player.pitch(),
                                           projectiles, gameRng);
                     clicks.useClick = false;
                 }
-                if (!dead && heldId == "minecraft:wind_charge" && clicks.useClick && windCooldown == 0) {
-                    mc::throwWindCharge(inventory, survival, eye, look, projectiles, gameRng); // (M26.4c)
-                    windCooldown = 10; // (wiki: half a second between throws)
+                if (!dead && heldId == "minecraft:wind_charge" && clicks.useClick &&
+                    windCooldown == 0) {
+                    mc::throwWindCharge(inventory, survival, eye, look, projectiles,
+                                        gameRng); // (M26.4c)
+                    windCooldown = 10;            // (wiki: half a second between throws)
                     clicks.useClick = false;
                 }
-                if (!dead && (heldId == "minecraft:writable_book" || heldId == "minecraft:written_book") &&
+                if (!dead &&
+                    (heldId == "minecraft:writable_book" || heldId == "minecraft:written_book") &&
                     clicks.useClick && !bookScreen.isOpen()) { // (M28.2c) open the book
                     const mc::world::ItemStack& b = inventory.selectedStack();
-                    const mc::world::BookContent content = mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
-                    if (heldId == "minecraft:writable_book") bookScreen.openEdit(content, inventory.selected());
-                    else bookScreen.openRead(content);
+                    const mc::world::BookContent content =
+                        mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
+                    if (heldId == "minecraft:writable_book")
+                        bookScreen.openEdit(content, inventory.selected());
+                    else
+                        bookScreen.openRead(content);
                     window.setCursorCaptured(false);
                     clicks.useClick = false;
                     clicks.use = false;
                 }
                 if (!dead && mayBuild && clicks.useClick && lastHit &&
-                    (heldId == "minecraft:item_frame" || heldId == "minecraft:glow_item_frame" || heldId == "minecraft:painting") &&
+                    (heldId == "minecraft:item_frame" || heldId == "minecraft:glow_item_frame" ||
+                     heldId == "minecraft:painting") &&
                     !decorInFront) {
                     // Hanging an item frame or a painting on the clicked face (M28.3a).
-                    const auto type = heldId == "minecraft:painting"       ? mc::world::MobType::Painting
-                                      : heldId == "minecraft:glow_item_frame" ? mc::world::MobType::GlowItemFrame
-                                                                              : mc::world::MobType::ItemFrame;
-                    if (mc::Mobs::placeHanging(world, type, lastHit->block, lastHit->face, gameRng) && survival)
+                    const auto type = heldId == "minecraft:painting" ? mc::world::MobType::Painting
+                                      : heldId == "minecraft:glow_item_frame"
+                                          ? mc::world::MobType::GlowItemFrame
+                                          : mc::world::MobType::ItemFrame;
+                    if (mc::Mobs::placeHanging(world, type, lastHit->block, lastHit->face,
+                                               gameRng) &&
+                        survival)
                         inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
                 }
-                if (!dead && mayBuild && clicks.useClick && lastHit && heldId == "minecraft:armor_stand") {
+                if (!dead && mayBuild && clicks.useClick && lastHit &&
+                    heldId == "minecraft:armor_stand") {
                     const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
-                    const mc::world::BlockPos cell{lastHit->block.x + n.x, lastHit->block.y + n.y, lastHit->block.z + n.z};
-                    if (mc::Mobs::placeArmorStand(world, cell, player.yaw(), gameRng) && survival) inventory.consumeSelected(1);
+                    const mc::world::BlockPos cell{lastHit->block.x + n.x, lastHit->block.y + n.y,
+                                                   lastHit->block.z + n.z};
+                    if (mc::Mobs::placeArmorStand(world, cell, player.yaw(), gameRng) && survival)
+                        inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
                 }
-                if (!dead && heldId == "minecraft:firework_rocket" && clicks.useClick && (player.gliding() || lastHit)) {
+                if (!dead && heldId == "minecraft:firework_rocket" && clicks.useClick &&
+                    (player.gliding() || lastHit)) {
                     // (M28.4c; wiki: Firework Rocket) used on a block it flies up from there;
                     // in the air while gliding it pushes the elytra flight.
                     const mc::world::ItemStack rocket = inventory.selectedStack();
                     bool used = false;
                     if (player.gliding()) {
-                        const int flight = mc::world::fireworks(rocket.extra).value_or(mc::world::Fireworks{}).flight;
-                        elytraBoost = mc::rocketLifetime(flight, gameRng.nextInt(6), gameRng.nextInt(7));
+                        const int flight = mc::world::fireworks(rocket.extra)
+                                               .value_or(mc::world::Fireworks{})
+                                               .flight;
+                        elytraBoost =
+                            mc::rocketLifetime(flight, gameRng.nextInt(6), gameRng.nextInt(7));
                         used = true;
                     } else {
                         const glm::dvec3 n(mc::world::kDirectionNormals[int(lastHit->face)]);
                         const glm::dvec3 at = eye + look * lastHit->distance + n * 0.15;
-                        used = projectiles.launchFirework(at, rocket, false, glm::dvec3(0, 1, 0), gameRng);
+                        used = projectiles.launchFirework(at, rocket, false, glm::dvec3(0, 1, 0),
+                                                          gameRng);
                     }
                     if (used) {
                         if (survival) inventory.consumeSelected(1);
-                        playSound(mc::world::Sound::BowShoot, eye, 0.8f, 0.6f, false); // (our launch whoosh)
+                        playSound(mc::world::Sound::BowShoot, eye, 0.8f, 0.6f,
+                                  false); // (our launch whoosh)
                     }
                     clicks.useClick = false;
                     clicks.use = false;
@@ -2591,12 +2713,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // scale 0, centred on the 128-block grid cell around the player.
                     mc::world::ItemStack filled{*mc::world::itemRegistry().find("filled_map"), 1};
                     filled.damage = uint16_t(maps.create(int(std::floor(player.position().x)),
-                                                         int(std::floor(player.position().z)), 0, uint8_t(dimension)));
+                                                         int(std::floor(player.position().z)), 0,
+                                                         uint8_t(dimension)));
                     if (inventory.selectedStack().count == 1 && survival) {
                         inventory.setSlot(inventory.selected(), filled);
                     } else {
                         if (survival) inventory.consumeSelected(1);
-                        if (inventory.add(filled) > 0) droppedItems.spawn(player.position(), filled, gameRng);
+                        if (inventory.add(filled) > 0)
+                            droppedItems.spawn(player.position(), filled, gameRng);
                     }
                     clicks.useClick = false;
                 }
@@ -2609,23 +2733,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                 }
                 if (!dead && clicks.useClick &&
-                    (heldId.ends_with("_boat") || heldId == "minecraft:bamboo_raft" || heldId == "minecraft:bamboo_chest_raft")) {
+                    (heldId.ends_with("_boat") || heldId == "minecraft:bamboo_raft" ||
+                     heldId == "minecraft:bamboo_chest_raft")) {
                     // Boats (M25.2b; wiki: Boat): on the water surface in view, else on the
                     // block clicked, facing the way the player looks.
-                    const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
-                    const auto hit = mc::world::raycastBlocks(world, eye, look, reach, mc::world::RayFluids::Sources);
+                    const double reach =
+                        survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
+                    const auto hit = mc::world::raycastBlocks(world, eye, look, reach,
+                                                              mc::world::RayFluids::Sources);
                     if (hit) {
-                        const bool water = mc::world::blockRegistry().blockOf(world.getBlock(hit->block)) ==
-                                           mc::world::blocks::Water;
-                        const mc::world::BlockPos at = water ? hit->block : mc::world::neighbour(hit->block, hit->face);
+                        const bool water =
+                            mc::world::blockRegistry().blockOf(world.getBlock(hit->block)) ==
+                            mc::world::blocks::Water;
+                        const mc::world::BlockPos at =
+                            water ? hit->block : mc::world::neighbour(hit->block, hit->face);
                         int wood = 0;
                         bool chest = false; // (M26.2: a chest boat)
                         for (int w = 0; w < 10; ++w) {
                             if (mc::world::boatId(w) == heldId) wood = w;
                             if (mc::world::chestBoatId(w) == heldId) wood = w, chest = true;
                         }
-                        if (mc::Mobs::placeBoat(world, {at.x + 0.5, at.y + (water ? 0.8 : 0.0), at.z + 0.5}, player.yaw(),
-                                                wood, gameRng, chest) &&
+                        if (mc::Mobs::placeBoat(
+                                world, {at.x + 0.5, at.y + (water ? 0.8 : 0.0), at.z + 0.5},
+                                player.yaw(), wood, gameRng, chest) &&
                             survival)
                             inventory.consumeSelected(1);
                     }
@@ -2636,25 +2766,34 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // then 7 s before it can sound again.
                     if (hornCooldown == 0) {
                         const mc::world::ItemStack horn = inventory.selectedStack();
-                        world.playSound(static_cast<mc::world::Sound>(int(mc::world::Sound::GoatHorn0) + horn.damage % 8),
-                                        player.position().x, player.position().y + 1.5, player.position().z, 16.0f);
+                        world.playSound(static_cast<mc::world::Sound>(
+                                            int(mc::world::Sound::GoatHorn0) + horn.damage % 8),
+                                        player.position().x, player.position().y + 1.5,
+                                        player.position().z, 16.0f);
                         hornCooldown = 140;
                     }
                     clicks.useClick = false;
                 }
-                if (!dead && heldId == "minecraft:fishing_rod" && clicks.useClick) { // (M25.2: cast / reel in)
+                if (!dead && heldId == "minecraft:fishing_rod" &&
+                    clicks.useClick) { // (M25.2: cast / reel in)
                     const mc::world::ItemStack rod = inventory.selectedStack();
                     if (fishing.active()) {
                         if (fishing.biting()) {
                             stats.add(mc::world::Stat::FishCaught);
                             announce(adv.onEvent(mc::world::AdvEvent::Fished));
                         }
-                        const int wear = fishing.reel(world, player.position(), droppedItems, &orbs, gameRng);
-                        if (survival && wear > 0) inventory.setSlot(inventory.selected(), mc::wearItem(rod, wear, gameRng));
+                        const int wear =
+                            fishing.reel(world, player.position(), droppedItems, &orbs, gameRng);
+                        if (survival && wear > 0)
+                            inventory.setSlot(inventory.selected(),
+                                              mc::wearItem(rod, wear, gameRng));
                     } else {
-                        fishing.cast(eye, look, mc::world::enchantLevel(rod, mc::world::Enchantment::Lure),
-                                     mc::world::enchantLevel(rod, mc::world::Enchantment::LuckOfTheSea), gameRng);
-                        playSound(mc::world::Sound::BowShoot, eye, 0.5f, 0.4f, true); // (the cast's whoosh)
+                        fishing.cast(
+                            eye, look, mc::world::enchantLevel(rod, mc::world::Enchantment::Lure),
+                            mc::world::enchantLevel(rod, mc::world::Enchantment::LuckOfTheSea),
+                            gameRng);
+                        playSound(mc::world::Sound::BowShoot, eye, 0.5f, 0.4f,
+                                  true); // (the cast's whoosh)
                     }
                     clicks.useClick = false;
                 }
@@ -2733,59 +2872,79 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         blockUpdates.jukeboxChanged(at);
                         acted = true;
                     }
-                } else if ((hb == mc::world::blocks::BeeNest || hb == mc::world::blocks::Beehive) && !held.empty() &&
+                } else if ((hb == mc::world::blocks::BeeNest || hb == mc::world::blocks::Beehive) &&
+                           !held.empty() &&
                            reg.get(world.getBlock(at), mc::world::properties::honeyLevel) == 5 &&
                            (mc::world::itemRegistry().item(held.item).id == "minecraft:shears" ||
-                            mc::world::itemRegistry().item(held.item).id == "minecraft:glass_bottle")) {
+                            mc::world::itemRegistry().item(held.item).id ==
+                                "minecraft:glass_bottle")) {
                     // Harvesting a full hive (M26.3b; wiki: Beehive): shears cut 3 honeycombs,
                     // a bottle fills with honey. Without a campfire's smoke below, the
                     // bees inside come out angry.
-                    const bool shearing = mc::world::itemRegistry().item(held.item).id == "minecraft:shears";
+                    const bool shearing =
+                        mc::world::itemRegistry().item(held.item).id == "minecraft:shears";
                     if (shearing) {
                         droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5},
-                                           {*mc::world::itemRegistry().find("honeycomb"), 3}, gameRng);
-                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                                           {*mc::world::itemRegistry().find("honeycomb"), 3},
+                                           gameRng);
+                        if (survival)
+                            inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                     } else {
                         if (survival) inventory.consumeSelected(1);
-                        const mc::world::ItemStack honey{*mc::world::itemRegistry().find("honey_bottle"), 1};
-                        if (inventory.add(honey) > 0) droppedItems.spawn(player.position(), honey, gameRng);
+                        const mc::world::ItemStack honey{
+                            *mc::world::itemRegistry().find("honey_bottle"), 1};
+                        if (inventory.add(honey) > 0)
+                            droppedItems.spawn(player.position(), honey, gameRng);
                     }
-                    world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::honeyLevel, 0));
+                    world.updateBlock(
+                        at, reg.set(world.getBlock(at), mc::world::properties::honeyLevel, 0));
                     frameEdits.push_back(at);
                     if (!mc::world::hiveSmoked(world, at))
                         if (mc::world::Chunk* hc = world.chunk(at.chunk()))
                             if (mc::world::BeehiveData* hd =
-                                    hc->beehive(mc::world::blockToLocal(at.x), at.y, mc::world::blockToLocal(at.z))) {
+                                    hc->beehive(mc::world::blockToLocal(at.x), at.y,
+                                                mc::world::blockToLocal(at.z))) {
                                 mc::world::releaseBees(world, at, *hd, true);
                                 world.markTicking(at.chunk());
                             }
                     acted = true;
-                } else if (hb == mc::world::blocks::SweetBerryBush || hb == mc::world::blocks::CaveVines ||
-                           hb == mc::world::blocks::CaveVinesPlant) { // (M26.3, M27.2) picking berries
-                    if (const int n = mc::world::BlockUpdates::pickBerries(world, at, gameRng); n > 0) {
-                        droppedItems.spawn({at.x + 0.5, at.y + 0.5, at.z + 0.5},
-                                           {*mc::world::itemRegistry().find(hb == mc::world::blocks::SweetBerryBush
-                                                                                ? "sweet_berries"
-                                                                                : "glow_berries"),
-                                            uint8_t(n)},
-                                           gameRng);
+                } else if (hb == mc::world::blocks::SweetBerryBush ||
+                           hb == mc::world::blocks::CaveVines ||
+                           hb == mc::world::blocks::CaveVinesPlant) { // (M26.3, M27.2) picking
+                                                                      // berries
+                    if (const int n = mc::world::BlockUpdates::pickBerries(world, at, gameRng);
+                        n > 0) {
+                        droppedItems.spawn(
+                            {at.x + 0.5, at.y + 0.5, at.z + 0.5},
+                            {*mc::world::itemRegistry().find(hb == mc::world::blocks::SweetBerryBush
+                                                                 ? "sweet_berries"
+                                                                 : "glow_berries"),
+                             uint8_t(n)},
+                            gameRng);
                         frameEdits.push_back(at);
                         acted = true;
                     }
-                } else if (hb == mc::world::blocks::Vault) { // (M27.4d; wiki: Vault - a trial key opens it once)
+                } else if (hb == mc::world::blocks::Vault) { // (M27.4d; wiki: Vault - a trial key
+                                                             // opens it once)
                     const mc::world::BlockStateId vs = world.getBlock(at);
-                    const bool ominousVault = reg.get(vs, mc::world::properties::ominous) == 0; // (M28.4d)
+                    const bool ominousVault =
+                        reg.get(vs, mc::world::properties::ominous) == 0; // (M28.4d)
                     if (reg.get(vs, mc::world::properties::vaultState) == 1 &&
-                        held.item == *mc::world::itemRegistry().find(ominousVault ? "ominous_trial_key" : "trial_key")) {
+                        held.item == *mc::world::itemRegistry().find(
+                                         ominousVault ? "ominous_trial_key" : "trial_key")) {
                         if (survival) inventory.consumeSelected(1);
                         std::array<mc::world::ItemStack, 27> loot{};
                         mc::world::fillChest(ominousVault ? mc::world::LootTable::TrialVaultOminous
                                                           : mc::world::LootTable::TrialVault,
                                              gameRng, loot);
                         for (const auto& it : loot)
-                            if (!it.empty()) droppedItems.spawn({at.x + 0.5, at.y + 1.1, at.z + 0.5}, it, gameRng);
-                        world.updateBlock(at, reg.set(vs, mc::world::properties::vaultState, 0)); // (spent: ours for good)
-                        announce(adv.onEvent(ominousVault ? mc::world::AdvEvent::OpenedOminousVault : mc::world::AdvEvent::OpenedVault));
+                            if (!it.empty())
+                                droppedItems.spawn({at.x + 0.5, at.y + 1.1, at.z + 0.5}, it,
+                                                   gameRng);
+                        world.updateBlock(at, reg.set(vs, mc::world::properties::vaultState,
+                                                      0)); // (spent: ours for good)
+                        announce(adv.onEvent(ominousVault ? mc::world::AdvEvent::OpenedOminousVault
+                                                          : mc::world::AdvEvent::OpenedVault));
                         frameEdits.push_back(at);
                         acted = true;
                     }
@@ -2819,14 +2978,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             // Hoes and bone meal (M17.1; wiki: Hoe, Bone Meal) on the targeted block.
-            if (!dead && clicks.useClick && lastHit && mayBuild && !inventory.selectedStack().empty()) {
+            if (!dead && clicks.useClick && lastHit && mayBuild &&
+                !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const auto& def = mc::world::itemRegistry().item(held.item);
                 static const mc::world::ItemId boneMealItem =
                     *mc::world::itemRegistry().find("bone_meal");
                 static const mc::world::ItemId honeycombItem =
                     *mc::world::itemRegistry().find("honeycomb");
-                static const mc::world::ItemId shearsItem = *mc::world::itemRegistry().find("shears");
+                static const mc::world::ItemId shearsItem =
+                    *mc::world::itemRegistry().find("shears");
                 if (held.item == shearsItem && !player.sneaking() &&
                     reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Pumpkin) {
                     // Shears carve a pumpkin: the face toward the clicked side (or the
@@ -2837,16 +2998,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const char* facing = face == mc::world::Direction::North   ? "north"
                                          : face == mc::world::Direction::South ? "south"
                                          : face == mc::world::Direction::West  ? "west"
-                                         : face == mc::world::Direction::East  ? "east"
-                                                                               : kToward[int(std::floor((yaw + 45.0f) / 90.0f)) % 4];
-                    const auto carved = reg.with(reg.defaultState(mc::world::blocks::CarvedPumpkin), "facing", facing);
+                                         : face == mc::world::Direction::East
+                                             ? "east"
+                                             : kToward[int(std::floor((yaw + 45.0f) / 90.0f)) % 4];
+                    const auto carved = reg.with(reg.defaultState(mc::world::blocks::CarvedPumpkin),
+                                                 "facing", facing);
                     world.updateBlock(lastHit->block, *carved);
                     frameEdits.push_back(lastHit->block);
-                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    if (survival)
+                        inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (held.item == honeycombItem &&
-                    mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
+                           mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
                     frameEdits.push_back(lastHit->block);
                     announce(adv.onEvent(mc::world::AdvEvent::Waxed));
                     if (survival) inventory.consumeSelected(1);
@@ -2877,11 +3041,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick && !container.isOpen()) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if ((mob.type == mc::world::MobType::Villager || mob.type == mc::world::MobType::WanderingTrader) && !mob.isBaby() &&
-                        !mob.sleeping && mob.offerCount > 0) {
+                    if ((mob.type == mc::world::MobType::Villager ||
+                         mob.type == mc::world::MobType::WanderingTrader) &&
+                        !mob.isBaby() && !mob.sleeping && mob.offerCount > 0) {
                         traderUuid = mob.uuidHi;
                         mob.tradingTicks = 5;
                         container.openTrading(&mob);
@@ -2895,11 +3061,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick && player.sneaking()) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     const auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if ((mc::world::isMount(mob.type) && (mob.tamed || mob.type == mc::world::MobType::Camel) &&
-                         !mob.isBaby()) ||
+                    if ((mc::world::isMount(mob.type) &&
+                         (mob.tamed || mob.type == mc::world::MobType::Camel) && !mob.isBaby()) ||
                         (mob.type == mc::world::MobType::Boat && mob.hasChest)) {
                         openMountScreen(mob.uuidHi);
                         clicks.useClick = false;
@@ -2911,10 +3078,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick && !player.sneaking() && ridingCart == 0) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if ((mob.type == mc::world::MobType::Minecart || mob.type == mc::world::MobType::Boat) && !mob.ridden) {
+                    if ((mob.type == mc::world::MobType::Minecart ||
+                         mob.type == mc::world::MobType::Boat) &&
+                        !mob.ridden) {
                         mob.ridden = true;
                         ridingCart = mob.uuidHi;
                         clicks.useClick = false;
@@ -2922,20 +3092,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
+            if (decorClick) clicks.useClick = true; // (for the decorations and leads below)
             // Right-click on an item frame: put the held item in, or turn it (M28.3a).
             if (!dead && clicks.useClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
                     (mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
-                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand)) {
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                         mc::world::MobType::ArmorStand)) {
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) dressing it
                         mc::world::ItemStack held = inventory.selectedStack();
-                        if (gameMode != 2 && mc::Mobs::useArmorStand(world, m, held, eye.y + look.y * mh->distance) && survival)
+                        // (creative keeps what it puts on, but an empty hand takes the piece)
+                        const bool emptyHand = held.empty();
+                        if (gameMode != 2 &&
+                            mc::Mobs::useArmorStand(world, m, held,
+                                                    eye.y + look.y * mh->distance) &&
+                            (survival || emptyHand))
                             inventory.setSlot(inventory.selected(), held);
-                    } else if (mc::Mobs::useItemFrame(world, m, inventory.selectedStack()) && survival) {
+                    } else if (mc::Mobs::useItemFrame(world, m, inventory.selectedStack()) &&
+                               survival) {
                         inventory.consumeSelected(1);
                     }
                     clicks.useClick = false;
@@ -2949,26 +3128,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 static const mc::world::ItemId leadItem = *mc::world::itemRegistry().find("lead");
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                const auto mh =
+                    mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                 bool used = false;
                 if (mh && (!lastHit || mh->distance < lastHit->distance)) {
                     mc::world::Chunk* lc = world.chunk(mh->chunk);
                     auto& m = lc->mobs()[size_t(mh->index)];
                     if (m.type == mc::world::MobType::LeashKnot) {
-                        if (mc::Mobs::tieToFence(world, {m.home.x, m.home.y, m.home.z}, player.position(), gameRng) == 0)
+                        if (mc::Mobs::tieToFence(world, {m.home.x, m.home.y, m.home.z},
+                                                 player.position(), gameRng) == 0)
                             mc::Mobs::takeFromKnot(world, m);
                         used = true;
                     } else if (m.leash == 1) {
                         m.leash = 0;
-                        droppedItems.spawn(m.pos + glm::dvec3(0.0, 0.5, 0.0), {leadItem, 1}, gameRng);
+                        droppedItems.spawn(m.pos + glm::dvec3(0.0, 0.5, 0.0), {leadItem, 1},
+                                           gameRng);
                         used = true;
-                    } else if (inventory.selectedStack().item == leadItem && mc::Mobs::leashToPlayer(m)) {
+                    } else if (inventory.selectedStack().item == leadItem &&
+                               mc::Mobs::leashToPlayer(m)) {
                         if (survival) inventory.consumeSelected(1);
                         used = true;
                     }
                     if (used) lc->markDirty();
                 } else if (lastHit && !player.sneaking() &&
-                           mc::Mobs::tieToFence(world, lastHit->block, player.position(), gameRng) > 0) {
+                           mc::Mobs::tieToFence(world, lastHit->block, player.position(), gameRng) >
+                               0) {
                     used = true;
                 }
                 if (used) {
@@ -2981,19 +3165,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
                     (!inventory.selectedStack().empty() ||
                      (mc::world::isPet(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) &&
                       world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed) ||
-                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Allay ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                         mc::world::MobType::Allay ||
                      mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const mc::world::ItemStack held = inventory.selectedStack();
                     const bool wasTamed = mob.tamed;
                     auto use = mc::Mobs::interact(mob, held.item, gameRng, droppedItems);
                     if (!wasTamed && mob.tamed) announce(adv.onEvent(mc::world::AdvEvent::Tamed));
-                    if (use == mc::Mobs::Use::Ride && (ridingCart != 0 || player.sneaking())) { // (one ride at a time)
+                    if (use == mc::Mobs::Use::Ride &&
+                        (ridingCart != 0 || player.sneaking())) { // (one ride at a time)
                         mob.ridden = false;
                         use = mc::Mobs::Use::None;
                     }
@@ -3002,7 +3189,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         world.chunk(mh->chunk)->markDirty();
                         if (survival && use == mc::Mobs::Use::Fed) {
                             inventory.consumeSelected(1);
-                            if (mc::world::itemRegistry().item(held.item).id == "minecraft:tropical_fish_bucket") // (M26.3c: axolotls)
+                            if (mc::world::itemRegistry().item(held.item).id ==
+                                "minecraft:tropical_fish_bucket") // (M26.3c: axolotls)
                                 inventory.add({*mc::world::itemRegistry().find("water_bucket"), 1});
                         }
                         if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
@@ -3020,16 +3208,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const bool blockUse =
                     lastHit && !player.sneaking() &&
                     mc::world::BlockUpdates::usable(world.getBlock(lastHit->block));
-                // A glass bottle in a cloud of dragon's breath bottles it (M28.4b; wiki: Dragon's Breath).
+                // A glass bottle in a cloud of dragon's breath bottles it (M28.4b; wiki: Dragon's
+                // Breath).
                 if (heldId == "minecraft:glass_bottle" && clicks.useClick && !blockUse)
                     for (const auto& c : projectiles.clouds()) {
                         const glm::dvec3 f = player.position();
-                        if (c.potion != 0 || glm::length(glm::dvec2(f.x - c.pos.x, f.z - c.pos.z)) > c.radius + 1.0 ||
+                        if (c.potion != 0 ||
+                            glm::length(glm::dvec2(f.x - c.pos.x, f.z - c.pos.z)) >
+                                c.radius + 1.0 ||
                             std::abs(f.y - c.pos.y) > 2.0)
                             continue;
-                        static const mc::world::ItemId breathItem = *mc::world::itemRegistry().find("dragon_breath");
+                        static const mc::world::ItemId breathItem =
+                            *mc::world::itemRegistry().find("dragon_breath");
                         if (survival) inventory.consumeSelected(1);
-                        if (inventory.add({breathItem, 1}) > 0) droppedItems.spawn(player.position(), {breathItem, 1}, gameRng);
+                        if (inventory.add({breathItem, 1}) > 0)
+                            droppedItems.spawn(player.position(), {breathItem, 1}, gameRng);
                         clicks.useClick = false;
                         break;
                     }
@@ -3069,24 +3262,32 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const mc::world::BlockStateId bs = world.getBlock(bp);
                         const int d = reg.get(bs, mc::world::properties::dusted);
                         if (d < 3) { // (a state change only: the renderer re-meshes it, no relight)
-                            world.updateBlock(bp, reg.set(bs, mc::world::properties::dusted, d + 1));
+                            world.updateBlock(bp,
+                                              reg.set(bs, mc::world::properties::dusted, d + 1));
                         } else {
                             mc::world::ItemStack found;
                             if (mc::world::Chunk* bc = world.chunk(bp.chunk()))
-                                if (const mc::world::BrushableData* bd = bc->brushable(mc::world::blockToLocal(bp.x), bp.y,
-                                                                                      mc::world::blockToLocal(bp.z))) {
+                                if (const mc::world::BrushableData* bd =
+                                        bc->brushable(mc::world::blockToLocal(bp.x), bp.y,
+                                                      mc::world::blockToLocal(bp.z))) {
                                     found = bd->item;
                                     if (found.empty() && bd->table != 255)
-                                        found = mc::world::rollOne(mc::world::LootTable(bd->table), gameRng);
+                                        found = mc::world::rollOne(mc::world::LootTable(bd->table),
+                                                                   gameRng);
                                 }
                             const glm::ivec3 n = mc::world::normal(lastHit->face);
                             if (!found.empty())
-                                droppedItems.spawn({bp.x + 0.5 + n.x * 0.7, bp.y + 0.5 + n.y * 0.7, bp.z + 0.5 + n.z * 0.7},
+                                droppedItems.spawn({bp.x + 0.5 + n.x * 0.7, bp.y + 0.5 + n.y * 0.7,
+                                                    bp.z + 0.5 + n.z * 0.7},
                                                    found, gameRng);
-                            world.updateBlock(bp, reg.defaultState(reg.blockOf(bs) == mc::world::blocks::SuspiciousSand
-                                                                       ? mc::world::blocks::Sand
-                                                                       : mc::world::blocks::Gravel));
-                            if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                            world.updateBlock(
+                                bp, reg.defaultState(reg.blockOf(bs) ==
+                                                             mc::world::blocks::SuspiciousSand
+                                                         ? mc::world::blocks::Sand
+                                                         : mc::world::blocks::Gravel));
+                            if (survival)
+                                inventory.setSlot(inventory.selected(),
+                                                  mc::wearItem(held, 1, gameRng));
                             brushTicks = 0;
                             frameEdits.push_back(bp);
                         }
@@ -3095,14 +3296,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     brushTicks = 0;
                 }
                 // A water bottle poured on dirt makes mud (M27.1; wiki: Mud).
-                if (heldId == "minecraft:potion" && held.potion == static_cast<uint8_t>(mc::world::Potion::Water) &&
+                if (heldId == "minecraft:potion" &&
+                    held.potion == static_cast<uint8_t>(mc::world::Potion::Water) &&
                     clicks.useClick && lastHit && !blockUse) {
-                    const mc::world::BlockId hb = mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block));
+                    const mc::world::BlockId hb =
+                        mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block));
                     if (hb == mc::world::blocks::Dirt || hb == mc::world::blocks::CoarseDirt) {
-                        world.updateBlock(lastHit->block, mc::world::blockRegistry().defaultState(mc::world::blocks::Mud));
+                        world.updateBlock(lastHit->block, mc::world::blockRegistry().defaultState(
+                                                              mc::world::blocks::Mud));
                         frameEdits.push_back(lastHit->block);
                         if (survival) {
-                            static const mc::world::ItemId bottle = *mc::world::itemRegistry().find("glass_bottle");
+                            static const mc::world::ItemId bottle =
+                                *mc::world::itemRegistry().find("glass_bottle");
                             inventory.setSlot(inventory.selected(), {bottle, 1});
                         }
                         clicks.useClick = false;
@@ -3116,11 +3321,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
                     std::optional<mc::BucketResult> result;
                     if (heldId == "minecraft:bucket")
-                        if (const auto mh =
-                                mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                        if (const auto mh = mc::Mobs::raycast(world, eye, look,
+                                                              survival ? 3.0 : 5.0, ridingCart);
                             mh &&
                             (!lastHit || mh->distance < lastHit->distance) && // not through walls
-                            (world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Cow ||
+                            (world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                                 mc::world::MobType::Cow ||
                              world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
                                  mc::world::MobType::Goat)) // (M26.3: goats give milk too)
                             result =
@@ -3128,7 +3334,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A water bucket scoops up a fish in front (M25.2): a bucket of that fish.
                     bool scooped = false;
                     if (heldId == "minecraft:water_bucket")
-                        if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                        if (const auto mh = mc::Mobs::raycast(world, eye, look,
+                                                              survival ? 3.0 : 5.0, ridingCart);
                             mh && (!lastHit || mh->distance < lastHit->distance)) {
                             auto& fish = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                             if (const mc::world::ItemId bucketItem = mc::fishBucketFor(fish.type)) {
@@ -3144,7 +3351,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
                     if (result && result->fish != mc::world::MobType::Count) { // its fish swims off
                         mc::world::MobData fish = mc::Mobs::make(
-                            result->fish, {result->at.x + 0.5, double(result->at.y) + 0.1, result->at.z + 0.5}, gameRng);
+                            result->fish,
+                            {result->at.x + 0.5, double(result->at.y) + 0.1, result->at.z + 0.5},
+                            gameRng);
                         fish.fromBucket = true;
                         mc::Mobs::add(world, fish);
                     }
@@ -3193,25 +3402,33 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.attackClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                if (const auto mh =
+                        mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
                     (mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
-                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand ||
-                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::LeashKnot)) {
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                         mc::world::MobType::ArmorStand ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                         mc::world::MobType::LeashKnot)) {
                     mc::world::Chunk* hc = world.chunk(mh->chunk);
                     auto& m = hc->mobs()[size_t(mh->index)];
-                    if (m.type == mc::world::MobType::LeashKnot) { // (M28.3c) the knot breaks, its leads drop
-                        if (gameMode != 2 && m.health > 0.0f) mc::Mobs::breakKnot(world, m, droppedItems, gameRng);
-                    } else if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) two quick hits
-                        if (gameMode != 2 && m.health > 0.0f) mc::Mobs::hitArmorStand(world, m, !survival);
+                    if (m.type ==
+                        mc::world::MobType::LeashKnot) { // (M28.3c) the knot breaks, its leads drop
+                        if (gameMode != 2 && m.health > 0.0f)
+                            mc::Mobs::breakKnot(world, m, droppedItems, gameRng);
+                    } else if (m.type ==
+                               mc::world::MobType::ArmorStand) { // (M28.3b) two quick hits
+                        if (gameMode != 2 && m.health > 0.0f)
+                            mc::Mobs::hitArmorStand(world, m, !survival);
                     } else if (gameMode != 2 && m.health > 0.0f &&
                                !mc::Mobs::popFrameItem(world, m, droppedItems, gameRng)) {
                         m.health = 0.0f;
                         m.lastHurtByPlayer = true;
                         if (!survival) { // (gone without its item)
                             m.deathTime = 19;
-                            if (mc::world::Chunk* sc = world.chunk({mc::world::blockToChunk(int(std::floor(m.pos.x))),
-                                                                    mc::world::blockToChunk(int(std::floor(m.pos.z)))}))
+                            if (mc::world::Chunk* sc = world.chunk(
+                                    {mc::world::blockToChunk(int(std::floor(m.pos.x))),
+                                     mc::world::blockToChunk(int(std::floor(m.pos.z)))}))
                                 sc->removeMobStore(m.uuidHi);
                         }
                     }
@@ -3225,18 +3442,32 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.attackClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                const bool spearHeld = mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
-                                       mc::world::ToolType::Spear; // (M28.4e: a jab reaches farther)
-                const double reach = spearHeld ? (survival ? mc::kSpearReach : 5.0)
-                                               : survival ? 3.0 : 5.0; // wiki: entity interaction range
-                if (spearHeld && survival)
-                    if (const int lunge = mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::Lunge); lunge > 0) {
-                        const glm::dvec3 f(std::cos(glm::radians(player.yaw() + 90.0)), 0.0, std::sin(glm::radians(player.yaw() + 90.0)));
-                        player.setVelocity(player.velocity() + f * mc::lungeImpulse(lunge)); // (Lunge: forward with the jab)
-                        vitals.exhaust(1.0f * float(lunge));
+                const bool spearHeld =
+                    mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
+                    mc::world::ToolType::Spear; // (M28.4e: a jab reaches farther)
+                const double reach = spearHeld  ? (survival ? mc::kSpearReach : 5.0)
+                                     : survival ? 3.0
+                                                : 5.0; // wiki: entity interaction range
+                // Lunge (wiki): not while riding, gliding, in water or below 7 hunger; 4
+                // exhaustion a level and 1 durability a use.
+                if (spearHeld && survival && ridingCart == 0 && !player.gliding() &&
+                    !player.inWater() && vitals.food() >= 7)
+                    if (const int lunge = mc::world::enchantLevel(inventory.selectedStack(),
+                                                                  mc::world::Enchantment::Lunge);
+                        lunge > 0) {
+                        const glm::dvec3 f(std::cos(glm::radians(player.yaw() + 90.0)), 0.0,
+                                           std::sin(glm::radians(player.yaw() + 90.0)));
+                        player.setVelocity(
+                            player.velocity() +
+                            f * mc::lungeImpulse(lunge)); // (Lunge: forward with the jab)
+                        vitals.exhaust(4.0f * float(lunge));
+                        inventory.setSlot(inventory.selected(),
+                                          mc::wearItem(inventory.selectedStack(), 1, gameRng));
                     }
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
-                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    mh && (!lastHit || mh->distance < lastHit->distance) &&
+                    !(spearHeld && survival &&
+                      mh->distance < mc::kSpearMinReach)) { // (a spear can't jab that close)
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const auto& stack = inventory.selectedStack();
                     const auto& held = mc::world::itemRegistry().item(stack.item);
@@ -3260,24 +3491,32 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.smite = mc::world::enchantLevel(stack, E::Smite);
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
                     mhit.undead = mc::world::isUndead(m.type);
-                    mhit.arthropod = m.type == mc::world::MobType::Spider || m.type == mc::world::MobType::CaveSpider ||
-                                     m.type == mc::world::MobType::Silverfish || m.type == mc::world::MobType::Bee;
+                    mhit.arthropod = m.type == mc::world::MobType::Spider ||
+                                     m.type == mc::world::MobType::CaveSpider ||
+                                     m.type == mc::world::MobType::Silverfish ||
+                                     m.type == mc::world::MobType::Bee;
                     mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
-                    mhit.aquatic = mc::world::mobInfo(m.type).swims || m.type == mc::world::MobType::Turtle;
+                    mhit.aquatic =
+                        mc::world::mobInfo(m.type).swims || m.type == mc::world::MobType::Turtle;
                     float dmg = mc::meleeDamage(mhit);
                     // The mace's smash (M28.4d): a falling hit adds by the height fallen, ends the
                     // fall, knocks back what stands around, and Wind Burst throws the player up.
-                    static const mc::world::ItemId maceItem = *mc::world::itemRegistry().find("mace");
-                    if (stack.item == maceItem && hit && !player.onGround() && airPeakY - player.position().y > 1.5) {
+                    static const mc::world::ItemId maceItem =
+                        *mc::world::itemRegistry().find("mace");
+                    if (stack.item == maceItem && hit && !player.onGround() &&
+                        airPeakY - player.position().y > 1.5) {
                         const double fallen = airPeakY - player.position().y;
-                        dmg += mc::maceSmashBonus(fallen, mc::world::enchantLevel(stack, E::Density));
+                        dmg +=
+                            mc::maceSmashBonus(fallen, mc::world::enchantLevel(stack, E::Density));
                         vitals.resetFall();
                         airPeakY = player.position().y;
                         const glm::dvec3 at = m.pos;
-                        world.levelEvent(mc::world::LevelEvent::Type::Explosion, at.x, at.y, at.z, 5); // (a small dust ring)
+                        world.levelEvent(mc::world::LevelEvent::Type::Explosion, at.x, at.y, at.z,
+                                         5); // (a small dust ring)
                         playSound(mc::world::Sound::Explode, at, 0.5f, 1.4f, true);
-                        const mc::world::ChunkPos sc{mc::world::blockToChunk(int(std::floor(at.x))),
-                                                     mc::world::blockToChunk(int(std::floor(at.z)))};
+                        const mc::world::ChunkPos sc{
+                            mc::world::blockToChunk(int(std::floor(at.x))),
+                            mc::world::blockToChunk(int(std::floor(at.z)))};
                         for (int dz = -1; dz <= 1; ++dz)
                             for (int dx = -1; dx <= 1; ++dx)
                                 if (mc::world::Chunk* kc = world.chunk({sc.x + dx, sc.z + dz}))
@@ -3287,10 +3526,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                         if (&o == &m || d > 3.5 || d < 1e-3 || o.health <= 0.0f ||
                                             mc::world::isHanging(o.type) || o.tamed)
                                             continue;
-                                        o.vel += glm::dvec3(away.x / d, 0.0, away.z / d) * ((3.5 - d) * 0.7) +
+                                        o.vel += glm::dvec3(away.x / d, 0.0, away.z / d) *
+                                                     ((3.5 - d) * 0.7) +
                                                  glm::dvec3(0.0, 0.3, 0.0);
                                     }
-                        if (const int wind = mc::world::enchantLevel(stack, E::WindBurst); wind > 0) {
+                        if (const int wind = mc::world::enchantLevel(stack, E::WindBurst);
+                            wind > 0) {
                             const glm::dvec3 v = player.velocity();
                             player.setVelocity({v.x, mc::windBurstLift(wind), v.z});
                         }
@@ -3307,19 +3548,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
                     stats.add(mc::world::Stat::DamageDealt, std::lround(dmg * 10.0f));
-                    if (dmg >= 100.0f && stack.item == *mc::world::itemRegistry().find("mace")) // (Over-Overkill: 50 hearts)
+                    if (dmg >= 100.0f && stack.item == *mc::world::itemRegistry().find(
+                                                           "mace")) // (Over-Overkill: 50 hearts)
                         announce(adv.onEvent(mc::world::AdvEvent::MaceSmash50));
                     playerTargetUuid = m.uuidHi; // (tamed wolves join in - M26.1)
                     playerTargetTicks = 0;
                     if (m.type == mc::world::MobType::Villager) { // golems defend villagers (wiki)
-                        const mc::world::ChunkPos vc{mc::world::blockToChunk(int(std::floor(m.pos.x))),
-                                                     mc::world::blockToChunk(int(std::floor(m.pos.z)))};
+                        const mc::world::ChunkPos vc{
+                            mc::world::blockToChunk(int(std::floor(m.pos.x))),
+                            mc::world::blockToChunk(int(std::floor(m.pos.z)))};
                         for (int dz = -1; dz <= 1; ++dz)
                             for (int dx = -1; dx <= 1; ++dx)
                                 if (mc::world::Chunk* gc = world.chunk({vc.x + dx, vc.z + dz}))
                                     for (auto& g : gc->mobs())
-                                        if (g.type == mc::world::MobType::IronGolem && !g.playerCreated &&
-                                            glm::length(g.pos - m.pos) < 16.0) {
+                                        if (g.type == mc::world::MobType::IronGolem &&
+                                            !g.playerCreated && glm::length(g.pos - m.pos) < 16.0) {
                                             g.angry = true;
                                             g.angerTicks = 600;
                                         }
@@ -3335,11 +3578,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (const int fa = mc::world::enchantLevel(stack, E::FireAspect))
                             m.fireTicks = std::max<int16_t>(m.fireTicks, int16_t(80 * fa));
                         if (survival &&
-                            (held.tool != mc::world::ToolType::None || stack.item == maceItem)) // swords wear 1 per hit, tools 2 (wiki)
+                            (held.tool != mc::world::ToolType::None ||
+                             stack.item == maceItem)) // swords wear 1 per hit, tools 2 (wiki)
                             inventory.setSlot(
                                 inventory.selected(),
                                 mc::wearItem(stack,
-                                             held.tool == mc::world::ToolType::Sword || held.tool == mc::world::ToolType::Spear ||
+                                             held.tool == mc::world::ToolType::Sword ||
+                                                     held.tool == mc::world::ToolType::Spear ||
                                                      stack.item == maceItem
                                                  ? 1
                                                  : 2,
@@ -3357,13 +3602,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)),
                                                    int(std::floor(feet.y + player.eyeHeight())),
                                                    int(std::floor(feet.z))};
-                const bool eyesInWater = mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
+                const bool eyesInWater =
+                    mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
                 // Aqua Affinity: no slower mining under water (wiki).
                 interaction.setPlaceContents(
                     inventory.selectedStack().contents); // (shulker boxes, M23.6)
-                interaction.setPlaceExtra(inventory.selectedStack().extra); // (banner layers, M28.3d)
+                interaction.setPlaceExtra(
+                    inventory.selectedStack().extra); // (banner layers, M28.3d)
                 const size_t silverfishBefore = blockUpdates.silverfishOut().size();
-                const bool silk = mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::SilkTouch) > 0;
+                const bool silk = mc::world::enchantLevel(inventory.selectedStack(),
+                                                          mc::world::Enchantment::SilkTouch) > 0;
                 interaction.tickSurvival(
                     world, player, lastHit, inventory, vitals, clicks,
                     eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
@@ -3387,7 +3635,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
                     mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
                         mc::world::ToolType::Sword);
-                blockUpdates.silverfishOut().resize(silverfishBefore); // (creative breaks release none - wiki)
+                blockUpdates.silverfishOut().resize(
+                    silverfishBefore); // (creative breaks release none - wiki)
                 for (const auto& d : drops)
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             }
@@ -3423,7 +3672,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
-            mobCtx.raidCentre = overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
+            mobCtx.raidCentre =
+                overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
             mobCtx.raidId = raid.id();
             if (playerTargetUuid != 0 && ++playerTargetTicks > 100) playerTargetUuid = 0;
             mobCtx.playerTargetUuid = playerTargetUuid;
@@ -3467,7 +3717,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     pressAt(player.position(), 0.3, false);
                     // (M27.3) stepping on a shrieker sets it off, unless sneaking
                     const glm::dvec3 f = player.position();
-                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y - 0.01)), int(std::floor(f.z))};
+                    const mc::world::BlockPos c{int(std::floor(f.x)), int(std::floor(f.y - 0.01)),
+                                                int(std::floor(f.z))};
                     if (player.onGround() && !player.sneaking() &&
                         reg.blockOf(world.getBlock(c)) == mc::world::blocks::SculkShrieker)
                         blockUpdates.shriek(c);
@@ -3480,9 +3731,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         // (only when it stands on a plate: read from its own chunk, no lookup)
                         const int fy = int(std::floor(m.pos.y + 0.01));
                         if (!c.height().contains(fy)) continue;
-                        const mc::world::BlockId under = reg.blockOf(c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
-                                                                           mc::world::blockToLocal(int(std::floor(m.pos.z)))));
-                        if (!mc::world::BlockUpdates::isPressurePlate(under) && under != mc::world::blocks::BigDripleaf)
+                        const mc::world::BlockId under =
+                            reg.blockOf(c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
+                                              mc::world::blockToLocal(int(std::floor(m.pos.z)))));
+                        if (!mc::world::BlockUpdates::isPressurePlate(under) &&
+                            under != mc::world::blocks::BigDripleaf)
                             continue;
                         pressAt(m.pos, info.width * 0.5, false, cart);
                     }
@@ -3582,34 +3835,45 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             blockUpdates.drops().clear();
-            for (const auto& h : blockUpdates.hatched()) // (M25.3b: baby turtles from eggs, at home there)
+            for (const auto& h :
+                 blockUpdates.hatched()) // (M25.3b: baby turtles from eggs, at home there)
                 for (int k = 0; k < h.count; ++k) {
-                    if (h.type == mc::world::MobType::HappyGhast) { // (M26.5b: a soaked dried ghast's ghastling)
-                        mc::world::MobData g = mc::Mobs::make(mc::world::MobType::HappyGhast,
-                                                              {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                    if (h.type == mc::world::MobType::HappyGhast) { // (M26.5b: a soaked dried
+                                                                    // ghast's ghastling)
+                        mc::world::MobData g = mc::Mobs::make(
+                            mc::world::MobType::HappyGhast,
+                            {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
                         g.age = -24000;
                         g.persistent = true;
                         mc::Mobs::add(world, g);
                         continue;
                     }
-                    if (h.type == mc::world::MobType::Sniffer) { // (M27.5c: a snifflet out of its egg)
-                        mc::world::MobData s = mc::Mobs::make(mc::world::MobType::Sniffer,
-                                                              {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                    if (h.type ==
+                        mc::world::MobType::Sniffer) { // (M27.5c: a snifflet out of its egg)
+                        mc::world::MobData s = mc::Mobs::make(
+                            mc::world::MobType::Sniffer,
+                            {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
                         s.age = -48000; // (wiki: grows up in 40 minutes)
                         s.persistent = true;
                         mc::Mobs::add(world, s);
                         continue;
                     }
-                    if (h.type == mc::world::MobType::Creaking) { // (M27.1c: an awake heart's creaking)
+                    if (h.type ==
+                        mc::world::MobType::Creaking) { // (M27.1c: an awake heart's creaking)
                         mc::Mobs::spawnCreaking(world, h.pos, player.position(), gameRng);
                         continue;
                     }
-                    if (h.type == mc::world::MobType::Tadpole) { // (M26.3c: frogspawn, into its water)
+                    if (h.type ==
+                        mc::world::MobType::Tadpole) { // (M26.3c: frogspawn, into its water)
                         mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Tadpole,
-                                                            {h.pos.x + 0.3 + 0.1 * k, h.pos.y - 0.6, h.pos.z + 0.5}, gameRng));
+                                                            {h.pos.x + 0.3 + 0.1 * k, h.pos.y - 0.6,
+                                                             h.pos.z + 0.5},
+                                                            gameRng));
                         continue;
                     }
-                    mc::world::MobData baby = mc::Mobs::make(mc::world::MobType::Turtle, {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                    mc::world::MobData baby =
+                        mc::Mobs::make(mc::world::MobType::Turtle,
+                                       {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
                     baby.age = -24000;
                     baby.home = {h.pos.x, h.pos.y, h.pos.z};
                     baby.persistent = true;
@@ -3620,16 +3884,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // (Darkness for 12 s) and the 4th warning calls a warden.
             for (const auto& sh : blockUpdates.shrieks()) {
                 const glm::dvec3 c(sh.pos.x + 0.5, sh.pos.y + 0.5, sh.pos.z + 0.5);
-                world.levelEvent(mc::world::LevelEvent::Type::Note, c.x, c.y + 0.6, c.z, 0); // (a visible cue)
-                if (!sh.canSummon || !survival || dead || glm::length(player.position() - c) > 40.0) continue;
+                world.levelEvent(mc::world::LevelEvent::Type::Note, c.x, c.y + 0.6, c.z,
+                                 0); // (a visible cue)
+                if (!sh.canSummon || !survival || dead || glm::length(player.position() - c) > 40.0)
+                    continue;
                 const int warned = vitals.wardenWarn();
                 if (warned < 0) continue; // (within its 10 s: nothing)
                 vitals.addEffect(mc::world::Effect::Darkness, 0, 240);
-                if (warned > 0 && rules.spawnWardens) mc::Mobs::summonWarden(world, sh.pos, gameRng);
+                if (warned > 0 && rules.spawnWardens)
+                    mc::Mobs::summonWarden(world, sh.pos, gameRng);
             }
             blockUpdates.shrieks().clear();
-            for (const auto& sp : blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)
-                mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Silverfish, {sp.x + 0.5, double(sp.y), sp.z + 0.5}, gameRng));
+            for (const auto& sp :
+                 blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)
+                mc::Mobs::add(world,
+                              mc::Mobs::make(mc::world::MobType::Silverfish,
+                                             {sp.x + 0.5, double(sp.y), sp.z + 0.5}, gameRng));
             blockUpdates.silverfishOut().clear();
             // Sand/gravel that lost its support falls as an entity (M16).
             for (const auto& f : blockUpdates.fallingStarts())
@@ -3638,10 +3908,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
             // Falling stalactites (M27.2b) skewer whoever stands where they land.
             for (const auto& hit : fallingBlocks.impacts()) {
-                const mc::Aabb spot{hit.pos - glm::dvec3(0.5, 0.0, 0.5), hit.pos + glm::dvec3(0.5, 2.0, 0.5)};
-                if (survival && !dead && player.box().intersects(spot)) vitals.attacked(hit.damage, nullptr);
-                if (mc::world::Chunk* hc = world.chunk({mc::world::blockToChunk(int(std::floor(hit.pos.x))),
-                                                         mc::world::blockToChunk(int(std::floor(hit.pos.z)))}))
+                const mc::Aabb spot{hit.pos - glm::dvec3(0.5, 0.0, 0.5),
+                                    hit.pos + glm::dvec3(0.5, 2.0, 0.5)};
+                if (survival && !dead && player.box().intersects(spot))
+                    vitals.attacked(hit.damage, nullptr);
+                if (mc::world::Chunk* hc =
+                        world.chunk({mc::world::blockToChunk(int(std::floor(hit.pos.x))),
+                                     mc::world::blockToChunk(int(std::floor(hit.pos.z)))}))
                     for (auto& m : hc->mobs())
                         if (m.health > 0.0f && mc::Mobs::box(m).intersects(spot)) {
                             mc::Mobs::attack(m, hit.damage, hit.pos);
@@ -3664,22 +3937,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
             // The line breaks when the rod leaves the hand (vanilla) or the player dies.
-            if (dead || mc::world::itemRegistry().item(inventory.selectedStack().item).id != "minecraft:fishing_rod")
+            if (dead || mc::world::itemRegistry().item(inventory.selectedStack().item).id !=
+                            "minecraft:fishing_rod")
                 fishing.cancel();
             fishing.tick(world, player.position(), gameRng);
-            projectiles.setThundering(dimension == Dimension::Overworld && weather.raining && weather.thunder > 0.9f);
+            projectiles.setThundering(dimension == Dimension::Overworld && weather.raining &&
+                                      weather.thunder > 0.9f);
             projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival,
                              gameRng);
             // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
             // third of the open spots around it); blaze fireballs lit blocks.
-            for (const mc::world::BlockPos& b : projectiles.channeled()) // (Channeling: next tick's bolts)
+            for (const mc::world::BlockPos& b :
+                 projectiles.channeled()) // (Channeling: next tick's bolts)
                 commandBolts.push_back(b);
             // Wind bursts (M26.4c; wiki: Wind Charge): what is within 2.5 blocks is thrown away
             // from the burst - a player's own charge under their feet sends them high (and
             // spares their fall) - and doors, trapdoors, gates, buttons and levers within
             // a block are worked.
             for (const auto& fb : projectiles.fireworkBursts()) { // (M28.4c) sparks and a bang
-                world.levelEvent(mc::world::LevelEvent::Type::Firework, fb.pos.x, fb.pos.y, fb.pos.z, fb.fireworks);
+                world.levelEvent(mc::world::LevelEvent::Type::Firework, fb.pos.x, fb.pos.y,
+                                 fb.pos.z, fb.fireworks);
                 playSound(mc::world::Sound::Explode, fb.pos, 0.4f, 1.6f, false);
             }
             for (const auto& wb : projectiles.windBursts()) {
@@ -3690,7 +3967,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!dead && l < radius) {
                     const double f = 1.0 - l / radius;
                     const glm::dvec3 away = l > 1e-6 ? d / l : glm::dvec3(0, 1, 0);
-                    player.setVelocity(player.velocity() + away * (1.4 * f) + glm::dvec3(0.0, 0.5 * f, 0.0));
+                    player.setVelocity(player.velocity() + away * (1.4 * f) +
+                                       glm::dvec3(0.0, 0.5 * f, 0.0));
                     vitals.resetFall();
                 }
                 const mc::world::ChunkPos wc{mc::world::blockToChunk(int(std::floor(wb.pos.x))),
@@ -3701,35 +3979,42 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             for (auto& mob : ch->mobs()) {
                                 const glm::dvec3 md = mob.pos + glm::dvec3(0.0, 0.5, 0.0) - wb.pos;
                                 const double ml = glm::length(md);
-                                if (ml >= radius || mob.type == mc::world::MobType::Breeze) continue;
+                                if (ml >= radius || mob.type == mc::world::MobType::Breeze)
+                                    continue;
                                 const double f = 1.0 - ml / radius;
-                                mob.vel += (ml > 1e-6 ? md / ml : glm::dvec3(0, 1, 0)) * (1.2 * f) + glm::dvec3(0.0, 0.4 * f, 0.0);
+                                mob.vel += (ml > 1e-6 ? md / ml : glm::dvec3(0, 1, 0)) * (1.2 * f) +
+                                           glm::dvec3(0.0, 0.4 * f, 0.0);
                             }
-                const mc::world::BlockPos bc{int(std::floor(wb.pos.x)), int(std::floor(wb.pos.y)), int(std::floor(wb.pos.z))};
+                const mc::world::BlockPos bc{int(std::floor(wb.pos.x)), int(std::floor(wb.pos.y)),
+                                             int(std::floor(wb.pos.z))};
                 for (int dy = -1; dy <= 1; ++dy)
                     for (int dz = -1; dz <= 1; ++dz)
                         for (int dx = -1; dx <= 1; ++dx) {
                             const mc::world::BlockPos q{bc.x + dx, bc.y + dy, bc.z + dz};
                             const auto qs = world.getBlock(q);
                             const auto qb = reg.likeOf(reg.blockOf(qs));
-                            if ((qb == mc::world::blocks::OakDoor || qb == mc::world::blocks::OakTrapdoor ||
-                                 qb == mc::world::blocks::OakFenceGate || qb == mc::world::blocks::Lever ||
-                                 qb == mc::world::blocks::OakButton || qb == mc::world::blocks::StoneButton) &&
-                                (qb != mc::world::blocks::OakDoor || reg.get(qs, mc::world::properties::doorHalf) == 1) &&
+                            if ((qb == mc::world::blocks::OakDoor ||
+                                 qb == mc::world::blocks::OakTrapdoor ||
+                                 qb == mc::world::blocks::OakFenceGate ||
+                                 qb == mc::world::blocks::Lever ||
+                                 qb == mc::world::blocks::OakButton ||
+                                 qb == mc::world::blocks::StoneButton) &&
+                                (qb != mc::world::blocks::OakDoor ||
+                                 reg.get(qs, mc::world::properties::doorHalf) == 1) &&
                                 blockUpdates.use(q))
                                 frameEdits.push_back(q);
                         }
                 playSound(mc::world::Sound::Explode, wb.pos, 0.3f, 1.6f, false);
             }
-            for (const glm::dvec3& at : projectiles.witherBlasts()) // (M26.4b: wither skulls, power 1, no fire)
+            for (const glm::dvec3& at :
+                 projectiles.witherBlasts()) // (M26.4b: wither skulls, power 1, no fire)
                 fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt, false,
-                                       rules.mobGriefing, rules.blockDrops});
+                                      {survival && !dead ? &player : nullptr, &vitals, true,
+                                       &primedTnt, false, rules.mobGriefing, rules.blockDrops});
             for (const glm::dvec3& at : projectiles.explosions()) {
-                fireballBlast.explode(
-                    world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                    {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt, false,
-                     rules.mobGriefing, rules.blockDrops});
+                fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
+                                      {survival && !dead ? &player : nullptr, &vitals, true,
+                                       &primedTnt, false, rules.mobGriefing, rules.blockDrops});
                 if (!rules.mobGriefing) continue; // (no fire either)
                 const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)),
                                             int(std::floor(at.z))};
@@ -3864,8 +4149,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 0) { // the rider goes with the cart (an activator rail throws them out)
                 if (mc::world::MobData* cart = findCart(); cart && cart->ridden) {
                     const bool boat = cart->type == mc::world::MobType::Boat;
-                    player.setPosition(cart->pos + glm::dvec3(0.0, mc::Mobs::seatHeight(*cart), 0.0));
-                    if (boat) player.setRotation(player.yaw() + cart->yawVel, player.pitch()); // (turning with it)
+                    player.setPosition(cart->pos +
+                                       glm::dvec3(0.0, mc::Mobs::seatHeight(*cart), 0.0));
+                    if (boat)
+                        player.setRotation(player.yaw() + cart->yawVel,
+                                           player.pitch()); // (turning with it)
                     player.setVelocity(glm::dvec3(0.0));
                     vitals.resetFall();
                     const mc::world::BlockPos under{int(std::floor(cart->pos.x)),
@@ -3887,8 +4175,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng,
                                  frameEdits);
             if (dimension == Dimension::Overworld && !dead) { // (M24.4)
-                if (rules.spawnWanderingTraders) traderSpawner.tick(world, player.position(), gameRng);
-                if (rules.spawnPatrols && difficulty > 0) patrolSpawner.tick(world, player.position(), dayTime, gameRng);
+                if (rules.spawnWanderingTraders)
+                    traderSpawner.tick(world, player.position(), gameRng);
+                if (rules.spawnPatrols && difficulty > 0)
+                    patrolSpawner.tick(world, player.position(), dayTime, gameRng);
                 if (difficulty > 0) {
                     raid.tick(world, vitals, player.position(), gameRng);
                 } else if (raid.active() || raid.pending()) { // Peaceful ends raids (wiki: Raid)
@@ -3928,12 +4218,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 const glm::dvec3 at(bp.x + 0.5, bp.y + 0.5, bp.z + 0.5);
                                 for (int ddz = -1; ddz <= 1; ++ddz)
                                     for (int ddx = -1; ddx <= 1; ++ddx)
-                                        if (mc::world::Chunk* tc = world.chunk({c.pos().x + ddx, c.pos().z + ddz}))
+                                        if (mc::world::Chunk* tc =
+                                                world.chunk({c.pos().x + ddx, c.pos().z + ddz}))
                                             for (auto& mob : tc->mobs()) {
-                                                if (!mc::world::mobInfo(mob.type).hostile || mob.health <= 0.0f) continue;
-                                                const double d2 = glm::dot(mob.pos - at, mob.pos - at);
+                                                if (!mc::world::mobInfo(mob.type).hostile ||
+                                                    mob.health <= 0.0f)
+                                                    continue;
+                                                const double d2 =
+                                                    glm::dot(mob.pos - at, mob.pos - at);
                                                 if (d2 >= best) continue;
-                                                if (!mc::fluidContact(world, mc::Mobs::box(mob)).water) continue;
+                                                if (!mc::fluidContact(world, mc::Mobs::box(mob))
+                                                         .water)
+                                                    continue;
                                                 best = d2;
                                                 target = &mob;
                                             }
@@ -4068,16 +4364,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A carved pumpkin on a T of iron blocks makes an iron golem (M24.3).
                     if (mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)) ==
                         mc::world::blocks::CarvedPumpkin)
-                        if (mc::Mobs::buildIronGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
-                                                     gameRng))
+                        if (mc::Mobs::buildIronGolem(
+                                world,
+                                {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                gameRng))
                             announce(adv.onEvent(mc::world::AdvEvent::SummonedIronGolem));
                         else // (M26.5b: on copper, a copper golem)
-                            mc::Mobs::buildCopperGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
-                                                       gameRng);
+                            mc::Mobs::buildCopperGolem(
+                                world,
+                                {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                gameRng);
                     // A wither skeleton skull topping a T of soul sand makes the Wither (M26.4b).
-                    if (const auto pb = mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data));
-                        pb == mc::world::blocks::WitherSkeletonSkull || pb == mc::world::blocks::WitherSkeletonWallSkull)
-                        if (mc::Mobs::buildWither(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))}, gameRng))
+                    if (const auto pb =
+                            mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data));
+                        pb == mc::world::blocks::WitherSkeletonSkull ||
+                        pb == mc::world::blocks::WitherSkeletonWallSkull)
+                        if (mc::Mobs::buildWither(
+                                world,
+                                {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                gameRng))
                             announce(adv.onEvent(mc::world::AdvEvent::SummonedWither));
                     // A placed sign opens its editor (vanilla).
                     const auto kind = mc::world::blockRegistry().kind(
@@ -4149,7 +4454,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (us != 0 && !player.inWater())
                             playSound(mc::world::blockSoundOf(us, mc::world::BlockSound::Step),
                                       feetNow, 1.0f, 1.0f, false);
-                        if (!player.sneaking()) blockUpdates.vibrate(feetNow, true); // (M27.3: sneaking is silent)
+                        if (!player.sneaking())
+                            blockUpdates.vibrate(feetNow, true); // (M27.3: sneaking is silent)
                     }
                 } else if (player.inWater()) {
                     stepDistance += glm::length(feetNow - lastFeet) * 0.6;
@@ -4206,7 +4512,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const auto t = mc::world::lodestoneTarget(s.extra);
                     if (!t || !t->hasTarget || !t->tracked || t->dimension != uint8_t(dimension) ||
                         !world.chunk(t->pos.chunk()) ||
-                        mc::world::blockRegistry().blockOf(world.getBlock(t->pos)) == mc::world::blocks::Lodestone)
+                        mc::world::blockRegistry().blockOf(world.getBlock(t->pos)) ==
+                            mc::world::blocks::Lodestone)
                         continue;
                     mc::world::LodestoneTarget lost = *t;
                     lost.hasTarget = false;
@@ -4216,18 +4523,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             { // Maps (M28.2b): new map data for maps a table zoomed out or locked, then the
               // held map draws the terrain around the player.
-                static const mc::world::ItemId filledMap = *mc::world::itemRegistry().find("filled_map");
-                for (int slot = 0; slot < mc::Inventory::kSlots; ++slot) {
-                    const mc::world::ItemStack& s = inventory.slot(slot);
+                static const mc::world::ItemId filledMap =
+                    *mc::world::itemRegistry().find("filled_map");
+                for (int slot = 0; slot <= mc::Inventory::kSlots;
+                     ++slot) { // (the last: the offhand)
+                    const bool off = slot == mc::Inventory::kSlots;
+                    const mc::world::ItemStack& s =
+                        off ? inventory.offhand() : inventory.slot(slot);
                     if (s.item != filledMap || s.state == 0 || s.empty()) continue;
                     mc::world::ItemStack done = s;
                     done.state = 0;
                     if (const mc::world::MapData* old = maps.get(s.damage)) {
                         const mc::world::MapData from = *old; // (create() may move the map store)
                         if (s.state == mc::kMapScale && from.scale < 4 && !from.locked) {
-                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ, from.scale + 1, from.dimension));
+                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ,
+                                                               from.scale + 1, from.dimension));
                         } else if (s.state == mc::kMapLock && !from.locked) {
-                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ, from.scale, from.dimension));
+                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ,
+                                                               from.scale, from.dimension));
                             mc::world::MapData* copy = maps.get(done.damage);
                             copy->colors = from.colors;
                             copy->centerX = from.centerX; // (the same place exactly)
@@ -4235,18 +4548,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             copy->locked = true;
                         }
                     }
-                    inventory.setSlot(slot, done);
+                    if (off)
+                        inventory.setOffhand(done);
+                    else
+                        inventory.setSlot(slot, done);
                 }
                 // (a map whose data doesn't exist - given by a command - starts where it is held)
-                if (inventory.selectedStack().item == filledMap && !maps.get(inventory.selectedStack().damage)) {
+                if (inventory.selectedStack().item == filledMap &&
+                    !maps.get(inventory.selectedStack().damage)) {
                     mc::world::ItemStack s = inventory.selectedStack();
                     s.damage = uint16_t(maps.create(int(std::floor(player.position().x)),
-                                                    int(std::floor(player.position().z)), 0, uint8_t(dimension)));
+                                                    int(std::floor(player.position().z)), 0,
+                                                    uint8_t(dimension)));
                     inventory.setSlot(inventory.selected(), s);
                 }
-                for (const mc::world::ItemStack* held : {&inventory.selectedStack(), &inventory.offhand()})
+                for (const mc::world::ItemStack* held :
+                     {&inventory.selectedStack(), &inventory.offhand()})
                     if (held->item == filledMap && !dead)
-                        if (mc::world::MapData* md = maps.get(held->damage); md && md->dimension == uint8_t(dimension))
+                        if (mc::world::MapData* md = maps.get(held->damage);
+                            md && md->dimension == uint8_t(dimension))
                             mc::world::Maps::update(world, *md, player.position(), gameTime);
             }
             stats.add(mc::world::Stat::PlayTime); // (M28.1d)
@@ -4254,10 +4574,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // the player carries (vanilla's inventory_changed trigger, polled).
             if (dimension != advDimension) {
                 advDimension = dimension;
-                if (dimension == Dimension::Nether) announce(adv.onEvent(mc::world::AdvEvent::EnterNether));
-                if (dimension == Dimension::End) announce(adv.onEvent(mc::world::AdvEvent::EnterEnd));
+                if (dimension == Dimension::Nether)
+                    announce(adv.onEvent(mc::world::AdvEvent::EnterNether));
+                if (dimension == Dimension::End)
+                    announce(adv.onEvent(mc::world::AdvEvent::EnterEnd));
             }
-            if (vitals.effectLevel(mc::world::Effect::Levitation) > 0) announce(adv.onEvent(mc::world::AdvEvent::Levitated));
+            if (vitals.effectLevel(mc::world::Effect::Levitation) > 0)
+                announce(adv.onEvent(mc::world::AdvEvent::Levitated));
             if (vitals.effectLevel(mc::world::Effect::HeroOfTheVillage) > 0)
                 announce(adv.onEvent(mc::world::AdvEvent::HeroOfTheVillage));
             if (dragonFight.respawning()) announce(adv.onEvent(mc::world::AdvEvent::RespawnDragon));
@@ -4266,14 +4589,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (s.empty()) return;
                     announce(adv.onItem(mc::world::itemRegistry().item(s.item).id));
                     if (s.trim != 0) announce(adv.onEvent(mc::world::AdvEvent::TrimmedArmor));
-                    if (s.potion > uint8_t(mc::world::Potion::Water)) announce(adv.onEvent(mc::world::AdvEvent::BrewedPotion));
+                    if (s.potion > uint8_t(mc::world::Potion::Water))
+                        announce(adv.onEvent(mc::world::AdvEvent::BrewedPotion));
                 };
-                for (int s = 0; s < 36; ++s) carried(inventory.slot(s));
-                for (int p = 0; p < 4; ++p) carried(inventory.armor(p));
+                for (int s = 0; s < 36; ++s)
+                    carried(inventory.slot(s));
+                for (int p = 0; p < 4; ++p)
+                    carried(inventory.armor(p));
                 carried(inventory.offhand());
                 if (ridingCart != 0)
                     if (const mc::world::MobData* steed = findCart(); steed && steed->tamed)
-                        announce(adv.onEvent(mc::world::AdvEvent::Tamed)); // (a horse tamed by riding it)
+                        announce(adv.onEvent(
+                            mc::world::AdvEvent::Tamed)); // (a horse tamed by riding it)
             }
             if (toastTicks > 0) --toastTicks;
             if (toastTicks == 0 && toastQueued > 0) { // (the next toast)
@@ -4292,14 +4619,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 stats.add(mc::world::Stat::MobKills);
                 stats.addKilled(k);
                 announce(adv.onKill(k));
-                if (k == mc::world::MobType::EnderDragon) announce(adv.onEvent(mc::world::AdvEvent::KillDragon));
+                if (k == mc::world::MobType::EnderDragon)
+                    announce(adv.onEvent(mc::world::AdvEvent::KillDragon));
             }
             mobs.clearPlayerKills();
             if (const int bred = mobs.takeBred(); bred > 0) {
                 stats.add(mc::world::Stat::AnimalsBred, bred);
                 announce(adv.onEvent(mc::world::AdvEvent::Bred));
             }
-            if (mc::Mobs::takeCured() > 0) announce(adv.onEvent(mc::world::AdvEvent::CuredZombieVillager));
+            if (mc::Mobs::takeCured() > 0)
+                announce(adv.onEvent(mc::world::AdvEvent::CuredZombieVillager));
             if (interaction.takeAte()) announce(adv.onEvent(mc::world::AdvEvent::Ate));
             for (const mc::world::ItemStack& p : droppedItems.pickedUp())
                 stats.addItem(mc::world::ItemStat::PickedUp, p.item, p.count);
@@ -4308,8 +4637,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 stats.addItem(mc::world::ItemStat::Used, u);
                 // Planting (A Seedy Place / Planting the Past): a seed item placed its crop.
                 static const std::array<mc::world::ItemId, 6> seeds{
-                    *mc::world::itemRegistry().find("wheat_seeds"), *mc::world::itemRegistry().find("beetroot_seeds"),
-                    *mc::world::itemRegistry().find("melon_seeds"), *mc::world::itemRegistry().find("pumpkin_seeds"),
+                    *mc::world::itemRegistry().find("wheat_seeds"),
+                    *mc::world::itemRegistry().find("beetroot_seeds"),
+                    *mc::world::itemRegistry().find("melon_seeds"),
+                    *mc::world::itemRegistry().find("pumpkin_seeds"),
                     mc::world::itemRegistry().find("torchflower_seeds").value_or(0),
                     mc::world::itemRegistry().find("pitcher_pod").value_or(0)};
                 for (size_t si = 0; si < seeds.size(); ++si)
@@ -4318,7 +4649,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (si >= 4) announce(adv.onEvent(mc::world::AdvEvent::PlantedSnifferSeed));
                     }
             }
-            if (const auto t = interaction.takeBrokenTool()) stats.addItem(mc::world::ItemStat::Broken, t);
+            if (const auto t = interaction.takeBrokenTool())
+                stats.addItem(mc::world::ItemStat::Broken, t);
             if (rules.advanceTime) ++dayTime; // the daylight cycle advances one tick per tick
             if (rules.advanceWeather) weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
@@ -4330,7 +4662,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (hornCooldown > 0) --hornCooldown;
             if (windCooldown > 0) --windCooldown;
             if (!dead && survival) vitals.addRestTime(); // (M26.4a: insomnia - phantoms)
-            vitals.tickWardenTracker();                 // (M27.3)
+            vitals.tickWardenTracker();                  // (M27.3)
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) {
                 blockUpdates.landAll(); // (blocks in flight land before saving)
@@ -4389,9 +4721,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const mc::world::ItemStack& b = inventory.selectedStack();
             const std::string_view id = mc::world::itemRegistry().item(b.item).id;
             if (id == "minecraft:writable_book" || id == "minecraft:written_book") {
-                const auto content = mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
-                if (id == "minecraft:writable_book") bookScreen.openEdit(content, inventory.selected());
-                else bookScreen.openRead(content);
+                const auto content =
+                    mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
+                if (id == "minecraft:writable_book")
+                    bookScreen.openEdit(content, inventory.selected());
+                else
+                    bookScreen.openRead(content);
                 bookScreen.type(opts->bookText, gui.batch().font());
                 window.setCursorCaptured(false);
             }
@@ -4401,7 +4736,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             double bestD = 8.0 * 8.0;
             world.forEachChunk([&](mc::world::Chunk& c) {
                 for (auto& mob : c.mobs())
-                    if ((mob.type == mc::world::MobType::Villager || mob.type == mc::world::MobType::WanderingTrader) && mob.offerCount > 0) {
+                    if ((mob.type == mc::world::MobType::Villager ||
+                         mob.type == mc::world::MobType::WanderingTrader) &&
+                        mob.offerCount > 0) {
                         const double d =
                             glm::dot(mob.pos - player.position(), mob.pos - player.position());
                         if (d < bestD) bestD = d, best = &mob;
@@ -4413,13 +4750,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 container.openTrading(best);
             }
         }
-        if (mountPending && gameTime > 2) { // --mount (M26.2: screenshots of riding / a mount's screen)
+        if (mountPending &&
+            gameTime > 2) { // --mount (M26.2: screenshots of riding / a mount's screen)
             mc::world::MobData* best = nullptr;
             double bestD = 10.0 * 10.0;
             world.forEachChunk([&](mc::world::Chunk& c) {
                 for (auto& mob : c.mobs())
                     if (mc::world::isMount(mob.type) && !mob.isBaby()) {
-                        const double d = glm::dot(mob.pos - player.position(), mob.pos - player.position());
+                        const double d =
+                            glm::dot(mob.pos - player.position(), mob.pos - player.position());
                         if (d < bestD) bestD = d, best = &mob;
                     }
             });
@@ -4476,7 +4815,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         }
         { // Darkness (M27.3): the dark pulses while it lasts.
             const int darkTicks = vitals.effectTicks(mc::world::Effect::Darkness);
-            const float pulse = 0.65f + 0.3f * float(std::sin((double(gameTime) + clock.alpha) * 0.08));
+            const float pulse =
+                0.65f + 0.3f * float(std::sin((double(gameTime) + clock.alpha) * 0.08));
             renderer.setDarkness(darkTicks > 0 ? pulse * std::min(1.0f, darkTicks / 20.0f) : 0.0f);
         }
         renderer.setNightVision(vitals.effectLevel(mc::world::Effect::NightVision) > 0 ||
@@ -4506,7 +4846,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                255.0f;
                     };
                     sky += rgb(info.sky ? info.sky : mc::world::skyColorFor(info.temperature));
-                    fog += rgb(info.fog ? info.fog : mc::world::kOverworldFog); // (M27.1: the pale garden's)
+                    fog += rgb(info.fog ? info.fog
+                                        : mc::world::kOverworldFog); // (M27.1: the pale garden's)
                     ++n;
                 }
             if (n > 0) renderer.setBiomeSky(sky / float(n), fog / float(n));
@@ -4514,19 +4855,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         {
             // Under water: the biome's water fog (M25.1). Vanilla's dark fog colours are
             // lifted toward the biome's water colour so daylight water reads blue.
-            const mc::world::BlockPos eye{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
+            const mc::world::BlockPos eye{int(std::floor(camera.position.x)),
+                                          int(std::floor(camera.position.y)),
                                           int(std::floor(camera.position.z))};
             // (the water's surface height counts, and waterlogged cells: review fix)
             const bool under = mc::pointInFluid(world, camera.position, mc::world::blocks::Water);
             glm::vec3 waterFog(0.0f);
             if (under)
                 if (const mc::world::Chunk* c = world.chunk(eye.chunk()); c && c->biomes()) {
-                    const mc::world::Biome b = c->biomes()->at(mc::world::blockToLocal(eye.x), eye.y,
-                                                               mc::world::blockToLocal(eye.z), world.height());
+                    const mc::world::Biome b =
+                        c->biomes()->at(mc::world::blockToLocal(eye.x), eye.y,
+                                        mc::world::blockToLocal(eye.z), world.height());
                     auto rgb = [](uint32_t v) {
-                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255), float(v & 255)) / 255.0f;
+                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255),
+                                         float(v & 255)) /
+                               255.0f;
                     };
-                    waterFog = glm::mix(rgb(mc::world::waterFogColor(b)), rgb(mc::world::biomeInfo(b).water) * 0.55f, 0.6f);
+                    waterFog = glm::mix(rgb(mc::world::waterFogColor(b)),
+                                        rgb(mc::world::biomeInfo(b).water) * 0.55f, 0.6f);
                 }
             renderer.setUnderwater(under, waterFog);
         }
@@ -4583,12 +4929,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         }
         if (fishing.active()) { // the bobber (red over white) and the line to the rod (M25.2)
             const glm::dvec3 b = glm::mix(fishing.prevBobber(), fishing.bobber(), clock.alpha);
-            const glm::dvec3 hand = camera.position + glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())) * 0.6 +
-                                    glm::dvec3(0.0, -0.35, 0.0);
-            entities.addBeam(hand, b + glm::dvec3(0.0, 0.18, 0.0), camera.position, {0.1f, 0.1f, 0.1f}, 0.008f);
-            entities.addBeam(b, b + glm::dvec3(0.0, 0.09, 0.0), camera.position, {0.9f, 0.9f, 0.9f}, 0.06f);
-            entities.addBeam(b + glm::dvec3(0.0, 0.09, 0.0), b + glm::dvec3(0.0, 0.18, 0.0), camera.position,
-                             {0.85f, 0.15f, 0.1f}, 0.06f);
+            const glm::dvec3 hand =
+                camera.position +
+                glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())) * 0.6 +
+                glm::dvec3(0.0, -0.35, 0.0);
+            entities.addBeam(hand, b + glm::dvec3(0.0, 0.18, 0.0), camera.position,
+                             {0.1f, 0.1f, 0.1f}, 0.008f);
+            entities.addBeam(b, b + glm::dvec3(0.0, 0.09, 0.0), camera.position, {0.9f, 0.9f, 0.9f},
+                             0.06f);
+            entities.addBeam(b + glm::dvec3(0.0, 0.09, 0.0), b + glm::dvec3(0.0, 0.18, 0.0),
+                             camera.position, {0.85f, 0.15f, 0.1f}, 0.06f);
         }
         for (const auto& pr : projectiles.items()) {
             const glm::dvec3 p = glm::mix(pr.prevPos, pr.pos, clock.alpha);
@@ -4605,28 +4955,33 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 *mc::world::itemRegistry().find("shulker_shell");
             // (M26.2-M26.5: spit, wither skulls, wind charges, snowballs)
             static const mc::world::ItemId snowItem = *mc::world::itemRegistry().find("snowball");
-            static const mc::world::ItemId windItem = *mc::world::itemRegistry().find("wind_charge");
-            static const mc::world::ItemId rocketItem = *mc::world::itemRegistry().find("firework_rocket");
-            static const mc::world::ItemId skullItem = *mc::world::itemRegistry().find("wither_skeleton_skull");
+            static const mc::world::ItemId windItem =
+                *mc::world::itemRegistry().find("wind_charge");
+            static const mc::world::ItemId rocketItem =
+                *mc::world::itemRegistry().find("firework_rocket");
+            static const mc::world::ItemId skullItem =
+                *mc::world::itemRegistry().find("wither_skeleton_skull");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
             else if (pr.kind == mc::ProjectileKind::Trident) // (its item, like a dropped one)
-                entities.addItem(pr.stack, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
+                entities.addItem(pr.stack, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light,
+                                 camera.position);
             else {
-                mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder     ? eyeItem
+                mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder ? eyeItem
                                           : pr.kind == mc::ProjectileKind::SplashPotion ||
                                                   pr.kind == mc::ProjectileKind::LingeringPotion
                                               ? splashItem
-                                          : pr.kind == mc::ProjectileKind::Egg          ? eggItem
-                                          : pr.kind == mc::ProjectileKind::EnderPearl   ? pearlItem
+                                          : pr.kind == mc::ProjectileKind::Egg           ? eggItem
+                                          : pr.kind == mc::ProjectileKind::EnderPearl    ? pearlItem
                                           : pr.kind == mc::ProjectileKind::ShulkerBullet ? shellItem
-                                          : pr.kind == mc::ProjectileKind::Snowball || pr.kind == mc::ProjectileKind::LlamaSpit
+                                          : pr.kind == mc::ProjectileKind::Snowball ||
+                                                  pr.kind == mc::ProjectileKind::LlamaSpit
                                               ? snowItem
                                           : pr.kind == mc::ProjectileKind::WindCharge  ? windItem
                                           : pr.kind == mc::ProjectileKind::Firework    ? rocketItem
                                           : pr.kind == mc::ProjectileKind::WitherSkull ? skullItem
-                                                                                         : fireItem,
+                                                                                       : fireItem,
                                           1};
                 look.potion = pr.potion;
                 entities.addItem(look, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light,
@@ -4760,11 +5115,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             bs = ch->skyLight(bn.x, bn.y, bn.z);
                             bb = ch->blockLight(bn.x, bn.y, bn.z);
                         }
-                        entities.addBanner(glm::dvec3(ch->pos().x * 16 + bn.x, bn.y, ch->pos().z * 16 + bn.z), wallBanner,
-                                           wallBanner ? breg.get(st, mc::world::properties::facing) + 2
-                                                      : breg.get(st, mc::world::properties::rotation16),
-                                           mc::world::bannerColour(breg.block(breg.blockOf(st)).id), bn.data,
-                                           lightTable[size_t(bs * 16 + bb)], camera.position);
+                        entities.addBanner(
+                            glm::dvec3(ch->pos().x * 16 + bn.x, bn.y, ch->pos().z * 16 + bn.z),
+                            wallBanner,
+                            wallBanner ? breg.get(st, mc::world::properties::facing) + 2
+                                       : breg.get(st, mc::world::properties::rotation16),
+                            mc::world::bannerColour(breg.block(breg.blockOf(st)).id), bn.data,
+                            lightTable[size_t(bs * 16 + bb)], camera.position);
                     }
                     for (const auto& sg : ch->signs()) {
                         bool written = false; // (blank signs: nothing to draw)
@@ -4819,10 +5176,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
         }
-        for (const auto& c : projectiles.clouds()) { // (M20.2) dragon's breath; (M28.4b) lingering potions
-            const uint32_t pc = c.potion ? mc::world::potionColour(static_cast<mc::world::Potion>(c.potion)) : 0xBF4DF2u;
-            entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position,
-                              glm::vec3(float(pc >> 16 & 255), float(pc >> 8 & 255), float(pc & 255)) / 255.0f);
+        for (const auto& c :
+             projectiles.clouds()) { // (M20.2) dragon's breath; (M28.4b) lingering potions
+            const uint32_t pc =
+                c.potion ? mc::world::potionColour(static_cast<mc::world::Potion>(c.potion))
+                         : 0xBF4DF2u;
+            entities.addCloud(
+                c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position,
+                glm::vec3(float(pc >> 16 & 255), float(pc >> 8 & 255), float(pc & 255)) / 255.0f);
         }
         for (const auto& o : orbs.orbs())
             entities.addOrb(glm::mix(o.prevPos, o.pos, clock.alpha), o.value,
@@ -4871,32 +5232,41 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const double maxDist = 64.0 * (info.width * 2.0 + info.height) / 3.0;
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
-                if (m.leash != 0 && m.health > 0.0f) { // (M28.3c) the lead, from its neck to the holder
+                if (m.leash != 0 &&
+                    m.health > 0.0f) { // (M28.3c) the lead, from its neck to the holder
                     const glm::dvec3 neck = p + glm::dvec3(0.0, info.height * 0.75, 0.0);
-                    const glm::dvec3 to = m.leash == 1 ? player.renderPosition(clock.alpha) + glm::dvec3(0.0, 1.1, 0.0)
-                                                       : glm::dvec3(m.leashPos) + glm::dvec3(0.5, 0.5, 0.5);
+                    const glm::dvec3 to =
+                        m.leash == 1
+                            ? player.renderPosition(clock.alpha) + glm::dvec3(0.0, 1.1, 0.0)
+                            : glm::dvec3(m.leashPos) + glm::dvec3(0.5, 0.5, 0.5);
                     entities.addBeam(neck, to, camera.position, {0.42f, 0.30f, 0.16f}, 0.03f);
                 }
                 if (m.type == mc::world::MobType::LeashKnot) {
                     entities.addKnot(p, camera.position);
                     continue;
                 }
-                if (mc::world::isHanging(m.type)) { // (M28.3a) item frames and paintings, from the atlas
+                if (mc::world::isHanging(
+                        m.type)) { // (M28.3a) item frames and paintings, from the atlas
                     const mc::Aabb hb = mc::Mobs::hangingBox(m);
-                    if (!mobFrustum.intersectsBox(glm::vec3(hb.min - camera.position), glm::vec3(hb.max - camera.position)))
+                    if (!mobFrustum.intersectsBox(glm::vec3(hb.min - camera.position),
+                                                  glm::vec3(hb.max - camera.position)))
                         continue;
-                    const mc::world::BlockPos hp{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+                    const mc::world::BlockPos hp{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)),
+                                                 int(std::floor(m.pos.z))};
                     int hs = 15, hbl = 0;
                     if (const auto* lc = world.chunk(hp.chunk()); lc && lc->lit()) {
-                        hs = lc->skyLight(mc::world::blockToLocal(hp.x), hp.y, mc::world::blockToLocal(hp.z));
-                        hbl = lc->blockLight(mc::world::blockToLocal(hp.x), hp.y, mc::world::blockToLocal(hp.z));
+                        hs = lc->skyLight(mc::world::blockToLocal(hp.x), hp.y,
+                                          mc::world::blockToLocal(hp.z));
+                        hbl = lc->blockLight(mc::world::blockToLocal(hp.x), hp.y,
+                                             mc::world::blockToLocal(hp.z));
                     }
                     const glm::vec3 hl = lightTable[size_t(hs * 16 + hbl)];
                     if (m.type == mc::world::MobType::Painting)
                         entities.addPainting(m.woolColour, m.pos, m.phase, hl, camera.position);
                     else
-                        entities.addItemFrame(m.pos, m.phase, m.type == mc::world::MobType::GlowItemFrame,
-                                              mc::Mobs::frameItem(world, m), m.node, hl, camera.position);
+                        entities.addItemFrame(
+                            m.pos, m.phase, m.type == mc::world::MobType::GlowItemFrame,
+                            mc::Mobs::frameItem(world, m), m.node, hl, camera.position);
                     continue;
                 }
                 const glm::vec3 bmin(rel - glm::dvec3(info.width * 0.5, 0.0, info.width * 0.5));
@@ -4923,11 +5293,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
                 if (m.type == mc::world::MobType::EnderDragon && m.hasBeam && m.deathTime == 0)
                     entities.addBeam(m.beam, p + glm::dvec3(0.0, 0.75, 0.0), camera.position);
-                if ((m.type == mc::world::MobType::Guardian || m.type == mc::world::MobType::ElderGuardian) && m.hasBeam &&
+                if ((m.type == mc::world::MobType::Guardian ||
+                     m.type == mc::world::MobType::ElderGuardian) &&
+                    m.hasBeam &&
                     m.deathTime == 0) { // the laser, purple turning yellow as it charges (M25.5)
-                    const float f = std::min(1.0f, float(m.chargeTicks) / (m.type == mc::world::MobType::Guardian ? 80.0f : 60.0f));
-                    entities.addBeam(p + glm::dvec3(0.0, mc::world::mobInfo(m.type).height * 0.5, 0.0), m.beam, camera.position,
-                                     {0.5f + 0.5f * f, 0.3f + 0.6f * f, 0.9f - 0.7f * f}, 0.04f);
+                    const float f = std::min(
+                        1.0f, float(m.chargeTicks) /
+                                  (m.type == mc::world::MobType::Guardian ? 80.0f : 60.0f));
+                    entities.addBeam(
+                        p + glm::dvec3(0.0, mc::world::mobInfo(m.type).height * 0.5, 0.0), m.beam,
+                        camera.position, {0.5f + 0.5f * f, 0.3f + 0.6f * f, 0.9f - 0.7f * f},
+                        0.04f);
                 }
             }
         });
@@ -4956,8 +5332,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             overlay.draw(camera, fbWidth, fbHeight, // (no outline for spectators)
-                         hit && gameMode != 3 ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt, lo,
-                         hi);
+                         hit && gameMode != 3 ? std::optional<mc::world::BlockPos>(hit->block)
+                                              : std::nullopt,
+                         lo, hi);
         }
 
         // HUD: inventory, chat, F3 - one batched GUI draw.
@@ -4980,13 +5357,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 dials.seconds = mc::timeSeconds();
                 itemIcons.setDials(dials);
             }
-            if (gameMode != 3) mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
+            if (gameMode != 3)
+                mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             { // The held map (M28.2b): ours is a panel at the bottom right (vanilla holds it
               // in first person), the player a white marker.
-                static const mc::world::ItemId filledMap = *mc::world::itemRegistry().find("filled_map");
-                const mc::world::ItemStack& held =
-                    inventory.selectedStack().item == filledMap ? inventory.selectedStack() : inventory.offhand();
-                const mc::world::MapData* md = held.item == filledMap && !dead && gameMode != 3 ? maps.get(held.damage) : nullptr;
+                static const mc::world::ItemId filledMap =
+                    *mc::world::itemRegistry().find("filled_map");
+                const mc::world::ItemStack& held = inventory.selectedStack().item == filledMap
+                                                       ? inventory.selectedStack()
+                                                       : inventory.offhand();
+                const mc::world::MapData* md = held.item == filledMap && !dead && gameMode != 3
+                                                   ? maps.get(held.damage)
+                                                   : nullptr;
                 if (md) {
                     if (int(held.damage) != shownMap || md->version != shownMapVersion) {
                         for (size_t i = 0; i < md->colors.size(); ++i) {
@@ -4994,7 +5376,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             mapRgba[i * 4 + 0] = uint8_t(c >> 16);
                             mapRgba[i * 4 + 1] = uint8_t(c >> 8);
                             mapRgba[i * 4 + 2] = uint8_t(c);
-                            mapRgba[i * 4 + 3] = md->colors[i] >> 2 ? 255 : 0; // (unexplored: the paper shows)
+                            mapRgba[i * 4 + 3] =
+                                md->colors[i] >> 2 ? 255 : 0; // (unexplored: the paper shows)
                         }
                         gui.uploadMap(mapRgba.data());
                         shownMap = held.damage;
@@ -5002,13 +5385,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     const float size = std::min(128.0f, float(guiH) - 60.0f);
                     const float mx = float(guiW) - size - 10.0f, my = float(guiH) - size - 34.0f;
-                    batch.fill(mx - 5.0f, my - 5.0f, size + 10.0f, size + 10.0f, mc::gfx::rgba(120, 96, 60));
-                    batch.fill(mx - 4.0f, my - 4.0f, size + 8.0f, size + 8.0f, mc::gfx::rgba(222, 206, 162));
-                    batch.sprite(mc::gfx::GuiTexture::Map, mx, my, size, size, 0.0f, 0.0f, 128.0f, 128.0f);
+                    batch.fill(mx - 5.0f, my - 5.0f, size + 10.0f, size + 10.0f,
+                               mc::gfx::rgba(120, 96, 60));
+                    batch.fill(mx - 4.0f, my - 4.0f, size + 8.0f, size + 8.0f,
+                               mc::gfx::rgba(222, 206, 162));
+                    batch.sprite(mc::gfx::GuiTexture::Map, mx, my, size, size, 0.0f, 0.0f, 128.0f,
+                                 128.0f);
                     if (md->dimension == uint8_t(dimension)) {
-                        const glm::dvec2 p = mc::world::Maps::pixelOf(*md, player.position().x, player.position().z);
+                        const glm::dvec2 p =
+                            mc::world::Maps::pixelOf(*md, player.position().x, player.position().z);
                         const float k = size / 128.0f;
-                        const float px = mx + std::clamp(float(p.x), 0.0f, 128.0f) * k, py = my + std::clamp(float(p.y), 0.0f, 128.0f) * k;
+                        const float px = mx + std::clamp(float(p.x), 0.0f, 128.0f) * k,
+                                    py = my + std::clamp(float(p.y), 0.0f, 128.0f) * k;
                         batch.fill(px - 2.0f, py - 2.0f, 4.0f, 4.0f, mc::gfx::rgba(40, 40, 40));
                         batch.fill(px - 1.0f, py - 1.0f, 2.0f, 2.0f, mc::gfx::rgba(255, 255, 255));
                     }
@@ -5017,7 +5405,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints());
-            const mc::world::MobData* steed = ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
+            const mc::world::MobData* steed =
+                ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
             if (steed && steed->saddled &&
                 (mc::world::isHorseKind(steed->type) || steed->type == mc::world::MobType::Camel ||
                  steed->type == mc::world::MobType::Nautilus))
@@ -5025,15 +5414,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             else if (survival)
                 mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
             if (mobs.bossHealth() >= 0.0f) // (M20.2)
-                mc::ui::drawBossBar(batch, mobs.bossType() == mc::world::MobType::Wither ? "Wither" : "Ender Dragon",
-                                    mobs.bossHealth() / mc::world::mobInfo(mobs.bossType()).maxHealth,
-                                    mobs.bossType() == mc::world::MobType::Wither ? mc::gfx::rgba(150, 60, 220)
-                                                                                 : mc::gfx::rgba(236, 72, 200),
-                                    guiW);
-            if (raid.active() && raid.loaded() && dimension == Dimension::Overworld && // (M24.5: vanilla's red raid bar)
+                mc::ui::drawBossBar(
+                    batch,
+                    mobs.bossType() == mc::world::MobType::Wither ? "Wither" : "Ender Dragon",
+                    mobs.bossHealth() / mc::world::mobInfo(mobs.bossType()).maxHealth,
+                    mobs.bossType() == mc::world::MobType::Wither ? mc::gfx::rgba(150, 60, 220)
+                                                                  : mc::gfx::rgba(236, 72, 200),
+                    guiW);
+            if (raid.active() && raid.loaded() &&
+                dimension == Dimension::Overworld && // (M24.5: vanilla's red raid bar)
                 glm::length(glm::dvec3(raid.centre()) - player.position()) < 96.0)
-                mc::ui::drawBossBar(batch, "Raid", raid.progress(),
-                                    mc::gfx::rgba(220, 40, 40), guiW);
+                mc::ui::drawBossBar(batch, "Raid", raid.progress(), mc::gfx::rgba(220, 40, 40),
+                                    guiW);
             if (toastAdv >= 0) { // the advancement toast (vanilla: 160x32, top right, 5 s)
                 const auto& a = mc::world::advancements()[size_t(toastAdv)];
                 const float tx = float(guiW) - 164.0f, ty = 4.0f;
@@ -5041,10 +5433,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 batch.fill(tx, ty, 160.0f, 1.0f, mc::gfx::rgba(85, 85, 85));
                 batch.fill(tx, ty + 31.0f, 160.0f, 1.0f, mc::gfx::rgba(85, 85, 85));
                 const bool challenge = a.frame == mc::world::AdvFrame::Challenge;
-                batch.text(challenge                                ? "Challenge Complete!"
+                batch.text(challenge                              ? "Challenge Complete!"
                            : a.frame == mc::world::AdvFrame::Goal ? "Goal Reached!"
                                                                   : "Advancement Made!",
-                           tx + 8.0f, ty + 7.0f, challenge ? mc::gfx::argb(0xFFFF55FF) : mc::gfx::argb(0xFFFFFF55));
+                           tx + 8.0f, ty + 7.0f,
+                           challenge ? mc::gfx::argb(0xFFFF55FF) : mc::gfx::argb(0xFFFFFF55));
                 char title[64];
                 std::snprintf(title, sizeof title, "%.*s", int(a.title.size()), a.title.data());
                 batch.text(title, tx + 8.0f, ty + 18.0f, mc::gfx::argb(0xFFFFFFFF));
@@ -5070,7 +5463,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
                 pointTrader();
-            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount) pointMount();
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount)
+                pointMount();
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
                 mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
                 container.setBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x),
@@ -5388,7 +5782,8 @@ int main(int argc, char** argv) {
     if (!interactive || opts->renderDistanceSet) shared.cliRenderDistance = launch.renderDistance;
     shared.cliNoVsync = !opts->vsync;
     // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
-    if (!opts->menu.empty() && opts->menu != "pause" && opts->menu != "statistics" && opts->menu != "advancements") {
+    if (!opts->menu.empty() && opts->menu != "pause" && opts->menu != "statistics" &&
+        opts->menu != "advancements") {
         menuState.worlds = mc::world::listWorlds(MC_SAVES_DIR);
         menuState.selected = menuState.worlds.empty() ? -1 : 0;
         menuState.screen = opts->menu == "title"    ? mc::ui::MenuScreen::Title
@@ -5420,11 +5815,10 @@ int main(int argc, char** argv) {
     // With --world, --no-save, screenshots or hidden runs: straight into the world;
     // interactive ones come back to the title on "Save and Quit to Title".
     if (!interactive || !opts->world.empty() || opts->noSave) {
-        menuState.screen =
-            opts->menu == "pause"        ? mc::ui::MenuScreen::Pause
-            : opts->menu == "statistics" ? mc::ui::MenuScreen::Statistics
-            : opts->menu == "advancements" ? mc::ui::MenuScreen::Advancements
-                                         : mc::ui::MenuScreen::None;
+        menuState.screen = opts->menu == "pause"          ? mc::ui::MenuScreen::Pause
+                           : opts->menu == "statistics"   ? mc::ui::MenuScreen::Statistics
+                           : opts->menu == "advancements" ? mc::ui::MenuScreen::Advancements
+                                                          : mc::ui::MenuScreen::None;
         SessionEnd end;
         const int code = runSession(shared, &launch, end);
         if (!interactive || end != SessionEnd::ToTitle || window.shouldClose()) return code;

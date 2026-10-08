@@ -24,8 +24,8 @@ public:
     Pathfinder();
     // Writes up to `maxOut` cells from `start` (excluded) toward `goal` into `out`;
     // returns how many. `maxNodes` bounds the search (vanilla: follow range x 16).
-    int find(const world::World& world, const glm::ivec3& start, const glm::ivec3& goal, int height, int maxNodes,
-             glm::ivec3* out, int maxOut);
+    int find(const world::World& world, const glm::ivec3& start, const glm::ivec3& goal, int height,
+             int maxNodes, glm::ivec3* out, int maxOut);
 
     // Whether a mob `height` blocks tall can stand in this cell (public for tests).
     bool standable(const world::World& world, const glm::ivec3& c, int height);
@@ -39,16 +39,17 @@ private:
         bool closed;
     };
     world::BlockStateId at(const world::World& world, int x, int y, int z);
-    bool passable(const world::World& world, const glm::ivec3& c, int height); // body fits, no lava/fire
-    int danger(const world::World& world, const glm::ivec3& c);                 // extra cost (x10)
+    bool passable(const world::World& world, const glm::ivec3& c,
+                  int height);                                  // body fits, no lava/fire
+    int danger(const world::World& world, const glm::ivec3& c); // extra cost (x10)
     int slot(const glm::ivec3& p) const;
     void push(int node);
     int pop();
 
     std::vector<Node> m_nodes;
-    std::vector<int> m_heap;     // open set: node indices, min-heap on f
-    std::vector<uint64_t> m_keys; // hash slots: packed position (0 = empty) ...
-    std::vector<int> m_index;     // ... and the node there
+    std::vector<int> m_heap;       // open set: node indices, min-heap on f
+    std::vector<uint64_t> m_keys;  // hash slots: packed position (0 = empty) ...
+    std::vector<int> m_index;      // ... and the node there
     std::vector<uint32_t> m_stamp; // slot used in search number ...
     uint32_t m_search = 0;
     const world::Chunk* m_chunk = nullptr; // last chunk read

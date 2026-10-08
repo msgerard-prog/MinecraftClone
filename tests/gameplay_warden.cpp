@@ -28,7 +28,8 @@ struct Deep {
             for (int cx = -2; cx <= 2; ++cx) {
                 Chunk& c = world.createChunk({cx, cz});
                 for (int z = 0; z < 16; ++z)
-                    for (int x = 0; x < 16; ++x) c.set(x, 59, z, r.defaultState(blocks::Deepslate));
+                    for (int x = 0; x < 16; ++x)
+                        c.set(x, 59, z, r.defaultState(blocks::Deepslate));
                 std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
                 light.fill(std::make_shared<const SectionLight>());
                 c.setLight(light);
@@ -71,7 +72,8 @@ TEST_CASE("a shrieker calls a warden out of the ground; only one within 48 block
     CHECK(d.warden()->phase == 1);
 }
 
-TEST_CASE("a player's vibrations anger the warden; angry, it booms the player from afar through armor (M27.3c)") {
+TEST_CASE("a player's vibrations anger the warden; angry, it booms the player from afar through "
+          "armor (M27.3c)") {
     Deep d;
     MobData w = Mobs::make(MobType::Warden, {0.5, 60.0, 0.5}, d.rng);
     w.phase = 1;
@@ -86,11 +88,12 @@ TEST_CASE("a player's vibrations anger the warden; angry, it booms the player fr
     const float before = d.vitals.health();
     d.tick(60);
     CHECK(d.vitals.health() <= before - 9.0f); // (the sonic boom: 10)
-    d.tick(70);                                 // (its pulse comes every 6 s)
+    d.tick(70);                                // (its pulse comes every 6 s)
     CHECK(d.vitals.effectLevel(Effect::Darkness) > 0);
 }
 
-TEST_CASE("left alone a minute, the warden digs back down; killed, it drops a sculk catalyst (M27.3c)") {
+TEST_CASE(
+    "left alone a minute, the warden digs back down; killed, it drops a sculk catalyst (M27.3c)") {
     Deep d;
     MobData w = Mobs::make(MobType::Warden, {0.5, 60.0, 0.5}, d.rng);
     w.phase = 1;
@@ -104,11 +107,13 @@ TEST_CASE("left alone a minute, the warden digs back down; killed, it drops a sc
     REQUIRE(Mobs::add(d.world, k));
     d.tick(25);
     int catalysts = 0;
-    for (const auto& it : d.items.items()) catalysts += it.stack.item == itemRegistry().blockItem(blocks::SculkCatalyst);
+    for (const auto& it : d.items.items())
+        catalysts += it.stack.item == itemRegistry().blockItem(blocks::SculkCatalyst);
     CHECK(catalysts == 1);
 }
 
-TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, it gives a trial key and rests (M27.4d)") {
+TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, it gives a trial "
+          "key and rests (M27.4d)") {
     Deep d;
     const auto& r = blockRegistry();
     d.world.updateBlock({0, 60, 0}, r.defaultState(blocks::TrialSpawner));
@@ -120,7 +125,8 @@ TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, 
     d.tick(400, [&] {
         int alive = 0;
         d.world.forEachChunk([&](Chunk& c) {
-            for (auto& m : c.mobs()) alive += m.type == MobType::Zombie && m.health > 0.0f;
+            for (auto& m : c.mobs())
+                alive += m.type == MobType::Zombie && m.health > 0.0f;
         });
         most = std::max(most, alive);
         // (the player beats each one as it comes)
@@ -134,19 +140,22 @@ TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, 
     int rewards = 0; // (a key, or half the time a consumable)
     for (const auto& it : d.items.items()) {
         const std::string_view id = itemRegistry().item(it.stack.item).id;
-        rewards += id == "minecraft:trial_key" || id == "minecraft:cooked_chicken" || id == "minecraft:bread" ||
-                   id == "minecraft:baked_potato" || id == "minecraft:potion";
+        rewards += id == "minecraft:trial_key" || id == "minecraft:cooked_chicken" ||
+                   id == "minecraft:bread" || id == "minecraft:baked_potato" ||
+                   id == "minecraft:potion";
     }
     CHECK(rewards == 1);
     CHECK(r.get(d.world.getBlock({0, 60, 0}), properties::trialState) == 5); // cooldown
     CHECK(d.world.chunk({0, 0})->spawner(0, 60, 0)->cooldown > 30000);
 }
 
-TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay an egg that hatches (M27.5c)") {
+TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay an egg that "
+          "hatches (M27.5c)") {
     Deep d;
     const auto& r = blockRegistry();
     for (int z = -8; z <= 8; ++z)
-        for (int x = -8; x <= 8; ++x) d.world.setBlock({x, 59, z}, r.defaultState(blocks::GrassBlock));
+        for (int x = -8; x <= 8; ++x)
+            d.world.setBlock({x, 59, z}, r.defaultState(blocks::GrassBlock));
     MobData s = Mobs::make(MobType::Sniffer, {0.5, 60.0, 0.5}, d.rng);
     s.eggTicks = 5;
     REQUIRE(Mobs::add(d.world, s));
@@ -154,7 +163,8 @@ TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay
     d.tick(120);
     int finds = 0;
     for (const auto& it : d.items.items())
-        finds += it.stack.item == *itemRegistry().find("torchflower_seeds") || it.stack.item == *itemRegistry().find("pitcher_pod");
+        finds += it.stack.item == *itemRegistry().find("torchflower_seeds") ||
+                 it.stack.item == *itemRegistry().find("pitcher_pod");
     CHECK(finds == 1);
     // Two fed sniffers: an egg where one stands.
     MobData b = Mobs::make(MobType::Sniffer, {2.5, 60.0, 0.5}, d.rng);
@@ -162,11 +172,13 @@ TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay
     d.world.forEachChunk([&](Chunk& c) {
         for (auto& m : c.mobs())
             if (m.type == MobType::Sniffer)
-                CHECK(Mobs::interact(m, *itemRegistry().find("torchflower_seeds"), d.rng, d.items) == Mobs::Use::Fed);
+                CHECK(Mobs::interact(m, *itemRegistry().find("torchflower_seeds"), d.rng,
+                                     d.items) == Mobs::Use::Fed);
     });
     d.tick(400);
     int eggs = 0; // (dropped as an item - wiki)
-    for (const auto& it : d.items.items()) eggs += it.stack.item == itemRegistry().blockItem(blocks::SnifferEgg);
+    for (const auto& it : d.items.items())
+        eggs += it.stack.item == itemRegistry().blockItem(blocks::SnifferEgg);
     CHECK(eggs == 1);
 }
 
@@ -175,7 +187,8 @@ TEST_CASE("a brush gets a scute from an armadillo (M27.5c)") {
     MobData a = Mobs::make(MobType::Armadillo, {0.5, 60.0, 0.5}, d.rng);
     CHECK(Mobs::interact(a, *itemRegistry().find("brush"), d.rng, d.items) == Mobs::Use::Sheared);
     int scutes = 0;
-    for (const auto& it : d.items.items()) scutes += it.stack.item == *itemRegistry().find("armadillo_scute");
+    for (const auto& it : d.items.items())
+        scutes += it.stack.item == *itemRegistry().find("armadillo_scute");
     CHECK(scutes == 1);
 }
 
@@ -183,7 +196,8 @@ TEST_CASE("a brush gets a scute from an armadillo (M27.5c)") {
 #include "gameplay/Recipes.h"
 #include "world/Loot.h"
 
-TEST_CASE("Trial Omen: Bad Omen near a trial spawner turns it and the vaults nearby ominous (M28.4d)") {
+TEST_CASE(
+    "Trial Omen: Bad Omen near a trial spawner turns it and the vaults nearby ominous (M28.4d)") {
     Deep d;
     const auto& r = blockRegistry();
     d.world.updateBlock({0, 60, 0}, r.defaultState(blocks::TrialSpawner));
@@ -203,7 +217,8 @@ TEST_CASE("Trial Omen: Bad Omen near a trial spawner turns it and the vaults nea
     for (int i = 0; i < 400 && !core; ++i) {
         std::array<ItemStack, 27> loot{};
         fillChest(LootTable::TrialVaultOminous, rng, loot);
-        for (const auto& s : loot) core = core || (!s.empty() && itemRegistry().item(s.item).id == "minecraft:heavy_core");
+        for (const auto& s : loot)
+            core = core || (!s.empty() && itemRegistry().item(s.item).id == "minecraft:heavy_core");
     }
     CHECK(core);
 }
@@ -226,19 +241,25 @@ TEST_CASE("the mace: smash damage by the height fallen, Density, Wind Burst; the
 
 #include "world/Enchantments.h"
 
-TEST_CASE("spears: seven tiers, a long jab, a charge by speed, Lunge; crafted on the diagonal (M28.4e)") {
+TEST_CASE(
+    "spears: seven tiers, a long jab, a charge by speed, Lunge; crafted on the diagonal (M28.4e)") {
     const auto& items = itemRegistry();
-    for (const char* id : {"wooden_spear", "stone_spear", "copper_spear", "iron_spear", "golden_spear", "diamond_spear",
-                           "netherite_spear"}) {
+    for (const char* id : {"wooden_spear", "stone_spear", "copper_spear", "iron_spear",
+                           "golden_spear", "diamond_spear", "netherite_spear"}) {
         const auto s = items.find(id);
         REQUIRE(s);
         CHECK(items.item(*s).tool == ToolType::Spear);
         CHECK(items.item(*s).durability > 0);
     }
     CHECK(kSpearReach > 3.0);
-    CHECK(spearChargeDamage(5.0f, 0.1) == 0.0f);   // (walking: no charge)
-    CHECK(spearChargeDamage(5.0f, 0.3) == doctest::Approx(6.0f)); // (sprinting)
-    CHECK(spearChargeDamage(5.0f, 0.6) == doctest::Approx(12.0f)); // (on a horse)
+    CHECK(kSpearMinReach == 2.0);
+    CHECK(spearChargeDamage(ToolTier::Iron, 0.1) == 0.0f); // (walking: no charge)
+    CHECK(spearChargeDamage(ToolTier::Iron, 0.3) ==
+          doctest::Approx(0.95f * 6.0f)); // (sprinting, 6 b/s)
+    CHECK(spearChargeDamage(ToolTier::Netherite, 0.6) ==
+          doctest::Approx(1.2f * 12.0f));                                   // (on a horse)
+    CHECK(items.item(*items.find("netherite_spear")).attackDamage == 5.0f); // (wiki jab damage)
+    CHECK(lungeImpulse(1) == doctest::Approx(0.458));
     CHECK(canEnchant(*items.find("iron_spear"), Enchantment::Lunge));
     CHECK_FALSE(canEnchant(*items.find("iron_sword"), Enchantment::Lunge));
     std::array<ItemStack, 9> g{};

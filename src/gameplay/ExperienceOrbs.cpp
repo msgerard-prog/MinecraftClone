@@ -25,7 +25,8 @@ void ExperienceOrbs::drop(const glm::dvec3& pos, int points, Xoroshiro& rng) {
         }
         ExperienceOrb o;
         o.pos = o.prevPos = pos;
-        o.vel = {(rng.nextDouble() * 0.2 - 0.1) * 2.0, rng.nextDouble() * 0.2 * 2.0, (rng.nextDouble() * 0.2 - 0.1) * 2.0};
+        o.vel = {(rng.nextDouble() * 0.2 - 0.1) * 2.0, rng.nextDouble() * 0.2 * 2.0,
+                 (rng.nextDouble() * 0.2 - 0.1) * 2.0};
         o.value = v;
         m_orbs.push_back(o);
     }
@@ -50,12 +51,14 @@ int ExperienceOrbs::tick(const World& world, const Aabb& player, bool canCollect
         }
         // Simple ground collision: stop falling into solid blocks.
         glm::dvec3 next = o.pos + o.vel;
-        if (reg.collides(world.getBlock({int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))}))) {
+        if (reg.collides(world.getBlock(
+                {int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))}))) {
             if (o.vel.y < 0.0) o.vel.y = 0.0;
             o.vel.x *= 0.6;
             o.vel.z *= 0.6;
             next = o.pos + o.vel;
-            if (reg.collides(world.getBlock({int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))})))
+            if (reg.collides(world.getBlock(
+                    {int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))})))
                 next = o.pos;
         }
         o.pos = next;

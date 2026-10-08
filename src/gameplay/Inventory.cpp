@@ -88,10 +88,12 @@ float Inventory::armorToughness() const {
 void Inventory::wearArmor(int amount, world::Xoroshiro& rng) {
     for (auto& a : m_armor) {
         if (a.empty() || amount <= 0) continue;
-        if (world::itemRegistry().item(a.item).armor == 0) continue; // (the elytra wears only by gliding)
+        if (world::itemRegistry().item(a.item).armor == 0)
+            continue; // (the elytra wears only by gliding)
         const int unbreaking = world::enchantLevel(a, world::Enchantment::Unbreaking);
         for (int i = 0; i < amount; ++i)
-            if (unbreaking == 0 || rng.nextFloat() < 0.6f + 0.4f / float(unbreaking + 1)) ++a.damage;
+            if (unbreaking == 0 || rng.nextFloat() < 0.6f + 0.4f / float(unbreaking + 1))
+                ++a.damage;
         if (a.damage >= world::itemRegistry().item(a.item).durability) a = {}; // broke
     }
 }

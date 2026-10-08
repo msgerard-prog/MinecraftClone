@@ -63,7 +63,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Hopper:
     case blocks::Dispenser:
     case blocks::Dropper:
-    case blocks::IronDoor: // (wiki: Iron Door, Iron Trapdoor, Stone/Weighted Pressure Plates - any pickaxe)
+    case blocks::IronDoor: // (wiki: Iron Door, Iron Trapdoor, Stone/Weighted Pressure Plates - any
+                           // pickaxe)
     case blocks::IronTrapdoor:
     case blocks::StonePressurePlate:
     case blocks::LightWeightedPressurePlate:
@@ -101,7 +102,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::Obsidian:
         return {T::Pickaxe, 3}; // wiki: Obsidian - diamond pickaxe
     case blocks::Spawner:
-        return {T::Pickaxe, 0}; // wiki: Monster Spawner - any pickaxe for its experience; never drops itself
+        return {T::Pickaxe,
+                0}; // wiki: Monster Spawner - any pickaxe for its experience; never drops itself
     case blocks::Ice:
     case blocks::PackedIce:
     case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
@@ -196,11 +198,16 @@ HarvestInfo harvestInfo(BlockId b) {
             return h;
         }
         switch (st.tool) {
-        case HarvestTool::Pickaxe: return {T::Pickaxe, st.tier};
-        case HarvestTool::Axe: return {T::Axe, -1};
-        case HarvestTool::Shovel: return {T::Shovel, -1};
-        case HarvestTool::Hoe: return {T::Hoe, -1};
-        case HarvestTool::None: break;
+        case HarvestTool::Pickaxe:
+            return {T::Pickaxe, st.tier};
+        case HarvestTool::Axe:
+            return {T::Axe, -1};
+        case HarvestTool::Shovel:
+            return {T::Shovel, -1};
+        case HarvestTool::Hoe:
+            return {T::Hoe, -1};
+        case HarvestTool::None:
+            break;
         }
         return {};
     }
@@ -214,7 +221,8 @@ bool canHarvest(BlockStateId state, const ItemStack& held) {
     return !held.empty() && item.tool == h.tool && tierInfo(item.tier).level >= h.minLevel;
 }
 
-int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater, int haste, int fatigue) {
+int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater,
+               int haste, int fatigue) {
     const auto& reg = blockRegistry();
     const float hardness = reg.block(reg.blockOf(state)).settings.hardness;
     if (hardness < 0.0f) return -1; // unbreakable
@@ -229,7 +237,8 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     if (const int eff = enchantLevel(held, Enchantment::Efficiency); eff > 0 && speed > 1.0f)
         speed += float(eff * eff + 1);
     // Swords cut bamboo at once (wiki: Bamboo), leaves and plants 1.5x faster (wiki: Sword).
-    if (!held.empty() && item.tool == ToolType::Sword && reg.blockOf(state) == blocks::Bamboo) return 0;
+    if (!held.empty() && item.tool == ToolType::Sword && reg.blockOf(state) == blocks::Bamboo)
+        return 0;
     if (!held.empty() && item.tool == ToolType::Sword) {
         const std::string_view id = reg.block(reg.blockOf(state)).id;
         if (id.ends_with("_leaves") || reg.blockOf(state) == blocks::ShortGrass ||
@@ -247,7 +256,7 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     if (eyesInWater) speed /= 5.0f;
     if (!onGround) speed /= 5.0f;
     const float damage = speed / hardness / (harvest ? 30.0f : 100.0f);
-    if (damage >= 1.0f) return 0; // wiki: instant at damage >= 1
+    if (damage >= 1.0f) return 0;       // wiki: instant at damage >= 1
     if (damage < 1e-4f) return 1000000; // (practically never)
     return static_cast<int>(std::ceil(1.0f / damage));
 }
@@ -256,9 +265,9 @@ namespace {
 
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
-    ItemId cobblestone, cobbledDeepslate, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
-        flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato, poisonous,
-        beetroot, beetrootSeeds;
+    ItemId cobblestone, cobbledDeepslate, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis,
+        diamond, emerald, flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato,
+        poisonous, beetroot, beetrootSeeds;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
@@ -342,14 +351,19 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         // Block, Blue Ice - themselves only with Silk Touch).
         const BlockId ob = blockRegistry().blockOf(state);
         const std::string& id = blockRegistry().block(ob).id;
-        const bool shears = held.item != 0 && itemRegistry().item(held.item).id == "minecraft:shears";
+        const bool shears =
+            held.item != 0 && itemRegistry().item(held.item).id == "minecraft:shears";
         // Two-block plants (M27.1; wiki): only the lower half drops - flowers themselves,
         // tall grass and large ferns two short ones with shears, else wheat seeds 1 in 8.
         if (isTallPlant(ob)) {
             if (blockRegistry().get(state, properties::doorHalf) != 1) return;
             if (ob == blocks::TallGrass || ob == blocks::LargeFern) {
-                if (shears) out.push_back({itemRegistry().blockItem(ob == blocks::TallGrass ? blocks::ShortGrass : blocks::Fern), 2});
-                else if (rng.nextInt(8) == 0) out.push_back({*itemRegistry().find("wheat_seeds"), 1});
+                if (shears)
+                    out.push_back({itemRegistry().blockItem(
+                                       ob == blocks::TallGrass ? blocks::ShortGrass : blocks::Fern),
+                                   2});
+                else if (rng.nextInt(8) == 0)
+                    out.push_back({*itemRegistry().find("wheat_seeds"), 1});
             } else {
                 out.push_back({itemRegistry().blockItem(ob), 1});
             }
@@ -357,11 +371,12 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         }
         // The deep dark (M27.3; wiki): sculk blocks drop themselves only with Silk Touch
         // (their experience otherwise); reinforced deepslate never drops.
-        if (ob == blocks::Sculk || ob == blocks::SculkVein || ob == blocks::SculkCatalyst || ob == blocks::SculkSensor ||
-            ob == blocks::SculkShrieker || ob == blocks::ReinforcedDeepslate) {
+        if (ob == blocks::Sculk || ob == blocks::SculkVein || ob == blocks::SculkCatalyst ||
+            ob == blocks::SculkSensor || ob == blocks::SculkShrieker ||
+            ob == blocks::ReinforcedDeepslate) {
             // (a sensor drops itself with any tool)
-            if (ob == blocks::SculkSensor ||
-                (ob != blocks::ReinforcedDeepslate && enchantLevel(held, Enchantment::SilkTouch) > 0))
+            if (ob == blocks::SculkSensor || (ob != blocks::ReinforcedDeepslate &&
+                                              enchantLevel(held, Enchantment::SilkTouch) > 0))
                 out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
@@ -370,13 +385,14 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         if (isSuspicious(ob)) return; // (M27.5; wiki: broken, it gives nothing - its item is lost)
         if (ob == blocks::AmethystCluster) {
             const bool silk = enchantLevel(held, Enchantment::SilkTouch) > 0;
-            if (silk) out.push_back({itemRegistry().blockItem(ob), 1});
+            if (silk)
+                out.push_back({itemRegistry().blockItem(ob), 1});
             else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Pickaxe) {
                 const int f = enchantLevel(held, Enchantment::Fortune); // (the ore formula)
                 const int mult = std::max(0, int(rng.nextInt(uint32_t(f + 2))) - 1) + 1;
                 out.push_back({*itemRegistry().find("amethyst_shard"), uint8_t(4 * mult)});
-            }
-            else out.push_back({*itemRegistry().find("amethyst_shard"), 2});
+            } else
+                out.push_back({*itemRegistry().find("amethyst_shard"), 2});
             return;
         }
         if (isAmethystBud(ob) || ob == blocks::BuddingAmethyst) {
@@ -384,23 +400,29 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
                 out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
-        if (ob == blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)
-            if (enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+        if (ob ==
+            blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)
+            if (enchantLevel(held, Enchantment::SilkTouch) > 0)
+                out.push_back({itemRegistry().blockItem(ob), 1});
             else // (Fortune adds to the most it can give, up to 6)
-                out.push_back({itemRegistry().blockItem(blocks::ResinClump),
-                               uint8_t(1 + rng.nextInt(uint32_t(std::min(6, 3 + enchantLevel(held, Enchantment::Fortune)))))});
+                out.push_back(
+                    {itemRegistry().blockItem(blocks::ResinClump),
+                     uint8_t(1 + rng.nextInt(uint32_t(
+                                     std::min(6, 3 + enchantLevel(held, Enchantment::Fortune)))))});
             return;
         }
         // Lush caves (M27.2; wiki): cave vines drop glow berries if they bear them; small
         // dripleaves and hanging roots only with shears (the dripleaf's lower half); a big
         // dripleaf's stem gives the big dripleaf.
         if (ob == blocks::CaveVines || ob == blocks::CaveVinesPlant) {
-            if (blockRegistry().get(state, properties::berries) == 0) out.push_back({*itemRegistry().find("glow_berries"), 1});
+            if (blockRegistry().get(state, properties::berries) == 0)
+                out.push_back({*itemRegistry().find("glow_berries"), 1});
             return;
         }
         if (ob == blocks::SmallDripleaf || ob == blocks::HangingRoots) {
             if ((shears || enchantLevel(held, Enchantment::SilkTouch) > 0) &&
-                (ob == blocks::HangingRoots || blockRegistry().get(state, properties::doorHalf) == 1))
+                (ob == blocks::HangingRoots ||
+                 blockRegistry().get(state, properties::doorHalf) == 1))
                 out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
@@ -409,25 +431,29 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             return;
         }
         if (ob == blocks::PaleHangingMoss) { // (wiki: only with shears or Silk Touch)
-            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0)
+                out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
         if (ob == blocks::Seagrass || ob == blocks::TallSeagrass) {
-            if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), uint8_t(ob == blocks::TallSeagrass ? 2 : 1)});
+            if (shears)
+                out.push_back({itemRegistry().blockItem(blocks::Seagrass),
+                               uint8_t(ob == blocks::TallSeagrass ? 2 : 1)});
             return;
         }
         // (M26.4a; wiki: Cobweb - itself with shears or Silk Touch, a string with a sword;
         // Infested Block - nothing: the silverfish comes out instead)
         if (ob == blocks::Cobweb) {
-            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0)
+                out.push_back({itemRegistry().blockItem(ob), 1});
             else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Sword)
                 out.push_back({*itemRegistry().find("string"), 1});
             return;
         }
         if (id.starts_with("minecraft:infested_")) return;
         if (enchantLevel(held, Enchantment::SilkTouch) > 0 &&
-            (id.ends_with("_coral") || id.ends_with("_coral_fan") || id.ends_with("_coral_block") || ob == blocks::BlueIce ||
-             ob == blocks::TurtleEgg)) {
+            (id.ends_with("_coral") || id.ends_with("_coral_fan") || id.ends_with("_coral_block") ||
+             ob == blocks::BlueIce || ob == blocks::TurtleEgg)) {
             out.push_back({itemRegistry().blockItem(ob), 1});
             return;
         }
@@ -436,7 +462,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
     // (wiki: Silk Touch).
     if (enchantLevel(held, Enchantment::SilkTouch) > 0) {
         const BlockId sb = blockRegistry().blockOf(state);
-        if (blockRegistry().kind(sb) == BlockKind::Pane || blockRegistry().block(sb).id.ends_with("_stained_glass")) {
+        if (blockRegistry().kind(sb) == BlockKind::Pane ||
+            blockRegistry().block(sb).id.ends_with("_stained_glass")) {
             out.push_back({itemRegistry().blockItem(sb), 1});
             return;
         }
@@ -581,7 +608,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
             add(itemRegistry().blockItem(b), reg.get(state, properties::pickles) + 1);
             return;
         }
-        if (id.ends_with("_coral") || id.ends_with("_coral_fan") || b == blocks::BlueIce || b == blocks::TurtleEgg) return;
+        if (id.ends_with("_coral") || id.ends_with("_coral_fan") || b == blocks::BlueIce ||
+            b == blocks::TurtleEgg)
+            return;
         if (id.ends_with("_coral_block") && !id.starts_with("minecraft:dead_")) {
             add(itemRegistry().blockItem(*reg.findBlock("dead_" + id.substr(10))));
             return;
@@ -612,7 +641,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::BrownMushroomBlock:
     case blocks::RedMushroomBlock:
         if (const int n = static_cast<int>(rng.nextInt(9)) - 6; n > 0) // 0/1/2 at 7/9, 1/9, 1/9
-            add(itemRegistry().blockItem(b == blocks::BrownMushroomBlock ? blocks::BrownMushroom : blocks::RedMushroom), n);
+            add(itemRegistry().blockItem(b == blocks::BrownMushroomBlock ? blocks::BrownMushroom
+                                                                         : blocks::RedMushroom),
+                n);
         return;
     case blocks::MushroomStem:
     case blocks::Spawner:
@@ -623,21 +654,25 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         add(itemRegistry().blockItem(blocks::Netherrack)); // (wiki: Nylium)
         return;
     case blocks::NetherWart: // wiki: Nether Wart - 2-4 when ripe (age 3), else 1
-        add(itemRegistry().blockItem(blocks::NetherWart), blockRegistry().get(state, properties::age3) == 3 ? between(2, 4) : 1);
+        add(itemRegistry().blockItem(blocks::NetherWart),
+            blockRegistry().get(state, properties::age3) == 3 ? between(2, 4) : 1);
         return;
     case blocks::ChorusPlant: // wiki: Chorus Plant - 0-1 chorus fruit
         if (rng.nextInt(2) == 0) add(*itemRegistry().find("chorus_fruit"));
         return;
     case blocks::OakDoor:
     case blocks::IronDoor: // only the lower half drops the door (the upper goes with it)
-        if (blockRegistry().get(state, properties::doorHalf) == 1) add(itemRegistry().blockItem(blockRegistry().blockOf(state)));
+        if (blockRegistry().get(state, properties::doorHalf) == 1)
+            add(itemRegistry().blockItem(blockRegistry().blockOf(state)));
         return;
     case blocks::Glowstone: // wiki: Glowstone - 2-4 dust
         add(*itemRegistry().find("glowstone_dust"), between(2, 4));
         return;
     case blocks::GildedBlackstone: // wiki: 10% 2-5 gold nuggets, else itself
-        if (rng.nextFloat() < 0.1f) add(*itemRegistry().find("gold_nugget"), between(2, 5));
-        else add(itemRegistry().blockItem(blocks::GildedBlackstone));
+        if (rng.nextFloat() < 0.1f)
+            add(*itemRegistry().find("gold_nugget"), between(2, 5));
+        else
+            add(itemRegistry().blockItem(blocks::GildedBlackstone));
         return;
     // Vines drop only with shears or Silk Touch, or 33% (wiki: Weeping Vines); the
     // plant parts drop the vine item.
@@ -646,8 +681,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::TwistingVines:
     case blocks::TwistingVinesPlant:
         if (rng.nextFloat() < 0.33f)
-            add(itemRegistry().blockItem(b == blocks::WeepingVines || b == blocks::WeepingVinesPlant ? blocks::WeepingVines
-                                                                                                    : blocks::TwistingVines));
+            add(itemRegistry().blockItem(b == blocks::WeepingVines || b == blocks::WeepingVinesPlant
+                                             ? blocks::WeepingVines
+                                             : blocks::TwistingVines));
         return;
     case blocks::CoalOre:
     case blocks::DeepslateCoalOre:
@@ -718,7 +754,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::FloweringAzaleaLeaves:
         // wiki: Leaves - saplings 5% (jungle 2.5%; mangrove leaves drop none: propagules
         // grow under them), sticks 2% (1-2), oak and dark oak leaves also apples 0.5%.
-        if (b != blocks::MangroveLeaves && rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
+        if (b != blocks::MangroveLeaves &&
+            rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
             const BlockId sapling = b == blocks::BirchLeaves     ? blocks::BirchSapling
                                     : b == blocks::SpruceLeaves  ? blocks::SpruceSapling
                                     : b == blocks::AcaciaLeaves  ? blocks::AcaciaSapling
@@ -726,19 +763,22 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
                                     : b == blocks::DarkOakLeaves ? blocks::DarkOakSapling
                                     : b == blocks::CherryLeaves  ? blocks::CherrySapling
                                     : b == blocks::PaleOakLeaves ? blocks::PaleOakSapling
-                                    : b == blocks::AzaleaLeaves  ? blocks::Azalea // (M27.2: their bushes)
+                                    : b == blocks::AzaleaLeaves
+                                        ? blocks::Azalea // (M27.2: their bushes)
                                     : b == blocks::FloweringAzaleaLeaves ? blocks::FloweringAzalea
-                                                                 : blocks::OakSapling;
+                                                                         : blocks::OakSapling;
             add(itemRegistry().blockItem(sapling));
         }
         if (rng.nextFloat() < 0.02f) add(d.stick, between(1, 2));
-        if ((b == blocks::OakLeaves || b == blocks::DarkOakLeaves) && rng.nextFloat() < 0.005f) add(d.apple);
+        if ((b == blocks::OakLeaves || b == blocks::DarkOakLeaves) && rng.nextFloat() < 0.005f)
+            add(d.apple);
         return;
     case blocks::SnowBlock: // (M26.5b; wiki: Snow Block - 4 snowballs; shovel only: harvestInfo)
         out.push_back({*itemRegistry().find("snowball"), 4});
         return;
     case blocks::Snow: // (M26.5b; wiki: Snow - a snowball a layer)
-        out.push_back({*itemRegistry().find("snowball"), uint8_t(blockRegistry().get(state, properties::layers) + 1)});
+        out.push_back({*itemRegistry().find("snowball"),
+                       uint8_t(blockRegistry().get(state, properties::layers) + 1)});
         return;
     case blocks::Glass:
     case blocks::Ice:

@@ -2,8 +2,8 @@
 
 #include "world/Trades.h"
 
-#include "gameplay/ExperienceOrbs.h"
 #include "gameplay/BlockCollision.h"
+#include "gameplay/ExperienceOrbs.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 
@@ -30,7 +30,8 @@ constexpr double kGroundFriction = 0.6 * 0.91, kAirFriction = 0.91;
 
 float yawTowards(const glm::dvec3& from, const glm::dvec3& to) {
     // Vanilla yaw: 0 = +Z (south), 90 = -X (west).
-    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 / std::numbers::pi);
+    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 /
+                              std::numbers::pi);
 }
 
 float approachAngle(float from, float to, float maxStep) {
@@ -49,15 +50,18 @@ Xoroshiro& uuidRng() {
     return rng;
 }
 
-bool solidAt(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+bool solidAt(const World& w, int x, int y, int z) {
+    return blockRegistry().collides(w.getBlock({x, y, z}));
+}
 
 // A spot a mob can spawn in (wiki: Mob spawning): a spawnable block below (not
 // glass, leaves, bedrock or ice), and two cells without collision or fluid.
 bool canSpawnAt(const World& w, int x, int y, int z) {
     const auto& reg = blockRegistry();
     const BlockId below = reg.blockOf(w.getBlock({x, y - 1, z}));
-    if (!reg.collides(w.getBlock({x, y - 1, z})) || below == blocks::Bedrock || below == blocks::Glass ||
-        below == blocks::Ice || below == blocks::PackedIce || reg.block(below).id.ends_with("_leaves"))
+    if (!reg.collides(w.getBlock({x, y - 1, z})) || below == blocks::Bedrock ||
+        below == blocks::Glass || below == blocks::Ice || below == blocks::PackedIce ||
+        reg.block(below).id.ends_with("_leaves"))
         return false;
     for (int dy = 0; dy < 2; ++dy) {
         const BlockStateId s = w.getBlock({x, y + dy, z});
@@ -71,11 +75,13 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 
 Aabb Mobs::box(const MobData& m) {
     if (isHanging(m.type)) return hangingBox(m); // (M28.3a: flat on their wall)
-    if (m.type == MobType::LeashKnot) // (M28.3c: around its fence post's middle)
+    if (m.type == MobType::LeashKnot)            // (M28.3c: around its fence post's middle)
         return {m.pos - glm::dvec3(0.1875, 0.0, 0.1875), m.pos + glm::dvec3(0.1875, 0.5, 0.1875)};
     const MobInfo& info = mobInfo(m.type);
-    double s = m.isBaby() ? (m.type == MobType::HappyGhast ? 0.2375 : 0.5) : 1.0; // babies are half size (ghastlings 0.95)
-    if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
+    double s = m.isBaby() ? (m.type == MobType::HappyGhast ? 0.2375 : 0.5)
+                          : 1.0; // babies are half size (ghastlings 0.95)
+    if (m.type == MobType::MagmaCube || m.type == MobType::Slime)
+        s = m.size / 4.0; // (info is the large one)
     // (a sitting camel is 0.945 tall - wiki: Camel)
     const double h = m.type == MobType::Camel && m.sitting ? 0.945 : info.height;
     return Aabb::fromFeet(m.pos, info.width * s, h * s);
@@ -85,37 +91,40 @@ uint8_t Mobs::naturalWoolColour(Xoroshiro& rng) {
     // wiki: Sheep › Spawning - white 81.836%, black, gray and light gray 5% each,
     // brown 3%, pink 0.164%.
     const double r = rng.nextDouble() * 100.0;
-    if (r < 5.0) return 15;      // black
-    if (r < 10.0) return 7;      // gray
-    if (r < 15.0) return 8;      // light gray
-    if (r < 18.0) return 12;     // brown
-    if (r < 18.164) return 6;    // pink
-    return 0;                    // white
+    if (r < 5.0) return 15;   // black
+    if (r < 10.0) return 7;   // gray
+    if (r < 15.0) return 8;   // light gray
+    if (r < 18.0) return 12;  // brown
+    if (r < 18.164) return 6; // pink
+    return 0;                 // white
 }
 
 MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     MobData m;
     m.type = type;
-    m.uuidHi = (uuidRng().nextLong() & ~0xF000ull) | 0x4000ull; // version 4
+    m.uuidHi = (uuidRng().nextLong() & ~0xF000ull) | 0x4000ull;       // version 4
     m.uuidLo = (uuidRng().nextLong() & ~(3ull << 62)) | (2ull << 62); // variant 2
     m.pos = m.prevPos = m.goal = pos;
     m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = rng.nextFloat() * 360.0f - 180.0f;
     m.health = mobInfo(type).maxHealth;
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
-    if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
+    if (type == MobType::Chicken)
+        m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
     if (type == MobType::IronGolem) m.persistent = true;
-    if (type == MobType::TropicalFish) { // (wiki: Tropical Fish - 2 shapes x 6 patterns x 16 x 16 colours)
+    if (type ==
+        MobType::TropicalFish) { // (wiki: Tropical Fish - 2 shapes x 6 patterns x 16 x 16 colours)
         m.size = uint8_t(rng.nextInt(12));
         m.woolColour = uint8_t(rng.nextInt(16));
         m.color2 = uint8_t(rng.nextInt(16));
         if (m.color2 == m.woolColour) m.color2 = uint8_t((m.color2 + 7) & 15);
     }
-    if (type == MobType::Pufferfish) m.size = 0; // (deflated)
+    if (type == MobType::Pufferfish) m.size = 0;               // (deflated)
     if (isPet(type) || type == MobType::Ocelot) m.color2 = 14; // (red collars - wiki)
-    if (type == MobType::Cat) m.woolColour = uint8_t(rng.nextInt(10)); // (all black only from swamp huts)
+    if (type == MobType::Cat)
+        m.woolColour = uint8_t(rng.nextInt(10)); // (all black only from swamp huts)
     if (type == MobType::Parrot) m.woolColour = uint8_t(rng.nextInt(5));
-    if (isMount(type)) initMount(m, rng); // (M26.2: its own health, speed and jump; coat)
-    initWildlife(m, rng);                 // (M26.3: panda genes, screaming goats, scute timers)
+    if (isMount(type)) initMount(m, rng);   // (M26.2: its own health, speed and jump; coat)
+    initWildlife(m, rng);                   // (M26.3: panda genes, screaming goats, scute timers)
     if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
         wanderingTraderTrades(m, rng);
         m.despawnDelay = 48000;
@@ -123,10 +132,11 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
         m.home = {int(std::floor(pos.x)), int(std::floor(pos.y)), int(std::floor(pos.z))};
     }
     if (type == MobType::Villager) {
-        m.persistent = true; // (villagers never despawn)
+        m.persistent = true;                    // (villagers never despawn)
         m.poiSearch = int16_t(rng.nextInt(40)); // (look around soon after appearing)
     }
-    if (type == MobType::MagmaCube || type == MobType::Slime) { // wiki: sizes 1, 2, 4 at spawn; health size^2
+    if (type == MobType::MagmaCube ||
+        type == MobType::Slime) { // wiki: sizes 1, 2, 4 at spawn; health size^2
         const uint32_t r = rng.nextInt(3);
         m.size = uint8_t(1u << r);
         m.health = float(m.size * m.size);
@@ -143,12 +153,14 @@ bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
             Chunk* c = world.chunk({c0.x + dx, c0.z + dz});
             if (!c) continue;
             for (MobData& m : c->mobs()) {
-                if (m.health <= 0.0f || !box(m).intersects(zone) || m.type == MobType::EnderDragon ||
-                    m.type == MobType::EndCrystal || m.type == MobType::Minecart)
+                if (m.health <= 0.0f || !box(m).intersects(zone) ||
+                    m.type == MobType::EnderDragon || m.type == MobType::EndCrystal ||
+                    m.type == MobType::Minecart)
                     continue;
                 hit = true;
                 if (m.type == MobType::Creeper) m.powered = true;
-                if (m.type == MobType::Villager) { // (wiki: a villager struck by lightning becomes a witch)
+                if (m.type ==
+                    MobType::Villager) { // (wiki: a villager struck by lightning becomes a witch)
                     m.type = MobType::Witch;
                     m.health = mobInfo(m.type).maxHealth;
                     m.age = 0;
@@ -176,7 +188,8 @@ bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
 }
 
 bool Mobs::add(World& world, const MobData& mob) {
-    const BlockPos at{int(std::floor(mob.pos.x)), int(std::floor(mob.pos.y)), int(std::floor(mob.pos.z))};
+    const BlockPos at{int(std::floor(mob.pos.x)), int(std::floor(mob.pos.y)),
+                      int(std::floor(mob.pos.z))};
     Chunk* c = world.chunk(at.chunk());
     if (!c) return false;
     c->mobs().push_back(mob);
@@ -198,7 +211,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         }
         if (m.fireTicks < 160) m.fireTicks = 160;
     }
-    if (inWater) m.fireTicks = 0; // water puts out burning mobs (wiki: Fire)
+    if (inWater) m.fireTicks = 0;   // water puts out burning mobs (wiki: Fire)
     if (fluid.lava && !fireproof) { // wiki: Lava - 4 damage (with the hurt cooldown), on fire 15 s
         if (m.hurtTime == 0 && m.deathTime == 0) {
             m.health -= 4.0f;
@@ -207,10 +220,12 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fireTicks = 300;
         m.vel *= 0.5;
     }
-    const bool vehicle = m.type == MobType::Boat; // (its velocity is set by boatTick: collision only)
+    const bool vehicle =
+        m.type == MobType::Boat; // (its velocity is set by boatTick: collision only)
     // Walking: horizontal speed approaches `wish` (blocks/tick) with ground friction.
     const double friction = vehicle ? 1.0 : m.onGround ? kGroundFriction : kAirFriction;
-    const double accel = m.onGround ? (1.0 - kGroundFriction) : 0.02 / 0.1 * (1.0 - kGroundFriction) * 0.25;
+    const double accel =
+        m.onGround ? (1.0 - kGroundFriction) : 0.02 / 0.1 * (1.0 - kGroundFriction) * 0.25;
     if (!vehicle) {
         m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
         m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
@@ -225,7 +240,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
-    } else if ((m.type == MobType::Turtle || m.type == MobType::Frog) && inWater) { // (M26.3c: frogs swim too)
+    } else if ((m.type == MobType::Turtle || m.type == MobType::Frog) &&
+               inWater) { // (M26.3c: frogs swim too)
         // Turtles swim (wiki: Turtle): toward the goal, its height too.
         m.vel = m.vel * 0.9 + wish * 0.15;
         m.vel.y += std::clamp((m.goal.y - m.pos.y) * 0.02, -0.02, 0.02);
@@ -281,7 +297,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         const Aabb over = raised.moved(across);
         const glm::dvec3 down = slide(over, {0, -step, 0});
         const glm::dvec3 stepped = up + across + down;
-        if (stepped.x * stepped.x + stepped.z * stepped.z > moved.x * moved.x + moved.z * moved.z + 1e-9)
+        if (stepped.x * stepped.x + stepped.z * stepped.z >
+            moved.x * moved.x + moved.z * moved.z + 1e-9)
             moved = stepped;
     }
     m.onGround = m.vel.y < 0.0 && moved.y != m.vel.y;
@@ -289,13 +306,16 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (inWater) {
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
-        if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && m.type != MobType::Slime &&
-            m.type != MobType::Breeze && !mobInfo(m.type).flies && !vehicle) // (breezes: no fall damage - M26.4c)
-            m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
+        if (m.type != MobType::Chicken && m.type != MobType::MagmaCube &&
+            m.type != MobType::Slime && m.type != MobType::Breeze && !mobInfo(m.type).flies &&
+            !vehicle) // (breezes: no fall damage - M26.4c)
+            m.fallDistance -=
+                static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
         // (mounts: half the damage and 3 more safe blocks - wiki: Horse, Camel)
-        const float damage = isMount(m.type) ? std::ceil(m.fallDistance * 0.5f - 3.0f) : std::ceil(m.fallDistance - 3.0f);
+        const float damage = isMount(m.type) ? std::ceil(m.fallDistance * 0.5f - 3.0f)
+                                             : std::ceil(m.fallDistance - 3.0f);
         if (damage > 0.0f) {
             m.health -= damage;
             m.hurtTime = 10;
@@ -349,15 +369,19 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const glm::dvec3 to = ctx.player.position() - m.pos;
         const bool target = ctx.survival && !ctx.playerDead && glm::dot(to, to) < 16.0 * 16.0;
         int want = target ? 100 : (m.goalTicks > 0 ? 30 : 0);
-        if (!target && ctx.rng.nextInt(400) == 0) m.goalTicks = 20 + static_cast<int>(ctx.rng.nextInt(41)); // a 1-3 s peek
+        if (!target && ctx.rng.nextInt(400) == 0)
+            m.goalTicks = 20 + static_cast<int>(ctx.rng.nextInt(41)); // a 1-3 s peek
         if (m.goalTicks > 0) --m.goalTicks;
-        if (m.peek < want) m.peek = static_cast<uint8_t>(std::min(want, m.peek + 5));
-        else if (m.peek > want) m.peek = static_cast<uint8_t>(std::max(want, m.peek - 5));
+        if (m.peek < want)
+            m.peek = static_cast<uint8_t>(std::min(want, m.peek + 5));
+        else if (m.peek > want)
+            m.peek = static_cast<uint8_t>(std::max(want, m.peek - 5));
         if (target && ctx.projectiles && --m.chargeTicks <= 0) {
             const glm::dvec3 from = m.pos + glm::dvec3(0.0, 0.5, 0.0);
-            const glm::dvec3 dir = glm::length(to) > 1e-6 ? glm::normalize(to) : glm::dvec3(0, 1, 0);
-            ctx.projectiles->shoot(ProjectileKind::ShulkerBullet, from + dir * 0.8, dir, 0.15, 0.0, false, false,
-                                   ctx.rng, m.uuidHi);
+            const glm::dvec3 dir =
+                glm::length(to) > 1e-6 ? glm::normalize(to) : glm::dvec3(0, 1, 0);
+            ctx.projectiles->shoot(ProjectileKind::ShulkerBullet, from + dir * 0.8, dir, 0.15, 0.0,
+                                   false, false, ctx.rng, m.uuidHi);
             m.chargeTicks = static_cast<int16_t>(20 + ctx.rng.nextInt(90)); // (wiki: 1-5.5 s)
         }
         m.yaw = 0.0f; // (the shell never turns; vanilla's head inside does)
@@ -375,12 +399,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
         return;
     }
-    if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
-    if (waterAi(ctx, m)) return;  // fish and squid (WaterMobs.cpp)
-    if (beeAi(ctx, m)) return;    // (M26.3b, Bees.cpp)
-    if (phantomAi(ctx, m)) return; // (M26.4a, Phantoms.cpp)
-    if (witherAi(ctx, m)) return;  // (M26.4b, Wither.cpp)
-    if (allayAi(ctx, m)) return;   // (M26.5a, Allays.cpp)
+    if (netherAi(ctx, m)) return;     // ghasts, blazes, magma cubes (NetherMobs.cpp)
+    if (waterAi(ctx, m)) return;      // fish and squid (WaterMobs.cpp)
+    if (beeAi(ctx, m)) return;        // (M26.3b, Bees.cpp)
+    if (phantomAi(ctx, m)) return;    // (M26.4a, Phantoms.cpp)
+    if (witherAi(ctx, m)) return;     // (M26.4b, Wither.cpp)
+    if (allayAi(ctx, m)) return;      // (M26.5a, Allays.cpp)
     if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
     if (creakingTick(ctx, m)) return; // (M27.1c, Creakings.cpp: frozen or crumbling)
     if (wardenTick(ctx, m)) return;   // (M27.3c, Wardens.cpp: emerging, digging, booming)
@@ -396,7 +420,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         villagerUpkeep(ctx, m);
         villagerFear(ctx, m);
         double unused = 0.0;
-        if (m.sleeping && villagerGoal(ctx, m, unused) && m.sleeping) { // asleep: nothing else turns or moves it
+        if (m.sleeping && villagerGoal(ctx, m, unused) &&
+            m.sleeping) { // asleep: nothing else turns or moves it
             m.vel = glm::dvec3(0.0);
             m.prevPos = m.pos; // (no physics this tick: nothing else updates it)
             m.headYaw = m.prevHeadYaw = m.yaw;
@@ -407,14 +432,15 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
     const glm::dvec3 playerPos = ctx.player.position();
     const glm::dvec3 toPlayer = playerPos - m.pos;
-    const double playerDist2 = toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y + toPlayer.z * toPlayer.z;
+    const double playerDist2 =
+        toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y + toPlayer.z * toPlayer.z;
     double speed = info.speed * 0.5; // blocks per tick at speed modifier 1 (our estimate)
     bool chase = false;
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
     const double follow = isZombie(m.type) || m.type == MobType::Vex ? 35.0
-                          : m.type == MobType::Enderman ? 64.0
+                          : m.type == MobType::Enderman              ? 64.0
                           : m.type == MobType::Pillager ? 32.0 // (wiki: Pillager - follow range 32)
                                                         : 16.0;
     // An angered iron golem goes for the player like a monster (wiki: Iron Golem), until
@@ -428,7 +454,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry) ||
                             (m.type == MobType::Wolf && m.angry && !m.tamed) ||
                             ((m.type == MobType::PolarBear || m.type == MobType::Panda) && m.angry);
-    if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
+    if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow ||
+        !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
         // Targets are picked on sight (wiki: Zombie): a line of sight check twice a second.
@@ -444,9 +471,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
-        if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0) m.goal = m.pos; // (throws from where it stands)
-        if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0) m.goal = m.pos; // (shoots from ~8 blocks)
-        if (m.type == MobType::Evoker && playerDist2 < 10.0 * 10.0) m.goal = m.pos; // (casts from a distance)
+        if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0)
+            m.goal = m.pos; // (throws from where it stands)
+        if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0)
+            m.goal = m.pos; // (shoots from ~8 blocks)
+        if (m.type == MobType::Evoker && playerDist2 < 10.0 * 10.0)
+            m.goal = m.pos; // (casts from a distance)
     } else if (m.type == MobType::WanderingTrader) {
         // Stands still while traded with, else strolls near where it arrived; its time
         // up, it's gone (wiki: Wandering Trader › Despawning).
@@ -458,10 +488,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (m.tradingTicks > 0) {
             --m.tradingTicks;
             m.goal = m.pos;
-        } else if (++m.goalTicks > 200 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
+        } else if (++m.goalTicks > 200 ||
+                   glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
             if (ctx.rng.nextInt(80) == 0) {
                 const glm::dvec3 home(m.home.x + 0.5, m.home.y, m.home.z + 0.5);
-                m.goal = home + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0.0, ctx.rng.nextDouble() * 20 - 10);
+                m.goal = home + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0.0,
+                                           ctx.rng.nextDouble() * 20 - 10);
                 m.goalTicks = 0;
             }
             speed *= 0.6;
@@ -475,15 +507,18 @@ void Mobs::ai(Context& ctx, MobData& m) {
                villageHunt(ctx, m)) {
         chase = true; // (after a villager: Villagers.cpp)
     } else if (m.raidId != 0 && m.raidId == ctx.raidId && ctx.raidCentre &&
-               glm::length(glm::dvec2(ctx.raidCentre->x + 0.5 - m.pos.x, ctx.raidCentre->z + 0.5 - m.pos.z)) > 6.0) {
+               glm::length(glm::dvec2(ctx.raidCentre->x + 0.5 - m.pos.x,
+                                      ctx.raidCentre->z + 0.5 - m.pos.z)) > 6.0) {
         // Raiders with nobody to fight march on the village bell (wiki: Raid).
         m.goal = glm::dvec3(*ctx.raidCentre) + glm::dvec3(0.5, 0.0, 0.5);
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
         // (home, work, the bell, sleep: Villagers.cpp)
-    } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 && petGoal(ctx, m, speed)) {
+    } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 &&
+               petGoal(ctx, m, speed)) {
         // (sitting, following, fighting, dancing: Pets.cpp)
     } else if (isWildlife(m.type) && wildlifeGoal(ctx, m, speed)) {
-        // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos: Wildlife.cpp)
+        // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos:
+        // Wildlife.cpp)
     } else if (m.type == MobType::Warden && wardenGoal(ctx, m, speed)) {
         // (going to look where it heard something: Wardens.cpp)
     } else if (m.type == MobType::CopperGolem && copperGolemGoal(ctx, m, speed)) {
@@ -495,8 +530,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     } else if (m.panicTicks > 0) {
         --m.panicTicks;
         speed *= 2.0; // wiki: Cow - panics when hurt (faster)
-        if (m.goalTicks++ > 30 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 1.0) {
-            m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 10 - 5, 0, ctx.rng.nextDouble() * 10 - 5);
+        if (m.goalTicks++ > 30 ||
+            glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 1.0) {
+            m.goal =
+                m.pos + glm::dvec3(ctx.rng.nextDouble() * 10 - 5, 0, ctx.rng.nextDouble() * 10 - 5);
             m.goalTicks = 0;
         }
     } else {
@@ -504,9 +541,11 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // player within 32 blocks.
         if (playerDist2 > 32.0 * 32.0) {
             m.goal = m.pos;
-        } else if (++m.goalTicks > 200 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
+        } else if (++m.goalTicks > 200 ||
+                   glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
             if (ctx.rng.nextInt(120) == 0) {
-                m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0, ctx.rng.nextDouble() * 20 - 10);
+                m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0,
+                                            ctx.rng.nextDouble() * 20 - 10);
                 m.goalTicks = 0;
             } else if (m.goalTicks > 200) {
                 m.goal = m.pos;
@@ -517,21 +556,24 @@ void Mobs::ai(Context& ctx, MobData& m) {
     // Path to the goal (M16.2): a new search only when the goal cell moved (or a chase
     // path ran out), at most every 4-10 ticks; longer waits after a partial path (+15)
     // and for far targets (+5 past 16 blocks, +10 past 32), as vanilla's melee goal.
-    const glm::ivec3 feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
-    const glm::ivec3 goalCell{int(std::floor(m.goal.x)), int(std::floor(m.goal.y + 0.01)), int(std::floor(m.goal.z))};
+    const glm::ivec3 feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                          int(std::floor(m.pos.z))};
+    const glm::ivec3 goalCell{int(std::floor(m.goal.x)), int(std::floor(m.goal.y + 0.01)),
+                              int(std::floor(m.goal.z))};
     if (m.repathTicks > 0) --m.repathTicks;
     const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
     if (goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished))) {
         const int heightCells = int(std::ceil(info.height));
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
-        m.pathLength = uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, heightCells, chase ? 560 : 200,
-                                                   m.path.data(), MobData::kMaxPath));
+        m.pathLength =
+            uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, heightCells, chase ? 560 : 200,
+                                      m.path.data(), MobData::kMaxPath));
         m.pathIndex = 0;
         m.pathRequest = goalCell;
         const bool partial = m.pathLength == 0 || m.path[size_t(m.pathLength - 1)] != goalCell;
         const double far2 = glm::dot(m.goal - m.pos, m.goal - m.pos);
-        m.repathTicks = int16_t(4 + ctx.rng.nextInt(7) + (partial ? 15 : 0) + (far2 > 16.0 * 16.0 ? 5 : 0) +
-                                (far2 > 32.0 * 32.0 ? 5 : 0));
+        m.repathTicks = int16_t(4 + ctx.rng.nextInt(7) + (partial ? 15 : 0) +
+                                (far2 > 16.0 * 16.0 ? 5 : 0) + (far2 > 32.0 * 32.0 ? 5 : 0));
         if (!chase && partial && m.pathLength > 0 && m.panicTicks == 0) {
             // A stroll target it can't reach: stop where the path ends.
             const glm::ivec3 end = m.path[size_t(m.pathLength - 1)];
@@ -543,8 +585,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     while (m.pathIndex < m.pathLength) {
         const glm::ivec3 c = m.path[m.pathIndex];
         const double dx = c.x + 0.5 - m.pos.x, dz = c.z + 0.5 - m.pos.z;
-        if (dx * dx + dz * dz < 0.35 * 0.35 && std::abs(double(c.y) - m.pos.y) < 1.1) ++m.pathIndex;
-        else break;
+        if (dx * dx + dz * dz < 0.35 * 0.35 && std::abs(double(c.y) - m.pos.y) < 1.1)
+            ++m.pathIndex;
+        else
+            break;
     }
     glm::dvec3 steer = m.goal;
     bool climb = false;
@@ -561,21 +605,24 @@ void Mobs::ai(Context& ctx, MobData& m) {
     const bool last = m.pathIndex + 1 >= m.pathLength;
     const glm::dvec2 d(steer.x - m.pos.x, steer.z - m.pos.z);
     const double dl = glm::length(d);
-    const double stopAt = chase && last ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
+    const double stopAt =
+        chase && last ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
     if (dl > stopAt) {
         wish = glm::dvec3(d.x / dl, 0, d.y / dl) * speed;
         m.yaw = approachAngle(m.yaw, yawTowards(m.pos, steer), 10.0f);
         const int ax = int(std::floor(m.pos.x + d.x / dl * (info.width * 0.5 + 0.4)));
         const int az = int(std::floor(m.pos.z + d.y / dl * (info.width * 0.5 + 0.4)));
         const int fy = int(std::floor(m.pos.y + 0.01));
-        jump = climb || (solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
-                         !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z))));
+        jump = climb ||
+               (solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
+                !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z))));
     }
     // Head: look at a near player (wiki: look-at-player goal, 6-8 blocks).
     if (playerDist2 < 8.0 * 8.0) {
         m.headYaw = approachAngle(m.headYaw, yawTowards(m.pos, playerPos), 10.0f);
         const double horiz = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z);
-        m.pitch = static_cast<float>(-std::atan2(toPlayer.y + 1.62 - info.height * 0.85, horiz) * 180.0 / std::numbers::pi);
+        m.pitch = static_cast<float>(-std::atan2(toPlayer.y + 1.62 - info.height * 0.85, horiz) *
+                                     180.0 / std::numbers::pi);
     } else {
         m.headYaw = approachAngle(m.headYaw, m.yaw, 10.0f);
         m.pitch *= 0.9f;
@@ -585,21 +632,23 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.type == MobType::Armadillo && m.sitting) wish = glm::dvec3(0.0); // (rolled up)
     const glm::dvec3 before = m.pos;
     physics(ctx.world, m, wish, jump);
-    if (isWildlife(m.type))
-        wildlifeTick(ctx, m, m.climbing && glm::length(m.pos - before) < 0.05);
+    if (isWildlife(m.type)) wildlifeTick(ctx, m, m.climbing && glm::length(m.pos - before) < 0.05);
 
     // Melee (wiki: Zombie - 3 damage on normal, once a second, reach ~ width*2).
     if (m.attackCooldown > 0) --m.attackCooldown;
     if (chase && m.attackCooldown == 0 && info.attackDamage > 0.0f) {
         const double reach = info.width * 2.0 + 0.6;
-        if (playerDist2 < reach * reach && box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
-                                                                  ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
+        if (playerDist2 < reach * reach &&
+            box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
+                                   ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
             // (golems: 7.5 + 0-14 and a throw upward)
-            const float hit = info.attackDamage + (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
+            const float hit = info.attackDamage +
+                              (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
             if (ctx.vitals.attacked(hit, &m.pos)) {
                 setPlayerAttacker(m.uuidHi); // (tamed wolves go for it - M26.1)
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
-                if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
+                if (m.type == MobType::IronGolem)
+                    ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
                 // (M26.4a; wiki, Normal) a cave spider's bite poisons for 7 s, a wither
                 // skeleton's hit withers for 10 s.
                 // Poison 7 s on Normal, 15 s on Hard, none on Easy (wiki: Cave Spider).
@@ -618,26 +667,33 @@ void Mobs::ai(Context& ctx, MobData& m) {
     // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
     const bool undead = isZombie(m.type) || m.type == MobType::Skeleton;
     if (undead || m.fireTicks > 0) {
-        const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
+        const BlockPos head{int(std::floor(m.pos.x)),
+                            int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
                             int(std::floor(m.pos.z))};
         const Chunk* c = ctx.world.chunk(head.chunk());
         const bool day = ctx.skyDarken < 4.0f;
-        const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
-        const BlockStateId hs = c ? c->get(blockToLocal(head.x), head.y, blockToLocal(head.z)) : BlockStateId{0};
-        bool wet = c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
+        const bool sky =
+            c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
+        const BlockStateId hs =
+            c ? c->get(blockToLocal(head.x), head.y, blockToLocal(head.z)) : BlockStateId{0};
+        bool wet =
+            c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
         // A zombie under water turns into a drowned: 30 s submerged, then 15 s of
         // shaking (wiki: Zombie › Drowned conversion; ours counts 45 s in one go).
         if (m.type == MobType::Zombie) { // (babies too; it keeps the zombie's persistence - review)
-            if (!wet) m.airTicks = 300;
+            if (!wet)
+                m.airTicks = 300;
             else if (--m.airTicks <= -600) {
                 m.type = MobType::Drowned;
                 m.airTicks = 300;
                 m.health = mobInfo(MobType::Drowned).maxHealth;
             }
         }
-        if (!wet && ctx.weather && ctx.weather->raining && ((undead && day && sky) || m.fireTicks > 0))
+        if (!wet && ctx.weather && ctx.weather->raining &&
+            ((undead && day && sky) || m.fireTicks > 0))
             // (sky light 15 at the head: open sky, so no column scan is needed)
-            wet = sky ? precipitationAt(ctx.world, head) == Precipitation::Rain : rainingAt(ctx.world, *ctx.weather, head);
+            wet = sky ? precipitationAt(ctx.world, head) == Precipitation::Rain
+                      : rainingAt(ctx.world, *ctx.weather, head);
         // Re-lit to 8 s while in the sun; refreshed once a second so the 1-per-second
         // damage clock below keeps running.
         if (undead && day && sky && !wet && m.fireTicks <= 140) m.fireTicks = 160;
@@ -656,7 +712,8 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
     const auto& r = blockRegistry();
     const BlockId b = r.blockOf(world.getBlock(on));
     if (b != blocks::Obsidian && b != blocks::Bedrock) return false;
-    if (world.getBlock({on.x, on.y + 1, on.z}) != 0 || world.getBlock({on.x, on.y + 2, on.z}) != 0) return false;
+    if (world.getBlock({on.x, on.y + 1, on.z}) != 0 || world.getBlock({on.x, on.y + 2, on.z}) != 0)
+        return false;
     MobData m = make(MobType::EndCrystal, {on.x + 0.5, on.y + 1.0, on.z + 0.5}, rng);
     m.showBottom = false; // (placed crystals have no base)
     const Aabb room = box(m);
@@ -670,8 +727,10 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
-    if (m.type == MobType::Wither && m.spellTicks > 0) return; // (M26.4b: charging, it can't be hurt)
-    if (m.type == MobType::Creaking && m.home.y != kNoPoint) damage = 0.0f; // (M27.1c: only its heart can end it)
+    if (m.type == MobType::Wither && m.spellTicks > 0)
+        return; // (M26.4b: charging, it can't be hurt)
+    if (m.type == MobType::Creaking && m.home.y != kNoPoint)
+        damage = 0.0f;               // (M27.1c: only its heart can end it)
     if (m.type == MobType::Warden) { // (M27.3c) unhurt while emerging or digging; a hit angers it
         if (m.phase != 1) return;
         m.angerTicks = int16_t(std::min(150, m.angerTicks + 100));
@@ -679,17 +738,19 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.goalTicks = 0;
     }
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
-    if (m.type == MobType::Armadillo && m.sitting) damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
+    if (m.type == MobType::Armadillo && m.sitting)
+        damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
     m.health -= damage;
     m.hurtTime = 10;
-    m.noPlayerTicks = 0;                                 // damage resets the despawn clock
-    m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
+    m.noPlayerTicks = 0;       // damage resets the despawn clock
+    m.lastHurtByPlayer = true; // (Mobs::attack: the player's hits)
     m.lastHurtBySkeleton = false;
     if (m.type == MobType::Wolf && !m.tamed) { // a wild wolf turns on the player (wiki: Wolf)
         m.angry = true;
         m.angerTicks = 600;
         m.targeting = true;
-    } else if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless player-built
+    } else if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless
+                                               // player-built
         if (!m.playerCreated) {
             m.angry = true;
             m.angerTicks = 600;
@@ -708,14 +769,17 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     } else if (!mobInfo(m.type).hostile) {
         m.panicTicks = 100; // passive mobs flee (wiki: Cow)
     }
-    if (m.type == MobType::Piglin) m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
-    if (isSpider(m.type) || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
+    if (m.type == MobType::Piglin)
+        m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
+    if (isSpider(m.type) || m.type == MobType::Enderman ||
+        m.type == MobType::Piglin) { // provoked (wiki)
         m.angry = true;
         m.targeting = true;
         m.angerTicks = 600;
     }
     if (m.type == MobType::ZombifiedPiglin) m.angerAlert = true; // (the herd joins in: Mobs::tick)
-    if (m.type == MobType::Bee && !m.stung) { // (M26.3b: it stings back, and its hive-mates join in)
+    if (m.type == MobType::Bee &&
+        !m.stung) { // (M26.3b: it stings back, and its hive-mates join in)
         m.angry = true;
         m.angerTicks = 400;
         m.angerAlert = true;
@@ -731,11 +795,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 
 void Mobs::die(Context& ctx, MobData& m) {
     if (m.leash != 0) { // (M28.3c) its lead drops
-        if (const auto lead = itemRegistry().find("lead")) ctx.items.spawn(m.pos, {*lead, 1}, ctx.rng);
+        if (const auto lead = itemRegistry().find("lead"))
+            ctx.items.spawn(m.pos, {*lead, 1}, ctx.rng);
         m.leash = 0;
     }
-    if (m.type == MobType::LeashKnot) {
-        m.deathTime = 19;
+    if (m.type == MobType::LeashKnot) { // (blown up, say: what was tied to it goes free)
+        breakKnot(ctx.world, m, ctx.items, ctx.rng);
         return;
     }
     if (m.type == MobType::ArmorStand) { // (M28.3b) itself and what it wore, gone at once
@@ -750,12 +815,13 @@ void Mobs::die(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::Boat) { // broken: the boat item, gone at once (M25.2b)
         m.deathTime = 19;
-        if (const auto boat = itemRegistry().find(m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour)))
+        if (const auto boat =
+                itemRegistry().find(m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour)))
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*boat, 1}, ctx.rng);
         if (m.hasChest) dropMountGear(ctx, m); // (M26.2: its chest's stacks)
         return;
     }
-    if (isMount(m.type)) dropMountGear(ctx, m); // (M26.2)
+    if (isMount(m.type)) dropMountGear(ctx, m);             // (M26.2)
     if (m.type == MobType::Fox && m.mouthItem != kNoItem) { // (M26.3) what it carried
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), {m.mouthItem, 1}, ctx.rng);
         m.mouthItem = kNoItem;
@@ -768,7 +834,8 @@ void Mobs::die(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
         m.deathTime = 19;
-        if (const auto cart = itemRegistry().find("minecart")) ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
+        if (const auto cart = itemRegistry().find("minecart"))
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
         return;
     }
     if (m.type == MobType::EndCrystal) {
@@ -786,7 +853,8 @@ void Mobs::die(Context& ctx, MobData& m) {
         // A dragon it was healing takes 10 damage (wiki: End Crystal); any dragon
         // around turns on the player (strafes with a fireball; wiki: Ender Dragon).
         const glm::dvec3 top = m.pos + glm::dvec3(0.0, 1.4, 0.0);
-        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
+                          blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -8; dz <= 8; ++dz)
             for (int dx = -8; dx <= 8; ++dx)
                 if (Chunk* c = ctx.world.chunk({c0.x + dx, c0.z + dz}))
@@ -802,7 +870,8 @@ void Mobs::die(Context& ctx, MobData& m) {
                                 d.phaseTicks = 0;
                             }
                         }
-        m_explosion.explode(ctx.world, m.pos, 6.0f, ctx.rng, ctx.items, changed, t); // (from its bottom)
+        m_explosion.explode(ctx.world, m.pos, 6.0f, ctx.rng, ctx.items, changed,
+                            t); // (from its bottom)
         return;
     }
     // Loot (wiki: Cow - raw beef 1-3, leather 0-2; Zombie - rotten flesh 0-2).
@@ -827,38 +896,46 @@ void Mobs::die(Context& ctx, MobData& m) {
             }
         }
         // Looting: up to one more per level (wiki: Looting).
-        const int extra = m.lastHurtByPlayer ? static_cast<int>(ctx.rng.nextInt(uint32_t(m.looting) + 1)) : 0;
+        const int extra =
+            m.lastHurtByPlayer ? static_cast<int>(ctx.rng.nextInt(uint32_t(m.looting) + 1)) : 0;
         const int n = lo + static_cast<int>(ctx.rng.nextInt(uint32_t(hi - lo + 1))) + extra;
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
-    if (m.lastHurtByPlayer && m_killCount < int(m_kills.size())) m_kills[size_t(m_killCount++)] = m.type; // (statistics)
-    if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
+    if (m.lastHurtByPlayer && m_killCount < int(m_kills.size()))
+        m_kills[size_t(m_killCount++)] = m.type; // (statistics)
+    if (m.isBaby()) return;                      // babies drop nothing (wiki: Breeding)
     // Game rule mob_drops off: no loot and no experience (what it wore or carried still falls).
     if (!ctx.mobDrops) return;
     // Killed by a charged creeper's blast: its head (M26.4b; wiki: Head - zombies,
     // skeletons, creepers, piglins and wither skeletons).
     if (m.chargedBlast > 0) {
-        const char* head = m.type == MobType::Zombie            ? "zombie_head"
-                           : m.type == MobType::Skeleton        ? "skeleton_skull"
-                           : m.type == MobType::Creeper         ? "creeper_head"
-                           : m.type == MobType::Piglin          ? "piglin_head"
-                           : m.type == MobType::WitherSkeleton  ? "wither_skeleton_skull"
-                                                                 : nullptr;
-        if (head) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find(head), 1}, ctx.rng); // (one, Looting or not)
+        const char* head = m.type == MobType::Zombie           ? "zombie_head"
+                           : m.type == MobType::Skeleton       ? "skeleton_skull"
+                           : m.type == MobType::Creeper        ? "creeper_head"
+                           : m.type == MobType::Piglin         ? "piglin_head"
+                           : m.type == MobType::WitherSkeleton ? "wither_skeleton_skull"
+                                                               : nullptr;
+        if (head)
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find(head), 1},
+                            ctx.rng); // (one, Looting or not)
     }
     // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
     // (wiki: blazes, evokers and breezes 10, ravagers 20, magma cubes their size; villagers,
     // wandering traders and iron golems none)
-    const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader || m.type == MobType::IronGolem;
+    const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
+                      m.type == MobType::IronGolem;
     if (ctx.orbs && m.lastHurtByPlayer && !noXp) {
-        const int xp = m.type == MobType::Wither                                                      ? 50 // (M26.4b)
-                       : m.type == MobType::Ravager                                                   ? 20
-                       : m.type == MobType::Blaze || m.type == MobType::Evoker || m.type == MobType::Breeze ? 10
-                       : m.type == MobType::MagmaCube || m.type == MobType::Slime                     ? int(m.size)
-                       : mobInfo(m.type).hostile                                                      ? 5
-                                                                 : 1 + static_cast<int>(ctx.rng.nextInt(3));
+        const int xp =
+            m.type == MobType::Wither    ? 50 // (M26.4b)
+            : m.type == MobType::Ravager ? 20
+            : m.type == MobType::Blaze || m.type == MobType::Evoker || m.type == MobType::Breeze
+                ? 10
+            : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
+            : mobInfo(m.type).hostile                                  ? 5
+                                      : 1 + static_cast<int>(ctx.rng.nextInt(3));
         // (M27.3) a sculk catalyst nearby takes it and blooms sculk instead
-        if (!BlockUpdates::sculkBloom(ctx.world, m.pos, xp, ctx.rng)) ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0), xp, ctx.rng);
+        if (!BlockUpdates::sculkBloom(ctx.world, m.pos, xp, ctx.rng))
+            ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0), xp, ctx.rng);
     }
     const bool burning = m.fireTicks > 0; // meat drops cooked
     switch (m.type) {
@@ -867,16 +944,22 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop("leather", 0, 2);
         break;
     case MobType::Zombie:
-    case MobType::ZombieVillager: drop("rotten_flesh", 0, 2); break;
+    case MobType::ZombieVillager:
+        drop("rotten_flesh", 0, 2);
+        break;
     case MobType::Drowned: // wiki: Drowned - rotten flesh 0-2, a copper ingot 11%, its trident 8.5%
         drop("rotten_flesh", 0, 2);
         if (m.lastHurtByPlayer && ctx.rng.nextInt(100) < 11) drop("copper_ingot", 1, 1);
-        if (m.heldTrident && m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 85) drop("trident", 1, 1);
+        if (m.heldTrident && m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 85)
+            drop("trident", 1, 1);
         break;
-    case MobType::Witch: { // wiki: Witch - 1-3 rolls of bottles, glowstone, gunpowder, redstone, spider eyes, sugar, sticks
-        static constexpr const char* kLoot[7] = {"glass_bottle", "glowstone_dust", "gunpowder", "redstone",
-                                                 "spider_eye", "sugar", "stick"};
-        for (int k = 0, n = 1 + int(ctx.rng.nextInt(3)); k < n; ++k) drop(kLoot[ctx.rng.nextInt(7)], 1, 2);
+    case MobType::Witch: { // wiki: Witch - 1-3 rolls of bottles, glowstone, gunpowder, redstone,
+                           // spider eyes, sugar, sticks
+        static constexpr const char* kLoot[7] = {"glass_bottle", "glowstone_dust", "gunpowder",
+                                                 "redstone",     "spider_eye",     "sugar",
+                                                 "stick"};
+        for (int k = 0, n = 1 + int(ctx.rng.nextInt(3)); k < n; ++k)
+            drop(kLoot[ctx.rng.nextInt(7)], 1, 2);
         break;
     }
     case MobType::Vindicator: // wiki: Vindicator - 0-1 emerald, sometimes its iron axe
@@ -891,7 +974,8 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Pillager: // wiki: Pillager - 0-2 arrows, sometimes its crossbow (8.5%)
         drop("arrow", 0, 2);
         if (ctx.rng.nextInt(1000) < 85) drop("crossbow", 1, 1);
-        if (m.captain && m.raidId == 0 && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
+        if (m.captain && m.raidId == 0 && m.lastHurtByPlayer)
+            drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
         break;
     // Water mobs (M25.2; wiki): each fish itself (cod cooked when burning, 5% bone meal
     // from cod, salmon and pufferfish), squid 1-3 ink sacs, glow squid 1-3 glow ink sacs.
@@ -911,7 +995,9 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop("pufferfish", 1, 1);
         if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
         break;
-    case MobType::Squid: drop("ink_sac", 1, 3); break;
+    case MobType::Squid:
+        drop("ink_sac", 1, 3);
+        break;
     // (wiki: Guardian - 0-2 prismarine shards, and 40% a raw cod or 0-1 prismarine
     // crystals otherwise; Elder Guardian - also a wet sponge when killed by a player)
     case MobType::Guardian:
@@ -921,50 +1007,71 @@ void Mobs::die(Context& ctx, MobData& m) {
         {
             const bool elder = m.type == MobType::ElderGuardian;
             const uint32_t r = ctx.rng.nextInt(elder ? 6 : 5);
-            if (r < (elder ? 3u : 2u)) drop(burning ? "cooked_cod" : "cod", 1, 1);
-            else if (r < (elder ? 5u : 4u)) drop("prismarine_crystals", 1, 1);
+            if (r < (elder ? 3u : 2u))
+                drop(burning ? "cooked_cod" : "cod", 1, 1);
+            else if (r < (elder ? 5u : 4u))
+                drop("prismarine_crystals", 1, 1);
         }
         if (m.type == MobType::ElderGuardian && m.lastHurtByPlayer) {
             drop("wet_sponge", 1, 1);
             if (ctx.rng.nextInt(5) == 0) drop("tide_armor_trim_smithing_template", 1, 1); // (20%)
         }
         break;
-    case MobType::Dolphin: drop(burning ? "cooked_cod" : "cod", 0, 1); break; // (wiki: Dolphin)
-    case MobType::Turtle: drop("seagrass", 0, 2); break; // (wiki: Turtle - 0-2 seagrass)
+    case MobType::Dolphin:
+        drop(burning ? "cooked_cod" : "cod", 0, 1);
+        break; // (wiki: Dolphin)
+    case MobType::Turtle:
+        drop("seagrass", 0, 2);
+        break;           // (wiki: Turtle - 0-2 seagrass)
     case MobType::Horse: // (M26.2; wiki: Horse, Donkey, Mule, Llama - 0-2 leather; camels nothing)
     case MobType::Donkey:
     case MobType::Mule:
     case MobType::Llama:
-    case MobType::TraderLlama: drop("leather", 0, 2); break;
+    case MobType::TraderLlama:
+        drop("leather", 0, 2);
+        break;
     // (M26.3; wiki) rabbit: hide 0-1, meat 0-1, a rabbit's foot 10% (+3% a Looting level)
-    // for player kills; polar bear: cod 0-2 (3 in 4) or salmon 0-2; panda: bamboo 1 (Java); cat: string 0-2; parrot: feathers 1-2.
+    // for player kills; polar bear: cod 0-2 (3 in 4) or salmon 0-2; panda: bamboo 1 (Java); cat:
+    // string 0-2; parrot: feathers 1-2.
     case MobType::Rabbit:
         drop("rabbit_hide", 0, 1);
         drop(burning ? "cooked_rabbit" : "rabbit", 0, 1);
-        if (m.lastHurtByPlayer && int(ctx.rng.nextInt(100)) < 10 + 3 * m.looting) drop("rabbit_foot", 1, 1);
+        if (m.lastHurtByPlayer && int(ctx.rng.nextInt(100)) < 10 + 3 * m.looting)
+            drop("rabbit_foot", 1, 1);
         break;
     case MobType::PolarBear:
-        if (ctx.rng.nextInt(4) != 0) drop(burning ? "cooked_cod" : "cod", 0, 2);
-        else drop(burning ? "cooked_salmon" : "salmon", 0, 2);
+        if (ctx.rng.nextInt(4) != 0)
+            drop(burning ? "cooked_cod" : "cod", 0, 2);
+        else
+            drop(burning ? "cooked_salmon" : "salmon", 0, 2);
         break;
-    case MobType::Panda: drop("bamboo", 1, 1); break;
-    case MobType::Cat: drop("string", 0, 2); break;
-    case MobType::Parrot: drop("feather", 1, 2); break;
+    case MobType::Panda:
+        drop("bamboo", 1, 1);
+        break;
+    case MobType::Cat:
+        drop("string", 0, 2);
+        break;
+    case MobType::Parrot:
+        drop("feather", 1, 2);
+        break;
     // (M26.4a; wiki) wither skeleton: coal 0-1 (1 in 3), bones 0-2; phantom: a membrane
     // 0-1 for player kills.
     case MobType::WitherSkeleton:
         if (ctx.rng.nextInt(3) == 0) drop("coal", 1, 1);
         drop("bone", 0, 2);
         // its skull: 2.5% (+1% a Looting level) for player kills (wiki: Wither Skeleton Skull)
-        if (m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 25u + 10u * m.looting && m.chargedBlast == 0)
-            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find("wither_skeleton_skull"), 1}, ctx.rng);
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 25u + 10u * m.looting &&
+            m.chargedBlast == 0)
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0),
+                            {*itemRegistry().find("wither_skeleton_skull"), 1}, ctx.rng);
         break;
     case MobType::Phantom:
         if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
         break;
     case MobType::CopperGolem: // (M26.5b; wiki: 1-3 copper ingots, and what it carried)
         drop("copper_ingot", 1, 3);
-        if (m.mouthItem != kNoItem && m.allayCount > 0) ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
+        if (m.mouthItem != kNoItem && m.allayCount > 0)
+            ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
         break;
     case MobType::Allay: // (M26.5a) what it held and carried
         if (m.mouthItem != kNoItem) {
@@ -978,40 +1085,51 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Breeze: // (M26.4c; wiki: 1-2 breeze rods for player kills)
         if (m.lastHurtByPlayer) drop("breeze_rod", 1, 2);
         break;
-    case MobType::Warden: drop("sculk_catalyst", 1, 1); break; // (M27.3c; wiki: Warden)
+    case MobType::Warden:
+        drop("sculk_catalyst", 1, 1);
+        break;            // (M27.3c; wiki: Warden)
     case MobType::Wither: // (M26.4b; wiki: the nether star, always)
-        ctx.items.spawn(m.pos + glm::dvec3(0, 1.5, 0), {*itemRegistry().find("nether_star"), 1}, ctx.rng);
+        ctx.items.spawn(m.pos + glm::dvec3(0, 1.5, 0), {*itemRegistry().find("nether_star"), 1},
+                        ctx.rng);
         break;
-    case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
+    case MobType::GlowSquid:
+        drop("glow_ink_sac", 1, 3);
+        break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
         drop("poppy", 0, 2);
         break;
     case MobType::Sheep: // wiki: Sheep - its wool unless sheared, 1-2 mutton
         if (!m.sheared)
-            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0),
-                            {items.blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)), 1}, ctx.rng);
+            ctx.items.spawn(
+                m.pos + glm::dvec3(0, 0.5, 0),
+                {items.blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)), 1},
+                ctx.rng);
         drop(burning ? "cooked_mutton" : "mutton", 1, 2);
         break;
-    case MobType::Pig: drop(burning ? "cooked_porkchop" : "porkchop", 1, 3); break; // wiki: Pig
+    case MobType::Pig:
+        drop(burning ? "cooked_porkchop" : "porkchop", 1, 3);
+        break;              // wiki: Pig
     case MobType::Skeleton: // wiki: Skeleton - bones 0-2, arrows 0-2
         drop("bone", 0, 2);
         drop("arrow", 0, 2);
         break;
-    case MobType::Creeper: // wiki: Creeper - gunpowder 0-2; killed by a skeleton's arrow, a music disc
+    case MobType::Creeper: // wiki: Creeper - gunpowder 0-2; killed by a skeleton's arrow, a music
+                           // disc
         drop("gunpowder", 0, 2);
         if (m.lastHurtBySkeleton) {
-            static constexpr const char* kDiscs[12] = {"music_disc_13",   "music_disc_cat",     "music_disc_blocks",
-                                                       "music_disc_chirp", "music_disc_far",     "music_disc_mall",
-                                                       "music_disc_mellohi", "music_disc_stal",  "music_disc_strad",
-                                                       "music_disc_ward",  "music_disc_11",      "music_disc_wait"};
+            static constexpr const char* kDiscs[12] = {
+                "music_disc_13",    "music_disc_cat",  "music_disc_blocks",  "music_disc_chirp",
+                "music_disc_far",   "music_disc_mall", "music_disc_mellohi", "music_disc_stal",
+                "music_disc_strad", "music_disc_ward", "music_disc_11",      "music_disc_wait"};
             drop(kDiscs[ctx.rng.nextInt(12)], 1, 1);
         }
         break;
     case MobType::Spider: // wiki: Spider - string 0-2, spider eye 1 in 3
     case MobType::CaveSpider:
         drop("string", 0, 2);
-        if (m.lastHurtByPlayer && ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1); // player kills only
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(3) == 0)
+            drop("spider_eye", 1, 1); // player kills only
         break;
     case MobType::Enderman: // wiki: Enderman - ender pearl 0-1, and the block it carried
         drop("ender_pearl", 0, 1);
@@ -1019,7 +1137,8 @@ void Mobs::die(Context& ctx, MobData& m) {
             if (const ItemId it = items.blockItem(blockRegistry().blockOf(m.carried)))
                 ctx.items.spawn(m.pos + glm::dvec3(0, 1, 0), {it, 1}, ctx.rng);
         break;
-    case MobType::Shulker: // wiki: Shulker - a shell 50% + 6.25% per Looting level, never more than one
+    case MobType::Shulker: // wiki: Shulker - a shell 50% + 6.25% per Looting level, never more than
+                           // one
         if (ctx.rng.nextFloat() < 0.5f + 0.0625f * float(m.lastHurtByPlayer ? m.looting : 0)) {
             static const ItemId shell = *items.find("shulker_shell");
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {shell, 1}, ctx.rng);
@@ -1041,8 +1160,10 @@ void Mobs::die(Context& ctx, MobData& m) {
             if (ctx.rng.nextInt(4) == 0) drop("magma_cream", 1, 1);
             const int n = 2 + static_cast<int>(ctx.rng.nextInt(3));
             for (int i = 0; i < n; ++i) {
-                MobData child = make(MobType::MagmaCube, m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2,
-                                                                            ctx.rng.nextDouble() - 0.5), ctx.rng);
+                MobData child = make(
+                    MobType::MagmaCube,
+                    m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2, ctx.rng.nextDouble() - 0.5),
+                    ctx.rng);
                 child.size = uint8_t(m.size / 2);
                 child.health = float(child.size * child.size);
                 m_births.push_back(child);
@@ -1055,20 +1176,25 @@ void Mobs::die(Context& ctx, MobData& m) {
         } else {
             const int n = 2 + static_cast<int>(ctx.rng.nextInt(3));
             for (int i = 0; i < n; ++i) {
-                MobData child = make(MobType::Slime, m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2,
-                                                                        ctx.rng.nextDouble() - 0.5), ctx.rng);
+                MobData child = make(
+                    MobType::Slime,
+                    m.pos + glm::dvec3(ctx.rng.nextDouble() - 0.5, 0.2, ctx.rng.nextDouble() - 0.5),
+                    ctx.rng);
                 child.size = uint8_t(m.size / 2);
                 child.health = float(child.size * child.size);
                 m_births.push_back(child);
             }
         }
         break;
-    case MobType::Piglin: break; // (drops only what it carries: nothing we model)
+    case MobType::Piglin:
+        break;            // (drops only what it carries: nothing we model)
     case MobType::Hoglin: // wiki: Hoglin - porkchop 2-4 (cooked when burning), leather 0-1
         drop(burning ? "cooked_porkchop" : "porkchop", 2, 4);
         drop("leather", 0, 1);
         break;
-    case MobType::Strider: drop("string", 2, 5); break; // wiki: Strider
+    case MobType::Strider:
+        drop("string", 2, 5);
+        break; // wiki: Strider
     case MobType::ZombifiedPiglin:
         drop("rotten_flesh", 0, 1);
         drop("gold_nugget", 0, 1);
@@ -1078,7 +1204,8 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop("feather", 0, 2);
         drop(burning ? "cooked_chicken" : "chicken", 1, 1);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -1096,7 +1223,8 @@ void Mobs::tick(Context& ctx) {
     m_bossHealth = -1.0f;
     m_dragonDeaths.clear();
     const glm::dvec3 playerPos = ctx.player.position();
-    const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))), blockToChunk(int(std::floor(playerPos.z)))};
+    const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))),
+                               blockToChunk(int(std::floor(playerPos.z)))};
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
         // Only chunks within the simulation distance tick their mobs (vanilla: entity-
         // ticking chunks); farther mobs keep their state.
@@ -1135,9 +1263,10 @@ void Mobs::tick(Context& ctx) {
                     m.type == MobType::Warden
                         ? m.phase != 1
                         : m.home.y != kNoPoint &&
-                              blockRegistry().blockOf(ctx.world.getBlock({m.home.x, m.home.y, m.home.z})) ==
-                                  blocks::CreakingHeart;
-                if (shielded && m.deathTime < 19 && m.lastHealth > 0.0f && m.health < m.lastHealth) {
+                              blockRegistry().blockOf(ctx.world.getBlock(
+                                  {m.home.x, m.home.y, m.home.z})) == blocks::CreakingHeart;
+                if (shielded && m.deathTime < 19 && m.lastHealth > 0.0f &&
+                    m.health < m.lastHealth) {
                     m.health = m.lastHealth;
                     m.deathTime = 0;
                 }
@@ -1147,20 +1276,28 @@ void Mobs::tick(Context& ctx) {
             // then its ambient call - vanilla: 1/1000 chance growing each tick, then 80
             // ticks of quiet. Babies squeak half an octave higher.
             if (m.hurtTime == 10 && m.health > 0.0f)
-                ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.5,
-                                    m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
-            if (m.health > 0.0f && int(m_soundRng.nextInt(1000)) < m.ambientTime++) { // (own RNG: gameplay unchanged)
+                ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x,
+                                    m.pos.y + mobInfo(m.type).height * 0.5, m.pos.z, 1.0f,
+                                    m.isBaby() ? 1.5f : 1.0f);
+            // (decorations - frames, paintings, stands, knots - never call out: no roll, no event)
+            const bool silent =
+                isHanging(m.type) || m.type == MobType::ArmorStand || m.type == MobType::LeashKnot;
+            if (!silent && m.health > 0.0f &&
+                int(m_soundRng.nextInt(1000)) < m.ambientTime++) { // (own RNG: gameplay unchanged)
                 m.ambientTime = -80;
-                ctx.world.playSound(mobSound(m.type, MobSound::Ambient), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.85,
-                                    m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
+                ctx.world.playSound(mobSound(m.type, MobSound::Ambient), m.pos.x,
+                                    m.pos.y + mobInfo(m.type).height * 0.85, m.pos.z, 1.0f,
+                                    m.isBaby() ? 1.5f : 1.0f);
             }
             if (m.hurtTime > 0) --m.hurtTime;
             bool remove = false;
             if (m.angerAlert) { // (also from one killed by the hit)
                 m.angerAlert = false;
-                if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
+                if (m_angerAlertCount < int(m_angerAlerts.size()))
+                    m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
             }
-            if (m.type == MobType::EnderDragon || m.type == MobType::Wither) { // (M26.4b: the Wither's bar too)
+            if (m.type == MobType::EnderDragon ||
+                m.type == MobType::Wither) { // (M26.4b: the Wither's bar too)
                 m_bossHealth = std::max(0.0f, m.health);
                 m_bossType = m.type;
             }
@@ -1182,35 +1319,40 @@ void Mobs::tick(Context& ctx) {
                 }
                 if (m.deathTime >= 200) {
                     remove = true;
-                    if (m_dragonDeaths.size() < m_dragonDeaths.capacity()) m_dragonDeaths.push_back(m.pos);
-                    if (m_killCount < int(m_kills.size())) m_kills[size_t(m_killCount++)] = m.type; // (M28.5c)
+                    if (m_dragonDeaths.size() < m_dragonDeaths.capacity())
+                        m_dragonDeaths.push_back(m.pos);
+                    if (m_killCount < int(m_kills.size()))
+                        m_kills[size_t(m_killCount++)] = m.type; // (M28.5c)
                 }
             } else if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
                 if (++m.deathTime == 1) {
                     die(ctx, m);
-                    ctx.world.playSound(mobSound(m.type, MobSound::Death), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.5,
-                                        m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
+                    ctx.world.playSound(mobSound(m.type, MobSound::Death), m.pos.x,
+                                        m.pos.y + mobInfo(m.type).height * 0.5, m.pos.z, 1.0f,
+                                        m.isBaby() ? 1.5f : 1.0f);
                 }
                 if (m.deathTime >= 20) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
-                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish &&
-                        !isHanging(m.type) && m.type != MobType::ArmorStand && m.type != MobType::LeashKnot)
+                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal &&
+                        m.type != MobType::Boat && !m.vanish && !isHanging(m.type) &&
+                        m.type != MobType::ArmorStand && m.type != MobType::LeashKnot)
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);
                 }
             } else {
                 ai(ctx, m);
-                if (m.leash != 0) leashTick(ctx, m);                 // (M28.3c)
+                if (m.leash != 0) leashTick(ctx, m);               // (M28.3c)
                 if (m.type == MobType::Llama) caravanTick(ctx, m); // (M28.3c)
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
-                m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot ||
-                                (isMount(m.type) && m.type != MobType::TraderLlama) ||
-                                isWildlife(m.type)) &&
-                               !m.tamed;
+                m_creatures +=
+                    (m.type == MobType::Wolf || m.type == MobType::Ocelot ||
+                     m.type == MobType::Parrot ||
+                     (isMount(m.type) && m.type != MobType::TraderLlama) || isWildlife(m.type)) &&
+                    !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_axolotls += m.type == MobType::Axolotl;
@@ -1221,15 +1363,21 @@ void Mobs::tick(Context& ctx) {
                 const double d2 = glm::dot(m.pos - playerPos, m.pos - playerPos);
                 // Water mobs too (wiki): squid as monsters, fish beyond 64 blocks; never
                 // fish from a bucket.
-                if ((mobInfo(m.type).hostile || mobInfo(m.type).swims) && !m.persistent && !m.fromBucket) {
-                    if (d2 > (isFish(m.type) ? 64.0 * 64.0 : 128.0 * 128.0)) remove = true;
-                    else if (d2 > 32.0 * 32.0 && ++m.noPlayerTicks > 600 && ctx.rng.nextInt(800) == 0) remove = true;
-                    else if (d2 <= 32.0 * 32.0) m.noPlayerTicks = 0;
+                if ((mobInfo(m.type).hostile || mobInfo(m.type).swims) && !m.persistent &&
+                    !m.fromBucket) {
+                    if (d2 > (isFish(m.type) ? 64.0 * 64.0 : 128.0 * 128.0))
+                        remove = true;
+                    else if (d2 > 32.0 * 32.0 && ++m.noPlayerTicks > 600 &&
+                             ctx.rng.nextInt(800) == 0)
+                        remove = true;
+                    else if (d2 <= 32.0 * 32.0)
+                        m.noPlayerTicks = 0;
                 }
                 if (m.pos.y < ctx.world.height().minY - 64) remove = true; // fell out of the world
                 if (ctx.difficulty == 0 && despawnsInPeaceful(m.type)) remove = true; // (M28.1b)
             }
-            const ChunkPos now{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+            const ChunkPos now{blockToChunk(int(std::floor(m.pos.x))),
+                               blockToChunk(int(std::floor(m.pos.z)))};
             if (!remove && !(now == chunk.pos())) {
                 if (ctx.world.chunk(now)) {
                     m_moves.push_back({now, chunk.pos(), m});
@@ -1240,8 +1388,8 @@ void Mobs::tick(Context& ctx) {
                 }
             }
             // Saved state changed: the chunk needs saving (idle mobs don't dirty it).
-            if (remove || m.pos != m.prevPos || m.yaw != m.prevYaw || m.hurtTime > 0 || m.fireTicks > 0 ||
-                m.deathTime > 0)
+            if (remove || m.pos != m.prevPos || m.yaw != m.prevYaw || m.hurtTime > 0 ||
+                m.fireTicks > 0 || m.deathTime > 0)
                 chunk.markDirty();
             if (remove) {
                 mobs[i] = mobs.back();
@@ -1268,30 +1416,37 @@ void Mobs::tick(Context& ctx) {
     for (const MobData& baby : m_births)
         add(ctx.world, baby);
     // Mobs that came out of blocks during the pass (bees from broken hives - M26.5 review).
-    for (const MobData& q : ctx.world.queuedMobs()) add(ctx.world, q);
+    for (const MobData& q : ctx.world.queuedMobs())
+        add(ctx.world, q);
     ctx.world.queuedMobs().clear();
     ctx.world.vibrations().clear(); // (M27.3c: heard by the wardens this pass)
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
     for (int a = 0; a < m_angerAlertCount; ++a) {
         const glm::dvec3 hit = m_angerAlerts[size_t(a)];
-        const ChunkPos hc{blockToChunk(int(std::floor(hit.x))), blockToChunk(int(std::floor(hit.z)))};
+        const ChunkPos hc{blockToChunk(int(std::floor(hit.x))),
+                          blockToChunk(int(std::floor(hit.z)))};
         for (int dz = -3; dz <= 3; ++dz)
             for (int dx = -3; dx <= 3; ++dx)
                 if (Chunk* c = ctx.world.chunk({hc.x + dx, hc.z + dz}))
                     for (MobData& o : c->mobs())
-                        if (o.type == MobType::ZombifiedPiglin && std::abs(o.pos.x - hit.x) < 33.5 &&
-                            std::abs(o.pos.z - hit.z) < 33.5 && std::abs(o.pos.y - hit.y) < 11.0) {
+                        if (o.type == MobType::ZombifiedPiglin &&
+                            std::abs(o.pos.x - hit.x) < 33.5 && std::abs(o.pos.z - hit.z) < 33.5 &&
+                            std::abs(o.pos.y - hit.y) < 11.0) {
                             o.angry = true;
                             o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
-                        } else if (o.type == MobType::Bee && !o.stung && glm::length(o.pos - hit) < 20.0) {
-                            o.angry = true; // (bees within 20 blocks - our reading of the wiki's "nearby")
+                        } else if (o.type == MobType::Bee && !o.stung &&
+                                   glm::length(o.pos - hit) < 20.0) {
+                            o.angry = true; // (bees within 20 blocks - our reading of the wiki's
+                                            // "nearby")
                             o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(400));
                         }
     }
     if (ctx.naturalSpawning) {
-        if (ctx.world.isUltrawarm()) spawnNether(ctx);
-        else if (ctx.difficulty > 0) spawnHostiles(ctx); // (Peaceful: no monsters)
+        if (ctx.world.isUltrawarm())
+            spawnNether(ctx);
+        else if (ctx.difficulty > 0)
+            spawnHostiles(ctx);                       // (Peaceful: no monsters)
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnPhantoms(ctx);  // (M26.4a)
@@ -1313,7 +1468,8 @@ void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
             tickTrialSpawner(ctx, chunk, p, e.data);
             continue;
         }
-        if (ctx.playerDead || glm::dot(playerPos - centre, playerPos - centre) > 16.0 * 16.0) continue;
+        if (ctx.playerDead || glm::dot(playerPos - centre, playerPos - centre) > 16.0 * 16.0)
+            continue;
         SpawnerData& s = e.data;
         chunk.markDirty(); // its delay is saved
         if (s.delay > 0) {
@@ -1348,7 +1504,9 @@ void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
                 room = !blockRegistry().collides(b) && id != blocks::Water && id != blocks::Lava;
             }
             const Chunk* c = ctx.world.chunk({blockToChunk(bx), blockToChunk(bz)});
-            if (!room || !c || !c->lit() || c->blockLight(blockToLocal(bx), y, blockToLocal(bz)) > 11) continue;
+            if (!room || !c || !c->lit() ||
+                c->blockLight(blockToLocal(bx), y, blockToLocal(bz)) > 11)
+                continue;
             MobData m = make(s.mob, {x, double(y), z}, ctx.rng);
             m_births.push_back(m);
             spawned = true;
@@ -1374,8 +1532,10 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (!canSpawnAt(ctx.world, x, y, z)) return;
     // No monsters spawn in mushroom fields (wiki: Mushroom Fields); spawners still work.
     // Nor in the deep dark (M27.3b; wiki: Deep Dark).
-    if (c->biomes() && (c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::MushroomFields ||
-                        c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::DeepDark))
+    if (c->biomes() && (c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) ==
+                            Biome::MushroomFields ||
+                        c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) ==
+                            Biome::DeepDark))
         return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
     // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
@@ -1383,10 +1543,13 @@ void Mobs::spawnHostiles(Context& ctx) {
     // 69 where the light is at most a random 0..7 (night). The rest by the Overworld mix.
     if (ctx.world.hasSkyLight() && ctx.rng.nextInt(3) == 0) {
         const ChunkPos cp{blockToChunk(x), blockToChunk(z)};
-        Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)), static_cast<uint32_t>(cp.z)));
+        Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)),
+                             static_cast<uint32_t>(cp.z)));
         const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
-        const int light = std::max<int>(c->blockLight(lx, y, lz), c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken));
-        const bool swamp = c->biomes() && y >= 51 && y <= 69 && light <= static_cast<int>(ctx.rng.nextInt(8)) &&
+        const int light = std::max<int>(c->blockLight(lx, y, lz),
+                                        c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken));
+        const bool swamp = c->biomes() && y >= 51 && y <= 69 &&
+                           light <= static_cast<int>(ctx.rng.nextInt(8)) &&
                            (c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp ||
                             c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::MangroveSwamp);
         if (slimeChunk || swamp) {
@@ -1395,7 +1558,8 @@ void Mobs::spawnHostiles(Context& ctx) {
                 const int gx = x + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
                 const int gz = z + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
                 if (g > 0 && !canSpawnAt(ctx.world, gx, y, gz)) continue;
-                if (add(ctx.world, make(MobType::Slime, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_hostiles;
+                if (add(ctx.world, make(MobType::Slime, {gx + 0.5, double(y), gz + 0.5}, ctx.rng)))
+                    ++m_hostiles;
             }
             return;
         }
@@ -1403,7 +1567,8 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (c->blockLight(lx, y, lz) > 0) return;
     // In a thunderstorm the spawner darkens the sky by at least 10 (wiki: Weather ›
     // Thunderstorm): monsters spawn in the open at midday.
-    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken)) : static_cast<int>(ctx.skyDarken);
+    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken))
+                                      : static_cast<int>(ctx.skyDarken);
     const int sky = c->skyLight(lx, y, lz) - darken;
     if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
@@ -1420,7 +1585,8 @@ void Mobs::spawnHostiles(Context& ctx) {
                                       : MobType::Witch;
     const int group = end ? 4 : 1 + static_cast<int>(ctx.rng.nextInt(4));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
-        const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
+        const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2,
+                  gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
         if (!canSpawnAt(ctx.world, gx, y, gz)) continue;
         if (kind == MobType::Enderman && solidAt(ctx.world, gx, y + 2, gz)) continue; // 3 tall
         MobData mob = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
@@ -1430,10 +1596,12 @@ void Mobs::spawnHostiles(Context& ctx) {
     }
 }
 
-std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, const glm::dvec3& dir, double reach,
+std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye,
+                                          const glm::dvec3& dir, double reach,
                                           uint64_t skipUuidHi) {
     std::optional<MobHit> best;
-    const ChunkPos centre{blockToChunk(int(std::floor(eye.x))), blockToChunk(int(std::floor(eye.z)))};
+    const ChunkPos centre{blockToChunk(int(std::floor(eye.x))),
+                          blockToChunk(int(std::floor(eye.z)))};
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx) {
             Chunk* c = world.chunk({centre.x + dx, centre.z + dz});
@@ -1443,22 +1611,24 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye, c
                 if (m.health <= 0.0f || (skipUuidHi && m.uuidHi == skipUuidHi)) continue;
                 // The dragon's head reaches out of its body box: rayed as its own box.
                 for (int part = 0; part < (m.type == MobType::EnderDragon ? 2 : 1); ++part) {
-                const Aabb b = part == 0 ? box(m) : Aabb{dragonHead(m) - glm::dvec3(1.0), dragonHead(m) + glm::dvec3(1.0)};
-                // Slab test along the ray.
-                double t0 = 0.0, t1 = reach;
-                bool hit = true;
-                for (int a = 0; a < 3 && hit; ++a) {
-                    if (std::abs(dir[a]) < 1e-12) {
-                        hit = eye[a] >= b.min[a] && eye[a] <= b.max[a];
-                        continue;
+                    const Aabb b = part == 0 ? box(m)
+                                             : Aabb{dragonHead(m) - glm::dvec3(1.0),
+                                                    dragonHead(m) + glm::dvec3(1.0)};
+                    // Slab test along the ray.
+                    double t0 = 0.0, t1 = reach;
+                    bool hit = true;
+                    for (int a = 0; a < 3 && hit; ++a) {
+                        if (std::abs(dir[a]) < 1e-12) {
+                            hit = eye[a] >= b.min[a] && eye[a] <= b.max[a];
+                            continue;
+                        }
+                        double ta = (b.min[a] - eye[a]) / dir[a], tb = (b.max[a] - eye[a]) / dir[a];
+                        if (ta > tb) std::swap(ta, tb);
+                        t0 = std::max(t0, ta);
+                        t1 = std::min(t1, tb);
+                        hit = t0 <= t1;
                     }
-                    double ta = (b.min[a] - eye[a]) / dir[a], tb = (b.max[a] - eye[a]) / dir[a];
-                    if (ta > tb) std::swap(ta, tb);
-                    t0 = std::max(t0, ta);
-                    t1 = std::min(t1, tb);
-                    hit = t0 <= t1;
-                }
-                if (hit && (!best || t0 < best->distance)) best = MobHit{c->pos(), int(i), t0};
+                    if (hit && (!best || t0 < best->distance)) best = MobHit{c->pos(), int(i), t0};
                 }
             }
         }

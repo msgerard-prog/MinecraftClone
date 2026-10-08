@@ -8,7 +8,8 @@
 
 namespace mc {
 
-void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector<Aabb>& out, bool unloadedSolid) {
+void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector<Aabb>& out,
+                      bool unloadedSolid) {
     const auto& reg = world::blockRegistry();
     out.clear();
     const int x0 = int(std::floor(region.min.x)), x1 = int(std::floor(region.max.x));
@@ -22,7 +23,8 @@ void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector
             if (!c) {
                 if (unloadedSolid)
                     for (int y = y0; y <= y1; ++y)
-                        out.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
+                        out.push_back(
+                            {{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
                 continue;
             }
             const int lx = world::blockToLocal(x), lz = world::blockToLocal(z);
@@ -33,8 +35,9 @@ void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector
                 for (int i = 0; i < sh.count; ++i) {
                     const world::ShapeBox& b = sh.boxes[size_t(i)];
                     if (y < y0 && b.to[1] <= 16) continue; // (the layer below only for tall shapes)
-                    out.push_back({{x + b.from[0] / 16.0, y + b.from[1] / 16.0, z + b.from[2] / 16.0},
-                                   {x + b.to[0] / 16.0, y + b.to[1] / 16.0, z + b.to[2] / 16.0}});
+                    out.push_back(
+                        {{x + b.from[0] / 16.0, y + b.from[1] / 16.0, z + b.from[2] / 16.0},
+                         {x + b.to[0] / 16.0, y + b.to[1] / 16.0, z + b.to[2] / 16.0}});
                 }
             }
         }

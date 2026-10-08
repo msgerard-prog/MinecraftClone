@@ -23,8 +23,10 @@ int columnTop(const World& world) {
 } // namespace
 
 BlockPos DragonFight::gatewayPos(int i) {
-    const double a = 2.0 * (-std::numbers::pi + std::numbers::pi / 20.0 * i); // (matches the wiki's table)
-    return {static_cast<int>(std::floor(96.0 * std::cos(a))), 75, static_cast<int>(std::floor(96.0 * std::sin(a)))};
+    const double a =
+        2.0 * (-std::numbers::pi + std::numbers::pi / 20.0 * i); // (matches the wiki's table)
+    return {static_cast<int>(std::floor(96.0 * std::cos(a))), 75,
+            static_cast<int>(std::floor(96.0 * std::sin(a)))};
 }
 
 bool DragonFight::buildGateway(World& world, const BlockPos& at, std::vector<BlockPos>& edits) {
@@ -80,7 +82,8 @@ std::optional<glm::dvec3> DragonFight::gatewayTarget(const EndGenerator& gen, co
     return glm::dvec3(100.5, 49.0, 0.5); // (the arrival platform)
 }
 
-void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& rng, std::vector<BlockPos>& edits) {
+void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& rng,
+                              std::vector<BlockPos>& edits) {
     ++m_respawnTicks;
     const auto& r = blockRegistry();
     // Breaking a summoning crystal calls it off (wiki: Ender Dragon › Re-summoning).
@@ -89,15 +92,17 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
         for (int dx = -1; dx <= 1; ++dx)
             if (const Chunk* c = world.chunk({dx, dz}))
                 for (const MobData& m : c->mobs())
-                    summoning += m.type == MobType::EndCrystal && !m.showBottom && m.health > 0.0f &&
-                                 std::abs(m.pos.x) < 4.0 && std::abs(m.pos.z) < 4.0;
+                    summoning += m.type == MobType::EndCrystal && !m.showBottom &&
+                                 m.health > 0.0f && std::abs(m.pos.x) < 4.0 &&
+                                 std::abs(m.pos.z) < 4.0;
     if (summoning < 4) {
         m_respawnTicks = -1;
         return;
     }
     if (m_respawnTicks == 100) {
         // The pillars come back as they were made, crystals and cages included.
-        const BlockStateId obsidian = r.defaultState(blocks::Obsidian), bedrock = r.defaultState(blocks::Bedrock);
+        const BlockStateId obsidian = r.defaultState(blocks::Obsidian),
+                           bedrock = r.defaultState(blocks::Bedrock);
         for (int i = 0; i < EndGenerator::kPillars; ++i) {
             const auto& p = gen.pillar(i);
             for (int dz = -p.radius - 1; dz <= p.radius + 1; ++dz)
@@ -108,7 +113,8 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
                         if (!world.chunk(b.chunk())) continue;
                         const BlockStateId want = y <= p.height ? obsidian : 0;
                         if (y > p.height && (y > p.height + 1 || dx != 0 || dz != 0)) {
-                            if (world.getBlock(b) != 0 && r.blockOf(world.getBlock(b)) != blocks::IronBars) {
+                            if (world.getBlock(b) != 0 &&
+                                r.blockOf(world.getBlock(b)) != blocks::IronBars) {
                                 world.updateBlock(b, 0);
                                 edits.push_back(b);
                             }
@@ -135,9 +141,12 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
             bool has = false;
             if (Chunk* c = world.chunk({blockToChunk(p.x), blockToChunk(p.z)}))
                 for (const MobData& m : c->mobs())
-                    has = has || (m.type == MobType::EndCrystal && std::abs(m.pos.x - (p.x + 0.5)) < 1.0 &&
-                                  std::abs(m.pos.z - (p.z + 0.5)) < 1.0);
-            if (!has) Mobs::add(world, Mobs::make(MobType::EndCrystal, {p.x + 0.5, p.height + 2.0, p.z + 0.5}, rng));
+                    has = has ||
+                          (m.type == MobType::EndCrystal && std::abs(m.pos.x - (p.x + 0.5)) < 1.0 &&
+                           std::abs(m.pos.z - (p.z + 0.5)) < 1.0);
+            if (!has)
+                Mobs::add(world, Mobs::make(MobType::EndCrystal,
+                                            {p.x + 0.5, p.height + 2.0, p.z + 0.5}, rng));
         }
     }
     if (m_respawnTicks < 200) return;
@@ -146,8 +155,8 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
         for (int dx = -1; dx <= 1; ++dx)
             if (Chunk* c = world.chunk({dx, dz}))
                 std::erase_if(c->mobs(), [](const MobData& m) {
-                    return m.type == MobType::EndCrystal && !m.showBottom && std::abs(m.pos.x) < 4.0 &&
-                           std::abs(m.pos.z) < 4.0;
+                    return m.type == MobType::EndCrystal && !m.showBottom &&
+                           std::abs(m.pos.x) < 4.0 && std::abs(m.pos.z) < 4.0;
                 });
     for (int z = -3; z <= 3; ++z)
         for (int x = -3; x <= 3; ++x)
@@ -157,7 +166,8 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
                     edits.push_back({x, y, z});
                 }
     // The egg, if still on the podium, goes (wiki).
-    if (const int top = columnTop(world); top >= 0 && r.blockOf(world.getBlock({0, top + 1, 0})) == blocks::DragonEgg) {
+    if (const int top = columnTop(world);
+        top >= 0 && r.blockOf(world.getBlock({0, top + 1, 0})) == blocks::DragonEgg) {
         world.updateBlock({0, top + 1, 0}, 0);
         edits.push_back({0, top + 1, 0});
     }
@@ -167,8 +177,9 @@ void DragonFight::respawnStep(World& world, const EndGenerator& gen, Xoroshiro& 
     m_respawnTicks = -1;
 }
 
-void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, const glm::dvec3& playerPos,
-                       ExperienceOrbs& orbs, Xoroshiro& rng, std::vector<BlockPos>& edits) {
+void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs,
+                       const glm::dvec3& playerPos, ExperienceOrbs& orbs, Xoroshiro& rng,
+                       std::vector<BlockPos>& edits) {
     if (!gatewaysReady) { // the 20 gateways in a random order
         gateways.clear();
         for (int i = 0; i < 20; ++i)
@@ -179,9 +190,11 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
     }
     for (const glm::dvec3& at : mobs.dragonDeaths()) {
         orbs.drop(at, previouslyKilled ? 500 : 12000, rng);
-        if (!openExitPortal(world, !previouslyKilled, edits)) m_pendingPortal = previouslyKilled ? 1 : 2;
+        if (!openExitPortal(world, !previouslyKilled, edits))
+            m_pendingPortal = previouslyKilled ? 1 : 2;
         if (!gateways.empty()) { // the next gateway opens (once its chunks are there)
-            if (m_pendingGateways.size() < 32) m_pendingGateways.push_back(gatewayPos(gateways.front()));
+            if (m_pendingGateways.size() < 32)
+                m_pendingGateways.push_back(gatewayPos(gateways.front()));
             gateways.erase(gateways.begin());
         }
         killed = true;
@@ -190,7 +203,8 @@ void DragonFight::tick(World& world, const EndGenerator& gen, const Mobs& mobs, 
         missingScans = 0;
     }
     if (m_pendingPortal && openExitPortal(world, m_pendingPortal == 2, edits)) m_pendingPortal = 0;
-    std::erase_if(m_pendingGateways, [&](const BlockPos& g) { return buildGateway(world, g, edits); });
+    std::erase_if(m_pendingGateways,
+                  [&](const BlockPos& g) { return buildGateway(world, g, edits); });
     if (killed) {
         if (m_respawnTicks >= 0) {
             respawnStep(world, gen, rng, edits);
@@ -273,12 +287,15 @@ bool DragonFight::openExitPortal(World& world, bool egg, std::vector<BlockPos>& 
     return true;
 }
 
-bool DragonFight::teleportEgg(World& world, const BlockPos& egg, Xoroshiro& rng, std::vector<BlockPos>& edits) {
+bool DragonFight::teleportEgg(World& world, const BlockPos& egg, Xoroshiro& rng,
+                              std::vector<BlockPos>& edits) {
     const BlockStateId s = world.getBlock(egg);
     for (int attempt = 0; attempt < 1000; ++attempt) {
-        const BlockPos to{egg.x + static_cast<int>(rng.nextInt(31)) - 15, egg.y + static_cast<int>(rng.nextInt(15)) - 7,
+        const BlockPos to{egg.x + static_cast<int>(rng.nextInt(31)) - 15,
+                          egg.y + static_cast<int>(rng.nextInt(15)) - 7,
                           egg.z + static_cast<int>(rng.nextInt(31)) - 15};
-        if (!world.isInHeight(to.y) || !world.chunk(to.chunk()) || world.getBlock(to) != 0) continue;
+        if (!world.isInHeight(to.y) || !world.chunk(to.chunk()) || world.getBlock(to) != 0)
+            continue;
         world.updateBlock(egg, 0);
         world.updateBlock(to, s); // (falls from there if nothing holds it)
         edits.push_back(egg);

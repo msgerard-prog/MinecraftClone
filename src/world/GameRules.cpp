@@ -8,8 +8,8 @@ namespace {
 
 struct Rule {
     std::string_view id, legacy; // "minecraft:advance_time", "doDaylightCycle"
-    bool GameRules::*flag;
-    int GameRules::*number;
+    bool GameRules::* flag;
+    int GameRules::* number;
 };
 
 constexpr Rule kRules[] = {
@@ -21,7 +21,8 @@ constexpr Rule kRules[] = {
     {"minecraft:fire_damage", "fireDamage", &GameRules::fireDamage, nullptr},
     {"minecraft:drowning_damage", "drowningDamage", &GameRules::drowningDamage, nullptr},
     {"minecraft:freeze_damage", "freezeDamage", &GameRules::freezeDamage, nullptr},
-    {"minecraft:natural_health_regeneration", "naturalRegeneration", &GameRules::naturalRegeneration, nullptr},
+    {"minecraft:natural_health_regeneration", "naturalRegeneration",
+     &GameRules::naturalRegeneration, nullptr},
     {"minecraft:mob_drops", "doMobLoot", &GameRules::mobDrops, nullptr},
     {"minecraft:block_drops", "doTileDrops", &GameRules::blockDrops, nullptr},
     {"minecraft:mob_griefing", "mobGriefing", &GameRules::mobGriefing, nullptr},
@@ -30,9 +31,11 @@ constexpr Rule kRules[] = {
     {"minecraft:tnt_explodes", "tntExplodes", &GameRules::tntExplodes, nullptr},
     {"minecraft:spawn_phantoms", "doInsomnia", &GameRules::spawnPhantoms, nullptr},
     {"minecraft:spawn_patrols", "doPatrolSpawning", &GameRules::spawnPatrols, nullptr},
-    {"minecraft:spawn_wandering_traders", "doTraderSpawning", &GameRules::spawnWanderingTraders, nullptr},
+    {"minecraft:spawn_wandering_traders", "doTraderSpawning", &GameRules::spawnWanderingTraders,
+     nullptr},
     {"minecraft:spawn_wardens", "doWardenSpawning", &GameRules::spawnWardens, nullptr},
-    {"minecraft:show_advancement_messages", "announceAdvancements", &GameRules::announceAdvancements, nullptr},
+    {"minecraft:show_advancement_messages", "announceAdvancements",
+     &GameRules::announceAdvancements, nullptr},
     {"minecraft:random_tick_speed", "randomTickSpeed", nullptr, &GameRules::randomTickSpeed},
 };
 static_assert(std::size(kRules) == size_t(GameRules::kCount));

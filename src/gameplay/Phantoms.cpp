@@ -20,7 +20,8 @@ using namespace world;
 namespace {
 
 bool solid(const World& w, const glm::dvec3& p) {
-    return blockRegistry().collides(w.getBlock({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))}));
+    return blockRegistry().collides(
+        w.getBlock({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))}));
 }
 
 } // namespace
@@ -30,7 +31,8 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
     const glm::dvec3 player = ctx.player.position();
     const bool target = ctx.survival && !ctx.playerDead && glm::length(player - m.pos) < 64.0;
     // Burning by day under the open sky (as the other undead).
-    const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.3)), int(std::floor(m.pos.z))};
+    const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.3)),
+                        int(std::floor(m.pos.z))};
     if (const Chunk* c = ctx.world.chunk(head.chunk());
         c && c->lit() && ctx.skyDarken < 4.0f && ctx.world.isInHeight(head.y) &&
         c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15 && m.fireTicks <= 140)
@@ -50,7 +52,8 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
             for (int dx = -1; dx <= 1 && !cat; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c0.x + dx, c0.z + dz}))
                     for (const MobData& o : ch->mobs())
-                        if ((o.type == MobType::Cat || o.type == MobType::Ocelot) && glm::length(o.pos - m.pos) < 16.0) {
+                        if ((o.type == MobType::Cat || o.type == MobType::Ocelot) &&
+                            glm::length(o.pos - m.pos) < 16.0) {
                             cat = true;
                             break;
                         }
@@ -63,17 +66,22 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
     double speed = 0.35;
     if (!target) { // nobody to bother: drift in wide circles where it is
         m.phase = 0;
-        goal = m.pos + glm::dvec3(std::cos(m.goalTicks * 0.05) * 3.0, 0.0, std::sin(m.goalTicks * 0.05) * 3.0);
+        goal = m.pos + glm::dvec3(std::cos(m.goalTicks * 0.05) * 3.0, 0.0,
+                                  std::sin(m.goalTicks * 0.05) * 3.0);
         ++m.goalTicks;
     } else if (m.phase == 1) { // the swoop: straight at the player
         goal = player + glm::dvec3(0.0, 0.9, 0.0);
         speed = 0.6;
-        const Aabb reach{ctx.player.box().min - glm::dvec3(0.2), ctx.player.box().max + glm::dvec3(0.2)};
+        const Aabb reach{ctx.player.box().min - glm::dvec3(0.2),
+                         ctx.player.box().max + glm::dvec3(0.2)};
         if (box(m).intersects(reach)) {
-            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) setPlayerAttacker(m.uuidHi);
+            if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos))
+                setPlayerAttacker(m.uuidHi);
             m.phase = 2;
             m.phaseTicks = 30 + int16_t(ctx.rng.nextInt(20));
-        } else if (--m.phaseTicks <= 0 || solid(ctx.world, m.pos + glm::normalize(goal - m.pos + glm::dvec3(1e-6)) * 1.0)) {
+        } else if (--m.phaseTicks <= 0 ||
+                   solid(ctx.world,
+                         m.pos + glm::normalize(goal - m.pos + glm::dvec3(1e-6)) * 1.0)) {
             m.phase = 2; // (missed, or about to hit a wall)
             m.phaseTicks = 30;
         }
@@ -82,7 +90,8 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
         speed = 0.3;
         if (--m.phaseTicks <= 0) {
             m.phase = 0;
-            m.chargeTicks = int16_t(100 + ctx.rng.nextInt(100)); // (circles 5-10 s before the next swoop)
+            m.chargeTicks =
+                int16_t(100 + ctx.rng.nextInt(100)); // (circles 5-10 s before the next swoop)
         }
     } else { // circling 20 or so blocks above the player
         ++m.goalTicks;
@@ -104,7 +113,8 @@ bool Mobs::phantomAi(Context& ctx, MobData& m) {
     const glm::dvec3 wish = len > 0.2 ? d / len * speed : glm::dvec3(0.0);
     if (len > 0.2) {
         m.yaw = m.headYaw = float(std::atan2(-d.x, d.z) * 180.0 / 3.14159265358979);
-        m.pitch = float(-std::atan2(d.y, std::sqrt(d.x * d.x + d.z * d.z)) * 180.0 / 3.14159265358979);
+        m.pitch =
+            float(-std::atan2(d.y, std::sqrt(d.x * d.x + d.z * d.z)) * 180.0 / 3.14159265358979);
     }
     m.limbSwing += 0.4f; // (wing beats)
     physics(ctx.world, m, wish, false);
@@ -118,7 +128,9 @@ void Mobs::spawnPhantoms(Context& ctx) {
     if (--m_phantomTicks > 0) return;
     m_phantomTicks = 1200;
     const bool night = ctx.skyDarken >= 4.0f || ctx.thundering;
-    if (!night || !ctx.survival || ctx.playerDead || !ctx.spawnPhantoms || ctx.difficulty == 0 || ctx.timeSinceRest < 72000) return;
+    if (!night || !ctx.survival || ctx.playerDead || !ctx.spawnPhantoms || ctx.difficulty == 0 ||
+        ctx.timeSinceRest < 72000)
+        return;
     m_phantomTicks += int(ctx.rng.nextInt(1200)); // (the game's random only when phantoms may come)
     if (int(ctx.rng.nextInt(uint32_t(std::max(1, ctx.timeSinceRest)))) < 72000) return;
     const glm::dvec3 p = ctx.player.position();
@@ -130,8 +142,9 @@ void Mobs::spawnPhantoms(Context& ctx) {
         return;
     const int n = 1 + int(ctx.rng.nextInt(3));
     for (int i = 0; i < n; ++i) {
-        const glm::dvec3 at = p + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 20.0 + ctx.rng.nextInt(15),
-                                             ctx.rng.nextDouble() * 20 - 10);
+        const glm::dvec3 at =
+            p + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 20.0 + ctx.rng.nextInt(15),
+                           ctx.rng.nextDouble() * 20 - 10);
         if (solid(ctx.world, at) || !ctx.world.isInHeight(int(std::floor(at.y)))) continue;
         MobData m = make(MobType::Phantom, at, ctx.rng);
         m.chargeTicks = int16_t(60 + ctx.rng.nextInt(100));

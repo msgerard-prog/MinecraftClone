@@ -30,8 +30,8 @@ using namespace world;
 
 namespace {
 
-constexpr uint8_t kHolding = 0, kStrafe = 1, kLandingApproach = 2, kTakeoff = 4, kFlaming = 5, kScanning = 6,
-                  kCharging = 8;
+constexpr uint8_t kHolding = 0, kStrafe = 1, kLandingApproach = 2, kTakeoff = 4, kFlaming = 5,
+                  kScanning = 6, kCharging = 8;
 constexpr int kNodes = 12;
 
 glm::dvec3 forwardOf(float yaw) {
@@ -61,9 +61,9 @@ int nearestNode(const glm::dvec3& p) {
 
 bool dragonImmune(BlockId b) {
     // (vanilla #dragon_immune, the blocks we have)
-    return b == blocks::Bedrock || b == blocks::Obsidian || b == blocks::EndStone || b == blocks::IronBars ||
-           b == blocks::EndPortal || b == blocks::EndPortalFrame || b == blocks::EndGateway || b == blocks::Water ||
-           b == blocks::Lava;
+    return b == blocks::Bedrock || b == blocks::Obsidian || b == blocks::EndStone ||
+           b == blocks::IronBars || b == blocks::EndPortal || b == blocks::EndPortalFrame ||
+           b == blocks::EndGateway || b == blocks::Water || b == blocks::Lava;
 }
 
 float approachAngle(float from, float to, float step) {
@@ -74,13 +74,15 @@ float approachAngle(float from, float to, float step) {
 
 } // namespace
 
-glm::dvec3 Mobs::dragonHead(const MobData& m) { return m.pos + forwardOf(m.yaw) * 5.0 + glm::dvec3(0.0, 0.75, 0.0); }
+glm::dvec3 Mobs::dragonHead(const MobData& m) {
+    return m.pos + forwardOf(m.yaw) * 5.0 + glm::dvec3(0.0, 0.75, 0.0);
+}
 
 float Mobs::dragonDamage(const MobData& m, float damage, const glm::dvec3& at) {
     const glm::dvec3 h = dragonHead(m);
     const glm::dvec3 d = glm::abs(at - h);
     if (d.x < 1.5 && d.y < 1.5 && d.z < 1.5) return damage; // the head: full damage
-    return damage / 4.0f + std::min(1.0f, damage);        // wiki: other parts
+    return damage / 4.0f + std::min(1.0f, damage);          // wiki: other parts
 }
 
 void Mobs::dragonAi(Context& ctx, MobData& m) {
@@ -97,7 +99,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
     // Healing from the nearest end crystal within 32 blocks.
     m.hasBeam = false;
     double best = 32.0 * 32.0;
-    const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+    const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
+                      blockToChunk(int(std::floor(m.pos.z)))};
     for (int dz = -2; dz <= 2; ++dz)
         for (int dx = -2; dx <= 2; ++dx)
             if (const Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
@@ -117,8 +120,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
 
     const glm::dvec3 playerPos = ctx.player.position();
     const glm::dvec3 playerEye = playerPos + glm::dvec3(0.0, 1.62, 0.0);
-    const bool canTarget = ctx.survival && !ctx.playerDead && playerPos.x * playerPos.x + playerPos.z * playerPos.z <
-                                                                    150.0 * 150.0;
+    const bool canTarget = ctx.survival && !ctx.playerDead &&
+                           playerPos.x * playerPos.x + playerPos.z * playerPos.z < 150.0 * 150.0;
     // The top of the exit portal's bedrock column, where it perches.
     auto perchPoint = [&]() {
         int y = world.height().maxY();
@@ -133,7 +136,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         m.vel += (want - m.vel) * 0.1;
         m.pos += m.vel;
         if (m.vel.x * m.vel.x + m.vel.z * m.vel.z > 1e-4)
-            m.yaw = approachAngle(m.yaw, float(std::atan2(-m.vel.x, m.vel.z) * 180.0 / std::numbers::pi), 6.0f);
+            m.yaw = approachAngle(
+                m.yaw, float(std::atan2(-m.vel.x, m.vel.z) * 180.0 / std::numbers::pi), 6.0f);
         m.headYaw = m.yaw;
         return len;
     };
@@ -151,11 +155,12 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         if (!canTarget || m.phaseTicks > 200) {
             m.node = static_cast<uint8_t>(nearestNode(m.pos));
             setPhase(kHolding);
-        } else if (m.phaseTicks > 20 && dist < 64.0 && glm::dot(forwardOf(m.yaw), to / dist) > 0.8 &&
+        } else if (m.phaseTicks > 20 && dist < 64.0 &&
+                   glm::dot(forwardOf(m.yaw), to / dist) > 0.8 &&
                    !raycastBlocks(world, head, to / dist, dist)) {
             if (ctx.projectiles)
-                ctx.projectiles->shoot(ProjectileKind::DragonFireball, head, to / dist, 0.8, 0.0, false, false, ctx.rng,
-                                       m.uuidHi);
+                ctx.projectiles->shoot(ProjectileKind::DragonFireball, head, to / dist, 0.8, 0.0,
+                                       false, false, ctx.rng, m.uuidHi);
             m.node = static_cast<uint8_t>(nearestNode(m.pos));
             setPhase(kHolding);
         } else if (d < 4.0) {
@@ -164,7 +169,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         break;
     }
     case kLandingApproach: {
-        if (m.phaseTicks == 1 || m.goal.y < 1.0) m.goal = perchPoint(); // (found once per landing; goals aren't saved)
+        if (m.phaseTicks == 1 || m.goal.y < 1.0)
+            m.goal = perchPoint(); // (found once per landing; goals aren't saved)
         const glm::dvec3 perch = m.goal;
         if (fly(perch, 0.5) < 1.5) {
             m.pos = perch;
@@ -180,24 +186,28 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
     case kFlaming: {
         m.vel = glm::dvec3(0.0);
         ++m.chargeTicks;
-        m.yaw = approachAngle(m.yaw, float(std::atan2(-(playerPos.x - m.pos.x), playerPos.z - m.pos.z) * 180.0 /
-                                           std::numbers::pi),
+        m.yaw = approachAngle(m.yaw,
+                              float(std::atan2(-(playerPos.x - m.pos.x), playerPos.z - m.pos.z) *
+                                    180.0 / std::numbers::pi),
                               4.0f);
         m.headYaw = m.yaw;
-        if (m.phase == kScanning && m.phaseTicks % 80 == 40 && canTarget) { // (scans, then breathes)
+        if (m.phase == kScanning && m.phaseTicks % 80 == 40 &&
+            canTarget) { // (scans, then breathes)
             setPhase(kFlaming);
         } else if (m.phase == kFlaming) {
             if (m.phaseTicks == 10 && ctx.projectiles) { // flames on the ground in front of it
                 glm::dvec3 at = dragonHead(m) + forwardOf(m.yaw) * 3.0;
                 at.y = m.pos.y - 0.9;
                 ctx.projectiles->addCloud(at, 2.5f, 60); // (wiki: 3 s)
-                ++m.volley;                               // (breaths this perch)
+                ++m.volley;                              // (breaths this perch)
             }
             if (m.phaseTicks > 60) setPhase(kScanning);
         }
         // Takes off after 50 damage, 4 breaths, or with no player within 150 (wiki).
-        const bool alone = playerPos.x * playerPos.x + playerPos.z * playerPos.z > 150.0 * 150.0 || !canTarget;
-        if (m.perchDamage >= 50.0f || m.volley >= 4 || (alone && m.chargeTicks > 100)) setPhase(kTakeoff);
+        const bool alone =
+            playerPos.x * playerPos.x + playerPos.z * playerPos.z > 150.0 * 150.0 || !canTarget;
+        if (m.perchDamage >= 50.0f || m.volley >= 4 || (alone && m.chargeTicks > 100))
+            setPhase(kTakeoff);
         break;
     }
     case kTakeoff:
@@ -258,7 +268,8 @@ void Mobs::dragonAi(Context& ctx, MobData& m) {
         const Aabb pb = ctx.player.box();
         const glm::dvec3 away = playerPos - m.pos;
         if (pb.intersects(headBox)) {
-            if (ctx.vitals.attacked(info.attackDamage, &head)) ctx.player.knockback(away.x, away.z, 1.0);
+            if (ctx.vitals.attacked(info.attackDamage, &head))
+                ctx.player.knockback(away.x, away.z, 1.0);
             m.attackCooldown = 10;
         } else if (!perched && pb.intersects(box(m).inflated(1.0))) {
             if (ctx.vitals.attacked(5.0f, &m.pos)) ctx.player.knockback(away.x, away.z, 2.0);

@@ -15,7 +15,8 @@ constexpr int kHashSlots = 4096; // > 2 x kMaxNodes, power of two
 constexpr int kMaxDrop = 3;      // vanilla: mobs path down at most 3 blocks
 
 uint64_t pack(const glm::ivec3& p) {
-    return (uint64_t(uint32_t(p.x) & 0x3FFFFFFu) << 38) | (uint64_t(uint32_t(p.z) & 0x3FFFFFFu) << 12) |
+    return (uint64_t(uint32_t(p.x) & 0x3FFFFFFu) << 38) |
+           (uint64_t(uint32_t(p.z) & 0x3FFFFFFu) << 12) |
            (uint64_t(uint32_t(p.y) & 0xFFFu)); // y: 12 bits cover any world height
 }
 
@@ -42,7 +43,8 @@ BlockStateId Pathfinder::at(const World& world, int x, int y, int z) {
         m_chunkPos = cp;
         m_epoch = world.chunkEpoch();
     }
-    return m_chunk ? m_chunk->get(blockToLocal(x), y, blockToLocal(z)) : blockRegistry().defaultState(blocks::Stone);
+    return m_chunk ? m_chunk->get(blockToLocal(x), y, blockToLocal(z))
+                   : blockRegistry().defaultState(blocks::Stone);
 }
 
 bool Pathfinder::passable(const World& world, const glm::ivec3& c, int height) {
@@ -84,18 +86,20 @@ int Pathfinder::slot(const glm::ivec3& p) const {
 
 void Pathfinder::push(int node) {
     m_heap.push_back(node);
-    std::push_heap(m_heap.begin(), m_heap.end(), [&](int a, int b) { return m_nodes[size_t(a)].f > m_nodes[size_t(b)].f; });
+    std::push_heap(m_heap.begin(), m_heap.end(),
+                   [&](int a, int b) { return m_nodes[size_t(a)].f > m_nodes[size_t(b)].f; });
 }
 
 int Pathfinder::pop() {
-    std::pop_heap(m_heap.begin(), m_heap.end(), [&](int a, int b) { return m_nodes[size_t(a)].f > m_nodes[size_t(b)].f; });
+    std::pop_heap(m_heap.begin(), m_heap.end(),
+                  [&](int a, int b) { return m_nodes[size_t(a)].f > m_nodes[size_t(b)].f; });
     const int n = m_heap.back();
     m_heap.pop_back();
     return n;
 }
 
-int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ivec3& goal, int height, int maxNodes,
-                     glm::ivec3* out, int maxOut) {
+int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ivec3& goal,
+                     int height, int maxNodes, glm::ivec3* out, int maxOut) {
     maxNodes = std::min(maxNodes, kMaxNodes);
     ++m_search;
     m_nodes.clear();

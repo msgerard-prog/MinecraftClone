@@ -11,6 +11,7 @@ namespace mc {
 //   an armor trim template + an armor piece + a trim material -> the piece with that
 //     trim (replacing another; nothing if it already has exactly that one).
 // Taking the result uses one of each input.
-world::ItemStack smith(const world::ItemStack& templ, const world::ItemStack& base, const world::ItemStack& addition);
+world::ItemStack smith(const world::ItemStack& templ, const world::ItemStack& base,
+                       const world::ItemStack& addition);
 
 } // namespace mc

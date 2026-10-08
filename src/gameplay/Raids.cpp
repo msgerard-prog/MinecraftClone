@@ -22,14 +22,17 @@ std::optional<glm::ivec3> findBell(const World& world, const glm::dvec3& at, int
             if (!ch) continue;
             for (int si = 0; si < ch->sectionCount(); ++si) {
                 const int sy = ch->height().minY + si * 16;
-                if (sy + 16 < at.y - range || sy > at.y + range) continue; // (outside the sphere's Y range)
+                if (sy + 16 < at.y - range || sy > at.y + range)
+                    continue; // (outside the sphere's Y range)
                 const Section& sec = ch->section(si);
-                if (sec.isEmpty() ||
-                    sec.allPaletteStates([](BlockStateId s) { return blockRegistry().blockOf(s) != blocks::Bell; }))
+                if (sec.isEmpty() || sec.allPaletteStates([](BlockStateId s) {
+                        return blockRegistry().blockOf(s) != blocks::Bell;
+                    }))
                     continue;
                 for (int i = 0; i < 4096; ++i) {
                     if (blockRegistry().blockOf(sec.getIndex(i)) != blocks::Bell) continue;
-                    const glm::ivec3 p{ch->pos().x * 16 + (i & 15), ch->height().minY + si * 16 + (i >> 8),
+                    const glm::ivec3 p{ch->pos().x * 16 + (i & 15),
+                                       ch->height().minY + si * 16 + (i >> 8),
                                        ch->pos().z * 16 + ((i >> 4) & 15)};
                     const glm::dvec3 d = glm::dvec3(p) + 0.5 - at;
                     if (glm::dot(d, d) < bestD) bestD = glm::dot(d, d), best = p;
@@ -59,13 +62,14 @@ void Raid::spawnWave(World& world, Xoroshiro& rng) {
                                          {0, 0, 1, 0, 1, 0, 2},
                                          {0, 0, 1, 3, 0, 1, 0},
                                          {0, 0, 0, 0, 1, 1, 2}};
-    static constexpr MobType kTypes[5] = {MobType::Pillager, MobType::Vindicator, MobType::Ravager, MobType::Witch,
-                                          MobType::Evoker};
+    static constexpr MobType kTypes[5] = {MobType::Pillager, MobType::Vindicator, MobType::Ravager,
+                                          MobType::Witch, MobType::Evoker};
     // A spot about 32 blocks from the bell on the surface (vanilla tries closer if not).
     const auto& r = blockRegistry();
     glm::ivec3 spot = m_centre;
     for (int tries = 0; tries < 30; ++tries) {
-        const double angle = rng.nextDouble() * 2.0 * std::numbers::pi, dist = tries < 20 ? 32.0 : 20.0;
+        const double angle = rng.nextDouble() * 2.0 * std::numbers::pi,
+                     dist = tries < 20 ? 32.0 : 20.0;
         const int x = m_centre.x + int(std::lround(std::cos(angle) * dist));
         const int z = m_centre.z + int(std::lround(std::sin(angle) * dist));
         if (!world.chunk(BlockPos{x, 0, z}.chunk())) continue;
@@ -73,7 +77,8 @@ void Raid::spawnWave(World& world, Xoroshiro& rng) {
         for (int y = m_centre.y + 20; y >= m_centre.y - 20 && !ok; --y) {
             const BlockStateId below = world.getBlock({x, y - 1, z});
             if (!r.collides(below) || r.blockOf(below) == blocks::Water) continue;
-            if (r.collides(world.getBlock({x, y, z})) || r.collides(world.getBlock({x, y + 1, z}))) continue;
+            if (r.collides(world.getBlock({x, y, z})) || r.collides(world.getBlock({x, y + 1, z})))
+                continue;
             spot = {x, y, z};
             ok = true;
         }
@@ -83,12 +88,14 @@ void Raid::spawnWave(World& world, Xoroshiro& rng) {
     bool captain = false;
     for (int k = 0; k < 5; ++k)
         for (int n = 0; n < kWaves[k][std::min(m_wave, 6)]; ++n) {
-            MobData m = Mobs::make(kTypes[k], {spot.x + 0.5 + rng.nextDouble() * 2 - 1, double(spot.y),
-                                               spot.z + 0.5 + rng.nextDouble() * 2 - 1},
+            MobData m = Mobs::make(kTypes[k],
+                                   {spot.x + 0.5 + rng.nextDouble() * 2 - 1, double(spot.y),
+                                    spot.z + 0.5 + rng.nextDouble() * 2 - 1},
                                    rng);
             m.raidId = m_id;
             m.persistent = true;
-            if (kTypes[k] == MobType::Pillager && !captain) m.captain = captain = true; // (the wave's leader)
+            if (kTypes[k] == MobType::Pillager && !captain)
+                m.captain = captain = true; // (the wave's leader)
             if (Mobs::add(world, m)) m_waveHealth += m.health;
         }
     m_aliveHealth = m_waveHealth;
@@ -97,7 +104,8 @@ void Raid::spawnWave(World& world, Xoroshiro& rng) {
 
 void Raid::tick(World& world, Vitals& vitals, const glm::dvec3& player, Xoroshiro& rng) {
     // Bad Omen near a village bell: Raid Omen for 30 s, then the raid (wiki, 1.21).
-    if (!m_active && m_pendingTicks == 0 && vitals.effectLevel(Effect::BadOmen) > 0 && ++m_counter % 20 == 0)
+    if (!m_active && m_pendingTicks == 0 && vitals.effectLevel(Effect::BadOmen) > 0 &&
+        ++m_counter % 20 == 0)
         if (const auto bell = findBell(world, player, 32)) {
             m_pendingLevel = vitals.effectLevel(Effect::BadOmen);
             vitals.removeEffect(Effect::BadOmen);
@@ -112,7 +120,8 @@ void Raid::tick(World& world, Vitals& vitals, const glm::dvec3& player, Xoroshir
     const ChunkPos cc{blockToChunk(m_centre.x), blockToChunk(m_centre.z)};
     m_loaded = true;
     for (int dz = -2; dz <= 2 && m_loaded; ++dz)
-        for (int dx = -2; dx <= 2 && m_loaded; ++dx) m_loaded = world.chunk({cc.x + dx, cc.z + dz}) != nullptr;
+        for (int dx = -2; dx <= 2 && m_loaded; ++dx)
+            m_loaded = world.chunk({cc.x + dx, cc.z + dz}) != nullptr;
     if (!m_loaded) return;
     ++m_ticks;
     if (m_ticks % 20 != 0) return;
@@ -128,7 +137,8 @@ void Raid::tick(World& world, Vitals& vitals, const glm::dvec3& player, Xoroshir
             for (const MobData& m : c->mobs()) {
                 if (m.health <= 0.0f) continue;
                 if (m.raidId == m_id) ++m_alive, m_aliveHealth += m.health;
-                if (m.type == MobType::Villager && glm::length(glm::dvec3(m_centre) - m.pos) < 96.0) ++villagers;
+                if (m.type == MobType::Villager && glm::length(glm::dvec3(m_centre) - m.pos) < 96.0)
+                    ++villagers;
             }
         }
     // Over: the raiders left stop being part of it (they stay as ordinary mobs).

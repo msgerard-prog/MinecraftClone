@@ -62,7 +62,8 @@ std::optional<BlockPos> light(World& world, const BlockPos& p, std::vector<Block
             b = add(b, -ax, 0, -az);
         if (!obsidian(add(b, -ax, 0, -az))) continue;
         int width = 0;
-        while (width <= 21 && air(add(b, ax * width, 0, az * width)) && obsidian(add(b, ax * width, -1, az * width)))
+        while (width <= 21 && air(add(b, ax * width, 0, az * width)) &&
+               obsidian(add(b, ax * width, -1, az * width)))
             ++width;
         if (width < 2 || width > 21 || !obsidian(add(b, ax * width, 0, az * width))) continue;
         // Rows up to an all-obsidian top (sides obsidian on every row).
@@ -79,10 +80,13 @@ std::optional<BlockPos> light(World& world, const BlockPos& p, std::vector<Block
                 closed = true;
                 break;
             }
-            if (!allAir || !obsidian(add(b, -ax, height, -az)) || !obsidian(add(b, ax * width, height, az * width))) break;
+            if (!allAir || !obsidian(add(b, -ax, height, -az)) ||
+                !obsidian(add(b, ax * width, height, az * width)))
+                break;
         }
         if (!closed || height < 3) continue;
-        const BlockStateId portal = R().set(R().defaultState(blocks::NetherPortal), properties::haxis, axis);
+        const BlockStateId portal =
+            R().set(R().defaultState(blocks::NetherPortal), properties::haxis, axis);
         Batch batch{world, changed, {}};
         for (int h = 0; h < height; ++h)
             for (int i = 0; i < width; ++i)
@@ -92,19 +96,21 @@ std::optional<BlockPos> light(World& world, const BlockPos& p, std::vector<Block
     return std::nullopt;
 }
 
-std::optional<BlockPos> find(const World& world, std::vector<Known>& known, Dimension dim, const BlockPos& target,
-                             int radius) {
+std::optional<BlockPos> find(const World& world, std::vector<Known>& known, Dimension dim,
+                             const BlockPos& target, int radius) {
     std::optional<BlockPos> best;
     int64_t bestD = 0;
     for (size_t i = 0; i < known.size();) {
         const Known& k = known[i];
-        if (k.dimension == dim && world.chunk(k.pos.chunk()) && blockAt(world, k.pos) != blocks::NetherPortal) {
+        if (k.dimension == dim && world.chunk(k.pos.chunk()) &&
+            blockAt(world, k.pos) != blocks::NetherPortal) {
             known.erase(known.begin() + std::ptrdiff_t(i)); // broken since
             continue;
         }
         const int dx = k.pos.x - target.x, dz = k.pos.z - target.z;
         if (k.dimension == dim && std::abs(dx) <= radius && std::abs(dz) <= radius) {
-            const int64_t d = int64_t(dx) * dx + int64_t(dz) * dz + int64_t(k.pos.y - target.y) * (k.pos.y - target.y);
+            const int64_t d = int64_t(dx) * dx + int64_t(dz) * dz +
+                              int64_t(k.pos.y - target.y) * (k.pos.y - target.y);
             if (!best || d < bestD) {
                 best = k.pos;
                 bestD = d;
@@ -115,7 +121,8 @@ std::optional<BlockPos> find(const World& world, std::vector<Known>& known, Dime
     return best;
 }
 
-BlockPos build(World& world, const BlockPos& target, int minY, int maxY, std::vector<BlockPos>& changed) {
+BlockPos build(World& world, const BlockPos& target, int minY, int maxY,
+               std::vector<BlockPos>& changed) {
     const auto& r = R();
     auto solid = [&](int x, int y, int z) { return r.collides(world.getBlock({x, y, z})); };
     auto empty = [&](int x, int y, int z) { return world.getBlock({x, y, z}) == 0; };
@@ -147,7 +154,8 @@ BlockPos build(World& world, const BlockPos& target, int minY, int maxY, std::ve
     Batch batch{world, changed, {}};
     if (!spot) { // no room: make some at the target height (vanilla: Y 70 up to 10
                  // below the top), on an obsidian floor
-        const BlockPos c{target.x, std::clamp(target.y, std::max(minY + 2, 70), maxY - 4), target.z};
+        const BlockPos c{target.x, std::clamp(target.y, std::max(minY + 2, 70), maxY - 4),
+                         target.z};
         for (int i = -1; i <= 2; ++i)
             for (int dz = -1; dz <= 1; ++dz) {
                 batch.put({c.x + i, c.y - 2, c.z + dz}, obsidian);
@@ -208,7 +216,8 @@ bool completeEndPortal(World& world, const BlockPos& frame, std::vector<BlockPos
         for (int cx = frame.x - 2; cx <= frame.x + 2; ++cx) {
             bool ring = true;
             for (int i = -1; i <= 1 && ring; ++i)
-                ring = eyed(cx + i, cz - 2) && eyed(cx + i, cz + 2) && eyed(cx - 2, cz + i) && eyed(cx + 2, cz + i);
+                ring = eyed(cx + i, cz - 2) && eyed(cx + i, cz + 2) && eyed(cx - 2, cz + i) &&
+                       eyed(cx + 2, cz + i);
             if (!ring) continue;
             const BlockStateId portal = R().defaultState(blocks::EndPortal);
             for (int dz = -1; dz <= 1; ++dz)
@@ -230,14 +239,16 @@ bool useItem(World& world, Dimension dimension, ItemId item, const BlockPos& blo
         const BlockPos at{block.x + n.x, block.y + n.y, block.z + n.z};
         if (dimension != Dimension::End && light(world, at, changed)) return true;
         if (!world.isInHeight(at.y) || world.getBlock(at) != 0) return false;
-        if (!BlockUpdates::fireCanStay(world, at)) return false; // nowhere for fire to stay: not used
+        if (!BlockUpdates::fireCanStay(world, at))
+            return false; // nowhere for fire to stay: not used
         world.updateBlock(at, BlockUpdates::fireState(0));
         changed.push_back(at);
         return true;
     }
     if (id == "minecraft:ender_eye") {
         const BlockStateId s = world.getBlock(block);
-        if (R().blockOf(s) != blocks::EndPortalFrame || R().get(s, properties::eye) == 0) return false;
+        if (R().blockOf(s) != blocks::EndPortalFrame || R().get(s, properties::eye) == 0)
+            return false;
         put(world, block, R().set(s, properties::eye, 0), changed);
         completeEndPortal(world, block, changed);
         return true;

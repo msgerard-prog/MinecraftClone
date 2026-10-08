@@ -11,15 +11,18 @@ namespace {
 
 // wiki: Music Disc - comparator output and duration (seconds) of each disc.
 constexpr DiscInfo kDiscs[] = {
-    {"music_disc_13", 1, 178 * 20},    {"music_disc_cat", 2, 185 * 20},     {"music_disc_blocks", 3, 345 * 20},
-    {"music_disc_chirp", 4, 185 * 20}, {"music_disc_far", 5, 174 * 20},     {"music_disc_mall", 6, 197 * 20},
-    {"music_disc_mellohi", 7, 96 * 20}, {"music_disc_stal", 8, 150 * 20},   {"music_disc_strad", 9, 188 * 20},
-    {"music_disc_ward", 10, 251 * 20}, {"music_disc_11", 11, 71 * 20},      {"music_disc_wait", 12, 237 * 20},
+    {"music_disc_13", 1, 178 * 20},       {"music_disc_cat", 2, 185 * 20},
+    {"music_disc_blocks", 3, 345 * 20},   {"music_disc_chirp", 4, 185 * 20},
+    {"music_disc_far", 5, 174 * 20},      {"music_disc_mall", 6, 197 * 20},
+    {"music_disc_mellohi", 7, 96 * 20},   {"music_disc_stal", 8, 150 * 20},
+    {"music_disc_strad", 9, 188 * 20},    {"music_disc_ward", 10, 251 * 20},
+    {"music_disc_11", 11, 71 * 20},       {"music_disc_wait", 12, 237 * 20},
     {"music_disc_pigstep", 13, 148 * 20}, {"music_disc_otherside", 14, 195 * 20},
     {"music_disc_5", 15, 178 * 20}}; // (M28.5b; wiki: Music Disc - "5" gives 15, 2:58)
 
 uint32_t hash(uint32_t a, uint32_t b, uint32_t c) {
-    uint32_t h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u ^ (c + 0x165667B1u) * 0xC2B2AE3Du;
+    uint32_t h =
+        a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u ^ (c + 0x165667B1u) * 0xC2B2AE3Du;
     h ^= h >> 15;
     h *= 0x2C1B3C6Du;
     h ^= h >> 12;
@@ -47,9 +50,10 @@ int discIndex(world::ItemId item) {
 int jukeboxNotes(int disc, int tick, std::array<JukeboxNote, 3>& out) {
     using world::Sound;
     // Per disc: a step length (tempo), a lead and a bass instrument, sparse or busy.
-    static constexpr Sound kLead[] = {Sound::NoteFlute,  Sound::NoteHarp,   Sound::NoteBell,     Sound::NoteChime,
-                                      Sound::NoteGuitar, Sound::NotePling,  Sound::NoteXylophone, Sound::NoteBanjo,
-                                      Sound::NoteIronXylophone};
+    static constexpr Sound kLead[] = {
+        Sound::NoteFlute,     Sound::NoteHarp,   Sound::NoteBell,
+        Sound::NoteChime,     Sound::NoteGuitar, Sound::NotePling,
+        Sound::NoteXylophone, Sound::NoteBanjo,  Sound::NoteIronXylophone};
     const uint32_t d = uint32_t(disc);
     const int step = 3 + int(hash(d, 1, 0) % 4); // 3..6 ticks per step
     if (tick % step != 0) return 0;
@@ -58,7 +62,8 @@ int jukeboxNotes(int disc, int tick, std::array<JukeboxNote, 3>& out) {
     const int bar = s / 16, pos = s % 16;
     const Sound lead = eerie ? Sound::NoteDidgeridoo : kLead[hash(d, 2, 0) % std::size(kLead)];
     // Four chords per phrase (roots in semitones over F#), a scale for the melody.
-    static constexpr int kProgressions[4][4] = {{0, 5, 7, 5}, {0, 9, 5, 7}, {0, 7, 9, 5}, {0, 3, 5, 7}};
+    static constexpr int kProgressions[4][4] = {
+        {0, 5, 7, 5}, {0, 9, 5, 7}, {0, 7, 9, 5}, {0, 3, 5, 7}};
     const int* prog = kProgressions[hash(d, 3, 0) % 4];
     static constexpr int kMajor[7] = {0, 2, 4, 5, 7, 9, 11}, kMinor[7] = {0, 2, 3, 5, 7, 8, 10};
     const int* scale = (hash(d, 4, 0) & 1) ? kMajor : kMinor;
@@ -70,11 +75,13 @@ int jukeboxNotes(int disc, int tick, std::array<JukeboxNote, 3>& out) {
     if ((r % 100) < (eerie ? 25u : 70u)) {
         const int degree = int(r / 100 % 7);
         int note = 6 + scale[degree] + root % 12; // around the middle of the range
-        while (note > 24) note -= 12;
+        while (note > 24)
+            note -= 12;
         out[size_t(n++)] = {lead, pitchOf(note)};
     }
     if (pos % 4 == 0) out[size_t(n++)] = {Sound::NoteBass, pitchOf(std::min(24, 6 + root))};
-    if (!eerie && (hash(d, 5, 0) & 1) && pos % 8 == 0) out[size_t(n++)] = {Sound::NoteBasedrum, 1.0f};
+    if (!eerie && (hash(d, 5, 0) & 1) && pos % 8 == 0)
+        out[size_t(n++)] = {Sound::NoteBasedrum, 1.0f};
     return n;
 }
 

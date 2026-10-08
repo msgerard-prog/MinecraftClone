@@ -37,12 +37,12 @@ enum class ProjectileKind : uint8_t {
     SplashPotion,
     DragonFireball,
     EnderPearl,
-    ShulkerBullet, // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
-    Trident,       // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
-    LlamaSpit,     // (M26.2: 1 damage)
-    WitherSkull,   // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
-    WindCharge,    // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
-    Snowball,      // (M26.5b: knocks back; 3 damage to blazes)
+    ShulkerBullet,   // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
+    Trident,         // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
+    LlamaSpit,       // (M26.2: 1 damage)
+    WitherSkull,     // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
+    WindCharge,      // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
+    Snowball,        // (M26.5b: knocks back; 3 damage to blazes)
     LingeringPotion, // (M28.4b: leaves a cloud of its effect)
     Firework         // (M28.4c: rises and bursts; `stack` is the rocket)
 };
@@ -58,8 +58,8 @@ struct PearlLanding {
 struct BreathCloud {
     glm::dvec3 pos{0.0}; // the middle of its floor
     float radius = 3.0f;
-    int ticks = 0;    // left
-    int cooldown = 0; // until it can hurt the player again
+    int ticks = 0;       // left
+    int cooldown = 0;    // until it can hurt the player again
     uint8_t potion = 0;  // (M28.4b) a lingering potion's (world::Potion); 0 = dragon's breath
     float shrink = 0.0f; // radius lost each tick
 };
@@ -68,23 +68,28 @@ struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
     glm::dvec3 pos{0.0}, prevPos{0.0}, vel{0.0};
     bool fromPlayer = false; // shot by the player (can be picked up; doesn't hit them at once)
-    uint64_t owner = 0;      // the shooting mob's UUID (high half): never hit by its own arrow
+    uint64_t owner =
+        0; // the mob it can't hit (high UUID half): its shooter, or the last one it pierced
+    uint64_t shooter = 0; // who shot it (kept when Piercing moves `owner` on)
     bool critical = false;
-    bool skeleton = false; // shot by a skeleton (creepers it kills drop a music disc; pillagers' bolts don't)
+    bool skeleton =
+        false; // shot by a skeleton (creepers it kills drop a music disc; pillagers' bolts don't)
     uint8_t power = 0, punch = 0; // bow enchantments (damage, knockback)
     bool flame = false;           // sets what it hits on fire
     bool pickup = true;           // (Infinity arrows can't be picked up)
     bool stuck = false;
     glm::dvec3 facing{0.0, -1.0, 0.0}; // flight direction (kept when stuck, for drawing)
-    int life = 0; // ticks alive (stuck arrows vanish at 1200)
+    int life = 0;                      // ticks alive (stuck arrows vanish at 1200)
     uint8_t skyLight = 15, blockLight = 0;
     glm::dvec3 target{0.0}; // eyes of ender: where they fly
     uint8_t potion = 0;     // splash potions: the potion (world::Potion)
-    world::ItemStack stack{}; // tridents: the item itself (enchantments, wear), given back on pickup
-    bool dealt = false;       // tridents: has hit something (drops away, hits nothing more)
-    uint8_t pierce = 0;       // (M28.4a) crossbow Piercing: mobs it may still go through
-    bool spectral = false;    // (M28.4b) a spectral arrow: Glowing on what it hits (`potion`: a tipped arrow's)
-    int16_t fuse = 0;         // (M28.4c) a rocket's flight time; `straight`: shot from a crossbow
+    world::ItemStack
+        stack{};        // tridents: the item itself (enchantments, wear), given back on pickup
+    bool dealt = false; // tridents: has hit something (drops away, hits nothing more)
+    uint8_t pierce = 0; // (M28.4a) crossbow Piercing: mobs it may still go through
+    bool spectral =
+        false; // (M28.4b) a spectral arrow: Glowing on what it hits (`potion`: a tipped arrow's)
+    int16_t fuse = 0; // (M28.4c) a rocket's flight time; `straight`: shot from a crossbow
     bool straight = false;
 };
 
@@ -107,8 +112,11 @@ public:
     }
     static constexpr int kMaxClouds = 32;
     // A breath cloud (dragon fireballs, the perched dragon's flames).
-    void addCloud(const glm::dvec3& at, float radius, int ticks, uint8_t potion = 0, float shrink = 0.0f) {
-        if (int(m_clouds.size()) < kMaxClouds) m_clouds.push_back({at, radius, ticks, 0, potion, shrink});
+    void addCloud(const glm::dvec3& at, float radius, int ticks, uint8_t potion = 0,
+                  float shrink = 0.0f) {
+        // (a lingering cloud waits a second before it works - wiki: Lingering Potion)
+        if (int(m_clouds.size()) < kMaxClouds)
+            m_clouds.push_back({at, radius, ticks, potion ? 20 : 0, potion, shrink});
     }
     const std::vector<BreathCloud>& clouds() const { return m_clouds; }
     // Ender pearls that came down this tick.
@@ -116,8 +124,9 @@ public:
     // Launch along `dir` at `speed` blocks/tick with vanilla's inaccuracy spread
     // (gaussian x 0.0075 x inaccuracy per axis).
     // Returns false if the pool is full of flying arrows (nothing was shot).
-    bool shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed, double inaccuracy,
-               bool fromPlayer, bool critical, world::Xoroshiro& rng, uint64_t owner = 0);
+    bool shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
+               double inaccuracy, bool fromPlayer, bool critical, world::Xoroshiro& rng,
+               uint64_t owner = 0);
 
     struct Hits {
         float playerDamage = 0.0f; // (applied here; reported for tests)
@@ -126,8 +135,8 @@ public:
     // One tick: flight, hits on blocks, the player (survival: `vitals`) and mobs;
     // pickup of stuck player arrows into `inventory`. Chicks hatched from eggs are
     // added to the world.
-    Hits tick(world::World& world, Player& player, Vitals* vitals, Inventory& inventory, bool survival,
-              world::Xoroshiro& rng);
+    Hits tick(world::World& world, Player& player, Vitals* vitals, Inventory& inventory,
+              bool survival, world::Xoroshiro& rng);
 
     const std::vector<Projectile>& items() const { return m_items; }
     // Eyes of ender that came down this tick (the caller drops an eye item there).
@@ -150,8 +159,8 @@ public:
     };
     const std::vector<FireworkBurst>& fireworkBursts() const { return m_fireworkBursts; }
     // A rocket from `at`: up (used on a block) or along `dir` (`straight`: a crossbow's).
-    bool launchFirework(const glm::dvec3& at, const world::ItemStack& rocket, bool straight, const glm::dvec3& dir,
-                        world::Xoroshiro& rng);
+    bool launchFirework(const glm::dvec3& at, const world::ItemStack& rocket, bool straight,
+                        const glm::dvec3& dir, world::Xoroshiro& rng);
     const std::vector<WindBurst>& windBursts() const { return m_windBursts; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
@@ -190,35 +199,40 @@ bool canDrawBow(const Inventory& inventory, bool survival);
 // arrow flies from `eye` along `look` (speed power x 3, critical at full draw), and
 // in survival an arrow is used up and the held bow wears by 1 (breaking at its
 // durability). Returns true if it shot.
-bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
-                Projectiles& projectiles, world::Xoroshiro& rng);
+bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye,
+                const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Crossbows (M28.4a; wiki: Crossbow): held for `crossbowChargeTicks` (25, 5 less a Quick
 // Charge level) they load an arrow (survival uses one up) and stay loaded (ItemStack::state
 // kCrossbowArrow); a right-click fires it at 3.15 blocks a tick - with Multishot three, 10
 // degrees apart (the side ones can't be picked up), with Piercing through level + 1 mobs.
-inline constexpr world::BlockStateId kCrossbowArrow = 1, kCrossbowSpectral = 2, kCrossbowTipped = 3,
-                                     kCrossbowFirework = 4; // (M28.4c: a rocket in the offhand loads first; its fireworks in `extra`)
+inline constexpr world::BlockStateId
+    kCrossbowArrow = 1,
+    kCrossbowSpectral = 2, kCrossbowTipped = 3,
+    kCrossbowFirework =
+        4; // (M28.4c: a rocket in the offhand loads first; its fireworks in `extra`)
 // (M28.4b) the ammunition a bow or crossbow uses: the offhand, then the inventory in order
 // (vanilla); -1 offhand, 0..35 a slot, -2 none. Arrows, tipped arrows, spectral arrows.
 int ammoSlot(const Inventory& inventory);
-bool canLoadCrossbow(const Inventory& inventory, bool survival); // (an arrow, or a rocket in the offhand)
+bool canLoadCrossbow(const Inventory& inventory,
+                     bool survival); // (an arrow, or a rocket in the offhand)
 int crossbowChargeTicks(const world::ItemStack& crossbow);
 bool loadCrossbow(Inventory& inventory, bool survival);
-bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
-                  Projectiles& projectiles, world::Xoroshiro& rng);
+bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye,
+                  const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Releasing a trident held back for `ticks` (M25.3; wiki: Trident): at least 10 ticks;
 // thrown at 2.5 blocks a tick (survival: it leaves the hand and wears by 1; creative:
 // a copy that can't be picked up). With Riptide it can't be thrown: returns the
 // player's launch speed instead (when in water or rain), 0 otherwise.
-double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, const glm::dvec3& eye,
-                      const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
+double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet,
+                      const glm::dvec3& eye, const glm::dvec3& look, Projectiles& projectiles,
+                      world::Xoroshiro& rng);
 // Throwing the held egg (speed 1.5); survival uses it up.
 // Throwing the held wind charge (M26.4c; wiki: Wind Charge - speed 1.5, flies straight).
-void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
-                     Projectiles& projectiles, world::Xoroshiro& rng);
+void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye,
+                     const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held snowball (M26.5b; wiki: Snowball - speed 1.5, stacks of 16).
-void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
-                   Projectiles& projectiles, world::Xoroshiro& rng);
+void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye,
+                   const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing an eye of ender toward the nearest stronghold at (x, z) (wiki: Eye of
@@ -232,7 +246,7 @@ void throwPearl(Inventory& inventory, bool survival, const glm::dvec3& eye, floa
                 Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held splash potion (speed 0.5, aimed 20 degrees up; wiki) - or a lingering
 // one (M28.4b), which leaves a cloud of its effect where it breaks.
-void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw, float pitch,
-                       Projectiles& projectiles, world::Xoroshiro& rng);
+void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& eye, float yaw,
+                       float pitch, Projectiles& projectiles, world::Xoroshiro& rng);
 
 } // namespace mc

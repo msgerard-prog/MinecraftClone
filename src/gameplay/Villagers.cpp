@@ -53,7 +53,8 @@ bool claimed(World& world, const MobData* self, const glm::ivec3& p, Poi kind) {
 // The nearest free point of a kind within 48 blocks (vanilla's POI search range),
 // skipping sections whose palette has no such block.
 // (`countSelf`: its own home counts as taken - a free bed for a baby.)
-std::optional<glm::ivec3> findPoi(World& world, const MobData& self, Poi kind, bool countSelf = false) {
+std::optional<glm::ivec3> findPoi(World& world, const MobData& self, Poi kind,
+                                  bool countSelf = false) {
     const glm::ivec3 at{int(std::floor(self.pos.x)), int(std::floor(self.pos.y)),
                         int(std::floor(self.pos.z))};
     constexpr int kRange = 48;
@@ -80,7 +81,9 @@ std::optional<glm::ivec3> findPoi(World& world, const MobData& self, Poi kind, b
                             const glm::ivec3 p{ch->pos().x * 16 + x, sy + y, ch->pos().z * 16 + z};
                             const glm::ivec3 d = p - at;
                             const int d2 = d.x * d.x + d.y * d.y + d.z * d.z;
-                            if (d2 >= bestD || (kind != Poi::Bell && claimed(world, countSelf ? nullptr : &self, p, kind)))
+                            if (d2 >= bestD ||
+                                (kind != Poi::Bell &&
+                                 claimed(world, countSelf ? nullptr : &self, p, kind)))
                                 continue;
                             bestD = d2;
                             best = p;
@@ -93,11 +96,15 @@ std::optional<glm::ivec3> findPoi(World& world, const MobData& self, Poi kind, b
 // Villager food (wiki: Villager › Breeding): bread is worth 4, carrots, potatoes and
 // beetroots 1; 12 makes a villager willing.
 enum FoodSlot { kBread, kCarrot, kPotato, kBeetroot, kWheat, kSeeds };
-constexpr std::string_view kFoodItems[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
-int foodPoints(const MobData& v) { return v.food[kBread] * 4 + v.food[kCarrot] + v.food[kPotato] + v.food[kBeetroot]; }
+constexpr std::string_view kFoodItems[6] = {"bread",    "carrot", "potato",
+                                            "beetroot", "wheat",  "wheat_seeds"};
+int foodPoints(const MobData& v) {
+    return v.food[kBread] * 4 + v.food[kCarrot] + v.food[kPotato] + v.food[kBeetroot];
+}
 void eatForBreeding(MobData& v) { // uses up 12 points, bread first
     int need = 12;
-    while (need >= 4 && v.food[kBread] > 0) --v.food[kBread], need -= 4;
+    while (need >= 4 && v.food[kBread] > 0)
+        --v.food[kBread], need -= 4;
     for (int slot : {kCarrot, kPotato, kBeetroot, kBread})
         while (need > 0 && v.food[size_t(slot)] > 0) {
             --v.food[size_t(slot)];
@@ -105,8 +112,8 @@ void eatForBreeding(MobData& v) { // uses up 12 points, bread first
         }
 }
 bool willing(const MobData& v) {
-    return v.type == MobType::Villager && !v.isBaby() && v.age == 0 && !v.sleeping && v.health > 0.0f &&
-           foodPoints(v) >= 12;
+    return v.type == MobType::Villager && !v.isBaby() && v.age == 0 && !v.sleeping &&
+           v.health > 0.0f && foodPoints(v) >= 12;
 }
 
 bool stillThere(const World& world, const glm::ivec3& p, Poi kind) {
@@ -159,7 +166,8 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
         // Nothing found: look less often (a village with too few beds or job sites
         // would otherwise rescan its sections every 10-20 s per villager).
         const bool wantsJob = m.profession != uint8_t(Profession::Nitwit) && !hasPoint(m.jobSite);
-        if (!m.isBaby() && (!hasPoint(m.home) || wantsJob)) m.poiSearch = int16_t(600 + ctx.rng.nextInt(600));
+        if (!m.isBaby() && (!hasPoint(m.home) || wantsJob))
+            m.poiSearch = int16_t(600 + ctx.rng.nextInt(600));
     }
     const int64_t t = ((ctx.dayTime % 24000) + 24000) % 24000;
     const bool night = t >= 12000;
@@ -195,7 +203,8 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
     if (willing(m)) {
         MobData* partner = nullptr;
         double best = 8.0 * 8.0;
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
@@ -224,7 +233,7 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
             return true;
         }
     }
-    const double stroll = 0.6;          // (wiki: villagers stroll at 0.6 of their speed)
+    const double stroll = 0.6; // (wiki: villagers stroll at 0.6 of their speed)
     if (night && hasPoint(m.home)) {
         const glm::dvec3 bed = centre(m.home);
         m.goal = bed;
@@ -288,17 +297,25 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
         // Farmer); what they gather goes into their food.
         if (m.profession == uint8_t(Profession::Farmer)) {
             if (hasPoint(m.workTarget)) {
-                const BlockStateId cs = world.getBlock({m.workTarget.x, m.workTarget.y, m.workTarget.z});
+                const BlockStateId cs =
+                    world.getBlock({m.workTarget.x, m.workTarget.y, m.workTarget.z});
                 const BlockId cb = R().blockOf(cs);
-                if (!BlockUpdates::isCrop(cb) || BlockUpdates::cropAge(cs) < BlockUpdates::cropMaxAge(cb)) {
+                if (!BlockUpdates::isCrop(cb) ||
+                    BlockUpdates::cropAge(cs) < BlockUpdates::cropMaxAge(cb)) {
                     m.workTarget = {0, kNoPoint, 0};
                 } else if (glm::length(centre(m.workTarget) - m.pos) < 1.8) {
                     const int extra = 1 + int(ctx.rng.nextInt(3));
-                    auto add = [&](int slot, int n) { m.food[size_t(slot)] = uint8_t(std::min(64, m.food[size_t(slot)] + n)); };
-                    if (cb == blocks::Wheat) add(kWheat, 1), add(kSeeds, extra);
-                    else if (cb == blocks::Carrots) add(kCarrot, extra);
-                    else if (cb == blocks::Potatoes) add(kPotato, extra);
-                    else add(kBeetroot, 1);
+                    auto add = [&](int slot, int n) {
+                        m.food[size_t(slot)] = uint8_t(std::min(64, m.food[size_t(slot)] + n));
+                    };
+                    if (cb == blocks::Wheat)
+                        add(kWheat, 1), add(kSeeds, extra);
+                    else if (cb == blocks::Carrots)
+                        add(kCarrot, extra);
+                    else if (cb == blocks::Potatoes)
+                        add(kPotato, extra);
+                    else
+                        add(kBeetroot, 1);
                     const BlockPos at{m.workTarget.x, m.workTarget.y, m.workTarget.z};
                     world.updateBlock(at, R().defaultState(cb)); // replanted (age 0)
                     if (ctx.edits) ctx.edits->push_back(at);
@@ -310,11 +327,14 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
                 }
             } else if (ctx.rng.nextInt(40) == 0) {
                 for (int i = 0; i < 24 && !hasPoint(m.workTarget); ++i) {
-                    const glm::ivec3 p{m.jobSite.x + int(ctx.rng.nextInt(17)) - 8, m.jobSite.y + int(ctx.rng.nextInt(5)) - 2,
+                    const glm::ivec3 p{m.jobSite.x + int(ctx.rng.nextInt(17)) - 8,
+                                       m.jobSite.y + int(ctx.rng.nextInt(5)) - 2,
                                        m.jobSite.z + int(ctx.rng.nextInt(17)) - 8};
                     const BlockStateId cs = world.getBlock({p.x, p.y, p.z});
                     const BlockId cb = R().blockOf(cs);
-                    if (BlockUpdates::isCrop(cb) && BlockUpdates::cropAge(cs) >= BlockUpdates::cropMaxAge(cb)) m.workTarget = p;
+                    if (BlockUpdates::isCrop(cb) &&
+                        BlockUpdates::cropAge(cs) >= BlockUpdates::cropMaxAge(cb))
+                        m.workTarget = p;
                 }
             }
         }
@@ -354,7 +374,8 @@ bool Mobs::villageHunt(Context& ctx, MobData& z) {
     if (!v) z.targetUuid = 0;
     if (!v && ctx.rng.nextInt(20) == 0) { // (about once a second)
         double best = 16.0 * 16.0;
-        const ChunkPos c{blockToChunk(int(std::floor(z.pos.x))), blockToChunk(int(std::floor(z.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(z.pos.x))),
+                         blockToChunk(int(std::floor(z.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
@@ -375,7 +396,8 @@ bool Mobs::villageHunt(Context& ctx, MobData& z) {
     const MobInfo& info = mobInfo(z.type);
     const double reach = info.width * 0.5 + mobInfo(v->type).width * 0.5 + 0.9;
     if (info.attackDamage > 0.0f && z.attackCooldown == 0 &&
-        glm::length(glm::dvec2(v->pos.x - z.pos.x, v->pos.z - z.pos.z)) < reach && std::abs(v->pos.y - z.pos.y) < 1.5) {
+        glm::length(glm::dvec2(v->pos.x - z.pos.x, v->pos.z - z.pos.z)) < reach &&
+        std::abs(v->pos.y - z.pos.y) < 1.5) {
         z.attackCooldown = 20;
         v->health -= info.attackDamage;
         v->hurtTime = 10;
@@ -427,7 +449,8 @@ void Mobs::villagerUpkeep(Context& ctx, MobData& v) {
     if (v.isBaby() || ctx.rng.nextInt(10) != 0) return; // (twice a second)
     static const std::array<ItemId, 6> ids = [] {
         std::array<ItemId, 6> a{};
-        for (size_t i = 0; i < a.size(); ++i) a[i] = itemRegistry().find(kFoodItems[i]).value_or(kNoItem);
+        for (size_t i = 0; i < a.size(); ++i)
+            a[i] = itemRegistry().find(kFoodItems[i]).value_or(kNoItem);
         return a;
     }();
     for (ItemEntity& it : ctx.items.mutableItems()) {
@@ -444,16 +467,21 @@ void Mobs::villagerUpkeep(Context& ctx, MobData& v) {
             }
     }
     if (v.profession == uint8_t(Profession::Farmer))
-        while (v.food[kWheat] >= 3 && v.food[kBread] < 64) v.food[kWheat] -= 3, ++v.food[kBread];
+        while (v.food[kWheat] >= 3 && v.food[kBread] < 64)
+            v.food[kWheat] -= 3, ++v.food[kBread];
     if (foodPoints(v) >= 24 && ctx.rng.nextInt(10) == 0) {
-        const ChunkPos c{blockToChunk(int(std::floor(v.pos.x))), blockToChunk(int(std::floor(v.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(v.pos.x))),
+                         blockToChunk(int(std::floor(v.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& o : ch->mobs()) {
-                        if (&o == &v || o.type != MobType::Villager || o.isBaby() || foodPoints(o) >= 12) continue;
+                        if (&o == &v || o.type != MobType::Villager || o.isBaby() ||
+                            foodPoints(o) >= 12)
+                            continue;
                         if (glm::length(o.pos - v.pos) > 4.0) continue;
-                        if (v.food[kBread] >= 3) v.food[kBread] -= 3, o.food[kBread] = uint8_t(o.food[kBread] + 3);
+                        if (v.food[kBread] >= 3)
+                            v.food[kBread] -= 3, o.food[kBread] = uint8_t(o.food[kBread] + 3);
                         return;
                     }
     }
@@ -471,10 +499,11 @@ void Mobs::villagerFear(Context& ctx, MobData& m) {
                     // (wiki: Villager - zombies and vexes within 8, vindicators 10, evokers
                     // and ravagers 12, pillagers 15)
                     const double r = isZombie(o.type) || o.type == MobType::Vex ? 8.0
-                                     : o.type == MobType::Vindicator             ? 10.0
-                                     : o.type == MobType::Evoker || o.type == MobType::Ravager ? 12.0
-                                     : o.type == MobType::Pillager                             ? 15.0
-                                                                                               : 0.0;
+                                     : o.type == MobType::Vindicator            ? 10.0
+                                     : o.type == MobType::Evoker || o.type == MobType::Ravager
+                                         ? 12.0
+                                     : o.type == MobType::Pillager ? 15.0
+                                                                   : 0.0;
                     if (r == 0.0 || o.health <= 0.0f) continue;
                     const glm::dvec3 away = m.pos - o.pos;
                     if (glm::dot(away, away) > r * r) continue;

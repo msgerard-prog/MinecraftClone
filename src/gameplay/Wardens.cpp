@@ -58,7 +58,8 @@ bool Mobs::wardenTick(Context& ctx, MobData& m) {
             m.angerTicks = int16_t(std::min(150, m.angerTicks + 35));
             m.goalTicks = 0;
         }
-        if (reachable && dist < 20.0) ctx.vitals.addEffect(Effect::Darkness, 0, 260); // (its pulse of darkness)
+        if (reachable && dist < 20.0)
+            ctx.vitals.addEffect(Effect::Darkness, 0, 260); // (its pulse of darkness)
     }
     if (m.angerTicks > 0 && m.eggTicks % 20 == 0) --m.angerTicks;
     // The sonic boom: angry, the player out of reach of its arms but within 15 (20 up or
@@ -71,17 +72,22 @@ bool Mobs::wardenTick(Context& ctx, MobData& m) {
         if (--m.spellTicks == 0 && angry && flat <= 14.0 && std::abs(player.y - m.pos.y) <= 20.0) {
             ctx.vitals.damage(10.0f);
             setPlayerAttacker(m.uuidHi);
-            const glm::dvec2 push = flat > 1e-6 ? glm::dvec2(player.x - m.pos.x, player.z - m.pos.z) / flat : glm::dvec2(0.0);
+            const glm::dvec2 push = flat > 1e-6
+                                        ? glm::dvec2(player.x - m.pos.x, player.z - m.pos.z) / flat
+                                        : glm::dvec2(0.0);
             ctx.player.knockback(-push.x, -push.y, 1.2);
             ctx.world.levelEvent(LevelEvent::Type::Crit, (m.pos.x + player.x) * 0.5, m.pos.y + 1.5,
-                                 (m.pos.z + player.z) * 0.5); // (a puff; not an explosion it would hear)
+                                 (m.pos.z + player.z) *
+                                     0.5); // (a puff; not an explosion it would hear)
         }
         return true;
     }
-    if (angry && m.chargeTicks == 0 && dist > 3.0 && flat <= 14.0 && std::abs(player.y - m.pos.y) <= 20.0) {
+    if (angry && m.chargeTicks == 0 && dist > 3.0 && flat <= 14.0 &&
+        std::abs(player.y - m.pos.y) <= 20.0) {
         m.spellTicks = 34;
         m.chargeTicks = 100; // (wiki: at most once in 5 s)
-        m.yaw = m.headYaw = float(std::atan2(-(player.x - m.pos.x), player.z - m.pos.z) * 180.0 / 3.14159265358979);
+        m.yaw = m.headYaw =
+            float(std::atan2(-(player.x - m.pos.x), player.z - m.pos.z) * 180.0 / 3.14159265358979);
         return true;
     }
     // Left alone for a minute: back into the ground.
@@ -110,13 +116,17 @@ bool Mobs::summonWarden(World& world, const BlockPos& shrieker, Xoroshiro& rng) 
         for (int dx = -3; dx <= 3; ++dx)
             if (const Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& o : ch->mobs())
-                    if (o.type == MobType::Warden && o.health > 0.0f && glm::length(o.pos - s) < 48.0) return false;
+                    if (o.type == MobType::Warden && o.health > 0.0f &&
+                        glm::length(o.pos - s) < 48.0)
+                        return false;
     const auto& r = blockRegistry();
     for (int tries = 0; tries < 30; ++tries) {
-        const int x = shrieker.x + int(rng.nextInt(11)) - 5, z = shrieker.z + int(rng.nextInt(11)) - 5;
+        const int x = shrieker.x + int(rng.nextInt(11)) - 5,
+                  z = shrieker.z + int(rng.nextInt(11)) - 5;
         for (int y = shrieker.y + 3; y >= shrieker.y - 6; --y) {
             if (!r.collides(world.getBlock({x, y - 1, z}))) continue;
-            if (r.collides(world.getBlock({x, y, z})) || r.collides(world.getBlock({x, y + 1, z})) ||
+            if (r.collides(world.getBlock({x, y, z})) ||
+                r.collides(world.getBlock({x, y + 1, z})) ||
                 r.collides(world.getBlock({x, y + 2, z})))
                 break;
             MobData w = make(MobType::Warden, {x + 0.5, double(y), z + 0.5}, rng);

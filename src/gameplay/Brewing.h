@@ -15,7 +15,8 @@ inline constexpr int kBrewTicks = 400;
 inline constexpr int kBrewFuel = 20;
 
 // What `bottle` becomes with `ingredient` (nullopt: no recipe).
-std::optional<world::ItemStack> brewResult(const world::ItemStack& ingredient, const world::ItemStack& bottle);
+std::optional<world::ItemStack> brewResult(const world::ItemStack& ingredient,
+                                           const world::ItemStack& bottle);
 // Whether `item` is something that brews with at least one bottle kind.
 bool isBrewingIngredient(const world::ItemStack& item);
 

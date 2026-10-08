@@ -38,13 +38,14 @@ public:
         int wave = 0, waves = 0, level = 1, ticks = 0, cooldown = 0;
         float waveHealth = 0.0f;
         int32_t id = 0, nextId = 1;
-        int pendingTicks = 0, pendingLevel = 1; // (Raid Omen running: the raid starts at pendingCentre)
+        int pendingTicks = 0,
+            pendingLevel = 1; // (Raid Omen running: the raid starts at pendingCentre)
         glm::ivec3 pendingCentre{0};
     };
     State state() const {
-        return {m_active, m_centre,       m_wave,         m_waves,        m_level,       m_ticks,
-                m_cooldown, m_waveHealth, m_id,           m_nextId,       m_pendingTicks, m_pendingLevel,
-                m_pendingCentre};
+        return {m_active,       m_centre,       m_wave,         m_waves, m_level,
+                m_ticks,        m_cooldown,     m_waveHealth,   m_id,    m_nextId,
+                m_pendingTicks, m_pendingLevel, m_pendingCentre};
     }
     void restore(const State& s) {
         m_active = s.active;

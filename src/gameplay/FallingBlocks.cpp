@@ -28,7 +28,8 @@ bool FallingBlocks::move(const World& world, FallingBlock& f) {
         for (int y = int(std::floor(region.min.y)); y <= int(std::floor(region.max.y)); ++y)
             for (int z = int(std::floor(region.min.z)); z <= int(std::floor(region.max.z)); ++z)
                 if (reg.collides(world.getBlock({x, y, z})))
-                    m_boxes.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
+                    m_boxes.push_back(
+                        {{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
     glm::dvec3 d = f.vel;
     Aabb b = box;
     for (int axis : {1, 0, 2}) { // y first, like vanilla
@@ -45,12 +46,14 @@ bool FallingBlocks::move(const World& world, FallingBlock& f) {
     return landed;
 }
 
-void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng, std::vector<BlockPos>& changed) {
+void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng,
+                         std::vector<BlockPos>& changed) {
     const auto& reg = blockRegistry();
     for (size_t i = 0; i < m_blocks.size();) {
         FallingBlock& f = m_blocks[i];
         f.prevPos = f.pos;
-        const BlockPos at{int(std::floor(f.pos.x)), int(std::floor(f.pos.y)), int(std::floor(f.pos.z))};
+        const BlockPos at{int(std::floor(f.pos.x)), int(std::floor(f.pos.y)),
+                          int(std::floor(f.pos.z))};
         const Chunk* chunk = world.chunk(at.chunk());
         if (!chunk) { // unloaded below it: wait (vanilla doesn't tick it there)
             ++i;
@@ -72,17 +75,21 @@ void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng, std:
         if (landed && reg.blockOf(f.state) == blocks::PointedDripstone) {
             // A stalactite breaks where it lands, hurting what's there: 6 for each block it
             // fell after the first, at most 40 (wiki: Pointed Dripstone).
-            const float dmg = float(std::min(40, 6 * std::max(0, int(std::ceil(f.startY - f.pos.y)) - 1)));
-            if (dmg > 0.0f && m_impacts.size() < m_impacts.capacity()) m_impacts.push_back({f.pos, dmg});
+            const float dmg =
+                float(std::min(40, 6 * std::max(0, int(std::ceil(f.startY - f.pos.y)) - 1)));
+            if (dmg > 0.0f && m_impacts.size() < m_impacts.capacity())
+                m_impacts.push_back({f.pos, dmg});
             dropItem();
             remove = true;
         } else if (landed) {
             // Lands where its bottom centre is: placed if that cell is replaceable and
             // the block below isn't (it stands on something), else dropped as an item.
-            const BlockPos cell{int(std::floor(f.pos.x)), int(std::floor(f.pos.y + 0.01)), int(std::floor(f.pos.z))};
+            const BlockPos cell{int(std::floor(f.pos.x)), int(std::floor(f.pos.y + 0.01)),
+                                int(std::floor(f.pos.z))};
             const BlockStateId here = world.getBlock(cell);
             const BlockStateId below = world.getBlock({cell.x, cell.y - 1, cell.z});
-            if (world.isInHeight(cell.y) && BlockUpdates::replaceable(here) && !BlockUpdates::fallThrough(below)) {
+            if (world.isInHeight(cell.y) && BlockUpdates::replaceable(here) &&
+                !BlockUpdates::fallThrough(below)) {
                 world.updateBlock(cell, f.state);
                 changed.push_back(cell);
             } else {

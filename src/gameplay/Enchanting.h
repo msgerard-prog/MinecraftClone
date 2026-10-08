@@ -15,11 +15,12 @@ namespace mc {
 int countBookshelves(const world::World& world, const world::BlockPos& table);
 
 struct EnchantOffer {
-    int cost = 0; // level requirement (0: no offer)
+    int cost = 0;                                       // level requirement (0: no offer)
     world::Enchantment hint = world::Enchantment::None; // shown on the button
     int hintLevel = 0;
 };
-std::array<EnchantOffer, 3> enchantOffers(const world::ItemStack& item, int bookshelves, uint64_t seed);
+std::array<EnchantOffer, 3> enchantOffers(const world::ItemStack& item, int bookshelves,
+                                          uint64_t seed);
 
 // The enchantments of offer `slot` (0..2) at `cost` (deterministic for the seed).
 struct EnchantPick {

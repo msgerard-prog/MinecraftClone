@@ -127,7 +127,8 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
     // Landing on a slime block bounces back up as fast as it fell (not when sneaking),
     // and the fall does no damage either way (wiki: Slime Block).
     if (m_onGround && delta.y < 0.0 && !m_flying) {
-        const world::BlockPos under{int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.01)), int(std::floor(m_pos.z))};
+        const world::BlockPos under{int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.01)),
+                                    int(std::floor(m_pos.z))};
         if (world::blockRegistry().blockOf(world.getBlock(under)) == world::blocks::SlimeBlock) {
             m_bounced = true; // (no fall damage, sneaking or not - wiki: Slime Block)
             if (delta.y < -0.1 && !m_sneaking) {
@@ -214,9 +215,12 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         const bool bumped = m_velocity.x != wanted.x || m_velocity.z != wanted.z;
         // Water slows all axes by 0.8; lava horizontal 0.5, vertical 0.8 (wiki: Lava -
         // "horizontal speed -50%, vertical -20%").
-        if (fluid.water && m_dolphinsGrace) m_velocity *= glm::dvec3(0.96, kWaterDrag, 0.96); // (Dolphin's Grace)
-        else if (fluid.water) m_velocity *= kWaterDrag;
-        else m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
+        if (fluid.water && m_dolphinsGrace)
+            m_velocity *= glm::dvec3(0.96, kWaterDrag, 0.96); // (Dolphin's Grace)
+        else if (fluid.water)
+            m_velocity *= kWaterDrag;
+        else
+            m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
         m_velocity.y -= kFluidGravity;
         if (bumped) { // climb out over a ledge (vanilla: if the space 0.6 up is free)
             const Aabb up = box().moved({wanted.x, 0.6, wanted.z});
@@ -234,7 +238,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // for speed, pulling up trades speed for height, the velocity turns toward the look;
     // drag 0.99 / 0.98 / 0.99.
     if (m_gliding && (m_onGround || !m_canGlide || m_flying)) m_gliding = false;
-    if (!m_gliding && m_canGlide && !m_flying && !m_onGround && input.jumpPresses > 0) // (jumping or falling)
+    if (!m_gliding && m_canGlide && !m_flying && !m_onGround &&
+        input.jumpPresses > 0) // (jumping or falling)
         m_gliding = true;
     if (m_gliding) {
         const double pitch = m_pitch * 3.14159265358979 / 180.0;
@@ -275,7 +280,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         if (input.sneak) m_velocity.y -= kFlyVertical;
     } else if (m_onGround) {
         const double slip = kGroundSlipperiness;
-        accel = kWalkSpeed * m_walkMultiplier * (m_sprinting ? kSprintFactor : 1.0) * std::pow(0.6 / slip, 3.0);
+        accel = kWalkSpeed * m_walkMultiplier * (m_sprinting ? kSprintFactor : 1.0) *
+                std::pow(0.6 / slip, 3.0);
     } else {
         accel = kAirAccel * (m_sprinting ? kSprintFactor : 1.0);
     }
@@ -286,8 +292,9 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     if (m_jumpDelay > 0) --m_jumpDelay;
     // A honey block underfoot (M26.3b; wiki: Honey Block): half the jump, 0.4 the speed.
     const bool onHoney = !m_flying && m_onGround &&
-                         world::blockRegistry().blockOf(world.getBlock({int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.5)),
-                                                                        int(std::floor(m_pos.z))})) == world::blocks::HoneyBlock;
+                         world::blockRegistry().blockOf(world.getBlock(
+                             {int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.5)),
+                              int(std::floor(m_pos.z))})) == world::blocks::HoneyBlock;
     if (!m_flying && input.jump && m_onGround && m_jumpDelay == 0) {
         m_jumpDelay = kJumpDelay;
         m_velocity.y = (kJumpVelocity + 0.1 * m_jumpBoost) * (onHoney ? 0.5 : 1.0);
@@ -305,9 +312,11 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // Ladders (M23.2; wiki: Ladder): in a ladder's cell, horizontal speed and the fall
     // are capped at 0.15; sneaking holds on (no sliding); walking into the wall or
     // holding jump climbs at 0.2.
-    const world::BlockPos feetCell{int(std::floor(m_pos.x)), int(std::floor(m_pos.y)), int(std::floor(m_pos.z))};
+    const world::BlockPos feetCell{int(std::floor(m_pos.x)), int(std::floor(m_pos.y)),
+                                   int(std::floor(m_pos.z))};
     const world::BlockId climbBlock = world::blockRegistry().blockOf(world.getBlock(feetCell));
-    m_climbing = !m_flying && (climbBlock == world::blocks::Ladder || climbBlock == world::blocks::Vine); // (M28.5a: vines too)
+    m_climbing = !m_flying && (climbBlock == world::blocks::Ladder ||
+                               climbBlock == world::blocks::Vine); // (M28.5a: vines too)
     if (m_climbing) {
         m_velocity.x = std::clamp(m_velocity.x, -0.15, 0.15);
         m_velocity.z = std::clamp(m_velocity.z, -0.15, 0.15);
@@ -317,7 +326,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
 
     const glm::dvec3 before = m_velocity;
     move(world, m_velocity);
-    if (m_climbing && (m_velocity.x != before.x || m_velocity.z != before.z || input.jump)) m_velocity.y = 0.2;
+    if (m_climbing && (m_velocity.x != before.x || m_velocity.z != before.z || input.jump))
+        m_velocity.y = 0.2;
     // Sprinting stops on a wall hit steeper than 8 degrees; glancing contact while
     // running along a wall keeps it (wiki: Sprinting, since 21w41a).
     if (m_sprinting && (m_velocity.x != before.x || m_velocity.z != before.z)) {
@@ -337,7 +347,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     } else if (m_levitation > 0) {
         m_velocity.y += (0.05 * m_levitation - m_velocity.y) * 0.2;
     } else {
-        m_velocity.y = (m_velocity.y - (m_slowFalling && m_velocity.y <= 0.0 ? 0.01 : kGravity)) * kVerticalDrag;
+        m_velocity.y = (m_velocity.y - (m_slowFalling && m_velocity.y <= 0.0 ? 0.01 : kGravity)) *
+                       kVerticalDrag;
     }
     m_velocity.x *= friction;
     m_velocity.z *= friction;

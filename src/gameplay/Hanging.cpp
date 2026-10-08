@@ -36,7 +36,8 @@ struct Canvas {
 Canvas canvasOf(const PaintingVariant& v) { return {-(v.width - 1) / 2, -(v.height - 1) / 2}; }
 
 // Every cell of a painting free and backed by a solid block.
-bool paintingFits(const World& world, const BlockPos& support, Direction face, const PaintingVariant& v) {
+bool paintingFits(const World& world, const BlockPos& support, Direction face,
+                  const PaintingVariant& v) {
     const glm::ivec3 n = kDirectionNormals[int(face)], r = rightOf(face);
     const Canvas c = canvasOf(v);
     for (int j = 0; j < v.height; ++j)
@@ -51,7 +52,8 @@ bool paintingFits(const World& world, const BlockPos& support, Direction face, c
 
 glm::dvec3 centreOf(MobType type, const BlockPos& support, Direction face, int variant) {
     const glm::dvec3 n(kDirectionNormals[int(face)]);
-    glm::dvec3 c = glm::dvec3(support.x + 0.5, support.y + 0.5, support.z + 0.5) + n * (0.5 + 1.0 / 32.0);
+    glm::dvec3 c =
+        glm::dvec3(support.x + 0.5, support.y + 0.5, support.z + 0.5) + n * (0.5 + 1.0 / 32.0);
     if (type == MobType::Painting) {
         const PaintingVariant& v = kPaintings[size_t(variant)];
         const Canvas cv = canvasOf(v);
@@ -62,17 +64,20 @@ glm::dvec3 centreOf(MobType type, const BlockPos& support, Direction face, int v
 }
 
 bool overlapsHanging(World& world, const Aabb& box) {
-    const ChunkPos c0{blockToChunk(int(std::floor(box.min.x))), blockToChunk(int(std::floor(box.min.z)))};
+    const ChunkPos c0{blockToChunk(int(std::floor(box.min.x))),
+                      blockToChunk(int(std::floor(box.min.z)))};
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
             if (const Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                 for (const MobData& m : c->mobs())
-                    if (isHanging(m.type) && m.health > 0.0f && Mobs::hangingBox(m).intersects(box)) return true;
+                    if (isHanging(m.type) && m.health > 0.0f && Mobs::hangingBox(m).intersects(box))
+                        return true;
     return false;
 }
 
 Chunk* chunkOf(World& world, const MobData& m) {
-    return world.chunk({blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))});
+    return world.chunk(
+        {blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))});
 }
 
 } // namespace
@@ -89,7 +94,8 @@ Aabb Mobs::hangingBox(const MobData& m) {
     return {m.pos - half, m.pos + half};
 }
 
-bool Mobs::placeHanging(World& world, MobType type, const BlockPos& support, Direction face, Xoroshiro& rng) {
+bool Mobs::placeHanging(World& world, MobType type, const BlockPos& support, Direction face,
+                        Xoroshiro& rng) {
     if (!solid(world, support)) return false;
     int variant = 0;
     if (type == MobType::Painting) {
@@ -108,7 +114,9 @@ bool Mobs::placeHanging(World& world, MobType type, const BlockPos& support, Dir
         variant = best[rng.nextInt(uint32_t(best.size()))];
     } else {
         const glm::ivec3 n = kDirectionNormals[int(face)];
-        if (blockRegistry().collides(world.getBlock({support.x + n.x, support.y + n.y, support.z + n.z}))) return false;
+        if (blockRegistry().collides(
+                world.getBlock({support.x + n.x, support.y + n.y, support.z + n.z})))
+            return false;
     }
     MobData m = make(type, centreOf(type, support, face, variant), rng);
     m.phase = uint8_t(face);
@@ -123,7 +131,8 @@ bool Mobs::placeHanging(World& world, MobType type, const BlockPos& support, Dir
 bool Mobs::hangingSurvives(const World& world, const MobData& m) {
     const BlockPos support{m.home.x, m.home.y, m.home.z};
     if (m.type == MobType::Painting)
-        return paintingFits(world, support, Direction(m.phase % 6), kPaintings[m.woolColour % kPaintings.size()]);
+        return paintingFits(world, support, Direction(m.phase % 6),
+                            kPaintings[m.woolColour % kPaintings.size()]);
     return blockRegistry().collides(world.getBlock(support));
 }
 
@@ -132,7 +141,8 @@ void Mobs::hangingTick(Context& ctx, MobData& m) {
     m.prevPos = m.pos;
     if (++m.phaseTicks < 100) return; // (vanilla: checked every 100 ticks)
     m.phaseTicks = 0;
-    if (!ctx.world.chunk({blockToChunk(m.home.x), blockToChunk(m.home.z)})) return; // (its wall isn't loaded)
+    if (!ctx.world.chunk({blockToChunk(m.home.x), blockToChunk(m.home.z)}))
+        return; // (its wall isn't loaded)
     if (!hangingSurvives(ctx.world, m)) {
         m.health = 0.0f;
         m.lastHurtByPlayer = false;
@@ -140,7 +150,9 @@ void Mobs::hangingTick(Context& ctx, MobData& m) {
 }
 
 void Mobs::dropHanging(Context& ctx, MobData& m) {
-    const char* item = m.type == MobType::Painting ? "painting" : m.type == MobType::GlowItemFrame ? "glow_item_frame" : "item_frame";
+    const char* item = m.type == MobType::Painting        ? "painting"
+                       : m.type == MobType::GlowItemFrame ? "glow_item_frame"
+                                                          : "item_frame";
     if (Chunk* c = chunkOf(ctx.world, m)) {
         if (ItemContents* s = c->mobStore(m.uuidHi)) {
             if (!(*s)[0].empty()) ctx.items.spawn(m.pos, (*s)[0], ctx.rng);
@@ -151,7 +163,8 @@ void Mobs::dropHanging(Context& ctx, MobData& m) {
 }
 
 ItemStack Mobs::frameItem(const World& world, const MobData& frame) {
-    const Chunk* c = world.chunk({blockToChunk(int(std::floor(frame.pos.x))), blockToChunk(int(std::floor(frame.pos.z)))});
+    const Chunk* c = world.chunk(
+        {blockToChunk(int(std::floor(frame.pos.x))), blockToChunk(int(std::floor(frame.pos.z)))});
     const ItemContents* s = c ? c->mobStore(frame.uuidHi) : nullptr;
     return s ? (*s)[0] : ItemStack{};
 }

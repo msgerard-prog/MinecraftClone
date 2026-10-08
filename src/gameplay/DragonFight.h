@@ -35,17 +35,20 @@ struct DragonFight {
     int missingScans = 0; // scans near the portal that didn't find it
 
     // One game tick while the player is in the End. `edits` gets changed blocks.
-    void tick(world::World& world, const world::EndGenerator& gen, const Mobs& mobs, const glm::dvec3& playerPos,
-              ExperienceOrbs& orbs, world::Xoroshiro& rng, std::vector<world::BlockPos>& edits);
+    void tick(world::World& world, const world::EndGenerator& gen, const Mobs& mobs,
+              const glm::dvec3& playerPos, ExperienceOrbs& orbs, world::Xoroshiro& rng,
+              std::vector<world::BlockPos>& edits);
     // Gateway number `i` (0..19) on the ring.
     static world::BlockPos gatewayPos(int i);
     // Where an end gateway at `gateway` sends the player (feet). Going out, it also
     // asks for an exit gateway at `exitGateway` (built once its chunk is loaded).
-    std::optional<glm::dvec3> gatewayTarget(const world::EndGenerator& gen, const world::BlockPos& gateway);
+    std::optional<glm::dvec3> gatewayTarget(const world::EndGenerator& gen,
+                                            const world::BlockPos& gateway);
     // Builds an end gateway with its bedrock caps (vanilla's look: a plus of bedrock
     // above and below).
     // False if part of it isn't loaded (nothing done: try again later).
-    static bool buildGateway(world::World& world, const world::BlockPos& at, std::vector<world::BlockPos>& edits);
+    static bool buildGateway(world::World& world, const world::BlockPos& at,
+                             std::vector<world::BlockPos>& edits);
     // Fills the exit portal (and, with `egg`, puts the egg on its column). False if
     // the middle isn't loaded (nothing done).
     static bool openExitPortal(world::World& world, bool egg, std::vector<world::BlockPos>& edits);

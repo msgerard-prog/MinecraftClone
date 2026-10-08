@@ -22,6 +22,7 @@ struct LodestoneTarget {
     uint8_t dimension = 0; // world::Dimension
     bool hasTarget = true;
     bool tracked = true; // (vanilla: false for /give-made compasses that never lose it)
+    bool operator==(const LodestoneTarget&) const = default;
 };
 uint32_t addLodestoneTarget(const LodestoneTarget& t);
 std::optional<LodestoneTarget> lodestoneTarget(uint32_t id);
@@ -32,6 +33,7 @@ struct BookContent {
     std::string title, author;
     int generation = 0;
     std::vector<std::string> pages;
+    bool operator==(const BookContent&) const = default;
 };
 uint32_t addBook(BookContent book);
 std::optional<BookContent> bookContent(uint32_t id);
@@ -52,11 +54,12 @@ struct Fireworks {
     std::array<FireworkExplosion, kMax> explosions{};
     bool operator==(const Fireworks&) const = default;
 };
-inline constexpr std::string_view kFireworkShapes[5] = {"small_ball", "large_ball", "star", "creeper", "burst"};
+inline constexpr std::string_view kFireworkShapes[5] = {"small_ball", "large_ball", "star",
+                                                        "creeper", "burst"};
 // The colours fireworks use for each dye (wiki: Firework Star › Colors), 0xRRGGBB.
-inline constexpr uint32_t kFireworkColours[16] = {0xF0F0F0, 0xEB8844, 0xC354CD, 0x6689D3, 0xDECF2A, 0x41CD34,
-                                                  0xD88198, 0x434343, 0xABABAB, 0x287697, 0x7B2FBE, 0x253192,
-                                                  0x51301A, 0x3B511A, 0xB3312C, 0x1E1B1B};
+inline constexpr uint32_t kFireworkColours[16] = {
+    0xF0F0F0, 0xEB8844, 0xC354CD, 0x6689D3, 0xDECF2A, 0x41CD34, 0xD88198, 0x434343,
+    0xABABAB, 0x287697, 0x7B2FBE, 0x253192, 0x51301A, 0x3B511A, 0xB3312C, 0x1E1B1B};
 // Equal fireworks share an entry (they stack).
 uint32_t addFireworks(const Fireworks& f);
 std::optional<Fireworks> fireworks(uint32_t id);

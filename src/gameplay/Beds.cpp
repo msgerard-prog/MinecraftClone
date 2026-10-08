@@ -15,10 +15,14 @@ const BlockRegistry& R() { return blockRegistry(); }
 
 glm::ivec3 facingVec(BlockStateId s) {
     switch (R().get(s, properties::facing)) { // north, south, west, east
-    case 0: return {0, 0, -1};
-    case 1: return {0, 0, 1};
-    case 2: return {-1, 0, 0};
-    default: return {1, 0, 0};
+    case 0:
+        return {0, 0, -1};
+    case 1:
+        return {0, 0, 1};
+    case 2:
+        return {-1, 0, 0};
+    default:
+        return {1, 0, 0};
     }
 }
 
@@ -40,13 +44,14 @@ std::optional<BlockPos> bedHead(const World& world, const BlockPos& p) {
     return head;
 }
 
-BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension dimension, bool creative,
-              const glm::dvec3* player, bool raining, bool thundering) {
+BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension dimension,
+              bool creative, const glm::dvec3* player, bool raining, bool thundering) {
     const auto head = bedHead(world, p);
     if (!head) return BedUse::NotABed;
     if (dimension != Dimension::Overworld) return BedUse::Explodes;
-    if (player && (std::abs(player->x - (head->x + 0.5)) > 3.5 || std::abs(player->z - (head->z + 0.5)) > 3.5 ||
-                   std::abs(player->y - head->y) > 3.0))
+    if (player &&
+        (std::abs(player->x - (head->x + 0.5)) > 3.5 ||
+         std::abs(player->z - (head->z + 0.5)) > 3.5 || std::abs(player->y - head->y) > 3.0))
         return BedUse::TooFar;
     if (R().collides(world.getBlock({head->x, head->y + 1, head->z}))) return BedUse::Obstructed;
     // (One player: occupancy is never stored, so an "occupied" bed from another save
@@ -61,7 +66,8 @@ BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension 
             if (const Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& m : ch->mobs()) {
                     if (!mobInfo(m.type).hostile || m.health <= 0.0f) continue;
-                    if (std::abs(m.pos.x - (head->x + 0.5)) <= 8.0 && std::abs(m.pos.z - (head->z + 0.5)) <= 8.0 &&
+                    if (std::abs(m.pos.x - (head->x + 0.5)) <= 8.0 &&
+                        std::abs(m.pos.z - (head->z + 0.5)) <= 8.0 &&
                         std::abs(m.pos.y - head->y) <= 5.0)
                         return BedUse::Monsters;
                 }
@@ -74,7 +80,8 @@ std::optional<glm::dvec3> bedStandSpot(const World& world, const BlockPos& head)
     const glm::ivec3 f = facingVec(s);
     const BlockPos foot{head.x - f.x, head.y, head.z - f.z};
     auto fits = [&](int x, int y, int z) {
-        return R().collides(world.getBlock({x, y - 1, z})) && !R().collides(world.getBlock({x, y, z})) &&
+        return R().collides(world.getBlock({x, y - 1, z})) &&
+               !R().collides(world.getBlock({x, y, z})) &&
                !R().collides(world.getBlock({x, y + 1, z})) &&
                R().blockOf(world.getBlock({x, y, z})) != blocks::Lava;
     };

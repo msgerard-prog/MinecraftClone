@@ -23,7 +23,8 @@ glm::vec3 rgb(uint32_t c) {
 double centred(Xoroshiro& rng) { return rng.nextDouble() * 2.0 - 1.0; }
 // Vanilla's usual particle lifetime: base / (random x spread + floor) ticks.
 int16_t life(Xoroshiro& rng, float base, float spread, float floor) {
-    return static_cast<int16_t>(std::clamp(base / (rng.nextFloat() * spread + floor), 1.0f, 400.0f));
+    return static_cast<int16_t>(
+        std::clamp(base / (rng.nextFloat() * spread + floor), 1.0f, 400.0f));
 }
 
 } // namespace
@@ -72,10 +73,12 @@ void Particles::blockBreak(BlockStateId state, const BlockPos& b, Xoroshiro& rng
                 Particle p;
                 const glm::dvec3 f((i + 0.5) / 4.0, (j + 0.5) / 4.0, (k + 0.5) / 4.0);
                 p.pos = glm::dvec3(b.x, b.y, b.z) + f;
-                glm::dvec3 dir = f - glm::dvec3(0.5) + glm::dvec3(centred(rng), centred(rng), centred(rng)) * 0.4;
+                glm::dvec3 dir = f - glm::dvec3(0.5) +
+                                 glm::dvec3(centred(rng), centred(rng), centred(rng)) * 0.4;
                 const double len = glm::length(dir);
                 if (len > 1e-6) dir /= len;
-                p.vel = dir * ((rng.nextDouble() + rng.nextDouble() + 1.0) * 0.15 * 0.4) + glm::dvec3(0, 0.1, 0);
+                p.vel = dir * ((rng.nextDouble() + rng.nextDouble() + 1.0) * 0.15 * 0.4) +
+                        glm::dvec3(0, 0.1, 0);
                 p.sprite = ParticleSprite::Terrain;
                 p.state = state;
                 p.u = uint8_t(rng.nextInt(4));
@@ -96,7 +99,8 @@ void Particles::blockHit(BlockStateId state, const BlockPos& b, Direction face, 
                        b.z + 0.1 + rng.nextDouble() * 0.8);
     const glm::ivec3 n = kDirectionNormals[int(face)];
     for (int a = 0; a < 3; ++a)
-        if (n[a] != 0) p.pos[a] = double((a == 0 ? b.x : a == 1 ? b.y : b.z)) + (n[a] > 0 ? 1.1 : -0.1);
+        if (n[a] != 0)
+            p.pos[a] = double((a == 0 ? b.x : a == 1 ? b.y : b.z)) + (n[a] > 0 ? 1.1 : -0.1);
     p.vel = glm::dvec3(centred(rng), centred(rng), centred(rng)) * 0.02;
     p.sprite = ParticleSprite::Terrain;
     p.state = state;
@@ -139,7 +143,8 @@ void Particles::poof(const glm::dvec3& feet, double width, double height, Xorosh
     // The cloud a mob leaves when its body vanishes (vanilla: 20 "poof" particles).
     for (int i = 0; i < 20; ++i) {
         Particle p;
-        p.pos = feet + glm::dvec3(centred(rng) * width, rng.nextDouble() * height, centred(rng) * width);
+        p.pos = feet +
+                glm::dvec3(centred(rng) * width, rng.nextDouble() * height, centred(rng) * width);
         p.vel = glm::dvec3(centred(rng), centred(rng), centred(rng)) * 0.02;
         p.color = glm::vec3(rng.nextFloat() * 0.3f + 0.7f);
         p.size = 0.1f * (rng.nextFloat() * 0.6f + 0.6f);
@@ -195,7 +200,8 @@ void Particles::firework(const glm::dvec3& at, uint32_t id, Xoroshiro& rng) {
                 Particle p;
                 p.pos = at;
                 p.vel = vel * (t == 0 ? 1.0 : 0.6);
-                p.color = cols[rng.nextInt(uint32_t(nc))] * (e.twinkle ? 0.6f + rng.nextFloat() * 0.4f : 1.0f);
+                p.color = cols[rng.nextInt(uint32_t(nc))] *
+                          (e.twinkle ? 0.6f + rng.nextFloat() * 0.4f : 1.0f);
                 if (nf > 0) p.fade = fades[rng.nextInt(uint32_t(nf))];
                 p.size = 0.08f;
                 p.sprite = ParticleSprite::Effect;
@@ -207,10 +213,11 @@ void Particles::firework(const glm::dvec3& at, uint32_t id, Xoroshiro& rng) {
                 add(p);
             }
         };
-        const double turn = rng.nextDouble() * 2.0 * std::numbers::pi; // (flat shapes face a random way)
+        const double turn =
+            rng.nextDouble() * 2.0 * std::numbers::pi; // (flat shapes face a random way)
         const glm::dvec3 right(std::cos(turn), 0.0, std::sin(turn)), up(0.0, 1.0, 0.0);
         switch (e.shape) {
-        case 1: // large ball
+        case 1:   // large ball
         case 0: { // small ball: a shell of sparks
             const int n = e.shape == 1 ? 150 : 70;
             const double speed = e.shape == 1 ? 0.5 : 0.25;
@@ -225,7 +232,8 @@ void Particles::firework(const glm::dvec3& at, uint32_t id, Xoroshiro& rng) {
             for (int i = 0; i < 100; ++i) {
                 const double t = double(i) / 100.0 * 10.0;
                 const int v = int(t);
-                const double a0 = double(v) * std::numbers::pi / 5.0, a1 = double(v + 1) * std::numbers::pi / 5.0;
+                const double a0 = double(v) * std::numbers::pi / 5.0,
+                             a1 = double(v + 1) * std::numbers::pi / 5.0;
                 const double r0 = v % 2 ? 0.4 : 1.0, r1 = v % 2 ? 1.0 : 0.4, w = t - v;
                 const double x = (1 - w) * r0 * std::sin(a0) + w * r1 * std::sin(a1);
                 const double y = (1 - w) * r0 * std::cos(a0) + w * r1 * std::cos(a1);
@@ -237,7 +245,8 @@ void Particles::firework(const glm::dvec3& at, uint32_t id, Xoroshiro& rng) {
                 for (int x = 0; x < 8; ++x)
                     if (kCreeper[y][x] == '#')
                         for (int r = 0; r < 2; ++r)
-                            spark((right * ((x - 3.5) / 3.5) + up * ((3.5 - y) / 3.5)) * (0.5 + 0.05 * r));
+                            spark((right * ((x - 3.5) / 3.5) + up * ((3.5 - y) / 3.5)) *
+                                  (0.5 + 0.05 * r));
             break;
         default: // burst: a fountain upward
             for (int i = 0; i < 80; ++i) {
@@ -311,10 +320,12 @@ void Particles::portal(const glm::dvec3& at, Xoroshiro& rng) {
     add(p);
 }
 
-void Particles::effectSwirl(const glm::dvec3& feet, double width, double height, uint32_t c, Xoroshiro& rng) {
+void Particles::effectSwirl(const glm::dvec3& feet, double width, double height, uint32_t c,
+                            Xoroshiro& rng) {
     if (rng.nextInt(2) != 0) return; // (vanilla: half the ticks for non-ambient effects)
     Particle p;
-    p.pos = feet + glm::dvec3(centred(rng) * width * 0.5, rng.nextDouble() * height, centred(rng) * width * 0.5);
+    p.pos = feet + glm::dvec3(centred(rng) * width * 0.5, rng.nextDouble() * height,
+                              centred(rng) * width * 0.5);
     p.vel = glm::dvec3(0.0);
     p.color = rgb(c);
     p.size = 0.08f;
@@ -345,7 +356,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         add(p);
     };
     // (M28.5a) a small flame over a lit candle (or a candle cake's); fireflies about a bush
-    if ((R().likeOf(id) == blocks::Candle || R().likeOf(id) == blocks::CandleCake) && R().get(s, properties::lit) == 0) {
+    if ((R().likeOf(id) == blocks::Candle || R().likeOf(id) == blocks::CandleCake) &&
+        R().get(s, properties::lit) == 0) {
         const double top = R().likeOf(id) == blocks::Candle ? 0.45 : 0.95;
         Particle& f = flame({c.x + centred(rng) * 0.15, b.y + top, c.z + centred(rng) * 0.15}, rng);
         f.size *= 0.6f;
@@ -353,7 +365,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     }
     if (id == blocks::FireflyBush && rng.nextInt(4) == 0) {
         Particle p;
-        p.pos = {b.x + rng.nextDouble(), b.y + 0.3 + rng.nextDouble() * 1.2, b.z + rng.nextDouble()};
+        p.pos = {b.x + rng.nextDouble(), b.y + 0.3 + rng.nextDouble() * 1.2,
+                 b.z + rng.nextDouble()};
         p.vel = {centred(rng) * 0.01, centred(rng) * 0.01, centred(rng) * 0.01};
         p.color = glm::vec3(0.85f, 1.0f, 0.35f);
         p.size = 0.04f;
@@ -371,41 +384,52 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     case blocks::WallTorch: // (wall torches: the tip leans out from the wall)
     case blocks::SoulWallTorch: {
         glm::dvec3 tip(c.x, b.y + 0.7, c.z);
-        if (id == blocks::WallTorch || id == blocks::SoulWallTorch) { // (our stick stands upright by the wall)
+        if (id == blocks::WallTorch ||
+            id == blocks::SoulWallTorch) { // (our stick stands upright by the wall)
             const glm::ivec3 out = kDirectionNormals[R().get(s, properties::facing) + 2];
             tip = {c.x - out.x * 0.3125, b.y + 0.85, c.z - out.z * 0.3125};
         }
         smoke(tip, false, rng);
         Particle& f = flame(tip, rng);
-        if (id == blocks::SoulTorch || id == blocks::SoulWallTorch) f.color = glm::vec3(0.45f, 0.85f, 1.0f); // soul fire
+        if (id == blocks::SoulTorch || id == blocks::SoulWallTorch)
+            f.color = glm::vec3(0.45f, 0.85f, 1.0f); // soul fire
         break;
     }
     case blocks::RedstoneTorch:
     case blocks::RedstoneWallTorch:
         if (R().get(s, properties::lit) == 0)
-            dust({c.x + centred(rng) * 0.1, b.y + 0.7 + centred(rng) * 0.1, c.z + centred(rng) * 0.1}, 0xFF0000);
+            dust({c.x + centred(rng) * 0.1, b.y + 0.7 + centred(rng) * 0.1,
+                  c.z + centred(rng) * 0.1},
+                 0xFF0000);
         break;
     case blocks::RedstoneWire: {
         const int power = R().get(s, properties::power);
         if (power > 0 && rng.nextInt(5) == 0)
-            dust({b.x + rng.nextDouble(), b.y + 0.06, b.z + rng.nextDouble()}, redstoneColor(power));
+            dust({b.x + rng.nextDouble(), b.y + 0.06, b.z + rng.nextDouble()},
+                 redstoneColor(power));
         break;
     }
-    case blocks::Campfire: // campfire smoke: tall columns, taller from a signal fire (wiki: Campfire)
+    case blocks::Campfire: // campfire smoke: tall columns, taller from a signal fire (wiki:
+                           // Campfire)
     case blocks::SoulCampfire:
         if (R().get(s, properties::lit) == 0 && rng.nextInt(3) == 0) {
             smoke({c.x + centred(rng) * 0.3, b.y + 0.5, c.z + centred(rng) * 0.3}, true, rng);
-            Particle& last = m_particles[m_particles.size() < size_t(kMax) ? m_particles.size() - 1 : (m_next + kMax - 1) % kMax];
-            last.lifetime = int16_t(R().get(s, properties::signalFire) == 0 ? 240 : 100); // (rises 5+ blocks)
+            Particle& last =
+                m_particles[m_particles.size() < size_t(kMax) ? m_particles.size() - 1
+                                                              : (m_next + kMax - 1) % kMax];
+            last.lifetime =
+                int16_t(R().get(s, properties::signalFire) == 0 ? 240 : 100); // (rises 5+ blocks)
             last.gravity = -0.006f;
             last.color = glm::vec3(0.55f);
-            if (rng.nextInt(10) == 0) world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f, 1.0f);
+            if (rng.nextInt(10) == 0)
+                world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f, 1.0f);
         }
         break;
     case blocks::Fire: // rising large smoke (wiki: Fire); crackling 1 in 24
         if (rng.nextInt(24) == 0)
             world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f + rng.nextFloat(), 1.0f);
-        smoke({b.x + rng.nextDouble(), b.y + 0.5 + rng.nextDouble() * 0.5, b.z + rng.nextDouble()}, true, rng);
+        smoke({b.x + rng.nextDouble(), b.y + 0.5 + rng.nextDouble() * 0.5, b.z + rng.nextDouble()},
+              true, rng);
         break;
     case blocks::Furnace:
     case blocks::Smoker:
@@ -413,11 +437,13 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         if (R().get(s, properties::lit) == 0) { // flames and smoke at the front while smelting
             const glm::ivec3 n = kDirectionNormals[R().get(s, properties::facing) + 2];
             const double side = centred(rng) * 0.3;
-            const glm::dvec3 at(c.x + n.x * 0.52 + (n.x == 0 ? side : 0.0), b.y + rng.nextDouble() * 6.0 / 16.0,
+            const glm::dvec3 at(c.x + n.x * 0.52 + (n.x == 0 ? side : 0.0),
+                                b.y + rng.nextDouble() * 6.0 / 16.0,
                                 c.z + n.z * 0.52 + (n.z == 0 ? side : 0.0));
             smoke(at, false, rng);
             flame(at, rng);
-            if (rng.nextInt(10) == 0) world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 0.5f, 1.0f); // (crackle)
+            if (rng.nextInt(10) == 0)
+                world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 0.5f, 1.0f); // (crackle)
         }
         break;
     case blocks::Lava:
@@ -465,8 +491,10 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         const BlockId above = R().blockOf(blockAt(world, {b.x, b.y + 1, b.z}));
         if (above == blocks::Water || above == blocks::Lava) {
             Particle p;
-            p.pos = {b.x + 0.1 + rng.nextDouble() * 0.8, b.y - 0.05, b.z + 0.1 + rng.nextDouble() * 0.8};
-            p.color = above == blocks::Water ? glm::vec3(0.25f, 0.35f, 1.0f) : glm::vec3(1.0f, 0.45f, 0.05f);
+            p.pos = {b.x + 0.1 + rng.nextDouble() * 0.8, b.y - 0.05,
+                     b.z + 0.1 + rng.nextDouble() * 0.8};
+            p.color = above == blocks::Water ? glm::vec3(0.25f, 0.35f, 1.0f)
+                                             : glm::vec3(1.0f, 0.45f, 0.05f);
             p.size = 0.05f;
             p.sprite = ParticleSprite::Drip;
             p.hangs = true;
@@ -478,7 +506,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     }
 }
 
-void Particles::rain(const World& world, const glm::dvec3& player, const Weather& weather, Xoroshiro& rng) {
+void Particles::rain(const World& world, const glm::dvec3& player, const Weather& weather,
+                     Xoroshiro& rng) {
     // Splashes where the rain lands near the player (vanilla: 100 x rain^2 tries a tick
     // within 10 blocks; over lava, smoke instead).
     const int tries = int(100.0f * weather.rain * weather.rain);
@@ -522,7 +551,8 @@ void Particles::move(const World& world, Particle& p) {
         for (const int a : {1, 0, 2}) {
             glm::dvec3 next = p.pos;
             next[a] += p.vel[a];
-            if (R().collides(blockAt(world, {int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))}))) {
+            if (R().collides(blockAt(world, {int(std::floor(next.x)), int(std::floor(next.y)),
+                                             int(std::floor(next.z))}))) {
                 if (a == 1 && p.vel.y < 0.0) p.onGround = true;
                 p.vel[a] = 0.0;
             } else {
@@ -544,28 +574,44 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         const glm::dvec3 at(e.x, e.y, e.z);
         const BlockPos b{int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))};
         switch (e.type) {
-        case LevelEvent::Type::BlockBreak: blockBreak(BlockStateId(e.data), b, rng); break;
-        case LevelEvent::Type::BlockHit:
-            blockHit(BlockStateId(e.data & 0xFFFF), b, static_cast<Direction>((e.data >> 16) & 7), rng);
+        case LevelEvent::Type::BlockBreak:
+            blockBreak(BlockStateId(e.data), b, rng);
             break;
-        case LevelEvent::Type::Explosion: explosion(at, float(e.data) / 10.0f, rng); break;
+        case LevelEvent::Type::BlockHit:
+            blockHit(BlockStateId(e.data & 0xFFFF), b, static_cast<Direction>((e.data >> 16) & 7),
+                     rng);
+            break;
+        case LevelEvent::Type::Explosion:
+            explosion(at, float(e.data) / 10.0f, rng);
+            break;
         case LevelEvent::Type::MobDeath:
             poof(at, double(e.data & 0xFFFF) / 100.0, double(e.data >> 16) / 100.0, rng);
             break;
-        case LevelEvent::Type::PotionSplash: splashPotion(at, e.data, rng); break;
-        case LevelEvent::Type::Firework: firework(at, e.data, rng); break;
-        case LevelEvent::Type::Crit: crit(at, rng); break;
-        case LevelEvent::Type::BlockPlace: break; // (a sound only)
+        case LevelEvent::Type::PotionSplash:
+            splashPotion(at, e.data, rng);
+            break;
+        case LevelEvent::Type::Firework:
+            firework(at, e.data, rng);
+            break;
+        case LevelEvent::Type::Crit:
+            crit(at, rng);
+            break;
+        case LevelEvent::Type::BlockPlace:
+            break; // (a sound only)
         case LevelEvent::Type::Extinguish:
             for (int i = 0; i < 8; ++i)
-                smoke(at + glm::dvec3(centred(rng), rng.nextDouble(), centred(rng)) * 0.5, true, rng);
+                smoke(at + glm::dvec3(centred(rng), rng.nextDouble(), centred(rng)) * 0.5, true,
+                      rng);
             break;
-        case LevelEvent::Type::Note: { // one note rising, its colour around the wheel by pitch (wiki)
+        case LevelEvent::Type::Note: { // one note rising, its colour around the wheel by pitch
+                                       // (wiki)
             Particle p;
             p.pos = at;
             p.vel = {0.0, 0.2, 0.0};
             const float h = float(e.data) / 24.0f;
-            auto ch = [&](float o) { return std::clamp(std::sin((h + o) * 6.2832f) * 0.65f + 0.35f, 0.0f, 1.0f); };
+            auto ch = [&](float o) {
+                return std::clamp(std::sin((h + o) * 6.2832f) * 0.65f + 0.35f, 0.0f, 1.0f);
+            };
             p.color = glm::vec3(ch(0.0f), ch(0.33f), ch(0.67f));
             p.size = 0.15f;
             p.sprite = ParticleSprite::Note;
@@ -578,7 +624,9 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         }
         case LevelEvent::Type::Portal:
             for (int i = 0; i < 32; ++i)
-                portal(at + glm::dvec3(centred(rng) * 0.5, rng.nextDouble() * 2.0, centred(rng) * 0.5), rng);
+                portal(
+                    at + glm::dvec3(centred(rng) * 0.5, rng.nextDouble() * 2.0, centred(rng) * 0.5),
+                    rng);
             break;
         }
     }
@@ -586,19 +634,23 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         Emitter& e = m_emitters[size_t(i)];
         for (int k = 0; k < 6; ++k)
             puff(e.at + glm::dvec3(centred(rng), centred(rng), centred(rng)) * 4.0, rng);
-        if (--e.ticks <= 0) e = m_emitters[size_t(--m_emitterCount)];
-        else ++i;
+        if (--e.ticks <= 0)
+            e = m_emitters[size_t(--m_emitterCount)];
+        else
+            ++i;
     }
     // Vanilla's animate ticks: 667 random blocks within 16 and 667 within 32 of the
     // player get a chance to show their particles every tick.
-    const BlockPos centre{int(std::floor(player.x)), int(std::floor(player.y)), int(std::floor(player.z))};
+    const BlockPos centre{int(std::floor(player.x)), int(std::floor(player.y)),
+                          int(std::floor(player.z))};
     for (const int range : {16, 32})
         for (int i = 0; i < 667; ++i)
-            animate(world,
-                    {centre.x + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range))),
-                     centre.y + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range))),
-                     centre.z + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range)))},
-                    rng);
+            animate(
+                world,
+                {centre.x + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range))),
+                 centre.y + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range))),
+                 centre.z + int(rng.nextInt(uint32_t(range))) - int(rng.nextInt(uint32_t(range)))},
+                rng);
     if (weather && weather->rain > 0.0f) rain(world, player, *weather, rng);
 
     for (Particle& p : m_particles) {
@@ -608,8 +660,10 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         move(world, p);
         if (p.hangs && p.onGround) p.age = p.lifetime; // a drip hitting the floor is gone
         // Rain splashes on the ground vanish half the time each tick (vanilla's water drops).
-        if (p.sprite == ParticleSprite::Splash0 && p.onGround && (rng.nextInt(2) == 0)) p.age = p.lifetime;
-        const BlockPos at{int(std::floor(p.pos.x)), int(std::floor(p.pos.y)), int(std::floor(p.pos.z))};
+        if (p.sprite == ParticleSprite::Splash0 && p.onGround && (rng.nextInt(2) == 0))
+            p.age = p.lifetime;
+        const BlockPos at{int(std::floor(p.pos.x)), int(std::floor(p.pos.y)),
+                          int(std::floor(p.pos.z))};
         if (const Chunk* c = chunkAt(world, at.x, at.z); c && c->lit()) {
             p.skyLight = c->skyLight(blockToLocal(at.x), at.y, blockToLocal(at.z));
             p.blockLight = c->blockLight(blockToLocal(at.x), at.y, blockToLocal(at.z));

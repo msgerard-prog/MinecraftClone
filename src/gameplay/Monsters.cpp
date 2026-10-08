@@ -33,7 +33,9 @@ bool sees(const World& w, const MobData& m, const Player& player) {
     return len < 1e-6 || !raycastBlocks(w, eye, d / len, len);
 }
 
-bool solid(const World& w, int x, int y, int z) { return blockRegistry().collides(w.getBlock({x, y, z})); }
+bool solid(const World& w, int x, int y, int z) {
+    return blockRegistry().collides(w.getBlock({x, y, z}));
+}
 
 // Light where a mob stands, as spiders see it: max(block, sky - night darkening).
 int lightAt(const World& w, const glm::dvec3& p, float skyDarken) {
@@ -71,8 +73,10 @@ bool holdable(BlockId b) {
     case blocks::Cactus: // (wiki: Enderman › #enderman_holdable)
     case blocks::Pumpkin:
     case blocks::BrownMushroom:
-    case blocks::RedMushroom: return true;
-    default: return false;
+    case blocks::RedMushroom:
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -83,26 +87,32 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     case MobType::Spider: // neutral in light 12+ unless provoked (wiki: Spider)
     case MobType::CaveSpider:
         return m.angry || lightAt(ctx.world, m.pos, ctx.skyDarken) < 12;
-    case MobType::Enderman: return m.angry; // only when stared at or hit
-    case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
+    case MobType::Enderman:
+        return m.angry; // only when stared at or hit
+    case MobType::ZombifiedPiglin:
+        return m.angry; // neutral until it (or one nearby) is hit
     // Drowned go after players in water, or anywhere at night (wiki: Drowned).
-    case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
-    case MobType::Warden: return m.angerTicks >= 80; // (M27.3c: hunts only when angry enough)
+    case MobType::Drowned:
+        return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
+    case MobType::Warden:
+        return m.angerTicks >= 80; // (M27.3c: hunts only when angry enough)
     case MobType::Creeper: { // creepers keep away from cats and ocelots (wiki: Creeper › Behavior)
         if (m_felines == 0 && m_felinesLastTick == 0) return true;
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const MobData& o : ch->mobs())
-                        if ((o.type == MobType::Cat || o.type == MobType::Ocelot) && o.health > 0.0f &&
-                            glm::dot(o.pos - m.pos, o.pos - m.pos) < 6.0 * 6.0)
+                        if ((o.type == MobType::Cat || o.type == MobType::Ocelot) &&
+                            o.health > 0.0f && glm::dot(o.pos - m.pos, o.pos - m.pos) < 6.0 * 6.0)
                             return false;
         return true;
     }
     case MobType::Piglin: // hostile unless the player wears gold; babies never (wiki: Piglin)
         return !m.isBaby() && m.admireTicks == 0 && (m.angry || !ctx.wearsGold);
-    default: return true;
+    default:
+        return true;
     }
 }
 
@@ -117,11 +127,13 @@ bool Mobs::teleport(World& world, MobData& m, const glm::dvec3& around, Xoroshir
         y = std::clamp(y, world.height().minY + 1, world.height().maxY() - 3);
         while (y > world.height().minY + 1 && !solid(world, x, y - 1, z))
             --y;
-        if (!solid(world, x, y - 1, z) || solid(world, x, y, z) || solid(world, x, y + 1, z) || solid(world, x, y + 2, z))
+        if (!solid(world, x, y - 1, z) || solid(world, x, y, z) || solid(world, x, y + 1, z) ||
+            solid(world, x, y + 2, z))
             continue;
         const BlockId at = blockRegistry().blockOf(world.getBlock({x, y, z}));
         if (at == blocks::Water || at == blocks::Lava) continue;
-        world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y, m.pos.z); // (purple sparks at both ends)
+        world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y,
+                         m.pos.z); // (purple sparks at both ends)
         m.pos = {x + 0.5, double(y), z + 0.5};
         world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y, m.pos.z);
         m.prevPos = m.pos; // (a jump, not a slide)
@@ -140,12 +152,15 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Starts swelling within 3 blocks of its target and keeps going while the
         // target stays within 7 and in sight; otherwise it calms down. Explodes after
         // 30 ticks of swelling, with power 3 (wiki: Creeper).
-        const bool swelling = chase && playerDist2 <= 7.0 * 7.0 && (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
+        const bool swelling = chase && playerDist2 <= 7.0 * 7.0 &&
+                              (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
                               sees(ctx.world, m, ctx.player);
         if (swelling && m.fuse == 0) // the hiss (vanilla: pitch 0.5)
             ctx.world.playSound(Sound::Fuse, m.pos.x, m.pos.y + 1.0, m.pos.z, 1.0f, 0.5f);
-        if (swelling) ++m.fuse;
-        else if (m.fuse > 0) --m.fuse;
+        if (swelling)
+            ++m.fuse;
+        else if (m.fuse > 0)
+            --m.fuse;
         if (m.fuse >= 30) {
             m_scratchEdits.clear();
             std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : m_scratchEdits;
@@ -159,15 +174,18 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             m.deathTime = 19; // gone next tick, without loot (it blew itself up)
             // (M26.4b) a charged creeper's blast: the mobs it kills drop their heads
             if (m.powered) {
-                const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+                const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
+                                  blockToChunk(int(std::floor(m.pos.z)))};
                 for (int dz = -1; dz <= 1; ++dz)
                     for (int dx = -1; dx <= 1; ++dx)
                         if (Chunk* ch = ctx.world.chunk({c0.x + dx, c0.z + dz}))
                             for (MobData& o : ch->mobs())
-                                if (&o != &m && glm::length(o.pos - m.pos) < 12.0) o.chargedBlast = 3;
+                                if (&o != &m && glm::length(o.pos - m.pos) < 12.0)
+                                    o.chargedBlast = 3;
             }
             t.breakBlocks = ctx.mobGriefing; // (M28.1: game rule)
-            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0), m.powered ? 6.0f : 3.0f, ctx.rng, ctx.items, changed, t);
+            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0),
+                                m.powered ? 6.0f : 3.0f, ctx.rng, ctx.items, changed, t);
         }
         break;
     }
@@ -175,7 +193,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Draws for 20 ticks while it sees the player within 15 blocks, then shoots
         // (speed 1.6, spread 6) and waits 40 more: one arrow every 3 s on Normal (wiki:
         // Skeleton).
-        if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) {
+        if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles ||
+            !sees(ctx.world, m, ctx.player)) {
             m.shootTicks = 0;
             break;
         }
@@ -188,7 +207,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // aim above for the drop
             // (Starts just outside its own box: vanilla's arrows ignore their shooter.)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
-            if (ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi))
+            if (ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false,
+                                       ctx.rng, m.uuidHi))
                 ctx.projectiles->last().skeleton = true;
             ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z);
         }
@@ -197,8 +217,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
     case MobType::Drowned: {
         // With a trident: thrown at a target within 20 blocks every 1.5 s (wiki: Drowned -
         // its ranged attack).
-        if (!m.heldTrident || !chase || playerDist2 > 20.0 * 20.0 || playerDist2 < 2.0 * 2.0 || !ctx.projectiles ||
-            m.attackCooldown > 0 || !sees(ctx.world, m, ctx.player))
+        if (!m.heldTrident || !chase || playerDist2 > 20.0 * 20.0 || playerDist2 < 2.0 * 2.0 ||
+            !ctx.projectiles || m.attackCooldown > 0 || !sees(ctx.world, m, ctx.player))
             break;
         m.attackCooldown = 30;
         const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85, 0);
@@ -206,7 +226,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.15;
         const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.3);
         static const ItemId trident = *itemRegistry().find("trident");
-        if (ctx.projectiles->shoot(ProjectileKind::Trident, start, d, 1.6, 12.0, false, false, ctx.rng, m.uuidHi)) {
+        if (ctx.projectiles->shoot(ProjectileKind::Trident, start, d, 1.6, 12.0, false, false,
+                                   ctx.rng, m.uuidHi)) {
             ctx.projectiles->last().stack = {trident, 1};
             ctx.projectiles->last().pickup = false; // (a drowned's tridents can't be picked up)
         }
@@ -218,7 +239,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // waits 40 more, at a player within 16 it sees (wiki: Pillager, Crossbow) - or
         // at the villager / golem it hunts (M24.5).
         glm::dvec3 aim = playerPos;
-        bool haveAim = chase && m.targeting && playerDist2 <= 16.0 * 16.0 && sees(ctx.world, m, ctx.player);
+        bool haveAim =
+            chase && m.targeting && playerDist2 <= 16.0 * 16.0 && sees(ctx.world, m, ctx.player);
         if (!haveAim && m.targetUuid)
             if (const MobData* t = mobByUuid(ctx.world, m.pos, m.targetUuid);
                 t && t->health > 0.0f && glm::length(t->pos - m.pos) <= 16.0) {
@@ -237,7 +259,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             glm::dvec3 d = aim + glm::dvec3(0, 1.8 / 3.0, 0) - from;
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.12;
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
-            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 2.0, 6.0, false, false, ctx.rng, m.uuidHi);
+            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 2.0, 6.0, false, false, ctx.rng,
+                                   m.uuidHi);
             ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z, 1.0f, 1.3f);
         }
         break;
@@ -248,7 +271,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // away), every 17 s three vexes join it (at most 8 around).
         if (m.spellTicks > 0) --m.spellTicks;
         if (m.chargeTicks > 0 && --m.chargeTicks == 0) { // (the fangs rise where it aimed: `beam`)
-            if (glm::length(ctx.player.position() - m.beam) < 2.0) ctx.vitals.attacked(6.0f, &m.pos);
+            if (glm::length(ctx.player.position() - m.beam) < 2.0)
+                ctx.vitals.attacked(6.0f, &m.pos);
             ctx.world.levelEvent(LevelEvent::Type::Crit, m.beam.x, m.beam.y + 0.5, m.beam.z);
         }
         if (!chase || playerDist2 > 16.0 * 16.0) break;
@@ -260,14 +284,19 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         if (m.spellTicks == 0) {
             m.spellTicks = 340;
             int vexes = 0;
-            const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+            const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                             blockToChunk(int(std::floor(m.pos.z)))};
             for (int dz = -1; dz <= 1; ++dz)
                 for (int dx = -1; dx <= 1; ++dx)
                     if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
-                        for (const MobData& o : ch->mobs()) vexes += o.type == MobType::Vex && o.health > 0.0f;
-            for (int i = 0; i < 3 && vexes < 8 && m_births.size() < m_births.capacity(); ++i, ++vexes) {
-                MobData vex = make(MobType::Vex, m.pos + glm::dvec3(centredRand(ctx.rng) * 2.0, 1.0, centredRand(ctx.rng) * 2.0),
-                                   ctx.rng);
+                        for (const MobData& o : ch->mobs())
+                            vexes += o.type == MobType::Vex && o.health > 0.0f;
+            for (int i = 0; i < 3 && vexes < 8 && m_births.size() < m_births.capacity();
+                 ++i, ++vexes) {
+                MobData vex = make(
+                    MobType::Vex,
+                    m.pos + glm::dvec3(centredRand(ctx.rng) * 2.0, 1.0, centredRand(ctx.rng) * 2.0),
+                    ctx.rng);
                 vex.spellTicks = int16_t(20 * (30 + ctx.rng.nextInt(90))); // (lives 30-119 s)
                 m_births.push_back(vex);
             }
@@ -275,8 +304,10 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         break;
     }
     case MobType::Vex: // (wiki: Vex) its time up, it fades: 1 damage a second
-        if (m.spellTicks > 0) --m.spellTicks;
-        else if (ctx.rng.nextInt(20) == 0) m.health -= 1.0f;
+        if (m.spellTicks > 0)
+            --m.spellTicks;
+        else if (ctx.rng.nextInt(20) == 0)
+            m.health -= 1.0f;
         break;
     case MobType::Witch: {
         // Drinks when it needs to (wiki: Witch › Behavior): fire resistance while burning,
@@ -287,8 +318,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         if (m.drinkTicks > 0) {
             if (--m.drinkTicks == 0) {
-                if (m.drinking == 1) m.health = std::min(info.maxHealth, m.health + 4.0f); // healing
-                if (m.drinking == 2) m.fireResistTicks = 3600;                           // fire resistance
+                if (m.drinking == 1)
+                    m.health = std::min(info.maxHealth, m.health + 4.0f); // healing
+                if (m.drinking == 2) m.fireResistTicks = 3600;            // fire resistance
                 m.drinking = 0;
             }
             break;
@@ -306,20 +338,27 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Throws a splash potion every 3 s at a player within 10 blocks it sees: slowness
         // from 8+ blocks, poison while the player has 8+ health, weakness up close
         // (1 in 4), else harming.
-        if (!chase || playerDist2 > 10.0 * 10.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) break;
+        if (!chase || playerDist2 > 10.0 * 10.0 || !ctx.projectiles ||
+            !sees(ctx.world, m, ctx.player))
+            break;
         if (m.attackCooldown > 0) break;
         m.attackCooldown = 60;
         const char* kind = "harming";
-        if (playerDist2 >= 8.0 * 8.0 && ctx.vitals.effectLevel(Effect::Slowness) == 0) kind = "slowness";
-        else if (ctx.vitals.health() >= 8.0f && ctx.vitals.effectLevel(Effect::Poison) == 0) kind = "poison";
-        else if (playerDist2 <= 3.0 * 3.0 && ctx.vitals.effectLevel(Effect::Weakness) == 0 && ctx.rng.nextInt(4) == 0)
+        if (playerDist2 >= 8.0 * 8.0 && ctx.vitals.effectLevel(Effect::Slowness) == 0)
+            kind = "slowness";
+        else if (ctx.vitals.health() >= 8.0f && ctx.vitals.effectLevel(Effect::Poison) == 0)
+            kind = "poison";
+        else if (playerDist2 <= 3.0 * 3.0 && ctx.vitals.effectLevel(Effect::Weakness) == 0 &&
+                 ctx.rng.nextInt(4) == 0)
             kind = "weakness";
         const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
         glm::dvec3 d = playerPos + glm::dvec3(0, 1.0, 0) - from;
         d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // (an arc)
         const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.3);
-        if (ctx.projectiles->shoot(ProjectileKind::SplashPotion, start, d, 0.75, 8.0, false, false, ctx.rng, m.uuidHi)) {
-            ctx.projectiles->last().potion = static_cast<uint8_t>(findPotion(kind).value_or(Potion::Harming));
+        if (ctx.projectiles->shoot(ProjectileKind::SplashPotion, start, d, 0.75, 8.0, false, false,
+                                   ctx.rng, m.uuidHi)) {
+            ctx.projectiles->last().potion =
+                static_cast<uint8_t>(findPotion(kind).value_or(Potion::Harming));
             ctx.projectiles->last().pickup = false;
         }
         break;
@@ -327,7 +366,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
     case MobType::Spider:
     case MobType::CaveSpider: {
         // Leaps at its target from a few blocks away (wiki: Spider).
-        if (chase && m.onGround && playerDist2 > 2.0 * 2.0 && playerDist2 < 6.0 * 6.0 && ctx.rng.nextInt(10) == 0) {
+        if (chase && m.onGround && playerDist2 > 2.0 * 2.0 && playerDist2 < 6.0 * 6.0 &&
+            ctx.rng.nextInt(10) == 0) {
             glm::dvec3 d = playerPos - m.pos;
             d.y = 0.0;
             const double l = glm::length(d);
@@ -335,7 +375,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             m.vel.y = 0.4;
         }
         // In bright light a calm spider forgets the player (1 in 100 a tick).
-        if (m.targeting && !m.angry && lightAt(ctx.world, m.pos, ctx.skyDarken) >= 12 && ctx.rng.nextInt(100) == 0)
+        if (m.targeting && !m.angry && lightAt(ctx.world, m.pos, ctx.skyDarken) >= 12 &&
+            ctx.rng.nextInt(100) == 0)
             m.targeting = false;
         break;
     }
@@ -374,7 +415,10 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         // Water hurts it (1 a tick) and makes it teleport (wiki: Enderman).
         const FluidContact fluid = fluidContact(ctx.world, box(m));
-        if (fluid.water || (ctx.weather && rainingAt(ctx.world, *ctx.weather, {int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.9)), int(std::floor(m.pos.z))}))) {
+        if (fluid.water ||
+            (ctx.weather && rainingAt(ctx.world, *ctx.weather,
+                                      {int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.9)),
+                                       int(std::floor(m.pos.z))}))) {
             if (m.hurtTime == 0) {
                 m.health -= 1.0f;
                 m.hurtTime = 10;
@@ -388,7 +432,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             teleport(ctx.world, m, playerPos, ctx.rng); // closes in on a far target
         }
         // Blocks: pick one up (1 in 20 a tick, within 2 blocks) or put it down (1 in 2000).
-        const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+        const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)),
+                          int(std::floor(m.pos.z))};
         // (game rule mob_griefing off: endermen leave blocks alone)
         if (!ctx.mobGriefing) {
         } else if (!m.carried && ctx.rng.nextInt(20) == 0) {
@@ -415,13 +460,16 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Hurt, it calls out the silverfish hiding in infested blocks within 10 blocks
         // (5 up and down): those blocks break and their silverfish join in (wiki).
         if (m.hurtTime == 9) {
-            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)),
+                      bz = int(std::floor(m.pos.z));
             int woken = 0;
             for (int dy = -5; dy <= 5 && woken < 20; ++dy)
                 for (int dz = -10; dz <= 10 && woken < 20; ++dz)
                     for (int dx = -10; dx <= 10 && woken < 20; ++dx) {
                         const BlockPos q{bx + dx, by + dy, bz + dz};
-                        if (!BlockUpdates::isInfested(blockRegistry().blockOf(ctx.world.getBlock(q)))) continue;
+                        if (!BlockUpdates::isInfested(
+                                blockRegistry().blockOf(ctx.world.getBlock(q))))
+                            continue;
                         ctx.world.updateBlock(q, 0); // (BlockUpdates lets the silverfish out)
                         if (ctx.edits) ctx.edits->push_back(q);
                         ++woken;
@@ -430,13 +478,17 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Idle, it now and then slips into a stone block beside it (wiki: Silverfish ›
         // Behavior): the block becomes infested and the silverfish is gone into it.
         if (!chase && m.hurtTime == 0 && ctx.mobGriefing && ctx.rng.nextInt(200) == 0) {
-            static constexpr int kDir[6][3] = {{0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}};
+            static constexpr int kDir[6][3] = {{0, -1, 0}, {1, 0, 0},  {-1, 0, 0},
+                                               {0, 0, 1},  {0, 0, -1}, {0, 1, 0}};
             const int* d = kDir[ctx.rng.nextInt(6)];
-            const BlockPos q{int(std::floor(m.pos.x)) + d[0], int(std::floor(m.pos.y)) + d[1], int(std::floor(m.pos.z)) + d[2]};
+            const BlockPos q{int(std::floor(m.pos.x)) + d[0], int(std::floor(m.pos.y)) + d[1],
+                             int(std::floor(m.pos.z)) + d[2]};
             const BlockStateId s = ctx.world.getBlock(q);
             if (const BlockId inf = BlockUpdates::infestedOf(blockRegistry().blockOf(s))) {
                 BlockStateId into = blockRegistry().defaultState(inf);
-                if (inf == blocks::InfestedDeepslate) into = blockRegistry().set(into, properties::axis, blockRegistry().get(s, properties::axis));
+                if (inf == blocks::InfestedDeepslate)
+                    into = blockRegistry().set(into, properties::axis,
+                                               blockRegistry().get(s, properties::axis));
                 ctx.world.updateBlock(q, into);
                 if (ctx.edits) ctx.edits->push_back(q);
                 m.vanish = true;
@@ -456,8 +508,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         const double dist = glm::length(to);
         if (m.chargeTicks == 0 && ctx.projectiles && dist < 16.0 && dist > 1e-6 &&
             !raycastBlocks(ctx.world, eye, to / dist, dist)) {
-            ctx.projectiles->shoot(ProjectileKind::WindCharge, eye + to / dist * 0.8, to / dist, 0.7, 1.0, false, false,
-                                   ctx.rng, m.uuidHi);
+            ctx.projectiles->shoot(ProjectileKind::WindCharge, eye + to / dist * 0.8, to / dist,
+                                   0.7, 1.0, false, false, ctx.rng, m.uuidHi);
             m.chargeTicks = 32; // (wiki: a wind charge every 32 ticks)
         }
         if (m.onGround && ctx.rng.nextInt(40) == 0) {
@@ -469,7 +521,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 

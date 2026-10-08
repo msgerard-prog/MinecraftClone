@@ -61,8 +61,10 @@ void Mobs::minecartTick(Context& ctx, MobData& m) {
                     speed += speed > 0 ? 0.06 : -0.06;
                 } else { // a stopped cart is kicked away from a solid block at an end
                     const glm::ivec3 na = normal(ex.a), nb = normal(ex.b);
-                    if (r.opaqueCube(world.getBlock({cell.x + na.x, cell.y, cell.z + na.z}))) speed = 0.02;
-                    else if (r.opaqueCube(world.getBlock({cell.x + nb.x, cell.y, cell.z + nb.z}))) speed = -0.02;
+                    if (r.opaqueCube(world.getBlock({cell.x + na.x, cell.y, cell.z + na.z})))
+                        speed = 0.02;
+                    else if (r.opaqueCube(world.getBlock({cell.x + nb.x, cell.y, cell.z + nb.z})))
+                        speed = -0.02;
                 }
             } else {
                 speed *= 0.5;

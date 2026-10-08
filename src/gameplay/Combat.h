@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/Items.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -35,7 +37,8 @@ inline float meleeDamage(const MeleeHit& h) {
 // block; Density adds 0.5 per block fallen a level.
 inline float maceSmashBonus(double fallen, int density) {
     if (fallen <= 1.5) return 0.0f;
-    const double b = std::min(fallen, 3.0) * 4.0 + std::clamp(fallen - 3.0, 0.0, 5.0) * 2.0 + std::max(0.0, fallen - 8.0);
+    const double b = std::min(fallen, 3.0) * 4.0 + std::clamp(fallen - 3.0, 0.0, 5.0) * 2.0 +
+                     std::max(0.0, fallen - 8.0);
     return float(b + 0.5 * density * fallen);
 }
 // Wind Burst (wiki: about 7, 8, 9 blocks up for levels I-III): the upward speed that
@@ -44,12 +47,31 @@ inline double windBurstLift(int level) {
     return level <= 0 ? 0.0 : std::sqrt(2.0 * 0.08 * double(6 + level) / 0.9);
 }
 
-// Spears (M28.4e; 1.21.11 - our assumptions): a jab reaches 4.5 blocks; held out while
-// moving at least 0.25 blocks a tick (a sprint is about 0.28, a horse more), the charge hits
-// what is in front for the jab damage x speed x 4; Lunge throws the player 0.5 blocks a tick
-// forward a level when jabbing.
-inline constexpr double kSpearReach = 4.5;
-inline float spearChargeDamage(float jab, double speed) { return speed < 0.25 ? 0.0f : jab * float(speed) * 4.0f; }
-inline double lungeImpulse(int level) { return 0.5 * double(level); }
+// Spears (M28.4e; 1.21.11, wiki: Spear, Lunge): a jab reaches 2 to 4.5 blocks; held out
+// while moving at least 4.6 blocks a second (0.23 a tick: a sprint is about 0.28, a horse
+// more), the charge hits what is in front; the wiki's damage multiplier by tier (wood/gold
+// 0.7, stone/copper 0.82, iron 0.95, diamond 1.075, netherite 1.2) times the speed in
+// blocks a second is our formula. Lunge throws the player 0.458 blocks a tick forward a level.
+inline constexpr double kSpearReach = 4.5, kSpearMinReach = 2.0;
+inline float spearChargeMultiplier(world::ToolTier t) {
+    using T = world::ToolTier;
+    switch (t) {
+    case T::Stone:
+    case T::Copper:
+        return 0.82f;
+    case T::Iron:
+        return 0.95f;
+    case T::Diamond:
+        return 1.075f;
+    case T::Netherite:
+        return 1.2f;
+    default:
+        return 0.7f; // wood, gold
+    }
+}
+inline float spearChargeDamage(world::ToolTier t, double speed) {
+    return speed < 0.23 ? 0.0f : spearChargeMultiplier(t) * float(speed * 20.0);
+}
+inline double lungeImpulse(int level) { return 0.458 * double(level); }
 
 } // namespace mc

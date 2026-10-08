@@ -16,7 +16,8 @@ int PatrolSpawner::tick(World& world, const glm::dvec3& player, int64_t dayTime,
     delay = 12000 + int(rng.nextInt(1200));
     if (dayTime / 24000 < 5 || rng.nextInt(5) != 0) return 0;
     // A spot 24-48 blocks away on the surface (the highest block with room above).
-    const double angle = rng.nextDouble() * 2.0 * std::numbers::pi, dist = 24.0 + rng.nextDouble() * 24.0;
+    const double angle = rng.nextDouble() * 2.0 * std::numbers::pi,
+                 dist = 24.0 + rng.nextDouble() * 24.0;
     const int cx = int(std::floor(player.x + std::cos(angle) * dist));
     const int cz = int(std::floor(player.z + std::sin(angle) * dist));
     const auto& r = blockRegistry();
@@ -28,7 +29,8 @@ int PatrolSpawner::tick(World& world, const glm::dvec3& player, int64_t dayTime,
         for (int y = world.height().maxY(); y > world.height().minY; --y) {
             const BlockStateId s = world.getBlock({x, y - 1, z});
             if (s == 0) continue;
-            if (!r.collides(s) || r.blockOf(s) == blocks::Water || r.blockOf(s) == blocks::Lava) break;
+            if (!r.collides(s) || r.blockOf(s) == blocks::Water || r.blockOf(s) == blocks::Lava)
+                break;
             if (r.collides(world.getBlock({x, y + 1, z}))) break;
             MobData p = Mobs::make(MobType::Pillager, {x + 0.5, double(y), z + 0.5}, rng);
             p.captain = spawned == 0; // the first leads

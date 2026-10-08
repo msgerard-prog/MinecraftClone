@@ -25,14 +25,22 @@ ItemId repairMaterial(ItemId item) {
         return 0;
     }
     switch (d.tier) {
-    case ToolTier::Wood: return find("oak_planks");
-    case ToolTier::Stone: return find("cobblestone");
-    case ToolTier::Iron: return find("iron_ingot");
-    case ToolTier::Gold: return find("gold_ingot");
-    case ToolTier::Diamond: return find("diamond");
-    case ToolTier::Copper: return find("copper_ingot");
-    case ToolTier::Netherite: return find("netherite_ingot");
-    default: return 0;
+    case ToolTier::Wood:
+        return find("oak_planks");
+    case ToolTier::Stone:
+        return find("cobblestone");
+    case ToolTier::Iron:
+        return find("iron_ingot");
+    case ToolTier::Gold:
+        return find("gold_ingot");
+    case ToolTier::Diamond:
+        return find("diamond");
+    case ToolTier::Copper:
+        return find("copper_ingot");
+    case ToolTier::Netherite:
+        return find("netherite_ingot");
+    default:
+        return 0;
     }
 }
 
@@ -71,7 +79,8 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
         r.materialUsed = used;
     } else if (right.item == left.item || book) {
         if (!book && ld.durability > 0 && left.damage > 0) { // durability + 12%
-            const int remaining = (ld.durability - left.damage) + (ld.durability - right.damage) + ld.durability * 12 / 100;
+            const int remaining = (ld.durability - left.damage) + (ld.durability - right.damage) +
+                                  ld.durability * 12 / 100;
             out.damage = uint16_t(std::max(0, ld.durability - remaining));
             cost += 2;
         }
@@ -83,23 +92,25 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
             // Clashes with one already on the item (same group): skipped, costs 1.
             bool clash = false;
             for (const uint16_t lv : out.enchantments)
-                if (lv && conflicts(Enchantment(lv >> 8), e))
-                    clash = true;
+                if (lv && conflicts(Enchantment(lv >> 8), e)) clash = true;
             if (clash) {
                 cost += 1;
                 continue;
             }
             const int ll = enchantLevel(out, e);
-            const int level = ll == rl ? std::min(ll + 1, enchantmentInfo(e).maxLevel) : std::max(ll, rl);
+            const int level =
+                ll == rl ? std::min(ll + 1, enchantmentInfo(e).maxLevel) : std::max(ll, rl);
             if (!setEnchantment(out, e, level)) continue; // no room on the item: not charged
             cost += level * std::max(1, multiplier(e) / (book ? 2 : 1));
         }
-        if (out.enchantments == left.enchantments && out.damage == left.damage) return r; // nothing changed
+        if (out.enchantments == left.enchantments && out.damage == left.damage)
+            return r; // nothing changed
     } else {
         return r;
     }
     cost += left.repairCost + right.repairCost;
-    out.repairCost = uint8_t(std::min(255, std::max<int>(left.repairCost, right.repairCost) * 2 + 1));
+    out.repairCost =
+        uint8_t(std::min(255, std::max<int>(left.repairCost, right.repairCost) * 2 + 1));
     r.out = out;
     r.cost = cost;
     r.tooExpensive = !creative && cost >= 40;

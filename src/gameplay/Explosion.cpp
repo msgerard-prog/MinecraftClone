@@ -19,7 +19,8 @@ double Explosion::exposure(const World& world, const glm::dvec3& centre, const A
     // Sample points across the box (spacing 1 / (2 x size + 1) of each side), a ray
     // from each to the centre (wiki: Explosion › Exposure).
     const glm::dvec3 size = box.max - box.min;
-    const double sx = 1.0 / (size.x * 2.0 + 1.0), sy = 1.0 / (size.y * 2.0 + 1.0), sz = 1.0 / (size.z * 2.0 + 1.0);
+    const double sx = 1.0 / (size.x * 2.0 + 1.0), sy = 1.0 / (size.y * 2.0 + 1.0),
+                 sz = 1.0 / (size.z * 2.0 + 1.0);
     int open = 0, total = 0;
     for (double fx = 0.0; fx <= 1.0; fx += sx)
         for (double fy = 0.0; fy <= 1.0; fy += sy)
@@ -33,21 +34,25 @@ double Explosion::exposure(const World& world, const glm::dvec3& centre, const A
     return total ? double(open) / total : 0.0;
 }
 
-int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoroshiro& rng, ItemEntities& items,
-                       std::vector<BlockPos>& changed, const ExplosionTargets& targets) {
-    world.levelEvent(LevelEvent::Type::Explosion, centre.x, centre.y, centre.z, uint32_t(power * 10.0f));
+int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoroshiro& rng,
+                       ItemEntities& items, std::vector<BlockPos>& changed,
+                       const ExplosionTargets& targets) {
+    world.levelEvent(LevelEvent::Type::Explosion, centre.x, centre.y, centre.z,
+                     uint32_t(power * 10.0f));
     const auto& reg = blockRegistry();
     m_hits.clear();
     for (int i = 0; i < 16; ++i)
         for (int j = 0; j < 16; ++j)
             for (int k = 0; k < 16; ++k) {
-                if (i != 0 && i != 15 && j != 0 && j != 15 && k != 0 && k != 15) continue; // surface only
+                if (i != 0 && i != 15 && j != 0 && j != 15 && k != 0 && k != 15)
+                    continue; // surface only
                 glm::dvec3 dir(i / 15.0 * 2.0 - 1.0, j / 15.0 * 2.0 - 1.0, k / 15.0 * 2.0 - 1.0);
                 dir /= glm::length(dir);
                 double intensity = power * (0.7 + rng.nextFloat() * 0.6);
                 glm::dvec3 p = centre;
                 while (intensity > 0.0) {
-                    const BlockPos b{int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))};
+                    const BlockPos b{int(std::floor(p.x)), int(std::floor(p.y)),
+                                     int(std::floor(p.z))};
                     if (!world.isInHeight(b.y)) break;
                     const BlockStateId s = world.getBlock(b);
                     if (s != 0) {
@@ -75,7 +80,8 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
         if (dist > 1.0) return;
         const double impact = (1.0 - dist) * exposure(world, centre, box);
         const double damage = (impact * impact + impact) / 2.0 * 7.0 * reach + 1.0;
-        glm::dvec3 away = feet + glm::dvec3(0, eyeHeight, 0) - centre; // pushed away from the eyes (wiki)
+        glm::dvec3 away =
+            feet + glm::dvec3(0, eyeHeight, 0) - centre; // pushed away from the eyes (wiki)
         const double len = glm::length(away);
         away = len > 1e-6 ? away / len : glm::dvec3(0, 1, 0);
         apply(float(std::floor(damage)), away * impact);
@@ -83,27 +89,33 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
     if (targets.player && targets.vitals)
         hurt(targets.player->box(), targets.player->position(), targets.player->eyeHeight(),
              [&](float dmg, const glm::dvec3& push) {
-            targets.vitals->attacked(dmg, &centre, Vitals::Hit::Explosion);
-            targets.player->push(push);
-        });
+                 targets.vitals->attacked(dmg, &centre, Vitals::Hit::Explosion);
+                 targets.player->push(push);
+             });
     if (targets.damageMobs) {
-        const ChunkPos c{blockToChunk(int(std::floor(centre.x))), blockToChunk(int(std::floor(centre.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(centre.x))),
+                         blockToChunk(int(std::floor(centre.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& m : ch->mobs()) {
                         if (m.health <= 0.0f) continue;
-                        if (m.type == MobType::Wither && m.spellTicks > 0) continue; // (M26.4b: charging, unhurt)
-                        if (m.type == MobType::EndCrystal) { // (Java: blown away without exploding, MC-118429)
+                        if (m.type == MobType::Wither && m.spellTicks > 0)
+                            continue;                        // (M26.4b: charging, unhurt)
+                        if (m.type == MobType::EndCrystal) { // (Java: blown away without exploding,
+                                                             // MC-118429)
                             m.health = 0.0f;
                             m.deathTime = 19;
                             continue;
                         }
-                        hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85, [&](float dmg, const glm::dvec3& push) {
-                            m.health -= m.type == MobType::EnderDragon ? Mobs::dragonDamage(m, dmg, centre) : dmg;
-                            m.hurtTime = 10;
-                            m.vel += push;
-                        });
+                        hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85,
+                             [&](float dmg, const glm::dvec3& push) {
+                                 m.health -= m.type == MobType::EnderDragon
+                                                 ? Mobs::dragonDamage(m, dmg, centre)
+                                                 : dmg;
+                                 m.hurtTime = 10;
+                                 m.vel += push;
+                             });
                     }
     }
     if (targets.tnt) targets.tnt->push(centre, power);
@@ -132,13 +144,15 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             ItemStack box{itemRegistry().blockItem(reg.blockOf(s)), 1};
             box.contents = boxContents;
             items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, box, rng);
-        } else if (targets.dropAll || rng.nextFloat() < 1.0f / power) { // its loot (mob explosions: 1 in power)
+        } else if (targets.dropAll ||
+                   rng.nextFloat() < 1.0f / power) { // its loot (mob explosions: 1 in power)
             m_loot.clear();
             blockDrops(s, {}, rng, m_loot, true);
             for (const ItemStack& st : m_loot)
                 items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
         }
-        if (reg.likeOf(reg.blockOf(s)) == blocks::Chest || reg.blockOf(s) == blocks::Barrel) // contents fall out (wiki: Chest)
+        if (reg.likeOf(reg.blockOf(s)) == blocks::Chest ||
+            reg.blockOf(s) == blocks::Barrel) // contents fall out (wiki: Chest)
             if (const Chunk* ch = world.chunk(b.chunk()))
                 if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                     for (const ItemStack& st : cd->items)
@@ -151,8 +165,10 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             if (const DispenserData* d = mc->dispenser(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                 for (const ItemStack& st : d->items)
                     if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
-            if (const JukeboxData* j = mc->jukebox(blockToLocal(b.x), b.y, blockToLocal(b.z)); j && !j->record.empty())
-                items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, j->record, rng); // (M23 review: its disc)
+            if (const JukeboxData* j = mc->jukebox(blockToLocal(b.x), b.y, blockToLocal(b.z));
+                j && !j->record.empty())
+                items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, j->record,
+                            rng); // (M23 review: its disc)
             if (const CampfireData* cf = mc->campfire(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                 for (const ItemStack& st : cf->items)
                     if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);

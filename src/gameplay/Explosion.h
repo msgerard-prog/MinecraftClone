@@ -45,7 +45,8 @@ public:
     // their drops into `items`, damages and pushes the player and mobs. Returns the
     // number of blocks destroyed.
     int explode(world::World& world, const glm::dvec3& centre, float power, world::Xoroshiro& rng,
-                ItemEntities& items, std::vector<world::BlockPos>& changed, const ExplosionTargets& targets);
+                ItemEntities& items, std::vector<world::BlockPos>& changed,
+                const ExplosionTargets& targets);
 
     // The share (0..1) of sample rays from `box` to `centre` no block stops (public for tests).
     static double exposure(const world::World& world, const glm::dvec3& centre, const Aabb& box);

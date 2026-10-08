@@ -25,12 +25,15 @@ namespace {
 constexpr int kCharge = 220; // ticks of charging after it is built (wiki: 11 s)
 
 bool isSoul(BlockId b) { return b == blocks::SoulSand || b == blocks::SoulSoil; }
-bool isWitherSkull(BlockId b) { return b == blocks::WitherSkeletonSkull || b == blocks::WitherSkeletonWallSkull; }
+bool isWitherSkull(BlockId b) {
+    return b == blocks::WitherSkeletonSkull || b == blocks::WitherSkeletonWallSkull;
+}
 
 } // namespace
 
 bool Mobs::witherProof(BlockId b) {
-    return b == blocks::Bedrock || b == blocks::EndPortal || b == blocks::EndPortalFrame || b == blocks::EndGateway;
+    return b == blocks::Bedrock || b == blocks::EndPortal || b == blocks::EndPortalFrame ||
+           b == blocks::EndGateway;
 }
 
 bool Mobs::buildWither(World& world, const BlockPos& skull, Xoroshiro& rng) {
@@ -44,7 +47,8 @@ bool Mobs::buildWither(World& world, const BlockPos& skull, Xoroshiro& rng) {
             for (int k = -1; k <= 1 && ok; ++k) {
                 const BlockPos top{mid.x + axis.x * k, mid.y, mid.z + axis.y * k};
                 const BlockPos sand{top.x, top.y - 1, top.z};
-                ok = isWitherSkull(r.blockOf(world.getBlock(top))) && isSoul(r.blockOf(world.getBlock(sand)));
+                ok = isWitherSkull(r.blockOf(world.getBlock(top))) &&
+                     isSoul(r.blockOf(world.getBlock(sand)));
                 // (the bottom corners beside the stem must be free: a T, not a block)
                 if (ok && k != 0) ok = !r.collides(world.getBlock({top.x, top.y - 2, top.z}));
             }
@@ -80,8 +84,8 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
             }
             m_scratchEdits.clear();
             t.breakBlocks = ctx.mobGriefing; // (M28.1: game rule)
-            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0.0, 1.75, 0.0), 7.0f, ctx.rng, ctx.items,
-                                ctx.edits ? *ctx.edits : m_scratchEdits, t);
+            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0.0, 1.75, 0.0), 7.0f, ctx.rng,
+                                ctx.items, ctx.edits ? *ctx.edits : m_scratchEdits, t);
             m.health = info.maxHealth;
         }
         m.limbSwing += 0.1f;
@@ -91,13 +95,16 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
     if (++m.goalTicks % 20 == 0) m.health = std::min(info.maxHealth, m.health + 1.0f);
     // Hurt: it breaks what it's stuck in and around (3 wide, 4 high).
     if (m.hurtTime == 9 && ctx.mobGriefing) {
-        const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+        const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)),
+                  bz = int(std::floor(m.pos.z));
         for (int dy = 0; dy <= 3; ++dy)
             for (int dz = -1; dz <= 1; ++dz)
                 for (int dx = -1; dx <= 1; ++dx) {
                     const BlockPos q{bx + dx, by + dy, bz + dz};
                     const BlockStateId s = ctx.world.getBlock(q);
-                    if (s == 0 || witherProof(blockRegistry().blockOf(s)) || !ctx.world.isInHeight(q.y)) continue;
+                    if (s == 0 || witherProof(blockRegistry().blockOf(s)) ||
+                        !ctx.world.isInHeight(q.y))
+                        continue;
                     ctx.world.updateBlock(q, 0);
                     if (ctx.edits) ctx.edits->push_back(q);
                 }
@@ -110,21 +117,23 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
     if (ctx.survival && !ctx.playerDead && glm::length(player - m.pos) < 64.0) {
         target = player + glm::dvec3(0.0, 1.0, 0.0);
         have = true;
-    } else if (MobData* o = m.targetUuid ? mobByUuid(ctx.world, m.pos, m.targetUuid) : nullptr; o && o->health > 0.0f) {
+    } else if (MobData* o = m.targetUuid ? mobByUuid(ctx.world, m.pos, m.targetUuid) : nullptr;
+               o && o->health > 0.0f) {
         target = o->pos + glm::dvec3(0.0, mobInfo(o->type).height * 0.5, 0.0);
         have = glm::length(target - m.pos) < 40.0;
     }
     if (!have) m.targetUuid = 0;
     if (!have && ctx.rng.nextInt(20) == 0) {
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         double best = 32.0 * 32.0;
         for (int dz = -2; dz <= 2; ++dz)
             for (int dx = -2; dx <= 2; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const MobData& o : ch->mobs()) {
                         const bool undead = isUndead(o.type);
-                        if (undead || o.health <= 0.0f || o.type == MobType::Boat || o.type == MobType::Minecart ||
-                            o.type == MobType::EndCrystal)
+                        if (undead || o.health <= 0.0f || o.type == MobType::Boat ||
+                            o.type == MobType::Minecart || o.type == MobType::EndCrystal)
                             continue;
                         const double d = glm::dot(o.pos - m.pos, o.pos - m.pos);
                         if (d < best) {
@@ -149,19 +158,21 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
             const glm::dvec3 d = target - from;
             const double len = glm::length(d);
             if (len > 1e-6 && !raycastBlocks(ctx.world, from, d / len, len)) {
-                ctx.projectiles->shoot(ProjectileKind::WitherSkull, from + d / len * 1.2, d / len, 0.9, 0.0, false, false,
-                                       ctx.rng, m.uuidHi);
+                ctx.projectiles->shoot(ProjectileKind::WitherSkull, from + d / len * 1.2, d / len,
+                                       0.9, 0.0, false, false, ctx.rng, m.uuidHi);
                 m.attackCooldown = int16_t(30 + ctx.rng.nextInt(20));
             } else {
                 m.attackCooldown = 10;
             }
         }
     } else {
-        goal = m.pos + glm::dvec3(std::cos(m.goalTicks * 0.02) * 2.0, 0.0, std::sin(m.goalTicks * 0.02) * 2.0);
+        goal = m.pos + glm::dvec3(std::cos(m.goalTicks * 0.02) * 2.0, 0.0,
+                                  std::sin(m.goalTicks * 0.02) * 2.0);
     }
     const glm::dvec3 d = goal - m.pos;
     const double len = glm::length(d);
-    const glm::dvec3 wish = len > 0.5 ? d / len * std::min(info.speed * 0.5, len * 0.1) : glm::dvec3(0.0);
+    const glm::dvec3 wish =
+        len > 0.5 ? d / len * std::min(info.speed * 0.5, len * 0.1) : glm::dvec3(0.0);
     m.limbSwing += 0.15f;
     physics(ctx.world, m, wish, false);
     return true;

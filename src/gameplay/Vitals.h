@@ -91,9 +91,12 @@ public:
     void setFoodTimer(int t) { m_foodTimer = t; }
     // Eats `food` points with `saturation` (wiki: Food), capped like vanilla.
     void eat(int food, float saturation);
-    void reset(bool keepExperience = false); // respawn: full health and food, fresh saturation (keep_inventory: the levels stay)
-    void kill() { m_health = 0.0f; } // /kill (ignores invulnerability)
-    void setHealth(float h) { m_health = h < 0.0f ? 0.0f : h > kMaxHealth ? kMaxHealth : h; } // (totems, M24.5)
+    void reset(bool keepExperience = false); // respawn: full health and food, fresh saturation
+                                             // (keep_inventory: the levels stay)
+    void kill() { m_health = 0.0f; }         // /kill (ignores invulnerability)
+    void setHealth(float h) {
+        m_health = h < 0.0f ? 0.0f : h > kMaxHealth ? kMaxHealth : h;
+    } // (totems, M24.5)
     // Forget the fall in progress (teleports, game-mode changes, respawn): the next
     // tick measures from where the player is now.
     void resetFall() {
@@ -159,7 +162,9 @@ public:
         m_wardenCooldown = std::max(0, cooldown);
     }
     void setTimeSinceRest(int t) { m_timeSinceRest = std::max(0, t); }
-    void addRestTime() { if (m_timeSinceRest < 0x7fffffff) ++m_timeSinceRest; }
+    void addRestTime() {
+        if (m_timeSinceRest < 0x7fffffff) ++m_timeSinceRest;
+    }
     // Spends whole levels (enchanting, anvils); false if there aren't enough.
     bool spendLevels(int levels);
     int xpLevel() const { return m_xpLevel; }
@@ -216,7 +221,8 @@ public:
 private:
     float m_landingFactor = 1.0f;
     bool m_stalagmite = false;
-    bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true, m_naturalRegen = true; // (M28.1)
+    bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true,
+         m_naturalRegen = true; // (M28.1)
     int m_difficulty = 2;
     float m_damageTaken = 0.0f;
     int m_peacefulTicks = 0;
@@ -225,11 +231,11 @@ private:
     int m_food = kMaxFood;
     float m_saturation = 5.0f;
     float m_exhaustion = 0.0f;
-    int m_foodTimer = 0;     // regeneration / starvation clock
-    int m_invulnerable = 0;  // ticks left after a hit
+    int m_foodTimer = 0;    // regeneration / starvation clock
+    int m_invulnerable = 0; // ticks left after a hit
     int m_air = kMaxAir;
-    int m_fire = 0;          // burning ticks left
-    int m_fireContact = 0;   // ticks spent in fire blocks (catches fire at 20)
+    int m_fire = 0;        // burning ticks left
+    int m_fireContact = 0; // ticks spent in fire blocks (catches fire at 20)
     int m_timeSinceRest = 0;
     int m_xpLevel = 0;
     float m_xpProgress = 0.0f;

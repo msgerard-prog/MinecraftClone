@@ -20,15 +20,18 @@ ItemId itemId(const char* name) { return *itemRegistry().find(name); }
 bool Mobs::isFood(MobType type, ItemId item) {
     // Breeding foods (wiki: Breeding): wheat for cows and sheep, carrots for pigs,
     // seeds for chickens (others not added yet).
-    static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"), seeds = itemId("wheat_seeds");
+    static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"),
+                        seeds = itemId("wheat_seeds");
     static const ItemId warpedFungus = itemRegistry().blockItem(blocks::WarpedFungus);
     if (isMount(type)) return isMountFood(type, item); // (M26.2)
     // (M26.3; wiki: Rabbit - carrots, golden carrots, dandelions; Fox - sweet berries;
     // Panda - bamboo; Goat - wheat; Armadillo - spider eyes)
     static const ItemId goldenCarrot = itemId("golden_carrot"), berries = itemId("sweet_berries"),
                         spiderEye = itemId("spider_eye");
-    static const ItemId dandelion = itemRegistry().blockItem(blocks::Dandelion), bamboo = itemRegistry().blockItem(blocks::Bamboo);
-    if (type == MobType::Rabbit) return item != kNoItem && (item == carrot || item == goldenCarrot || item == dandelion);
+    static const ItemId dandelion = itemRegistry().blockItem(blocks::Dandelion),
+                        bamboo = itemRegistry().blockItem(blocks::Bamboo);
+    if (type == MobType::Rabbit)
+        return item != kNoItem && (item == carrot || item == goldenCarrot || item == dandelion);
     if (type == MobType::Fox) return item != kNoItem && item == berries;
     if (type == MobType::Panda) return item != kNoItem && item == bamboo;
     if (type == MobType::Goat) return item == wheat;
@@ -36,32 +39,41 @@ bool Mobs::isFood(MobType type, ItemId item) {
     static const ItemId torchSeeds = itemId("torchflower_seeds"); // (M27.5c; wiki: Sniffer)
     if (type == MobType::Sniffer) return item != kNoItem && item == torchSeeds;
     // (M26.3c; wiki: Frog, Tadpole - slime balls; Axolotl - a bucket of tropical fish)
-    static const ItemId slimeBall = itemId("slime_ball"), fishBucket = itemId("tropical_fish_bucket");
+    static const ItemId slimeBall = itemId("slime_ball"),
+                        fishBucket = itemId("tropical_fish_bucket");
     if (type == MobType::Frog || type == MobType::Tadpole) return item == slimeBall;
     if (type == MobType::Axolotl) return item == fishBucket;
     if (type == MobType::Bee && item != kNoItem) { // (M26.3b) flowers
         const BlockId b = itemRegistry().item(item).block;
-        return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower || b == blocks::AzureBluet ||
-               b == blocks::OxeyeDaisy;
+        return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower ||
+               b == blocks::AzureBluet || b == blocks::OxeyeDaisy;
     }
     switch (type) {
     case MobType::Cow:
-    case MobType::Sheep: return item == wheat;
-    case MobType::Pig: return item == carrot;
-    case MobType::Chicken: return item == seeds;
-    case MobType::Strider: return item == warpedFungus; // (wiki: Strider)
-    case MobType::Turtle: return item == itemRegistry().blockItem(blocks::Seagrass); // (M25.3b)
-    default: return false;
+    case MobType::Sheep:
+        return item == wheat;
+    case MobType::Pig:
+        return item == carrot;
+    case MobType::Chicken:
+        return item == seeds;
+    case MobType::Strider:
+        return item == warpedFungus; // (wiki: Strider)
+    case MobType::Turtle:
+        return item == itemRegistry().blockItem(blocks::Seagrass); // (M25.3b)
+    default:
+        return false;
     }
 }
 
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
-    if (isMount(m.type)) return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
-    if (m.type == MobType::Allay) return allayInteract(m, held, rng, items); // (M26.5a)
+    if (isMount(m.type))
+        return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
+    if (m.type == MobType::Allay) return allayInteract(m, held, rng, items);             // (M26.5a)
     if (m.type == MobType::CopperGolem) return copperGolemInteract(m, held, rng, items); // (M26.5b)
     static const ItemId shearsItem = itemId("shears");
-    if (m.type == MobType::Wolf && m.tamed && held == shearsItem && m.horseArmor > 0) { // (M26.3) armor off
+    if (m.type == MobType::Wolf && m.tamed && held == shearsItem &&
+        m.horseArmor > 0) { // (M26.3) armor off
         ItemStack armor{itemId("wolf_armor"), 1};
         armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
         items.spawn(m.pos + glm::dvec3(0, 0.5, 0), armor, rng);
@@ -82,9 +94,11 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
         // Shearing drops 1-3 wool of its colour (wiki: Sheep › Shearing).
         m.sheared = true;
         const int n = 1 + static_cast<int>(rng.nextInt(3));
-        items.spawn(m.pos + glm::dvec3(0, 1, 0),
-                    {itemRegistry().blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)), uint8_t(n)},
-                    rng);
+        items.spawn(
+            m.pos + glm::dvec3(0, 1, 0),
+            {itemRegistry().blockItem(static_cast<BlockId>(blocks::WhiteWool + m.woolColour)),
+             uint8_t(n)},
+            rng);
         return Use::Sheared;
     }
     // A dye recolours a sheep's wool (wiki: Sheep › Dyeing; M23.2), using up the dye.
@@ -106,8 +120,8 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     // A zombie villager under Weakness fed a golden apple starts curing: it shakes for
     // 3-5 minutes, then turns back into a villager (wiki: Zombie Villager › Curing).
     static const ItemId goldenApple = itemRegistry().find("golden_apple").value_or(kNoItem);
-    if (m.type == MobType::ZombieVillager && held == goldenApple && held != kNoItem && m.weaknessTicks > 0 &&
-        m.convertTicks == 0) {
+    if (m.type == MobType::ZombieVillager && held == goldenApple && held != kNoItem &&
+        m.weaknessTicks > 0 && m.convertTicks == 0) {
         m.convertTicks = int16_t(3600 + rng.nextInt(2401));
         m.persistent = true;
         return Use::Fed;
@@ -131,18 +145,22 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     return Use::None;
 }
 
-MobData* Mobs::findMob(World& world, const MobData& self, double range, bool wantLove, bool wantAdult) {
+MobData* Mobs::findMob(World& world, const MobData& self, double range, bool wantLove,
+                       bool wantAdult) {
     // The nearest other mob of the same kind within `range` (3x3 chunks around).
     MobData* best = nullptr;
     double bestD = range * range;
-    const ChunkPos c{blockToChunk(int(std::floor(self.pos.x))), blockToChunk(int(std::floor(self.pos.z)))};
+    const ChunkPos c{blockToChunk(int(std::floor(self.pos.x))),
+                     blockToChunk(int(std::floor(self.pos.z)))};
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx) {
             Chunk* ch = world.chunk({c.x + dx, c.z + dz});
             if (!ch) continue;
             for (MobData& o : ch->mobs()) {
                 // (in love: any mate - a horse and a donkey too, M26.2)
-                if (&o == &self || (wantLove ? !canMate(self, o) : o.type != self.type) || o.health <= 0.0f) continue;
+                if (&o == &self || (wantLove ? !canMate(self, o) : o.type != self.type) ||
+                    o.health <= 0.0f)
+                    continue;
                 if (wantLove && (o.loveTicks == 0 || o.isBaby())) continue;
                 if (wantAdult && o.isBaby()) continue;
                 const double d = glm::dot(o.pos - self.pos, o.pos - self.pos);
@@ -163,8 +181,10 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
         static const ItemId scute = itemId("turtle_scute");
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {scute, 1}, ctx.rng);
     }
-    if (m.age < 0) ++m.age;      // babies grow up in 20 minutes
-    else if (m.age > 0) --m.age; // breeding cooldown (5 minutes)
+    if (m.age < 0)
+        ++m.age; // babies grow up in 20 minutes
+    else if (m.age > 0)
+        --m.age; // breeding cooldown (5 minutes)
     if (m.loveTicks > 0) --m.loveTicks;
     // Chickens lay an egg every 5-10 minutes (wiki: Chicken), adults only.
     if (m.type == MobType::Chicken && !m.isBaby() && --m.eggTicks <= 0) {
@@ -176,7 +196,8 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
     // 1 in 50) on short grass or a grass block; after a 40-tick animation the grass is
     // eaten (grass block -> dirt), the wool grows back and lambs grow 1 minute.
     if (m.type == MobType::Sheep) {
-        const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+        const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                            int(std::floor(m.pos.z))};
         const BlockPos ground{feet.x, feet.y - 1, feet.z};
         const auto& reg = blockRegistry();
         if (m.eatTicks > 0) {
@@ -215,12 +236,15 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
         const glm::dvec3 home(m.home.x + 0.5, double(m.home.y), m.home.z + 0.5);
         m.goal = home;
         speed *= 1.3;
-        const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+        const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                            int(std::floor(m.pos.z))};
         const auto& r = blockRegistry();
-        if (glm::length(glm::dvec2(home.x - m.pos.x, home.z - m.pos.z)) < 2.0 && ctx.world.getBlock(feet) == 0 &&
+        if (glm::length(glm::dvec2(home.x - m.pos.x, home.z - m.pos.z)) < 2.0 &&
+            ctx.world.getBlock(feet) == 0 &&
             (r.blockOf(ctx.world.getBlock({feet.x, feet.y - 1, feet.z})) == blocks::Sand ||
              r.blockOf(ctx.world.getBlock({feet.x, feet.y - 1, feet.z})) == blocks::RedSand)) {
-            ctx.world.updateBlock(feet, r.set(r.defaultState(blocks::TurtleEgg), properties::eggs, int(ctx.rng.nextInt(4))));
+            ctx.world.updateBlock(feet, r.set(r.defaultState(blocks::TurtleEgg), properties::eggs,
+                                              int(ctx.rng.nextInt(4))));
             if (ctx.edits) ctx.edits->push_back(feet);
             m.hasEgg = false;
         }
@@ -233,18 +257,22 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
             if (glm::length(partner->pos - m.pos) < 3.0) {
                 if (++m.breedTicks >= 60 && m.type == MobType::Sniffer) {
                     // Sniffers drop an egg (M27.5c; wiki: Sniffer › Breeding).
-                    ctx.items.spawn(m.pos + glm::dvec3(0.0, 0.3, 0.0), {itemRegistry().blockItem(blocks::SnifferEgg), 1}, ctx.rng);
-                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
+                    ctx.items.spawn(m.pos + glm::dvec3(0.0, 0.3, 0.0),
+                                    {itemRegistry().blockItem(blocks::SnifferEgg), 1}, ctx.rng);
+                    if (ctx.orbs)
+                        ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;
                         parent->breedTicks = 0;
                         parent->age = 6000;
                     }
-                } else if (m.breedTicks >= 60 && (m.type == MobType::Turtle || m.type == MobType::Frog)) {
+                } else if (m.breedTicks >= 60 &&
+                           (m.type == MobType::Turtle || m.type == MobType::Frog)) {
                     // Turtles lay eggs instead of having a baby (wiki: Turtle); frogs lay
                     // frogspawn on water (M26.3c; wiki: Frog).
                     m.hasEgg = true;
-                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
+                    if (ctx.orbs)
+                        ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;
                         parent->breedTicks = 0;
@@ -259,11 +287,14 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     baby.color2 = m.color2;
                     if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
                         baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
-                    if (isMount(m.type)) mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
-                    wildlifeOffspring(m, *partner, baby, ctx.rng);                  // (genes, trust - M26.3)
+                    if (isMount(m.type))
+                        mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
+                    wildlifeOffspring(m, *partner, baby, ctx.rng);  // (genes, trust - M26.3)
                     m_births.push_back(baby);
                     ++m_bred; // (statistics: animals bred)
-                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng); // wiki: 1-7
+                    if (ctx.orbs)
+                        ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)),
+                                       ctx.rng); // wiki: 1-7
                     for (MobData* parent : {&m, partner}) {
                         parent->loveTicks = 0;
                         parent->breedTicks = 0;

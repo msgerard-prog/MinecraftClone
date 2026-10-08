@@ -77,10 +77,12 @@ constexpr Step kSteps[] = {
 } // namespace
 
 std::optional<ItemStack> brewResult(const ItemStack& ingredient, const ItemStack& bottle) {
-    static const ItemId potion = item("potion"), splash = item("splash_potion"), gunpowder = item("gunpowder"),
-                        lingering = item("lingering_potion"), breath = item("dragon_breath");
+    static const ItemId potion = item("potion"), splash = item("splash_potion"),
+                        gunpowder = item("gunpowder"), lingering = item("lingering_potion"),
+                        breath = item("dragon_breath");
     if (ingredient.empty() || bottle.empty() ||
-        (bottle.item != potion && bottle.item != splash && bottle.item != lingering) || !bottle.potion)
+        (bottle.item != potion && bottle.item != splash && bottle.item != lingering) ||
+        !bottle.potion)
         return std::nullopt;
     if (ingredient.item == breath) { // (M28.4b) a splash potion to its lingering form
         if (bottle.item != splash) return std::nullopt;
@@ -127,7 +129,8 @@ bool tickBrewing(BrewingData& b) {
         canBrew = canBrew || brewResult(b.ingredient, bottle).has_value();
     if (b.brewTime > 0) {
         if (b.brewing == 0) b.brewing = b.ingredient.item; // (after loading)
-        if (!canBrew || b.ingredient.item != b.brewing) { // ingredient changed or bottles taken: the brew stops
+        if (!canBrew ||
+            b.ingredient.item != b.brewing) { // ingredient changed or bottles taken: the brew stops
             b.brewTime = 0;
             return true;
         }

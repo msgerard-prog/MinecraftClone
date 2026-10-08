@@ -14,12 +14,12 @@ namespace mc {
 
 // Movement intent for one tick, already decoded from keys (no GLFW here).
 struct PlayerInput {
-    float forward = 0.0f; // +1 W, -1 S
-    float strafe = 0.0f;  // +1 D (right), -1 A
-    bool jump = false;    // space: jump, or fly up
-    int jumpPresses = 0;  // space presses since the last tick (double-tap detection)
-    bool sneak = false;   // shift: sneak, or fly down
-    bool sprint = false;  // ctrl
+    float forward = 0.0f;  // +1 W, -1 S
+    float strafe = 0.0f;   // +1 D (right), -1 A
+    bool jump = false;     // space: jump, or fly up
+    int jumpPresses = 0;   // space presses since the last tick (double-tap detection)
+    bool sneak = false;    // shift: sneak, or fly down
+    bool sprint = false;   // ctrl
     bool canSprint = true; // false when too hungry (food <= 6): ends a sprint (wiki: Sprinting)
 };
 
@@ -68,7 +68,8 @@ public:
         if (len < 1e-6) return;
         m_velocity.x = m_velocity.x / 2.0 + dx / len * strength;
         m_velocity.z = m_velocity.z / 2.0 + dz / len * strength;
-        if (m_onGround) m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength); // wiki: Knockback
+        if (m_onGround)
+            m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength); // wiki: Knockback
     }
     // A push (explosions): added to the velocity.
     void push(const glm::dvec3& v) { m_velocity += v; }
@@ -127,7 +128,7 @@ public:
     // Landed on a slime block this tick (the fall is forgiven: main resets it), once.
     bool takeBounce() { return std::exchange(m_bounced, false); }
     bool climbing() const { return m_climbing; } // on a ladder this tick (M23.2)
-    bool inWater() const { return m_inWater; } // touching water (last tick)
+    bool inWater() const { return m_inWater; }   // touching water (last tick)
     bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
     bool sneaking() const { return m_sneaking; }

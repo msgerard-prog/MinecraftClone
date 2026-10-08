@@ -16,7 +16,8 @@ using namespace world;
 namespace {
 
 Chunk* chunkOf(World& world, const MobData& m) {
-    return world.chunk({blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))});
+    return world.chunk(
+        {blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))});
 }
 
 // The slot an item goes to: its armor slot (heads and carved pumpkins on the head).
@@ -34,12 +35,16 @@ void Mobs::refreshWorn(World& world, MobData& m) {
     const Chunk* c = chunkOf(world, m);
     const ItemContents* s = c ? c->mobStore(m.uuidHi) : nullptr;
     for (int i = 0; i < 4; ++i)
-        m.worn[size_t(i)] = s && !(*s)[size_t(i)].empty() ? armorMaterial(itemRegistry().item((*s)[size_t(i)].item).id) : 0;
+        m.worn[size_t(i)] = s && !(*s)[size_t(i)].empty()
+                                ? armorMaterial(itemRegistry().item((*s)[size_t(i)].item).id)
+                                : 0;
 }
 
 bool Mobs::placeArmorStand(World& world, const BlockPos& cell, float playerYaw, Xoroshiro& rng) {
     const auto& r = blockRegistry();
-    if (r.collides(world.getBlock(cell)) || r.collides(world.getBlock({cell.x, cell.y + 1, cell.z}))) return false;
+    if (r.collides(world.getBlock(cell)) ||
+        r.collides(world.getBlock({cell.x, cell.y + 1, cell.z})))
+        return false;
     MobData m = make(MobType::ArmorStand, {cell.x + 0.5, double(cell.y), cell.z + 0.5}, rng);
     // Facing the player, rounded to 45 degrees (wiki: Armor Stand › Placement).
     const float yaw = std::round((playerYaw + 180.0f) / 45.0f) * 45.0f;
@@ -63,7 +68,8 @@ bool Mobs::useArmorStand(World& world, MobData& m, ItemStack& held, double hitY)
     if (!put.empty()) put.count = 1;
     ItemStack back = s[size_t(slot)];
     s[size_t(slot)] = put;
-    if (!held.empty() && held.count > 1) { // (a stack: one goes on, the old piece can't come back into the slot)
+    if (!held.empty() &&
+        held.count > 1) { // (a stack: one goes on, the old piece can't come back into the slot)
         if (!back.empty()) {
             s[size_t(slot)] = back;
             return false;
@@ -97,7 +103,10 @@ bool Mobs::hitArmorStand(World& world, MobData& m, bool creative) {
 void Mobs::armorStandTick(Context& ctx, MobData& m) {
     if (m.chargeTicks > 0) --m.chargeTicks;
     if (m.hurtTime > 0) --m.hurtTime;
-    physics(ctx.world, m, glm::dvec3(0.0), false); // (it only falls)
+    // It only falls: a stand at rest sleeps, checking the ground once a second (perf).
+    const bool resting = m.onGround && m.vel == glm::dvec3(0.0);
+    if (!resting || (++m.ambientTime & 15) == 0)
+        physics(ctx.world, m, glm::dvec3(0.0), false); // (silent: its ambient clock is free)
     m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = m.yaw;
 }
 

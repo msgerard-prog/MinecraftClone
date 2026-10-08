@@ -1,8 +1,8 @@
 #include "gameplay/Hoppers.h"
 
 #include "gameplay/Brewing.h"
-#include "gameplay/Recipes.h"
 #include "gameplay/Jukebox.h"
+#include "gameplay/Recipes.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
@@ -13,13 +13,14 @@ using namespace world;
 namespace {
 
 Direction oppositeOf(Direction d) { return static_cast<Direction>(static_cast<int>(d) ^ 1); }
-int maxStackOf(const ItemStack& s) { return std::max(1, int(itemRegistry().item(s.item).maxStack)); }
+int maxStackOf(const ItemStack& s) {
+    return std::max(1, int(itemRegistry().item(s.item).maxStack));
+}
 
 // Puts one item into the first slot of `slots` it merges with, else the first empty one.
 // Puts one item into the leftmost slot that takes it: a matching stack with room or an
 // empty slot (wiki: Hopper - "leftmost available slot").
-template <size_t N>
-bool putIn(std::array<ItemStack, N>& slots, const ItemStack& one) {
+template <size_t N> bool putIn(std::array<ItemStack, N>& slots, const ItemStack& one) {
     for (ItemStack& t : slots) {
         if (t.empty()) {
             t = one;
@@ -33,8 +34,7 @@ bool putIn(std::array<ItemStack, N>& slots, const ItemStack& one) {
     }
     return false;
 }
-template <size_t N>
-bool fits(const std::array<ItemStack, N>& slots, const ItemStack& one) {
+template <size_t N> bool fits(const std::array<ItemStack, N>& slots, const ItemStack& one) {
     for (const ItemStack& t : slots)
         if (t.empty() || (t.sameKind(one) && t.count < maxStackOf(t))) return true;
     return false;
@@ -51,7 +51,7 @@ bool putInto(ItemStack& t, const ItemStack& one) {
     }
     return false;
 }
-ItemStack* g_lastSlot = nullptr; // (the slot the last take came from; main thread only)
+ItemStack* g_lastSlot = nullptr;   // (the slot the last take came from; main thread only)
 BlockUpdates* g_updates = nullptr; // (composters; main thread only)
 bool takeFrom(ItemStack& s, ItemStack& out) {
     if (s.empty()) return false;
@@ -61,8 +61,7 @@ bool takeFrom(ItemStack& s, ItemStack& out) {
     g_lastSlot = &s;
     return true;
 }
-template <size_t N>
-bool takeFirst(std::array<ItemStack, N>& slots, ItemStack& out) {
+template <size_t N> bool takeFirst(std::array<ItemStack, N>& slots, ItemStack& out) {
     for (ItemStack& s : slots)
         if (takeFrom(s, out)) return true;
     return false;
@@ -73,10 +72,12 @@ bool takeFirst(std::array<ItemStack, N>& slots, ItemStack& out) {
 void setHopperBlockUpdates(BlockUpdates* updates) { g_updates = updates; }
 
 bool isContainer(const World& world, const BlockPos& p) {
-    const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
-    return ((b == blocks::Composter || b == blocks::Jukebox) && g_updates) || b == blocks::ShulkerBox ||
-           b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
-           b == blocks::Dropper || b == blocks::Furnace || b == blocks::BrewingStand;
+    const BlockId b =
+        blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
+    return ((b == blocks::Composter || b == blocks::Jukebox) && g_updates) ||
+           b == blocks::ShulkerBox || b == blocks::Chest || b == blocks::Barrel ||
+           b == blocks::Hopper || b == blocks::Dispenser || b == blocks::Dropper ||
+           b == blocks::Furnace || b == blocks::BrewingStand;
 }
 
 bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack& one) {
@@ -87,7 +88,8 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     bool ok = false;
     switch (b) {
     case blocks::Jukebox: // a disc into an empty jukebox starts it (wiki: Jukebox, M23 review)
-        if (JukeboxData* d = c->jukebox(x, p.y, z); d && g_updates && d->record.empty() && discIndex(one.item) >= 0) {
+        if (JukeboxData* d = c->jukebox(x, p.y, z);
+            d && g_updates && d->record.empty() && discIndex(one.item) >= 0) {
             d->record = one;
             d->record.count = 1;
             d->ticks = 0;
@@ -114,7 +116,8 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
         if (!ok)
             if (const auto partner = BlockUpdates::chestPartner(world, p))
                 if (Chunk* pc = world.chunk(partner->chunk()))
-                    if (ChestData* d = pc->chest(blockToLocal(partner->x), partner->y, blockToLocal(partner->z))) {
+                    if (ChestData* d = pc->chest(blockToLocal(partner->x), partner->y,
+                                                 blockToLocal(partner->z))) {
                         ok = putIn(d->items, one);
                         if (ok) pc->markDirty();
                     }
@@ -125,7 +128,8 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
             for (const ItemStack& st : d->items)
                 wasEmpty = wasEmpty && st.empty();
             ok = putIn(d->items, one);
-            if (ok && wasEmpty) d->cooldown = 7; // (wiki: so an item doesn't cross a chain in one tick)
+            if (ok && wasEmpty)
+                d->cooldown = 7; // (wiki: so an item doesn't cross a chain in one tick)
         }
         break;
     case blocks::Dispenser:
@@ -134,14 +138,17 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
         break;
     case blocks::Furnace:
         if (FurnaceData* d = c->furnace(x, p.y, z)) {
-            if (from == Direction::Up) ok = putInto(d->input, one);
-            else if (fuelTicks(one) > 0) ok = putInto(d->fuel, one);
+            if (from == Direction::Up)
+                ok = putInto(d->input, one);
+            else if (fuelTicks(one) > 0)
+                ok = putInto(d->fuel, one);
         }
         break;
     case blocks::BrewingStand:
         if (BrewingData* d = c->brewing(x, p.y, z)) {
             static const ItemId powder = *itemRegistry().find("blaze_powder");
-            static const ItemId potion = *itemRegistry().find("potion"), splash = *itemRegistry().find("splash_potion");
+            static const ItemId potion = *itemRegistry().find("potion"),
+                                splash = *itemRegistry().find("splash_potion");
             if (from == Direction::Up) {
                 if (isBrewingIngredient(one)) ok = putInto(d->ingredient, one);
             } else if (one.item == powder) {
@@ -164,7 +171,8 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     return ok;
 }
 
-bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out, ItemStack** fromSlot) {
+bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
+                ItemStack** fromSlot) {
     g_lastSlot = nullptr;
     Chunk* c = world.chunk(p.chunk());
     if (!c) return false;
@@ -197,7 +205,8 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
         if (!ok)
             if (const auto partner = BlockUpdates::chestPartner(world, p))
                 if (Chunk* pc = world.chunk(partner->chunk()))
-                    if (ChestData* d = pc->chest(blockToLocal(partner->x), partner->y, blockToLocal(partner->z))) {
+                    if (ChestData* d = pc->chest(blockToLocal(partner->x), partner->y,
+                                                 blockToLocal(partner->z))) {
                         ok = takeFirst(d->items, out);
                         if (ok) pc->markDirty();
                     }
@@ -210,7 +219,8 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
         if (DispenserData* d = c->dispenser(x, p.y, z)) ok = takeFirst(d->items, out);
         break;
     case blocks::Furnace:
-        if (FurnaceData* d = c->furnace(x, p.y, z); d && from == Direction::Down) ok = takeFrom(d->output, out);
+        if (FurnaceData* d = c->furnace(x, p.y, z); d && from == Direction::Down)
+            ok = takeFrom(d->output, out);
         break;
     case blocks::BrewingStand:
         if (BrewingData* d = c->brewing(x, p.y, z); d && from == Direction::Down)
@@ -242,9 +252,11 @@ void tickHoppers(World& world, ItemEntities& items) {
     const auto& all = items.items();
     for (size_t i = 0; i < all.size() && pickupCount < int(pickups.size()); ++i) {
         const glm::dvec3 q = all[i].pos;
-        const int bx = int(std::floor(q.x)), bz = int(std::floor(q.z)), by = int(std::floor(q.y - 0.5));
+        const int bx = int(std::floor(q.x)), bz = int(std::floor(q.z)),
+                  by = int(std::floor(q.y - 0.5));
         for (const int y : {by, by - 1})
-            if (y + 0.5 <= q.y && q.y < y + 2.0 && r.blockOf(world.getBlock({bx, y, bz})) == blocks::Hopper) {
+            if (y + 0.5 <= q.y && q.y < y + 2.0 &&
+                r.blockOf(world.getBlock({bx, y, bz})) == blocks::Hopper) {
                 pickups[size_t(pickupCount++)] = {{bx, y, bz}, int(i)};
                 break;
             }
@@ -252,16 +264,20 @@ void tickHoppers(World& world, ItemEntities& items) {
     world.forEachTickingChunk([&](Chunk& chunk) {
         for (auto& e : chunk.hoppers()) {
             HopperData& h = e.data;
-            if (h.cooldown > 0 && --h.cooldown > 0) continue; // (moves on the tick it reaches 0: every 8)
+            if (h.cooldown > 0 && --h.cooldown > 0)
+                continue; // (moves on the tick it reaches 0: every 8)
             const BlockPos p{chunk.pos().x * 16 + e.x, e.y, chunk.pos().z * 16 + e.z};
             const BlockStateId s = chunk.get(e.x, e.y, e.z);
-            if (r.blockOf(s) != blocks::Hopper || r.get(s, properties::enabled) != 0) continue; // (powered: off)
-            static constexpr Direction kOut[5] = {Direction::Down, Direction::North, Direction::South, Direction::West,
+            if (r.blockOf(s) != blocks::Hopper || r.get(s, properties::enabled) != 0)
+                continue; // (powered: off)
+            static constexpr Direction kOut[5] = {Direction::Down, Direction::North,
+                                                  Direction::South, Direction::West,
                                                   Direction::East}; // its facing values
             const Direction out = kOut[r.get(s, properties::hopperFacing)];
             bool moved = false;
             // Push: the first stack's item into the container it points into.
-            const BlockPos target{p.x + kDirectionNormals[int(out)].x, p.y + kDirectionNormals[int(out)].y,
+            const BlockPos target{p.x + kDirectionNormals[int(out)].x,
+                                  p.y + kDirectionNormals[int(out)].y,
                                   p.z + kDirectionNormals[int(out)].z};
             for (ItemStack& st : h.items) // the leftmost stack that goes in
                 if (!st.empty() && insertOne(world, target, oppositeOf(out), st)) {
@@ -278,24 +294,33 @@ void tickHoppers(World& world, ItemEntities& items) {
                     if (putIn(h.items, one)) {
                         moved = true;
                     } else if (from) { // it doesn't fit here: back where it came from
-                        if (from->empty()) *from = one;
-                        else ++from->count;
-                    } else if (r.blockOf(world.getBlock(above)) == blocks::Composter) { // (the bone meal stays)
-                        world.updateBlock(above, r.set(world.getBlock(above), properties::composterLevel, 8));
-                    } else if (r.blockOf(world.getBlock(above)) == blocks::Jukebox) { // (the disc stays)
+                        if (from->empty())
+                            *from = one;
+                        else
+                            ++from->count;
+                    } else if (r.blockOf(world.getBlock(above)) ==
+                               blocks::Composter) { // (the bone meal stays)
+                        world.updateBlock(
+                            above, r.set(world.getBlock(above), properties::composterLevel, 8));
+                    } else if (r.blockOf(world.getBlock(above)) ==
+                               blocks::Jukebox) { // (the disc stays)
                         if (Chunk* jc = world.chunk(above.chunk()))
-                            if (JukeboxData* jd = jc->jukebox(blockToLocal(above.x), above.y, blockToLocal(above.z))) {
+                            if (JukeboxData* jd = jc->jukebox(blockToLocal(above.x), above.y,
+                                                              blockToLocal(above.z))) {
                                 jd->record = one;
-                                world.updateBlock(above, r.set(world.getBlock(above), properties::hasRecord, 0));
+                                world.updateBlock(
+                                    above, r.set(world.getBlock(above), properties::hasRecord, 0));
                             }
                     }
                 }
-            } else if (!r.opaqueCube(world.getBlock(above))) { // (only containers and full blocks stop pickup)
+            } else if (!r.opaqueCube(world.getBlock(
+                           above))) { // (only containers and full blocks stop pickup)
                 for (int k = 0; k < pickupCount; ++k) {
                     if (!(pickups[size_t(k)].hopper == p)) continue;
                     ItemEntity& it = items.mutableItems()[size_t(pickups[size_t(k)].item)];
                     if (it.stack.empty() || !fits(h.items, it.stack)) continue;
-                    while (it.stack.count > 0 && putIn(h.items, it.stack)) { // the whole stack, as it fits
+                    while (it.stack.count > 0 &&
+                           putIn(h.items, it.stack)) { // the whole stack, as it fits
                         --it.stack.count;
                         moved = true;
                     }

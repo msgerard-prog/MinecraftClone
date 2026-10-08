@@ -24,12 +24,13 @@ using namespace world;
 namespace {
 
 bool isFlower(BlockId b) {
-    return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower || b == blocks::AzureBluet ||
-           b == blocks::OxeyeDaisy || b == blocks::CherryLeaves;
+    return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower ||
+           b == blocks::AzureBluet || b == blocks::OxeyeDaisy || b == blocks::CherryLeaves;
 }
 bool isHive(BlockId b) { return b == blocks::BeeNest || b == blocks::Beehive; }
 float yawTo(const glm::dvec3& from, const glm::dvec3& to) {
-    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 / 3.14159265358979);
+    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 /
+                              3.14159265358979);
 }
 // The air block in front of a hive (where bees go in and out).
 glm::dvec3 hiveDoor(const World& world, const BlockPos& h) {
@@ -49,7 +50,8 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
     const bool day = (ctx.dayTime % 24000) < 12000;
     const bool raining = ctx.weather && ctx.weather->raining;
     const BlockPos home{m.home.x, m.home.y, m.home.z};
-    const bool hasHome = m.home.y != kNoPoint && isHive(blockRegistry().blockOf(ctx.world.getBlock(home)));
+    const bool hasHome =
+        m.home.y != kNoPoint && isHive(blockRegistry().blockOf(ctx.world.getBlock(home)));
     if (!hasHome) m.home.y = kNoPoint;
     if (m.angry && --m.angerTicks <= 0) m.angry = false;
     // A bee that stung dies within a minute or so (wiki: Bee › Stinging).
@@ -59,13 +61,15 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
     }
     // Homeless: look for a hive with room within 20 blocks now and then.
     if (!hasHome && ctx.rng.nextInt(100) == 0) {
-        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))),
+                         blockToChunk(int(std::floor(m.pos.z)))};
         double best = 20.0 * 20.0;
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const auto& h : ch->beehives()) {
-                        const glm::dvec3 hp((c.x + dx) * 16 + h.x + 0.5, h.y + 0.5, (c.z + dz) * 16 + h.z + 0.5);
+                        const glm::dvec3 hp((c.x + dx) * 16 + h.x + 0.5, h.y + 0.5,
+                                            (c.z + dz) * 16 + h.z + 0.5);
                         const double d = glm::dot(hp - m.pos, hp - m.pos);
                         if (h.data.count < 3 && d < best) {
                             best = d;
@@ -75,11 +79,13 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
     }
     glm::dvec3 target = m.goal;
     double speed = 0.12; // (blocks a tick while wandering)
-    if (m.angry && !m.stung && ctx.survival && !ctx.playerDead && glm::length(playerPos - m.pos) < 24.0) {
+    if (m.angry && !m.stung && ctx.survival && !ctx.playerDead &&
+        glm::length(playerPos - m.pos) < 24.0) {
         // Stinging the player (wiki: Bee): 2 damage and Poison for 10 s (Normal).
         target = playerPos + glm::dvec3(0.0, 1.0, 0.0);
         speed = 0.25;
-        const Aabb reach{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)};
+        const Aabb reach{ctx.player.box().min - glm::dvec3(0.3),
+                         ctx.player.box().max + glm::dvec3(0.3)};
         if (m.attackCooldown > 0) --m.attackCooldown;
         if (m.attackCooldown == 0 && box(m).intersects(reach)) {
             // Poison 10 s on Normal, 18 s on Hard, none on Easy (wiki: Bee).
@@ -97,7 +103,8 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
         speed = 0.18;
         if (glm::length(target - m.pos) < 1.0) {
             Chunk* hc = ctx.world.chunk(home.chunk());
-            BeehiveData* hd = hc ? hc->beehive(blockToLocal(home.x), home.y, blockToLocal(home.z)) : nullptr;
+            BeehiveData* hd =
+                hc ? hc->beehive(blockToLocal(home.x), home.y, blockToLocal(home.z)) : nullptr;
             if (hd && hd->count < 3) {
                 HiveBee& b = hd->bees[hd->count++];
                 b = {m.uuidHi, m.uuidLo, m.health, m.age, m.nectar, 0, m.nectar ? 2400 : 600};
@@ -112,12 +119,15 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
         // Passing over crops with pollen grows them (wiki: Bee › Pollination).
         if (m.nectar && m.volley < 10 && ctx.rng.nextInt(30) == 0) {
             for (int dy = 1; dy <= 2; ++dy) {
-                const BlockPos below{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)) - dy, int(std::floor(m.pos.z))};
+                const BlockPos below{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)) - dy,
+                                     int(std::floor(m.pos.z))};
                 const BlockStateId s = ctx.world.getBlock(below);
                 const BlockId b = blockRegistry().blockOf(s);
-                const Property* age = b == blocks::Wheat || b == blocks::Carrots || b == blocks::Potatoes ? &properties::age7
-                                      : b == blocks::Beetroots || b == blocks::SweetBerryBush        ? &properties::age3
-                                                                                                    : nullptr;
+                const Property* age =
+                    b == blocks::Wheat || b == blocks::Carrots || b == blocks::Potatoes
+                        ? &properties::age7
+                    : b == blocks::Beetroots || b == blocks::SweetBerryBush ? &properties::age3
+                                                                            : nullptr;
                 if (!age) continue;
                 const int a = blockRegistry().get(s, *age), max = age == &properties::age7 ? 7 : 3;
                 if (a < max) {
@@ -134,7 +144,8 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
         if (m.workTarget.y == kNoPoint && ctx.rng.nextInt(20) == 0) {
             const glm::ivec3 c = hasHome ? m.home : glm::ivec3(glm::floor(m.pos));
             for (int k = 0; k < 24; ++k) {
-                const BlockPos p{c.x + int(ctx.rng.nextInt(23)) - 11, c.y + int(ctx.rng.nextInt(7)) - 3,
+                const BlockPos p{c.x + int(ctx.rng.nextInt(23)) - 11,
+                                 c.y + int(ctx.rng.nextInt(7)) - 3,
                                  c.z + int(ctx.rng.nextInt(23)) - 11};
                 if (isFlower(blockRegistry().blockOf(ctx.world.getBlock(p)))) {
                     m.workTarget = {p.x, p.y, p.z};
@@ -160,8 +171,10 @@ bool Mobs::beeAi(Context& ctx, MobData& m) {
     // Otherwise drift about (near home), a new spot every few seconds.
     if (target == m.goal && (++m.goalTicks > 80 || glm::length(m.goal - m.pos) < 0.8)) {
         m.goalTicks = 0;
-        const glm::dvec3 around = hasHome ? glm::dvec3(home.x + 0.5, home.y + 0.5, home.z + 0.5) : m.pos;
-        m.goal = around + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 4 - 1, ctx.rng.nextDouble() * 12 - 6);
+        const glm::dvec3 around =
+            hasHome ? glm::dvec3(home.x + 0.5, home.y + 0.5, home.z + 0.5) : m.pos;
+        m.goal = around + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 4 - 1,
+                                     ctx.rng.nextDouble() * 12 - 6);
         target = m.goal;
     }
     const glm::dvec3 d = target - m.pos;
@@ -194,8 +207,8 @@ void Mobs::tickHives(Context& ctx, Chunk& chunk) {
             }
             const BlockPos hp{chunk.pos().x * 16 + h.x, h.y, chunk.pos().z * 16 + h.z};
             const glm::dvec3 door = hiveDoor(ctx.world, hp);
-            if (blockRegistry().collides(ctx.world.getBlock({int(std::floor(door.x)), int(std::floor(door.y)),
-                                                             int(std::floor(door.z))}))) {
+            if (blockRegistry().collides(ctx.world.getBlock(
+                    {int(std::floor(door.x)), int(std::floor(door.y)), int(std::floor(door.z))}))) {
                 ++i; // (the way out is blocked)
                 continue;
             }
@@ -204,7 +217,9 @@ void Mobs::tickHives(Context& ctx, Chunk& chunk) {
             if (b.nectar) { // honey
                 const BlockStateId s = chunk.get(h.x, h.y, h.z);
                 const int level = blockRegistry().get(s, properties::honeyLevel);
-                if (level < 5) ctx.world.updateBlock(hp, blockRegistry().set(s, properties::honeyLevel, level + 1));
+                if (level < 5)
+                    ctx.world.updateBlock(
+                        hp, blockRegistry().set(s, properties::honeyLevel, level + 1));
             }
             chunk.mobs().push_back(bee);
             d.bees[size_t(i)] = d.bees[size_t(d.count - 1)];

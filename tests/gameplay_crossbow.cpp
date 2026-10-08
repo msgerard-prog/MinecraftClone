@@ -29,7 +29,8 @@ TEST_CASE("crossbows load in 25 ticks (5 fewer per Quick Charge level), using an
     CHECK_FALSE(loadCrossbow(inv, true)); // (already loaded)
 }
 
-TEST_CASE("crossbows fire one arrow, Multishot three (two not picked up), Piercing sets the pass count") {
+TEST_CASE(
+    "crossbows fire one arrow, Multishot three (two not picked up), Piercing sets the pass count") {
     Xoroshiro rng{3};
     Projectiles shots;
     Inventory inv;
@@ -59,7 +60,8 @@ TEST_CASE("crossbows fire one arrow, Multishot three (two not picked up), Pierci
     CHECK(conflicts(Enchantment::Multishot, Enchantment::Piercing));
 }
 
-TEST_CASE("a loaded crossbow is saved as charged_projectiles; written books keep their kind in level.dat") {
+TEST_CASE("a loaded crossbow is saved as charged_projectiles; written books keep their kind in "
+          "level.dat") {
     ItemStack bow{*itemRegistry().find("crossbow"), 1};
     bow.state = kCrossbowArrow;
     const nbt::Compound n = itemToNbt(bow, 0);
@@ -154,7 +156,8 @@ TEST_CASE("lingering potions: brewed with dragon's breath, they leave a cloud of
     World world;
     world.createChunk({0, 0});
     for (int z = 0; z < 16; ++z)
-        for (int x = 0; x < 16; ++x) world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::Stone));
+        for (int x = 0; x < 16; ++x)
+            world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::Stone));
     Player player;
     player.setPosition({8.5, 64.0, 8.5});
     Vitals vitals;
@@ -163,8 +166,19 @@ TEST_CASE("lingering potions: brewed with dragon's breath, they leave a cloud of
     Projectiles shots;
     Xoroshiro rng{6};
     throwSplashPotion(inv, true, {8.5, 66.0, 8.5}, 0.0f, 90.0f, shots, rng); // (straight down)
-    for (int t = 0; t < 40; ++t) shots.tick(world, player, &vitals, inv, true, rng);
+    for (int t = 0; t < 40; ++t)
+        shots.tick(world, player, &vitals, inv, true, rng);
     REQUIRE(shots.clouds().size() == 1);
     CHECK(shots.clouds()[0].potion == uint8_t(Potion::Regeneration));
+    // A cloud works only after a second, and each use takes 5 s off its life (wiki).
+    Projectiles fresh;
+    fresh.addCloud({8.5, 64.0, 8.5}, 3.0f, 600, uint8_t(Potion::Regeneration), 0.0f);
+    Vitals v2;
+    fresh.tick(world, player, &v2, inv, true, rng);
+    CHECK(v2.effectLevel(Effect::Regeneration) == 0);
+    for (int t = 0; t < 20; ++t)
+        fresh.tick(world, player, &v2, inv, true, rng);
+    CHECK(v2.effectLevel(Effect::Regeneration) > 0);
+    CHECK(fresh.clouds()[0].ticks < 600 - 21 - 90);
     CHECK(vitals.effectLevel(Effect::Regeneration) > 0);
 }

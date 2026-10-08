@@ -36,6 +36,9 @@ Table<Fireworks>& fireworkTable() {
 uint32_t addLodestoneTarget(const LodestoneTarget& target) {
     auto& t = lodestones();
     const std::lock_guard guard(t.lock);
+    // Equal targets share an entry, so reloading a chunk doesn't grow the table (M28 review).
+    for (size_t i = 0; i < t.entries.size(); ++i)
+        if (t.entries[i] == target) return static_cast<uint32_t>(i) * 4 + 2;
     t.entries.push_back(target);
     return static_cast<uint32_t>(t.entries.size() - 1) * 4 + 2;
 }
@@ -50,6 +53,8 @@ std::optional<LodestoneTarget> lodestoneTarget(uint32_t id) {
 uint32_t addBook(BookContent book) {
     auto& t = books();
     const std::lock_guard guard(t.lock);
+    for (size_t i = 0; i < t.entries.size(); ++i) // (equal books share an entry)
+        if (t.entries[i] == book) return static_cast<uint32_t>(i) * 4 + 1;
     t.entries.push_back(std::move(book));
     return static_cast<uint32_t>(t.entries.size() - 1) * 4 + 1;
 }

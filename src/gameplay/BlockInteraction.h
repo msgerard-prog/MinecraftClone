@@ -29,7 +29,8 @@ struct InteractionInput {
 // M9). Runs in the game tick; records every block it changed so the renderer can
 // re-mesh them.
 // Where eating a chorus fruit takes the player from `feet` (nullopt: nowhere found).
-std::optional<glm::dvec3> chorusTeleport(const world::World& world, const glm::dvec3& feet, world::Xoroshiro& rng);
+std::optional<glm::dvec3> chorusTeleport(const world::World& world, const glm::dvec3& feet,
+                                         world::Xoroshiro& rng);
 
 class BlockInteraction {
 public:
@@ -64,10 +65,9 @@ public:
     // by 1 per block. Placing uses up the held stack; holding use with food eats it
     // after 32 ticks when hungry.
     void tickSurvival(world::World& world, const Player& player,
-                      const std::optional<world::RayHit>& hit, Inventory& inventory,
-                      Vitals& vitals, const InteractionInput& input, bool eyesInWater,
-                      world::Xoroshiro& rng, std::vector<world::BlockPos>& changed,
-                      std::vector<Drop>& drops);
+                      const std::optional<world::RayHit>& hit, Inventory& inventory, Vitals& vitals,
+                      const InteractionInput& input, bool eyesInWater, world::Xoroshiro& rng,
+                      std::vector<world::BlockPos>& changed, std::vector<Drop>& drops);
     // Drinking (M19.4; wiki: Potion, Milk Bucket): 32 ticks of holding use, in any
     // mode; survival swaps the potion for a glass bottle (milk: the bucket), creative
     // keeps it. Returns true while the held item is a drink being used.
@@ -78,7 +78,7 @@ public:
     int eatingTicks() const { return m_eatTicks; }
     // A chorus fruit was eaten this tick (once; main teleports the player).
     bool takeChorusTeleport() { return std::exchange(m_ateChorus, false); }
-    static constexpr int kEatTicks = 32; // wiki: Food (1.61 s)
+    static constexpr int kEatTicks = 32;          // wiki: Food (1.61 s)
     static constexpr int kSurvivalBreakDelay = 6; // wiki: Breaking - 6 ticks before the next block
 
     // Levers, buttons, repeaters and dust react to right-clicks through this.

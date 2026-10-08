@@ -20,7 +20,8 @@ MenuAction title(Menu& m, MenuState& st, uint16_t dirt, const char* version) {
     const float top = float(m.height()) / 4.0f;
     // Our name in large letters (not vanilla's logo, which is Mojang's), a splash line.
     m.text("MinecraftClone", cx, top - 34.0f, argb(0xFFFFFFFF), true, 3.0f);
-    const float pulse = 1.0f + 0.06f * std::abs(std::sin(float(m.input().timeMs % 1000) / 1000.0f * 6.2832f));
+    const float pulse =
+        1.0f + 0.06f * std::abs(std::sin(float(m.input().timeMs % 1000) / 1000.0f * 6.2832f));
     m.text(st.splash.c_str(), cx + 60.0f, top - 6.0f, argb(0xFFFFFF00), true, pulse);
     MenuAction a = MenuAction::None;
     if (m.button("Singleplayer", cx - 100.0f, top + 48.0f, 200.0f)) {
@@ -32,13 +33,14 @@ MenuAction title(Menu& m, MenuState& st, uint16_t dirt, const char* version) {
         st.optionsBack = MenuScreen::Title;
         st.screen = MenuScreen::Options;
     }
-    if (m.button("Quit Game", cx + 2.0f, top + 72.0f, 98.0f) || m.input().escape) a = MenuAction::Quit;
+    if (m.button("Quit Game", cx + 2.0f, top + 72.0f, 98.0f) || m.input().escape)
+        a = MenuAction::Quit;
     char line[96];
     std::snprintf(line, sizeof(line), "MinecraftClone %s", version);
     m.text(line, 2.0f, float(m.height()) - 10.0f, argb(0xFFFFFFFF));
     const char* note = "Not affiliated with Mojang";
-    m.text(note, float(m.width()) - 2.0f - float(m.batch().textWidth(note)), float(m.height()) - 10.0f,
-           argb(0xFFFFFFFF));
+    m.text(note, float(m.width()) - 2.0f - float(m.batch().textWidth(note)),
+           float(m.height()) - 10.0f, argb(0xFFFFFFFF));
     return a;
 }
 
@@ -53,7 +55,8 @@ MenuAction worldList(Menu& m, MenuState& st, uint16_t dirt) {
     const int count = int(st.worlds.size());
     if (m.input().wheel != 0.0) st.scroll -= int(m.input().wheel);
     st.scroll = std::clamp(st.scroll, 0, std::max(0, count - visible));
-    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f, gfx::rgba(0, 0, 0, 110));
+    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f,
+                   gfx::rgba(0, 0, 0, 110));
     MenuAction a = MenuAction::None;
     const float rowX = cx - 110.0f, rowW = 220.0f;
     for (int i = st.scroll; i < count && i < st.scroll + visible; ++i) {
@@ -83,10 +86,12 @@ MenuAction worldList(Menu& m, MenuState& st, uint16_t dirt) {
         std::strftime(date, sizeof(date), "%d/%m/%Y %H:%M", &tm);
         std::snprintf(line, sizeof(line), "%s (%s)", w.folder.c_str(), date);
         m.text(line, rowX + 2.0f, y + 12.0f, argb(0xFF808080));
-        std::snprintf(line, sizeof(line), "%s Mode%s", w.survival ? "Survival" : "Creative", w.flat ? ", Superflat" : "");
+        std::snprintf(line, sizeof(line), "%s Mode%s", w.survival ? "Survival" : "Creative",
+                      w.flat ? ", Superflat" : "");
         m.text(line, rowX + 2.0f, y + 23.0f, argb(0xFF808080));
     }
-    if (count == 0) m.text("No worlds yet - create one!", cx, listTop + 20.0f, argb(0xFFA0A0A0), true);
+    if (count == 0)
+        m.text("No worlds yet - create one!", cx, listTop + 20.0f, argb(0xFFA0A0A0), true);
     const bool any = st.selected >= 0 && st.selected < count;
     const float b1 = float(m.height()) - 52.0f, b2 = float(m.height()) - 28.0f;
     if (m.button("Play Selected World", cx - 154.0f, b1, 150.0f, any)) a = MenuAction::PlayWorld;
@@ -99,7 +104,8 @@ MenuAction worldList(Menu& m, MenuState& st, uint16_t dirt) {
         m.setFocus(0);
     }
     if (m.button("Delete", cx - 154.0f, b2, 150.0f, any)) st.screen = MenuScreen::ConfirmDelete;
-    if (m.button("Cancel", cx + 4.0f, b2, 150.0f) || m.input().escape) st.screen = MenuScreen::Title;
+    if (m.button("Cancel", cx + 4.0f, b2, 150.0f) || m.input().escape)
+        st.screen = MenuScreen::Title;
     return a;
 }
 
@@ -112,18 +118,22 @@ MenuAction createWorld(Menu& m, MenuState& st, uint16_t dirt) {
     m.text("Seed for the World Generator", cx - 100.0f, 80.0f, argb(0xFFA0A0A0));
     m.textField(st.newSeed, cx - 100.0f, 92.0f, 200.0f);
     m.text("Leave blank for a random seed", cx - 100.0f, 116.0f, argb(0xFF808080));
-    if (m.button(st.newSurvival ? "Game Mode: Survival" : "Game Mode: Creative", cx - 100.0f, 132.0f, 200.0f))
+    if (m.button(st.newSurvival ? "Game Mode: Survival" : "Game Mode: Creative", cx - 100.0f,
+                 132.0f, 200.0f))
         st.newSurvival = !st.newSurvival;
-    if (m.button(st.newFlat ? "World Type: Superflat" : "World Type: Default", cx - 100.0f, 156.0f, 200.0f))
+    if (m.button(st.newFlat ? "World Type: Superflat" : "World Type: Default", cx - 100.0f, 156.0f,
+                 200.0f))
         st.newFlat = !st.newFlat;
-    static constexpr const char* kDifficulty[4] = {"Difficulty: Peaceful", "Difficulty: Easy", "Difficulty: Normal",
-                                                   "Difficulty: Hard"};
+    static constexpr const char* kDifficulty[4] = {"Difficulty: Peaceful", "Difficulty: Easy",
+                                                   "Difficulty: Normal", "Difficulty: Hard"};
     if (m.button(kDifficulty[st.newDifficulty & 3], cx - 100.0f, 180.0f, 200.0f))
         st.newDifficulty = (st.newDifficulty + 1) & 3;
     MenuAction a = MenuAction::None;
     const float b = float(m.height()) - 28.0f;
-    if (m.button("Create New World", cx - 154.0f, b, 150.0f) || m.input().enter) a = MenuAction::CreateWorld;
-    if (m.button("Cancel", cx + 4.0f, b, 150.0f) || m.input().escape) st.screen = MenuScreen::WorldList;
+    if (m.button("Create New World", cx - 154.0f, b, 150.0f) || m.input().enter)
+        a = MenuAction::CreateWorld;
+    if (m.button("Cancel", cx + 4.0f, b, 150.0f) || m.input().escape)
+        st.screen = MenuScreen::WorldList;
     return a;
 }
 
@@ -132,18 +142,23 @@ MenuAction confirmDelete(Menu& m, MenuState& st, uint16_t dirt) {
     const float cx = float(m.width()) / 2.0f;
     m.text("Are you sure you want to delete this world?", cx, 70.0f, argb(0xFFFFFFFF), true);
     char line[160];
-    const char* name = st.selected >= 0 && st.selected < int(st.worlds.size()) ? st.worlds[size_t(st.selected)].name.c_str() : "";
+    const char* name = st.selected >= 0 && st.selected < int(st.worlds.size())
+                           ? st.worlds[size_t(st.selected)].name.c_str()
+                           : "";
     std::snprintf(line, sizeof(line), "'%s' will be lost forever! (A long time!)", name);
     m.text(line, cx, 90.0f, argb(0xFFA0A0A0), true);
     MenuAction a = MenuAction::None;
     if (m.button("Delete", cx - 154.0f, 120.0f, 150.0f)) a = MenuAction::DeleteWorld;
-    if (m.button("Cancel", cx + 4.0f, 120.0f, 150.0f) || m.input().escape) st.screen = MenuScreen::WorldList;
+    if (m.button("Cancel", cx + 4.0f, 120.0f, 150.0f) || m.input().escape)
+        st.screen = MenuScreen::WorldList;
     return a;
 }
 
 MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) {
-    if (st.optionsBack == MenuScreen::Pause) m.dim();
-    else m.tiledBackground(dirt);
+    if (st.optionsBack == MenuScreen::Pause)
+        m.dim();
+    else
+        m.tiledBackground(dirt);
     const float cx = float(m.width()) / 2.0f;
     m.text("Options", cx, 15.0f, argb(0xFFFFFFFF), true);
     bool changed = false;
@@ -153,7 +168,11 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
     // FOV 30..110 (vanilla labels 70 "Normal" and 110 "Quake Pro").
     float v = (o.fov - 30.0f) / 80.0f;
     const int fov = int(std::lround(o.fov));
-    std::snprintf(label, sizeof(label), fov == 70 ? "FOV: Normal" : fov == 110 ? "FOV: Quake Pro" : "FOV: %d", fov);
+    std::snprintf(label, sizeof(label),
+                  fov == 70    ? "FOV: Normal"
+                  : fov == 110 ? "FOV: Quake Pro"
+                               : "FOV: %d",
+                  fov);
     if (m.slider(label, l, y, 150.0f, v)) {
         o.fov = std::round(30.0f + v * 80.0f);
         changed = true;
@@ -172,21 +191,27 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
         changed = true;
     }
     v = o.sensitivity;
-    std::snprintf(label, sizeof(label), "Sensitivity: %d%%", int(std::lround(o.sensitivity * 200.0f)));
+    std::snprintf(label, sizeof(label), "Sensitivity: %d%%",
+                  int(std::lround(o.sensitivity * 200.0f)));
     if (m.slider(label, r, y, 150.0f, v)) {
         o.sensitivity = v;
         changed = true;
     }
     y += 24.0f;
-    if (o.guiScale == 0) std::snprintf(label, sizeof(label), "GUI Scale: Auto");
-    else std::snprintf(label, sizeof(label), "GUI Scale: %d", o.guiScale);
+    if (o.guiScale == 0)
+        std::snprintf(label, sizeof(label), "GUI Scale: Auto");
+    else
+        std::snprintf(label, sizeof(label), "GUI Scale: %d", o.guiScale);
     if (m.button(label, l, y, 150.0f)) {
         o.guiScale = (o.guiScale + 1) % 5;
         changed = true;
     }
     v = o.masterVolume;
-    if (o.masterVolume <= 0.0f) std::snprintf(label, sizeof(label), "Master Volume: OFF");
-    else std::snprintf(label, sizeof(label), "Master Volume: %d%%", int(std::lround(o.masterVolume * 100.0f)));
+    if (o.masterVolume <= 0.0f)
+        std::snprintf(label, sizeof(label), "Master Volume: OFF");
+    else
+        std::snprintf(label, sizeof(label), "Master Volume: %d%%",
+                      int(std::lround(o.masterVolume * 100.0f)));
     if (m.slider(label, r, y, 150.0f, v)) {
         o.masterVolume = v;
         changed = true;
@@ -212,7 +237,8 @@ MenuAction pause(Menu& m, MenuState& st) {
     const float cx = float(m.width()) / 2.0f;
     const float top = float(m.height()) / 4.0f;
     m.text("Game Menu", cx, top - 16.0f, argb(0xFFFFFFFF), true);
-    if (m.button("Back to Game", cx - 102.0f, top + 8.0f, 204.0f) || m.input().escape) return MenuAction::Resume;
+    if (m.button("Back to Game", cx - 102.0f, top + 8.0f, 204.0f) || m.input().escape)
+        return MenuAction::Resume;
     if (m.button("Advancements", cx - 102.0f, top + 32.0f, 100.0f, st.adv != nullptr)) { // (M28.5c)
         st.screen = MenuScreen::Advancements;
         st.advScroll = 0;
@@ -225,7 +251,8 @@ MenuAction pause(Menu& m, MenuState& st) {
         st.optionsBack = MenuScreen::Pause;
         st.screen = MenuScreen::Options;
     }
-    if (m.button("Save and Quit to Title", cx - 102.0f, top + 80.0f, 204.0f)) return MenuAction::SaveAndQuit;
+    if (m.button("Save and Quit to Title", cx - 102.0f, top + 80.0f, 204.0f))
+        return MenuAction::SaveAndQuit;
     return MenuAction::None;
 }
 
@@ -261,7 +288,8 @@ MenuAction statisticsScreen(Menu& m, MenuState& st) {
         }
     const float listTop = 48.0f, listBottom = float(m.height()) - 32.0f, rowH = 11.0f;
     const int visible = std::max(1, int((listBottom - listTop) / rowH));
-    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f, gfx::rgba(0, 0, 0, 110));
+    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f,
+                   gfx::rgba(0, 0, 0, 110));
     const world::Statistics* s = st.stats;
     const float left = cx - 150.0f, right = cx + 150.0f;
     int row = 0; // rows counted so far (scrolled ones are skipped)
@@ -293,9 +321,11 @@ MenuAction statisticsScreen(Menu& m, MenuState& st) {
                 any += s->item(world::ItemStat(k), id);
             if (any == 0) continue;
             prettyName(items.item(id).id, name, sizeof(name));
-            std::snprintf(value, sizeof(value), "%lld / %lld / %lld / %lld / %lld / %lld", (long long)mined,
-                          (long long)s->item(world::ItemStat::Crafted, id), (long long)s->item(world::ItemStat::Used, id),
-                          (long long)s->item(world::ItemStat::Broken, id), (long long)s->item(world::ItemStat::PickedUp, id),
+            std::snprintf(value, sizeof(value), "%lld / %lld / %lld / %lld / %lld / %lld",
+                          (long long)mined, (long long)s->item(world::ItemStat::Crafted, id),
+                          (long long)s->item(world::ItemStat::Used, id),
+                          (long long)s->item(world::ItemStat::Broken, id),
+                          (long long)s->item(world::ItemStat::PickedUp, id),
                           (long long)s->item(world::ItemStat::Dropped, id));
             line(name, value, row % 2 ? argb(0xFFFFFFFF) : argb(0xFFB0B0B0));
         }
@@ -304,8 +334,8 @@ MenuAction statisticsScreen(Menu& m, MenuState& st) {
             const auto type = world::MobType(t);
             if (s->killed(type) == 0 && s->killedBy(type) == 0) continue;
             prettyName(world::mobInfo(type).id, name, sizeof(name));
-            std::snprintf(value, sizeof(value), "killed %lld, killed you %lld", (long long)s->killed(type),
-                          (long long)s->killedBy(type));
+            std::snprintf(value, sizeof(value), "killed %lld, killed you %lld",
+                          (long long)s->killed(type), (long long)s->killedBy(type));
             line(name, value, row % 2 ? argb(0xFFFFFFFF) : argb(0xFFB0B0B0));
         }
     }
@@ -313,7 +343,8 @@ MenuAction statisticsScreen(Menu& m, MenuState& st) {
         m.text("Nothing yet", cx, listTop + 20.0f, argb(0xFFA0A0A0), true);
     if (m.input().wheel != 0.0) st.statsScroll -= int(m.input().wheel) * 3;
     st.statsScroll = std::clamp(st.statsScroll, 0, std::max(0, row - visible));
-    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape) st.screen = MenuScreen::Pause;
+    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape)
+        st.screen = MenuScreen::Pause;
     return MenuAction::None;
 }
 
@@ -324,9 +355,11 @@ MenuAction advancementsScreen(Menu& m, MenuState& st) {
     const float cx = float(m.width()) / 2.0f;
     const auto all = world::advancements();
     char head[64];
-    std::snprintf(head, sizeof(head), "Advancements (%d/%d)", st.adv ? st.adv->doneCount() : 0, int(all.size()));
+    std::snprintf(head, sizeof(head), "Advancements (%d/%d)", st.adv ? st.adv->doneCount() : 0,
+                  int(all.size()));
     m.text(head, cx, 8.0f, argb(0xFFFFFFFF), true);
-    static constexpr const char* kTabs[5] = {"Minecraft", "Nether", "The End", "Adventure", "Husbandry"};
+    static constexpr const char* kTabs[5] = {"Minecraft", "Nether", "The End", "Adventure",
+                                             "Husbandry"};
     for (int t = 0; t < 5; ++t)
         if (m.button(kTabs[t], cx - 160.0f + float(t) * 64.0f, 22.0f, 62.0f, st.advTab != t)) {
             st.advTab = t;
@@ -334,7 +367,8 @@ MenuAction advancementsScreen(Menu& m, MenuState& st) {
         }
     const float listTop = 48.0f, listBottom = float(m.height()) - 32.0f, rowH = 11.0f;
     const int visible = std::max(1, int((listBottom - listTop) / rowH));
-    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f, gfx::rgba(0, 0, 0, 110));
+    m.batch().fill(0, listTop - 2.0f, float(m.width()), listBottom - listTop + 4.0f,
+                   gfx::rgba(0, 0, 0, 110));
     const float left = cx - 150.0f;
     int row = 0;
     char text[128];
@@ -348,10 +382,13 @@ MenuAction advancementsScreen(Menu& m, MenuState& st) {
         if (int(a.tab) != st.advTab) continue;
         const bool made = st.adv && st.adv->done(int(i));
         // Vanilla frames: task (square), goal (rounded), challenge (spiked, purple title).
-        const char* mark = a.frame == world::AdvFrame::Challenge ? "*" : a.frame == world::AdvFrame::Goal ? "o" : "-";
-        std::snprintf(text, sizeof(text), "%s %s %.*s", made ? "[x]" : "[ ]", mark, int(a.title.size()), a.title.data());
+        const char* mark = a.frame == world::AdvFrame::Challenge ? "*"
+                           : a.frame == world::AdvFrame::Goal    ? "o"
+                                                                 : "-";
+        std::snprintf(text, sizeof(text), "%s %s %.*s", made ? "[x]" : "[ ]", mark,
+                      int(a.title.size()), a.title.data());
         line(text, 0.0f,
-             !made ? argb(0xFF909090)
+             !made                                   ? argb(0xFF909090)
              : a.frame == world::AdvFrame::Challenge ? argb(0xFFFF55FF)
                                                      : argb(0xFFFFFF55));
         std::snprintf(text, sizeof(text), "%.*s", int(a.description.size()), a.description.data());
@@ -359,32 +396,44 @@ MenuAction advancementsScreen(Menu& m, MenuState& st) {
     }
     if (m.input().wheel != 0.0) st.advScroll -= int(m.input().wheel) * 3;
     st.advScroll = std::clamp(st.advScroll, 0, std::max(0, row - visible));
-    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape) st.screen = MenuScreen::Pause;
+    if (m.button("Done", cx - 100.0f, float(m.height()) - 26.0f, 200.0f) || m.input().escape)
+        st.screen = MenuScreen::Pause;
     return MenuAction::None;
 }
 
 } // namespace
 
-MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite, const char* version) {
+MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite,
+                    const char* version) {
     switch (state.screen) {
-    case MenuScreen::Title: return title(menu, state, dirtSprite, version);
-    case MenuScreen::WorldList: return worldList(menu, state, dirtSprite);
-    case MenuScreen::CreateWorld: return createWorld(menu, state, dirtSprite);
-    case MenuScreen::ConfirmDelete: return confirmDelete(menu, state, dirtSprite);
-    case MenuScreen::Options: return optionsScreen(menu, state, options, dirtSprite);
-    case MenuScreen::Pause: return pause(menu, state);
-    case MenuScreen::Statistics: return statisticsScreen(menu, state);
-    case MenuScreen::Advancements: return advancementsScreen(menu, state);
-    case MenuScreen::None: break;
+    case MenuScreen::Title:
+        return title(menu, state, dirtSprite, version);
+    case MenuScreen::WorldList:
+        return worldList(menu, state, dirtSprite);
+    case MenuScreen::CreateWorld:
+        return createWorld(menu, state, dirtSprite);
+    case MenuScreen::ConfirmDelete:
+        return confirmDelete(menu, state, dirtSprite);
+    case MenuScreen::Options:
+        return optionsScreen(menu, state, options, dirtSprite);
+    case MenuScreen::Pause:
+        return pause(menu, state);
+    case MenuScreen::Statistics:
+        return statisticsScreen(menu, state);
+    case MenuScreen::Advancements:
+        return advancementsScreen(menu, state);
+    case MenuScreen::None:
+        break;
     }
     return MenuAction::None;
 }
 
 const char* splashText(uint32_t random) {
     static constexpr const char* kSplashes[] = {
-        "Made from scratch!", "Now with weather!",    "C++20!",          "20 ticks a second!",
-        "Cubes all the way!", "Original textures!",   "Paletted!",       "Also try the real thing!",
-        "Floor division!",    "No Mojang code!",      "Learn how it works!", "Synthesized sounds!",
+        "Made from scratch!", "Now with weather!",        "C++20!",
+        "20 ticks a second!", "Cubes all the way!",       "Original textures!",
+        "Paletted!",          "Also try the real thing!", "Floor division!",
+        "No Mojang code!",    "Learn how it works!",      "Synthesized sounds!",
     };
     return kSplashes[random % std::size(kSplashes)];
 }

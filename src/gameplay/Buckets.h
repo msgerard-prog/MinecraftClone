@@ -28,8 +28,9 @@ world::ItemId fishBucketFor(world::MobType fish);
 
 // `held` is the bucket item used. Returns what it turns into (survival: the caller
 // swaps or splits the stack), or nullopt if nothing happened. `changed` gets edits.
-std::optional<BucketResult> useBucket(world::World& world, world::ItemId held, const glm::dvec3& eye,
-                                      const glm::dvec3& look, double reach, std::vector<world::BlockPos>& changed);
+std::optional<BucketResult> useBucket(world::World& world, world::ItemId held,
+                                      const glm::dvec3& eye, const glm::dvec3& look, double reach,
+                                      std::vector<world::BlockPos>& changed);
 
 // Puts the used bucket's result into the inventory: survival swaps a single bucket or
 // fills one of a stack (the filled one goes to a free slot); creative keeps the held

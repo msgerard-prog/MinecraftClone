@@ -20,7 +20,8 @@ using namespace world;
 namespace {
 
 float yawTo(const glm::dvec3& from, const glm::dvec3& to) {
-    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 / std::numbers::pi);
+    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 /
+                              std::numbers::pi);
 }
 
 float approachAngle(float from, float to, float maxStep) {
@@ -29,7 +30,8 @@ float approachAngle(float from, float to, float maxStep) {
 }
 
 bool waterAt(const World& w, const glm::dvec3& p) {
-    const BlockStateId s = w.getBlock({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))});
+    const BlockStateId s =
+        w.getBlock({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))});
     return blockRegistry().blockOf(s) == blocks::Water || blockRegistry().waterlogged(s);
 }
 
@@ -51,7 +53,8 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     // Air (wiki: Fish, Squid): 300 ticks out of water, then 2 damage a second; dolphins
     // dry out after 2 minutes (never in rain), guardians never (review fixes).
     const bool guardian = m.type == MobType::Guardian || m.type == MobType::ElderGuardian;
-    const BlockPos feetCell{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+    const BlockPos feetCell{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)),
+                            int(std::floor(m.pos.z))};
     const bool rained = (m.type == MobType::Dolphin || m.type == MobType::Axolotl) && ctx.weather &&
                         rainingAt(ctx.world, *ctx.weather, feetCell);
     // (M26.3c: axolotls last 5 minutes out of water - wiki: Axolotl)
@@ -69,16 +72,20 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     // grows up in a warm biome, cold in a cold one, else temperate.
     if (m.type == MobType::Tadpole && m.age < 0 && ++m.age >= 0) {
         const Chunk* c = ctx.world.chunk(feetCell.chunk());
-        const Biome b = c && c->biomes() ? c->biomes()->at(blockToLocal(feetCell.x), feetCell.y, blockToLocal(feetCell.z),
-                                                            ctx.world.height())
-                                         : Biome::Plains;
-        const bool warm = b == Biome::Desert || b == Biome::Savanna || b == Biome::Jungle || b == Biome::SparseJungle ||
-                          b == Biome::Badlands || b == Biome::WoodedBadlands || b == Biome::ErodedBadlands ||
-                          b == Biome::WarmOcean || b == Biome::NetherWastes || b == Biome::MangroveSwamp ||
-                          b == Biome::BambooJungle || b == Biome::SavannaPlateau || b == Biome::WindsweptSavanna;
-        const bool cold = b == Biome::SnowyPlains || b == Biome::SnowyTaiga || b == Biome::IceSpikes ||
-                          b == Biome::FrozenRiver || b == Biome::FrozenOcean || b == Biome::SnowySlopes ||
-                          b == Biome::Grove || b == Biome::FrozenPeaks || b == Biome::JaggedPeaks ||
+        const Biome b = c && c->biomes()
+                            ? c->biomes()->at(blockToLocal(feetCell.x), feetCell.y,
+                                              blockToLocal(feetCell.z), ctx.world.height())
+                            : Biome::Plains;
+        const bool warm = b == Biome::Desert || b == Biome::Savanna || b == Biome::Jungle ||
+                          b == Biome::SparseJungle || b == Biome::Badlands ||
+                          b == Biome::WoodedBadlands || b == Biome::ErodedBadlands ||
+                          b == Biome::WarmOcean || b == Biome::NetherWastes ||
+                          b == Biome::MangroveSwamp || b == Biome::BambooJungle ||
+                          b == Biome::SavannaPlateau || b == Biome::WindsweptSavanna;
+        const bool cold = b == Biome::SnowyPlains || b == Biome::SnowyTaiga ||
+                          b == Biome::IceSpikes || b == Biome::FrozenRiver ||
+                          b == Biome::FrozenOcean || b == Biome::SnowySlopes || b == Biome::Grove ||
+                          b == Biome::FrozenPeaks || b == Biome::JaggedPeaks ||
                           b == Biome::SnowyBeach || b == Biome::DeepFrozenOcean;
         m.type = MobType::Frog;
         m.woolColour = uint8_t(warm ? 1 : cold ? 2 : 0);
@@ -95,8 +102,10 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             m.goalTicks = 0;
             if (m.attackCooldown > 0) --m.attackCooldown;
             if (m.attackCooldown == 0 &&
-                box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)})) {
-                if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) setPlayerAttacker(m.uuidHi);
+                box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3),
+                                       ctx.player.box().max + glm::dvec3(0.3)})) {
+                if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos))
+                    setPlayerAttacker(m.uuidHi);
                 m.attackCooldown = 20;
             }
         }
@@ -104,18 +113,21 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     if (m.type == MobType::Axolotl) {
         // Playing dead (wiki: Axolotl): a hurt axolotl may lie still for 10 s, healing.
         // (hurtTime was 10 at the hit; the tick counted it down once before the AI)
-        if (m.hurtTime == 9 && m.health < maxHealthOf(m) && m.spellTicks == 0 && ctx.rng.nextInt(3) == 0)
+        if (m.hurtTime == 9 && m.health < maxHealthOf(m) && m.spellTicks == 0 &&
+            ctx.rng.nextInt(3) == 0)
             m.spellTicks = 200;
         if (m.spellTicks > 0) {
             --m.spellTicks;
-            if (m.spellTicks % 50 == 0) m.health = std::min(maxHealthOf(m), m.health + 1.0f); // (Regeneration I)
+            if (m.spellTicks % 50 == 0)
+                m.health = std::min(maxHealthOf(m), m.health + 1.0f); // (Regeneration I)
             m.vel *= 0.5;
             physics(ctx.world, m, glm::dvec3(0.0), false);
             return true;
         }
         // Growing up and breeding like any animal (to a partner in love).
         animalUpkeep(ctx, m);
-        if (double unused = 0.0; fluid.water && m.targetUuid == 0 && animalGoal(ctx, m, unused)) m.goalTicks = 0;
+        if (double unused = 0.0; fluid.water && m.targetUuid == 0 && animalGoal(ctx, m, unused))
+            m.goalTicks = 0;
         // Hunting in the water: fish, squid, tadpoles, drowned and guardians within 8.
         if (fluid.water && m.targetUuid == 0 && !m.isBaby() && ctx.rng.nextInt(20) == 0) {
             const ChunkPos c{blockToChunk(feetCell.x), blockToChunk(feetCell.z)};
@@ -124,8 +136,9 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
                 for (int dx = -1; dx <= 1; ++dx)
                     if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                         for (const MobData& o : ch->mobs())
-                            if ((isFish(o.type) || o.type == MobType::Squid || o.type == MobType::GlowSquid ||
-                                 o.type == MobType::Tadpole || o.type == MobType::Drowned || o.type == MobType::Guardian ||
+                            if ((isFish(o.type) || o.type == MobType::Squid ||
+                                 o.type == MobType::GlowSquid || o.type == MobType::Tadpole ||
+                                 o.type == MobType::Drowned || o.type == MobType::Guardian ||
                                  o.type == MobType::ElderGuardian) &&
                                 o.health > 0.0f && glm::dot(o.pos - m.pos, o.pos - m.pos) < best) {
                                 best = glm::dot(o.pos - m.pos, o.pos - m.pos);
@@ -144,7 +157,9 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
                 m.goal = t->pos;
                 m.goalTicks = 0;
                 if (m.attackCooldown > 0) --m.attackCooldown;
-                if (m.attackCooldown == 0 && box(m).intersects(Aabb{box(*t).min - glm::dvec3(0.3), box(*t).max + glm::dvec3(0.3)})) {
+                if (m.attackCooldown == 0 &&
+                    box(m).intersects(
+                        Aabb{box(*t).min - glm::dvec3(0.3), box(*t).max + glm::dvec3(0.3)})) {
                     t->health -= mobInfo(MobType::Axolotl).attackDamage;
                     t->hurtTime = 10;
                     m.attackCooldown = 20;
@@ -155,7 +170,8 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
         if (!fluid.water) {
             if (!waterAt(ctx.world, m.goal) && ctx.rng.nextInt(10) == 0)
                 for (int k = 0; k < 8; ++k) {
-                    const glm::dvec3 g = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 3 - 2,
+                    const glm::dvec3 g = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6,
+                                                            ctx.rng.nextDouble() * 3 - 2,
                                                             ctx.rng.nextDouble() * 12 - 6);
                     if (waterAt(ctx.world, g)) {
                         m.goal = g;
@@ -185,8 +201,10 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             --m.size;
         }
         if (m.size > 0 && threat && m.attackCooldown == 0 &&
-            box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)})) {
-            if (ctx.vitals.attacked(1.0f + float(m.size), &m.pos)) ctx.vitals.addEffect(Effect::Poison, 0, 60 * m.size);
+            box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3),
+                                   ctx.player.box().max + glm::dvec3(0.3)})) {
+            if (ctx.vitals.attacked(1.0f + float(m.size), &m.pos))
+                ctx.vitals.addEffect(Effect::Poison, 0, 60 * m.size);
             m.attackCooldown = 20;
         }
         if (m.attackCooldown > 0) --m.attackCooldown;
@@ -210,7 +228,8 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
         // (range 15, elder 14; after a shot it swims 3 s before locking on again: the
         // negative charge counts that pause up)
         const double range = elder ? 14.0 : 15.0;
-        bool locked = ctx.survival && !ctx.playerDead && playerDist2 < range * range && m.chargeTicks >= 0;
+        bool locked =
+            ctx.survival && !ctx.playerDead && playerDist2 < range * range && m.chargeTicks >= 0;
         if (locked) {
             const glm::dvec3 d = eye - from;
             const double len = glm::length(d);
@@ -228,24 +247,30 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
                 m.chargeTicks = -60;
                 m.hasBeam = false;
             }
-            if (!fluid.water && m.onGround && ctx.rng.nextInt(10) == 0) m.vel.y = 0.4; // (flopping still)
+            if (!fluid.water && m.onGround && ctx.rng.nextInt(10) == 0)
+                m.vel.y = 0.4; // (flopping still)
             physics(ctx.world, m, glm::dvec3(0.0), false);
             return true;
         }
         m.hasBeam = false;
-        if (m.chargeTicks < 0) ++m.chargeTicks; // (the pause after a shot)
-        else m.chargeTicks = 0;
+        if (m.chargeTicks < 0)
+            ++m.chargeTicks; // (the pause after a shot)
+        else
+            m.chargeTicks = 0;
     }
     // A dolphin gives a player swimming within 5 blocks Dolphin's Grace (wiki: Dolphin).
-    if (m.type == MobType::Dolphin && ctx.player.inWater() && playerDist2 < 5.0 * 5.0 && !ctx.playerDead)
+    if (m.type == MobType::Dolphin && ctx.player.inWater() && playerDist2 < 5.0 * 5.0 &&
+        !ctx.playerDead)
         ctx.vitals.addEffect(Effect::DolphinsGrace, 0, 100);
     glm::dvec3 wish(0.0);
     if (fluid.water) {
         // Fish flee a player within 8 blocks (wiki: avoid-entity goal); otherwise a
         // random spot in the water nearby every few seconds.
-        const bool flee = isFish(m.type) && m.type != MobType::Pufferfish && playerDist2 < 8.0 * 8.0 && ctx.survival;
+        const bool flee = isFish(m.type) && m.type != MobType::Pufferfish &&
+                          playerDist2 < 8.0 * 8.0 && ctx.survival;
         if (flee) {
-            const glm::dvec3 away = playerDist2 > 1e-6 ? -toPlayer / std::sqrt(playerDist2) : glm::dvec3(1, 0, 0);
+            const glm::dvec3 away =
+                playerDist2 > 1e-6 ? -toPlayer / std::sqrt(playerDist2) : glm::dvec3(1, 0, 0);
             const glm::dvec3 target = m.pos + away * 4.0;
             if (waterAt(ctx.world, target)) m.goal = target, m.goalTicks = 0;
         }
@@ -254,10 +279,11 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             m.goalTicks = 0;
             m.goal = m.pos;
             for (int tries = 0; tries < 4; ++tries) {
-                const glm::dvec3 g = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 6 - 3,
-                                                        ctx.rng.nextDouble() * 12 - 6);
-                if (waterAt(ctx.world, g) &&
-                    (m.type != MobType::Dolphin || !waterAt(ctx.world, g + glm::dvec3(0.0, 4.0, 0.0)))) {
+                const glm::dvec3 g =
+                    m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 6 - 3,
+                                       ctx.rng.nextDouble() * 12 - 6);
+                if (waterAt(ctx.world, g) && (m.type != MobType::Dolphin ||
+                                              !waterAt(ctx.world, g + glm::dvec3(0.0, 4.0, 0.0)))) {
                     m.goal = g; // (dolphins keep within a few blocks of the surface, for air)
                     break;
                 }
@@ -294,7 +320,8 @@ void Mobs::spawnWater(Context& ctx) {
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit() || !c->biomes()) return;
     const auto& r = blockRegistry();
-    const BlockStateId here = ctx.world.getBlock({x, y, z}), above = ctx.world.getBlock({x, y + 1, z});
+    const BlockStateId here = ctx.world.getBlock({x, y, z}),
+                       above = ctx.world.getBlock({x, y + 1, z});
     if (r.blockOf(here) != blocks::Water || r.blockOf(above) != blocks::Water) return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
     const Biome biome = c->biomes()->at(lx, y, lz, ctx.world.height());
@@ -304,65 +331,81 @@ void Mobs::spawnWater(Context& ctx) {
     // Guardians (M25.5): only in a monument's water - here, water beside its prismarine
     // walls (wiki: Guardian › Spawning: within the monument's bounds), groups of 2-4.
     if (y >= 39 && y <= 62 && m_hostiles < 70) {
-        static const BlockId bricks = *r.findBlock("prismarine_bricks"), dark = *r.findBlock("dark_prismarine");
+        static const BlockId bricks = *r.findBlock("prismarine_bricks"),
+                             dark = *r.findBlock("dark_prismarine");
         bool monument = false;
         for (int d = 1; d <= 3 && !monument; ++d)
-            for (const glm::ivec3 o : {glm::ivec3{d, 0, 0}, glm::ivec3{-d, 0, 0}, glm::ivec3{0, 0, d}, glm::ivec3{0, 0, -d},
-                                        glm::ivec3{0, -d, 0}}) {
+            for (const glm::ivec3 o :
+                 {glm::ivec3{d, 0, 0}, glm::ivec3{-d, 0, 0}, glm::ivec3{0, 0, d},
+                  glm::ivec3{0, 0, -d}, glm::ivec3{0, -d, 0}}) {
                 const BlockId b = r.blockOf(ctx.world.getBlock({x + o.x, y + o.y, z + o.z}));
                 if (b == bricks || b == dark) monument = true;
             }
         if (monument) {
             for (int i = 0, n = 2 + int(ctx.rng.nextInt(3)); i < n && m_hostiles < 70; ++i)
-                if (add(ctx.world, make(MobType::Guardian, {x + 0.5, double(y) + 0.1, z + 0.5}, ctx.rng))) ++m_hostiles;
+                if (add(ctx.world,
+                        make(MobType::Guardian, {x + 0.5, double(y) + 0.1, z + 0.5}, ctx.rng)))
+                    ++m_hostiles;
             return;
         }
     }
     // Drowned (M25.3; wiki: Drowned › Spawning): monsters of dark ocean and river water
     // (block light 0, sky light after night darkening at most a random 0..7), under the
     // monster cap; 1 in 16 holds a trident.
-    const bool sea = biome == Biome::River || biome == Biome::FrozenRiver || biome == Biome::Ocean ||
-                     biome == Biome::DeepOcean || biome == Biome::ColdOcean || biome == Biome::DeepColdOcean ||
-                     biome == Biome::LukewarmOcean || biome == Biome::DeepLukewarmOcean || biome == Biome::WarmOcean ||
-                     biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
+    const bool sea =
+        biome == Biome::River || biome == Biome::FrozenRiver || biome == Biome::Ocean ||
+        biome == Biome::DeepOcean || biome == Biome::ColdOcean || biome == Biome::DeepColdOcean ||
+        biome == Biome::LukewarmOcean || biome == Biome::DeepLukewarmOcean ||
+        biome == Biome::WarmOcean || biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
     // (wiki weights: rivers 100, oceans 5 and only below y 58, frozen rivers 1 - so
     // rivers 8% of attempts here, oceans 1 in 20 of that, frozen rivers 1 in 100)
     const bool river = biome == Biome::River, frozenRiver = biome == Biome::FrozenRiver;
     const uint32_t drownedOdds = river ? 1000u : frozenRiver ? 10u : y < 58 ? 50u : 0u; // per 12500
-    if (sea && drownedOdds > 0 && ctx.rng.nextInt(12500) < drownedOdds && m_hostiles < 70 && c->blockLight(lx, y, lz) == 0 &&
-        c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) <= static_cast<int>(ctx.rng.nextInt(8))) {
+    if (sea && drownedOdds > 0 && ctx.rng.nextInt(12500) < drownedOdds && m_hostiles < 70 &&
+        c->blockLight(lx, y, lz) == 0 &&
+        c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) <=
+            static_cast<int>(ctx.rng.nextInt(8))) {
         MobData d = make(MobType::Drowned, {x + 0.5, double(y), z + 0.5}, ctx.rng);
         d.heldTrident = ctx.rng.nextInt(16) == 0;
         if (add(ctx.world, d)) ++m_hostiles;
         return;
     }
     const bool lush = biome == Biome::LushCaves;
-    if ((y < 30 || lush) && c->skyLight(lx, y, lz) == 0 && c->blockLight(lx, y, lz) == 0) { // dark caves
+    if ((y < 30 || lush) && c->skyLight(lx, y, lz) == 0 &&
+        c->blockLight(lx, y, lz) == 0) { // dark caves
         // Axolotls (M26.3c; wiki: groups of 4-6 in lush caves' water - M27.2c; worlds from
         // before cave biomes: deep cave water below y 0), else glow squid.
-        if ((lush || y < 0) && m_axolotls < 5 && ctx.rng.nextInt(3) == 0) kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
-        else if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
-    } else if (y >= 38 && y <= 58 && sea && biome != Biome::River && biome != Biome::FrozenRiver && roll < 4 &&
-               m_squid < 5) {
-        kind = MobType::Nautilus, group = 1 + int(ctx.rng.nextInt(3)); // (M26.5a; wiki: oceans, y 38-58, 1-3)
+        if ((lush || y < 0) && m_axolotls < 5 && ctx.rng.nextInt(3) == 0)
+            kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
+        else if (m_glowSquid < 5)
+            kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
+    } else if (y >= 38 && y <= 58 && sea && biome != Biome::River && biome != Biome::FrozenRiver &&
+               roll < 4 && m_squid < 5) {
+        kind = MobType::Nautilus,
+        group = 1 + int(ctx.rng.nextInt(3)); // (M26.5a; wiki: oceans, y 38-58, 1-3)
     } else if (y < 50 || y > 63) {
-        return; // (fish, squid and dolphins: y 50-63 only - wiki)
+        return;             // (fish, squid and dolphins: y 50-63 only - wiki)
     } else if (roll < 30) { // the creature list
         // Squid in every ocean and river; dolphins with them in the warmer oceans (wiki:
         // ocean 1:1, lukewarm and warm 10:2, deep lukewarm 8:2), groups of 1-2.
-        const bool dolphinBiome = biome == Biome::Ocean || biome == Biome::DeepOcean || biome == Biome::LukewarmOcean ||
+        const bool dolphinBiome = biome == Biome::Ocean || biome == Biome::DeepOcean ||
+                                  biome == Biome::LukewarmOcean ||
                                   biome == Biome::DeepLukewarmOcean || biome == Biome::WarmOcean;
         const uint32_t dolphinIn12 = biome == Biome::Ocean || biome == Biome::DeepOcean ? 6
-                                     : biome == Biome::DeepLukewarmOcean                  ? 2 * 12 / 10
-                                                                                          : 2;
+                                     : biome == Biome::DeepLukewarmOcean ? 2 * 12 / 10
+                                                                         : 2;
         if (m_squid < 5) {
-            if (dolphinBiome && ctx.rng.nextInt(12) < dolphinIn12) kind = MobType::Dolphin, group = 1 + int(ctx.rng.nextInt(2));
-            else kind = MobType::Squid, group = 1 + int(ctx.rng.nextInt(4));
+            if (dolphinBiome && ctx.rng.nextInt(12) < dolphinIn12)
+                kind = MobType::Dolphin, group = 1 + int(ctx.rng.nextInt(2));
+            else
+                kind = MobType::Squid, group = 1 + int(ctx.rng.nextInt(4));
         }
     } else if (m_fish < 20) { // the ambient list (wiki: each ocean's spawn table)
         const uint32_t w = ctx.rng.nextInt(100);
         switch (biome) {
-        case Biome::WarmOcean: kind = w < 60 ? MobType::TropicalFish : MobType::Pufferfish; break;
+        case Biome::WarmOcean:
+            kind = w < 60 ? MobType::TropicalFish : MobType::Pufferfish;
+            break;
         case Biome::LukewarmOcean: // (tropical 25, cod 15, pufferfish 5)
             kind = w < 56 ? MobType::TropicalFish : w < 89 ? MobType::Cod : MobType::Pufferfish;
             break;
@@ -370,14 +413,21 @@ void Mobs::spawnWater(Context& ctx) {
             kind = w < 66 ? MobType::TropicalFish : w < 87 ? MobType::Cod : MobType::Pufferfish;
             break;
         case Biome::Ocean:
-        case Biome::DeepOcean: kind = MobType::Cod; break;
+        case Biome::DeepOcean:
+            kind = MobType::Cod;
+            break;
         case Biome::ColdOcean:
-        case Biome::DeepColdOcean: kind = w < 50 ? MobType::Cod : MobType::Salmon; break;
+        case Biome::DeepColdOcean:
+            kind = w < 50 ? MobType::Cod : MobType::Salmon;
+            break;
         case Biome::FrozenOcean:
         case Biome::DeepFrozenOcean:
         case Biome::River:
-        case Biome::FrozenRiver: kind = MobType::Salmon; break;
-        default: break;
+        case Biome::FrozenRiver:
+            kind = MobType::Salmon;
+            break;
+        default:
+            break;
         }
         group = kind == MobType::Cod            ? 3 + int(ctx.rng.nextInt(4))
                 : kind == MobType::Salmon       ? 1 + int(ctx.rng.nextInt(5))
@@ -389,16 +439,20 @@ void Mobs::spawnWater(Context& ctx) {
     // A tropical fish school shares one look (wiki: Tropical Fish - they school by variant).
     const MobData look = make(kind, {x + 0.5, double(y), z + 0.5}, ctx.rng);
     for (int i = 0; i < group; ++i) {
-        const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
+        const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2,
+                  gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
         if (r.blockOf(ctx.world.getBlock({gx, y, gz})) != blocks::Water) continue;
         MobData mob = make(kind, {gx + 0.5, double(y) + 0.2, gz + 0.5}, ctx.rng);
         mob.size = kind == MobType::TropicalFish ? look.size : mob.size;
         mob.woolColour = look.woolColour;
         mob.color2 = look.color2;
         if (!add(ctx.world, mob)) continue;
-        if (kind == MobType::GlowSquid) ++m_glowSquid;
-        else if (kind == MobType::Squid || kind == MobType::Dolphin) ++m_squid;
-        else ++m_fish;
+        if (kind == MobType::GlowSquid)
+            ++m_glowSquid;
+        else if (kind == MobType::Squid || kind == MobType::Dolphin)
+            ++m_squid;
+        else
+            ++m_fish;
     }
 }
 

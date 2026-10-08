@@ -22,11 +22,12 @@ public:
     bool biting() const { return m_state == State::Bite; }
     bool nibbling() const { return m_state == State::Nibble; } // (bubbles toward the bobber)
 
-    void cast(const glm::dvec3& eye, const glm::dvec3& look, int lure, int luck, world::Xoroshiro& rng);
+    void cast(const glm::dvec3& eye, const glm::dvec3& look, int lure, int luck,
+              world::Xoroshiro& rng);
     // Reel in: the catch (when biting) flies to the player. Returns the rod's wear
     // (1 for a catch, 2 when the bobber was on the ground, else 0).
-    int reel(const world::World& world, const glm::dvec3& player, ItemEntities& items, ExperienceOrbs* orbs,
-             world::Xoroshiro& rng);
+    int reel(const world::World& world, const glm::dvec3& player, ItemEntities& items,
+             ExperienceOrbs* orbs, world::Xoroshiro& rng);
     // One tick; the line breaks beyond 32 blocks (vanilla).
     void tick(const world::World& world, const glm::dvec3& player, world::Xoroshiro& rng);
     void cancel() { m_active = false; }

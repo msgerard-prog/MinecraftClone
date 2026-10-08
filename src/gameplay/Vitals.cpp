@@ -10,7 +10,8 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
-    if (effectLevel(world::Effect::ConduitPower) > 0) { // refills air under water too (wiki, since 1.21.4)
+    if (effectLevel(world::Effect::ConduitPower) >
+        0) { // refills air under water too (wiki, since 1.21.4)
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
@@ -33,16 +34,20 @@ float Vitals::touchFire(bool inFire) {
         return 0.0f;
     }
     if (++m_fireContact >= 20) setOnFire(160);
-    return attacked(1.0f, nullptr, Hit::Fire) ? 1.0f : 0.0f; // (standing in fire: armor helps; burning doesn't)
+    return attacked(1.0f, nullptr, Hit::Fire)
+               ? 1.0f
+               : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
 void Vitals::addEffect(world::Effect type, int amplifier, int duration, double scale) {
     using world::Effect;
     if (world::effectInfo(type).instant) {
         const float k = static_cast<float>(scale);
-        if (type == Effect::InstantHealth) m_health = std::min(kMaxHealth, m_health + float(4 << amplifier) * k);
+        if (type == Effect::InstantHealth)
+            m_health = std::min(kMaxHealth, m_health + float(4 << amplifier) * k);
         else if (!dead())
-            m_health = std::max(0.0f, m_health - protectionReduced(float(6 << amplifier) * k, Hit::Generic, false));
+            m_health = std::max(
+                0.0f, m_health - protectionReduced(float(6 << amplifier) * k, Hit::Generic, false));
         return;
     }
     ActiveEffect* free = nullptr;
@@ -64,14 +69,18 @@ void Vitals::tickEffects() {
         if (!dead()) {
             if (e.type == Effect::Regeneration) {
                 const int every = std::max(1, 50 >> e.amplifier);
-                if (e.duration % every == 0 && m_health < kMaxHealth) m_health = std::min(kMaxHealth, m_health + 1.0f);
+                if (e.duration % every == 0 && m_health < kMaxHealth)
+                    m_health = std::min(kMaxHealth, m_health + 1.0f);
             } else if (e.type == Effect::Poison) {
                 const int every = std::max(1, 25 >> e.amplifier);
                 if (e.duration % every == 0 && m_health > 1.0f) m_health -= 1.0f; // (never kills)
-            } else if (e.type == Effect::Wither) { // (M26.4a; wiki: Wither - 1 every 40 ticks at I, may kill)
+            } else if (e.type ==
+                       Effect::Wither) { // (M26.4a; wiki: Wither - 1 every 40 ticks at I, may kill)
                 const int every = std::max(1, 40 >> e.amplifier);
-                if (e.duration % every == 0) m_health = std::max(0.0f, m_health - 1.0f); // (no hurt cooldown, as Poison)
-            } else if (e.type == Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
+                if (e.duration % every == 0)
+                    m_health = std::max(0.0f, m_health - 1.0f); // (no hurt cooldown, as Poison)
+            } else if (e.type ==
+                       Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
                 exhaust(0.005f * float(e.amplifier + 1));
             }
         }
@@ -98,7 +107,7 @@ float Vitals::tickFire(bool inWater) {
 }
 
 void Vitals::reset(bool keepExperience) {
-    m_effects = {}; // (death clears effects)
+    m_effects = {};      // (death clears effects)
     m_timeSinceRest = 0; // (and the time awake: phantoms - M26.4a)
     m_health = kMaxHealth;
     m_food = kMaxFood;
@@ -141,7 +150,8 @@ bool Vitals::damage(float amount, bool exhausts) {
 
 float Vitals::armorReduced(float amount, int armor, float toughness) {
     const float a = float(armor);
-    const float reduction = std::min(20.0f, std::max(a / 5.0f, a - 4.0f * amount / (std::min(toughness, 20.0f) + 8.0f)));
+    const float reduction = std::min(
+        20.0f, std::max(a / 5.0f, a - 4.0f * amount / (std::min(toughness, 20.0f) + 8.0f)));
     return amount * (1.0f - reduction / 25.0f);
 }
 
@@ -156,10 +166,14 @@ float Vitals::protectionReduced(float amount, Hit kind, bool fall) const {
 
 float Vitals::scaledDamage(float amount, int difficulty) {
     switch (difficulty) {
-    case 0: return 0.0f;
-    case 1: return std::min(amount / 2.0f + 1.0f, amount);
-    case 3: return amount * 1.5f;
-    default: return amount;
+    case 0:
+        return 0.0f;
+    case 1:
+        return std::min(amount / 2.0f + 1.0f, amount);
+    case 3:
+        return amount * 1.5f;
+    default:
+        return amount;
     }
 }
 
@@ -180,7 +194,8 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
         }
     }
     if (m_armorPoints > 0) m_armorWear += std::max(1, int(amount / 4.0f));
-    return damage(protectionReduced(armorReduced(amount, m_armorPoints, m_armorToughness), kind, false));
+    return damage(
+        protectionReduced(armorReduced(amount, m_armorPoints, m_armorToughness), kind, false));
 }
 
 void Vitals::addExperience(int points) {
@@ -220,7 +235,8 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
 
     // Falls (wiki: Fall damage): 1 per block fallen beyond 3, on landing, measured
     // from the highest point since leaving the ground. Water and flight cancel it.
-    if (inWater || flying || effectLevel(world::Effect::SlowFalling) > 0) { // (slow falling: no fall damage)
+    if (inWater || flying ||
+        effectLevel(world::Effect::SlowFalling) > 0) { // (slow falling: no fall damage)
         m_falling = false;
     } else if (!onGround) {
         if (!m_falling) {
@@ -231,10 +247,12 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     } else if (m_falling) {
         // Jump Boost: one block less per level (wiki: Jump Boost).
         const double fall = m_fallStartY - feetY - effectLevel(world::Effect::JumpBoost);
-        const float amount = static_cast<float>(m_stalagmite ? std::ceil(fall * 2.0 - 2.0) : std::ceil(fall - 3.0));
+        const float amount =
+            static_cast<float>(m_stalagmite ? std::ceil(fall * 2.0 - 2.0) : std::ceil(fall - 3.0));
         // Armor doesn't help with falls; Feather Falling and Protection do.
         // Landing on a hay bale takes 80% off (wiki: Hay Bale; main tells us the block).
-        const float reduced = m_fallDamage ? protectionReduced(amount, Hit::Generic, true) * m_landingFactor : 0.0f;
+        const float reduced =
+            m_fallDamage ? protectionReduced(amount, Hit::Generic, true) * m_landingFactor : 0.0f;
         if (reduced > 0.0f && damage(reduced, false)) hurt += reduced;
         m_falling = false;
     }
@@ -247,15 +265,19 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     // Exhaustion drains saturation first, then food (wiki: Hunger).
     while (m_exhaustion >= 4.0f) {
         m_exhaustion -= 4.0f;
-        if (m_saturation > 0.0f) m_saturation = std::max(0.0f, m_saturation - 1.0f);
-        else if (m_difficulty > 0) m_food = std::max(0, m_food - 1); // (Peaceful: food never drops)
+        if (m_saturation > 0.0f)
+            m_saturation = std::max(0.0f, m_saturation - 1.0f);
+        else if (m_difficulty > 0)
+            m_food = std::max(0, m_food - 1); // (Peaceful: food never drops)
     }
     // Peaceful (wiki: Difficulty, Hunger): health comes back a point a second, food a
     // point every half second, saturation a point a second (with natural regeneration on).
     if (m_difficulty == 0 && m_naturalRegen && !dead()) {
         ++m_peacefulTicks;
-        if (m_peacefulTicks % 20 == 0 && m_health < kMaxHealth) m_health = std::min(kMaxHealth, m_health + 1.0f);
-        if (m_peacefulTicks % 20 == 0 && m_saturation < float(kMaxFood)) m_saturation = std::min(float(m_food), m_saturation + 1.0f);
+        if (m_peacefulTicks % 20 == 0 && m_health < kMaxHealth)
+            m_health = std::min(kMaxHealth, m_health + 1.0f);
+        if (m_peacefulTicks % 20 == 0 && m_saturation < float(kMaxFood))
+            m_saturation = std::min(float(m_food), m_saturation + 1.0f);
         if (m_peacefulTicks % 10 == 0 && m_food < kMaxFood) ++m_food;
     }
 

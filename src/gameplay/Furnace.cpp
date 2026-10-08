@@ -3,9 +3,9 @@
 #include "gameplay/Recipes.h"
 
 #include <algorithm>
-#include <vector>
 #include <climits>
 #include <cmath>
+#include <vector>
 
 namespace mc {
 
@@ -29,8 +29,10 @@ bool tickFurnace(Furnace& f) {
             std::vector<uint8_t> t(items.count());
             for (size_t i = 0; i < t.size(); ++i) {
                 const std::string_view in = items.item(static_cast<world::ItemId>(i)).id;
-                t[i] = in.find("_ore") != std::string_view::npos || in.find("raw_") != std::string_view::npos ||
-                       in == "minecraft:ancient_debris" || in.find("iron_") != std::string_view::npos ||
+                t[i] = in.find("_ore") != std::string_view::npos ||
+                       in.find("raw_") != std::string_view::npos ||
+                       in == "minecraft:ancient_debris" ||
+                       in.find("iron_") != std::string_view::npos ||
                        in.find("golden_") != std::string_view::npos;
             }
             return t;
@@ -38,8 +40,10 @@ bool tickFurnace(Furnace& f) {
         if (f.input.item >= blastable.size() || !blastable[f.input.item]) result.reset();
     }
     const auto& items = world::itemRegistry();
-    const bool outputFits = result && (f.output.empty() || (f.output.sameKind(*result) &&
-                                                          f.output.count + result->count <= items.item(f.output.item).maxStack));
+    const bool outputFits =
+        result && (f.output.empty() ||
+                   (f.output.sameKind(*result) &&
+                    f.output.count + result->count <= items.item(f.output.item).maxStack));
     const bool canSmelt = result && outputFits;
     // Light new fuel when something can smelt (wiki: Furnace › Fuel).
     if (!f.lit() && canSmelt) {
@@ -48,14 +52,17 @@ bool tickFurnace(Furnace& f) {
             // A lava bucket leaves its empty bucket behind (wiki: Fuel).
             if (world::itemRegistry().item(f.fuel.item).id == "minecraft:lava_bucket")
                 f.fuel = {*world::itemRegistry().find("bucket"), 1};
-            else if (--f.fuel.count == 0) f.fuel = {};
+            else if (--f.fuel.count == 0)
+                f.fuel = {};
         }
     }
     if (f.lit() && canSmelt) {
         if (++f.cookTime >= (fast ? kFurnaceCookTicks / 2 : kFurnaceCookTicks)) {
             f.cookTime = 0;
-            if (f.output.empty()) f.output = *result;
-            else f.output.count = static_cast<uint8_t>(f.output.count + result->count);
+            if (f.output.empty())
+                f.output = *result;
+            else
+                f.output.count = static_cast<uint8_t>(f.output.count + result->count);
             f.countRecipe(smeltRecipe(f.input)); // RecipesUsed: the experience is paid on taking
             if (--f.input.count == 0) f.input = {};
         }

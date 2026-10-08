@@ -17,7 +17,8 @@ struct AnvilResult {
     int materialUsed = 0; // units taken from the right slot (repairs); 1 otherwise
     bool tooExpensive = false;
 };
-AnvilResult anvilCombine(const world::ItemStack& left, const world::ItemStack& right, bool creative);
+AnvilResult anvilCombine(const world::ItemStack& left, const world::ItemStack& right,
+                         bool creative);
 
 // The material that repairs an item (iron ingot for iron tools...), or 0.
 world::ItemId repairMaterial(world::ItemId item);

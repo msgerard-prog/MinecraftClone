@@ -15,7 +15,17 @@ namespace mc::ui {
 // The menu screens (M22.5; vanilla: title, Select World, Create New World, delete
 // confirmation, Options, Game Menu). GL-free: they draw into a GuiBatch through Menu
 // and report what the player chose; main acts on it.
-enum class MenuScreen { None, Title, WorldList, CreateWorld, ConfirmDelete, Options, Pause, Statistics, Advancements };
+enum class MenuScreen {
+    None,
+    Title,
+    WorldList,
+    CreateWorld,
+    ConfirmDelete,
+    Options,
+    Pause,
+    Statistics,
+    Advancements
+};
 
 enum class MenuAction {
     None,
@@ -54,7 +64,8 @@ struct MenuState {
 
 // Draws the current screen and handles its input. `dirtSprite`: the atlas cell tiled
 // behind menus that have no world behind them; `version`: shown on the title screen.
-MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite, const char* version);
+MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite,
+                    const char* version);
 
 // Our splash texts (vanilla shows a random yellow line on the title screen).
 const char* splashText(uint32_t random);

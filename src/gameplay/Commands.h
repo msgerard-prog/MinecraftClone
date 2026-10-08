@@ -19,19 +19,19 @@ namespace mc {
 struct CommandContext {
     Player& player;
     Inventory& inventory;
-    int64_t& dayTime;  // world day time (world/DayTime.h)
-    int64_t gameTime;  // ticks since the world started
+    int64_t& dayTime; // world day time (world/DayTime.h)
+    int64_t gameTime; // ticks since the world started
     uint64_t seed;
-    bool* survival = nullptr; // game mode (null: /gamemode unavailable)
-    Vitals* vitals = nullptr; // /kill
+    bool* survival = nullptr;      // game mode (null: /gamemode unavailable)
+    Vitals* vitals = nullptr;      // /kill
     world::World* world = nullptr; // /summon
     world::Xoroshiro* rng = nullptr;
-    std::vector<world::BlockPos>* changed = nullptr; // /setblock: edited positions (relight)
-    world::Weather* weather = nullptr;                // /weather
+    std::vector<world::BlockPos>* changed = nullptr;   // /setblock: edited positions (relight)
+    world::Weather* weather = nullptr;                 // /weather
     std::vector<world::BlockPos>* lightning = nullptr; // /summon lightning_bolt: where to strike
-    world::GameRules* rules = nullptr; // /gamerule (M28.1)
-    int* difficulty = nullptr;         // /difficulty: 0 peaceful .. 3 hard
-    int* gameMode = nullptr;           // /gamemode adventure|spectator (0 survival .. 3 spectator)
+    world::GameRules* rules = nullptr;                 // /gamerule (M28.1)
+    int* difficulty = nullptr;                         // /difficulty: 0 peaceful .. 3 hard
+    int* gameMode = nullptr; // /gamemode adventure|spectator (0 survival .. 3 spectator)
 };
 
 struct CommandResult {

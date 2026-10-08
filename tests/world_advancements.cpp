@@ -10,7 +10,8 @@ using namespace mc::world;
 namespace {
 int count(const Advancements::Granted& g) {
     int n = 0;
-    for (const int i : g) n += i >= 0;
+    for (const int i : g)
+        n += i >= 0;
     return n;
 }
 bool has(const Advancements::Granted& g, std::string_view id) {

@@ -69,8 +69,8 @@ struct Table {
                               kind != world::BlockKind::Wall))
                 continue;
             const std::string_view baseId = blocks.block(base).id;
-            if (blocks.block(base).settings.tool == world::HarvestTool::Axe || baseId.ends_with("_planks") ||
-                baseId.ends_with("bamboo_mosaic"))
+            if (blocks.block(base).settings.tool == world::HarvestTool::Axe ||
+                baseId.ends_with("_planks") || baseId.ends_with("bamboo_mosaic"))
                 continue; // (wood isn't cut on a stonecutter)
             edge(std::string_view(blocks.block(base).id), std::string_view(blocks.block(b).id),
                  kind == world::BlockKind::Slab ? 2 : 1);
@@ -78,7 +78,8 @@ struct Table {
         for (const Conversion& c : kConversions)
             edge(c.from, c.to, c.count);
         for (const char* stage : {"", "exposed_", "weathered_", "oxidized_"})
-            for (const char* wax : {"", "waxed_"}) { // (wiki: Cut Copper - 4 from a block of copper)
+            for (const char* wax :
+                 {"", "waxed_"}) { // (wiki: Cut Copper - 4 from a block of copper)
                 const std::string p = std::string(wax) + stage;
                 const std::string block = *stage ? p + "copper" : p + "copper_block";
                 edge(block, p + "cut_copper", 4);
@@ -94,15 +95,17 @@ struct Table {
             while (!stack.empty()) {
                 const auto [item, count] = stack.back();
                 stack.pop_back();
-                if (std::any_of(out.begin(), out.end(), [&](const world::ItemStack& s) { return s.item == item; }))
+                if (std::any_of(out.begin(), out.end(),
+                                [&](const world::ItemStack& s) { return s.item == item; }))
                     continue;
                 out.push_back({item, static_cast<uint8_t>(std::min(count, 64))});
                 for (const auto& [next, n] : edges[item])
                     stack.push_back({next, count * n});
             }
-            std::sort(out.begin(), out.end(), [&](const world::ItemStack& a, const world::ItemStack& b) {
-                return items.item(a.item).id < items.item(b.item).id;
-            });
+            std::sort(out.begin(), out.end(),
+                      [&](const world::ItemStack& a, const world::ItemStack& b) {
+                          return items.item(a.item).id < items.item(b.item).id;
+                      });
         }
     }
 };

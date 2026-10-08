@@ -85,14 +85,16 @@ public:
 
     std::string toJson() const;
     bool fromJson(std::string_view json);
-    static std::filesystem::path file(const std::filesystem::path& worldDir, uint64_t uuidHi, uint64_t uuidLo);
+    static std::filesystem::path file(const std::filesystem::path& worldDir, uint64_t uuidHi,
+                                      uint64_t uuidLo);
     bool save(const std::filesystem::path& path) const;
     static std::optional<Advancements> load(const std::filesystem::path& path);
 
 private:
     template <typename F> Granted grantWhere(F&& match);
     std::array<bool, kMaxAdvancements> m_done{};
-    std::array<std::string, kMaxAdvancements> m_when{}; // (when it was made: vanilla's criterion timestamp)
+    std::array<std::string, kMaxAdvancements>
+        m_when{}; // (when it was made: vanilla's criterion timestamp)
 };
 
 } // namespace mc::world

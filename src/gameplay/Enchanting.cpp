@@ -17,11 +17,15 @@ int countBookshelves(const World& world, const BlockPos& t) {
         for (int dz = -2; dz <= 2; ++dz)
             for (int dx = -2; dx <= 2; ++dx) {
                 if (std::abs(dx) != 2 && std::abs(dz) != 2) continue;
-                if (blockRegistry().blockOf(world.getBlock({t.x + dx, t.y + dy, t.z + dz})) != blocks::Bookshelf) continue;
-                const BlockPos between{t.x + dx / 2, t.y + dy, t.z + dz / 2}; // (the block halfway in)
+                if (blockRegistry().blockOf(world.getBlock({t.x + dx, t.y + dy, t.z + dz})) !=
+                    blocks::Bookshelf)
+                    continue;
+                const BlockPos between{t.x + dx / 2, t.y + dy,
+                                       t.z + dz / 2}; // (the block halfway in)
                 // Air or a "power transmitter" (snow layers, grass...; wiki) in between.
                 const BlockId g = blockRegistry().blockOf(world.getBlock(between));
-                if (g == 0 || g == blocks::Snow || g == blocks::ShortGrass || g == blocks::Fern) ++n;
+                if (g == 0 || g == blocks::Snow || g == blocks::ShortGrass || g == blocks::Fern)
+                    ++n;
             }
     return std::min(n, 15);
 }
@@ -34,7 +38,9 @@ std::array<EnchantOffer, 3> enchantOffers(const ItemStack& item, int bookshelves
     // wiki: base = 1 + rand(1..8)... = random 1..8 + floor(b/2) + random 0..b.
     for (int slot = 0; slot < 3; ++slot) {
         const int base = 1 + int(rng.nextInt(8)) + b / 2 + int(rng.nextInt(uint32_t(b + 1)));
-        int cost = slot == 0 ? std::max(base / 3, 1) : slot == 1 ? base * 2 / 3 + 1 : std::max(base, b * 2);
+        int cost = slot == 0   ? std::max(base / 3, 1)
+                   : slot == 1 ? base * 2 / 3 + 1
+                               : std::max(base, b * 2);
         if (cost < slot + 1) cost = 0;
         out[size_t(slot)].cost = cost;
     }
@@ -57,7 +63,8 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
     const int ench = enchantability(item.item);
     if (ench <= 0) return out;
     // Modified level: cost + 1 + 2 x rand(ench/4 + 1), then +-15% (wiki).
-    int level = cost + 1 + int(rng.nextInt(uint32_t(ench / 4 + 1))) + int(rng.nextInt(uint32_t(ench / 4 + 1)));
+    int level = cost + 1 + int(rng.nextInt(uint32_t(ench / 4 + 1))) +
+                int(rng.nextInt(uint32_t(ench / 4 + 1)));
     const float bonus = 1.0f + (rng.nextFloat() + rng.nextFloat() - 1.0f) * 0.15f;
     level = std::max(1, int(std::lround(float(level) * bonus)));
     // Candidates: each enchantment that fits, at its highest level whose range holds `level`.
@@ -103,7 +110,8 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
             bool ok = true;
             for (int j = 0; j < out.count; ++j) {
                 const auto& got = out.list[size_t(j)].first;
-                if (cands[size_t(k)].first == got || conflicts(cands[size_t(k)].first, got)) ok = false;
+                if (cands[size_t(k)].first == got || conflicts(cands[size_t(k)].first, got))
+                    ok = false;
             }
             if (ok) cands[size_t(w++)] = cands[size_t(k)];
         }
@@ -126,7 +134,8 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
 
 ItemStack applyEnchantments(const ItemStack& item, const EnchantPick& pick) {
     ItemStack s = item;
-    if (itemRegistry().item(item.item).id == "minecraft:book") s = {*itemRegistry().find("enchanted_book"), 1};
+    if (itemRegistry().item(item.item).id == "minecraft:book")
+        s = {*itemRegistry().find("enchanted_book"), 1};
     for (int i = 0; i < pick.count; ++i)
         setEnchantment(s, pick.list[size_t(i)].first, pick.list[size_t(i)].second);
     return s;

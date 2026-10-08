@@ -114,8 +114,9 @@ TEST_CASE("map colours: vanilla's base colours by block; shades") {
     CHECK(col("red_wool") == 28);
     CHECK(col("glass") == 0);
     CHECK(col("sand") == 2);
-    CHECK(mapColorRgb(1 * 4 + 2) == 0x7FB238);              // grass, full brightness
-    const uint32_t darkWater = uint32_t((64 * 180 / 255) << 16 | (64 * 180 / 255) << 8 | (255 * 180 / 255));
+    CHECK(mapColorRgb(1 * 4 + 2) == 0x7FB238); // grass, full brightness
+    const uint32_t darkWater =
+        uint32_t((64 * 180 / 255) << 16 | (64 * 180 / 255) << 8 | (255 * 180 / 255));
     CHECK(mapColorRgb(12 * 4 + 0) == darkWater);
     CHECK(mapColorRgb(0) == 0);
 }
@@ -146,7 +147,7 @@ TEST_CASE("maps: centred on vanilla's grid, drawn from the terrain, saved as map
         Maps::update(world, m, {0.5, 64.0, 0.5}, t);
     CHECK(int(m.colors[size_t(64 * 128 + 64)] >> 2) == 1);  // grass at the centre
     CHECK(int(m.colors[size_t(64 * 128 + 84)] >> 2) == 12); // water to the east (x 20)
-    CHECK(m.colors[size_t(64 * 128 + 120)] == 0);      // unloaded: nothing drawn
+    CHECK(m.colors[size_t(64 * 128 + 120)] == 0);           // unloaded: nothing drawn
     CHECK(m.version > 0);
 
     const auto dir = std::filesystem::temp_directory_path() / "mc_maps_test";
@@ -224,7 +225,8 @@ TEST_CASE("book screen: words wrap at 114 px, 14 lines a page, titles of 32") {
     // 19 glyphs fit a 114 px line; the break comes after the last whole word.
     std::vector<std::string> lines;
     const std::string text = "aaaa bbbb cccc dddd eeee ffff\nnext";
-    ui::BookScreen::wrap(text, font, 114, [&](size_t s, size_t n) { lines.push_back(text.substr(s, n)); });
+    ui::BookScreen::wrap(text, font, 114,
+                         [&](size_t s, size_t n) { lines.push_back(text.substr(s, n)); });
     REQUIRE(lines.size() == 3);
     CHECK(lines[0] == "aaaa bbbb cccc");
     CHECK(lines[1] == "dddd eeee ffff");
@@ -244,7 +246,8 @@ TEST_CASE("book screen: words wrap at 114 px, 14 lines a page, titles of 32") {
     CHECK(book.content().pages.size() == 2);
 }
 
-TEST_CASE("books: copying keeps the original, one generation on; pages saved as vanilla's components") {
+TEST_CASE(
+    "books: copying keeps the original, one generation on; pages saved as vanilla's components") {
     BookContent original;
     original.title = "Notes";
     original.author = "Player";
@@ -268,7 +271,8 @@ TEST_CASE("books: copying keeps the original, one generation on; pages saved as 
     CHECK_FALSE(craft(g, 3));
 
     const nbt::Compound n = itemToNbt(written, 0);
-    const nbt::Compound* content = n.compound("components")->compound("minecraft:written_book_content");
+    const nbt::Compound* content =
+        n.compound("components")->compound("minecraft:written_book_content");
     REQUIRE(content);
     CHECK(*content->string("author") == "Player");
     CHECK(content->list("pages")->items.size() == 2);
@@ -285,4 +289,15 @@ TEST_CASE("books: copying keeps the original, one generation on; pages saved as 
     const auto quill = craft(q, 2);
     REQUIRE(quill);
     CHECK(itemRegistry().item(quill->item).id == "minecraft:writable_book");
+}
+
+TEST_CASE("equal books and lodestone targets share one entry (reloads don't grow the tables)") {
+    mc::world::BookContent b;
+    b.pages = {"same text"};
+    CHECK(mc::world::addBook(b) == mc::world::addBook(b));
+    const mc::world::LodestoneTarget t{{7, 64, -3}, 0};
+    CHECK(mc::world::addLodestoneTarget(t) == mc::world::addLodestoneTarget(t));
+    mc::world::LodestoneTarget other = t;
+    other.pos.x = 8;
+    CHECK(mc::world::addLodestoneTarget(other) != mc::world::addLodestoneTarget(t));
 }

@@ -13,10 +13,13 @@ namespace {
 Direction oppositeOf(Direction d) { return static_cast<Direction>(static_cast<int>(d) ^ 1); }
 
 // Drops one item out of the front like a thrown item (wiki: 0.2 out, a little spread).
-void spit(DispenseContext& ctx, const glm::dvec3& mouth, const glm::dvec3& dir, const ItemStack& one) {
+void spit(DispenseContext& ctx, const glm::dvec3& mouth, const glm::dvec3& dir,
+          const ItemStack& one) {
     if (ItemEntity* e = ctx.items.spawn(mouth - glm::dvec3(0.0, 0.125, 0.0), one, ctx.rng)) {
         const double speed = 0.1 + ctx.rng.nextDouble() * 0.2;
-        auto spread = [&] { return (ctx.rng.nextDouble() - 0.5) * 0.09; }; // (vanilla: gaussian x 0.0075 x 6)
+        auto spread = [&] {
+            return (ctx.rng.nextDouble() - 0.5) * 0.09;
+        }; // (vanilla: gaussian x 0.0075 x 6)
         e->vel = dir * speed + glm::dvec3(spread(), spread(), spread());
         if (dir.y == 0.0) e->vel.y += 0.2;
     }
@@ -65,18 +68,26 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         return;
     }
     const std::string_view id = itemRegistry().item(one.item).id;
-    auto shootDir = [&] { return dir.y == 0.0 ? glm::normalize(dir + glm::dvec3(0.0, 0.1, 0.0)) : dir; };
+    auto shootDir = [&] {
+        return dir.y == 0.0 ? glm::normalize(dir + glm::dvec3(0.0, 0.1, 0.0)) : dir;
+    };
     if (id == "minecraft:arrow") { // (wiki: speed 1.1, spread 6)
-        if (ctx.projectiles.shoot(ProjectileKind::Arrow, mouth, shootDir(), 1.1, 6.0, false, false, ctx.rng)) use();
+        if (ctx.projectiles.shoot(ProjectileKind::Arrow, mouth, shootDir(), 1.1, 6.0, false, false,
+                                  ctx.rng))
+            use();
     } else if (id == "minecraft:egg" || id == "minecraft:splash_potion") {
-        const ProjectileKind k = id == "minecraft:egg" ? ProjectileKind::Egg : ProjectileKind::SplashPotion;
-        if (ctx.projectiles.shoot(k, mouth, shootDir(), id == "minecraft:egg" ? 1.1 : 0.5, 6.0, false, false, ctx.rng)) {
+        const ProjectileKind k =
+            id == "minecraft:egg" ? ProjectileKind::Egg : ProjectileKind::SplashPotion;
+        if (ctx.projectiles.shoot(k, mouth, shootDir(), id == "minecraft:egg" ? 1.1 : 0.5, 6.0,
+                                  false, false, ctx.rng)) {
             ctx.projectiles.last().potion = one.potion;
             ctx.projectiles.last().pickup = false;
             use();
         }
     } else if (id == "minecraft:fire_charge") { // a small fireball (wiki)
-        if (ctx.projectiles.shoot(ProjectileKind::BlazeFireball, mouth, dir, 0.9, 1.0, false, false, ctx.rng)) use();
+        if (ctx.projectiles.shoot(ProjectileKind::BlazeFireball, mouth, dir, 0.9, 1.0, false, false,
+                                  ctx.rng))
+            use();
     } else if (id == "minecraft:water_bucket" || id == "minecraft:lava_bucket") {
         const BlockStateId here = ctx.world.getBlock(front);
         if (!BlockUpdates::replaceable(here)) { // (wiki: dropped when the front is solid)
@@ -86,7 +97,8 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         }
         const bool water = id == "minecraft:water_bucket";
         if (!(water && ctx.world.isUltrawarm())) // (water boils away in the Nether)
-            ctx.world.updateBlock(front, BlockUpdates::fluidState(water ? blocks::Water : blocks::Lava, 8, false));
+            ctx.world.updateBlock(
+                front, BlockUpdates::fluidState(water ? blocks::Water : blocks::Lava, 8, false));
         ctx.edits.push_back(front);
         static const ItemId bucket = *itemRegistry().find("bucket");
         *slot = ItemStack{bucket, 1};
@@ -101,7 +113,8 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         }
         ctx.world.updateBlock(front, 0);
         ctx.edits.push_back(front);
-        static const ItemId waterBucket = *itemRegistry().find("water_bucket"), lavaBucket = *itemRegistry().find("lava_bucket");
+        static const ItemId waterBucket = *itemRegistry().find("water_bucket"),
+                            lavaBucket = *itemRegistry().find("lava_bucket");
         const ItemStack full{hb == blocks::Water ? waterBucket : lavaBucket, 1};
         if (slot->count == 1) {
             *slot = full;

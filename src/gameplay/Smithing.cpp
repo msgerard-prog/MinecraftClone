@@ -7,7 +7,8 @@
 
 namespace mc {
 
-world::ItemStack smith(const world::ItemStack& templ, const world::ItemStack& base, const world::ItemStack& addition) {
+world::ItemStack smith(const world::ItemStack& templ, const world::ItemStack& base,
+                       const world::ItemStack& addition) {
     if (templ.empty() || base.empty() || addition.empty()) return {};
     const auto& items = world::itemRegistry();
     const std::string_view templId = items.item(templ.item).id;

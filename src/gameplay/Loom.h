@@ -15,7 +15,8 @@ inline constexpr int kMaxLoomLayers = 6;
 // world::kBannerPatterns, in order); returns how many.
 int loomPatterns(const world::ItemStack& patternItem, std::array<int, 48>& out);
 // The woven banner (empty: no result).
-world::ItemStack loomResult(const world::ItemStack& banner, const world::ItemStack& dye, int pattern);
+world::ItemStack loomResult(const world::ItemStack& banner, const world::ItemStack& dye,
+                            int pattern);
 // The dye colour (0..15) of a dye item, or -1.
 int dyeColour(world::ItemId item);
 

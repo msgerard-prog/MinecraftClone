@@ -11,7 +11,8 @@ void PrimedTnt::prime(const world::BlockPos& b, int fuse, world::Xoroshiro& rng)
     if (int(m_items.size()) >= kMax) return;
     PrimedTntEntity e;
     e.pos = e.prevPos = glm::dvec3(b.x + 0.5, b.y, b.z + 0.5);
-    const double a = rng.nextDouble() * 2.0 * std::numbers::pi; // (wiki: a 0.02 push in a random direction)
+    const double a =
+        rng.nextDouble() * 2.0 * std::numbers::pi; // (wiki: a 0.02 push in a random direction)
     e.vel = glm::dvec3(-std::sin(a) * 0.02, 0.2, -std::cos(a) * 0.02);
     e.fuse = fuse;
     m_items.push_back(e);
@@ -43,7 +44,8 @@ void PrimedTnt::tick(const world::World& world) {
         e.vel *= 0.98;
         if (onGround) e.vel *= glm::dvec3(0.7, -0.5, 0.7);
         if (--e.fuse <= 0) {
-            if (m_explode.size() < m_explode.capacity()) m_explode.push_back(e.pos + glm::dvec3(0.0, 0.0625, 0.0));
+            if (m_explode.size() < m_explode.capacity())
+                m_explode.push_back(e.pos + glm::dvec3(0.0, 0.0625, 0.0));
             m_items[i] = m_items.back();
             m_items.pop_back();
         } else {

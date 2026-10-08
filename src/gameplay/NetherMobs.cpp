@@ -27,7 +27,8 @@ bool seesFrom(const World& w, const glm::dvec3& from, const glm::dvec3& to) {
 
 float yawTo(const glm::dvec3& from, const glm::dvec3& to) {
     // Vanilla yaw: 0 faces +Z (south), 90 faces -X.
-    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 / std::numbers::pi);
+    return static_cast<float>(std::atan2(-(to.x - from.x), to.z - from.z) * 180.0 /
+                              std::numbers::pi);
 }
 
 float approachAngle(float from, float to, float maxStep) { // (as in Mobs.cpp)
@@ -42,7 +43,8 @@ bool roomAt(const World& w, const Aabb& box) {
             for (int z = int(std::floor(box.min.z)); z <= int(std::floor(box.max.z - 1e-7)); ++z) {
                 const BlockStateId s = w.getBlock({x, y, z});
                 const BlockId b = blockRegistry().blockOf(s);
-                if (blockRegistry().collides(s) || b == blocks::Water || b == blocks::Lava) return false;
+                if (blockRegistry().collides(s) || b == blocks::Water || b == blocks::Lava)
+                    return false;
             }
     return true;
 }
@@ -88,8 +90,10 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         // animal; water hurts it (wiki: Strider).
         animalUpkeep(ctx, m);
         double speed = mobInfo(m.type).speed * 0.5;
-        if (!animalGoal(ctx, m, speed) && (++m.goalTicks > 160 || glm::length(m.goal - m.pos) < 1.0)) {
-            m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 16 - 8, 0, ctx.rng.nextDouble() * 16 - 8);
+        if (!animalGoal(ctx, m, speed) &&
+            (++m.goalTicks > 160 || glm::length(m.goal - m.pos) < 1.0)) {
+            m.goal =
+                m.pos + glm::dvec3(ctx.rng.nextDouble() * 16 - 8, 0, ctx.rng.nextDouble() * 16 - 8);
             m.goalTicks = 0;
         }
         const glm::dvec2 d(m.goal.x - m.pos.x, m.goal.z - m.pos.z);
@@ -113,7 +117,8 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         }
         return false; // walks, paths and fights like a zombie (generic AI)
     }
-    if (m.type != MobType::Ghast && m.type != MobType::Blaze && m.type != MobType::MagmaCube && m.type != MobType::Slime)
+    if (m.type != MobType::Ghast && m.type != MobType::Blaze && m.type != MobType::MagmaCube &&
+        m.type != MobType::Slime)
         return false; // (slimes share the magma cube's hops, M21.5)
     const MobInfo& info = mobInfo(m.type);
     const glm::dvec3 eye = ctx.player.eyePosition(1.0);
@@ -133,8 +138,8 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
             if (++m.chargeTicks >= 20) {
                 const glm::dvec3 dir = glm::normalize(toPlayer);
                 if (ctx.projectiles)
-                    ctx.projectiles->shoot(ProjectileKind::GhastFireball, centre + dir * 2.5, dir, 0.6, 0.0, false,
-                                           false, ctx.rng, m.uuidHi);
+                    ctx.projectiles->shoot(ProjectileKind::GhastFireball, centre + dir * 2.5, dir,
+                                           0.6, 0.0, false, false, ctx.rng, m.uuidHi);
                 m.chargeTicks = -40;
             }
         } else if (m.chargeTicks > 0) {
@@ -142,8 +147,9 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         }
         // Floats to random spots up to 16 blocks away (wiki: Ghast - "floats around").
         if (++m.goalTicks > 100 || glm::length(m.goal - m.pos) < 2.0) {
-            m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 32 - 16, ctx.rng.nextDouble() * 32 - 16,
-                                        ctx.rng.nextDouble() * 32 - 16);
+            m.goal =
+                m.pos + glm::dvec3(ctx.rng.nextDouble() * 32 - 16, ctx.rng.nextDouble() * 32 - 16,
+                                   ctx.rng.nextDouble() * 32 - 16);
             m.goal.y = std::clamp(m.goal.y, 8.0, 116.0);
             m.goalTicks = 0;
         }
@@ -165,7 +171,8 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
             if (glm::length(go) > 1e-6) wish = go / glm::length(go) * 0.12;
             if (m.attackCooldown > 0) --m.attackCooldown;
             if (d < 2.0 && m.attackCooldown == 0 && box(m).intersects(ctx.player.box())) {
-                if (ctx.vitals.attacked(info.attackDamage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
+                if (ctx.vitals.attacked(info.attackDamage, &m.pos))
+                    ctx.player.knockback(toPlayer.x, toPlayer.z);
                 m.attackCooldown = 20;
             } else if (d >= 2.0) {
                 ++m.chargeTicks;
@@ -173,8 +180,9 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
                 if (m.volley > 0 && m.chargeTicks >= 60 && (m.chargeTicks - 60) % 6 == 0) {
                     const glm::dvec3 dir = glm::normalize(toPlayer);
                     if (ctx.projectiles)
-                        ctx.projectiles->shoot(ProjectileKind::BlazeFireball, centre + dir * 0.8, dir, 0.9,
-                                               std::sqrt(d) * 0.5, false, false, ctx.rng, m.uuidHi);
+                        ctx.projectiles->shoot(ProjectileKind::BlazeFireball, centre + dir * 0.8,
+                                               dir, 0.9, std::sqrt(d) * 0.5, false, false, ctx.rng,
+                                               m.uuidHi);
                     // After the third shot: 0.3 s, then 5 s of rest before the next 3 s charge
                     // (wiki: Blaze).
                     if (--m.volley == 0) m.chargeTicks = -106;
@@ -185,7 +193,8 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
             m.volley = 0;
             // Idle: drifts about slowly, sinking gently (vanilla blazes fall slowly).
             if (++m.goalTicks > 120 || glm::length(m.goal - m.pos) < 1.0) {
-                m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 4 - 2.5,
+                m.goal = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6,
+                                            ctx.rng.nextDouble() * 4 - 2.5,
                                             ctx.rng.nextDouble() * 12 - 6);
                 m.goalTicks = 0;
             }
@@ -203,19 +212,22 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         // Jumps every 40-120 ticks, every 13-40 while chasing a player it saw within 16
         // blocks; bigger cubes jump higher; touching the player hurts it by size
         // (wiki: Magma Cube - 3, 4, 6).
-        if (!canTarget || toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z > 16.0 * 16.0) m.targeting = false;
+        if (!canTarget || toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z > 16.0 * 16.0)
+            m.targeting = false;
         else if (!m.targeting && ++m.sightCheck >= 10) {
             m.sightCheck = 0;
             m.targeting = seesFrom(ctx.world, centre, eye);
         }
         if (m.onGround) {
             if (--m.jumpTicks <= 0) {
-                const float yaw = m.targeting ? yawTo(m.pos, eye) : ctx.rng.nextFloat() * 360.0f - 180.0f;
+                const float yaw =
+                    m.targeting ? yawTo(m.pos, eye) : ctx.rng.nextFloat() * 360.0f - 180.0f;
                 m.yaw = m.headYaw = yaw;
                 const double r = yaw * std::numbers::pi / 180.0;
                 m.vel.y = 0.42 + 0.1 * m.size;
                 m.goal = glm::dvec3(-std::sin(r), 0.0, std::cos(r)); // (the jump's direction)
-                m.jumpTicks = int16_t(m.targeting ? 13 + ctx.rng.nextInt(28) : 40 + ctx.rng.nextInt(81));
+                m.jumpTicks =
+                    int16_t(m.targeting ? 13 + ctx.rng.nextInt(28) : 40 + ctx.rng.nextInt(81));
             } else {
                 m.goal = glm::dvec3(0.0);
             }
@@ -225,11 +237,14 @@ bool Mobs::netherAi(Context& ctx, MobData& m) {
         if (m.attackCooldown > 0) --m.attackCooldown;
         if (canTarget && m.attackCooldown == 0 && box(m).intersects(ctx.player.box())) {
             // (slimes: 4, 2, the smallest none - wiki: Slime)
-            const float damage = m.type == MobType::Slime ? (m.size >= 4 ? 4.0f : m.size == 2 ? 2.0f : 0.0f)
-                                 : m.size >= 4          ? 6.0f
-                                 : m.size == 2          ? 4.0f
-                                                        : 3.0f;
-            if (damage > 0.0f && ctx.vitals.attacked(damage, &m.pos)) ctx.player.knockback(toPlayer.x, toPlayer.z);
+            const float damage = m.type == MobType::Slime ? (m.size >= 4   ? 4.0f
+                                                             : m.size == 2 ? 2.0f
+                                                                           : 0.0f)
+                                 : m.size >= 4            ? 6.0f
+                                 : m.size == 2            ? 4.0f
+                                                          : 3.0f;
+            if (damage > 0.0f && ctx.vitals.attacked(damage, &m.pos))
+                ctx.player.knockback(toPlayer.x, toPlayer.z);
             m.attackCooldown = 10;
         }
     }
@@ -244,15 +259,17 @@ void Mobs::spawnNether(Context& ctx) {
         const glm::dvec3 p = ctx.player.position();
         const int x = int(std::floor(p.x)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
         const int z = int(std::floor(p.z)) + static_cast<int>(ctx.rng.nextInt(97)) - 48;
-        const int striders = m_striders; // (counted in the mob pass)
+        const int striders = m_striders;                 // (counted in the mob pass)
         for (int y = 31; y >= 20 && striders < 8; --y) { // the lava sea's surface (Y 31)
             if (blockRegistry().blockOf(ctx.world.getBlock({x, y, z})) != blocks::Lava) continue;
-            if (ctx.world.getBlock({x, y + 1, z}) != 0 || ctx.world.getBlock({x, y + 2, z}) != 0) break;
+            if (ctx.world.getBlock({x, y + 1, z}) != 0 || ctx.world.getBlock({x, y + 2, z}) != 0)
+                break;
             const glm::dvec3 d(x + 0.5 - p.x, y - p.y, z + 0.5 - p.z);
             if (glm::dot(d, d) < 24.0 * 24.0) break;
             const int group = 2 + static_cast<int>(ctx.rng.nextInt(3));
             for (int i = 0; i < group; ++i)
-                add(ctx.world, make(MobType::Strider, {x + 0.5 + i * 1.2, y + 1.0, z + 0.5}, ctx.rng));
+                add(ctx.world,
+                    make(MobType::Strider, {x + 0.5 + i * 1.2, y + 1.0, z + 0.5}, ctx.rng));
             break;
         }
     }
@@ -285,7 +302,8 @@ void Mobs::spawnNether(Context& ctx) {
     int n = 0;
     // Fortresses spawn their own list on their nether bricks (wiki: Nether Fortress -
     // blaze 10, wither skeleton 8, zombified piglin 5, magma cube 3, skeleton 2 - M26.4a).
-    const bool fortress = blockRegistry().blockOf(ctx.world.getBlock({x, y - 1, z})) == blocks::NetherBricks;
+    const bool fortress =
+        blockRegistry().blockOf(ctx.world.getBlock({x, y - 1, z})) == blocks::NetherBricks;
     if (fortress) {
         table = {{{MobType::Blaze, 10, 2, 3},
                   {MobType::WitherSkeleton, 8, 5, 5},
@@ -295,31 +313,35 @@ void Mobs::spawnNether(Context& ctx) {
         n = 5;
     } else
         switch (biome) {
-    case Biome::SoulSandValley:
-        table = {{{MobType::Ghast, 50, 1, 1}, {MobType::Skeleton, 20, 4, 4}, {MobType::Enderman, 1, 1, 4}}};
-        n = 3;
-        break;
-    case Biome::BasaltDeltas:
-        table = {{{MobType::MagmaCube, 100, 2, 5}, {MobType::Ghast, 40, 1, 1}}};
-        n = 2;
-        break;
-    case Biome::CrimsonForest:
-        table = {{{MobType::ZombifiedPiglin, 1, 2, 4}, {MobType::Piglin, 5, 3, 4}, {MobType::Hoglin, 9, 3, 4}}};
-        n = 3;
-        break;
-    case Biome::WarpedForest:
-        table = {{{MobType::Enderman, 1, 4, 4}}};
-        n = 1;
-        break;
-    default: // nether wastes
-        table = {{{MobType::ZombifiedPiglin, 100, 4, 4},
-                  {MobType::Ghast, 50, 1, 1},
-                  {MobType::MagmaCube, 2, 4, 4},
-                  {MobType::Enderman, 1, 4, 4},
-                  {MobType::Piglin, 15, 4, 4}}};
-        n = 5;
-        break;
-    }
+        case Biome::SoulSandValley:
+            table = {{{MobType::Ghast, 50, 1, 1},
+                      {MobType::Skeleton, 20, 4, 4},
+                      {MobType::Enderman, 1, 1, 4}}};
+            n = 3;
+            break;
+        case Biome::BasaltDeltas:
+            table = {{{MobType::MagmaCube, 100, 2, 5}, {MobType::Ghast, 40, 1, 1}}};
+            n = 2;
+            break;
+        case Biome::CrimsonForest:
+            table = {{{MobType::ZombifiedPiglin, 1, 2, 4},
+                      {MobType::Piglin, 5, 3, 4},
+                      {MobType::Hoglin, 9, 3, 4}}};
+            n = 3;
+            break;
+        case Biome::WarpedForest:
+            table = {{{MobType::Enderman, 1, 4, 4}}};
+            n = 1;
+            break;
+        default: // nether wastes
+            table = {{{MobType::ZombifiedPiglin, 100, 4, 4},
+                      {MobType::Ghast, 50, 1, 1},
+                      {MobType::MagmaCube, 2, 4, 4},
+                      {MobType::Enderman, 1, 4, 4},
+                      {MobType::Piglin, 15, 4, 4}}};
+            n = 5;
+            break;
+        }
     int total = 0;
     for (int i = 0; i < n; ++i)
         total += table[size_t(i)].weight;
@@ -335,17 +357,21 @@ void Mobs::spawnNether(Context& ctx) {
     // Ghasts: any light, but only 5% of the attempts that pick them succeed (wiki:
     // Nether Wastes et al.); every other mob needs block light 11 or less.
     if (e.type == MobType::Ghast ? ctx.rng.nextInt(20) != 0 : bright) return;
-    const int group = e.minGroup + static_cast<int>(ctx.rng.nextInt(uint32_t(e.maxGroup - e.minGroup + 1)));
+    const int group =
+        e.minGroup + static_cast<int>(ctx.rng.nextInt(uint32_t(e.maxGroup - e.minGroup + 1)));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + (i == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
         const int gz = z + (i == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
         MobData m = make(e.type, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
         // Ghasts need a 5x5x4 room (wiki); the others room for their box.
-        const Aabb need = e.type == MobType::Ghast ? Aabb{{gx - 2.0, double(y), gz - 2.0}, {gx + 3.0, y + 4.0, gz + 3.0}}
-                                                   : box(m);
+        const Aabb need = e.type == MobType::Ghast
+                              ? Aabb{{gx - 2.0, double(y), gz - 2.0}, {gx + 3.0, y + 4.0, gz + 3.0}}
+                              : box(m);
         if (!roomAt(ctx.world, need)) continue;
-        if (e.type == MobType::ZombifiedPiglin && ctx.rng.nextInt(20) == 0) m.age = -24000; // 5% babies (wiki)
-        if (e.type == MobType::Piglin && ctx.rng.nextInt(5) == 0) m.age = -24000; // (babies never grow up)
+        if (e.type == MobType::ZombifiedPiglin && ctx.rng.nextInt(20) == 0)
+            m.age = -24000; // 5% babies (wiki)
+        if (e.type == MobType::Piglin && ctx.rng.nextInt(5) == 0)
+            m.age = -24000; // (babies never grow up)
         if (add(ctx.world, m)) ++m_hostiles;
     }
 }

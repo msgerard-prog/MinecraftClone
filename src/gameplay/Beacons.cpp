@@ -13,15 +13,17 @@ namespace {
 
 using world::BlockId;
 namespace B = world::blocks;
-BlockId blockAt(const world::World& w, int x, int y, int z) { return world::blockRegistry().blockOf(w.getBlock({x, y, z})); }
+BlockId blockAt(const world::World& w, int x, int y, int z) {
+    return world::blockRegistry().blockOf(w.getBlock({x, y, z}));
+}
 bool pyramidBlock(BlockId b) {
     return b == B::IronBlock || b == B::GoldBlock || b == B::DiamondBlock || b == B::EmeraldBlock ||
            b == B::NetheriteBlock;
 }
 bool frameBlock(BlockId b) {
     const std::string_view id = world::blockRegistry().block(b).id;
-    return id == "minecraft:prismarine" || id == "minecraft:prismarine_bricks" || id == "minecraft:dark_prismarine" ||
-           id == "minecraft:sea_lantern";
+    return id == "minecraft:prismarine" || id == "minecraft:prismarine_bricks" ||
+           id == "minecraft:dark_prismarine" || id == "minecraft:sea_lantern";
 }
 
 } // namespace
@@ -43,7 +45,8 @@ bool beaconSky(const world::World& world, const world::BlockPos& p) {
     const auto& r = world::blockRegistry();
     for (int y = p.y + 1; y <= world.height().maxY(); ++y) {
         const world::BlockStateId s = world.getBlock({p.x, y, p.z});
-        if (r.opaqueCube(s) && r.blockOf(s) != B::Bedrock) return false; // (vanilla: bedrock lets the beam through)
+        if (r.opaqueCube(s) && r.blockOf(s) != B::Bedrock)
+            return false; // (vanilla: bedrock lets the beam through)
     }
     return true;
 }
@@ -52,11 +55,15 @@ bool beaconPrimaryAllowed(world::Effect e, int tiers) {
     using world::Effect;
     switch (e) {
     case Effect::Speed:
-    case Effect::Haste: return tiers >= 1;
+    case Effect::Haste:
+        return tiers >= 1;
     case Effect::Resistance:
-    case Effect::JumpBoost: return tiers >= 2;
-    case Effect::Strength: return tiers >= 3;
-    default: return false;
+    case Effect::JumpBoost:
+        return tiers >= 2;
+    case Effect::Strength:
+        return tiers >= 3;
+    default:
+        return false;
     }
 }
 
@@ -64,8 +71,8 @@ int beaconGifts(const world::BeaconData& beacon, const world::BlockPos& p, const
                 std::array<BeaconGift, 2>& out) {
     if (beacon.conduit || beacon.levels <= 0 || !beacon.beam || beacon.primary == 0) return 0;
     const double range = 10.0 + 10.0 * beacon.levels;
-    if (std::abs(feet.x - (p.x + 0.5)) > range + 0.5 || std::abs(feet.z - (p.z + 0.5)) > range + 0.5 ||
-        feet.y < p.y - range)
+    if (std::abs(feet.x - (p.x + 0.5)) > range + 0.5 ||
+        std::abs(feet.z - (p.z + 0.5)) > range + 0.5 || feet.y < p.y - range)
         return 0;
     const int duration = (9 + 2 * beacon.levels) * 20;
     int n = 0;
@@ -78,8 +85,9 @@ int beaconGifts(const world::BeaconData& beacon, const world::BlockPos& p, const
 
 bool isBeaconPayment(world::ItemId item) {
     const std::string_view id = world::itemRegistry().item(item).id;
-    return id == "minecraft:iron_ingot" || id == "minecraft:gold_ingot" || id == "minecraft:emerald" ||
-           id == "minecraft:diamond" || id == "minecraft:netherite_ingot";
+    return id == "minecraft:iron_ingot" || id == "minecraft:gold_ingot" ||
+           id == "minecraft:emerald" || id == "minecraft:diamond" ||
+           id == "minecraft:netherite_ingot";
 }
 
 int conduitFrame(const world::World& world, const world::BlockPos& p) {
@@ -90,7 +98,8 @@ int conduitFrame(const world::World& world, const world::BlockPos& p) {
         for (int dz = -2; dz <= 2; ++dz)
             for (int dx = -2; dx <= 2; ++dx) {
                 const int ax = std::abs(dx), ay = std::abs(dy), az = std::abs(dz);
-                const bool ring = (dz == 0 && std::max(ax, ay) == 2) || (dy == 0 && std::max(ax, az) == 2) ||
+                const bool ring = (dz == 0 && std::max(ax, ay) == 2) ||
+                                  (dy == 0 && std::max(ax, az) == 2) ||
                                   (dx == 0 && std::max(ay, az) == 2);
                 if (ring) count += frameBlock(blockAt(world, p.x + dx, p.y + dy, p.z + dz));
             }
@@ -102,7 +111,8 @@ bool conduitWet(const world::World& world, const world::BlockPos& p) {
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if ((dx || dy || dz) && blockAt(world, p.x + dx, p.y + dy, p.z + dz) != B::Water &&
-                    !world::blockRegistry().waterlogged(world.getBlock({p.x + dx, p.y + dy, p.z + dz})))
+                    !world::blockRegistry().waterlogged(
+                        world.getBlock({p.x + dx, p.y + dy, p.z + dz})))
                     return false; // (water, or a waterlogged block: kelp, seagrass, M25 review)
     return true;
 }
