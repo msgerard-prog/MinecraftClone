@@ -945,6 +945,15 @@ BlockRegistry buildVanillaBlocks() {
                                .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
                 {{&face, "wall"}, {&facing, "north"}}),
           blocks::Grindstone);
+    // wiki: Ender Chest (22.5 / 600, pickaxe, light 7), Shulker Box (2.0, any tool).
+    check(r.add("ender_chest", {.hardness = 22.5f, .resistance = 600.0f, .lightEmission = 7, .opaqueCube = false,
+                                .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
+                {{&facing, "north"}}),
+          blocks::EnderChest);
+    check(r.add("shulker_box", {.hardness = 2.0f, .resistance = 2.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                .tool = HarvestTool::Pickaxe},
+                {{&facing6, "up"}}),
+          blocks::ShulkerBox);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);
@@ -955,6 +964,11 @@ BlockRegistry buildVanillaBlocks() {
     addCopperBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
     addWoodSets(r);
+    for (const char* colour : kDyeColours) // (M23.6: dyed shulker boxes behave like the plain one)
+        r.add(std::string(colour) + "_shulker_box",
+              {.hardness = 2.0f, .resistance = 2.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+               .tool = HarvestTool::Pickaxe, .like = blocks::ShulkerBox},
+              {{&facing6, "up"}});
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

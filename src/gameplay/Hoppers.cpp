@@ -73,7 +73,7 @@ void setHopperBlockUpdates(BlockUpdates* updates) { g_updates = updates; }
 
 bool isContainer(const World& world, const BlockPos& p) {
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
-    return (b == blocks::Composter && g_updates) || b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
+    return (b == blocks::Composter && g_updates) || b == blocks::ShulkerBox || b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
            b == blocks::Dropper || b == blocks::Furnace || b == blocks::BrewingStand;
 }
 
@@ -87,6 +87,11 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     case blocks::Composter: // only from above, while it takes compost (wiki: Composter)
         ok = g_updates && from == Direction::Up && g_updates->compost(p, one.item);
         break;
+    case blocks::ShulkerBox: // (M23.6: like a barrel, but never another shulker box - wiki)
+        if (const BlockId ib = itemRegistry().item(one.item).block;
+            ib != 0 && blockRegistry().likeOf(ib) == blocks::ShulkerBox)
+            break;
+        [[fallthrough]];
     case blocks::Barrel: // (M23.5: 27 slots like a chest)
         if (ChestData* d = c->chest(x, p.y, z)) ok = putIn(d->items, one);
         break;
@@ -160,6 +165,7 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
         }
         break;
     case blocks::Barrel:
+    case blocks::ShulkerBox:
         if (ChestData* d = c->chest(x, p.y, z)) ok = takeFirst(d->items, out);
         break;
     case blocks::Chest:

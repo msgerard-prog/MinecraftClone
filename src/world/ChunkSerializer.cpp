@@ -3,6 +3,7 @@
 #include "core/Log.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
+#include "world/ItemContainers.h"
 #include "world/LevelData.h"
 #include "world/Potions.h"
 #include "world/RecipeIds.h"
@@ -164,7 +165,7 @@ namespace {
 // An item stack as vanilla 1.20.5+ saves it: id, count, components.
 nbt::Compound itemNbt(const ItemStack& s, int slot) {
     nbt::Compound c;
-    c.put("Slot", static_cast<int8_t>(slot));
+    if (slot >= 0) c.put("Slot", static_cast<int8_t>(slot)); // (no Slot inside a container component)
     c.put("id", itemRegistry().item(s.item).id);
     c.put("count", int32_t{s.count});
     nbt::Compound components;
@@ -197,6 +198,18 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         nbt::Compound contents;
         contents.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
         components.put("minecraft:potion_contents", std::move(contents));
+    }
+    if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker boxes)
+        const ItemContents slots = itemContents(s.contents);
+        std::vector<nbt::Tag> list;
+        for (int i = 0; i < int(slots.size()); ++i) {
+            if (slots[size_t(i)].empty()) continue;
+            nbt::Compound entry;
+            entry.put("slot", int32_t{i});
+            entry.put("item", itemNbt(slots[size_t(i)], -1));
+            list.emplace_back(std::move(entry));
+        }
+        components.put("minecraft:container", nbt::listOf(nbt::TagType::Compound, std::move(list)));
     }
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
@@ -236,11 +249,24 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
         if (const nbt::Compound* pc = comps->compound("minecraft:potion_contents"))
             if (const std::string* pid = pc->string("potion"))
                 if (const auto p = findPotion(*pid)) s.potion = static_cast<uint8_t>(*p);
+        if (const nbt::List* box = comps->list("minecraft:container")) {
+            ItemContents slots{};
+            for (const nbt::Tag& t : box->items)
+                if (const nbt::Compound* entry = t.get<nbt::Compound>()) {
+                    const auto slot = entry->integer("slot").value_or(-1);
+                    const nbt::Compound* inner = entry->compound("item");
+                    if (inner && slot >= 0 && slot < int(slots.size())) slots[size_t(slot)] = itemFromNbt(*inner);
+                }
+            s.contents = addItemContents(slots);
+        }
     }
     return s;
 }
 
 } // namespace
+
+nbt::Compound itemToNbt(const ItemStack& s, int slot) { return itemNbt(s, slot); }
+ItemStack itemFromNbtPublic(const nbt::Compound& c) { return itemFromNbt(c); }
 
 nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     const auto& reg = blockRegistry();
@@ -492,7 +518,9 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     }
     for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
         nbt::Compound e;
-        e.put("id", std::string(c.data.barrel ? "minecraft:barrel" : "minecraft:chest"));
+        e.put("id", std::string(c.data.barrel    ? "minecraft:barrel"
+                                : c.data.shulker ? "minecraft:shulker_box"
+                                                 : "minecraft:chest"));
         e.put("x", int32_t{chunk.pos.x * 16 + c.x});
         e.put("y", int32_t{c.y});
         e.put("z", int32_t{chunk.pos.z * 16 + c.z});
@@ -640,7 +668,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
-                        *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" &&
+                        *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" && *id != "minecraft:shulker_box" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire"))
@@ -752,11 +780,13 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         if (mobInfo(static_cast<MobType>(k)).id == *mob) sp.mob = static_cast<MobType>(k);
                 continue;
             }
-            if (*id == "minecraft:chest" || *id == "minecraft:barrel") {
+            if (*id == "minecraft:chest" || *id == "minecraft:barrel" || *id == "minecraft:shulker_box") {
                 const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
-                if (cb != blocks::Chest && cb != blocks::Barrel) continue;
+                const bool shulker = blockRegistry().likeOf(cb) == blocks::ShulkerBox;
+                if (cb != blocks::Chest && cb != blocks::Barrel && !shulker) continue;
                 ChestData& c = chunk.addChest(x, y, z);
                 c.barrel = cb == blocks::Barrel;
+                c.shulker = shulker;
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>()) {

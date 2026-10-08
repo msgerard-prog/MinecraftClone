@@ -46,6 +46,30 @@ def chest(face):
     return img
 
 
+def ender_chest(face):
+    """Ender chest (our drawing): dark obsidian-like slabs with a green-teal eye latch."""
+    rng = random.Random("ender_chest_" + face)
+    img = Img(16, 16, (0, 0, 0, 255))
+    pal = ramp(hexc("#1E3234"), 5, spread=0.35)
+    for y in range(16):
+        for x in range(16):
+            r = rng.random()
+            c = pal[2] if r > 0.4 else pal[1] if r > 0.15 else pal[3]
+            img.set(x, y, c)
+    for i in range(16):  # a darker frame
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            img.set(x, y, pal[0])
+    if face != "top":
+        for x in range(16):
+            img.set(x, 5, hexc("#081010"))
+    if face == "front":  # the eye latch
+        eye = ramp(hexc("#3CC8A4"), 5, spread=0.35)
+        for y in range(4, 8):
+            for x in range(6, 10):
+                img.set(x, y, eye[3] if (x, y) in ((7, 5), (8, 5), (7, 6)) else eye[1])
+    return img
+
+
 def bed(face):
     """Red bed (our drawing): blanket on top, a white pillow at the head, wooden frame
     sides; ends show the frame."""
@@ -89,6 +113,8 @@ def experience_orb():
 def main():
     for face in ("top", "side", "front"):
         (OUT / f"chest_{face}.png").write_bytes(encode_png(chest(face)))
+    for face in ("top", "side", "front"):
+        (OUT / f"ender_chest_{face}.png").write_bytes(encode_png(ender_chest(face)))
     for face in ("head_top", "foot_top", "side", "end"):
         (OUT / f"red_bed_{face}.png").write_bytes(encode_png(bed(face)))
     (OUT / "experience_orb.png").write_bytes(encode_png(experience_orb()))

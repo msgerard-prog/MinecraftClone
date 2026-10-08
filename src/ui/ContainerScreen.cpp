@@ -16,6 +16,13 @@
 namespace mc::ui {
 
 namespace {
+bool isShulkerBoxItem(const world::ItemStack& s) {
+    const world::BlockId b = world::itemRegistry().item(s.item).block;
+    return b != 0 && world::blockRegistry().likeOf(b) == world::blocks::ShulkerBox;
+}
+} // namespace
+
+namespace {
 
 // What a brewing stand's bottle slot takes (wiki): potions, splash potions, glass bottles.
 bool isBottle(const world::ItemStack& s) {
@@ -396,6 +403,10 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
+                if (m_type == Type::Chest && m_chests[0] && m_chests[0]->shulker && isShulkerBoxItem(v)) {
+                    store(); // (a shulker box doesn't fit in a shulker box: wiki)
+                    return;
+                }
                 if (m_type == Type::Chest) { // into the chest: merge, then empty slots
                     for (int pass = 0; pass < 2 && !v.empty(); ++pass)
                         for (int i = 0; i < chestRows() * 9 && !v.empty(); ++i) {
@@ -479,6 +490,10 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         // The enchanting table's second slot takes lapis only.
         if (m_type == Type::Enchanting && slot.kind == Slot::Kind::Grid && slot.index == 1 && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).id != "minecraft:lapis_lazuli")
+            return;
+        // Shulker boxes can't go inside a shulker box (wiki: Shulker Box).
+        if (slot.kind == Slot::Kind::Chest && !m_carried.empty() && isShulkerBoxItem(m_carried) &&
+            m_chests[size_t(slot.index / 27)] && m_chests[size_t(slot.index / 27)]->shulker)
             return;
         // An armor slot only takes its own piece (wiki: Inventory).
         if (slot.kind == Slot::Kind::Armor && !m_carried.empty() &&
@@ -567,7 +582,11 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
                         : m_type == Type::Furnace    ? (furnaceKind == 1   ? "Smoker"
                                                         : furnaceKind == 2 ? "Blast Furnace"
                                                                            : "Furnace")
-                        : m_type == Type::Chest      ? (chestRows() == 6 ? "Large Chest" : "Chest")
+                        : m_type == Type::Chest      ? (chestRows() == 6                    ? "Large Chest"
+                                                        : m_chests[0] && m_chests[0]->barrel  ? "Barrel"
+                                                        : m_chests[0] && m_chests[0]->shulker ? "Shulker Box"
+                                                        : m_chests[0] && m_chests[0]->ender   ? "Ender Chest"
+                                                                                              : "Chest")
                         : m_type == Type::Enchanting ? "Enchant"
                         : m_type == Type::Anvil      ? "Repair & Name"
                                                      : "Crafting";

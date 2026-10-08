@@ -87,6 +87,18 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"PSP", "P.P", "PSP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "barrel"));
     r.push_back(shaped({"S.S", "S.S", "SSS"}, {{'S', kWoodenSlab}}, "composter")); // wiki: Composter
     r.push_back(shaped({"I.I", "I.I", "III"}, {{'I', item("iron_ingot")}}, "cauldron")); // wiki: Cauldron
+    // M23.6 (wiki: Ender Chest, Shulker Box): 8 obsidian around an eye; shells over a
+    // chest; any shulker box with a dye becomes that colour (contents kept: craft()).
+    r.push_back(shaped({"###", "#E#", "###"}, {{'#', item("obsidian")}, {'E', item("ender_eye")}}, "ender_chest"));
+    r.push_back(shaped({"S", "C", "S"}, {{'S', item("shulker_shell")}, {'C', item("chest")}}, "shulker_box"));
+    for (const char* colour : kDyeColours) {
+        const std::string c(colour);
+        for (const char* from : {"shulker_box"})
+            r.push_back(shapeless({item(from), item(c + "_dye")}, c + "_shulker_box"));
+        for (const char* other : kDyeColours)
+            if (std::string(other) != c)
+                r.push_back(shapeless({item(std::string(other) + "_shulker_box"), item(c + "_dye")}, c + "_shulker_box"));
+    }
     r.push_back(shaped({".I.", "SSS"}, {{'I', item("iron_ingot")}, {'S', item("stone")}}, "stonecutter"));
     r.push_back(shaped({"T#T", "P.P"}, {{'T', item("stick")}, {'#', item("stone_slab")}, {'P', kPlanks}}, "grindstone"));
     r.push_back(shaped({"WWW", "PPP"}, {{'W', item("red_wool")}, {'P', kPlanks}}, "red_bed")); // wiki: Bed
@@ -488,7 +500,21 @@ const std::vector<Recipe>& craftingRecipes() {
     return recipes;
 }
 
+namespace {
+std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size);
+}
+
+// A dyed shulker box keeps what it holds (wiki: Shulker Box › Dyeing).
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
+    std::optional<ItemStack> out = craftPlain(grid, size);
+    if (out)
+        for (const ItemStack& s : grid)
+            if (s.contents) out->contents = s.contents;
+    return out;
+}
+
+namespace {
+std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size) {
     for (const Recipe& r : craftingRecipes()) {
         if (r.width == 0) { // shapeless: the same multiset of items, anywhere
             std::array<bool, 9> used{};
@@ -516,6 +542,7 @@ std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
     }
     return std::nullopt;
 }
+} // namespace
 
 std::optional<ItemStack> smelt(const ItemStack& input) {
     if (input.empty()) return std::nullopt;

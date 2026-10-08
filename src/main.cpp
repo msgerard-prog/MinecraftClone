@@ -569,9 +569,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::world::setEnchantment(s, *e, std::clamp(lvl, 1, 255));
             s.repairCost = static_cast<uint8_t>(std::clamp(it.repairCost, 0, 255));
             if (const auto p = mc::world::findPotion(it.potion)) s.potion = static_cast<uint8_t>(*p);
+            s.contents = it.contents;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
             else if (it.slot == 150) inventory.setOffhand(s);
+            else if (it.slot >= 200 && it.slot < 227) inventory.enderChest().items[size_t(it.slot - 200)] = s;
             else if (it.slot >= 0 && it.slot < mc::Inventory::kSlots) inventory.setSlot(it.slot, s);
         }
         inventory.select(level->selectedSlot);
@@ -698,6 +700,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             it.repairCost = s.repairCost;
             if (s.potion) it.potion = std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
             it.storedEnchantments = it.id == "minecraft:enchanted_book";
+            it.contents = s.contents;
             l.inventory.push_back(std::move(it));
         };
         for (int i = 0; i < mc::Inventory::kSlots; ++i)
@@ -705,6 +708,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         for (int piece = 0; piece < 4; ++piece) // head = 103 .. feet = 100
             saveSlot(103 - piece, inventory.armor(piece));
         saveSlot(150, inventory.offhand());
+        for (int i = 0; i < 27; ++i) // the ender chest (M23.6)
+            saveSlot(200 + i, inventory.enderChest().items[size_t(i)]);
         l.selectedSlot = inventory.selected();
         if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
         if (wait) storage->flush();
@@ -788,7 +793,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mc::world::Chunk* c = world.chunk(p.chunk());
             return c ? c->chest(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z)) : nullptr;
         };
-        mc::world::ChestData* first = chestAt(containerBlock);
+        const bool ender = mc::world::blockRegistry().blockOf(world.getBlock(containerBlock)) == mc::world::blocks::EnderChest;
+        mc::world::ChestData* first = ender ? &inventory.enderChest() : chestAt(containerBlock);
         mc::world::ChestData* second = chestSecond ? chestAt(*chestSecond) : nullptr;
         if (!first || (chestSecond && !second)) {
             screenDrops.clear();
@@ -803,7 +809,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // chest shows its "left" half first.
     auto openChestAt = [&](const mc::world::BlockPos& p) {
         const auto& creg = mc::world::blockRegistry();
-        if (creg.blockOf(world.getBlock(p)) == mc::world::blocks::Barrel) { // (M23.5: never blocked, one half)
+        const mc::world::BlockId ob = creg.blockOf(world.getBlock(p));
+        if (ob == mc::world::blocks::Barrel || ob == mc::world::blocks::EnderChest ||
+            creg.likeOf(ob) == mc::world::blocks::ShulkerBox) { // (M23.5-6: single, the lid never blocked)
             containerBlock = p;
             chestSecond.reset();
             container.openChest(nullptr, nullptr);
@@ -1074,7 +1082,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         containerBlock = lastHit->block;
                         container.openAnvil();
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Chest || block == mc::world::blocks::Barrel) {
+                    } else if (block == mc::world::blocks::Chest || block == mc::world::blocks::Barrel ||
+                               block == mc::world::blocks::EnderChest || reg.likeOf(block) == mc::world::blocks::ShulkerBox) {
                         if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
                         window.addPress(mc::Press::RightMouse); // not a workstation: a normal use
@@ -1966,6 +1975,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                    int(std::floor(feet.z))};
                 const bool eyesInWater = reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
                 // Aqua Affinity: no slower mining under water (wiki).
+                interaction.setPlaceContents(inventory.selectedStack().contents); // (shulker boxes, M23.6)
                 interaction.tickSurvival(world, player, lastHit, inventory, vitals, clicks,
                                          eyesInWater && !mc::world::enchantLevel(inventory.armor(0),
                                                                                  mc::world::Enchantment::AquaAffinity),
@@ -1979,6 +1989,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
             } else {
                 interaction.tickDrinking(inventory, vitals, clicks.use || clicks.useClick, false);
+                interaction.setPlaceContents(inventory.selectedStack().contents);
                 interaction.tick(world, player, lastHit, inventory.placeState(), clicks, changedBlocks, &drops,
                                  mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
                                      mc::world::ToolType::Sword);

@@ -1068,3 +1068,57 @@ TEST_CASE("level.dat keeps the dragon fight as vanilla's DragonFight") {
     CHECK(r->gateways == l.gateways);
     CHECK(r->hasGateways);
 }
+
+#include "world/ItemContainers.h"
+
+TEST_CASE("shulker box contents ride on the item: table, NBT, level.dat and ender items (M23.6)") {
+    auto I = [](const char* n, int c = 1) { return ItemStack{*itemRegistry().find(n), static_cast<uint8_t>(c)}; };
+    CHECK(addItemContents({}) == 0); // nothing to carry
+    ItemContents slots{};
+    slots[3] = I("diamond", 5);
+    slots[26] = I("iron_pickaxe");
+    slots[26].damage = 7;
+    const uint32_t id = addItemContents(slots);
+    REQUIRE(id != 0);
+    CHECK(itemContents(id)[3].count == 5);
+    ItemStack box = I("lime_shulker_box");
+    box.contents = id;
+    const ItemStack back = itemFromNbtPublic(itemToNbt(box, 2));
+    CHECK(back.item == box.item);
+    REQUIRE(back.contents != 0);
+    CHECK(itemContents(back.contents)[26].damage == 7);
+    CHECK(itemContents(back.contents)[3].item == I("diamond").item);
+    // level.dat: the box in the inventory and in the ender chest (EnderItems).
+    TempDir dir("mc_test_shulker_level");
+    LevelData l;
+    l.name = "Boxes";
+    LevelData::SavedItem inInv{5, "minecraft:lime_shulker_box", "", 1, 0};
+    inInv.contents = id;
+    l.inventory.push_back(inInv);
+    l.inventory.push_back({213, "minecraft:emerald", "", 9, 0}); // ender chest slot 13
+    REQUIRE(l.save(dir.path));
+    const auto loaded = LevelData::load(dir.path);
+    REQUIRE(loaded.has_value());
+    bool sawBox = false, sawEnder = false;
+    for (const auto& it : loaded->inventory) {
+        if (it.slot == 5) {
+            sawBox = itemContents(it.contents)[3].count == 5;
+        }
+        if (it.slot == 213) sawEnder = it.id == "minecraft:emerald" && it.count == 9;
+    }
+    CHECK(sawBox);
+    CHECK(sawEnder);
+    // A placed shulker box has a chest entity flagged as such, saved under its own id.
+    Chunk c({0, 0});
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({1, 64, 1}, blockRegistry().defaultState(*blockRegistry().findBlock("red_shulker_box")));
+    ChestData* d = w.chunk({0, 0})->chest(1, 64, 1);
+    REQUIRE(d);
+    CHECK(d->shulker);
+    d->items[0] = I("apple", 3);
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*w.chunk({0, 0}), 0)), c));
+    REQUIRE(c.chest(1, 64, 1));
+    CHECK(c.chest(1, 64, 1)->shulker);
+    CHECK(c.chest(1, 64, 1)->items[0].count == 3);
+}

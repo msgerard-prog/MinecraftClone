@@ -79,7 +79,8 @@ struct LevelData {
     bool hasGateways = false; // (the Gateways list exists: the fight has started)
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
-    // Inventory slots 0..35 (0..8 hotbar), worn armor 100 (feet)..103 (head) and the
+    // Inventory slots 0..35 (0..8 hotbar), the ender chest 200..226 (vanilla EnderItems,
+    // M23.6), worn armor 100 (feet)..103 (head) and the
     // offhand 150 - saved as 1.21.5+'s `equipment` compound. `id` is the item id; `state` the full block
     // state string for block items placed in a non-default state ("" otherwise).
     struct SavedItem {
@@ -92,6 +93,7 @@ struct LevelData {
         int repairCost = 0;
         std::string potion; // potion id without "minecraft:" ("" = none)
         bool storedEnchantments = false; // an enchanted book's (minecraft:stored_enchantments)
+        uint32_t contents = 0; // a shulker box's slots (world/ItemContainers.h, M23.6)
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;

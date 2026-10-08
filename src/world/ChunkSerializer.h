@@ -53,6 +53,11 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk);
 // leaves made persistent; see LevelData.h).
 bool chunkFromNbt(const nbt::Compound& nbt, Chunk& chunk, int* unknownBlocks = nullptr, bool legacyWorld = false);
 
+// One item stack as vanilla saves it (id, count, components; Slot when slot >= 0), for
+// level.dat's lists too.
+nbt::Compound itemToNbt(const ItemStack& s, int slot);
+ItemStack itemFromNbtPublic(const nbt::Compound& c);
+
 // The chunk's entities file (wiki: Entity format, 1.17+ entities/ region files):
 // { DataVersion, Position [I; x, z], Entities [ {id, Pos, Motion, Rotation, Health,
 // OnGround, fall_distance (1.21.5+ double; FallDistance read), Fire, Air, equipment,

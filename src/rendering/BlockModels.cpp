@@ -772,7 +772,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 // The top turns with the bed so the pillow lies at the head's far end.
                 const auto f = registry.value(state, "facing").value_or("north");
                 b.faces[int(Direction::Up)].rotation = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;
-            } else if (name == "chest") {
+            } else if (name == "chest" || name == "ender_chest") {
                 // A 14/16 box (vanilla's chest model), front toward `facing`; the halves
                 // of a double chest reach across to their partner (type left: the
                 // partner is counter-clockwise of facing, right: clockwise).
@@ -799,7 +799,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                         if (n[a] < 0) b.from[a] = 0;
                     }
                 }
-                const uint16_t sideS = sprite("chest_side"), topS = sprite("chest_top"), frontS = sprite("chest_front");
+                const std::string tex = name; // (ender chests: the same box, their own faces)
+                const uint16_t sideS = sprite((tex + "_side").c_str()), topS = sprite((tex + "_top").c_str()),
+                               frontS = sprite((tex + "_front").c_str());
                 for (int d = 0; d < 6; ++d) {
                     auto& face = b.faces[d];
                     face.sprite = d == int(Direction::Up) || d == int(Direction::Down) ? topS
@@ -942,7 +944,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         m.icon3d = k == BlockKind::Slab || k == BlockKind::Stairs || k == BlockKind::Wall || k == BlockKind::Carpet ||
                    like == blocks::OakFence || like == blocks::NetherBrickFence || like == blocks::OakFenceGate ||
                    like == blocks::Composter || like == blocks::Stonecutter || like == blocks::Grindstone ||
-                   like == blocks::Chest || like == blocks::EnchantingTable || like == blocks::OakTrapdoor ||
+                   like == blocks::Chest || like == blocks::EnderChest || like == blocks::EnchantingTable || like == blocks::OakTrapdoor ||
                    like == blocks::IronTrapdoor || like == blocks::Snow || like == blocks::OakPressurePlate ||
                    like == blocks::StonePressurePlate || like == blocks::LightWeightedPressurePlate ||
                    like == blocks::HeavyWeightedPressurePlate || like == blocks::Campfire || like == blocks::SoulCampfire;

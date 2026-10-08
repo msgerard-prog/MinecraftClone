@@ -1,5 +1,6 @@
 #include "gameplay/BlockInteraction.h"
 #include "gameplay/Inventory.h"
+#include "gameplay/Mining.h"
 #include "world/Blocks.h"
 #include "world/BlockUpdates.h"
 
@@ -342,4 +343,44 @@ TEST_CASE("right-clicking a lever uses it (sneaking places instead); dust can't 
     for (int i = 0; i < 5; ++i)
         s.tick(false, true, wire);
     CHECK(blockRegistry().blockOf(w.getBlock(above)) == blocks::Water);
+}
+
+#include "world/ItemContainers.h"
+
+TEST_CASE("a broken shulker box drops itself holding its slots; placing it puts them back (M23.6)") {
+    Scene s(0.0f, 60.0f);
+    const auto t = BlockInteraction::target(s.world, s.player);
+    REQUIRE(t.has_value());
+    const BlockId box = *blockRegistry().findBlock("blue_shulker_box");
+    s.world.setBlock(t->block, S(box));
+    s.world.chunk(t->block.chunk())->chest(blockToLocal(t->block.x), t->block.y, blockToLocal(t->block.z))->items[4] =
+        {*itemRegistry().find("diamond"), 2};
+    std::vector<BlockInteraction::Drop> drops;
+    InteractionInput in;
+    in.attackClick = true;
+    s.interaction.tick(s.world, s.player, t, 0, in, s.changed, &drops); // (creative)
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].stack.item == itemRegistry().blockItem(box));
+    REQUIRE(drops[0].stack.contents != 0);
+    CHECK(itemContents(drops[0].stack.contents)[4].count == 2);
+    // Put it back down where it was.
+    s.interaction.setPlaceContents(drops[0].stack.contents);
+    InteractionInput use;
+    use.useClick = true;
+    const auto floor = BlockInteraction::target(s.world, s.player);
+    REQUIRE(floor.has_value());
+    s.interaction.tick(s.world, s.player, floor, S(box), use, s.changed);
+    const BlockPos at = neighbour(floor->block, floor->face);
+    REQUIRE(blockRegistry().blockOf(s.world.getBlock(at)) == box);
+    const ChestData* placed = s.world.chunk(at.chunk())->chest(blockToLocal(at.x), at.y, blockToLocal(at.z));
+    REQUIRE(placed);
+    CHECK(placed->items[4].count == 2);
+    // An ender chest drops 8 obsidian (Silk Touch: itself).
+    std::vector<ItemStack> out;
+    Xoroshiro rng(5);
+    ItemStack pick{*itemRegistry().find("iron_pickaxe"), 1};
+    blockDrops(S(blocks::EnderChest), pick, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].count == 8);
+    CHECK(out[0].item == *itemRegistry().find("obsidian"));
 }

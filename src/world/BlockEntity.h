@@ -102,6 +102,8 @@ struct DispenserData {
 struct ChestData {
     std::array<ItemStack, 27> items{};
     bool barrel = false; // (M23.5: a barrel's contents, saved as minecraft:barrel)
+    bool shulker = false; // (M23.6: a shulker box's, saved as minecraft:shulker_box)
+    bool ender = false;   // (M23.6: the player's ender chest slots, saved in level.dat)
 };
 
 } // namespace mc::world

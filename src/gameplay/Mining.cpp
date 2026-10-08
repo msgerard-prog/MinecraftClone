@@ -113,6 +113,7 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DetectorRail:
     case blocks::ActivatorRail:
     case blocks::BrewingStand: // wiki: Brewing Stand - any tool, a pickaxe is fastest
+    case blocks::ShulkerBox:   // wiki: Shulker Box - any tool (M23.6)
         return {T::Pickaxe, -1};
     case blocks::OakButton:
         return {T::Axe, -1};
@@ -372,6 +373,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::Snow:
         case blocks::ShortGrass:
         case blocks::Fern:
+        case blocks::EnderChest:
             if (const ItemId it = itemRegistry().blockItem(blockRegistry().blockOf(state))) {
                 out.push_back({it, 1});
                 return;
@@ -525,6 +527,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return; // wiki: 10% flint
     case blocks::NetherQuartzOre:
         add(d.quartz);
+        return;
+    case blocks::EnderChest: // wiki: Ender Chest - 8 obsidian without Silk Touch
+        add(*itemRegistry().find("obsidian"), 8);
         return;
     case blocks::Campfire: // wiki: Campfire - 2 charcoal; soul campfires a soul soil
         add(*itemRegistry().find("charcoal"), 2);

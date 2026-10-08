@@ -343,6 +343,8 @@ enum : BlockId {
     PowderSnowCauldron, // level 1..3
     Stonecutter,       // facing
     Grindstone,        // face, facing (like a lever)
+    EnderChest,        // facing (the player's own 27 slots)
+    ShulkerBox,        // facing (6); the 16 dyed boxes are added after the enum, like it
     Count
 };
 } // namespace blocks

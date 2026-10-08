@@ -91,6 +91,9 @@ Push pushKind(BlockStateId s) {
     if (s == 0) return Push::Air;
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
+    // Shulker boxes break off in vanilla, keeping their contents in the drop; ours stay
+    // put until that drop path exists (block entities don't move).
+    if (R().likeOf(b) == B::ShulkerBox) return Push::Block;
     switch (b) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
@@ -156,6 +159,7 @@ Push pushKind(BlockStateId s) {
     case B::Obsidian:         // (wiki: Piston/Table)
     case B::Spawner:          // (wiki: Monster Spawner - immovable)
     case B::Furnace:          // block entities don't move
+    case B::EnderChest:
     case B::Smoker:
     case B::BlastFurnace:
     case B::Barrel:
@@ -297,7 +301,7 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
         any = true;
         fill += double(st.count) / std::max(1, int(itemRegistry().item(st.item).maxStack));
     };
-    if (b == B::Chest || b == B::Barrel) {
+    if (b == B::Chest || b == B::Barrel || b == B::ShulkerBox) {
         if (const ChestData* d = c->chest(x, p.y, z))
             for (const ItemStack& st : d->items)
                 count(st);
@@ -1941,6 +1945,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     if (const auto concrete = concreteFor(state))
         for (const Direction d : {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
             if (blockOf(world.getBlock(rel(at, d))) == B::Water) return *concrete;
+    if (R().likeOf(blockOf(state)) == B::ShulkerBox) // the lid opens away from the face it was put on
+        return r.set(state, facing6, static_cast<int>(faceDir));
     switch (blockOf(state)) {
     case B::OakLeaves:
     case B::BirchLeaves:
@@ -2140,6 +2146,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return withHFacing(r.set(state, face, 1), faceDir);
     case B::Stonecutter:
         return withHFacing(state, look);
+    case B::EnderChest: // the front faces the player (wiki: Ender Chest)
+        return withHFacing(state, opposite(look));
     case B::Lever:
     case B::StoneButton:
     case B::OakButton: {

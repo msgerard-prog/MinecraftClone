@@ -83,6 +83,9 @@ public:
 
     // Levers, buttons, repeaters and dust react to right-clicks through this.
     void setBlockUpdates(world::BlockUpdates* updates) { m_updates = updates; }
+    // The held item's carried slots (a shulker box, M23.6), set before each tick: a
+    // placed box gets them.
+    void setPlaceContents(uint32_t contents) { m_placeContents = contents; }
 
     // Experience from blocks mined this tick (ores), and where (orbs spawn there).
     int takeExperience() { return std::exchange(m_experience, 0); }
@@ -99,6 +102,7 @@ private:
                world::BlockStateId state, std::vector<world::BlockPos>& changed, bool& placed);
 
     world::BlockUpdates* m_updates = nullptr;
+    uint32_t m_placeContents = 0;
     int m_destroyCooldown = 0;
     int m_useCooldown = 0;
     std::optional<world::BlockPos> m_breaking;

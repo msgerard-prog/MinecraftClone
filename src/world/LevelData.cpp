@@ -150,6 +150,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("foodTickTimer", int32_t{foodTimer});
     player.put("SelectedItemSlot", int32_t{selectedSlot});
     std::vector<Tag> items; // vanilla's Inventory list
+    std::vector<Tag> enderItems; // vanilla's EnderItems list (Slot 0..26)
     Compound equipment;     // 1.21.5+: worn armor and the offhand
     for (const SavedItem& it : inventory) {
         Compound item;
@@ -185,7 +186,21 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             contents.put("potion", "minecraft:" + it.potion);
             components.put("minecraft:potion_contents", std::move(contents));
         }
+        if (it.contents) { // (the item writer knows minecraft:container's layout)
+            ItemStack carrier{};
+            carrier.item = 1; // (any item: only its container component is used)
+            carrier.count = 1;
+            carrier.contents = it.contents;
+            const nbt::Compound full = itemToNbt(carrier, -1);
+            if (const Compound* fc = full.compound("components"))
+                if (const Tag* box = fc->find("minecraft:container")) components.put("minecraft:container", *box);
+        }
         if (!components.entries.empty()) item.put("components", std::move(components));
+        if (it.slot >= 200) { // the ender chest
+            item.put("Slot", static_cast<int8_t>(it.slot - 200));
+            enderItems.emplace_back(std::move(item));
+            continue;
+        }
         if (it.slot >= 100) { // equipment: no Slot field
             static constexpr const char* kKeys[4] = {"feet", "legs", "chest", "head"};
             item.entries.erase(std::remove_if(item.entries.begin(), item.entries.end(),
@@ -198,6 +213,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     }
     player.put("Inventory", listOf(TagType::Compound, std::move(items)));
     if (!equipment.entries.empty()) player.put("equipment", std::move(equipment));
+    player.put("EnderItems", listOf(TagType::Compound, std::move(enderItems)));
     data.put("Player", std::move(player));
     {
         Compound fight; // (vanilla's DragonFight tag)
@@ -384,6 +400,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                         for (const auto& e : levels->entries)
                             if (const auto lvl = levels->integer(e.name)) saved.enchantments.emplace_back(e.name, int(*lvl));
                     }
+                if (comps->list("minecraft:container")) saved.contents = itemFromNbtPublic(item).contents;
             }
             const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
             if (props && !props->entries.empty()) {
@@ -407,6 +424,12 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                 if ((slot >= 0 && slot <= 35) || (slot >= 100 && slot <= 103)) readItem(*item, int(slot));
                 else if (slot == -106) readItem(*item, 150);
             }
+        if (const List* ender = p->list("EnderItems"))
+            for (const Tag& t : ender->items)
+                if (const Compound* item = t.get<Compound>()) {
+                    const auto slot = item->integer("Slot").value_or(-1);
+                    if (slot >= 0 && slot < 27) readItem(*item, 200 + int(slot));
+                }
         if (const Compound* eq = p->compound("equipment")) {
             static constexpr std::pair<const char*, int> kKeys[5] = {
                 {"feet", 100}, {"legs", 101}, {"chest", 102}, {"head", 103}, {"offhand", 150}};

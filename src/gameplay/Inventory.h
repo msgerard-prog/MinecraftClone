@@ -1,5 +1,6 @@
 #pragma once
 
+#include "world/BlockEntity.h"
 #include "world/Items.h"
 #include "world/Random.h"
 
@@ -52,6 +53,11 @@ public:
     // Right-click with an armor piece: it goes on (swapping with what was worn).
     bool equipSelected();
 
+    // The ender chest's 27 slots (M23.6; wiki: Ender Chest): one set per player, the
+    // same from every ender chest, saved with the player (vanilla EnderItems).
+    world::ChestData& enderChest() { return m_ender; }
+    const world::ChestData& enderChest() const { return m_ender; }
+
     // A single block item stack for a block state (keeps non-default states).
     static world::ItemStack blockStack(world::BlockStateId state, int count = 1);
 
@@ -59,6 +65,7 @@ private:
     std::array<world::ItemStack, kSlots> m_slots{};
     std::array<world::ItemStack, 4> m_armor{};
     world::ItemStack m_offhand;
+    world::ChestData m_ender{.ender = true};
     int m_selected = 0;
     double m_scrollRemainder = 0.0;
 };

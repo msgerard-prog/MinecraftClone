@@ -5,6 +5,7 @@
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "world/Blocks.h"
+#include "world/ItemContainers.h"
 #include "world/Raycast.h"
 
 #include <algorithm>
@@ -115,7 +116,17 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             targets.tnt->prime(b, 10 + static_cast<int>(rng.nextInt(21)), rng);
             continue;
         }
-        if (targets.dropAll || rng.nextFloat() < 1.0f / power) { // its loot (mob explosions: 1 in power)
+        // A shulker box that holds something always drops, keeping them (wiki: Shulker Box).
+        uint32_t boxContents = 0;
+        if (reg.likeOf(reg.blockOf(s)) == blocks::ShulkerBox)
+            if (const Chunk* ch = world.chunk(b.chunk()))
+                if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
+                    boxContents = addItemContents(cd->items);
+        if (boxContents) {
+            ItemStack box{itemRegistry().blockItem(reg.blockOf(s)), 1};
+            box.contents = boxContents;
+            items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, box, rng);
+        } else if (targets.dropAll || rng.nextFloat() < 1.0f / power) { // its loot (mob explosions: 1 in power)
             m_loot.clear();
             blockDrops(s, {}, rng, m_loot, true);
             for (const ItemStack& st : m_loot)

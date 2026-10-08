@@ -6,6 +6,7 @@
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
+#include "world/ItemContainers.h"
 #include "world/Rotation.h"
 
 #include <cmath>
@@ -27,9 +28,29 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
         for (const world::ItemStack* s : {&br->ingredient, &br->fuel})
             if (!s->empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, *s});
     }
-    if (const world::ChestData* ch = c->chest(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
-        for (const world::ItemStack& s : ch->items)
-            if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
+    if (const world::ChestData* ch = c->chest(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) {
+        if (ch->shulker) {
+            // A shulker box keeps its slots in the dropped box (wiki: Shulker Box): the
+            // box's own drop carries them, or (creative) a new box if it holds anything.
+            const uint32_t id = world::addItemContents(ch->items);
+            const world::ItemId boxItem = world::itemRegistry().blockItem(world::blockRegistry().blockOf(world.getBlock(p)));
+            bool attached = false;
+            for (BlockInteraction::Drop& d : *drops)
+                if (!attached && d.stack.item == boxItem && d.stack.contents == 0 &&
+                    glm::distance(d.pos, glm::dvec3(p.x + 0.5, p.y + 0.5, p.z + 0.5)) < 1.0) {
+                    d.stack.contents = id;
+                    attached = true;
+                }
+            if (!attached && id) {
+                world::ItemStack box{boxItem, 1};
+                box.contents = id;
+                drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, box});
+            }
+        } else {
+            for (const world::ItemStack& s : ch->items)
+                if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
+        }
+    }
     if (const world::HopperData* h = c->hopper(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) // (M21.3)
         for (const world::ItemStack& s : h->items)
             if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
@@ -159,6 +180,11 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         if (!fitted) return;
         state = *fitted;
         world.updateBlock(at, state);
+        if (m_placeContents) // a shulker box item's slots go back into the placed box (M23.6)
+            if (world::Chunk* pc = world.chunk(at.chunk()))
+                if (world::ChestData* box = pc->chest(world::blockToLocal(at.x), at.y, world::blockToLocal(at.z));
+                    box && box->shulker)
+                    box->items = world::itemContents(m_placeContents);
         world.levelEvent(world::LevelEvent::Type::BlockPlace, at.x, at.y, at.z, state);
         changed.push_back(at);
         placed = true;
