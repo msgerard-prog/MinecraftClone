@@ -213,6 +213,10 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             world::BlockUpdates::placement(world, state, at, hit->face, player.yaw(), player.pitch(), hitY);
         if (!fitted) return;
         state = *fitted;
+        if (reg.blockOf(state) == world::blocks::Kelp) // (an age 0-24, how much it may still grow - wiki: random;
+            // ours from the position)
+            state = reg.set(state, world::properties::age25,
+                            int((uint32_t(at.x) * 73856093u ^ uint32_t(at.y) * 19349663u ^ uint32_t(at.z) * 83492791u) % 25u));
         if (reg.get(state, world::properties::waterlogged) >= 0) // (holds the water it went into)
             state = reg.set(state, world::properties::waterlogged, waterSource ? 0 : 1);
         world.updateBlock(at, state);

@@ -4,26 +4,27 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-08)
-M24 done (reviews applied; v0.24.0): villagers (professions, schedules, beds, job
-sites, bells), trading (levels, demand, restocking), breeding, zombie villagers and
-curing, iron golems, witches, wandering traders, pillagers, patrols and outposts,
-vindicators, evokers, vexes, ravagers, totems, raids and Hero of the Village (overworld3).
-M1-M23 done. v1.0 waits for M25-M28.
+M25 done (reviews applied; v0.25.0): waterlogging, kelp, seagrass, corals, sea pickles,
+deep oceans, flooded caves, icebergs, underwater fog (overworld4); fish, squid, glow
+squid, fish buckets, fishing, boats; drowned and tridents; dolphins, turtles; shipwrecks,
+ocean ruins, buried treasure; guardians, elder guardians, ocean monuments, sponges.
+M1-M24 done. v1.0 waits for M26-M28.
 
 ## Next
-M25 - Oceans (wiki pages of each biome/mob/structure):
-1. ✅ M25.1 - Ocean biomes (warm/lukewarm/cold/frozen, deep variants) with their floors,
-   kelp, seagrass, sea pickles and coral (blocks, fans, reefs), icebergs; water
-   aquifers in a new overworld generator version.
-2. ✅ M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
-   items and fish buckets; cod, salmon, tropical fish, pufferfish, squid and glow squid.
-3. ✅ M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
-   (throwing, Loyalty/Riptide/Impaling/Channeling), dolphins (Dolphin's Grace), turtles
-   (eggs, scutes, turtle helmet).
-4. ✅ M25.4 - Shipwrecks, ocean ruins (with suspicious sand left for M27), buried
-   treasure and treasure maps where maps allow (maps come in M28).
-5. ✅ M25.5 - Guardians, elder guardians (Mining Fatigue) and ocean monuments (prismarine,
-   sponges, gold), conduit attacks on hostile mobs, hearts of the sea.
+M26 - Mobs 3 (wiki pages of each mob):
+1. M26.1 - Companions: wolves (taming, sitting, following, wolf armor, variants), cats
+   and ocelots (taming, gifts, scaring creepers and phantoms), parrots (shoulders,
+   dancing, imitating).
+2. M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,
+   breeding stats), llamas and trader llamas (caravans, spit), camels; chest boats.
+3. M26.3 - Wildlife: foxes (sleeping, carrying items), bees (nests, hives, honey,
+   pollination), goats (ramming, horns), frogs and tadpoles (froglights), axolotls
+   (buckets, play dead), pandas (personalities), polar bears, rabbits.
+4. M26.4 - Monsters: phantoms (insomnia), silverfish (infested blocks), cave spiders,
+   wither skeletons and the Wither (summoning, nether star, beacon), the breeze and wind
+   charges, the warden (with the deep dark in M27).
+5. M26.5 - 1.21.x mobs: allays, the happy ghast (dried ghast, harness), the copper
+   golem (copper chests), the nautilus.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -46,6 +47,15 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M25 perf review (streaming bench: no CPU change, p99 ~1.4-1.6 ms on both
+  overworld3/4; GPU avg 0.17 -> 0.27 ms): overworld4 has +8-29% quads and 2.5x the
+  translucent sections (ocean-floor plants; flooded-cave water surfaces and new cave
+  entrances in low columns) - find the water's source and pull the arena pre-size/pages
+  item forward (RD32 ~ +90 MB of vertices in ocean seeds); use the coral table in
+  blockDrops (string ends_with per drop, a "dead_" string per coral block); water mobs
+  and boats compute fluidContact twice a tick (pass it to physics, with the M19 strider
+  item); fish schools spawn into 4-slot chunk mob vectors and mark the chunk dirty per
+  spawn (with the M10 mob pool); boatId builds 10 strings per placement click.
 - From the M24 perf review: a per-chunk POI index (vanilla PoiManager) instead of
   section scans for beds/job sites/bells; trade offers in a side pool (MobData is
   1048 bytes since M24); `mobByUuid` own chunk first or a target-chunk hint (pillagers
@@ -153,6 +163,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M25 note:** new worlds use "overworld4" (oceans), frozen as of v0.25.0. Try it:
+  `tools/run.sh --world "M25 test"`, swim in a warm ocean (reefs), fish with a rod
+  (`/give @s fishing_rod`), sail a boat (`/give @s oak_boat`), find a monument in a deep
+  ocean.
 - **M24 note:** overworld3 (new worlds) is frozen as of v0.24.0; worlds made with M24
   development builds may show seams near pillager outposts (outposts became 5x rarer
   in the review). Try it: `tools/run.sh --world "M24 test"`, find a village, trade
@@ -259,7 +273,7 @@ and GUI textures are made with their systems.
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | ✅ 2026-10-07 v0.22.0 (synthesized sounds, one-page options: see deviations) |
 | M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | ✅ 2026-10-07 v0.23.0 (our own disc tunes, loom/cartography screens only: see deviations) |
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | ✅ 2026-10-08 v0.24.0 (no gossip, bell-centred raids: see deviations) |
-| M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | Oceans as in 1.21 |
+| M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | ✅ 2026-10-08 v0.25.0 (simple flooded caves, own monument design, no chest boats: see deviations) |
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
@@ -274,6 +288,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-08 M25 (v0.25.0): oceans - waterlogging, ocean plants and corals, deep oceans, flooded caves, icebergs, water mobs, fishing, boats, drowned, tridents, dolphins, turtles, shipwrecks, ruins, buried treasure, guardians and monuments, sponges.
 - 2026-10-08 M24 (v0.24.0): villagers, trading, breeding, zombie villagers, iron golems, witches, wandering traders, pillagers, patrols, outposts, illagers, raids.
 - 2026-10-07 M23 (v0.23.0): building blocks, woods, signs, copper, workstations, ender chests, shulker boxes, netherite, beacons, conduits, note blocks, jukeboxes.
 - 2026-10-07 M22 (v0.22.0): weather, sky and clouds, particles, sound, menus and options.

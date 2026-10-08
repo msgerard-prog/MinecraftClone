@@ -1627,10 +1627,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // runs down under water (wiki: Turtle Shell).
                 static const mc::world::ItemId turtleHelmet = *mc::world::itemRegistry().find("turtle_helmet");
                 if (inventory.armor(0).item == turtleHelmet && !dead) {
-                    const glm::dvec3 eyeAt = player.eyePosition(1.0);
-                    const auto es = world.getBlock({int(std::floor(eyeAt.x)), int(std::floor(eyeAt.y)), int(std::floor(eyeAt.z))});
-                    if (mc::world::blockRegistry().blockOf(es) != mc::world::blocks::Water &&
-                        !mc::world::blockRegistry().waterlogged(es))
+                    if (!mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water))
                         vitals.addEffect(E::WaterBreathing, 0, 200);
                 }
             }
@@ -2440,7 +2437,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   m.type == mc::world::MobType::Skeleton;
                     mhit.arthropod = m.type == mc::world::MobType::Spider;
                     mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
-                    mhit.aquatic = mc::world::mobInfo(m.type).swims;
+                    mhit.aquatic = mc::world::mobInfo(m.type).swims || m.type == mc::world::MobType::Turtle;
                     float dmg = mc::meleeDamage(mhit);
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
@@ -2496,8 +2493,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos eyeBlock{int(std::floor(feet.x)),
                                                    int(std::floor(feet.y + player.eyeHeight())),
                                                    int(std::floor(feet.z))};
-                const bool eyesInWater =
-                    reg.blockOf(world.getBlock(eyeBlock)) == mc::world::blocks::Water;
+                const bool eyesInWater = mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water);
                 // Aqua Affinity: no slower mining under water (wiki).
                 interaction.setPlaceContents(
                     inventory.selectedStack().contents); // (shulker boxes, M23.6)
@@ -2568,6 +2564,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::world::BlockUpdates::kDefaultRandomTickSpeed);
                 blockUpdates.setPlayer(feet);
                 blockUpdates.setSkyDarken(overworld ? int(tickSkyDarken) : 0);
+                blockUpdates.setDayTime(dayTime);
                 blockUpdates.setWeather(overworld ? &weather : nullptr);
             }
             {
@@ -3319,9 +3316,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // lifted toward the biome's water colour so daylight water reads blue.
             const mc::world::BlockPos eye{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
                                           int(std::floor(camera.position.z))};
-            const mc::world::BlockStateId es = world.getBlock(eye);
-            const auto& reg = mc::world::blockRegistry();
-            const bool under = reg.blockOf(es) == mc::world::blocks::Water || reg.waterlogged(es);
+            // (the water's surface height counts, and waterlogged cells: review fix)
+            const bool under = mc::pointInFluid(world, camera.position, mc::world::blocks::Water);
             glm::vec3 waterFog(0.0f);
             if (under)
                 if (const mc::world::Chunk* c = world.chunk(eye.chunk()); c && c->biomes()) {

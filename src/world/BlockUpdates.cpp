@@ -100,7 +100,8 @@ Push pushKind(BlockStateId s) {
     if (R().likeOf(b) == B::ShulkerBox || b == B::Campfire || b == B::SoulCampfire || kind == BlockKind::Sign ||
         kind == BlockKind::WallSign || kind == BlockKind::HangingSign || kind == BlockKind::WallHangingSign ||
         b == B::WallTorch || b == B::SoulTorch || b == B::SoulWallTorch || b == B::Lantern || b == B::SoulLantern ||
-        b == B::Ladder || b == B::Bamboo)
+        b == B::Ladder || b == B::Bamboo || b == B::TurtleEgg ||
+        (BlockUpdates::isOceanPlant(b) && !R().block(b).id.ends_with("_coral_block"))) // (M25 review: plants break off)
         return Push::Destroy;
     if (b == B::Jukebox || b == B::Beacon || b == B::Conduit || b == B::Grindstone) return Push::Block;
     if (R().block(b).id.ends_with("_glazed_terracotta")) return Push::PushOnly;
@@ -1808,7 +1809,7 @@ void BlockUpdates::extend(const BlockPos& p) {
         destroyedStates[i] = ds;
         const BlockId b = blockOf(ds);
         if (b != B::Water && b != B::Lava) pistonDrops(d, ds); // its loot (and what it held)
-        setRaw(d, 0);
+        setRaw(d, leftAfterBreaking(ds)); // (waterlogged: its water stays)
     }
     // The blocks leave their cells at once; for 2 ticks their targets (and the head's
     // cell) hold moving pistons, then they land.
@@ -1862,8 +1863,9 @@ void BlockUpdates::retract(const BlockPos& p) {
             pushKind(at(far)) == Push::Move && gatherPush(p, far, opposite(f), destroy) &&
             m_moving.size() + m_push.size() <= m_moving.capacity()) {
             for (const BlockPos& d : destroy) {
-                pistonDrops(d, at(d));
-                setRaw(d, 0);
+                const BlockStateId ds = at(d);
+                pistonDrops(d, ds);
+                setRaw(d, leftAfterBreaking(ds));
             }
             m_pushStates.clear();
             for (const BlockPos& q : m_push)

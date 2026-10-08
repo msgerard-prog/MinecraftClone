@@ -25,6 +25,7 @@ bool Mobs::placeBoat(World& world, const glm::dvec3& at, float yaw, int wood, Xo
 
 void Mobs::boatTick(Context& ctx, MobData& m) {
     const World& world = ctx.world;
+    if (m.fireTicks > 0) --m.fireTicks; // (boats don't burn up; the flag just runs out - review fix)
     const FluidContact fluid = fluidContact(world, box(m));
     // What it rests on: the water (the surface around its middle), or the block below.
     const auto& r = blockRegistry();
@@ -34,7 +35,7 @@ void Mobs::boatTick(Context& ctx, MobData& m) {
                             : !m.onGround      ? 0.9
                             : under == blocks::BlueIce ? 0.989
                             : under == blocks::Ice || under == blocks::PackedIce ? 0.98
-                                                                                : 0.45; // (dragging on land)
+                                                                                : 0.6; // (dragging on land: the block's slipperiness)
     // The rider's paddling (main sets paddleForward/paddleTurn each tick).
     m.yawVel = float(m.yawVel * friction) + float(m.paddleTurn);
     double accel = 0.0;

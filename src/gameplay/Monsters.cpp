@@ -83,7 +83,7 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     case MobType::Enderman: return m.angry; // only when stared at or hit
     case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
     // Drowned go after players in water, or anywhere at night (wiki: Drowned).
-    case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f;
+    case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
     case MobType::Piglin: // hostile unless the player wears gold; babies never (wiki: Piglin)
         return !m.isBaby() && m.admireTicks == 0 && (m.angry || !ctx.wearsGold);
     default: return true;
@@ -169,12 +169,12 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         break;
     }
     case MobType::Drowned: {
-        // With a trident: thrown at a target within 10 blocks every 2 s (wiki: Drowned -
-        // its ranged attack; ours throws from anywhere it sees the player).
-        if (!m.heldTrident || !chase || playerDist2 > 10.0 * 10.0 || playerDist2 < 2.0 * 2.0 || !ctx.projectiles ||
+        // With a trident: thrown at a target within 20 blocks every 1.5 s (wiki: Drowned -
+        // its ranged attack).
+        if (!m.heldTrident || !chase || playerDist2 > 20.0 * 20.0 || playerDist2 < 2.0 * 2.0 || !ctx.projectiles ||
             m.attackCooldown > 0 || !sees(ctx.world, m, ctx.player))
             break;
-        m.attackCooldown = 40;
+        m.attackCooldown = 30;
         const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85, 0);
         glm::dvec3 d = playerPos + glm::dvec3(0, 0.9, 0) - from;
         d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.15;

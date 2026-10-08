@@ -1130,6 +1130,20 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeVillages(blockArray.data(), cx, cz, topY, entities);
     }
 
+    // 7c. Overworld4: seal water that ravines, mineshafts or structures left touching air
+    //     below the sea (beside or under it), so no water hangs in a dry cave (M25 review).
+    if (m_version >= 4)
+        for (int y = kOverworldHeight.minY + 1; y < kSeaLevel; ++y)
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    if (chunk.get(x, y, z) != B.water) continue;
+                    auto air = [&](int ax, int ay, int az) {
+                        return ax >= 0 && ax < 16 && az >= 0 && az < 16 && chunk.get(ax, ay, az) == B.air;
+                    };
+                    if (air(x, y - 1, z) || air(x - 1, y, z) || air(x + 1, y, z) || air(x, y, z - 1) || air(x, y, z + 1))
+                        chunk.set(x, y, z, y < 0 ? B.deepslate : B.stone);
+                }
+
     // 8. Top layer (vanilla's last feature step): where the temperature at the top
     //    block is below 0.15 - the biome's, minus 1/800 per block above y 80 (wiki:
     //    Biome › Temperature) - water freezes and sky-exposed ground gets a snow
@@ -1738,7 +1752,7 @@ void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, 
                             sb.set(3 + half, y, z, planks);
                         }
                         for (int x = 3 - half + 1; x <= 3 + half - 1; ++x)
-                            for (int y = 1; y <= 3; ++y) sb.set(x, y, z, beached ? BlockStateId{0} : water);
+                            for (int y = 1; y <= 3; ++y) sb.set(x, y, z, beached || ground + y >= kSeaLevel ? BlockStateId{0} : water);
                         if (z % 3 != 1) // (deck planks with gaps)
                             for (int x = 3 - half; x <= 3 + half; ++x) sb.set(x, 4, z, planks);
                         sb.set(3 - half, 5, z, fence); // the rail
@@ -1746,11 +1760,18 @@ void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, 
                     }
                     sb.fill(3, 0, 0, 3, 0, 19, logX); // keel
                     for (int y = 5; y <= 12; ++y) sb.set(3, y, 9, logY); // the mast
+                    // Water inside below the sea, air above it (M25 review: no water hanging
+                    // in the air over shallow wrecks, no dry pockets in sunken ones).
+                    auto inside = [&](int y) { return beached || ground + y >= kSeaLevel ? BlockStateId{0} : water; };
                     sb.room(1, 5, 0, 5, 8, 4, oakPlanks); // the stern cabin
-                    sb.fill(2, 6, 4, 4, 7, 4, 0);
+                    for (int y = 6; y <= 7; ++y) {
+                        sb.fill(2, y, 1, 4, y, 3, inside(y));
+                        sb.fill(2, y, 4, 4, y, 4, inside(y)); // its door
+                    }
                     // Broken away: a random third of the hull's top, as wrecks are.
                     const int broken = int(r.nextInt(3));
-                    sb.fill(0, 3 + broken, 12 + int(r.nextInt(4)), 6, 13, 19, beached ? BlockStateId{0} : water);
+                    const int brokenFrom = 12 + int(r.nextInt(4));
+                    for (int y = 3 + broken; y <= 13; ++y) sb.fill(0, y, brokenFrom, 6, y, 19, inside(y));
                     sb.chest(2, 6, 2, LootTable::ShipwreckMap);       // captain's cabin
                     sb.chest(4, 1, 9, LootTable::ShipwreckSupply);    // the hold
                     sb.chest(3, 1, 15, LootTable::ShipwreckTreasure); // the bow

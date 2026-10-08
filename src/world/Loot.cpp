@@ -157,15 +157,17 @@ constexpr LootPool kOutpost[] = {{0, 1, kOutpost1}, {2, 3, kOutpost2}, {1, 3, kO
 constexpr LootEntry kShipSupply1[] = {
     {"paper", 1, 12, 8},         {"potato", 2, 6, 7},        {"poisonous_potato", 2, 6, 7}, {"carrot", 4, 8, 7},
     {"wheat", 8, 21, 7},         {"coal", 2, 8, 6},          {"rotten_flesh", 5, 24, 5},    {"gunpowder", 1, 5, 3},
-    {"pumpkin", 1, 1, 2},        {"bamboo", 1, 3, 2},        {"tnt", 1, 2, 1},              {"leather_helmet", 1, 1, 3, true},
+    {"pumpkin", 1, 3, 2},        {"bamboo", 1, 3, 2},        {"tnt", 1, 2, 1},              {"leather_helmet", 1, 1, 3, true},
     {"leather_chestplate", 1, 1, 3, true}, {"leather_leggings", 1, 1, 3, true}, {"leather_boots", 1, 1, 3, true}};
-constexpr LootPool kShipSupply[] = {{3, 10, kShipSupply1}};
+// (every shipwreck chest: 1 in 6, two coast armor trim templates - wiki)
+constexpr LootEntry kShipTrim[] = {{"coast_armor_trim_smithing_template", 2, 2, 1}, {"", 1, 1, 5}};
+constexpr LootPool kShipSupply[] = {{3, 10, kShipSupply1}, {1, 1, kShipTrim}};
 constexpr LootEntry kShipMap1[] = {{"paper", 1, 10, 20}, {"feather", 1, 5, 10}, {"book", 1, 5, 5}};
-constexpr LootPool kShipMap[] = {{3, 3, kShipMap1}};
+constexpr LootPool kShipMap[] = {{3, 3, kShipMap1}, {1, 1, kShipTrim}};
 constexpr LootEntry kShipTreasure1[] = {{"iron_ingot", 1, 5, 90}, {"gold_ingot", 1, 5, 10}, {"emerald", 1, 5, 40},
                                         {"diamond", 1, 1, 5}, {"experience_bottle", 1, 1, 5}};
 constexpr LootEntry kShipTreasure2[] = {{"iron_nugget", 1, 10, 50}, {"gold_nugget", 1, 10, 10}, {"lapis_lazuli", 1, 10, 20}};
-constexpr LootPool kShipTreasure[] = {{3, 6, kShipTreasure1}, {2, 5, kShipTreasure2}};
+constexpr LootPool kShipTreasure[] = {{3, 6, kShipTreasure1}, {2, 5, kShipTreasure2}, {1, 1, kShipTrim}};
 // wiki: Ocean Ruins › Loot (small and big ruin chests).
 constexpr LootEntry kRuinSmall1[] = {{"coal", 1, 4, 10}, {"stone_axe", 1, 1, 2}, {"rotten_flesh", 1, 1, 5},
                                      {"emerald", 1, 1, 1}, {"wheat", 2, 3, 10}};
@@ -183,7 +185,9 @@ constexpr LootEntry kBuried2[] = {{"iron_ingot", 1, 4, 20}, {"gold_ingot", 1, 4,
 constexpr LootEntry kBuried3[] = {{"emerald", 4, 8, 5}, {"diamond", 1, 2, 5}, {"prismarine_crystals", 1, 5, 5}};
 constexpr LootEntry kBuried4[] = {{"leather_chestplate", 1, 1, 1}, {"iron_sword", 1, 1, 1}};
 constexpr LootEntry kBuried5[] = {{"cooked_cod", 2, 4, 1}, {"cooked_salmon", 2, 4, 1}};
-constexpr LootPool kBuried[] = {{1, 1, kBuried1}, {5, 8, kBuried2}, {1, 3, kBuried3}, {0, 1, kBuried4}, {2, 2, kBuried5}};
+constexpr LootEntry kBuried6[] = {{"potion", 1, 1, 1, false, uint8_t(Potion::WaterBreathing)}}; // (0-2, wiki)
+constexpr LootPool kBuried[] = {{1, 1, kBuried1}, {5, 8, kBuried2}, {1, 3, kBuried3}, {0, 1, kBuried4}, {2, 2, kBuried5},
+                                {0, 2, kBuried6}};
 
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.

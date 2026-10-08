@@ -561,13 +561,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
         bool wet = c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
         // A zombie under water turns into a drowned: 30 s submerged, then 15 s of
         // shaking (wiki: Zombie › Drowned conversion; ours counts 45 s in one go).
-        if (m.type == MobType::Zombie && !m.isBaby()) {
+        if (m.type == MobType::Zombie) { // (babies too; it keeps the zombie's persistence - review)
             if (!wet) m.airTicks = 300;
             else if (--m.airTicks <= -600) {
                 m.type = MobType::Drowned;
                 m.airTicks = 300;
                 m.health = mobInfo(MobType::Drowned).maxHealth;
-                m.persistent = true;
             }
         }
         if (!wet && ctx.weather && ctx.weather->raining && ((undead && day && sky) || m.fireTicks > 0))
@@ -731,7 +730,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Drowned: // wiki: Drowned - rotten flesh 0-2, a copper ingot 11%, its trident 8.5%
         drop("rotten_flesh", 0, 2);
         if (m.lastHurtByPlayer && ctx.rng.nextInt(100) < 11) drop("copper_ingot", 1, 1);
-        if (m.heldTrident && ctx.rng.nextInt(1000) < 85) drop("trident", 1, 1);
+        if (m.heldTrident && m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 85) drop("trident", 1, 1);
         break;
     case MobType::Witch: { // wiki: Witch - 1-3 rolls of bottles, glowstone, gunpowder, redstone, spider eyes, sugar, sticks
         static constexpr const char* kLoot[7] = {"glass_bottle", "glowstone_dust", "gunpowder", "redstone",
@@ -776,10 +775,18 @@ void Mobs::die(Context& ctx, MobData& m) {
     // crystals otherwise; Elder Guardian - also a wet sponge when killed by a player)
     case MobType::Guardian:
     case MobType::ElderGuardian:
+        // (guardian: 2/5 cod, 2/5 a crystal, 1/5 nothing; elder: 3/6, 2/6, 1/6 - review)
         drop("prismarine_shard", 0, 2);
-        if (ctx.rng.nextInt(10) < 4) drop(burning ? "cooked_cod" : "cod", 1, 1);
-        else drop("prismarine_crystals", 0, 1);
-        if (m.type == MobType::ElderGuardian && m.lastHurtByPlayer) drop("wet_sponge", 1, 1);
+        {
+            const bool elder = m.type == MobType::ElderGuardian;
+            const uint32_t r = ctx.rng.nextInt(elder ? 6 : 5);
+            if (r < (elder ? 3u : 2u)) drop(burning ? "cooked_cod" : "cod", 1, 1);
+            else if (r < (elder ? 5u : 4u)) drop("prismarine_crystals", 1, 1);
+        }
+        if (m.type == MobType::ElderGuardian && m.lastHurtByPlayer) {
+            drop("wet_sponge", 1, 1);
+            if (ctx.rng.nextInt(5) == 0) drop("tide_armor_trim_smithing_template", 1, 1); // (20%)
+        }
         break;
     case MobType::Dolphin: drop(burning ? "cooked_cod" : "cod", 0, 1); break; // (wiki: Dolphin)
     case MobType::Turtle: drop("seagrass", 0, 2); break; // (wiki: Turtle - 0-2 seagrass)

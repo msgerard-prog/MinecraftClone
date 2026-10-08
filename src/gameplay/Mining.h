@@ -24,7 +24,7 @@ bool canHarvest(world::BlockStateId state, const world::ItemStack& held);
 //   /5 when not on the ground, /5 when the eyes are in water;
 //   instant if damage per tick > 1; unbreakable (bedrock: hardness -1) -> -1.
 // `haste`: the Haste level (M23.6; wiki: Haste - speed x (1 + 0.2 level)); `fatigue`
-// the Mining Fatigue level (M25.5; wiki: speed x 0.3 ^ level, at most 4 levels counted).
+// the Mining Fatigue level (M25.5: speed x 0.3 / 0.09 / 0.0027 / 0.00081 for I-IV+).
 int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onGround,
                bool eyesInWater, int haste = 0, int fatigue = 0);
 

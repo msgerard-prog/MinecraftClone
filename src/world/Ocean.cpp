@@ -105,8 +105,8 @@ bool BlockUpdates::oceanNeighbourChanged(const BlockPos& p, BlockStateId s) {
 
 bool BlockUpdates::coralWet(const BlockPos& p, BlockStateId s) const {
     const BlockId b = R().blockOf(s);
-    if (coralTable()[b].kind != CoralInfo::Block) return R().waterlogged(s); // plants and fans: their own water
-    for (int d = 0; d < kDirectionCount; ++d) { // blocks: water on any side
+    if (coralTable()[b].kind != CoralInfo::Block && R().waterlogged(s)) return true; // plants and fans: their own water
+    for (int d = 0; d < kDirectionCount; ++d) { // or water on any side (wiki: Coral)
         const BlockStateId n = at(rel(p, static_cast<Direction>(d)));
         if (R().blockOf(n) == B::Water || R().waterlogged(n)) return true;
     }
@@ -138,12 +138,14 @@ void BlockUpdates::growKelp(const BlockPos& p, BlockStateId s) {
 }
 
 void BlockUpdates::tickTurtleEgg(const BlockPos& p, BlockStateId s) {
-    // On sand, eggs crack a stage on a random tick at night (always) or by day (1 in 500);
+    // On sand, eggs crack a stage on a random tick just before dawn (day time 21062-21904,
+    // always) or otherwise 1 in 500 - about 4-5 nights to hatch;
     // past the second crack they hatch into baby turtles (wiki: Turtle Egg › Hatching).
     const BlockId below = R().blockOf(at(rel(p, Direction::Down)));
     if (below != B::Sand && below != B::RedSand) return;
-    const bool night = m_skyDarken >= 4; // (the sky has darkened: night)
-    if (!night && m_random.nextInt(500) != 0) return;
+    const int64_t t = ((m_dayTime % 24000) + 24000) % 24000;
+    const bool dawn = t >= 21062 && t <= 21904;
+    if (!dawn && m_random.nextInt(500) != 0) return;
     const int h = R().get(s, hatch);
     if (h < 2) {
         set(p, R().set(s, hatch, h + 1));

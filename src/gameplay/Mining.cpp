@@ -235,7 +235,9 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
             speed = std::max(speed, 1.5f);
     }
     if (haste > 0) speed *= 1.0f + 0.2f * float(haste);
-    for (int f = 0; f < std::min(fatigue, 4); ++f) speed *= 0.3f; // (Mining Fatigue III: 0.027)
+    // Mining Fatigue (vanilla's table: I 0.3, II 0.09, III 0.0027, IV+ 0.00081).
+    static constexpr float kFatigue[5] = {1.0f, 0.3f, 0.09f, 0.0027f, 0.00081f};
+    speed *= kFatigue[std::clamp(fatigue, 0, 4)];
     if (eyesInWater) speed /= 5.0f;
     if (!onGround) speed /= 5.0f;
     const float damage = speed / hardness / (harvest ? 30.0f : 100.0f);
@@ -328,7 +330,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         const std::string& id = blockRegistry().block(ob).id;
         const bool shears = held.item != 0 && itemRegistry().item(held.item).id == "minecraft:shears";
         if (ob == blocks::Seagrass || ob == blocks::TallSeagrass) {
-            if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), 1});
+            if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), uint8_t(ob == blocks::TallSeagrass ? 2 : 1)});
             return;
         }
         if (enchantLevel(held, Enchantment::SilkTouch) > 0 &&

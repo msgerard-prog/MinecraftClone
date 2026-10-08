@@ -4,6 +4,7 @@
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 #include "world/Items.h"
+#include "world/Potions.h"
 
 #include <cmath>
 
@@ -114,7 +115,7 @@ ItemStack Fishing::rollCatch(int luck, Xoroshiro& rng) {
         };
         static constexpr J kJunk[] = {{"lily_pad", 17}, {"bowl", 10}, {"leather", 10}, {"leather_boots", 10},
                                       {"rotten_flesh", 10}, {"stick", 5}, {"string", 5}, {"glass_bottle", 10},
-                                      {"bone", 10}, {"tripwire_hook", 10}, {"fishing_rod", 2}, {"ink_sac", 1}};
+                                      {"bone", 10}, {"tripwire_hook", 10}, {"fishing_rod", 2}, {"ink_sac", 10}};
         int total = 0;
         for (const J& j : kJunk) total += j.weight;
         int w = int(rng.nextInt(uint32_t(total)));
@@ -123,6 +124,10 @@ ItemStack Fishing::rollCatch(int luck, Xoroshiro& rng) {
             const ItemId it = item(j.name);
             if (it == kNoItem) break; // (not in the game yet: a fish instead)
             ItemStack s{it, 1};
+            if (std::string_view(j.name) == "glass_bottle") { // (the wiki's junk is a water bottle)
+                s.item = item("potion");
+                s.potion = uint8_t(Potion::Water);
+            }
             if (items.item(it).durability > 0) // (worn: vanilla damages junk boots and rods)
                 s.damage = uint16_t(items.item(it).durability * (0.1 + rng.nextDouble() * 0.8));
             return s;

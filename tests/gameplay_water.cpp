@@ -330,7 +330,7 @@ TEST_CASE("turtles fed seagrass carry eggs home and lay them in the sand; eggs h
     CHECK(eggsAtHome == 1);
     // Eggs hatch at night on sand: two cracks, then babies.
     BlockUpdates updates(p.world);
-    updates.setSkyDarken(11);
+    updates.setDayTime(21500); // (just before dawn: eggs crack)
     p.world.setBlock({2, 64, 12}, blockRegistry().set(blockRegistry().defaultState(blocks::TurtleEgg), properties::eggs, 2));
     updates.setRandomTicks({0, 0}, 1, 1000); // (not 4096: the random's low bits repeat every 4096 draws)
     for (int t = 0; t < 400 && updates.hatched().empty(); ++t) {
@@ -404,4 +404,68 @@ TEST_CASE("a sponge soaks up the water around it and turns wet; a wet sponge dri
     const auto dried = smelt({itemRegistry().blockItem(blocks::WetSponge), 1});
     REQUIRE(dried.has_value());
     CHECK(dried->item == itemRegistry().blockItem(blocks::Sponge));
+}
+
+TEST_CASE("review fixes (M25): turtles and drowned save their data; guardians live on land; fatigue III is 0.27%") {
+    Chunk c({0, 0});
+    Xoroshiro rng(4);
+    MobData t = Mobs::make(MobType::Turtle, {3.5, 64.0, 3.5}, rng);
+    t.hasEgg = true;
+    t.home = {12, 64, -7};
+    MobData d = Mobs::make(MobType::Drowned, {5.5, 64.0, 3.5}, rng);
+    d.heldTrident = true;
+    c.mobs().push_back(t);
+    c.mobs().push_back(d);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 2);
+    CHECK(back.mobs()[0].hasEgg);
+    CHECK(back.mobs()[0].home == glm::ivec3{12, 64, -7});
+    CHECK(back.mobs()[1].heldTrident);
+    // A guardian beached for a minute stays unhurt (wiki: it never suffocates).
+    Pool p;
+    for (int y = 64; y <= 70; ++y)
+        for (int z = -8; z <= 8; ++z)
+            for (int x = -8; x <= 8; ++x) p.world.setBlock({x, y, z}, 0);
+    REQUIRE(Mobs::add(p.world, Mobs::make(MobType::Guardian, {0.5, 64.0, 0.5}, p.rng)));
+    p.tick(1200);
+    for (MobData* m : p.all())
+        if (m->type == MobType::Guardian) CHECK(m->health == doctest::Approx(30.0f));
+    // Mining Fatigue III: 0.27% of the speed.
+    const BlockStateId stone = blockRegistry().defaultState(blocks::Stone);
+    const ItemStack pick{*itemRegistry().find("iron_pickaxe"), 1};
+    CHECK(breakTicks(stone, pick, true, false, 0, 3) > breakTicks(stone, pick, true, false) * 300);
+}
+
+TEST_CASE("review fixes (M25): pistons break kelp leaving its water; coral plants live beside water") {
+    World w;
+    BlockUpdates updates(w);
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx) {
+            Chunk& ch = w.createChunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    ch.set(x, 63, z, blockRegistry().defaultState(blocks::Stone));
+                    for (int y = 64; y <= 66; ++y) ch.set(x, y, z, blockRegistry().defaultState(blocks::Water));
+                }
+        }
+    w.setBlock({1, 64, 0}, blockRegistry().defaultState(blocks::Kelp));
+    w.setBlock({0, 64, 0}, *blockRegistry().parse("minecraft:piston[facing=east]"));
+    w.updateBlock({0, 65, 0}, blockRegistry().defaultState(blocks::RedstoneBlock));
+    for (int t = 0; t < 6; ++t) {
+        updates.setTime(t);
+        updates.tick();
+    }
+    CHECK(blockRegistry().blockOf(w.getBlock({1, 64, 0})) == blocks::PistonHead); // the head took its place
+    CHECK(blockRegistry().blockOf(w.getBlock({2, 64, 0})) != blocks::Kelp); // broken off, not carried
+    CHECK_FALSE(updates.drops().empty());
+    // A dry coral fan with water beside it lives.
+    const BlockStateId dryFan = blockRegistry().set(blockRegistry().defaultState(*blockRegistry().findBlock("tube_coral_fan")),
+                                                    properties::waterlogged, 1);
+    w.updateBlock({6, 64, 6}, dryFan);
+    for (int t = 10; t < 130; ++t) {
+        updates.setTime(t);
+        updates.tick();
+    }
+    CHECK(blockRegistry().blockOf(w.getBlock({6, 64, 6})) == *blockRegistry().findBlock("tube_coral_fan"));
 }

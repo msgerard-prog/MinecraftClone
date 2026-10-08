@@ -35,6 +35,8 @@ constexpr Step kSteps[] = {
     {"blaze_powder", P::Awkward, P::Strength},
     {"magma_cream", P::Awkward, P::FireResistance},
     {"golden_carrot", P::Awkward, P::NightVision},
+    {"pufferfish", P::Awkward, P::WaterBreathing}, // (M25 review: pufferfish now exist)
+    {"pufferfish", P::Water, P::Mundane},
     // Corruption.
     {"fermented_spider_eye", P::Swiftness, P::Slowness},
     {"fermented_spider_eye", P::LongSwiftness, P::LongSlowness},

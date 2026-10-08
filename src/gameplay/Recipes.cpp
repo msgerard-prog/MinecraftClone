@@ -430,6 +430,7 @@ std::vector<Recipe> build() {
         // wither roses) and brown (cocoa beans) wait for their sources.
         static constexpr std::pair<const char*, const char*> kFrom[] = {
             {"dandelion", "yellow_dye"},    {"poppy", "red_dye"},          {"cornflower", "blue_dye"},
+            {"ink_sac", "black_dye"}, // (M25 review: squid ink, wiki: Black Dye)
             {"azure_bluet", "light_gray_dye"}, {"oxeye_daisy", "light_gray_dye"}, {"white_tulip", "light_gray_dye"},
             {"allium", "magenta_dye"},      {"blue_orchid", "light_blue_dye"}, {"red_tulip", "red_dye"},
             {"orange_tulip", "orange_dye"}, {"pink_tulip", "pink_dye"},    {"lily_of_the_valley", "white_dye"},

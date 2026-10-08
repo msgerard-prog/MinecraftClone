@@ -438,7 +438,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 } else {
                     MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
-                    if (mobInfo(m.type).swims) damage += 2.5f * float(enchantLevel(p.stack, Enchantment::Impaling));
+                    if (mobInfo(m.type).swims || m.type == MobType::Turtle)
+                        damage += 2.5f * float(enchantLevel(p.stack, Enchantment::Impaling));
                     if (m.hurtTime == 0 && m.type != MobType::Enderman) {
                         if (p.fromPlayer) m.lastHurtByPlayer = true;
                         m.health -= m.type == MobType::EnderDragon ? Mobs::dragonDamage(m, damage, p.pos + dir * reach)

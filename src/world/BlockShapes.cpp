@@ -199,6 +199,10 @@ BlockShape compute(BlockStateId s) {
         return sh;
     }
     case B::RedBed: return box(0, 0, 0, 16, 9, 16);
+    // (M25 review; our sizes: the wiki lists no boxes) sea pickles 4-8 wide by count, 6 tall;
+    // turtle eggs one small egg or a 14-wide clutch, 7 tall.
+    case B::SeaPickle: return r.get(s, pickles) == 0 ? box(6, 0, 6, 10, 6, 10) : box(2, 0, 2, 14, 6, 14);
+    case B::TurtleEgg: return r.get(s, eggs) == 0 ? box(3, 0, 3, 12, 7, 12) : box(1, 0, 1, 15, 7, 15);
     case B::EnchantingTable: return box(0, 0, 0, 16, 12, 16);
     case B::EndPortalFrame: return box(0, 0, 0, 16, 13, 16);
     default: return box(0, 0, 0, 16, 16, 16);

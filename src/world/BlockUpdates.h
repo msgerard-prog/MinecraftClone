@@ -95,6 +95,7 @@ public:
     // Sky light levels lost to the time of day (0 by day .. 11 at night): growth reads
     // max(block light, sky light - this), vanilla's raw brightness.
     void setSkyDarken(int levels) { m_skyDarken = levels; }
+    void setDayTime(int64_t dayTime) { m_dayTime = dayTime; } // (M25: turtle eggs crack before dawn)
     // Weather (M22.1): rain puts out fires and waters farmland; in the ticking chunks
     // water freezes and snow settles in cold biomes, and thunderstorms strike lightning
     // (its spots, after fire is placed, in lightning() for main: damage, bolts).
@@ -370,6 +371,7 @@ private:
     int m_rtDistance = -1; // no random ticks until set
     int m_rtSpeed = kDefaultRandomTickSpeed;
     int m_skyDarken = 0;
+    int64_t m_dayTime = 0;
     const Weather* m_weather = nullptr;
     std::vector<BlockPos> m_lightning;
     std::optional<glm::dvec3> m_player;
