@@ -1334,6 +1334,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
         placeRuinedPortals(blockArray.data(), cx, cz, entities);         // (M27.4b)
         placeMansions(blockArray.data(), cx, cz, entities);              // (M27.4c)
+        placeTrialChambers(blockArray.data(), cx, cz, entities);         // (M27.4d)
     }
 
     if (m_version >= 2) {
@@ -1434,6 +1435,12 @@ void OverworldGenerator::generate(Chunk& out) const {
         const BlockId here = reg.blockOf(out.get(e.x, e.y, e.z));
         if (e.furnace) {
             if (here == blocks::Furnace) out.addFurnace(e.x, e.y, e.z);
+            continue;
+        }
+        if (!e.chest && here == blocks::TrialSpawner) { // (M27.4d)
+            SpawnerData& sp = out.addSpawner(e.x, e.y, e.z);
+            sp.mob = e.mob;
+            sp.trial = true;
             continue;
         }
         if (here == (e.chest ? blocks::Chest : blocks::Spawner)) { // (not overwritten since; any facing)
@@ -1929,6 +1936,13 @@ struct StructureBuilder {
                                               static_cast<int16_t>(oy + y), false, type};
         e.spawnMob = true;
         entities->list[size_t(entities->count++)] = e;
+    }
+    void trialSpawner(int x, int y, int z, MobType mob) { // (M27.4d)
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz) || entities->full()) return;
+        chunk.set(lx, oy + y, lz, blockRegistry().defaultState(blocks::TrialSpawner));
+        entities->list[size_t(entities->count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                     static_cast<int16_t>(oy + y), false, mob};
     }
     void chest(int x, int y, int z, LootTable loot) {
         int lx, lz;
@@ -3875,6 +3889,74 @@ void OverworldGenerator::placeMansions(BlockStateId* blocks, int32_t cx, int32_t
             sb.mob(8, 7, 18, MobType::Vindicator);
             sb.mob(24, 7, 6, MobType::Evoker);
             (void)r;
+        }
+}
+
+void OverworldGenerator::placeTrialChambers(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    // Trial chambers (wiki: Trial Chambers): on their grid (spacing 34, separation 12)
+    // underground, here with the floor at y -30, not under the deep dark. Ours: a 20x20
+    // hall of tuff bricks with four rooms off it, floors of polished tuff and copper,
+    // lit copper bulbs; trial spawners (a breeze's in the middle of the hall), two vaults
+    // and supply chests (vanilla: a big maze of corridors and chambers, many templates).
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    static const BlockStateId bricks = *reg.parse("minecraft:tuff_bricks");
+    static const BlockStateId polished = *reg.parse("minecraft:polished_tuff");
+    static const BlockStateId chiseled = *reg.parse("minecraft:chiseled_tuff");
+    static const BlockStateId copper = *reg.parse("minecraft:waxed_cut_copper");
+    static const BlockStateId grate = *reg.parse("minecraft:waxed_copper_grate");
+    static const BlockStateId bulb = *reg.parse("minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    static const BlockStateId vault = reg.set(reg.defaultState(blocks::Vault), properties::vaultState, 1);
+    constexpr int kSize = 36, kFloor = -30;
+    static constexpr MobType kMobs[] = {MobType::Zombie, MobType::Skeleton, MobType::Spider, MobType::CaveSpider,
+                                        MobType::Slime, MobType::Silverfish, MobType::Breeze};
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kTrialChambers, start)) continue;
+            const int32_t sx = start.x * 16 - 2, sz = start.z * 16 - 2;
+            const Column col = column(sx + kSize / 2, sz + kSize / 2);
+            if (deepDark(col) || col.height < kFloor + 24) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 760));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, kFloor, sz, kSize, kSize, 0, &out};
+            auto room = [&](int x0, int z0, int x1, int z1, int top) {
+                sb.room(x0, -1, z0, x1, top, z1, bricks);
+                for (int x = x0 + 1; x < x1; ++x)
+                    for (int z = z0 + 1; z < z1; ++z)
+                        sb.set(x, -1, z, (x + z) % 4 == 0 ? copper : (x * 3 + z) % 7 == 0 ? grate : polished);
+                for (int x = x0 + 2; x < x1 - 1; x += 4) sb.set(x, top - 2, z0 + 1, bulb), sb.set(x, top - 2, z1 - 1, bulb);
+            };
+            room(8, 8, 27, 27, 9);                                              // the hall
+            room(13, 0, 22, 8, 6), room(13, 27, 22, 35, 6);                     // north and south rooms
+            room(0, 13, 8, 22, 6), room(27, 13, 35, 22, 6);                     // west and east rooms
+            sb.fill(16, 0, 8, 19, 3, 8, 0), sb.fill(16, 0, 27, 19, 3, 27, 0);   // doorways
+            sb.fill(8, 0, 16, 8, 3, 19, 0), sb.fill(27, 0, 16, 27, 3, 19, 0);
+            for (const auto& [px, pz] : {std::pair{12, 12}, std::pair{23, 12}, std::pair{12, 23}, std::pair{23, 23}})
+                for (int y = 0; y < 9; ++y) sb.set(px, y, pz, chiseled); // (pillars)
+            // Trial spawners: a breeze in the middle, two more in the hall, one in each room.
+            sb.trialSpawner(17, 0, 17, MobType::Breeze);
+            sb.trialSpawner(11, 0, 20, kMobs[r.nextInt(6)]);
+            sb.trialSpawner(24, 0, 15, kMobs[r.nextInt(6)]);
+            sb.trialSpawner(17, 0, 3, kMobs[r.nextInt(7)]);
+            sb.trialSpawner(17, 0, 32, kMobs[r.nextInt(7)]);
+            sb.trialSpawner(3, 0, 17, kMobs[r.nextInt(7)]);
+            sb.trialSpawner(32, 0, 17, kMobs[r.nextInt(7)]);
+            sb.set(10, 0, 10, sb.turned(reg.set(vault, properties::facing, 1))); // (facing south, into the hall)
+            sb.set(25, 0, 25, sb.turned(reg.set(vault, properties::facing, 0))); // (facing north)
+            sb.chest(14, 0, 1, LootTable::TrialSupply);
+            sb.chest(21, 0, 34, LootTable::TrialSupply);
+            sb.chest(1, 0, 14, LootTable::TrialSupply);
+            // Water or lava around it walled off.
+            Buf chunk{blocks};
+            for (int z = -1; z <= kSize; ++z)
+                for (int x = -1; x <= kSize; ++x) {
+                    const int lx = sx + x - cx * 16, lz = sz + z - cz * 16;
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15) continue;
+                    for (int y = -2; y <= 10; ++y) {
+                        const BlockStateId cur = chunk.get(lx, kFloor + y, lz);
+                        if (cur == B.water || cur == B.lava) chunk.set(lx, kFloor + y, lz, bricks);
+                    }
+                }
         }
 }
 

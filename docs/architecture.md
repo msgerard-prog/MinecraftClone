@@ -154,6 +154,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   they reach; budding amethyst grows buds on random ticks (RandomTicks.cpp).
   `placeRuinedPortals` (M27.4b, grid `kRuinedPortals`): a broken frame, netherrack, a chest.
   `placeMansions` (M27.4c, grid `kMansions`): our two-storey dark oak house with its mobs.
+  `placeTrialChambers` (M27.4d, grid `kTrialChambers`): the tuff hall and rooms at y -30;
+  trial spawners are `SpawnerData` with `trial` set, ticked by `Mobs::tickTrialSpawner`
+  (TrialChambers.cpp: rounds of 6 mobs tagged with it as `home`, the key and reward, 30
+  minutes' rest); vaults open in main with a trial key (`fillChest` of TrialVault).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column

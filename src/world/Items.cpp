@@ -224,6 +224,8 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M27.4d; wiki: Trial Key - opens a vault; from trial spawners)
+    r.add({.id = "minecraft:trial_key", .texture = "item/trial_key"});
     // (M27.3b; wiki: Echo Shard - found in ancient cities)
     r.add({.id = "minecraft:echo_shard", .texture = "item/echo_shard"});
     // (M27.1c; wiki: Resin Brick - smelted from resin clumps; 4 make resin bricks)

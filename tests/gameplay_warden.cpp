@@ -107,3 +107,33 @@ TEST_CASE("left alone a minute, the warden digs back down; killed, it drops a sc
     for (const auto& it : d.items.items()) catalysts += it.stack.item == itemRegistry().blockItem(blocks::SculkCatalyst);
     CHECK(catalysts == 1);
 }
+
+TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, it gives a trial key and rests (M27.4d)") {
+    Deep d;
+    const auto& r = blockRegistry();
+    d.world.updateBlock({0, 60, 0}, r.defaultState(blocks::TrialSpawner));
+    REQUIRE(d.world.chunk({0, 0})->spawner(0, 60, 0));
+    d.world.chunk({0, 0})->spawner(0, 60, 0)->mob = MobType::Zombie;
+    d.world.markTicking({0, 0});
+    d.player.setPosition({0.5, 60.0, 8.5});
+    int most = 0;
+    d.tick(400, [&] {
+        int alive = 0;
+        d.world.forEachChunk([&](Chunk& c) {
+            for (auto& m : c.mobs()) alive += m.type == MobType::Zombie && m.health > 0.0f;
+        });
+        most = std::max(most, alive);
+        // (the player beats each one as it comes)
+        d.world.forEachChunk([&](Chunk& c) {
+            for (auto& m : c.mobs())
+                if (m.type == MobType::Zombie && m.health > 0.0f) m.health = 0.0f;
+        });
+    });
+    CHECK(most >= 1);
+    CHECK(most <= 3);
+    int keys = 0;
+    for (const auto& it : d.items.items()) keys += it.stack.item == *itemRegistry().find("trial_key");
+    CHECK(keys == 1);
+    CHECK(r.get(d.world.getBlock({0, 60, 0}), properties::trialState) == 5); // cooldown
+    CHECK(d.world.chunk({0, 0})->spawner(0, 60, 0)->cooldown > 30000);
+}

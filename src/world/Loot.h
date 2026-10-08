@@ -38,7 +38,10 @@ enum class LootTable : uint8_t {
     BuriedTreasure,
     AncientCity, // (M27.3b)
     RuinedPortal, // (M27.4b)
-    WoodlandMansion // (M27.4c)
+    WoodlandMansion, // (M27.4c)
+    TrialVault,      // (M27.4d) a vault opened with a trial key
+    TrialReward,     // (M27.4d) a trial spawner's reward (beside its key)
+    TrialSupply      // (M27.4d) the chambers' supply chests
 };
 
 struct LootEntry {

@@ -2346,6 +2346,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         frameEdits.push_back(at);
                         acted = true;
                     }
+                } else if (hb == mc::world::blocks::Vault) { // (M27.4d; wiki: Vault - a trial key opens it once)
+                    const mc::world::BlockStateId vs = world.getBlock(at);
+                    if (reg.get(vs, mc::world::properties::vaultState) == 1 &&
+                        held.item == *mc::world::itemRegistry().find("trial_key")) {
+                        if (survival) inventory.consumeSelected(1);
+                        std::array<mc::world::ItemStack, 27> loot{};
+                        mc::world::fillChest(mc::world::LootTable::TrialVault, gameRng, loot);
+                        for (const auto& it : loot)
+                            if (!it.empty()) droppedItems.spawn({at.x + 0.5, at.y + 1.1, at.z + 0.5}, it, gameRng);
+                        world.updateBlock(at, reg.set(vs, mc::world::properties::vaultState, 0)); // (spent: ours for good)
+                        frameEdits.push_back(at);
+                        acted = true;
+                    }
                 } else if (hb == mc::world::blocks::Composter) {
                     if (const mc::world::ItemStack meal = blockUpdates.takeCompost(at);
                         !meal.empty()) {

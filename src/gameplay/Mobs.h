@@ -179,6 +179,8 @@ private:
     // sonic boom; investigating what it heard.
     bool wardenTick(Context& ctx, world::MobData& m);
     bool wardenGoal(Context& ctx, world::MobData& m, double& speed);
+    // Trial spawners (TrialChambers.cpp, M27.4d).
+    void tickTrialSpawner(Context& ctx, world::Chunk& chunk, const world::BlockPos& p, world::SpawnerData& s);
 
 public:
     // An awake creaking heart calls its creaking within 16 blocks, if a player is within

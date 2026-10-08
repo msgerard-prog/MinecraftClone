@@ -252,6 +252,15 @@ def glow_berries():
     return s.render()
 
 
+def trial_key():
+    """A trial key (M27.4d): a copper-and-tuff key with a teal bow (ours)."""
+    s = Shape()
+    s.add({(x, y) for x in range(3, 8) for y in range(3, 8) if (x - 5) ** 2 + (y - 5) ** 2 <= 5}, ramp(hexc("#3AA0A0"), 5))
+    s.add({(x, x + 1) for x in range(6, 13)} | {(x + 1, x + 1) for x in range(6, 12)}, ramp(hexc("#C07A50"), 5))
+    s.add({(11, 9), (12, 10), (10, 12), (11, 13)}, ramp(hexc("#C07A50"), 5))
+    return s.render()
+
+
 def horn():
     """A goat horn (M26.3): a ridged, curving cone."""
     s = Shape()
@@ -1089,6 +1098,7 @@ def all_items():
     items["phantom_membrane"] = membrane()  # (M26.4a; was missing)
     items["resin_brick"] = ingot("#E0702C")  # (M27.1c)
     items["echo_shard"] = gem("#1E6E78", "emerald")  # (M27.3b)
+    items["trial_key"] = trial_key()  # (M27.4d)
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

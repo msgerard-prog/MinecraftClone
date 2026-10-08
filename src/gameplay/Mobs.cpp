@@ -1250,6 +1250,10 @@ void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
     for (auto& e : chunk.spawners()) {
         const BlockPos p{chunk.pos().x * 16 + e.x, e.y, chunk.pos().z * 16 + e.z};
         const glm::dvec3 centre(p.x + 0.5, p.y + 0.5, p.z + 0.5);
+        if (e.data.trial) {
+            tickTrialSpawner(ctx, chunk, p, e.data);
+            continue;
+        }
         if (ctx.playerDead || glm::dot(playerPos - centre, playerPos - centre) > 16.0 * 16.0) continue;
         SpawnerData& s = e.data;
         chunk.markDirty(); // its delay is saved

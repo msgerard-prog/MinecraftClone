@@ -333,7 +333,10 @@ not saved: a reloaded warden is calm). M27.3b: biome `deep_dark`; item `echo_sha
 enchantment `minecraft:swift_sneak`; loot entries can carry a given enchantment.
 M27.4a: blocks `amethyst_block`, `budding_amethyst`, `small_amethyst_bud`/`medium_`/`large_`,
 `amethyst_cluster` [facing,waterlogged], `smooth_basalt`, `tinted_glass`. M27.4b: block
-`crying_obsidian`; loot table ruined_portal. M27.4c: loot table woodland_mansion.
+`crying_obsidian`; loot table ruined_portal. M27.4c: loot table woodland_mansion. M27.4d:
+blocks `trial_spawner[trial_spawner_state,ominous]` (block entity minecraft:trial_spawner:
+spawn_data like a mob spawner's, our tags `spawned`, `total`, `cooldown`),
+`vault[facing,vault_state,ominous]`; item `trial_key`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

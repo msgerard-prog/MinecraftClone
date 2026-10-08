@@ -181,6 +181,8 @@ Push pushKind(BlockStateId s) {
         return Push::Destroy; // (wiki: Piston - beds break)
     case B::Obsidian:         // (wiki: Piston/Table)
     case B::Spawner:          // (wiki: Monster Spawner - immovable)
+    case B::TrialSpawner:     // (M27.4d)
+    case B::Vault:
     case B::Furnace:          // block entities don't move
     case B::EnderChest:
     case B::Smoker:

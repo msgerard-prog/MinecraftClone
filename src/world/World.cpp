@@ -109,7 +109,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     const bool chestNow = blockRegistry().likeOf(b) == blocks::Chest;
     if (was != b && (blockRegistry().likeOf(was) == blocks::Furnace ||
                      (blockRegistry().likeOf(was) == blocks::Chest && !chestNow) || was == blocks::Barrel ||
-                     blockRegistry().likeOf(was) == blocks::ShulkerBox || was == blocks::Spawner ||
+                     blockRegistry().likeOf(was) == blocks::ShulkerBox || (was == blocks::Spawner && b != blocks::Spawner) ||
+                     (was == blocks::TrialSpawner && b != blocks::TrialSpawner) ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
                      ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper)))
         c->removeBlockEntity(x, p.y, z); // replaced
@@ -122,8 +123,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
             d.barrel = b == blocks::Barrel;
             d.shulker = blockRegistry().likeOf(b) == blocks::ShulkerBox;
         }
-    } else if (b == blocks::Spawner) {
-        c->addSpawner(x, p.y, z);
+    } else if (b == blocks::Spawner || b == blocks::TrialSpawner) {
+        c->addSpawner(x, p.y, z).trial = b == blocks::TrialSpawner; // (M27.4d: kept through state changes)
         markTicking(c->pos());
     } else if (b == blocks::BrewingStand) {
         c->addBrewing(x, p.y, z);

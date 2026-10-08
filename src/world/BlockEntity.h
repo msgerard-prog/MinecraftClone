@@ -46,6 +46,11 @@ struct FurnaceData {
 struct SpawnerData {
     MobType mob = MobType::Zombie;
     int16_t delay = 20;
+    // A trial spawner (M27.4d): mobs sent out this round and the round's total, and the
+    // cooldown left after its reward.
+    bool trial = false;
+    uint8_t spawned = 0, total = 0;
+    int32_t cooldown = 0;
 };
 
 // A brewing stand (M19.4; wiki: Brewing Stand › Block data): three bottles, the

@@ -102,6 +102,11 @@ const Property sculkPhase{"sculk_sensor_phase", {"inactive", "active", "cooldown
 const Property bloom{"bloom", {"true", "false"}};
 const Property shrieking{"shrieking", {"true", "false"}};
 const Property canSummon{"can_summon", {"true", "false"}};
+const Property trialState{"trial_spawner_state",
+                          {"inactive", "waiting_for_players", "active", "waiting_for_reward_ejection", "ejecting_reward",
+                           "cooldown"}};
+const Property vaultState{"vault_state", {"inactive", "active", "unlocking", "ejecting"}};
+const Property ominous{"ominous", {"true", "false"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1233,6 +1238,15 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("crying_obsidian", {.hardness = 50.0f, .resistance = 1200.0f, .lightEmission = 10,
                                     .tool = HarvestTool::Pickaxe, .tier = 3}),
           blocks::CryingObsidian);
+    // (M27.4d; wiki: Trial Spawner - 50 / 50, glows 4; Vault - 50 / 50, glows 6 when active)
+    check(r.add("trial_spawner", {.hardness = 50.0f, .resistance = 50.0f, .lightEmission = 4, .opaqueCube = false,
+                                  .layer = RenderLayer::Cutout},
+                {{&trialState, "inactive"}, {&ominous, "false"}}),
+          blocks::TrialSpawner);
+    check(r.add("vault", {.hardness = 50.0f, .resistance = 50.0f, .lightEmission = 6, .opaqueCube = false,
+                          .layer = RenderLayer::Cutout},
+                {{&facing, "north"}, {&vaultState, "inactive"}, {&ominous, "false"}}),
+          blocks::Vault);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

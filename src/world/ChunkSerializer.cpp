@@ -581,7 +581,12 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     }
     for (const auto& sp : chunk.spawners) { // wiki: Monster Spawner › Block data
         nbt::Compound e;
-        e.put("id", std::string("minecraft:mob_spawner"));
+        e.put("id", std::string(sp.data.trial ? "minecraft:trial_spawner" : "minecraft:mob_spawner"));
+        if (sp.data.trial) { // (M27.4d; our tags beside vanilla's spawn_data shape)
+            e.put("spawned", int8_t(sp.data.spawned));
+            e.put("total", int8_t(sp.data.total));
+            e.put("cooldown", int32_t{sp.data.cooldown});
+        }
         e.put("x", int32_t{chunk.pos.x * 16 + sp.x});
         e.put("y", int32_t{sp.y});
         e.put("z", int32_t{chunk.pos.z * 16 + sp.z});
@@ -900,9 +905,16 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 br.fuelLeft = static_cast<int>(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 20));
                 continue;
             }
-            if (*id == "minecraft:mob_spawner") {
-                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Spawner) continue;
+            if (*id == "minecraft:mob_spawner" || *id == "minecraft:trial_spawner") {
+                const bool trial = *id == "minecraft:trial_spawner";
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) != (trial ? blocks::TrialSpawner : blocks::Spawner)) continue;
                 SpawnerData& sp = chunk.addSpawner(x, y, z);
+                sp.trial = trial;
+                if (trial) {
+                    sp.spawned = uint8_t(std::clamp<int64_t>(e->integer("spawned").value_or(0), 0, 255));
+                    sp.total = uint8_t(std::clamp<int64_t>(e->integer("total").value_or(0), 0, 255));
+                    sp.cooldown = int32_t(std::clamp<int64_t>(e->integer("cooldown").value_or(0), 0, 1 << 30));
+                }
                 sp.delay = static_cast<int16_t>(std::clamp<int64_t>(e->integer("Delay").value_or(20), 0, 32767));
                 const nbt::Compound* data = e->compound("SpawnData");
                 const nbt::Compound* entity = data ? data->compound("entity") : nullptr;

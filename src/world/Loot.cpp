@@ -229,6 +229,25 @@ constexpr LootEntry kMansion2[] = {
 constexpr LootEntry kMansion3[] = {{"bone", 1, 8, 10}, {"gunpowder", 1, 8, 10}, {"rotten_flesh", 1, 8, 10}, {"string", 1, 8, 10}};
 constexpr LootPool kMansion[] = {{1, 3, kMansion1}, {1, 4, kMansion2}, {3, 3, kMansion3}};
 
+// wiki: Vault › Loot, Trial Spawner › Loot, Trial Chambers › Loot (Java; ours: without
+// ominous bottles, guster banner patterns, heavy cores and the mace - M28 - and without
+// tipped arrows).
+constexpr LootEntry kVault1[] = {
+    {"emerald", 2, 4, 5},        {"arrow", 2, 8, 4},      {"iron_ingot", 1, 2, 4},       {"wind_charge", 1, 3, 4},
+    {"honey_bottle", 1, 2, 4},   {"shield", 1, 1, 3},     {"bow", 1, 1, 3, true},        {"diamond", 1, 2, 2},
+    {"golden_apple", 1, 1, 2},   {"golden_carrot", 1, 2, 2}, {"enchanted_book", 1, 1, 2, true},
+    {"crossbow", 1, 1, 2, true}, {"iron_axe", 1, 1, 2, true}, {"iron_chestplate", 1, 1, 2, true},
+    {"diamond_axe", 1, 1, 1, true}, {"enchanted_golden_apple", 1, 1, 1}};
+constexpr LootPool kVault[] = {{1, 3, kVault1}};
+constexpr LootEntry kTrialReward1[] = {
+    {"bread", 1, 3, 3},        {"cooked_chicken", 1, 3, 3}, {"baked_potato", 1, 3, 3}, {"golden_carrot", 1, 2, 2},
+    {"arrow", 4, 8, 3},        {"emerald", 1, 3, 2},        {"iron_ingot", 1, 2, 2},   {"honey_bottle", 1, 1, 2}};
+constexpr LootPool kTrialReward[] = {{1, 2, kTrialReward1}};
+constexpr LootEntry kTrialSupply1[] = {
+    {"arrow", 4, 14, 2}, {"baked_potato", 2, 4, 2}, {"glow_berries", 2, 10, 2}, {"ladder", 5, 5, 1},
+    {"torch", 3, 6, 1},  {"bread", 1, 3, 1},        {"wind_charge", 1, 3, 1},   {"iron_ingot", 1, 3, 1}};
+constexpr LootPool kTrialSupply[] = {{3, 5, kTrialSupply1}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -277,6 +296,9 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::AncientCity: return kAncientCity;
     case LootTable::RuinedPortal: return kRuinedPortal;
     case LootTable::WoodlandMansion: return kMansion;
+    case LootTable::TrialVault: return kVault;
+    case LootTable::TrialReward: return kTrialReward;
+    case LootTable::TrialSupply: return kTrialSupply;
     default: return {}; // (filled in as their structures arrive)
     }
 }

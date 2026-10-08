@@ -420,3 +420,33 @@ TEST_CASE("overworld6 woodland mansions in dark forests: dark oak, chests, vindi
     CHECK(std::count(mobs.begin(), mobs.end(), MobType::Vindicator) >= 2);
     CHECK(std::count(mobs.begin(), mobs.end(), MobType::Allay) == 1);
 }
+
+TEST_CASE("overworld6 trial chambers: a tuff hall with trial spawners (a breeze's), vaults and supply chests (M27.4d)") {
+    const OverworldGenerator gen(42);
+    std::optional<ChunkPos> at;
+    for (int cz = -60; cz <= 60 && !at; ++cz)
+        for (int cx = -60; cx <= 60 && !at; ++cx)
+            if (isSpreadCandidate(42, kTrialChambers, {cx, cz})) {
+                const auto col = gen.column(cx * 16 + 16, cz * 16 + 16);
+                if (!OverworldGenerator::deepDark(col) && col.height >= -6) at = ChunkPos{cx, cz};
+            }
+    REQUIRE(at);
+    int trial = 0, breezes = 0, vaults = 0, chests = 0;
+    for (int dz = -1; dz <= 2; ++dz)
+        for (int dx = -1; dx <= 2; ++dx) {
+            Chunk c({at->x + dx, at->z + dz});
+            gen.generate(c);
+            chests += int(c.chests().size());
+            for (const auto& e : c.spawners()) {
+                trial += e.data.trial;
+                breezes += e.data.trial && e.data.mob == MobType::Breeze;
+            }
+            for (int y = -32; y < -20; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) vaults += R().blockOf(c.get(x, y, z)) == blocks::Vault;
+        }
+    CHECK(trial == 7);
+    CHECK(breezes >= 1);
+    CHECK(vaults == 2);
+    CHECK(chests >= 3);
+}

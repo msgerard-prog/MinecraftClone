@@ -66,6 +66,10 @@ extern const Property sculkPhase;     // "sculk_sensor_phase": inactive | active
 extern const Property bloom;          // true | false (sculk catalyst)
 extern const Property shrieking;      // true | false (sculk shrieker)
 extern const Property canSummon;      // "can_summon": true | false
+extern const Property trialState;     // "trial_spawner_state": inactive | waiting_for_players | active |
+                                      // waiting_for_reward_ejection | ejecting_reward | cooldown (M27.4d)
+extern const Property vaultState;     // "vault_state": inactive | active | unlocking | ejecting
+extern const Property ominous;        // true | false
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -483,6 +487,9 @@ enum : BlockId {
     SmoothBasalt,
     TintedGlass,
     CryingObsidian, // (M27.4b; wiki: Crying Obsidian - glows 10)
+    // Trial chambers (M27.4d; wiki: Trial Spawner, Vault).
+    TrialSpawner, // trial_spawner_state, ominous
+    Vault,        // facing, vault_state, ominous
     Count
 };
 } // namespace blocks
