@@ -192,6 +192,7 @@ Push pushKind(BlockStateId s) {
 } // namespace
 
 BlockUpdates::BlockUpdates(World& world) : m_world(world) {
+    (void)isOceanPlant(0); // (builds the coral table now, not on the first block update in a tick)
     m_world.setListener(this);
     m_due.reserve(16384); // a /fill of fluid sources makes thousands due at once
     m_events.reserve(64);

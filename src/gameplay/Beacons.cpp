@@ -101,7 +101,9 @@ bool conduitWet(const world::World& world, const world::BlockPos& p) {
     for (int dy = -1; dy <= 1; ++dy)
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
-                if ((dx || dy || dz) && blockAt(world, p.x + dx, p.y + dy, p.z + dz) != B::Water) return false;
+                if ((dx || dy || dz) && blockAt(world, p.x + dx, p.y + dy, p.z + dz) != B::Water &&
+                    !world::blockRegistry().waterlogged(world.getBlock({p.x + dx, p.y + dy, p.z + dz})))
+                    return false; // (water, or a waterlogged block: kelp, seagrass, M25 review)
     return true;
 }
 

@@ -1055,6 +1055,9 @@ BlockRegistry buildVanillaBlocks() {
     // (M25.5; wiki: Sponge - 0.6, hoe)
     check(r.add("sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::Sponge);
     check(r.add("wet_sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::WetSponge);
+    // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
+    // ocean-floor sections dropped out of the random tick pass).
+    r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
     for (uint32_t i = 0; i < r.block(blocks::SeaPickle).stateCount; ++i) {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
         r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);

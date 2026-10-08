@@ -806,6 +806,14 @@ void OverworldGenerator::generate(Chunk& out) const {
         return h < kSeaLevel + 2.0;
     };
 
+    // The wet mask for x, z in -1..16 (computed once: the fill reads it per cave cell).
+    std::array<bool, 18 * 18> wetMask{};
+    if (aquifers)
+        for (int z = -1; z <= 16; ++z)
+            for (int x = -1; x <= 16; ++x)
+                if ((x >= 0 && x <= 15) || (z >= 0 && z <= 15)) wetMask[size_t((z + 1) * 18 + x + 1)] = wetAt(x, z);
+    auto wet = [&](int x, int z) { return wetMask[size_t((z + 1) * 18 + x + 1)]; };
+
     // 3. Fill: stone / deepslate where the density is solid; sea and lava elsewhere.
     std::array<int, 256> topY;
     topY.fill(kOverworldHeight.minY - 1);
@@ -861,9 +869,9 @@ void OverworldGenerator::generate(Chunk& out) const {
                         // in overworld4 (flooded caves).
                         const bool cave = j + 1 < kCornersY && tri(terrain) > 0.0;
                         b = cave ? (y < kLavaLevel ? B.lava : B.air) : B.water;
-                        if (cave && aquifers && y >= kLavaLevel && wetAt(x, z)) {
-                            const bool barrier = y == kLavaLevel || !wetAt(x - 1, z) || !wetAt(x + 1, z) ||
-                                                 !wetAt(x, z - 1) || !wetAt(x, z + 1);
+                        if (cave && aquifers && y >= kLavaLevel && wet(x, z)) {
+                            const bool barrier = y == kLavaLevel || !wet(x - 1, z) || !wet(x + 1, z) ||
+                                                 !wet(x, z - 1) || !wet(x, z + 1);
                             b = barrier ? (y < 0 ? B.deepslate : B.stone) : B.water;
                         }
                     }
@@ -1790,8 +1798,8 @@ void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, 
     static const BlockStateId lantern = reg.defaultState(blocks::SeaLantern);
     static const BlockStateId gold = reg.defaultState(blocks::GoldBlock);
     static const BlockStateId wetSponge = reg.defaultState(blocks::WetSponge);
-    for (int dz = -4; dz <= 4; ++dz)
-        for (int dx = -4; dx <= 4; ++dx) {
+    for (int dz = -2; dz <= 2; ++dz) // (a monument spans its start chunk +-2: x from start*16-21 to +36)
+        for (int dx = -2; dx <= 2; ++dx) {
             const ChunkPos start{cx + dx, cz + dz};
             if (!isSpreadCandidate(m_seed, kMonuments, start)) continue;
             const int32_t sx = start.x * 16 - 21, sz = start.z * 16 - 21; // (centred on the start chunk)
