@@ -208,3 +208,81 @@ TEST_CASE("/item replace entity @s weapon.mainhand / offhand / hotbar.N") {
     CHECK_FALSE(runCommand("/item replace entity @s hotbar.9 with stick", ctx).ok);
     CHECK_FALSE(runCommand("/item replace entity @s nowhere with stick", ctx).ok);
 }
+
+#include "ui/BookScreen.h"
+
+namespace {
+gfx::FontMetrics monoFont() {
+    gfx::FontMetrics f;
+    f.advance.fill(6); // every glyph 6 px wide (5 + spacing)
+    return f;
+}
+} // namespace
+
+TEST_CASE("book screen: words wrap at 114 px, 14 lines a page, titles of 32") {
+    const auto font = monoFont();
+    // 19 glyphs fit a 114 px line; the break comes after the last whole word.
+    std::vector<std::string> lines;
+    const std::string text = "aaaa bbbb cccc dddd eeee ffff\nnext";
+    ui::BookScreen::wrap(text, font, 114, [&](size_t s, size_t n) { lines.push_back(text.substr(s, n)); });
+    REQUIRE(lines.size() == 3);
+    CHECK(lines[0] == "aaaa bbbb cccc");
+    CHECK(lines[1] == "dddd eeee ffff");
+    CHECK(lines[2] == "next");
+    CHECK(ui::BookScreen::lineCount("", font, 114) == 1);
+
+    ui::BookScreen book;
+    book.openEdit({}, 0);
+    book.type(std::string(400, 'x'), font); // 19 a line x 14 lines = 266 at most
+    CHECK(book.content().pages[0].size() == 266);
+    book.type("\b\b", font);
+    CHECK(book.content().pages[0].size() == 264);
+    book.turn(1); // past the last written page: a new one
+    CHECK(book.content().pages.size() == 2);
+    CHECK(book.page() == 1);
+    book.turn(1); // (an empty last page doesn't grow the book)
+    CHECK(book.content().pages.size() == 2);
+}
+
+TEST_CASE("books: copying keeps the original, one generation on; pages saved as vanilla's components") {
+    BookContent original;
+    original.title = "Notes";
+    original.author = "Player";
+    original.pages = {"first page", "second"};
+    ItemStack written{*itemRegistry().find("written_book"), 1};
+    written.extra = addBook(original);
+    std::array<ItemStack, 9> g{};
+    g[0] = written;
+    g[1] = g[2] = ItemStack{*itemRegistry().find("writable_book"), 1};
+    const auto r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(r->count == 2);
+    const ItemStack copy = bookCopy(*r, 2);
+    REQUIRE(bookContent(copy.extra));
+    CHECK(bookContent(copy.extra)->generation == 1);
+    CHECK(bookContent(written.extra)->generation == 0);
+    // A copy of a copy can't be copied again.
+    ItemStack copy2 = copy;
+    copy2.extra = bookCopy(copy, 1).extra;
+    g[0] = copy2;
+    CHECK_FALSE(craft(g, 3));
+
+    const nbt::Compound n = itemToNbt(written, 0);
+    const nbt::Compound* content = n.compound("components")->compound("minecraft:written_book_content");
+    REQUIRE(content);
+    CHECK(*content->string("author") == "Player");
+    CHECK(content->list("pages")->items.size() == 2);
+    const ItemStack back = itemFromNbtPublic(n);
+    const auto b = bookContent(back.extra);
+    REQUIRE(b);
+    CHECK(b->title == "Notes");
+    CHECK(b->pages[1] == "second");
+
+    std::array<ItemStack, 4> q{};
+    q[0] = ItemStack{*itemRegistry().find("book"), 1};
+    q[1] = ItemStack{*itemRegistry().find("ink_sac"), 1};
+    q[2] = ItemStack{*itemRegistry().find("feather"), 1};
+    const auto quill = craft(q, 2);
+    REQUIRE(quill);
+    CHECK(itemRegistry().item(quill->item).id == "minecraft:writable_book");
+}

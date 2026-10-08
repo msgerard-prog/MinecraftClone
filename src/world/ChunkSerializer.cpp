@@ -251,6 +251,30 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         tracker.put("tracked", int8_t(t->tracked ? 1 : 0));
         components.put("minecraft:lodestone_tracker", std::move(tracker));
     }
+    if (const auto book = s.extra ? bookContent(s.extra) : std::nullopt) {
+        // 1.20.5+ writable_book_content {pages: [{raw}]} / written_book_content {title: {raw},
+        // author, generation, pages: [{raw: text component}], resolved} (pages are plain
+        // strings, which are text components as they are)
+        std::vector<nbt::Tag> pages;
+        for (const std::string& p : book->pages) {
+            nbt::Compound page;
+            page.put("raw", p);
+            pages.emplace_back(std::move(page));
+        }
+        nbt::Compound content;
+        content.put("pages", nbt::listOf(nbt::TagType::Compound, std::move(pages)));
+        if (itemRegistry().item(s.item).id == "minecraft:written_book") {
+            nbt::Compound title;
+            title.put("raw", book->title);
+            content.put("title", std::move(title));
+            content.put("author", book->author);
+            content.put("generation", int32_t(book->generation));
+            content.put("resolved", int8_t{1});
+            components.put("minecraft:written_book_content", std::move(content));
+        } else {
+            components.put("minecraft:writable_book_content", std::move(content));
+        }
+    }
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
 }
@@ -330,6 +354,23 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             }
             s.extra = addLodestoneTarget(t);
         }
+        for (const char* key : {"minecraft:writable_book_content", "minecraft:written_book_content"})
+            if (const nbt::Compound* content = comps->compound(key)) {
+                BookContent book;
+                auto text = [](const nbt::Tag& t) -> std::string { // {raw: "..."} or "..."
+                    if (const std::string* str = t.get<std::string>()) return *str;
+                    if (const nbt::Compound* c = t.get<nbt::Compound>())
+                        if (const std::string* raw = c->string("raw")) return *raw;
+                    return {};
+                };
+                if (const nbt::List* pages = content->list("pages"))
+                    for (const nbt::Tag& p : pages->items)
+                        book.pages.push_back(text(p));
+                if (const nbt::Tag* title = content->find("title")) book.title = text(*title);
+                if (const std::string* author = content->string("author")) book.author = *author;
+                book.generation = int(std::clamp<int64_t>(content->integer("generation").value_or(0), 0, 3));
+                s.extra = addBook(std::move(book));
+            }
     }
     return s;
 }

@@ -483,6 +483,13 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
     const int n = gridSize();
     for (int rounds = 0; rounds < 64 && !m_result.empty(); ++rounds) {
         world::ItemStack made = m_result;
+        // A written book's copies (M28.2c): their own pages one generation on; the
+        // original stays where it is.
+        int keep = -1;
+        if (world::itemRegistry().item(made.item).id == "minecraft:written_book")
+            for (int i = 0; i < n * n; ++i)
+                if (m_grid[size_t(i)].item == made.item && m_grid[size_t(i)].extra == made.extra) keep = i;
+        if (keep >= 0) made = bookCopy(made, made.count);
         if (shift) {
             // Craft only if the whole result fits (no partial insert without using up
             // the ingredients: that would duplicate items).
@@ -502,7 +509,7 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         }
         noteCrafted(made.empty() ? m_result : made);
         for (int i = 0; i < n * n; ++i) // each ingredient is used once
-            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
+            if (i != keep && !m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
                 m_grid[size_t(i)] = {};
         updateResult();
         if (!shift) return;

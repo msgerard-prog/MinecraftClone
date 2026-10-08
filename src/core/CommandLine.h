@@ -38,6 +38,8 @@ struct LaunchOptions {
     bool debugScreen = false;          // --f3: start with the F3 debug screen open
     bool inventory = false;            // --inventory: start with the creative inventory open
     bool trade = false;                // --trade: open the nearest employed villager's trades (screenshots)
+    bool book = false;                 // --book TEXT: open the held book and type TEXT (screenshots, M28.2c)
+    std::string bookText;
     bool mount = false;                // --mount: ride the nearest mount (with --inventory: its screen)
     bool hasOpenBlock = false;         // --open-block x,y,z: open that block's screen (chest...)
     int openBlock[3] = {0, 0, 0};

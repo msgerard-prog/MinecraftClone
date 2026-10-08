@@ -101,6 +101,11 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.noSave = true;
         } else if (arg == "--inventory") {
             opts.inventory = true;
+        } else if (arg == "--book") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            opts.book = true;
+            opts.bookText = *v;
         } else if (arg == "--trade") {
             opts.trade = true;
         } else if (arg == "--mount") {

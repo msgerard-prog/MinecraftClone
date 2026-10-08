@@ -20,4 +20,11 @@ std::optional<world::ItemStack> craftMap(std::span<const world::ItemStack> grid,
 // locks. Empty: no result.
 world::ItemStack cartography(const world::ItemStack& map, const world::ItemStack& other);
 
+// Copying a written book (M28.2c; wiki: Written Book › Copying): the book with book and
+// quills makes that many copies, one generation on (original -> copy of original -> copy
+// of a copy; those can't be copied); the original stays in the grid. The result carries
+// the original's pages until it is taken (`bookCopy` makes the copy's own entry).
+std::optional<world::ItemStack> craftBookCopy(std::span<const world::ItemStack> grid);
+world::ItemStack bookCopy(const world::ItemStack& original, int count);
+
 } // namespace mc

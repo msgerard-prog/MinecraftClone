@@ -208,6 +208,7 @@ std::vector<Recipe> build() {
     // Block of Iron).
     r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
     r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
+    r.push_back(shapeless({item("book"), item("ink_sac"), item("feather")}, "writable_book")); // (M28.2c)
     // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("gold_ingot")}, {'R', item("redstone")}}, "clock"));
@@ -620,6 +621,7 @@ std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size);
 // A dyed shulker box keeps what it holds (wiki: Shulker Box › Dyeing).
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
     if (auto map = craftMap(grid, size)) return map; // (M28.2b: copying, zooming out)
+    if (auto book = craftBookCopy(grid)) return book; // (M28.2c)
     std::optional<ItemStack> out = craftPlain(grid, size);
     if (out)
         for (const ItemStack& s : grid)

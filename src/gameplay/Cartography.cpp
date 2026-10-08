@@ -1,5 +1,7 @@
 #include "gameplay/Cartography.h"
 
+#include "world/ItemExtras.h"
+
 namespace mc {
 
 namespace {
@@ -54,6 +56,33 @@ world::ItemStack cartography(const world::ItemStack& map, const world::ItemStack
         out.state = kMapLock;
     } else {
         return {};
+    }
+    return out;
+}
+
+std::optional<world::ItemStack> craftBookCopy(std::span<const world::ItemStack> grid) {
+    const world::ItemStack* original = nullptr;
+    int quills = 0;
+    for (const world::ItemStack& s : grid) {
+        if (s.empty()) continue;
+        if (is(s, "minecraft:written_book") && !original) original = &s;
+        else if (is(s, "minecraft:writable_book")) ++quills;
+        else return std::nullopt;
+    }
+    if (!original || quills == 0) return std::nullopt;
+    const auto book = world::bookContent(original->extra);
+    if (!book || book->generation >= 2) return std::nullopt;
+    world::ItemStack out = *original;
+    out.count = uint8_t(quills);
+    return out;
+}
+
+world::ItemStack bookCopy(const world::ItemStack& original, int count) {
+    world::ItemStack out = original;
+    out.count = uint8_t(count);
+    if (auto book = world::bookContent(original.extra)) {
+        ++book->generation;
+        out.extra = world::addBook(std::move(*book));
     }
     return out;
 }

@@ -54,6 +54,7 @@
 #include "ui/CreativeInventory.h"
 #include "ui/Hud.h"
 #include "ui/Menus.h"
+#include "ui/BookScreen.h"
 #include "ui/SignEditor.h"
 #include "world/BlockShapes.h"
 #include "world/Beehives.h"
@@ -295,6 +296,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::ui::Chat chat;
     mc::ui::SignEditor signEditor; // (M23.3c)
     bool signClick = false, signDone = false;
+    mc::ui::BookScreen bookScreen; // (M28.2c)
+    bool bookClick = false;
+    mc::ui::BookScreen::Action bookAction = mc::ui::BookScreen::Action::None;
     mc::ui::DebugScreen debugScreen;
     mc::gfx::ItemIcons itemIcons;
     itemIcons.build(renderer.atlas());
@@ -1088,6 +1092,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     };
     bool openBlockPending = opts->hasOpenBlock;
     bool tradePending = opts->trade;
+    bool bookPending = opts->book; // (M28.2c)
     bool mountPending = opts->mount;
     std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
@@ -1209,6 +1214,42 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
                            mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
+        } else if (bookScreen.isOpen()) {
+            // A book (M28.2c): typing goes to the page (or the title); Esc or Done keeps the
+            // pages in the book and quill, "Sign and Close" turns it into a written book.
+            bookScreen.type({typed.data(), size_t(typedCount)}, gui.batch().font());
+            window.takePresses(mc::Press::Backspace);
+            for (int n = window.takePresses(mc::Press::Enter); n > 0; --n)
+                bookScreen.newline(gui.batch().font());
+            bookClick = window.takePresses(mc::Press::LeftMouse) > 0;
+            const bool esc = window.takePresses(mc::Press::Escape) > 0;
+            if (esc || bookAction != mc::ui::BookScreen::Action::None) {
+                const bool signedNow = bookAction == mc::ui::BookScreen::Action::Signed;
+                if (bookScreen.editing() && bookScreen.slot() >= 0) {
+                    static const mc::world::ItemId writable = *mc::world::itemRegistry().find("writable_book");
+                    static const mc::world::ItemId written = *mc::world::itemRegistry().find("written_book");
+                    mc::world::ItemStack s = inventory.slot(bookScreen.slot());
+                    if (s.item == writable) {
+                        mc::world::BookContent content = bookScreen.content();
+                        if (signedNow) {
+                            s.item = written;
+                            content.author = "Player";
+                            content.generation = 0;
+                        } else {
+                            content.title.clear();
+                        }
+                        s.extra = mc::world::addBook(std::move(content));
+                        inventory.setSlot(bookScreen.slot(), s);
+                    }
+                }
+                bookScreen.close();
+                bookAction = mc::ui::BookScreen::Action::None;
+                window.setCursorCaptured(true);
+                attackArmed = false;
+            }
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
+                           mc::Press::RightMouse, mc::Press::Up, mc::Press::Down})
+                window.takePresses(p);
         } else if (signEditor.isOpen()) {
             // Sign editing (M23.3c): typing goes to the active line; Done or Esc saves.
             signEditor.type({typed.data(), size_t(typedCount)}, gui.batch().font());
@@ -2307,6 +2348,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwWindCharge(inventory, survival, eye, look, projectiles, gameRng); // (M26.4c)
                     windCooldown = 10; // (wiki: half a second between throws)
                     clicks.useClick = false;
+                }
+                if (!dead && (heldId == "minecraft:writable_book" || heldId == "minecraft:written_book") &&
+                    clicks.useClick && !bookScreen.isOpen()) { // (M28.2c) open the book
+                    const mc::world::ItemStack& b = inventory.selectedStack();
+                    const mc::world::BookContent content = mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
+                    if (heldId == "minecraft:writable_book") bookScreen.openEdit(content, inventory.selected());
+                    else bookScreen.openRead(content);
+                    window.setCursorCaptured(false);
+                    clicks.useClick = false;
+                    clicks.use = false;
                 }
                 if (!dead && heldId == "minecraft:map" && clicks.useClick) {
                     // An empty map becomes a map of where it's used (M28.2b; wiki: Map):
@@ -3885,6 +3936,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 openChestAt(ob);
             }
         }
+        if (bookPending && gameTime > 2) { // --book TEXT (screenshots of the book screen)
+            bookPending = false;
+            const mc::world::ItemStack& b = inventory.selectedStack();
+            const std::string_view id = mc::world::itemRegistry().item(b.item).id;
+            if (id == "minecraft:writable_book" || id == "minecraft:written_book") {
+                const auto content = mc::world::bookContent(b.extra).value_or(mc::world::BookContent{});
+                if (id == "minecraft:writable_book") bookScreen.openEdit(content, inventory.selected());
+                else bookScreen.openRead(content);
+                bookScreen.type(opts->bookText, gui.batch().font());
+                window.setCursorCaptured(false);
+            }
+        }
         if (tradePending && gameTime > 2) { // --trade (screenshots of the trading screen)
             mc::world::MobData* best = nullptr;
             double bestD = 8.0 * 8.0;
@@ -4594,6 +4657,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     signDone = true;
                 signClick = false;
             }
+            if (bookScreen.isOpen()) { // (M28.2c)
+                double mx = 0, my = 0;
+                window.cursorPos(mx, my);
+                batch.fill(0, 0, float(guiW), float(guiH), mc::gfx::rgba(16, 16, 16, 160));
+                const auto a = bookScreen.draw(batch, guiW, guiH, mx / scale, my / scale, bookClick,
+                                               int64_t(mc::timeSeconds() * 1000.0));
+                if (a != mc::ui::BookScreen::Action::None) bookAction = a;
+                bookClick = false;
+            }
             gui.draw(fbWidth, fbHeight);
         }
 
@@ -4825,6 +4897,7 @@ int main(int argc, char** argv) {
         launch.commands.clear(); // (--command lines run in the first world only)
         launch.hasPos = launch.hasLook = false;
         launch.dimension.clear();
+        launch.book = false;
         launch.autoFly = launch.demoEdit = launch.inventory = launch.hasOpenBlock = launch.trade =
             false;
     };

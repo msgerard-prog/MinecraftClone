@@ -332,6 +332,9 @@ ItemRegistry buildItems() {
     // ItemStack::damage.
     r.add({.id = "minecraft:map", .texture = "item/map"});
     r.add({.id = "minecraft:filled_map", .texture = "item/filled_map"});
+    // Books (M28.2c; wiki: Book and Quill, Written Book): their pages are ItemStack::extra.
+    r.add({.id = "minecraft:writable_book", .maxStack = 1, .texture = "item/writable_book"});
+    r.add({.id = "minecraft:written_book", .maxStack = 16, .texture = "item/written_book"});
     r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});

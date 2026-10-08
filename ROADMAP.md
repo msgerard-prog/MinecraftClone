@@ -16,8 +16,8 @@ M28 - Progression & game (wiki pages of each feature):
 1. ✅ M28.1 - Game settings: a) game rules (/gamerule), b) difficulty (Peaceful..Hard:
    damage, hunger, mob rules; /difficulty), c) adventure and spectator modes, d) statistics
    (stats/<uuid>.json, the Statistics screen).
-2. M28.2 - Navigation and writing: compasses, lodestones, recovery compasses, clocks,
-   maps (empty, filled, drawn, zoom, cartography), books and quills, written books.
+2. ✅ M28.2 - Navigation and writing: a) compasses, lodestones, recovery compasses, clocks;
+   b) maps (empty, filled, drawn, zoom, cartography); c) books and quills, written books.
 3. M28.3 - Decorations: item frames, paintings, armor stands, banners (patterns, the
    loom), leads (fences, llama caravans).
 4. M28.4 - Combat items: crossbows (multishot, piercing, quick charge), tipped and

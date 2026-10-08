@@ -199,3 +199,12 @@ TEST_CASE("command line: --difficulty") {
     std::array<const char*, 2> bad = {"--difficulty", "extreme"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
+
+TEST_CASE("command line: --book TEXT") {
+    std::array<const char*, 2> args = {"--book", "Hello"};
+    std::string error;
+    const auto opts = mc::parseCommandLine(args, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->book);
+    CHECK(opts->bookText == "Hello");
+}

@@ -612,6 +612,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   for maps marked by `gameplay/Cartography` (`craftMap`, `cartography`: copy, zoom, lock;
   the mark is `ItemStack::state`, saved as map_post_processing) and draws the held map
   through `GuiRenderer::uploadMap` (GuiTexture::Map, unit 6).
+- Books (M28.2c): `ui/BookScreen` (pages wrapped by `wrap` at 114 font pixels, 14
+  lines, page turning, signing with a title; GL-free) opened by using a book and quill or
+  a written book; on closing main stores the pages as a new `world::addBook` entry in the
+  held item (signing turns it into a written book). `gameplay/Cartography`'s
+  `craftBookCopy`/`bookCopy` copy written books (the original stays in the grid,
+  `ContainerScreen::takeResult`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
