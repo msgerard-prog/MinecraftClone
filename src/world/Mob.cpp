@@ -144,6 +144,9 @@ const MobInfo& mobInfo(MobType t) {
         // wiki: Creaking - 1 health (only its heart can end it), 0.9 x 2.7, speed 0.4, hits
         // for 3 (Normal).
         {"minecraft:creaking", 1.0f, 0.9, 2.7, 0.4, 3.0f, true},
+        // wiki: Warden - 500 health, 0.9 x 2.9, speed 0.3 (fast when angry), hits for 30
+        // (Normal); its model is drawn twice size (half-size boxes on a 64x64 skin).
+        {"minecraft:warden", 500.0f, 0.9, 2.9, 0.3, 30.0f, true, false, false, 2.0f},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

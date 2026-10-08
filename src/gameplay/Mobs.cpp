@@ -368,6 +368,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (allayAi(ctx, m)) return;   // (M26.5a, Allays.cpp)
     if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
     if (creakingTick(ctx, m)) return; // (M27.1c, Creakings.cpp: frozen or crumbling)
+    if (wardenTick(ctx, m)) return;   // (M27.3c, Wardens.cpp: emerging, digging, booming)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -467,6 +468,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // (sitting, following, fighting, dancing: Pets.cpp)
     } else if (isWildlife(m.type) && wildlifeGoal(ctx, m, speed)) {
         // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos: Wildlife.cpp)
+    } else if (m.type == MobType::Warden && wardenGoal(ctx, m, speed)) {
+        // (going to look where it heard something: Wardens.cpp)
     } else if (m.type == MobType::CopperGolem && copperGolemGoal(ctx, m, speed)) {
         // (sorting copper chests' items: CopperGolems.cpp)
     } else if (isMount(m.type) && m.panicTicks == 0 && mountGoal(ctx, m, speed)) {
@@ -651,6 +654,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
     if (m.type == MobType::Wither && m.spellTicks > 0) return; // (M26.4b: charging, it can't be hurt)
     if (m.type == MobType::Creaking && m.home.y != kNoPoint) damage = 0.0f; // (M27.1c: only its heart can end it)
+    if (m.type == MobType::Warden) { // (M27.3c) unhurt while emerging or digging; a hit angers it
+        if (m.phase != 1) return;
+        m.angerTicks = int16_t(std::min(150, m.angerTicks + 100));
+        m.goal = from;
+        m.goalTicks = 0;
+    }
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
     if (m.type == MobType::Armadillo && m.sitting) damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
     m.health -= damage;
@@ -930,6 +939,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Breeze: // (M26.4c; wiki: 1-2 breeze rods for player kills)
         if (m.lastHurtByPlayer) drop("breeze_rod", 1, 2);
         break;
+    case MobType::Warden: drop("sculk_catalyst", 1, 1); break; // (M27.3c; wiki: Warden)
     case MobType::Wither: // (M26.4b; wiki: the nether star, always)
         ctx.items.spawn(m.pos + glm::dvec3(0, 1.5, 0), {*itemRegistry().find("nether_star"), 1}, ctx.rng);
         break;
@@ -1201,6 +1211,7 @@ void Mobs::tick(Context& ctx) {
     // Mobs that came out of blocks during the pass (bees from broken hives - M26.5 review).
     for (const MobData& q : ctx.world.queuedMobs()) add(ctx.world, q);
     ctx.world.queuedMobs().clear();
+    ctx.world.vibrations().clear(); // (M27.3c: heard by the wardens this pass)
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
     for (int a = 0; a < m_angerAlertCount; ++a) {

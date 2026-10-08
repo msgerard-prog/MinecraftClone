@@ -90,6 +90,7 @@ enum class MobType : uint8_t {
     HappyGhast,     // (M26.5b) grown from a dried ghast; worn harness colour in `decor`
     CopperGolem,    // (M26.5b) sorts items out of copper chests; oxidation in `woolColour`, waxed in `sheared`
     Creaking,       // (M27.1c) a creaking heart's guardian: frozen while watched; its heart at `home`
+    Warden,         // (M27.3c) blind, hears vibrations, smells players; `phase` emerging/active/digging, anger in `angerTicks`
     Count
 };
 

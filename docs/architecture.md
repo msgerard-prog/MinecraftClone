@@ -550,6 +550,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `Vitals::wardenWarn` (warning level, saved as warden_spawn_tracker), the 4th calling
   `Mobs::summonWarden`. `sculkBloom` (from `Mobs::die`) lets a catalyst within 8 take the
   experience and spread sculk. `WorldRenderer::setDarkness` pulls the fog in.
+- The warden (M27.3c, `gameplay/Wardens.cpp`, part of `Mobs`): `summonWarden` (none
+  within 48), `wardenTick` before the goals (`phase` 0 emerging / 1 active / 2 digging,
+  anger in `angerTicks` from `World::vibrations()` - BlockUpdates::vibrate fills it,
+  Mobs::tick clears it - from sniffing and hits; Darkness pulses; the sonic boom on
+  `spellTicks`/`chargeTicks`), `wardenGoal` (investigating), `mayTarget` at anger 80.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

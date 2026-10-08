@@ -328,7 +328,8 @@ M27.3: blocks `sculk`, `sculk_vein[facing]` (ours: one face), `sculk_catalyst[bl
 `sculk_sensor[sculk_sensor_phase,power,waterlogged]`,
 `sculk_shrieker[shrieking,can_summon,waterlogged]`, `reinforced_deepslate`; effect
 `minecraft:darkness`; level.dat Player `warden_spawn_tracker` {warning_level,
-ticks_since_last_warning, cooldown_ticks}.
+ticks_since_last_warning, cooldown_ticks}. Entity `minecraft:warden` (anger and phase
+not saved: a reloaded warden is calm).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

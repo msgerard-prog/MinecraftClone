@@ -746,6 +746,17 @@ constexpr std::array<MobPart, 6> kCreaking = {{
     {{0, 0, -2}, {4, 16, 2}, {2, 16, 0}, 48, 20, A::LegB},
 }};
 
+// Warden (M27.3c): a hulking figure, half size (drawn x2: MobInfo::modelScale). Head
+// 8x8x5 @ (0,0), body 9x10x6 @ (0,16), arms 4x14x4 @ (32,16), legs 3x7x3 @ (0,36).
+constexpr std::array<MobPart, 6> kWarden = {{
+    {{-4, 17, -2.5f}, {4, 25, 2.5f}, {0, 17, 0}, 0, 0, A::Head},
+    {{-4.5f, 7, -3}, {4.5f, 17, 3}, {0, 12, 0}, 0, 16, A::None},
+    {{-8.5f, 3, -2}, {-4.5f, 17, 2}, {-6.5f, 16.5f, 0}, 32, 16, A::LegB},
+    {{4.5f, 3, -2}, {8.5f, 17, 2}, {6.5f, 16.5f, 0}, 32, 16, A::LegA},
+    {{-3.5f, 0, -1.5f}, {-0.5f, 7, 1.5f}, {-2, 7, 0}, 0, 36, A::LegA},
+    {{0.5f, 0, -1.5f}, {3.5f, 7, 1.5f}, {2, 7, 0}, 0, 36, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -825,6 +836,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::HappyGhast: return kHappyGhast;
     case world::MobType::CopperGolem: return kCopperGolem;
     case world::MobType::Creaking: return kCreaking;
+    case world::MobType::Warden: return kWarden;
     default: return kCow;
     }
 }

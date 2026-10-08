@@ -49,6 +49,7 @@ template <typename F> void forEachNear(const World& world, const glm::dvec3& c, 
 } // namespace
 
 void BlockUpdates::vibrate(const glm::dvec3& at, bool byPlayer) {
+    m_world.vibration(at, byPlayer); // (wardens hear it too)
     forEachNear(m_world, at, 8, B::SculkSensor, [&](const BlockPos& p, BlockStateId s) {
         if (R().get(s, sculkPhase) != 0) return; // (active or resting)
         const glm::dvec3 c(p.x + 0.5, p.y + 0.5, p.z + 0.5);

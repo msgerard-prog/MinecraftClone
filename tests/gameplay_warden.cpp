@@ -1,0 +1,109 @@
+// The warden (M27.3c): summoned by shriekers, emerging unhurt, angered by a player's
+// vibrations and closeness, the sonic boom, darkness, digging back down.
+#include "gameplay/ItemEntities.h"
+#include "gameplay/Mobs.h"
+#include "gameplay/Player.h"
+#include "gameplay/Vitals.h"
+#include "world/Blocks.h"
+
+#include <doctest/doctest.h>
+
+#include <functional>
+
+using namespace mc;
+using namespace mc::world;
+
+namespace {
+
+struct Deep {
+    World world;
+    Player player;
+    Vitals vitals;
+    Xoroshiro rng{151};
+    ItemEntities items;
+    Mobs mobs;
+    Deep() {
+        const auto& r = blockRegistry();
+        for (int cz = -2; cz <= 2; ++cz)
+            for (int cx = -2; cx <= 2; ++cx) {
+                Chunk& c = world.createChunk({cx, cz});
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) c.set(x, 59, z, r.defaultState(blocks::Deepslate));
+                std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+                light.fill(std::make_shared<const SectionLight>());
+                c.setLight(light);
+            }
+        player.setPosition({0.5, 60.0, 12.5});
+        player.setCreative(false);
+    }
+    void tick(int n, const std::function<void()>& each = {}) {
+        for (int i = 0; i < n; ++i) {
+            if (each) each();
+            Mobs::Context ctx{world, player, vitals, true, false, 18000, 0.0f, rng, items};
+            ctx.naturalSpawning = false;
+            mobs.tick(ctx);
+        }
+    }
+    MobData* warden() {
+        MobData* out = nullptr;
+        world.forEachChunk([&](Chunk& c) {
+            for (auto& m : c.mobs())
+                if (m.type == MobType::Warden && m.health > 0.0f && !out) out = &m;
+        });
+        return out;
+    }
+};
+
+} // namespace
+
+TEST_CASE("a shrieker calls a warden out of the ground; only one within 48 blocks (M27.3c)") {
+    Deep d;
+    REQUIRE(Mobs::summonWarden(d.world, {0, 60, 0}, d.rng));
+    MobData* w = d.warden();
+    REQUIRE(w);
+    CHECK(w->phase == 0); // emerging
+    CHECK(glm::length(w->pos - glm::dvec3(0.5, 60.0, 0.5)) < 8.0);
+    CHECK_FALSE(Mobs::summonWarden(d.world, {10, 60, 0}, d.rng));
+    // Unhurt while emerging.
+    Mobs::attack(*w, 50.0f, d.player.position());
+    CHECK(w->health == doctest::Approx(500.0f));
+    d.tick(140);
+    CHECK(d.warden()->phase == 1);
+}
+
+TEST_CASE("a player's vibrations anger the warden; angry, it booms the player from afar through armor (M27.3c)") {
+    Deep d;
+    MobData w = Mobs::make(MobType::Warden, {0.5, 60.0, 0.5}, d.rng);
+    w.phase = 1;
+    REQUIRE(Mobs::add(d.world, w));
+    d.tick(1);
+    // Three steps near it (sneaking would make none).
+    for (int i = 0; i < 3; ++i) {
+        d.world.vibration({0.5, 60.0, 8.5}, true);
+        d.tick(1);
+    }
+    CHECK(d.warden()->angerTicks >= 80);
+    const float before = d.vitals.health();
+    d.tick(60);
+    CHECK(d.vitals.health() <= before - 9.0f); // (the sonic boom: 10)
+    d.tick(70);                                 // (its pulse comes every 6 s)
+    CHECK(d.vitals.effectLevel(Effect::Darkness) > 0);
+}
+
+TEST_CASE("left alone a minute, the warden digs back down; killed, it drops a sculk catalyst (M27.3c)") {
+    Deep d;
+    MobData w = Mobs::make(MobType::Warden, {0.5, 60.0, 0.5}, d.rng);
+    w.phase = 1;
+    REQUIRE(Mobs::add(d.world, w));
+    d.player.setPosition({0.5, 60.0, 60.5}); // (far: nothing to smell)
+    d.tick(1450);
+    CHECK(d.warden() == nullptr);
+    MobData k = Mobs::make(MobType::Warden, {0.5, 60.0, 0.5}, d.rng);
+    k.phase = 1;
+    k.health = 0.0f;
+    REQUIRE(Mobs::add(d.world, k));
+    d.tick(25);
+    int catalysts = 0;
+    for (const auto& it : d.items.items()) catalysts += it.stack.item == itemRegistry().blockItem(blocks::SculkCatalyst);
+    CHECK(catalysts == 1);
+}

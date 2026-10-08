@@ -175,6 +175,10 @@ private:
     static Use copperGolemInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
     // The creaking (Creakings.cpp, M27.1c): frozen while watched, bound to its heart.
     bool creakingTick(Context& ctx, world::MobData& m);
+    // The warden (Wardens.cpp, M27.3c): emerging/digging, hearing, anger, darkness, the
+    // sonic boom; investigating what it heard.
+    bool wardenTick(Context& ctx, world::MobData& m);
+    bool wardenGoal(Context& ctx, world::MobData& m, double& speed);
 
 public:
     // An awake creaking heart calls its creaking within 16 blocks, if a player is within

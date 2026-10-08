@@ -1027,6 +1027,22 @@ def creaking():
     return img
 
 
+def warden():
+    """The warden (M27.3c): dark teal-black hide, a glowing soul in its chest, pale
+    cheeks and tendrils (ours)."""
+    img = pet("warden", [(0, 0, 8, 8, 5), (0, 16, 9, 10, 6), (32, 16, 4, 14, 4), (0, 36, 3, 7, 3)],
+              (0, 0, 8, 8, 5), None, base="#18343A", stripes=True)
+    fx, fy, fw, fh = box_faces(0, 16, 9, 10, 6)["front"]
+    for y in range(3, 6):
+        for x in range(3, 6):
+            img.set(fx + x, fy + y, (60, 220, 230, 255) if (x + y) % 2 else (20, 140, 160, 255))
+    hx, hy, hw, hh = box_faces(0, 0, 8, 8, 5)["front"]
+    for y in range(4, 7):
+        for x in (1, 6):
+            img.set(hx + x, hy + y, (200, 214, 210, 255))
+    return img
+
+
 def mount_gear():
     """Mount gear (M26.2), one texture for every mount: a leather saddle @ (0,0), chest
     packs @ (36,0), horse armor plates @ (0,16) (light: tinted by its material), a
@@ -1221,6 +1237,7 @@ def main():
               "happy_ghast": pet("happy_ghast", [(0, 0, 16, 16, 16), (0, 32, 2, 9, 2)], (0, 0, 16, 16, 16), None,
                                  base="#F4F0EC"),
               "creaking": creaking(),
+              "warden": warden(),
               "copper_golem": pet("copper_golem", [(0, 0, 8, 5, 6), (28, 0, 2, 3, 2), (36, 0, 1, 4, 1), (0, 11, 4, 6, 3),
                                                    (14, 11, 2, 6, 2), (22, 11, 2, 5, 2)], (0, 0, 8, 5, 6), None,
                                   base="#F0F0F0"),

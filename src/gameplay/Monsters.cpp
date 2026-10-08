@@ -87,6 +87,7 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
     // Drowned go after players in water, or anywhere at night (wiki: Drowned).
     case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
+    case MobType::Warden: return m.angerTicks >= 80; // (M27.3c: hunts only when angry enough)
     case MobType::Creeper: { // creepers keep away from cats and ocelots (wiki: Creeper › Behavior)
         if (m_felines == 0 && m_felinesLastTick == 0) return true;
         const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};

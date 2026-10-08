@@ -46,7 +46,18 @@ public:
         m_events.reserve(1024);
         m_sounds.reserve(512);
         m_newMobs.reserve(64);
+        m_vibrations.reserve(64);
     }
+    // Vibrations (M27.3c): every one BlockUpdates::vibrate hears, for wardens; Mobs::tick
+    // reads and clears them (a vibration made after the mob pass is heard next tick).
+    struct Vibration {
+        glm::dvec3 pos;
+        bool byPlayer;
+    };
+    void vibration(const glm::dvec3& p, bool byPlayer) {
+        if (m_vibrations.size() < m_vibrations.capacity()) m_vibrations.push_back({p, byPlayer});
+    }
+    std::vector<Vibration>& vibrations() { return m_vibrations; }
 
     // Mobs that appear out of blocks (M26.5 review: bees let out of a broken hive) are
     // queued here and added by Mobs::tick after its pass - never pushed into a chunk's
@@ -144,6 +155,7 @@ public:
 private:
     std::vector<LevelEvent> m_events;
     std::vector<MobData> m_newMobs;
+    std::vector<Vibration> m_vibrations;
     std::vector<SoundEvent> m_sounds;
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
