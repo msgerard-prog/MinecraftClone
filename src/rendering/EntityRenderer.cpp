@@ -265,7 +265,8 @@ void EntityRenderer::addOrb(const glm::dvec3& pos, int value, float time, const 
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, color, m_items);
 }
 
-void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos) {
+void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos,
+                             const glm::vec3& colour, float halfWidth) {
     const glm::dvec3 d = to - from;
     const double len = glm::length(d);
     if (len < 1e-3) return;
@@ -273,11 +274,11 @@ void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const
     const glm::vec3 helper = std::abs(f.y) > 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
     const glm::vec3 a = glm::normalize(glm::cross(f, helper)), b = glm::cross(f, a);
     const glm::vec3 s(from - cameraPos), e(to - cameraPos);
-    const uint32_t color = pack(glm::vec3(1.0f, 0.55f, 0.95f));
+    const uint32_t color = pack(colour);
     const float u0 = float(m_orbSprite % m_columns) * m_cell + m_cell * 0.45f, v0 = float(m_orbSprite / m_columns) * m_cell;
     const float u1 = u0 + m_cell * 0.1f, v1 = v0 + m_cell;
     for (const glm::vec3& side : {a, b}) {
-        const glm::vec3 w = side * 0.08f;
+        const glm::vec3 w = side * halfWidth;
         const glm::vec3 p[4] = {s + w, s - w, e - w, e + w};
         const glm::vec3 q[4] = {p[3], p[2], p[1], p[0]};
         quad(p, u0, v0, u1, v1, color, m_items);

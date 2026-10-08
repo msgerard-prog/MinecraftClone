@@ -267,6 +267,18 @@ std::vector<Recipe> build() {
     r.push_back(shaped({".B.", "DOD", "OOO"}, {{'B', item("book")}, {'D', item("diamond")}, {'O', item("obsidian")}},
                        "enchanting_table"));
     r.push_back(shaped({"###", "###", "###"}, {{'#', item("iron_ingot")}}, "iron_block"));
+    for (const auto& [unit, block] : {std::pair{"diamond", "diamond_block"}, std::pair{"emerald", "emerald_block"},
+                                      std::pair{"lapis_lazuli", "lapis_block"}, std::pair{"coal", "coal_block"}}) {
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item(unit)}}, block)); // (M23.6; wiki: each block)
+        r.push_back(shapeless({item(block)}, unit, 9));
+    }
+    // Beacon (wiki: 5 glass, a nether star, 3 obsidian), conduit (a heart of the sea in 8
+    // nautilus shells), sea lantern (4 prismarine shards, 5 crystals).
+    r.push_back(shaped({"GGG", "GNG", "OOO"}, {{'G', item("glass")}, {'N', item("nether_star")}, {'O', item("obsidian")}},
+                       "beacon"));
+    r.push_back(shaped({"NNN", "NHN", "NNN"}, {{'N', item("nautilus_shell")}, {'H', item("heart_of_the_sea")}}, "conduit"));
+    r.push_back(shaped({"SCS", "CCC", "SCS"}, {{'S', item("prismarine_shard")}, {'C', item("prismarine_crystals")}},
+                       "sea_lantern"));
     r.push_back(shapeless({item("iron_block")}, "iron_ingot", 9));
     r.push_back(shaped({"BBB", ".I.", "III"}, {{'B', item("iron_block")}, {'I', item("iron_ingot")}}, "anvil"));
     // (wiki: Arrow - flint, stick, feather -> 4)
@@ -640,6 +652,9 @@ int fuelByName(std::string_view n, const ItemDef& def) {
     if (n == "stick" || n == "dead_bush" || n.ends_with("_sapling") || n.ends_with("_wool")) return 100;
     if (n == "bookshelf") return 300;
     if (n == "lava_bucket") return 20000; // the empty bucket stays in the fuel slot
+    if (n == "coal_block") return 16000;
+    if (n == "barrel" || n == "composter" || n == "smithing_table" || n == "loom" || n == "cartography_table")
+        return 300; // (wooden workstations, M23.5-6)
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;
     return 0;
 }

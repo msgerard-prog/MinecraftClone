@@ -966,6 +966,23 @@ BlockRegistry buildVanillaBlocks() {
           blocks::Loom);
     check(r.add("cartography_table", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe}),
           blocks::CartographyTable);
+    // wiki: Beacon (3.0, any tool, light 15), Conduit (3.0, pickaxe, light 15).
+    check(r.add("beacon", {.hardness = 3.0f, .resistance = 3.0f, .lightEmission = 15, .opaqueCube = false,
+                           .layer = RenderLayer::Cutout}),
+          blocks::Beacon);
+    check(r.add("conduit", {.hardness = 3.0f, .resistance = 3.0f, .lightEmission = 15, .opaqueCube = false,
+                            .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe}),
+          blocks::Conduit);
+    // Storage blocks (wiki: Block of Diamond / Emerald 5.0 / 6.0, iron pickaxe; Lapis 3.0,
+    // stone pickaxe; Coal 5.0 / 6.0, any pickaxe) and the sea lantern (0.3, light 15).
+    check(r.add("diamond_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 2}),
+          blocks::DiamondBlock);
+    check(r.add("emerald_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 2}),
+          blocks::EmeraldBlock);
+    check(r.add("lapis_block", {.hardness = 3.0f, .resistance = 3.0f, .tool = HarvestTool::Pickaxe, .tier = 1}),
+          blocks::LapisBlock);
+    check(r.add("coal_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}), blocks::CoalBlock);
+    check(r.add("sea_lantern", {.hardness = 0.3f, .resistance = 0.3f, .lightEmission = 15}), blocks::SeaLantern);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

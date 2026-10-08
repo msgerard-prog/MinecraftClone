@@ -212,7 +212,7 @@ bool canHarvest(BlockStateId state, const ItemStack& held) {
     return !held.empty() && item.tool == h.tool && tierInfo(item.tier).level >= h.minLevel;
 }
 
-int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater) {
+int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater, int haste) {
     const auto& reg = blockRegistry();
     const float hardness = reg.block(reg.blockOf(state)).settings.hardness;
     if (hardness < 0.0f) return -1; // unbreakable
@@ -234,6 +234,7 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
             reg.blockOf(state) == blocks::Fern || reg.blockOf(state) == blocks::DeadBush)
             speed = std::max(speed, 1.5f);
     }
+    if (haste > 0) speed *= 1.0f + 0.2f * float(haste);
     if (eyesInWater) speed /= 5.0f;
     if (!onGround) speed /= 5.0f;
     const float damage = speed / hardness / (harvest ? 30.0f : 100.0f);
@@ -374,6 +375,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::ShortGrass:
         case blocks::Fern:
         case blocks::EnderChest:
+        case blocks::SeaLantern:
             if (const ItemId it = itemRegistry().blockItem(blockRegistry().blockOf(state))) {
                 out.push_back({it, 1});
                 return;
@@ -527,6 +529,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return; // wiki: 10% flint
     case blocks::NetherQuartzOre:
         add(d.quartz);
+        return;
+    case blocks::SeaLantern: // wiki: Sea Lantern - 2-3 prismarine crystals without Silk Touch
+        add(*itemRegistry().find("prismarine_crystals"), 2 + int(rng.nextInt(2)));
         return;
     case blocks::EnderChest: // wiki: Ender Chest - 8 obsidian without Silk Touch
         add(*itemRegistry().find("obsidian"), 8);

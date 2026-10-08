@@ -282,7 +282,10 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             m_progressExact = 0.0;
         }
         const world::BlockStateId state = world.getBlock(hit->block);
-        const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater);
+        // Conduit Power lifts the underwater slow-down; Haste speeds mining (M23.6).
+        const bool conduit = vitals.effectLevel(world::Effect::ConduitPower) > 0;
+        const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater && !conduit,
+                                     vitals.effectLevel(world::Effect::Haste));
         if (ticks >= 0) {
             // Progress grows by the current tool's per-tick share (vanilla), so switching
             // tools mid-break changes the remaining time, not the progress made.

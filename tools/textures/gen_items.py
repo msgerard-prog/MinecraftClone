@@ -818,6 +818,11 @@ def all_items():
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
     # Netherite and smithing (M23.6).
+    items["nether_star"] = gem("#F4F0E0", "diamond")
+    items["heart_of_the_sea"] = lump("heart_of_the_sea", "#2A6AC8", "#7AE0F0", size=5.4)
+    items["nautilus_shell"] = lump("nautilus_shell", "#E8D8C0", "#B07850", size=5.6)
+    items["prismarine_shard"] = gem("#5AA898", "emerald")
+    items["prismarine_crystals"] = lump("prismarine_crystals", "#9AD8C8", "#F0FFF8", size=4.6)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

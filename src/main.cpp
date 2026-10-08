@@ -32,6 +32,7 @@
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
+#include "gameplay/Beacons.h"
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/Grindstone.h"
 #include "gameplay/Brewing.h"
@@ -876,6 +877,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (container.isOpen() && (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
                                    container.type() == mc::ui::ContainerScreen::Type::Dispenser))
             pointStore();
+        // An open beacon screen follows its block (closed if it was broken) (M23.6).
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
+            mc::world::Chunk* c = world.chunk(containerBlock.chunk());
+            mc::world::BeaconData* bd = c ? c->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                      mc::world::blockToLocal(containerBlock.z))
+                                          : nullptr;
+            container.setBeacon(bd);
+            if (!bd) {
+                screenDrops.clear();
+                container.close(inventory, screenDrops);
+                pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end());
+                if (!screenshotMode) window.setCursorCaptured(true);
+            }
+        }
         // An open brewing stand screen follows its block (closed if it was broken).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -1058,6 +1073,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     } else if (reg.likeOf(block) == mc::world::blocks::Furnace) { // (smokers, blast furnaces)
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
+                        window.setCursorCaptured(false);
+                    } else if (block == mc::world::blocks::Beacon) { // (M23.6)
+                        containerBlock = lastHit->block;
+                        mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
+                        container.openBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                             mc::world::blockToLocal(containerBlock.z))
+                                                : nullptr);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::BrewingStand) {
                         containerBlock = lastHit->block;
@@ -2293,6 +2315,35 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
+                // Beacons (every 80 ticks) and conduits (every 40) (M23.6; wiki: Beacon, Conduit).
+                if (gameTime % 40 == 0)
+                    for (auto& bc : c.beacons()) {
+                        const mc::world::BlockPos bp{c.pos().x * 16 + bc.x, bc.y, c.pos().z * 16 + bc.z};
+                        if (bc.data.conduit) {
+                            const int frame = mc::conduitFrame(world, bp);
+                            if (frame != bc.data.levels) bc.data.levels = frame;
+                            const glm::dvec3 d = player.position() - glm::dvec3(bp.x + 0.5, bp.y + 0.5, bp.z + 0.5);
+                            const bool wet = player.inWater() ||
+                                             mc::world::rainingAt(world, weather,
+                                                                  {int(std::floor(player.position().x)),
+                                                                   int(std::floor(player.position().y)),
+                                                                   int(std::floor(player.position().z))});
+                            if (frame >= 16 && mc::conduitWet(world, bp) && wet && !dead &&
+                                glm::length(d) <= double(mc::conduitRange(frame)))
+                                vitals.addEffect(mc::world::Effect::ConduitPower, 0, 260); // 13 s
+                            continue;
+                        }
+                        if (gameTime % 80 != 0) continue;
+                        const int tiers = mc::beaconTiers(world, bp);
+                        const bool sky = mc::beaconSky(world, bp);
+                        if (tiers != bc.data.levels || sky != bc.data.beam) c.markDirty();
+                        bc.data.levels = tiers;
+                        bc.data.beam = sky;
+                        std::array<mc::BeaconGift, 2> gifts{};
+                        if (!dead)
+                            for (int g = 0, n = mc::beaconGifts(bc.data, bp, player.position(), gifts); g < n; ++g)
+                                vitals.addEffect(gifts[size_t(g)].type, gifts[size_t(g)].amplifier, gifts[size_t(g)].duration);
+                    }
                 for (auto& br : c.brewingStands()) // brewing stands brew (M19.4)
                     if (mc::tickBrewing(br.data)) c.markDirty();
                 // Campfires cook each item for 600 ticks, then drop it cooked above
@@ -2493,6 +2544,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 container.open(mc::ui::ContainerScreen::Type::Grindstone);
             else if (obBlock == mc::world::blocks::SmithingTable)
                 container.open(mc::ui::ContainerScreen::Type::Smithing);
+            else if (obBlock == mc::world::blocks::Beacon)
+                container.openBeacon(obc ? obc->beacon(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z))
+                                         : nullptr);
             else if (obBlock == mc::world::blocks::EnchantingTable)
                 container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
             else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||
@@ -2793,6 +2847,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         const mc::gfx::Frustum mobFrustum =
             mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
         world.forEachTickingChunk([&](mc::world::Chunk& c) {
+            // Beacon beams up to the sky from lit beacons (M23.6; wiki: Beacon).
+            for (const auto& bc : c.beacons())
+                if (!bc.data.conduit && bc.data.beam && bc.data.levels > 0) {
+                    const glm::dvec3 base(c.pos().x * 16 + bc.x + 0.5, bc.y + 0.75, c.pos().z * 16 + bc.z + 0.5);
+                    entities.addBeam(base, glm::dvec3(base.x, double(c.height().maxY() + 1), base.z), camera.position,
+                                     {0.85f, 0.95f, 1.0f}, 0.2f);
+                }
             if (c.mobs().empty()) return;
             const glm::vec3 cmin(glm::dvec3(c.pos().x * 16.0, c.height().minY, c.pos().z * 16.0) - camera.position);
             if (!mobFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(c.height().height), 16.0f)))
@@ -2876,6 +2937,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 container.setFurnace(fc ? fc->furnace(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
                                                       mc::world::blockToLocal(containerBlock.z))
                                         : nullptr);
+            }
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
+                mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
+                container.setBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x), containerBlock.y,
+                                                    mc::world::blockToLocal(containerBlock.z))
+                                       : nullptr);
             }
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Brewing) {
                 mc::world::Chunk* bc = world.chunk(containerBlock.chunk());

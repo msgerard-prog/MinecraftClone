@@ -80,6 +80,17 @@ struct CampfireData {
     std::array<int16_t, 4> cookTime{};
 };
 
+// A beacon or a conduit (M23.6; wiki: Beacon › Block data: primary_effect,
+// secondary_effect, Levels; Conduit). Beacons recount their pyramid and give their
+// effects when the game time is a multiple of 80; conduits check their frame every 40.
+struct BeaconData {
+    bool conduit = false;   // saved as minecraft:conduit
+    int levels = 0;         // beacon: pyramid tiers 0..4 (0: off); conduit: frame blocks 0..42
+    uint8_t primary = 0;    // world::Effect (0 none)
+    uint8_t secondary = 0;
+    bool beam = false;      // beacon: the sky is open above it (its beam shows)
+};
+
 // A redstone comparator's output strength (M21.2; wiki: Redstone Comparator › Block
 // data: OutputSignal) - its block state only says whether it is on.
 struct ComparatorData {

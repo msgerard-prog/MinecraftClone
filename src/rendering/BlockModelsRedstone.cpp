@@ -349,6 +349,19 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Beacon: {
+        // Vanilla's model: an obsidian base and the glowing core inside a glass shell.
+        Builder b(atlas, out);
+        b.box(allFaces({2, 0, 2}, {14, 3, 14}, "obsidian", {2, 2, 14, 14}));
+        b.box(allFaces({3, 3, 3}, {13, 14, 13}, "beacon", {3, 3, 13, 13}));
+        b.box(allFaces({0, 0, 0}, {16, 16, 16}, "glass"));
+        return true;
+    }
+    case B::Conduit: { // (placeholder: vanilla draws a cage and an eye as an entity)
+        Builder b(atlas, out);
+        b.box(allFaces({5, 5, 5}, {11, 11, 11}, "conduit", {5, 5, 11, 11}));
+        return true;
+    }
     case B::Stonecutter: {
         // A 9-high base and the saw blade standing across it (animated, cutout).
         Builder b(atlas, out);

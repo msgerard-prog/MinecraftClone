@@ -350,6 +350,13 @@ enum : BlockId {
     SmithingTable,
     Loom,              // facing
     CartographyTable,
+    Beacon,
+    Conduit,
+    DiamondBlock,
+    EmeraldBlock,
+    LapisBlock,
+    CoalBlock,
+    SeaLantern,
     Count
 };
 } // namespace blocks

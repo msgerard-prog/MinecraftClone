@@ -36,7 +36,8 @@ public:
         Grindstone,
         Smithing,
         Loom,
-        Cartography
+        Cartography,
+        Beacon
     };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
@@ -89,6 +90,15 @@ public:
         m_brewing = stand;
     }
     void setBrewing(world::BrewingData* stand) { m_brewing = stand; }
+    // The beacon (M23.6), owned by the world; re-pointed every frame like brewing stands.
+    // Its powers are chosen with the buttons and set by paying one ingot or gem.
+    void openBeacon(world::BeaconData* beacon) {
+        open(Type::Beacon);
+        m_beacon = beacon;
+        m_beaconPrimary = beacon ? beacon->primary : 0;
+        m_beaconSecondary = beacon ? beacon->secondary : 0;
+    }
+    void setBeacon(world::BeaconData* beacon) { m_beacon = beacon; }
     // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by
     // the world; re-pointed every frame like chests.
     void openStore(Type type, std::span<world::ItemStack> slots, bool dropper = false) {
@@ -142,6 +152,8 @@ private:
     Type m_type = Type::Inventory;
     Furnace* m_furnace = nullptr;
     world::BrewingData* m_brewing = nullptr;
+    world::BeaconData* m_beacon = nullptr;
+    uint8_t m_beaconPrimary = 0, m_beaconSecondary = 0; // (the choice before paying)
     std::span<world::ItemStack> m_store;
     bool m_dropper = false;
     std::array<world::ChestData*, 2> m_chests{};

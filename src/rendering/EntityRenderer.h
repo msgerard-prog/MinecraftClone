@@ -54,7 +54,8 @@ public:
     void addOrb(const glm::dvec3& pos, int value, float time, const glm::dvec3& cameraPos);
     // An end crystal's healing beam (M20.2) from `from` to `to`: two crossed glowing
     // strips (vanilla: a textured beam).
-    void addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos);
+    void addBeam(const glm::dvec3& from, const glm::dvec3& to, const glm::dvec3& cameraPos,
+                 const glm::vec3& colour = {1.0f, 0.55f, 0.95f}, float halfWidth = 0.08f);
     // A cloud of dragon's breath: glowing purple puffs over its disc (vanilla: particles).
     void addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos);
     // An arrow (M16.4) with its tip at `tip`, pointing along `dir`: two crossed quads.

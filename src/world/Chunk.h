@@ -73,6 +73,7 @@ public:
         m_dispensers.clear();
         m_signs.clear();
         m_campfires.clear();
+        m_beacons.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -289,11 +290,29 @@ public:
     }
     std::vector<CampfireEntry>& campfires() { return m_campfires; }
     const std::vector<CampfireEntry>& campfires() const { return m_campfires; }
+    struct BeaconEntry { // (M23.6: beacons and conduits)
+        int x, y, z;
+        BeaconData data;
+    };
+    BeaconData* beacon(int x, int y, int z) {
+        for (auto& b : m_beacons)
+            if (b.x == x && b.y == y && b.z == z) return &b.data;
+        return nullptr;
+    }
+    BeaconData& addBeacon(int x, int y, int z) {
+        if (BeaconData* b = beacon(x, y, z)) return *b;
+        m_dirty = true;
+        m_beacons.push_back({x, y, z, {}});
+        return m_beacons.back().data;
+    }
+    std::vector<BeaconEntry>& beacons() { return m_beacons; }
+    const std::vector<BeaconEntry>& beacons() const { return m_beacons; }
     void removeBlockEntity(int x, int y, int z) {
         std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
         std::erase_if(m_signs, [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
+        std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
@@ -383,6 +402,7 @@ private:
     std::vector<DispenserEntry> m_dispensers;
     std::vector<SignEntry> m_signs;
     std::vector<CampfireEntry> m_campfires;
+    std::vector<BeaconEntry> m_beacons;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;

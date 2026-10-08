@@ -529,3 +529,71 @@ TEST_CASE("composters fill by chance and give bone meal; cauldrons take buckets,
     REQUIRE(craft(g, 3));
     CHECK(craft(g, 3)->item == I("composter").item);
 }
+
+#include "gameplay/Beacons.h"
+#include "gameplay/Vitals.h"
+
+TEST_CASE("beacons count pyramid tiers and give powers; conduits count their frame (M23.6)") {
+    Scene s;
+    const BlockPos b{0, 70, 0};
+    for (int k = 1; k <= 2; ++k)
+        for (int dz = -k; dz <= k; ++dz)
+            for (int dx = -k; dx <= k; ++dx)
+                s.world.setBlock({dx, 70 - k, dz}, R().defaultState(k == 1 ? blocks::IronBlock : blocks::DiamondBlock));
+    s.world.updateBlock(b, R().defaultState(blocks::Beacon));
+    CHECK(mc::beaconTiers(s.world, b) == 2);
+    s.world.setBlock({2, 68, 2}, R().defaultState(blocks::Stone)); // a hole in tier 2
+    CHECK(mc::beaconTiers(s.world, b) == 1);
+    CHECK(mc::beaconSky(s.world, b));
+    s.world.setBlock({0, 90, 0}, R().defaultState(blocks::Glass)); // glass lets the beam through
+    CHECK(mc::beaconSky(s.world, b));
+    s.world.setBlock({0, 91, 0}, R().defaultState(blocks::Stone));
+    CHECK_FALSE(mc::beaconSky(s.world, b));
+    CHECK(mc::beaconPrimaryAllowed(Effect::Speed, 1));
+    CHECK_FALSE(mc::beaconPrimaryAllowed(Effect::Strength, 2));
+    BeaconData d;
+    d.levels = 4;
+    d.beam = true;
+    d.primary = static_cast<uint8_t>(Effect::Haste);
+    d.secondary = static_cast<uint8_t>(Effect::Haste);
+    std::array<mc::BeaconGift, 2> gifts{};
+    REQUIRE(mc::beaconGifts(d, b, {30.0, 75.0, -40.0}, gifts) == 1); // range 50
+    CHECK(gifts[0].amplifier == 1);  // Haste II
+    CHECK(gifts[0].duration == 17 * 20);
+    CHECK(mc::beaconGifts(d, b, {60.0, 75.0, 0.0}, gifts) == 0);
+    d.secondary = static_cast<uint8_t>(Effect::Regeneration);
+    CHECK(mc::beaconGifts(d, b, {0.0, 75.0, 0.0}, gifts) == 2);
+    // Saved under its id with its powers.
+    Chunk* c = s.world.chunk({0, 0});
+    REQUIRE(c->beacon(0, 70, 0));
+    *c->beacon(0, 70, 0) = d;
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*c, 0)), back));
+    REQUIRE(back.beacon(0, 70, 0));
+    CHECK(back.beacon(0, 70, 0)->primary == d.primary);
+    CHECK(back.beacon(0, 70, 0)->secondary == d.secondary);
+    CHECK(back.beacon(0, 70, 0)->levels == 4);
+    // A full conduit frame: 42 prismarine places on three rings.
+    const BlockPos q{0, 80, 8};
+    s.world.updateBlock(q, R().defaultState(blocks::Conduit));
+    for (int dy = -2; dy <= 2; ++dy)
+        for (int dz = -2; dz <= 2; ++dz)
+            for (int dx = -2; dx <= 2; ++dx)
+                if (std::max({std::abs(dx), std::abs(dy), std::abs(dz)}) == 2)
+                    s.world.setBlock({q.x + dx, q.y + dy, q.z + dz}, S("minecraft:prismarine"));
+    CHECK(mc::conduitFrame(s.world, q) == 42);
+    CHECK(mc::conduitRange(42) == 96);
+    CHECK_FALSE(mc::conduitWet(s.world, q));
+    // Resistance and Conduit Power on the player; Haste in mining.
+    mc::Vitals v;
+    v.addEffect(Effect::Resistance, 1, 100); // II: -40%
+    v.damage(10.0f, false);
+    CHECK(v.health() == doctest::Approx(14.0f));
+    v.addEffect(Effect::ConduitPower, 0, 100);
+    for (int t = 0; t < 400; ++t)
+        v.breathe(true);
+    CHECK(v.air() == mc::Vitals::kMaxAir);
+    const ItemStack pick{*itemRegistry().find("iron_pickaxe"), 1};
+    CHECK(breakTicks(R().defaultState(blocks::Stone), pick, true, false, 2) <
+          breakTicks(R().defaultState(blocks::Stone), pick, true, false, 0));
+}

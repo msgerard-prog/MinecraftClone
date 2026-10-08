@@ -3,6 +3,7 @@
 #include "gameplay/Brewing.h"
 
 #include "gameplay/Anvil.h"
+#include "gameplay/Beacons.h"
 #include "gameplay/Grindstone.h"
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
@@ -125,6 +126,8 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             out.push_back({K::Grid, 1, 33, 26});
             out.push_back({K::Grid, 2, 23, 45});
             out.push_back({K::Result, 0, 143, 58});
+        } else if (type == Type::Beacon) { // the payment (our compact layout: buttons above)
+            out.push_back({K::Grid, 0, 124, 47});
         } else if (type == Type::Cartography) { // map, paper/glass, result (maps come in M28)
             out.push_back({K::Grid, 0, 15, 15});
             out.push_back({K::Grid, 1, 15, 52});
@@ -178,7 +181,8 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
                                    hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0),
                                    stonecutter = build(Type::Stonecutter, 0), grindstone = build(Type::Grindstone, 0),
                                    smithing = build(Type::Smithing, 0), loom = build(Type::Loom, 0),
-                                   cartography = build(Type::Cartography, 0);
+                                   cartography = build(Type::Cartography, 0), beacon = build(Type::Beacon, 0);
+    if (m_type == Type::Beacon) return beacon;
     if (m_type == Type::Smithing) return smithing;
     if (m_type == Type::Loom) return loom;
     if (m_type == Type::Cartography) return cartography;
@@ -239,7 +243,7 @@ void ContainerScreen::updateResult() {
         m_result = smith(m_grid[0], m_grid[1], m_grid[2]);
         return;
     }
-    if (m_type == Type::Loom || m_type == Type::Cartography) { // (their outputs come with banners and maps)
+    if (m_type == Type::Loom || m_type == Type::Cartography || m_type == Type::Beacon) { // (no result slot)
         m_result = {};
         return;
     }
@@ -361,6 +365,30 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         }
         drops.push_back(thrown);
         return;
+    }
+    if (m_type == Type::Beacon && m_beacon && py >= 18 && py < 66) {
+        // Primary powers (top row), the tier-4 secondary (Regeneration or level II) and
+        // "done", which spends the payment (wiki: Beacon › Usage).
+        using world::Effect;
+        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance, Effect::JumpBoost,
+                                               Effect::Strength};
+        const int tiers = m_beacon->levels;
+        const int col = int((px - 10) / 24);
+        const bool inButton = px >= 10 && int(px - 10) % 24 < 22;
+        if (py < 40 && inButton && col >= 0 && col < 5) {
+            if (beaconPrimaryAllowed(kPrimary[col], tiers)) {
+                m_beaconPrimary = static_cast<uint8_t>(kPrimary[col]);
+                if (m_beaconSecondary != static_cast<uint8_t>(Effect::Regeneration)) m_beaconSecondary = 0;
+            }
+        } else if (py >= 44 && inButton && col >= 0 && col < 2 && tiers >= 4 && m_beaconPrimary) {
+            m_beaconSecondary = col == 0 ? static_cast<uint8_t>(Effect::Regeneration) : m_beaconPrimary;
+        } else if (py >= 44 && px >= 148 && px < 170 && m_beaconPrimary && tiers > 0 && !m_grid[0].empty() &&
+                   isBeaconPayment(m_grid[0].item)) {
+            m_beacon->primary = m_beaconPrimary;
+            m_beacon->secondary = tiers >= 4 ? m_beaconSecondary : 0;
+            if (--m_grid[0].count == 0) m_grid[0] = {};
+        }
+        if (py < 66 && (px < 120 || px >= 146)) return; // (the payment slot sits between)
     }
     if (m_type == Type::Stonecutter && px >= 52 && px < 52 + 4 * 16 && py >= 14 && py < 14 + 3 * 18) {
         // A recipe button (4 x 3 visible, 16 x 18 each): choose it (wiki: Stonecutter).
@@ -610,7 +638,8 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
     const int furnaceKind = m_furnace ? m_furnace->kind : 0;
-    const char* title = m_type == Type::Smithing      ? "Upgrade Gear"
+    const char* title = m_type == Type::Beacon        ? "Beacon"
+                        : m_type == Type::Smithing    ? "Upgrade Gear"
                         : m_type == Type::Loom        ? "Loom"
                         : m_type == Type::Cartography ? "Cartography Table"
                         : m_type == Type::Stonecutter ? "Stonecutter"
@@ -696,6 +725,31 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     }
     if (m_type == Type::Grindstone) arrow(98, 34, 0);
     if (m_type == Type::Smithing) arrow(68, 48, 0);
+    if (m_type == Type::Beacon && m_beacon) { // power buttons (abbreviated names) and "done"
+        using world::Effect;
+        static constexpr Effect kPrimary[5] = {Effect::Speed, Effect::Haste, Effect::Resistance, Effect::JumpBoost,
+                                               Effect::Strength};
+        static constexpr const char* kNames[5] = {"Spd", "Hst", "Res", "Jmp", "Str"};
+        const int tiers = m_beacon->levels;
+        auto button = [&](float x, float y, const char* label, bool enabled, bool selected) {
+            b.fill(left + x, top + y, 22, 22, selected ? gfx::rgba(110, 170, 110) : enabled ? kLight : kDark);
+            b.fill(left + x, top + y + 21, 22, 1, kEdge);
+            b.text(label, left + x + 11 - float(b.textWidth(label)) / 2, top + y + 7, enabled ? kLabel : kSlotFill,
+                   false);
+        };
+        for (int i = 0; i < 5; ++i)
+            button(10.0f + 24.0f * i, 18, kNames[i], beaconPrimaryAllowed(kPrimary[i], tiers),
+                   m_beaconPrimary == static_cast<uint8_t>(kPrimary[i]));
+        button(10, 44, "Reg", tiers >= 4 && m_beaconPrimary,
+               m_beaconSecondary == static_cast<uint8_t>(Effect::Regeneration));
+        button(34, 44, "II", tiers >= 4 && m_beaconPrimary,
+               m_beaconSecondary != 0 && m_beaconSecondary == m_beaconPrimary);
+        const bool payable = m_beaconPrimary && tiers > 0 && !m_grid[0].empty() && isBeaconPayment(m_grid[0].item);
+        button(148, 44, "OK", payable, false);
+        char line[24];
+        const int n = std::snprintf(line, sizeof(line), "Tiers: %d", tiers);
+        b.text(std::string_view(line, size_t(std::max(0, n))), left + 66, top + 51, kLabel, false);
+    }
     if (m_type == Type::Inventory) arrow(134, 28, 0);
     if (m_type == Type::Crafting) arrow(90, 35, 0);
     if (m_type == Type::Brewing && m_brewing) {

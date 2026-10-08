@@ -118,6 +118,10 @@ ItemRegistry buildItems() {
     }
     // Netherite materials and the smithing templates (M23.6; wiki: Netherite Ingot,
     // Smithing Template).
+    // Beacons and conduits (M23.6): the nether star comes with the Wither (M26), the
+    // heart and shells with oceans (M25); prismarine shards and crystals from guardians.
+    for (const char* name : {"nether_star", "heart_of_the_sea", "nautilus_shell", "prismarine_shard", "prismarine_crystals"})
+        r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     for (const char* name : {"netherite_scrap", "netherite_ingot", "netherite_upgrade_smithing_template"})
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     for (const std::string_view pattern : kTrimPatterns) { // (wiki: one template per armor trim)

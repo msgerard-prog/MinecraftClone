@@ -23,8 +23,9 @@ bool canHarvest(world::BlockStateId state, const world::ItemStack& held);
 //   damage per tick = speed / hardness / (harvestable ? 30 : 100);
 //   /5 when not on the ground, /5 when the eyes are in water;
 //   instant if damage per tick > 1; unbreakable (bedrock: hardness -1) -> -1.
+// `haste`: the Haste level (M23.6; wiki: Haste - speed x (1 + 0.2 level)).
 int breakTicks(world::BlockStateId state, const world::ItemStack& held, bool onGround,
-               bool eyesInWater);
+               bool eyesInWater, int haste = 0);
 
 // What a broken block drops (wiki: each block's "Drops"). Empty if it can't be
 // harvested with `held`.

@@ -10,7 +10,8 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
-    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0) return 0.0f;
+    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0 || effectLevel(world::Effect::ConduitPower) > 0)
+        return 0.0f; // (conduit power: no air lost either, wiki)
     if (--m_air <= -20) {
         m_air = 0;
         // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).
@@ -108,6 +109,11 @@ void Vitals::setState(float health, int food, float saturation, float exhaustion
 
 bool Vitals::damage(float amount, bool exhausts) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
+    // Resistance: 20% less per level, all of it from level 5 (wiki: Resistance).
+    if (const int res = effectLevel(world::Effect::Resistance); res > 0) {
+        amount *= std::max(0.0f, 1.0f - 0.2f * float(res));
+        if (amount <= 0.0f) return false;
+    }
     m_health = std::max(0.0f, m_health - amount);
     m_invulnerable = 10;
     if (exhausts) exhaust(0.1f); // wiki: taking damage

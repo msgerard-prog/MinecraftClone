@@ -28,6 +28,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.brewing = chunk.brewingStands();
     s.signs = chunk.signs();
     s.campfires = chunk.campfires();
+    s.beacons = chunk.beacons();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
@@ -418,6 +419,22 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& bc : chunk.beacons) { // wiki: Beacon › Block data; Conduit
+        nbt::Compound e;
+        e.put("id", std::string(bc.data.conduit ? "minecraft:conduit" : "minecraft:beacon"));
+        e.put("x", int32_t{chunk.pos.x * 16 + bc.x});
+        e.put("y", int32_t{bc.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + bc.z});
+        e.put("keepPacked", int8_t{0});
+        if (!bc.data.conduit) {
+            e.put("Levels", int32_t{bc.data.levels});
+            if (bc.data.primary)
+                e.put("primary_effect", std::string(effectInfo(static_cast<Effect>(bc.data.primary)).id));
+            if (bc.data.secondary)
+                e.put("secondary_effect", std::string(effectInfo(static_cast<Effect>(bc.data.secondary)).id));
+        }
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& cf : chunk.campfires) { // wiki: Campfire › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:campfire"));
@@ -689,7 +706,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" && *id != "minecraft:shulker_box" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
-                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire"))
+                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" &&
+                        *id != "minecraft:beacon" && *id != "minecraft:conduit"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -722,6 +740,19 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =
                     static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
+            if (*id == "minecraft:beacon" || *id == "minecraft:conduit") {
+                const BlockId bb = blockRegistry().blockOf(chunk.get(x, y, z));
+                const bool conduit = *id == "minecraft:conduit";
+                if (bb != (conduit ? blocks::Conduit : blocks::Beacon)) continue;
+                BeaconData& bd = chunk.addBeacon(x, y, z);
+                bd.conduit = conduit;
+                bd.levels = int(std::clamp<int64_t>(e->integer("Levels").value_or(0), 0, 4));
+                if (const std::string* p = e->string("primary_effect"))
+                    if (const auto ef = findEffect(*p)) bd.primary = static_cast<uint8_t>(*ef);
+                if (const std::string* s2 = e->string("secondary_effect"))
+                    if (const auto ef = findEffect(*s2)) bd.secondary = static_cast<uint8_t>(*ef);
                 continue;
             }
             if (*id == "minecraft:campfire") {

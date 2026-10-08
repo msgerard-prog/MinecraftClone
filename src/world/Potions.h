@@ -25,6 +25,9 @@ enum class Effect : uint8_t {
     JumpBoost,
     SlowFalling,
     Levitation, // (M20.4: shulker bullets)
+    Haste,        // (M23.6: beacons) mining +20% per level
+    Resistance,   // (M23.6: beacons) damage -20% per level
+    ConduitPower, // (M23.6: conduits) breath and mining under water
     Count
 };
 struct EffectInfo {
