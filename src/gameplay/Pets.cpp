@@ -240,7 +240,8 @@ void Mobs::spawnCreatures(Context& ctx) {
         return;
     }
     // Rabbits, foxes, polar bears, pandas, goats, armadillos (M26.3, Wildlife.cpp).
-    if (ctx.rng.nextInt(2) == 0 && biome != Biome::Forest && biome != Biome::SparseJungle) {
+    if (ctx.rng.nextInt(2) == 0 && biome != Biome::Forest && biome != Biome::SparseJungle &&
+        biome != Biome::OldGrowthPineTaiga && biome != Biome::SavannaPlateau) {
         const auto before = m_creatures;
         spawnWildlife(ctx, biome, ground, x, y, z);
         if (m_creatures != before) return;
@@ -253,17 +254,20 @@ void Mobs::spawnCreatures(Context& ctx) {
     case Biome::Forest: kind = MobType::Wolf, variant = 1; break;
     case Biome::SnowyTaiga: kind = MobType::Wolf, variant = 2; break;
     case Biome::OldGrowthSpruceTaiga: kind = MobType::Wolf, variant = 4; break;
+    case Biome::OldGrowthPineTaiga: kind = MobType::Wolf, variant = 3; break; // (M27.1: black)
+    case Biome::SavannaPlateau: kind = MobType::Wolf, variant = 6; break;    // (spotted)
     case Biome::SparseJungle: kind = MobType::Wolf, variant = 5; break;
     case Biome::Savanna: kind = MobType::Wolf, variant = 6; break;
     case Biome::WoodedBadlands: kind = MobType::Wolf, variant = 7; break;
     case Biome::Grove: kind = MobType::Wolf, variant = 8; break;
-    case Biome::Jungle: kind = ctx.rng.nextInt(3) == 0 ? MobType::Ocelot : MobType::Parrot; break;
+    case Biome::Jungle:
+    case Biome::BambooJungle: kind = ctx.rng.nextInt(3) == 0 ? MobType::Ocelot : MobType::Parrot; break;
     default: return;
     }
     if (kind == MobType::Wolf && (biome == Biome::Forest || biome == Biome::SparseJungle) && ctx.rng.nextInt(4) != 0)
         return; // (rarer there)
     // (wiki: Wolf › pack sizes - chestnut/rusty 2-4, spotted/striped 4-8, snowy alone, else 4)
-    group = kind == MobType::Wolf ? (variant == 4 || variant == 5   ? 2 + int(ctx.rng.nextInt(3))
+    group = kind == MobType::Wolf ? (variant >= 3 && variant <= 5 ? 2 + int(ctx.rng.nextInt(3))
                                      : variant == 6 || variant == 7 ? 4 + int(ctx.rng.nextInt(5))
                                      : variant == 8                 ? 1
                                                                     : 4)

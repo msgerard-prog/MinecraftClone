@@ -398,7 +398,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     if (generatorKind != "terrain" && generatorKind != "overworld" &&
         generatorKind != "overworld2" && generatorKind != "overworld3" && generatorKind != "overworld4" &&
-        generatorKind != "overworld5") {
+        generatorKind != "overworld5" && generatorKind != "overworld6") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -418,7 +418,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                                : generatorKind == "overworld2" ? 2
                                                                : generatorKind == "overworld3" ? 3
                                                                : generatorKind == "overworld4" ? 4
-                                                                                               : 5);
+                                                               : generatorKind == "overworld5" ? 5
+                                                                                               : 6);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -3637,8 +3638,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                          float(v & 255)) /
                                255.0f;
                     };
-                    sky += rgb(mc::world::skyColorFor(info.temperature));
-                    fog += rgb(mc::world::kOverworldFog);
+                    sky += rgb(info.sky ? info.sky : mc::world::skyColorFor(info.temperature));
+                    fog += rgb(info.fog ? info.fog : mc::world::kOverworldFog); // (M27.1: the pale garden's)
                     ++n;
                 }
             if (n > 0) renderer.setBiomeSky(sky / float(n), fog / float(n));

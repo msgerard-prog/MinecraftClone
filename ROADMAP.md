@@ -14,9 +14,11 @@ allay cages), frozen as of v0.26.0. M1-M26 done. v1.0 waits for M27-M28.
 
 ## Next
 M27 - World 3 (wiki pages of each biome and structure):
-1. M27.1 - Remaining biomes: bamboo jungle, mangrove swamp, pale garden, savanna
-   plateau, windswept savanna, old growth pine taiga, ice spikes, eroded badlands,
-   mushroom fields, stony peaks..., with their trees and features (new generator version).
+1. M27.1 - Remaining biomes: ✅ a) their blocks (two-block plants, mud, moss, pale moss);
+   ✅ b) "overworld6": sunflower plains, old growth birch/pine, savanna plateau, windswept
+   savanna/forest/gravelly hills, bamboo jungle, mangrove swamp, pale garden (giant
+   spruces, mangrove roots, bamboo, hanging moss); c) the creaking and creaking hearts,
+   eyeblossoms.
 2. M27.2 - Lush caves (azalea, moss, glow berries, dripleaves, spore blossoms) and
    dripstone caves (pointed dripstone: falling, dripping, cauldron filling).
 3. M27.3 - The deep dark: sculk blocks, sensors, shriekers, catalysts; ancient cities;

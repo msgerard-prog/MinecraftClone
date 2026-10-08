@@ -135,6 +135,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `kShipwrecks`, ocean ruins on `kOceanRuins`, buried treasure in 1% of beach chunks;
   M25.5: ocean monuments on `kMonuments` in deep oceans, with elder guardians and guards
   as generated mobs).
+  Version 5, "overworld5" (M26): bee nests, berry bushes, infested veins, mineshaft
+  cobwebs and spawners, allay cages. Version 6, "overworld6" (M27.1, new worlds):
+  `biomeAt` refines the version-5 choice into the remaining surface biomes (variants in
+  the weirdness > 0 half of their parent's slot; warm swamps are mangrove swamps; the
+  windswept hills split by climate); `treeKind` takes the version (giant spruces,
+  `TreeKind::MegaSpruce`, in old growth taigas); mangroves stand on roots; mud and the new
+  surfaces in the surface rules; `placeBiomeFeatures6` adds two-block plants, bamboo, pale
+  moss and hanging moss. `BiomeInfo::sky`/`fog` give the pale garden its grey sky (main's
+  5x5 sky blend).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
@@ -150,7 +159,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   vanilla's grid on high highlands; each chunk builds the parts of the cities
   starting within 2 chunks west/2 north-south (tower, top room, bridge, ship) and
   fills their chests (loot or the elytra) after encoding.
-- Biomes (`world/Biome`): 38 vanilla biomes with wiki colours (10 only from
+- Biomes (`world/Biome`): 48 vanilla biomes with wiki colours (10 only from
   overworld2: `OverworldGenerator::biomeAt` refines `baseBiome`, the M8 choice); each chunk holds a
   shared immutable `ChunkBiomes` (one per 4×4×4 cell); mesh workers get the centre
   chunk's, vertices carry an 8-bit tint slot (w2 bits 12-19) read from the tint

@@ -74,7 +74,8 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
                                          : Biome::Plains;
         const bool warm = b == Biome::Desert || b == Biome::Savanna || b == Biome::Jungle || b == Biome::SparseJungle ||
                           b == Biome::Badlands || b == Biome::WoodedBadlands || b == Biome::ErodedBadlands ||
-                          b == Biome::WarmOcean || b == Biome::NetherWastes;
+                          b == Biome::WarmOcean || b == Biome::NetherWastes || b == Biome::MangroveSwamp ||
+                          b == Biome::BambooJungle || b == Biome::SavannaPlateau || b == Biome::WindsweptSavanna;
         const bool cold = b == Biome::SnowyPlains || b == Biome::SnowyTaiga || b == Biome::IceSpikes ||
                           b == Biome::FrozenRiver || b == Biome::FrozenOcean || b == Biome::SnowySlopes ||
                           b == Biome::Grove || b == Biome::FrozenPeaks || b == Biome::JaggedPeaks ||

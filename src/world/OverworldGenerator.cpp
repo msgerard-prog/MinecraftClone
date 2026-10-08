@@ -95,9 +95,13 @@ struct Blocks {
     BlockStateId chiseledSandstone, cutSandstone, smoothSandstone, orangeTerracotta, blueTerracotta, stoneBricks,
         mossyStoneBricks, crackedStoneBricks, chiseledStoneBricks, tnt, sprucePlanks, craftingTable, furnace,
         redstoneTorch, bedFoot, bedHead;
-    // Leaves by wood (oak, birch, spruce, acacia, jungle, dark oak, cherry) and
-    // distance 1..7 (index d-1).
-    BlockStateId leaves[7][7];
+    // Leaves by wood (oak, birch, spruce, acacia, jungle, dark oak, cherry, mangrove,
+    // pale oak) and distance 1..7 (index d-1).
+    BlockStateId leaves[9][7];
+    // overworld6 (M27.1)
+    BlockStateId mangroveLog, paleOakLog, mud, mangroveRoots, muddyRoots, paleMoss, paleMossCarpet, hangingMoss,
+        hangingMossTip, mossBlock, bamboo, bambooSmall, bambooLarge;
+    BlockStateId tallLower[6], tallUpper[6]; // sunflower, lilac, rose bush, peony, tall grass, large fern
     struct Ore {
         BlockStateId stone, deep;
     } coal, iron, copper, gold, redstone, lapis, diamond, emerald;
@@ -193,12 +197,29 @@ const Blocks& blockSet() {
         x.brownCap = r.with(S(blocks::BrownMushroomBlock), "down", "false").value_or(0);
         x.redCap = r.with(S(blocks::RedMushroomBlock), "down", "false").value_or(0);
         x.stem = r.with(r.with(S(blocks::MushroomStem), "down", "false").value_or(0), "up", "false").value_or(0);
-        const BlockStateId leafDefaults[7] = {x.oakLeaves,         x.birchLeaves,           x.spruceLeaves,
+        const BlockStateId leafDefaults[9] = {x.oakLeaves,         x.birchLeaves,           x.spruceLeaves,
                                               x.acaciaLeaves,      S(blocks::JungleLeaves), S(blocks::DarkOakLeaves),
-                                              S(blocks::CherryLeaves)};
-        for (int k = 0; k < 7; ++k)
+                                              S(blocks::CherryLeaves), S(blocks::MangroveLeaves), S(blocks::PaleOakLeaves)};
+        for (int k = 0; k < 9; ++k)
             for (int d = 1; d <= 7; ++d)
                 x.leaves[k][d - 1] = r.with(leafDefaults[k], "distance", std::to_string(d)).value_or(leafDefaults[k]);
+        x.mangroveLog = S(blocks::MangroveLog);
+        x.paleOakLog = S(blocks::PaleOakLog);
+        x.mud = S(blocks::Mud);
+        x.mangroveRoots = S(blocks::MangroveRoots);
+        x.muddyRoots = S(blocks::MuddyMangroveRoots);
+        x.paleMoss = S(blocks::PaleMossBlock);
+        x.paleMossCarpet = S(blocks::PaleMossCarpet);
+        x.hangingMoss = r.set(S(blocks::PaleHangingMoss), properties::mossTip, 1);
+        x.hangingMossTip = S(blocks::PaleHangingMoss);
+        x.mossBlock = S(blocks::MossBlock);
+        x.bamboo = S(blocks::Bamboo);
+        x.bambooSmall = r.set(x.bamboo, properties::bambooLeaves, 1);
+        x.bambooLarge = r.set(x.bamboo, properties::bambooLeaves, 2);
+        for (int k = 0; k < 6; ++k) {
+            x.tallLower[k] = r.set(S(static_cast<BlockId>(blocks::Sunflower + k)), properties::doorHalf, 1);
+            x.tallUpper[k] = r.set(S(static_cast<BlockId>(blocks::Sunflower + k)), properties::doorHalf, 0);
+        }
         x.flowers[0] = S(blocks::Dandelion);
         x.flowers[1] = S(blocks::Poppy);
         x.flowers[2] = S(blocks::OxeyeDaisy);
@@ -407,19 +428,41 @@ Biome OverworldGenerator::biomeAt(const Column& c) const {
                                            Biome::DeepLukewarmOcean, Biome::WarmOcean};
         return kDeep[temp];
     }
-    switch (b) {
-    case Biome::SnowyPlains: return hum == 0 && W > 0.0 ? Biome::IceSpikes : b;
-    case Biome::Taiga: return hum == 4 ? Biome::OldGrowthSpruceTaiga : b;
-    case Biome::Plains: return temp == 2 && hum == 0 && W < 0.0 ? Biome::FlowerForest : b;
-    case Biome::Forest:
-        if (temp == 3) return hum == 4 || W < 0.0 ? Biome::Jungle : Biome::SparseJungle;
-        if (temp == 2 && hum == 4) return Biome::DarkForest;
-        return b;
-    case Biome::Meadow: return W < 0.0 ? Biome::CherryGrove : b;
-    case Biome::Badlands:
-        if (c.height > 95.0) return Biome::WoodedBadlands;
-        return E > 0.35 ? Biome::ErodedBadlands : b;
-    default: return b;
+    const Biome v2 = [&] {
+        switch (b) {
+        case Biome::SnowyPlains: return hum == 0 && W > 0.0 ? Biome::IceSpikes : b;
+        case Biome::Taiga: return hum == 4 ? Biome::OldGrowthSpruceTaiga : b;
+        case Biome::Plains: return temp == 2 && hum == 0 && W < 0.0 ? Biome::FlowerForest : b;
+        case Biome::Forest:
+            if (temp == 3) return hum == 4 || W < 0.0 ? Biome::Jungle : Biome::SparseJungle;
+            if (temp == 2 && hum == 4) return Biome::DarkForest;
+            return b;
+        case Biome::Meadow: return W < 0.0 ? Biome::CherryGrove : b;
+        case Biome::Badlands:
+            if (c.height > 95.0) return Biome::WoodedBadlands;
+            return E > 0.35 ? Biome::ErodedBadlands : b;
+        default: return b;
+        }
+    }();
+    if (m_version < 6) return v2;
+    // Overworld 6 (M27.1): vanilla's "variant" biomes take the weirdness > 0 half of
+    // their parent's climate slot (wiki: Biome › Generation): sunflower plains beside
+    // flower forests, old growth birch and pine, bamboo jungles, pale gardens beside
+    // dark forests. Warm swamps grow mangroves; the windswept hills split by climate,
+    // and warm high ground is savanna plateau.
+    switch (v2) {
+    case Biome::Plains: return temp == 2 && hum == 0 && W > 0.0 ? Biome::SunflowerPlains : v2;
+    case Biome::BirchForest: return W > 0.0 ? Biome::OldGrowthBirchForest : v2;
+    case Biome::OldGrowthSpruceTaiga: return W > 0.0 ? Biome::OldGrowthPineTaiga : v2;
+    case Biome::Jungle: return hum == 4 && W > 0.0 ? Biome::BambooJungle : v2;
+    case Biome::DarkForest: return W > 0.0 ? Biome::PaleGarden : v2;
+    case Biome::Swamp: return temp >= 3 ? Biome::MangroveSwamp : v2;
+    case Biome::Savanna: return c.height > 95.0 ? Biome::SavannaPlateau : v2;
+    case Biome::WindsweptHills:
+        if (temp >= 3) return W > 0.0 ? Biome::WindsweptSavanna : Biome::SavannaPlateau;
+        if (hum >= 3) return Biome::WindsweptForest;
+        return hum == 0 ? Biome::WindsweptGravellyHills : v2;
+    default: return v2;
     }
 }
 
@@ -468,7 +511,8 @@ namespace {
 
 struct TreeShape {
     // TreeKind's values, then features planned like trees (they reach across chunks).
-    enum Kind { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, BrownMushroom = 100, RedMushroom, IceSpike } kind;
+    enum Kind { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove, MegaSpruce,
+                BrownMushroom = 100, RedMushroom, IceSpike } kind;
 };
 
 // Heights of the M18.2 kinds: trees as saplings grow them; huge mushrooms 5-7 (wiki:
@@ -490,6 +534,9 @@ int woodOf(TreeShape::Kind k) {
     case TreeShape::MegaJungle: return 4;
     case TreeShape::DarkOak: return 5;
     case TreeShape::Cherry: return 6;
+    case TreeShape::Mangrove: return 7;
+    case TreeShape::PaleOak: return 8;
+    case TreeShape::MegaSpruce: return 2;
     default: return static_cast<int>(k);
     }
 }
@@ -519,11 +566,22 @@ double treeDensity(Biome b) {
     case Biome::WoodedBadlands: return 2.0;
     case Biome::MushroomFields: return 0.6; // huge mushrooms
     case Biome::IceSpikes: return 4.0;      // ice spikes
+    // Overworld 6 (M27.1; our densities after the wiki's descriptions).
+    case Biome::SunflowerPlains: return 0.12;
+    case Biome::OldGrowthBirchForest: return 9.0;
+    case Biome::OldGrowthPineTaiga: return 9.0;
+    case Biome::SavannaPlateau: return 2.0;
+    case Biome::WindsweptSavanna: return 0.5;
+    case Biome::WindsweptForest: return 6.0;
+    case Biome::WindsweptGravellyHills: return 0.5;
+    case Biome::BambooJungle: return 5.0;
+    case Biome::MangroveSwamp: return 6.0;
+    case Biome::PaleGarden: return 9.0;
     default: return 0.0;
     }
 }
 
-TreeShape::Kind treeKind(Biome b, Xoroshiro& rng) {
+TreeShape::Kind treeKind(Biome b, Xoroshiro& rng, int version) {
     switch (b) {
     case Biome::BirchForest: return TreeShape::Birch;
     case Biome::Forest: return rng.nextFloat() < 0.2f ? TreeShape::Birch : TreeShape::Oak;
@@ -548,7 +606,22 @@ TreeShape::Kind treeKind(Biome b, Xoroshiro& rng) {
                            : TreeShape::RedMushroom;
     }
     case Biome::FlowerForest: return rng.nextFloat() < 0.3f ? TreeShape::Birch : TreeShape::Oak;
-    case Biome::OldGrowthSpruceTaiga: return TreeShape::Spruce;
+    case Biome::OldGrowthSpruceTaiga: // (overworld6: a third are giant 2x2 spruces)
+    case Biome::OldGrowthPineTaiga:
+        if (version >= 6 && rng.nextFloat() < 0.33f) return TreeShape::MegaSpruce;
+        return TreeShape::Spruce;
+    case Biome::OldGrowthBirchForest: return TreeShape::Birch; // (tall: see treePlan)
+    case Biome::SunflowerPlains: return TreeShape::Oak;
+    case Biome::SavannaPlateau: return rng.nextFloat() < 0.8f ? TreeShape::Acacia : TreeShape::Oak;
+    case Biome::WindsweptSavanna: return TreeShape::Acacia;
+    case Biome::WindsweptForest:
+    case Biome::WindsweptGravellyHills: return rng.nextFloat() < 0.5f ? TreeShape::Spruce : TreeShape::Oak;
+    case Biome::BambooJungle: {
+        const float r = rng.nextFloat();
+        return r < 0.1f ? TreeShape::MegaJungle : r < 0.55f ? TreeShape::Jungle : TreeShape::Oak;
+    }
+    case Biome::MangroveSwamp: return TreeShape::Mangrove;
+    case Biome::PaleGarden: return rng.nextFloat() < 0.9f ? TreeShape::PaleOak : TreeShape::DarkOak;
     case Biome::CherryGrove: return TreeShape::Cherry;
     case Biome::MushroomFields: return rng.nextFloat() < 0.5f ? TreeShape::BrownMushroom : TreeShape::RedMushroom;
     case Biome::IceSpikes: return TreeShape::IceSpike;
@@ -604,8 +677,9 @@ const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int
         const Biome biome = biomeAt(col);
         if (roll >= treeDensity(biome) / attempts) continue;
         const int ground = surfaceY(wx, wz);
-        if (ground < kSeaLevel) continue; // no trees under water
-        const TreeShape::Kind kind = treeKind(biome, rng);
+        // No trees under water - but mangroves stand in shallow water (M27.1).
+        if (ground < (biome == Biome::MangroveSwamp ? kSeaLevel - 3 : kSeaLevel)) continue;
+        const TreeShape::Kind kind = treeKind(biome, rng, m_version);
         // Not on high grove peaks (snow), not where a cave opened the ground.
         if (biome == Biome::Grove && ground > 160) continue;
         int height = 0;
@@ -616,10 +690,14 @@ const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int
         case TreeShape::Acacia: height = 5 + static_cast<int>(rng.nextInt(2)); break;
         default: height = treeKindHeight(kind, rng); break;
         }
+        // Old growth birch forests: tall birches, 5-11 blocks more (wiki: Birch - "tall
+        // birch" trees, ours 10-17 tall).
+        if (biome == Biome::OldGrowthBirchForest && kind == TreeShape::Birch) height += 5 + int(rng.nextInt(7));
         if (groundCarved(wx, ground, wz)) continue; // would float over a cave
         if (m_version >= 2 && inRavine(wx, ground, wz)) continue; // or a ravine
         // Only on grass/dirt: steep meadow/grove/windswept ground is bare stone.
-        if (biome == Biome::Meadow || biome == Biome::Grove || biome == Biome::WindsweptHills) {
+        if (biome == Biome::Meadow || biome == Biome::Grove || biome == Biome::WindsweptHills ||
+            biome == Biome::WindsweptForest || biome == Biome::WindsweptGravellyHills || biome == Biome::WindsweptSavanna) {
             const bool steep = std::abs(surfaceY(wx + 1, wz) - surfaceY(wx - 1, wz)) >= 4 ||
                                std::abs(surfaceY(wx, wz + 1) - surfaceY(wx, wz - 1)) >= 4;
             if (steep) continue;
@@ -697,6 +775,9 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
         case TreeShape::MegaJungle: log = B.jungleLog; break;
         case TreeShape::DarkOak: log = B.darkOakLog; break;
         case TreeShape::Cherry: log = B.cherryLog; break;
+        case TreeShape::MegaSpruce: log = B.spruceLog; break;
+        case TreeShape::Mangrove: log = B.mangroveLog; break;
+        case TreeShape::PaleOak: log = B.paleOakLog; break;
         default: break;
         }
         // Writes into this chunk only; logs replace air/leaves/plants, leaves only air.
@@ -713,12 +794,34 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
             if (cur == 0 || (isLog && (curBlock == blocks::OakLeaves || curBlock == blocks::BirchLeaves ||
                                        curBlock == blocks::SpruceLeaves || curBlock == blocks::AcaciaLeaves ||
                                        curBlock == blocks::JungleLeaves || curBlock == blocks::DarkOakLeaves ||
-                                       curBlock == blocks::CherryLeaves || cur == B.shortGrass || cur == B.fern))) {
+                                       curBlock == blocks::CherryLeaves || curBlock == blocks::MangroveLeaves ||
+                                       curBlock == blocks::PaleOakLeaves || cur == B.shortGrass || cur == B.fern ||
+                                       (kind == TreeShape::Mangrove && cur == B.water)))) { // (mangroves stand in water)
                 chunk.set(lx, y, lz, s);
             }
         };
         Xoroshiro shape(chunkSeed(m_seed, wx, wz, 301)); // leaf corners: per tree
-        treeShape(static_cast<TreeKind>(kind), wx, ground + 1, wz, height, shape, put);
+        // Mangroves (overworld6) stand on arching roots: the trunk starts 2 above the
+        // ground and 4 roots reach out and down into the mud (wiki: Mangrove; ours a
+        // fixed arch of 3 per side).
+        const int trunkY = kind == TreeShape::Mangrove && m_version >= 6 ? std::max(ground, kSeaLevel - 1) + 3 : ground + 1;
+        treeShape(static_cast<TreeKind>(kind), wx, trunkY, wz, height, shape, put);
+        if (kind == TreeShape::Mangrove && m_version >= 6) {
+            auto root = [&](int32_t x, int32_t y, int32_t z) {
+                const int lx = x - baseX, lz = z - baseZ;
+                if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(y)) return;
+                const BlockStateId cur = chunk.get(lx, y, lz);
+                if (cur == B.mud || cur == B.dirt || cur == B.grass) chunk.set(lx, y, lz, B.muddyRoots);
+                else if (cur == 0 || cur == B.water) chunk.set(lx, y, lz, B.mangroveRoots);
+            };
+            for (int32_t y = ground + 1; y < trunkY; ++y) root(wx, y, wz); // under the trunk
+            static constexpr int kDir[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+            for (const auto& d : kDir) {
+                root(wx + d[0], trunkY - 1, wz + d[1]);
+                for (int32_t y = trunkY - 2; y >= ground; --y) root(wx + 2 * d[0], y, wz + 2 * d[1]);
+                root(wx + 2 * d[0], ground - 1, wz + 2 * d[1]); // into the mud
+            }
+        }
         // The ground under the trunk becomes dirt (vanilla), in this chunk only; a 2x2
         // trunk gets dirt (or a log down to the ground) under all four.
         const bool wide = twoByTwo(static_cast<TreeKind>(kind));
@@ -730,6 +833,23 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
             const BlockId g = reg.blockOf(chunk.get(lx, ground, lz));
             if (g == blocks::GrassBlock || g == blocks::Podzol) chunk.set(lx, ground, lz, B.dirt);
         }
+        // Giant spruces turn the ground around them to podzol (wiki: Podzol - "alter
+        // ground" around 2x2 spruces; ours a radius-3 disc on grass and dirt).
+        if (kind == TreeShape::MegaSpruce)
+            for (int oz = -3; oz <= 4; ++oz)
+                for (int ox = -3; ox <= 4; ++ox) {
+                    const double dx = ox - 0.5, dz = oz - 0.5;
+                    if (dx * dx + dz * dz > 12.5) continue;
+                    const int lx = wx + ox - baseX, lz = wz + oz - baseZ;
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15) continue;
+                    for (int y = ground + 2; y >= ground - 2; --y) {
+                        const BlockStateId g = chunk.get(lx, y, lz);
+                        if (g == B.grass || g == B.dirt || g == B.coarseDirt) {
+                            if (chunk.get(lx, y + 1, lz) == 0 || !reg.collides(chunk.get(lx, y + 1, lz))) chunk.set(lx, y, lz, B.podzol);
+                            break;
+                        }
+                    }
+                }
     }
 }
 
@@ -914,6 +1034,7 @@ void OverworldGenerator::generate(Chunk& out) const {
                     else
                         b = (warm || ty > kSeaLevel - 8) ? B.sand : B.gravel;
                     if (biome == Biome::River) b = k == 0 ? B.sand : B.gravel;
+                    if (biome == Biome::MangroveSwamp) b = B.mud; // (M27.1; wiki: Mangrove Swamp - mud floors)
                 } else {
                     switch (biome) {
                     case Biome::Desert:
@@ -957,8 +1078,36 @@ void OverworldGenerator::generate(Chunk& out) const {
                         else if (!steep && biome == Biome::FrozenPeaks && k < 4) b = B.packedIce;
                         break;
                     case Biome::WindsweptHills:
+                    case Biome::WindsweptForest:
                         if (steep) break;
                         b = k == 0 ? B.grass : k < depth ? B.dirt : cur;
+                        break;
+                    // Overworld 6 (M27.1; wiki: each biome's surface).
+                    case Biome::WindsweptGravellyHills: { // gravel with grassy patches
+                        if (steep) break;
+                        const bool gravel = positional(m_seed, wx, 0, wz, 16) < 0.6;
+                        b = gravel ? (k < depth ? B.gravel : cur) : (k == 0 ? B.grass : k < depth ? B.dirt : cur);
+                        break;
+                    }
+                    case Biome::WindsweptSavanna: { // coarse dirt and bare stone among the grass
+                        if (steep) break;
+                        const double p = positional(m_seed, wx, 0, wz, 17);
+                        if (p < 0.3) break; // stone
+                        b = k == 0 ? (p < 0.55 ? B.coarseDirt : B.grass) : k < depth ? B.dirt : cur;
+                        break;
+                    }
+                    case Biome::OldGrowthPineTaiga: { // podzol and coarse dirt, as the spruce kind
+                        const double p = positional(m_seed, wx, 0, wz, 15);
+                        b = k == 0 ? (p < 0.55 ? B.podzol : p < 0.7 ? B.coarseDirt : B.grass) : k < depth ? B.dirt : cur;
+                        break;
+                    }
+                    case Biome::BambooJungle: { // podzol patches under the bamboo
+                        const double p = positional(m_seed, wx, 0, wz, 18);
+                        b = k == 0 ? (p < 0.35 ? B.podzol : B.grass) : k < depth ? B.dirt : cur;
+                        break;
+                    }
+                    case Biome::MangroveSwamp: // mud all the way down its surface layer
+                        b = k < depth ? B.mud : cur;
                         break;
                     default:
                         if (steep && (biome == Biome::Meadow || biome == Biome::Grove)) break;
@@ -1112,15 +1261,27 @@ void OverworldGenerator::generate(Chunk& out) const {
                 case Biome::FlowerForest: grassChance = 0.1f; flowerChance = 0.25f; break;
                 case Biome::CherryGrove: grassChance = 0.35f; flowerChance = 0.02f; break;
                 case Biome::OldGrowthSpruceTaiga: grassChance = 0.25f; break;
+                // Overworld 6 (M27.1)
+                case Biome::SunflowerPlains: grassChance = 0.35f; flowerChance = 0.03f; break;
+                case Biome::OldGrowthBirchForest: grassChance = 0.15f; flowerChance = 0.02f; break;
+                case Biome::OldGrowthPineTaiga: grassChance = 0.25f; break;
+                case Biome::SavannaPlateau: grassChance = 0.4f; break;
+                case Biome::WindsweptSavanna: grassChance = 0.2f; break;
+                case Biome::WindsweptForest:
+                case Biome::WindsweptGravellyHills:
+                case Biome::PaleGarden: grassChance = 0.1f; break;
+                case Biome::BambooJungle: grassChance = 0.4f; break;
                 default: grassChance = 0.05f; break;
                 }
                 if (roll < flowerChance) {
-                    const bool many = biome == Biome::Plains || biome == Biome::Meadow || biome == Biome::FlowerForest;
+                    const bool many = biome == Biome::Plains || biome == Biome::Meadow || biome == Biome::FlowerForest ||
+                                      biome == Biome::SunflowerPlains;
                     plant = B.flowers[pick % (many ? 5 : 2)];
                 } else if (roll < flowerChance + grassChance) {
                     const bool ferns = biome == Biome::Taiga || biome == Biome::SnowyTaiga ||
                                        biome == Biome::OldGrowthSpruceTaiga || biome == Biome::Jungle ||
-                                       biome == Biome::SparseJungle;
+                                       biome == Biome::SparseJungle || biome == Biome::OldGrowthPineTaiga ||
+                                       biome == Biome::BambooJungle;
                     plant = ferns && pick % 2 ? B.fern : B.shortGrass;
                 }
             } else if ((ground == B.sand && biome == Biome::Desert) || ground == B.redSand || ground == B.terracotta) {
@@ -1137,6 +1298,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeBeeNests(blockArray.data(), pos, entities);
         placeBerryBushes(blockArray.data(), cx, cz, topY, columnBiome);
     }
+    if (m_version >= 6) placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -1258,7 +1420,12 @@ void OverworldGenerator::generate(Chunk& out) const {
                         herdBiome == Biome::WindsweptHills || herdBiome == Biome::Swamp ||
                         herdBiome == Biome::FlowerForest || herdBiome == Biome::DarkForest ||
                         herdBiome == Biome::CherryGrove || herdBiome == Biome::OldGrowthSpruceTaiga ||
-                        herdBiome == Biome::Jungle || herdBiome == Biome::SparseJungle;
+                        herdBiome == Biome::Jungle || herdBiome == Biome::SparseJungle ||
+                        // (overworld6: the grassy new biomes; not pale gardens or mangrove swamps)
+                        herdBiome == Biome::SunflowerPlains || herdBiome == Biome::OldGrowthBirchForest ||
+                        herdBiome == Biome::OldGrowthPineTaiga || herdBiome == Biome::SavannaPlateau ||
+                        herdBiome == Biome::WindsweptSavanna || herdBiome == Biome::WindsweptForest ||
+                        herdBiome == Biome::WindsweptGravellyHills || herdBiome == Biome::BambooJungle;
     if (grassy && animals.nextInt(10) == 0) {
         // A group of 4 spread +-5 blocks around a random spot, inside this chunk
         // (wiki: Mob spawning › Chunk generation).
@@ -1277,8 +1444,12 @@ void OverworldGenerator::generate(Chunk& out) const {
             if (x < 0 || x > 15 || z < 0 || z > 15) continue;
             const int y = top(x, z);
             const BlockStateId above = chunk.get(x, y + 1, z);
+            // (overworld6: they may stand in grass, ferns and flowers too, as vanilla's
+            // spawning allows - before, those columns were skipped)
+            const bool plant = m_version >= 6 && !blockRegistry().collides(above) && !blockRegistry().waterlogged(above) &&
+                               above != B.water && above != B.lava;
             if (y < kSeaLevel || blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::GrassBlock ||
-                (above != B.air && blockRegistry().blockOf(above) != blocks::Snow))
+                (above != B.air && blockRegistry().blockOf(above) != blocks::Snow && !plant))
                 continue;
             MobData cow;
             cow.type = kind;
@@ -3148,6 +3319,96 @@ void OverworldGenerator::placeBerryBushes(BlockStateId* blocks, int32_t cx, int3
         if ((ground == B.grass || ground == B.snowyGrass || ground == B.podzol) && chunk.get(x, y + 1, z) == B.air)
             chunk.set(x, y + 1, z, bush);
     }
+}
+
+void OverworldGenerator::placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, int32_t cz,
+                                             const std::array<int, 256>& topY, const std::array<Biome, 16>& biomes) const {
+    // Overworld 6 (M27.1; wiki: each biome's features - our densities): two-block plants,
+    // bamboo, and the pale garden's moss.
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 700));
+    r.nextLong(); // (neighbouring chunks' first draws are alike)
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const float roll = r.nextFloat();
+            const uint32_t pick = r.nextInt(1u << 16);
+            const int ty = topY[size_t(z * 16 + x)];
+            if (ty < kSeaLevel - 1 || !kOverworldHeight.contains(ty + 20)) continue;
+            const Biome biome = biomes[size_t((z / 4) * 4 + x / 4)];
+            const BlockStateId ground = chunk.get(x, ty, z);
+            const BlockStateId above = chunk.get(x, ty + 1, z);
+            const bool open = above == B.air || above == B.shortGrass || above == B.fern;
+            if (!open || (ground != B.grass && ground != B.podzol)) continue;
+            // Bamboo (wiki: Bamboo › Natural generation): thick in bamboo jungles, now and
+            // then in jungles; 5-16 tall with leaves on its top three.
+            const float bambooChance = biome == Biome::BambooJungle ? 0.12f : biome == Biome::Jungle ? 0.01f : 0.0f;
+            if (roll < bambooChance) {
+                const int h = 5 + int(pick % 12);
+                int placed = 0;
+                for (int k = 0; k < h && kOverworldHeight.contains(ty + 1 + k); ++k) {
+                    const BlockStateId cur = chunk.get(x, ty + 1 + k, z);
+                    if (cur != B.air && !(k == 0 && open)) break;
+                    ++placed;
+                }
+                for (int k = 0; k < placed; ++k) {
+                    const int fromTop = placed - 1 - k;
+                    chunk.set(x, ty + 1 + k, z, fromTop < 2 ? B.bambooLarge : fromTop == 2 ? B.bambooSmall : B.bamboo);
+                }
+                continue;
+            }
+            // Two-block plants: 0 sunflower, 1 lilac, 2 rose bush, 3 peony, 4 tall grass,
+            // 5 large fern.
+            int kind = -1;
+            const float t = roll - bambooChance;
+            switch (biome) {
+            case Biome::SunflowerPlains: kind = t < 0.06f ? 0 : t < 0.08f ? 4 : -1; break;
+            case Biome::Plains:
+            case Biome::Savanna:
+            case Biome::SavannaPlateau:
+            case Biome::Meadow: kind = t < 0.025f ? 4 : -1; break;
+            case Biome::Jungle:
+            case Biome::SparseJungle:
+            case Biome::BambooJungle: kind = t < 0.03f ? 4 : t < 0.06f ? 5 : -1; break;
+            case Biome::Taiga:
+            case Biome::SnowyTaiga:
+            case Biome::OldGrowthSpruceTaiga:
+            case Biome::OldGrowthPineTaiga: kind = t < 0.04f ? 5 : -1; break;
+            case Biome::FlowerForest: kind = t < 0.04f ? 1 + int(pick % 3) : -1; break;
+            case Biome::Forest:
+            case Biome::BirchForest:
+            case Biome::OldGrowthBirchForest:
+            case Biome::DarkForest: kind = t < 0.008f ? 1 + int(pick % 3) : -1; break;
+            default: break;
+            }
+            if (kind >= 0 && chunk.get(x, ty + 2, z) == B.air) {
+                chunk.set(x, ty + 1, z, B.tallLower[kind]);
+                chunk.set(x, ty + 2, z, B.tallUpper[kind]);
+                continue;
+            }
+            // The pale garden (wiki: Pale Garden): pale moss patches on the ground, half
+            // of them carpeted.
+            if (biome == Biome::PaleGarden && ground == B.grass && t < 0.35f) {
+                chunk.set(x, ty, z, B.paleMoss);
+                chunk.set(x, ty + 1, z, (pick & 1) ? B.paleMossCarpet : B.air);
+            }
+        }
+    // Pale hanging moss under the pale oaks' leaves (1 in 4 open undersides, 1-3 long).
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            if (biomes[size_t((z / 4) * 4 + x / 4)] != Biome::PaleGarden) continue;
+            const int ty = topY[size_t(z * 16 + x)];
+            for (int y = std::min(ty + 24, kOverworldHeight.maxY() - 1); y > ty + 2; --y) {
+                if (reg.blockOf(chunk.get(x, y, z)) != blocks::PaleOakLeaves || chunk.get(x, y - 1, z) != B.air) continue;
+                if (r.nextInt(4) != 0) continue;
+                const int len = 1 + int(r.nextInt(3));
+                int k = 1;
+                for (; k <= len && chunk.get(x, y - k, z) == B.air && y - k > ty + 1; ++k)
+                    chunk.set(x, y - k, z, B.hangingMoss);
+                if (k > 1) chunk.set(x, y - k + 1, z, B.hangingMossTip);
+            }
+        }
 }
 
 } // namespace mc::world

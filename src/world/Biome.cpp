@@ -63,6 +63,17 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:deep_lukewarm_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x45ADF2},
     {"minecraft:deep_cold_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3D57D6},
     {"minecraft:deep_frozen_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3938C9}, // (wiki: 0.5, frozen by its surface rule)
+    // Overworld 6 (M27.1).
+    {"minecraft:sunflower_plains", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
+    {"minecraft:old_growth_birch_forest", 0.6f, 0x88BB67, 0x6BA941, 0x3F76E4},
+    {"minecraft:old_growth_pine_taiga", 0.3f, 0x86B87F, 0x68A55F, 0x3F76E4},
+    {"minecraft:savanna_plateau", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4},
+    {"minecraft:windswept_savanna", 2.0f, 0xBFB755, 0xAEA42A, 0x3F76E4},
+    {"minecraft:windswept_forest", 0.2f, 0x8AB689, 0x6DA36B, 0x3F76E4},
+    {"minecraft:windswept_gravelly_hills", 0.2f, 0x8AB689, 0x6DA36B, 0x3F76E4},
+    {"minecraft:bamboo_jungle", 0.95f, 0x59C93C, 0x30BB0B, 0x3F76E4},
+    {"minecraft:mangrove_swamp", 0.8f, 0x6A7039, 0x8DB127, 0x3A7A6A},
+    {"minecraft:pale_garden", 0.7f, 0x778272, 0x878D76, 0x76889D, 0x817770, 0xB9B9B9}, // (grey sky and fog)
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

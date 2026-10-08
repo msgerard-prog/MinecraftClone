@@ -59,7 +59,7 @@ TEST_CASE("waterlogged blocks: kelp and seagrass always, corals and pickles by t
 
 TEST_CASE("overworld4: deep lukewarm/cold/frozen oceans; seagrass and kelp on ocean floors, always under water") {
     const OverworldGenerator gen(42);
-    CHECK(gen.kind() == "overworld5"); // (the newest keeps overworld4's oceans)
+    CHECK(gen.kind() == "overworld6"); // (the newest keeps overworld4's oceans)
     const auto deep = findChunk(gen, {Biome::DeepColdOcean, Biome::DeepLukewarmOcean, Biome::DeepFrozenOcean});
     REQUIRE(deep.has_value());
     const auto ocean = findChunk(gen, {Biome::Ocean, Biome::ColdOcean, Biome::LukewarmOcean, Biome::DeepOcean,
@@ -348,7 +348,7 @@ TEST_CASE("overworld4: ocean monuments - prismarine, gold blocks inside, elder g
 }
 
 TEST_CASE("overworld5 (M26.3b): bee nests with 2-3 bees on meadow and plains trees; berry bushes in taigas; pinned") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 5); // (frozen as of v0.26.0)
     CHECK(gen.kind() == "overworld5");
     // Around a meadow or plains: nests hang on trunk sides and hold their bees. Around a
     // taiga: berry bushes.

@@ -7,6 +7,8 @@
 
 #include <doctest/doctest.h>
 
+#include <ostream> // (doctest prints string_view)
+
 using namespace mc;
 using namespace mc::world;
 
@@ -107,4 +109,110 @@ TEST_CASE("mud, packed mud, mud bricks, moss carpets and tall-flower dyes are cr
     CHECK(made("pale_moss_carpet", 3));
     CHECK(made("yellow_dye", 2));
     CHECK(made("pink_dye", 2));
+}
+
+// --- overworld6 (M27.1b) ----------------------------------------------------------------
+
+#include "world/OverworldGenerator.h"
+
+namespace {
+
+std::optional<ChunkPos> findBiome6(const OverworldGenerator& gen, Biome want, int reach = 400) {
+    for (int ring = 0; ring <= reach; ring += 2)
+        for (int cz = -ring; cz <= ring; cz += 2)
+            for (int cx = -ring; cx <= ring; cx += 2) {
+                if (std::max(std::abs(cx), std::abs(cz)) != ring) continue;
+                const auto col = gen.column(cx * 16 + 8, cz * 16 + 8);
+                // (on land: mangrove swamps sit at the sea, the others above it)
+                if (gen.biomeAt(col) == want && col.height > (want == Biome::MangroveSwamp ? 60.0 : 67.0))
+                    return ChunkPos{cx, cz};
+            }
+    return std::nullopt;
+}
+
+// Block counts over the 3x3 chunks around a centre.
+std::vector<int> countAround(const OverworldGenerator& gen, ChunkPos centre) {
+    std::vector<int> n(R().blockCount(), 0);
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk c({centre.x + dx, centre.z + dz});
+            gen.generate(c);
+            for (int y = 40; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) ++n[R().blockOf(c.get(x, y, z))];
+        }
+    return n;
+}
+
+} // namespace
+
+TEST_CASE("overworld6 places every remaining surface biome, each with its features (M27.1)") {
+    const OverworldGenerator gen(42);
+    REQUIRE(gen.kind() == "overworld6");
+    struct Want {
+        Biome biome;
+        std::vector<BlockId> blocks;
+    };
+    const Want wants[] = {
+        {Biome::SunflowerPlains, {blocks::Sunflower}},
+        {Biome::OldGrowthBirchForest, {blocks::BirchLog}},
+        {Biome::OldGrowthPineTaiga, {blocks::SpruceLog, blocks::Podzol, blocks::LargeFern}},
+        {Biome::SavannaPlateau, {blocks::AcaciaLog}},
+        {Biome::WindsweptGravellyHills, {blocks::Gravel}},
+        {Biome::WindsweptForest, {blocks::SpruceLog}},
+        {Biome::BambooJungle, {blocks::Bamboo, blocks::JungleLog}},
+        {Biome::MangroveSwamp, {blocks::Mud, blocks::MangroveLog, blocks::MangroveRoots}},
+        {Biome::PaleGarden, {blocks::PaleOakLog, blocks::PaleMossBlock, blocks::PaleHangingMoss}},
+        {Biome::WindsweptSavanna, {}},
+    };
+    for (const Want& w : wants) {
+        const auto at = findBiome6(gen, w.biome);
+        INFO(biomeInfo(w.biome).id);
+        REQUIRE(at.has_value());
+        if (w.blocks.empty()) continue;
+        const auto n = countAround(gen, *at);
+        for (const BlockId b : w.blocks) {
+            INFO(R().block(b).id);
+            CHECK(n[b] > 0);
+        }
+    }
+}
+
+TEST_CASE("overworld6: giant spruces have 2x2 trunks; mangroves stand on roots (M27.1)") {
+    const OverworldGenerator gen(42);
+    const auto pine = findBiome6(gen, Biome::OldGrowthPineTaiga);
+    REQUIRE(pine);
+    int wide = 0;
+    for (int dz = -2; dz <= 2 && wide == 0; ++dz)
+        for (int dx = -2; dx <= 2 && wide == 0; ++dx) {
+            Chunk c({pine->x + dx, pine->z + dz});
+            gen.generate(c);
+            for (int y = 60; y < 160; ++y)
+                for (int z = 0; z < 15; ++z)
+                    for (int x = 0; x < 15; ++x) {
+                        auto log = [&](int a, int b, int h) { return R().blockOf(c.get(a, h, b)) == blocks::SpruceLog; };
+                        if (log(x, z, y) && log(x + 1, z, y) && log(x, z + 1, y) && log(x + 1, z + 1, y) &&
+                            log(x, z, y + 6) && log(x + 1, z + 1, y + 6))
+                            ++wide;
+                    }
+        }
+    CHECK(wide > 0);
+}
+
+TEST_CASE("overworld6 output is pinned (re-pinned while M27 builds it)") {
+    const OverworldGenerator gen(42);
+    const auto pale = findBiome6(gen, Biome::PaleGarden);
+    REQUIRE(pale);
+    Chunk c(*pale);
+    gen.generate(c);
+    uint64_t h = 1469598103934665603ull;
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                for (const char ch : R().toString(c.get(x, y, z))) {
+                    h ^= uint8_t(ch);
+                    h *= 1099511628211ull;
+                }
+    MESSAGE("overworld6 hash " << h);
+    CHECK(h == 10209103907293581985ull);
 }

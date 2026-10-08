@@ -519,6 +519,7 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
         break;
     case Biome::Taiga:
     case Biome::OldGrowthSpruceTaiga:
+    case Biome::OldGrowthPineTaiga:
     case Biome::SnowyTaiga:
     case Biome::Grove:
         kind = ctx.rng.nextInt(3) == 0 ? MobType::Rabbit : MobType::Fox;
@@ -534,9 +535,16 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
         kind = MobType::Goat;
         break;
     case Biome::Jungle:
-        if (ctx.rng.nextInt(4) != 0) return; // (rare outside bamboo jungles, which we don't have)
+        if (ctx.rng.nextInt(4) != 0) return; // (rare outside bamboo jungles)
         kind = MobType::Panda;
         break;
+    case Biome::BambooJungle: // (M27.1; wiki: Panda - bamboo jungles above all)
+        kind = MobType::Panda;
+        break;
+    case Biome::MangroveSwamp: // (M27.1: warm frogs)
+        kind = MobType::Frog, variant = 1;
+        break;
+    case Biome::SavannaPlateau:
     case Biome::Savanna:
     case Biome::Badlands:
     case Biome::WoodedBadlands:
@@ -555,13 +563,14 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
             : kind == MobType::Fox  ? 2 + int(ctx.rng.nextInt(3))
             : kind == MobType::Goat ? 1 + int(ctx.rng.nextInt(3))
             : kind == MobType::Frog ? 2 + int(ctx.rng.nextInt(4))
-            : kind == MobType::Armadillo && biome == Biome::Savanna ? 2 + int(ctx.rng.nextInt(2)) // (badlands 1-2)
+            : kind == MobType::Armadillo && (biome == Biome::Savanna || biome == Biome::SavannaPlateau)
+                ? 2 + int(ctx.rng.nextInt(2)) // (badlands 1-2)
                                     : 1 + int(ctx.rng.nextInt(2));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
         if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
         MobData m = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
-        if (kind == MobType::Rabbit || kind == MobType::Fox) m.woolColour = variant;
+        if (kind == MobType::Rabbit || kind == MobType::Fox || kind == MobType::Frog) m.woolColour = variant;
         if (kind == MobType::PolarBear && i > 0) m.age = -24000; // (a cub with its mother)
         if (add(ctx.world, m)) ++m_creatures;
     }

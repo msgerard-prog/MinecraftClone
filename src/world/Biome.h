@@ -72,6 +72,17 @@ enum class Biome : uint8_t {
     DeepLukewarmOcean,
     DeepColdOcean,
     DeepFrozenOcean,
+    // Overworld 6 (M27.1; the "overworld6" generator): the remaining surface biomes.
+    SunflowerPlains,
+    OldGrowthBirchForest,
+    OldGrowthPineTaiga,
+    SavannaPlateau,
+    WindsweptSavanna,
+    WindsweptForest,
+    WindsweptGravellyHills,
+    BambooJungle,
+    MangroveSwamp,
+    PaleGarden,
     Count
 };
 
@@ -81,7 +92,8 @@ struct BiomeInfo {
     uint32_t grass;      // 0xRRGGBB, wiki biome pages
     uint32_t foliage;
     uint32_t water;
-    uint32_t fog = 0; // Nether biomes: their fog colour (0: the dimension's default)
+    uint32_t fog = 0; // Nether biomes and the pale garden: their fog colour (0: the dimension's default)
+    uint32_t sky = 0; // the pale garden's grey sky (0: from the temperature, skyColorFor)
 };
 
 const BiomeInfo& biomeInfo(Biome b);
@@ -93,6 +105,8 @@ inline uint32_t waterFogColor(Biome b) {
     case Biome::LukewarmOcean:
     case Biome::DeepLukewarmOcean: return 0x041633;
     case Biome::Swamp: return 0x232317;
+    case Biome::MangroveSwamp: return 0x4D7A60;
+    case Biome::PaleGarden: return 0x556980;
     default: return 0x050533;
     }
 }

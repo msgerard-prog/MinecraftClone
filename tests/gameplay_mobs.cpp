@@ -172,8 +172,8 @@ TEST_CASE("new chunks in grassy biomes sometimes come with a herd of farm animal
     const OverworldGenerator gen(42);
     int cows = 0, grassy = 0;
     int kinds[int(MobType::Count)] = {};
-    for (int cz = -12; cz <= 12 && grassy < 80; ++cz)
-        for (int cx = -12; cx <= 12 && grassy < 80; ++cx) {
+    for (int cz = -24; cz <= 24 && grassy < 200; ++cz)
+        for (int cx = -24; cx <= 24 && grassy < 200; ++cx) {
             const Biome b = gen.biomeAt(gen.column(cx * 16 + 8, cz * 16 + 8));
             if (b != Biome::Plains && b != Biome::Forest && b != Biome::BirchForest) continue;
             ++grassy;

@@ -33,8 +33,11 @@ public:
     // sugar cane, pumpkins, cacti, mushrooms), 3 = "overworld3" (M24: beds, job sites,
     // a bell and villagers in villages), 4 = "overworld4" (M25: deep ocean variants, ocean
     // floors with kelp, seagrass, sea pickles, coral reefs, icebergs, flooded caves), 5 =
-    // "overworld5" (M26.3b: bee nests on trees, sweet berry bushes in taigas).
-    static constexpr int kNewest = 5;
+    // "overworld5" (M26.3b: bee nests on trees, sweet berry bushes in taigas), 6 =
+    // "overworld6" (M27.1: the remaining surface biomes - sunflower plains, old growth
+    // birch/pine, savanna plateau, the windswept kinds, bamboo jungle, mangrove swamp,
+    // pale garden - giant spruces, two-block plants, bamboo, mud and moss).
+    static constexpr int kNewest = 6;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
@@ -42,7 +45,8 @@ public:
     // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
     std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override {
-        return m_version >= 5   ? "overworld5"
+        return m_version >= 6   ? "overworld6"
+               : m_version == 5 ? "overworld5"
                : m_version == 4 ? "overworld4"
                : m_version == 3 ? "overworld3"
                : m_version == 2 ? "overworld2"
@@ -126,6 +130,9 @@ private:
     void placeBeeNests(BlockStateId* blocks, ChunkPos pos, GeneratedEntities& out) const;
     void placeBerryBushes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                           const std::array<Biome, 16>& columnBiome) const;
+    // overworld6 (M27.1): two-block plants, bamboo, pale moss and hanging moss.
+    void placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                             const std::array<Biome, 16>& columnBiome) const;
 
     // --- Overworld 2 features (M18.1) ---
     void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;

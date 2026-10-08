@@ -1307,7 +1307,8 @@ void Mobs::spawnHostiles(Context& ctx) {
         const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
         const int light = std::max<int>(c->blockLight(lx, y, lz), c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken));
         const bool swamp = c->biomes() && y >= 51 && y <= 69 && light <= static_cast<int>(ctx.rng.nextInt(8)) &&
-                           c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp;
+                           (c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp ||
+                            c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::MangroveSwamp);
         if (slimeChunk || swamp) {
             const int group = slimeChunk ? 1 + static_cast<int>(ctx.rng.nextInt(4)) : 1;
             for (int g = 0; g < group && m_hostiles < 70; ++g) {

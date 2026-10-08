@@ -305,6 +305,14 @@ minecraft:chest); items `snowball`, `<colour>_harness`. Block textures
 `clone_dried_ghast_{front,side,top}` are ours. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
+M27.1: blocks `sunflower`, `lilac`, `rose_bush`, `peony`, `tall_grass`, `large_fern`
+[half upper|lower], `mud`, `packed_mud`, `muddy_mangrove_roots[axis]`, `moss_block`,
+`moss_carpet`, `pale_moss_block`, `pale_moss_carpet`, `pale_hanging_moss[tip]` (new property
+`tip` true|false); biomes `sunflower_plains`, `old_growth_birch_forest`,
+`old_growth_pine_taiga`, `savanna_plateau`, `windswept_savanna`, `windswept_forest`,
+`windswept_gravelly_hills`, `bamboo_jungle`, `mangrove_swamp`, `pale_garden`. Generator kind
+"overworld6" (new worlds): those biomes, giant spruces, mangrove roots, two-block plants,
+bamboo, pale moss.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

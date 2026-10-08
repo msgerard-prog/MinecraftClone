@@ -13,9 +13,11 @@ namespace mc::world {
 // sapling looks like a generated tree of its kind.
 // M18.2 adds jungle (small; mega = a 2x2 trunk from four saplings), dark oak (always
 // 2x2) and cherry. 2x2 trunks occupy (x..x+1, z..z+1) from the given corner.
-enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove };
+// MegaSpruce (M27.1): the giant 2x2 spruce of old growth taigas (also from four spruce
+// saplings in vanilla).
+enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove, MegaSpruce };
 inline bool twoByTwo(TreeKind k) {
-    return k == TreeKind::MegaJungle || k == TreeKind::DarkOak || k == TreeKind::PaleOak;
+    return k == TreeKind::MegaJungle || k == TreeKind::DarkOak || k == TreeKind::PaleOak || k == TreeKind::MegaSpruce;
 }
 
 // Random trunk height per kind (wiki: Tree - oak 4-6, birch 5-7, spruce 6-9, acacia 5-6;
@@ -33,6 +35,7 @@ inline int treeHeight(TreeKind kind, Xoroshiro& rng) {
     case TreeKind::Cherry: return 5 + static_cast<int>(rng.nextInt(3));
     case TreeKind::PaleOak: return 6 + static_cast<int>(rng.nextInt(3)); // (M23.3b: like dark oak)
     case TreeKind::Mangrove: return 5 + static_cast<int>(rng.nextInt(4));
+    case TreeKind::MegaSpruce: return 13 + static_cast<int>(rng.nextInt(15)); // (wiki: Spruce - giant ones 13-30ish)
     }
     return 4;
 }
@@ -99,6 +102,27 @@ void treeShape(TreeKind kind, int32_t wx, int32_t y0, int32_t wz, int height, Xo
             disc(wx, top - 1, wz, 3, true, 0.3f);
             disc(wx, top, wz, 4, true, 0.25f);
             disc(wx, top + 1, wz, 2, true, 0.0f);
+        }
+    } else if (kind == TreeKind::MegaSpruce) {
+        // A 2x2 trunk with a cone of leaves over its upper part (vanilla's giant spruce;
+        // the pine form of old growth pine taigas is the same with a shorter cone - ours
+        // has one form): radius grows by a block every 2-3 layers down from the tip.
+        for (int i = 0; i < height; ++i)
+            for (int k = 0; k < 4; ++k)
+                log(wx + (k & 1), y0 + i, wz + (k >> 1));
+        // The tip: 2 layers over the trunk, then rings widening by one every 2 layers,
+        // every third layer pulled in by one (the spruce's tiers), down to radius 4.
+        const int32_t tip = y0 + height + 1;
+        const int cone = std::max(6, height / 2);
+        for (int i = 0; i <= cone; ++i) {
+            if (i < 2) {
+                for (int k = 0; k < 4; ++k)
+                    leaf(wx + (k & 1), tip - i, wz + (k >> 1));
+                continue;
+            }
+            // (a wide disc needs radius 2 to reach past the 2x2 trunk)
+            const int r = std::min(5, 2 + i / 3) - (i % 3 == 2 && i > 3 ? 1 : 0);
+            disc(wx, tip - i, wz, std::max(2, r), true, r >= 4 ? 0.2f : 0.0f);
         }
     } else if (kind == TreeKind::Mangrove) {
         // A tall trunk under a rounded crown (vanilla's mangroves stand on arching
