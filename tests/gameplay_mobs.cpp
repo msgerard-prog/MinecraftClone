@@ -746,12 +746,15 @@ TEST_CASE("zombified piglins: neutral until one is hit, then the group nearby tu
         REQUIRE(Mobs::add(s.world, Mobs::make(MobType::ZombifiedPiglin, {4.5 + i * 2, 64.0, 4.5}, s.rng)));
     s.tick(40);
     CHECK(s.vitals.health() == doctest::Approx(20.0f)); // left alone
-    MobData* first = s.all()[0];
+    MobData* first = nullptr; // (a zombified piglin: natural spawns may add other mobs)
+    for (MobData* m : s.all())
+        if (!first && m->type == MobType::ZombifiedPiglin) first = m;
+    REQUIRE(first);
     Mobs::attack(*first, 1.0f, s.player.position());
     s.tick(1);
     int angry = 0;
     for (MobData* m : s.all())
-        angry += m->angry;
+        angry += m->type == MobType::ZombifiedPiglin && m->angry;
     CHECK(angry == 3);
 }
 
