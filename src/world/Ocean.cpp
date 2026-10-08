@@ -79,6 +79,10 @@ bool BlockUpdates::oceanSurvives(const BlockPos& p, BlockStateId s) const {
 
 bool BlockUpdates::oceanNeighbourChanged(const BlockPos& p, BlockStateId s) {
     const BlockId b = R().blockOf(s);
+    if (b == B::Frogspawn) { // (M26.3c) gone with the water under it
+        if (R().blockOf(at(rel(p, Direction::Down))) != B::Water) set(p, 0);
+        return true;
+    }
     if (!isOceanPlant(b)) return false;
     if (!oceanSurvives(p, s)) {
         pop(p);
@@ -135,6 +139,14 @@ void BlockUpdates::growKelp(const BlockPos& p, BlockStateId s) {
     if (R().blockOf(above) != B::Water || R().get(above, level) != 0) return;
     set(up, R().set(s, age25, a + 1));
     set(p, R().defaultState(B::KelpPlant));
+}
+
+void BlockUpdates::tickFrogspawn(const BlockPos& p) {
+    // Frogspawn hatches 2-6 tadpoles after 3600-12000 ticks (wiki: Frogspawn); ours on a
+    // random tick 1 time in 5 (about 6800 ticks on average).
+    if (m_random.nextInt(5) != 0) return;
+    m_hatched.push_back({p, 2 + int(m_random.nextInt(5)), MobType::Tadpole});
+    set(p, 0);
 }
 
 void BlockUpdates::tickTurtleEgg(const BlockPos& p, BlockStateId s) {

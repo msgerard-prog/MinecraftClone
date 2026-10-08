@@ -455,6 +455,18 @@ def mob_sounds(name, rng):
     if name == "bee":  # a buzz (ours): a saw at ~220 Hz with a fast flutter
         buzz = lambda d, f: mul(tone(d, f, f * 1.02, "saw", vibrato=0.03, vib_rate=40), env(int(d * RATE), 0.05, 0.15))
         return [buzz(r(0.8, 1.2), r(200, 240)) for _ in range(3)], [buzz(0.3, 300) for _ in range(2)], buzz(0.6, 160)
+    if name == "frog":  # croaks (ours)
+        croak = lambda f: mul(add(tone(0.18, f, f * 0.8, "saw", vibrato=0.3, vib_rate=30), [x * 0.3 for x in lowpass(noise(int(0.18 * RATE), rng), 600)]),
+                              env(int(0.18 * RATE), 0.01, 0.06))
+        return ([add(croak(r(150, 190)), at(croak(r(140, 180)), 0.25, 0.5)) for _ in range(3)],
+                [croak(260) for _ in range(2)], croak(110))
+    if name == "tadpole":  # tiny flops (ours)
+        flop = lambda: mul(bandpass(noise(int(0.08 * RATE), rng), 1000, 4000), env(int(0.08 * RATE), 0.002, 0.02))
+        return None, [flop() for _ in range(2)], flop()
+    if name == "axolotl":  # soft chirps (ours)
+        chirp = lambda f: mul(tone(0.12, f, f * 1.2, "sine"), env(int(0.12 * RATE), 0.005, 0.04))
+        return ([add(chirp(r(900, 1100)), at(chirp(r(1000, 1200)), 0.15, 0.3)) for _ in range(3)],
+                [chirp(1400) for _ in range(2)], chirp(700))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -469,7 +481,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
-        "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee"]
+        "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
+        "frog", "tadpole", "axolotl"]
 
 
 # --- Everything else ----------------------------------------------------------------

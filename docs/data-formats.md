@@ -280,7 +280,11 @@ M26.3b: entity `minecraft:bee` (`HasNectar`, `HasStung`, `AngerTime`, `hive_pos`
 `bee_nest`/`beehive[facing,honey_level]` with block entity `minecraft:beehive` {bees:
 [{entity_data {id, Health, Age, HasNectar, UUID}, ticks_in_hive, min_ticks_in_hive}]},
 `honey_block`, `honeycomb_block`; item `honey_bottle`. Generator kind "overworld5" (new
-worlds): bee nests, sweet berry patches. Items `saddle`,
+worlds): bee nests, sweet berry patches.
+M26.3c: entities `minecraft:frog` (`variant` minecraft:temperate|warm|cold), `tadpole`
+(`Age`, `FromBucket`), `axolotl` (`Variant` 0-4, `FromBucket`); blocks `ochre_froglight`,
+`verdant_froglight`, `pearlescent_froglight` [axis], `frogspawn`; items `axolotl_bucket`,
+`tadpole_bucket`. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

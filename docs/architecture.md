@@ -467,6 +467,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `releaseBees` - World::setBlock lets them out angry when a hive goes, `hiveSmoked`);
   harvesting in main; nests from saplings near flowers (`growTree`) and in overworld5
   (`placeBeeNests`: per-tree streams so the owning chunk places them; `placeBerryBushes`).
+- Frogs and axolotls (M26.3c): frogs in `wildlifeGoal` (tongue: small slimes -> slime ball,
+  small magma cubes -> the froglight of `kFrogVariants`; `hasEgg` -> frogspawn on water)
+  and swimming like turtles; tadpoles and axolotls are `swims` mobs in `waterAi` (tadpoles
+  grow into frogs by biome; axolotls hunt water mobs, play dead on `spellTicks`, last
+  6000 ticks on land, breed with a tropical fish bucket). Frogspawn
+  (`BlockUpdates::tickFrogspawn`) adds `Hatch{type = Tadpole}` for main. Axolotl and
+  tadpole buckets are fish buckets (`gameplay/Buckets`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

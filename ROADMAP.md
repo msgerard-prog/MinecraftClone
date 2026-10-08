@@ -21,7 +21,7 @@ M26 - Mobs 3 (wiki pages of each mob):
 3. M26.3 - Wildlife: ✅ a) rabbits, foxes (sleeping, carrying items, sweet berry bushes),
    polar bears, pandas (genes), goats (ramming, horns, goat horns), armadillos and wolf
    armor; ✅ b) bees (nests, hives, honey, pollination; overworld5: nests on trees, berry
-   bushes); c) frogs and tadpoles (frogspawn, froglights), axolotls (buckets, play dead).
+   bushes); ✅ c) frogs and tadpoles (frogspawn, froglights), axolotls (buckets, play dead).
 4. M26.4 - Monsters: phantoms (insomnia), silverfish (infested blocks), cave spiders,
    wither skeletons and the Wither (summoning, nether star, beacon), the breeze and wind
    charges, the warden (with the deep dark in M27).

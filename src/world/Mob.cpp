@@ -117,6 +117,11 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:armadillo", 12.0f, 0.7, 0.65, 0.14, 0.0f, false},
         // wiki: Bee - 10 health, 0.7 x 0.6, flying speed 0.6, stings for 2 (+ Poison).
         {"minecraft:bee", 10.0f, 0.7, 0.6, 0.3, 2.0f, false, false, true},
+        // wiki: Frog - 10 health, 0.5 x 0.5; Tadpole - 6, 0.4 x 0.3, swims; Axolotl - 14,
+        // 0.75 x 0.42, swims (walks slowly on land), bites for 2.
+        {"minecraft:frog", 10.0f, 0.5, 0.5, 0.25, 0.0f, false},
+        {"minecraft:tadpole", 6.0f, 0.4, 0.3, 0.1, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:axolotl", 14.0f, 0.75, 0.42, 0.1, 2.0f, false, false, false, 1.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

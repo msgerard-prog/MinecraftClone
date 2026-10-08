@@ -681,6 +681,22 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (name == "crimson_stem" || name == "warped_stem") {
                 m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));
+            } else if (name == "ochre_froglight" || name == "verdant_froglight" || name == "pearlescent_froglight") {
+                m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (name == "frogspawn") { // (M26.3c) a film of eggs on the water: one flat layer
+                m.visible = true;
+                m.boxCount = 1;
+                BakedBox& b = m.boxes[0];
+                b.from[0] = b.from[1] = b.from[2] = 0;
+                b.to[0] = b.to[2] = 16;
+                b.to[1] = 1;
+                for (int f = 0; f < 6; ++f) {
+                    b.faces[f].sprite = sprite("frogspawn");
+                    b.faces[f].uv[0] = b.faces[f].uv[1] = 0;
+                    b.faces[f].uv[2] = b.faces[f].uv[3] = 16;
+                    b.faces[f].present = f == int(Direction::Up) || f == int(Direction::Down);
+                }
             } else if (name == "basalt" || name == "bone_block") {
                 m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));

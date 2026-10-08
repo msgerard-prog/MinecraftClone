@@ -2194,6 +2194,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         }
         return s;
     }
+    case B::Frogspawn: // (M26.3c) only on water
+        if (blockOf(world.getBlock(rel(at, Direction::Down))) != B::Water) return std::nullopt;
+        return state;
     case B::Wheat:
     case B::Carrots:
     case B::Potatoes:

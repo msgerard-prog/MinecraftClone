@@ -540,6 +540,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                : mob.type == world::MobType::Horse  ? world::kHorseColours[mob.woolColour % 7].colour
                                : mob.type == world::MobType::Llama  ? world::kLlamaVariants[mob.woolColour % 4].colour
                                : mob.type == world::MobType::Rabbit ? world::kRabbitKinds[mob.woolColour % 6].colour
+                               : mob.type == world::MobType::Frog   ? world::kFrogVariants[mob.woolColour % 3].colour
+                               : mob.type == world::MobType::Axolotl ? world::kAxolotlColours[mob.woolColour % 5].colour
                                : mob.type == world::MobType::Fox    ? (mob.woolColour == 1 ? 0xF2F2F2u : 0xD87A30u)
                                : mob.type == world::MobType::Panda && world::pandaPersonality(mob.woolColour, mob.color2) == 4
                                    ? 0xA07850u // (a brown panda)

@@ -248,6 +248,7 @@ public:
     struct Hatch {
         BlockPos pos;
         int count;
+        MobType type = MobType::Turtle; // (M26.3c: frogspawn hatches tadpoles)
     };
     std::vector<Hatch>& hatched() { return m_hatched; }
 
@@ -275,6 +276,7 @@ private:
     bool tickOcean(const BlockPos& p, BlockStateId s); // true: a coral's tick, handled
     void growKelp(const BlockPos& p, BlockStateId s);
     void tickTurtleEgg(const BlockPos& p, BlockStateId s);
+    void tickFrogspawn(const BlockPos& p); // (M26.3c)
     bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;

@@ -33,6 +33,10 @@ bool Mobs::isFood(MobType type, ItemId item) {
     if (type == MobType::Panda) return item != kNoItem && item == bamboo;
     if (type == MobType::Goat) return item == wheat;
     if (type == MobType::Armadillo) return item != kNoItem && item == spiderEye;
+    // (M26.3c; wiki: Frog, Tadpole - slime balls; Axolotl - a bucket of tropical fish)
+    static const ItemId slimeBall = itemId("slime_ball"), fishBucket = itemId("tropical_fish_bucket");
+    if (type == MobType::Frog || type == MobType::Tadpole) return item == slimeBall;
+    if (type == MobType::Axolotl) return item == fishBucket;
     if (type == MobType::Bee && item != kNoItem) { // (M26.3b) flowers
         const BlockId b = itemRegistry().item(item).block;
         return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower || b == blocks::AzureBluet ||
@@ -217,8 +221,9 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
         if (MobData* partner = findMob(ctx.world, m, 8.0, true, true)) {
             m.goal = partner->pos;
             if (glm::length(partner->pos - m.pos) < 3.0) {
-                if (++m.breedTicks >= 60 && m.type == MobType::Turtle) {
-                    // Turtles lay eggs instead of having a baby (wiki: Turtle).
+                if (++m.breedTicks >= 60 && (m.type == MobType::Turtle || m.type == MobType::Frog)) {
+                    // Turtles lay eggs instead of having a baby (wiki: Turtle); frogs lay
+                    // frogspawn on water (M26.3c; wiki: Frog).
                     m.hasEgg = true;
                     if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
                     for (MobData* parent : {&m, partner}) {

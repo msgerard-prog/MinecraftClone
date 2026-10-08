@@ -212,6 +212,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M26.3c; wiki: Bucket of Axolotl, Bucket of Tadpole - unstackable)
+    r.add({.id = "minecraft:axolotl_bucket", .maxStack = 1, .texture = "item/axolotl_bucket"});
+    r.add({.id = "minecraft:tadpole_bucket", .maxStack = 1, .texture = "item/tadpole_bucket"});
     // Mount gear (M26.2; wiki: Saddle, Horse Armor - unstackable).
     r.add({.id = "minecraft:saddle", .maxStack = 1, .texture = "item/saddle"});
     for (int k = 1; k < 5; ++k)

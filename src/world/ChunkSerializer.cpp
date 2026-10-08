@@ -1143,6 +1143,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasRightHorn", int8_t(m.horns & 2 ? 1 : 0));
             e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
         }
+        if (m.type == MobType::Frog) e.put("variant", "minecraft:" + std::string(kFrogVariants[m.woolColour % 3].name)); // (M26.3c)
         if (m.type == MobType::Bee) { // (M26.3b; wiki: Bee › Entity data)
             e.put("HasNectar", int8_t(m.nectar ? 1 : 0));
             e.put("HasStung", int8_t(m.stung ? 1 : 0));
@@ -1172,7 +1173,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         }
         if (mobInfo(m.type).swims) { // (M25.2; wiki: Fish, Tropical Fish › Entity data)
             e.put("Air", int16_t(m.airTicks));
-            if (isFish(m.type)) e.put("FromBucket", int8_t(m.fromBucket ? 1 : 0));
+            if (isFish(m.type) || m.type == MobType::Axolotl || m.type == MobType::Tadpole)
+                e.put("FromBucket", int8_t(m.fromBucket ? 1 : 0));
+            if (m.type == MobType::Axolotl) e.put("Variant", int32_t(m.woolColour % 5)); // (M26.3c)
             // Variant: shape (0..1) | pattern << 8 | base colour << 16 | pattern colour << 24.
             if (m.type == MobType::TropicalFish)
                 e.put("Variant", int32_t((m.size % 2) | (m.size / 2) << 8 | m.woolColour << 16 | m.color2 << 24));
@@ -1501,6 +1504,11 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.powered = e->integer("IsScreamingGoat").value_or(0) != 0;
             m.chargeTicks = int16_t(600 + std::abs(int(m.pos.x * 31 + m.pos.z * 17)) % 5400); // (not saved by vanilla)
         }
+        if (m.type == MobType::Frog)
+            if (const std::string* v = e->string("variant"))
+                for (int k = 0; k < 3; ++k)
+                    if (*v == "minecraft:" + std::string(kFrogVariants[k].name)) m.woolColour = uint8_t(k);
+        if (m.type == MobType::Axolotl) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
         if (m.type == MobType::Bee) {
             m.nectar = e->integer("HasNectar").value_or(0) != 0;
             m.stung = e->integer("HasStung").value_or(0) != 0;

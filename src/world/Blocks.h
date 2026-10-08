@@ -387,6 +387,10 @@ enum : BlockId {
     Beehive,        // facing, honey_level 0..5
     HoneyBlock,     // slows and sticks (M26.3b)
     HoneycombBlock,
+    OchreFroglight,       // axis (M26.3c: from magma cubes eaten by temperate frogs)
+    VerdantFroglight,     // axis (cold frogs)
+    PearlescentFroglight, // axis (warm frogs)
+    Frogspawn,            // on water; hatches into tadpoles (M26.3c)
     Count
 };
 } // namespace blocks

@@ -171,6 +171,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::TurtleEgg: // (M25.3b, Ocean.cpp)
         tickTurtleEgg(p, s);
         break;
+    case B::Frogspawn: // (M26.3c, Ocean.cpp)
+        tickFrogspawn(p);
+        break;
     case B::Bamboo: { // grows a block on top up to 12-16 tall, at light 9+ (wiki: Bamboo)
         const BlockPos up = rel(p, Direction::Up);
         if (at(up) != 0 || !m_world.isInHeight(up.y) || rawBrightness(up) < 9 || m_random.nextInt(3) != 0) break;

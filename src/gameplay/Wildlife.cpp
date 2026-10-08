@@ -84,6 +84,11 @@ void Mobs::initWildlife(MobData& m, Xoroshiro& rng) {
         m.chargeTicks = int16_t(600 + rng.nextInt(5400));
         break;
     case MobType::Armadillo: m.eggTicks = 6000 + int(rng.nextInt(6000)); break;
+    case MobType::Tadpole: // (grows into a frog in 20 minutes; never despawns)
+        m.age = -24000;
+        m.persistent = true;
+        break;
+    case MobType::Axolotl: m.woolColour = uint8_t(rng.nextInt(4)); break; // (blue only from breeding)
     default: break;
     }
 }
@@ -104,6 +109,9 @@ void Mobs::wildlifeOffspring(const MobData& a, const MobData& b, MobData& baby, 
         break;
     case MobType::Rabbit: baby.woolColour = rng.nextInt(2) ? a.woolColour : b.woolColour; break;
     case MobType::Goat: baby.powered = rng.nextInt(50) == 0; break;
+    case MobType::Axolotl: // a parent's colour, or 1 in 1200 the rare blue (wiki: Axolotl)
+        baby.woolColour = rng.nextInt(1200) == 0 ? 4 : rng.nextInt(2) ? a.woolColour : b.woolColour;
+        break;
     default: break;
     }
 }
@@ -260,6 +268,70 @@ bool Mobs::wildlifeGoal(Context& ctx, MobData& m, double& speed) {
             }
         if (m.eatTicks > 0) {
             m.goal = m.pos;
+            return true;
+        }
+        return false;
+    }
+    case MobType::Frog: {
+        // A frog carrying spawn lays it on water nearby (wiki: Frog › Breeding).
+        if (m.hasEgg) {
+            if (m.workTarget.y == kNoPoint && ctx.rng.nextInt(10) == 0)
+                for (int k = 0; k < 16; ++k) {
+                    const BlockPos w{int(std::floor(m.pos.x)) + int(ctx.rng.nextInt(17)) - 8, int(std::floor(m.pos.y)) - 1,
+                                     int(std::floor(m.pos.z)) + int(ctx.rng.nextInt(17)) - 8};
+                    for (int dy = 1; dy >= -2; --dy) {
+                        const BlockPos q{w.x, w.y + dy, w.z};
+                        if (blockRegistry().blockOf(ctx.world.getBlock(q)) == blocks::Water &&
+                            ctx.world.getBlock({q.x, q.y + 1, q.z}) == 0) {
+                            m.workTarget = {q.x, q.y + 1, q.z};
+                            break;
+                        }
+                    }
+                    if (m.workTarget.y != kNoPoint) break;
+                }
+            if (m.workTarget.y != kNoPoint) {
+                const BlockPos t{m.workTarget.x, m.workTarget.y, m.workTarget.z};
+                m.goal = {t.x + 0.5, double(t.y), t.z + 0.5};
+                if (glm::length(m.goal - m.pos) < 1.6) {
+                    if (ctx.world.getBlock(t) == 0 &&
+                        blockRegistry().blockOf(ctx.world.getBlock({t.x, t.y - 1, t.z})) == blocks::Water) {
+                        ctx.world.updateBlock(t, blockRegistry().defaultState(blocks::Frogspawn));
+                        if (ctx.edits) ctx.edits->push_back(t);
+                        m.hasEgg = false;
+                    }
+                    m.workTarget.y = kNoPoint;
+                }
+                return true;
+            }
+        }
+        // Frogs eat small slimes and magma cubes with their tongue from up to 3 blocks: a
+        // slime leaves a slime ball, a magma cube the froglight of the frog's kind (wiki).
+        if (m.targetUuid == 0 && !m.isBaby() && ctx.rng.nextInt(40) == 0)
+            if (const MobData* prey = nearestMob(ctx.world, m, 10.0, [](const MobData& o) {
+                    return (o.type == MobType::Slime || o.type == MobType::MagmaCube) && o.size == 1;
+                }))
+                m.targetUuid = prey->uuidHi;
+        if (m.targetUuid != 0) {
+            MobData* t = mobByUuid(ctx.world, m.pos, m.targetUuid);
+            if (!t || t->health <= 0.0f || glm::length(t->pos - m.pos) > 16.0) {
+                m.targetUuid = 0;
+                return false;
+            }
+            m.goal = t->pos;
+            if (glm::length(t->pos - m.pos) < 3.0) {
+                static const ItemId slimeBall = itemNamed("slime_ball");
+                static constexpr BlockId kLights[3] = {blocks::OchreFroglight, blocks::PearlescentFroglight,
+                                                       blocks::VerdantFroglight};
+                const ItemStack drop = t->type == MobType::Slime
+                                           ? ItemStack{slimeBall, 1}
+                                           : ItemStack{itemRegistry().blockItem(kLights[m.woolColour % 3]), 1};
+                ctx.items.spawn(t->pos + glm::dvec3(0, 0.3, 0), drop, ctx.rng);
+                t->health = 0.0f;
+                t->deathTime = 19; // (swallowed: no other drops)
+                t->vanish = true;
+                m.targetUuid = 0;
+                m.goal = m.pos;
+            }
             return true;
         }
         return false;
@@ -458,6 +530,9 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
     case Biome::WoodedBadlands:
         kind = MobType::Armadillo;
         break;
+    case Biome::Swamp: // (M26.3c; wiki: Frog - swamps, groups of 2-5, temperate there)
+        kind = MobType::Frog;
+        break;
     default: return;
     }
     if (kind == MobType::Rabbit && variant == 0) { // white in the snow, else brown / black / salt and pepper
@@ -467,6 +542,7 @@ void Mobs::spawnWildlife(Context& ctx, Biome biome, BlockId ground, int x, int y
     group = kind == MobType::Rabbit ? 2 + int(ctx.rng.nextInt(2))
             : kind == MobType::Fox  ? 2 + int(ctx.rng.nextInt(3))
             : kind == MobType::Goat ? 1 + int(ctx.rng.nextInt(3))
+            : kind == MobType::Frog ? 2 + int(ctx.rng.nextInt(4))
                                     : 1 + int(ctx.rng.nextInt(2));
     for (int i = 0; i < group; ++i) {
         const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;

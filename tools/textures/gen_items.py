@@ -1110,6 +1110,11 @@ def all_items():
         img.set(8, 5, hexc(colour))
         img.set(9, 6, hexc(colour))
         items[f"{fish}_bucket"] = img
+    for mob, colour in (("axolotl", "#F4A8C8"), ("tadpole", "#4A3A2A")):  # (M26.3c)
+        img = bucket("#3C6EE6")
+        for (x, y) in ((6, 5), (7, 5), (8, 5), (9, 6)):
+            img.set(x, y, hexc(colour))
+        items[f"{mob}_bucket"] = img
     items["fishing_rod"] = fishing_rod()
     items["trident"] = trident()  # (M25.3)
     items["turtle_scute"] = lump("turtle_scute", "#4E9A3A", "#7EC060", size=5.0)  # (M25.3b)

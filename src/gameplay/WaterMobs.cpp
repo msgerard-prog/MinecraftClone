@@ -52,9 +52,11 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     // dry out after 2 minutes (never in rain), guardians never (review fixes).
     const bool guardian = m.type == MobType::Guardian || m.type == MobType::ElderGuardian;
     const BlockPos feetCell{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
-    const bool rained = m.type == MobType::Dolphin && ctx.weather && rainingAt(ctx.world, *ctx.weather, feetCell);
+    const bool rained = (m.type == MobType::Dolphin || m.type == MobType::Axolotl) && ctx.weather &&
+                        rainingAt(ctx.world, *ctx.weather, feetCell);
+    // (M26.3c: axolotls last 5 minutes out of water - wiki: Axolotl)
     if (fluid.water || guardian || rained) {
-        m.airTicks = m.type == MobType::Dolphin ? 2400 : 300;
+        m.airTicks = m.type == MobType::Dolphin ? 2400 : m.type == MobType::Axolotl ? 6000 : 300;
     } else if (--m.airTicks <= -20) {
         m.airTicks = 0;
         m.health -= 2.0f;
@@ -63,6 +65,96 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     const glm::dvec3 playerPos = ctx.player.position();
     const glm::dvec3 toPlayer = playerPos - m.pos;
     const double playerDist2 = glm::dot(toPlayer, toPlayer);
+    // A tadpole grows into a frog in 20 minutes (M26.3c; wiki: Tadpole): warm where it
+    // grows up in a warm biome, cold in a cold one, else temperate.
+    if (m.type == MobType::Tadpole && m.age < 0 && ++m.age >= 0) {
+        const Chunk* c = ctx.world.chunk(feetCell.chunk());
+        const Biome b = c && c->biomes() ? c->biomes()->at(blockToLocal(feetCell.x), feetCell.y, blockToLocal(feetCell.z),
+                                                            ctx.world.height())
+                                         : Biome::Plains;
+        const bool warm = b == Biome::Desert || b == Biome::Savanna || b == Biome::Jungle || b == Biome::SparseJungle ||
+                          b == Biome::Badlands || b == Biome::WoodedBadlands || b == Biome::ErodedBadlands ||
+                          b == Biome::WarmOcean || b == Biome::NetherWastes;
+        const bool cold = b == Biome::SnowyPlains || b == Biome::SnowyTaiga || b == Biome::IceSpikes ||
+                          b == Biome::FrozenRiver || b == Biome::FrozenOcean || b == Biome::SnowySlopes ||
+                          b == Biome::Grove || b == Biome::FrozenPeaks || b == Biome::JaggedPeaks ||
+                          b == Biome::SnowyBeach || b == Biome::DeepFrozenOcean;
+        m.type = MobType::Frog;
+        m.woolColour = uint8_t(warm ? 1 : cold ? 2 : 0);
+        m.health = mobInfo(MobType::Frog).maxHealth;
+        m.age = 0;
+        return true;
+    }
+    if (m.type == MobType::Axolotl) {
+        // Playing dead (wiki: Axolotl): a hurt axolotl may lie still for 10 s, healing.
+        // (hurtTime was 10 at the hit; the tick counted it down once before the AI)
+        if (m.hurtTime == 9 && m.health < maxHealthOf(m) && m.spellTicks == 0 && ctx.rng.nextInt(3) == 0)
+            m.spellTicks = 200;
+        if (m.spellTicks > 0) {
+            --m.spellTicks;
+            if (m.spellTicks % 50 == 0) m.health = std::min(maxHealthOf(m), m.health + 1.0f); // (Regeneration I)
+            m.vel *= 0.5;
+            physics(ctx.world, m, glm::dvec3(0.0), false);
+            return true;
+        }
+        // Growing up and breeding like any animal (to a partner in love).
+        animalUpkeep(ctx, m);
+        if (double unused = 0.0; fluid.water && m.targetUuid == 0 && animalGoal(ctx, m, unused)) m.goalTicks = 0;
+        // Hunting in the water: fish, squid, tadpoles, drowned and guardians within 8.
+        if (fluid.water && m.targetUuid == 0 && !m.isBaby() && ctx.rng.nextInt(20) == 0) {
+            const ChunkPos c{blockToChunk(feetCell.x), blockToChunk(feetCell.z)};
+            double best = 8.0 * 8.0;
+            for (int dz = -1; dz <= 1; ++dz)
+                for (int dx = -1; dx <= 1; ++dx)
+                    if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
+                        for (const MobData& o : ch->mobs())
+                            if ((isFish(o.type) || o.type == MobType::Squid || o.type == MobType::GlowSquid ||
+                                 o.type == MobType::Tadpole || o.type == MobType::Drowned || o.type == MobType::Guardian ||
+                                 o.type == MobType::ElderGuardian) &&
+                                o.health > 0.0f && glm::dot(o.pos - m.pos, o.pos - m.pos) < best) {
+                                best = glm::dot(o.pos - m.pos, o.pos - m.pos);
+                                m.targetUuid = o.uuidHi;
+                            }
+        }
+        if (m.targetUuid != 0) {
+            MobData* t = mobByUuid(ctx.world, m.pos, m.targetUuid);
+            if (!t || t->health <= 0.0f || glm::length(t->pos - m.pos) > 16.0) {
+                // Its prey is gone: a player swimming nearby gets Regeneration I for 5 s
+                // (our reading of the wiki's "helping the player").
+                if (t && t->health <= 0.0f && ctx.player.inWater() && playerDist2 < 20.0 * 20.0)
+                    ctx.vitals.addEffect(Effect::Regeneration, 0, 100);
+                m.targetUuid = 0;
+            } else {
+                m.goal = t->pos;
+                m.goalTicks = 0;
+                if (m.attackCooldown > 0) --m.attackCooldown;
+                if (m.attackCooldown == 0 && box(m).intersects(Aabb{box(*t).min - glm::dvec3(0.3), box(*t).max + glm::dvec3(0.3)})) {
+                    t->health -= mobInfo(MobType::Axolotl).attackDamage;
+                    t->hurtTime = 10;
+                    m.attackCooldown = 20;
+                }
+            }
+        }
+        // On land it walks slowly back toward water (wiki: Axolotl).
+        if (!fluid.water) {
+            if (!waterAt(ctx.world, m.goal) && ctx.rng.nextInt(10) == 0)
+                for (int k = 0; k < 8; ++k) {
+                    const glm::dvec3 g = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 3 - 2,
+                                                            ctx.rng.nextDouble() * 12 - 6);
+                    if (waterAt(ctx.world, g)) {
+                        m.goal = g;
+                        break;
+                    }
+                }
+            glm::dvec3 d = m.goal - m.pos;
+            d.y = 0.0;
+            const double l = glm::length(d);
+            const glm::dvec3 wish = l > 0.3 ? d / l * 0.05 : glm::dvec3(0.0);
+            if (l > 0.3) m.yaw = m.headYaw = approachAngle(m.yaw, yawTo(m.pos, m.goal), 10.0f);
+            physics(ctx.world, m, wish, m.climbing && m.onGround);
+            return true;
+        }
+    }
     if (m.type == MobType::Pufferfish) {
         // Puffs up (state 0 -> 1 -> 2) when a player is within ~2.5 blocks, deflates
         // a while after; touching a puffed one stings: 1 + state damage and Poison for
@@ -229,7 +321,10 @@ void Mobs::spawnWater(Context& ctx) {
         return;
     }
     if (y < 30 && c->skyLight(lx, y, lz) == 0 && c->blockLight(lx, y, lz) == 0) { // dark caves
-        if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
+        // Axolotls (M26.3c; wiki: groups of 4-6 in lush caves' water - ours in deep cave
+        // water below y 0 until lush caves come in M27), else glow squid.
+        if (y < 0 && m_axolotls < 5 && ctx.rng.nextInt(3) == 0) kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
+        else if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
     } else if (y < 50 || y > 63) {
         return; // (fish, squid and dolphins: y 50-63 only - wiki)
     } else if (roll < 30) { // the creature list

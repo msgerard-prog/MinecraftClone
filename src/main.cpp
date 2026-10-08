@@ -2466,7 +2466,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (use == mc::Mobs::Use::Ride) ridingCart = mob.uuidHi; // (M26.2: on a mount)
                     if (use != mc::Mobs::Use::None) {
                         world.chunk(mh->chunk)->markDirty();
-                        if (survival && use == mc::Mobs::Use::Fed) inventory.consumeSelected(1);
+                        if (survival && use == mc::Mobs::Use::Fed) {
+                            inventory.consumeSelected(1);
+                            if (mc::world::itemRegistry().item(held.item).id == "minecraft:tropical_fish_bucket") // (M26.3c: axolotls)
+                                inventory.add({*mc::world::itemRegistry().find("water_bucket"), 1});
+                        }
                         if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
                             inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
                         clicks.useClick = false;
@@ -2876,6 +2880,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             blockUpdates.drops().clear();
             for (const auto& h : blockUpdates.hatched()) // (M25.3b: baby turtles from eggs, at home there)
                 for (int k = 0; k < h.count; ++k) {
+                    if (h.type == mc::world::MobType::Tadpole) { // (M26.3c: frogspawn, into its water)
+                        mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Tadpole,
+                                                            {h.pos.x + 0.3 + 0.1 * k, h.pos.y - 0.6, h.pos.z + 0.5}, gameRng));
+                        continue;
+                    }
                     mc::world::MobData baby = mc::Mobs::make(mc::world::MobType::Turtle, {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
                     baby.age = -24000;
                     baby.home = {h.pos.x, h.pos.y, h.pos.z};

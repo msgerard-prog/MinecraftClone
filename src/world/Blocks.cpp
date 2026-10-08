@@ -1072,6 +1072,14 @@ BlockRegistry buildVanillaBlocks() {
           blocks::Beehive);
     check(r.add("honey_block", {.opaqueCube = false, .layer = RenderLayer::Translucent}), blocks::HoneyBlock);
     check(r.add("honeycomb_block", {.hardness = 0.6f, .resistance = 0.6f}), blocks::HoneycombBlock);
+    // (M26.3c; wiki: Froglight - 0.3, light 15; Frogspawn - breaks at once, no collision,
+    // sits on water and hatches on its own)
+    for (const auto& [id, b] : {std::pair{"ochre_froglight", blocks::OchreFroglight},
+                                std::pair{"verdant_froglight", blocks::VerdantFroglight},
+                                std::pair{"pearlescent_froglight", blocks::PearlescentFroglight}})
+        check(r.add(id, {.hardness = 0.3f, .resistance = 0.3f, .lightEmission = 15}, {{&axis, "y"}}), b);
+    check(r.add("frogspawn", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout, .randomTicks = true}),
+          blocks::Frogspawn);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

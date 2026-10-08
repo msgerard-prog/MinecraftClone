@@ -76,6 +76,9 @@ enum class MobType : uint8_t {
     Goat,        // (M26.3) rams; horns (bits 1 left, 2 right) in `horns`; screaming in `powered`
     Armadillo,   // (M26.3) rolls up when scared (`sitting`); sheds scutes
     Bee,         // (M26.3b) home: its hive (`home`); pollen in `nectar`
+    Frog,        // (M26.3c) variant in woolColour (0 temperate, 1 warm, 2 cold); carrying spawn: `hasEgg`
+    Tadpole,     // (M26.3c) grows into a frog (age counts up from -24000)
+    Axolotl,     // (M26.3c) colour in woolColour (kAxolotlColours); plays dead (`spellTicks`)
     Count
 };
 
@@ -163,6 +166,14 @@ inline constexpr const char* kPandaGenes[7] = {"normal", "lazy", "worried", "pla
 inline int pandaPersonality(int main, int hidden) {
     const bool recessive = main == 4 || main == 5;
     return recessive && main != hidden ? 0 : main;
+}
+// Frog variants (wiki: Frog): temperate (orange), warm (white), cold (green) - and the
+// froglight each makes of a magma cube: ochre, pearlescent, verdant.
+inline constexpr NamedColour kFrogVariants[3] = {{"temperate", 0xC8783A}, {"warm", 0xE8E0D0}, {"cold", 0x5E9A4A}};
+inline constexpr NamedColour kAxolotlColours[5] = {{"lucy", 0xF4A8C8}, {"wild", 0x8A6A4A}, {"gold", 0xF0C850},
+                                                  {"cyan", 0xC8F0F0}, {"blue", 0x5A6AE0}};
+inline bool isWildlife(MobType t) { // (M26.3: Wildlife.cpp's goals and ticks)
+    return (t >= MobType::Rabbit && t <= MobType::Armadillo) || t == MobType::Frog;
 }
 // Goat horn instruments (wiki: Goat Horn), stored in the item's `damage`.
 inline constexpr const char* kGoatHorns[8] = {"ponder", "sing", "seek", "feel", "admire", "call", "yearn", "dream"};

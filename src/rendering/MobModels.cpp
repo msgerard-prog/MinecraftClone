@@ -595,8 +595,8 @@ constexpr std::array<MobPart, 9> kArmadillo = {{
 }};
 
 // Bee (M26.3b): a striped body, two beating wings, a stinger, antennae, little legs.
-// Body 7x7x10 @ (0,0), wing 6x1x8? -> 0x? flat 6x0x8 drawn 6x1x8 @ (0,18), stinger
-// 1x1x2 @ (34,0), antenna 1x2x3 @ (34,4), legs 7x2x1 @ (16,18).
+// Body 7x7x10 @ (0,0), wing 8x0.5x6 @ (0,18), stinger 1x1x2 @ (34,0), antenna 1x2x3 @
+// (34,4), legs 7x2x1 @ (16,18).
 constexpr std::array<MobPart, 8> kBee = {{
     {{-3.5f, 2, -5}, {3.5f, 9, 5}, {0, 5, 0}, 0, 0, A::None},
     {{-9, 9, -2}, {-1, 9.5f, 4}, {-1, 9, 0}, 0, 18, A::WingL},
@@ -606,6 +606,39 @@ constexpr std::array<MobPart, 8> kBee = {{
     {{1, 9, 5}, {2, 11, 8}, {0, 7, 5}, 34, 4, A::Head},
     {{-3.5f, 0, -2}, {3.5f, 2, -1}, {0, 2, 0}, 16, 18, A::LegA},
     {{-3.5f, 0, 1}, {3.5f, 2, 2}, {0, 2, 0}, 16, 18, A::LegB},
+}};
+
+// Frog (M26.3c; tinted by its kind): a squat body, a wide flat head with eyes on top,
+// back legs folded at the sides, small front legs. Body 7x3x9 @ (0,0), head 7x3x6 @
+// (32,0), eye 3x2x2 @ (0,12), back leg 3x3x4 @ (10,12), front leg 2x3x2 @ (24,12).
+constexpr std::array<MobPart, 8> kFrog = {{
+    {{-3.5f, 2, -4.5f}, {3.5f, 5, 4.5f}, {0, 2, 0}, 0, 0, A::None, 8},
+    {{-3.5f, 3, 3}, {3.5f, 6, 9}, {0, 4, 3}, 32, 0, A::Head, 8},
+    {{-3.5f, 6, 5}, {-0.5f, 8, 7}, {0, 4, 3}, 0, 12, A::Head, 8},
+    {{0.5f, 6, 5}, {3.5f, 8, 7}, {0, 4, 3}, 0, 12, A::Head, 8},
+    {{-5.5f, 0, -4}, {-2.5f, 3, 0}, {-4, 3, -2}, 10, 12, A::LegA, 8},
+    {{2.5f, 0, -4}, {5.5f, 3, 0}, {4, 3, -2}, 10, 12, A::LegB, 8},
+    {{-3.5f, 0, 2}, {-1.5f, 3, 4}, {-2.5f, 3, 3}, 24, 12, A::LegB, 8},
+    {{1.5f, 0, 2}, {3.5f, 3, 4}, {2.5f, 3, 3}, 24, 12, A::LegA, 8},
+}};
+// Tadpole: a round body and a wagging tail. Body 3x2x3 @ (0,0), tail 0x2x7 drawn 1x2x7
+// @ (0,6).
+constexpr std::array<MobPart, 2> kTadpole = {{
+    {{-1.5f, 0, 0}, {1.5f, 2, 3}, {0, 1, 0}, 0, 0, A::None},
+    {{-0.5f, 0, -7}, {0.5f, 2, 0}, {0, 1, 0}, 0, 6, A::Tail},
+}};
+// Axolotl (M26.3c; tinted by its colour): a long body, a broad head with gills, four
+// legs, a finned tail. Body 8x4x10 @ (0,0), head 8x5x5 @ (36,0), gills 10x3x1 @ (0,14),
+// leg 3x5x1 -> 3x1x5 @ (24,14), tail 1x5x12 @ (0,20).
+constexpr std::array<MobPart, 8> kAxolotl = {{
+    {{-4, 1, -5}, {4, 5, 5}, {0, 1, 0}, 0, 0, A::None, 8},
+    {{-4, 1, 5}, {4, 6, 10}, {0, 3, 5}, 36, 0, A::Head, 8},
+    {{-5, 4, 8}, {5, 7, 9}, {0, 3, 5}, 0, 14, A::Head, 8},
+    {{-7, 0, 1}, {-4, 1, 5}, {-4, 1, 3}, 24, 14, A::LegA, 8},
+    {{4, 0, 1}, {7, 1, 5}, {4, 1, 3}, 24, 14, A::LegB, 8},
+    {{-7, 0, -4}, {-4, 1, 0}, {-4, 1, -2}, 24, 14, A::LegB, 8},
+    {{4, 0, -4}, {7, 1, 0}, {4, 1, -2}, 24, 14, A::LegA, 8},
+    {{-0.5f, 1, -17}, {0.5f, 6, -5}, {0, 3, -5}, 0, 20, A::Tail, 8},
 }};
 
 } // namespace
@@ -673,6 +706,9 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Goat: return kGoat;
     case world::MobType::Armadillo: return kArmadillo;
     case world::MobType::Bee: return kBee;
+    case world::MobType::Frog: return kFrog;
+    case world::MobType::Tadpole: return kTadpole;
+    case world::MobType::Axolotl: return kAxolotl;
     default: return kCow;
     }
 }

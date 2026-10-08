@@ -221,7 +221,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
-    } else if (m.type == MobType::Turtle && inWater) {
+    } else if ((m.type == MobType::Turtle || m.type == MobType::Frog) && inWater) { // (M26.3c: frogs swim too)
         // Turtles swim (wiki: Turtle): toward the goal, its height too.
         m.vel = m.vel * 0.9 + wish * 0.15;
         m.vel.y += std::clamp((m.goal.y - m.pos.y) * 0.02, -0.02, 0.02);
@@ -459,7 +459,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // (home, work, the bell, sleep: Villagers.cpp)
     } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 && petGoal(ctx, m, speed)) {
         // (sitting, following, fighting, dancing: Pets.cpp)
-    } else if (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo && wildlifeGoal(ctx, m, speed)) {
+    } else if (isWildlife(m.type) && wildlifeGoal(ctx, m, speed)) {
         // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos: Wildlife.cpp)
     } else if (isMount(m.type) && m.panicTicks == 0 && mountGoal(ctx, m, speed)) {
         // (camels resting, trader llamas with their trader: Mounts.cpp)
@@ -558,7 +558,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.type == MobType::Armadillo && m.sitting) wish = glm::dvec3(0.0); // (rolled up)
     const glm::dvec3 before = m.pos;
     physics(ctx.world, m, wish, jump);
-    if (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo)
+    if (isWildlife(m.type))
         wildlifeTick(ctx, m, m.climbing && glm::length(m.pos - before) < 0.05);
 
     // Melee (wiki: Zombie - 3 damage on normal, once a second, reach ~ width*2).
@@ -973,7 +973,7 @@ void Mobs::tick(Context& ctx) {
     m_moves.clear();
     m_births.clear();
     m_hostiles = 0;
-    m_fish = m_squid = m_glowSquid = 0;
+    m_fish = m_squid = m_glowSquid = m_axolotls = 0;
     m_creatures = m_cats = 0;
     m_striders = 0;
     m_angerAlertCount = 0;
@@ -1070,10 +1070,11 @@ void Mobs::tick(Context& ctx) {
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
                 m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot ||
                                 (isMount(m.type) && m.type != MobType::TraderLlama) ||
-                                (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo)) &&
+                                isWildlife(m.type)) &&
                                !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
+                m_axolotls += m.type == MobType::Axolotl;
                 m_striders += m.type == MobType::Strider;
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
                 // vanish; beyond 32 they may after 30 s without a player near.

@@ -1202,6 +1202,13 @@ def main():
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
               "mount_gear": mount_gear(),
               "bee": bee(),
+              # M26.3c: frogs and axolotls light (tinted by kind / colour), tadpoles dark
+              "frog": pet("frog", [(0, 0, 7, 3, 9), (32, 0, 7, 3, 6), (0, 12, 3, 2, 2), (10, 12, 3, 3, 4),
+                                   (24, 12, 2, 3, 2)], (0, 12, 3, 2, 2), None, base="#E8E8E0",
+                          extra=[((32, 0, 7, 3, 6), "#F0F0E8")]),
+              "tadpole": pet("tadpole", [(0, 0, 3, 2, 3), (0, 6, 1, 2, 7)], (0, 0, 3, 2, 3), None, base="#4A3A2A"),
+              "axolotl": pet("axolotl", [(0, 0, 8, 4, 10), (36, 0, 8, 5, 5), (24, 14, 3, 1, 4), (0, 20, 1, 5, 12)],
+                             (36, 0, 8, 5, 5), None, base="#F0F0F0", extra=[((0, 14, 10, 3, 1), "#E0D0D8")]),
               # M26.3 wildlife: rabbits and foxes light (tinted by kind), the rest in their own colours
               "rabbit": pet("rabbit", [(0, 0, 5, 5, 7), (24, 0, 4, 4, 4), (40, 0, 1, 4, 1), (0, 12, 2, 2, 4),
                                        (12, 12, 1, 3, 1)], (24, 0, 4, 4, 4), (24, 0, 4, 4, 4),

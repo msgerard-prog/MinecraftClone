@@ -55,7 +55,9 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
 static constexpr std::pair<MobType, const char*> kFishBuckets[] = {{MobType::Cod, "cod_bucket"},
                                                                    {MobType::Salmon, "salmon_bucket"},
                                                                    {MobType::TropicalFish, "tropical_fish_bucket"},
-                                                                   {MobType::Pufferfish, "pufferfish_bucket"}};
+                                                                   {MobType::Pufferfish, "pufferfish_bucket"},
+                                                                   {MobType::Axolotl, "axolotl_bucket"}, // (M26.3c)
+                                                                   {MobType::Tadpole, "tadpole_bucket"}};
 
 MobType bucketFish(ItemId item) {
     for (const auto& [fish, name] : kFishBuckets)
