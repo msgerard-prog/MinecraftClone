@@ -852,6 +852,100 @@ def book(enchanted=False):
     return img
 
 
+def dial(rim, face):
+    """A round case (rim) with a face inside: the base of compasses and clocks."""
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if (x - 7.5) ** 2 + (y - 7.5) ** 2 < 6.6 ** 2},
+          ramp(hexc(rim), 5, spread=0.3))
+    img = s.render()
+    f = ramp(hexc(face), 5, spread=0.15)
+    for y in range(16):
+        for x in range(16):
+            d = (x - 7.5) ** 2 + (y - 7.5) ** 2
+            if d < 4.6 ** 2:
+                img.set(x, y, f[3] if x + y < 14 else f[2])
+    return img
+
+
+def compass(frame, frames=32, recovery=False):
+    """M28.2a: a needle turned to frame/frames of a full turn (frame 0 points up, as
+    vanilla's compass_00 points straight ahead), red tip and grey tail; the recovery
+    compass is a dark case with a cyan needle."""
+    img = dial("#5A5E66" if recovery else "#8A8E96", "#2E3E44" if recovery else "#D8D2C0")
+    tip, tail = (hexc("#40E0E8"), hexc("#20707A")) if recovery else (hexc("#D02A1C"), hexc("#60646C"))
+    a = 2 * math.pi * frame / frames
+    dx, dy = math.sin(a), -math.cos(a)
+    for k in range(1, 9):
+        t = k / 2.0
+        for sign, col in ((1, tip), (-1, tail)):
+            x, y = 7.5 + sign * dx * t, 7.5 + sign * dy * t
+            if t <= 4.0:
+                img.set(int(round(x - 0.01)), int(round(y - 0.01)), col)
+    img.set(7, 7, hexc("#202020"))
+    return img
+
+
+def clock(frame, frames=64):
+    """M28.2a: a gold case whose window shows the sky turning: frame 0 is noon (the sun
+    at the top), half way round midnight (the moon); vanilla's clock turns the same way."""
+    img = dial("#D8A830", "#5A8AD8")
+    a = 2 * math.pi * frame / frames
+    day, night = ramp(hexc("#6AA0F0"), 5, spread=0.1), ramp(hexc("#1A2050"), 5, spread=0.1)
+    for y in range(16):
+        for x in range(16):
+            d = (x - 7.5) ** 2 + (y - 7.5) ** 2
+            if d >= 4.6 ** 2:
+                continue
+            # The face's half toward the sun is day sky, the other half night.
+            ang = math.atan2(x - 7.5, -(y - 7.5)) - a
+            up = math.cos(ang)
+            img.set(x, y, day[3] if up > 0.0 else night[2])
+    for body, col, ang in ((0, "#F8E040", a), (1, "#E8E8F0", a + math.pi)):  # sun, moon
+        cx, cy = 7.5 + math.sin(ang) * 2.6, 7.5 - math.cos(ang) * 2.6
+        for (ox, oy) in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            x, y = int(cx - 0.5) + ox, int(cy - 0.5) + oy
+            if (x - 7.5) ** 2 + (y - 7.5) ** 2 < 4.6 ** 2:
+                img.set(x, y, hexc(col))
+    # The case's marker at the top (vanilla: the pointer the sky turns under).
+    img.set(7, 1, hexc("#7A5410"))
+    img.set(8, 1, hexc("#7A5410"))
+    return img
+
+
+def map_item(filled=False):
+    """M28.2b: a sheet of parchment; the filled map shows land, water and a path."""
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(2, 14)}, ramp(hexc("#E8DCB0"), 5, spread=0.2))
+    img = s.render()
+    rng = random.Random("map")
+    for y in range(3, 13):
+        for x in range(3, 13):
+            if filled:
+                water = (x - 9) ** 2 + (y - 9) ** 2 < 10
+                img.set(x, y, hexc("#6A8AD0" if water else ("#7AA050" if rng.random() < 0.7 else "#5A8040")))
+            elif rng.random() < 0.08:
+                img.set(x, y, hexc("#D2C496"))
+    if filled:
+        for x, y in ((4, 4), (5, 5), (6, 5), (7, 6)):
+            img.set(x, y, hexc("#8A6A3A"))
+    return img
+
+
+def writable_book(written=False):
+    """M28.2c: a book with a quill (book and quill) or with writing on its cover."""
+    img = book()
+    if written:
+        for x in range(4, 10):
+            img.set(x, 5, hexc("#F0E0B0"))
+            img.set(x, 8, hexc("#F0E0B0"))
+        return img
+    for k in range(7):  # the quill across it
+        img.set(12 - k, 1 + k, hexc("#F4F4F4") if k < 4 else hexc("#2A2A2A"))
+        if k < 4:
+            img.set(13 - k, 1 + k, hexc("#D8D8D8"))
+    return img
+
+
 def ghast_tear():
     pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
     s = Shape()
@@ -1183,6 +1277,16 @@ def all_items():
     items["shield"] = shield()
     items["paper"] = paper()
     items["book"] = book()
+    # Navigation and writing (M28.2): animated frames, as vanilla's compass_00.. names.
+    for f in range(32):
+        items[f"compass_{f:02d}"] = compass(f)
+        items[f"recovery_compass_{f:02d}"] = compass(f, recovery=True)
+    for f in range(64):
+        items[f"clock_{f:02d}"] = clock(f)
+    items["map"] = map_item()
+    items["filled_map"] = map_item(filled=True)
+    items["writable_book"] = writable_book()
+    items["written_book"] = writable_book(written=True)
     items["enchanted_book"] = book(True)
     # Nether mobs (M19.2).
     items["ghast_tear"] = ghast_tear()

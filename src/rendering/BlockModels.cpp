@@ -767,6 +767,11 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (name == "basalt" || name == "bone_block") {
                 m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));
+            } else if (name == "lodestone") { // (M28.2a)
+                BakedVariant v = cubeAll(sprite("lodestone_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("lodestone_top");
+                v.faces[int(Direction::Down)].sprite = sprite("lodestone_top");
+                m = single(v);
             } else if (name == "blackstone") {
                 BakedVariant v = cubeAll(sprite("blackstone"));
                 v.faces[int(Direction::Up)].sprite = sprite("blackstone_top");

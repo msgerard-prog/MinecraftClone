@@ -107,6 +107,9 @@ level.dat_old              backup copy of the previous level.dat (load falls bac
                            then to level.dat_new); level.dat_new is written first and
                            renamed over level.dat in one step
 session.lock               held exclusively while the world is open (one instance)
+                           (Items may carry minecraft:lodestone_tracker {target: {pos,
+                           dimension}, tracked} - M28.2a; Player.LastDeathLocation
+                           {dimension, pos} is kept too.)
 stats/<uuid>.json          (M28.1d) the player's statistics, vanilla's JSON: { "stats": {
                            "minecraft:custom": { "minecraft:play_time": ticks, ...distances
                            in cm, damage in tenths }, "minecraft:mined" (blocks),

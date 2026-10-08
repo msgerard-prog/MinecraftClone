@@ -94,12 +94,15 @@ struct ItemStack {
     uint32_t contents = 0;
     // An armor trim (M23.6, world/ArmorTrims.h): pattern << 8 | material, 0 = none.
     uint16_t trim = 0;
+    // Data in world/ItemExtras.h (M28.2): a lodestone compass's target, a book's pages;
+    // 0 = none.
+    uint32_t extra = 0;
 
     bool empty() const { return item == kNoItem || count == 0; }
     bool sameKind(const ItemStack& o) const {
         return item == o.item && state == o.state && damage == o.damage && enchantments == o.enchantments &&
                repairCost == o.repairCost && potion == o.potion && contents == o.contents &&
-               trim == o.trim;
+               trim == o.trim && extra == o.extra;
     }
 };
 

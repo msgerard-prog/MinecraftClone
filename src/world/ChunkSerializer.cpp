@@ -5,7 +5,9 @@
 #include "world/Blocks.h"
 #include "world/Loot.h"
 #include "world/Enchantments.h"
+#include "world/Dimension.h"
 #include "world/ItemContainers.h"
+#include "world/ItemExtras.h"
 #include "world/LevelData.h"
 #include "world/Potions.h"
 #include "world/RecipeIds.h"
@@ -232,6 +234,18 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         }
         components.put("minecraft:container", nbt::listOf(nbt::TagType::Compound, std::move(list)));
     }
+    if (const auto t = s.extra ? lodestoneTarget(s.extra) : std::nullopt) {
+        // 1.20.5+ minecraft:lodestone_tracker {target: {pos: [I; x, y, z], dimension}, tracked}
+        nbt::Compound tracker;
+        if (t->hasTarget) {
+            nbt::Compound target;
+            target.put("pos", std::vector<int32_t>{t->pos.x, t->pos.y, t->pos.z});
+            target.put("dimension", std::string(dimensionInfo(Dimension(t->dimension)).id));
+            tracker.put("target", std::move(target));
+        }
+        tracker.put("tracked", int8_t(t->tracked ? 1 : 0));
+        components.put("minecraft:lodestone_tracker", std::move(tracker));
+    }
     if (!components.entries.empty()) c.put("components", std::move(components));
     return c;
 }
@@ -289,6 +303,23 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                     if (inner && slot >= 0 && slot < int(slots.size())) slots[size_t(slot)] = itemFromNbt(*inner);
                 }
             s.contents = addItemContents(slots);
+        }
+        if (const nbt::Compound* lt = comps->compound("minecraft:lodestone_tracker")) {
+            LodestoneTarget t;
+            t.tracked = lt->integer("tracked").value_or(1) != 0;
+            t.hasTarget = false;
+            if (const nbt::Compound* target = lt->compound("target")) {
+                const nbt::Tag* pos = target->find("pos");
+                const auto* a = pos ? pos->get<std::vector<int32_t>>() : nullptr;
+                const std::string* dim = target->string("dimension");
+                const auto d = dim ? findDimension(*dim) : std::nullopt;
+                if (a && a->size() == 3 && d) {
+                    t.pos = {(*a)[0], (*a)[1], (*a)[2]};
+                    t.dimension = uint8_t(*d);
+                    t.hasTarget = true;
+                }
+            }
+            s.extra = addLodestoneTarget(t);
         }
     }
     return s;

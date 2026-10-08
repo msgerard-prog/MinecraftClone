@@ -503,6 +503,7 @@ enum : BlockId {
     Torchflower,
     PitcherCrop,      // age 0..4 (then a pitcher plant; ours one block tall)
     PitcherPlant,     // half
+    Lodestone,        // (M28.2a; wiki: Lodestone)
     Count
 };
 } // namespace blocks

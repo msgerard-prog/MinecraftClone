@@ -1267,6 +1267,9 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("torchflower", kPlant), blocks::Torchflower);
     check(r.add("pitcher_crop", sniffCrop, {{&age4, "0"}}), blocks::PitcherCrop);
     check(r.add("pitcher_plant", kPlant, {{&doorHalf, "lower"}}), blocks::PitcherPlant);
+    // (M28.2a; wiki: Lodestone - 3.5 / 3.5, any pickaxe)
+    check(r.add("lodestone", {.hardness = 3.5f, .resistance = 3.5f, .tool = HarvestTool::Pickaxe, .tier = 0}),
+          blocks::Lodestone);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

@@ -206,6 +206,12 @@ std::vector<Recipe> build() {
     // Block of Iron).
     r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
     r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
+    // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
+    r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));
+    r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("gold_ingot")}, {'R', item("redstone")}}, "clock"));
+    r.push_back(shaped({"###", "#C#", "###"}, {{'#', item("echo_shard")}, {'C', item("compass")}}, "recovery_compass"));
+    r.push_back(shaped({"###", "#N#", "###"}, {{'#', item("chiseled_stone_bricks")}, {'N', item("netherite_ingot")}},
+                       "lodestone"));
     // Mount gear (M26.2; wiki: Leather Horse Armor - 7 leather in an H; Saddle - craftable
     // since 1.21.6 from 3 leather and an iron ingot: our layout assumption).
     r.push_back(shaped({"#.#", "###", "#.#"}, {{'#', item("leather")}}, "leather_horse_armor"));

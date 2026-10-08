@@ -597,6 +597,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `takeBred`, `ItemEntities::pickedUp`, `BlockInteraction::takeBroken/takeUsed/
   takeBrokenTool`, `ContainerScreen::crafted`/`takeTrades`); `ui/Menus` shows them
   (Game Menu > Statistics: General, Items, Mobs).
+- Navigation (M28.2a): `world/ItemExtras` holds what items carry beyond ItemStack's
+  fields (`ItemStack::extra`: lodestone targets, book pages; saved as vanilla's
+  minecraft:lodestone_tracker / *_book_content components); `gfx::ItemIcons::setDials`
+  (set by main each frame: position, facing, dimension, spawn, last death, sky angle)
+  picks compass, recovery compass and clock frames (`compassFrame`, `clockFrame`). Main
+  binds compasses to lodestones, drops a lost lodestone's target once a second and keeps
+  the last death (level.dat Player.LastDeathLocation).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -1,5 +1,7 @@
 #include "world/LevelData.h"
 
+#include "world/Dimension.h"
+
 #include "core/Compression.h"
 #include "core/Files.h"
 #include "core/Log.h"
@@ -100,6 +102,12 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("OnGround", int8_t{1});
     player.put("fall_distance", 0.0);
     player.put("Air", static_cast<int16_t>(air));
+    if (hasLastDeath) { // LastDeathLocation {dimension, pos: [I; x, y, z]} (wiki: Player.dat)
+        Compound d;
+        d.put("dimension", std::string(dimensionInfo(Dimension(std::clamp(lastDeathDimension, 0, 2))).id));
+        d.put("pos", std::vector<int32_t>{lastDeath[0], lastDeath[1], lastDeath[2]});
+        player.put("LastDeathLocation", std::move(d));
+    }
     if (hasRespawn) { // 1.21.5+: respawn {pos, dimension, yaw, pitch, forced} (wiki: Player.dat)
         Compound r;
         r.put("pos", std::vector<int32_t>{respawn[0], respawn[1], respawn[2]});
@@ -190,15 +198,17 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             contents.put("potion", "minecraft:" + it.potion);
             components.put("minecraft:potion_contents", std::move(contents));
         }
-        if (it.contents || it.trim) { // (the item writer knows these components' layouts)
+        if (it.contents || it.trim || it.extra) { // (the item writer knows these components' layouts)
             ItemStack carrier{};
             carrier.item = 1; // (any item: only these components are used)
             carrier.count = 1;
             carrier.contents = it.contents;
             carrier.trim = it.trim;
+            carrier.extra = it.extra;
             const nbt::Compound full = itemToNbt(carrier, -1);
             if (const Compound* fc = full.compound("components"))
-                for (const char* key : {"minecraft:container", "minecraft:trim"})
+                for (const char* key : {"minecraft:container", "minecraft:trim", "minecraft:lodestone_tracker",
+                                        "minecraft:writable_book_content", "minecraft:written_book_content"})
                     if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
@@ -428,6 +438,16 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.hasGateways = true;
                 }
         }
+        if (const Compound* d = p->compound("LastDeathLocation"))
+            if (const Tag* pos = d->find("pos"))
+                if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {
+                    const std::string* dim = d->string("dimension");
+                    const auto dd = dim ? findDimension(*dim) : std::nullopt;
+                    l.hasLastDeath = true;
+                    l.lastDeathDimension = dd ? int(*dd) : 0;
+                    for (int i = 0; i < 3; ++i)
+                        l.lastDeath[i] = (*a)[size_t(i)];
+                }
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {
@@ -466,10 +486,13 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                         for (const auto& e : levels->entries)
                             if (const auto lvl = levels->integer(e.name)) saved.enchantments.emplace_back(e.name, int(*lvl));
                     }
-                if (comps->list("minecraft:container") || comps->compound("minecraft:trim")) {
+                if (comps->list("minecraft:container") || comps->compound("minecraft:trim") ||
+                    comps->compound("minecraft:lodestone_tracker") || comps->compound("minecraft:writable_book_content") ||
+                    comps->compound("minecraft:written_book_content")) {
                     const ItemStack parsed = itemFromNbtPublic(item);
                     saved.contents = parsed.contents;
                     saved.trim = parsed.trim;
+                    saved.extra = parsed.extra;
                 }
             }
             const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;

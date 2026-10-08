@@ -63,6 +63,7 @@
 #include "world/DayTime.h"
 #include "world/Enchantments.h"
 #include "world/FlatGenerator.h"
+#include "world/ItemExtras.h"
 #include "world/LevelData.h"
 #include "world/Statistics.h"
 #include "world/LightManager.h"
@@ -586,6 +587,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     std::optional<mc::world::BlockPos> bedSpawn;
     if (level && level->hasRespawn)
         bedSpawn = mc::world::BlockPos{level->respawn[0], level->respawn[1], level->respawn[2]};
+    // Where the player last died (M28.2a: recovery compasses).
+    std::optional<std::pair<mc::world::BlockPos, Dimension>> lastDeath;
+    if (level && level->hasLastDeath)
+        lastDeath = {{level->lastDeath[0], level->lastDeath[1], level->lastDeath[2]},
+                     Dimension(std::clamp(level->lastDeathDimension, 0, 2))};
     int sleepTicks = 0;
     mc::world::BlockPos sleepBed{};
     bool bedRespawnPending = false; // respawned at the bed: check it once its chunks load
@@ -646,6 +652,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 s.potion = static_cast<uint8_t>(*p);
             s.contents = it.contents;
             s.trim = it.trim;
+            s.extra = it.extra;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103)
                 inventory.setArmor(103 - it.slot, s);
@@ -806,6 +813,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 l.effects.push_back(
                     {std::string(mc::world::effectInfo(e.type).id), e.amplifier, e.duration});
         l.hasRespawn = bedSpawn.has_value();
+        l.hasLastDeath = lastDeath.has_value();
+        if (lastDeath) {
+            l.lastDeath[0] = lastDeath->first.x, l.lastDeath[1] = lastDeath->first.y, l.lastDeath[2] = lastDeath->first.z;
+            l.lastDeathDimension = int(lastDeath->second);
+        }
         if (bedSpawn)
             l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
         l.fire = vitals.fireTicks();
@@ -827,6 +839,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             it.storedEnchantments = it.id == "minecraft:enchanted_book";
             it.contents = s.contents;
             it.trim = s.trim;
+            it.extra = s.extra;
             l.inventory.push_back(std::move(it));
         };
         for (int i = 0; i < mc::Inventory::kSlots; ++i)
@@ -1995,6 +2008,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
                 stats.add(mc::world::Stat::Deaths);
+                lastDeath = {{int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))}, dimension};
                 stats.set(mc::world::Stat::TimeSinceDeath, 0);
                 if (const mc::world::MobData* killer = mobs.playerAttacker()
                                                            ? mc::Mobs::mobByUuid(world, feet, mobs.playerAttacker())
@@ -2186,6 +2200,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::world::itemRegistry().item(inventory.selectedStack().item).id;
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                // A compass used on a lodestone points at it from then on (M28.2a; wiki:
+                // Lodestone): one compass of the stack becomes a lodestone compass.
+                if (!dead && heldId == "minecraft:compass" && clicks.useClick && lastHit &&
+                    mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Lodestone) {
+                    mc::world::ItemStack bound = inventory.selectedStack();
+                    bound.count = 1;
+                    bound.extra = mc::world::addLodestoneTarget({lastHit->block, uint8_t(dimension)});
+                    if (inventory.selectedStack().count == 1) {
+                        inventory.setSlot(inventory.selected(), bound);
+                    } else {
+                        if (survival) inventory.consumeSelected(1);
+                        if (inventory.add(bound) > 0) droppedItems.spawn(player.position(), bound, gameRng);
+                    }
+                    playSound(mc::world::blockSound(mc::world::soundTypeOf(world.getBlock(lastHit->block)),
+                                                    mc::world::BlockSound::Place),
+                              glm::dvec3(lastHit->block.x + 0.5, lastHit->block.y + 0.5, lastHit->block.z + 0.5),
+                              1.0f, 1.0f, true);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
                 if (!dead && heldId == "minecraft:bow" && clicks.use &&
                     mc::canDrawBow(inventory, survival)) {
                     ++bowTicks;
@@ -3693,6 +3727,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               top > eye.y + 1.0 ? 0.5f : 1.0f, top > eye.y + 1.0 ? 0.5f : 1.0f,
                               true);
             }
+            // A lodestone compass whose lodestone is gone loses its target (M28.2a; wiki:
+            // Lodestone - the needle then spins). Checked once a second.
+            if (gameTime % 20 == 0)
+                for (int slot = 0; slot < mc::Inventory::kSlots; ++slot) {
+                    const mc::world::ItemStack& s = inventory.slot(slot);
+                    if (!s.extra || s.empty()) continue;
+                    const auto t = mc::world::lodestoneTarget(s.extra);
+                    if (!t || !t->hasTarget || !t->tracked || t->dimension != uint8_t(dimension) ||
+                        !world.chunk(t->pos.chunk()) ||
+                        mc::world::blockRegistry().blockOf(world.getBlock(t->pos)) == mc::world::blocks::Lodestone)
+                        continue;
+                    mc::world::LodestoneTarget lost = *t;
+                    lost.hasTarget = false;
+                    mc::world::ItemStack copy = s;
+                    copy.extra = mc::world::addLodestoneTarget(lost);
+                    inventory.setSlot(slot, copy);
+                }
             stats.add(mc::world::Stat::PlayTime); // (M28.1d)
             stats.add(mc::world::Stat::TotalWorldTime);
             if (!dead) stats.add(mc::world::Stat::TimeSinceDeath);
@@ -4292,6 +4343,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
+            { // (M28.2a) compasses and clocks turn with the player and the sky
+                mc::gfx::ItemIcons::Dials dials;
+                dials.player = player.renderPosition(clock.alpha);
+                dials.yaw = player.yaw();
+                dials.dimension = uint8_t(dimension);
+                dials.spawn = {worldSpawn[0], worldSpawn[1], worldSpawn[2]};
+                dials.hasDeath = lastDeath.has_value();
+                if (lastDeath) {
+                    dials.death = {lastDeath->first.x, lastDeath->first.y, lastDeath->first.z};
+                    dials.deathDimension = uint8_t(lastDeath->second);
+                }
+                dials.celestial = mc::world::celestialAngle(dayTime, clock.alpha);
+                dials.seconds = mc::timeSeconds();
+                itemIcons.setDials(dials);
+            }
             if (gameMode != 3) mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),

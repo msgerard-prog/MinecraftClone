@@ -323,6 +323,11 @@ ItemRegistry buildItems() {
     // Books (M17.5; wiki: Paper, Book, Enchanted Book - stacks to 1).
     r.add({.id = "minecraft:paper", .texture = "item/paper"});
     r.add({.id = "minecraft:book", .texture = "item/book"});
+    // Navigation (M28.2a; wiki: Compass, Recovery Compass, Clock): their icons turn
+    // (gfx::ItemIcons picks the frame).
+    r.add({.id = "minecraft:compass", .texture = "item/compass_00"});
+    r.add({.id = "minecraft:recovery_compass", .texture = "item/recovery_compass_00"});
+    r.add({.id = "minecraft:clock", .texture = "item/clock_00"});
     r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});

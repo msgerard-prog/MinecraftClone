@@ -98,6 +98,11 @@ struct LevelData {
     bool hasGateways = false; // (the Gateways list exists: the fight has started)
     bool hasRespawn = false; // a bed's respawn point (Player.respawn, 1.21.5+; Overworld)
     int32_t respawn[3] = {0, 0, 0};
+    // Where the player last died (Player.LastDeathLocation {dimension, pos}; recovery
+    // compasses point there - M28.2a).
+    bool hasLastDeath = false;
+    int32_t lastDeath[3] = {0, 0, 0};
+    int lastDeathDimension = 0; // world::Dimension
     // Inventory slots 0..35 (0..8 hotbar), the ender chest 200..226 (vanilla EnderItems,
     // M23.6), worn armor 100 (feet)..103 (head) and the
     // offhand 150 - saved as 1.21.5+'s `equipment` compound. `id` is the item id; `state` the full block
@@ -114,6 +119,7 @@ struct LevelData {
         bool storedEnchantments = false; // an enchanted book's (minecraft:stored_enchantments)
         uint32_t contents = 0; // a shulker box's slots (world/ItemContainers.h, M23.6)
         uint16_t trim = 0;     // an armor trim (world/ArmorTrims.h, M23.6)
+        uint32_t extra = 0;    // a lodestone target or book pages (world/ItemExtras.h, M28.2)
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;
