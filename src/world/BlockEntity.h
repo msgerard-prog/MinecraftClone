@@ -26,6 +26,9 @@ struct FurnaceData {
         int32_t count = 0;
     };
     std::array<RecipeUse, 16> recipesUsed{};
+    // 0 furnace, 1 smoker (food only), 2 blast furnace (ores and metal): the last two
+    // cook in half the time and burn fuel twice as fast (M23.5; wiki: Smoker, Blast Furnace).
+    uint8_t kind = 0;
     bool lit() const { return burnLeft > 0; }
     void countRecipe(RecipeId recipe, int32_t n = 1) {
         if (recipe == kNoRecipe || n <= 0) return;
@@ -98,6 +101,7 @@ struct DispenserData {
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.
 struct ChestData {
     std::array<ItemStack, 27> items{};
+    bool barrel = false; // (M23.5: a barrel's contents, saved as minecraft:barrel)
 };
 
 } // namespace mc::world

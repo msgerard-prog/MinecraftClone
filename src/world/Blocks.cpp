@@ -906,6 +906,20 @@ BlockRegistry buildVanillaBlocks() {
     // Hay bale (wiki: Hay Bale - 0.5, hoe; landing on it takes 80% of the fall damage).
     check(r.add("hay_block", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Hoe}, {{&axis, "y"}}),
           blocks::HayBlock);
+    // Workstations 1 (M23.5; wiki: Smoker 3.5, Blast Furnace 3.5 - both glow 13 when lit
+    // and behave like furnaces; Barrel 2.5, axe).
+    for (const auto& [id, block] : {std::pair{"smoker", blocks::Smoker}, std::pair{"blast_furnace", blocks::BlastFurnace}}) {
+        check(r.add(id, {.hardness = 3.5f, .resistance = 3.5f, .tool = HarvestTool::Pickaxe, .like = blocks::Furnace},
+                    {{&facing, "north"}, {&lit, "false"}}),
+              block);
+        for (uint32_t k = 0; k < r.block(block).stateCount; ++k) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(block).firstState + k);
+            if (r.get(s, lit) == 0) r.setStateEmission(s, 13);
+        }
+    }
+    check(r.add("barrel", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe},
+                {{&facing6, "north"}, {&open, "false"}}),
+          blocks::Barrel);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

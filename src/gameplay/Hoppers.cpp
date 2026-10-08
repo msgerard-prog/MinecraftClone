@@ -69,18 +69,21 @@ bool takeFirst(std::array<ItemStack, N>& slots, ItemStack& out) {
 } // namespace
 
 bool isContainer(const World& world, const BlockPos& p) {
-    const BlockId b = blockRegistry().blockOf(world.getBlock(p));
-    return b == blocks::Chest || b == blocks::Hopper || b == blocks::Dispenser || b == blocks::Dropper ||
-           b == blocks::Furnace || b == blocks::BrewingStand;
+    const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
+    return b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
+           b == blocks::Dropper || b == blocks::Furnace || b == blocks::BrewingStand;
 }
 
 bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack& one) {
     Chunk* c = world.chunk(p.chunk());
     if (!c || one.empty()) return false;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
-    const BlockId b = blockRegistry().blockOf(world.getBlock(p));
+    const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Barrel: // (M23.5: 27 slots like a chest)
+        if (ChestData* d = c->chest(x, p.y, z)) ok = putIn(d->items, one);
+        break;
     case blocks::Chest:
         if (ChestData* d = c->chest(x, p.y, z)) ok = putIn(d->items, one);
         if (!ok)
@@ -141,9 +144,12 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
     Chunk* c = world.chunk(p.chunk());
     if (!c) return false;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
-    const BlockId b = blockRegistry().blockOf(world.getBlock(p));
+    const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Barrel:
+        if (ChestData* d = c->chest(x, p.y, z)) ok = takeFirst(d->items, out);
+        break;
     case blocks::Chest:
         if (ChestData* d = c->chest(x, p.y, z)) ok = takeFirst(d->items, out);
         if (!ok)

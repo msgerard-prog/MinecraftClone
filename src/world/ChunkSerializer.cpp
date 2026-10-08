@@ -350,7 +350,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     std::vector<nbt::Tag> entities;
     for (const auto& f : chunk.furnaces) {
         nbt::Compound e;
-        e.put("id", std::string("minecraft:furnace"));
+        e.put("id", std::string(f.data.kind == 1 ? "minecraft:smoker" : f.data.kind == 2 ? "minecraft:blast_furnace"
+                                                                                      : "minecraft:furnace"));
         e.put("x", int32_t{chunk.pos.x * 16 + f.x});
         e.put("y", int32_t{f.y});
         e.put("z", int32_t{chunk.pos.z * 16 + f.z});
@@ -491,7 +492,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     }
     for (const auto& c : chunk.chests) { // wiki: Chest › Block data - Items with Slot 0..26
         nbt::Compound e;
-        e.put("id", std::string("minecraft:chest"));
+        e.put("id", std::string(c.data.barrel ? "minecraft:barrel" : "minecraft:chest"));
         e.put("x", int32_t{chunk.pos.x * 16 + c.x});
         e.put("y", int32_t{c.y});
         e.put("z", int32_t{chunk.pos.z * 16 + c.z});
@@ -639,6 +640,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
+                        *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire"))
@@ -750,9 +752,11 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         if (mobInfo(static_cast<MobType>(k)).id == *mob) sp.mob = static_cast<MobType>(k);
                 continue;
             }
-            if (*id == "minecraft:chest") {
-                if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Chest) continue;
+            if (*id == "minecraft:chest" || *id == "minecraft:barrel") {
+                const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
+                if (cb != blocks::Chest && cb != blocks::Barrel) continue;
                 ChestData& c = chunk.addChest(x, y, z);
+                c.barrel = cb == blocks::Barrel;
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
@@ -762,8 +766,10 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 continue;
             }
             // An entry whose block isn't a furnace (foreign or edited saves) is dropped.
-            if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Furnace) continue;
+            const BlockId fb = blockRegistry().blockOf(chunk.get(x, y, z));
+            if (blockRegistry().likeOf(fb) != blocks::Furnace) continue;
             FurnaceData& f = chunk.addFurnace(x, y, z);
+            f.kind = fb == blocks::Smoker ? 1 : fb == blocks::BlastFurnace ? 2 : 0;
             if (const nbt::List* items = e->list("Items"))
                 for (const nbt::Tag& it : items->items)
                     if (const nbt::Compound* c = it.get<nbt::Compound>()) {

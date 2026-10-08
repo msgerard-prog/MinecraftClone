@@ -10,12 +10,23 @@ namespace mc {
 
 bool tickFurnace(Furnace& f) {
     const bool wasLit = f.lit();
-    if (f.burnLeft > 0) --f.burnLeft;
+    // Smokers and blast furnaces (M23.5) burn fuel twice as fast and cook in 100 ticks.
+    const bool fast = f.kind != 0;
+    if (f.burnLeft > 0) f.burnLeft = std::max(0, f.burnLeft - (fast ? 2 : 1));
     if (f.input.item != f.cooking) { // a different input starts over (vanilla)
         f.cooking = f.input.item;
         f.cookTime = 0;
     }
-    const auto result = smelt(f.input);
+    auto result = smelt(f.input);
+    // A smoker cooks only food, a blast furnace only ores, raw metal and metal gear
+    // (wiki: Smoker, Blast Furnace).
+    if (result && f.kind == 1 && world::itemRegistry().item(result->item).food == 0) result.reset();
+    if (result && f.kind == 2) {
+        const std::string_view in = world::itemRegistry().item(f.input.item).id;
+        const bool ore = in.find("_ore") != std::string_view::npos || in.find("raw_") != std::string_view::npos ||
+                         in.find("iron_") != std::string_view::npos || in.find("golden_") != std::string_view::npos;
+        if (!ore) result.reset();
+    }
     const auto& items = world::itemRegistry();
     const bool outputFits = result && (f.output.empty() || (f.output.sameKind(*result) &&
                                                           f.output.count + result->count <= items.item(f.output.item).maxStack));
@@ -31,7 +42,7 @@ bool tickFurnace(Furnace& f) {
         }
     }
     if (f.lit() && canSmelt) {
-        if (++f.cookTime >= kFurnaceCookTicks) {
+        if (++f.cookTime >= (fast ? kFurnaceCookTicks / 2 : kFurnaceCookTicks)) {
             f.cookTime = 0;
             if (f.output.empty()) f.output = *result;
             else f.output.count = static_cast<uint8_t>(f.output.count + result->count);

@@ -13,7 +13,7 @@ namespace mc {
 // Crafting and smelting recipes, authored here from the wiki's recipe pages
 // (vanilla ships them as data-pack JSON we don't copy, ADR 0004).
 struct Ingredient {
-    enum class Kind { Empty, Item, Planks, Logs, Coal, StoneTool } kind = Kind::Empty;
+    enum class Kind { Empty, Item, Planks, Logs, Coal, StoneTool, WoodenSlab } kind = Kind::Empty;
     world::ItemId item = world::kNoItem;
     bool matches(const world::ItemStack& s) const;
 };

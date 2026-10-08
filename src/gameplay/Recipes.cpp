@@ -24,6 +24,7 @@ Ingredient item(std::string_view name) { return {Ingredient::Kind::Item, id(name
 const Ingredient kNone{};
 const Ingredient kPlanks{Ingredient::Kind::Planks};
 const Ingredient kLogs{Ingredient::Kind::Logs};
+const Ingredient kWoodenSlab{Ingredient::Kind::WoodenSlab};
 const Ingredient kCoal{Ingredient::Kind::Coal};
 const Ingredient kStoneTool{Ingredient::Kind::StoneTool};
 
@@ -79,6 +80,11 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"C", "S"}, {{'C', kCoal}, {'S', item("stick")}}, "torch", 4));
     r.push_back(shaped({"###", "#.#", "###"}, {{'#', kStoneTool}}, "furnace"));
     r.push_back(shaped({"###", "#.#", "###"}, {{'#', kPlanks}}, "chest")); // wiki: Chest
+    // Workstations 1 (M23.5; wiki: Smoker, Blast Furnace, Barrel).
+    r.push_back(shaped({".L.", "LFL", ".L."}, {{'L', kLogs}, {'F', item("furnace")}}, "smoker"));
+    r.push_back(shaped({"III", "IFI", "SSS"},
+                       {{'I', item("iron_ingot")}, {'F', item("furnace")}, {'S', item("smooth_stone")}}, "blast_furnace"));
+    r.push_back(shaped({"PSP", "P.P", "PSP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "barrel"));
     r.push_back(shaped({"WWW", "PPP"}, {{'W', item("red_wool")}, {'P', kPlanks}}, "red_bed")); // wiki: Bed
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword), per material.
     const std::pair<const char*, Ingredient> materials[] = {{"wooden", kPlanks},
@@ -395,7 +401,7 @@ namespace {
 
 // Per-item tables built once from the name rules below (lookups on hot paths are
 // array reads: furnaces tick every game tick, crafting re-matches on every click).
-enum Tag : uint8_t { kTagPlanks = 1, kTagLogs = 2, kTagCoal = 4, kTagStoneTool = 8 };
+enum Tag : uint8_t { kTagPlanks = 1, kTagLogs = 2, kTagCoal = 4, kTagStoneTool = 8, kTagWoodenSlab = 16 };
 std::optional<ItemStack> smeltByName(std::string_view n);
 int fuelByName(std::string_view n, const ItemDef& def);
 float smeltExperienceByName(std::string_view n);
@@ -428,8 +434,14 @@ struct ItemTables {
         smeltRecipe.resize(items.count());
         for (size_t i = 1; i < items.count(); ++i) {
             const std::string_view n = nameOf(static_cast<ItemId>(i));
-            tags[i] = static_cast<uint8_t>((n.ends_with("_planks") ? kTagPlanks : 0) |
-                                           (n.ends_with("_log") ? kTagLogs : 0) |
+            // Vanilla #logs: logs, wood, stems, hyphae and their stripped forms.
+            const bool log = n.ends_with("_log") || n.ends_with("_wood") || n.ends_with("_stem") ||
+                             n.ends_with("_hyphae");
+            // Vanilla #wooden_slabs: the slab of every wood (its planks exist).
+            const bool woodSlab = n.ends_with("_slab") &&
+                                  items.find(std::string(n.substr(0, n.size() - 5)) + "_planks").has_value();
+            tags[i] = static_cast<uint8_t>((n.ends_with("_planks") ? kTagPlanks : 0) | (log ? kTagLogs : 0) |
+                                           (woodSlab ? kTagWoodenSlab : 0) |
                                            (n == "coal" || n == "charcoal" ? kTagCoal : 0) |
                                            (n == "cobblestone" ? kTagStoneTool : 0));
             smelt[i] = smeltByName(n).value_or(ItemStack{});
@@ -460,6 +472,7 @@ bool Ingredient::matches(const ItemStack& s) const {
     case Kind::Item: return s.item == item;
     case Kind::Planks: return (tags & kTagPlanks) != 0;
     case Kind::Logs: return (tags & kTagLogs) != 0;
+    case Kind::WoodenSlab: return (tags & kTagWoodenSlab) != 0;
     case Kind::Coal: return (tags & kTagCoal) != 0;
     case Kind::StoneTool: return (tags & kTagStoneTool) != 0; // + blackstone, cobbled deepslate in vanilla
     }

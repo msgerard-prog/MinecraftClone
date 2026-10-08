@@ -349,6 +349,19 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Barrel: {
+        // Built facing up: the lid on top (open: the dark inside), turned like a dispenser.
+        Builder b(atlas, out);
+        const auto facing = static_cast<Direction>(r.get(s, P::facing6));
+        static constexpr Rot kUpRot[6] = {{2, 0}, {0, 0}, {3, 0}, {1, 0}, {1, 1}, {1, 3}}; // by Direction
+        FaceSpec faces[6];
+        faces[int(Direction::Up)] = {r.get(s, P::open) == 0 ? "barrel_top_open" : "barrel_top"};
+        faces[int(Direction::Down)] = {"barrel_bottom"};
+        for (Direction d : {Direction::North, Direction::South, Direction::East, Direction::West})
+            faces[int(d)] = {"barrel_side"};
+        b.cube(faces, kUpRot[int(facing)]);
+        return true;
+    }
     case B::Lever: {
         // A cobblestone base and a handle leaning to the off or on side.
         Builder b(atlas, out);

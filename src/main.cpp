@@ -798,6 +798,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // chest shows its "left" half first.
     auto openChestAt = [&](const mc::world::BlockPos& p) {
         const auto& creg = mc::world::blockRegistry();
+        if (creg.blockOf(world.getBlock(p)) == mc::world::blocks::Barrel) { // (M23.5: never blocked, one half)
+            containerBlock = p;
+            chestSecond.reset();
+            container.openChest(nullptr, nullptr);
+            pointChests();
+            playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f, true);
+            return true;
+        }
         if (creg.blockOf(world.getBlock(p)) != mc::world::blocks::Chest) return false;
         const auto partner = mc::world::BlockUpdates::chestPartner(world, p);
         const bool blocked = creg.opaqueCube(world.getBlock({p.x, p.y + 1, p.z})) ||
@@ -812,6 +820,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
+    std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
     // The rain/snow columns around the camera (ground, kind, light), refilled once a
     // tick or when the camera's block changes - not every frame.
@@ -1029,7 +1038,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (block == mc::world::blocks::CraftingTable) {
                         container.open(mc::ui::ContainerScreen::Type::Crafting);
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Furnace) {
+                    } else if (reg.likeOf(block) == mc::world::blocks::Furnace) { // (smokers, blast furnaces)
                         containerBlock = lastHit->block;
                         container.open(mc::ui::ContainerScreen::Type::Furnace);
                         window.setCursorCaptured(false);
@@ -1055,7 +1064,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         containerBlock = lastHit->block;
                         container.openAnvil();
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::Chest) {
+                    } else if (block == mc::world::blocks::Chest || block == mc::world::blocks::Barrel) {
                         if (openChestAt(lastHit->block)) window.setCursorCaptured(false);
                     } else {
                         window.addPress(mc::Press::RightMouse); // not a workstation: a normal use
@@ -2223,13 +2232,34 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Block states change after the loop (setBlock may touch the furnace lists).
             for (const mc::world::BlockPos& p : litChanges) {
                 const auto state = world.getBlock(p);
-                if (reg.blockOf(state) != mc::world::blocks::Furnace) continue;
+                if (reg.likeOf(reg.blockOf(state)) != mc::world::blocks::Furnace) continue;
                 mc::world::Chunk* fc = world.chunk(p.chunk());
                 const auto* f = fc ? fc->furnace(mc::world::blockToLocal(p.x), p.y, mc::world::blockToLocal(p.z))
                                    : nullptr;
                 if (!f) continue;
                 world.setBlock(p, reg.with(state, "lit", f->lit() ? "true" : "false").value_or(state));
                 frameEdits.push_back(p); // relit, then re-meshed
+            }
+            // A barrel's lid shows open while its screen is (vanilla: open=true while viewed).
+            {
+                const bool viewing = container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest &&
+                                     reg.blockOf(world.getBlock(containerBlock)) == mc::world::blocks::Barrel;
+                if (openBarrel && (!viewing || *openBarrel != containerBlock)) {
+                    const auto st = world.getBlock(*openBarrel);
+                    if (reg.blockOf(st) == mc::world::blocks::Barrel) {
+                        world.setBlock(*openBarrel, reg.with(st, "open", "false").value_or(st));
+                        frameEdits.push_back(*openBarrel);
+                        playSound(mc::world::Sound::ChestClose,
+                                  {openBarrel->x + 0.5, openBarrel->y + 0.5, openBarrel->z + 0.5}, 1.0f, 1.0f, true);
+                    }
+                    openBarrel.reset();
+                }
+                if (viewing && !openBarrel) {
+                    const auto st = world.getBlock(containerBlock);
+                    world.setBlock(containerBlock, reg.with(st, "open", "true").value_or(st));
+                    frameEdits.push_back(containerBlock);
+                    openBarrel = containerBlock;
+                }
             }
             renderer.tick();
             // Particles (M22.3): this tick's level events, blocks animating around the

@@ -307,6 +307,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         smoke({b.x + rng.nextDouble(), b.y + 0.5 + rng.nextDouble() * 0.5, b.z + rng.nextDouble()}, true, rng);
         break;
     case blocks::Furnace:
+    case blocks::Smoker:
+    case blocks::BlastFurnace:
         if (R().get(s, properties::lit) == 0) { // flames and smoke at the front while smelting
             const glm::ivec3 n = kDirectionNormals[R().get(s, properties::facing) + 2];
             const double side = centred(rng) * 0.3;

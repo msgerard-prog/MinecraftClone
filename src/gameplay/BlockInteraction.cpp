@@ -146,7 +146,8 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         if (torch && hit->face == world::Direction::Down) return;
         world::BlockStateId state = orientedState(placeState, hit->face);
         // Horizontal facing blocks (furnace) face the player (wiki: Furnace).
-        if (reg.blockOf(state) == world::blocks::Furnace || reg.blockOf(state) == world::blocks::EndPortalFrame) {
+        if (reg.likeOf(reg.blockOf(state)) == world::blocks::Furnace ||
+            reg.blockOf(state) == world::blocks::EndPortalFrame) {
             const float yaw = std::fmod(std::fmod(player.yaw(), 360.0f) + 360.0f, 360.0f);
             const int q = static_cast<int>(std::floor((yaw + 45.0f) / 90.0f)) % 4; // 0 S,1 W,2 N,3 E (look)
             static constexpr const char* kTowardPlayer[4] = {"north", "east", "south", "west"};

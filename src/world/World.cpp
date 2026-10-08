@@ -83,15 +83,15 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         const BlockKind k = blockRegistry().kind(b);
         c->addSign(x, p.y, z).hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;
     }
-    if (was != b && (was == blocks::Furnace || was == blocks::Chest || was == blocks::Spawner ||
+    if (was != b && (blockRegistry().likeOf(was) == blocks::Furnace || was == blocks::Chest || was == blocks::Barrel || was == blocks::Spawner ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
                      ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper)))
         c->removeBlockEntity(x, p.y, z); // replaced
-    if (b == blocks::Furnace) {
-        c->addFurnace(x, p.y, z);
+    if (blockRegistry().likeOf(b) == blocks::Furnace) { // (smokers and blast furnaces too: M23.5)
+        c->addFurnace(x, p.y, z).kind = b == blocks::Smoker ? 1 : b == blocks::BlastFurnace ? 2 : 0;
         markTicking(c->pos());
-    } else if (b == blocks::Chest) {
-        if (c->chest(x, p.y, z) == nullptr) c->addChest(x, p.y, z);
+    } else if (b == blocks::Chest || b == blocks::Barrel) {
+        if (c->chest(x, p.y, z) == nullptr) c->addChest(x, p.y, z).barrel = b == blocks::Barrel;
     } else if (b == blocks::Spawner) {
         c->addSpawner(x, p.y, z);
         markTicking(c->pos());

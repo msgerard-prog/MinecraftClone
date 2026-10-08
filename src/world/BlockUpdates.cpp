@@ -156,6 +156,9 @@ Push pushKind(BlockStateId s) {
     case B::Obsidian:         // (wiki: Piston/Table)
     case B::Spawner:          // (wiki: Monster Spawner - immovable)
     case B::Furnace:          // block entities don't move
+    case B::Smoker:
+    case B::BlastFurnace:
+    case B::Barrel:
     case B::Chest:
     case B::Hopper:
     case B::Dispenser:
@@ -2010,6 +2013,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Hopper: // points into the block it was put against (down when put on top)
         if (horizontal(faceDir)) return r.set(state, hopperFacing, static_cast<int>(opposite(faceDir)) - 1);
         return r.set(state, hopperFacing, 0);
+    case B::Barrel: // (M23.5: its lid faces the player, wiki: Barrel)
     case B::Dispenser:
     case B::Dropper: { // its front faces the player (wiki)
         const Direction f = pitch > 45.0f ? Direction::Up : pitch < -45.0f ? Direction::Down : opposite(look);

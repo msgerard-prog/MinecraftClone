@@ -392,3 +392,69 @@ TEST_CASE("campfires: cook in 30 s, signal over hay, drop charcoal, save their f
     CHECK(back.campfire(4, 64, 4)->items[2].item == *itemRegistry().find("porkchop"));
     CHECK(back.campfire(4, 64, 4)->cookTime[2] == 123);
 }
+
+TEST_CASE("smokers cook food, blast furnaces ores, both twice as fast; barrels hold 27 and save (M23.5)") {
+    auto I = [](const char* n, int c = 1) { return ItemStack{*itemRegistry().find(n), static_cast<uint8_t>(c)}; };
+    Furnace smoker;
+    smoker.kind = 1;
+    smoker.input = I("beef", 4);
+    smoker.fuel = I("coal");
+    for (int t = 0; t < 800; ++t)
+        tickFurnace(smoker);
+    CHECK(smoker.output.count == 4); // 100 ticks each...
+    CHECK(smoker.fuel.empty()); // coal lasts 800 ticks here: 8 items
+    smoker = {};
+    smoker.kind = 1;
+    smoker.input = I("raw_iron");
+    smoker.fuel = I("coal");
+    for (int t = 0; t < 300; ++t)
+        tickFurnace(smoker);
+    CHECK(smoker.output.empty()); // a smoker cooks only food
+    CHECK(smoker.fuel.count == 1); // and lights no fuel for it
+    Furnace blast;
+    blast.kind = 2;
+    blast.input = I("raw_iron");
+    blast.fuel = I("coal");
+    for (int t = 0; t < 100; ++t)
+        tickFurnace(blast);
+    CHECK(blast.output.item == *itemRegistry().find("iron_ingot"));
+    blast = {};
+    blast.kind = 2;
+    blast.input = I("beef");
+    blast.fuel = I("coal");
+    for (int t = 0; t < 300; ++t)
+        tickFurnace(blast);
+    CHECK(blast.output.empty());
+    // Placed, they get a furnace entity of their kind; a barrel a 27-slot one that saves.
+    Scene s;
+    s.world.updateBlock({1, 64, 1}, R().defaultState(blocks::BlastFurnace));
+    s.world.updateBlock({2, 64, 1}, R().defaultState(blocks::Barrel));
+    Chunk* c = s.world.chunk({0, 0});
+    REQUIRE(c->furnace(1, 64, 1));
+    CHECK(c->furnace(1, 64, 1)->kind == 2);
+    REQUIRE(c->chest(2, 64, 1));
+    c->chest(2, 64, 1)->items[26] = I("diamond", 3);
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*c, 0)), back));
+    REQUIRE(back.chest(2, 64, 1));
+    CHECK(back.chest(2, 64, 1)->barrel);
+    CHECK(back.chest(2, 64, 1)->items[26].count == 3);
+    REQUIRE(back.furnace(1, 64, 1));
+    CHECK(back.furnace(1, 64, 1)->kind == 2);
+    // A barrel's lid faces the player; a smoker glows 13 when lit.
+    const auto lid = BlockUpdates::placement(s.world, R().defaultState(blocks::Barrel), {3, 64, 1}, Direction::Up, 0, -60);
+    REQUIRE(lid);
+    CHECK(R().value(*lid, "facing") == "down");
+    CHECK(R().lightEmission(*R().with(R().defaultState(blocks::Smoker), "lit", "true")) == 13);
+    // Recipes: logs around a furnace, iron + smooth stone, planks + wooden slabs.
+    std::array<ItemStack, 9> g{{{}, I("oak_log"), {}, I("crimson_stem"), I("furnace"), I("oak_log"), {}, I("oak_wood"), {}}};
+    const auto smokerItem = craft(g, 3);
+    REQUIRE(smokerItem);
+    CHECK(smokerItem->item == *itemRegistry().find("smoker"));
+    g = {I("oak_planks"), I("spruce_slab"), I("oak_planks"), I("oak_planks"), {}, I("oak_planks"), I("oak_planks"), I("oak_slab"), I("oak_planks")};
+    const auto barrel = craft(g, 3);
+    REQUIRE(barrel);
+    CHECK(barrel->item == *itemRegistry().find("barrel"));
+    g[1] = I("stone_slab"); // not a wooden slab
+    CHECK_FALSE(craft(g, 3));
+}

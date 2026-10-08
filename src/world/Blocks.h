@@ -331,6 +331,9 @@ enum : BlockId {
     Campfire,          // facing, lit, signal_fire (M23.4c)
     SoulCampfire,
     HayBlock,          // axis (M23.4c; signal fires, softer landings)
+    Smoker,            // facing, lit (M23.5: a furnace for food, twice as fast)
+    BlastFurnace,      // facing, lit (ores and metal, twice as fast)
+    Barrel,            // facing (6), open (27 slots like a chest)
     Count
 };
 } // namespace blocks
