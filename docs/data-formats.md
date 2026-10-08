@@ -318,6 +318,12 @@ creaking_heart_state uprooted|dormant|awake, natural]`, `open_eyeblossom`,
 `closed_eyeblossom`, `resin_clump[facing]` (ours: one face; vanilla's multiface
 north/south/... booleans), `resin_block`, `resin_bricks` (+ slab, stairs, wall),
 `chiseled_resin_bricks`; item `resin_brick`.
+M27.2: blocks `cave_vines[age,berries]`, `cave_vines_plant[berries]`, `spore_blossom`,
+`azalea`, `flowering_azalea`, `azalea_leaves`/`flowering_azalea_leaves[distance,persistent]`,
+`rooted_dirt`, `hanging_roots`, `small_dripleaf[half,facing]`, `big_dripleaf[facing,tilt]`,
+`big_dripleaf_stem[facing]`, `pointed_dripstone[thickness,vertical_direction,waterlogged]`,
+`dripstone_block` (new properties `berries`, `tilt`, `thickness`, `vertical_direction`);
+item `glow_berries`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

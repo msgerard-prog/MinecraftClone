@@ -228,3 +228,15 @@ TEST_CASE("generator kinds map to their versions; every kind names itself back (
         CHECK(OverworldGenerator::versionOf(gen.kind()) == v);
     }
 }
+
+#include "world/BlockShapes.h"
+
+TEST_CASE("double slabs and mangrove roots are solid to walk on; a tipped big dripleaf is not (regression)") {
+    // (an empty shape means no collision: double slabs and mangrove roots once had one)
+    const auto dbl = R().set(R().defaultState(*R().findBlock("oak_slab")), properties::slabType, 2);
+    CHECK(collisionShape(dbl).count == 1);
+    CHECK(collisionShape(R().defaultState(blocks::MangroveRoots)).count == 1);
+    const BlockStateId leaf = R().defaultState(blocks::BigDripleaf);
+    CHECK(collisionShape(leaf).count == 1);
+    CHECK(collisionShape(R().set(leaf, properties::tilt, 3)).count == 0);
+}

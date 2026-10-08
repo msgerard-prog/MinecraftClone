@@ -93,8 +93,10 @@ Push pushKind(BlockStateId s) {
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
     if (R().likeOf(b) == B::Chest) return Push::Block; // (copper chests too: block entities don't move)
-    if (isTallPlant(b) || b == B::PaleHangingMoss || b == B::OpenEyeblossom || b == B::ClosedEyeblossom ||
-        b == B::ResinClump)
+    if (isTwoBlockPlant(b) || b == B::PaleHangingMoss || b == B::OpenEyeblossom || b == B::ClosedEyeblossom ||
+        b == B::ResinClump || b == B::CaveVines || b == B::CaveVinesPlant || b == B::SporeBlossom ||
+        b == B::Azalea || b == B::FloweringAzalea || b == B::HangingRoots || b == B::BigDripleaf ||
+        b == B::BigDripleafStem || b == B::PointedDripstone)
         return Push::Destroy; // (M27.1: plants break)
     if (b == B::CreakingHeart) return Push::Block; // (vanilla: a block entity)
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
@@ -160,6 +162,8 @@ Push pushKind(BlockStateId s) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::AzaleaLeaves: // (M27.2)
+    case B::FloweringAzaleaLeaves:
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
@@ -902,7 +906,7 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
             set(head, R().set(now, bedPart, 0));
     }
     // A two-block plant's lower half brings its upper half (M27.1).
-    if (isTallPlant(blockOf(now)) && R().get(now, doorHalf) == 1 && blockOf(old) != blockOf(now)) {
+    if (isTwoBlockPlant(blockOf(now)) && R().get(now, doorHalf) == 1 && blockOf(old) != blockOf(now)) {
         const BlockPos up{p.x, p.y + 1, p.z};
         if (replaceable(at(up)) && blockOf(at(up)) != blockOf(now)) set(up, R().set(now, doorHalf, 0));
     }
@@ -1082,6 +1086,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    if (lushNeighbourChanged(p, s)) { // (M27.2: vines, blossoms, azaleas, dripleaves)
+        --m_depth;
+        return;
+    }
     if (oceanNeighbourChanged(p, s)) { // (M25.1: kelp, seagrass, pickles, corals)
         --m_depth;
         return;
@@ -1107,14 +1115,15 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     // Two-block plants (M27.1): the upper half goes with the lower; the lower needs its
     // upper half and soil (it drops the plant).
-    if (isTallPlant(blockOf(s))) {
+    if (isTwoBlockPlant(blockOf(s))) {
         if (R().get(s, doorHalf) == 0) {
             const BlockStateId ls = at({p.x, p.y - 1, p.z});
             if (blockOf(ls) != blockOf(s) || R().get(ls, doorHalf) != 1) set(p, leftAfterBreaking(s));
         } else {
             const BlockStateId us = at({p.x, p.y + 1, p.z});
-            if (blockOf(us) != blockOf(s) || R().get(us, doorHalf) != 0 || !plantableSoil(at(rel(p, Direction::Down))))
-                pop(p);
+            const BlockStateId soil = at(rel(p, Direction::Down));
+            const bool rooted = blockOf(s) == B::SmallDripleaf ? dripleafSoil(soil) : plantableSoil(soil);
+            if (blockOf(us) != blockOf(s) || R().get(us, doorHalf) != 0 || !rooted) pop(p);
         }
         --m_depth;
         return;
@@ -1406,6 +1415,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::AzaleaLeaves: // (M27.2)
+    case B::FloweringAzaleaLeaves:
         leavesChanged(p, s);
         break;
     case B::OakSapling:
@@ -1537,6 +1548,7 @@ void BlockUpdates::tick() {
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     if (tickOcean(p, s)) return; // (M25.1: coral drying out)
+    if (tickDripleaf(p, s)) return; // (M27.2: tipping)
     switch (blockOf(s)) {
     case B::Composter: // 20 ticks after reaching 7: bone meal ready (wiki: Composter)
         if (R().get(s, properties::composterLevel) == 7) set(p, R().set(s, properties::composterLevel, 8));
@@ -1594,6 +1606,8 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::DarkOakLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::AzaleaLeaves: // (M27.2)
+    case B::FloweringAzaleaLeaves:
     case B::CherryLeaves: {
         const int d = leafDistance(p);
         if (d != R().get(s, distance) + 1) set(p, R().set(s, distance, d - 1)); // neighbours follow
@@ -2105,6 +2119,35 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case BlockKind::Plain: break;
     }
+    // Lush caves (M27.2): glow berries plant cave vines under a block or vine; spore
+    // blossoms and hanging roots go under a block; azaleas and dripleaves on dirt, moss or
+    // clay (big dripleaves also on each other); dripleaves face the player.
+    switch (blockOf(state)) {
+    case B::CaveVines: {
+        const BlockStateId above = world.getBlock(rel(at, Direction::Up));
+        if (!r.collides(above) && blockOf(above) != B::CaveVines && blockOf(above) != B::CaveVinesPlant) return std::nullopt;
+        return state;
+    }
+    case B::SporeBlossom:
+    case B::HangingRoots:
+        if (!r.collides(world.getBlock(rel(at, Direction::Up)))) return std::nullopt;
+        return state;
+    case B::Azalea:
+    case B::FloweringAzalea:
+        if (!dripleafSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
+        return state;
+    case B::SmallDripleaf:
+        if (!dripleafSoil(world.getBlock(rel(at, Direction::Down))) || !replaceable(world.getBlock(rel(at, Direction::Up))))
+            return std::nullopt;
+        return r.set(withHFacing(state, opposite(look)), doorHalf, 1);
+    case B::BigDripleaf: {
+        const BlockStateId below = world.getBlock(rel(at, Direction::Down));
+        if (!dripleafSoil(below) && blockOf(below) != B::BigDripleaf && blockOf(below) != B::BigDripleafStem)
+            return std::nullopt;
+        return withHFacing(state, opposite(look));
+    }
+    default: break;
+    }
     // Two-block plants (M27.1): on soil with room above for the upper half.
     if (isTallPlant(blockOf(state))) {
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down))) || !replaceable(world.getBlock(rel(at, Direction::Up))))
@@ -2151,6 +2194,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::DarkOakLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::AzaleaLeaves: // (M27.2)
+    case B::FloweringAzaleaLeaves:
     case B::CherryLeaves: {
         // Placed leaves are persistent (never decay; wiki: Leaves), with their distance.
         BlockStateId s = r.set(state, persistent, 0);

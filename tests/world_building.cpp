@@ -67,7 +67,7 @@ TEST_CASE("building: shapes - slab halves, stair steps and corners, 1.5-tall wal
     REQUIRE(bottom.count == 1);
     CHECK(bottom.boxes[0].to[1] == 8);
     CHECK(collisionShape(S("stone_slab[type=top]")).boxes[0].from[1] == 8);
-    CHECK(collisionShape(S("stone_slab[type=double]")).count == 0); // a full cube
+    CHECK(collisionShape(S("stone_slab[type=double]")).count == 1); // a full cube (count 0 would be no collision)
     // Straight stairs facing north: the half slab and the north half raised.
     const BlockShape st = collisionShape(S("stone_stairs[facing=north,half=bottom,shape=straight]"));
     REQUIRE(st.count == 3);

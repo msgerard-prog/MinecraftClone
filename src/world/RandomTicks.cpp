@@ -213,6 +213,8 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::AzaleaLeaves: // (M27.2)
+    case B::FloweringAzaleaLeaves:
         // Leaves without a log within 6 blocks decay, dropping their loot (wiki: Leaves).
         // Only states with distance 7, not persistent, random-tick at all.
         m_drops.push_back({p, {}, s});
@@ -330,6 +332,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     // The pale garden (M27.1c; wiki: Eyeblossom, Creaking Heart): by night eyeblossoms
     // open and creaking hearts set between pale oak logs wake; by day they close and
     // sleep. An awake natural heart calls its creaking (main adds it unless one is out).
+    case B::CaveVines: // (M27.2) the tip grows
+        tickCaveVines(p, s);
+        break;
     case B::OpenEyeblossom:
     case B::ClosedEyeblossom: {
         const bool isOpen = blockOf(s) == B::OpenEyeblossom;

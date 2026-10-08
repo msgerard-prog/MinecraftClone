@@ -58,6 +58,10 @@ extern const Property honeyLevel;     // "honey_level": 0..5 (M26.3b: bee nests 
 extern const Property mossTip;        // "tip": true | false (M27.1: pale hanging moss)
 extern const Property creakingState;  // "creaking_heart_state": uprooted | dormant | awake (M27.1c)
 extern const Property natural;        // true | false (M27.1c: generated creaking hearts)
+extern const Property berries;        // true | false (M27.2: cave vines)
+extern const Property tilt;           // none | unstable | partial | full (big dripleaf)
+extern const Property thickness;      // tip_merge | tip | frustum | middle | base (pointed dripstone)
+extern const Property verticalDirection; // "vertical_direction": up | down
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -440,11 +444,30 @@ enum : BlockId {
     ClosedEyeblossom,
     ResinClump,      // facing (the side it sits on - ours: one face, vanilla: any of six)
     ResinBlock,
+    // Lush caves (M27.2; wiki: Cave Vines, Spore Blossom, Azalea, Rooted Dirt, Hanging
+    // Roots, Small Dripleaf, Big Dripleaf).
+    CaveVines,        // age 0..25, berries (the lowest piece)
+    CaveVinesPlant,   // berries
+    SporeBlossom,
+    Azalea,
+    FloweringAzalea,
+    AzaleaLeaves,     // distance, persistent
+    FloweringAzaleaLeaves,
+    RootedDirt,
+    HangingRoots,
+    SmallDripleaf,    // half, facing
+    BigDripleaf,      // facing, tilt (none | unstable | partial | full)
+    BigDripleafStem,  // facing
+    // Dripstone caves (M27.2b; wiki: Pointed Dripstone, Dripstone Block).
+    PointedDripstone, // thickness, vertical_direction, waterlogged
+    DripstoneBlock,
     Count
 };
 } // namespace blocks
 // Two-block plants (M27.1), in enum order.
 inline bool isTallPlant(BlockId b) { return b >= blocks::Sunflower && b <= blocks::LargeFern; }
+// Two-block plants with halves kept together: those and the small dripleaf (M27.2).
+inline bool isTwoBlockPlant(BlockId b) { return isTallPlant(b) || b == blocks::SmallDripleaf; }
 // Mob heads (M26.4b): the standing kinds sit at even ids, each wall kind right after.
 inline bool isMobHead(BlockId b) { return b >= blocks::SkeletonSkull && b <= blocks::DragonWallHead; }
 inline bool isWallHead(BlockId b) { return isMobHead(b) && (b - blocks::SkeletonSkull) % 2 == 1; }

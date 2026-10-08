@@ -242,6 +242,16 @@ def sweet_berries():
     return s.render()
 
 
+def glow_berries():
+    """Glow berries (M27.2): glowing orange berries hanging from a green vine."""
+    s = Shape()
+    berry = ramp(hexc("#F0A030"), 5, spread=0.45)
+    for cx, cy in ((5, 11), (10, 10), (8, 13)):
+        s.add({(x, y) for x in range(16) for y in range(16) if (x - cx) ** 2 + (y - cy) ** 2 <= 4}, berry)
+    s.add({(7, 2), (7, 3), (8, 4), (8, 5), (7, 6), (6, 7), (9, 7), (5, 8), (10, 8)}, ramp(hexc("#4E7A2A"), 5))
+    return s.render()
+
+
 def horn():
     """A goat horn (M26.3): a ridged, curving cone."""
     s = Shape()
@@ -1070,6 +1080,7 @@ def all_items():
     items["armadillo_scute"] = scute("#B87A6A")
     items["wolf_armor"] = wolf_armor()
     items["sweet_berries"] = sweet_berries()
+    items["glow_berries"] = glow_berries()  # (M27.2)
     items["honey_bottle"] = honey_bottle()
     items["wind_charge"] = wind_charge()  # (M26.4c)
     items["snowball"] = snowball()  # (M26.5b)

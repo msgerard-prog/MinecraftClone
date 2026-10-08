@@ -85,7 +85,7 @@ BlockShape compute(BlockStateId s) {
     switch (r.kind(b)) {
     case BlockKind::Slab: { // wiki: Slab - bottom, top or a full double slab
         const int t = r.get(s, slabType);
-        return t == 0 ? box(0, 8, 0, 16, 16, 16) : t == 1 ? box(0, 0, 0, 16, 8, 16) : BlockShape{};
+        return t == 0 ? box(0, 8, 0, 16, 16, 16) : t == 1 ? box(0, 0, 0, 16, 8, 16) : box(0, 0, 0, 16, 16, 16);
     }
     case BlockKind::Stairs: return stairShapeOf(s);
     case BlockKind::Wall: {
@@ -113,6 +113,11 @@ BlockShape compute(BlockStateId s) {
     }
     switch (b) {
     case B::Mud: return box(0, 0, 0, 16, 14, 16); // (M27.1; wiki: Mud - 14 pixels, so things sink a little)
+    case B::BigDripleaf: { // (M27.2; wiki: Big Dripleaf - its leaf holds you until fully tipped)
+        const int t = r.get(s, tilt);
+        if (t == 3) return {};
+        return box(0, 11, 0, 16, t == 2 ? 13 : 15, 16);
+    }
     case B::Lantern: // wiki: Lantern - 6x7x6 (with the handle 6x9), hanging one pixel lower
     case B::SoulLantern: {
         const int y0 = r.get(s, hanging) == 0 ? 1 : 0;
@@ -127,7 +132,7 @@ BlockShape compute(BlockStateId s) {
     case B::Bamboo: return box(6, 0, 6, 9, 16, 9); // (vanilla: 3x3, offset per position)
     case B::Campfire: // (wiki: Campfire - 7 pixels tall)
     case B::SoulCampfire: return box(0, 0, 0, 16, 7, 16);
-    case B::MangroveRoots: return BlockShape{}; // (a full block to stand on)
+    case B::MangroveRoots: return box(0, 0, 0, 16, 16, 16); // (a full block to stand on)
     case B::Ladder: // against the block behind it: facing north hangs on the south side
         return panel(oppositeH(r.get(s, facing)));
     case B::OakDoor:

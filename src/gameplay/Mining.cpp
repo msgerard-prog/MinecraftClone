@@ -183,6 +183,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::CherryLeaves:
     case blocks::MangroveLeaves:
     case blocks::PaleOakLeaves:
+    case blocks::AzaleaLeaves: // (M27.2)
+    case blocks::FloweringAzaleaLeaves:
         return {T::Hoe, -1};
     default: {
         // Blocks from M23 on carry their tool in their settings; slabs, stairs and
@@ -350,6 +352,23 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             else out.push_back({itemRegistry().blockItem(blocks::ResinClump), uint8_t(1 + rng.nextInt(3))});
             return;
         }
+        // Lush caves (M27.2; wiki): cave vines drop glow berries if they bear them; small
+        // dripleaves and hanging roots only with shears (the dripleaf's lower half); a big
+        // dripleaf's stem gives the big dripleaf.
+        if (ob == blocks::CaveVines || ob == blocks::CaveVinesPlant) {
+            if (blockRegistry().get(state, properties::berries) == 0) out.push_back({*itemRegistry().find("glow_berries"), 1});
+            return;
+        }
+        if (ob == blocks::SmallDripleaf || ob == blocks::HangingRoots) {
+            if ((shears || enchantLevel(held, Enchantment::SilkTouch) > 0) &&
+                (ob == blocks::HangingRoots || blockRegistry().get(state, properties::doorHalf) == 1))
+                out.push_back({itemRegistry().blockItem(ob), 1});
+            return;
+        }
+        if (ob == blocks::BigDripleafStem) {
+            out.push_back({itemRegistry().blockItem(blocks::BigDripleaf), 1});
+            return;
+        }
         if (ob == blocks::PaleHangingMoss) { // (wiki: only with shears or Silk Touch)
             if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
             return;
@@ -425,6 +444,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::CherryLeaves:
         case blocks::MangroveLeaves:
         case blocks::PaleOakLeaves:
+        case blocks::AzaleaLeaves: // (M27.2)
+        case blocks::FloweringAzaleaLeaves:
         case blocks::Deepslate:
         case blocks::Snow:
         case blocks::ShortGrass:
@@ -630,6 +651,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::CherryLeaves:
     case blocks::MangroveLeaves:
     case blocks::PaleOakLeaves:
+    case blocks::AzaleaLeaves: // (M27.2)
+    case blocks::FloweringAzaleaLeaves:
         // wiki: Leaves - saplings 5% (jungle 2.5%; mangrove leaves drop none: propagules
         // grow under them), sticks 2% (1-2), oak and dark oak leaves also apples 0.5%.
         if (b != blocks::MangroveLeaves && rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
@@ -640,6 +663,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
                                     : b == blocks::DarkOakLeaves ? blocks::DarkOakSapling
                                     : b == blocks::CherryLeaves  ? blocks::CherrySapling
                                     : b == blocks::PaleOakLeaves ? blocks::PaleOakSapling
+                                    : b == blocks::AzaleaLeaves  ? blocks::Azalea // (M27.2: their bushes)
+                                    : b == blocks::FloweringAzaleaLeaves ? blocks::FloweringAzalea
                                                                  : blocks::OakSapling;
             add(itemRegistry().blockItem(sapling));
         }

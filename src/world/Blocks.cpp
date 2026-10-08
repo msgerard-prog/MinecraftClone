@@ -94,6 +94,10 @@ const Property honeyLevel{"honey_level", {"0", "1", "2", "3", "4", "5"}};
 const Property mossTip{"tip", {"true", "false"}};
 const Property creakingState{"creaking_heart_state", {"uprooted", "dormant", "awake"}};
 const Property natural{"natural", {"true", "false"}};
+const Property berries{"berries", {"true", "false"}};
+const Property tilt{"tilt", {"none", "unstable", "partial", "full"}};
+const Property thickness{"thickness", {"tip_merge", "tip", "frustum", "middle", "base"}};
+const Property verticalDirection{"vertical_direction", {"up", "down"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1152,6 +1156,37 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("closed_eyeblossom", blossom), blocks::ClosedEyeblossom);
     check(r.add("resin_clump", kPlant, {{&facing6, "down"}}), blocks::ResinClump);
     check(r.add("resin_block", {}), blocks::ResinBlock);
+    // Lush caves (M27.2; wiki: each block - all break at once but rooted dirt 0.5 and big
+    // dripleaves 0.1; cave vines with berries glow 14).
+    BlockSettings vines = kPlant;
+    vines.randomTicks = true; // (the tip grows down)
+    check(r.add("cave_vines", vines, {{&age25, "0"}, {&berries, "false"}}), blocks::CaveVines);
+    check(r.add("cave_vines_plant", kPlant, {{&berries, "false"}}), blocks::CaveVinesPlant);
+    check(r.add("spore_blossom", kPlant), blocks::SporeBlossom);
+    constexpr BlockSettings kBush{.opaqueCube = false, .layer = RenderLayer::Cutout};
+    check(r.add("azalea", kBush), blocks::Azalea);
+    check(r.add("flowering_azalea", kBush), blocks::FloweringAzalea);
+    check(r.add("azalea_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::AzaleaLeaves);
+    check(r.add("flowering_azalea_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}),
+          blocks::FloweringAzaleaLeaves);
+    check(r.add("rooted_dirt", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Shovel}), blocks::RootedDirt);
+    check(r.add("hanging_roots", kPlant), blocks::HangingRoots);
+    check(r.add("small_dripleaf", kPlant, {{&doorHalf, "lower"}, {&facing, "north"}}), blocks::SmallDripleaf);
+    check(r.add("big_dripleaf", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                 .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&tilt, "none"}}),
+          blocks::BigDripleaf);
+    check(r.add("big_dripleaf_stem", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .collision = false,
+                                      .layer = RenderLayer::Cutout, .tool = HarvestTool::Axe},
+                {{&facing, "north"}}),
+          blocks::BigDripleafStem);
+    // Dripstone (M27.2b; wiki: Pointed Dripstone - 1.5 / 3, pickaxe; Dripstone Block 1.5 / 1).
+    check(r.add("pointed_dripstone", {.hardness = 1.5f, .resistance = 3.0f, .opaqueCube = false,
+                                      .layer = RenderLayer::Cutout, .randomTicks = true, .tool = HarvestTool::Pickaxe},
+                {{&thickness, "tip"}, {&verticalDirection, "up"}, {&waterlogged, "false"}}),
+          blocks::PointedDripstone);
+    check(r.add("dripstone_block", {.hardness = 1.5f, .resistance = 1.0f, .tool = HarvestTool::Pickaxe}),
+          blocks::DripstoneBlock);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
@@ -1159,7 +1194,16 @@ BlockRegistry buildVanillaBlocks() {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
         r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);
     }
-    for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
+    for (uint32_t i = 0; i < r.block(blocks::CaveVines).stateCount; ++i) { // (glow berries light 14)
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::CaveVines).firstState + i);
+        r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);
+    }
+    for (uint32_t i = 0; i < r.block(blocks::CaveVinesPlant).stateCount; ++i) {
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::CaveVinesPlant).firstState + i);
+        r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);
+    }
+    for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves),
+                                 BlockId(blocks::AzaleaLeaves), BlockId(blocks::FloweringAzaleaLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);
             r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);

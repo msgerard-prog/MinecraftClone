@@ -526,6 +526,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   the monster goals: crumbling (heart gone, day, > 32 blocks), healing while its heart
   stands (`attack` takes no damage; a hit grows resin clumps on the tree), and freezing
   while `watched` by the player. overworld6 puts natural hearts in 1 in 8 pale garden oaks.
+- Lush cave blocks (M27.2, `world/LushCaves.cpp`, part of `BlockUpdates`):
+  `lushNeighbourChanged` (what holds cave vines, spore blossoms, hanging roots, azaleas and
+  dripleaves; vine tips and big dripleaf leaf/stem swap as pieces come and go),
+  `tickCaveVines` (random ticks), `lushBoneMeal` (berries, `growAzaleaTree`, hanging
+  roots, dripleaves, moss patches), `tiltDripleaf` (main, for whoever stands on one) and
+  `tickDripleaf` (scheduled: unstable 10, partial 10, full 100 ticks). Small dripleaves
+  are two-block plants (`isTwoBlockPlant`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -964,6 +964,44 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
                 else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
                 else addBox(m, 15, 0, 0, 16, 16, 16, sp);
+            } else if (name == "cave_vines" || name == "cave_vines_plant") { // (M27.2) lit with berries
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite((name + (registry.value(state, "berries") == "true" ? "_lit" : "")).c_str());
+            } else if (name == "spore_blossom") { // a flower hanging under its pad
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("spore_blossom");
+                addBox(m, 1, 15, 1, 15, 16, 15, sprite("spore_blossom_base"));
+            } else if (name == "hanging_roots") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("hanging_roots");
+            } else if (name == "azalea" || name == "flowering_azalea") { // a leafy top on a twiggy stem
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("azalea_plant");
+                addBox(m, 0, 8, 0, 16, 16, 16, sprite((name + "_side").c_str()));
+                m.boxes[0].faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
+                m.boxes[0].faces[int(Direction::Down)].sprite = sprite((name + "_top").c_str());
+            } else if (name == "small_dripleaf") {
+                const bool upper = registry.value(state, "half") == "upper";
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(upper ? "small_dripleaf_stem_top" : "small_dripleaf_stem_bottom");
+                if (upper) addBox(m, 2, 13, 2, 14, 14, 14, sprite("small_dripleaf_top"));
+            } else if (name == "big_dripleaf" || name == "big_dripleaf_stem") {
+                // The leaf a plate at the top, lower as it tips (vanilla turns it).
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("big_dripleaf_stem");
+                if (name == "big_dripleaf") {
+                    const std::string_view t = registry.value(state, "tilt").value_or("none");
+                    const int y = t == "full" ? 11 : t == "partial" ? 13 : 15;
+                    addBox(m, 0, y - 1, 0, 16, y, 16, sprite("big_dripleaf_side"));
+                    m.boxes[0].faces[int(Direction::Up)].sprite = sprite("big_dripleaf_top");
+                    m.boxes[0].faces[int(Direction::Down)].sprite = sprite("big_dripleaf_top");
+                }
             } else if (name == "pale_hanging_moss") {
                 m.visible = true;
                 m.cross = true;
@@ -1024,7 +1062,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (ends("_leaves")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
                 for (auto& f : v.faces) // cherry leaves are pink in their texture: no biome tint
-                    f.tint = name == "cherry_leaves" || name == "pale_oak_leaves" ? Tint::None : Tint::Foliage;
+                    f.tint = name == "cherry_leaves" || name == "pale_oak_leaves" || name == "azalea_leaves" ||
+                                     name == "flowering_azalea_leaves"
+                                 ? Tint::None
+                                 : Tint::Foliage;
                 m = single(v); // all faces drawn (fancy leaves): no cullSame
                 if (name == "birch_leaves") m.fixedTintSlot = world::kBirchFoliageSlot;
                 if (name == "spruce_leaves") m.fixedTintSlot = world::kSpruceFoliageSlot;

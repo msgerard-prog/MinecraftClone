@@ -97,6 +97,10 @@ public:
     void setSkyDarken(int levels) { m_skyDarken = levels; }
     void setDayTime(int64_t dayTime) { m_dayTime = dayTime; } // (M25: turtle eggs crack before dawn)
     bool nightTime() const; // (M27.1c: eyeblossoms, creaking hearts)
+    // Someone stands on a big dripleaf (M27.2): it starts to tip.
+    void tiltDripleaf(const BlockPos& p);
+    // Ground azaleas and dripleaves grow on: #dirt and clay (M27.2).
+    static bool dripleafSoil(BlockStateId s);
     // A creaking heart's state from its logs and the time: 0 uprooted, 1 dormant, 2 awake.
     int heartState(const BlockPos& p, BlockStateId s) const;
     // Weather (M22.1): rain puts out fires and waters farmland; in the ticking chunks
@@ -286,6 +290,12 @@ private:
     void growKelp(const BlockPos& p, BlockStateId s);
     void tickTurtleEgg(const BlockPos& p, BlockStateId s);
     void tickFrogspawn(const BlockPos& p); // (M26.3c)
+    // Lush caves (M27.2, LushCaves.cpp).
+    bool lushNeighbourChanged(const BlockPos& p, BlockStateId s); // true: a lush block, handled
+    bool lushBoneMeal(const BlockPos& p);
+    void tickCaveVines(const BlockPos& p, BlockStateId s);
+    bool tickDripleaf(const BlockPos& p, BlockStateId s); // true: a big dripleaf's tick
+    void growAzaleaTree(const BlockPos& p);
     bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;

@@ -57,7 +57,8 @@ ItemRegistry buildItems() {
             b == blocks::SoulWallTorch || b == blocks::PistonHead ||
             b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire || b == blocks::Wheat ||
             b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots || // crops: planted by seeds
-            b == blocks::SweetBerryBush) // (planted by sweet berries)
+            b == blocks::SweetBerryBush || // (planted by sweet berries)
+            b == blocks::CaveVines || b == blocks::CaveVinesPlant || b == blocks::BigDripleafStem) // (M27.2)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -271,6 +272,9 @@ ItemRegistry buildItems() {
     // (M26.3; wiki: Sweet Berries - 2 hunger, 0.4 saturation; they plant the bush)
     r.add({.id = "minecraft:sweet_berries", .block = blocks::SweetBerryBush, .food = 2, .saturation = 0.4f,
            .texture = "item/sweet_berries"});
+    // (M27.2; wiki: Glow Berries - food 2, plants cave vines under a block)
+    r.add({.id = "minecraft:glow_berries", .block = blocks::CaveVines, .food = 2, .saturation = 0.4f,
+           .texture = "item/glow_berries"});
     r.add({.id = "minecraft:bread", .food = 5, .saturation = 6.0f, .texture = "item/bread"});
     r.add({.id = "minecraft:bone_meal", .texture = "item/bone_meal"});
     // (M25.1; wiki: Dried Kelp - 1 food, 0.6 saturation, eaten in 0.8 s)
@@ -363,6 +367,9 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::Potatoes, *r.find("potato"));
     r.mapBlock(blocks::Beetroots, *r.find("beetroot_seeds"));
     r.mapBlock(blocks::SweetBerryBush, *r.find("sweet_berries"));
+    r.mapBlock(blocks::CaveVines, *r.find("glow_berries")); // (M27.2)
+    r.mapBlock(blocks::CaveVinesPlant, *r.find("glow_berries"));
+    r.mapBlock(blocks::BigDripleafStem, *r.find("big_dripleaf"));
     return r;
 }
 

@@ -2325,10 +2325,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 world.markTicking(at.chunk());
                             }
                     acted = true;
-                } else if (hb == mc::world::blocks::SweetBerryBush) { // (M26.3) picking berries
+                } else if (hb == mc::world::blocks::SweetBerryBush || hb == mc::world::blocks::CaveVines ||
+                           hb == mc::world::blocks::CaveVinesPlant) { // (M26.3, M27.2) picking berries
                     if (const int n = mc::world::BlockUpdates::pickBerries(world, at, gameRng); n > 0) {
                         droppedItems.spawn({at.x + 0.5, at.y + 0.5, at.z + 0.5},
-                                           {*mc::world::itemRegistry().find("sweet_berries"), uint8_t(n)}, gameRng);
+                                           {*mc::world::itemRegistry().find(hb == mc::world::blocks::SweetBerryBush
+                                                                                ? "sweet_berries"
+                                                                                : "glow_berries"),
+                                            uint8_t(n)},
+                                           gameRng);
                         frameEdits.push_back(at);
                         acted = true;
                     }
@@ -2812,6 +2817,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         fz + half < 1.0 / 16.0 || fz - half > 15.0 / 16.0)
                         return;
                     blockUpdates.pressPlate(c, item, cart);
+                    if (!item && reg.blockOf(world.getBlock(c)) == mc::world::blocks::BigDripleaf)
+                        blockUpdates.tiltDripleaf(c); // (M27.2: it tips under them)
                 };
                 if (!dead && !player.flying()) pressAt(player.position(), 0.3, false);
                 world.forEachTickingChunk([&](mc::world::Chunk& c) {
@@ -2821,10 +2828,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (m.health <= 0.0f || (info.flies && !cart)) continue;
                         // (only when it stands on a plate: read from its own chunk, no lookup)
                         const int fy = int(std::floor(m.pos.y + 0.01));
-                        if (!c.height().contains(fy) ||
-                            !mc::world::BlockUpdates::isPressurePlate(reg.blockOf(
-                                c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
-                                      mc::world::blockToLocal(int(std::floor(m.pos.z)))))))
+                        if (!c.height().contains(fy)) continue;
+                        const mc::world::BlockId under = reg.blockOf(c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
+                                                                           mc::world::blockToLocal(int(std::floor(m.pos.z)))));
+                        if (!mc::world::BlockUpdates::isPressurePlate(under) && under != mc::world::blocks::BigDripleaf)
                             continue;
                         pressAt(m.pos, info.width * 0.5, false, cart);
                     }

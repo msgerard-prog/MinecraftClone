@@ -119,6 +119,13 @@ void BlockUpdates::tickCrop(const BlockPos& p, BlockStateId s) {
 
 int BlockUpdates::pickBerries(World& world, const BlockPos& p, Xoroshiro& rng) {
     const BlockStateId s = world.getBlock(p);
+    if (const BlockId b = blockRegistry().blockOf(s); b == B::CaveVines || b == B::CaveVinesPlant) {
+        // (M27.2; wiki: Glow Berries - one from a vine bearing them)
+        if (blockRegistry().get(s, berries) != 0) return 0;
+        world.updateBlock(p, blockRegistry().set(s, berries, 1));
+        world.playSound(Sound::BerryPick, p.x + 0.5, p.y + 0.5, p.z + 0.5);
+        return 1;
+    }
     if (blockRegistry().blockOf(s) != B::SweetBerryBush) return 0;
     const int a = blockRegistry().get(s, age3);
     if (a < 2) return 0;
@@ -131,6 +138,7 @@ int BlockUpdates::pickBerries(World& world, const BlockPos& p, Xoroshiro& rng) {
 bool BlockUpdates::boneMeal(const BlockPos& p) {
     // wiki: Bone Meal - crops grow 2-5 stages (beetroots 1); saplings advance a stage
     // 45% of the time; a grass block sprouts grass and flowers around it.
+    if (lushBoneMeal(p)) return true; // (M27.2: vines, azaleas, dripleaves, moss)
     const BlockStateId s = at(p);
     const BlockId b = blockOf(s);
     if (isCrop(b)) {
