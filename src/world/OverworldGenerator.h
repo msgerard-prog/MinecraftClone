@@ -84,6 +84,7 @@ public:
         bool villager = false; // (M24.1: a villager standing here, of `villagerType`)
         uint8_t villagerType = 0;
         bool nitwit = false;
+        bool spawnMob = false; // (M24.4: a `mob` standing here - swamp hut witches)
     };
     struct GeneratedEntities {
         int count = 0;

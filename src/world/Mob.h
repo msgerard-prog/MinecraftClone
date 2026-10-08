@@ -38,6 +38,7 @@ enum class MobType : uint8_t {
     Villager, // (M24.1)
     ZombieVillager, // (M24.3)
     IronGolem,      // (M24.3)
+    Witch,          // (M24.4)
     Count
 };
 
@@ -159,6 +160,10 @@ struct MobData {
     std::array<uint8_t, 6> food{};
     int16_t breedTogether = 0; // ticks next to a willing partner
     glm::ivec3 workTarget{0, kNoPoint, 0}; // a farmer's ripe crop
+    // Witches (M24.4): the potion being drunk and its countdown; fire resistance left.
+    uint8_t drinking = 0;
+    int16_t drinkTicks = 0;
+    int16_t fireResistTicks = 0;
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };

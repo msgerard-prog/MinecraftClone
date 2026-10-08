@@ -1805,3 +1805,38 @@ TEST_CASE("villagers pick up food; two willing villagers with a free bed have a 
             CHECK(m->food[0] == 0); // the bread went into it
         }
 }
+
+#include "gameplay/Projectiles.h"
+
+TEST_CASE("witches throw potions at a player within 10 blocks and drink when burning; lightning makes villagers witches (M24.4)") {
+    MobScene s;
+    Projectiles projectiles;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Witch, {6.5, 64.0, 0.5}, s.rng)));
+    s.player.setPosition({0.5, 64.0, 0.5});
+    int thrown = 0;
+    for (int t = 0; t < 200; ++t) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, true, false, 18000, 11.0f, s.rng, s.items};
+        ctx.naturalSpawning = false;
+        ctx.projectiles = &projectiles;
+        s.mobs.tick(ctx);
+    }
+    for (const auto& p : projectiles.items()) thrown += p.kind == ProjectileKind::SplashPotion; // (not flown: no tick)
+    CHECK(thrown >= 2); // every 3 s once it sees the player
+    MobData* w = nullptr;
+    for (MobData* m : s.all())
+        if (m->type == MobType::Witch) w = m;
+    REQUIRE(w);
+    w->fireTicks = 100;
+    w->drinkTicks = 0;
+    s.tick(40); // drinks fire resistance (32 ticks), then the fire goes out
+    CHECK(w->fireResistTicks > 0);
+    CHECK(w->fireTicks == 0);
+    // Lightning on a villager.
+    MobData v = Mobs::make(MobType::Villager, {10.5, 64.0, 10.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, v));
+    CHECK(Mobs::strikeLightning(s.world, {10.5, 64.0, 10.5}));
+    int witches = 0;
+    for (MobData* m : s.all()) witches += m->type == MobType::Witch;
+    CHECK(witches == 2);
+}

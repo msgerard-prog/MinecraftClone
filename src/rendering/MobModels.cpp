@@ -233,6 +233,19 @@ constexpr std::array<MobPart, 7> kVillager = {{
     {{-4, 6, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None, 3, 0.5f},
 }};
 
+// Witch (M24.4): the villager's build (robe in its own skin) under a pointed hat.
+constexpr std::array<MobPart, 9> kWitch = {{
+    {{-4, 24, -4}, {4, 34, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-1, 23, 4}, {1, 27, 6}, {0, 24, 0}, 24, 0, A::Head},
+    {{-4, 6, -3}, {4, 24, 3}, {0, 24, 0}, 16, 20, A::None},
+    {{-4, 16, 3}, {4, 20, 7}, {0, 18, 0}, 0, 40, A::None},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 48, A::LegA},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 48, A::LegB},
+    {{-5, 33, -5}, {5, 34, 5}, {0, 24, 0}, 24, 40, A::Head},
+    {{-3.5f, 34, -3.5f}, {3.5f, 38, 3.5f}, {0, 24, 0}, 24, 51, A::Head},
+    {{-2, 38, -2}, {2, 41, 2}, {0, 24, 0}, 40, 0, A::Head},
+}};
+
 // Iron golem (M24.3): a big body on a narrow waist, long arms swinging with the legs.
 constexpr std::array<MobPart, 8> kIronGolem = {{
     {{-4, 33, -4}, {4, 43, 4}, {0, 33, 0}, 0, 0, A::Head},
@@ -272,6 +285,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Villager:
     case world::MobType::ZombieVillager: return kVillager; // (its own skin)
     case world::MobType::IronGolem: return kIronGolem;
+    case world::MobType::Witch: return kWitch;
     default: return kCow;
     }
 }

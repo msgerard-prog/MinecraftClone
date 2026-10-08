@@ -1,6 +1,8 @@
 // Monsters 2 (M16.5; wiki: Skeleton, Creeper, Spider, Enderman). Part of Mobs.
 #include "gameplay/Mobs.h"
 
+#include "world/Potions.h"
+
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 #include "world/Blocks.h"
@@ -156,6 +158,52 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
             ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi);
             ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z);
+        }
+        break;
+    }
+    case MobType::Witch: {
+        // Drinks when it needs to (wiki: Witch › Behavior): fire resistance while burning,
+        // healing now and then when hurt (5% a tick); drinking takes 32 ticks.
+        if (m.fireResistTicks > 0) {
+            --m.fireResistTicks;
+            m.fireTicks = 0;
+        }
+        if (m.drinkTicks > 0) {
+            if (--m.drinkTicks == 0) {
+                if (m.drinking == 1) m.health = std::min(info.maxHealth, m.health + 4.0f); // healing
+                if (m.drinking == 2) m.fireResistTicks = 3600;                           // fire resistance
+                m.drinking = 0;
+            }
+            break;
+        }
+        if (m.fireTicks > 0 && m.fireResistTicks == 0) {
+            m.drinking = 2;
+            m.drinkTicks = 32;
+            break;
+        }
+        if (m.health < info.maxHealth && ctx.rng.nextFloat() < 0.05f) {
+            m.drinking = 1;
+            m.drinkTicks = 32;
+            break;
+        }
+        // Throws a splash potion every 3 s at a player within 10 blocks it sees: slowness
+        // from 8+ blocks, poison while the player has 8+ health, weakness up close
+        // (1 in 4), else harming.
+        if (!chase || playerDist2 > 10.0 * 10.0 || !ctx.projectiles || !sees(ctx.world, m, ctx.player)) break;
+        if (m.attackCooldown > 0) break;
+        m.attackCooldown = 60;
+        const char* kind = "harming";
+        if (playerDist2 >= 8.0 * 8.0 && ctx.vitals.effectLevel(Effect::Slowness) == 0) kind = "slowness";
+        else if (ctx.vitals.health() >= 8.0f && ctx.vitals.effectLevel(Effect::Poison) == 0) kind = "poison";
+        else if (playerDist2 <= 3.0 * 3.0 && ctx.vitals.effectLevel(Effect::Weakness) == 0 && ctx.rng.nextInt(4) == 0)
+            kind = "weakness";
+        const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
+        glm::dvec3 d = playerPos + glm::dvec3(0, 1.0, 0) - from;
+        d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // (an arc)
+        const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.3);
+        if (ctx.projectiles->shoot(ProjectileKind::SplashPotion, start, d, 0.75, 8.0, false, false, ctx.rng, m.uuidHi)) {
+            ctx.projectiles->last().potion = static_cast<uint8_t>(findPotion(kind).value_or(Potion::Harming));
+            ctx.projectiles->last().pickup = false;
         }
         break;
     }

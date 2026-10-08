@@ -644,6 +644,26 @@ def iron_golem():
     return img
 
 
+def witch():
+    """Witch (M24.4): the villager layout in a purple robe, plus a hat - brim 10x1x10 @
+    (24,40), cone 7x4x7 @ (24,51), tip 4x3x4 @ (40,0) - and a wart on the nose."""
+    img = villager()
+    rng = random.Random("witch")
+    robe = ramp(hexc("#4A2A5A"), 5, spread=0.25)
+    hat = ramp(hexc("#2A2A30"), 5, spread=0.25)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, robe, rng)
+    for name, f in box_faces(0, 40, 8, 4, 4).items():
+        paint(img, f, robe, rng)
+        if name == "front":
+            paint(img, (f[0] + 2, f[1], 4, f[3]), ramp(hexc("#B98A65"), 5, spread=0.2), rng, noise=0.15)
+    for u, v, w, h, d in ((24, 40, 10, 1, 10), (24, 51, 7, 4, 7), (40, 0, 4, 3, 4)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, hat, rng)
+    img.set(25, 3, (60, 140, 50, 255))  # the wart (on the nose's front)
+    return img
+
+
 def villager_apron():
     """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
     the game tints per profession, with a darker belt."""
@@ -670,7 +690,8 @@ def main():
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
               "shulker": shulker(), "minecart": minecart(),
               "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
-              "zombie_villager": zombie_villager(), "iron_golem": iron_golem()}
+              "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
+              "witch": witch()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

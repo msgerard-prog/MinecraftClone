@@ -54,6 +54,8 @@ const MobInfo& mobInfo(MobType t) {
         // wiki: Iron Golem - 100 health, 1.4 x 2.7, speed 0.25, hits for 7.5-21.5 (ours:
         // the attack adds up to 15 at random), never hostile on its own.
         {"minecraft:iron_golem", 100.0f, 1.4, 2.7, 0.25, 7.5f, false},
+        // wiki: Witch - 26 health, 0.6 x 1.95, speed 0.25, throws potions.
+        {"minecraft:witch", 26.0f, 0.6, 1.95, 0.25, 0.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

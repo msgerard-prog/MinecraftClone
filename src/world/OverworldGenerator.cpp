@@ -1104,6 +1104,19 @@ void OverworldGenerator::generate(Chunk& out) const {
     out.setBiomes(biomes);
     for (int i = 0; i < entities.count; ++i) {
         const GeneratedEntity& e = entities.list[size_t(i)];
+        if (e.spawnMob) { // (M24.4) a mob that lives here (swamp hut witch), never despawning
+            Xoroshiro mr(chunkSeed(m_seed, cx, cz, 680 + uint64_t(i)));
+            MobData mob;
+            mob.type = e.mob;
+            mob.uuidHi = (mr.nextLong() & ~0xF000ull) | 0x4000ull;
+            mob.uuidLo = (mr.nextLong() & ~(3ull << 62)) | (2ull << 62);
+            mob.pos = mob.prevPos = mob.goal = glm::dvec3(baseX + e.x + 0.5, e.y + 0.05, baseZ + e.z + 0.5);
+            mob.yaw = mob.prevYaw = mob.headYaw = mob.prevHeadYaw = mr.nextFloat() * 360.0f - 180.0f;
+            mob.health = mobInfo(e.mob).maxHealth;
+            mob.persistent = true;
+            out.mobs().push_back(mob);
+            continue;
+        }
         if (e.villager) { // (M24.1) a villager of the village, standing on its floor
             Xoroshiro vr(chunkSeed(m_seed, cx, cz, 660 + uint64_t(i)));
             MobData v;
@@ -1576,6 +1589,14 @@ struct StructureBuilder {
         e.nitwit = nitwit;
         entities->list[size_t(entities->count++)] = e;
     }
+    void mob(int x, int y, int z, MobType type) { // (M24.4)
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz) || entities->full()) return;
+        OverworldGenerator::GeneratedEntity e{static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                              static_cast<int16_t>(oy + y), false, type};
+        e.spawnMob = true;
+        entities->list[size_t(entities->count++)] = e;
+    }
     void chest(int x, int y, int z, LootTable loot) {
         int lx, lz;
         if (!toChunk(x, z, lx, lz) || entities->full()) return; // (no chest without its contents)
@@ -1717,6 +1738,10 @@ void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32
                     sb.set(1, 2, 4, 0);                        // windows
                     sb.set(5, 2, 4, 0);
                     sb.set(4, 1, 6, B.craftingTable);
+                    if (m_version >= 3) { // overworld3 (M24.4): the witch at home and her cauldron
+                        sb.set(2, 1, 6, blockRegistry().defaultState(blocks::Cauldron));
+                        sb.mob(3, 1, 4, MobType::Witch);
+                    }
                 }
             }
     }

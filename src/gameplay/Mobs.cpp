@@ -122,6 +122,13 @@ bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
                     continue;
                 hit = true;
                 if (m.type == MobType::Creeper) m.powered = true;
+                if (m.type == MobType::Villager) { // (wiki: a villager struck by lightning becomes a witch)
+                    m.type = MobType::Witch;
+                    m.health = mobInfo(m.type).maxHealth;
+                    m.age = 0;
+                    m.persistent = true;
+                    continue;
+                }
                 if (m.type == MobType::Pig) { // (vanilla: a new entity in its place)
                     m.type = MobType::ZombifiedPiglin;
                     m.health = mobInfo(m.type).maxHealth;
@@ -349,6 +356,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+        if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0) m.goal = m.pos; // (throws from where it stands)
     } else if (m.type == MobType::IronGolem && golemGoal(ctx, m, speed)) {
         chase = true; // (after a monster: Golems.cpp)
     } else if (m.type == MobType::IronGolem) {
@@ -624,6 +632,12 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Zombie:
     case MobType::ZombieVillager: drop("rotten_flesh", 0, 2); break;
+    case MobType::Witch: { // wiki: Witch - 1-3 rolls of bottles, glowstone, gunpowder, redstone, spider eyes, sugar, sticks
+        static constexpr const char* kLoot[7] = {"glass_bottle", "glowstone_dust", "gunpowder", "redstone",
+                                                 "spider_eye", "sugar", "stick"};
+        for (int k = 0, n = 1 + int(ctx.rng.nextInt(3)); k < n; ++k) drop(kLoot[ctx.rng.nextInt(7)], 1, 2);
+        break;
+    }
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
         drop("poppy", 0, 2);
@@ -966,7 +980,7 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
     // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
-    const uint32_t roll = ctx.rng.nextInt(405);
+    const uint32_t roll = ctx.rng.nextInt(410); // (+ witch 5, M24.4)
     // The End (no sky, not the Nether): endermen only, in groups of 4 (wiki: The End biomes).
     const bool end = !ctx.world.hasSkyLight();
     const MobType kind = end          ? MobType::Enderman
@@ -974,7 +988,8 @@ void Mobs::spawnHostiles(Context& ctx) {
                          : roll < 195 ? MobType::Skeleton
                          : roll < 295 ? MobType::Creeper
                          : roll < 395 ? MobType::Spider
-                                      : MobType::Enderman;
+                         : roll < 405 ? MobType::Enderman
+                                      : MobType::Witch;
     const int group = end ? 4 : 1 + static_cast<int>(ctx.rng.nextInt(4));
     for (int i = 0; i < group && m_hostiles < 70; ++i) {
         const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2, gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;

@@ -333,6 +333,14 @@ def mob_sounds(name, rng):
             return mul(add(*[resonator(mul(noise(int(d * RATE), rng), env(int(d * RATE), 0.0005, 0.004)), f * p, 60)
                              for p in (1.0, 2.4)]), env(int(d * RATE), 0.001, d / 3))
         return None, [clank(r(180, 220), 0.4) for _ in range(2)], add(clank(140, 0.8), at(clank(100, 0.6), 0.25, 0.8))
+    if name == "witch":  # a cackle (ours): quick rising-falling laughs
+        def cackle(n):
+            out = silence(0.12 * n + 0.2)
+            for k in range(n):
+                out = add(out, at(voice(rng, 0.12, r(500, 600), r(380, 450), wave="saw", formant=(700, 3000), breath=0.2,
+                                        attack=0.01), k * 0.12, 0.12 * n + 0.2))
+            return out
+        return [cackle(3 + i) for i in range(3)], [cackle(1), cackle(2)], cackle(5)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -343,7 +351,7 @@ def mob_sounds(name, rng):
 
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
-        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem"]
+        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch"]
 
 
 # --- Everything else ----------------------------------------------------------------
