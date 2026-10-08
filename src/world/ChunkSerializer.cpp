@@ -989,12 +989,16 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
         if (m.type == MobType::WanderingTrader) e.put("DespawnDelay", int32_t(m.despawnDelay));
+        if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
         if (m.type == MobType::Pillager) { // wiki: Raider › Entity data
             e.put("PatrolLeader", int8_t(m.captain ? 1 : 0));
             e.put("Patrolling", int8_t{0});
             e.put("CanJoinRaid", int8_t{1});
         }
-        if (m.raider) e.put("Wave", int32_t(1)); // (M24.5: in the raid; vanilla also keeps a RaidId)
+        if (m.raidId) { // (M24.5: in a raid)
+            e.put("Wave", int32_t(1));
+            e.put("RaidId", int32_t(m.raidId));
+        }
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager ||
             m.type == MobType::WanderingTrader) { // wiki: Villager › Entity data (the trader: Offers)
             nbt::Compound data;
@@ -1137,7 +1141,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (m.type == MobType::WanderingTrader)
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
-        m.raider = isRaider(m.type) && e->integer("Wave").has_value();
+        m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
+        m.raidId = isRaider(m.type) ? int32_t(std::clamp<int64_t>(e->integer("RaidId").value_or(0), 0, 1 << 30)) : 0;
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager || m.type == MobType::WanderingTrader) {
             if (const nbt::Compound* data = e->compound("VillagerData")) {
                 if (const std::string* vt = data->string("type"))
@@ -1145,6 +1150,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 if (const std::string* p = data->string("profession"))
                     m.profession = uint8_t(findProfession(*p).value_or(Profession::None));
                 m.villagerLevel = uint8_t(std::clamp<int64_t>(data->integer("level").value_or(1), 1, 5));
+                m.poiSearch = int16_t(std::abs(int(std::floor(m.pos.x * 7.0 + m.pos.z * 13.0))) % 200); // (loaded villagers don't all search on one tick)
             }
             m.villagerXp = int(std::clamp<int64_t>(e->integer("Xp").value_or(0), 0, 1000000));
             if (const nbt::List* inv = e->list("Inventory")) {

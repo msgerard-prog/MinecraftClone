@@ -2238,6 +2238,9 @@ void OverworldGenerator::placeOutposts(BlockStateId* blocks, int32_t cx, int32_t
         for (int dx = -2; dx <= 2; ++dx) {
             const ChunkPos start{cx + dx, cz + dz};
             if (!isSpreadCandidate(m_seed, kOutposts, start)) continue;
+            // Only 1 in 5 candidates (wiki: Structure set - pillager outposts have frequency
+            // 0.2; ours rolls it from its own seed).
+            if (Xoroshiro fr(chunkSeed(m_seed, start.x, start.z, 165745296)); fr.nextFloat() >= 0.2f) continue;
             const int32_t sx = start.x * 16 + 4, sz = start.z * 16 + 4;
             const Biome biome = biomeAt(column(sx + 3, sz + 3));
             if (!(biome == Biome::Plains || biome == Biome::Desert || biome == Biome::Savanna || biome == Biome::Taiga ||

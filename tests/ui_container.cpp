@@ -360,3 +360,30 @@ TEST_CASE("trading: villagers get trades by level; choosing a trade fills the pa
     CHECK(v.offers[0].demand == 2); // 0 + 2 used - 0 left
     CHECK(offerPrice(v.offers[0]) == 24 + int(24 * 0.05f * 2));
 }
+
+TEST_CASE("trading: a price raised while the screen is open (Hero of the Village ran out) takes no trade (review fix, M24.5)") {
+    MobData v;
+    v.type = MobType::Villager;
+    v.profession = uint8_t(Profession::Librarian);
+    TradeOffer paper;
+    paper.buyA = I("paper").item;
+    paper.buyACount = 24;
+    paper.sell = I("emerald").item;
+    paper.sellCount = 1;
+    paper.maxUses = 16;
+    v.offers[v.offerCount++] = paper;
+    Fixture f;
+    auto ty = [](int y) { return sy(y) - 28; };
+    f.inv.setSlot(0, I("paper", 17));
+    f.screen.openTrading(&v);
+    f.screen.setHeroLevel(1); // 24 - 7 = 17 paper
+    f.left(sx(8 + 4), ty(16 + 4));
+    CHECK(f.screen.grid(0).count == 17);
+    REQUIRE_FALSE(f.screen.result().empty());
+    f.screen.setHeroLevel(0); // back to 24
+    CHECK(f.screen.result().empty());
+    f.left(sx(120), ty(112));
+    CHECK(f.screen.carried().empty());
+    CHECK(f.screen.grid(0).count == 17); // (before the fix: 17 - 24 wrapped to 249)
+    CHECK(v.offers[0].uses == 0);
+}

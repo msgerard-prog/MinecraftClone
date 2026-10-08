@@ -343,7 +343,9 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
     if (m_type == Type::Trading) { // pay, one use of the trade, experience (shift: as many as fit)
-        for (int rounds = 0; rounds < 64 && !m_result.empty() && m_trader && m_tradeChoice >= 0;
+        updateResult(); // (the price or the offers may have changed since: hero level, lost job)
+        for (int rounds = 0; rounds < 64 && !m_result.empty() && m_trader && m_tradeChoice >= 0 &&
+                             m_tradeChoice < m_trader->offerCount;
              ++rounds) {
             const world::TradeOffer& o = m_trader->offers[size_t(m_tradeChoice)];
             const world::ItemStack a = world::offerBuyA(o, m_heroLevel), b = world::offerBuyB(o);

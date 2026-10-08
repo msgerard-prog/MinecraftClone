@@ -160,7 +160,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // aim above for the drop
             // (Starts just outside its own box: vanilla's arrows ignore their shooter.)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
-            ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi);
+            if (ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi))
+                ctx.projectiles->last().skeleton = true;
             ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z);
         }
         break;
@@ -221,7 +222,6 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
                 MobData vex = make(MobType::Vex, m.pos + glm::dvec3(centredRand(ctx.rng) * 2.0, 1.0, centredRand(ctx.rng) * 2.0),
                                    ctx.rng);
                 vex.spellTicks = int16_t(20 * (30 + ctx.rng.nextInt(90))); // (lives 30-119 s)
-                vex.raider = m.raider;
                 m_births.push_back(vex);
             }
         }

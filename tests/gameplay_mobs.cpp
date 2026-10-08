@@ -1702,7 +1702,7 @@ TEST_CASE("zombies hunt villagers and infect them; weakness and a golden apple c
     for (MobData* m : s.all())
         if (m->type == MobType::Villager) {
             cured = true;
-            CHECK(m->offers[0].specialPrice == -5); // grateful: half off
+            CHECK(m->offers[0].specialPrice == -6); // grateful: 0.05 x 125 reputation off
         }
     CHECK(cured);
 }
@@ -1804,6 +1804,8 @@ TEST_CASE("villagers pick up food; two willing villagers with a free bed have a 
             CHECK(m->age > 0); // resting before breeding again
             CHECK(m->food[0] == 0); // the bread went into it
         }
+    for (MobData* m : s.all()) // (review fix: the child claims the free bed, so it isn't counted again)
+        if (m->type == MobType::Villager && m->isBaby()) CHECK(m->home.y == 64);
 }
 
 #include "gameplay/Projectiles.h"
@@ -1857,8 +1859,14 @@ TEST_CASE("wandering traders arrive by chance, sell wares and leave after 40 min
     CHECK(sp.chance == 25);
     CHECK(sp.delay == 24000);
     sp.delay = 1;
-    sp.chance = 100; // (a sure arrival)
-    CHECK(sp.tick(s.world, s.player.position(), s.rng));
+    sp.chance = 100; // (the chance passes; then the 1-in-10 roll - wiki)
+    int arrivals = 0;
+    for (int i = 0; i < 100 && arrivals == 0; ++i) {
+        sp.delay = 1;
+        sp.chance = 100;
+        arrivals += sp.tick(s.world, s.player.position(), s.rng);
+    }
+    CHECK(arrivals == 1);
     CHECK(sp.chance == 25);
     int traders = 0;
     for (MobData* m : s.all()) traders += m->type == MobType::WanderingTrader;
@@ -1979,7 +1987,7 @@ TEST_CASE("raids: Bad Omen near a bell becomes Raid Omen, then 5 waves; winning 
         REQUIRE(raid.wave() == wave);
         int count = 0, captains = 0;
         for (MobData* m : s.all())
-            if (m->raider && m->health > 0.0f) {
+            if (m->raidId == raid.id() && m->health > 0.0f) {
                 ++count;
                 captains += m->captain;
                 CHECK((isRaider(m->type) || m->type == MobType::Witch));
@@ -2014,7 +2022,7 @@ TEST_CASE("during a raid raiders march on the bell and villagers run home (M24.5
     v.home = {-6, 64, 0};
     REQUIRE(Mobs::add(s.world, v));
     MobData p = Mobs::make(MobType::Witch, {20.5, 64.0, 20.5}, s.rng);
-    p.raider = true;
+    p.raidId = 1;
     REQUIRE(Mobs::add(s.world, p));
     s.player.setPosition({-30.5, 64.0, -30.5});
     s.player.setCreative(true);
@@ -2024,6 +2032,7 @@ TEST_CASE("during a raid raiders march on the bell and villagers run home (M24.5
         Mobs::Context ctx{s.world, s.player, s.vitals, false, false, s.dayTime, 0.0f, s.rng, s.items};
         ctx.naturalSpawning = false;
         ctx.raidCentre = &centre;
+        ctx.raidId = 1;
         s.mobs.tick(ctx);
     }
     for (MobData* m : s.all()) {
@@ -2043,4 +2052,113 @@ TEST_CASE("Hero of the Village lowers trade prices by 30% + 6.25% a level, at le
     CHECK(offerPrice(o, 3) == 12); // 20 x 0.425 = 8.5 -> 8 off
     o.buyACount = 1;
     CHECK(offerPrice(o, 1) == 1);
+}
+
+TEST_CASE("an angry iron golem calms down after its anger runs out, even while chasing the player (review fix, M24.3)") {
+    MobScene s;
+    MobData g = Mobs::make(MobType::IronGolem, {4.5, 64.0, 0.5}, s.rng);
+    g.angry = true;
+    g.angerTicks = 600;
+    REQUIRE(Mobs::add(s.world, g));
+    for (int t = 0; t < 700; ++t) {
+        s.vitals.setHealth(20.0f); // (the player takes the hits and stays)
+        s.tick();
+    }
+    for (MobData* m : s.all())
+        if (m->type == MobType::IronGolem) CHECK_FALSE(m->angry);
+}
+
+TEST_CASE("raids pause while the village isn't loaded; a pending raid and raid ids survive saving (review fixes, M24.5)") {
+    MobScene s;
+    Raid far;
+    far.start({1000, 64, 1000}, 1); // (no chunks there: the player went away)
+    for (int t = 0; t < 100; ++t) far.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    CHECK(far.active());
+    CHECK_FALSE(far.loaded());
+    // Raid Omen running when the game saves: the raid still comes after loading.
+    s.world.setBlock({0, 64, 4}, blockRegistry().defaultState(blocks::Bell));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Villager, {2.5, 64.0, 2.5}, s.rng)));
+    Raid raid;
+    s.vitals.addEffect(Effect::BadOmen, 0, 120000);
+    for (int t = 0; t < 40; ++t) raid.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    REQUIRE(raid.pending());
+    Raid loaded;
+    loaded.restore(raid.state());
+    for (int t = 0; t < 600 && !loaded.active(); ++t) loaded.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    CHECK(loaded.active());
+    // A raider left from an older raid doesn't hold up this one's waves.
+    MobData old = Mobs::make(MobType::Pillager, {8.5, 64.0, 8.5}, s.rng);
+    old.raidId = loaded.id() + 100;
+    REQUIRE(Mobs::add(s.world, old));
+    for (int t = 0; t < 400 && loaded.wave() == 0; ++t) loaded.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    REQUIRE(loaded.wave() == 1);
+    for (MobData* m : s.all())
+        if (m->raidId == loaded.id()) m->health = 0.0f;
+    for (int t = 0; t < 400 && loaded.wave() == 1; ++t) loaded.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    CHECK(loaded.wave() == 2);
+}
+
+TEST_CASE("review fixes (M24): restocks reset each day; struck sleepers wake as witches; built golems stay calm; villagers flee pillagers; raid captains drop no bottle") {
+    MobScene s;
+    // A villager that restocked twice yesterday restocks again today at its job site.
+    s.world.setBlock({4, 64, 4}, blockRegistry().defaultState(blocks::Lectern));
+    MobData v = Mobs::make(MobType::Villager, {4.5, 64.0, 5.5}, s.rng);
+    v.profession = uint8_t(Profession::Librarian);
+    v.jobSite = {4, 64, 4};
+    TradeOffer o;
+    o.buyA = *itemRegistry().find("emerald");
+    o.buyACount = 1;
+    o.sell = *itemRegistry().find("stone");
+    o.sellCount = 1;
+    o.maxUses = 12;
+    o.uses = 12;
+    v.offers[v.offerCount++] = o;
+    v.restocksToday = 2;
+    v.lastRestockDay = 0;
+    REQUIRE(Mobs::add(s.world, v));
+    s.player.setPosition({30.5, 64.0, 30.5});
+    for (int t = 0; t < 100; ++t) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, false, false, 24000 + 4000, 0.0f, s.rng, s.items};
+        ctx.naturalSpawning = false;
+        s.mobs.tick(ctx);
+    }
+    for (MobData* m : s.all())
+        if (m->type == MobType::Villager) CHECK(m->offers[0].uses == 0);
+    // Lightning on a sleeping villager: a witch, standing.
+    for (MobData* m : s.all())
+        if (m->type == MobType::Villager) m->sleeping = true;
+    Mobs::strikeLightning(s.world, {4.5, 64.0, 5.5});
+    for (MobData* m : s.all())
+        if (m->type == MobType::Witch) CHECK_FALSE(m->sleeping);
+    // A golem the player built isn't angered by the player's hits.
+    MobData g = Mobs::make(MobType::IronGolem, {0.5, 64.0, -6.5}, s.rng);
+    g.playerCreated = true;
+    Mobs::attack(g, 2.0f, {0.5, 64.0, 0.5});
+    CHECK_FALSE(g.angry);
+    // Villagers run from a pillager 12 blocks away (wiki: 15).
+    MobScene f;
+    REQUIRE(Mobs::add(f.world, Mobs::make(MobType::Villager, {0.5, 64.0, 0.5}, f.rng)));
+    REQUIRE(Mobs::add(f.world, Mobs::make(MobType::Pillager, {12.5, 64.0, 0.5}, f.rng)));
+    f.player.setPosition({-30.5, 64.0, -30.5});
+    f.player.setCreative(true);
+    bool panicked = false;
+    for (int t = 0; t < 60 && !panicked; ++t) {
+        f.tick();
+        for (MobData* m : f.all()) panicked = panicked || (m->type == MobType::Villager && m->panicTicks > 0);
+    }
+    CHECK(panicked);
+    // A raid's wave leader drops no ominous bottle (only captains outside raids - wiki).
+    MobScene d;
+    MobData cpt = Mobs::make(MobType::Pillager, {3.5, 64.0, 0.5}, d.rng);
+    cpt.captain = true;
+    cpt.raidId = 3;
+    cpt.lastHurtByPlayer = true;
+    cpt.health = 0.0f;
+    REQUIRE(Mobs::add(d.world, cpt));
+    d.survival = false;
+    d.tick(30);
+    bool bottle = false;
+    for (const auto& it : d.items.items()) bottle = bottle || it.stack.item == *itemRegistry().find("ominous_bottle");
+    CHECK_FALSE(bottle);
 }

@@ -523,15 +523,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::PatrolSpawner patrolSpawner;          // (M24.4)
     mc::Raid raid;                            // (M24.5)
     if (level) {
-        if (level->raidActive)
-            raid.restore({true,
-                          {level->raidCentre[0], level->raidCentre[1], level->raidCentre[2]},
-                          level->raidWave,
-                          level->raidWaves,
-                          level->raidLevel,
-                          level->raidTicks,
-                          level->raidCooldown,
-                          level->raidWaveHealth});
+        raid.restore({level->raidActive,
+                      {level->raidCentre[0], level->raidCentre[1], level->raidCentre[2]},
+                      level->raidWave,
+                      level->raidWaves,
+                      level->raidLevel,
+                      level->raidTicks,
+                      level->raidCooldown,
+                      level->raidWaveHealth,
+                      level->raidId,
+                      level->raidNextId,
+                      level->raidPendingTicks,
+                      level->raidPendingLevel,
+                      {level->raidPendingCentre[0], level->raidPendingCentre[1], level->raidPendingCentre[2]}});
         dragonFight.killed = level->dragonKilled;
         traderSpawner.delay = level->traderSpawnDelay;
         traderSpawner.chance = level->traderSpawnChance;
@@ -711,6 +715,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             l.raidCentre[0] = r.centre.x, l.raidCentre[1] = r.centre.y, l.raidCentre[2] = r.centre.z;
             l.raidWave = r.wave, l.raidWaves = r.waves, l.raidLevel = r.level;
             l.raidTicks = r.ticks, l.raidCooldown = r.cooldown, l.raidWaveHealth = r.waveHealth;
+            l.raidId = r.id, l.raidNextId = r.nextId;
+            l.raidPendingTicks = r.pendingTicks, l.raidPendingLevel = r.pendingLevel;
+            l.raidPendingCentre[0] = r.pendingCentre.x, l.raidPendingCentre[1] = r.pendingCentre.y,
+            l.raidPendingCentre[2] = r.pendingCentre.z;
         }
         l.dragonPreviouslyKilled = dragonFight.previouslyKilled;
         l.dragonUuidHi = dragonFight.uuidHi;
@@ -898,7 +906,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1 && !trader; ++dx)
                 if (mc::world::Chunk* tc = world.chunk({pc.x + dx, pc.z + dz}))
                     for (auto& mob : tc->mobs())
-                        if (mob.uuidHi == traderUuid && mob.health > 0.0f) trader = &mob;
+                        if (mob.uuidHi == traderUuid && mob.health > 0.0f &&
+                            (mob.type == mc::world::MobType::Villager ||
+                             mob.type == mc::world::MobType::WanderingTrader)) // (not once infected or a witch)
+                            trader = &mob;
         if (trader && glm::length(trader->pos - player.position()) > 8.0) trader = nullptr;
         container.setTrader(trader);
         container.setHeroLevel(vitals.effectLevel(mc::world::Effect::HeroOfTheVillage));
@@ -2357,7 +2368,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             for (int dx = -1; dx <= 1; ++dx)
                                 if (mc::world::Chunk* gc = world.chunk({vc.x + dx, vc.z + dz}))
                                     for (auto& g : gc->mobs())
-                                        if (g.type == mc::world::MobType::IronGolem &&
+                                        if (g.type == mc::world::MobType::IronGolem && !g.playerCreated &&
                                             glm::length(g.pos - m.pos) < 16.0) {
                                             g.angry = true;
                                             g.angerTicks = 600;
@@ -2447,7 +2458,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
-            mobCtx.raidCentre = overworld && raid.active() ? &raid.centre() : nullptr;
+            mobCtx.raidCentre = overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
+            mobCtx.raidId = raid.id();
             for (int piece = 0; piece < 4;
                  ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() && mc::world::itemRegistry()
@@ -3538,7 +3550,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (mobs.bossHealth() >= 0.0f) // (M20.2)
                 mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f,
                                     mc::gfx::rgba(236, 72, 200), guiW);
-            if (raid.active() && dimension == Dimension::Overworld && // (M24.5: vanilla's red raid bar)
+            if (raid.active() && raid.loaded() && dimension == Dimension::Overworld && // (M24.5: vanilla's red raid bar)
                 glm::length(glm::dvec3(raid.centre()) - player.position()) < 96.0)
                 mc::ui::drawBossBar(batch, "Raid", raid.progress(),
                                     mc::gfx::rgba(220, 40, 40), guiW);

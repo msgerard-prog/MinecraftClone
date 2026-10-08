@@ -156,6 +156,10 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
         }
         if (!hasPoint(m.meetingPoint))
             if (const auto bell = findPoi(world, m, Poi::Bell)) m.meetingPoint = *bell;
+        // Nothing found: look less often (a village with too few beds or job sites
+        // would otherwise rescan its sections every 10-20 s per villager).
+        const bool wantsJob = m.profession != uint8_t(Profession::Nitwit) && !hasPoint(m.jobSite);
+        if (!m.isBaby() && (!hasPoint(m.home) || wantsJob)) m.poiSearch = int16_t(600 + ctx.rng.nextInt(600));
     }
     const int64_t t = ((ctx.dayTime % 24000) + 24000) % 24000;
     const bool night = t >= 12000;
@@ -208,12 +212,13 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
                 eatForBreeding(m);
                 eatForBreeding(*partner);
                 m.age = partner->age = 6000;
-                if (findPoi(world, m, Poi::Bed, true) && m_births.size() < m_births.capacity()) {
+                const auto freeBed = findPoi(world, m, Poi::Bed, true);
+                if (freeBed && m_births.size() < m_births.capacity()) {
                     MobData baby = make(MobType::Villager, (m.pos + partner->pos) * 0.5, ctx.rng);
                     baby.age = -24000;
+                    baby.home = *freeBed; // (the child claims the bed that let it be born)
                     baby.villagerType = m.villagerType;
                     m_births.push_back(baby);
-                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + int(ctx.rng.nextInt(7)), ctx.rng);
                 }
             }
             return true;
@@ -263,7 +268,7 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
         const glm::dvec3 js = centre(m.jobSite);
         // Working there restocks used trades, up to twice a day (wiki: Trading › Restocking).
         const int64_t day = ctx.dayTime / 24000;
-        if (m.lastRestockDay != day && m.restocksToday > 0 && t < 2100) m.restocksToday = 0;
+        if (m.lastRestockDay != day) m.restocksToday = 0; // (a new day: two restocks again)
         if (glm::length(glm::dvec2(js.x - m.pos.x, js.z - m.pos.z)) < 2.5 && m.restocksToday < 2) {
             bool used = false;
             for (int i = 0; i < m.offerCount; ++i)
@@ -392,8 +397,9 @@ bool Mobs::villageHunt(Context& ctx, MobData& z) {
 }
 
 // A zombie villager's Weakness wears off; a curing one becomes a villager when its
-// countdown ends, with lower prices out of gratitude (wiki: Zombie Villager › Curing;
-// ours: half the base price off each trade).
+// countdown ends, with lower prices out of gratitude (wiki: Zombie Villager › Curing:
+// the cure's 125 reputation takes price multiplier x 125 off - 0.05 trades 6, 0.2 trades
+// 25 - so many trades fall to 1 emerald; ours only on the trades it has now).
 void Mobs::zombieVillagerTick(MobData& m) {
     if (m.weaknessTicks > 0) --m.weaknessTicks;
     if (m.convertTicks <= 0 || --m.convertTicks > 0) return;
@@ -403,7 +409,8 @@ void Mobs::zombieVillagerTick(MobData& m) {
     m.targetUuid = 0;
     m.fireTicks = 0;
     for (int i = 0; i < m.offerCount; ++i)
-        m.offers[size_t(i)].specialPrice = int16_t(-std::max(1, m.offers[size_t(i)].buyACount / 2));
+        m.offers[size_t(i)].specialPrice =
+            int16_t(-std::max(1, int(std::floor(m.offers[size_t(i)].priceMultiplier * 125.0f))));
 }
 
 // A villager picks up food lying near it; farmers bake 3 wheat into bread; one with
@@ -453,9 +460,16 @@ void Mobs::villagerFear(Context& ctx, MobData& m) {
         for (int dx = -1; dx <= 1; ++dx)
             if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                 for (const MobData& o : ch->mobs()) {
-                    if (!isZombie(o.type) || o.health <= 0.0f) continue;
+                    // (wiki: Villager - zombies and vexes within 8, vindicators 10, evokers
+                    // and ravagers 12, pillagers 15)
+                    const double r = isZombie(o.type) || o.type == MobType::Vex ? 8.0
+                                     : o.type == MobType::Vindicator             ? 10.0
+                                     : o.type == MobType::Evoker || o.type == MobType::Ravager ? 12.0
+                                     : o.type == MobType::Pillager                             ? 15.0
+                                                                                               : 0.0;
+                    if (r == 0.0 || o.health <= 0.0f) continue;
                     const glm::dvec3 away = m.pos - o.pos;
-                    if (glm::dot(away, away) > 8.0 * 8.0) continue;
+                    if (glm::dot(away, away) > r * r) continue;
                     m.panicTicks = 60;
                     const double l = std::max(0.1, glm::length(glm::dvec2(away.x, away.z)));
                     m.goal = m.pos + glm::dvec3(away.x / l * 8.0, 0.0, away.z / l * 8.0);

@@ -5,6 +5,7 @@
 #include "world/Enchantments.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <span>
 #include <string_view>
@@ -54,7 +55,7 @@ constexpr T kArmorer1[] = {buy("coal", 15, 16, 2), sell(7, "iron_leggings", 1, 1
                            sell(9, "iron_chestplate", 1, 12, 1, 0.2f)};
 constexpr T kArmorer2[] = {buy("iron_ingot", 4, 12, 10), sell(36, "bell", 1, 12, 5, 0.2f)};
 constexpr T kArmorer3[] = {buy("lava_bucket", 1, 12, 20), buy("diamond", 1, 12, 20),
-                           sell(4, "shield", 1, 12, 10, 0.2f)};
+                           sell(5, "shield", 1, 12, 10, 0.2f)};
 constexpr T kArmorer4[] = {sell(19, "diamond_leggings", 1, 3, 15, 0.2f, 1),
                            sell(13, "diamond_boots", 1, 3, 15, 0.2f, 1)};
 constexpr T kArmorer5[] = {sell(13, "diamond_helmet", 1, 3, 30, 0.2f, 1),
@@ -71,7 +72,7 @@ constexpr T kCartographer1[] = {buy("paper", 24, 16, 2), sell(7, "map", 1, 12, 1
 constexpr T kCartographer2[] = {buy("glass_pane", 11, 16, 10)};
 constexpr T kCartographer3[] = {buy("compass", 1, 12, 20)};
 constexpr T kCartographer4[] = {sell(7, "item_frame", 1, 12, 15)};
-constexpr T kCartographer5[] = {sell(8, "white_banner", 1, 12, 30)};
+constexpr T kCartographer5[] = {sell(8, "globe_banner_pattern", 1, 12, 30)};
 
 constexpr T kCleric1[] = {buy("rotten_flesh", 32, 16, 2), sell(1, "redstone", 2, 12, 1)};
 constexpr T kCleric2[] = {buy("gold_ingot", 3, 12, 10), sell(1, "lapis_lazuli", 1, 12, 5)};
@@ -238,14 +239,28 @@ constexpr T kTraderRare[] = {sell(5, "nautilus_shell", 1, 5, 1), sell(3, "packed
 constexpr T kTraderBuys[] = {buy("baked_potato", 4, 2, 1), buy("hay_block", 1, 2, 1), buy("fermented_spider_eye", 1, 2, 1),
                              buy("glass_bottle", 1, 2, 1)};
 
+// The usable templates of a pool, without heap allocation (pools are small and fixed).
+struct UsableList {
+    std::array<const T*, 64> items{};
+    int count = 0;
+    void add(const T* t) {
+        if (count < int(items.size())) items[size_t(count++)] = t;
+    }
+    const T& take(Xoroshiro& rng) { // a random one, removed (order kept, as erase did)
+        const int i = int(rng.nextInt(uint32_t(count)));
+        const T* t = items[size_t(i)];
+        for (int j = i; j + 1 < count; ++j) items[size_t(j)] = items[size_t(j + 1)];
+        --count;
+        return *t;
+    }
+};
+
 void pickInto(MobData& v, std::span<const T> pool, int count, Xoroshiro& rng) {
-    std::vector<const T*> usable;
+    UsableList usable; // (fixed size: this runs in the tick when a trader arrives)
     for (const T& t : pool)
-        if (itemOf(t.buy) && itemOf(t.sell)) usable.push_back(&t);
-    for (int k = 0; k < count && !usable.empty() && v.offerCount < kMaxOffers; ++k) {
-        const size_t i = rng.nextInt(uint32_t(usable.size()));
-        const T& t = *usable[i];
-        usable.erase(usable.begin() + std::ptrdiff_t(i));
+        if (itemOf(t.buy) && itemOf(t.sell)) usable.add(&t);
+    for (int k = 0; k < count && usable.count > 0 && v.offerCount < kMaxOffers; ++k) {
+        const T& t = usable.take(rng);
         TradeOffer o;
         o.buyA = itemOf(t.buy);
         o.buyACount = uint8_t(t.buyCount);
@@ -275,15 +290,12 @@ void addLevelTrades(MobData& v, Xoroshiro& rng) {
     const Pools& pools = poolsFor(static_cast<Profession>(v.profession));
     const int level = std::clamp<int>(v.villagerLevel, 1, 5);
     // The usable templates of this level (their items exist), then 2 of them at random.
-    std::vector<const T*> usable;
+    UsableList usable;
     for (const T& t : pools.level[level - 1])
-        if (itemOf(t.buy) && itemOf(t.sell) && (t.buyB.empty() || itemOf(t.buyB)))
-            usable.push_back(&t);
-    const int want = level == 5 ? 1 : 2;
-    for (int k = 0; k < want && !usable.empty() && v.offerCount < kMaxOffers; ++k) {
-        const size_t i = rng.nextInt(uint32_t(usable.size()));
-        const T& t = *usable[i];
-        usable.erase(usable.begin() + std::ptrdiff_t(i));
+        if (itemOf(t.buy) && itemOf(t.sell) && (t.buyB.empty() || itemOf(t.buyB))) usable.add(&t);
+    const int want = 2; // (every level, master too, unlocks up to two - wiki: Trading)
+    for (int k = 0; k < want && usable.count > 0 && v.offerCount < kMaxOffers; ++k) {
+        const T& t = usable.take(rng);
         TradeOffer o;
         o.buyA = itemOf(t.buy);
         o.buyACount = uint8_t(t.buyCount);

@@ -21,6 +21,8 @@ std::optional<glm::ivec3> findBell(const World& world, const glm::dvec3& at, int
             const Chunk* ch = world.chunk({pc.x + dx, pc.z + dz});
             if (!ch) continue;
             for (int si = 0; si < ch->sectionCount(); ++si) {
+                const int sy = ch->height().minY + si * 16;
+                if (sy + 16 < at.y - range || sy > at.y + range) continue; // (outside the sphere's Y range)
                 const Section& sec = ch->section(si);
                 if (sec.isEmpty() ||
                     sec.allPaletteStates([](BlockStateId s) { return blockRegistry().blockOf(s) != blocks::Bell; }))
@@ -40,6 +42,7 @@ std::optional<glm::ivec3> findBell(const World& world, const glm::dvec3& at, int
 void Raid::start(const glm::ivec3& centre, int level) {
     m_active = true;
     m_centre = centre;
+    m_id = m_nextId++;
     m_level = std::max(1, level);
     m_waves = 5 + (m_level > 1 ? 1 : 0); // Normal: 5 waves, a bonus one at Bad Omen II+ (wiki)
     m_wave = 0;
@@ -83,7 +86,7 @@ void Raid::spawnWave(World& world, Xoroshiro& rng) {
             MobData m = Mobs::make(kTypes[k], {spot.x + 0.5 + rng.nextDouble() * 2 - 1, double(spot.y),
                                                spot.z + 0.5 + rng.nextDouble() * 2 - 1},
                                    rng);
-            m.raider = true;
+            m.raidId = m_id;
             m.persistent = true;
             if (kTypes[k] == MobType::Pillager && !captain) m.captain = captain = true; // (the wave's leader)
             if (Mobs::add(world, m)) m_waveHealth += m.health;
@@ -104,28 +107,48 @@ void Raid::tick(World& world, Vitals& vitals, const glm::dvec3& player, Xoroshir
         }
     if (m_pendingTicks > 0 && --m_pendingTicks == 0) start(m_pendingCentre, m_pendingLevel);
     if (!m_active) return;
+    // Paused while the village isn't loaded (the player went away, or the world is still
+    // loading): counting then would see no villagers and lose the raid.
+    const ChunkPos cc{blockToChunk(m_centre.x), blockToChunk(m_centre.z)};
+    m_loaded = true;
+    for (int dz = -2; dz <= 2 && m_loaded; ++dz)
+        for (int dx = -2; dx <= 2 && m_loaded; ++dx) m_loaded = world.chunk({cc.x + dx, cc.z + dz}) != nullptr;
+    if (!m_loaded) return;
     ++m_ticks;
     if (m_ticks % 20 != 0) return;
     // The raiders left, and the villagers near the bell.
     m_alive = 0;
     m_aliveHealth = 0.0f;
     int villagers = 0;
-    world.forEachChunk([&](Chunk& c) {
-        for (const MobData& m : c.mobs()) {
-            if (m.health <= 0.0f) continue;
-            if (m.raider) ++m_alive, m_aliveHealth += m.health;
-            if (m.type == MobType::Villager && glm::length(glm::dvec3(m_centre) - m.pos) < 96.0) ++villagers;
+    // (only the chunks within 96 blocks of the bell: raiders that wander farther are out)
+    for (int dz = -7; dz <= 7; ++dz)
+        for (int dx = -7; dx <= 7; ++dx) {
+            const Chunk* c = world.chunk({cc.x + dx, cc.z + dz});
+            if (!c) continue;
+            for (const MobData& m : c->mobs()) {
+                if (m.health <= 0.0f) continue;
+                if (m.raidId == m_id) ++m_alive, m_aliveHealth += m.health;
+                if (m.type == MobType::Villager && glm::length(glm::dvec3(m_centre) - m.pos) < 96.0) ++villagers;
+            }
         }
-    });
-    if (villagers == 0 || m_ticks > 48000) { // lost, or given up (wiki)
+    // Over: the raiders left stop being part of it (they stay as ordinary mobs).
+    auto finish = [&] {
         m_active = false;
+        for (int dz = -7; dz <= 7; ++dz)
+            for (int dx = -7; dx <= 7; ++dx)
+                if (Chunk* c = world.chunk({cc.x + dx, cc.z + dz}))
+                    for (MobData& m : c->mobs())
+                        if (m.raidId == m_id) m.raidId = 0;
+    };
+    if (villagers == 0 || m_ticks > 48000) { // lost, or given up (wiki)
+        finish();
         return;
     }
     if (m_alive > 0) return;
     if (m_wave >= m_waves) { // won: the hero's reward (wiki: Hero of the Village, 40 min)
         if (glm::length(glm::dvec3(m_centre) - player) < 96.0)
             vitals.addEffect(Effect::HeroOfTheVillage, m_level - 1, 48000);
-        m_active = false;
+        finish();
         return;
     }
     if ((m_cooldown -= 20) <= 0) {

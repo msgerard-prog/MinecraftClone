@@ -57,7 +57,7 @@ const MobInfo& mobInfo(MobType t) {
         // wiki: Witch - 26 health, 0.6 x 1.95, speed 0.25, throws potions.
         {"minecraft:witch", 26.0f, 0.6, 1.95, 0.25, 0.0f, true},
         // wiki: Wandering Trader - 20 health, 0.6 x 1.95, speed 0.5, passive.
-        {"minecraft:wandering_trader", 20.0f, 0.6, 1.95, 0.5, 0.0f, false},
+        {"minecraft:wandering_trader", 20.0f, 0.6, 1.95, 0.7, 0.0f, false},
         // wiki: Pillager - 24 health, 0.6 x 1.95, speed 0.35, shoots a crossbow.
         {"minecraft:pillager", 24.0f, 0.6, 1.95, 0.35, 0.0f, true},
         // wiki: Vindicator (24, 0.6 x 1.95, 0.35, an axe for 13 on Normal), Evoker (24,

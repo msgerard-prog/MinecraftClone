@@ -61,6 +61,7 @@ struct Projectile {
     bool fromPlayer = false; // shot by the player (can be picked up; doesn't hit them at once)
     uint64_t owner = 0;      // the shooting mob's UUID (high half): never hit by its own arrow
     bool critical = false;
+    bool skeleton = false; // shot by a skeleton (creepers it kills drop a music disc; pillagers' bolts don't)
     uint8_t power = 0, punch = 0; // bow enchantments (damage, knockback)
     bool flame = false;           // sets what it hits on fire
     bool pickup = true;           // (Infinity arrows can't be picked up)

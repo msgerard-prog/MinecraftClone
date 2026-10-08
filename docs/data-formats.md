@@ -226,6 +226,12 @@ M24.4: `minecraft:witch`, `minecraft:wandering_trader` (`DespawnDelay`, `Offers`
 `minecraft:pillager` (`PatrolLeader`, `Patrolling`, `CanJoinRaid`); level.dat
 `WanderingTraderSpawnDelay`/`WanderingTraderSpawnChance`; items `crossbow`,
 `ominous_bottle`; loot table `PillagerOutpost`.
+M24.5: `minecraft:vindicator`, `evoker`, `vex`, `ravager`; raiders in a raid carry
+`Wave` and `RaidId`; iron golems `PlayerCreated`; effects `bad_omen`, `raid_omen`,
+`hero_of_the_village`; item `totem_of_undying`. level.dat `Raid` (our tag; vanilla keeps
+raids in data/raids.dat): `Active`, `Id`, `NextAvailableID`, `Center` [x,y,z], `Wave`,
+`NumGroups`, `BadOmenLevel`, `TicksActive`, `PreRaidTicks`, `TotalHealth`, and the
+pending raid `OmenTicks`, `OmenLevel`, `OmenCenter`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

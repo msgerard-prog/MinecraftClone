@@ -82,6 +82,9 @@ struct LevelData {
     int32_t raidCentre[3] = {0, 0, 0};
     int raidWave = 0, raidWaves = 0, raidLevel = 1, raidTicks = 0, raidCooldown = 0;
     float raidWaveHealth = 0.0f;
+    int32_t raidId = 0, raidNextId = 1;
+    int raidPendingTicks = 0, raidPendingLevel = 1; // Raid Omen running (the raid starts at raidPendingCentre)
+    int32_t raidPendingCentre[3] = {0, 0, 0};
     uint64_t dragonUuidHi = 0, dragonUuidLo = 0;
     std::vector<int32_t> gateways;
     bool hasGateways = false; // (the Gateways list exists: the fight has started)

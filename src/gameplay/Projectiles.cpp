@@ -322,7 +322,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                         m.health -= amount;
                                         m.hurtTime = 10;
                                         if (p.fromPlayer) m.lastHurtByPlayer = true;
-                            m.lastHurtBySkeleton = !p.fromPlayer && p.owner != 0 && p.kind == ProjectileKind::Arrow;
+                            m.lastHurtBySkeleton = p.skeleton;
                                     } else {
                                         m.health = std::min(mobInfo(m.type).maxHealth, m.health + amount);
                                     }
@@ -396,7 +396,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             // A perched dragon shrugs arrows off (wiki: Ender Dragon).
                         } else if (m.hurtTime == 0) {
                             if (p.fromPlayer) m.lastHurtByPlayer = true;
-                            m.lastHurtBySkeleton = !p.fromPlayer && p.owner != 0 && p.kind == ProjectileKind::Arrow;
+                            m.lastHurtBySkeleton = p.skeleton;
                             m.health -= m.type == MobType::EnderDragon
                                             ? Mobs::dragonDamage(m, float(damage), p.pos + dir * reach)
                                             : float(damage);

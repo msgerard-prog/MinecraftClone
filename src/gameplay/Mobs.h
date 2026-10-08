@@ -43,6 +43,7 @@ public:
         const world::Weather* weather = nullptr; // rain: undead don't burn, endermen get hurt (M22.1)
         bool thundering = false; // monsters spawn as if sky light were 10 lower (any time of day)
         const glm::ivec3* raidCentre = nullptr; // a raid is on (M24.5): raiders head there, villagers hide
+        int32_t raidId = 0;                     // (its id: raiders of older raids stay out of it)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

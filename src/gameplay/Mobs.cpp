@@ -134,6 +134,8 @@ bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
                     m.type = MobType::Witch;
                     m.health = mobInfo(m.type).maxHealth;
                     m.age = 0;
+                    m.sleeping = false; // (out of its bed, not trading any more)
+                    m.tradingTicks = 0;
                     m.persistent = true;
                     continue;
                 }
@@ -349,7 +351,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
                           : m.type == MobType::Enderman ? 64.0
                           : m.type == MobType::Pillager ? 32.0 // (wiki: Pillager - follow range 32)
                                                         : 16.0;
-    // An angered iron golem goes for the player like a monster (wiki: Iron Golem).
+    // An angered iron golem goes for the player like a monster (wiki: Iron Golem), until
+    // its anger runs out (counted here, also while it chases).
+    if (m.type == MobType::IronGolem && m.angry && --m.angerTicks <= 0) m.angry = false;
     const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry);
     if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
@@ -397,7 +401,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
                 m.type == MobType::Ravager) &&
                villageHunt(ctx, m)) {
         chase = true; // (after a villager: Villagers.cpp)
-    } else if (m.raider && ctx.raidCentre &&
+    } else if (m.raidId != 0 && m.raidId == ctx.raidId && ctx.raidCentre &&
                glm::length(glm::dvec2(ctx.raidCentre->x + 0.5 - m.pos.x, ctx.raidCentre->z + 0.5 - m.pos.z)) > 6.0) {
         // Raiders with nobody to fight march on the village bell (wiki: Raid).
         m.goal = glm::dvec3(*ctx.raidCentre) + glm::dvec3(0.5, 0.0, 0.5);
@@ -501,8 +505,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const double reach = info.width * 2.0 + 0.6;
         if (playerDist2 < reach * reach && box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
                                                                   ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
-            // (golems: 7.5 + up to 15 and a throw upward)
-            const float hit = info.attackDamage + (m.type == MobType::IronGolem ? ctx.rng.nextFloat() * 15.0f : 0.0f);
+            // (golems: 7.5 + 0-14 and a throw upward)
+            const float hit = info.attackDamage + (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
             if (ctx.vitals.attacked(hit, &m.pos)) {
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
                 if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
@@ -564,9 +568,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
     m.lastHurtBySkeleton = false;
-    if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki)
-        m.angry = true;
-        m.angerTicks = 600;
+    if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless player-built
+        if (!m.playerCreated) {
+            m.angry = true;
+            m.angerTicks = 600;
+        }
     } else if (!mobInfo(m.type).hostile) {
         m.panicTicks = 100; // passive mobs flee (wiki: Cow)
     }
@@ -654,10 +660,13 @@ void Mobs::die(Context& ctx, MobData& m) {
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
     // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
-    // (wiki: blazes 10, magma cubes their size)
-    if (ctx.orbs && m.lastHurtByPlayer)
+    // (wiki: blazes and evokers 10, ravagers 20, magma cubes their size; villagers,
+    // wandering traders and iron golems none)
+    const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader || m.type == MobType::IronGolem;
+    if (ctx.orbs && m.lastHurtByPlayer && !noXp)
         ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
-                       m.type == MobType::Blaze       ? 10
+                       m.type == MobType::Ravager                             ? 20
+                       : m.type == MobType::Blaze || m.type == MobType::Evoker ? 10
                        : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
                        : mobInfo(m.type).hostile      ? 5
                                                       : 1 + static_cast<int>(ctx.rng.nextInt(3)),
@@ -679,7 +688,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Vindicator: // wiki: Vindicator - 0-1 emerald, sometimes its iron axe
         drop("emerald", 0, 1);
         if (ctx.rng.nextInt(1000) < 85) drop("iron_axe", 1, 1);
-        if (m.captain && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1);
+        if (m.captain && m.raidId == 0 && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1);
         break;
     case MobType::Evoker: // wiki: Evoker - a totem of undying, 0-1 emerald
         drop("totem_of_undying", 1, 1);
@@ -688,7 +697,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Pillager: // wiki: Pillager - 0-2 arrows, sometimes its crossbow (8.5%)
         drop("arrow", 0, 2);
         if (ctx.rng.nextInt(1000) < 85) drop("crossbow", 1, 1);
-        if (m.captain && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
+        if (m.captain && m.raidId == 0 && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
         break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);

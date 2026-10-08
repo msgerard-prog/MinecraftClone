@@ -176,8 +176,9 @@ struct MobData {
     int16_t drinkTicks = 0;
     int16_t fireResistTicks = 0;
     int despawnDelay = 0; // wandering trader: ticks until it leaves (saved as DespawnDelay)
+    bool playerCreated = false; // an iron golem the player built: never turns on the player (vanilla PlayerCreated)
     bool captain = false; // a patrol / raid captain (M24.4; drops an ominous bottle)
-    bool raider = false;  // (M24.5) part of the current raid (saved as a raider's wave)
+    int32_t raidId = 0;   // (M24.5) the raid it belongs to, 0: none (vanilla RaidId)
     int16_t spellTicks = 0; // evoker: casting (fangs, vexes); vex: life left
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation

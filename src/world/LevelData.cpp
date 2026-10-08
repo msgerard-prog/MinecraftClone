@@ -219,8 +219,14 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("Player", std::move(player));
     data.put("WanderingTraderSpawnDelay", int32_t{traderSpawnDelay});
     data.put("WanderingTraderSpawnChance", int32_t{traderSpawnChance});
-    if (raidActive) {
+    if (raidActive || raidPendingTicks > 0 || raidNextId > 1) {
         Compound raid;
+        raid.put("Active", int8_t(raidActive ? 1 : 0));
+        raid.put("Id", int32_t{raidId});
+        raid.put("NextAvailableID", int32_t{raidNextId});
+        raid.put("OmenTicks", int32_t{raidPendingTicks});
+        raid.put("OmenLevel", int32_t{raidPendingLevel});
+        raid.put("OmenCenter", std::vector<int32_t>{raidPendingCentre[0], raidPendingCentre[1], raidPendingCentre[2]});
         raid.put("Center", std::vector<int32_t>{raidCentre[0], raidCentre[1], raidCentre[2]});
         raid.put("Wave", int32_t{raidWave});
         raid.put("NumGroups", int32_t{raidWaves});
@@ -369,9 +375,16 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         if (const Compound* raid = data->compound("Raid")) {
             const Tag* centre = raid->find("Center");
             if (const auto* c = centre ? centre->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3) {
-                l.raidActive = true;
+                l.raidActive = raid->integer("Active").value_or(1) != 0;
                 for (int i = 0; i < 3; ++i) l.raidCentre[i] = (*c)[size_t(i)];
             }
+            const Tag* omen = raid->find("OmenCenter");
+            if (const auto* c = omen ? omen->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3)
+                for (int i = 0; i < 3; ++i) l.raidPendingCentre[i] = (*c)[size_t(i)];
+            l.raidId = int32_t(std::clamp<int64_t>(raid->integer("Id").value_or(0), 0, 1 << 30));
+            l.raidNextId = int32_t(std::clamp<int64_t>(raid->integer("NextAvailableID").value_or(1), 1, 1 << 30));
+            l.raidPendingTicks = int(std::clamp<int64_t>(raid->integer("OmenTicks").value_or(0), 0, 600));
+            l.raidPendingLevel = int(std::clamp<int64_t>(raid->integer("OmenLevel").value_or(1), 1, 5));
             l.raidWave = int(std::clamp<int64_t>(raid->integer("Wave").value_or(0), 0, 7));
             l.raidWaves = int(std::clamp<int64_t>(raid->integer("NumGroups").value_or(5), 1, 7));
             l.raidLevel = int(std::clamp<int64_t>(raid->integer("BadOmenLevel").value_or(1), 1, 5));

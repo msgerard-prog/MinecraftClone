@@ -361,7 +361,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (villager xp and levels at 10/70/150/250), `restock` at the job site twice a day;
   `ContainerScreen::Type::Trading` (offers in two columns, payments auto-filled;
   main re-points it at the villager by UUID each frame and drops the player's orbs).
-  M24.3: `zombieHunt` (zombies chase villagers by UUID; a kill infects half the time,
+  M24.3: `villageHunt` (zombies, later raiders, chase villagers by UUID; a kill infects half the time,
   turning the villager into a `ZombieVillager` in place), `zombieVillagerTick` (the
   weakness + golden apple cure); `Golems.cpp`: `golemGoal` (monsters within 16,
   patrol, anger), `villagersCallGolem`, `buildIronGolem` (T of iron + carved pumpkin);
@@ -376,7 +376,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   M24.5: vindicators, evokers (fangs, vexes), vexes, ravagers (`villageHunt` for all
   raiders); `gameplay/Raids` (`Raid`, owned by main, saved in level.dat `Raid`): Bad
   Omen (ominous bottle, `/effect`) near a bell (`findBell`) becomes Raid Omen, then the
-  waves spawn ~32 blocks out (`MobData::raider`, saved as `Wave`); `Context::raidCentre`
+  waves spawn ~32 blocks out (`MobData::raidId`, saved as `Wave`/`RaidId`; the raid pauses while the village is unloaded, the pending omen is saved); `Context::raidCentre`
   sends idle raiders to the bell and villagers home; the red bar is the living raiders'
   health; victory gives Hero of the Village (`offerPrice(o, heroLevel)` discount).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5

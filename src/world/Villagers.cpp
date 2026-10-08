@@ -54,6 +54,9 @@ Profession professionForJobSite(BlockId block) {
             const std::string_view id = bare(r.block(b).id);
             for (size_t i = 1; i < std::size(kProfessions); ++i)
                 if (!kProfessions[i].jobSite.empty() && kProfessions[i].jobSite == id) t[b] = static_cast<Profession>(i);
+            // (wiki: any cauldron - water, lava, powder snow - is a leatherworker's)
+            if (id == "water_cauldron" || id == "lava_cauldron" || id == "powder_snow_cauldron")
+                t[b] = Profession::Leatherworker;
         }
         return t;
     }();

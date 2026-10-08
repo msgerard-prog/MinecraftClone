@@ -6,6 +6,10 @@
 
 #include <glm/glm.hpp>
 
+#include <algorithm>
+#include <cstdint>
+#include <optional>
+
 namespace mc {
 
 // Raids (M24.5; wiki: Raid). A player with Bad Omen who comes within 32 blocks of a
@@ -18,6 +22,9 @@ public:
     bool active() const { return m_active; }
     bool pending() const { return m_pendingTicks > 0; }
     const glm::ivec3& centre() const { return m_centre; }
+    int32_t id() const { return m_id; } // (raiders carry it: MobData::raidId)
+    // The village is loaded: the raid runs (it pauses, bar hidden, while it isn't - vanilla).
+    bool loaded() const { return m_loaded; }
     int wave() const { return m_wave; }
     int waves() const { return m_waves; }
     // The raid bar: the living raiders' health over the wave's starting health.
@@ -30,9 +37,14 @@ public:
         glm::ivec3 centre{0};
         int wave = 0, waves = 0, level = 1, ticks = 0, cooldown = 0;
         float waveHealth = 0.0f;
+        int32_t id = 0, nextId = 1;
+        int pendingTicks = 0, pendingLevel = 1; // (Raid Omen running: the raid starts at pendingCentre)
+        glm::ivec3 pendingCentre{0};
     };
     State state() const {
-        return {m_active, m_centre, m_wave, m_waves, m_level, m_ticks, m_cooldown, m_waveHealth};
+        return {m_active, m_centre,       m_wave,         m_waves,        m_level,       m_ticks,
+                m_cooldown, m_waveHealth, m_id,           m_nextId,       m_pendingTicks, m_pendingLevel,
+                m_pendingCentre};
     }
     void restore(const State& s) {
         m_active = s.active;
@@ -43,12 +55,18 @@ public:
         m_ticks = s.ticks;
         m_cooldown = s.cooldown;
         m_waveHealth = s.waveHealth;
+        m_id = s.id;
+        m_nextId = std::max(s.nextId, s.id + 1);
+        m_pendingTicks = s.pendingTicks;
+        m_pendingLevel = s.pendingLevel;
+        m_pendingCentre = s.pendingCentre;
     }
     void start(const glm::ivec3& centre, int level); // (public for tests and /raid-like starts)
 
 private:
     void spawnWave(world::World& world, world::Xoroshiro& rng);
-    bool m_active = false;
+    bool m_active = false, m_loaded = false;
+    int32_t m_id = 0, m_nextId = 1;
     glm::ivec3 m_centre{0}, m_pendingCentre{0};
     int m_pendingTicks = 0, m_pendingLevel = 1;
     int m_wave = 0, m_waves = 0, m_level = 1, m_ticks = 0, m_cooldown = 0, m_counter = 0;

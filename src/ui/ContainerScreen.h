@@ -115,7 +115,11 @@ public:
     }
     void setTrader(world::MobData* villager) { m_trader = villager; }
     // Hero of the Village level of the player trading (M24.5: lower prices).
-    void setHeroLevel(int level) { m_heroLevel = level; }
+    void setHeroLevel(int level) {
+        if (level == m_heroLevel) return;
+        m_heroLevel = level;
+        if (m_type == Type::Trading) updateResult(); // (the prices changed)
+    }
     int takeTradeExperience() { return std::exchange(m_tradeXp, 0); }
     int tradeChoice() const { return m_tradeChoice; }
     // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by

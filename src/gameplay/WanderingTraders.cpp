@@ -17,6 +17,7 @@ bool WanderingTraderSpawner::tick(World& world, const glm::dvec3& player, Xorosh
         chance = std::min(75, chance + 25);
         return false;
     }
+    if (rng.nextInt(10) != 0) return false; // (then 1 in 10: 2.5/5/7.5% a day - wiki)
     // Around a bell within 48 blocks if there is one (a quick look in the 3x3 chunks'
     // section palettes), else the player.
     glm::dvec3 centre = player;

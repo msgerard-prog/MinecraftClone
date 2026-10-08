@@ -1176,3 +1176,33 @@ TEST_CASE("villagers save their data, memories and trades (M24.1-2)") {
     CHECK(b.offers[0].demand == 3);
     CHECK(b.persistent);
 }
+
+TEST_CASE("raiders, captains, curing zombie villagers, traders and built golems keep their state (M24.3-5)") {
+    Chunk c({0, 0});
+    auto mob = [&](MobType t, double x) {
+        MobData m;
+        m.type = t;
+        m.pos = {x, 64.0, 4.5};
+        m.health = 20.0f;
+        m.uuidHi = 0x4000 + uint64_t(x * 10);
+        return m;
+    };
+    MobData p = mob(MobType::Pillager, 1.5);
+    p.captain = true;
+    p.raidId = 7;
+    MobData z = mob(MobType::ZombieVillager, 3.5);
+    z.convertTicks = 1234;
+    MobData t = mob(MobType::WanderingTrader, 5.5);
+    t.despawnDelay = 3000;
+    MobData g = mob(MobType::IronGolem, 7.5);
+    g.playerCreated = true;
+    for (const MobData& m : {p, z, t, g}) c.mobs().push_back(m);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 4);
+    CHECK(back.mobs()[0].captain);
+    CHECK(back.mobs()[0].raidId == 7);
+    CHECK(back.mobs()[1].convertTicks == 1234);
+    CHECK(back.mobs()[2].despawnDelay == 3000);
+    CHECK(back.mobs()[3].playerCreated);
+}

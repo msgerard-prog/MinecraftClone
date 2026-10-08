@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 # Version: MAJOR.MINOR.PATCH (semantic). Before 1.0 the minor number follows the last
 # finished milestone (0.12 = M12); v1.0.0 is tagged when M22 is done. Each build also
 # records `git describe` (BuildInfo.h), shown in the log, F3 and --version.
-project(MinecraftClone VERSION 0.23.0 LANGUAGES C CXX RC)
+project(MinecraftClone VERSION 0.24.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

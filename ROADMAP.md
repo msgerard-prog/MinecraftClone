@@ -3,31 +3,27 @@
 Claude rewrites **Status** and **Next** every session and ticks steps as they land.
 Milestone details live here; design detail lives in `docs/`.
 
-## Status (2026-10-07)
-M23 done (reviews applied; v0.23.0): slabs, stairs, walls, panes, carpets, ladders,
-lanterns, every wood set incl. mangrove/bamboo/pale oak, signs, concrete, terracotta,
-copper ageing, campfires, smoker, blast furnace, barrel, composter, cauldrons,
-stonecutter, grindstone, ender chests, shulker boxes, netherite (nether3), smithing
-and trims, loom/cartography screens, beacons, conduits, note blocks, jukeboxes.
-M1-M22 done. v1.0 waits for M24-M28.
+## Status (2026-10-08)
+M24 done (reviews applied; v0.24.0): villagers (professions, schedules, beds, job
+sites, bells), trading (levels, demand, restocking), breeding, zombie villagers and
+curing, iron golems, witches, wandering traders, pillagers, patrols and outposts,
+vindicators, evokers, vexes, ravagers, totems, raids and Hero of the Village (overworld3).
+M1-M23 done. v1.0 waits for M25-M28.
 
 ## Next
-M24 - Villages 2 (wiki pages of each mob/mechanic):
-1. ✅ M24.1 - Villagers: the mob (adult/baby, biome type, 13 professions, nitwits),
-   job site blocks (adds lectern and fletching table), points of interest (beds,
-   job sites, bells), the daily schedule (wander, work, gather, sleep in a bed),
-   models and skins; the "overworld3" generator puts beds, job sites, a bell and
-   villagers in villages (overworld2 stays pinned).
-2. ✅ M24.2 - Trading: per-profession trade tables from the wiki, the trading screen,
-   uses and restocking at the job site, villager experience and levels, demand and
-   price changes, emeralds.
-3. ✅ M24.3 - Villager breeding (food, beds), iron golems (built and spawned, defend the
-   village), zombie villagers (infection, curing with weakness + golden apple).
-   (Witches from lightning moved to M24.4 with witches.)
-4. ✅ M24.4 - Wandering traders, witches (swamp huts, potion throwing), pillagers and
-   pillager outposts (crossbow shots).
-5. ✅ M24.5 - Raids: ominous bottles and Bad Omen, raid waves (pillagers, vindicators,
-   evokers and vexes, ravagers, witches), the raid bar, Hero of the Village.
+M25 - Oceans (wiki pages of each biome/mob/structure):
+1. M25.1 - Ocean biomes (warm/lukewarm/cold/frozen, deep variants) with their floors,
+   kelp, seagrass, sea pickles and coral (blocks, fans, reefs), icebergs; water
+   aquifers in a new overworld generator version.
+2. M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
+   items and fish buckets; cod, salmon, tropical fish, pufferfish, squid and glow squid.
+3. M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
+   (throwing, Loyalty/Riptide/Impaling/Channeling), dolphins (Dolphin's Grace), turtles
+   (eggs, scutes, turtle helmet).
+4. M25.4 - Shipwrecks, ocean ruins (with suspicious sand left for M27), buried
+   treasure and treasure maps where maps allow (maps come in M28).
+5. M25.5 - Guardians, elder guardians (Mining Fatigue) and ocean monuments (prismarine,
+   sponges, gold), conduit attacks on hostile mobs, hearts of the sea.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -50,6 +46,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M24 perf review: a per-chunk POI index (vanilla PoiManager) instead of
+  section scans for beds/job sites/bells; trade offers in a side pool (MobData is
+  1048 bytes since M24); `mobByUuid` own chunk first or a target-chunk hint (pillagers
+  look their target up twice a tick); breeding partner search once a second; check
+  remembered points every 20 ticks; villager item pickup only from nearby chunks;
+  `Mobs::die`'s 64-entry drop-name cache now holds ~47 names (move to item statics
+  before M26); generated villagers could get their bed as home at generation.
 - From the M23 perf review: one playing jukebox holds 15-25 of the 32 sound voices
   (a music voice budget, or stop the previous lead note - with the M22 sound item);
   the item-contents table (`world/ItemContainers`) never frees entries - each chunk
@@ -150,6 +153,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M24 note:** overworld3 (new worlds) is frozen as of v0.24.0; worlds made with M24
+  development builds may show seams near pillager outposts (outposts became 5x rarer
+  in the review). Try it: `tools/run.sh --world "M24 test"`, find a village, trade
+  (right-click an employed villager), `/effect give @s bad_omen 6000` near the bell
+  for a raid.
 - **M23 note:** new worlds use the "nether3" Nether (ancient debris); nether2 is now
   pinned too and older worlds keep it.
 - **M22 checks:** listen to the sounds (`tools/run.sh`): ours are synthesized - say if
@@ -250,7 +258,7 @@ and GUI textures are made with their systems.
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | ✅ 2026-10-07 v0.21.0 (plain minecarts; see deviations) |
 | M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | ✅ 2026-10-07 v0.22.0 (synthesized sounds, one-page options: see deviations) |
 | M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | ✅ 2026-10-07 v0.23.0 (our own disc tunes, loom/cartography screens only: see deviations) |
-| M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | Villages live |
+| M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | ✅ 2026-10-08 v0.24.0 (no gossip, bell-centred raids: see deviations) |
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | Oceans as in 1.21 |
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
@@ -263,6 +271,7 @@ and GUI textures are made with their systems.
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-08 M24 (v0.24.0): villagers, trading, breeding, zombie villagers, iron golems, witches, wandering traders, pillagers, patrols, outposts, illagers, raids.
 - 2026-10-07 M23 (v0.23.0): building blocks, woods, signs, copper, workstations, ender chests, shulker boxes, netherite, beacons, conduits, note blocks, jukeboxes.
 - 2026-10-07 M22 (v0.22.0): weather, sky and clouds, particles, sound, menus and options.
 - 2026-10-07 M21 (v0.21.0): doors, plates, TNT, comparators, observers, hoppers, dispensers, rails, minecarts, slimes, piston animation, collision shapes.

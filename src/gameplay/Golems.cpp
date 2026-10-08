@@ -20,9 +20,8 @@ bool golemTarget(const MobData& o) {
 
 // The golem's goal: the nearest monster within 16 blocks (looked for about once a
 // second, chased while within 32), else a stroll around where it came from (its
-// village). Hits for 7.5 + up to 15 and throws the target up (wiki). True: chasing.
+// village). Hits for 7.5 + 0-14 (7.5-21.5) and throws the target up (wiki). True: chasing.
 bool Mobs::golemGoal(Context& ctx, MobData& g, double& speed) {
-    if (g.angry && --g.angerTicks <= 0) g.angry = false;
     MobData* t = g.targetUuid ? mobByUuid(ctx.world, g.pos, g.targetUuid) : nullptr;
     if (t && (!golemTarget(*t) || glm::length(t->pos - g.pos) > 32.0)) t = nullptr;
     if (!t) g.targetUuid = 0;
@@ -45,7 +44,7 @@ bool Mobs::golemGoal(Context& ctx, MobData& g, double& speed) {
         if (g.attackCooldown == 0 && glm::length(glm::dvec2(t->pos.x - g.pos.x, t->pos.z - g.pos.z)) < reach &&
             std::abs(t->pos.y - g.pos.y) < 2.0) {
             g.attackCooldown = 20;
-            t->health -= mobInfo(g.type).attackDamage + ctx.rng.nextFloat() * 15.0f;
+            t->health -= mobInfo(g.type).attackDamage + float(ctx.rng.nextInt(15));
             t->hurtTime = 10;
             t->vel.y += 0.4; // (thrown up)
             t->lastHurtByPlayer = false;
@@ -115,6 +114,7 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
                                   BlockPos{x - ax, y - 1, z - az}})
             world.updateBlock(b, 0);
         MobData golem = make(MobType::IronGolem, {x + 0.5, double(y - 2), z + 0.5}, rng);
+        golem.playerCreated = true; // (it never attacks the player, even when hit - wiki)
         golem.home = {x, y - 2, z};
         add(world, golem);
         return true;
