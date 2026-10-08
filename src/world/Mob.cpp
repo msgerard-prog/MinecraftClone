@@ -147,6 +147,8 @@ const MobInfo& mobInfo(MobType t) {
         // wiki: Warden - 500 health, 0.9 x 2.9, speed 0.3 (fast when angry), hits for 30
         // (Normal); its model is drawn twice size (half-size boxes on a 64x64 skin).
         {"minecraft:warden", 500.0f, 0.9, 2.9, 0.3, 30.0f, true, false, false, 2.0f},
+        // wiki: Sniffer - 14 health, 1.9 x 1.75, speed 0.1; drawn twice size (half boxes).
+        {"minecraft:sniffer", 14.0f, 1.9, 1.75, 0.1, 0.0f, false, false, false, 2.0f},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

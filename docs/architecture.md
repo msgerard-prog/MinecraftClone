@@ -572,7 +572,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   stage every 10 ticks, then the item out of the brushed face via `rollOne`). overworld6
   (M27.5b) puts suspicious blocks in desert pyramids and ocean ruins (`StructureBuilder::
   suspicious`, `GeneratedEntity::brushable`), trail ruins (grid `kTrailRuins`) and desert
-  wells (`placeArchaeology6`).
+  wells (`placeArchaeology6`). Sniffers (M27.5c, `gameplay/Sniffers.cpp`): `snifferTick`
+  digs up torchflower seeds or pitcher pods every few minutes; bred, they lay a sniffer egg
+  (Animals.cpp), which hatches on scheduled ticks into `hatched()` for main; torchflower and
+  pitcher crops grow on random ticks (`growSniffCrop`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

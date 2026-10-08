@@ -915,6 +915,10 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
         if (blockOf(at(head)) != B::RedBed && replaceable(at(head)))
             set(head, R().set(now, bedPart, 0));
     }
+    // A sniffer egg starts hatching (M27.5c; wiki: Sniffer Egg - about 20 minutes, half on
+    // moss; ours: three stages of 8000 or 4000 ticks).
+    if (blockOf(now) == B::SnifferEgg && blockOf(old) != B::SnifferEgg)
+        schedule(p, B::SnifferEgg, blockOf(at({p.x, p.y - 1, p.z})) == B::MossBlock ? 4000 : 8000, 0);
     // A two-block plant's lower half brings its upper half (M27.1).
     if (isTwoBlockPlant(blockOf(now)) && R().get(now, doorHalf) == 1 && blockOf(old) != blockOf(now)) {
         const BlockPos up{p.x, p.y + 1, p.z};
@@ -1284,6 +1288,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Carrots:
     case B::Potatoes:
     case B::Beetroots:
+    case B::TorchflowerCrop: // (M27.5c)
+    case B::PitcherCrop:
         if (blockOf(at(rel(p, Direction::Down))) != B::Farmland) pop(p); // lost its farmland
         break;
     case B::Sand:
@@ -1570,6 +1576,17 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     if (tickOcean(p, s)) return; // (M25.1: coral drying out)
     if (tickDripleaf(p, s)) return; // (M27.2: tipping)
     if (tickSculk(p, s)) return;    // (M27.3: sensors resting, shriekers falling quiet)
+    if (blockOf(s) == B::SnifferEgg) { // (M27.5c) cracking, then a snifflet
+        const int h = R().get(s, hatch);
+        if (h < 2) {
+            set(p, R().set(s, hatch, h + 1));
+            schedule(p, B::SnifferEgg, blockOf(at({p.x, p.y - 1, p.z})) == B::MossBlock ? 4000 : 8000, 0);
+        } else {
+            set(p, 0);
+            if (m_hatched.size() < m_hatched.capacity()) m_hatched.push_back({p, 1, MobType::Sniffer});
+        }
+        return;
+    }
     switch (blockOf(s)) {
     case B::Composter: // 20 ticks after reaching 7: bone meal ready (wiki: Composter)
         if (R().get(s, properties::composterLevel) == 7) set(p, R().set(s, properties::composterLevel, 8));
@@ -2375,6 +2392,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Carrots:
     case B::Potatoes:
     case B::Beetroots: // planted on farmland only
+    case B::TorchflowerCrop:
+    case B::PitcherCrop:
         if (blockOf(world.getBlock(rel(at, Direction::Down))) != B::Farmland) return std::nullopt;
         return state;
     case B::RedstoneWire: {

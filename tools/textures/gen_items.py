@@ -297,6 +297,23 @@ def sherd(name):
     return img
 
 
+def torchflower_seeds():
+    """Torchflower seeds (M27.5c): a few orange-tipped seeds."""
+    s = Shape()
+    for cx, cy in ((5, 9), (9, 6), (10, 11)):
+        s.add({(cx, cy), (cx + 1, cy), (cx, cy + 1), (cx + 1, cy + 1), (cx + 1, cy - 1)}, ramp(hexc("#6A8A3A"), 5))
+        s.add({(cx + 2, cy - 1)}, ramp(hexc("#F08A20"), 5))
+    return s.render()
+
+
+def pitcher_pod():
+    """A pitcher pod (M27.5c): a teal-and-purple bulb (ours)."""
+    s = Shape()
+    s.add({(x, y) for x in range(4, 12) for y in range(5, 13) if (x - 7.5) ** 2 / 14 + (y - 9) ** 2 / 16 < 1}, ramp(hexc("#3A8A8A"), 5))
+    s.add({(7, 3), (8, 3), (7, 4), (8, 4)}, ramp(hexc("#8A4AA0"), 5))
+    return s.render()
+
+
 def horn():
     """A goat horn (M26.3): a ridged, curving cone."""
     s = Shape()
@@ -1136,6 +1153,8 @@ def all_items():
     items["echo_shard"] = gem("#1E6E78", "emerald")  # (M27.3b)
     items["trial_key"] = trial_key()  # (M27.4d)
     items["brush"] = brush()  # (M27.5)
+    items["torchflower_seeds"] = torchflower_seeds()  # (M27.5c)
+    items["pitcher_pod"] = pitcher_pod()
     for name in SHERD_MARKS:
         items[name + "_pottery_sherd"] = sherd(name)
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)

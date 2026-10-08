@@ -968,6 +968,29 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite(name.c_str());
+            } else if (name == "torchflower_crop" || name == "torchflower") { // (M27.5c)
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(name == "torchflower" ? "torchflower"
+                                       : registry.value(state, "age") == "1" ? "torchflower_crop_stage1"
+                                                                            : "torchflower_crop_stage0");
+            } else if (name == "pitcher_crop") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(("pitcher_crop_bottom_stage_" + std::string(registry.value(state, "age").value_or("0"))).c_str());
+            } else if (name == "pitcher_plant") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(registry.value(state, "half") == "upper" ? "pitcher_plant_top" : "pitcher_plant_bottom");
+            } else if (name == "sniffer_egg") { // a big egg, cracking as it nears hatching
+                const std::string_view h = registry.value(state, "hatch").value_or("0");
+                const std::string k = h == "0" ? "not_cracked" : h == "1" ? "slightly_cracked" : "very_cracked";
+                m.visible = true;
+                addBox(m, 1, 0, 2, 15, 16, 14, sprite(("sniffer_egg_" + k + "_north").c_str()));
+                m.boxes[0].faces[int(Direction::Up)].sprite = sprite(("sniffer_egg_" + k + "_top").c_str());
+                m.boxes[0].faces[int(Direction::Down)].sprite = sprite(("sniffer_egg_" + k + "_bottom").c_str());
+                m.boxes[0].faces[int(Direction::East)].sprite = sprite(("sniffer_egg_" + k + "_east").c_str());
+                m.boxes[0].faces[int(Direction::West)].sprite = sprite(("sniffer_egg_" + k + "_west").c_str());
             } else if (name == "suspicious_sand" || name == "suspicious_gravel") { // (M27.5) by how dusted
                 m = single(cubeAll(sprite((name + "_" + std::string(registry.value(state, "dusted").value_or("0"))).c_str())));
             } else if (name == "decorated_pot") { // (M27.5) a terracotta pot with a neck (no sherd faces)

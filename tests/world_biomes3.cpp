@@ -512,3 +512,24 @@ TEST_CASE("overworld6 trail ruins: buried rooms of mud bricks and terracotta ful
     for (const auto& e : c.brushables())
         CHECK((e.data.table == uint8_t(LootTable::ArchaeologyTrailCommon) || e.data.table == uint8_t(LootTable::ArchaeologyTrailRare)));
 }
+
+TEST_CASE("torchflower and pitcher crops grow into their flowers; a sniffer egg hatches (M27.5c)") {
+    Garden g;
+    const auto& r = R();
+    for (int x = 2; x <= 4; ++x) g.world.updateBlock({x, 63, 2}, S(blocks::Farmland));
+    g.world.updateBlock({2, 64, 2}, S(blocks::TorchflowerCrop));
+    g.world.updateBlock({4, 64, 2}, S(blocks::PitcherCrop));
+    for (int i = 0; i < 6; ++i) g.updates.boneMeal({2, 64, 2}), g.updates.boneMeal({4, 64, 2});
+    CHECK(g.at(2, 64, 2) == blocks::Torchflower);
+    CHECK(g.at(4, 64, 2) == blocks::PitcherPlant);
+    CHECK(g.at(4, 65, 2) == blocks::PitcherPlant);
+    g.world.updateBlock({6, 64, 6}, S(blocks::SnifferEgg));
+    for (int t = 1; t <= 24100 && g.updates.hatched().empty(); ++t) {
+        g.updates.setTime(t);
+        g.updates.tick();
+    }
+    REQUIRE_FALSE(g.updates.hatched().empty());
+    CHECK(g.updates.hatched()[0].type == MobType::Sniffer);
+    CHECK(g.at(6, 64, 6) == 0);
+    (void)r;
+}

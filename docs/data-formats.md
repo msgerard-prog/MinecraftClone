@@ -339,7 +339,10 @@ spawn_data like a mob spawner's, our tags `spawned`, `total`, `cooldown`),
 `vault[facing,vault_state,ominous]`; item `trial_key`. M27.5: blocks `suspicious_sand`,
 `suspicious_gravel` [dusted] with block entity minecraft:brushable_block {item | LootTable
 "minecraft:archaeology/..."}, `decorated_pot[facing]`; items `brush`, 23
-`<name>_pottery_sherd`. Loot tables are saved by vanilla's ids (`lootTableName`).
+`<name>_pottery_sherd`. Loot tables are saved by vanilla's ids (`lootTableName`). M27.5c:
+entity `minecraft:sniffer`; blocks `sniffer_egg[hatch]`, `torchflower_crop[age 0..1]`,
+`torchflower`, `pitcher_crop[age 0..4]` (ours: no `half`), `pitcher_plant[half]`; items
+`torchflower_seeds`, `pitcher_pod`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

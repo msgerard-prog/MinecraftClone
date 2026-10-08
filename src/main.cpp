@@ -3006,6 +3006,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::Mobs::add(world, g);
                         continue;
                     }
+                    if (h.type == mc::world::MobType::Sniffer) { // (M27.5c: a snifflet out of its egg)
+                        mc::world::MobData s = mc::Mobs::make(mc::world::MobType::Sniffer,
+                                                              {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                        s.age = -48000; // (wiki: grows up in 40 minutes)
+                        s.persistent = true;
+                        mc::Mobs::add(world, s);
+                        continue;
+                    }
                     if (h.type == mc::world::MobType::Creaking) { // (M27.1c: an awake heart's creaking)
                         mc::Mobs::spawnCreaking(world, h.pos, player.position(), gameRng);
                         continue;

@@ -71,6 +71,8 @@ extern const Property trialState;     // "trial_spawner_state": inactive | waiti
 extern const Property vaultState;     // "vault_state": inactive | active | unlocking | ejecting
 extern const Property ominous;        // true | false
 extern const Property dusted;         // 0..3 (M27.5: suspicious sand and gravel being brushed)
+extern const Property age1;           // "age": 0..1 (M27.5c: torchflower crops)
+extern const Property age4;           // "age": 0..4 (pitcher crops)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -495,6 +497,12 @@ enum : BlockId {
     SuspiciousSand,   // dusted 0..3 (block entity: its loot)
     SuspiciousGravel,
     DecoratedPot,     // facing
+    // Sniffer finds (M27.5c; wiki: Sniffer Egg, Torchflower, Pitcher Plant).
+    SnifferEgg,       // hatch 0..2
+    TorchflowerCrop,  // age 0..1 (then a torchflower)
+    Torchflower,
+    PitcherCrop,      // age 0..4 (then a pitcher plant; ours one block tall)
+    PitcherPlant,     // half
     Count
 };
 } // namespace blocks
@@ -502,7 +510,9 @@ inline bool isSuspicious(BlockId b) { return b == blocks::SuspiciousSand || b ==
 // Amethyst buds and clusters, smallest to grown (M27.4a), in enum order.
 inline bool isAmethystBud(BlockId b) { return b >= blocks::SmallAmethystBud && b <= blocks::AmethystCluster; }
 // Two-block plants (M27.1), in enum order.
-inline bool isTallPlant(BlockId b) { return b >= blocks::Sunflower && b <= blocks::LargeFern; }
+inline bool isTallPlant(BlockId b) { // (M27.5c: and the pitcher plant)
+    return (b >= blocks::Sunflower && b <= blocks::LargeFern) || b == blocks::PitcherPlant;
+}
 // Two-block plants with halves kept together: those and the small dripleaf (M27.2).
 inline bool isTwoBlockPlant(BlockId b) { return isTallPlant(b) || b == blocks::SmallDripleaf; }
 // Mob heads (M26.4b): the standing kinds sit at even ids, each wall kind right after.

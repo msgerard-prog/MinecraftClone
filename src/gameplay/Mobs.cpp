@@ -369,6 +369,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
     if (creakingTick(ctx, m)) return; // (M27.1c, Creakings.cpp: frozen or crumbling)
     if (wardenTick(ctx, m)) return;   // (M27.3c, Wardens.cpp: emerging, digging, booming)
+    if (snifferTick(ctx, m)) return;  // (M27.5c, Sniffers.cpp: digging)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {

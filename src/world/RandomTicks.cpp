@@ -332,6 +332,10 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     // The pale garden (M27.1c; wiki: Eyeblossom, Creaking Heart): by night eyeblossoms
     // open and creaking hearts set between pale oak logs wake; by day they close and
     // sleep. An awake natural heart calls its creaking (main adds it unless one is out).
+    case B::TorchflowerCrop: // (M27.5c; ours: 1 in 3 random ticks in light 9+ on farmland)
+    case B::PitcherCrop:
+        if (rawBrightness(p) >= 9 && m_random.nextInt(3) == 0) growSniffCrop(p, s);
+        break;
     case B::BuddingAmethyst: { // (M27.4a; wiki: Budding Amethyst - 1 in 5 random ticks a
         // bud grows on a random side: a new small bud, or the next stage of the one there)
         if (m_random.nextInt(5) != 0) break;
@@ -369,6 +373,23 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     }
     default:
         break;
+    }
+}
+
+void BlockUpdates::growSniffCrop(const BlockPos& p, BlockStateId s) {
+    // A stage; grown, a torchflower crop becomes a torchflower and a pitcher crop a
+    // pitcher plant (two tall, with room above) - wiki: Torchflower Seeds, Pitcher Pod.
+    if (blockOf(s) == B::TorchflowerCrop) {
+        if (R().get(s, age1) == 0) set(p, R().set(s, age1, 1));
+        else set(p, R().defaultState(B::Torchflower));
+        return;
+    }
+    const int a = R().get(s, age4);
+    if (a < 4) {
+        set(p, R().set(s, age4, a + 1));
+    } else if (at({p.x, p.y + 1, p.z}) == 0) {
+        set({p.x, p.y + 1, p.z}, R().set(R().defaultState(B::PitcherPlant), doorHalf, 0));
+        set(p, R().set(R().defaultState(B::PitcherPlant), doorHalf, 1));
     }
 }
 

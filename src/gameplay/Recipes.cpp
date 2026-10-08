@@ -484,6 +484,8 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"###", "###", "###"}, {{'#', item("resin_clump")}}, "resin_block"));
         r.push_back(shapeless({item("resin_block")}, "resin_clump", 9));
         r.push_back(shapeless({item("open_eyeblossom")}, "orange_dye"));
+        r.push_back(shapeless({item("torchflower")}, "orange_dye"));      // (M27.5c)
+        r.push_back(shapeless({item("pitcher_plant")}, "cyan_dye", 2));
         r.push_back(shapeless({item("closed_eyeblossom")}, "gray_dye"));
         static constexpr std::array<const char*, 3> kMix[] = {
             {"red_dye", "yellow_dye", "orange_dye"}, {"red_dye", "white_dye", "pink_dye"},

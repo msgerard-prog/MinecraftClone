@@ -179,6 +179,8 @@ private:
     // sonic boom; investigating what it heard.
     bool wardenTick(Context& ctx, world::MobData& m);
     bool wardenGoal(Context& ctx, world::MobData& m, double& speed);
+    // Sniffers (Sniffers.cpp, M27.5c): digging up seeds now and then.
+    bool snifferTick(Context& ctx, world::MobData& m);
     // Trial spawners (TrialChambers.cpp, M27.4d).
     void tickTrialSpawner(Context& ctx, world::Chunk& chunk, const world::BlockPos& p, world::SpawnerData& s);
 

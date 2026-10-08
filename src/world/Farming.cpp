@@ -139,6 +139,10 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
     // wiki: Bone Meal - crops grow 2-5 stages (beetroots 1); saplings advance a stage
     // 45% of the time; a grass block sprouts grass and flowers around it.
     if (lushBoneMeal(p)) return true; // (M27.2: vines, azaleas, dripleaves, moss)
+    if (blockOf(at(p)) == B::TorchflowerCrop || blockOf(at(p)) == B::PitcherCrop) { // (M27.5c: a stage)
+        growSniffCrop(p, at(p));
+        return true;
+    }
     const BlockStateId s = at(p);
     const BlockId b = blockOf(s);
     if (isCrop(b)) {

@@ -1043,6 +1043,18 @@ def warden():
     return img
 
 
+def sniffer():
+    """The sniffer (M27.5c): rusty red fur, a mossy green back, a big snout (ours)."""
+    img = pet("sniffer", [(0, 0, 12, 9, 16), (0, 26, 7, 6, 8), (32, 26, 3, 5, 3)], (0, 26, 7, 6, 8), None,
+              base="#9A3A2A", stripes=True, extra=[((30, 26, 3, 3, 2), "#5A2A20")])
+    fx, fy, fw, fh = box_faces(0, 0, 12, 9, 16)["top"]
+    for y in range(fh):
+        for x in range(fw):
+            if (x * 5 + y * 3) % 4 != 0:
+                img.set(fx + x, fy + y, (70, 120, 60, 255) if (x + y) % 3 else (90, 150, 70, 255))
+    return img
+
+
 def mount_gear():
     """Mount gear (M26.2), one texture for every mount: a leather saddle @ (0,0), chest
     packs @ (36,0), horse armor plates @ (0,16) (light: tinted by its material), a
@@ -1238,6 +1250,7 @@ def main():
                                  base="#F4F0EC"),
               "creaking": creaking(),
               "warden": warden(),
+              "sniffer": sniffer(),
               "copper_golem": pet("copper_golem", [(0, 0, 8, 5, 6), (28, 0, 2, 3, 2), (36, 0, 1, 4, 1), (0, 11, 4, 6, 3),
                                                    (14, 11, 2, 6, 2), (22, 11, 2, 5, 2)], (0, 0, 8, 5, 6), None,
                                   base="#F0F0F0"),

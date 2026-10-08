@@ -315,6 +315,7 @@ private:
     bool dripstoneChanged(const BlockPos& p, BlockStateId s); // true: dripstone, handled
     void tickDripstone(const BlockPos& tip, BlockStateId s);
     bool tickSculk(const BlockPos& p, BlockStateId s); // true: a sensor's or shrieker's tick
+    void growSniffCrop(const BlockPos& p, BlockStateId s); // (M27.5c)
     bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;

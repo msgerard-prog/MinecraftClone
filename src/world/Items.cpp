@@ -58,7 +58,8 @@ ItemRegistry buildItems() {
             b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire || b == blocks::Wheat ||
             b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots || // crops: planted by seeds
             b == blocks::SweetBerryBush || // (planted by sweet berries)
-            b == blocks::CaveVines || b == blocks::CaveVinesPlant || b == blocks::BigDripleafStem) // (M27.2)
+            b == blocks::CaveVines || b == blocks::CaveVinesPlant || b == blocks::BigDripleafStem || // (M27.2)
+            b == blocks::TorchflowerCrop || b == blocks::PitcherCrop) // (M27.5c: planted by seeds and pods)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -280,6 +281,9 @@ ItemRegistry buildItems() {
     // (M26.3; wiki: Sweet Berries - 2 hunger, 0.4 saturation; they plant the bush)
     r.add({.id = "minecraft:sweet_berries", .block = blocks::SweetBerryBush, .food = 2, .saturation = 0.4f,
            .texture = "item/sweet_berries"});
+    // (M27.5c; wiki: Torchflower Seeds, Pitcher Pod - planted on farmland; sniffers dig them up)
+    r.add({.id = "minecraft:torchflower_seeds", .block = blocks::TorchflowerCrop, .texture = "item/torchflower_seeds"});
+    r.add({.id = "minecraft:pitcher_pod", .block = blocks::PitcherCrop, .texture = "item/pitcher_pod"});
     // (M27.2; wiki: Glow Berries - food 2, plants cave vines under a block)
     r.add({.id = "minecraft:glow_berries", .block = blocks::CaveVines, .food = 2, .saturation = 0.4f,
            .texture = "item/glow_berries"});
@@ -376,6 +380,8 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::Beetroots, *r.find("beetroot_seeds"));
     r.mapBlock(blocks::SweetBerryBush, *r.find("sweet_berries"));
     r.mapBlock(blocks::CaveVines, *r.find("glow_berries")); // (M27.2)
+    r.mapBlock(blocks::TorchflowerCrop, *r.find("torchflower_seeds")); // (M27.5c)
+    r.mapBlock(blocks::PitcherCrop, *r.find("pitcher_pod"));
     r.mapBlock(blocks::CaveVinesPlant, *r.find("glow_berries"));
     r.mapBlock(blocks::BigDripleafStem, *r.find("big_dripleaf"));
     return r;

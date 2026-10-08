@@ -757,6 +757,19 @@ constexpr std::array<MobPart, 6> kWarden = {{
     {{0.5f, 0, -1.5f}, {3.5f, 7, 1.5f}, {2, 7, 0}, 0, 36, A::LegB},
 }};
 
+// Sniffer (M27.5c): a long shaggy body on six short legs, a big head with a snout; half
+// size (drawn x2). Body 12x9x16 @ (0,0), head 7x6x8 @ (0,26), legs 3x5x3 @ (32,26).
+constexpr std::array<MobPart, 8> kSniffer = {{
+    {{-6, 5, -8}, {6, 14, 8}, {0, 9, 0}, 0, 0, A::None},
+    {{-3.5f, 6, -14}, {3.5f, 12, -6}, {0, 9, -7}, 0, 26, A::Head},
+    {{-5, 0, -6}, {-2, 5, -3}, {-3.5f, 5, -4.5f}, 32, 26, A::LegA},
+    {{2, 0, -6}, {5, 5, -3}, {3.5f, 5, -4.5f}, 32, 26, A::LegB},
+    {{-5, 0, -1.5f}, {-2, 5, 1.5f}, {-3.5f, 5, 0}, 32, 26, A::LegB},
+    {{2, 0, -1.5f}, {5, 5, 1.5f}, {3.5f, 5, 0}, 32, 26, A::LegA},
+    {{-5, 0, 3}, {-2, 5, 6}, {-3.5f, 5, 4.5f}, 32, 26, A::LegA},
+    {{2, 0, 3}, {5, 5, 6}, {3.5f, 5, 4.5f}, 32, 26, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -837,6 +850,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::CopperGolem: return kCopperGolem;
     case world::MobType::Creaking: return kCreaking;
     case world::MobType::Warden: return kWarden;
+    case world::MobType::Sniffer: return kSniffer;
     default: return kCow;
     }
 }

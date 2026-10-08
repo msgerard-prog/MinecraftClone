@@ -25,7 +25,7 @@ M27 - World 3 (wiki pages of each biome and structure):
    the warden (darkness, sonic boom, digging out).
 4. ✅ M27.4 - Structures: woodland mansions (vindicators, allay cells), ruined portals,
    trial chambers (trial spawners, vaults, breezes), amethyst geodes.
-5. M27.5 - Archaeology: a) brushes, suspicious sand/gravel, pottery sherds and decorated
+5. ✅ M27.5 - Archaeology: a) brushes, suspicious sand/gravel, pottery sherds and decorated
    pots; b) trail ruins, suspicious blocks in desert pyramids, wells and ocean ruins;
    c) sniffers and their eggs (torchflowers, pitcher plants), brushing armadillos.
 

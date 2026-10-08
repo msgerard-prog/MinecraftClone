@@ -33,6 +33,8 @@ bool Mobs::isFood(MobType type, ItemId item) {
     if (type == MobType::Panda) return item != kNoItem && item == bamboo;
     if (type == MobType::Goat) return item == wheat;
     if (type == MobType::Armadillo) return item != kNoItem && item == spiderEye;
+    static const ItemId torchSeeds = itemId("torchflower_seeds"); // (M27.5c; wiki: Sniffer)
+    if (type == MobType::Sniffer) return item != kNoItem && item == torchSeeds;
     // (M26.3c; wiki: Frog, Tadpole - slime balls; Axolotl - a bucket of tropical fish)
     static const ItemId slimeBall = itemId("slime_ball"), fishBucket = itemId("tropical_fish_bucket");
     if (type == MobType::Frog || type == MobType::Tadpole) return item == slimeBall;
@@ -69,6 +71,12 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     }
     if (isPet(m.type) || m.type == MobType::Ocelot) // (M26.1: taming, sitting, collars, healing)
         if (const Use u = petInteract(m, held, rng); u != Use::None) return u;
+    // (M27.5c; wiki: Armadillo Scute - a brush gets one from an armadillo, wearing the brush)
+    static const ItemId brushItem = itemId("brush");
+    if (held == brushItem && m.type == MobType::Armadillo && !m.isBaby()) {
+        items.spawn(m.pos + glm::dvec3(0.0, 0.4, 0.0), {itemId("armadillo_scute"), 1}, rng);
+        return Use::Sheared;
+    }
     static const ItemId shears = itemId("shears");
     if (held == shears && m.type == MobType::Sheep && !m.sheared && !m.isBaby()) {
         // Shearing drops 1-3 wool of its colour (wiki: Sheep › Shearing).
@@ -223,7 +231,17 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
         if (MobData* partner = findMob(ctx.world, m, 8.0, true, true)) {
             m.goal = partner->pos;
             if (glm::length(partner->pos - m.pos) < 3.0) {
-                if (++m.breedTicks >= 60 && (m.type == MobType::Turtle || m.type == MobType::Frog)) {
+                if (++m.breedTicks >= 60 && m.type == MobType::Sniffer) {
+                    // Sniffers lay an egg where they stand (M27.5c; wiki: Sniffer › Breeding).
+                    const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+                    if (ctx.world.getBlock(at) == 0) ctx.world.updateBlock(at, blockRegistry().defaultState(blocks::SnifferEgg));
+                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
+                    for (MobData* parent : {&m, partner}) {
+                        parent->loveTicks = 0;
+                        parent->breedTicks = 0;
+                        parent->age = 6000;
+                    }
+                } else if (m.breedTicks >= 60 && (m.type == MobType::Turtle || m.type == MobType::Frog)) {
                     // Turtles lay eggs instead of having a baby (wiki: Turtle); frogs lay
                     // frogspawn on water (M26.3c; wiki: Frog).
                     m.hasEgg = true;

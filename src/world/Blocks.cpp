@@ -108,6 +108,8 @@ const Property trialState{"trial_spawner_state",
 const Property vaultState{"vault_state", {"inactive", "active", "unlocking", "ejecting"}};
 const Property ominous{"ominous", {"true", "false"}};
 const Property dusted{"dusted", {"0", "1", "2", "3"}};
+const Property age1{"age", {"0", "1"}};
+const Property age4{"age", {"0", "1", "2", "3", "4"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1256,6 +1258,15 @@ BlockRegistry buildVanillaBlocks() {
           blocks::SuspiciousGravel);
     check(r.add("decorated_pot", {.opaqueCube = false, .layer = RenderLayer::Cutout}, {{&facing, "north"}}),
           blocks::DecoratedPot);
+    // (M27.5c; wiki: Sniffer Egg 0.5; the crops and flowers break at once)
+    check(r.add("sniffer_egg", {.hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false}, {{&hatch, "0"}}),
+          blocks::SnifferEgg);
+    BlockSettings sniffCrop = kPlant;
+    sniffCrop.randomTicks = true;
+    check(r.add("torchflower_crop", sniffCrop, {{&age1, "0"}}), blocks::TorchflowerCrop);
+    check(r.add("torchflower", kPlant), blocks::Torchflower);
+    check(r.add("pitcher_crop", sniffCrop, {{&age4, "0"}}), blocks::PitcherCrop);
+    check(r.add("pitcher_plant", kPlant, {{&doorHalf, "lower"}}), blocks::PitcherPlant);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

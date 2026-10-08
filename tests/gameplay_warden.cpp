@@ -137,3 +137,42 @@ TEST_CASE("a trial spawner sends out its mobs when a player comes near; beaten, 
     CHECK(r.get(d.world.getBlock({0, 60, 0}), properties::trialState) == 5); // cooldown
     CHECK(d.world.chunk({0, 0})->spawner(0, 60, 0)->cooldown > 30000);
 }
+
+TEST_CASE("sniffers dig up torchflower seeds or pitcher pods; fed seeds, two lay an egg that hatches (M27.5c)") {
+    Deep d;
+    const auto& r = blockRegistry();
+    for (int z = -8; z <= 8; ++z)
+        for (int x = -8; x <= 8; ++x) d.world.setBlock({x, 59, z}, r.defaultState(blocks::GrassBlock));
+    MobData s = Mobs::make(MobType::Sniffer, {0.5, 60.0, 0.5}, d.rng);
+    s.eggTicks = 5;
+    REQUIRE(Mobs::add(d.world, s));
+    d.player.setPosition({0.5, 60.0, 6.5});
+    d.tick(120);
+    int finds = 0;
+    for (const auto& it : d.items.items())
+        finds += it.stack.item == *itemRegistry().find("torchflower_seeds") || it.stack.item == *itemRegistry().find("pitcher_pod");
+    CHECK(finds == 1);
+    // Two fed sniffers: an egg where one stands.
+    MobData b = Mobs::make(MobType::Sniffer, {2.5, 60.0, 0.5}, d.rng);
+    REQUIRE(Mobs::add(d.world, b));
+    d.world.forEachChunk([&](Chunk& c) {
+        for (auto& m : c.mobs())
+            if (m.type == MobType::Sniffer)
+                CHECK(Mobs::interact(m, *itemRegistry().find("torchflower_seeds"), d.rng, d.items) == Mobs::Use::Fed);
+    });
+    bool egg = false;
+    d.tick(400, [&] {
+        for (int z = -6; z <= 6 && !egg; ++z)
+            for (int x = -6; x <= 6 && !egg; ++x) egg = r.blockOf(d.world.getBlock({x, 60, z})) == blocks::SnifferEgg;
+    });
+    CHECK(egg);
+}
+
+TEST_CASE("a brush gets a scute from an armadillo (M27.5c)") {
+    Deep d;
+    MobData a = Mobs::make(MobType::Armadillo, {0.5, 60.0, 0.5}, d.rng);
+    CHECK(Mobs::interact(a, *itemRegistry().find("brush"), d.rng, d.items) == Mobs::Use::Sheared);
+    int scutes = 0;
+    for (const auto& it : d.items.items()) scutes += it.stack.item == *itemRegistry().find("armadillo_scute");
+    CHECK(scutes == 1);
+}
