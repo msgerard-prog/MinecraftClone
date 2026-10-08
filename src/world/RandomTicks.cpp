@@ -332,6 +332,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     // The pale garden (M27.1c; wiki: Eyeblossom, Creaking Heart): by night eyeblossoms
     // open and creaking hearts set between pale oak logs wake; by day they close and
     // sleep. An awake natural heart calls its creaking (main adds it unless one is out).
+    case B::PointedDripstone: // (M27.2b) dripping and growing
+        tickDripstone(p, s);
+        break;
     case B::CaveVines: // (M27.2) the tip grows
         tickCaveVines(p, s);
         break;

@@ -101,6 +101,8 @@ public:
     void tiltDripleaf(const BlockPos& p);
     // Ground azaleas and dripleaves grow on: #dirt and clay (M27.2).
     static bool dripleafSoil(BlockStateId s);
+    // A pointed dripstone's thickness from its column: 0 tip_merge .. 4 base (M27.2b).
+    int dripstoneThickness(const BlockPos& p, BlockStateId s) const;
     // A creaking heart's state from its logs and the time: 0 uprooted, 1 dormant, 2 awake.
     int heartState(const BlockPos& p, BlockStateId s) const;
     // Weather (M22.1): rain puts out fires and waters farmland; in the ticking chunks
@@ -296,6 +298,9 @@ private:
     void tickCaveVines(const BlockPos& p, BlockStateId s);
     bool tickDripleaf(const BlockPos& p, BlockStateId s); // true: a big dripleaf's tick
     void growAzaleaTree(const BlockPos& p);
+    // Pointed dripstone (M27.2b, Dripstone.cpp).
+    bool dripstoneChanged(const BlockPos& p, BlockStateId s); // true: dripstone, handled
+    void tickDripstone(const BlockPos& tip, BlockStateId s);
     bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;

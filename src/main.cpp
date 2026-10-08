@@ -1829,6 +1829,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                         mc::world::blocks::HayBlock
                                                     ? 0.2f
                                                     : 1.0f);
+                        const mc::world::BlockStateId us = world.getBlock(under); // (M27.2b: onto a point)
+                        vitals.setStalagmite(reg.blockOf(us) == mc::world::blocks::PointedDripstone &&
+                                             reg.get(us, mc::world::properties::verticalDirection) == 0 &&
+                                             reg.get(us, mc::world::properties::thickness) <= 1);
                     }
                     vitals.tick(feet.y, player.onGround(), inWater || player.inWater(),
                                 player.flying() || player.gliding() ||
@@ -2963,6 +2967,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 fallingBlocks.spawn(f.pos, f.state);
             blockUpdates.fallingStarts().clear();
             fallingBlocks.tick(world, droppedItems, gameRng, frameEdits);
+            // Falling stalactites (M27.2b) skewer whoever stands where they land.
+            for (const auto& hit : fallingBlocks.impacts()) {
+                const mc::Aabb spot{hit.pos - glm::dvec3(0.5, 0.0, 0.5), hit.pos + glm::dvec3(0.5, 2.0, 0.5)};
+                if (survival && !dead && player.box().intersects(spot)) vitals.attacked(hit.damage, nullptr);
+                if (mc::world::Chunk* hc = world.chunk({mc::world::blockToChunk(int(std::floor(hit.pos.x))),
+                                                         mc::world::blockToChunk(int(std::floor(hit.pos.z)))}))
+                    for (auto& m : hc->mobs())
+                        if (m.health > 0.0f && mc::Mobs::box(m).intersects(spot)) {
+                            mc::Mobs::attack(m, hit.damage, hit.pos);
+                            m.lastHurtByPlayer = false; // (not the player's kill)
+                        }
+            }
+            fallingBlocks.impacts().clear();
             // Wear from this tick's hits (armor pieces; the shield that blocked).
             if (const int wear = vitals.takeArmorWear(); wear > 0 && survival)
                 inventory.wearArmor(wear, gameRng);

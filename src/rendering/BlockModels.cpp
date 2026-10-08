@@ -964,6 +964,12 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
                 else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
                 else addBox(m, 15, 0, 0, 16, 16, 16, sp);
+            } else if (name == "pointed_dripstone") { // (M27.2b) a cross by direction and thickness
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(("pointed_dripstone_" + std::string(registry.value(state, "vertical_direction").value_or("up")) +
+                                        "_" + std::string(registry.value(state, "thickness").value_or("tip")))
+                                           .c_str());
             } else if (name == "cave_vines" || name == "cave_vines_plant") { // (M27.2) lit with berries
                 m.visible = true;
                 m.cross = true;

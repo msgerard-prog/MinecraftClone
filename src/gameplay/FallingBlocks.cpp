@@ -3,6 +3,7 @@
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace mc {
@@ -14,6 +15,7 @@ void FallingBlocks::spawn(const BlockPos& p, BlockStateId state) {
     FallingBlock f;
     f.pos = f.prevPos = {p.x + 0.5, double(p.y), p.z + 0.5};
     f.state = state;
+    f.startY = f.pos.y;
     m_blocks.push_back(f);
 }
 
@@ -67,7 +69,14 @@ void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng, std:
             if (const ItemId item = itemRegistry().blockItem(reg.blockOf(f.state)))
                 items.spawn(f.pos + glm::dvec3(0, 0.25, 0), {item, 1}, rng);
         };
-        if (landed) {
+        if (landed && reg.blockOf(f.state) == blocks::PointedDripstone) {
+            // A stalactite breaks where it lands, hurting what's there: 1 a block fallen,
+            // at least 6, at most 40 (wiki: Pointed Dripstone).
+            const float dmg = float(std::clamp(int(std::ceil(f.startY - f.pos.y)), 6, 40));
+            if (m_impacts.size() < m_impacts.capacity()) m_impacts.push_back({f.pos, dmg});
+            dropItem();
+            remove = true;
+        } else if (landed) {
             // Lands where its bottom centre is: placed if that cell is replaceable and
             // the block below isn't (it stands on something), else dropped as an item.
             const BlockPos cell{int(std::floor(f.pos.x)), int(std::floor(f.pos.y + 0.01)), int(std::floor(f.pos.z))};

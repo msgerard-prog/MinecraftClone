@@ -533,6 +533,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   roots, dripleaves, moss patches), `tiltDripleaf` (main, for whoever stands on one) and
   `tickDripleaf` (scheduled: unstable 10, partial 10, full 100 ticks). Small dripleaves
   are two-block plants (`isTwoBlockPlant`).
+- Pointed dripstone (M27.2b, `world/Dripstone.cpp`, part of `BlockUpdates`):
+  `dripstoneThickness` from the column, `dripstoneChanged` (support: stalagmites break,
+  stalactites fall through `fallingStarts()`), `tickDripstone` (hanging tips under a water
+  or lava source: drips into cauldrons, mud to clay, growth). `FallingBlocks::impacts()`
+  lists landed stalactites for main to hurt the player and mobs there;
+  `Vitals::setStalagmite` doubles a landing's fall damage.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

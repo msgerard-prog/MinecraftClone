@@ -22,6 +22,8 @@ public:
     float health() const { return m_health; }
     // The fall damage factor of the block being landed on (hay bale 0.2), set each tick.
     void setLandingFactor(float f) { m_landingFactor = f; }
+    // Landing on a stalagmite's point (M27.2b; wiki: Pointed Dripstone): ceil(2 x fall - 2).
+    void setStalagmite(bool on) { m_stalagmite = on; }
     void setVoidY(double y) { m_voidY = y; } // per dimension
     int food() const { return m_food; }
     float saturation() const { return m_saturation; }
@@ -167,6 +169,7 @@ public:
 
 private:
     float m_landingFactor = 1.0f;
+    bool m_stalagmite = false;
     float m_health = kMaxHealth;
     int m_food = kMaxFood;
     float m_saturation = 5.0f;

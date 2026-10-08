@@ -1086,6 +1086,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    if (dripstoneChanged(p, s)) { // (M27.2b: support, falling, thickness)
+        --m_depth;
+        return;
+    }
     if (lushNeighbourChanged(p, s)) { // (M27.2: vines, blossoms, azaleas, dripleaves)
         --m_depth;
         return;
@@ -2132,6 +2136,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::HangingRoots:
         if (!r.collides(world.getBlock(rel(at, Direction::Up)))) return std::nullopt;
         return state;
+    case B::PointedDripstone: { // (M27.2b) pointing away from what holds it
+        const BlockStateId above = world.getBlock(rel(at, Direction::Up)), below = world.getBlock(rel(at, Direction::Down));
+        auto holds = [&](BlockStateId h, int dir) {
+            return blockOf(h) == B::PointedDripstone ? (r.get(h, verticalDirection) == 0) == (dir > 0) : r.collides(h);
+        };
+        const bool up = faceDir == Direction::Up || (faceDir != Direction::Down && holds(below, 1));
+        if (!holds(up ? below : above, up ? 1 : -1)) return std::nullopt;
+        return r.set(state, verticalDirection, up ? 0 : 1);
+    }
     case B::Azalea:
     case B::FloweringAzalea:
         if (!dripleafSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
