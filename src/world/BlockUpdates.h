@@ -132,6 +132,8 @@ public:
     static BlockStateId wallConnected(const World& world, const BlockPos& p, BlockStateId wall);
     // Glass panes (M23.2; wiki: Glass Pane): arms to panes, bars, glass, walls, full blocks.
     static BlockStateId paneConnected(const World& world, const BlockPos& p, BlockStateId pane);
+    // Concrete powder -> its concrete (M23.4a; nullopt for other blocks).
+    static std::optional<BlockStateId> concreteFor(BlockStateId powder);
     static bool isDoor(BlockId b);
     static bool isPressurePlate(BlockId b);
 
@@ -221,6 +223,7 @@ private:
     void runRandomTicks();
     void runWeatherTicks();
     bool rainingNear(const BlockPos& p) const; // on p or a horizontal neighbour
+    bool hardenPowder(const BlockPos& p, BlockStateId s); // true if it turned into concrete
     // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
     void fizz(const BlockPos& p) {
         m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);

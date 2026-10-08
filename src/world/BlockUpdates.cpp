@@ -566,6 +566,26 @@ BlockStateId BlockUpdates::stairsShaped(const World& world, const BlockPos& p, B
     return r.set(st, stairShape, 0);
 }
 
+std::optional<BlockStateId> BlockUpdates::concreteFor(BlockStateId powder) {
+    const std::string_view id = R().block(R().blockOf(powder)).id;
+    if (!id.ends_with("_concrete_powder")) return std::nullopt;
+    const auto concrete = R().findBlock(id.substr(0, id.size() - 7)); // "..._concrete"
+    return concrete ? std::optional(R().defaultState(*concrete)) : std::nullopt;
+}
+
+bool BlockUpdates::hardenPowder(const BlockPos& p, BlockStateId s) {
+    // Concrete powder touching water on any side but its bottom hardens (wiki: Concrete
+    // Powder).
+    const auto concrete = concreteFor(s);
+    if (!concrete) return false;
+    for (const Direction d : {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
+        if (blockOf(at(rel(p, d))) == B::Water) {
+            set(p, *concrete);
+            return true;
+        }
+    return false;
+}
+
 BlockStateId BlockUpdates::paneConnected(const World& world, const BlockPos& p, BlockStateId pane) {
     const auto& r = R();
     auto joins = [&](Direction d) {
@@ -797,6 +817,7 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
 
 void BlockUpdates::afterChange(const BlockPos& p, BlockStateId old, BlockStateId now) {
     if (old != now) alertObservers(p); // (edits that came through World::updateBlock skip record)
+    if (hardenPowder(p, now)) return; // (M23.4a: concrete powder placed or landed by water)
     const BlockId was = blockOf(old), is = blockOf(now);
     // A piston and its head go together (wiki: Piston › Behavior).
     if (isPiston(was) && flag(old, extended) && !(isPiston(is) && flag(now, extended))) {
@@ -929,6 +950,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     ++m_depth;
     const BlockStateId s = at(p);
+    if (hardenPowder(p, s)) {
+        --m_depth;
+        return;
+    }
     if (const BlockKind kind = R().kind(blockOf(s));
         kind == BlockKind::Stairs || kind == BlockKind::Wall || kind == BlockKind::Pane) {
         const BlockStateId want = kind == BlockKind::Stairs ? stairsShaped(m_world, p, s)
@@ -1892,6 +1917,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case BlockKind::Plain: break;
     }
+    // Glazed terracotta faces the player (wiki: Glazed Terracotta); concrete powder put
+    // by water hardens at once (wiki: Concrete Powder).
+    if (R().block(R().blockOf(state)).id.ends_with("_glazed_terracotta")) return withHFacing(state, opposite(look));
+    if (const auto concrete = concreteFor(state))
+        for (const Direction d : {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
+            if (blockOf(world.getBlock(rel(at, d))) == B::Water) return *concrete;
     switch (blockOf(state)) {
     case B::OakLeaves:
     case B::BirchLeaves:

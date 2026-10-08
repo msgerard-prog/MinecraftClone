@@ -20,7 +20,7 @@ SoundType groupFor(std::string_view n) {
     if (contains(n, "wool") || contains(n, "carpet") || n == "cactus" || contains(n, "cake") || n == "sponge")
         return SoundType::Wool;
     if (contains(n, "snow") || n == "powder_snow") return SoundType::Snow;
-    if (contains(n, "sand") && !contains(n, "sandstone")) return SoundType::Sand;
+    if ((contains(n, "sand") && !contains(n, "sandstone")) || contains(n, "concrete_powder")) return SoundType::Sand;
     if (n == "soul_soil" || n == "clay" || n == "red_sand") return SoundType::Sand;
     if (n == "gravel" || n == "dirt" || n == "coarse_dirt" || n == "farmland" || n == "dirt_path" || n == "rooted_dirt" ||
         n == "mud")

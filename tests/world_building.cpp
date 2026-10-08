@@ -287,3 +287,26 @@ TEST_CASE("signs: placement, text saved with the chunk, the editor's line width 
     REQUIRE(drops.size() == 1);
     CHECK(drops[0].item == *itemRegistry().find("oak_sign"));
 }
+
+TEST_CASE("concrete powder falls like sand and hardens by water; terracotta dyes and glazes (M23.4a)") {
+    Scene s;
+    // Next to water: placed as concrete straight away.
+    s.world.setBlock({0, 64, 1}, R().defaultState(blocks::Water));
+    const auto placed = BlockUpdates::placement(s.world, S("red_concrete_powder"), {0, 64, 0}, Direction::Up, 0, 0);
+    REQUIRE(placed);
+    CHECK(R().blockOf(*placed) == B("red_concrete"));
+    // Powder that water reaches later hardens on the update.
+    s.world.updateBlock({3, 64, 0}, S("blue_concrete_powder"));
+    CHECK(R().blockOf(s.at({3, 64, 0})) == B("blue_concrete_powder"));
+    s.world.updateBlock({3, 65, 0}, R().defaultState(blocks::Water));
+    CHECK(R().blockOf(s.at({3, 64, 0})) == B("blue_concrete"));
+    // It falls like sand (a scheduled 2-tick check when air is below it).
+    CHECK(R().likeOf(B("lime_concrete_powder")) == blocks::Sand);
+    // Glazed terracotta faces the player; dyed terracotta smelts into it.
+    const auto glazed = BlockUpdates::placement(s.world, S("cyan_glazed_terracotta"), {6, 64, 0}, Direction::Up, 0, 0);
+    REQUIRE(glazed);
+    CHECK(R().value(*glazed, "facing") == "north"); // (looking south: it faces back north)
+    const auto out = smelt({*itemRegistry().find("cyan_terracotta"), 1});
+    REQUIRE(out);
+    CHECK(out->item == *itemRegistry().find("cyan_glazed_terracotta"));
+}

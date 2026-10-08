@@ -422,6 +422,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite(topName.c_str());
                 v.faces[int(Direction::Down)].sprite = sprite(topName.c_str());
                 m = single(v);
+            } else if (ends("_glazed_terracotta")) { // the pattern turns with its facing (vanilla)
+                const std::string_view f = registry.value(state, "facing").value_or("north");
+                const int q = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;
+                m = single(rotateY(cubeAll(sprite(name.c_str())), q));
             } else if (ends("_stained_glass")) { // translucent, faces hidden against itself (as glass)
                 m = single(cubeAll(sprite(name.c_str())));
                 m.translucent = true;

@@ -122,6 +122,19 @@ void addColouredBlocks(BlockRegistry& r) {
         r.add(colour + "_carpet", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false,
                                    .kind = BlockKind::Carpet, .base = *r.findBlock(colour + "_wool")});
     }
+    // M23.4a (wiki: Terracotta, Glazed Terracotta, Concrete, Concrete Powder): the dyed
+    // terracottas we lacked, glazed terracotta (facing turns its pattern), concrete and
+    // concrete powder (falls like sand, hardens into concrete in water).
+    for (int c = 0; c < 16; ++c) {
+        const std::string colour(kDyeColours[c]);
+        if (!r.findBlock(colour + "_terracotta"))
+            r.add(colour + "_terracotta", {.hardness = 1.25f, .resistance = 4.2f, .tool = HarvestTool::Pickaxe});
+        r.add(colour + "_glazed_terracotta", {.hardness = 1.4f, .resistance = 1.4f, .tool = HarvestTool::Pickaxe},
+              {{&facing, "north"}});
+        r.add(colour + "_concrete", {.hardness = 1.8f, .resistance = 1.8f, .tool = HarvestTool::Pickaxe});
+        r.add(colour + "_concrete_powder",
+              {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Shovel, .like = blocks::Sand});
+    }
 }
 
 // Building blocks (M23.1; wiki: each block's page): the full blocks the families need

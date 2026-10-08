@@ -306,6 +306,12 @@ std::vector<Recipe> build() {
             r.push_back(shaped({"PPP", "PDP", "PPP"}, {{'P', item("glass_pane")}, {'D', dye}}, colour + "_stained_glass_pane", 8));
             r.push_back(shaped({"##"}, {{'#', item(colour + "_wool")}}, colour + "_carpet", 3));
             if (colour != "white") r.push_back(shapeless({item("white_wool"), dye}, colour + "_wool"));
+            // M23.4a (wiki: Terracotta, Concrete Powder): dyed terracotta, powder from
+            // sand, gravel and a dye.
+            r.push_back(shaped({"TTT", "TDT", "TTT"}, {{'T', item("terracotta")}, {'D', dye}}, colour + "_terracotta", 8));
+            r.push_back(shapeless({dye, item("sand"), item("sand"), item("sand"), item("sand"), item("gravel"),
+                                   item("gravel"), item("gravel"), item("gravel")},
+                                  colour + "_concrete_powder", 8));
         }
         // Dyes from flowers and minerals, and mixed (wiki: Dye). Black (ink sacs,
         // wither roses) and brown (cocoa beans) wait for their sources.
@@ -482,6 +488,8 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "clay") return out("terracotta");
     // Building blocks (M23.1; wiki: Smelting): bricks, smooth and cracked variants.
     if (n == "clay_ball") return out("brick");
+    if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta") && n != "terracotta") // (wiki: Glazed Terracotta)
+        return out(std::string(n.substr(0, n.size() - 11)) + "_glazed_terracotta");
     if (n == "cactus") return out("green_dye"); // (wiki: Green Dye)
     if (n == "netherrack") return out("nether_brick");
     if (n == "stone") return out("smooth_stone");
@@ -516,6 +524,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
     if (n == "clay_ball") return 0.3f; // (wiki: Brick)
+    if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta")) return 0.1f;
     if (n == "cactus") return 1.0f;
     if (n == "netherrack" || n == "stone" || n == "sandstone" || n == "red_sandstone" || n == "quartz_block" ||
         n == "stone_bricks" || n == "cobbled_deepslate" || n == "deepslate_bricks" || n == "deepslate_tiles" ||
