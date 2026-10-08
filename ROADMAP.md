@@ -4,28 +4,18 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-07)
-M21 done (reviews applied; v0.21.0): doors, trapdoors, fences, gates, pressure plates,
-TNT, comparators, observers, hoppers, droppers, dispensers, rails and minecarts,
-slimes, slime blocks, sticky pistons, 2-tick piston animation with slime structures,
-per-state collision shapes. M1-M20 done. v1.0 waits for M23-M28 (user decision).
+M22 done (reviews applied; v0.22.0): weather (rain/snow/thunder, lightning, snow and
+ice forming), sky (biome colours, sunrise/sunset, fog, Fancy clouds, End sky),
+particles, sound (XAudio2, our own synthesized sounds), menus (title, world list and
+creation, options.txt, Game Menu that pauses). M1-M21 done. v1.0 waits for M23-M28.
 
 ## Next
-M22 - World & presentation:
-1. ✅ M22.1 - Weather (wiki: Weather): rain/snow/thunder cycles kept in level.dat
-   (vanilla's raining/rainTime/thundering/thunderTime), falling rain and snow drawn,
-   darker sky and light, lightning (fire, damage, charged creepers, pigs to zombified
-   piglins), rain putting out fires and filling farmland, snow layers and ice forming,
-   /weather.
-2. ✅ M22.2 - Sky: the sky colour by biome temperature, sunrise/sunset glow, biome fog
-   colours (night fog no longer black), clouds, the End sky.
-3. ✅ M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
-   drips, crits, potion swirls, mob death puffs, rain splashes.
-4. ✅ M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
-   synthesized sounds - footsteps by block, breaking/placing, mobs, explosions,
-   ambience, music later.
-5. ✅ M22.5 - Menus: title screen, world list and creation (name, seed, game mode -
-   survival by default, generator), pause menu, options (render distance, FOV,
-   sensitivity, GUI scale, volume, graphics).
+M23 - Building blocks & workstations (see the milestone table): slabs, stairs, walls,
+panes, carpets, ladders, signs, lanterns, campfires, all woods' doors/trapdoors/fences,
+mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter,
+smithing, grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast
+furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox. Steps are
+planned at the start of the milestone.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -234,7 +224,7 @@ and GUI textures are made with their systems.
 | M19 | Nether 2: biomes (crimson/warped, soul sand valley, basalt deltas), fortresses, bastions; ghasts, piglins, blazes, magma cubes; brewing | ✅ 2026-10-07 v0.19.0 (basic structures, player-only effects: see deviations) |
 | M20 | The End 2: ender dragon fight, crystals, gateways, outer islands, end cities | ✅ 2026-10-07 v0.20.0 (basic cities, simplified dragon AI: see deviations) |
 | M21 | Redstone 2: comparators, observers, pressure plates, hoppers, droppers/dispensers, doors, TNT, rails, slime, piston animation | ✅ 2026-10-07 v0.21.0 (plain minecarts; see deviations) |
-| M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | Feels like the real game |
+| M22 | World & presentation: weather, clouds, sky gradient/sunsets, sounds, particles, pause/options/world-creation menus | ✅ 2026-10-07 v0.22.0 (synthesized sounds, one-page options: see deviations) |
 | M23 | Building blocks & workstations: slabs, stairs, walls, panes, carpets, ladders, signs, lanterns, campfires, all wood types' doors/trapdoors/fences, mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter, smithing (netherite, trims), grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox | Vanilla's building and crafting palette |
 | M24 | Villages 2: villagers (professions, trading, breeding), iron golems, wandering traders, pillagers, outposts and raids, witches | Villages live |
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | Oceans as in 1.21 |
@@ -244,13 +234,12 @@ and GUI textures are made with their systems.
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
-- Sound (miniaudio) — `src/audio` is a stub until needed.
-- Weather, fog, clouds.
 - F2 screenshot key (vanilla) for interactive play.
 - NVIDIA debug output: "vertex shader recompiled based on GL state" (id 131218) on the
   block program in debug runs — find which state triggers it.
 
 ## Done (latest 10)
+- 2026-10-07 M22 (v0.22.0): weather, sky and clouds, particles, sound, menus and options.
 - 2026-10-07 M21 (v0.21.0): doors, plates, TNT, comparators, observers, hoppers, dispensers, rails, minecarts, slimes, piston animation, collision shapes.
 - 2026-10-07 M20 (v0.20.0): end2 - outer islands, chorus, end cities, shulkers, elytra, crystals, the ender dragon fight, gateways, pearls, respawning.
 - 2026-10-07 M19 (v0.19.0): nether2 - 4 Nether biomes, fortresses, bastions, 7 Nether mobs, status effects, potions, brewing, splash potions.
