@@ -618,6 +618,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   held item (signing turns it into a written book). `gameplay/Cartography`'s
   `craftBookCopy`/`bookCopy` copy written books (the original stays in the grid,
   `ContainerScreen::takeResult`).
+- Hanging entities (M28.3a, `gameplay/Hanging.cpp`, part of `Mobs`): `MobType::ItemFrame/
+  GlowItemFrame/Painting` (`isHanging`) with the wall block in `home`, the face in `phase`,
+  a painting's variant (`world/Paintings.h`) in `woolColour`, a frame's item in its
+  chunk's mob store and its turn in `node`; `placeHanging` (biggest canvases that fit),
+  `hangingTick` (the 100-tick wall check), `dropHanging` (from `die`). Paintings are cut
+  into one atlas sprite per block (`TextureAtlas::AtlasFolder::blocksWide`,
+  "painting/<name>:<x>,<y>"); `EntityRenderer::addItemFrame/addPainting` draw them.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

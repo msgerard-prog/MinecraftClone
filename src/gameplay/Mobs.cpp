@@ -70,6 +70,7 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 } // namespace
 
 Aabb Mobs::box(const MobData& m) {
+    if (isHanging(m.type)) return hangingBox(m); // (M28.3a: flat on their wall)
     const MobInfo& info = mobInfo(m.type);
     double s = m.isBaby() ? (m.type == MobType::HappyGhast ? 0.2375 : 0.5) : 1.0; // babies are half size (ghastlings 0.95)
     if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
@@ -312,6 +313,10 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    if (isHanging(m.type)) { // (M28.3a, Hanging.cpp)
+        hangingTick(ctx, m);
+        return;
+    }
     if (m.type == MobType::Minecart) {
         minecartTick(ctx, m);
         return;
@@ -715,6 +720,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (isHanging(m.type)) { // (M28.3a) the frame or painting as an item, gone at once
+        dropHanging(ctx, m);
+        m.deathTime = 19;
+        return;
+    }
     if (m.type == MobType::Boat) { // broken: the boat item, gone at once (M25.2b)
         m.deathTime = 19;
         if (const auto boat = itemRegistry().find(m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour)))
@@ -1160,7 +1170,8 @@ void Mobs::tick(Context& ctx) {
                 if (m.deathTime >= 20) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
-                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish)
+                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish &&
+                        !isHanging(m.type))
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);

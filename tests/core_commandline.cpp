@@ -208,3 +208,11 @@ TEST_CASE("command line: --book TEXT") {
     CHECK(opts->book);
     CHECK(opts->bookText == "Hello");
 }
+
+TEST_CASE("command line: --use N") {
+    std::array<const char*, 2> args = {"--use", "3"};
+    std::string error;
+    CHECK(mc::parseCommandLine(args, error)->use == 3);
+    std::array<const char*, 2> bad = {"--use", "0"};
+    CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
+}

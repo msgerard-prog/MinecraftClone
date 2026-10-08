@@ -101,6 +101,13 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.noSave = true;
         } else if (arg == "--inventory") {
             opts.inventory = true;
+        } else if (arg == "--use") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (!parseNumber(*v, opts.use) || opts.use < 1) {
+                error = "--use needs a positive count";
+                return std::nullopt;
+            }
         } else if (arg == "--book") {
             auto v = needValue();
             if (!v) return std::nullopt;

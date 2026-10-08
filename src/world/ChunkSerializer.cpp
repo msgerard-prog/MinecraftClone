@@ -6,8 +6,10 @@
 #include "world/Loot.h"
 #include "world/Enchantments.h"
 #include "world/Dimension.h"
+#include "world/Direction.h"
 #include "world/ItemContainers.h"
 #include "world/ItemExtras.h"
+#include "world/Paintings.h"
 #include "world/LevelData.h"
 #include "world/Potions.h"
 #include "world/RecipeIds.h"
@@ -1160,6 +1162,22 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsChickenJockey", int8_t{0});
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
+        if (isHanging(m.type)) { // (M28.3a; wiki: Item Frame, Painting › Entity data)
+            e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+            if (m.type == MobType::Painting) { // facing: 2D (south 0, west 1, north 2, east 3)
+                static constexpr int8_t k2d[6] = {0, 0, 2, 0, 1, 3};
+                e.put("facing", k2d[m.phase % 6]);
+                e.put("variant", "minecraft:" + std::string(kPaintings[m.woolColour % kPaintings.size()].name));
+            } else {
+                e.put("Facing", int8_t(m.phase % 6));
+                e.put("ItemRotation", int8_t(m.node % 8));
+                e.put("ItemDropChance", 1.0f);
+                e.put("Invisible", int8_t{0});
+                e.put("Fixed", int8_t{0});
+                for (const auto& st : chunk.mobStores)
+                    if (st.uuidHi == m.uuidHi && !st.slots[0].empty()) e.put("Item", itemNbt(st.slots[0], -1));
+            }
+        }
         if (m.type == MobType::EnderDragon) e.put("DragonPhase", int32_t(m.phase)); // (vanilla's numbers)
         if (m.type == MobType::Shulker) {
             e.put("AttachFace", int8_t{0}); // (ours always sit on a floor: down)
@@ -1727,6 +1745,23 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
                     }
             }
+        if (isHanging(m.type)) { // (M28.3a)
+            m.health = 1.0f; // (vanilla saves no health for them)
+            if (const nbt::Tag* bp = e->find("block_pos"))
+                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+            if (m.type == MobType::Painting) {
+                static constexpr uint8_t k3d[4] = {uint8_t(Direction::South), uint8_t(Direction::West),
+                                                   uint8_t(Direction::North), uint8_t(Direction::East)};
+                m.phase = k3d[std::clamp<int64_t>(e->integer("facing").value_or(0), 0, 3)];
+                const std::string* v = e->string("variant");
+                m.woolColour = uint8_t(v ? findPainting(*v).value_or(0) : 0);
+            } else {
+                m.phase = uint8_t(std::clamp<int64_t>(e->integer("Facing").value_or(2), 0, 5));
+                m.node = uint8_t(std::clamp<int64_t>(e->integer("ItemRotation").value_or(0), 0, 7));
+                if (const nbt::Compound* item = e->compound("Item")) chunk.addMobStore(m.uuidHi)[0] = itemFromNbt(*item);
+            }
+            m.persistent = true;
+        }
         if (m.health > 0.0f || (m.type == MobType::EnderDragon && m.deathTime > 0)) chunk.mobs().push_back(m);
     }
 }

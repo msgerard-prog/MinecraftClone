@@ -1,5 +1,7 @@
 #include "rendering/WorldRenderer.h"
 
+#include "world/Paintings.h"
+
 #include "core/Files.h"
 #include "core/Window.h"
 #include "core/Log.h"
@@ -41,8 +43,14 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
     packs.add(ResourcePack::open(std::filesystem::path(MC_ASSETS_DIR).parent_path()));
     packs.addAllIn(resourcePacksDir);
     // Blocks and items share one atlas (as vanilla's): item sprites are "item/<name>".
+    // Paintings (M28.3a) are cut into one sprite per block: "painting/<name>:<x>,<y>".
+    auto paintingWidth = [](std::string_view stem) {
+        const auto v = world::findPainting(stem);
+        return v ? int(world::kPaintings[size_t(*v)].width) : 0;
+    };
     const TextureAtlas::AtlasFolder folders[] = {{"assets/minecraft/textures/block/", ""},
-                                                 {"assets/minecraft/textures/item/", "item/"}};
+                                                 {"assets/minecraft/textures/item/", "item/"},
+                                                 {"assets/minecraft/textures/painting/", "painting/", +paintingWidth}};
     if (!m_atlas.build(packs, folders)) return false;
     m_models.bake(world::blockRegistry(), m_atlas);
     if (!m_chunks.init() || !m_translucent.init() || !m_sky.init(packs)) return false;

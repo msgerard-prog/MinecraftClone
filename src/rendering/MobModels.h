@@ -114,6 +114,10 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/creaking.png",
         "assets/minecraft/textures/entity/clone/warden.png",
         "assets/minecraft/textures/entity/clone/sniffer.png",
+        // (M28.3a) hanging entities are drawn from atlas sprites, not skins
+        "assets/minecraft/textures/entity/clone/projectiles.png",
+        "assets/minecraft/textures/entity/clone/projectiles.png",
+        "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",

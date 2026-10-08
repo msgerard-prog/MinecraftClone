@@ -6,6 +6,7 @@
 #include "gameplay/Pathfinder.h"
 #include "gameplay/Player.h"
 #include "gameplay/Vitals.h"
+#include "world/Direction.h"
 #include "world/Mob.h"
 #include "world/Random.h"
 #include "world/Weather.h"
@@ -138,6 +139,19 @@ public:
     std::span<const world::MobType> playerKills() const { return {m_kills.data(), size_t(m_killCount)}; }
     void clearPlayerKills() { m_killCount = 0; }
     int takeBred() { return std::exchange(m_bred, 0); }
+    // Item frames and paintings (M28.3a, Hanging.cpp; wiki: Item Frame, Painting): hung on
+    // the face `face` of `support` (paintings on walls only: the biggest canvases that fit,
+    // one at random); false if there is no room.
+    static bool placeHanging(world::World& world, world::MobType type, const world::BlockPos& support,
+                             world::Direction face, world::Xoroshiro& rng);
+    static bool hangingSurvives(const world::World& world, const world::MobData& m);
+    static Aabb hangingBox(const world::MobData& m);
+    // Right-click on an item frame: an empty one takes one of `held` (returned true: use it
+    // up), a full one turns its item 45 degrees.
+    static bool useItemFrame(world::World& world, world::MobData& frame, const world::ItemStack& held);
+    static world::ItemStack frameItem(const world::World& world, const world::MobData& frame);
+    // A hit on an item frame holding something drops the item instead of breaking it.
+    static bool popFrameItem(world::World& world, world::MobData& frame, ItemEntities& items, world::Xoroshiro& rng);
     // The mob with this UUID, searched from the chunks around `near` outward.
     static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
 
@@ -195,6 +209,9 @@ private:
     bool wardenGoal(Context& ctx, world::MobData& m, double& speed);
     // Sniffers (Sniffers.cpp, M27.5c): digging up seeds now and then.
     bool snifferTick(Context& ctx, world::MobData& m);
+    // Hanging entities (Hanging.cpp, M28.3a): dropping off when their wall goes.
+    void hangingTick(Context& ctx, world::MobData& m);
+    void dropHanging(Context& ctx, world::MobData& m);
     // Trial spawners (TrialChambers.cpp, M27.4d).
     void tickTrialSpawner(Context& ctx, world::Chunk& chunk, const world::BlockPos& p, world::SpawnerData& s);
 

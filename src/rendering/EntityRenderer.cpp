@@ -1,5 +1,7 @@
 #include "rendering/EntityRenderer.h"
 
+#include "world/Paintings.h"
+
 #include "core/Log.h"
 #include "rendering/MobModels.h"
 #include "rendering/ResourcePack.h"
@@ -84,6 +86,18 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     for (int i = 0; i < 10; ++i)
         m_crackSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("destroy_stage_" + std::to_string(i)));
     m_orbSprite = static_cast<uint16_t>(atlas.spriteIndex("experience_orb")); // (our texture, in the block atlas)
+    m_frameSprite = static_cast<uint16_t>(atlas.spriteIndex("item_frame"));
+    m_glowFrameSprite = static_cast<uint16_t>(atlas.spriteIndex("glow_item_frame"));
+    m_frameWood = static_cast<uint16_t>(atlas.spriteIndex("birch_planks"));
+    m_paintingBack = static_cast<uint16_t>(atlas.spriteIndex("painting/back"));
+    m_paintingTiles.clear();
+    for (const world::PaintingVariant& v : world::kPaintings) {
+        std::vector<uint16_t>& tiles = m_paintingTiles.emplace_back();
+        for (int y = 0; y < v.height; ++y)
+            for (int x = 0; x < v.width; ++x)
+                tiles.push_back(static_cast<uint16_t>(
+                    atlas.spriteIndex("painting/" + std::string(v.name) + ":" + std::to_string(x) + "," + std::to_string(y))));
+    }
     m_items.reserve(size_t(kMaxQuads) * 6);
     {
         // Rain and snow in one texture that repeats vertically (vanilla draws each
@@ -236,6 +250,75 @@ void EntityRenderer::addItem(const world::ItemStack& stack, const glm::dvec3& po
     const glm::vec3 q[4] = {p[3], p[2], p[1], p[0]}; // back side
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, pack(light), m_items);
     quad(q, u0 + m_cell, v0, u0, v0 + m_cell, pack(light), m_items);
+}
+
+namespace {
+// A wall's in-plane axes for a facing (seen from in front): right and up.
+void wallAxes(int facing, glm::vec3& n, glm::vec3& r, glm::vec3& u) {
+    n = glm::vec3(world::kDirectionNormals[facing % 6]);
+    u = facing == int(world::Direction::Up) ? glm::vec3(0, 0, -1) : facing == int(world::Direction::Down) ? glm::vec3(0, 0, 1)
+                                                                                                          : glm::vec3(0, 1, 0);
+    r = glm::cross(u, n);
+}
+} // namespace
+
+void EntityRenderer::addItemFrame(const glm::dvec3& centre, int facing, bool glow, const world::ItemStack& item,
+                                  int rotation, const glm::vec3& light, const glm::dvec3& cameraPos) {
+    glm::vec3 n, r, u;
+    wallAxes(facing, n, r, u);
+    const glm::vec3 c(centre - cameraPos);
+    const glm::vec3 half = (glm::vec3(1.0f) - glm::abs(n)) * 0.375f + glm::abs(n) * (1.0f / 32.0f);
+    uint16_t sprites[6];
+    uint32_t tints[6];
+    for (int f = 0; f < 6; ++f) {
+        sprites[f] = f == facing % 6 ? (glow ? m_glowFrameSprite : m_frameSprite) : m_frameWood;
+        tints[f] = 0xFFFFFFu;
+    }
+    // (glow item frames light their item: drawn at full brightness - wiki: Glow Item Frame)
+    cube(c - half, c + half, sprites, light, tints, m_items, true);
+    if (item.empty()) return;
+    // The item: its sprite (or a block's face) flat on the frame, half a block across.
+    uint16_t sprite = m_icons->sprite(item.item);
+    if (!sprite) {
+        const world::ItemDef& def = world::itemRegistry().item(item.item);
+        if (!def.block) return;
+        const BakedModel& m = (*m_models)[item.state ? item.state : world::blockRegistry().defaultState(def.block)];
+        if (!m.visible) return;
+        sprite = m.cross ? m.crossSprite : m.boxCount ? m.boxes[0].faces[2].sprite : m.variants[0].faces[2].sprite;
+    }
+    const float a = float(rotation % 8) * 0.785398f, cs = std::cos(a), sn = std::sin(a);
+    const glm::vec3 rr = r * cs - u * sn, uu = u * cs + r * sn;
+    const glm::vec3 o = c + n * (1.0f / 32.0f + 0.004f);
+    const float s = 0.25f;
+    const glm::vec3 p[4] = {o - rr * s + uu * s, o - rr * s - uu * s, o + rr * s - uu * s, o + rr * s + uu * s};
+    const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
+    quad(p, u0, v0, u0 + m_cell, v0 + m_cell, pack(glow ? glm::vec3(1.0f) : light), m_items);
+}
+
+void EntityRenderer::addPainting(int variant, const glm::dvec3& centre, int facing, const glm::vec3& light,
+                                 const glm::dvec3& cameraPos) {
+    if (variant < 0 || variant >= int(m_paintingTiles.size())) return;
+    const world::PaintingVariant& v = world::kPaintings[size_t(variant)];
+    glm::vec3 n, r, u;
+    wallAxes(facing, n, r, u);
+    const glm::vec3 c = glm::vec3(centre - cameraPos);
+    const uint32_t col = pack(light * (facing % 6 >= 4 ? 0.6f : 0.8f)); // (directional shade, as blocks)
+    for (int ty = 0; ty < v.height; ++ty)
+        for (int tx = 0; tx < v.width; ++tx) {
+            const glm::vec3 o = c + n * (1.0f / 32.0f) + r * (float(tx) - (v.width - 1) / 2.0f) +
+                                u * ((v.height - 1) / 2.0f - float(ty));
+            const glm::vec3 p[4] = {o - r * 0.5f + u * 0.5f, o - r * 0.5f - u * 0.5f, o + r * 0.5f - u * 0.5f,
+                                    o + r * 0.5f + u * 0.5f};
+            const uint16_t sprite = m_paintingTiles[size_t(variant)][size_t(ty * v.width + tx)];
+            const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
+            quad(p, u0, v0, u0 + m_cell, v0 + m_cell, col, m_items);
+        }
+    // The back of the canvas (seen only from inside the wall).
+    const glm::vec3 b = c - n * (1.0f / 32.0f);
+    const glm::vec3 hr = r * (v.width / 2.0f), hu = u * (v.height / 2.0f);
+    const glm::vec3 q[4] = {b + hr + hu, b + hr - hu, b - hr - hu, b - hr + hu};
+    const float u0 = float(m_paintingBack % m_columns) * m_cell, v0 = float(m_paintingBack / m_columns) * m_cell;
+    quad(q, u0, v0, u0 + m_cell, v0 + m_cell, pack(light * 0.6f), m_items);
 }
 
 void EntityRenderer::addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,

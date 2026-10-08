@@ -47,6 +47,13 @@ public:
     // others as their sprite; spinning about Y and bobbing (wiki: Item (entity)).
     void addItem(const world::ItemStack& stack, const glm::dvec3& pos, float spin, float bob,
                  const glm::vec3& light, const glm::dvec3& cameraPos);
+    // An item frame (M28.3a) centred at `centre` on a wall facing `facing`
+    // (world::Direction): a 12x12 frame, its item flat inside turned `rotation` x 45 degrees.
+    void addItemFrame(const glm::dvec3& centre, int facing, bool glow, const world::ItemStack& item, int rotation,
+                      const glm::vec3& light, const glm::dvec3& cameraPos);
+    // A painting (M28.3a): its canvas tiles (world::kPaintings[variant]) facing `facing`.
+    void addPainting(int variant, const glm::dvec3& centre, int facing, const glm::vec3& light,
+                     const glm::dvec3& cameraPos);
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
     void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
                   const glm::dvec3& cameraPos);
@@ -118,6 +125,9 @@ private:
     FontMetrics m_font;
     std::vector<Vertex> m_text;    // reserved; drawn with the font texture
     uint16_t m_particleSprites[size_t(ParticleSprite::Count)] = {};
+    // (M28.3a) frame and painting sprites; painting tiles per variant, row by row from the top
+    uint16_t m_frameSprite = 0, m_glowFrameSprite = 0, m_frameWood = 0, m_paintingBack = 0;
+    std::vector<std::vector<uint16_t>> m_paintingTiles;
 };
 
 } // namespace mc::gfx

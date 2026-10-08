@@ -36,6 +36,10 @@ public:
     struct AtlasFolder {
         std::string_view folder;
         std::string_view prefix;
+        // (M28.3a: paintings) how many blocks wide the picture named `stem` is: it is cut
+        // into one square sprite per block, "<prefix><stem>:<x>,<y>" from the top left.
+        // Null, or 0 for a name: an ordinary sprite.
+        int (*blocksWide)(std::string_view stem) = nullptr;
     };
     bool build(const PackStack& packs, std::string_view folder);
     bool build(const PackStack& packs, std::span<const AtlasFolder> folders);

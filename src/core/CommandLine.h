@@ -39,6 +39,7 @@ struct LaunchOptions {
     bool inventory = false;            // --inventory: start with the creative inventory open
     bool trade = false;                // --trade: open the nearest employed villager's trades (screenshots)
     bool book = false;                 // --book TEXT: open the held book and type TEXT (screenshots, M28.2c)
+    int use = 0;                       // --use N: N scripted right-clicks, half a second apart from tick 5 (screenshots)
     std::string bookText;
     bool mount = false;                // --mount: ride the nearest mount (with --inventory: its screen)
     bool hasOpenBlock = false;         // --open-block x,y,z: open that block's screen (chest...)

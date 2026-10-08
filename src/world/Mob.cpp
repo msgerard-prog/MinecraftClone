@@ -149,6 +149,10 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:warden", 500.0f, 0.9, 2.9, 0.3, 30.0f, true, false, false, 2.0f},
         // wiki: Sniffer - 14 health, 1.9 x 1.75, speed 0.1; drawn twice size (half boxes).
         {"minecraft:sniffer", 14.0f, 1.9, 1.75, 0.1, 0.0f, false, false, false, 2.0f},
+        // (M28.3a) hanging entities: one hit breaks them (their boxes come from the facing).
+        {"minecraft:item_frame", 1.0f, 0.75, 0.75, 0.0, 0.0f, false},
+        {"minecraft:glow_item_frame", 1.0f, 0.75, 0.75, 0.0, 0.0f, false},
+        {"minecraft:painting", 1.0f, 1.0, 1.0, 0.0, 0.0f, false},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

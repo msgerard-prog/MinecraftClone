@@ -946,6 +946,25 @@ def writable_book(written=False):
     return img
 
 
+def frame_item(inner, picture=False):
+    """M28.3a: a wooden frame around leather (item frames; glowing ink for the glow frame)
+    or a small landscape (paintings)."""
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(2, 14)}, ramp(hexc("#A07A48"), 5, spread=0.3))
+    img = s.render()
+    f = ramp(hexc(inner), 5, spread=0.15)
+    for y in range(4, 12):
+        for x in range(4, 12):
+            if picture:
+                c = "#8AB8E8" if y < 7 else ("#F2D46A" if (x - 9) ** 2 + (y - 5) ** 2 < 2 else "#5E8A3C")
+                if y < 7 and (x - 9) ** 2 + (y - 5) ** 2 < 2:
+                    c = "#F2D46A"
+                img.set(x, y, hexc(c))
+            else:
+                img.set(x, y, f[3] if (x + y) % 3 else f[2])
+    return img
+
+
 def ghast_tear():
     pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
     s = Shape()
@@ -1287,6 +1306,9 @@ def all_items():
     items["filled_map"] = map_item(filled=True)
     items["writable_book"] = writable_book()
     items["written_book"] = writable_book(written=True)
+    items["item_frame"] = frame_item("#7A4A2A")  # (M28.3a)
+    items["glow_item_frame"] = frame_item("#3AB8A0")
+    items["painting"] = frame_item("#5E8A3C", picture=True)
     items["enchanted_book"] = book(True)
     # Nether mobs (M19.2).
     items["ghast_tear"] = ghast_tear()

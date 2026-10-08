@@ -79,6 +79,24 @@ bool TextureAtlas::build(const PackStack& packs, std::span<const AtlasFolder> fo
             MC_LOG_WARN("Atlas: can't decode %s", path.c_str());
             continue;
         }
+        if (const int bw = af.blocksWide ? af.blocksWide(file.substr(0, file.size() - 4)) : 0; bw > 0) {
+            const int tile = img->width / bw;
+            if (tile < 1 || !std::has_single_bit(static_cast<unsigned>(tile)) || img->width % bw != 0 ||
+                img->height % tile != 0) {
+                MC_LOG_WARN("Atlas: %s is %dx%d; expected %d square tiles wide", path.c_str(), img->width,
+                            img->height, bw);
+                continue;
+            }
+            for (int ty = 0; ty < img->height / tile; ++ty)
+                for (int tx = 0; tx < bw; ++tx) {
+                    Image cut{tile, tile, std::vector<uint8_t>(size_t(tile) * tile * 4)};
+                    for (int row = 0; row < tile; ++row)
+                        std::memcpy(&cut.pixels[size_t(row) * tile * 4], img->at(tx * tile, ty * tile + row),
+                                    size_t(tile) * 4);
+                    sprites.push_back({name + ":" + std::to_string(tx) + "," + std::to_string(ty), std::move(cut), {}, 1});
+                }
+            continue;
+        }
         LoadedSprite s{name, {}, {}, 1};
         const int w = img->width;
         if (!std::has_single_bit(static_cast<unsigned>(w)) || img->height % w != 0) {

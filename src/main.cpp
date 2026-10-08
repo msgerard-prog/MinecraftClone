@@ -1093,6 +1093,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool openBlockPending = opts->hasOpenBlock;
     bool tradePending = opts->trade;
     bool bookPending = opts->book; // (M28.2c)
+    int scriptedUses = opts->use;
+    int64_t scriptedUseAt = (level ? level->gameTime : 0) + 5;
     bool mountPending = opts->mount;
     std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
@@ -2119,6 +2121,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.cursorCaptured() && window.takePresses(mc::Press::LeftMouse) > 0;
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
+            // --use N (screenshots): scripted right-clicks, half a second apart from tick 5.
+            if (scriptedUses > 0 && gameTime >= scriptedUseAt) {
+                clicks.useClick = true;
+                --scriptedUses;
+                scriptedUseAt = gameTime + 10;
+            }
             if (gameMode == 3) clicks = {}; // spectators touch nothing (M28.1c)
             const bool mayBuild = gameMode != 2; // adventure: no breaking, placing or block-changing items
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
@@ -2356,6 +2364,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (heldId == "minecraft:writable_book") bookScreen.openEdit(content, inventory.selected());
                     else bookScreen.openRead(content);
                     window.setCursorCaptured(false);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+                const auto hangingInFront = [&] { // (a click on a frame uses the frame, not the wall)
+                    const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                    return mh && (!lastHit || mh->distance < lastHit->distance) &&
+                           mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type);
+                };
+                if (!dead && mayBuild && clicks.useClick && lastHit &&
+                    (heldId == "minecraft:item_frame" || heldId == "minecraft:glow_item_frame" || heldId == "minecraft:painting") &&
+                    !hangingInFront()) {
+                    // Hanging an item frame or a painting on the clicked face (M28.3a).
+                    const auto type = heldId == "minecraft:painting"       ? mc::world::MobType::Painting
+                                      : heldId == "minecraft:glow_item_frame" ? mc::world::MobType::GlowItemFrame
+                                                                              : mc::world::MobType::ItemFrame;
+                    if (mc::Mobs::placeHanging(world, type, lastHit->block, lastHit->face, gameRng) && survival)
+                        inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -2687,6 +2712,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
+            // Right-click on an item frame: put the held item in, or turn it (M28.3a).
+            if (!dead && clicks.useClick) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                    mh && (!lastHit || mh->distance < lastHit->distance) &&
+                    mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type)) {
+                    auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    if (mc::Mobs::useItemFrame(world, m, inventory.selectedStack()) && survival)
+                        inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+            }
             // Feeding and shearing animals (M16.3): right-click the mob in front.
             // (M26.1: an empty hand makes a tamed pet sit or stand)
             if (!dead && clicks.useClick) {
@@ -2882,6 +2921,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 } else {
                     portalTicks = 0;
                     portalCooldown = false;
+                }
+            }
+            // Hitting an item frame takes its item out; then (or a painting) it breaks
+            // (M28.3a; wiki: Item Frame, Painting). Creative breaks drop nothing.
+            if (!dead && clicks.attackClick) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                    mh && (!lastHit || mh->distance < lastHit->distance) &&
+                    mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type)) {
+                    mc::world::Chunk* hc = world.chunk(mh->chunk);
+                    auto& m = hc->mobs()[size_t(mh->index)];
+                    if (gameMode != 2 && m.health > 0.0f && !mc::Mobs::popFrameItem(world, m, droppedItems, gameRng)) {
+                        m.health = 0.0f;
+                        m.lastHurtByPlayer = true;
+                        if (!survival) { // (gone without its item)
+                            m.deathTime = 19;
+                            if (mc::world::Chunk* sc = world.chunk({mc::world::blockToChunk(int(std::floor(m.pos.x))),
+                                                                    mc::world::blockToChunk(int(std::floor(m.pos.z)))}))
+                                sc->removeMobStore(m.uuidHi);
+                        }
+                    }
+                    hc->markDirty();
+                    clicks.attackClick = false;
+                    clicks.attack = false;
                 }
             }
             // Attacking a mob in front of the targeted block (wiki: Melee attack):
@@ -4400,6 +4464,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const double maxDist = 64.0 * (info.width * 2.0 + info.height) / 3.0;
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
+                if (mc::world::isHanging(m.type)) { // (M28.3a) item frames and paintings, from the atlas
+                    const mc::Aabb hb = mc::Mobs::hangingBox(m);
+                    if (!mobFrustum.intersectsBox(glm::vec3(hb.min - camera.position), glm::vec3(hb.max - camera.position)))
+                        continue;
+                    const mc::world::BlockPos hp{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+                    int hs = 15, hbl = 0;
+                    if (const auto* lc = world.chunk(hp.chunk()); lc && lc->lit()) {
+                        hs = lc->skyLight(mc::world::blockToLocal(hp.x), hp.y, mc::world::blockToLocal(hp.z));
+                        hbl = lc->blockLight(mc::world::blockToLocal(hp.x), hp.y, mc::world::blockToLocal(hp.z));
+                    }
+                    const glm::vec3 hl = lightTable[size_t(hs * 16 + hbl)];
+                    if (m.type == mc::world::MobType::Painting)
+                        entities.addPainting(m.woolColour, m.pos, m.phase, hl, camera.position);
+                    else
+                        entities.addItemFrame(m.pos, m.phase, m.type == mc::world::MobType::GlowItemFrame,
+                                              mc::Mobs::frameItem(world, m), m.node, hl, camera.position);
+                    continue;
+                }
                 const glm::vec3 bmin(rel - glm::dvec3(info.width * 0.5, 0.0, info.width * 0.5));
                 const float reachOut =
                     m.type == mc::world::MobType::EnderDragon ? 8.0f : 0.0f; // (its tail and wings)
@@ -4898,6 +4980,7 @@ int main(int argc, char** argv) {
         launch.hasPos = launch.hasLook = false;
         launch.dimension.clear();
         launch.book = false;
+        launch.use = 0;
         launch.autoFly = launch.demoEdit = launch.inventory = launch.hasOpenBlock = launch.trade =
             false;
     };

@@ -92,6 +92,13 @@ enum class MobType : uint8_t {
     Creaking,       // (M27.1c) a creaking heart's guardian: frozen while watched; its heart at `home`
     Warden,         // (M27.3c) blind, hears vibrations, smells players; `phase` emerging/active/digging, anger in `angerTicks`
     Sniffer,        // (M27.5c) digs up ancient seeds now and then (`eggTicks` to the next dig, `phase` 1 digging)
+    // Hanging entities (M28.3a; wiki: Item Frame, Painting): fixed to the block at `home`
+    // on its face `phase` (world::Direction), centred at `pos`; an item frame's item is in
+    // its chunk's mob store (slot 0), turned `node` x 45 degrees; a painting's variant
+    // (world::kPaintings) is `woolColour`. Not mobs in vanilla either.
+    ItemFrame,
+    GlowItemFrame,
+    Painting,
     Count
 };
 
@@ -208,6 +215,9 @@ inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::Z
 // and hoglins stay).
 inline bool despawnsInPeaceful(MobType t) {
     return mobInfo(t).hostile && t != MobType::EnderDragon && t != MobType::Shulker && t != MobType::Hoglin;
+}
+inline bool isHanging(MobType t) {
+    return t == MobType::ItemFrame || t == MobType::GlowItemFrame || t == MobType::Painting;
 }
 inline bool isUndead(MobType t) {
     return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
