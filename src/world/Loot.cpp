@@ -152,6 +152,39 @@ constexpr LootEntry kOutpost4[] = {{"experience_bottle", 1, 1, 7}, {"string", 1,
 constexpr LootEntry kOutpost5[] = {{"", 1, 1, 3}, {"sentry_armor_trim_smithing_template", 2, 2, 1}};
 constexpr LootPool kOutpost[] = {{0, 1, kOutpost1}, {2, 3, kOutpost2}, {1, 3, kOutpost3}, {2, 3, kOutpost4}, {1, 1, kOutpost5}};
 
+// wiki: Shipwreck › Loot (Java Edition): supply, map and treasure chests. Maps and
+// buried treasure maps don't exist yet: their slots stay empty (M28).
+constexpr LootEntry kShipSupply1[] = {
+    {"paper", 1, 12, 8},         {"potato", 2, 6, 7},        {"poisonous_potato", 2, 6, 7}, {"carrot", 4, 8, 7},
+    {"wheat", 8, 21, 7},         {"coal", 2, 8, 6},          {"rotten_flesh", 5, 24, 5},    {"gunpowder", 1, 5, 3},
+    {"pumpkin", 1, 1, 2},        {"bamboo", 1, 3, 2},        {"tnt", 1, 2, 1},              {"leather_helmet", 1, 1, 3, true},
+    {"leather_chestplate", 1, 1, 3, true}, {"leather_leggings", 1, 1, 3, true}, {"leather_boots", 1, 1, 3, true}};
+constexpr LootPool kShipSupply[] = {{3, 10, kShipSupply1}};
+constexpr LootEntry kShipMap1[] = {{"paper", 1, 10, 20}, {"feather", 1, 5, 10}, {"book", 1, 5, 5}};
+constexpr LootPool kShipMap[] = {{3, 3, kShipMap1}};
+constexpr LootEntry kShipTreasure1[] = {{"iron_ingot", 1, 5, 90}, {"gold_ingot", 1, 5, 10}, {"emerald", 1, 5, 40},
+                                        {"diamond", 1, 1, 5}, {"experience_bottle", 1, 1, 5}};
+constexpr LootEntry kShipTreasure2[] = {{"iron_nugget", 1, 10, 50}, {"gold_nugget", 1, 10, 10}, {"lapis_lazuli", 1, 10, 20}};
+constexpr LootPool kShipTreasure[] = {{3, 6, kShipTreasure1}, {2, 5, kShipTreasure2}};
+// wiki: Ocean Ruins › Loot (small and big ruin chests).
+constexpr LootEntry kRuinSmall1[] = {{"coal", 1, 4, 10}, {"stone_axe", 1, 1, 2}, {"rotten_flesh", 1, 1, 5},
+                                     {"emerald", 1, 1, 1}, {"wheat", 2, 3, 10}};
+constexpr LootEntry kRuinSmall2[] = {{"leather_chestplate", 1, 1, 1}, {"golden_helmet", 1, 1, 1},
+                                     {"fishing_rod", 1, 1, 5, true}};
+constexpr LootPool kRuinSmall[] = {{2, 8, kRuinSmall1}, {1, 1, kRuinSmall2}};
+constexpr LootEntry kRuinBig1[] = {{"coal", 1, 4, 10}, {"gold_nugget", 1, 3, 10}, {"emerald", 1, 1, 1}, {"wheat", 2, 3, 10}};
+constexpr LootEntry kRuinBig2[] = {{"golden_apple", 1, 1, 1}, {"enchanted_book", 1, 1, 5, true},
+                                   {"leather_chestplate", 1, 1, 1}, {"golden_helmet", 1, 1, 1},
+                                   {"fishing_rod", 1, 1, 5, true}};
+constexpr LootPool kRuinBig[] = {{2, 8, kRuinBig1}, {1, 1, kRuinBig2}};
+// wiki: Buried Treasure › Loot - always a heart of the sea.
+constexpr LootEntry kBuried1[] = {{"heart_of_the_sea", 1, 1, 1}};
+constexpr LootEntry kBuried2[] = {{"iron_ingot", 1, 4, 20}, {"gold_ingot", 1, 4, 10}, {"tnt", 1, 2, 5}};
+constexpr LootEntry kBuried3[] = {{"emerald", 4, 8, 5}, {"diamond", 1, 2, 5}, {"prismarine_crystals", 1, 5, 5}};
+constexpr LootEntry kBuried4[] = {{"leather_chestplate", 1, 1, 1}, {"iron_sword", 1, 1, 1}};
+constexpr LootEntry kBuried5[] = {{"cooked_cod", 2, 4, 1}, {"cooked_salmon", 2, 4, 1}};
+constexpr LootPool kBuried[] = {{1, 1, kBuried1}, {5, 8, kBuried2}, {1, 3, kBuried3}, {0, 1, kBuried4}, {2, 2, kBuried5}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -191,6 +224,12 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::BastionOther: return kBastion;
     case LootTable::EndCityTreasure: return kEndCity;
     case LootTable::PillagerOutpost: return kOutpost;
+    case LootTable::ShipwreckSupply: return kShipSupply;
+    case LootTable::ShipwreckMap: return kShipMap;
+    case LootTable::ShipwreckTreasure: return kShipTreasure;
+    case LootTable::UnderwaterRuinSmall: return kRuinSmall;
+    case LootTable::UnderwaterRuinBig: return kRuinBig;
+    case LootTable::BuriedTreasure: return kBuried;
     default: return {}; // (filled in as their structures arrive)
     }
 }

@@ -259,3 +259,63 @@ TEST_CASE("a waterlogged block's water flows out like a source; water beside it 
     CHECK(t.block({2, 64, 2}) == blocks::Water);
     REQUIRE_FALSE(t.updates.drops().empty());
 }
+
+#include "world/StructurePlacement.h"
+
+TEST_CASE("overworld4: shipwrecks and ocean ruins on the sea floor with their chests; buried treasure under beaches (M25.4)") {
+    const OverworldGenerator gen(42);
+    auto findStart = [&](const RandomSpread& spread, bool beachToo) -> std::optional<ChunkPos> {
+        for (int rz = -60; rz <= 60; ++rz)
+            for (int rx = -60; rx <= 60; ++rx) {
+                const ChunkPos c{rx, rz};
+                if (!isSpreadCandidate(42, spread, c)) continue;
+                const Biome b = gen.biomeAt(gen.column(rx * 16 + 8, rz * 16 + 8));
+                const bool ocean = b == Biome::Ocean || b == Biome::DeepOcean || b == Biome::ColdOcean ||
+                                   b == Biome::LukewarmOcean || b == Biome::WarmOcean || b == Biome::DeepColdOcean ||
+                                   b == Biome::DeepLukewarmOcean || b == Biome::FrozenOcean || b == Biome::DeepFrozenOcean;
+                if (ocean || (beachToo && b == Biome::Beach)) return c;
+            }
+        return std::nullopt;
+    };
+    const auto ship = findStart(kShipwrecks, true);
+    REQUIRE(ship.has_value());
+    int chests = 0, planks = 0, filled = 0;
+    const BlockId sprucePlanks = *R().findBlock("spruce_planks");
+    for (int dz = 0; dz <= 1; ++dz)
+        for (int dx = 0; dx <= 1; ++dx) {
+            Chunk c({ship->x + dx, ship->z + dz});
+            gen.generate(c);
+            chests += int(c.chests().size());
+            for (const auto& ch : c.chests())
+                for (const ItemStack& s : ch.data.items) filled += !s.empty();
+            planks += countBlock(c, sprucePlanks);
+        }
+    MESSAGE("shipwreck at chunk " << ship->x << ", " << ship->z);
+    CHECK(planks > 40);
+    CHECK(chests >= 2);
+    CHECK(filled > 3);
+    const auto ruin = findStart(kOceanRuins, false);
+    REQUIRE(ruin.has_value());
+    int ruinChests = 0;
+    for (int dz = 0; dz <= 1; ++dz)
+        for (int dx = 0; dx <= 1; ++dx) {
+            Chunk c({ruin->x + dx, ruin->z + dz});
+            gen.generate(c);
+            ruinChests += int(c.chests().size());
+        }
+    MESSAGE("ocean ruin at chunk " << ruin->x << ", " << ruin->z);
+    CHECK(ruinChests >= 1);
+    // Buried treasure: a chest with a heart of the sea in a beach chunk (1 in 100).
+    bool heart = false;
+    for (int rz = -80; rz <= 80 && !heart; ++rz)
+        for (int rx = -80; rx <= 80 && !heart; ++rx) {
+            if (gen.biomeAt(gen.column(rx * 16 + 9, rz * 16 + 9)) != Biome::Beach) continue;
+            Chunk c({rx, rz});
+            gen.generate(c);
+            for (const auto& ch : c.chests())
+                for (const ItemStack& s : ch.data.items)
+                    heart = heart || s.item == *itemRegistry().find("heart_of_the_sea");
+            if (heart) MESSAGE("buried treasure in chunk " << rx << ", " << rz);
+        }
+    CHECK(heart);
+}

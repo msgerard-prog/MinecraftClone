@@ -20,7 +20,7 @@ M25 - Oceans (wiki pages of each biome/mob/structure):
 3. ✅ M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
    (throwing, Loyalty/Riptide/Impaling/Channeling), dolphins (Dolphin's Grace), turtles
    (eggs, scutes, turtle helmet).
-4. M25.4 - Shipwrecks, ocean ruins (with suspicious sand left for M27), buried
+4. ✅ M25.4 - Shipwrecks, ocean ruins (with suspicious sand left for M27), buried
    treasure and treasure maps where maps allow (maps come in M28).
 5. M25.5 - Guardians, elder guardians (Mining Fatigue) and ocean monuments (prismarine,
    sponges, gold), conduit attacks on hostile mobs, hearts of the sea.

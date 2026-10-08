@@ -101,6 +101,7 @@ public:
 
 private:
     double terrainDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
+    void placeOceanStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const; // M25.4
     void placeOceanFloor(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                          const std::array<Biome, 16>& columnBiome) const; // overworld4 (M25.1)
     double caveDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;

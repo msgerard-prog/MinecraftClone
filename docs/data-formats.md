@@ -256,6 +256,8 @@ M25.3: entity `minecraft:drowned` (a held trident as `equipment.mainhand`); item
 M25.3b: entities `minecraft:dolphin`, `minecraft:turtle` (`HasEgg`, `home_pos`); block
 `turtle_egg` (eggs 1..4, hatch 0..2); items `turtle_scute`, `turtle_helmet`; effect
 `dolphins_grace`.
+M25.4: loot tables ShipwreckSupply/Map/Treasure, UnderwaterRuinSmall/Big, BuriedTreasure
+(authored from the wiki; missing items such as maps are skipped).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

@@ -29,7 +29,13 @@ enum class LootTable : uint8_t {
     NetherFortress,
     BastionOther,
     EndCityTreasure, // (M20.4)
-    PillagerOutpost  // (M24.4)
+    PillagerOutpost, // (M24.4)
+    ShipwreckSupply, // (M25.4)
+    ShipwreckMap,
+    ShipwreckTreasure,
+    UnderwaterRuinSmall,
+    UnderwaterRuinBig,
+    BuriedTreasure
 };
 
 struct LootEntry {

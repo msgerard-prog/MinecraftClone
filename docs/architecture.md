@@ -131,7 +131,8 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   under sea level + 2: cave air below the sea there is water, sealed with stone toward
   dry columns and above the lava; caves may open through the sea floor),
   `placeOceanFloor` (seagrass, kelp, coral reefs and sea pickles, icebergs as pure shapes
-  from their start chunks).
+  from their start chunks); `placeOceanStructures` (M25.4: shipwrecks on grid
+  `kShipwrecks`, ocean ruins on `kOceanRuins`, buried treasure in 1% of beach chunks).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column

@@ -1688,9 +1688,120 @@ struct StructureBuilder {
 
 } // namespace
 
+// Ocean structures (overworld4, M25.4; wiki: Shipwreck, Ocean Ruins, Buried Treasure).
+// Basic versions after the wiki's descriptions: a spruce hull on the sea floor (or
+// beached), parts of it broken away, with its supply, map and treasure chests; ruins
+// of stone bricks (cold oceans) or sandstone (warm) with a chest; and, in 1 of 100
+// beach chunks, a chest of treasure under the sand.
+void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    const auto& reg = blockRegistry();
+    static const BlockStateId planks = *reg.parse("minecraft:spruce_planks");
+    static const BlockStateId logX = *reg.parse("minecraft:spruce_log[axis=z]");
+    static const BlockStateId logY = *reg.parse("minecraft:spruce_log[axis=y]");
+    static const BlockStateId fence = reg.defaultState(*reg.findBlock("spruce_fence"));
+    static const BlockStateId oakPlanks = *reg.parse("minecraft:oak_planks");
+    static const BlockStateId bricks = reg.defaultState(blocks::StoneBricks);
+    static const BlockStateId mossy = reg.defaultState(blocks::MossyStoneBricks);
+    static const BlockStateId cracked = reg.defaultState(blocks::CrackedStoneBricks);
+    static const BlockStateId sandstone = reg.defaultState(blocks::Sandstone);
+    static const BlockStateId cutSandstone = *reg.parse("minecraft:cut_sandstone");
+    static const BlockStateId gravel = reg.defaultState(blocks::Gravel);
+    static const BlockStateId water = reg.defaultState(blocks::Water);
+    auto isSea = [](Biome b) { return isOcean(b); };
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            const int32_t sx = start.x * 16, sz = start.z * 16;
+            // ---- Shipwrecks: 7 x 20, upright, on the floor (or on a beach) ----
+            if (isSpreadCandidate(m_seed, kShipwrecks, start)) {
+                const Biome biome = biomeAt(column(sx + 8, sz + 8));
+                const bool beached = biome == Biome::Beach || biome == Biome::SnowyBeach;
+                if (isSea(biome) || beached) {
+                    Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 720));
+                    const int ground = surfaceY(sx + 3, sz + 10) + 1;
+                    StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, ground, sz, 7, 20,
+                                        static_cast<int>(r.nextInt(4)), &out};
+                    // The hull: a keel, sides narrowing toward the bow, a deck at 4.
+                    for (int z = 0; z < 20; ++z) {
+                        const int half = z < 3 ? 1 : z > 16 ? 2 : 3; // (stern, bow narrower)
+                        for (int x = 3 - half; x <= 3 + half; ++x) sb.set(x, 0, z, planks);
+                        for (int y = 1; y <= 3; ++y) {
+                            sb.set(3 - half, y, z, planks);
+                            sb.set(3 + half, y, z, planks);
+                        }
+                        for (int x = 3 - half + 1; x <= 3 + half - 1; ++x)
+                            for (int y = 1; y <= 3; ++y) sb.set(x, y, z, beached ? BlockStateId{0} : water);
+                        if (z % 3 != 1) // (deck planks with gaps)
+                            for (int x = 3 - half; x <= 3 + half; ++x) sb.set(x, 4, z, planks);
+                        sb.set(3 - half, 5, z, fence); // the rail
+                        sb.set(3 + half, 5, z, fence);
+                    }
+                    sb.fill(3, 0, 0, 3, 0, 19, logX); // keel
+                    for (int y = 5; y <= 12; ++y) sb.set(3, y, 9, logY); // the mast
+                    sb.room(1, 5, 0, 5, 8, 4, oakPlanks); // the stern cabin
+                    sb.fill(2, 6, 4, 4, 7, 4, 0);
+                    // Broken away: a random third of the hull's top, as wrecks are.
+                    const int broken = int(r.nextInt(3));
+                    sb.fill(0, 3 + broken, 12 + int(r.nextInt(4)), 6, 13, 19, beached ? BlockStateId{0} : water);
+                    sb.chest(2, 6, 2, LootTable::ShipwreckMap);       // captain's cabin
+                    sb.chest(4, 1, 9, LootTable::ShipwreckSupply);    // the hold
+                    sb.chest(3, 1, 15, LootTable::ShipwreckTreasure); // the bow
+                    for (int x = 0; x < 7; ++x)
+                        for (int z = 0; z < 20; ++z) sb.foundation(x, z, gravel, 4);
+                }
+            }
+            // ---- Ocean ruins: 5 x 5 (big: 9 x 9), stone bricks or sandstone ----
+            if (isSpreadCandidate(m_seed, kOceanRuins, start)) {
+                const Biome biome = biomeAt(column(sx + 8, sz + 8));
+                if (isSea(biome)) {
+                    const bool warm = biome == Biome::WarmOcean || biome == Biome::LukewarmOcean ||
+                                      biome == Biome::DeepLukewarmOcean;
+                    Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 721));
+                    const bool big = r.nextInt(10) < 3; // (wiki: 30% big)
+                    const int size = big ? 9 : 5;
+                    const int ground = surfaceY(sx + size / 2, sz + size / 2) + 1;
+                    StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx + 2, ground, sz + 2, size, size,
+                                        static_cast<int>(r.nextInt(4)), &out};
+                    auto stone = [&] {
+                        const uint32_t pick = r.nextInt(10);
+                        if (warm) return pick < 7 ? sandstone : cutSandstone;
+                        return pick < 5 ? bricks : pick < 8 ? mossy : cracked;
+                    };
+                    sb.fill(0, -1, 0, size - 1, -1, size - 1, warm ? sandstone : bricks); // floor
+                    for (int x = 0; x < size; ++x)
+                        for (int z = 0; z < size; ++z) {
+                            const bool wall = x == 0 || z == 0 || x == size - 1 || z == size - 1;
+                            if (!wall) continue;
+                            // Crumbled walls: lower toward one corner, gaps here and there.
+                            const int h = std::max(0, (big ? 5 : 3) - (x + z) / (big ? 4 : 3) - int(r.nextInt(2)));
+                            for (int y = 0; y < h; ++y)
+                                if (r.nextInt(6) != 0) sb.set(x, y, z, stone());
+                        }
+                    sb.chest(size / 2, 0, size / 2, big ? LootTable::UnderwaterRuinBig : LootTable::UnderwaterRuinSmall);
+                    for (int x = 0; x < size; ++x)
+                        for (int z = 0; z < size; ++z) sb.foundation(x, z, warm ? sandstone : bricks, 4);
+                }
+            }
+        }
+    // ---- Buried treasure: this chunk only, 1 in 100 beach chunks (wiki) ----
+    {
+        Xoroshiro r(chunkSeed(m_seed, cx, cz, 722));
+        if (r.nextInt(100) == 0) {
+            const int32_t x = cx * 16 + 9, z = cz * 16 + 9;
+            const Biome biome = biomeAt(column(x, z));
+            if (biome == Biome::Beach || biome == Biome::SnowyBeach) {
+                const int ground = surfaceY(x, z);
+                StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, x, ground - 2, z, 1, 1, 0, &out};
+                sb.chest(0, 0, 0, LootTable::BuriedTreasure); // (under 2 blocks of sand)
+            }
+        }
+    }
+}
+
 void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
     const Blocks& B = blockSet();
     if (m_version >= 3) placeOutposts(blocks, cx, cz, out);
+    if (m_version >= 4) placeOceanStructures(blocks, cx, cz, out);
     struct Kind {
         const RandomSpread* spread;
         int w, d;
