@@ -182,6 +182,11 @@ public:
     // An axe strips a log, wood, stem, hyphae or bamboo block (M23.3b; wiki: Axe ›
     // Stripping): the stripped block with the same axis. True if it did.
     static bool strip(World& world, const BlockPos& p);
+    // Copper (M23.4b, Copper.cpp): honeycomb waxes it, an axe scrapes it (wax off, or a
+    // stage of oxidation). True if it acted.
+    static bool waxCopper(World& world, const BlockPos& p);
+    static bool scrapeCopper(World& world, const BlockPos& p);
+    static bool isCopper(BlockId b);
     // Bone meal used on the block at p. True if it was used up.
     bool boneMeal(const BlockPos& p);
     // An entity landed hard on this farmland (the caller rolls the chance).
@@ -224,6 +229,8 @@ private:
     void runWeatherTicks();
     bool rainingNear(const BlockPos& p) const; // on p or a horizontal neighbour
     bool hardenPowder(const BlockPos& p, BlockStateId s); // true if it turned into concrete
+    void tickCopper(const BlockPos& p, BlockStateId s);    // oxidation (Copper.cpp)
+    void updateBulb(const BlockPos& p, BlockStateId s);    // copper bulbs on power changes
     // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
     void fizz(const BlockPos& p) {
         m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);

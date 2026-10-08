@@ -137,6 +137,46 @@ void addColouredBlocks(BlockRegistry& r) {
     }
 }
 
+// The copper family (M23.4b; wiki: Block of Copper, Cut Copper, Chiseled Copper, Copper
+// Grate, Copper Door, Copper Trapdoor, Copper Bulb): four oxidation stages, each also
+// waxed. Unwaxed ones oxidize on random ticks (BlockUpdates::tickCopper); doors and
+// trapdoors open by hand like wooden ones; bulbs toggle on redstone pulses.
+void addCopperBlocks(BlockRegistry& r) {
+    using namespace properties;
+    static constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
+    const BlockSettings metal{.hardness = 3.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 1};
+    for (const bool waxed : {false, true}) {
+        const std::string w = waxed ? "waxed_" : "";
+        for (int i = 0; i < 4; ++i) {
+            const std::string st(kStages[i]);
+            BlockSettings s = metal;
+            s.randomTicks = !waxed && i < 3; // (oxidized copper ages no further)
+            r.add(w + (i == 0 ? "copper_block" : st + "copper"), s);
+            r.add(w + st + "cut_copper", s);
+            r.add(w + st + "chiseled_copper", s);
+            BlockSettings grate = s;
+            grate.opaqueCube = false; // (light and sight pass the holes)
+            grate.layer = RenderLayer::Cutout;
+            r.add(w + st + "copper_grate", grate);
+            BlockSettings door = s;
+            door.opaqueCube = false;
+            door.layer = RenderLayer::Cutout;
+            door.like = blocks::OakDoor;
+            r.add(w + st + "copper_door", door,
+                  {{&facing, "north"}, {&doorHalf, "lower"}, {&hinge, "left"}, {&open, "false"}, {&powered, "false"}});
+            door.like = blocks::OakTrapdoor;
+            r.add(w + st + "copper_trapdoor", door, {{&facing, "north"}, {&slabHalf, "bottom"}, {&open, "false"}, {&powered, "false"}});
+            const BlockId bulb = r.add(w + st + "copper_bulb", s, {{&lit, "false"}, {&powered, "false"}});
+            // Lit bulbs glow 15, 12, 8, 4 as they oxidize (wiki: Copper Bulb).
+            static constexpr uint8_t kLight[4] = {15, 12, 8, 4};
+            for (uint32_t k = 0; k < r.block(bulb).stateCount; ++k) {
+                const BlockStateId bs = static_cast<BlockStateId>(r.block(bulb).firstState + k);
+                if (r.get(bs, lit) == 0) r.setStateEmission(bs, kLight[i]);
+            }
+        }
+    }
+}
+
 // Building blocks (M23.1; wiki: each block's page): the full blocks the families need
 // that weren't registered yet, then the slabs, stairs and walls of vanilla's stone,
 // brick, sandstone, deepslate, Nether, End and wood families.
@@ -244,6 +284,14 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"pale_oak", "pale_oak_planks", true, true, false},
         {"bamboo", "bamboo_planks", true, true, false},
         {"bamboo_mosaic", "bamboo_mosaic", true, true, false},
+        {"cut_copper", "cut_copper", true, true, false},
+        {"exposed_cut_copper", "exposed_cut_copper", true, true, false},
+        {"weathered_cut_copper", "weathered_cut_copper", true, true, false},
+        {"oxidized_cut_copper", "oxidized_cut_copper", true, true, false},
+        {"waxed_cut_copper", "waxed_cut_copper", true, true, false},
+        {"waxed_exposed_cut_copper", "waxed_exposed_cut_copper", true, true, false},
+        {"waxed_weathered_cut_copper", "waxed_weathered_cut_copper", true, true, false},
+        {"waxed_oxidized_cut_copper", "waxed_oxidized_cut_copper", true, true, false},
     };
     for (const Family& f : kFamilies) {
         const auto base = r.findBlock(f.base);
@@ -251,7 +299,8 @@ void addBuildingFamilies(BlockRegistry& r) {
         const BlockSettings& bs = r.block(*base).settings;
         const bool wood = std::string_view(f.base).ends_with("_planks") || bs.tool == HT::Axe; // (bamboo mosaic)
         BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
-                         .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe};
+                         .randomTicks = bs.randomTicks, // (cut copper stairs oxidize too)
+                         .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe, .tier = bs.tier};
         const std::string prefix(f.prefix);
         if (f.stairs) {
             st.kind = BlockKind::Stairs;
@@ -848,6 +897,7 @@ BlockRegistry buildVanillaBlocks() {
         }
     addWoodBlocks(r);
     addColouredBlocks(r);
+    addCopperBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
     addWoodSets(r);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice

@@ -392,6 +392,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             // cross, sandstones bottom/top. Unknown textures show the missing sprite.
             std::string name = registry.block(registry.blockOf(state)).id;
             if (name.starts_with("minecraft:")) name.erase(0, 10);
+            if (name.starts_with("waxed_")) name.erase(0, 6); // (waxed copper looks the same)
             const auto ends = [&](std::string_view s) { return name.ends_with(s); };
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
@@ -422,6 +423,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite(topName.c_str());
                 v.faces[int(Direction::Down)].sprite = sprite(topName.c_str());
                 m = single(v);
+            } else if (ends("copper_bulb")) { // lit and powered textures (wiki: Copper Bulb)
+                const bool on = registry.value(state, "lit") == "true", pow = registry.value(state, "powered") == "true";
+                m = single(cubeAll(sprite((name + (on ? "_lit" : "") + (pow ? "_powered" : "")).c_str())));
             } else if (ends("_glazed_terracotta")) { // the pattern turns with its facing (vanilla)
                 const std::string_view f = registry.value(state, "facing").value_or("north");
                 const int q = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;

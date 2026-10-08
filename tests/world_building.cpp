@@ -310,3 +310,46 @@ TEST_CASE("concrete powder falls like sand and hardens by water; terracotta dyes
     REQUIRE(out);
     CHECK(out->item == *itemRegistry().find("cyan_glazed_terracotta"));
 }
+
+TEST_CASE("copper: oxidizes over random ticks unless waxed; axes scrape, honeycomb waxes; bulbs toggle (M23.4b)") {
+    Scene s;
+    // A lone block at a high random tick speed (vanilla's chance is low: 64/1125 a
+    // tick to try, then x0.75), and one held back by a less oxidized neighbour.
+    s.updates.setRandomTicks({0, 0}, 1, 300);
+    s.world.setBlock({4, 64, 4}, S("copper_block"));
+    s.world.setBlock({10, 64, 10}, S("exposed_copper"));
+    s.world.setBlock({11, 64, 10}, S("copper_block")); // keeps the exposed one from ageing
+    s.world.setBlock({0, 66, 0}, S("waxed_copper_block"));
+    for (int t = 0; t < 400; ++t) {
+        s.updates.setTime(t);
+        s.updates.tick();
+    }
+    CHECK(R().blockOf(s.at({4, 64, 4})) != B("copper_block")); // aged
+    CHECK(R().blockOf(s.at({0, 66, 0})) == B("waxed_copper_block")); // waxed: never
+    // (the exposed block can only age once its unaffected neighbour has caught up)
+    if (R().blockOf(s.at({11, 64, 10})) == B("copper_block"))
+        CHECK(R().blockOf(s.at({10, 64, 10})) == B("exposed_copper"));
+    // Scraping and waxing.
+    s.world.updateBlock({2, 70, 2}, S("weathered_cut_copper_stairs[facing=east,half=top]"));
+    CHECK(BlockUpdates::scrapeCopper(s.world, {2, 70, 2}));
+    CHECK(R().toString(s.at({2, 70, 2})) == "minecraft:exposed_cut_copper_stairs[facing=east,half=top,shape=straight]");
+    CHECK(BlockUpdates::waxCopper(s.world, {2, 70, 2}));
+    CHECK(R().blockOf(s.at({2, 70, 2})) == B("waxed_exposed_cut_copper_stairs"));
+    CHECK(BlockUpdates::scrapeCopper(s.world, {2, 70, 2})); // wax off
+    CHECK(R().blockOf(s.at({2, 70, 2})) == B("exposed_cut_copper_stairs"));
+    // A bulb toggles on each rising edge of power; lit bulbs glow by oxidation.
+    s.world.setBlock({5, 69, 5}, S("stone"));
+    s.world.setBlock({6, 69, 5}, S("stone"));
+    s.world.updateBlock({5, 70, 5}, S("copper_bulb"));
+    s.world.updateBlock({6, 70, 5}, S("lever[face=floor]"));
+    s.updates.use({6, 70, 5}); // lever on
+    CHECK(R().value(s.at({5, 70, 5}), "lit") == "true");
+    s.updates.use({6, 70, 5}); // off: stays lit
+    CHECK(R().value(s.at({5, 70, 5}), "lit") == "true");
+    s.updates.use({6, 70, 5}); // on again: off
+    CHECK(R().value(s.at({5, 70, 5}), "lit") == "false");
+    CHECK(R().lightEmission(S("weathered_copper_bulb[lit=true]")) == 8);
+    // Copper doors open by hand, need a pickaxe and never burn.
+    CHECK(harvestInfo(B("copper_door")).tool == ToolType::Pickaxe);
+    CHECK(BlockUpdates::igniteOdds(B("copper_door")) == 0);
+}

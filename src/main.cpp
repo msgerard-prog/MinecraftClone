@@ -1639,7 +1639,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const auto& def = mc::world::itemRegistry().item(held.item);
                 static const mc::world::ItemId boneMealItem = *mc::world::itemRegistry().find("bone_meal");
-                if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
+                static const mc::world::ItemId honeycombItem = *mc::world::itemRegistry().find("honeycomb");
+                if (held.item == honeycombItem && mc::world::BlockUpdates::waxCopper(world, lastHit->block)) { // (M23.4b)
+                    frameEdits.push_back(lastHit->block);
+                    if (survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                } else if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
                     mc::world::BlockUpdates::strip(world, lastHit->block)) { // (M23.3b)
                     frameEdits.push_back(lastHit->block);
                     if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));

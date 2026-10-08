@@ -23,9 +23,10 @@ namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
 BlockId blockOf(BlockStateId s) { return R().blockOf(s); }
-bool netherWood(BlockId b) {
+bool netherWood(BlockId b) { // (and copper: copper doors behave like wooden ones but never burn)
     const std::string_view id = R().block(b).id;
-    return id.starts_with("minecraft:crimson_") || id.starts_with("minecraft:warped_");
+    return id.starts_with("minecraft:crimson_") || id.starts_with("minecraft:warped_") ||
+           id.find("copper") != std::string_view::npos;
 }
 BlockPos rel(const BlockPos& p, Direction d) {
     const glm::ivec3 v = normal(d);

@@ -1,5 +1,6 @@
 #include "gameplay/Recipes.h"
 
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
 #include <algorithm>
@@ -282,6 +283,36 @@ std::vector<Recipe> build() {
         pillarOf("tuff_brick_slab", "chiseled_tuff_bricks", 1);
         pillarOf("polished_blackstone_slab", "chiseled_polished_blackstone", 1);
         r.push_back(shaped({"NW", "WN"}, {{'N', item("nether_brick")}, {'W', item("nether_wart")}}, "red_nether_bricks"));
+    }
+    // Copper (M23.4b; wiki: Block of Copper, Cut Copper, Chiseled Copper, Copper Grate,
+    // Copper Door, Copper Trapdoor, Copper Bulb, Honeycomb).
+    {
+        static constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
+        const Ingredient ingot = item("copper_ingot");
+        r.push_back(shaped({"###", "###", "###"}, {{'#', ingot}}, "copper_block"));
+        r.push_back(shapeless({item("copper_block")}, "copper_ingot", 9));
+        r.push_back(shapeless({item("waxed_copper_block")}, "copper_ingot", 9));
+        r.push_back(shaped({"##", "##", "##"}, {{'#', ingot}}, "copper_door", 3));
+        r.push_back(shaped({"##", "##"}, {{'#', ingot}}, "copper_trapdoor"));
+        for (const char* wx : {"", "waxed_"})
+            for (int i = 0; i < 4; ++i) {
+                const std::string w(wx), st(kStages[i]);
+                const std::string block = w + (i == 0 ? "copper_block" : st + "copper");
+                r.push_back(shaped({"##", "##"}, {{'#', item(block)}}, w + st + "cut_copper", 4));
+                r.push_back(shaped({"#", "#"}, {{'#', item(w + st + "cut_copper_slab")}}, w + st + "chiseled_copper"));
+                r.push_back(shaped({".#.", "#.#", ".#."}, {{'#', item(block)}}, w + st + "copper_grate", 4));
+                r.push_back(shaped({".C.", "CBC", ".R."},
+                                   {{'C', item(block)}, {'B', item("blaze_rod")}, {'R', item("redstone")}},
+                                   w + st + "copper_bulb", 4));
+            }
+        // Honeycomb waxes any unwaxed copper block in the grid (shapeless).
+        const auto& reg = blockRegistry();
+        for (BlockId b = 1; b < reg.blockCount(); ++b) {
+            const std::string_view id = std::string_view(reg.block(b).id).substr(10);
+            if (!BlockUpdates::isCopper(b) || id.starts_with("waxed_") || !itemRegistry().blockItem(b)) continue;
+            const std::string waxed = "waxed_" + std::string(id);
+            if (itemRegistry().find(waxed)) r.push_back(shapeless({item(id), item("honeycomb")}, waxed));
+        }
     }
     // Thin and small blocks, dyes (M23.2; wiki: each item's page).
     {

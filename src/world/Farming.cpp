@@ -33,6 +33,7 @@ int BlockUpdates::cropAge(BlockStateId s) { return R().get(s, ageOf(blockOf(s)))
 bool BlockUpdates::strip(World& world, const BlockPos& p) {
     const BlockStateId s = world.getBlock(p);
     const std::string_view id = R().block(blockOf(s)).id;
+    if (scrapeCopper(world, p)) return true; // (M23.4b: copper - wax off or a stage scraped)
     if (id.find("stripped_") != std::string_view::npos) return false;
     const bool woody = id.ends_with("_log") || id.ends_with("_wood") || id.ends_with("_hyphae") ||
                        (id.ends_with("_stem") && id != "minecraft:mushroom_stem") || id == "minecraft:bamboo_block";

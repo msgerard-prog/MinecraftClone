@@ -198,6 +198,7 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:gold_nugget", .texture = "item/gold_nugget"});
     // M23.2: iron nuggets, the 16 dyes (wiki: Iron Nugget, Dye).
     r.add({.id = "minecraft:iron_nugget", .texture = "item/iron_nugget"});
+    r.add({.id = "minecraft:honeycomb", .texture = "item/honeycomb"}); // (M23.4b; bees come in M26)
     for (const char* colour : kDyeColours)
         r.add({.id = std::string("minecraft:") + colour + "_dye", .texture = std::string("item/") + colour + "_dye"});
     r.add({.id = "minecraft:fire_charge", .texture = "item/fire_charge"});

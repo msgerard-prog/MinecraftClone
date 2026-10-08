@@ -329,7 +329,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   the real block. Signs (M23.3c): four kinds (standing, wall, hanging, wall hanging)
   with `SignData` block entities (front/back lines, colour, waxed; saved as vanilla
   `front_text`/`back_text`), text drawn by `EntityRenderer::addText` from the font
-  sheet, edited in `ui/SignEditor` (opened on placing or using a sign). `raycastBlocks` hits shaped
+  sheet, edited in `ui/SignEditor` (opened on placing or using a sign).
+  Copper (M23.4b, `world/Copper.cpp`): a name-derived table links each copper block to
+  its next/previous stage and waxed copy; `tickCopper` (random ticks, wiki algorithm),
+  `waxCopper`/`scrapeCopper`, `updateBulb` (rising-edge toggles). `raycastBlocks` hits shaped
   blocks only on their boxes; the outline spans the shape's bounds.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the

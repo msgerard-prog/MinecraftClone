@@ -160,6 +160,10 @@ void BlockUpdates::runRandomTicks() {
 
 void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     const BlockId b = blockOf(s);
+    if (isCopper(R().blockOf(s))) { // (M23.4b: oxidation; the real block - doors map to oak)
+        tickCopper(p, s);
+        return;
+    }
     switch (b) {
     case B::Bamboo: { // grows a block on top up to 12-16 tall, at light 9+ (wiki: Bamboo)
         const BlockPos up = rel(p, Direction::Up);

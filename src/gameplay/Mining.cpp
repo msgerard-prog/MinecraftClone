@@ -13,6 +13,10 @@ using namespace world;
 
 HarvestInfo harvestInfo(BlockId b) {
     using T = ToolType;
+    // Metal blocks that behave like wooden ones (copper doors) still need a pickaxe.
+    if (const BlockSettings& real = blockRegistry().block(b).settings;
+        real.like != 0 && real.tool == HarvestTool::Pickaxe && real.tier > 0)
+        return {T::Pickaxe, real.tier};
     switch (blockRegistry().likeOf(b)) { // (wood sets mine like the oak ones: M23.3)
     // Pickaxe blocks; ores need the tier listed on the wiki.
     case blocks::Stone:

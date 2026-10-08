@@ -954,6 +954,11 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    if (R().block(R().blockOf(s)).id.ends_with("copper_bulb")) { // (M23.4b)
+        updateBulb(p, s);
+        --m_depth;
+        return;
+    }
     if (const BlockKind kind = R().kind(blockOf(s));
         kind == BlockKind::Stairs || kind == BlockKind::Wall || kind == BlockKind::Pane) {
         const BlockStateId want = kind == BlockKind::Stairs ? stairsShaped(m_world, p, s)

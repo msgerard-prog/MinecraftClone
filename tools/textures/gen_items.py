@@ -729,6 +729,7 @@ def all_items():
     for colour, base in dyes.items():
         items[f"{colour}_dye"] = lump(f"{colour}_dye", base, size=4.5)
     items["iron_nugget"] = lump("iron_nugget", "#C8C8C8", "#F0F0F0", size=3.2)
+    items["honeycomb"] = lump("honeycomb", "#E8A824", "#F8D860", size=5)  # (M23.4b: waxes copper)
     items["bucket"] = bucket()
     items["water_bucket"] = bucket("#3C6EE6")
     items["lava_bucket"] = bucket("#E8661A")
