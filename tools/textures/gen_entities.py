@@ -664,6 +664,22 @@ def witch():
     return img
 
 
+def wandering_trader():
+    """Wandering trader (M24.4): the villager layout in a blue robe with a gold trim."""
+    img = villager()
+    rng = random.Random("wandering_trader")
+    robe = ramp(hexc("#2A4A9A"), 5, spread=0.25)
+    for name, (x0, y0, w, h) in box_faces(16, 20, 8, 12, 6).items():
+        paint(img, (x0, y0, w, h), robe, rng)
+        if name in ("front", "back"):
+            paint(img, (x0, y0 + h - 2, w, 1), ramp(hexc("#D8B040"), 5), rng)
+    for name, f in box_faces(0, 40, 8, 4, 4).items():
+        paint(img, f, robe, rng)
+        if name == "front":
+            paint(img, (f[0] + 2, f[1], 4, f[3]), ramp(hexc("#B98A65"), 5, spread=0.2), rng, noise=0.15)
+    return img
+
+
 def villager_apron():
     """The profession robe over the body (8x18x6 @ (16,20), inflated): greyscale cloth
     the game tints per profession, with a darker belt."""
@@ -691,7 +707,7 @@ def main():
               "shulker": shulker(), "minecart": minecart(),
               "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
               "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
-              "witch": witch()}
+              "witch": witch(), "wandering_trader": wandering_trader()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

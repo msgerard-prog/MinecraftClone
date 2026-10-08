@@ -1,5 +1,7 @@
 #include "gameplay/Mobs.h"
 
+#include "world/Trades.h"
+
 #include "gameplay/ExperienceOrbs.h"
 #include "gameplay/BlockCollision.h"
 #include "gameplay/FluidContact.h"
@@ -96,6 +98,12 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
     if (type == MobType::IronGolem) m.persistent = true;
+    if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
+        wanderingTraderTrades(m, rng);
+        m.despawnDelay = 48000;
+        m.persistent = true;
+        m.home = {int(std::floor(pos.x)), int(std::floor(pos.y)), int(std::floor(pos.z))};
+    }
     if (type == MobType::Villager) {
         m.persistent = true; // (villagers never despawn)
         m.poiSearch = int16_t(rng.nextInt(40)); // (look around soon after appearing)
@@ -357,6 +365,25 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
         if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0) m.goal = m.pos; // (throws from where it stands)
+    } else if (m.type == MobType::WanderingTrader) {
+        // Stands still while traded with, else strolls near where it arrived; its time
+        // up, it's gone (wiki: Wandering Trader › Despawning).
+        if (m.despawnDelay > 0 && --m.despawnDelay == 0) {
+            m.health = 0.0f;
+            m.deathTime = 19; // (gone next tick, no drops: not a death)
+            m.lastHurtByPlayer = false;
+        }
+        if (m.tradingTicks > 0) {
+            --m.tradingTicks;
+            m.goal = m.pos;
+        } else if (++m.goalTicks > 200 || glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 0.7) {
+            if (ctx.rng.nextInt(80) == 0) {
+                const glm::dvec3 home(m.home.x + 0.5, m.home.y, m.home.z + 0.5);
+                m.goal = home + glm::dvec3(ctx.rng.nextDouble() * 20 - 10, 0.0, ctx.rng.nextDouble() * 20 - 10);
+                m.goalTicks = 0;
+            }
+            speed *= 0.6;
+        }
     } else if (m.type == MobType::IronGolem && golemGoal(ctx, m, speed)) {
         chase = true; // (after a monster: Golems.cpp)
     } else if (m.type == MobType::IronGolem) {

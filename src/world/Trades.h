@@ -25,6 +25,9 @@ ItemStack offerSell(const TradeOffer& offer);
 // A trade was made: one use, the villager's experience (and a level-up's trades).
 // Returns true if the villager levelled up.
 bool useOffer(MobData& villager, int offerIndex, Xoroshiro& rng);
+// A wandering trader's wares (wiki: Wandering Trader › Trades): 5 of its common
+// trades, 1 rare one and 2 things it buys.
+void wanderingTraderTrades(MobData& trader, Xoroshiro& rng);
 // Restocking at the job site (vanilla: up to twice a day): every trade's uses back to 0
 // and its demand adjusted: demand + uses - (maxUses - uses), at least 0.
 void restock(MobData& villager);

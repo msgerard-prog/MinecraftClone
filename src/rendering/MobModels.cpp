@@ -286,6 +286,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::ZombieVillager: return kVillager; // (its own skin)
     case world::MobType::IronGolem: return kIronGolem;
     case world::MobType::Witch: return kWitch;
+    case world::MobType::WanderingTrader: return kVillager; // (its blue robe in its skin; no apron)
     default: return kCow;
     }
 }

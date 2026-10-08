@@ -217,7 +217,54 @@ uint16_t randomEnchantment(ItemId item, Xoroshiro& rng, bool book) {
     return uint16_t(int(e) << 8 | level);
 }
 
+// The wandering trader (wiki: Wandering Trader › Trades - authored from the wiki;
+// items not in the game yet are skipped).
+constexpr T kTraderCommon[] = {
+    sell(1, "oak_sapling", 1, 8, 1),   sell(1, "birch_sapling", 1, 8, 1),  sell(1, "spruce_sapling", 1, 8, 1),
+    sell(1, "jungle_sapling", 1, 8, 1), sell(1, "acacia_sapling", 1, 8, 1), sell(1, "dark_oak_sapling", 1, 8, 1),
+    sell(1, "cherry_sapling", 1, 8, 1), sell(1, "fern", 1, 12, 1),         sell(1, "sugar_cane", 1, 8, 1),
+    sell(1, "pumpkin", 1, 4, 1),        sell(1, "cactus", 1, 8, 1),        sell(1, "dandelion", 1, 12, 1),
+    sell(1, "poppy", 1, 12, 1),         sell(1, "blue_orchid", 1, 8, 1),   sell(1, "allium", 1, 12, 1),
+    sell(1, "azure_bluet", 1, 12, 1),   sell(1, "red_tulip", 1, 12, 1),    sell(1, "oxeye_daisy", 1, 12, 1),
+    sell(1, "cornflower", 1, 12, 1),    sell(1, "wheat_seeds", 1, 12, 1),  sell(1, "beetroot_seeds", 1, 12, 1),
+    sell(1, "red_dye", 3, 12, 1),       sell(1, "white_dye", 3, 12, 1),    sell(1, "blue_dye", 3, 12, 1),
+    sell(1, "yellow_dye", 3, 12, 1),    sell(1, "sand", 8, 8, 1),          sell(1, "red_sand", 4, 6, 1),
+    sell(3, "podzol", 3, 6, 1),         sell(1, "gunpowder", 1, 8, 1),     sell(2, "glowstone", 1, 5, 1),
+    sell(1, "brown_mushroom", 1, 4, 1), sell(1, "red_mushroom", 1, 4, 1),  sell(1, "lily_pad", 2, 5, 1)};
+constexpr T kTraderRare[] = {sell(5, "nautilus_shell", 1, 5, 1), sell(3, "packed_ice", 1, 6, 1),
+                             sell(6, "blue_ice", 1, 6, 1),       sell(4, "slime_ball", 1, 5, 1),
+                             sell(6, "mangrove_propagule", 1, 6, 1), sell(5, "pale_oak_sapling", 1, 6, 1)};
+constexpr T kTraderBuys[] = {buy("baked_potato", 4, 2, 1), buy("hay_block", 1, 2, 1), buy("fermented_spider_eye", 1, 2, 1),
+                             buy("glass_bottle", 1, 2, 1)};
+
+void pickInto(MobData& v, std::span<const T> pool, int count, Xoroshiro& rng) {
+    std::vector<const T*> usable;
+    for (const T& t : pool)
+        if (itemOf(t.buy) && itemOf(t.sell)) usable.push_back(&t);
+    for (int k = 0; k < count && !usable.empty() && v.offerCount < kMaxOffers; ++k) {
+        const size_t i = rng.nextInt(uint32_t(usable.size()));
+        const T& t = *usable[i];
+        usable.erase(usable.begin() + std::ptrdiff_t(i));
+        TradeOffer o;
+        o.buyA = itemOf(t.buy);
+        o.buyACount = uint8_t(t.buyCount);
+        o.sell = itemOf(t.sell);
+        o.sellCount = uint8_t(t.sellCount);
+        o.maxUses = uint8_t(t.maxUses);
+        o.xp = uint8_t(t.xp);
+        o.priceMultiplier = t.mult;
+        v.offers[v.offerCount++] = o;
+    }
+}
+
 } // namespace
+
+void wanderingTraderTrades(MobData& trader, Xoroshiro& rng) {
+    trader.offerCount = 0;
+    pickInto(trader, kTraderBuys, 2, rng);
+    pickInto(trader, kTraderCommon, 5, rng);
+    pickInto(trader, kTraderRare, 1, rng);
+}
 
 int villagerLevelFor(int xp) {
     return xp >= 250 ? 5 : xp >= 150 ? 4 : xp >= 70 ? 3 : xp >= 10 ? 2 : 1;
@@ -281,6 +328,7 @@ ItemStack offerSell(const TradeOffer& o) {
 bool useOffer(MobData& v, int i, Xoroshiro& rng) {
     TradeOffer& o = v.offers[size_t(i)];
     if (o.uses < 255) ++o.uses;
+    if (v.type != MobType::Villager) return false; // (wandering traders have no levels)
     v.villagerXp += o.xp;
     const int level = villagerLevelFor(v.villagerXp);
     if (level <= v.villagerLevel) return false;

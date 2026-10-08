@@ -217,6 +217,8 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     if (!equipment.entries.empty()) player.put("equipment", std::move(equipment));
     player.put("EnderItems", listOf(TagType::Compound, std::move(enderItems)));
     data.put("Player", std::move(player));
+    data.put("WanderingTraderSpawnDelay", int32_t{traderSpawnDelay});
+    data.put("WanderingTraderSpawnChance", int32_t{traderSpawnChance});
     {
         Compound fight; // (vanilla's DragonFight tag)
         fight.put("DragonKilled", int8_t(dragonKilled ? 1 : 0));
@@ -351,6 +353,8 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.effects.push_back({*c->string("id"),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 1 << 30))});
+        l.traderSpawnDelay = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnDelay").value_or(24000), 1, 24000));
+        l.traderSpawnChance = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnChance").value_or(25), 25, 75));
         if (const Compound* f = data->compound("DragonFight")) {
             l.dragonKilled = f->integer("DragonKilled").value_or(0) != 0;
             l.dragonPreviouslyKilled = f->integer("PreviouslyKilled").value_or(0) != 0;

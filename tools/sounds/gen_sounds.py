@@ -341,6 +341,11 @@ def mob_sounds(name, rng):
                                         attack=0.01), k * 0.12, 0.12 * n + 0.2))
             return out
         return [cackle(3 + i) for i in range(3)], [cackle(1), cackle(2)], cackle(5)
+    if name == "wandering_trader":  # the villager "hmm", a little lower and slower (ours)
+        say = [voice(rng, r(0.45, 0.6), r(130, 150), r(150, 175), wave="saw", formant=(450, 2400), vibrato=0.03,
+                     breath=0.12, attack=0.04) for _ in range(3)]
+        hurt = [voice(rng, 0.3, r(200, 220), 150, wave="saw", formant=(450, 2400), breath=0.2) for _ in range(2)]
+        return say, hurt, voice(rng, 0.8, 180, 80, wave="saw", formant=(400, 2200), breath=0.3)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -351,7 +356,7 @@ def mob_sounds(name, rng):
 
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
-        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch"]
+        "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader"]
 
 
 # --- Everything else ----------------------------------------------------------------

@@ -23,6 +23,7 @@
 #include "gameplay/FluidContact.h"
 #include "gameplay/Furnace.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/WanderingTraders.h"
 #include "gameplay/Hoppers.h"
 #include "gameplay/Inventory.h"
 #include "gameplay/ItemEntities.h"
@@ -516,8 +517,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 vitals.addEffect(*kind, e.amplifier, e.duration);
     }
     mc::DragonFight dragonFight; // (M20.2; end2 worlds)
+    mc::WanderingTraderSpawner traderSpawner; // (M24.4)
     if (level) {
         dragonFight.killed = level->dragonKilled;
+        traderSpawner.delay = level->traderSpawnDelay;
+        traderSpawner.chance = level->traderSpawnChance;
         dragonFight.previouslyKilled = level->dragonPreviouslyKilled;
         dragonFight.uuidHi = level->dragonUuidHi;
         dragonFight.uuidLo = level->dragonUuidLo;
@@ -686,6 +690,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.netherGenerator = netherKind;
         l.endGenerator = endKind;
         l.dragonKilled = dragonFight.killed;
+        l.traderSpawnDelay = traderSpawner.delay;
+        l.traderSpawnChance = traderSpawner.chance;
         l.dragonPreviouslyKilled = dragonFight.previouslyKilled;
         l.dragonUuidHi = dragonFight.uuidHi;
         l.dragonUuidLo = dragonFight.uuidLo;
@@ -2126,7 +2132,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if (mob.type == mc::world::MobType::Villager && !mob.isBaby() &&
+                    if ((mob.type == mc::world::MobType::Villager || mob.type == mc::world::MobType::WanderingTrader) && !mob.isBaby() &&
                         !mob.sleeping && mob.offerCount > 0) {
                         traderUuid = mob.uuidHi;
                         mob.tradingTicks = 5;
@@ -2712,6 +2718,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (dimension == Dimension::End && endKind == "end2" && endGen)
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng,
                                  frameEdits);
+            if (dimension == Dimension::Overworld && !dead) traderSpawner.tick(world, player.position(), gameRng); // (M24.4)
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
             litChanges.clear();
             world.forEachTickingChunk([&](mc::world::Chunk& c) {
@@ -3036,7 +3043,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             double bestD = 8.0 * 8.0;
             world.forEachChunk([&](mc::world::Chunk& c) {
                 for (auto& mob : c.mobs())
-                    if (mob.type == mc::world::MobType::Villager && mob.offerCount > 0) {
+                    if ((mob.type == mc::world::MobType::Villager || mob.type == mc::world::MobType::WanderingTrader) && mob.offerCount > 0) {
                         const double d =
                             glm::dot(mob.pos - player.position(), mob.pos - player.position());
                         if (d < bestD) bestD = d, best = &mob;

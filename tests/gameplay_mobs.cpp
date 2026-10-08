@@ -1840,3 +1840,34 @@ TEST_CASE("witches throw potions at a player within 10 blocks and drink when bur
     for (MobData* m : s.all()) witches += m->type == MobType::Witch;
     CHECK(witches == 2);
 }
+
+#include "gameplay/WanderingTraders.h"
+
+TEST_CASE("wandering traders arrive by chance, sell wares and leave after 40 minutes (M24.4)") {
+    MobScene s;
+    const MobData t = Mobs::make(MobType::WanderingTrader, {3.5, 64.0, 3.5}, s.rng);
+    CHECK(t.offerCount >= 6); // 2 buys, 5 common, 1 rare (items that exist)
+    CHECK(t.despawnDelay == 48000);
+    // The spawner: a roll every 24000 ticks at 25%, rising by 25 to 75 after misses.
+    WanderingTraderSpawner sp;
+    sp.delay = 1;
+    sp.chance = 0; // (force a miss: the chance rises)
+    s.player.setPosition({0.5, 64.0, 0.5});
+    CHECK_FALSE(sp.tick(s.world, s.player.position(), s.rng));
+    CHECK(sp.chance == 25);
+    CHECK(sp.delay == 24000);
+    sp.delay = 1;
+    sp.chance = 100; // (a sure arrival)
+    CHECK(sp.tick(s.world, s.player.position(), s.rng));
+    CHECK(sp.chance == 25);
+    int traders = 0;
+    for (MobData* m : s.all()) traders += m->type == MobType::WanderingTrader;
+    CHECK(traders == 1);
+    // Its time up, it's gone.
+    for (MobData* m : s.all())
+        if (m->type == MobType::WanderingTrader) m->despawnDelay = 2;
+    s.tick(25);
+    traders = 0;
+    for (MobData* m : s.all()) traders += m->type == MobType::WanderingTrader;
+    CHECK(traders == 0);
+}

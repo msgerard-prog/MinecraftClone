@@ -810,7 +810,9 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
                                                "Journeyman", "Expert", "Master"};
     const char* title =
         m_type == Type::Trading
-            ? (m_trader ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)] : "Trading")
+            ? (m_trader && m_trader->type == world::MobType::WanderingTrader ? "Wandering Trader"
+               : m_trader                                                 ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)]
+                                                                          : "Trading")
         : m_type == Type::Beacon      ? "Beacon"
         : m_type == Type::Smithing    ? "Upgrade Gear"
         : m_type == Type::Loom        ? "Loom"
@@ -931,8 +933,9 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
             if (o.uses >= o.maxUses)
                 b.fill(rx, ry + 7, 78, 3, gfx::rgba(200, 40, 40)); // out of stock
         }
-        // Experience toward the next level (10 / 70 / 150 / 250).
+        // Experience toward the next level (10 / 70 / 150 / 250); traders have none.
         static constexpr int kNeed[6] = {0, 0, 10, 70, 150, 250};
+        if (m_trader->type == world::MobType::Villager) {
         const int level = std::clamp<int>(m_trader->villagerLevel, 1, 5);
         const float fill = level >= 5 ? 1.0f
                                       : std::clamp(float(m_trader->villagerXp - kNeed[level]) /
@@ -940,6 +943,7 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
                                                    0.0f, 1.0f);
         b.fill(left + 100, top + 8, 68, 4, kDark);
         b.fill(left + 100, top + 8, 68.0f * fill, 4, gfx::rgba(120, 220, 80));
+        }
         arrow(90, 112, 0);
     }
     if (m_type == Type::Beacon && m_beacon) { // power buttons (abbreviated names) and "done"

@@ -74,6 +74,7 @@ struct LevelData {
     // egg and the 12,000 experience come only the first time), the living dragon's
     // UUID (0: none spawned), the gateways spawned so far (M20.3, angles 0..19).
     bool dragonKilled = false, dragonPreviouslyKilled = false;
+    int traderSpawnDelay = 24000, traderSpawnChance = 25; // (M24.4) WanderingTraderSpawnDelay/Chance
     uint64_t dragonUuidHi = 0, dragonUuidLo = 0;
     std::vector<int32_t> gateways;
     bool hasGateways = false; // (the Gateways list exists: the fight has started)
