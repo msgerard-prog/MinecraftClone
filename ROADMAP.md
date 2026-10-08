@@ -13,8 +13,9 @@ sniffers. M1-M27 done. v1.0 waits for M28.
 
 ## Next
 M28 - Progression & game (wiki pages of each feature):
-1. M28.1 - Game settings: difficulty (Peaceful..Hard: damage, hunger, mob rules), the
-   adventure and spectator modes, /gamerule with vanilla's rules, statistics.
+1. ✅ M28.1 - Game settings: a) game rules (/gamerule), b) difficulty (Peaceful..Hard:
+   damage, hunger, mob rules; /difficulty), c) adventure and spectator modes, d) statistics
+   (stats/<uuid>.json, the Statistics screen).
 2. M28.2 - Navigation and writing: compasses, lodestones, recovery compasses, clocks,
    maps (empty, filled, drawn, zoom, cartography), books and quills, written books.
 3. M28.3 - Decorations: item frames, paintings, armor stands, banners (patterns, the
