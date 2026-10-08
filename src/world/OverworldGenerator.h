@@ -150,6 +150,8 @@ private:
                           const std::array<int, 256>& topY) const;
     // overworld6 (M27.4a): amethyst geodes from this chunk's and its neighbours' plans.
     void placeGeodes(BlockStateId* blocks, int32_t cx, int32_t cz) const;
+    // overworld6 (M27.4c): woodland mansions in dark forests and pale gardens.
+    void placeMansions(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.4b): ruined portals on their grid.
     void placeRuinedPortals(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.3b): ancient cities in the deep dark, on their grid.

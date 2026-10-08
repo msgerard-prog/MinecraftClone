@@ -153,6 +153,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `placeGeodes` (M27.4a): geodes planned per start chunk (1 in 24), built by every chunk
   they reach; budding amethyst grows buds on random ticks (RandomTicks.cpp).
   `placeRuinedPortals` (M27.4b, grid `kRuinedPortals`): a broken frame, netherrack, a chest.
+  `placeMansions` (M27.4c, grid `kMansions`): our two-storey dark oak house with its mobs.
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column

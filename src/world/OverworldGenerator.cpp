@@ -1333,6 +1333,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
         placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
         placeRuinedPortals(blockArray.data(), cx, cz, entities);         // (M27.4b)
+        placeMansions(blockArray.data(), cx, cz, entities);              // (M27.4c)
     }
 
     if (m_version >= 2) {
@@ -3788,6 +3789,92 @@ void OverworldGenerator::placeRuinedPortals(BlockStateId* blocks, int32_t cx, in
                 const int lx = sx + 4 - cx * 16, lz = sz + 2 - cz * 16;
                 if (lx >= 0 && lx <= 15 && lz >= 0 && lz <= 15) chunk.set(lx, ground + 1, lz, gold);
             }
+        }
+}
+
+void OverworldGenerator::placeMansions(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    // Woodland mansions (wiki: Woodland Mansion): on their grid (spacing 80, separation
+    // 20) in dark forests (and pale gardens). Ours: a 32x24 two-storey house of dark oak
+    // on a cobblestone base - log pillars, windows, a flat roof, eight rooms off two
+    // crossing walls, a ladder up - with vindicators, an evoker, loot chests and a cell
+    // holding an allay (vanilla: a huge maze of room templates, three storeys).
+    const auto& reg = blockRegistry();
+    static const BlockStateId cobble = reg.defaultState(blocks::Cobblestone);
+    static const BlockStateId planks = *reg.parse("minecraft:dark_oak_planks");
+    static const BlockStateId birch = *reg.parse("minecraft:birch_planks");
+    static const BlockStateId log = *reg.parse("minecraft:dark_oak_log[axis=y]");
+    static const BlockStateId pane = reg.defaultState(*reg.findBlock("glass_pane"));
+    static const BlockStateId carpet = reg.defaultState(*reg.findBlock("gray_carpet"));
+    static const BlockStateId white = reg.defaultState(*reg.findBlock("white_carpet"));
+    static const BlockStateId fence = reg.defaultState(*reg.findBlock("dark_oak_fence"));
+    static const BlockStateId ladder = *reg.parse("minecraft:ladder[facing=north]");
+    static const BlockStateId torch = reg.defaultState(blocks::Torch);
+    constexpr int kW = 32, kD = 24, kTop = 12;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kMansions, start)) continue;
+            const int32_t sx = start.x * 16, sz = start.z * 16;
+            const Biome biome = biomeAt(column(sx + kW / 2, sz + kD / 2));
+            if (biome != Biome::DarkForest && biome != Biome::PaleGarden) continue;
+            const int ground = surfaceY(sx + kW / 2, sz + kD / 2);
+            if (ground < kSeaLevel) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 750));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, ground + 1, sz, kW, kD, 0, &out};
+            // Room to stand: everything inside and above it cleared, the base laid.
+            sb.fill(0, 0, 0, kW - 1, kTop + 8, kD - 1, 0);
+            for (int x = 0; x < kW; ++x)
+                for (int z = 0; z < kD; ++z) sb.foundation(x, z, cobble, 16);
+            sb.fill(0, -1, 0, kW - 1, -1, kD - 1, cobble);
+            // Outer walls, floors and the roof.
+            for (int y = 0; y <= kTop; ++y)
+                for (int x = 0; x < kW; ++x)
+                    for (int z = 0; z < kD; ++z) {
+                        const bool edge = x == 0 || z == 0 || x == kW - 1 || z == kD - 1;
+                        if (y == 0 || y == 6 || y == kTop) {
+                            sb.set(x, y, z, y == kTop && edge ? cobble : planks);
+                            continue;
+                        }
+                        if (!edge) continue;
+                        const bool pillar = (x % 6 == 0 && (z == 0 || z == kD - 1)) || (z % 6 == 0 && (x == 0 || x == kW - 1));
+                        const bool window = !pillar && (y == 2 || y == 3 || y == 8 || y == 9) && ((x + z) % 3 == 1);
+                        sb.set(x, y, z, pillar ? log : window ? pane : y < 6 ? planks : birch);
+                    }
+            // The door (2 wide, 3 tall) in the middle of the front.
+            sb.fill(15, 1, 0, 16, 3, 0, 0);
+            // Inner walls: across at x 16, along at z 12, on both floors, with doorways.
+            for (const int base : {0, 6})
+                for (int y = base + 1; y < base + 6; ++y) {
+                    for (int z = 1; z < kD - 1; ++z) sb.set(16, y, z, birch);
+                    for (int x = 1; x < kW - 1; ++x) sb.set(x, y, 12, birch);
+                }
+            for (const int base : {0, 6})
+                for (int y = base + 1; y <= base + 3; ++y) {
+                    sb.set(16, y, 6, 0), sb.set(16, y, 18, 0);       // (doorways through the cross wall)
+                    sb.set(8, y, 12, 0), sb.set(24, y, 12, 0);
+                }
+            // Carpets and torches in the rooms.
+            for (const int base : {0, 6})
+                for (int x = 1; x < kW - 1; ++x)
+                    for (int z = 1; z < kD - 1; ++z)
+                        if (x != 16 && z != 12) sb.set(x, base + 1, z, (x / 4 + z / 4) % 2 ? carpet : white);
+            for (const int base : {0, 6})
+                for (const auto& [tx, tz] : {std::pair{8, 6}, std::pair{24, 6}, std::pair{8, 18}, std::pair{24, 18}})
+                    sb.set(tx, base + 5, tz, 0), sb.set(tx, base + 4, tz, 0), sb.set(tx + 1, base + 4, tz, torch);
+            // A ladder up through the floor (on the cross wall's west side).
+            for (int y = 1; y <= 6; ++y) sb.set(15, y, 9, sb.turned(ladder));
+            // Chests, the allay cell, and who lives here.
+            sb.chest(3, 7, 3, LootTable::WoodlandMansion);
+            sb.chest(28, 7, 20, LootTable::WoodlandMansion);
+            sb.chest(28, 1, 3, LootTable::WoodlandMansion);
+            sb.fill(19, 7, 15, 23, 9, 15, fence); // (the cell: fences across a corner of a room)
+            sb.fill(19, 7, 15, 19, 9, 22, fence);
+            sb.mob(21, 7, 19, MobType::Allay);
+            sb.mob(6, 1, 6, MobType::Vindicator);
+            sb.mob(24, 1, 18, MobType::Vindicator);
+            sb.mob(8, 7, 18, MobType::Vindicator);
+            sb.mob(24, 7, 6, MobType::Evoker);
+            (void)r;
         }
 }
 

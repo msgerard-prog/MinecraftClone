@@ -390,3 +390,33 @@ TEST_CASE("overworld6 ruined portals: a broken obsidian frame, netherrack about,
         }
     CHECK(found == 1);
 }
+
+TEST_CASE("overworld6 woodland mansions in dark forests: dark oak, chests, vindicators and an allay (M27.4c)") {
+    const OverworldGenerator gen(42);
+    std::optional<ChunkPos> at;
+    for (int cz = -300; cz <= 300 && !at; ++cz)
+        for (int cx = -300; cx <= 300 && !at; ++cx) {
+            if (!isSpreadCandidate(42, kMansions, {cx, cz})) continue;
+            const Biome b = gen.biomeAt(gen.column(cx * 16 + 16, cz * 16 + 12));
+            if ((b == Biome::DarkForest || b == Biome::PaleGarden) &&
+                gen.surfaceY(cx * 16 + 16, cz * 16 + 12) >= OverworldGenerator::kSeaLevel)
+                at = ChunkPos{cx, cz};
+        }
+    REQUIRE(at);
+    int planks = 0, chests = 0;
+    std::vector<MobType> mobs;
+    for (int dz = 0; dz <= 1; ++dz)
+        for (int dx = 0; dx <= 1; ++dx) {
+            Chunk c({at->x + dx, at->z + dz});
+            gen.generate(c);
+            chests += int(c.chests().size());
+            for (const MobData& m : c.mobs()) mobs.push_back(m.type);
+            for (int y = 60; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) planks += R().block(R().blockOf(c.get(x, y, z))).id == "minecraft:dark_oak_planks";
+        }
+    CHECK(planks > 400);
+    CHECK(chests >= 3);
+    CHECK(std::count(mobs.begin(), mobs.end(), MobType::Vindicator) >= 2);
+    CHECK(std::count(mobs.begin(), mobs.end(), MobType::Allay) == 1);
+}

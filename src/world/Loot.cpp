@@ -217,6 +217,18 @@ constexpr LootEntry kRuined1[] = {
     {"gold_block", 1, 2, 1}};
 constexpr LootPool kRuinedPortal[] = {{4, 8, kRuined1}};
 
+// wiki: Woodland Mansion › Loot (Java).
+constexpr LootEntry kMansion1[] = {
+    {"lead", 1, 1, 20},           {"golden_apple", 1, 1, 15},     {"music_disc_13", 1, 1, 15},
+    {"music_disc_cat", 1, 1, 15}, {"name_tag", 1, 1, 20},         {"chainmail_chestplate", 1, 1, 10},
+    {"diamond_hoe", 1, 1, 15},    {"diamond_chestplate", 1, 1, 5}, {"enchanted_book", 1, 1, 10, true}};
+constexpr LootEntry kMansion2[] = {
+    {"iron_ingot", 1, 4, 10},   {"gold_ingot", 1, 4, 5},      {"bread", 1, 1, 20},       {"wheat", 1, 4, 20},
+    {"bucket", 1, 1, 10},       {"redstone", 1, 4, 15},       {"coal", 1, 4, 15},        {"melon_seeds", 2, 4, 10},
+    {"pumpkin_seeds", 2, 4, 10}, {"beetroot_seeds", 2, 4, 10}};
+constexpr LootEntry kMansion3[] = {{"bone", 1, 8, 10}, {"gunpowder", 1, 8, 10}, {"rotten_flesh", 1, 8, 10}, {"string", 1, 8, 10}};
+constexpr LootPool kMansion[] = {{1, 3, kMansion1}, {1, 4, kMansion2}, {3, 3, kMansion3}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -264,6 +276,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::BuriedTreasure: return kBuried;
     case LootTable::AncientCity: return kAncientCity;
     case LootTable::RuinedPortal: return kRuinedPortal;
+    case LootTable::WoodlandMansion: return kMansion;
     default: return {}; // (filled in as their structures arrive)
     }
 }
