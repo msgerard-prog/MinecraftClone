@@ -22,6 +22,13 @@ struct Property {
 // Which render pass draws the block (vanilla "render types").
 enum class RenderLayer : uint8_t { Invisible, Solid, Cutout, Translucent };
 
+// Shaped block families (M23.1): blocks of a kind share placement, shape, model and
+// connection rules, taking textures, tool and sound from their base block.
+enum class BlockKind : uint8_t { Plain, Slab, Stairs, Wall };
+// The tool that mines a block fastest and is needed for drops (wiki: each block's
+// "Tool"); blocks registered before M23 keep theirs in gameplay/Mining.
+enum class HarvestTool : uint8_t { None, Pickaxe, Axe, Shovel, Hoe };
+
 struct BlockSettings {
     float hardness = 0.0f;   // wiki infobox "Hardness"
     float resistance = 0.0f; // wiki infobox "Blast resistance"
@@ -36,6 +43,10 @@ struct BlockSettings {
     RenderLayer layer = RenderLayer::Solid;
     // Receives random ticks (wiki: Tick › Random tick): grass, leaves, saplings, ice...
     bool randomTicks = false;
+    BlockKind kind = BlockKind::Plain;
+    BlockId base = 0; // slabs, stairs, walls: the full block they are cut from
+    HarvestTool tool = HarvestTool::None;
+    uint8_t tier = 0; // 0 any, 1 stone, 2 iron, 3 diamond (needed for drops)
 };
 
 // A property plus the value this block uses in its default state.
@@ -88,6 +99,7 @@ public:
         m_stateOpacity[state] = opaque ? 15 : 0;
     }
     RenderLayer layer(BlockStateId state) const;
+    BlockKind kind(BlockId id) const { return m_blocks[id].settings.kind; }
 
     // Fast property access by Property object (hot paths: redstone). `get` returns
     // the value's index in the property's list (-1 if the block lacks it); `set`

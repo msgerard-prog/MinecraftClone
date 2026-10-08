@@ -197,6 +197,8 @@ void TextureAtlas::tick() {
     }
 }
 
+bool TextureAtlas::has(std::string_view name) const { return m_indices.count(std::string(name)) > 0; }
+
 int TextureAtlas::spriteIndex(std::string_view name) const {
     const auto it = m_indices.find(std::string(name));
     if (it != m_indices.end()) return it->second;

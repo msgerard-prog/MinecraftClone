@@ -141,8 +141,12 @@ SoundType soundTypeOf(BlockStateId state) {
     static const std::vector<SoundType> table = [] {
         const auto& r = blockRegistry();
         std::vector<SoundType> v(r.blockCount());
-        for (size_t b = 0; b < v.size(); ++b)
-            v[b] = groupFor(std::string_view(r.block(BlockId(b)).id).substr(10)); // (after "minecraft:")
+        for (size_t b = 0; b < v.size(); ++b) {
+            const BlockDef& def = r.block(BlockId(b));
+            // Slabs, stairs and walls sound like the block they're cut from.
+            const BlockId from = def.settings.kind != BlockKind::Plain ? def.settings.base : BlockId(b);
+            v[b] = groupFor(std::string_view(r.block(from).id).substr(10)); // (after "minecraft:")
+        }
         return v;
     }();
     const BlockId b = blockRegistry().blockOf(state);

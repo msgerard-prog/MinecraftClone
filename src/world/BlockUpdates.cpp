@@ -527,6 +527,65 @@ BlockStateId BlockUpdates::fenceConnected(const World& world, const BlockPos& p,
     return r.set(fence, fireEast, joins(Direction::East) ? 0 : 1);
 }
 
+BlockStateId BlockUpdates::stairsShaped(const World& world, const BlockPos& p, BlockStateId st) {
+    const auto& r = R();
+    const Direction f = hFacing(st);
+    const int half = r.get(st, slabHalf);
+    auto stairsAt = [&](const BlockPos& q, BlockStateId& out) {
+        out = world.getBlock(q);
+        return r.kind(blockOf(out)) == BlockKind::Stairs && r.get(out, slabHalf) == half;
+    };
+    // Counterclockwise from a horizontal direction (north -> west -> south -> east).
+    auto ccw = [](Direction d) {
+        switch (d) {
+        case Direction::North: return Direction::West;
+        case Direction::West: return Direction::South;
+        case Direction::South: return Direction::East;
+        default: return Direction::North;
+        }
+    };
+    auto perpendicular = [](Direction a, Direction b) {
+        const bool az = a == Direction::North || a == Direction::South, bz = b == Direction::North || b == Direction::South;
+        return az != bz;
+    };
+    // A side may bend only if the stair beside it isn't a straight continuation of this one.
+    auto free = [&](Direction side) {
+        BlockStateId n;
+        return !stairsAt(rel(p, side), n) || hFacing(n) != f;
+    };
+    BlockStateId n;
+    if (stairsAt(rel(p, f), n) && perpendicular(hFacing(n), f) && free(opposite(hFacing(n))))
+        return r.set(st, stairShape, hFacing(n) == ccw(f) ? 3 : 4); // outer_left / outer_right
+    if (stairsAt(rel(p, opposite(f)), n) && perpendicular(hFacing(n), f) && free(hFacing(n)))
+        return r.set(st, stairShape, hFacing(n) == ccw(f) ? 1 : 2); // inner_left / inner_right
+    return r.set(st, stairShape, 0);
+}
+
+BlockStateId BlockUpdates::wallConnected(const World& world, const BlockPos& p, BlockStateId wall) {
+    const auto& r = R();
+    const BlockStateId above = world.getBlock(rel(p, Direction::Up));
+    const bool aboveWall = r.kind(blockOf(above)) == BlockKind::Wall;
+    auto joins = [&](Direction d) {
+        const BlockStateId s = world.getBlock(rel(p, d));
+        const BlockId b = blockOf(s);
+        return r.kind(b) == BlockKind::Wall || b == B::IronBars || b == B::OakFenceGate || r.opaqueCube(s);
+    };
+    const Property* sides[4] = {&wallNorth, &wallSouth, &wallWest, &wallEast};
+    const Direction dirs[4] = {Direction::North, Direction::South, Direction::West, Direction::East};
+    bool joined[4];
+    for (int i = 0; i < 4; ++i) {
+        joined[i] = joins(dirs[i]);
+        // Tall under a full block, or under a wall reaching out the same way.
+        const bool tall = r.opaqueCube(above) || (aboveWall && r.get(above, *sides[i]) != 0);
+        wall = r.set(wall, *sides[i], joined[i] ? (tall ? 2 : 1) : 0);
+    }
+    // No post on a straight run (two opposite arms only) unless the wall above has one.
+    const bool straight = (joined[0] && joined[1] && !joined[2] && !joined[3]) ||
+                          (joined[2] && joined[3] && !joined[0] && !joined[1]);
+    const bool post = !straight || (aboveWall && r.get(above, fireUp) == 0);
+    return r.set(wall, fireUp, post ? 0 : 1);
+}
+
 void BlockUpdates::setDoor(const BlockPos& lower, BlockStateId s, bool openNow, bool poweredNow) {
     // Both halves change together (the upper half mirrors the lower one).
     const BlockStateId lowerNow = withFlag(withFlag(s, open, openNow), powered, poweredNow);
@@ -612,7 +671,7 @@ BlockStateId BlockUpdates::barsConnected(const World& world, const BlockPos& p, 
     const auto& r = R();
     auto joins = [&](Direction d) {
         const BlockStateId s = world.getBlock(rel(p, d));
-        return blockOf(s) == B::IronBars || r.opaqueCube(s);
+        return blockOf(s) == B::IronBars || r.kind(blockOf(s)) == BlockKind::Wall || r.opaqueCube(s);
     };
     bars = r.set(bars, fireNorth, joins(Direction::North) ? 0 : 1);
     bars = r.set(bars, fireSouth, joins(Direction::South) ? 0 : 1);
@@ -825,6 +884,12 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     ++m_depth;
     const BlockStateId s = at(p);
+    if (const BlockKind kind = R().kind(blockOf(s)); kind == BlockKind::Stairs || kind == BlockKind::Wall) {
+        const BlockStateId want = kind == BlockKind::Stairs ? stairsShaped(m_world, p, s) : wallConnected(m_world, p, s);
+        if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
     switch (blockOf(s)) {
     case B::RedstoneWire:
         updateWire(p);
@@ -1722,7 +1787,7 @@ bool BlockUpdates::use(const BlockPos& p) {
 
 std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockStateId state,
                                                     const BlockPos& at, Direction faceDir,
-                                                    float yaw, float pitch) {
+                                                    float yaw, float pitch, double hitY) {
     const auto& r = R();
     auto solid = [&](Direction d) { return supports(world.getBlock(rel(at, d))); };
     // The player's horizontal look direction (vanilla yaw: 0 south, 90 west).
@@ -1730,6 +1795,16 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     static constexpr Direction kLook[4] = {Direction::South, Direction::West, Direction::North,
                                            Direction::East};
     const Direction look = kLook[static_cast<int>(std::floor((y + 45.0f) / 90.0f)) % 4];
+    // Slabs and stairs go in the top half when put against a block's underside or
+    // the upper half of its side (wiki: Slab, Stairs).
+    const bool upper = faceDir == Direction::Down || (horizontal(faceDir) && hitY > 0.5);
+    switch (r.kind(blockOf(state))) {
+    case BlockKind::Slab: return r.set(state, slabType, upper ? 0 : 1);
+    case BlockKind::Stairs: // facing the way the player looks: they walk up away from themselves
+        return stairsShaped(world, at, r.set(withHFacing(state, look), slabHalf, upper ? 0 : 1));
+    case BlockKind::Wall: return wallConnected(world, at, state);
+    case BlockKind::Plain: break;
+    }
     switch (blockOf(state)) {
     case B::OakLeaves:
     case B::BirchLeaves:

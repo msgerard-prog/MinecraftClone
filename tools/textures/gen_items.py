@@ -717,6 +717,10 @@ def all_items():
     items["flint_and_steel"] = flint_and_steel()
     items["ender_eye"] = ender_eye()
     items["quartz"] = quartz()
+    # Building materials (M23.1): bricks are small ingot-like bars, clay a soft lump.
+    items["brick"] = ingot("#B4553C")
+    items["nether_brick"] = ingot("#4E2228")
+    items["clay_ball"] = lump("clay_ball", "#A0A6B6", "#C4C8D4", size=5)
     items["bucket"] = bucket()
     items["water_bucket"] = bucket("#3C6EE6")
     items["lava_bucket"] = bucket("#E8661A")

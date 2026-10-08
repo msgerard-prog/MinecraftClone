@@ -45,6 +45,7 @@ public:
 
     // Grid index of a sprite (row-major, `columns()` per row); unknown names log a
     // warning and return the missing sprite (index 0). Load/bake time only.
+    bool has(std::string_view name) const; // (no warning when missing)
     int spriteIndex(std::string_view name) const;
     int columns() const { return m_columns; }
     int cellSize() const { return m_cellSize; }

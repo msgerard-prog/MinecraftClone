@@ -45,9 +45,10 @@ public:
     // The state to place for `state` at `at`, clicked on the face of the block behind
     // that points to `at` (`face`). Wall torches, lever/button faces, repeater and
     // piston facings come from the click and the player's look (yaw/pitch in vanilla
-    // degrees); nullopt when the block can't stand there.
+    // degrees); nullopt when the block can't stand there. `hitY`: how high on the
+    // clicked face the click was (0..1; side faces' upper half places top slabs/stairs).
     static std::optional<BlockStateId> placement(const World& world, BlockStateId state, const BlockPos& at,
-                                                 Direction face, float yaw, float pitch);
+                                                 Direction face, float yaw, float pitch, double hitY = 0.25);
 
     // Positions changed here since the caller last cleared it (relight / re-mesh), and
     // items dropped by blocks that broke (dust losing its support, pushed torches).
@@ -123,6 +124,12 @@ public:
     static BlockStateId barsConnected(const World& world, const BlockPos& p, BlockStateId bars);
     // Fences join fences, fence gates and full solid blocks (wiki: Fence).
     static BlockStateId fenceConnected(const World& world, const BlockPos& p, BlockStateId fence);
+    // Stairs (M23.1; wiki: Stairs): a corner shape when a stair at right angles sits
+    // in front (outer) or behind (inner) with the same half.
+    static BlockStateId stairsShaped(const World& world, const BlockPos& p, BlockStateId stairs);
+    // Walls (wiki: Wall): arms to walls, bars, panes, fence gates and full blocks; tall
+    // under a full block, a post unless a straight run.
+    static BlockStateId wallConnected(const World& world, const BlockPos& p, BlockStateId wall);
     static bool isDoor(BlockId b);
     static bool isPressurePlate(BlockId b);
 

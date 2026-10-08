@@ -10,12 +10,26 @@ particles, sound (XAudio2, our own synthesized sounds), menus (title, world list
 creation, options.txt, Game Menu that pauses). M1-M21 done. v1.0 waits for M23-M28.
 
 ## Next
-M23 - Building blocks & workstations (see the milestone table): slabs, stairs, walls,
-panes, carpets, ladders, signs, lanterns, campfires, all woods' doors/trapdoors/fences,
-mangrove/bamboo/pale oak, copper ageing, concrete, stained glass; stonecutter,
-smithing, grindstone, loom, cartography, composter, cauldron, barrel, smoker, blast
-furnace, ender chest, shulker boxes, beacon, conduit, note block, jukebox. Steps are
-planned at the start of the milestone.
+M23 - Building blocks & workstations (wiki pages of each block):
+1. ✅ M23.1 - Block kinds and shapes: a `kind` per block (slab, stairs, wall, pane,
+   carpet, ...) with its base texture, so placement, shapes, models and connections
+   are written once; slabs (bottom/top/double merging), stairs (facing, half, corner
+   shapes), walls (posts, low/tall sides) for vanilla's stone, brick, sandstone,
+   deepslate, nether and end families and every wood; recipes, stonecutter-free.
+2. M23.2 - Thin and small blocks: glass panes, the 16 stained glass blocks and panes,
+   16 carpets, ladders (climbing), lanterns and soul lanterns (standing/hanging),
+   chains, wall torches.
+3. M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,
+   trapdoors, fences, gates, buttons and plates (the M21 oak-only code generalised by
+   kind); signs and hanging signs with text editing and rendering.
+4. M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16
+   terracottas and glazed terracottas, the copper family (oxidation on random ticks,
+   honeycomb waxing, axe scraping, copper bulbs), campfires (cooking, smoke, damage).
+5. M23.5 - Workstations 1: stonecutter, smoker, blast furnace, barrel, composter,
+   cauldrons (water/lava/powder snow, buckets and bottles, rain), grindstone.
+6. M23.6 - Workstations 2: smithing table (netherite upgrades, armor trims), loom
+   and cartography table (their screens; banners and maps come in M28), ender chest,
+   shulker boxes, beacon (pyramid, beam, effects), conduit, note blocks, jukebox.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:

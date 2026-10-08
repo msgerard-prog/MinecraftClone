@@ -1,5 +1,6 @@
 #include "world/Blocks.h"
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <tuple>
@@ -49,6 +50,12 @@ const Property open{"open", {"true", "false"}};
 const Property doorHalf{"half", {"upper", "lower"}};
 const Property hinge{"hinge", {"left", "right"}};
 const Property slabHalf{"half", {"top", "bottom"}};
+const Property slabType{"type", {"top", "bottom", "double"}};
+const Property stairShape{"shape", {"straight", "inner_left", "inner_right", "outer_left", "outer_right"}};
+const Property wallNorth{"north", {"none", "low", "tall"}};
+const Property wallEast{"east", {"none", "low", "tall"}};
+const Property wallSouth{"south", {"none", "low", "tall"}};
+const Property wallWest{"west", {"none", "low", "tall"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
@@ -69,6 +76,142 @@ const Property occupied{"occupied", {"true", "false"}};
 } // namespace properties
 
 namespace {
+
+// Building blocks (M23.1; wiki: each block's page): the full blocks the families need
+// that weren't registered yet, then the slabs, stairs and walls of vanilla's stone,
+// brick, sandstone, deepslate, Nether, End and wood families.
+void addBuildingFamilies(BlockRegistry& r) {
+    using namespace properties;
+    using HT = HarvestTool;
+    struct NewBase {
+        const char* id;
+        float hardness, resistance;
+        bool pillar; // axis property (quartz pillar)
+    };
+    static constexpr NewBase kBases[] = {
+        {"bricks", 2.0f, 6.0f, false},
+        {"polished_granite", 1.5f, 6.0f, false},
+        {"polished_diorite", 1.5f, 6.0f, false},
+        {"polished_andesite", 1.5f, 6.0f, false},
+        {"smooth_stone", 2.0f, 6.0f, false},
+        {"cobbled_deepslate", 3.5f, 6.0f, false},
+        {"polished_deepslate", 3.5f, 6.0f, false},
+        {"deepslate_bricks", 3.5f, 6.0f, false},
+        {"cracked_deepslate_bricks", 3.5f, 6.0f, false},
+        {"deepslate_tiles", 3.5f, 6.0f, false},
+        {"cracked_deepslate_tiles", 3.5f, 6.0f, false},
+        {"chiseled_deepslate", 3.5f, 6.0f, false},
+        {"red_nether_bricks", 2.0f, 6.0f, false},
+        {"polished_blackstone", 2.0f, 6.0f, false},
+        {"quartz_block", 0.8f, 0.8f, false},
+        {"smooth_quartz", 2.0f, 6.0f, false},
+        {"quartz_bricks", 0.8f, 0.8f, false},
+        {"quartz_pillar", 0.8f, 0.8f, true},
+        {"chiseled_quartz_block", 0.8f, 0.8f, false},
+        {"prismarine", 1.5f, 6.0f, false},
+        {"prismarine_bricks", 1.5f, 6.0f, false},
+        {"dark_prismarine", 1.5f, 6.0f, false},
+        {"mud_bricks", 1.5f, 3.0f, false},
+        {"polished_tuff", 1.5f, 6.0f, false},
+        {"tuff_bricks", 1.5f, 6.0f, false},
+        {"chiseled_tuff", 1.5f, 6.0f, false},
+        {"chiseled_tuff_bricks", 1.5f, 6.0f, false},
+        {"smooth_red_sandstone", 2.0f, 6.0f, false},
+        {"cut_red_sandstone", 0.8f, 0.8f, false},
+        {"chiseled_red_sandstone", 0.8f, 0.8f, false},
+    };
+    for (const NewBase& b : kBases) {
+        const BlockSettings st{.hardness = b.hardness, .resistance = b.resistance, .tool = HT::Pickaxe};
+        if (b.pillar) r.add(b.id, st, {{&axis, "y"}});
+        else r.add(b.id, st);
+    }
+    // prefix -> "<prefix>_stairs", "_slab", "_wall"; base: the full block.
+    struct Family {
+        const char* prefix;
+        const char* base;
+        bool stairs, slab, wall;
+    };
+    static constexpr Family kFamilies[] = {
+        {"stone", "stone", true, true, false},
+        {"cobblestone", "cobblestone", true, true, true},
+        {"mossy_cobblestone", "mossy_cobblestone", true, true, true},
+        {"stone_brick", "stone_bricks", true, true, true},
+        {"mossy_stone_brick", "mossy_stone_bricks", true, true, true},
+        {"smooth_stone", "smooth_stone", false, true, false},
+        {"granite", "granite", true, true, true},
+        {"polished_granite", "polished_granite", true, true, false},
+        {"diorite", "diorite", true, true, true},
+        {"polished_diorite", "polished_diorite", true, true, false},
+        {"andesite", "andesite", true, true, true},
+        {"polished_andesite", "polished_andesite", true, true, false},
+        {"brick", "bricks", true, true, true},
+        {"sandstone", "sandstone", true, true, true},
+        {"smooth_sandstone", "smooth_sandstone", true, true, false},
+        {"cut_sandstone", "cut_sandstone", false, true, false},
+        {"red_sandstone", "red_sandstone", true, true, true},
+        {"smooth_red_sandstone", "smooth_red_sandstone", true, true, false},
+        {"cut_red_sandstone", "cut_red_sandstone", false, true, false},
+        {"nether_brick", "nether_bricks", true, true, true},
+        {"red_nether_brick", "red_nether_bricks", true, true, true},
+        {"blackstone", "blackstone", true, true, true},
+        {"polished_blackstone", "polished_blackstone", true, true, true},
+        {"polished_blackstone_brick", "polished_blackstone_bricks", true, true, true},
+        {"cobbled_deepslate", "cobbled_deepslate", true, true, true},
+        {"polished_deepslate", "polished_deepslate", true, true, true},
+        {"deepslate_brick", "deepslate_bricks", true, true, true},
+        {"deepslate_tile", "deepslate_tiles", true, true, true},
+        {"quartz", "quartz_block", true, true, false},
+        {"smooth_quartz", "smooth_quartz", true, true, false},
+        {"purpur", "purpur_block", true, true, false},
+        {"end_stone_brick", "end_stone_bricks", true, true, true},
+        {"prismarine", "prismarine", true, true, true},
+        {"prismarine_brick", "prismarine_bricks", true, true, false},
+        {"dark_prismarine", "dark_prismarine", true, true, false},
+        {"mud_brick", "mud_bricks", true, true, true},
+        {"tuff", "tuff", true, true, true},
+        {"polished_tuff", "polished_tuff", true, true, true},
+        {"tuff_brick", "tuff_bricks", true, true, true},
+        {"oak", "oak_planks", true, true, false},
+        {"spruce", "spruce_planks", true, true, false},
+        {"birch", "birch_planks", true, true, false},
+        {"jungle", "jungle_planks", true, true, false},
+        {"acacia", "acacia_planks", true, true, false},
+        {"dark_oak", "dark_oak_planks", true, true, false},
+        {"cherry", "cherry_planks", true, true, false},
+        {"crimson", "crimson_planks", true, true, false},
+        {"warped", "warped_planks", true, true, false},
+    };
+    for (const Family& f : kFamilies) {
+        const auto base = r.findBlock(f.base);
+        assert(base && "family base block must be registered");
+        const BlockSettings& bs = r.block(*base).settings;
+        const bool wood = std::string_view(f.base).ends_with("_planks");
+        BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
+                         .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe};
+        const std::string prefix(f.prefix);
+        if (f.stairs) {
+            st.kind = BlockKind::Stairs;
+            r.add(prefix + "_stairs", st, {{&facing, "north"}, {&slabHalf, "bottom"}, {&stairShape, "straight"}});
+        }
+        if (f.slab) {
+            // Slabs: 2 / 6 for stone kinds (deepslate keeps its 3.5), wood 2 / 3 (wiki: Slab).
+            BlockSettings ss = st;
+            ss.kind = BlockKind::Slab;
+            ss.hardness = wood ? 2.0f : std::max(2.0f, bs.hardness);
+            ss.resistance = wood ? 3.0f : 6.0f;
+            const BlockId slab = r.add(prefix + "_slab", ss, {{&slabType, "bottom"}});
+            // A double slab is a full block: it hides neighbours' faces and blocks light.
+            const BlockStateId first = r.block(slab).firstState;
+            for (uint32_t i = 0; i < r.block(slab).stateCount; ++i)
+                if (r.get(BlockStateId(first + i), slabType) == 2) r.setStateOpaque(BlockStateId(first + i), true);
+        }
+        if (f.wall) {
+            st.kind = BlockKind::Wall;
+            r.add(prefix + "_wall", st,
+                  {{&fireUp, "true"}, {&wallNorth, "none"}, {&wallEast, "none"}, {&wallSouth, "none"}, {&wallWest, "none"}});
+        }
+    }
+}
 
 // Values from each block's minecraft.wiki infobox (Java Edition).
 BlockRegistry buildVanillaBlocks() {
@@ -529,6 +672,7 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("moving_piston", {.hardness = -1.0f, .resistance = 0.0f, .opaqueCube = false, .collision = false},
                 {{&facing6, "north"}, {&pistonType, "normal"}}),
           blocks::MovingPiston);
+    addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

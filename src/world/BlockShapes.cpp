@@ -39,10 +39,69 @@ int leftOf(int f) {
     return kLeft[f];
 }
 
+} // namespace
+
+BlockShape stairShapeOf(BlockStateId s) {
+    const auto& r = blockRegistry();
+    const bool top = r.get(s, slabHalf) == 0;
+    const int f = r.get(s, facing); // 0 north, 1 south, 2 west, 3 east
+    const int shape = r.get(s, stairShape);
+    // Quadrants of the raised half (x0, z0): 0 NW, 1 NE, 2 SW, 3 SE.
+    auto quadrant = [](int q, int& x0, int& z0) {
+        x0 = (q & 1) ? 8 : 0;
+        z0 = (q & 2) ? 8 : 0;
+    };
+    // The two quadrants on the facing side, ordered (left, right) as seen looking
+    // along the facing - "left" is counterclockwise from the facing (north -> west).
+    static constexpr int kFront[4][2] = {{0, 1}, {3, 2}, {2, 0}, {1, 3}};
+    // The back quadrants (behind the front ones), same order.
+    static constexpr int kBack[4][2] = {{2, 3}, {1, 0}, {3, 1}, {0, 2}};
+    const int y0 = top ? 0 : 8, y1 = top ? 8 : 16; // the raised part
+    BlockShape sh = top ? box(0, 8, 0, 16, 16, 16) : box(0, 0, 0, 16, 8, 16);
+    auto addQuad = [&](int q) {
+        int x0, z0;
+        quadrant(q, x0, z0);
+        add(sh, x0, y0, z0, x0 + 8, y1, z0 + 8);
+    };
+    switch (shape) {
+    case 3: addQuad(kFront[f][0]); break; // outer_left: only the left front quarter
+    case 4: addQuad(kFront[f][1]); break; // outer_right
+    default:
+        addQuad(kFront[f][0]);
+        addQuad(kFront[f][1]);
+        if (shape == 1) addQuad(kBack[f][0]); // inner_left: and the left back quarter
+        if (shape == 2) addQuad(kBack[f][1]); // inner_right
+        break;
+    }
+    return sh;
+}
+
+namespace {
+
 BlockShape compute(BlockStateId s) {
     const auto& r = blockRegistry();
     const BlockId b = r.blockOf(s);
     if (!r.collides(s)) return {};
+    switch (r.kind(b)) {
+    case BlockKind::Slab: { // wiki: Slab - bottom, top or a full double slab
+        const int t = r.get(s, slabType);
+        return t == 0 ? box(0, 8, 0, 16, 16, 16) : t == 1 ? box(0, 0, 0, 16, 8, 16) : BlockShape{};
+    }
+    case BlockKind::Stairs: return stairShapeOf(s);
+    case BlockKind::Wall: {
+        // A post where it isn't a straight run, arms to its connections; 1.5 tall
+        // for collision like fences (wiki: Wall).
+        BlockShape sh;
+        if (r.get(s, fireUp) == 0) add(sh, 4, 0, 4, 12, 24, 12);
+        if (r.get(s, wallNorth) != 0) add(sh, 5, 0, 0, 11, 24, 8);
+        if (r.get(s, wallSouth) != 0) add(sh, 5, 0, 8, 11, 24, 16);
+        if (r.get(s, wallWest) != 0) add(sh, 0, 0, 5, 8, 24, 11);
+        if (r.get(s, wallEast) != 0) add(sh, 8, 0, 5, 16, 24, 11);
+        if (sh.count == 0) add(sh, 4, 0, 4, 12, 24, 12);
+        return sh;
+    }
+    case BlockKind::Plain: break;
+    }
     switch (b) {
     case B::OakDoor:
     case B::IronDoor: {

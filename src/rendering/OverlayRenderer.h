@@ -22,7 +22,8 @@ public:
 
     bool init();
     void draw(const Camera& camera, int framebufferWidth, int framebufferHeight,
-              const std::optional<world::BlockPos>& target);
+              const std::optional<world::BlockPos>& target, const glm::vec3& boxMin = glm::vec3(0.0f),
+              const glm::vec3& boxMax = glm::vec3(1.0f));
 
 private:
     Shader m_shader;

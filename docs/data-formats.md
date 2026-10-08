@@ -182,3 +182,10 @@ Options.txt): `fov` ((degrees - 70) / 40), `renderDistance`, `simulationDistance
 (0..1), `renderClouds` ("true"/"false"), `enableVsync`. Unknown keys are ignored;
 only interactive runs read or write it. `--render-distance` and `--no-vsync` override
 it for one run without being saved.
+
+## Block families (M23.1)
+Slabs (`type` top|bottom|double), stairs (`facing`, `half` top|bottom, `shape`
+straight|inner_left|inner_right|outer_left|outer_right) and walls (`up`, `north`/
+`east`/`south`/`west` none|low|tall) use vanilla's property names and values, so saved
+states read back by name. Vanilla's `waterlogged` property isn't modelled (states with
+it load with it ignored). New materials: brick, nether_brick, clay_ball items.

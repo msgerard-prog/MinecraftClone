@@ -90,7 +90,7 @@ ItemRegistry buildItems() {
     // Materials (wiki: each item's page).
     for (const char* name : {"stick", "coal", "charcoal", "raw_iron", "raw_gold", "raw_copper",
                              "iron_ingot", "gold_ingot", "copper_ingot", "diamond", "emerald",
-                             "lapis_lazuli", "redstone", "flint", "leather"})
+                             "lapis_lazuli", "redstone", "flint", "leather", "brick", "nether_brick", "clay_ball"})
         r.add({.id = std::string("minecraft:") + name,
                .block = std::string_view(name) == "redstone" ? BlockId(blocks::RedstoneWire) : BlockId(0),
                .texture = std::string("item/") + name});

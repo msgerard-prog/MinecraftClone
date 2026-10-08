@@ -106,6 +106,29 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
                              bool& placed) {
     const auto& reg = world::blockRegistry();
     const world::RayHit* hit = &hitRef;
+    // Where on the face the click landed (slab and stair halves).
+    const glm::dvec3 point = player.eyePosition(1.0) +
+                             glm::dvec3(world::lookVector(player.yaw(), player.pitch())) * hit->distance;
+    const double hitY = std::clamp(point.y - double(hit->block.y), 0.0, 1.0);
+    // A slab put on a slab of its kind fills the other half: a double slab (wiki: Slab) -
+    // the clicked one from its open face, or a single slab in the cell in front.
+    if (reg.kind(reg.blockOf(placeState)) == world::BlockKind::Slab) {
+        auto merge = [&](const world::BlockPos& p, bool fromClick) {
+            const world::BlockStateId s = world.getBlock(p);
+            if (reg.blockOf(s) != reg.blockOf(placeState)) return false;
+            const int type = reg.get(s, world::properties::slabType);
+            if (type == 2) return false;
+            if (fromClick && !((type == 1 && hit->face == world::Direction::Up) ||
+                               (type == 0 && hit->face == world::Direction::Down)))
+                return false;
+            world.updateBlock(p, reg.set(s, world::properties::slabType, 2));
+            world.levelEvent(world::LevelEvent::Type::BlockPlace, p.x, p.y, p.z, s);
+            changed.push_back(p);
+            placed = true;
+            return true;
+        };
+        if (merge(hit->block, true) || merge(world::neighbour(hit->block, hit->face), false)) return;
+    }
     {
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world.isInHeight(at.y)) return;
@@ -133,7 +156,8 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             state = reg.with(state, "facing", kTowardPlayer[q]).value_or(state);
         }
         // Redstone components: wall torches, attachment faces, facings, support.
-        const auto fitted = world::BlockUpdates::placement(world, state, at, hit->face, player.yaw(), player.pitch());
+        const auto fitted =
+            world::BlockUpdates::placement(world, state, at, hit->face, player.yaw(), player.pitch(), hitY);
         if (!fitted) return;
         state = *fitted;
         world.updateBlock(at, state);

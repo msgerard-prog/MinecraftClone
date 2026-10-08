@@ -313,6 +313,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Elytra (M20.4c): main tells `Player::setCanGlide` whether a working elytra is worn;
   `Player::tick` starts gliding on a jump press in the air and runs the glide motion;
   `takeImpact` reports wall hits; main wears the elytra 1 a second.
+- Block kinds (M23.1): `BlockSettings::kind` (slab, stairs, wall) and `base` (the full
+  block it is cut from) let one code path serve every family: `addBuildingFamilies`
+  (Blocks.cpp) registers them after the enum blocks (state ids of older blocks never
+  move), `BlockShapes` (`stairShapeOf`), `BlockModels::bakeFamilyModel` (boxes with the
+  base model's faces), `BlockUpdates::placement` (half from the click height `hitY`),
+  `stairsShaped`/`wallConnected` on neighbour updates, slab merging in
+  `BlockInteraction::place`, drops/harvest/sounds/recipes derived from the base. New
+  plain blocks carry their tool in `BlockSettings::tool`. `raycastBlocks` hits shaped
+  blocks only on their boxes; the outline spans the shape's bounds.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -47,7 +47,10 @@ extern const Property occupied;  // true | false
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
 extern const Property hinge;     // left | right
-extern const Property slabHalf;  // "half": top | bottom (trapdoors)
+extern const Property slabHalf;  // "half": top | bottom (trapdoors, stairs)
+extern const Property slabType;  // "type": top | bottom | double (slabs, M23.1)
+extern const Property stairShape; // "shape": straight | inner_left | inner_right | outer_left | outer_right
+extern const Property wallNorth, wallEast, wallSouth, wallWest; // none | low | tall
 extern const Property inWall;    // "in_wall": true | false (fence gates)
 extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east

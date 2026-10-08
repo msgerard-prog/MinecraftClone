@@ -1,5 +1,7 @@
 #include "gameplay/Recipes.h"
 
+#include "world/Blocks.h"
+
 #include <algorithm>
 #include <array>
 #include <string>
@@ -199,6 +201,56 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"BBB", ".I.", "III"}, {{'B', item("iron_block")}, {'I', item("iron_ingot")}}, "anvil"));
     // (wiki: Arrow - flint, stick, feather -> 4)
     r.push_back(shaped({"F", "S", "E"}, {{'F', item("flint")}, {'S', stick}, {'E', item("feather")}}, "arrow", 4));
+    // Building blocks (M23.1; wiki: Slab, Stairs, Wall and each block's page): every
+    // slab is 3 of its block for 6, stairs 6 for 4, walls 6 for 6.
+    {
+        const auto& reg = blockRegistry();
+        for (BlockId b = 1; b < reg.blockCount(); ++b) {
+            const BlockSettings& st = reg.block(b).settings;
+            if (st.kind == BlockKind::Plain) continue;
+            const std::string result(std::string_view(reg.block(b).id).substr(10));
+            const Ingredient base = item(std::string_view(reg.block(st.base).id).substr(10));
+            switch (st.kind) {
+            case BlockKind::Slab: r.push_back(shaped({"###"}, {{'#', base}}, result, 6)); break;
+            case BlockKind::Stairs: r.push_back(shaped({"#..", "##.", "###"}, {{'#', base}}, result, 4)); break;
+            case BlockKind::Wall: r.push_back(shaped({"###", "###"}, {{'#', base}}, result, 6)); break;
+            case BlockKind::Plain: break;
+            }
+        }
+        auto square = [&](std::string_view from, std::string_view to, int count) {
+            r.push_back(shaped({"##", "##"}, {{'#', item(from)}}, to, count));
+        };
+        auto pillarOf = [&](std::string_view from, std::string_view to, int count) {
+            r.push_back(shaped({"#", "#"}, {{'#', item(from)}}, to, count));
+        };
+        square("stone", "stone_bricks", 4);
+        square("brick", "bricks", 1);
+        square("nether_brick", "nether_bricks", 1);
+        square("granite", "polished_granite", 4);
+        square("diorite", "polished_diorite", 4);
+        square("andesite", "polished_andesite", 4);
+        square("cobbled_deepslate", "polished_deepslate", 4);
+        square("polished_deepslate", "deepslate_bricks", 4);
+        square("deepslate_bricks", "deepslate_tiles", 4);
+        square("blackstone", "polished_blackstone", 4);
+        square("polished_blackstone", "polished_blackstone_bricks", 4);
+        square("quartz", "quartz_block", 1);
+        square("quartz_block", "quartz_bricks", 4);
+        square("tuff", "polished_tuff", 4);
+        square("polished_tuff", "tuff_bricks", 4);
+        square("sandstone", "cut_sandstone", 4);
+        square("red_sandstone", "cut_red_sandstone", 4);
+        pillarOf("quartz_block", "quartz_pillar", 2);
+        pillarOf("cobbled_deepslate_slab", "chiseled_deepslate", 1);
+        pillarOf("quartz_slab", "chiseled_quartz_block", 1);
+        pillarOf("stone_brick_slab", "chiseled_stone_bricks", 1);
+        pillarOf("sandstone_slab", "chiseled_sandstone", 1);
+        pillarOf("red_sandstone_slab", "chiseled_red_sandstone", 1);
+        pillarOf("tuff_slab", "chiseled_tuff", 1);
+        pillarOf("tuff_brick_slab", "chiseled_tuff_bricks", 1);
+        pillarOf("polished_blackstone_slab", "chiseled_polished_blackstone", 1);
+        r.push_back(shaped({"NW", "WN"}, {{'N', item("nether_brick")}, {'W', item("nether_wart")}}, "red_nether_bricks"));
+    }
     return r;
 }
 
@@ -353,6 +405,18 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "diamond_ore" || n == "deepslate_diamond_ore") return out("diamond");
     if (n == "emerald_ore" || n == "deepslate_emerald_ore") return out("emerald");
     if (n == "clay") return out("terracotta");
+    // Building blocks (M23.1; wiki: Smelting): bricks, smooth and cracked variants.
+    if (n == "clay_ball") return out("brick");
+    if (n == "netherrack") return out("nether_brick");
+    if (n == "stone") return out("smooth_stone");
+    if (n == "sandstone") return out("smooth_sandstone");
+    if (n == "red_sandstone") return out("smooth_red_sandstone");
+    if (n == "quartz_block") return out("smooth_quartz");
+    if (n == "stone_bricks") return out("cracked_stone_bricks");
+    if (n == "cobbled_deepslate") return out("deepslate");
+    if (n == "deepslate_bricks") return out("cracked_deepslate_bricks");
+    if (n == "deepslate_tiles") return out("cracked_deepslate_tiles");
+    if (n == "polished_blackstone_bricks") return out("cracked_polished_blackstone_bricks");
     if (n == "beef") return out("cooked_beef");
     if (n == "porkchop") return out("cooked_porkchop");
     if (n == "mutton") return out("cooked_mutton");
@@ -375,6 +439,11 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
+    if (n == "clay_ball") return 0.3f; // (wiki: Brick)
+    if (n == "netherrack" || n == "stone" || n == "sandstone" || n == "red_sandstone" || n == "quartz_block" ||
+        n == "stone_bricks" || n == "cobbled_deepslate" || n == "deepslate_bricks" || n == "deepslate_tiles" ||
+        n == "polished_blackstone_bricks")
+        return 0.1f;
     if (n == "chorus_fruit") return 0.1f;
     if (n == "sand" || n == "red_sand" || n == "cobblestone") return 0.1f;
     return 0.0f;

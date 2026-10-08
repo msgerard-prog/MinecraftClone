@@ -66,7 +66,8 @@ bool OverlayRenderer::init() {
 }
 
 void OverlayRenderer::draw(const Camera& camera, int width, int height,
-                           const std::optional<world::BlockPos>& target) {
+                           const std::optional<world::BlockPos>& target, const glm::vec3& boxMin,
+                           const glm::vec3& boxMax) {
     m_shader.bind();
     glBindVertexArray(m_vao);
     glEnable(GL_BLEND);
@@ -74,8 +75,10 @@ void OverlayRenderer::draw(const Camera& camera, int width, int height,
     if (target) {
         // Camera-relative placement (double precision on the CPU).
         const glm::vec3 offset(glm::dvec3(target->x, target->y, target->z) - camera.position);
-        const glm::mat4 m =
-            glm::translate(camera.viewProjectionAtOrigin(float(width) / float(height)), offset);
+        // (the unit outline stretched over the block's shape bounds: slabs, stairs...)
+        const glm::mat4 m = glm::scale(glm::translate(camera.viewProjectionAtOrigin(float(width) / float(height)),
+                                                      offset + boxMin),
+                                       boxMax - boxMin);
         glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(m));
         glUniform4f(1, 0.0f, 0.0f, 0.0f, 0.4f);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

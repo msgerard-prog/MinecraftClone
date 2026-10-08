@@ -78,6 +78,67 @@ void addBox(BakedModel& m, int x0, int y0, int z0, int x1, int y1, int z1, uint1
     }
 }
 
+// A box with the base block's face sprites and tints (slabs, stairs, walls - M23.1);
+// UVs follow the box's position (vanilla's default element UVs).
+void addBoxFrom(BakedModel& m, int x0, int y0, int z0, int x1, int y1, int z1, const BakedVariant& base,
+                bool sidesOnly = false) {
+    if (m.boxCount >= BakedModel::kMaxBoxes) return;
+    addBox(m, x0, y0, z0, x1, y1, z1, 0);
+    BakedBox& b = m.boxes[m.boxCount - 1];
+    for (int d = 0; d < 6; ++d) {
+        const BakedFace& f = base.faces[sidesOnly ? int(world::Direction::North) : d];
+        b.faces[d].sprite = f.sprite;
+        b.faces[d].tint = f.tint;
+    }
+}
+
+// Models of the shaped families from their base block's (already baked) model.
+bool bakeFamilyModel(const world::BlockRegistry& registry, world::BlockStateId state, const BakedModel& baseModel,
+                     BakedModel& m) {
+    using namespace world;
+    const BlockId b = registry.blockOf(state);
+    const BakedVariant& base = baseModel.variants[0];
+    switch (registry.kind(b)) {
+    case BlockKind::Slab: {
+        const int t = registry.get(state, properties::slabType);
+        if (t == 2) { // double: the full block
+            m = baseModel;
+            return true;
+        }
+        m.visible = true;
+        addBoxFrom(m, 0, t == 0 ? 8 : 0, 0, 16, t == 0 ? 16 : 8, 16, base);
+        return true;
+    }
+    case BlockKind::Stairs: {
+        m.visible = true;
+        const BlockShape sh = stairShapeOf(state);
+        for (int i = 0; i < sh.count; ++i) {
+            const ShapeBox& x = sh.boxes[size_t(i)];
+            addBoxFrom(m, x.from[0], x.from[1], x.from[2], x.to[0], x.to[1], x.to[2], base);
+        }
+        return true;
+    }
+    case BlockKind::Wall: {
+        // The post 16 tall, arms 14 (low) or 16 (tall) high, 6 wide (wiki: Wall); the
+        // base's side texture on every face, as vanilla's wall models.
+        m.visible = true;
+        auto armHeight = [&](const Property& p) {
+            const int v = registry.get(state, p);
+            return v == 0 ? 0 : v == 1 ? 14 : 16;
+        };
+        if (registry.get(state, properties::fireUp) == 0) addBoxFrom(m, 4, 0, 4, 12, 16, 12, base, true);
+        if (const int h = armHeight(properties::wallNorth)) addBoxFrom(m, 5, 0, 0, 11, h, 8, base, true);
+        if (const int h = armHeight(properties::wallSouth)) addBoxFrom(m, 5, 0, 8, 11, h, 16, base, true);
+        if (const int h = armHeight(properties::wallWest)) addBoxFrom(m, 0, 0, 5, 8, h, 11, base, true);
+        if (const int h = armHeight(properties::wallEast)) addBoxFrom(m, 8, 0, 5, 16, h, 11, base, true);
+        if (m.boxCount == 0) addBoxFrom(m, 4, 0, 4, 12, 16, 12, base, true);
+        return true;
+    }
+    case BlockKind::Plain: break;
+    }
+    return false;
+}
+
 } // namespace
 
 uint32_t variantIndex(int32_t x, int32_t y, int32_t z, uint32_t variantCount) {
@@ -140,6 +201,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
         const auto state = static_cast<BlockStateId>(s);
         BakedModel& m = m_models[s];
         if (bakeRedstoneModel(registry, state, atlas, m)) continue;
+        if (const BlockId fb = registry.blockOf(state); registry.kind(fb) != world::BlockKind::Plain &&
+                                                        bakeFamilyModel(registry, state,
+                                                                        m_models[registry.defaultState(registry.block(fb).settings.base)], m))
+            continue;
         switch (registry.blockOf(state)) {
         case blocks::Air:
             break;
@@ -258,12 +323,17 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("oak_planks");
                 v.faces[int(Direction::Down)].sprite = sprite("oak_planks");
                 m = single(v);
-            } else if (name == "chiseled_sandstone" || name == "cut_sandstone" || name == "smooth_sandstone") {
+            } else if (name == "chiseled_sandstone" || name == "cut_sandstone" || name == "smooth_sandstone" ||
+                       name == "chiseled_red_sandstone" || name == "cut_red_sandstone" ||
+                       name == "smooth_red_sandstone") {
                 // Vanilla: the plain sandstone top on top and bottom (smooth: everywhere).
-                BakedVariant v = cubeAll(sprite(name == "smooth_sandstone" ? "sandstone_top" : name.c_str()));
-                v.faces[int(Direction::Up)].sprite = sprite("sandstone_top");
-                v.faces[int(Direction::Down)].sprite = sprite("sandstone_top");
+                const std::string topName = name.find("red_") != std::string::npos ? "red_sandstone_top" : "sandstone_top";
+                BakedVariant v = cubeAll(sprite(name.starts_with("smooth_") ? topName.c_str() : name.c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite(topName.c_str());
+                v.faces[int(Direction::Down)].sprite = sprite(topName.c_str());
                 m = single(v);
+            } else if (name == "smooth_quartz") { // vanilla: the quartz block's bottom on every face
+                m = single(cubeAll(sprite("quartz_block_bottom")));
             } else if (name == "nether_wart") { // a cross of its stage (0, 1-2, 3)
                 const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
                 m.visible = true;
@@ -693,6 +763,24 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m = single(cubeAll(sprite("lava_still")));
                 m.fluid = true;
                 m.cullSame = true;
+            } else if (!atlas.has(name) && atlas.has(name + "_side")) {
+                // <name>_side / _top / _bottom textures (quartz block...)
+                BakedVariant v = cubeAll(sprite((name + "_side").c_str()));
+                const uint16_t top = atlas.has(name + "_top") ? sprite((name + "_top").c_str()) : uint16_t(0);
+                const uint16_t bottom = atlas.has(name + "_bottom") ? sprite((name + "_bottom").c_str()) : uint16_t(0);
+                v.faces[int(Direction::Up)].sprite = top ? top : v.faces[0].sprite;
+                v.faces[int(Direction::Down)].sprite = bottom ? bottom : (top ? top : v.faces[0].sprite);
+                m = single(v);
+            } else if (registry.value(state, "axis") && atlas.has(name + "_top")) {
+                // A pillar (vanilla cube_column): quartz pillar...
+                m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (name.starts_with("chiseled_") && atlas.has(name + "_top")) {
+                // Chiseled blocks with their own top (chiseled tuff, chiseled quartz).
+                BakedVariant v = cubeAll(sprite(name.c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
+                v.faces[int(Direction::Down)].sprite = sprite((name + "_top").c_str());
+                m = single(v);
             } else {
                 m = single(cubeAll(sprite(name.c_str())));
                 if (name == "ice") {

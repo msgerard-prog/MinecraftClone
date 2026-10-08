@@ -1,7 +1,9 @@
 #include "world/Raycast.h"
 
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -48,6 +50,45 @@ std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin
         if (b == blocks::Water || b == blocks::Lava) {
             const bool source = reg.get(state, properties::level) == 0;
             if (fluids == RayFluids::Skip || !source) continue;
+        }
+        // Shaped blocks (slabs, stairs, doors...: M23.1) are hit only on their boxes
+        // (vanilla's outline shapes; boxes taller than the cell count up to its top).
+        if (reg.collides(state)) {
+            const BlockShape& shape = collisionShape(state);
+            if (shape.count > 0) {
+                double best = inf;
+                int bestAxis = axis, bestSign = 0;
+                for (int i = 0; i < shape.count; ++i) {
+                    const ShapeBox& bx = shape.boxes[size_t(i)];
+                    double tEnter = -inf, tExit = inf;
+                    int enterAxis = 0, enterSign = 0;
+                    bool miss = false;
+                    for (int a = 0; a < 3 && !miss; ++a) {
+                        const double lo = cell[a] + bx.from[a] / 16.0, hi = cell[a] + std::min<int>(bx.to[a], 16) / 16.0;
+                        if (d[a] == 0.0) {
+                            miss = origin[a] < lo || origin[a] > hi;
+                            continue;
+                        }
+                        double t0 = (lo - origin[a]) / d[a], t1 = (hi - origin[a]) / d[a];
+                        int sign = d[a] > 0 ? -1 : 1; // entering through the low face when moving +
+                        if (t0 > t1) std::swap(t0, t1);
+                        if (t0 > tEnter) {
+                            tEnter = t0;
+                            enterAxis = a;
+                            enterSign = sign;
+                        }
+                        tExit = std::min(tExit, t1);
+                        miss = tEnter > tExit;
+                    }
+                    if (!miss && tExit >= 0.0 && tEnter < best && tEnter <= maxDistance) {
+                        best = std::max(0.0, tEnter);
+                        bestAxis = enterAxis;
+                        bestSign = enterSign;
+                    }
+                }
+                if (best == inf) continue;
+                return RayHit{p, enter[bestAxis][bestSign < 0 ? 1 : 0], best};
+            }
         }
         // Moving +axis enters through the block's negative face, and vice versa.
         return RayHit{p, enter[axis][step[axis] > 0 ? 1 : 0], t};

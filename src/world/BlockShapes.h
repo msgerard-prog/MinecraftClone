@@ -18,5 +18,8 @@ struct BlockShape {
     std::array<ShapeBox, 5> boxes{};
 };
 const BlockShape& collisionShape(BlockStateId state);
+// The stair step boxes for a state (M23.1; also its model): the half slab, then the
+// raised part on its facing side (a quarter for outer corners, three for inner).
+BlockShape stairShapeOf(BlockStateId state);
 
 } // namespace mc::world

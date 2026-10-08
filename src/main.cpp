@@ -19,6 +19,7 @@
 #include "rendering/Screenshot.h"
 #include "rendering/WorldRenderer.h"
 #include "world/WorldList.h"
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
 #include "world/FlatGenerator.h"
@@ -2490,8 +2491,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             entities.clearCrack();
         entities.draw(camera, float(fbWidth) / float(fbHeight));
         lastHit = hit;
-        overlay.draw(camera, fbWidth, fbHeight,
-                     hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt);
+        {
+            // The outline hugs the block's shape bounds (slabs, stairs, doors...).
+            glm::vec3 lo(0.0f), hi(1.0f);
+            if (hit) {
+                const auto st = world.getBlock(hit->block);
+                const mc::world::BlockShape& sh = mc::world::collisionShape(st);
+                if (mc::world::blockRegistry().collides(st) && sh.count > 0) {
+                    lo = glm::vec3(1.0f);
+                    hi = glm::vec3(0.0f);
+                    for (int i = 0; i < sh.count; ++i)
+                        for (int a = 0; a < 3; ++a) {
+                            lo[a] = std::min(lo[a], sh.boxes[size_t(i)].from[a] / 16.0f);
+                            hi[a] = std::max(hi[a], std::min<int>(sh.boxes[size_t(i)].to[a], 16) / 16.0f);
+                        }
+                }
+            }
+            overlay.draw(camera, fbWidth, fbHeight, hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt,
+                         lo, hi);
+        }
 
         // HUD: inventory, chat, F3 - one batched GUI draw.
         {

@@ -177,8 +177,24 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DarkOakLeaves:
     case blocks::CherryLeaves:
         return {T::Hoe, -1};
-    default:
+    default: {
+        // Blocks from M23 on carry their tool in their settings; slabs, stairs and
+        // walls mine like the block they're cut from.
+        const BlockSettings& st = blockRegistry().block(b).settings;
+        if (st.kind != BlockKind::Plain && st.base != 0) {
+            HarvestInfo h = harvestInfo(st.base);
+            if (h.tool == T::None) h.tool = st.tool == HarvestTool::Axe ? T::Axe : T::Pickaxe;
+            return h;
+        }
+        switch (st.tool) {
+        case HarvestTool::Pickaxe: return {T::Pickaxe, st.tier};
+        case HarvestTool::Axe: return {T::Axe, -1};
+        case HarvestTool::Shovel: return {T::Shovel, -1};
+        case HarvestTool::Hoe: return {T::Hoe, -1};
+        case HarvestTool::None: break;
+        }
         return {};
+    }
     }
 }
 
@@ -221,18 +237,19 @@ namespace {
 
 // Drop item ids resolved once (no name searches when blocks break).
 struct DropIds {
-    ItemId cobblestone, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
+    ItemId cobblestone, cobbledDeepslate, dirt, coal, rawIron, rawGold, rawCopper, redstone, lapis, diamond, emerald,
         flint, gravel, clay, stick, apple, quartz, seeds, wheat, carrot, potato, poisonous,
         beetroot, beetrootSeeds;
     DropIds() {
         const auto& i = itemRegistry();
         cobblestone = *i.find("cobblestone"), dirt = *i.find("dirt"), coal = *i.find("coal");
+        cobbledDeepslate = *i.find("cobbled_deepslate");
         rawIron = *i.find("raw_iron"), rawGold = *i.find("raw_gold"),
         rawCopper = *i.find("raw_copper");
         redstone = *i.find("redstone"), lapis = *i.find("lapis_lazuli"),
         diamond = *i.find("diamond");
         emerald = *i.find("emerald"), flint = *i.find("flint"), gravel = *i.find("gravel");
-        clay = *i.find("clay"), stick = *i.find("stick"), apple = *i.find("apple");
+        clay = *i.find("clay_ball"), stick = *i.find("stick"), apple = *i.find("apple");
         quartz = *i.find("quartz");
         seeds = *i.find("wheat_seeds");
         wheat = *i.find("wheat"), carrot = *i.find("carrot"), potato = *i.find("potato");
@@ -395,11 +412,18 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     auto between = [&](int lo, int hi) {
         return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
     };
+    // A double slab is two slabs (wiki: Slab).
+    if (reg.kind(b) == BlockKind::Slab && reg.get(state, properties::slabType) == 2) {
+        add(itemRegistry().blockItem(b), 2);
+        return;
+    }
     switch (b) {
     case blocks::Stone:
-    case blocks::Deepslate:
         add(d.cobblestone);
-        return; // vanilla deepslate: cobbled deepslate
+        return;
+    case blocks::Deepslate:
+        add(d.cobbledDeepslate);
+        return;
     case blocks::GrassBlock:
     case blocks::Podzol: // (wiki: Podzol, Mycelium - drop dirt without Silk Touch)
     case blocks::Mycelium:
@@ -488,8 +512,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         return;
     // (wiki: Nether Gold Ore - 2-6 gold nuggets; nuggets don't exist yet: the ore drops itself)
     case blocks::Clay:
-        add(d.clay);
-        return; // vanilla: 4 clay balls (item not added yet)
+        add(d.clay, 4); // wiki: Clay - 4 clay balls
+        return;
     case blocks::OakLeaves:
     case blocks::BirchLeaves:
     case blocks::SpruceLeaves:
