@@ -58,6 +58,7 @@ const Property wallEast{"east", {"none", "low", "tall"}};
 const Property wallSouth{"south", {"none", "low", "tall"}};
 const Property wallWest{"west", {"none", "low", "tall"}};
 const Property hanging{"hanging", {"true", "false"}};
+const Property bambooLeaves{"leaves", {"none", "small", "large"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
@@ -78,6 +79,25 @@ const Property occupied{"occupied", {"true", "false"}};
 } // namespace properties
 
 namespace {
+
+// Wood (bark on every side) and stripped logs and wood for every wood (M23.3b; wiki:
+// Wood, Stripped Log): the Nether's stems and hyphae too.
+void addWoodBlocks(BlockRegistry& r) {
+    using namespace properties;
+    const BlockSettings st{.hardness = 2.0f, .resistance = 2.0f, .tool = HarvestTool::Axe};
+    for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "mangrove", "pale_oak"}) {
+        const std::string wood(w);
+        r.add(wood + "_wood", st, {{&axis, "y"}});
+        r.add("stripped_" + wood + "_log", st, {{&axis, "y"}});
+        r.add("stripped_" + wood + "_wood", st, {{&axis, "y"}});
+    }
+    for (const char* w : {"crimson", "warped"}) {
+        const std::string wood(w);
+        r.add(wood + "_hyphae", st, {{&axis, "y"}});
+        r.add("stripped_" + wood + "_stem", st, {{&axis, "y"}});
+        r.add("stripped_" + wood + "_hyphae", st, {{&axis, "y"}});
+    }
+}
 
 // Stained glass and panes, carpets (M23.2; wiki: Stained Glass, Stained Glass Pane,
 // Carpet): 16 colours each.
@@ -205,12 +225,16 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"cherry", "cherry_planks", true, true, false},
         {"crimson", "crimson_planks", true, true, false},
         {"warped", "warped_planks", true, true, false},
+        {"mangrove", "mangrove_planks", true, true, false},
+        {"pale_oak", "pale_oak_planks", true, true, false},
+        {"bamboo", "bamboo_planks", true, true, false},
+        {"bamboo_mosaic", "bamboo_mosaic", true, true, false},
     };
     for (const Family& f : kFamilies) {
         const auto base = r.findBlock(f.base);
         assert(base && "family base block must be registered");
         const BlockSettings& bs = r.block(*base).settings;
-        const bool wood = std::string_view(f.base).ends_with("_planks");
+        const bool wood = std::string_view(f.base).ends_with("_planks") || bs.tool == HT::Axe; // (bamboo mosaic)
         BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
                          .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe};
         const std::string prefix(f.prefix);
@@ -244,7 +268,8 @@ void addBuildingFamilies(BlockRegistry& r) {
 // like stone's.
 void addWoodSets(BlockRegistry& r) {
     using namespace properties;
-    static constexpr const char* kWoods[] = {"spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped"};
+    static constexpr const char* kWoods[] = {"spruce", "birch",   "jungle",   "acacia", "dark_oak", "cherry",
+                                             "crimson", "warped", "mangrove", "bamboo", "pale_oak"};
     auto copy = [&](BlockId oak, const std::string& id, HarvestTool tool = HarvestTool::Axe) {
         BlockSettings st = r.block(oak).settings;
         st.like = oak;
@@ -760,6 +785,36 @@ BlockRegistry buildVanillaBlocks() {
                                .kind = BlockKind::Pane, .base = blocks::Glass},
                 {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
           blocks::GlassPane);
+    // New woods (M23.3b; wiki: Mangrove Log/Leaves/Propagule/Roots, Pale Oak, Bamboo -
+    // block 2.0, planks 2.0/3.0, mosaic 2.0/3.0, the plant 1.0 and breaks at once by
+    // sword; mangrove roots 0.7).
+    const BlockSettings logS{.hardness = 2.0f, .resistance = 2.0f, .tool = HarvestTool::Axe};
+    const BlockSettings planksS{.hardness = 2.0f, .resistance = 3.0f, .tool = HarvestTool::Axe};
+    check(r.add("mangrove_log", logS, {{&axis, "y"}}), blocks::MangroveLog);
+    check(r.add("mangrove_planks", planksS), blocks::MangrovePlanks);
+    check(r.add("mangrove_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::MangroveLeaves);
+    check(r.add("mangrove_propagule", sapling, {{&stage, "0"}}), blocks::MangrovePropagule);
+    check(r.add("mangrove_roots", {.hardness = 0.7f, .resistance = 0.7f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                   .tool = HarvestTool::Axe}),
+          blocks::MangroveRoots);
+    check(r.add("pale_oak_log", logS, {{&axis, "y"}}), blocks::PaleOakLog);
+    check(r.add("pale_oak_planks", planksS), blocks::PaleOakPlanks);
+    check(r.add("pale_oak_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::PaleOakLeaves);
+    check(r.add("pale_oak_sapling", sapling, {{&stage, "0"}}), blocks::PaleOakSapling);
+    check(r.add("bamboo_block", logS, {{&axis, "y"}}), blocks::BambooBlock);
+    check(r.add("stripped_bamboo_block", logS, {{&axis, "y"}}), blocks::StrippedBambooBlock);
+    check(r.add("bamboo_planks", planksS), blocks::BambooPlanks);
+    check(r.add("bamboo_mosaic", planksS), blocks::BambooMosaic);
+    check(r.add("bamboo", {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                           .randomTicks = true, .tool = HarvestTool::Axe},
+                {{&bambooLeaves, "none"}, {&stage, "0"}}),
+          blocks::Bamboo);
+    for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
+        for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);
+            r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);
+        }
+    addWoodBlocks(r);
     addColouredBlocks(r);
     addBuildingFamilies(r); // (M23.1: after every enum block, so earlier state ids stay put)
     addWoodSets(r);

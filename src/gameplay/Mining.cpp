@@ -176,6 +176,8 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::JungleLeaves:
     case blocks::DarkOakLeaves:
     case blocks::CherryLeaves:
+    case blocks::MangroveLeaves:
+    case blocks::PaleOakLeaves:
         return {T::Hoe, -1};
     default: {
         // Blocks from M23 on carry their tool in their settings; slabs, stairs and
@@ -219,7 +221,8 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
     // Efficiency adds level^2 + 1 when the tool speeds this block up (wiki: Efficiency).
     if (const int eff = enchantLevel(held, Enchantment::Efficiency); eff > 0 && speed > 1.0f)
         speed += float(eff * eff + 1);
-    // Swords cut leaves and plants 1.5x faster (wiki: Sword).
+    // Swords cut bamboo at once (wiki: Bamboo), leaves and plants 1.5x faster (wiki: Sword).
+    if (!held.empty() && item.tool == ToolType::Sword && reg.blockOf(state) == blocks::Bamboo) return 0;
     if (!held.empty() && item.tool == ToolType::Sword) {
         const std::string_view id = reg.block(reg.blockOf(state)).id;
         if (id.ends_with("_leaves") || reg.blockOf(state) == blocks::ShortGrass ||
@@ -359,6 +362,8 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::JungleLeaves:
         case blocks::DarkOakLeaves:
         case blocks::CherryLeaves:
+        case blocks::MangroveLeaves:
+        case blocks::PaleOakLeaves:
         case blocks::Deepslate:
         case blocks::Snow:
         case blocks::ShortGrass:
@@ -530,15 +535,18 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::JungleLeaves:
     case blocks::DarkOakLeaves:
     case blocks::CherryLeaves:
-        // wiki: Leaves - saplings 5% (jungle 2.5%), sticks 2% (1-2), oak and dark oak
-        // leaves also apples 0.5%.
-        if (rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
+    case blocks::MangroveLeaves:
+    case blocks::PaleOakLeaves:
+        // wiki: Leaves - saplings 5% (jungle 2.5%; mangrove leaves drop none: propagules
+        // grow under them), sticks 2% (1-2), oak and dark oak leaves also apples 0.5%.
+        if (b != blocks::MangroveLeaves && rng.nextFloat() < (b == blocks::JungleLeaves ? 0.025f : 0.05f)) {
             const BlockId sapling = b == blocks::BirchLeaves     ? blocks::BirchSapling
                                     : b == blocks::SpruceLeaves  ? blocks::SpruceSapling
                                     : b == blocks::AcaciaLeaves  ? blocks::AcaciaSapling
                                     : b == blocks::JungleLeaves  ? blocks::JungleSapling
                                     : b == blocks::DarkOakLeaves ? blocks::DarkOakSapling
                                     : b == blocks::CherryLeaves  ? blocks::CherrySapling
+                                    : b == blocks::PaleOakLeaves ? blocks::PaleOakSapling
                                                                  : blocks::OakSapling;
             add(itemRegistry().blockItem(sapling));
         }

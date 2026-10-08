@@ -52,6 +52,7 @@ extern const Property slabType;  // "type": top | bottom | double (slabs, M23.1)
 extern const Property stairShape; // "shape": straight | inner_left | inner_right | outer_left | outer_right
 extern const Property wallNorth, wallEast, wallSouth, wallWest; // none | low | tall
 extern const Property hanging; // true | false (lanterns)
+extern const Property bambooLeaves; // "leaves": none | small | large
 extern const Property inWall;    // "in_wall": true | false (fence gates)
 extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east
@@ -309,6 +310,21 @@ enum : BlockId {
     Chain,         // axis
     Ladder,        // facing (out from the block it hangs on)
     GlassPane,     // east, north, south, west: connections
+    // New woods (M23.3b).
+    MangroveLog,       // axis
+    MangrovePlanks,
+    MangroveLeaves,    // distance, persistent
+    MangrovePropagule, // stage
+    MangroveRoots,
+    PaleOakLog,        // axis
+    PaleOakPlanks,
+    PaleOakLeaves,     // distance, persistent
+    PaleOakSapling,    // stage
+    BambooBlock,       // axis
+    StrippedBambooBlock, // axis
+    BambooPlanks,
+    BambooMosaic,
+    Bamboo,            // leaves (none | small | large), stage (0 | 1: ready to grow)
     Count
 };
 } // namespace blocks

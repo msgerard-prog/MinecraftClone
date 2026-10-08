@@ -89,6 +89,8 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::JungleSapling:
     case B::DarkOakSapling:
     case B::CherrySapling:
+    case B::PaleOakSapling:
+    case B::MangrovePropagule:
         return true;
     default:
         return false;

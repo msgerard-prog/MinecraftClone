@@ -123,6 +123,8 @@ BlockShape compute(BlockStateId s) {
         const int a = r.get(s, axis);
         return a == 0 ? box(0, 6, 6, 16, 10, 10) : a == 1 ? box(6, 0, 6, 10, 16, 10) : box(6, 6, 0, 10, 10, 16);
     }
+    case B::Bamboo: return box(6, 0, 6, 9, 16, 9); // (vanilla: 3x3, offset per position)
+    case B::MangroveRoots: return BlockShape{}; // (a full block to stand on)
     case B::Ladder: // against the block behind it: facing north hangs on the south side
         return panel(oppositeH(r.get(s, facing)));
     case B::OakDoor:

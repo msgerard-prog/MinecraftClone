@@ -339,7 +339,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
                 "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
-                "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant"};
+                "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
+                "mangrove_propagule", "pale_oak_sapling"};
             if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
                 // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
@@ -739,13 +740,26 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.cross = true;
                 m.crossSprite = sprite(name.c_str());
                 m.crossTint = (name == "short_grass" || name == "fern") ? Tint::Grass : Tint::None;
-            } else if (ends("_log")) {
+            } else if (ends("_log") || name == "bamboo_block" || name == "stripped_bamboo_block") {
                 m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));
+            } else if (ends("_wood") || ends("_hyphae")) {
+                // Bark on every face (vanilla: the log's side texture all round).
+                const std::string side = ends("_wood") ? name.substr(0, name.size() - 5) + "_log"
+                                                       : name.substr(0, name.size() - 7) + "_stem";
+                m = single(cubeColumn(sprite(side.c_str()), sprite(side.c_str()), registry.value(state, "axis").value_or("y")));
+            } else if (name == "bamboo") {
+                // A 3-wide stalk (vanilla: 3x16x3, offset per position; leaves on top as
+                // crossed planes, which ours doesn't draw yet).
+                m.visible = true;
+                addBox(m, 6, 0, 6, 9, 16, 9, sprite("bamboo_stalk"));
+                for (auto& f : m.boxes[0].faces) {
+                    f.uv[0] = 2, f.uv[2] = 5; // (our art: a stalk at texels 2..5)
+                }
             } else if (ends("_leaves")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
                 for (auto& f : v.faces) // cherry leaves are pink in their texture: no biome tint
-                    f.tint = name == "cherry_leaves" ? Tint::None : Tint::Foliage;
+                    f.tint = name == "cherry_leaves" || name == "pale_oak_leaves" ? Tint::None : Tint::Foliage;
                 m = single(v); // all faces drawn (fancy leaves): no cullSame
                 if (name == "birch_leaves") m.fixedTintSlot = world::kBirchFoliageSlot;
                 if (name == "spruce_leaves") m.fixedTintSlot = world::kSpruceFoliageSlot;

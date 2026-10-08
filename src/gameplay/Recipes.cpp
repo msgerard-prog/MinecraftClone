@@ -53,8 +53,25 @@ Recipe shapeless(std::initializer_list<Ingredient> list, std::string_view result
 std::vector<Recipe> build() {
     std::vector<Recipe> r;
     // Wood (wiki: Planks, Stick, Crafting Table).
-    for (std::string_view wood : {"oak", "birch", "spruce", "acacia", "jungle", "dark_oak", "cherry"})
-        r.push_back(shapeless({item(std::string(wood) + "_log")}, std::string(wood) + "_planks", 4));
+    // Every log, wood and stripped variant makes 4 planks; 4 logs make 3 wood (wiki:
+    // Planks, Wood; M23.3b adds wood, stripped logs, mangrove, pale oak, the stems).
+    for (std::string_view w : {"oak", "birch", "spruce", "acacia", "jungle", "dark_oak", "cherry", "mangrove", "pale_oak",
+                               "crimson", "warped"}) {
+        const std::string wood(w);
+        const bool nether = wood == "crimson" || wood == "warped";
+        const std::string log = nether ? "_stem" : "_log", bark = nether ? "_hyphae" : "_wood";
+        for (const std::string& in : {wood + log, wood + bark, "stripped_" + wood + log, "stripped_" + wood + bark})
+            r.push_back(shapeless({item(in)}, wood + "_planks", 4));
+        r.push_back(shaped({"##", "##"}, {{'#', item(wood + log)}}, wood + bark, 3));
+        r.push_back(shaped({"##", "##"}, {{'#', item("stripped_" + wood + log)}}, "stripped_" + wood + bark, 3));
+    }
+    // Bamboo (wiki: Bamboo, Block of Bamboo, Bamboo Mosaic): 9 make a block, a block 2
+    // planks, 2 bamboo a stick.
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("bamboo")}}, "bamboo_block"));
+    r.push_back(shapeless({item("bamboo_block")}, "bamboo_planks", 2));
+    r.push_back(shapeless({item("stripped_bamboo_block")}, "bamboo_planks", 2));
+    r.push_back(shaped({"#", "#"}, {{'#', item("bamboo")}}, "stick"));
+    r.push_back(shaped({"#", "#"}, {{'#', item("bamboo_slab")}}, "bamboo_mosaic"));
     r.push_back(shaped({"#", "#"}, {{'#', kPlanks}}, "stick", 4));
     r.push_back(shaped({"##", "##"}, {{'#', kPlanks}}, "crafting_table"));
     // Light and stations (wiki: Torch, Furnace).
@@ -150,7 +167,8 @@ std::vector<Recipe> build() {
     // 1 from 4 iron, Fence 3, Fence Gate 1, Pressure Plates from 2 of their material).
     {
         // (each wood's planks make its own set: M23.3)
-        for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped"}) {
+        for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped",
+                              "mangrove", "bamboo", "pale_oak"}) {
             const std::string wood(w);
             const Ingredient planks = item(wood + "_planks");
             r.push_back(shaped({"##", "##", "##"}, {{'#', planks}}, wood + "_door", 3));

@@ -101,8 +101,17 @@ int BlockUpdates::igniteOdds(BlockId b) {
         return 60;
     case B::Tnt: // (wiki: TNT - encouragement 15, flammability 100)
         return 15;
-    default:
-        return b >= B::WhiteWool && b <= B::BlackWool ? 30 : 0; // wool: 30 / 60 like leaves (wiki)
+    default: {
+        if (b >= B::WhiteWool && b <= B::BlackWool) return 30; // wool: 30 / 60 like leaves (wiki)
+        // M23: every wood's logs, planks, leaves; wooden slabs and stairs like their
+        // planks; carpets like wool's plants (60).
+        const BlockSettings& st = R().block(b).settings;
+        if (st.kind == BlockKind::Carpet) return 60;
+        if (st.kind != BlockKind::Plain && st.base != 0) return igniteOdds(st.base);
+        if (isLeaves(b)) return 30;
+        if (isLog(b) || R().block(b).id.ends_with("_planks") || b == B::BambooMosaic) return 5;
+        return 0;
+    }
     }
 }
 
@@ -144,8 +153,16 @@ int BlockUpdates::burnOdds(BlockId b) {
     case B::DeadBush:
     case B::Tnt:
         return 100;
-    default:
-        return b >= B::WhiteWool && b <= B::BlackWool ? 60 : 0;
+    default: {
+        if (b >= B::WhiteWool && b <= B::BlackWool) return 60;
+        const BlockSettings& st = R().block(b).settings;
+        if (st.kind == BlockKind::Carpet) return 20;
+        if (st.kind != BlockKind::Plain && st.base != 0) return burnOdds(st.base);
+        if (isLeaves(b)) return 60;
+        if (isLog(b)) return 5;
+        if (R().block(b).id.ends_with("_planks") || b == B::BambooMosaic) return 20;
+        return 0;
+    }
     }
 }
 

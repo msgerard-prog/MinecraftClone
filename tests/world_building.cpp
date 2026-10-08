@@ -190,3 +190,61 @@ TEST_CASE("wood sets: every wood's doors, fences and buttons behave like oak's (
     REQUIRE(out);
     CHECK(out->item == *itemRegistry().find("spruce_door"));
 }
+
+TEST_CASE("new woods: axes strip logs, wood and stems keeping their axis (M23.3b)") {
+    Scene s;
+    s.world.updateBlock({0, 64, 0}, S("mangrove_log[axis=x]"));
+    CHECK(BlockUpdates::strip(s.world, {0, 64, 0}));
+    CHECK(R().toString(s.at({0, 64, 0})) == "minecraft:stripped_mangrove_log[axis=x]");
+    CHECK_FALSE(BlockUpdates::strip(s.world, {0, 64, 0})); // already stripped
+    s.world.updateBlock({1, 64, 0}, S("crimson_stem"));
+    CHECK(BlockUpdates::strip(s.world, {1, 64, 0}));
+    CHECK(R().blockOf(s.at({1, 64, 0})) == B("stripped_crimson_stem"));
+    s.world.updateBlock({2, 64, 0}, S("stone"));
+    CHECK_FALSE(BlockUpdates::strip(s.world, {2, 64, 0}));
+    // Every log, wood and stripped log counts as a log for leaves (vanilla #logs).
+    CHECK(BlockUpdates::isLog(B("stripped_oak_wood")));
+    CHECK(BlockUpdates::isLog(B("warped_hyphae")));
+    CHECK_FALSE(BlockUpdates::isLog(blocks::MushroomStem));
+    CHECK(BlockUpdates::isLeaves(blocks::PaleOakLeaves));
+}
+
+TEST_CASE("new woods: pale oak grows from four saplings, bamboo grows and cuts by sword") {
+    Scene s;
+    s.world.forEachChunk([](Chunk& c) {
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                c.set(x, 63, z, R().defaultState(blocks::GrassBlock));
+    });
+    for (int k = 0; k < 4; ++k)
+        s.world.setBlock({k & 1, 64, k >> 1}, R().defaultState(blocks::PaleOakSapling));
+    for (int i = 0; i < 40 && R().blockOf(s.at({0, 64, 0})) == blocks::PaleOakSapling; ++i)
+        s.updates.boneMeal({0, 64, 0}); // (bone meal: 45% a use to advance; wiki: Bone Meal)
+    CHECK(s.at({0, 64, 0}) == R().defaultState(blocks::PaleOakLog)); // a 2x2 trunk
+    CHECK(s.at({1, 65, 1}) == R().defaultState(blocks::PaleOakLog));
+    // A lone pale oak sapling never grows (like dark oak).
+    s.world.setBlock({8, 64, 8}, R().defaultState(blocks::PaleOakSapling));
+    for (int i = 0; i < 40; ++i)
+        s.updates.boneMeal({8, 64, 8});
+    CHECK(R().blockOf(s.at({8, 64, 8})) == blocks::PaleOakSapling);
+    // Bamboo: swords cut it at once; it roots only on soil or bamboo.
+    CHECK(breakTicks(R().defaultState(blocks::Bamboo), {*itemRegistry().find("iron_sword"), 1}, true, false) == 0);
+    CHECK(BlockUpdates::placement(s.world, R().defaultState(blocks::Bamboo), {12, 64, 12}, Direction::Up, 0, 0));
+    CHECK_FALSE(BlockUpdates::placement(s.world, R().defaultState(blocks::Bamboo), {12, 70, 12}, Direction::Up, 0, 0));
+}
+
+TEST_CASE("new woods: planks from every log and wood, 4 logs make 3 wood") {
+    std::array<ItemStack, 4> one{};
+    one[0] = {*itemRegistry().find("stripped_pale_oak_wood"), 1};
+    const auto planks = craft(one, 2);
+    REQUIRE(planks);
+    CHECK(planks->item == *itemRegistry().find("pale_oak_planks"));
+    CHECK(planks->count == 4);
+    std::array<ItemStack, 4> four{};
+    for (auto& g : four)
+        g = {*itemRegistry().find("mangrove_log"), 1};
+    const auto wood = craft(four, 2);
+    REQUIRE(wood);
+    CHECK(wood->item == *itemRegistry().find("mangrove_wood"));
+    CHECK(wood->count == 3);
+}

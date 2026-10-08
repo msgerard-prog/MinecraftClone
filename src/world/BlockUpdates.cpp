@@ -139,6 +139,8 @@ Push pushKind(BlockStateId s) {
     case B::JungleLeaves:
     case B::DarkOakLeaves:
     case B::CherryLeaves:
+    case B::MangroveLeaves:
+    case B::PaleOakLeaves:
     case B::OakSapling:
     case B::BirchSapling:
     case B::SpruceSapling:
@@ -146,6 +148,8 @@ Push pushKind(BlockStateId s) {
     case B::JungleSapling:
     case B::DarkOakSapling:
     case B::CherrySapling:
+    case B::PaleOakSapling:
+    case B::MangrovePropagule:
     case B::Fire:
     case B::RedBed:
         return Push::Destroy; // (wiki: Piston - beds break)
@@ -885,6 +889,11 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     case B::SoulWallTorch:
     case B::Ladder:
         return supports(at(rel(p, opposite(hFacing(s)))));
+    case B::Bamboo: { // on bamboo or ground it can root in (wiki: Bamboo)
+        const BlockStateId below = at(rel(p, Direction::Down));
+        const BlockId bb = blockOf(below);
+        return bb == B::Bamboo || plantableSoil(below) || bb == B::Sand || bb == B::RedSand || bb == B::Gravel;
+    }
     case B::Lantern: // hanging from the block above, or standing (wiki: Lantern)
     case B::SoulLantern:
         return supports(at(rel(p, R().get(s, hanging) == 0 ? Direction::Up : Direction::Down)));
@@ -925,7 +934,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     // Small blocks that need their support (M23.2): torches, wall torches, lanterns,
     // ladders, carpets.
     if (const BlockId b = blockOf(s); b == B::Torch || b == B::SoulTorch || b == B::WallTorch || b == B::SoulWallTorch ||
-                                      b == B::Lantern || b == B::SoulLantern || b == B::Ladder ||
+                                      b == B::Lantern || b == B::SoulLantern || b == B::Ladder || b == B::Bamboo ||
                                       R().kind(b) == BlockKind::Carpet) {
         if (!survives(p, s)) pop(p);
         --m_depth;
@@ -1184,6 +1193,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::JungleLeaves:
     case B::DarkOakLeaves:
     case B::CherryLeaves:
+    case B::MangroveLeaves:
+    case B::PaleOakLeaves:
         leavesChanged(p, s);
         break;
     case B::OakSapling:
@@ -1193,6 +1204,8 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::JungleSapling:
     case B::DarkOakSapling:
     case B::CherrySapling:
+    case B::PaleOakSapling:
+    case B::MangrovePropagule:
         if (!plantableSoil(at(rel(p, Direction::Down)))) pop(p); // lost its soil
         break;
     case B::NetherPortal: {
@@ -1362,6 +1375,8 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::AcaciaLeaves:
     case B::JungleLeaves:
     case B::DarkOakLeaves:
+    case B::MangroveLeaves:
+    case B::PaleOakLeaves:
     case B::CherryLeaves: {
         const int d = leafDistance(p);
         if (d != R().get(s, distance) + 1) set(p, R().set(s, distance, d - 1)); // neighbours follow
@@ -1857,6 +1872,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::AcaciaLeaves:
     case B::JungleLeaves:
     case B::DarkOakLeaves:
+    case B::MangroveLeaves:
+    case B::PaleOakLeaves:
     case B::CherryLeaves: {
         // Placed leaves are persistent (never decay; wiki: Leaves), with their distance.
         BlockStateId s = r.set(state, persistent, 0);
@@ -1877,6 +1894,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::JungleSapling:
     case B::DarkOakSapling:
     case B::CherrySapling:
+    case B::PaleOakSapling:
+    case B::MangrovePropagule:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
     case B::ChorusPlant:
@@ -2009,6 +2028,13 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
             return withHFacing(r.defaultState(blockOf(state) == B::Torch ? B::WallTorch : B::SoulWallTorch), faceDir);
         if (solid(Direction::Down)) return state;
         return std::nullopt;
+    case B::Bamboo: {
+        const BlockStateId below = world.getBlock(rel(at, Direction::Down));
+        const BlockId bb = blockOf(below);
+        if (bb != B::Bamboo && !plantableSoil(below) && bb != B::Sand && bb != B::RedSand && bb != B::Gravel)
+            return std::nullopt;
+        return state;
+    }
     case B::Ladder: // only on a block's side, facing out from it (wiki: Ladder)
         if (!horizontal(faceDir) || !solid(opposite(faceDir))) return std::nullopt;
         return withHFacing(state, faceDir);

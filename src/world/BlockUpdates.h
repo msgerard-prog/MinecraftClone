@@ -177,6 +177,9 @@ public:
     static int cropAge(BlockStateId s);
     // A hoe used on `face` of the block at p (dirt/grass -> farmland). True if it acted.
     static bool till(World& world, const BlockPos& p, Direction face);
+    // An axe strips a log, wood, stem, hyphae or bamboo block (M23.3b; wiki: Axe ›
+    // Stripping): the stripped block with the same axis. True if it did.
+    static bool strip(World& world, const BlockPos& p);
     // Bone meal used on the block at p. True if it was used up.
     bool boneMeal(const BlockPos& p);
     // An entity landed hard on this farmland (the caller rolls the chance).

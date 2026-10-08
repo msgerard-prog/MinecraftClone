@@ -30,6 +30,22 @@ int BlockUpdates::cropMaxAge(BlockId b) { return b == B::Beetroots ? 3 : 7; }
 
 int BlockUpdates::cropAge(BlockStateId s) { return R().get(s, ageOf(blockOf(s))); }
 
+bool BlockUpdates::strip(World& world, const BlockPos& p) {
+    const BlockStateId s = world.getBlock(p);
+    const std::string_view id = R().block(blockOf(s)).id;
+    if (id.find("stripped_") != std::string_view::npos) return false;
+    const bool woody = id.ends_with("_log") || id.ends_with("_wood") || id.ends_with("_hyphae") ||
+                       (id.ends_with("_stem") && id != "minecraft:mushroom_stem") || id == "minecraft:bamboo_block";
+    if (!woody) return false;
+    const auto stripped = R().findBlock("minecraft:stripped_" + std::string(id.substr(10)));
+    if (!stripped) return false;
+    BlockStateId now = R().defaultState(*stripped);
+    if (const auto a = R().value(s, "axis")) now = R().with(now, "axis", *a).value_or(now);
+    world.updateBlock(p, now);
+    world.playSound(Sound::WoodClick, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 0.8f); // (vanilla: item.axe.strip)
+    return true;
+}
+
 bool BlockUpdates::till(World& world, const BlockPos& p, Direction side) {
     // A hoe turns dirt or grass into farmland (coarse dirt into dirt), from any side
     // but below, if the block above is free (wiki: Hoe).
@@ -113,7 +129,8 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
         return true;
     }
     if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling ||
-        b == B::JungleSapling || b == B::DarkOakSapling || b == B::CherrySapling) {
+        b == B::JungleSapling || b == B::DarkOakSapling || b == B::CherrySapling || b == B::PaleOakSapling ||
+        b == B::MangrovePropagule) {
         if (m_random.nextFloat() < 0.45f) {
             if (R().get(s, stage) == 0) setRaw(p, R().set(s, stage, 1));
             else growTree(p, s);

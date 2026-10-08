@@ -13,8 +13,10 @@ namespace mc::world {
 // sapling looks like a generated tree of its kind.
 // M18.2 adds jungle (small; mega = a 2x2 trunk from four saplings), dark oak (always
 // 2x2) and cherry. 2x2 trunks occupy (x..x+1, z..z+1) from the given corner.
-enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry };
-inline bool twoByTwo(TreeKind k) { return k == TreeKind::MegaJungle || k == TreeKind::DarkOak; }
+enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove };
+inline bool twoByTwo(TreeKind k) {
+    return k == TreeKind::MegaJungle || k == TreeKind::DarkOak || k == TreeKind::PaleOak;
+}
 
 // Random trunk height per kind (wiki: Tree - oak 4-6, birch 5-7, spruce 6-9, acacia 5-6;
 // jungle 4-12, large jungle 10-29, dark oak 6-8, cherry 5-7: the M18.2 ones are our
@@ -29,6 +31,8 @@ inline int treeHeight(TreeKind kind, Xoroshiro& rng) {
     case TreeKind::MegaJungle: return 10 + static_cast<int>(rng.nextInt(20));
     case TreeKind::DarkOak: return 6 + static_cast<int>(rng.nextInt(3));
     case TreeKind::Cherry: return 5 + static_cast<int>(rng.nextInt(3));
+    case TreeKind::PaleOak: return 6 + static_cast<int>(rng.nextInt(3)); // (M23.3b: like dark oak)
+    case TreeKind::Mangrove: return 5 + static_cast<int>(rng.nextInt(4));
     }
     return 4;
 }
@@ -67,7 +71,7 @@ void treeShape(TreeKind kind, int32_t wx, int32_t y0, int32_t wz, int height, Xo
                 leaf(x, y, z);
             }
     };
-    if (kind == TreeKind::MegaJungle || kind == TreeKind::DarkOak) {
+    if (kind == TreeKind::MegaJungle || kind == TreeKind::DarkOak || kind == TreeKind::PaleOak) {
         const bool jungle = kind == TreeKind::MegaJungle;
         for (int i = 0; i < height; ++i)
             for (int k = 0; k < 4; ++k)
@@ -96,6 +100,16 @@ void treeShape(TreeKind kind, int32_t wx, int32_t y0, int32_t wz, int height, Xo
             disc(wx, top, wz, 4, true, 0.25f);
             disc(wx, top + 1, wz, 2, true, 0.0f);
         }
+    } else if (kind == TreeKind::Mangrove) {
+        // A tall trunk under a rounded crown (vanilla's mangroves stand on arching
+        // roots and hang propagules: ours don't yet).
+        for (int i = 0; i < height; ++i)
+            log(wx, y0 + i, wz);
+        const int32_t top = y0 + height - 1;
+        disc(wx, top - 2, wz, 2, false, 0.3f);
+        disc(wx, top - 1, wz, 3, false, 0.3f);
+        disc(wx, top, wz, 3, false, 0.2f);
+        disc(wx, top + 1, wz, 2, false, 0.1f);
     } else if (kind == TreeKind::Cherry) {
         // A straight trunk under a broad, rounded pink crown (vanilla's cherry trees
         // branch; ours keeps one trunk).

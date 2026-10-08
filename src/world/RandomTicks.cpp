@@ -11,6 +11,7 @@
 #include "world/Weather.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace mc::world {
 
@@ -45,6 +46,10 @@ TreeBlocks treeOf(BlockId sapling) {
         return {TreeKind::Jungle, B::JungleLog, B::JungleLeaves};
     case B::DarkOakSapling:
         return {TreeKind::DarkOak, B::DarkOakLog, B::DarkOakLeaves};
+    case B::PaleOakSapling: // (M23.3b; wiki: Pale Oak - four saplings, like dark oak)
+        return {TreeKind::PaleOak, B::PaleOakLog, B::PaleOakLeaves};
+    case B::MangrovePropagule:
+        return {TreeKind::Mangrove, B::MangroveLog, B::MangroveLeaves};
     case B::CherrySapling:
         return {TreeKind::Cherry, B::CherryLog, B::CherryLeaves};
     default:
@@ -55,7 +60,7 @@ TreeBlocks treeOf(BlockId sapling) {
 bool isSapling(BlockId b) {
     return b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling ||
            b == B::AcaciaSapling || b == B::JungleSapling || b == B::DarkOakSapling ||
-           b == B::CherrySapling;
+           b == B::CherrySapling || b == B::PaleOakSapling || b == B::MangrovePropagule;
 }
 
 // Blocks a growing tree's logs may replace (vanilla: air, leaves, plants, saplings).
@@ -74,16 +79,32 @@ bool BlockUpdates::plantableSoil(BlockStateId s) {
            b == B::Mycelium;
 }
 
-bool BlockUpdates::isLeaves(BlockId b) {
-    return b == B::OakLeaves || b == B::BirchLeaves || b == B::SpruceLeaves ||
-           b == B::AcaciaLeaves || b == B::JungleLeaves || b == B::DarkOakLeaves ||
-           b == B::CherryLeaves;
+// Leaves and logs by name, once (M23.3b: every wood; vanilla's #leaves and #logs tags:
+// logs, wood, stripped ones, the Nether's stems and hyphae).
+namespace {
+struct WoodTags {
+    std::vector<uint8_t> leaves, logs;
+    WoodTags() {
+        const auto& r = R();
+        leaves.resize(r.blockCount());
+        logs.resize(r.blockCount());
+        for (size_t b = 0; b < r.blockCount(); ++b) {
+            const std::string_view id = r.block(BlockId(b)).id;
+            leaves[b] = id.ends_with("_leaves");
+            logs[b] = (id.ends_with("_log") || id.ends_with("_wood") || id.ends_with("_hyphae") ||
+                       (id.ends_with("_stem") && id != "minecraft:mushroom_stem"));
+        }
+    }
+};
+const WoodTags& woodTags() {
+    static const WoodTags tags;
+    return tags;
 }
+} // namespace
 
-bool BlockUpdates::isLog(BlockId b) {
-    return b == B::OakLog || b == B::BirchLog || b == B::SpruceLog || b == B::AcaciaLog ||
-           b == B::JungleLog || b == B::DarkOakLog || b == B::CherryLog;
-}
+bool BlockUpdates::isLeaves(BlockId b) { return b < woodTags().leaves.size() && woodTags().leaves[b]; }
+
+bool BlockUpdates::isLog(BlockId b) { return b < woodTags().logs.size() && woodTags().logs[b]; }
 
 int BlockUpdates::blockLightAt(const BlockPos& p) const {
     const Chunk* c = chunkAt(p);
@@ -140,6 +161,20 @@ void BlockUpdates::runRandomTicks() {
 void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     const BlockId b = blockOf(s);
     switch (b) {
+    case B::Bamboo: { // grows a block on top up to 12-16 tall, at light 9+ (wiki: Bamboo)
+        const BlockPos up = rel(p, Direction::Up);
+        if (at(up) != 0 || !m_world.isInHeight(up.y) || rawBrightness(up) < 9 || m_random.nextInt(3) != 0) break;
+        int height = 1;
+        while (height < 16 && blockOf(at({p.x, p.y - height, p.z})) == B::Bamboo)
+            ++height;
+        if (height >= 12 + int(m_random.nextInt(5))) break;
+        // The new top has large leaves, the one below small ones, the rest none.
+        set(up, R().set(R().defaultState(B::Bamboo), bambooLeaves, 2));
+        set(p, R().set(s, bambooLeaves, 1));
+        const BlockPos below = rel(p, Direction::Down);
+        if (blockOf(at(below)) == B::Bamboo) set(below, R().set(at(below), bambooLeaves, 0));
+        break;
+    }
     case B::GrassBlock:
     case B::Mycelium:
         tickGrass(p, b);
@@ -151,6 +186,8 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::JungleLeaves:
     case B::DarkOakLeaves:
     case B::CherryLeaves:
+    case B::MangroveLeaves:
+    case B::PaleOakLeaves:
         // Leaves without a log within 6 blocks decay, dropping their loot (wiki: Leaves).
         // Only states with distance 7, not persistent, random-tick at all.
         m_drops.push_back({p, {}, s});
@@ -174,6 +211,8 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::JungleSapling:
     case B::DarkOakSapling:
     case B::CherrySapling:
+    case B::PaleOakSapling:
+    case B::MangrovePropagule:
         // Light 9+ above, then a 1 in 7 chance to advance: stage 0 -> 1 -> a tree
         // (wiki: Sapling).
         if (rawBrightness(rel(p, Direction::Up)) >= 9 && m_random.nextInt(7) == 0) {
@@ -329,7 +368,7 @@ bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
     // a lone dark oak sapling never grows (wiki: Sapling › Growth).
     BlockPos p = sapPos;
     bool square = false;
-    if (t.kind == TreeKind::Jungle || t.kind == TreeKind::DarkOak) {
+    if (t.kind == TreeKind::Jungle || t.kind == TreeKind::DarkOak || t.kind == TreeKind::PaleOak) {
         const BlockId kind = blockOf(sapling);
         for (const auto& c : {std::array{0, 0}, std::array{-1, 0}, std::array{0, -1}, std::array{-1, -1}}) {
             const BlockPos corner{sapPos.x + c[0], sapPos.y, sapPos.z + c[1]};
@@ -343,7 +382,7 @@ bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
             }
         }
         if (t.kind == TreeKind::Jungle && square) t.kind = TreeKind::MegaJungle;
-        if (t.kind == TreeKind::DarkOak && !square) return false;
+        if ((t.kind == TreeKind::DarkOak || t.kind == TreeKind::PaleOak) && !square) return false;
     }
     const int height = treeHeight(t.kind, m_random);
     const uint64_t shapeSeed = m_random.nextLong();

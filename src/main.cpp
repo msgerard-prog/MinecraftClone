@@ -1583,7 +1583,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const auto& def = mc::world::itemRegistry().item(held.item);
                 static const mc::world::ItemId boneMealItem = *mc::world::itemRegistry().find("bone_meal");
-                if (def.tool == mc::world::ToolType::Hoe &&
+                if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
+                    mc::world::BlockUpdates::strip(world, lastHit->block)) { // (M23.3b)
+                    frameEdits.push_back(lastHit->block);
+                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    clicks.useClick = false;
+                    clicks.use = false;
+                } else if (def.tool == mc::world::ToolType::Hoe &&
                     mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
                     frameEdits.push_back(lastHit->block);
                     if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng)); // 1 per block
