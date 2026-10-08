@@ -278,3 +278,34 @@ TEST_CASE("smithing: netherite upgrades keep enchantments and wear; trims go on 
     CHECK(f.screen.grid(1).empty());
     CHECK(f.screen.grid(2).count == 2);
 }
+
+#include "world/ItemContainers.h"
+
+TEST_CASE("closing a screen with a full inventory drops whole stacks: shulker contents kept (M23 review)") {
+    Fixture f;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        f.inv.setSlot(i, I("stone", 64));
+    ItemContents slots{};
+    slots[0] = I("diamond", 9);
+    ItemStack box = I("red_shulker_box");
+    box.contents = addItemContents(slots);
+    ItemStack sword = I("iron_sword");
+    setEnchantment(sword, Enchantment::Sharpness, 2);
+    f.screen.open(ContainerScreen::Type::Crafting);
+    f.inv.setSlot(0, box);
+    f.left(invX(0), hotbarY());   // carry the box
+    f.left(sx(30), sy(17));       // into the grid
+    f.inv.setSlot(1, sword);
+    f.left(invX(1), hotbarY());   // carry the sword
+    f.inv.setSlot(0, I("stone", 64));
+    f.inv.setSlot(1, I("stone", 64));
+    f.screen.close(f.inv, f.drops);
+    REQUIRE(f.drops.size() == 2);
+    bool boxOk = false, swordOk = false;
+    for (const ItemStack& d : f.drops) {
+        boxOk = boxOk || (d.item == box.item && itemContents(d.contents)[0].count == 9);
+        swordOk = swordOk || (d.item == sword.item && enchantLevel(d, Enchantment::Sharpness) == 2);
+    }
+    CHECK(boxOk);
+    CHECK(swordOk);
+}

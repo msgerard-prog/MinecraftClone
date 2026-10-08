@@ -94,6 +94,11 @@ Push pushKind(BlockStateId s) {
     // Shulker boxes break off in vanilla, keeping their contents in the drop; ours stay
     // put until that drop path exists (block entities don't move).
     if (R().likeOf(b) == B::ShulkerBox) return Push::Block;
+    // Block entities don't move (vanilla Java): their data would be lost (M23 review).
+    if (b == B::Jukebox || b == B::Beacon || b == B::Conduit || b == B::Campfire || b == B::SoulCampfire ||
+        R().kind(b) == BlockKind::Sign || R().kind(b) == BlockKind::WallSign || R().kind(b) == BlockKind::HangingSign ||
+        R().kind(b) == BlockKind::WallHangingSign)
+        return Push::Block;
     switch (b) {
     case B::RedstoneWire:
     case B::RedstoneTorch:
@@ -585,11 +590,32 @@ BlockStateId BlockUpdates::stairsShaped(const World& world, const BlockPos& p, B
     return r.set(st, stairShape, 0);
 }
 
+namespace {
+// Name-derived facts per block, worked out once so neighbour updates don't read names
+// (M23 perf review): the concrete a powder hardens into, copper bulbs.
+struct NameFacts {
+    std::vector<BlockStateId> concrete; // 0: not concrete powder
+    std::vector<uint8_t> bulb;
+    NameFacts() {
+        concrete.resize(R().blockCount());
+        bulb.resize(R().blockCount());
+        for (BlockId b = 0; b < R().blockCount(); ++b) {
+            const std::string_view id = R().block(b).id;
+            bulb[b] = id.ends_with("copper_bulb");
+            if (!id.ends_with("_concrete_powder")) continue;
+            if (const auto c = R().findBlock(id.substr(0, id.size() - 7))) concrete[b] = R().defaultState(*c); // "..._concrete"
+        }
+    }
+};
+const NameFacts& nameFacts() {
+    static const NameFacts f;
+    return f;
+}
+} // namespace
+
 std::optional<BlockStateId> BlockUpdates::concreteFor(BlockStateId powder) {
-    const std::string_view id = R().block(R().blockOf(powder)).id;
-    if (!id.ends_with("_concrete_powder")) return std::nullopt;
-    const auto concrete = R().findBlock(id.substr(0, id.size() - 7)); // "..._concrete"
-    return concrete ? std::optional(R().defaultState(*concrete)) : std::nullopt;
+    const BlockStateId c = nameFacts().concrete[R().blockOf(powder)];
+    return c ? std::optional(c) : std::nullopt;
 }
 
 bool BlockUpdates::hardenPowder(const BlockPos& p, BlockStateId s) {
@@ -984,7 +1010,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
-    if (R().block(R().blockOf(s)).id.ends_with("copper_bulb")) { // (M23.4b)
+    if (nameFacts().bulb[R().blockOf(s)]) { // (M23.4b)
         updateBulb(p, s);
         --m_depth;
         return;

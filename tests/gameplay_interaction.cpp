@@ -384,3 +384,18 @@ TEST_CASE("a broken shulker box drops itself holding its slots; placing it puts 
     CHECK(out[0].count == 8);
     CHECK(out[0].item == *itemRegistry().find("obsidian"));
 }
+
+TEST_CASE("breaking a campfire drops its food (M23 review)") {
+    Scene s(0.0f, 60.0f);
+    const auto t = BlockInteraction::target(s.world, s.player);
+    REQUIRE(t.has_value());
+    s.world.setBlock(t->block, S(blocks::Campfire));
+    s.world.chunk(t->block.chunk())->campfire(blockToLocal(t->block.x), t->block.y, blockToLocal(t->block.z))->items[1] =
+        {*itemRegistry().find("beef"), 1};
+    std::vector<BlockInteraction::Drop> drops;
+    InteractionInput in;
+    in.attackClick = true;
+    s.interaction.tick(s.world, s.player, t, 0, in, s.changed, &drops);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].stack.item == *itemRegistry().find("beef"));
+}

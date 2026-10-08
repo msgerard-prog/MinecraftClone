@@ -2459,7 +2459,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A placed sign opens its editor (vanilla).
                     const auto kind = mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));
                     const mc::world::BlockPos sp{int(e.x), int(e.y), int(e.z)};
-                    if (!screenshotMode && (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::HangingSign))
+                    if (!screenshotMode && (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::HangingSign ||
+                                            kind == mc::world::BlockKind::WallSign || kind == mc::world::BlockKind::WallHangingSign))
                         if (mc::world::Chunk* sc = world.chunk(sp.chunk()))
                             if (const mc::world::SignData* sd =
                                     sc->sign(mc::world::blockToLocal(sp.x), sp.y, mc::world::blockToLocal(sp.z))) {
@@ -2808,10 +2809,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const auto& reg = mc::world::blockRegistry();
             const mc::world::ChunkPos cc{mc::world::blockToChunk(int32_t(std::floor(camera.position.x))),
                                          mc::world::blockToChunk(int32_t(std::floor(camera.position.z)))};
+            // Only chunks in view (M23 perf review: no glyphs behind the camera).
+            const mc::gfx::Frustum textFrustum =
+                mc::gfx::Frustum::fromMatrix(camera.viewProjectionAtOrigin(float(fbWidth) / float(fbHeight)));
             for (int dz = -3; dz <= 3; ++dz)
                 for (int dx = -3; dx <= 3; ++dx) {
                     const mc::world::Chunk* ch = world.chunk({cc.x + dx, cc.z + dz});
                     if (!ch) continue;
+                    const glm::vec3 cmin(glm::dvec3(ch->pos().x * 16.0, ch->height().minY, ch->pos().z * 16.0) -
+                                         camera.position);
+                    if (!textFrustum.intersectsBox(cmin, cmin + glm::vec3(16.0f, float(ch->height().height), 16.0f)))
+                        continue;
                     for (const auto& cf : ch->campfires()) // food cooking on campfires (M23.4c)
                         for (int i = 0; i < 4; ++i)
                             if (!cf.data.items[size_t(i)].empty()) {
@@ -2822,6 +2830,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                  lightTable[15 * 16 + 15], camera.position);
                             }
                     for (const auto& sg : ch->signs()) {
+                        bool written = false; // (blank signs: nothing to draw)
+                        for (const auto& line : sg.data.front.lines)
+                            written = written || line[0] != '\0';
+                        if (!written) continue;
                         const auto st = ch->get(sg.x, sg.y, sg.z);
                         const mc::world::BlockKind k = reg.kind(reg.blockOf(st));
                         // The board's facing as quarter turns (south 0, west 1, north 2, east 3)

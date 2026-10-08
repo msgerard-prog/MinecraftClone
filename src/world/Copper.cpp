@@ -83,6 +83,18 @@ BlockStateId transfer(BlockStateId from, BlockId to) {
 
 bool BlockUpdates::isCopper(BlockId b) { return copperInfo(b).stage >= 0; }
 
+namespace {
+// Copper doors age, wax and scrape as one: the other half follows (M23 review).
+void changeCopper(World& world, const BlockPos& p, BlockStateId s, BlockId to) {
+    world.updateBlock(p, transfer(s, to));
+    if (R().likeOf(R().blockOf(s)) != blocks::OakDoor) return;
+    const bool upper = R().get(s, properties::doorHalf) == 0;
+    const BlockPos other{p.x, p.y + (upper ? -1 : 1), p.z};
+    const BlockStateId os = world.getBlock(other);
+    if (R().blockOf(os) == R().blockOf(s)) world.updateBlock(other, transfer(os, to));
+}
+} // namespace
+
 void BlockUpdates::tickCopper(const BlockPos& p, BlockStateId s) {
     // Oxidation (wiki: Block of Copper › Oxidation): a 64/1125 chance each random tick
     // to try; no unwaxed copper within 4 blocks (taxicab) may be less oxidized; then a
@@ -106,14 +118,18 @@ void BlockUpdates::tickCopper(const BlockPos& p, BlockStateId s) {
     float chance = float(more + 1) / float(same + more + 1);
     chance *= chance;
     if (self.stage == 0) chance *= 0.75f;
-    if (m_random.nextFloat() < chance) set(p, transfer(s, self.next));
+    if (m_random.nextFloat() < chance) {
+        if (R().likeOf(R().blockOf(s)) == blocks::OakDoor && R().get(s, properties::doorHalf) == 0)
+            return; // (a door ages from its lower half, which brings the upper along)
+        changeCopper(m_world, p, s, self.next);
+    }
 }
 
 bool BlockUpdates::waxCopper(World& world, const BlockPos& p) {
     const BlockStateId s = world.getBlock(p);
     const CopperInfo& c = copperInfo(R().blockOf(s));
     if (c.stage < 0 || c.waxed || !c.waxedCopy) return false;
-    world.updateBlock(p, transfer(s, c.waxedCopy));
+    changeCopper(world, p, s, c.waxedCopy);
     world.playSound(Sound::WoodClick, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.2f); // (vanilla: item.honeycomb.wax_on)
     return true;
 }
@@ -125,7 +141,7 @@ bool BlockUpdates::scrapeCopper(World& world, const BlockPos& p) {
     if (c.stage < 0) return false;
     const BlockId to = c.waxed ? c.unwaxedCopy : c.previous;
     if (!to) return false;
-    world.updateBlock(p, transfer(s, to));
+    changeCopper(world, p, s, to);
     world.playSound(Sound::WoodClick, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 0.9f);
     return true;
 }

@@ -498,3 +498,18 @@ TEST_CASE("chests placed side by side with the same facing pair up; breaking one
     s.put({1, 64, 0}, 0);
     CHECK(val(s.at({0, 64, 0}), "type") == "single");
 }
+
+TEST_CASE("pistons can't push blocks with block entities: jukebox discs and sign text stay (M23 review)") {
+    Scene s;
+    s.put({0, 64, 0}, with(S(blocks::Piston), "facing", "east"));
+    s.put({1, 64, 0}, S(blocks::Jukebox));
+    Chunk* c = s.world.chunk({0, 0});
+    REQUIRE(c->jukebox(1, 64, 0));
+    c->jukebox(1, 64, 0)->record = {*itemRegistry().find("music_disc_cat"), 1};
+    s.put({0, 64, 1}, S(blocks::RedstoneBlock));
+    s.tick(4);
+    CHECK_FALSE(s.on({0, 64, 0}, "extended"));
+    REQUIRE(R().blockOf(s.at({1, 64, 0})) == blocks::Jukebox);
+    REQUIRE(c->jukebox(1, 64, 0));
+    CHECK_FALSE(c->jukebox(1, 64, 0)->record.empty());
+}

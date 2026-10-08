@@ -83,12 +83,19 @@ void ContainerScreen::openChest(world::ChestData* first, world::ChestData* secon
 void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>& drops) {
     for (auto& s : m_grid) {
         if (s.empty()) continue;
-        if (const int left = inventory.add(s); left > 0) drops.push_back({s.item, uint8_t(left), s.damage, s.state});
+        if (const int left = inventory.add(s); left > 0) { // the whole stack: contents, trims, enchantments
+            world::ItemStack d = s;
+            d.count = uint8_t(left);
+            drops.push_back(d);
+        }
         s = {};
     }
     if (!m_carried.empty()) {
-        if (const int left = inventory.add(m_carried); left > 0)
-            drops.push_back({m_carried.item, uint8_t(left), m_carried.damage, m_carried.state});
+        if (const int left = inventory.add(m_carried); left > 0) {
+            world::ItemStack d = m_carried;
+            d.count = uint8_t(left);
+            drops.push_back(d);
+        }
         m_carried = {};
     }
     m_result = {};

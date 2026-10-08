@@ -3,6 +3,7 @@
 #include "gameplay/Recipes.h"
 
 #include <algorithm>
+#include <vector>
 #include <climits>
 #include <cmath>
 
@@ -22,11 +23,19 @@ bool tickFurnace(Furnace& f) {
     // (wiki: Smoker, Blast Furnace).
     if (result && f.kind == 1 && world::itemRegistry().item(result->item).food == 0) result.reset();
     if (result && f.kind == 2) {
-        const std::string_view in = world::itemRegistry().item(f.input.item).id;
-        const bool ore = in.find("_ore") != std::string_view::npos || in.find("raw_") != std::string_view::npos ||
-                         in == "minecraft:ancient_debris" ||
-                         in.find("iron_") != std::string_view::npos || in.find("golden_") != std::string_view::npos;
-        if (!ore) result.reset();
+        // Which inputs a blast furnace takes, by name once per item (not every tick).
+        static const std::vector<uint8_t> blastable = [] {
+            const auto& items = world::itemRegistry();
+            std::vector<uint8_t> t(items.count());
+            for (size_t i = 0; i < t.size(); ++i) {
+                const std::string_view in = items.item(static_cast<world::ItemId>(i)).id;
+                t[i] = in.find("_ore") != std::string_view::npos || in.find("raw_") != std::string_view::npos ||
+                       in == "minecraft:ancient_debris" || in.find("iron_") != std::string_view::npos ||
+                       in.find("golden_") != std::string_view::npos;
+            }
+            return t;
+        }();
+        if (f.input.item >= blastable.size() || !blastable[f.input.item]) result.reset();
     }
     const auto& items = world::itemRegistry();
     const bool outputFits = result && (f.output.empty() || (f.output.sameKind(*result) &&

@@ -668,3 +668,17 @@ TEST_CASE("note blocks: instrument from below, tuned by use, played by power edg
     CHECK(back.jukebox(5, 64, 5)->record.item == *itemRegistry().find("music_disc_cat"));
     CHECK(back.jukebox(5, 64, 5)->ticks == 77);
 }
+
+TEST_CASE("copper doors wax and scrape both halves together (M23 review)") {
+    Scene s;
+    const BlockId door = B("copper_door");
+    s.world.updateBlock({1, 64, 1}, S("minecraft:copper_door[facing=north,half=lower,hinge=left,open=false,powered=false]"));
+    s.world.updateBlock({1, 65, 1}, S("minecraft:copper_door[facing=north,half=upper,hinge=left,open=false,powered=false]"));
+    REQUIRE(R().blockOf(s.at({1, 65, 1})) == door);
+    CHECK(BlockUpdates::waxCopper(s.world, {1, 65, 1})); // honeycomb on the upper half
+    CHECK(R().blockOf(s.at({1, 64, 1})) == B("waxed_copper_door"));
+    CHECK(R().blockOf(s.at({1, 65, 1})) == B("waxed_copper_door"));
+    CHECK(R().value(s.at({1, 65, 1}), "half") == "upper");
+    CHECK(BlockUpdates::scrapeCopper(s.world, {1, 64, 1}));
+    CHECK(R().blockOf(s.at({1, 65, 1})) == door);
+}

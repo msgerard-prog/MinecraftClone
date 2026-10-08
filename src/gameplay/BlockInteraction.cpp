@@ -51,6 +51,9 @@ void dropContents(world::World& world, const world::BlockPos& p, std::vector<Blo
                 if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
         }
     }
+    if (const world::CampfireData* cf = c->campfire(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)))
+        for (const world::ItemStack& s : cf->items) // (its food: wiki: Campfire)
+            if (!s.empty()) drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, s});
     if (const world::JukeboxData* j = c->jukebox(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)); j && !j->record.empty())
         drops->push_back({{p.x + 0.5, p.y + 0.5, p.z + 0.5}, j->record}); // (M23.6: its disc)
     if (const world::HopperData* h = c->hopper(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z))) // (M21.3)

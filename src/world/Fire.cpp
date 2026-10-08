@@ -14,6 +14,8 @@
 
 #include <algorithm>
 
+#include <vector>
+
 namespace mc::world {
 
 namespace {
@@ -62,7 +64,9 @@ bool ignitedByLava(BlockId b) {
 
 } // namespace
 
-int BlockUpdates::igniteOdds(BlockId b) {
+namespace {
+
+int igniteOddsSlow(BlockId b) {
     // How readily fire spreads next to the block (wiki: Fire › Flammable blocks, the
     // "ignite odds" column). Wood sets burn like their oak versions (M23.3), but
     // crimson and warped wood never burns.
@@ -108,15 +112,15 @@ int BlockUpdates::igniteOdds(BlockId b) {
         // planks; carpets like wool's plants (60).
         const BlockSettings& st = R().block(b).settings;
         if (st.kind == BlockKind::Carpet) return 60;
-        if (st.kind != BlockKind::Plain && st.base != 0) return igniteOdds(st.base);
-        if (isLeaves(b)) return 30;
-        if (isLog(b) || R().block(b).id.ends_with("_planks") || b == B::BambooMosaic) return 5;
+        if (st.kind != BlockKind::Plain && st.base != 0) return igniteOddsSlow(st.base);
+        if (BlockUpdates::isLeaves(b)) return 30;
+        if (BlockUpdates::isLog(b) || R().block(b).id.ends_with("_planks") || b == B::BambooMosaic) return 5;
         return 0;
     }
     }
 }
 
-int BlockUpdates::burnOdds(BlockId b) {
+int burnOddsSlow(BlockId b) {
     // How quickly fire destroys the block (wiki: Fire, the "burn odds" column).
     if (netherWood(b)) return 0;
     switch (R().likeOf(b)) {
@@ -158,14 +162,36 @@ int BlockUpdates::burnOdds(BlockId b) {
         if (b >= B::WhiteWool && b <= B::BlackWool) return 60;
         const BlockSettings& st = R().block(b).settings;
         if (st.kind == BlockKind::Carpet) return 20;
-        if (st.kind != BlockKind::Plain && st.base != 0) return burnOdds(st.base);
-        if (isLeaves(b)) return 60;
-        if (isLog(b)) return 5;
+        if (st.kind != BlockKind::Plain && st.base != 0) return burnOddsSlow(st.base);
+        if (BlockUpdates::isLeaves(b)) return 60;
+        if (BlockUpdates::isLog(b)) return 5;
         if (R().block(b).id.ends_with("_planks") || b == B::BambooMosaic) return 20;
         return 0;
     }
     }
 }
+
+// Both odds per block, worked out once (M23 perf review: the rules above read names).
+struct FireOdds {
+    std::vector<uint8_t> ignite, burn;
+    FireOdds() {
+        ignite.resize(R().blockCount());
+        burn.resize(R().blockCount());
+        for (BlockId b = 0; b < R().blockCount(); ++b) {
+            ignite[b] = static_cast<uint8_t>(igniteOddsSlow(b));
+            burn[b] = static_cast<uint8_t>(burnOddsSlow(b));
+        }
+    }
+};
+const FireOdds& fireOdds() {
+    static const FireOdds t;
+    return t;
+}
+
+} // namespace
+
+int BlockUpdates::igniteOdds(BlockId b) { return fireOdds().ignite[b]; }
+int BlockUpdates::burnOdds(BlockId b) { return fireOdds().burn[b]; }
 
 bool BlockUpdates::nextToFlammable(const BlockPos& p) const {
     for (int d = 0; d < kDirectionCount; ++d)

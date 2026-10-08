@@ -29,9 +29,13 @@ M23 - Building blocks & workstations (wiki pages of each block):
    cauldrons (water/lava/powder snow, buckets and bottles, rain), grindstone; 3D
    item icons for block-shaped items. (No powder snow block or bucket yet: a powder
    snow cauldron fills from snowfall only.)
-6. M23.6 - Workstations 2: smithing table (netherite upgrades, armor trims), loom
+6. ✅ M23.6 - Workstations 2: smithing table (netherite upgrades, armor trims), loom
    and cartography table (their screens; banners and maps come in M28), ender chest,
    shulker boxes, beacon (pyramid, beam, effects), conduit, note blocks, jukebox.
+   Also: netherite and ancient debris (new "nether3" generator; nether2 now pinned),
+   storage blocks, sea lanterns, Haste/Resistance/Conduit Power, music discs playing
+   our own note-block tunes. Nether stars, hearts of the sea and nautilus shells exist
+   as items without a source until M25/M26.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:

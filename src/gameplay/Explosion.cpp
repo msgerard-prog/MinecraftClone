@@ -116,13 +116,15 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             targets.tnt->prime(b, 10 + static_cast<int>(rng.nextInt(21)), rng);
             continue;
         }
-        // A shulker box that holds something always drops, keeping them (wiki: Shulker Box).
+        // A shulker box always drops, keeping what it holds (wiki: Shulker Box - its drop
+        // isn't subject to explosion decay).
         uint32_t boxContents = 0;
-        if (reg.likeOf(reg.blockOf(s)) == blocks::ShulkerBox)
+        const bool shulker = reg.likeOf(reg.blockOf(s)) == blocks::ShulkerBox;
+        if (shulker)
             if (const Chunk* ch = world.chunk(b.chunk()))
                 if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                     boxContents = addItemContents(cd->items);
-        if (boxContents) {
+        if (shulker) {
             ItemStack box{itemRegistry().blockItem(reg.blockOf(s)), 1};
             box.contents = boxContents;
             items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, box, rng);
@@ -144,6 +146,11 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                     if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
             if (const DispenserData* d = mc->dispenser(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                 for (const ItemStack& st : d->items)
+                    if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
+            if (const JukeboxData* j = mc->jukebox(blockToLocal(b.x), b.y, blockToLocal(b.z)); j && !j->record.empty())
+                items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, j->record, rng); // (M23 review: its disc)
+            if (const CampfireData* cf = mc->campfire(blockToLocal(b.x), b.y, blockToLocal(b.z)))
+                for (const ItemStack& st : cf->items)
                     if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
         }
         world.updateBlock(b, 0);
