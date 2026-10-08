@@ -681,6 +681,15 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (name == "crimson_stem" || name == "warped_stem") {
                 m = single(cubeColumn(sprite(name.c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));
+            } else if (name.starts_with("infested_")) { // (M26.4a) the stone it hides in
+                const std::string base = name.substr(9);
+                m = base == "deepslate" ? single(cubeColumn(sprite("deepslate"), sprite("deepslate_top"),
+                                                            registry.value(state, "axis").value_or("y")))
+                                        : single(cubeAll(sprite(base.c_str())));
+            } else if (name == "cobweb") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("cobweb");
             } else if (name == "ochre_froglight" || name == "verdant_froglight" || name == "pearlescent_froglight") {
                 m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));

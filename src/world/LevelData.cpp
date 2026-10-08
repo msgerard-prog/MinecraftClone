@@ -118,6 +118,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("XpP", xpProgress);
     player.put("XpTotal", int32_t{xpTotal});
     player.put("XpSeed", int32_t{xpSeed});
+    player.put("TimeSinceRest", int32_t{timeSinceRest});
     if (!effects.empty()) {
         std::vector<Tag> list;
         for (const SavedEffect& e : effects) {
@@ -372,6 +373,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         l.xpProgress = std::clamp(float(p->real("XpP").value_or(0.0)), 0.0f, 1.0f);
         l.xpTotal = static_cast<int>(std::max<int64_t>(0, p->integer("XpTotal").value_or(0)));
         l.xpSeed = static_cast<int32_t>(p->integer("XpSeed").value_or(0));
+        l.timeSinceRest = static_cast<int32_t>(std::clamp<int64_t>(p->integer("TimeSinceRest").value_or(0), 0, 1 << 30));
         if (const List* effects = p->list("active_effects"))
             for (const Tag& t : effects->items)
                 if (const Compound* c = t.get<Compound>(); c && c->string("id"))

@@ -391,6 +391,14 @@ enum : BlockId {
     VerdantFroglight,     // axis (cold frogs)
     PearlescentFroglight, // axis (warm frogs)
     Frogspawn,            // on water; hatches into tadpoles (M26.3c)
+    Cobweb,               // (M26.4a) slows whatever is in it; swords and shears cut it
+    InfestedStone,        // (M26.4a) a silverfish hides inside: it comes out when broken
+    InfestedCobblestone,
+    InfestedStoneBricks,
+    InfestedMossyStoneBricks,
+    InfestedCrackedStoneBricks,
+    InfestedChiseledStoneBricks,
+    InfestedDeepslate,    // axis
     Count
 };
 } // namespace blocks

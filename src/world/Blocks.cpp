@@ -1080,6 +1080,20 @@ BlockRegistry buildVanillaBlocks() {
         check(r.add(id, {.hardness = 0.3f, .resistance = 0.3f, .lightEmission = 15}, {{&axis, "y"}}), b);
     check(r.add("frogspawn", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout, .randomTicks = true}),
           blocks::Frogspawn);
+    // (M26.4a; wiki: Cobweb - 4, no collision; Infested Block - half its stone's hardness:
+    // 0.75, cobblestone 1, deepslate 1.5 - any tool, no drop)
+    check(r.add("cobweb", {.hardness = 4.0f, .resistance = 4.0f, .opaqueCube = false, .collision = false,
+                           .layer = RenderLayer::Cutout}),
+          blocks::Cobweb);
+    for (const auto& [id, b, hard] :
+         {std::tuple{"infested_stone", blocks::InfestedStone, 0.75f},
+          std::tuple{"infested_cobblestone", blocks::InfestedCobblestone, 1.0f},
+          std::tuple{"infested_stone_bricks", blocks::InfestedStoneBricks, 0.75f},
+          std::tuple{"infested_mossy_stone_bricks", blocks::InfestedMossyStoneBricks, 0.75f},
+          std::tuple{"infested_cracked_stone_bricks", blocks::InfestedCrackedStoneBricks, 0.75f},
+          std::tuple{"infested_chiseled_stone_bricks", blocks::InfestedChiseledStoneBricks, 0.75f}})
+        check(r.add(id, {.hardness = hard, .resistance = 0.75f}), b);
+    check(r.add("infested_deepslate", {.hardness = 1.5f, .resistance = 0.75f}, {{&axis, "y"}}), blocks::InfestedDeepslate);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

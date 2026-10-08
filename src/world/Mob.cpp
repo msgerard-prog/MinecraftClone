@@ -122,6 +122,13 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:frog", 10.0f, 0.5, 0.5, 0.25, 0.0f, false},
         {"minecraft:tadpole", 6.0f, 0.4, 0.3, 0.1, 0.0f, false, false, false, 1.0f, true},
         {"minecraft:axolotl", 14.0f, 0.75, 0.42, 0.1, 2.0f, false, false, false, 1.0f, true},
+        // wiki: Cave Spider - 12 health, 0.7 x 0.5, 0.3, 2 + Poison; Silverfish - 8, 0.4 x
+        // 0.3, 0.25, 1; Wither Skeleton - 20, 0.7 x 2.4, 0.25, 8 (Normal, stone sword) + Wither,
+        // fireproof; Phantom - 20, 0.9 x 0.5, flies, 6 (Normal).
+        {"minecraft:cave_spider", 12.0f, 0.7, 0.5, 0.3, 2.0f, true, false, false, 0.7f},
+        {"minecraft:silverfish", 8.0f, 0.4, 0.3, 0.25, 1.0f, true},
+        {"minecraft:wither_skeleton", 20.0f, 0.7, 2.4, 0.25, 8.0f, true, true, false, 1.2f},
+        {"minecraft:phantom", 20.0f, 0.9, 0.5, 0.5, 6.0f, true, false, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

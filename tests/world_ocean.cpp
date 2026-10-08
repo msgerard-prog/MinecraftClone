@@ -387,5 +387,5 @@ TEST_CASE("overworld5 (M26.3b): bee nests with 2-3 bees on meadow and plains tre
                     h *= 1099511628211ull;
                 }
     MESSAGE("overworld5 hash " << h);
-    CHECK(h == 7109397372215393852ull);
+    CHECK(h == 804509575149335546ull);
 }

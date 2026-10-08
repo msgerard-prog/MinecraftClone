@@ -12,6 +12,9 @@ ItemId repairMaterial(ItemId item) {
     const std::string_view id = d.id;
     auto find = [](const char* n) { return *itemRegistry().find(n); };
     if (id == "minecraft:shield") return find("oak_planks");
+    if (id == "minecraft:elytra") return find("phantom_membrane"); // (M26.4a)
+    if (id == "minecraft:wolf_armor") return find("armadillo_scute");
+    if (id == "minecraft:turtle_helmet") return find("turtle_scute");
     if (d.armorSlot) {
         if (id.find("leather") != std::string_view::npos) return find("leather");
         if (id.find("copper") != std::string_view::npos) return find("copper_ingot");

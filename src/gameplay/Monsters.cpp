@@ -1,6 +1,8 @@
 // Monsters 2 (M16.5; wiki: Skeleton, Creeper, Spider, Enderman). Part of Mobs.
 #include "gameplay/Mobs.h"
 
+#include "world/BlockUpdates.h"
+
 #include "world/Potions.h"
 
 #include "gameplay/FluidContact.h"
@@ -79,6 +81,7 @@ bool holdable(BlockId b) {
 bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     switch (m.type) {
     case MobType::Spider: // neutral in light 12+ unless provoked (wiki: Spider)
+    case MobType::CaveSpider:
         return m.angry || lightAt(ctx.world, m.pos, ctx.skyDarken) < 12;
     case MobType::Enderman: return m.angry; // only when stared at or hit
     case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
@@ -309,7 +312,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
-    case MobType::Spider: {
+    case MobType::Spider:
+    case MobType::CaveSpider: {
         // Leaps at its target from a few blocks away (wiki: Spider).
         if (chase && m.onGround && playerDist2 > 2.0 * 2.0 && playerDist2 < 6.0 * 6.0 && ctx.rng.nextInt(10) == 0) {
             glm::dvec3 d = playerPos - m.pos;
@@ -389,6 +393,41 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
                 ctx.world.updateBlock(q, m.carried);
                 if (ctx.edits) ctx.edits->push_back(q);
                 m.carried = 0;
+            }
+        }
+        break;
+    }
+    case MobType::Silverfish: {
+        // Hurt, it calls out the silverfish hiding in infested blocks within 10 blocks
+        // (5 up and down): those blocks break and their silverfish join in (wiki).
+        if (m.hurtTime == 9) {
+            const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+            int woken = 0;
+            for (int dy = -5; dy <= 5 && woken < 20; ++dy)
+                for (int dz = -10; dz <= 10 && woken < 20; ++dz)
+                    for (int dx = -10; dx <= 10 && woken < 20; ++dx) {
+                        const BlockPos q{bx + dx, by + dy, bz + dz};
+                        if (!BlockUpdates::isInfested(blockRegistry().blockOf(ctx.world.getBlock(q)))) continue;
+                        ctx.world.updateBlock(q, 0); // (BlockUpdates lets the silverfish out)
+                        if (ctx.edits) ctx.edits->push_back(q);
+                        ++woken;
+                    }
+        }
+        // Idle, it now and then slips into a stone block beside it (wiki: Silverfish ›
+        // Behavior): the block becomes infested and the silverfish is gone into it.
+        if (!chase && m.hurtTime == 0 && ctx.rng.nextInt(200) == 0) {
+            static constexpr int kDir[6][3] = {{0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}};
+            const int* d = kDir[ctx.rng.nextInt(6)];
+            const BlockPos q{int(std::floor(m.pos.x)) + d[0], int(std::floor(m.pos.y)) + d[1], int(std::floor(m.pos.z)) + d[2]};
+            const BlockStateId s = ctx.world.getBlock(q);
+            if (const BlockId inf = BlockUpdates::infestedOf(blockRegistry().blockOf(s))) {
+                BlockStateId into = blockRegistry().defaultState(inf);
+                if (inf == blocks::InfestedDeepslate) into = blockRegistry().set(into, properties::axis, blockRegistry().get(s, properties::axis));
+                ctx.world.updateBlock(q, into);
+                if (ctx.edits) ctx.edits->push_back(q);
+                m.vanish = true;
+                m.health = 0.0f;
+                m.deathTime = 19;
             }
         }
         break;

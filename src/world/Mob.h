@@ -79,6 +79,10 @@ enum class MobType : uint8_t {
     Frog,        // (M26.3c) variant in woolColour (0 temperate, 1 warm, 2 cold); carrying spawn: `hasEgg`
     Tadpole,     // (M26.3c) grows into a frog (age counts up from -24000)
     Axolotl,     // (M26.3c) colour in woolColour (kAxolotlColours); plays dead (`spellTicks`)
+    CaveSpider,     // (M26.4a) a small spider that poisons; from mineshaft spawners
+    Silverfish,     // (M26.4a) hides in infested stone, calls the others out when hurt
+    WitherSkeleton, // (M26.4a) Nether fortresses: its hits wither
+    Phantom,        // (M26.4a) swoops on players who haven't slept for 3 days
     Count
 };
 
@@ -186,6 +190,8 @@ const MobInfo& mobInfo(MobType t);
 struct MobData;
 // A mob's top health: its own (mounts), a tamed wolf's 40, else its type's.
 float maxHealthOf(const MobData& m);
+// Spiders and cave spiders share their behaviour (climbing, neutral in the light, leaps).
+inline bool isSpider(MobType t) { return t == MobType::Spider || t == MobType::CaveSpider; }
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.

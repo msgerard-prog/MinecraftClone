@@ -869,7 +869,22 @@ void BlockUpdates::record(const BlockPos& p, BlockStateId old, BlockStateId now)
     if (list.empty() || !(list.back() == p)) list.push_back(p); // a block changing again: once
 }
 
+BlockId BlockUpdates::infestedOf(BlockId b) {
+    switch (b) {
+    case B::Stone: return B::InfestedStone;
+    case B::Cobblestone: return B::InfestedCobblestone;
+    case B::StoneBricks: return B::InfestedStoneBricks;
+    case B::MossyStoneBricks: return B::InfestedMossyStoneBricks;
+    case B::CrackedStoneBricks: return B::InfestedCrackedStoneBricks;
+    case B::ChiseledStoneBricks: return B::InfestedChiseledStoneBricks;
+    case B::Deepslate: return B::InfestedDeepslate;
+    default: return 0;
+    }
+}
+
 void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
+    // An infested block that broke lets its silverfish out (M26.4a; wiki: Infested Block).
+    if (isInfested(blockOf(old)) && !isInfested(blockOf(now)) && m_silverfish.size() < 256) m_silverfish.push_back(p);
     // A bed's foot placed by a player brings its head (one block toward its facing).
     if (blockOf(now) == B::RedBed && R().get(now, bedPart) == 1) {
         const BlockPos head = rel(p, hFacing(now));

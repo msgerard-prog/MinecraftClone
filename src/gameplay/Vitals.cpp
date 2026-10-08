@@ -65,6 +65,9 @@ void Vitals::tickEffects() {
             } else if (e.type == Effect::Poison) {
                 const int every = std::max(1, 25 >> e.amplifier);
                 if (e.duration % every == 0 && m_health > 1.0f) m_health -= 1.0f; // (never kills)
+            } else if (e.type == Effect::Wither) { // (M26.4a; wiki: Wither - 1 every 40 ticks at I, may kill)
+                const int every = std::max(1, 40 >> e.amplifier);
+                if (e.duration % every == 0) m_health = std::max(0.0f, m_health - 1.0f); // (no hurt cooldown, as Poison)
             } else if (e.type == Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
                 exhaust(0.005f * float(e.amplifier + 1));
             }
@@ -89,6 +92,7 @@ float Vitals::tickFire(bool inWater) {
 
 void Vitals::reset() {
     m_effects = {}; // (death clears effects)
+    m_timeSinceRest = 0; // (and the time awake: phantoms - M26.4a)
     m_health = kMaxHealth;
     m_food = kMaxFood;
     m_saturation = 5.0f;

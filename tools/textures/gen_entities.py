@@ -214,12 +214,12 @@ def chicken():
     return img
 
 
-def skeleton():
+def skeleton(name="skeleton", colour="#C8C8C0"):
     # Bone white, dark eye sockets. Head 8x8x8 @ (0,0), body 8x12x4 @ (16,16), arm
-    # 2x12x2 @ (40,16), leg 2x12x2 @ (0,16).
-    rng = random.Random("skeleton")
+    # 2x12x2 @ (40,16), leg 2x12x2 @ (0,16). (M26.4a: wither skeletons are charcoal.)
+    rng = random.Random(name)
     img = Img(64, 64, CLEAR)
-    bone = ramp(hexc("#C8C8C0"), 5, spread=0.2)
+    bone = ramp(hexc(colour), 5, spread=0.2)
     for f in box_faces(0, 0, 8, 8, 8).values():
         paint(img, f, bone, rng)
     face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 3), (2, 3), (5, 3), (6, 3), (1, 4), (2, 4), (5, 4), (6, 4)),
@@ -255,12 +255,12 @@ def creeper():
     return img
 
 
-def spider():
+def spider(name="spider", colour="#3A3028"):
     # Dark brown-black hairy body, red eyes. Head 8x8x8 @ (0,0), thorax 6x6x6 @ (32,0),
-    # abdomen 10x8x12 @ (0,16), leg 16x2x2 @ (0,40).
-    rng = random.Random("spider")
+    # abdomen 10x8x12 @ (0,16), leg 16x2x2 @ (0,40). (M26.4a: cave spiders dark teal.)
+    rng = random.Random(name)
     img = Img(64, 64, CLEAR)
-    body = ramp(hexc("#3A3028"), 5, spread=0.35)
+    body = ramp(hexc(colour), 5, spread=0.35)
     for f in box_faces(0, 0, 8, 8, 8).values():
         paint(img, f, body, rng, noise=0.5)
     face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 3), (2, 3), (5, 3), (6, 3), (2, 2), (5, 2), (3, 4), (4, 4)),
@@ -1202,6 +1202,13 @@ def main():
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
               "mount_gear": mount_gear(),
               "bee": bee(),
+              # M26.4a monsters
+              "cave_spider": spider("cave_spider", "#1E3A44"),
+              "wither_skeleton": skeleton("wither_skeleton", "#3A3A3C"),
+              "silverfish": pet("silverfish", [(0, 0, 4, 3, 8), (24, 0, 3, 2, 2), (24, 4, 2, 2, 3)], (24, 0, 3, 2, 2), None,
+                                base="#9A9AA0", stripes=True),
+              "phantom": pet("phantom", [(0, 0, 5, 3, 9), (28, 0, 7, 3, 5), (0, 12, 10, 1, 9), (40, 12, 3, 2, 6)],
+                             (28, 0, 7, 3, 5), None, base="#3A4A78", extra=[((0, 12, 10, 1, 9), "#5A6A98")]),
               # M26.3c: frogs and axolotls light (tinted by kind / colour), tadpoles dark
               "frog": pet("frog", [(0, 0, 7, 3, 9), (32, 0, 7, 3, 6), (0, 12, 3, 2, 2), (10, 12, 3, 3, 4),
                                    (24, 12, 2, 3, 2)], (0, 12, 3, 2, 2), None, base="#E8E8E0",

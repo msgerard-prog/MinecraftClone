@@ -64,6 +64,7 @@ struct LevelData {
     float xpProgress = 0.0f;
     int xpTotal = 0;
     int32_t xpSeed = 0;    // XpSeed: the enchanting table's seed
+    int32_t timeSinceRest = 0; // (M26.4a) ticks awake (our tag TimeSinceRest; vanilla keeps it in stats/)
     // Status effects (M19.4): Player.active_effects [{id, amplifier, duration, ...}].
     struct SavedEffect {
         std::string id; // "minecraft:speed"

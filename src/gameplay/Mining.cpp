@@ -234,6 +234,10 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
             reg.blockOf(state) == blocks::Fern || reg.blockOf(state) == blocks::DeadBush)
             speed = std::max(speed, 1.5f);
     }
+    // Cobwebs: swords and shears cut them 15x faster (M26.4a; wiki: Cobweb).
+    if (!held.empty() && reg.blockOf(state) == blocks::Cobweb &&
+        (item.tool == ToolType::Sword || item.id == "minecraft:shears"))
+        speed = std::max(speed, 15.0f);
     if (haste > 0) speed *= 1.0f + 0.2f * float(haste);
     // Mining Fatigue (vanilla's table: I 0.3, II 0.09, III 0.0027, IV+ 0.00081).
     static constexpr float kFatigue[5] = {1.0f, 0.3f, 0.09f, 0.0027f, 0.00081f};
@@ -333,6 +337,15 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), uint8_t(ob == blocks::TallSeagrass ? 2 : 1)});
             return;
         }
+        // (M26.4a; wiki: Cobweb - itself with shears or Silk Touch, a string with a sword;
+        // Infested Block - nothing: the silverfish comes out instead)
+        if (ob == blocks::Cobweb) {
+            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+            else if (held.item != 0 && itemRegistry().item(held.item).tool == ToolType::Sword)
+                out.push_back({*itemRegistry().find("string"), 1});
+            return;
+        }
+        if (id.starts_with("minecraft:infested_")) return;
         if (enchantLevel(held, Enchantment::SilkTouch) > 0 &&
             (id.ends_with("_coral") || id.ends_with("_coral_fan") || id.ends_with("_coral_block") || ob == blocks::BlueIce ||
              ob == blocks::TurtleEgg)) {

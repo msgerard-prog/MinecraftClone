@@ -1065,6 +1065,15 @@ void OverworldGenerator::generate(Chunk& out) const {
         centreBiome == Biome::JaggedPeaks || centreBiome == Biome::FrozenPeaks ||
         centreBiome == Biome::Meadow || centreBiome == Biome::Grove || centreBiome == Biome::SnowySlopes)
         spread(B.emerald, 100, 3, [&] { return triangle(-16, 480); });
+    // (overworld5, M26.4a; wiki: Infested Block - veins in the mountains, 14 a chunk of up
+    // to 9 blocks, y -64..63; deepslate below 0)
+    if (m_version >= 5 &&
+        (centreBiome == Biome::WindsweptHills || centreBiome == Biome::StonyPeaks || centreBiome == Biome::JaggedPeaks ||
+         centreBiome == Biome::FrozenPeaks || centreBiome == Biome::Meadow || centreBiome == Biome::Grove ||
+         centreBiome == Biome::SnowySlopes)) {
+        const Blocks::Ore infested{reg.defaultState(blocks::InfestedStone), reg.defaultState(blocks::InfestedDeepslate)};
+        spread(infested, 14, 9, [&] { return uniform(-64, 63); });
+    }
 
     // 5b. Springs (vanilla's fluid springs step, after ores).
     if (m_version >= 2) placeSprings(blockArray.data(), out, cx, cz, maxTop);
@@ -2223,6 +2232,28 @@ void OverworldGenerator::placeMineshafts(BlockStateId* blocks, int32_t cx, int32
                         for (int32_t z = p.z0; z <= p.z1; ++z)
                             carve(x, p.y0 - 1, z, B.dirt);
                 if (p.kind != MinePiece::Corridor) continue;
+                // (overworld5, M26.4a) cobwebs here and there; 1 corridor in 23 holds a cave
+                // spider spawner wrapped in webs (wiki: Mineshaft).
+                if (m_version >= 5) {
+                    static const BlockStateId web = reg.defaultState(blocks::Cobweb);
+                    const bool spiders = positional(m_seed, p.x0, p.y0, p.z0, 23) < 1.0 / 23.0;
+                    const int32_t mx = (p.x0 + p.x1) / 2, mz = (p.z0 + p.z1) / 2;
+                    for (int32_t x = p.x0; x <= p.x1; ++x)
+                        for (int32_t z = p.z0; z <= p.z1; ++z)
+                            for (int32_t y = p.y0; y <= p.y0 + 2; ++y) {
+                                const bool nearSpawner = spiders && std::abs(x - mx) <= 2 && std::abs(z - mz) <= 2;
+                                if (positional(m_seed, x, y, z, 24) < (nearSpawner ? 0.35 : 0.04)) carve(x, y, z, web);
+                            }
+                    if (spiders) {
+                        const int lx = mx - baseX, lz = mz - baseZ;
+                        if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && kOverworldHeight.contains(p.y0) &&
+                            out.count < int(out.list.size())) {
+                            chunk.set(lx, p.y0, lz, B.spawner);
+                            out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                             static_cast<int16_t>(p.y0), false, MobType::CaveSpider};
+                        }
+                    }
+                }
                 // Supports every 5 blocks: two posts and a beam (vanilla: fences under
                 // planks; ours: planks), and the chest on one side.
                 const bool alongX = p.dir == 1 || p.dir == 3;
@@ -2518,6 +2549,17 @@ void OverworldGenerator::placeStrongholds(BlockStateId* blocks, int32_t cx, int3
                 for (int v = 8; v <= 10; ++v) { // the -u column faces +u (dir + 1), and back
                     frame(-2, v, left);
                     frame(2, v, right);
+                }
+                // (overworld5, M26.4a) the silverfish spawner on the stairs (wiki: Stronghold)
+                if (m_version >= 5) {
+                    int32_t wx, wz;
+                    holdWorld(p, 0, 5, wx, wz);
+                    const int lx = wx - baseX, lz = wz - baseZ;
+                    if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && out.count < int(out.list.size())) {
+                        put(0, 3, 5, B.spawner);
+                        out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                         static_cast<int16_t>(p.y + 3), false, MobType::Silverfish};
+                    }
                 }
                 break;
             }

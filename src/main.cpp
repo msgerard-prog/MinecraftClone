@@ -520,6 +520,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         vitals.setFireTicks(level->fire);
         vitals.setExperience(level->xpLevel, level->xpProgress, level->xpTotal);
         vitals.setEnchantSeed(uint32_t(level->xpSeed));
+        vitals.setTimeSinceRest(level->timeSinceRest);
         for (const auto& e : level->effects) // (kinds we don't have are dropped)
             if (const auto kind = mc::world::findEffect(e.id))
                 vitals.addEffect(*kind, e.amplifier, e.duration);
@@ -784,6 +785,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.xpProgress = vitals.xpProgress();
         l.xpTotal = vitals.xpTotal();
         l.xpSeed = int32_t(uint32_t(vitals.enchantSeed()));
+        l.timeSinceRest = vitals.timeSinceRest();
         for (const auto& e : vitals.effects())
             if (e.duration > 0)
                 l.effects.push_back(
@@ -1685,6 +1687,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (const auto spot = mc::bedStandSpot(world, sleepBed))
                             player.setPosition(*spot);
                     sleepTicks = 0;
+                    vitals.setTimeSinceRest(0); // (M26.4a: rested - no phantoms)
                 }
             }
             input.canSprint = !survival || vitals.canSprint(); // hunger ends a sprint too
@@ -1725,6 +1728,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 for (int dy = 0; dy <= 1; ++dy) {
                     const mc::world::BlockStateId bs =
                         world.getBlock({int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
+                    if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::Cobweb) {
+                        // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall
+                        const glm::dvec3 v = player.velocity();
+                        player.setVelocity({v.x * 0.25, v.y * 0.05, v.z * 0.25});
+                        vitals.resetFall();
+                        break;
+                    }
                     if (mc::world::blockRegistry().blockOf(bs) != mc::world::blocks::SweetBerryBush) continue;
                     const glm::dvec3 v = player.velocity();
                     player.setVelocity({v.x * 0.8, v.y * 0.75, v.z * 0.8});
@@ -2622,7 +2632,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
                     mhit.undead = mc::world::isZombie(m.type) ||
                                   m.type == mc::world::MobType::Skeleton;
-                    mhit.arthropod = m.type == mc::world::MobType::Spider;
+                    mhit.arthropod = m.type == mc::world::MobType::Spider || m.type == mc::world::MobType::CaveSpider ||
+                                     m.type == mc::world::MobType::Silverfish || m.type == mc::world::MobType::Bee;
                     mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
                     mhit.aquatic = mc::world::mobInfo(m.type).swims || m.type == mc::world::MobType::Turtle;
                     float dmg = mc::meleeDamage(mhit);
@@ -2737,6 +2748,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.raidCentre = overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
             mobCtx.raidId = raid.id();
             mobCtx.playerTargetUuid = playerTargetUuid;
+            mobCtx.timeSinceRest = vitals.timeSinceRest(); // (M26.4a: phantoms)
             mobCtx.playerAttackerUuid = mobs.playerAttacker();
             for (int piece = 0; piece < 4;
                  ++piece) // piglins: any golden armor piece (wiki: Piglin)
@@ -2892,6 +2904,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::Mobs::add(world, baby);
                 }
             blockUpdates.hatched().clear();
+            for (const auto& sp : blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)
+                mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Silverfish, {sp.x + 0.5, double(sp.y), sp.z + 0.5}, gameRng));
+            blockUpdates.silverfishOut().clear();
             // Sand/gravel that lost its support falls as an entity (M16).
             for (const auto& f : blockUpdates.fallingStarts())
                 fallingBlocks.spawn(f.pos, f.state);
@@ -3365,6 +3380,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             ++gameTime;
             if (pearlCooldown > 0) --pearlCooldown;
             if (hornCooldown > 0) --hornCooldown;
+            if (!dead && survival) vitals.addRestTime(); // (M26.4a: insomnia - phantoms)
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) {
                 blockUpdates.landAll(); // (blocks in flight land before saving)

@@ -249,7 +249,7 @@ def mob_sounds(name, rng):
             return out
         say = [cluck() for _ in range(3)]
         return say, [voice(rng, 0.2, 900, 700, wave="square", formant=(700, 3500))], None
-    if name == "skeleton":
+    if name in ("skeleton", "wither_skeleton"):
         def rattle(n, total):
             out = silence(total)
             for _ in range(n):
@@ -260,7 +260,7 @@ def mob_sounds(name, rng):
     if name == "creeper":  # no ambient sound; hurt and death are breathy rasps
         rasp = lambda d: mul(bandpass(noise(int(d * RATE), rng), 300, 1800), env(int(d * RATE), 0.02, d / 3))
         return None, [rasp(0.3) for _ in range(2)], rasp(0.6)
-    if name == "spider":
+    if name in ("spider", "cave_spider"):
         def hiss():
             x = bandpass(noise(int(0.5 * RATE), rng), 2000, 7000)
             x = mul(x, [0.5 + 0.5 * math.sin(2 * math.pi * 30 * i / RATE) for i in range(len(x))])
@@ -467,6 +467,15 @@ def mob_sounds(name, rng):
         chirp = lambda f: mul(tone(0.12, f, f * 1.2, "sine"), env(int(0.12 * RATE), 0.005, 0.04))
         return ([add(chirp(r(900, 1100)), at(chirp(r(1000, 1200)), 0.15, 0.3)) for _ in range(3)],
                 [chirp(1400) for _ in range(2)], chirp(700))
+    if name == "silverfish":  # skitter and squeak (ours)
+        squeak = lambda f: mul(tone(0.06, f, f * 1.2, "square"), env(int(0.06 * RATE), 0.002, 0.02))
+        skitter = lambda: add(*[at(squeak(r(2500, 3200)), k * 0.07, 0.4) for k in range(4)])
+        return [skitter() for _ in range(3)], [squeak(2200) for _ in range(2)], squeak(1600)
+    if name == "phantom":  # a thin screech (ours)
+        screech = lambda d, f0, f1: mul(voice(rng, d, f0, f1, wave="saw", formant=(1200, 4000), vibrato=0.1, vib_rate=11),
+                                        env(int(d * RATE), 0.05, d / 2))
+        return ([screech(r(0.8, 1.1), r(700, 900), r(500, 600)) for _ in range(3)],
+                [screech(0.3, 1100, 900) for _ in range(2)], screech(1.0, 900, 300))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -482,7 +491,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
-        "frog", "tadpole", "axolotl"]
+        "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom"]
 
 
 # --- Everything else ----------------------------------------------------------------

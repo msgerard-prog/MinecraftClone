@@ -46,6 +46,7 @@ public:
         uint64_t playerTargetUuid = 0;   // (M26.1) the mob the player hit last: tamed wolves join in
         uint64_t playerAttackerUuid = 0; // (M26.1) the mob that last hurt the player
         int32_t raidId = 0;                     // (its id: raiders of older raids stay out of it)
+        int timeSinceRest = 0;                  // (M26.4a) the player's: phantoms after 3 days awake
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
@@ -158,6 +159,10 @@ private:
     void spawnWildlife(Context& ctx, world::Biome biome, world::BlockId ground, int x, int y, int z);
     // Bees (Bees.cpp, M26.3b): flying, pollen, crops, going home; hives letting them out.
     bool beeAi(Context& ctx, world::MobData& m);
+    // Phantoms (Phantoms.cpp, M26.4a).
+    bool phantomAi(Context& ctx, world::MobData& m);
+    void spawnPhantoms(Context& ctx);
+    int m_phantomTicks = 0;
     void tickHives(Context& ctx, world::Chunk& chunk);
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp

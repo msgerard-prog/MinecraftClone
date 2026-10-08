@@ -111,6 +111,12 @@ public:
         return level < 16 ? 2 * level + 7 : level < 31 ? 5 * level - 38 : 9 * level - 158;
     }
     void addExperience(int points);
+    // Ticks since the player last slept (M26.4a; vanilla's time_since_rest statistic):
+    // phantoms come for players awake 3 days or more. Counted by main while alive; sleeping
+    // and dying reset it.
+    int timeSinceRest() const { return m_timeSinceRest; }
+    void setTimeSinceRest(int t) { m_timeSinceRest = std::max(0, t); }
+    void addRestTime() { if (m_timeSinceRest < 0x7fffffff) ++m_timeSinceRest; }
     // Spends whole levels (enchanting, anvils); false if there aren't enough.
     bool spendLevels(int levels);
     int xpLevel() const { return m_xpLevel; }
@@ -170,6 +176,7 @@ private:
     int m_air = kMaxAir;
     int m_fire = 0;          // burning ticks left
     int m_fireContact = 0;   // ticks spent in fire blocks (catches fire at 20)
+    int m_timeSinceRest = 0;
     int m_xpLevel = 0;
     float m_xpProgress = 0.0f;
     int m_xpTotal = 0;

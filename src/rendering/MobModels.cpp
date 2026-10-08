@@ -641,6 +641,23 @@ constexpr std::array<MobPart, 8> kAxolotl = {{
     {{-0.5f, 1, -17}, {0.5f, 6, -5}, {0, 3, -5}, 0, 20, A::Tail, 8},
 }};
 
+// Silverfish (M26.4a): a striped body that wriggles, a small head, a tail. Body 4x3x8 @
+// (0,0), head 3x2x2 @ (24,0), tail 2x2x3 @ (24,4).
+constexpr std::array<MobPart, 3> kSilverfish = {{
+    {{-2, 0, -4}, {2, 3, 4}, {0, 1.5f, 0}, 0, 0, A::None},
+    {{-1.5f, 0, 4}, {1.5f, 2, 6}, {0, 1, 4}, 24, 0, A::Head},
+    {{-1, 0, -7}, {1, 2, -4}, {0, 1, -4}, 24, 4, A::Tail},
+}};
+// Phantom (M26.4a): a flat body, a broad head, long wings that beat, a tail. Body 5x3x9 @
+// (0,0), head 7x3x5 @ (28,0), wing 10x1x9 @ (0,12), tail 3x2x6 @ (40,12).
+constexpr std::array<MobPart, 5> kPhantom = {{
+    {{-2.5f, 1, -4.5f}, {2.5f, 4, 4.5f}, {0, 2, 0}, 0, 0, A::None},
+    {{-3.5f, 1, 4.5f}, {3.5f, 4, 9.5f}, {0, 2, 4.5f}, 28, 0, A::Head},
+    {{-12.5f, 3, -4}, {-2.5f, 4, 5}, {-2.5f, 3.5f, 0}, 0, 12, A::WingL},
+    {{2.5f, 3, -4}, {12.5f, 4, 5}, {2.5f, 3.5f, 0}, 0, 12, A::WingR},
+    {{-1.5f, 1.5f, -10.5f}, {1.5f, 3.5f, -4.5f}, {0, 2.5f, -4.5f}, 40, 12, A::Tail},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -709,6 +726,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Frog: return kFrog;
     case world::MobType::Tadpole: return kTadpole;
     case world::MobType::Axolotl: return kAxolotl;
+    case world::MobType::CaveSpider: return kSpider; // (drawn 0.7x, its own skin)
+    case world::MobType::Silverfish: return kSilverfish;
+    case world::MobType::WitherSkeleton: return kSkeleton; // (drawn 1.2x, its own skin)
+    case world::MobType::Phantom: return kPhantom;
     default: return kCow;
     }
 }

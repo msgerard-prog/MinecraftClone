@@ -212,6 +212,8 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M26.4a; wiki: Phantom Membrane - repairs elytra, brews Slow Falling)
+    r.add({.id = "minecraft:phantom_membrane", .texture = "item/phantom_membrane"});
     // (M26.3c; wiki: Bucket of Axolotl, Bucket of Tadpole - unstackable)
     r.add({.id = "minecraft:axolotl_bucket", .maxStack = 1, .texture = "item/axolotl_bucket"});
     r.add({.id = "minecraft:tadpole_bucket", .maxStack = 1, .texture = "item/tadpole_bucket"});

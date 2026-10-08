@@ -284,15 +284,15 @@ void Mobs::spawnNether(Context& ctx) {
     std::array<Entry, 5> table{};
     int n = 0;
     // Fortresses spawn their own list on their nether bricks (wiki: Nether Fortress -
-    // blaze 10, wither skeleton 8 (ours: skeleton), zombified piglin 5, magma cube 3,
-    // skeleton 2).
+    // blaze 10, wither skeleton 8, zombified piglin 5, magma cube 3, skeleton 2 - M26.4a).
     const bool fortress = blockRegistry().blockOf(ctx.world.getBlock({x, y - 1, z})) == blocks::NetherBricks;
     if (fortress) {
         table = {{{MobType::Blaze, 10, 2, 3},
-                  {MobType::Skeleton, 10, 5, 5},
+                  {MobType::WitherSkeleton, 8, 5, 5},
                   {MobType::ZombifiedPiglin, 5, 4, 4},
-                  {MobType::MagmaCube, 3, 4, 4}}};
-        n = 4;
+                  {MobType::MagmaCube, 3, 4, 4},
+                  {MobType::Skeleton, 2, 5, 5}}};
+        n = 5;
     } else
         switch (biome) {
     case Biome::SoulSandValley:

@@ -211,7 +211,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
         m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
     }
-    if (m.type == MobType::Spider && m.climbing) {
+    if (isSpider(m.type) && m.climbing) {
         m.vel.y = 0.2; // spiders climb walls (wiki: Spider)
         m.fallDistance = 0.0f;
     }
@@ -362,6 +362,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     if (waterAi(ctx, m)) return;  // fish and squid (WaterMobs.cpp)
     if (beeAi(ctx, m)) return;    // (M26.3b, Bees.cpp)
+    if (phantomAi(ctx, m)) return; // (M26.4a, Phantoms.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -573,6 +574,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
                 m_playerAttacker = m.uuidHi; // (tamed wolves go for it - M26.1)
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
                 if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
+                // (M26.4a; wiki, Normal) a cave spider's bite poisons for 7 s, a wither
+                // skeleton's hit withers for 10 s.
+                if (m.type == MobType::CaveSpider) ctx.vitals.addEffect(Effect::Poison, 0, 140);
+                if (m.type == MobType::WitherSkeleton) ctx.vitals.addEffect(Effect::Wither, 0, 200);
             }
             m.attackCooldown = 20;
         }
@@ -665,7 +670,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.panicTicks = 100; // passive mobs flee (wiki: Cow)
     }
     if (m.type == MobType::Piglin) m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)
-    if (m.type == MobType::Spider || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
+    if (isSpider(m.type) || m.type == MobType::Enderman || m.type == MobType::Piglin) { // provoked (wiki)
         m.angry = true;
         m.targeting = true;
         m.angerTicks = 600;
@@ -870,6 +875,15 @@ void Mobs::die(Context& ctx, MobData& m) {
         else drop(burning ? "cooked_salmon" : "salmon", 0, 2);
         break;
     case MobType::Panda: drop("bamboo", 0, 2); break;
+    // (M26.4a; wiki) wither skeleton: coal 0-1 (1 in 3), bones 0-2; phantom: a membrane
+    // 0-1 for player kills.
+    case MobType::WitherSkeleton:
+        if (ctx.rng.nextInt(3) == 0) drop("coal", 1, 1);
+        drop("bone", 0, 2);
+        break;
+    case MobType::Phantom:
+        if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
+        break;
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
@@ -897,6 +911,7 @@ void Mobs::die(Context& ctx, MobData& m) {
         }
         break;
     case MobType::Spider: // wiki: Spider - string 0-2, spider eye 1 in 3
+    case MobType::CaveSpider:
         drop("string", 0, 2);
         if (m.lastHurtByPlayer && ctx.rng.nextInt(3) == 0) drop("spider_eye", 1, 1); // player kills only
         break;
@@ -1149,6 +1164,7 @@ void Mobs::tick(Context& ctx) {
         else spawnHostiles(ctx);
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
+        if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnPhantoms(ctx);  // (M26.4a)
     }
 }
 

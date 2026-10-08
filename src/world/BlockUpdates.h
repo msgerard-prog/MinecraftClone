@@ -251,6 +251,12 @@ public:
         MobType type = MobType::Turtle; // (M26.3c: frogspawn hatches tadpoles)
     };
     std::vector<Hatch>& hatched() { return m_hatched; }
+    // Infested blocks broken this tick (M26.4a): main lets a silverfish out at each.
+    std::vector<BlockPos>& silverfishOut() { return m_silverfish; }
+    static bool isInfested(BlockId b) { return b >= blocks::InfestedStone && b <= blocks::InfestedDeepslate; }
+    // The infested block hiding in `b` (stone, cobblestone, the stone bricks, deepslate),
+    // or 0 if a silverfish can't burrow into it.
+    static BlockId infestedOf(BlockId b);
 
 private:
     void runRandomTicks();
@@ -395,6 +401,7 @@ private:
     std::vector<BlockPos> m_remesh;
     std::vector<BlockPos> m_settling;
     std::vector<Hatch> m_hatched; // (M25.3b)
+    std::vector<BlockPos> m_silverfish; // (M26.4a)
     std::vector<Drop> m_drops;
     std::vector<FallStart> m_falling;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)

@@ -474,6 +474,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   6000 ticks on land, breed with a tropical fish bucket). Frogspawn
   (`BlockUpdates::tickFrogspawn`) adds `Hatch{type = Tadpole}` for main. Axolotl and
   tadpole buckets are fish buckets (`gameplay/Buckets`).
+- Monsters 3 (M26.4a): cave spiders share spider code (`isSpider`) and poison; wither
+  skeletons (fortress table in `spawnNether`) wither (`Effect::Wither`, can kill);
+  silverfish in `monsterTick` (a hit breaks infested blocks within 10x5x10, idle ones
+  burrow); `BlockUpdates::onBlockChanged` lists broken infested blocks (`silverfishOut`)
+  for main to release; phantoms (`gameplay/Phantoms.cpp`: circle/swoop/climb on `phase`,
+  `spawnPhantoms` from `Context::timeSinceRest` = `Vitals::timeSinceRest`, saved in
+  level.dat). Cobwebs slow the player (main). overworld5: mountain infested veins,
+  mineshaft cobwebs and cave spider spawners, the stronghold's silverfish spawner.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

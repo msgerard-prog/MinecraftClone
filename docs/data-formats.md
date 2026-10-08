@@ -284,7 +284,11 @@ worlds): bee nests, sweet berry patches.
 M26.3c: entities `minecraft:frog` (`variant` minecraft:temperate|warm|cold), `tadpole`
 (`Age`, `FromBucket`), `axolotl` (`Variant` 0-4, `FromBucket`); blocks `ochre_froglight`,
 `verdant_froglight`, `pearlescent_froglight` [axis], `frogspawn`; items `axolotl_bucket`,
-`tadpole_bucket`. Items `saddle`,
+`tadpole_bucket`.
+M26.4a: entities `minecraft:cave_spider`, `silverfish`, `wither_skeleton`, `phantom`;
+blocks `cobweb`, `infested_stone|cobblestone|stone_bricks|mossy_stone_bricks|
+cracked_stone_bricks|chiseled_stone_bricks`, `infested_deepslate[axis]`; item
+`phantom_membrane`; effect `minecraft:wither`; level.dat Player `TimeSinceRest` (our tag). Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 
