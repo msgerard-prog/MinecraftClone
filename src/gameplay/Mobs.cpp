@@ -397,6 +397,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
                 m.type == MobType::Ravager) &&
                villageHunt(ctx, m)) {
         chase = true; // (after a villager: Villagers.cpp)
+    } else if (m.raider && ctx.raidCentre &&
+               glm::length(glm::dvec2(ctx.raidCentre->x + 0.5 - m.pos.x, ctx.raidCentre->z + 0.5 - m.pos.z)) > 6.0) {
+        // Raiders with nobody to fight march on the village bell (wiki: Raid).
+        m.goal = glm::dvec3(*ctx.raidCentre) + glm::dvec3(0.5, 0.0, 0.5);
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
         // (home, work, the bell, sleep: Villagers.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {

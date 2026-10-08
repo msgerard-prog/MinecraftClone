@@ -168,3 +168,19 @@ TEST_CASE("/xp adds points or whole levels") {
     CHECK(v.xpProgress() > 0.0f);
     CHECK_FALSE(runCommand("/xp add @s -1", c.ctx).ok);
 }
+
+TEST_CASE("/effect gives and clears status effects (M24.5: Bad Omen for raids)") {
+    Ctx c;
+    Vitals v;
+    c.ctx.vitals = &v;
+    CHECK(runCommand("/effect give @s bad_omen 100 1", c.ctx).ok);
+    CHECK(v.effectLevel(mc::world::Effect::BadOmen) == 2);
+    CHECK(runCommand("/effect give @s minecraft:speed", c.ctx).ok);
+    CHECK(v.effectLevel(mc::world::Effect::Speed) == 1);
+    CHECK(runCommand("/effect clear @s speed", c.ctx).ok);
+    CHECK(v.effectLevel(mc::world::Effect::Speed) == 0);
+    CHECK(v.effectLevel(mc::world::Effect::BadOmen) == 2);
+    CHECK_FALSE(runCommand("/effect give @s flying", c.ctx).ok);
+    CHECK(runCommand("/effect clear @s", c.ctx).ok);
+    CHECK(v.effectLevel(mc::world::Effect::BadOmen) == 0);
+}

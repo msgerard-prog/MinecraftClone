@@ -373,6 +373,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `gameplay/Patrols` (`PatrolSpawner`, captains); overworld3 adds swamp-hut witches
   (`GeneratedEntity::spawnMob`) and pillager outposts (`placeOutposts`, grid
   `kOutposts`, never within 10 chunks of a village).
+  M24.5: vindicators, evokers (fangs, vexes), vexes, ravagers (`villageHunt` for all
+  raiders); `gameplay/Raids` (`Raid`, owned by main, saved in level.dat `Raid`): Bad
+  Omen (ominous bottle, `/effect`) near a bell (`findBell`) becomes Raid Omen, then the
+  waves spawn ~32 blocks out (`MobData::raider`, saved as `Wave`); `Context::raidCentre`
+  sends idle raiders to the bell and villagers home; the red bar is the living raiders'
+  health; victory gives Hero of the Village (`offerPrice(o, heroLevel)` discount).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

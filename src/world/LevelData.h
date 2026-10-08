@@ -75,6 +75,13 @@ struct LevelData {
     // UUID (0: none spawned), the gateways spawned so far (M20.3, angles 0..19).
     bool dragonKilled = false, dragonPreviouslyKilled = false;
     int traderSpawnDelay = 24000, traderSpawnChance = 25; // (M24.4) WanderingTraderSpawnDelay/Chance
+    // The village raid in progress (M24.5; our tag "Raid" - vanilla keeps raids in
+    // data/raids.dat): bell position, waves spawned/total, omen level, ticks running,
+    // ticks to the next wave, the wave's starting health (the bar).
+    bool raidActive = false;
+    int32_t raidCentre[3] = {0, 0, 0};
+    int raidWave = 0, raidWaves = 0, raidLevel = 1, raidTicks = 0, raidCooldown = 0;
+    float raidWaveHealth = 0.0f;
     uint64_t dragonUuidHi = 0, dragonUuidLo = 0;
     std::vector<int32_t> gateways;
     bool hasGateways = false; // (the Gateways list exists: the fight has started)

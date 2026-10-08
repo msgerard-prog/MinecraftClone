@@ -17,9 +17,11 @@ int villagerLevelFor(int xp);
 void addLevelTrades(MobData& villager, Xoroshiro& rng);
 // The first stack's price now: its base count, raised by demand (base x multiplier x
 // demand) and lowered by special prices; at least 1, at most the stack size.
-int offerPrice(const TradeOffer& offer);
+// `heroLevel`: the buyer's Hero of the Village level (0: none) - vanilla takes
+// 30% + 6.25% per level above I of the base price off, at least 1 (wiki: Hero of the Village).
+int offerPrice(const TradeOffer& offer, int heroLevel = 0);
 // The ItemStacks a trade asks and gives (the sold one with its enchantment).
-ItemStack offerBuyA(const TradeOffer& offer);
+ItemStack offerBuyA(const TradeOffer& offer, int heroLevel = 0);
 ItemStack offerBuyB(const TradeOffer& offer);
 ItemStack offerSell(const TradeOffer& offer);
 // A trade was made: one use, the villager's experience (and a level-up's trades).

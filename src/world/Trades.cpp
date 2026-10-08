@@ -5,6 +5,7 @@
 #include "world/Enchantments.h"
 
 #include <algorithm>
+#include <cmath>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -307,14 +308,16 @@ void addLevelTrades(MobData& v, Xoroshiro& rng) {
     }
 }
 
-int offerPrice(const TradeOffer& o) {
+int offerPrice(const TradeOffer& o, int heroLevel) {
     const int base = o.buyACount;
     const int demandBonus = std::max(0, int(float(base) * o.priceMultiplier * float(o.demand)));
     const int maxStack = std::max<int>(1, itemRegistry().item(o.buyA).maxStack);
-    return std::clamp(base + demandBonus + o.specialPrice, 1, maxStack);
+    const int hero =
+        heroLevel > 0 ? std::max(1, int(std::floor(float(base) * (0.3f + 0.0625f * float(heroLevel - 1))))) : 0;
+    return std::clamp(base + demandBonus + o.specialPrice - hero, 1, maxStack);
 }
 
-ItemStack offerBuyA(const TradeOffer& o) { return {o.buyA, uint8_t(offerPrice(o))}; }
+ItemStack offerBuyA(const TradeOffer& o, int heroLevel) { return {o.buyA, uint8_t(offerPrice(o, heroLevel))}; }
 ItemStack offerBuyB(const TradeOffer& o) {
     return o.buyB ? ItemStack{o.buyB, o.buyBCount} : ItemStack{};
 }

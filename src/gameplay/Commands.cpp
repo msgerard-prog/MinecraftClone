@@ -410,6 +410,34 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         }
         return {true, format("Gave %d experience %s to Player", amount, levels ? "levels" : "points")};
     }
+    if (a[0] == "effect") {
+        // /effect give @s <effect> [seconds] [amplifier] | /effect clear @s [<effect>]
+        // (wiki: Commands/effect; 30 s by default).
+        if (!ctx.vitals || a.size() < 3 || !isSelf(a[2]) || (a[1] != "give" && a[1] != "clear"))
+            return fail("Usage: /effect give @s <effect> [seconds] [amplifier] | /effect clear @s [<effect>]");
+        std::optional<world::Effect> kind;
+        if (a.size() > 3) {
+            const std::string id = a[3].find(':') == std::string_view::npos ? "minecraft:" + std::string(a[3])
+                                                                               : std::string(a[3]);
+            kind = world::findEffect(id);
+            if (!kind) return fail(format("Unknown effect: %s", id.c_str()));
+        }
+        if (a[1] == "clear") {
+            if (kind) ctx.vitals->removeEffect(*kind);
+            else ctx.vitals->clearEffects();
+            return {true, "Removed effects from Player"};
+        }
+        if (!kind) return fail("Usage: /effect give @s <effect> [seconds] [amplifier]");
+        int seconds = 30, amplifier = 0;
+        if (a.size() > 4 && (std::from_chars(a[4].data(), a[4].data() + a[4].size(), seconds).ec != std::errc() ||
+                             seconds < 1 || seconds > 1000000))
+            return fail("Invalid duration");
+        if (a.size() > 5 && (std::from_chars(a[5].data(), a[5].data() + a[5].size(), amplifier).ec != std::errc() ||
+                             amplifier < 0 || amplifier > 255))
+            return fail("Invalid amplifier");
+        ctx.vitals->addEffect(*kind, amplifier, seconds * 20);
+        return {true, "Applied effect to Player"};
+    }
     if (a[0] == "kill") {
         // /kill [@s] (wiki: Commands/kill): works in creative too.
         if (!ctx.vitals || (a.size() > 1 && !isSelf(a[1]))) return fail("Usage: /kill [@s]");
@@ -417,7 +445,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /data /summon /teleport /time /tp /weather /xp"};
+    if (a[0] == "help") return {true, "/data /effect /fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

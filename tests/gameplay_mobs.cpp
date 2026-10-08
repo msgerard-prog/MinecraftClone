@@ -1953,3 +1953,94 @@ TEST_CASE("raid mobs: vindicators hunt villagers, evokers summon vexes that fade
     CHECK(mobInfo(MobType::Ravager).maxHealth == 100.0f);
     CHECK(isRaider(MobType::Vindicator));
 }
+
+#include "gameplay/Raids.h"
+#include "world/Trades.h"
+
+TEST_CASE("raids: Bad Omen near a bell becomes Raid Omen, then 5 waves; winning gives Hero of the Village (M24.5)") {
+    MobScene s;
+    s.world.setBlock({0, 64, 4}, blockRegistry().defaultState(blocks::Bell));
+    MobData v = Mobs::make(MobType::Villager, {2.5, 64.0, 2.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, v));
+    Raid raid;
+    s.vitals.addEffect(Effect::BadOmen, 0, 120000);
+    const glm::dvec3 at{0.5, 64.0, 0.5};
+    for (int t = 0; t < 40; ++t) raid.tick(s.world, s.vitals, at, s.rng);
+    CHECK(s.vitals.effectLevel(Effect::BadOmen) == 0);
+    CHECK(s.vitals.effectLevel(Effect::RaidOmen) == 1);
+    CHECK(raid.pending());
+    for (int t = 0; t < 600 && !raid.active(); ++t) raid.tick(s.world, s.vitals, at, s.rng);
+    REQUIRE(raid.active());
+    CHECK(raid.centre() == glm::ivec3{0, 64, 4});
+    CHECK(raid.waves() == 5);
+    int raiders = 0;
+    for (int wave = 1; wave <= 5; ++wave) {
+        for (int t = 0; t < 400 && raid.wave() < wave; ++t) raid.tick(s.world, s.vitals, at, s.rng);
+        REQUIRE(raid.wave() == wave);
+        int count = 0, captains = 0;
+        for (MobData* m : s.all())
+            if (m->raider && m->health > 0.0f) {
+                ++count;
+                captains += m->captain;
+                CHECK((isRaider(m->type) || m->type == MobType::Witch));
+                CHECK(glm::length(glm::dvec2(m->pos.x, m->pos.z) - glm::dvec2(0.5, 4.5)) > 15.0); // (outside the village)
+                m->health = 0.0f; // beaten
+            }
+        static constexpr int kSizes[5] = {4, 5, 5, 8, 10}; // (wiki: Normal, waves 1-5)
+        CHECK(count == kSizes[wave - 1]);
+        CHECK(captains == 1);
+        raiders += count;
+    }
+    for (int t = 0; t < 40 && raid.active(); ++t) raid.tick(s.world, s.vitals, at, s.rng);
+    CHECK_FALSE(raid.active());
+    CHECK(s.vitals.effectLevel(Effect::HeroOfTheVillage) == 1);
+    CHECK(raiders == 32);
+}
+
+TEST_CASE("raids are lost when no villager is left (M24.5)") {
+    MobScene s;
+    Raid raid;
+    raid.start({0, 64, 0}, 1);
+    for (int t = 0; t < 40; ++t) raid.tick(s.world, s.vitals, {0.5, 64.0, 0.5}, s.rng);
+    CHECK_FALSE(raid.active());
+    CHECK(s.vitals.effectLevel(Effect::HeroOfTheVillage) == 0);
+}
+
+TEST_CASE("during a raid raiders march on the bell and villagers run home (M24.5)") {
+    MobScene s;
+    s.dayTime = 6000; // (noon: villagers would be out)
+    s.world.setBlock({-6, 64, 0}, blockRegistry().set(blockRegistry().defaultState(blocks::RedBed), properties::bedPart, 0)); // (the head)
+    MobData v = Mobs::make(MobType::Villager, {6.5, 64.0, 0.5}, s.rng);
+    v.home = {-6, 64, 0};
+    REQUIRE(Mobs::add(s.world, v));
+    MobData p = Mobs::make(MobType::Witch, {20.5, 64.0, 20.5}, s.rng);
+    p.raider = true;
+    REQUIRE(Mobs::add(s.world, p));
+    s.player.setPosition({-30.5, 64.0, -30.5});
+    s.player.setCreative(true);
+    const glm::ivec3 centre{0, 64, 0};
+    for (int t = 0; t < 300; ++t) {
+        s.player.tick(s.world, {});
+        Mobs::Context ctx{s.world, s.player, s.vitals, false, false, s.dayTime, 0.0f, s.rng, s.items};
+        ctx.naturalSpawning = false;
+        ctx.raidCentre = &centre;
+        s.mobs.tick(ctx);
+    }
+    for (MobData* m : s.all()) {
+        if (m->type == MobType::Villager) CHECK(glm::length(glm::dvec2(m->pos.x + 5.5, m->pos.z - 0.5)) < 3.0);
+        if (m->type == MobType::Witch) CHECK(glm::length(glm::dvec2(m->pos.x - 0.5, m->pos.z - 0.5)) < 10.0);
+    }
+}
+
+TEST_CASE("Hero of the Village lowers trade prices by 30% + 6.25% a level, at least 1 (M24.5)") {
+    TradeOffer o;
+    o.buyA = *itemRegistry().find("emerald");
+    o.buyACount = 20;
+    o.sell = *itemRegistry().find("stone");
+    o.sellCount = 1;
+    CHECK(offerPrice(o) == 20);
+    CHECK(offerPrice(o, 1) == 14);
+    CHECK(offerPrice(o, 3) == 12); // 20 x 0.425 = 8.5 -> 8 off
+    o.buyACount = 1;
+    CHECK(offerPrice(o, 1) == 1);
+}

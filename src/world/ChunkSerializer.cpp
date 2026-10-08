@@ -994,6 +994,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("Patrolling", int8_t{0});
             e.put("CanJoinRaid", int8_t{1});
         }
+        if (m.raider) e.put("Wave", int32_t(1)); // (M24.5: in the raid; vanilla also keeps a RaidId)
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager ||
             m.type == MobType::WanderingTrader) { // wiki: Villager › Entity data (the trader: Offers)
             nbt::Compound data;
@@ -1136,6 +1137,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (m.type == MobType::WanderingTrader)
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
+        m.raider = isRaider(m.type) && e->integer("Wave").has_value();
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager || m.type == MobType::WanderingTrader) {
             if (const nbt::Compound* data = e->compound("VillagerData")) {
                 if (const std::string* vt = data->string("type"))

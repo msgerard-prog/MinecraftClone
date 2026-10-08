@@ -150,6 +150,10 @@ public:
     }
     const std::array<ActiveEffect, kMaxEffects>& effects() const { return m_effects; }
     void clearEffects() { m_effects = {}; } // death, milk
+    void removeEffect(world::Effect type) { // (Bad Omen turning into Raid Omen)
+        for (ActiveEffect& e : m_effects)
+            if (e.type == type) e = {};
+    }
     void tickEffects();
 
     // Saved state.

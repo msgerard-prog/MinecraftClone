@@ -114,6 +114,8 @@ public:
         m_tradeChoice = -1;
     }
     void setTrader(world::MobData* villager) { m_trader = villager; }
+    // Hero of the Village level of the player trading (M24.5: lower prices).
+    void setHeroLevel(int level) { m_heroLevel = level; }
     int takeTradeExperience() { return std::exchange(m_tradeXp, 0); }
     int tradeChoice() const { return m_tradeChoice; }
     // Hoppers (5 slots) and dispensers/droppers (3x3) (M21.3): their slots, owned by
@@ -171,6 +173,7 @@ private:
     world::BrewingData* m_brewing = nullptr;
     world::BeaconData* m_beacon = nullptr;
     world::MobData* m_trader = nullptr;
+    int m_heroLevel = 0;
     int m_tradeChoice = -1, m_tradeXp = 0;
     world::Xoroshiro m_tradeRng{0x7a4d'e5u}; // (trade rewards and new trades)
     uint8_t m_beaconPrimary = 0, m_beaconSecondary = 0; // (the choice before paying)

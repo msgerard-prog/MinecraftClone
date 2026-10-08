@@ -26,7 +26,7 @@ M24 - Villages 2 (wiki pages of each mob/mechanic):
    (Witches from lightning moved to M24.4 with witches.)
 4. ✅ M24.4 - Wandering traders, witches (swamp huts, potion throwing), pillagers and
    pillager outposts (crossbow shots).
-5. M24.5 - Raids: ominous bottles and Bad Omen, raid waves (pillagers, vindicators,
+5. ✅ M24.5 - Raids: ominous bottles and Bad Omen, raid waves (pillagers, vindicators,
    evokers and vexes, ravagers, witches), the raid bar, Hero of the Village.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

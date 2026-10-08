@@ -209,6 +209,21 @@ TEST_CASE("level.dat round-trips the world settings, time, spawn and player") {
     CHECK(back->selectedSlot == 4);
     CHECK(back->spawn[0] == -7);
     CHECK(back->spawn[2] == 12);
+    CHECK_FALSE(back->raidActive);
+    l.raidActive = true; // (M24.5: the raid in progress)
+    l.raidCentre[0] = 100, l.raidCentre[1] = 70, l.raidCentre[2] = -40;
+    l.raidWave = 3, l.raidWaves = 5, l.raidLevel = 2, l.raidTicks = 1234, l.raidCooldown = 140;
+    l.raidWaveHealth = 96.0f;
+    REQUIRE(l.save(dir.path));
+    const auto raid = LevelData::load(dir.path);
+    REQUIRE(raid.has_value());
+    CHECK(raid->raidActive);
+    CHECK(raid->raidCentre[2] == -40);
+    CHECK(raid->raidWave == 3);
+    CHECK(raid->raidLevel == 2);
+    CHECK(raid->raidTicks == 1234);
+    CHECK(raid->raidCooldown == 140);
+    CHECK(raid->raidWaveHealth == 96.0f);
     CHECK_FALSE(LevelData::load(dir.path / "nope").has_value());
 }
 

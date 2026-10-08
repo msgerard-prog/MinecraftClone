@@ -223,12 +223,16 @@ std::optional<glm::dvec3> chorusTeleport(const world::World& world, const glm::d
 bool BlockInteraction::tickDrinking(Inventory& inventory, Vitals& vitals, bool use, bool survival) {
     const auto& items = world::itemRegistry();
     static const world::ItemId potionItem = *items.find("potion"), milk = *items.find("milk_bucket"),
-                               bottle = *items.find("glass_bottle"), bucket = *items.find("bucket");
+                               bottle = *items.find("glass_bottle"), bucket = *items.find("bucket"),
+                               ominous = *items.find("ominous_bottle");
     const world::ItemStack heldStack = inventory.selectedStack();
-    if (!use || (heldStack.item != potionItem && heldStack.item != milk)) return false;
+    if (!use || (heldStack.item != potionItem && heldStack.item != milk && heldStack.item != ominous)) return false;
     if (++m_eatTicks >= kEatTicks) {
         m_eatTicks = 0;
-        if (heldStack.item == milk) {
+        if (heldStack.item == ominous) { // Bad Omen for 100 minutes (wiki: Ominous Bottle; ours: level I)
+            vitals.addEffect(world::Effect::BadOmen, 0, 120000);
+            if (survival) inventory.consumeSelected(1);
+        } else if (heldStack.item == milk) {
             vitals.clearEffects();
             if (survival) inventory.setSlot(inventory.selected(), {bucket, 1});
         } else {

@@ -285,7 +285,7 @@ void ContainerScreen::updateResult() {
         if (!m_trader) return;
         auto matches = [&](const world::TradeOffer& o) {
             if (o.uses >= o.maxUses) return false; // out of stock
-            const world::ItemStack a = world::offerBuyA(o), b = world::offerBuyB(o);
+            const world::ItemStack a = world::offerBuyA(o, m_heroLevel), b = world::offerBuyB(o);
             if (m_grid[0].item != a.item || m_grid[0].count < a.count) return false;
             return b.empty() || (m_grid[1].item == b.item && m_grid[1].count >= b.count);
         };
@@ -346,7 +346,7 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         for (int rounds = 0; rounds < 64 && !m_result.empty() && m_trader && m_tradeChoice >= 0;
              ++rounds) {
             const world::TradeOffer& o = m_trader->offers[size_t(m_tradeChoice)];
-            const world::ItemStack a = world::offerBuyA(o), b = world::offerBuyB(o);
+            const world::ItemStack a = world::offerBuyA(o, m_heroLevel), b = world::offerBuyB(o);
             world::ItemStack made = m_result;
             if (shift) {
                 Inventory probe = inventory;
@@ -525,7 +525,7 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                 inventory.setSlot(sl, t.count ? t : world::ItemStack{});
             }
         };
-        pull(m_grid[0], world::offerBuyA(o));
+        pull(m_grid[0], world::offerBuyA(o, m_heroLevel));
         pull(m_grid[1], world::offerBuyB(o));
         updateResult();
         return;
@@ -926,7 +926,7 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
                    i == m_tradeChoice ? gfx::rgba(150, 190, 150)
                    : hover            ? kLight
                                       : kSlotFill);
-            icons.draw(b, models, world::offerBuyA(o), rx + 1, ry, kIconGrassTint);
+            icons.draw(b, models, world::offerBuyA(o, m_heroLevel), rx + 1, ry, kIconGrassTint);
             icons.draw(b, models, world::offerBuyB(o), rx + 19, ry, kIconGrassTint);
             b.fill(rx + 38, ry + 7, 12, 3, kDark); // the arrow
             icons.draw(b, models, world::offerSell(o), rx + 56, ry, kIconGrassTint);

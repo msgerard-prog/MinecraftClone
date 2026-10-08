@@ -219,6 +219,17 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("Player", std::move(player));
     data.put("WanderingTraderSpawnDelay", int32_t{traderSpawnDelay});
     data.put("WanderingTraderSpawnChance", int32_t{traderSpawnChance});
+    if (raidActive) {
+        Compound raid;
+        raid.put("Center", std::vector<int32_t>{raidCentre[0], raidCentre[1], raidCentre[2]});
+        raid.put("Wave", int32_t{raidWave});
+        raid.put("NumGroups", int32_t{raidWaves});
+        raid.put("BadOmenLevel", int32_t{raidLevel});
+        raid.put("TicksActive", int32_t{raidTicks});
+        raid.put("PreRaidTicks", int32_t{raidCooldown});
+        raid.put("TotalHealth", raidWaveHealth);
+        data.put("Raid", std::move(raid));
+    }
     {
         Compound fight; // (vanilla's DragonFight tag)
         fight.put("DragonKilled", int8_t(dragonKilled ? 1 : 0));
@@ -355,6 +366,19 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                                          static_cast<int>(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 1 << 30))});
         l.traderSpawnDelay = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnDelay").value_or(24000), 1, 24000));
         l.traderSpawnChance = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnChance").value_or(25), 25, 75));
+        if (const Compound* raid = data->compound("Raid")) {
+            const Tag* centre = raid->find("Center");
+            if (const auto* c = centre ? centre->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3) {
+                l.raidActive = true;
+                for (int i = 0; i < 3; ++i) l.raidCentre[i] = (*c)[size_t(i)];
+            }
+            l.raidWave = int(std::clamp<int64_t>(raid->integer("Wave").value_or(0), 0, 7));
+            l.raidWaves = int(std::clamp<int64_t>(raid->integer("NumGroups").value_or(5), 1, 7));
+            l.raidLevel = int(std::clamp<int64_t>(raid->integer("BadOmenLevel").value_or(1), 1, 5));
+            l.raidTicks = int(std::clamp<int64_t>(raid->integer("TicksActive").value_or(0), 0, 48000));
+            l.raidCooldown = int(std::clamp<int64_t>(raid->integer("PreRaidTicks").value_or(300), 0, 300));
+            l.raidWaveHealth = std::max(0.0f, float(raid->real("TotalHealth").value_or(0.0)));
+        }
         if (const Compound* f = data->compound("DragonFight")) {
             l.dragonKilled = f->integer("DragonKilled").value_or(0) != 0;
             l.dragonPreviouslyKilled = f->integer("PreviouslyKilled").value_or(0) != 0;

@@ -28,6 +28,9 @@ enum class Effect : uint8_t {
     Haste,        // (M23.6: beacons) mining +20% per level
     Resistance,   // (M23.6: beacons) damage -20% per level
     ConduitPower, // (M23.6: conduits) breath and mining under water
+    BadOmen,          // (M24.5) from an ominous bottle: a raid when entering a village
+    RaidOmen,         // (M24.5) 30 s, then the raid starts
+    HeroOfTheVillage, // (M24.5) won a raid: villagers trade cheaper
     Count
 };
 struct EffectInfo {

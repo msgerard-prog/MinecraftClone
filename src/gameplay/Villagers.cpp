@@ -175,6 +175,15 @@ bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
         m.goal = m.pos;
         return true;
     }
+    // A raid on the village: everyone runs home and stays inside, awake, rather than
+    // panicking in the open (wiki: Raid ›
+    // villagers hide in their houses until it is over).
+    if (ctx.raidCentre && hasPoint(m.home) &&
+        glm::length(glm::dvec3(*ctx.raidCentre) - m.pos) < 96.0) {
+        m.goal = centre(m.home);
+        if (glm::length(glm::dvec2(m.goal.x - m.pos.x, m.goal.z - m.pos.z)) < 1.2) m.goal = m.pos;
+        return true;
+    }
     if (m.panicTicks > 0) return false; // (running from a zombie or a hit: the general panic)
     // Breeding (wiki: Villager › Breeding): two willing villagers meet; when a free bed is
     // there for the child, a baby is born after 3 s together. Both use 12 food points
