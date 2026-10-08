@@ -35,11 +35,15 @@ enum class Enchantment : uint8_t {
     Infinity,
     LuckOfTheSea, // (M25.2) fishing rods: more treasure
     Lure,         // (M25.2) fishing rods: bites 5 s sooner per level
+    Loyalty,      // (M25.3) tridents: a thrown one comes back
+    Riptide,      // (M25.3) tridents: in water or rain, throws the player instead
+    Impaling,     // (M25.3) tridents: +2.5 a level against water mobs
+    Channeling,   // (M25.3) tridents: a hit in a thunderstorm calls lightning
     Count
 };
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"
@@ -57,6 +61,9 @@ std::optional<Enchantment> findEnchantment(std::string_view id); // with or with
 
 // Whether `e` can go on `item` (books take all).
 bool canEnchant(ItemId item, Enchantment e);
+// Two different enchantments that can't share an item: the same exclusive group, or
+// Riptide with Loyalty or Channeling (wiki: Riptide).
+bool conflicts(Enchantment a, Enchantment b);
 // The item's enchantability (wiki: material table); 0 = not enchantable.
 int enchantability(ItemId item);
 

@@ -990,6 +990,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
         if (m.type == MobType::WanderingTrader) e.put("DespawnDelay", int32_t(m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
+        if (m.heldTrident) { // (1.21.5+ equipment.mainhand)
+            nbt::Compound eq, hand;
+            hand.put("id", std::string("minecraft:trident"));
+            hand.put("count", int32_t{1});
+            eq.put("mainhand", std::move(hand));
+            e.put("equipment", std::move(eq));
+        }
         if (mobInfo(m.type).swims) { // (M25.2; wiki: Fish, Tropical Fish › Entity data)
             e.put("Air", int16_t(m.airTicks));
             if (isFish(m.type)) e.put("FromBucket", int8_t(m.fromBucket ? 1 : 0));
@@ -1157,6 +1164,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
         m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
+        if (const nbt::Compound* eq = e->compound("equipment"))
+            if (const nbt::Compound* hand = eq->compound("mainhand"))
+                m.heldTrident = hand->string("id") && *hand->string("id") == "minecraft:trident";
         if (mobInfo(m.type).swims) {
             m.airTicks = int16_t(std::clamp<int64_t>(e->integer("Air").value_or(300), -20, 300));
             m.fromBucket = e->integer("FromBucket").value_or(0) != 0;

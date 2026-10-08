@@ -37,7 +37,8 @@ enum class ProjectileKind : uint8_t {
     SplashPotion,
     DragonFireball,
     EnderPearl,
-    ShulkerBullet // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
+    ShulkerBullet, // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
+    Trident        // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -71,6 +72,8 @@ struct Projectile {
     uint8_t skyLight = 15, blockLight = 0;
     glm::dvec3 target{0.0}; // eyes of ender: where they fly
     uint8_t potion = 0;     // splash potions: the potion (world::Potion)
+    world::ItemStack stack{}; // tridents: the item itself (enchantments, wear), given back on pickup
+    bool dealt = false;       // tridents: has hit something (drops away, hits nothing more)
 };
 
 class Projectiles {
@@ -85,6 +88,7 @@ public:
         m_edits.reserve(64);
         m_clouds.reserve(kMaxClouds);
         m_pearls.reserve(16);
+        m_channeled.reserve(8);
     }
     static constexpr int kMaxClouds = 32;
     // A breath cloud (dragon fireballs, the perched dragon's flames).
@@ -118,6 +122,10 @@ public:
     const std::vector<glm::dvec3>& explosions() const { return m_explosions; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
+    // Channeling strikes this tick (M25.3): main calls lightning down there. `thundering`
+    // must be set by main each tick.
+    const std::vector<world::BlockPos>& channeled() const { return m_channeled; }
+    void setThundering(bool on) { m_thundering = on; }
     void clear() { // (travelling: nothing follows the player into another dimension)
         m_items.clear();
         m_clouds.clear();
@@ -126,6 +134,8 @@ public:
 
 private:
     std::vector<Projectile> m_items;
+    std::vector<world::BlockPos> m_channeled;
+    bool m_thundering = false;
     std::vector<glm::dvec3> m_chicks;   // reused
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
@@ -146,6 +156,12 @@ bool canDrawBow(const Inventory& inventory, bool survival);
 // durability). Returns true if it shot.
 bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                 Projectiles& projectiles, world::Xoroshiro& rng);
+// Releasing a trident held back for `ticks` (M25.3; wiki: Trident): at least 10 ticks;
+// thrown at 2.5 blocks a tick (survival: it leaves the hand and wears by 1; creative:
+// a copy that can't be picked up). With Riptide it can't be thrown: returns the
+// player's launch speed instead (when in water or rain), 0 otherwise.
+double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, const glm::dvec3& eye,
+                      const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held egg (speed 1.5); survival uses it up.
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, world::Xoroshiro& rng);

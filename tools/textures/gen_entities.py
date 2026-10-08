@@ -896,6 +896,34 @@ def squid(name, base, spot):
     return img
 
 
+def drowned():
+    """The zombie layout (M25.3) in sea colours: teal-grey skin, a torn blue-green shirt,
+    darker trousers, glowing cyan eyes."""
+    rng = random.Random("drowned")
+    img = Img(64, 64, CLEAR)
+    skin = ramp(hexc("#4E8C86"), 5, spread=0.3)
+    shirt = ramp(hexc("#3C7A6A"), 5, spread=0.3)
+    pants = ramp(hexc("#4A5A6E"), 5, spread=0.25)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, skin, rng, noise=0.45)
+    fx, fy = 8, 8
+    for x, y in ((1, 3), (2, 3), (5, 3), (6, 3)):
+        img.set(fx + x, fy + y, (80, 230, 230, 255))
+    for x in range(2, 6):
+        img.set(fx + x, fy + 6, skin[0])
+    for f in box_faces(16, 16, 8, 12, 4).values():
+        paint(img, f, shirt, rng, noise=0.45)
+    for u, v in ((40, 16), (32, 48)):
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), skin, rng, noise=0.45)
+            if name not in ("top", "bottom"):
+                paint(img, (x0, y0, w, 3), shirt, rng)
+    for u, v in ((0, 16), (16, 48)):
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), pants, rng)
+    return img
+
+
 def boat():
     """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
     (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
@@ -938,7 +966,7 @@ def main():
                              [(24, 0, 1, 1, 5), (24, 8, 1, 1, 3)], "#9A3A30", "#C88070", stripes="#5E8A6A"),
               "tropical_fish": tropical_fish(), "pufferfish": pufferfish(),
               "squid": squid("squid", "#3A5070", "#5A7898"), "glow_squid": squid("glow_squid", "#1E8C8A", "#9AFFE8"),
-              "boat": boat()}
+              "boat": boat(), "drowned": drowned()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

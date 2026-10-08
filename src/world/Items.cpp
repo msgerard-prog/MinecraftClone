@@ -190,6 +190,10 @@ ItemRegistry buildItems() {
     for (const char* fish : {"cod", "salmon", "tropical_fish", "pufferfish"})
         r.add({.id = std::string("minecraft:") + fish + "_bucket", .maxStack = 1, .texture = std::string("item/") + fish + "_bucket"});
     r.add({.id = "minecraft:fishing_rod", .maxStack = 1, .durability = 64, .texture = "item/fishing_rod"});
+    // (M25.3; wiki: Trident - 9 attack damage, 250 uses; Nautilus Shell, Heart of the Sea)
+    r.add({.id = "minecraft:trident", .maxStack = 1, .durability = 250, .attackDamage = 9.0f, .texture = "item/trident"});
+    r.add({.id = "minecraft:nautilus_shell", .texture = "item/nautilus_shell"});
+    r.add({.id = "minecraft:heart_of_the_sea", .texture = "item/heart_of_the_sea"});
     for (int w = 0; w < 10; ++w) { // boats (M25.2b; wiki: Boat - stack to 1)
         const std::string id = boatId(w);
         r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});

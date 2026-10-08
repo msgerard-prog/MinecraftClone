@@ -53,6 +53,7 @@ enum class MobType : uint8_t {
     Squid,
     GlowSquid,
     Boat, // (M25.2b) its wood in `woolColour` (kBoatWoods); saved as "<wood>_boat" / "bamboo_raft"
+    Drowned, // (M25.3) a zombie of the seas: swims, throws a trident if it holds one
     Count
 };
 
@@ -89,7 +90,7 @@ inline bool isFish(MobType t) {
 }
 const MobInfo& mobInfo(MobType t);
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
-inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager; }
+inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.
 inline bool isRaider(MobType t) {
     return t == MobType::Pillager || t == MobType::Vindicator || t == MobType::Evoker || t == MobType::Ravager ||
@@ -129,6 +130,7 @@ struct MobData {
     int16_t airTicks = 300;  // (M25.2) water mobs' air out of water (Air)
     int8_t paddleForward = 0, paddleTurn = 0; // (M25.2b) a boat's rider input this tick (-1, 0, 1)
     float yawVel = 0.0f;                      // (M25.2b) a boat's turning momentum (degrees a tick)
+    bool heldTrident = false;                 // (M25.3) a drowned holding a trident (equipment.mainhand)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

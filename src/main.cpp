@@ -556,6 +556,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Explosion tntBlast;          // (M21.1b)
     mc::PrimedTnt primedTnt;
     int bowTicks = 0;      // how long the bow has been drawn
+    int tridentTicks = 0;  // how long a trident has been held back (M25.3)
     double airPeakY = 0.0; // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;   // how long right-click has held a shield up
     // Beds (M17.4): the respawn point, sleeping (ticks asleep, the bed's head).
@@ -1979,6 +1980,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   0.75f + mc::bowPower(bowTicks) * 0.5f, false);
                     bowTicks = 0;
                 }
+                // Tridents (M25.3): hold right-click, release to throw - or, with Riptide,
+                // to fly along the look when in water or rain.
+                if (!dead && heldId == "minecraft:trident" && clicks.use) {
+                    ++tridentTicks;
+                    clicks.useClick = false;
+                } else if (tridentTicks > 0) {
+                    if (!dead && heldId == "minecraft:trident") {
+                        const mc::world::BlockPos at{int(std::floor(eye.x)), int(std::floor(eye.y)), int(std::floor(eye.z))};
+                        const bool wet = player.inWater() || (dimension == Dimension::Overworld &&
+                                                              mc::world::rainingAt(world, weather, at));
+                        const double launch = mc::releaseTrident(inventory, tridentTicks, survival, wet, eye, look,
+                                                                 projectiles, gameRng);
+                        if (launch > 0.0) player.setVelocity(player.velocity() + look * launch);
+                        playSound(mc::world::Sound::BowShoot, eye, 1.0f, 0.6f, false);
+                    }
+                    tridentTicks = 0;
+                }
                 // Eyes of ender (M18.5) fly toward the nearest stronghold - in the
                 // Overworld, unless aimed at an end portal frame (that fills it).
                 if (!dead && heldId == "minecraft:ender_eye" && clicks.useClick &&
@@ -2410,6 +2428,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.undead = mc::world::isZombie(m.type) ||
                                   m.type == mc::world::MobType::Skeleton;
                     mhit.arthropod = m.type == mc::world::MobType::Spider;
+                    mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
+                    mhit.aquatic = mc::world::mobInfo(m.type).swims;
                     float dmg = mc::meleeDamage(mhit);
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
@@ -2683,10 +2703,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (dead || mc::world::itemRegistry().item(inventory.selectedStack().item).id != "minecraft:fishing_rod")
                 fishing.cancel();
             fishing.tick(world, player.position(), gameRng);
+            projectiles.setThundering(dimension == Dimension::Overworld && weather.raining && weather.thunder > 0.9f);
             projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival,
                              gameRng);
             // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
             // third of the open spots around it); blaze fireballs lit blocks.
+            for (const mc::world::BlockPos& b : projectiles.channeled()) // (Channeling: next tick's bolts)
+                commandBolts.push_back(b);
             for (const glm::dvec3& at : projectiles.explosions()) {
                 fireballBlast.explode(
                     world, at, 1.0f, gameRng, droppedItems, frameEdits,
@@ -3345,6 +3368,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
                 entities.addArrow(p, pr.facing, light, camera.position);
+            else if (pr.kind == mc::ProjectileKind::Trident) // (its item, like a dropped one)
+                entities.addItem(pr.stack, p - glm::dvec3(0, 0.1, 0), 0.0f, 0.0f, light, camera.position);
             else {
                 mc::world::ItemStack look{pr.kind == mc::ProjectileKind::EyeOfEnder     ? eyeItem
                                           : pr.kind == mc::ProjectileKind::SplashPotion ? splashItem

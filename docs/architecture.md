@@ -406,6 +406,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `woolColour` (`kBoatWoods`, saved under vanilla's per-wood ids), `boatTick` (paddle
   input from main's `paddleForward/paddleTurn`, friction by water/ice/land, buoyancy;
   `physics` only collides it); main reuses the minecart rider code (`ridingCart`).
+  Drowned and tridents (M25.3): `MobType::Drowned` is a zombie (`isZombie`) that swims
+  (`physics`), targets players in water or at night (`mayTarget`), throws a trident if
+  `heldTrident` (`monsterTick`); zombies under water 45 s convert (Mobs.cpp burning
+  block, `airTicks`); `spawnWater` adds them in dark water. `ProjectileKind::Trident`
+  carries its `stack` (enchantments, wear): sticks, picked up, Loyalty flies it back,
+  Channeling lists `channeled()` strikes for main's bolts; `releaseTrident` throws or
+  returns the Riptide launch; Impaling in `MeleeHit` and the projectile.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

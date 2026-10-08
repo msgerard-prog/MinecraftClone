@@ -103,8 +103,7 @@ EnchantPick pickEnchantments(const ItemStack& item, int cost, uint64_t seed, int
             bool ok = true;
             for (int j = 0; j < out.count; ++j) {
                 const auto& got = out.list[size_t(j)].first;
-                const uint8_t g = enchantmentInfo(got).group;
-                if (cands[size_t(k)].first == got || (g && enchantmentInfo(cands[size_t(k)].first).group == g)) ok = false;
+                if (cands[size_t(k)].first == got || conflicts(cands[size_t(k)].first, got)) ok = false;
             }
             if (ok) cands[size_t(w++)] = cands[size_t(k)];
         }

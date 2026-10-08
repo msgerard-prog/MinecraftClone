@@ -129,6 +129,20 @@ void Mobs::spawnWater(Context& ctx) {
     MobType kind = MobType::Count;
     int group = 1;
     const uint32_t roll = ctx.rng.nextInt(100);
+    // Drowned (M25.3; wiki: Drowned › Spawning): monsters of dark ocean and river water
+    // (block light 0, sky light after night darkening at most a random 0..7), under the
+    // monster cap; 1 in 16 holds a trident.
+    const bool sea = biome == Biome::River || biome == Biome::FrozenRiver || biome == Biome::Ocean ||
+                     biome == Biome::DeepOcean || biome == Biome::ColdOcean || biome == Biome::DeepColdOcean ||
+                     biome == Biome::LukewarmOcean || biome == Biome::DeepLukewarmOcean || biome == Biome::WarmOcean ||
+                     biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
+    if (sea && roll < 8 && m_hostiles < 70 && c->blockLight(lx, y, lz) == 0 &&
+        c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) <= static_cast<int>(ctx.rng.nextInt(8))) {
+        MobData d = make(MobType::Drowned, {x + 0.5, double(y), z + 0.5}, ctx.rng);
+        d.heldTrident = ctx.rng.nextInt(16) == 0;
+        if (add(ctx.world, d)) ++m_hostiles;
+        return;
+    }
     if (y < 30 && c->skyLight(lx, y, lz) == 0 && c->blockLight(lx, y, lz) == 0) { // dark caves
         if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 2 + int(ctx.rng.nextInt(3));
     } else if (roll < 30) { // the creature list

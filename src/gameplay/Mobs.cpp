@@ -214,6 +214,12 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
+    } else if (m.type == MobType::Drowned && inWater) {
+        // Drowned swim after their target (wiki: Drowned): like fish, rising or diving
+        // toward the goal's height.
+        m.vel = m.vel * 0.9 + wish * 0.1;
+        m.vel.y += std::clamp((m.goal.y - m.pos.y) * 0.02, -0.03, 0.03);
+        m.vel.y *= 0.9;
     } else if (mobInfo(m.type).swims && inWater) {
         // Fish and squid swim (M25.2): like fliers, velocity eases toward the 3D wish.
         m.vel = m.vel * 0.9 + wish * 0.1;
@@ -548,6 +554,17 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
         const BlockStateId hs = c ? c->get(blockToLocal(head.x), head.y, blockToLocal(head.z)) : BlockStateId{0};
         bool wet = c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
+        // A zombie under water turns into a drowned: 30 s submerged, then 15 s of
+        // shaking (wiki: Zombie › Drowned conversion; ours counts 45 s in one go).
+        if (m.type == MobType::Zombie && !m.isBaby()) {
+            if (!wet) m.airTicks = 300;
+            else if (--m.airTicks <= -600) {
+                m.type = MobType::Drowned;
+                m.airTicks = 300;
+                m.health = mobInfo(MobType::Drowned).maxHealth;
+                m.persistent = true;
+            }
+        }
         if (!wet && ctx.weather && ctx.weather->raining && ((undead && day && sky) || m.fireTicks > 0))
             // (sky light 15 at the head: open sky, so no column scan is needed)
             wet = sky ? precipitationAt(ctx.world, head) == Precipitation::Rain : rainingAt(ctx.world, *ctx.weather, head);
@@ -706,6 +723,11 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Zombie:
     case MobType::ZombieVillager: drop("rotten_flesh", 0, 2); break;
+    case MobType::Drowned: // wiki: Drowned - rotten flesh 0-2, a copper ingot 11%, its trident 8.5%
+        drop("rotten_flesh", 0, 2);
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(100) < 11) drop("copper_ingot", 1, 1);
+        if (m.heldTrident && ctx.rng.nextInt(1000) < 85) drop("trident", 1, 1);
+        break;
     case MobType::Witch: { // wiki: Witch - 1-3 rolls of bottles, glowstone, gunpowder, redstone, spider eyes, sugar, sticks
         static constexpr const char* kLoot[7] = {"glass_bottle", "glowstone_dust", "gunpowder", "redstone",
                                                  "spider_eye", "sugar", "stick"};

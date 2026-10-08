@@ -80,8 +80,7 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
             // Clashes with one already on the item (same group): skipped, costs 1.
             bool clash = false;
             for (const uint16_t lv : out.enchantments)
-                if (lv && Enchantment(lv >> 8) != e && enchantmentInfo(e).group &&
-                    enchantmentInfo(Enchantment(lv >> 8)).group == enchantmentInfo(e).group)
+                if (lv && conflicts(Enchantment(lv >> 8), e))
                     clash = true;
             if (clash) {
                 cost += 1;

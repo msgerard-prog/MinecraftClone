@@ -73,6 +73,29 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
     return true;
 }
 
+double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, const glm::dvec3& eye,
+                      const glm::dvec3& look, Projectiles& projectiles, Xoroshiro& rng) {
+    if (ticks < 10) return 0.0; // (held back at least half a second)
+    ItemStack held = inventory.selectedStack();
+    const int riptide = enchantLevel(held, Enchantment::Riptide);
+    if (riptide > 0) {
+        if (!wet) return 0.0;
+        if (survival) inventory.setSlot(inventory.selected(), wearItem(held, 1, rng));
+        return 3.0 * (1.0 + riptide) / 4.0; // (wiki: Riptide - the player flies along the look)
+    }
+    if (!projectiles.shoot(ProjectileKind::Trident, eye, look, 2.5, 1.0, true, false, rng)) return 0.0;
+    Projectile& p = projectiles.last();
+    if (survival) {
+        p.stack = wearItem(held, 1, rng);
+        inventory.setSlot(inventory.selected(), {});
+        if (p.stack.empty()) p.pickup = false; // (it broke with that throw)
+    } else {
+        p.stack = held;
+        p.pickup = false; // (creative keeps its own; the copy just goes)
+    }
+    return 0.0;
+}
+
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, Xoroshiro& rng) {
     projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng);
@@ -145,6 +168,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_eyeDrops.clear();
     m_explosions.clear();
     m_pearls.clear();
+    m_channeled.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
     for (size_t i = 0; i < m_clouds.size();) {
         BreathCloud& c = m_clouds[i];
@@ -203,7 +227,38 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 if (rng.nextInt(5) != 0) m_eyeDrops.push_back(p.pos);
                 remove = true;
             }
+        } else if (p.kind == ProjectileKind::Trident && p.fromPlayer &&
+                   (p.stuck || p.dealt) && enchantLevel(p.stack, Enchantment::Loyalty) > 0) {
+            // Loyalty (wiki): once it has hit something it flies back to the thrower,
+            // through blocks, faster for higher levels; caught, it goes back in the pack.
+            const glm::dvec3 to = player.eyePosition(1.0) - glm::dvec3(0.0, 0.4, 0.0) - p.pos;
+            const double len = glm::length(to);
+            const int level = enchantLevel(p.stack, Enchantment::Loyalty);
+            p.stuck = false;
+            p.vel = p.vel * 0.95 + (len > 1e-6 ? to / len : glm::dvec3(0.0)) * (0.05 * level);
+            p.facing = -p.vel;
+            p.pos += p.vel;
+            if (len < 1.5) {
+                if (!survival || !p.pickup || inventory.add(p.stack) == 0) remove = true;
+            }
+            if (p.life > 2400) remove = true;
         } else if (p.stuck) {
+            // Stuck tridents: back into the pack of the player who threw them (M25.3).
+            if (p.kind == ProjectileKind::Trident) {
+                if (p.fromPlayer && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)}))
+                    if (!survival || !p.pickup || inventory.add(p.stack) == 0) remove = true;
+                if ((!p.fromPlayer && p.life > 1200) || blockRegistry().blockOf(world.getBlock(cell)) == 0) {
+                    p.stuck = false; // (its block gone: it falls)
+                    if (!p.fromPlayer) remove = true;
+                }
+                if (remove) {
+                    m_items[i] = m_items.back();
+                    m_items.pop_back();
+                } else {
+                    ++i;
+                }
+                continue;
+            }
             // Stuck arrows: picked up by a survival player who shot them (wiki: Arrow).
             if (p.fromPlayer && p.pickup && player.box().intersects(Aabb{p.pos - glm::dvec3(1.0), p.pos + glm::dvec3(1.0)})) {
                 if (!survival || inventory.add({arrowItem, 1}) == 0) remove = true;
@@ -218,12 +273,12 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             // Entities in the way, nearer than the block.
             enum class Target { None, Player, Mob } target = Target::None;
             Mobs::MobHit mob{};
-            if (const auto mh = Mobs::raycast(world, p.pos, dir, reach, p.owner)) {
+            if (const auto mh = p.dealt ? std::nullopt : Mobs::raycast(world, p.pos, dir, reach, p.owner)) {
                 mob = *mh;
                 reach = mh->distance;
                 target = Target::Mob;
             }
-            if (!(p.fromPlayer && p.life < 5)) { // (doesn't hit its shooter as it leaves)
+            if (!(p.fromPlayer && p.life < 5) && !p.dealt) { // (doesn't hit its shooter as it leaves)
                 const double t = enter(p.pos, dir, reach, player.box().inflated(0.3));
                 if (t >= 0.0) {
                     reach = t;
@@ -371,6 +426,38 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 }
                 remove = true;
+            } else if (target != Target::None && p.kind == ProjectileKind::Trident) {
+                // A trident (M25.3; wiki: Trident): 8 damage, Impaling +2.5 a level on
+                // water mobs; Channeling calls lightning on a mob in a thunderstorm where
+                // the sky is open. Then it drops away (and Loyalty brings it back).
+                float damage = 8.0f;
+                if (target == Target::Player) {
+                    if (vitals && survival && vitals->attacked(damage, &p.pos, Vitals::Hit::Projectile)) {
+                        player.knockback(p.vel.x, p.vel.z, 0.3);
+                        hits.playerDamage += damage;
+                    }
+                } else {
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (mobInfo(m.type).swims) damage += 2.5f * float(enchantLevel(p.stack, Enchantment::Impaling));
+                    if (m.hurtTime == 0 && m.type != MobType::Enderman) {
+                        if (p.fromPlayer) m.lastHurtByPlayer = true;
+                        m.health -= m.type == MobType::EnderDragon ? Mobs::dragonDamage(m, damage, p.pos + dir * reach)
+                                                                   : damage;
+                        m.hurtTime = 10;
+                        ++hits.mobsHit;
+                    }
+                    if (m_thundering && enchantLevel(p.stack, Enchantment::Channeling) > 0 &&
+                        m_channeled.size() < m_channeled.capacity()) {
+                        const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+                        const Chunk* c = world.chunk(at.chunk());
+                        if (c && c->lit() && c->skyLight(blockToLocal(at.x), at.y + 1, blockToLocal(at.z)) == 15)
+                            m_channeled.push_back(at);
+                    }
+                }
+                world.playSound(Sound::ArrowHit, p.pos.x, p.pos.y, p.pos.z);
+                p.pos += dir * std::max(0.0, reach - 0.3);
+                p.vel = glm::dvec3(-p.vel.x * 0.01, -0.1, -p.vel.z * 0.01);
+                p.dealt = true;
             } else if (target != Target::None) {
                 if (p.kind == ProjectileKind::Arrow) {
                     world.playSound(Sound::ArrowHit, p.pos.x, p.pos.y, p.pos.z);
@@ -414,7 +501,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 if (p.kind == ProjectileKind::Egg) m_chicks.push_back(p.pos + dir * reach);
                 remove = true;
             } else if (block) {
-                if (p.kind == ProjectileKind::Arrow) { // sticks just inside the face it hit
+                if (p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident) { // sticks just inside the face it hit
                     p.pos += dir * (block->distance + 0.05);
                     world.playSound(Sound::ArrowHit, p.pos.x, p.pos.y, p.pos.z);
                     p.vel = glm::dvec3(0.0);
@@ -429,9 +516,12 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 const bool inWater = blockRegistry().blockOf(world.getBlock(cell)) == blocks::Water;
                 if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball &&
                     p.kind != ProjectileKind::DragonFireball) { // (fireballs fly straight)
-                    const double drag = inWater ? 0.6 : 0.99;
+                    const double drag = inWater && p.kind != ProjectileKind::Trident ? 0.6 : 0.99; // (tridents keep going in water)
                     p.vel *= drag;
-                    p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ? 0.05 : 0.03; // (pearls 0.03)
+                    p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ||
+                                       p.kind == ProjectileKind::Trident
+                                   ? 0.05
+                                   : 0.03; // (pearls 0.03)
                 }
                 if (p.pos.y < world.height().minY - 64 || p.life > 1200) remove = true;
             }

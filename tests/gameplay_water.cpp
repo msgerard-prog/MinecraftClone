@@ -201,3 +201,86 @@ TEST_CASE("boats float, paddle up to 0.4 blocks a tick, turn 1 degree a tick mor
     CHECK(boatId(9) == "minecraft:bamboo_raft");
     CHECK(itemRegistry().find("cherry_boat").has_value());
 }
+
+#include "gameplay/Combat.h"
+#include "gameplay/Inventory.h"
+#include "gameplay/Projectiles.h"
+
+TEST_CASE("a zombie under water becomes a drowned after 45 s; drowned swim up to a player in the water (M25.3)") {
+    Pool p;
+    REQUIRE(Mobs::add(p.world, Mobs::make(MobType::Zombie, {0.5, 64.0, 0.5}, p.rng)));
+    p.tick(905);
+    int drowned = 0;
+    for (MobData* m : p.all()) drowned += m->type == MobType::Drowned;
+    CHECK(drowned == 1);
+    // A survival player swimming nearby at night: it comes for them.
+    p.player.setCreative(false);
+    p.player.setPosition({6.5, 68.0, 6.5});
+    double before = 0.0, after = 0.0;
+    for (MobData* m : p.all())
+        if (m->type == MobType::Drowned) before = glm::length(m->pos - p.player.position());
+    for (int t = 0; t < 100; ++t) {
+        p.player.setPosition({6.5, 68.0, 6.5});
+        p.player.tick(p.world, {});
+        Mobs::Context ctx{p.world, p.player, p.vitals, true, false, 18000, 11.0f, p.rng, p.items};
+        ctx.naturalSpawning = false;
+        p.mobs.tick(ctx);
+    }
+    for (MobData* m : p.all())
+        if (m->type == MobType::Drowned) after = glm::length(m->pos - p.player.position());
+    CHECK(after < before);
+    CHECK(isZombie(MobType::Drowned)); // (undead: Smite works, it burns in the sun)
+}
+
+TEST_CASE("tridents: thrown at 2.5, 8 damage, stick and come back with Loyalty; Riptide launches the player instead (M25.3)") {
+    Pool p;
+    for (int y = 64; y <= 70; ++y) // (dry air for the throw)
+        for (int z = -16; z < 32; ++z)
+            for (int x = -16; x < 32; ++x) p.world.setBlock({x, y, z}, 0);
+    Inventory inv;
+    const ItemId tridentId = *itemRegistry().find("trident");
+    inv.setSlot(0, {tridentId, 1});
+    Projectiles proj;
+    const glm::dvec3 eye{0.5, 65.6, 0.5};
+    p.player.setPosition({0.5, 64.0, 0.5});
+    CHECK(releaseTrident(inv, 5, true, false, eye, {0, 0, 1}, proj, p.rng) == 0.0); // (too short a draw)
+    CHECK(proj.items().empty());
+    releaseTrident(inv, 20, true, false, eye, glm::normalize(glm::dvec3(0, -0.08, 1)), proj, p.rng);
+    REQUIRE(proj.items().size() == 1);
+    CHECK(inv.slot(0).empty()); // (it left the hand)
+    CHECK(proj.items()[0].stack.damage == 1);
+    REQUIRE(Mobs::add(p.world, Mobs::make(MobType::Cow, {0.5, 64.0, 6.5}, p.rng)));
+    for (int t = 0; t < 60; ++t) proj.tick(p.world, p.player, &p.vitals, inv, true, p.rng);
+    float cowHealth = 0.0f;
+    for (MobData* m : p.all()) cowHealth = m->health;
+    CHECK(cowHealth == doctest::Approx(10.0f - 8.0f));
+    // Loyalty: thrown again, it hits a wall and flies back into the pack.
+    ItemStack held{tridentId, 1};
+    setEnchantment(held, Enchantment::Loyalty, 3);
+    inv.setSlot(0, held);
+    for (int y = 60; y < 72; ++y) p.world.setBlock({-6, y, 0}, blockRegistry().defaultState(blocks::Stone));
+    releaseTrident(inv, 20, true, false, eye, {-1, 0, 0}, proj, p.rng);
+    bool back = false;
+    for (int t = 0; t < 400 && !back; ++t) {
+        proj.tick(p.world, p.player, &p.vitals, inv, true, p.rng);
+        for (int sl = 0; sl < Inventory::kSlots; ++sl) back = back || inv.slot(sl).item == tridentId;
+    }
+    CHECK(back);
+    // Riptide: no throw; in water it launches the player along the look.
+    ItemStack rip{tridentId, 1};
+    setEnchantment(rip, Enchantment::Riptide, 3);
+    inv.setSlot(1, rip);
+    inv.select(1);
+    const size_t flying = proj.items().size();
+    CHECK(releaseTrident(inv, 20, true, false, eye, {0, 0, 1}, proj, p.rng) == 0.0); // dry: nothing
+    CHECK(releaseTrident(inv, 20, true, true, eye, {0, 0, 1}, proj, p.rng) == doctest::Approx(3.0));
+    CHECK(proj.items().size() == flying);
+    CHECK(conflicts(Enchantment::Riptide, Enchantment::Loyalty));
+    CHECK_FALSE(conflicts(Enchantment::Loyalty, Enchantment::Channeling));
+    // Impaling: +2.5 a level on water mobs.
+    MeleeHit h;
+    h.itemDamage = 9.0f;
+    h.impaling = 2;
+    h.aquatic = true;
+    CHECK(meleeDamage(h) == doctest::Approx(14.0f));
+}

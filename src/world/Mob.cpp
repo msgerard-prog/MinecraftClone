@@ -78,6 +78,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:glow_squid", 10.0f, 0.8, 0.8, 0.1, 0.0f, false, false, false, 1.0f, true},
         // wiki: Boat - 1.375 x 0.5625; a few hits break it (ours: 4 health, like the cart's 2).
         {"minecraft:oak_boat", 4.0f, 1.375, 0.5625, 0.0, 0.0f, false, false, false, 2.0f},
+        // wiki: Drowned - as a zombie (20, 0.6 x 1.95, 0.23, 3); a thrown trident hits for 8.
+        {"minecraft:drowned", 20.0f, 0.6, 1.95, 0.23, 3.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

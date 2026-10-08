@@ -36,6 +36,12 @@ constexpr EnchantmentInfo kInfo[] = {
     // (M25.2; wiki: Luck of the Sea, Lure - weight 2, levels 1-3, cost 15 + 9 (L-1) .. +50)
     {"minecraft:luck_of_the_sea", "Luck of the Sea", 3, 2, 15, 9, 50, 65, EnchantTarget::FishingRod, 0},
     {"minecraft:lure", "Lure", 3, 2, 15, 9, 50, 65, EnchantTarget::FishingRod, 0},
+    // (M25.3; wiki: Loyalty 5, 12 + 7 (L-1); Riptide 2, 17 + 7 (L-1); Impaling 2, 1 + 8 (L-1),
+    // span 20; Channeling 1, 25 - all with a span of 50 unless noted)
+    {"minecraft:loyalty", "Loyalty", 3, 5, 12, 7, 38, 50, EnchantTarget::Trident, 0},
+    {"minecraft:riptide", "Riptide", 3, 2, 17, 7, 33, 50, EnchantTarget::Trident, 0},
+    {"minecraft:impaling", "Impaling", 5, 2, 1, 8, 20, 53, EnchantTarget::Trident, 0},
+    {"minecraft:channeling", "Channeling", 1, 1, 25, 0, 25, 50, EnchantTarget::Trident, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -57,7 +63,7 @@ std::optional<Enchantment> findEnchantment(std::string_view id) {
 namespace {
 // Item ids resolved once (no string compares on hot paths).
 struct Ids {
-    ItemId book, enchantedBook, bow, rod;
+    ItemId book, enchantedBook, bow, rod, trident;
     std::vector<int> enchantability; // per item
     Ids() {
         const auto& r = itemRegistry();
@@ -65,6 +71,7 @@ struct Ids {
         enchantedBook = *r.find("enchanted_book");
         bow = *r.find("bow");
         rod = *r.find("fishing_rod");
+        trident = *r.find("trident");
         enchantability.resize(r.count());
         for (size_t i = 0; i < r.count(); ++i)
             enchantability[i] = computeEnchantability(ItemId(i));
@@ -92,8 +99,17 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::Durable: return d.durability > 0;
     case EnchantTarget::Bow: return item == ids().bow;
     case EnchantTarget::FishingRod: return item == ids().rod;
+    case EnchantTarget::Trident: return item == ids().trident;
     }
     return false;
+}
+
+bool conflicts(Enchantment a, Enchantment b) {
+    if (a == b) return false;
+    const uint8_t g = enchantmentInfo(a).group;
+    if (g && enchantmentInfo(b).group == g) return true;
+    auto pair = [&](Enchantment x, Enchantment y) { return (a == x && b == y) || (a == y && b == x); };
+    return pair(Enchantment::Riptide, Enchantment::Loyalty) || pair(Enchantment::Riptide, Enchantment::Channeling);
 }
 
 int enchantability(ItemId item) { return item < ids().enchantability.size() ? ids().enchantability[item] : 0; }
@@ -102,7 +118,8 @@ int Ids::computeEnchantability(ItemId item) {
     // wiki: Enchanting mechanics › Enchantability.
     const ItemDef& d = itemRegistry().item(item);
     const std::string_view id = d.id;
-    if (id == "minecraft:book" || id == "minecraft:bow" || id == "minecraft:fishing_rod") return 1;
+    if (id == "minecraft:book" || id == "minecraft:bow" || id == "minecraft:fishing_rod" || id == "minecraft:trident")
+        return 1;
     if (d.armorSlot) {
         if (id.find("leather") != std::string_view::npos) return 15;
         if (id.find("golden") != std::string_view::npos) return 25;

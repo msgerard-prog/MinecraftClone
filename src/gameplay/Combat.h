@@ -12,6 +12,8 @@ struct MeleeHit {
     bool critical = false;
     int sharpness = 0, smite = 0, bane = 0;
     bool undead = false, arthropod = false;
+    int impaling = 0;     // (M25.3, tridents) +2.5 a level
+    bool aquatic = false; // ... against water mobs (Java Edition)
 };
 inline float meleeDamage(const MeleeHit& h) {
     float d = h.itemDamage + 3.0f * float(h.strength);
@@ -21,6 +23,7 @@ inline float meleeDamage(const MeleeHit& h) {
     if (h.sharpness > 0) d += 0.5f * float(h.sharpness) + 0.5f;
     if (h.undead) d += 2.5f * float(h.smite);
     if (h.arthropod) d += 2.5f * float(h.bane);
+    if (h.aquatic) d += 2.5f * float(h.impaling);
     return d;
 }
 

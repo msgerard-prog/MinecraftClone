@@ -398,6 +398,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Squid:
     case world::MobType::GlowSquid: return kSquid;
     case world::MobType::Boat: return kBoat;
+    case world::MobType::Drowned: return kZombie; // (the zombie's shape, our own drowned skin)
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

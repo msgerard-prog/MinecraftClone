@@ -550,6 +550,16 @@ def boat_item(colour, raft=False):
     return img
 
 
+def trident():
+    """A three-pronged spear, diagonal (M25.3): a teal-grey shaft and prongs."""
+    metal = ramp(hexc("#5AA89C"), 5, spread=0.35)
+    s = Shape()
+    shaft = {(x, 15 - x) for x in range(1, 11)} | {(x + 1, 15 - x) for x in range(1, 10)}
+    prongs = {(11, 4), (12, 3), (13, 2), (14, 1), (10, 3), (10, 2), (10, 1), (12, 5), (13, 5), (14, 5)}
+    s.add(shaft | prongs, metal)
+    return s.render()
+
+
 def bone_meal():
     rng = random.Random("bone_meal")
     pal = ramp(hexc("#ECECE4"), 5, spread=0.2)
@@ -980,6 +990,7 @@ def all_items():
         img.set(9, 6, hexc(colour))
         items[f"{fish}_bucket"] = img
     items["fishing_rod"] = fishing_rod()
+    items["trident"] = trident()  # (M25.3)
     for wood, colour in (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
                          ("acacia", "#BA6337"), ("dark_oak", "#4F3218"), ("mangrove", "#773636"),
                          ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD")):

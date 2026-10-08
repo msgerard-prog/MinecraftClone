@@ -250,6 +250,9 @@ M25.2: entities `minecraft:cod`, `salmon`, `tropical_fish` (`Variant`: shape | p
 `<fish>_bucket`, `fishing_rod`; enchantments `luck_of_the_sea`, `lure`; effect `hunger`.
 M25.2b: entities and items `<wood>_boat` (oak, spruce, birch, jungle, acacia, dark_oak,
 mangrove, cherry, pale_oak) and `bamboo_raft`.
+M25.3: entity `minecraft:drowned` (a held trident as `equipment.mainhand`); items
+`trident`, `nautilus_shell`, `heart_of_the_sea`; enchantments `loyalty`, `riptide`,
+`impaling`, `channeling`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

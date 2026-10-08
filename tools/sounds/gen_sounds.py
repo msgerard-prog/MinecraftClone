@@ -379,6 +379,12 @@ def mob_sounds(name, rng):
         lift = 1.2 if name == "glow_squid" else 1.0
         return ([squish(r(0.4, 0.6), 140 * lift, 110 * lift) for _ in range(3)],
                 [squish(0.25, 220 * lift, 160 * lift) for _ in range(2)], squish(0.8, 180 * lift, 70 * lift))
+    if name == "drowned":  # a gargling zombie groan (ours)
+        def gargle(d, f0, f1):
+            g = voice(rng, d, f0, f1, wave="saw", formant=(300, 1600), vibrato=0.25, vib_rate=22, breath=0.5)
+            return [s * 0.9 for s in g]
+        return ([gargle(r(0.6, 0.9), r(95, 115), r(75, 90)) for _ in range(3)],
+                [gargle(0.3, 150, 110) for _ in range(2)], gargle(1.0, 120, 50))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -391,7 +397,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
-        "glow_squid"]
+        "glow_squid", "drowned"]
 
 
 # --- Everything else ----------------------------------------------------------------
