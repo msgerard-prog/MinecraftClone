@@ -357,6 +357,8 @@ std::vector<Recipe> build() {
         };
         square("stone", "stone_bricks", 4);
         square("brick", "bricks", 1);
+        square("resin_brick", "resin_bricks", 1); // (M27.1c)
+        pillarOf("resin_brick_slab", "chiseled_resin_bricks", 1);
         square("nether_brick", "nether_bricks", 1);
         square("granite", "polished_granite", 4);
         square("diorite", "polished_diorite", 4);
@@ -471,6 +473,11 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"##", "##"}, {{'#', item("packed_mud")}}, "mud_bricks", 4));
         r.push_back(shaped({"##"}, {{'#', item("moss_block")}}, "moss_carpet", 3));
         r.push_back(shaped({"##"}, {{'#', item("pale_moss_block")}}, "pale_moss_carpet", 3));
+        // Resin and eyeblossoms (M27.1c; wiki: Block of Resin, Orange Dye, Gray Dye).
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("resin_clump")}}, "resin_block"));
+        r.push_back(shapeless({item("resin_block")}, "resin_clump", 9));
+        r.push_back(shapeless({item("open_eyeblossom")}, "orange_dye"));
+        r.push_back(shapeless({item("closed_eyeblossom")}, "gray_dye"));
         static constexpr std::array<const char*, 3> kMix[] = {
             {"red_dye", "yellow_dye", "orange_dye"}, {"red_dye", "white_dye", "pink_dye"},
             {"blue_dye", "white_dye", "light_blue_dye"}, {"blue_dye", "green_dye", "cyan_dye"},
@@ -659,6 +666,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "clay") return out("terracotta");
     // Building blocks (M23.1; wiki: Smelting): bricks, smooth and cracked variants.
     if (n == "clay_ball") return out("brick");
+    if (n == "resin_clump") return out("resin_brick"); // (M27.1c; wiki: Resin Brick)
     if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta") && n != "terracotta") // (wiki: Glazed Terracotta)
         return out(std::string(n.substr(0, n.size() - 11)) + "_glazed_terracotta");
     if (n == "cactus") return out("green_dye"); // (wiki: Green Dye)
@@ -704,7 +712,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "clay") return 0.35f;
     if (n == "kelp") return 0.1f; // (wiki: Dried Kelp)
     if (n == "wet_sponge") return 0.15f;
-    if (n == "clay_ball") return 0.3f; // (wiki: Brick)
+    if (n == "clay_ball" || n == "resin_clump") return 0.3f; // (wiki: Brick, Resin Brick)
     if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta")) return 0.1f;
     if (n == "cactus") return 1.0f;
     if (n == "netherrack" || n == "stone" || n == "sandstone" || n == "red_sandstone" || n == "quartz_block" ||

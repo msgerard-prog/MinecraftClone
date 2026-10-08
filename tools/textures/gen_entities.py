@@ -1016,6 +1016,17 @@ def pet(name, boxes, eyebox, nosebox, base="#E4E4E4", collar=None, stripes=False
     return img
 
 
+def creaking():
+    """The creaking (M27.1c): grey-brown bark all over, two glowing orange eyes (ours)."""
+    img = pet("creaking", [(0, 0, 8, 10, 8), (0, 20, 8, 16, 6), (32, 20, 3, 20, 3), (48, 20, 4, 16, 4)],
+              (0, 0, 8, 10, 8), None, base="#6A5C50", stripes=True)
+    fx, fy, fw, fh = box_faces(0, 0, 8, 10, 8)["front"]
+    for x in (1, 2, 5, 6):
+        img.set(fx + x, fy + 3, (255, 150, 40, 255))
+        img.set(fx + x, fy + 4, (230, 110, 20, 255))
+    return img
+
+
 def mount_gear():
     """Mount gear (M26.2), one texture for every mount: a leather saddle @ (0,0), chest
     packs @ (36,0), horse armor plates @ (0,16) (light: tinted by its material), a
@@ -1209,6 +1220,7 @@ def main():
                                 base="#9A9AA0", stripes=True),
               "happy_ghast": pet("happy_ghast", [(0, 0, 16, 16, 16), (0, 32, 2, 9, 2)], (0, 0, 16, 16, 16), None,
                                  base="#F4F0EC"),
+              "creaking": creaking(),
               "copper_golem": pet("copper_golem", [(0, 0, 8, 5, 6), (28, 0, 2, 3, 2), (36, 0, 1, 4, 1), (0, 11, 4, 6, 3),
                                                    (14, 11, 2, 6, 2), (22, 11, 2, 5, 2)], (0, 0, 8, 5, 6), None,
                                   base="#F0F0F0"),

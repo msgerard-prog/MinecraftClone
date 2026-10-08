@@ -735,6 +735,17 @@ constexpr std::array<MobPart, 8> kCopperGolem = {{
     {{0, 0, -1}, {2, 5, 1}, {1, 5, 0}, 22, 11, A::LegB, 8},
 }};
 
+// Creaking (M27.1c): a tall, thin figure of pale oak. Head 8x10x8 @ (0,0), body 8x16x6 @
+// (0,20), arms 3x20x3 @ (32,20), legs 4x16x4 @ (48,20).
+constexpr std::array<MobPart, 6> kCreaking = {{
+    {{-4, 32, -4}, {4, 42, 4}, {0, 32, 0}, 0, 0, A::Head},
+    {{-4, 16, -3}, {4, 32, 3}, {0, 24, 0}, 0, 20, A::None},
+    {{-7, 13, -1.5f}, {-4, 33, 1.5f}, {-5.5f, 32, 0}, 32, 20, A::LegB},
+    {{4, 13, -1.5f}, {7, 33, 1.5f}, {5.5f, 32, 0}, 32, 20, A::LegA},
+    {{-4, 0, -2}, {0, 16, 2}, {-2, 16, 0}, 48, 20, A::LegA},
+    {{0, 0, -2}, {4, 16, 2}, {2, 16, 0}, 48, 20, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -813,6 +824,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Nautilus: return kNautilus;
     case world::MobType::HappyGhast: return kHappyGhast;
     case world::MobType::CopperGolem: return kCopperGolem;
+    case world::MobType::Creaking: return kCreaking;
     default: return kCow;
     }
 }

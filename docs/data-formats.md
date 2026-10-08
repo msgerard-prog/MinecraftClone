@@ -313,6 +313,11 @@ M27.1: blocks `sunflower`, `lilac`, `rose_bush`, `peony`, `tall_grass`, `large_f
 `windswept_gravelly_hills`, `bamboo_jungle`, `mangrove_swamp`, `pale_garden`. Generator kind
 "overworld6" (new worlds): those biomes, giant spruces, mangrove roots, two-block plants,
 bamboo, pale moss.
+M27.1c: entity `minecraft:creaking` (`home_pos`); blocks `creaking_heart[axis,
+creaking_heart_state uprooted|dormant|awake, natural]`, `open_eyeblossom`,
+`closed_eyeblossom`, `resin_clump[facing]` (ours: one face; vanilla's multiface
+north/south/... booleans), `resin_block`, `resin_bricks` (+ slab, stairs, wall),
+`chiseled_resin_bricks`; item `resin_brick`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

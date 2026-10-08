@@ -93,7 +93,10 @@ Push pushKind(BlockStateId s) {
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
     if (R().likeOf(b) == B::Chest) return Push::Block; // (copper chests too: block entities don't move)
-    if (isTallPlant(b) || b == B::PaleHangingMoss) return Push::Destroy; // (M27.1: plants break)
+    if (isTallPlant(b) || b == B::PaleHangingMoss || b == B::OpenEyeblossom || b == B::ClosedEyeblossom ||
+        b == B::ResinClump)
+        return Push::Destroy; // (M27.1: plants break)
+    if (b == B::CreakingHeart) return Push::Block; // (vanilla: a block entity)
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
     // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
     // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
@@ -203,6 +206,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_events.reserve(64);
     m_lightning.reserve(64);
     m_silverfish.reserve(256); // (M26.4a: a mined vein)
+    m_hatched.reserve(64);
     m_changed.reserve(4096);
     m_settling.reserve(4096);
     m_remesh.reserve(4096);
@@ -1112,6 +1116,14 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
             if (blockOf(us) != blockOf(s) || R().get(us, doorHalf) != 0 || !plantableSoil(at(rel(p, Direction::Down))))
                 pop(p);
         }
+        --m_depth;
+        return;
+    }
+    // Eyeblossoms need their soil; a resin clump the block it sits on (M27.1c).
+    if (blockOf(s) == B::OpenEyeblossom || blockOf(s) == B::ClosedEyeblossom || blockOf(s) == B::ResinClump) {
+        const BlockStateId support =
+            blockOf(s) == B::ResinClump ? at(rel(p, static_cast<Direction>(R().get(s, facing6)))) : at(rel(p, Direction::Down));
+        if (blockOf(s) == B::ResinClump ? !R().collides(support) : !plantableSoil(support)) pop(p);
         --m_depth;
         return;
     }
@@ -2099,6 +2111,18 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
             return std::nullopt;
         return r.set(state, doorHalf, 1);
     }
+    if (blockOf(state) == B::OpenEyeblossom || blockOf(state) == B::ClosedEyeblossom) {
+        if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
+        return state;
+    }
+    if (blockOf(state) == B::ResinClump) { // on the face it was put against
+        const Direction toSupport = opposite(faceDir);
+        if (!r.collides(world.getBlock(rel(at, toSupport)))) return std::nullopt;
+        return r.set(state, facing6, int(toSupport));
+    }
+    if (blockOf(state) == B::CreakingHeart) // (along the axis of the clicked face, as logs)
+        return r.set(state, axis, faceDir == Direction::Up || faceDir == Direction::Down ? 1
+                                  : faceDir == Direction::East || faceDir == Direction::West ? 0 : 2);
     if (blockOf(state) == B::PaleHangingMoss) { // under a block or more moss
         const BlockStateId above = world.getBlock(rel(at, Direction::Up));
         if (!r.collides(above) && blockOf(above) != B::PaleHangingMoss) return std::nullopt;

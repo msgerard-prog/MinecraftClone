@@ -480,6 +480,11 @@ def mob_sounds(name, rng):
         coo = lambda d, f0, f1: voice(rng, d, f0, f1, wave="sine", formant=(300, 2500), vibrato=0.05, vib_rate=5)
         return [coo(r(0.6, 0.9), r(500, 600), r(420, 480)) for _ in range(3)], [coo(0.3, 700, 600) for _ in range(2)], \
             coo(1.0, 500, 250)
+    if name == "creaking":  # creaking, groaning wood (ours)
+        creak = lambda d, f: mul(bandpass(mul(noise(int(d * RATE), rng), tone(d, f, f * 0.8, "saw")), 150, 1400),
+                                 env(int(d * RATE), d / 4, d / 3))
+        return ([creak(r(0.5, 0.9), r(70, 110)) for _ in range(3)], [creak(0.3, 140) for _ in range(2)],
+                creak(1.2, 60))
     if name == "copper_golem":  # metallic tinks and a whirr (ours)
         tink = lambda f: [x * 3 for x in resonator(mul(noise(1500, rng), env(1500, 0.0005, 0.006)), f, 25)]
         return ([add(tink(r(1800, 2400)), at(tink(r(1500, 2000)), 0.12, 0.4)) for _ in range(3)],
@@ -517,7 +522,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
         "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
-        "allay", "nautilus", "happy_ghast", "copper_golem"]
+        "allay", "nautilus", "happy_ghast", "copper_golem", "creaking"]
 
 
 # --- Everything else ----------------------------------------------------------------

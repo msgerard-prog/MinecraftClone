@@ -173,8 +173,17 @@ private:
     static Use happyGhastInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
     bool copperGolemGoal(Context& ctx, world::MobData& m, double& speed);
     static Use copperGolemInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    // The creaking (Creakings.cpp, M27.1c): frozen while watched, bound to its heart.
+    bool creakingTick(Context& ctx, world::MobData& m);
 
 public:
+    // An awake creaking heart calls its creaking within 16 blocks, if a player is within
+    // 32 and none of its own is out (M27.1c; false: none came).
+    static bool spawnCreaking(world::World& world, const world::BlockPos& heart, const glm::dvec3& player,
+                              world::Xoroshiro& rng);
+    // Whether a player at `eye` looking along `look` sees the creaking (M27.1c).
+    static bool watched(const world::World& world, const world::MobData& m, const glm::dvec3& eye,
+                        const glm::dvec3& look);
     // A carved pumpkin on a block of copper: a copper golem, and the copper becomes a
     // copper chest (false: not on copper).
     static bool buildCopperGolem(world::World& world, const world::BlockPos& pumpkin, world::Xoroshiro& rng);

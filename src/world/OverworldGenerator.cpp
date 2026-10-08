@@ -806,6 +806,17 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
         // fixed arch of 3 per side).
         const int trunkY = kind == TreeShape::Mangrove && m_version >= 6 ? std::max(ground, kSeaLevel - 1) + 3 : ground + 1;
         treeShape(static_cast<TreeKind>(kind), wx, trunkY, wz, height, shape, put);
+        // (overworld6, M27.1c; wiki: Creaking Heart - some pale garden oaks hide one in
+        // their trunk; ours 1 in 8, halfway up a trunk corner)
+        if (kind == TreeShape::PaleOak && m_version >= 6 && tree.biome == Biome::PaleGarden) {
+            Xoroshiro hr(chunkSeed(m_seed, wx, wz, 303));
+            const int lx = wx - baseX, lz = wz - baseZ, hy = trunkY + height / 2;
+            if (hr.nextInt(8) == 0 && lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && kOverworldHeight.contains(hy) &&
+                chunk.get(lx, hy, lz) == B.paleOakLog)
+                chunk.set(lx, hy, lz,
+                          reg.set(reg.set(reg.defaultState(blocks::CreakingHeart), properties::natural, 0),
+                                  properties::creakingState, 1));
+        }
         if (kind == TreeShape::Mangrove && m_version >= 6) {
             auto root = [&](int32_t x, int32_t y, int32_t z) {
                 const int lx = x - baseX, lz = z - baseZ;
@@ -3389,6 +3400,10 @@ void OverworldGenerator::placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, i
             }
             // The pale garden (wiki: Pale Garden): pale moss patches on the ground, half
             // of them carpeted.
+            if (biome == Biome::PaleGarden && ground == B.grass && t >= 0.35f && t < 0.38f) { // eyeblossoms (M27.1c)
+                chunk.set(x, ty + 1, z, reg.defaultState(blocks::ClosedEyeblossom));
+                continue;
+            }
             if (biome == Biome::PaleGarden && ground == B.grass && t < 0.35f) {
                 chunk.set(x, ty, z, B.paleMoss);
                 chunk.set(x, ty + 1, z, (pick & 1) ? B.paleMossCarpet : B.air);

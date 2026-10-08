@@ -345,6 +345,11 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             }
             return;
         }
+        if (ob == blocks::CreakingHeart) { // (M27.1c; wiki: 1-3 resin clumps, itself with Silk Touch)
+            if (enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+            else out.push_back({itemRegistry().blockItem(blocks::ResinClump), uint8_t(1 + rng.nextInt(3))});
+            return;
+        }
         if (ob == blocks::PaleHangingMoss) { // (wiki: only with shears or Silk Touch)
             if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
             return;

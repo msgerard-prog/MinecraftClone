@@ -945,6 +945,25 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     addBox(m, 9, 0, 0, 9, 16, 16, sprite("sunflower_front"));
                     m.boxes[0].faces[int(Direction::West)].sprite = sprite("sunflower_back");
                 }
+            } else if (name == "creaking_heart") { // (M27.1c) its glowing faces when awake
+                const bool awake = registry.value(state, "creaking_heart_state") == "awake";
+                m = single(cubeColumn(sprite(awake ? "creaking_heart_active" : "creaking_heart"),
+                                      sprite(awake ? "creaking_heart_top_active" : "creaking_heart_top"),
+                                      registry.value(state, "axis").value_or("y")));
+            } else if (name == "open_eyeblossom" || name == "closed_eyeblossom") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(name.c_str());
+            } else if (name == "resin_clump") { // a 1-pixel layer on the face it sits on
+                const std::string_view f = registry.value(state, "facing").value_or("down");
+                const uint16_t sp = sprite("resin_clump");
+                m.visible = true;
+                if (f == "down") addBox(m, 0, 0, 0, 16, 1, 16, sp);
+                else if (f == "up") addBox(m, 0, 15, 0, 16, 16, 16, sp);
+                else if (f == "north") addBox(m, 0, 0, 0, 16, 16, 1, sp);
+                else if (f == "south") addBox(m, 0, 0, 15, 16, 16, 16, sp);
+                else if (f == "west") addBox(m, 0, 0, 0, 1, 16, 16, sp);
+                else addBox(m, 15, 0, 0, 16, 16, 16, sp);
             } else if (name == "pale_hanging_moss") {
                 m.visible = true;
                 m.cross = true;

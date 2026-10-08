@@ -56,6 +56,8 @@ extern const Property hatch;          // 0..2 (turtle eggs)
 extern const Property hydration;      // "hydration": 0..3 (M26.5b: dried ghasts)
 extern const Property honeyLevel;     // "honey_level": 0..5 (M26.3b: bee nests and beehives)
 extern const Property mossTip;        // "tip": true | false (M27.1: pale hanging moss)
+extern const Property creakingState;  // "creaking_heart_state": uprooted | dormant | awake (M27.1c)
+extern const Property natural;        // true | false (M27.1c: generated creaking hearts)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -432,6 +434,12 @@ enum : BlockId {
     PaleMossBlock,
     PaleMossCarpet,
     PaleHangingMoss, // tip (true: the lowest of a strand)
+    // The pale garden's heart (M27.1c; wiki: Creaking Heart, Eyeblossom, Resin Clump).
+    CreakingHeart,   // axis, creaking_heart_state (uprooted | dormant | awake), natural
+    OpenEyeblossom,  // (open at night)
+    ClosedEyeblossom,
+    ResinClump,      // facing (the side it sits on - ours: one face, vanilla: any of six)
+    ResinBlock,
     Count
 };
 } // namespace blocks

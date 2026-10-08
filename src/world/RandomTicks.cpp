@@ -327,9 +327,40 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::Lava:
         lavaIgnites(p); // sources and flowing lava alike
         break;
+    // The pale garden (M27.1c; wiki: Eyeblossom, Creaking Heart): by night eyeblossoms
+    // open and creaking hearts set between pale oak logs wake; by day they close and
+    // sleep. An awake natural heart calls its creaking (main adds it unless one is out).
+    case B::OpenEyeblossom:
+    case B::ClosedEyeblossom: {
+        const bool isOpen = blockOf(s) == B::OpenEyeblossom;
+        if (isOpen != nightTime()) set(p, R().defaultState(isOpen ? B::ClosedEyeblossom : B::OpenEyeblossom));
+        break;
+    }
+    case B::CreakingHeart: {
+        const int want = heartState(p, s);
+        if (want != R().get(s, creakingState)) set(p, R().set(s, creakingState, want));
+        if (want == 2 && R().get(s, natural) == 0 && m_hatched.size() < m_hatched.capacity())
+            m_hatched.push_back({p, 1, MobType::Creaking});
+        break;
+    }
     default:
         break;
     }
+}
+
+bool BlockUpdates::nightTime() const {
+    const int64_t t = ((m_dayTime % 24000) + 24000) % 24000;
+    return t >= 12600 && t < 23400; // (dusk to dawn, as the hearts and blossoms keep it)
+}
+
+int BlockUpdates::heartState(const BlockPos& p, BlockStateId s) const {
+    // Uprooted (0) unless a pale oak log lies on each side along its axis; then awake (2)
+    // by night, dormant (1) by day.
+    const int a = R().get(s, axis);
+    const Direction lo = a == 0 ? Direction::West : a == 1 ? Direction::Down : Direction::North;
+    const auto log = [&](Direction d) { return blockOf(at(rel(p, d))) == B::PaleOakLog; };
+    if (!log(lo) || !log(static_cast<Direction>(int(lo) ^ 1))) return 0; // (the opposite side)
+    return nightTime() ? 2 : 1;
 }
 
 // --- Grass -------------------------------------------------------------------------

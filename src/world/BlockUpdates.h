@@ -96,6 +96,9 @@ public:
     // max(block light, sky light - this), vanilla's raw brightness.
     void setSkyDarken(int levels) { m_skyDarken = levels; }
     void setDayTime(int64_t dayTime) { m_dayTime = dayTime; } // (M25: turtle eggs crack before dawn)
+    bool nightTime() const; // (M27.1c: eyeblossoms, creaking hearts)
+    // A creaking heart's state from its logs and the time: 0 uprooted, 1 dormant, 2 awake.
+    int heartState(const BlockPos& p, BlockStateId s) const;
     // Weather (M22.1): rain puts out fires and waters farmland; in the ticking chunks
     // water freezes and snow settles in cold biomes, and thunderstorms strike lightning
     // (its spots, after fire is placed, in lightning() for main: damage, bolts).

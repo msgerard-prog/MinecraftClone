@@ -92,6 +92,8 @@ const Property waterlogged{"waterlogged", {"true", "false"}};
 const Property pickles{"pickles", {"1", "2", "3", "4"}};
 const Property honeyLevel{"honey_level", {"0", "1", "2", "3", "4", "5"}};
 const Property mossTip{"tip", {"true", "false"}};
+const Property creakingState{"creaking_heart_state", {"uprooted", "dormant", "awake"}};
+const Property natural{"natural", {"true", "false"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -236,6 +238,8 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"smooth_red_sandstone", 2.0f, 6.0f, false},
         {"cut_red_sandstone", 0.8f, 0.8f, false},
         {"chiseled_red_sandstone", 0.8f, 0.8f, false},
+        {"resin_bricks", 1.5f, 6.0f, false}, // (M27.1c; wiki: Resin Bricks)
+        {"chiseled_resin_bricks", 1.5f, 6.0f, false},
     };
     for (const NewBase& b : kBases) {
         const BlockSettings st{.hardness = b.hardness, .resistance = b.resistance, .tool = HT::Pickaxe};
@@ -288,6 +292,7 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"tuff", "tuff", true, true, true},
         {"polished_tuff", "polished_tuff", true, true, true},
         {"tuff_brick", "tuff_bricks", true, true, true},
+        {"resin_brick", "resin_bricks", true, true, true},
         {"oak", "oak_planks", true, true, false},
         {"spruce", "spruce_planks", true, true, false},
         {"birch", "birch_planks", true, true, false},
@@ -1136,6 +1141,17 @@ BlockRegistry buildVanillaBlocks() {
           blocks::PaleMossCarpet);
     // (wiki: Pale Hanging Moss - hangs under a block or more moss; the lowest is the tip)
     check(r.add("pale_hanging_moss", kPlant, {{&mossTip, "true"}}), blocks::PaleHangingMoss);
+    // (M27.1c; wiki: Creaking Heart - 10 / 10, axe; it wakes at night between pale oak
+    // logs and calls a creaking. Eyeblossoms open at night. Resin clumps sit on a face.)
+    BlockSettings heart{.hardness = 10.0f, .resistance = 10.0f, .randomTicks = true, .tool = HarvestTool::Axe};
+    check(r.add("creaking_heart", heart, {{&axis, "y"}, {&creakingState, "uprooted"}, {&natural, "false"}}),
+          blocks::CreakingHeart);
+    BlockSettings blossom = kPlant;
+    blossom.randomTicks = true;
+    check(r.add("open_eyeblossom", blossom), blocks::OpenEyeblossom);
+    check(r.add("closed_eyeblossom", blossom), blocks::ClosedEyeblossom);
+    check(r.add("resin_clump", kPlant, {{&facing6, "down"}}), blocks::ResinClump);
+    check(r.add("resin_block", {}), blocks::ResinBlock);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

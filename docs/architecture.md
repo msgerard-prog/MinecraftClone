@@ -519,6 +519,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `gameplay/CopperGolems.cpp` (`buildCopperGolem` from main's BlockPlace, `copperGolemGoal`
   moves up to 16 items from copper chests to matching or empty chests, oxidation in
   `woolColour`, wax in `sheared`). Snowballs: `ProjectileKind::Snowball`, snow drops.
+- The creaking (M27.1c, `gameplay/Creakings.cpp`, part of `Mobs`): creaking hearts
+  (`BlockUpdates::heartState` on random ticks: uprooted / dormant / awake between pale oak
+  logs by `nightTime`) ask for their creaking through `hatched()`; main calls
+  `Mobs::spawnCreaking` (player within 32, none of its own out). `creakingTick` runs before
+  the monster goals: crumbling (heart gone, day, > 32 blocks), healing while its heart
+  stands (`attack` takes no damage; a hit grows resin clumps on the tree), and freezing
+  while `watched` by the player. overworld6 puts natural hearts in 1 in 8 pale garden oaks.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -366,6 +366,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (witherAi(ctx, m)) return;  // (M26.4b, Wither.cpp)
     if (allayAi(ctx, m)) return;   // (M26.5a, Allays.cpp)
     if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
+    if (creakingTick(ctx, m)) return; // (M27.1c, Creakings.cpp: frozen or crumbling)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -648,6 +649,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
     if (m.type == MobType::Wither && m.spellTicks > 0) return; // (M26.4b: charging, it can't be hurt)
+    if (m.type == MobType::Creaking && m.home.y != kNoPoint) damage = 0.0f; // (M27.1c: only its heart can end it)
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
     if (m.type == MobType::Armadillo && m.sitting) damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
     m.health -= damage;

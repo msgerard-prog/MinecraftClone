@@ -1157,6 +1157,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
             if (m.home.y != kNoPoint) e.put("hive_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
+        if (m.type == MobType::Creaking && m.home.y != kNoPoint) { // (M27.1c; wiki: Creaking - home_pos)
+            e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+        }
         if (m.type == MobType::Armadillo) {
             e.put("state", std::string(m.sitting ? "scared" : "idle"));
             e.put("scute_time", int32_t(m.eggTicks));
@@ -1562,6 +1565,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (const nbt::Tag* hp = e->find("hive_pos"))
                 if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
+        if (m.type == MobType::Creaking)
+            if (const nbt::Tag* hp = e->find("home_pos"))
+                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         if (m.type == MobType::Armadillo) {
             const std::string* st = e->string("state");
             m.sitting = st && *st != "idle";

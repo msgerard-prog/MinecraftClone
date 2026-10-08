@@ -214,7 +214,7 @@ TEST_CASE("overworld6 output is pinned (re-pinned while M27 builds it)") {
                     h *= 1099511628211ull;
                 }
     MESSAGE("overworld6 hash " << h);
-    CHECK(h == 10209103907293581985ull);
+    CHECK(h == 320080373009731636ull);
 }
 
 TEST_CASE("generator kinds map to their versions; every kind names itself back (M27.1 regression)") {

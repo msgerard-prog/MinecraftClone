@@ -449,6 +449,15 @@ def feather():
     return s.render()
 
 
+def membrane():
+    """Phantom membrane (M26.4a): a pale, ragged leathery sheet (ours)."""
+    pal = ramp(hexc("#C8C0B4"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(3, 13) if (x * 7 + y * 3) % 11 != 0 and not (y < 5 and x > 9)}, pal)
+    s.add({(x, 3 + x // 3) for x in range(2, 13)}, ramp(hexc("#8A8278"), 5))
+    return s.render()
+
+
 def egg():
     pal = ramp(hexc("#E8D2A8"), 5, spread=0.3)
     s = Shape()
@@ -1066,6 +1075,8 @@ def all_items():
     items["snowball"] = snowball()  # (M26.5b)
     items["amethyst_shard"] = gem("#A87AE0", "emerald")  # (M26.5a)
     items["breeze_rod"] = blaze_rod("#8AB0E0", "#E0F0FF")
+    items["phantom_membrane"] = membrane()  # (M26.4a; was missing)
+    items["resin_brick"] = ingot("#E0702C")  # (M27.1c)
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)
