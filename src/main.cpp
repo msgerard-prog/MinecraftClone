@@ -2646,11 +2646,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 } else if (hb == mc::world::blocks::Vault) { // (M27.4d; wiki: Vault - a trial key opens it once)
                     const mc::world::BlockStateId vs = world.getBlock(at);
+                    const bool ominousVault = reg.get(vs, mc::world::properties::ominous) == 0; // (M28.4d)
                     if (reg.get(vs, mc::world::properties::vaultState) == 1 &&
-                        held.item == *mc::world::itemRegistry().find("trial_key")) {
+                        held.item == *mc::world::itemRegistry().find(ominousVault ? "ominous_trial_key" : "trial_key")) {
                         if (survival) inventory.consumeSelected(1);
                         std::array<mc::world::ItemStack, 27> loot{};
-                        mc::world::fillChest(mc::world::LootTable::TrialVault, gameRng, loot);
+                        mc::world::fillChest(ominousVault ? mc::world::LootTable::TrialVaultOminous
+                                                          : mc::world::LootTable::TrialVault,
+                                             gameRng, loot);
                         for (const auto& it : loot)
                             if (!it.empty()) droppedItems.spawn({at.x + 0.5, at.y + 1.1, at.z + 0.5}, it, gameRng);
                         world.updateBlock(at, reg.set(vs, mc::world::properties::vaultState, 0)); // (spent: ours for good)
@@ -3121,6 +3124,36 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.impaling = mc::world::enchantLevel(stack, E::Impaling);
                     mhit.aquatic = mc::world::mobInfo(m.type).swims || m.type == mc::world::MobType::Turtle;
                     float dmg = mc::meleeDamage(mhit);
+                    // The mace's smash (M28.4d): a falling hit adds by the height fallen, ends the
+                    // fall, knocks back what stands around, and Wind Burst throws the player up.
+                    static const mc::world::ItemId maceItem = *mc::world::itemRegistry().find("mace");
+                    if (stack.item == maceItem && hit && !player.onGround() && airPeakY - player.position().y > 1.5) {
+                        const double fallen = airPeakY - player.position().y;
+                        dmg += mc::maceSmashBonus(fallen, mc::world::enchantLevel(stack, E::Density));
+                        vitals.resetFall();
+                        airPeakY = player.position().y;
+                        const glm::dvec3 at = m.pos;
+                        world.levelEvent(mc::world::LevelEvent::Type::Explosion, at.x, at.y, at.z, 5); // (a small dust ring)
+                        playSound(mc::world::Sound::Explode, at, 0.5f, 1.4f, true);
+                        const mc::world::ChunkPos sc{mc::world::blockToChunk(int(std::floor(at.x))),
+                                                     mc::world::blockToChunk(int(std::floor(at.z)))};
+                        for (int dz = -1; dz <= 1; ++dz)
+                            for (int dx = -1; dx <= 1; ++dx)
+                                if (mc::world::Chunk* kc = world.chunk({sc.x + dx, sc.z + dz}))
+                                    for (auto& o : kc->mobs()) {
+                                        const glm::dvec3 away = o.pos - at;
+                                        const double d = glm::length(away);
+                                        if (&o == &m || d > 3.5 || d < 1e-3 || o.health <= 0.0f ||
+                                            mc::world::isHanging(o.type) || o.tamed)
+                                            continue;
+                                        o.vel += glm::dvec3(away.x / d, 0.0, away.z / d) * ((3.5 - d) * 0.7) +
+                                                 glm::dvec3(0.0, 0.3, 0.0);
+                                    }
+                        if (const int wind = mc::world::enchantLevel(stack, E::WindBurst); wind > 0) {
+                            const glm::dvec3 v = player.velocity();
+                            player.setVelocity({v.x, mc::windBurstLift(wind), v.z});
+                        }
+                    }
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
                     if (hit && !crit)
@@ -3159,11 +3192,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (const int fa = mc::world::enchantLevel(stack, E::FireAspect))
                             m.fireTicks = std::max<int16_t>(m.fireTicks, int16_t(80 * fa));
                         if (survival &&
-                            held.tool !=
-                                mc::world::ToolType::None) // swords wear 1 per hit, tools 2 (wiki)
+                            (held.tool != mc::world::ToolType::None || stack.item == maceItem)) // swords wear 1 per hit, tools 2 (wiki)
                             inventory.setSlot(
                                 inventory.selected(),
-                                mc::wearItem(stack, held.tool == mc::world::ToolType::Sword ? 1 : 2,
+                                mc::wearItem(stack, held.tool == mc::world::ToolType::Sword || stack.item == maceItem ? 1 : 2,
                                              gameRng));
                     }
                     if (survival) vitals.exhaust(0.1f); // wiki: attacking

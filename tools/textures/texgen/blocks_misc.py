@@ -69,19 +69,20 @@ reg("resin_clump", lambda r: M.speckle(Img(), r, [RESIN[3], RESIN[2], RESIN[4]],
 # Ominous trial spawner / vault: same build, cold blue glow.
 TRIAL = ramp(hexc("4a4a52"), spread=0.25)
 OMINOUS = ramp(hexc("3a8ae0"), spread=0.3)
+OMINOUS_DIM = ramp(hexc("2a4a6e"), spread=0.25)  # (M28.4d: ominous blocks show their blue even when off)
 for state, lit in (("inactive", False), ("active", True), ("ejecting_reward", True)):
     reg(f"trial_spawner_top_{state}_ominous", lambda r, lit=lit: U.window_grid(
-        U.framed(M.metal_block(r, TRIAL), OMINOUS if lit else TRIAL), TRIAL, 2, 2, 13, 13, 4))
+        U.framed(M.metal_block(r, TRIAL), OMINOUS if lit else OMINOUS_DIM), TRIAL, 2, 2, 13, 13, 4))
 for state, lit in (("inactive", False), ("active", True)):
     reg(f"trial_spawner_side_{state}_ominous", lambda r, lit=lit: U.window_grid(
-        U.framed(Img(fill=TRIAL[2]), OMINOUS if lit else TRIAL), TRIAL, 1, 1, 14, 14, 3))
+        U.framed(Img(fill=TRIAL[2]), OMINOUS if lit else OMINOUS_DIM), OMINOUS_DIM, 1, 1, 14, 14, 3))
 for name, lit in (("vault_side_off_ominous", False), ("vault_side_on_ominous", True),
                   ("vault_front_off_ominous", False), ("vault_front_on_ominous", True),
                   ("vault_front_ejecting_ominous", True)):
-    reg(name, lambda r, lit=lit: U.window_grid(U.framed(M.metal_block(r, TRIAL), OMINOUS if lit else TRIAL),
-                                              TRIAL, 3, 3, 12, 12, 9))
-reg("vault_top_ominous", lambda r: M.metal_block(r, TRIAL))
-reg("vault_bottom_ominous", lambda r: M.metal_block(r, TRIAL))
+    reg(name, lambda r, lit=lit: U.window_grid(U.framed(M.metal_block(r, TRIAL), OMINOUS if lit else OMINOUS_DIM),
+                                              OMINOUS_DIM, 3, 3, 12, 12, 9))
+reg("vault_top_ominous", lambda r: U.framed(M.metal_block(r, TRIAL), OMINOUS_DIM))
+reg("vault_bottom_ominous", lambda r: U.framed(M.metal_block(r, TRIAL), OMINOUS_DIM))
 
 # Creative-only technical blocks: plain, clearly "technical" designs.
 TECH = {"command_block": "c08a5a", "repeating_command_block": "7a5ac8", "chain_command_block": "5aa88a"}

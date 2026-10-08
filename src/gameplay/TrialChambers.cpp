@@ -53,9 +53,35 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
                 c.markDirty();
         }
     } dirty{chunk, before, s};
+    // Trial Omen (M28.4d; wiki: Trial Omen, Ominous Trial): Bad Omen turns into it near a
+    // trial spawner (15 minutes a level); with it, idle spawners nearby turn ominous - and,
+    // ours, the vaults within 16 blocks too - and their reward is an ominous trial key.
+    if (near && ctx.vitals.effectLevel(Effect::BadOmen) > 0) {
+        const int level = ctx.vitals.effectLevel(Effect::BadOmen);
+        ctx.vitals.removeEffect(Effect::BadOmen);
+        ctx.vitals.addEffect(Effect::TrialOmen, 0, 18000 * level);
+    }
+    const bool ominousNow = r.get(state, properties::ominous) == 0;
+    if (near && !ominousNow && ctx.vitals.effectLevel(Effect::TrialOmen) > 0 && s.spawned == 0 && s.total == 0) {
+        ctx.world.updateBlock(p, r.set(state, properties::ominous, 0));
+        s.cooldown = 0;
+        for (int dy = -8; dy <= 8; ++dy)
+            for (int dz = -16; dz <= 16; ++dz)
+                for (int dx = -16; dx <= 16; ++dx) {
+                    const BlockPos q{p.x + dx, p.y + dy, p.z + dz};
+                    const BlockStateId vs = ctx.world.getBlock(q);
+                    if (r.blockOf(vs) == blocks::Vault && r.get(vs, properties::ominous) != 0)
+                        ctx.world.updateBlock(q, r.set(vs, properties::ominous, 0));
+                }
+        return;
+    }
     if (s.cooldown > 0) { // resting after its reward
-        if (--s.cooldown == 0) setState(1);
-        else setState(5);
+        if (--s.cooldown == 0) {
+            setState(1);
+            if (ominousNow) ctx.world.updateBlock(p, r.set(ctx.world.getBlock(p), properties::ominous, 1)); // (back to normal)
+        } else {
+            setState(5);
+        }
         return;
     }
     if (s.total == 0) { // waiting for a player
@@ -102,7 +128,8 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
         return;
     }
     // Beaten: the key and a reward, then the rest.
-    static const ItemId key = *itemRegistry().find("trial_key");
+    static const ItemId plainKey = *itemRegistry().find("trial_key"), ominousKey = *itemRegistry().find("ominous_trial_key");
+    const ItemId key = ominousNow ? ominousKey : plainKey; // (M28.4d)
     const glm::dvec3 out = centre + glm::dvec3(0.0, 0.8, 0.0);
     // (wiki: Trial Spawner › Loot - half the time a trial key, else one consumable)
     if (ctx.rng.nextInt(2) == 0) ctx.items.spawn(out, {key, 1}, ctx.rng);

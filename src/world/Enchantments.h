@@ -43,6 +43,9 @@ enum class Enchantment : uint8_t {
     QuickCharge,  // (M28.4a) crossbows: 0.25 s faster to load a level
     Multishot,    // (M28.4a) crossbows: three arrows for one
     Piercing,     // (M28.4a) crossbows: arrows go through a mob a level
+    Density,      // (M28.4d) maces: +0.5 smash damage per block fallen a level
+    Breach,       // (M28.4d) maces: armor protects 15% less a level
+    WindBurst,    // (M28.4d) maces: a smash launches the player up (treasure)
     Count
 };
 // Random enchantments (loot enchant_randomly, fishing treasure) draw from the ones before
@@ -51,7 +54,7 @@ enum class Enchantment : uint8_t {
 inline constexpr uint32_t kRandomEnchantments = uint32_t(Enchantment::Channeling);
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow, Mace };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"

@@ -637,6 +637,18 @@ def firework_star():
     return lump("firework_star", "#6A6A6A", "#9A9A9A", size=4.6)
 
 
+def mace():
+    """M28.4d: a heavy dark-steel head on a short wrapped handle."""
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(3, 10)}, ramp(hexc("#6A5A48"), 5))
+    s.add({(x, y) for x in range(9, 15) for y in range(1, 7) if (x - 11.5) ** 2 + (y - 3.5) ** 2 < 8.5},
+          ramp(hexc("#5A6068"), 5, spread=0.3))
+    img = s.render()
+    for (x, y) in ((10, 2), (13, 2), (10, 5), (13, 5)):
+        img.set(x, y, hexc("#9AA2AA"))
+    return img
+
+
 def bone():
     pal = ramp(hexc("#E8E2CC"), 5, spread=0.25)
     s = Shape()
@@ -1454,6 +1466,14 @@ def all_items():
     items["spectral_arrow"] = arrow_variant("#F4D040")
     items["firework_rocket"] = firework_rocket()  # (M28.4c)
     items["firework_star"] = firework_star()
+    items["mace"] = mace()  # (M28.4d)
+    ok = trial_key()
+    for y in range(16):
+        for x in range(16):
+            c = ok.get(x, y)
+            if c[3]:
+                ok.set(x, y, (max(0, c[0] - 90), min(255, c[1] + 10), min(255, c[2] + 30), 255))
+    items["ominous_trial_key"] = ok
     items["sugar"] = sugar()
     items["fermented_spider_eye"] = fermented_spider_eye()
     items["golden_carrot"] = golden_carrot()

@@ -178,3 +178,48 @@ TEST_CASE("a brush gets a scute from an armadillo (M27.5c)") {
     for (const auto& it : d.items.items()) scutes += it.stack.item == *itemRegistry().find("armadillo_scute");
     CHECK(scutes == 1);
 }
+
+#include "gameplay/Combat.h"
+#include "gameplay/Recipes.h"
+#include "world/Loot.h"
+
+TEST_CASE("Trial Omen: Bad Omen near a trial spawner turns it and the vaults nearby ominous (M28.4d)") {
+    Deep d;
+    const auto& r = blockRegistry();
+    d.world.updateBlock({0, 60, 0}, r.defaultState(blocks::TrialSpawner));
+    d.world.chunk({0, 0})->spawner(0, 60, 0)->mob = MobType::Zombie;
+    d.world.updateBlock({4, 60, 3}, r.defaultState(blocks::Vault));
+    d.world.markTicking({0, 0});
+    d.player.setPosition({0.5, 60.0, 8.5});
+    d.vitals.addEffect(Effect::BadOmen, 1, 6000); // (level II)
+    d.tick(2);
+    CHECK(d.vitals.effectLevel(Effect::BadOmen) == 0);
+    CHECK(d.vitals.effectLevel(Effect::TrialOmen) == 1);
+    CHECK(r.get(d.world.getBlock({0, 60, 0}), properties::ominous) == 0);
+    CHECK(r.get(d.world.getBlock({4, 60, 3}), properties::ominous) == 0);
+    // The ominous vault's table can give the heavy core.
+    bool core = false;
+    Xoroshiro rng{12};
+    for (int i = 0; i < 400 && !core; ++i) {
+        std::array<ItemStack, 27> loot{};
+        fillChest(LootTable::TrialVaultOminous, rng, loot);
+        for (const auto& s : loot) core = core || (!s.empty() && itemRegistry().item(s.item).id == "minecraft:heavy_core");
+    }
+    CHECK(core);
+}
+
+TEST_CASE("the mace: smash damage by the height fallen, Density, Wind Burst; the recipe (M28.4d)") {
+    CHECK(maceSmashBonus(1.0, 0) == 0.0f);
+    CHECK(maceSmashBonus(3.0, 0) == doctest::Approx(12.0f));
+    CHECK(maceSmashBonus(8.0, 0) == doctest::Approx(22.0f));
+    CHECK(maceSmashBonus(10.0, 0) == doctest::Approx(24.0f));
+    CHECK(maceSmashBonus(4.0, 2) == doctest::Approx(14.0f + 4.0f));
+    CHECK(windBurstLift(1) > 1.0);
+    CHECK(windBurstLift(3) > windBurstLift(1));
+    std::array<ItemStack, 4> g{};
+    g[0] = {*itemRegistry().find("heavy_core"), 1};
+    g[2] = {*itemRegistry().find("breeze_rod"), 1};
+    const auto m = craft(g, 2);
+    REQUIRE(m);
+    CHECK(itemRegistry().item(m->item).id == "minecraft:mace");
+}

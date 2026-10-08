@@ -238,6 +238,9 @@ ItemRegistry buildItems() {
         r.add({.id = std::string("minecraft:") + s + "_pottery_sherd", .texture = std::string("item/") + s + "_pottery_sherd"});
     // (M27.4d; wiki: Trial Key - opens a vault; from trial spawners)
     r.add({.id = "minecraft:trial_key", .texture = "item/trial_key"});
+    r.add({.id = "minecraft:ominous_trial_key", .texture = "item/ominous_trial_key"}); // (M28.4d)
+    // (M28.4d; wiki: Mace - 6 attack damage, 500 uses; falling hits smash)
+    r.add({.id = "minecraft:mace", .maxStack = 1, .durability = 500, .attackDamage = 6.0f, .texture = "item/mace"});
     // (M27.3b; wiki: Echo Shard - found in ancient cities)
     r.add({.id = "minecraft:echo_shard", .texture = "item/echo_shard"});
     // (M27.1c; wiki: Resin Brick - smelted from resin clumps; 4 make resin bricks)

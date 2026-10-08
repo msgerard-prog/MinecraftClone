@@ -771,6 +771,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (name == "basalt" || name == "bone_block") {
                 m = single(cubeColumn(sprite((name + "_side").c_str()), sprite((name + "_top").c_str()),
                                       registry.value(state, "axis").value_or("y")));
+            } else if (name == "heavy_core") { // (M28.4d) a small dark core in the middle of the floor
+                m.visible = true;
+                addBox(m, 4, 0, 4, 12, 8, 12, sprite("heavy_core"));
             } else if (name == "lodestone") { // (M28.2a)
                 BakedVariant v = cubeAll(sprite("lodestone_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("lodestone_top");
@@ -1010,23 +1013,29 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 const std::string_view st = registry.value(state, "trial_spawner_state").value_or("inactive");
                 const bool active = st == "active" || st == "waiting_for_reward_ejection";
                 const bool ejecting = st == "ejecting_reward";
-                BakedVariant v = cubeAll(sprite(ejecting ? "trial_spawner_side_ejecting_reward"
-                                                : active ? "trial_spawner_side_active"
-                                                         : "trial_spawner_side_inactive"));
-                v.faces[int(Direction::Up)].sprite = sprite(ejecting ? "trial_spawner_top_ejecting_reward"
-                                                            : active ? "trial_spawner_top_active"
-                                                                     : "trial_spawner_top_inactive");
+                const std::string om = registry.value(state, "ominous") == "true" ? "_ominous" : ""; // (M28.4d)
+                BakedVariant v = cubeAll(sprite((std::string(ejecting ? "trial_spawner_side_ejecting_reward"
+                                                             : active ? "trial_spawner_side_active"
+                                                                      : "trial_spawner_side_inactive") +
+                                                 (ejecting ? "" : om))
+                                                    .c_str()));
+                v.faces[int(Direction::Up)].sprite = sprite((std::string(ejecting ? "trial_spawner_top_ejecting_reward"
+                                                                         : active ? "trial_spawner_top_active"
+                                                                                  : "trial_spawner_top_inactive") +
+                                                             om)
+                                                                .c_str());
                 v.faces[int(Direction::Down)].sprite = sprite("trial_spawner_bottom");
                 m = single(v);
             } else if (name == "vault") { // (M27.4d) its keyhole on the front, lit while it can open
                 const bool on = registry.value(state, "vault_state") != "inactive";
+                const std::string om = registry.value(state, "ominous") == "true" ? "_ominous" : ""; // (M28.4d)
                 const std::string_view f = registry.value(state, "facing").value_or("north");
                 const Direction front = f == "south" ? Direction::South : f == "west" ? Direction::West
                                         : f == "east" ? Direction::East : Direction::North;
-                BakedVariant v = cubeAll(sprite(on ? "vault_side_on" : "vault_side_off"));
-                v.faces[int(front)].sprite = sprite(on ? "vault_front_on" : "vault_front_off");
-                v.faces[int(Direction::Up)].sprite = sprite("vault_top");
-                v.faces[int(Direction::Down)].sprite = sprite("vault_bottom");
+                BakedVariant v = cubeAll(sprite((std::string(on ? "vault_side_on" : "vault_side_off") + om).c_str()));
+                v.faces[int(front)].sprite = sprite((std::string(on ? "vault_front_on" : "vault_front_off") + om).c_str());
+                v.faces[int(Direction::Up)].sprite = sprite(("vault_top" + om).c_str());
+                v.faces[int(Direction::Down)].sprite = sprite(("vault_bottom" + om).c_str());
                 m = single(v);
             } else if (name == "sculk_vein") { // (M27.3) a thin layer on its face
                 const std::string_view f = registry.value(state, "facing").value_or("down");

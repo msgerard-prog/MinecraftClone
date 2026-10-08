@@ -38,6 +38,7 @@ enum class Effect : uint8_t {
     BreathOfTheNautilus, // (M26.5a: riding a nautilus) the air bar doesn't drop under water
     Darkness,            // (M27.3: shriekers, wardens) the world pulses dark around you
     Glowing,             // (M28.4b: spectral arrows) outlined through walls (ours: no outline yet)
+    TrialOmen,           // (M28.4d) Bad Omen turned near a trial spawner: nearby trials are ominous
     Count
 };
 struct EffectInfo {

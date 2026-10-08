@@ -217,6 +217,7 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###", ".#.", "#S#"}, {{'#', item("stick")}, {'S', item("smooth_stone_slab")}}, "armor_stand"));
     r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
     r.push_back(shaped({".G.", "GAG", ".G."}, {{'G', item("glowstone_dust")}, {'A', item("arrow")}}, "spectral_arrow", 2));
+    r.push_back(shaped({"H", "R"}, {{'H', item("heavy_core")}, {'R', item("breeze_rod")}}, "mace")); // (M28.4d)
     // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern; no vines yet for
     // bordure indented).
     for (const char* c : kDyeColours)

@@ -663,6 +663,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   loaded from the offhand), `fireworkBursts()` -> main's `LevelEvent::Firework` ->
   `Particles::firework` (shapes, colours, fades); `fireworkDamage` to things within 5;
   main's `elytraBoost` pushes a glide with `boostedVelocity`.
+- The mace and ominous trials (M28.4d): `maceSmashBonus`/`windBurstLift` (`gameplay/Combat.h`)
+  for falling hits in main's melee (fall from `airPeakY`, knockback around, the fall reset);
+  Density, Breach, Wind Burst after Piercing. `Mobs::tickTrialSpawner` turns Bad Omen into
+  `Effect::TrialOmen` and idle spawners - and vaults within 16 blocks - ominous (block
+  state); ominous spawners reward ominous trial keys, which open ominous vaults
+  (`LootTable::TrialVaultOminous`, the heavy core).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -1270,6 +1270,10 @@ BlockRegistry buildVanillaBlocks() {
     // (M28.2a; wiki: Lodestone - 3.5 / 3.5, any pickaxe)
     check(r.add("lodestone", {.hardness = 3.5f, .resistance = 3.5f, .tool = HarvestTool::Pickaxe, .tier = 0}),
           blocks::Lodestone);
+    // (M28.4d; wiki: Heavy Core - 10 / 1200, an 8x8x8 core on the floor, waterloggable)
+    check(r.add("heavy_core", {.hardness = 10.0f, .resistance = 1200.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&waterlogged, "false"}}),
+          blocks::HeavyCore);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

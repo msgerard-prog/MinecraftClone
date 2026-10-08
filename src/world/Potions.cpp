@@ -35,6 +35,7 @@ constexpr EffectInfo kEffects[] = {
     {"minecraft:breath_of_the_nautilus", false, 0x00AACC}, // (M26.5a)
     {"minecraft:darkness", false, 0x292721},                // (M27.3)
     {"minecraft:glowing", false, 0x94A061},                 // (M28.4b)
+    {"minecraft:trial_omen", false, 0x16A6A6},              // (M28.4d)
 };
 static_assert(std::size(kEffects) == size_t(Effect::Count));
 

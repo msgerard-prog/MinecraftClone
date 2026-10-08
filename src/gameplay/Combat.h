@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+
 namespace mc {
 
 // Melee damage (wiki: Damage, Critical hit, Sharpness, Smite, Bane of Arthropods,
@@ -25,6 +28,20 @@ inline float meleeDamage(const MeleeHit& h) {
     if (h.arthropod) d += 2.5f * float(h.bane);
     if (h.aquatic) d += 2.5f * float(h.impaling);
     return d;
+}
+
+// The mace's smash attack (M28.4d; wiki: Mace): a hit while falling more than 1.5 blocks
+// adds 4 damage per block for the first 3 blocks, 2 per block for the next 5, then 1 per
+// block; Density adds 0.5 per block fallen a level.
+inline float maceSmashBonus(double fallen, int density) {
+    if (fallen <= 1.5) return 0.0f;
+    const double b = std::min(fallen, 3.0) * 4.0 + std::clamp(fallen - 3.0, 0.0, 5.0) * 2.0 + std::max(0.0, fallen - 8.0);
+    return float(b + 0.5 * density * fallen);
+}
+// Wind Burst (wiki: about 7, 8, 9 blocks up for levels I-III): the upward speed that
+// throws a player that high against our gravity and drag (ours).
+inline double windBurstLift(int level) {
+    return level <= 0 ? 0.0 : std::sqrt(2.0 * 0.08 * double(6 + level) / 0.9);
 }
 
 } // namespace mc

@@ -504,6 +504,7 @@ enum : BlockId {
     PitcherCrop,      // age 0..4 (then a pitcher plant; ours one block tall)
     PitcherPlant,     // half
     Lodestone,        // (M28.2a; wiki: Lodestone)
+    HeavyCore,        // (M28.4d; wiki: Heavy Core) the mace's head, from ominous vaults
     Count
 };
 } // namespace blocks

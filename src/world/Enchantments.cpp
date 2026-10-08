@@ -49,6 +49,10 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:quick_charge", "Quick Charge", 3, 5, 12, 20, 38, 50, EnchantTarget::Crossbow, 0},
     {"minecraft:multishot", "Multishot", 1, 2, 20, 0, 30, 50, EnchantTarget::Crossbow, 0},
     {"minecraft:piercing", "Piercing", 4, 10, 1, 10, 49, 50, EnchantTarget::Crossbow, 0},
+    // (M28.4d; wiki: Density V weight 5, Breach IV weight 2, Wind Burst III - a treasure, weight 0)
+    {"minecraft:density", "Density", 5, 5, 5, 8, 20, 45, EnchantTarget::Mace, 5},
+    {"minecraft:breach", "Breach", 4, 2, 15, 9, 50, 50, EnchantTarget::Mace, 5},
+    {"minecraft:wind_burst", "Wind Burst", 3, 0, 15, 9, 50, 50, EnchantTarget::Mace, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -109,6 +113,7 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::FishingRod: return item == ids().rod;
     case EnchantTarget::Trident: return item == ids().trident;
     case EnchantTarget::Crossbow: return d.id == "minecraft:crossbow";
+    case EnchantTarget::Mace: return d.id == "minecraft:mace";
     }
     return false;
 }

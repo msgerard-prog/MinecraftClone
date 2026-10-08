@@ -49,6 +49,7 @@ enum class LootTable : uint8_t {
     ArchaeologyOceanRuinWarm,
     ArchaeologyTrailCommon,
     ArchaeologyTrailRare,
+    TrialVaultOminous, // (M28.4d) an ominous vault opened with an ominous trial key
     Count
 };
 // Vanilla's loot table ids ("minecraft:chests/simple_dungeon", "minecraft:archaeology/

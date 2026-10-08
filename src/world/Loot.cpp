@@ -246,6 +246,17 @@ constexpr LootEntry kVault1[] = {
     {"crossbow", 1, 1, 2, true}, {"iron_axe", 1, 1, 2, true}, {"iron_chestplate", 1, 1, 2, true},
     {"diamond_axe", 1, 1, 1, true}, {"enchanted_golden_apple", 1, 1, 1}};
 constexpr LootPool kVault[] = {{1, 3, kVault1}};
+// (M28.4d; wiki: Vault › Ominous loot - ours: the common and rare items together, then a
+// quarter of the time a unique: the heavy core, the flow banner pattern or an enchanted
+// golden apple)
+constexpr LootEntry kVaultOminous1[] = {
+    {"emerald", 4, 10, 5},       {"wind_charge", 8, 12, 4},  {"diamond", 2, 3, 3},       {"ominous_bottle", 1, 1, 2},
+    {"emerald_block", 1, 1, 2},  {"iron_block", 1, 1, 2},    {"golden_apple", 1, 1, 2},  {"crossbow", 1, 1, 2, true},
+    {"diamond_axe", 1, 1, 1, true}, {"diamond_chestplate", 1, 1, 1, true}, {"enchanted_book", 1, 1, 2, true},
+    {"diamond_block", 1, 1, 1}};
+constexpr LootEntry kVaultOminous2[] = {{"heavy_core", 1, 1, 1}, {"flow_banner_pattern", 1, 1, 2},
+                                        {"enchanted_golden_apple", 1, 1, 3}, {"", 1, 1, 18}};
+constexpr LootPool kVaultOminous[] = {{1, 3, kVaultOminous1}, {1, 1, kVaultOminous2}};
 // (a trial spawner's consumable - given instead of the key half the time)
 constexpr LootEntry kTrialReward1[] = {
     {"cooked_chicken", 1, 1, 3}, {"bread", 1, 3, 3}, {"baked_potato", 1, 3, 2},
@@ -351,6 +362,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::ArchaeologyOceanRuinWarm: return kArchWarm;
     case LootTable::ArchaeologyTrailCommon: return kArchTrailCommon;
     case LootTable::ArchaeologyTrailRare: return kArchTrailRare;
+    case LootTable::TrialVaultOminous: return kVaultOminous;
     default: return {}; // (filled in as their structures arrive)
     }
 }
@@ -443,7 +455,8 @@ constexpr std::string_view kTableNames[] = {
     "chests/ancient_city",       "chests/ruined_portal",        "chests/woodland_mansion",
     "chests/trial_chambers/reward", "spawners/trial_chamber/consumables", "chests/trial_chambers/supply",
     "archaeology/desert_pyramid", "archaeology/desert_well",    "archaeology/ocean_ruin_cold",
-    "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare"};
+    "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare",
+    "chests/trial_chambers/reward_ominous"};
 static_assert(std::size(kTableNames) == size_t(LootTable::Count));
 } // namespace
 
