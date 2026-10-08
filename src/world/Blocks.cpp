@@ -1055,6 +1055,12 @@ BlockRegistry buildVanillaBlocks() {
     // (M25.5; wiki: Sponge - 0.6, hoe)
     check(r.add("sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::Sponge);
     check(r.add("wet_sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::WetSponge);
+    // (M26.3; wiki: Sweet Berry Bush - breaks instantly, no collision (it slows and pricks
+    // what walks through), grows on random ticks)
+    check(r.add("sweet_berry_bush", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout,
+                                     .randomTicks = true},
+                {{&age3, "0"}}),
+          blocks::SweetBerryBush);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

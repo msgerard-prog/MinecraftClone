@@ -1352,6 +1352,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::CherrySapling:
     case B::PaleOakSapling:
     case B::MangrovePropagule:
+    case B::SweetBerryBush:
         if (!plantableSoil(at(rel(p, Direction::Down)))) pop(p); // lost its soil
         break;
     case B::NetherPortal: {
@@ -2078,6 +2079,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::CherrySapling:
     case B::PaleOakSapling:
     case B::MangrovePropagule:
+    case B::SweetBerryBush:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
         return state;
     case B::ChorusPlant:

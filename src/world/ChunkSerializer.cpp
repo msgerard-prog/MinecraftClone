@@ -174,7 +174,10 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     c.put("id", itemRegistry().item(s.item).id);
     c.put("count", int32_t{s.count});
     nbt::Compound components;
-    if (s.damage) components.put("minecraft:damage", int32_t{s.damage});
+    if (itemRegistry().item(s.item).id == "minecraft:goat_horn") // (M26.3: its instrument, kept in `damage`)
+        components.put("minecraft:instrument", "minecraft:" + std::string(kGoatHorns[s.damage % 8]) + "_goat_horn");
+    else if (s.damage)
+        components.put("minecraft:damage", int32_t{s.damage});
     if (s.state) { // exact block state (vanilla's minecraft:block_state component)
         nbt::Compound props;
         const std::string text = blockRegistry().toString(s.state);
@@ -239,6 +242,9 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
     if (const nbt::Compound* comps = c.compound("components")) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
         const ItemDef& def = itemRegistry().item(*item);
+        if (const std::string* inst = comps->string("minecraft:instrument"); inst && def.id == "minecraft:goat_horn")
+            for (int k = 0; k < 8; ++k)
+                if (*inst == "minecraft:" + std::string(kGoatHorns[k]) + "_goat_horn") s.damage = uint16_t(k);
         if (const nbt::Compound* props = comps->compound("minecraft:block_state"); props && def.block) {
             BlockStateId st = blockRegistry().defaultState(def.block);
             for (const auto& p : props->entries)
@@ -1067,6 +1073,40 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
             }
         }
+        // Wildlife (M26.3; wiki: Rabbit, Fox, Panda, Goat, Armadillo › Entity data).
+        if (m.type == MobType::Rabbit) e.put("RabbitType", int32_t(m.woolColour % 6));
+        if (m.type == MobType::Fox) {
+            e.put("Type", std::string(m.woolColour == 1 ? "snow" : "red"));
+            e.put("Sleeping", int8_t(m.sitting ? 1 : 0));
+            std::vector<nbt::Tag> trusted;
+            if (m.tamed)
+                trusted.emplace_back(std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                                          int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+            e.put("Trusted", nbt::listOf(nbt::TagType::IntArray, std::move(trusted)));
+        }
+        if (m.type == MobType::Panda) {
+            e.put("MainGene", std::string(kPandaGenes[m.woolColour % 7]));
+            e.put("HiddenGene", std::string(kPandaGenes[m.color2 % 7]));
+        }
+        if (m.type == MobType::Goat) {
+            e.put("HasLeftHorn", int8_t(m.horns & 1 ? 1 : 0));
+            e.put("HasRightHorn", int8_t(m.horns & 2 ? 1 : 0));
+            e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
+        }
+        if (m.type == MobType::Armadillo) {
+            e.put("state", std::string(m.sitting ? "scared" : "idle"));
+            e.put("scute_time", int32_t(m.eggTicks));
+        }
+        if ((m.type == MobType::Fox && m.mouthItem != kNoItem) || (m.type == MobType::Wolf && m.horseArmor > 0)) {
+            nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, a wolf's armor)
+            if (m.type == MobType::Fox) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
+            if (m.type == MobType::Wolf) {
+                ItemStack armor{*itemRegistry().find("wolf_armor"), 1};
+                armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
+                eq.put("body", itemNbt(armor, -1));
+            }
+            e.put("equipment", std::move(eq));
+        }
         if (m.heldTrident) { // (1.21.5+ equipment.mainhand)
             nbt::Compound eq, hand;
             hand.put("id", std::string("minecraft:trident"));
@@ -1378,6 +1418,47 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             }
             if (canCarryChest(m.type)) m.hasChest = e->integer("ChestedHorse").value_or(0) != 0;
         }
+        if (m.type == MobType::Rabbit) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("RabbitType").value_or(0), 0, 5));
+        if (m.type == MobType::Fox) {
+            const std::string* foxType = e->string("Type");
+            m.woolColour = foxType && *foxType == "snow" ? 1 : 0;
+            m.sitting = e->integer("Sleeping").value_or(0) != 0;
+            const nbt::List* trusted = e->list("Trusted");
+            m.tamed = trusted && !trusted->items.empty();
+            if (const nbt::Compound* eq = e->compound("equipment"))
+                if (const nbt::Compound* hand = eq->compound("mainhand")) m.mouthItem = itemFromNbt(*hand).item;
+        }
+        if (m.type == MobType::Panda) {
+            auto gene = [&](const char* key) {
+                if (const std::string* g = e->string(key))
+                    for (int k = 0; k < 7; ++k)
+                        if (*g == kPandaGenes[k]) return uint8_t(k);
+                return uint8_t(0);
+            };
+            m.woolColour = gene("MainGene");
+            m.color2 = gene("HiddenGene");
+            if (pandaPersonality(m.woolColour, m.color2) == 5) m.maxHealth = 10.0f; // (weak)
+        }
+        if (m.type == MobType::Goat) {
+            m.horns = uint8_t((e->integer("HasLeftHorn").value_or(1) != 0 ? 1 : 0) |
+                              (e->integer("HasRightHorn").value_or(1) != 0 ? 2 : 0));
+            m.powered = e->integer("IsScreamingGoat").value_or(0) != 0;
+            m.chargeTicks = int16_t(600 + std::abs(int(m.pos.x * 31 + m.pos.z * 17)) % 5400); // (not saved by vanilla)
+        }
+        if (m.type == MobType::Armadillo) {
+            const std::string* st = e->string("state");
+            m.sitting = st && *st != "idle";
+            m.eggTicks = int(std::clamp<int64_t>(e->integer("scute_time").value_or(6000), 1, 12000));
+        }
+        if (m.type == MobType::Wolf)
+            if (const nbt::Compound* eq = e->compound("equipment"))
+                if (const nbt::Compound* body = eq->compound("body")) {
+                    const ItemStack armor = itemFromNbt(*body);
+                    if (!armor.empty() && itemRegistry().item(armor.item).id == "minecraft:wolf_armor") {
+                        m.horseArmor = 1;
+                        m.armorWear = int16_t(armor.damage);
+                    }
+                }
         if (const nbt::Compound* carried = e->compound("carriedBlockState"))
             if (const auto s = blockRegistry().parse(paletteText(*carried))) m.carried = *s;
         if (const nbt::Tag* u = e->find("UUID"))

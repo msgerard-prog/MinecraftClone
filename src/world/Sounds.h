@@ -78,6 +78,10 @@ enum class Sound : uint16_t {
     NoteBit,
     NoteBanjo,
     NotePling,
+    BerryPick,   // block.sweet_berry_bush.pick_berries (M26.3)
+    GoatHorn0,   // item.goat_horn.sound.0..7 (M26.3: Ponder, Sing, Seek, Feel, Admire, Call, Yearn, Dream)
+    GoatHorn7 = GoatHorn0 + 7,
+    GoatRam,     // entity.goat.ram_impact
     kMiscCount,
 };
 inline constexpr int kBlockSoundBase = int(Sound::kMiscCount);

@@ -687,6 +687,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     int pearlCooldown = 0;
     uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID; boats, mounts)
     int mountJumpTicks = 0;  // (M26.2) jump held while riding: the jump bar, 0..10
+    int hornCooldown = 0;    // (M26.3) ticks before a goat horn sounds again
     // The cart the player rides (nullptr: none / gone), found around the player.
     auto findCart = [&]() -> mc::world::MobData* {
         if (ridingCart == 0) return nullptr;
@@ -1714,6 +1715,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!arrival && ridingCart == 0)
                 player.tick(world, input);               // waiting for a destination: held in place
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
+            if (ridingCart == 0 && !player.flying()) {
+                // A sweet berry bush (M26.3; wiki) slows whoever walks through it and pricks
+                // them (1 damage) while they move, once it has grown past its first stage.
+                const glm::dvec3 f = player.position();
+                for (int dy = 0; dy <= 1; ++dy) {
+                    const mc::world::BlockStateId bs =
+                        world.getBlock({int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
+                    if (mc::world::blockRegistry().blockOf(bs) != mc::world::blocks::SweetBerryBush) continue;
+                    const glm::dvec3 v = player.velocity();
+                    player.setVelocity({v.x * 0.8, v.y * 0.75, v.z * 0.8});
+                    if (survival && !dead && mc::world::blockRegistry().get(bs, mc::world::properties::age3) > 0 &&
+                        (std::abs(v.x) > 0.003 || std::abs(v.z) > 0.003))
+                        vitals.attacked(1.0f, nullptr);
+                    break;
+                }
+            }
             if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
                 mc::world::MobData* cart = findCart();
                 // (a wild mount that threw its rider: ridden is cleared - M26.2)
@@ -2161,6 +2178,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     clicks.useClick = false;
                 }
+                if (!dead && heldId == "minecraft:goat_horn" && clicks.useClick) {
+                    // A goat horn (M26.3; wiki: Goat Horn): its call, heard 256 blocks away,
+                    // then 7 s before it can sound again.
+                    if (hornCooldown == 0) {
+                        const mc::world::ItemStack horn = inventory.selectedStack();
+                        world.playSound(static_cast<mc::world::Sound>(int(mc::world::Sound::GoatHorn0) + horn.damage % 8),
+                                        player.position().x, player.position().y + 1.5, player.position().z, 16.0f);
+                        hornCooldown = 140;
+                    }
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:fishing_rod" && clicks.useClick) { // (M25.2: cast / reel in)
                     const mc::world::ItemStack rod = inventory.selectedStack();
                     if (fishing.active()) {
@@ -2246,6 +2274,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             at, reg.set(world.getBlock(at), mc::world::properties::hasRecord, 0));
                         jc->markDirty();
                         blockUpdates.jukeboxChanged(at);
+                        acted = true;
+                    }
+                } else if (hb == mc::world::blocks::SweetBerryBush) { // (M26.3) picking berries
+                    if (const int n = mc::world::BlockUpdates::pickBerries(world, at, gameRng); n > 0) {
+                        droppedItems.spawn({at.x + 0.5, at.y + 0.5, at.z + 0.5},
+                                           {*mc::world::itemRegistry().find("sweet_berries"), uint8_t(n)}, gameRng);
+                        frameEdits.push_back(at);
                         acted = true;
                     }
                 } else if (hb == mc::world::blocks::Composter) {
@@ -2453,8 +2488,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                             mh &&
                             (!lastHit || mh->distance < lastHit->distance) && // not through walls
-                            world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
-                                mc::world::MobType::Cow)
+                            (world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Cow ||
+                             world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                                 mc::world::MobType::Goat)) // (M26.3: goats give milk too)
                             result =
                                 mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
                     // A water bucket scoops up a fish in front (M25.2): a bucket of that fish.
@@ -3289,6 +3325,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             std::erase_if(bolts, [](const Bolt& b) { return b.ticks <= 0; });
             ++gameTime;
             if (pearlCooldown > 0) --pearlCooldown;
+            if (hornCooldown > 0) --hornCooldown;
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) {
                 blockUpdates.landAll(); // (blocks in flight land before saving)

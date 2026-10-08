@@ -116,6 +116,17 @@ void BlockUpdates::tickCrop(const BlockPos& p, BlockStateId s) {
     setRaw(p, R().set(s, ageOf(crop), a + 1));
 }
 
+int BlockUpdates::pickBerries(World& world, const BlockPos& p, Xoroshiro& rng) {
+    const BlockStateId s = world.getBlock(p);
+    if (blockRegistry().blockOf(s) != B::SweetBerryBush) return 0;
+    const int a = blockRegistry().get(s, age3);
+    if (a < 2) return 0;
+    const int n = (a == 3 ? 2 : 1) + static_cast<int>(rng.nextInt(2));
+    world.updateBlock(p, blockRegistry().set(s, age3, 1));
+    world.playSound(Sound::BerryPick, p.x + 0.5, p.y + 0.5, p.z + 0.5);
+    return n;
+}
+
 bool BlockUpdates::boneMeal(const BlockPos& p) {
     // wiki: Bone Meal - crops grow 2-5 stages (beetroots 1); saplings advance a stage
     // 45% of the time; a grass block sprouts grass and flowers around it.
@@ -127,6 +138,11 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
         // Beetroots: 75% chance of +1 (the bone meal is used either way).
         const int add = b == B::Beetroots ? (m_random.nextFloat() < 0.75f ? 1 : 0) : 2 + static_cast<int>(m_random.nextInt(4));
         if (add > 0) set(p, R().set(s, ageOf(b), std::min(max, a + add)));
+        return true;
+    }
+    if (b == B::SweetBerryBush) { // (M26.3) one stage
+        if (R().get(s, age3) >= 3) return false;
+        set(p, R().set(s, age3, R().get(s, age3) + 1));
         return true;
     }
     if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling ||

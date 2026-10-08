@@ -210,6 +210,9 @@ std::vector<Recipe> build() {
     // since 1.21.6 from 3 leather and an iron ingot: our layout assumption).
     r.push_back(shaped({"#.#", "###", "#.#"}, {{'#', item("leather")}}, "leather_horse_armor"));
     r.push_back(shaped({"###", ".I."}, {{'#', item("leather")}, {'I', item("iron_ingot")}}, "saddle"));
+    // (M26.3; wiki: Leather - 4 rabbit hides; Wolf Armor - 6 armadillo scutes)
+    r.push_back(shaped({"##", "##"}, {{'#', item("rabbit_hide")}}, "leather"));
+    r.push_back(shaped({"#..", "###", "#.#"}, {{'#', item("armadillo_scute")}}, "wolf_armor"));
     // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
     r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));
     r.push_back(shapeless({item("ender_pearl"), item("blaze_powder")}, "ender_eye"));
@@ -655,6 +658,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "kelp") return out("dried_kelp"); // (M25.1)
     if (n == "cod") return out("cooked_cod"); // (M25.2)
     if (n == "salmon") return out("cooked_salmon");
+    if (n == "rabbit") return out("cooked_rabbit"); // (M26.3)
     if (n == "wet_sponge") return out("sponge"); // (M25.5)
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
@@ -670,7 +674,8 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "nether_quartz_ore" || n.ends_with("lapis_ore")) return 0.2f;
     if (n == "ancient_debris") return 2.0f;
     if (n.ends_with("coal_ore")) return 0.1f;
-    if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato" || n == "cod" || n == "salmon")
+    if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato" || n == "cod" || n == "salmon" ||
+        n == "rabbit")
         return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;

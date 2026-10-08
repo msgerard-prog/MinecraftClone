@@ -4,6 +4,7 @@
 #include "gameplay/ExperienceOrbs.h"
 #include "world/Blocks.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace mc {
@@ -22,6 +23,16 @@ bool Mobs::isFood(MobType type, ItemId item) {
     static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"), seeds = itemId("wheat_seeds");
     static const ItemId warpedFungus = itemRegistry().blockItem(blocks::WarpedFungus);
     if (isMount(type)) return isMountFood(type, item); // (M26.2)
+    // (M26.3; wiki: Rabbit - carrots, golden carrots, dandelions; Fox - sweet berries;
+    // Panda - bamboo; Goat - wheat; Armadillo - spider eyes)
+    static const ItemId goldenCarrot = itemId("golden_carrot"), berries = itemId("sweet_berries"),
+                        spiderEye = itemId("spider_eye");
+    static const ItemId dandelion = itemRegistry().blockItem(blocks::Dandelion), bamboo = itemRegistry().blockItem(blocks::Bamboo);
+    if (type == MobType::Rabbit) return item != kNoItem && (item == carrot || item == goldenCarrot || item == dandelion);
+    if (type == MobType::Fox) return item != kNoItem && item == berries;
+    if (type == MobType::Panda) return item != kNoItem && item == bamboo;
+    if (type == MobType::Goat) return item == wheat;
+    if (type == MobType::Armadillo) return item != kNoItem && item == spiderEye;
     switch (type) {
     case MobType::Cow:
     case MobType::Sheep: return item == wheat;
@@ -36,6 +47,15 @@ bool Mobs::isFood(MobType type, ItemId item) {
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
     if (isMount(m.type)) return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
+    static const ItemId shearsItem = itemId("shears");
+    if (m.type == MobType::Wolf && m.tamed && held == shearsItem && m.horseArmor > 0) { // (M26.3) armor off
+        ItemStack armor{itemId("wolf_armor"), 1};
+        armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
+        items.spawn(m.pos + glm::dvec3(0, 0.5, 0), armor, rng);
+        m.horseArmor = 0;
+        m.armorWear = 0;
+        return Use::Sheared;
+    }
     if (isPet(m.type) || m.type == MobType::Ocelot) // (M26.1: taming, sitting, collars, healing)
         if (const Use u = petInteract(m, held, rng); u != Use::None) return u;
     static const ItemId shears = itemId("shears");
@@ -211,6 +231,7 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
                         baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
                     if (isMount(m.type)) mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
+                    wildlifeOffspring(m, *partner, baby, ctx.rng);                  // (genes, trust - M26.3)
                     m_births.push_back(baby);
                     if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng); // wiki: 1-7
                     for (MobData* parent : {&m, partner}) {

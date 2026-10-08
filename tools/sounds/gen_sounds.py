@@ -431,6 +431,27 @@ def mob_sounds(name, rng):
         grumble = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(250, 1000), vibrato=0.2, vib_rate=18, breath=0.5)
         return ([grumble(r(0.6, 0.9), r(90, 120), r(70, 85)) for _ in range(3)],
                 [grumble(0.3, 160, 120) for _ in range(2)], grumble(1.1, 130, 50))
+    if name == "rabbit":  # rabbits are mostly quiet: soft squeaks when hurt (ours)
+        squeak = lambda f: mul(tone(0.1, f, f * 1.3, "sine"), env(int(0.1 * RATE), 0.005, 0.03))
+        return None, [squeak(r(1500, 1800)) for _ in range(2)], squeak(1200)
+    if name == "fox":  # yips and a screech (ours)
+        yip = lambda f: voice(rng, 0.12, f, f * 0.7, wave="saw", formant=(900, 3000), attack=0.005)
+        return ([add(yip(r(700, 850)), at(yip(r(650, 800)), 0.18, 0.4)) for _ in range(3)],
+                [yip(1000) for _ in range(2)], voice(rng, 0.7, 1200, 400, wave="saw", formant=(1000, 3200), vibrato=0.08))
+    if name == "polar_bear":  # grunts and a roar (ours)
+        grunt = lambda d, f: voice(rng, d, f, f * 0.8, wave="saw", formant=(250, 900), breath=0.5)
+        return ([grunt(r(0.4, 0.6), r(90, 120)) for _ in range(3)], [grunt(0.3, 150) for _ in range(2)],
+                voice(rng, 1.1, 140, 60, wave="saw", formant=(300, 1100), vibrato=0.15, vib_rate=12, breath=0.5))
+    if name == "panda":  # bleats and a sneeze-like huff (ours)
+        bleat = lambda d, f: voice(rng, d, f, f * 0.9, wave="triangle", formant=(500, 1800), vibrato=0.1, vib_rate=9)
+        return ([bleat(r(0.3, 0.5), r(300, 380)) for _ in range(3)], [bleat(0.25, 450) for _ in range(2)], bleat(0.8, 280))
+    if name == "goat":  # bleats (ours)
+        bleat = lambda d, f: voice(rng, d, f, f * 0.85, wave="saw", formant=(700, 2400), vibrato=0.18, vib_rate=16)
+        return ([bleat(r(0.4, 0.6), r(380, 460)) for _ in range(3)], [bleat(0.25, 560) for _ in range(2)], bleat(0.9, 400))
+    if name == "armadillo":  # soft snuffles and clicks (ours)
+        snuff = lambda: mul(bandpass(noise(int(0.15 * RATE), rng), 800, 3000), env(int(0.15 * RATE), 0.01, 0.05))
+        return [add(snuff(), at(snuff(), 0.2, 0.4)) for _ in range(3)], [snuff() for _ in range(2)], \
+            add(snuff(), at(snuff(), 0.25, 0.6))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -444,7 +465,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
-        "horse", "donkey", "mule", "llama", "trader_llama", "camel"]
+        "horse", "donkey", "mule", "llama", "trader_llama", "camel",
+        "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo"]
 
 
 # --- Everything else ----------------------------------------------------------------
@@ -572,6 +594,17 @@ def misc(rng):
     out["note/hat"] = mul(highpass(noise(int(0.2 * RATE), rng), 6000), env(int(0.2 * RATE), 0.001, 0.03))
     out["random/minecart"] = mul(lowpass(noise(int(2.0 * RATE), rng), 500),
                                  [0.7 + 0.3 * math.sin(2 * math.pi * 6 * k / RATE) for k in range(int(2.0 * RATE))])
+    # M26.3: picking berries (a leafy rustle and a pop), goat horns (eight calls of our own),
+    # a ram's thud
+    out["item/sweet_berries/pick"] = add(mul(bandpass(noise(int(0.2 * RATE), rng), 1500, 6000), env(int(0.2 * RATE), 0.005, 0.06)),
+                                         [x * 0.5 for x in mul(tone(0.06, 700, 400), env(int(0.06 * RATE), 0.002, 0.02))])
+    horn_tunes = [(220, 247), (196, 294), (262, 220), (175, 165), (233, 311), (147, 220), (208, 185), (247, 330)]
+    for i, (f0, f1) in enumerate(horn_tunes):
+        d = 2.6
+        h = voice(rng, d, f0, f1, wave="saw", formant=(500, 2200), vibrato=0.04, vib_rate=5, attack=0.15, breath=0.2)
+        out[f"item/goat_horn/call{i}"] = mul(h, env(int(d * RATE), 0.15, 1.0))
+    out["mob/goat/ram"] = add(mul(tone(0.3, 110, 50), env(int(0.3 * RATE), 0.002, 0.08)),
+                              [x * 0.6 for x in mul(lowpass(noise(int(0.3 * RATE), rng), 800), env(int(0.3 * RATE), 0.001, 0.05))])
     return out
 
 

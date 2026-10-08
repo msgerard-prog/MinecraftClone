@@ -106,6 +106,15 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:llama", 30.0f, 0.9, 1.87, 0.175, 1.0f, false},
         {"minecraft:trader_llama", 30.0f, 0.9, 1.87, 0.175, 1.0f, false},
         {"minecraft:camel", 32.0f, 1.7, 2.375, 0.09, 0.0f, false},
+        // wiki: Rabbit - 3 health, 0.4 x 0.5, speed 0.3; Fox - 10, 0.6 x 0.7, 0.3, bites
+        // for 2; Polar Bear - 30, 1.4 x 1.4, 0.25, 6; Panda - 20, 1.3 x 1.25, 0.15, 6;
+        // Goat - 10, 0.9 x 1.3, 0.2, rams for 2; Armadillo - 12, 0.7 x 0.65, 0.14.
+        {"minecraft:rabbit", 3.0f, 0.4, 0.5, 0.3, 0.0f, false},
+        {"minecraft:fox", 10.0f, 0.6, 0.7, 0.3, 2.0f, false},
+        {"minecraft:polar_bear", 30.0f, 1.4, 1.4, 0.25, 6.0f, false},
+        {"minecraft:panda", 20.0f, 1.3, 1.25, 0.15, 6.0f, false},
+        {"minecraft:goat", 10.0f, 0.9, 1.3, 0.2, 2.0f, false},
+        {"minecraft:armadillo", 12.0f, 0.7, 0.65, 0.14, 0.0f, false},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

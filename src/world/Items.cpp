@@ -56,7 +56,8 @@ ItemRegistry buildItems() {
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::WallTorch ||
             b == blocks::SoulWallTorch || b == blocks::PistonHead ||
             b == blocks::NetherPortal || b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire || b == blocks::Wheat ||
-            b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots) // crops: planted by seeds
+            b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots || // crops: planted by seeds
+            b == blocks::SweetBerryBush) // (planted by sweet berries)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -200,6 +201,15 @@ ItemRegistry buildItems() {
         const std::string id = chestBoatId(w);
         r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
     }
+    // Wildlife (M26.3; wiki: Raw Rabbit 3 / 1.8, Cooked Rabbit 5 / 6, Rabbit Hide, Rabbit's
+    // Foot, Goat Horn, Armadillo Scute, Wolf Armor - 64 durability).
+    r.add({.id = "minecraft:rabbit", .food = 3, .saturation = 1.8f, .texture = "item/rabbit"});
+    r.add({.id = "minecraft:cooked_rabbit", .food = 5, .saturation = 6.0f, .texture = "item/cooked_rabbit"});
+    r.add({.id = "minecraft:rabbit_hide", .texture = "item/rabbit_hide"});
+    r.add({.id = "minecraft:rabbit_foot", .texture = "item/rabbit_foot"});
+    r.add({.id = "minecraft:goat_horn", .maxStack = 1, .texture = "item/goat_horn"});
+    r.add({.id = "minecraft:armadillo_scute", .texture = "item/armadillo_scute"});
+    r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // Mount gear (M26.2; wiki: Saddle, Horse Armor - unstackable).
     r.add({.id = "minecraft:saddle", .maxStack = 1, .texture = "item/saddle"});
     for (int k = 1; k < 5; ++k)
@@ -227,6 +237,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:poisonous_potato", .food = 2, .saturation = 1.2f, .texture = "item/poisonous_potato"});
     r.add({.id = "minecraft:beetroot", .food = 1, .saturation = 1.2f, .texture = "item/beetroot"});
     r.add({.id = "minecraft:beetroot_seeds", .block = blocks::Beetroots, .texture = "item/beetroot_seeds"});
+    // (M26.3; wiki: Sweet Berries - 2 hunger, 0.4 saturation; they plant the bush)
+    r.add({.id = "minecraft:sweet_berries", .block = blocks::SweetBerryBush, .food = 2, .saturation = 0.4f,
+           .texture = "item/sweet_berries"});
     r.add({.id = "minecraft:bread", .food = 5, .saturation = 6.0f, .texture = "item/bread"});
     r.add({.id = "minecraft:bone_meal", .texture = "item/bone_meal"});
     // (M25.1; wiki: Dried Kelp - 1 food, 0.6 saturation, eaten in 0.8 s)
@@ -318,6 +331,7 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::Carrots, *r.find("carrot"));
     r.mapBlock(blocks::Potatoes, *r.find("potato"));
     r.mapBlock(blocks::Beetroots, *r.find("beetroot_seeds"));
+    r.mapBlock(blocks::SweetBerryBush, *r.find("sweet_berries"));
     return r;
 }
 

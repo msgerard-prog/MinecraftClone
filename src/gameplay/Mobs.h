@@ -117,6 +117,9 @@ public:
     // A foal's type (a horse and a donkey: a mule) and stats from its parents.
     static void mountOffspring(const world::MobData& a, const world::MobData& b, world::MobData& baby,
                                world::Xoroshiro& rng);
+    // A wild animal's young (M26.3): panda genes, trusting fox kits, rabbit coats.
+    static void wildlifeOffspring(const world::MobData& a, const world::MobData& b, world::MobData& baby,
+                                  world::Xoroshiro& rng);
     // The player hits a mob for `damage` (knockback away from the player).
     static void attack(world::MobData& mob, float damage, const glm::dvec3& from);
 
@@ -148,6 +151,11 @@ private:
     void llamaTick(Context& ctx, world::MobData& m);                // spitting
     void dropMountGear(Context& ctx, world::MobData& m);
     void spawnMounts(Context& ctx, world::Biome biome, int x, int y, int z);
+    // Wildlife (Wildlife.cpp, M26.3): rabbits, foxes, polar bears, pandas, goats, armadillos.
+    static void initWildlife(world::MobData& m, world::Xoroshiro& rng);
+    bool wildlifeGoal(Context& ctx, world::MobData& m, double& speed);
+    void wildlifeTick(Context& ctx, world::MobData& m, bool blockedAhead); // (after moving)
+    void spawnWildlife(Context& ctx, world::Biome biome, world::BlockId ground, int x, int y, int z);
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp

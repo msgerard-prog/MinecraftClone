@@ -194,6 +194,10 @@ public:
     static int compostChance(ItemId item); // percent, 0 = not compostable
     bool compost(const BlockPos& p, ItemId item);
     ItemStack takeCompost(const BlockPos& p);
+    // Picking a sweet berry bush at age 2 or 3 (M26.3; wiki: Sweet Berry Bush): 1-2 or 2-3
+    // berries, and the bush goes back to age 1. Returns how many (0: nothing to pick).
+    // Static: foxes pick them too.
+    static int pickBerries(World& world, const BlockPos& p, Xoroshiro& rng);
     std::optional<ItemStack> useCauldron(const BlockPos& p, const ItemStack& held);
     static int cauldronSignal(BlockStateId s); // comparator level; -1: not one of them
     // Note blocks (M23.6, NoteBlocks.cpp): the instrument a block below gives; playing

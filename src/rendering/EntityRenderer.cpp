@@ -507,7 +507,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     for (const MobPart& part : chestBoat ? gfx::chestBoatModel() : mobModel(mob.type)) {
         // Mount gear (M26.2): what it wears.
         if ((part.layer == 9 && !mob.saddled) || (part.layer == 10 && mob.horseArmor == 0) ||
-            (part.layer == 11 && !mob.hasChest) || (part.layer == 12 && mob.decor == 0))
+            (part.layer == 11 && !mob.hasChest) || (part.layer == 12 && mob.decor == 0) ||
+            (part.layer == 13 && !(mob.horns & 1)) || (part.layer == 14 && !(mob.horns & 2))) // (M26.3: goat horns)
             continue;
         if (part.layer == 1 && mob.sheared) continue;
         if (part.layer == 2 && !mob.showBottom) continue;
@@ -520,7 +521,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         mx += glm::vec3(part.inflate);
         const float u = float(part.u), v = float(part.v) + (part.layer == 1   ? float(kSheepWoolRow * 64)
                                                              : part.layer == 3 ? float(kVillagerApronRow * 64)
-                                                             : part.layer >= 9 ? float(kMountGearRow * 64)
+                                                             : part.layer >= 9 && part.layer <= 12 ? float(kMountGearRow * 64)
                                                                                : vrow);
         glm::vec3 partTint = tint;
         if (part.layer == 3) { // the profession's colour (M24.1)
@@ -538,7 +539,11 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                : mob.type == world::MobType::Parrot ? world::kParrotColours[mob.woolColour % 5]
                                : mob.type == world::MobType::Horse  ? world::kHorseColours[mob.woolColour % 7].colour
                                : mob.type == world::MobType::Llama  ? world::kLlamaVariants[mob.woolColour % 4].colour
-                                                                     : 0xFFFFFFu;
+                               : mob.type == world::MobType::Rabbit ? world::kRabbitKinds[mob.woolColour % 6].colour
+                               : mob.type == world::MobType::Fox    ? (mob.woolColour == 1 ? 0xF2F2F2u : 0xD87A30u)
+                               : mob.type == world::MobType::Panda && world::pandaPersonality(mob.woolColour, mob.color2) == 4
+                                   ? 0xA07850u // (a brown panda)
+                                   : 0xFFFFFFu;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 10) { // horse armor's material (M26.2): leather, iron, gold, diamond

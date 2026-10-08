@@ -398,6 +398,13 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 else if (key == "Saddle" && world::isMount(*type)) mob.saddled = v != 0.0;
                 else if (key == "Armor" && *type == world::MobType::Horse) mob.horseArmor = uint8_t(std::clamp(int(v), 0, 4));
                 else if (key == "Decor" && world::isLlama(*type)) mob.decor = uint8_t(std::clamp(int(v), 0, 16));
+                // Wildlife (M26.3): RabbitType, IsScreamingGoat; our shorthands FoxType (0 red,
+                // 1 snow) and MainGene / HiddenGene (0-6: kPandaGenes order).
+                else if (key == "RabbitType" && *type == world::MobType::Rabbit) mob.woolColour = uint8_t(std::clamp(int(v), 0, 5));
+                else if (key == "FoxType" && *type == world::MobType::Fox) mob.woolColour = uint8_t(std::clamp(int(v), 0, 1));
+                else if (key == "MainGene" && *type == world::MobType::Panda) mob.woolColour = uint8_t(std::clamp(int(v), 0, 6));
+                else if (key == "HiddenGene" && *type == world::MobType::Panda) mob.color2 = uint8_t(std::clamp(int(v), 0, 6));
+                else if (key == "IsScreamingGoat" && *type == world::MobType::Goat) mob.powered = v != 0.0;
                 else return fail(format("Unknown data tag '%.*s'", int(key.size()), key.data()));
             }
         }

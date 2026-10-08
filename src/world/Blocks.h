@@ -381,6 +381,7 @@ enum : BlockId {
     TurtleEgg, // eggs 1..4, hatch 0..2 (M25.3b)
     Sponge,    // (M25.5) soaks up water around it, turning wet
     WetSponge, // dries in the Nether (or a furnace)
+    SweetBerryBush, // age 0..3 (M26.3: berries at 2 and 3; foxes eat them)
     Count
 };
 } // namespace blocks

@@ -1595,7 +1595,7 @@ TEST_CASE("thunderstorms let monsters spawn under the open sky at midday (M22 re
         light.fill(lit);
         c.setLight(light);
     });
-    storm.tick(2000);
+    storm.tick(6000); // (long enough not to depend on the RNG order)
     CHECK(storm.mobs.hostileCount() > 0);
 }
 

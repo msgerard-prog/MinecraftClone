@@ -232,6 +232,71 @@ def chest_boat_item(colour, raft=False):
     return img
 
 
+def sweet_berries():
+    """A cluster of round red berries on a green twig (M26.3)."""
+    s = Shape()
+    berry = ramp(hexc("#C8202E"), 5, spread=0.4)
+    for cx, cy in ((5, 9), (9, 8), (7, 12), (10, 12)):
+        s.add({(x, y) for x in range(16) for y in range(16) if (x - cx) ** 2 + (y - cy) ** 2 <= 4}, berry)
+    s.add({(7, 3), (7, 4), (8, 5), (8, 6), (6, 2), (9, 2)}, ramp(hexc("#3E7A2A"), 5))
+    return s.render()
+
+
+def horn():
+    """A goat horn (M26.3): a ridged, curving cone."""
+    s = Shape()
+    pal = ramp(hexc("#C8B89A"), 5, spread=0.35)
+    pts = set()
+    for i in range(12):
+        x, y = 3 + i, 13 - int(round(6 * (i / 11) ** 0.7)) - (i // 6)
+        w = max(1, 3 - i // 4)
+        for dy in range(-w, w + 1):
+            pts.add((x, y + dy))
+    s.add(pts, pal)
+    img = s.render()
+    for x in range(4, 14, 3):
+        for y in range(16):
+            c = img.get(x, y)
+            if c[3]:
+                img.set(x, y, pal[0])
+    return img
+
+
+def scute(base):
+    """An armadillo scute (M26.3): a curved plate with ridges."""
+    s = Shape()
+    pal = ramp(hexc(base), 5, spread=0.35)
+    s.add({(x, y) for x in range(3, 13) for y in range(4, 12) if ((x - 7.5) / 5) ** 2 + ((y - 8) / 4) ** 2 < 1}, pal)
+    img = s.render()
+    for x in (5, 8, 11):
+        for y in range(5, 11):
+            if img.get(x, y)[3]:
+                img.set(x, y, pal[0])
+    return img
+
+
+def wolf_armor():
+    """Wolf armor (M26.3): a scute-plated back piece with straps."""
+    s = Shape()
+    pal = ramp(hexc("#A8705E"), 5, spread=0.35)
+    s.add({(x, y) for x in range(2, 14) for y in range(5, 10)}, pal)
+    s.add({(3, y) for y in range(10, 13)} | {(12, y) for y in range(10, 13)}, ramp(hexc("#5A3A2A"), 5))
+    img = s.render()
+    for x in range(3, 14, 3):
+        img.set(x, 6, pal[0])
+        img.set(x, 7, pal[0])
+    return img
+
+
+def rabbit_foot():
+    """A rabbit's foot (M26.3): a long tan foot with a dark tuft."""
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if 4 <= x <= 8 and 3 <= y <= 12}, ramp(hexc("#C8A070"), 5, spread=0.3))
+    s.add({(x, 13) for x in range(4, 11)} | {(x, 12) for x in range(8, 12)}, ramp(hexc("#8A6A48"), 5))
+    s.add({(5, 2), (6, 2), (7, 2), (6, 1)}, ramp(hexc("#6A4A30"), 5))
+    return s.render()
+
+
 def meat(name, base, fat, marbled=True):
     rng = random.Random(name)
     pal = ramp(hexc(base), 5, spread=0.35)
@@ -945,6 +1010,14 @@ def all_items():
     items["porkchop"] = meat("porkchop", "#E89090", "#F8D8D0")
     items["cooked_porkchop"] = meat("cooked_porkchop", "#B8784A", "#E0B880", marbled=False)
     items["mutton"] = meat("mutton", "#B8323A", "#E8C8C0")
+    items["rabbit"] = meat("rabbit", "#E8A0A0", "#F8E0D8")  # (M26.3)
+    items["cooked_rabbit"] = meat("cooked_rabbit", "#A8683E", "#D8A870", marbled=False)
+    items["rabbit_hide"] = lump("rabbit_hide", "#A88458", "#D8B888", seed=7, size=6.0)
+    items["rabbit_foot"] = rabbit_foot()
+    items["goat_horn"] = horn()
+    items["armadillo_scute"] = scute("#B87A6A")
+    items["wolf_armor"] = wolf_armor()
+    items["sweet_berries"] = sweet_berries()
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

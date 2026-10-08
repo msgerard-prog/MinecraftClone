@@ -450,6 +450,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Riding reuses main's `ridingCart` (seat height `Mobs::seatHeight`), the jump bar
   (`ui::drawJumpBar`) and `ContainerScreen::Type::Mount` (gear slots edit the mob's
   fields; opened by sneak-click or E while riding).
+- Wildlife (M26.3a, `gameplay/Wildlife.cpp`, part of `Mobs`): rabbits (hop: `jump` while
+  moving; flee; raid carrots via `workTarget`), foxes (`sitting` = asleep by day, hunts,
+  `mouthItem`, berries through `BlockUpdates::pickBerries`), polar bears and aggressive
+  pandas (`angry` -> `hostileNow`), panda genes (`pandaPersonality`), goats (`phase` run-
+  up/charge, `horns` bits, horn items carry their instrument in `damage`), armadillos
+  (`sitting` = rolled up, scutes on `eggTicks`); `wildlifeGoal` / `wildlifeTick` /
+  `spawnWildlife` / `wildlifeOffspring`. Wolf armor: `horseArmor`/`armorWear` on wolves,
+  absorbed at the start of the wolf's tick from `lastHealth`. Sweet berry bushes
+  (`SweetBerryBush`, age 0-3, Farming/RandomTicks) slow and prick the player (main).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

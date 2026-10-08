@@ -2,6 +2,7 @@
 
 #include "world/Mob.h"
 
+#include <iterator>
 #include <span>
 
 namespace mc::gfx {
@@ -25,8 +26,9 @@ struct MobPart {
     // 7 = a pet's collar, shown when tamed, tinted by its dye (M26.1).
     // 8 = fur/feathers tinted by the variant (wolves, cats, parrots - M26.1; horses, llamas).
     // 9-12 = mount gear from the mount-gear texture (M26.2): 9 saddle (when saddled),
-    // 10 horse armor (tinted by its material), 11 chest packs (with a chest), 12 a
-    // llama's carpet (tinted by its dye).
+    // 10 horse armor (tinted by its material; a wolf's armor too), 11 chest packs (with a
+    // chest), 12 a llama's carpet (tinted by its dye).
+    // 13, 14 = a goat's left / right horn (shown while it has it - M26.3).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -42,7 +44,7 @@ inline constexpr int kVillagerApronRow = static_cast<int>(world::MobType::Count)
 inline constexpr int kMountGearRow = static_cast<int>(world::MobType::Count) + 3;     // (M26.2)
 inline int mobTextureRow(world::MobType type) { return static_cast<int>(type); }
 inline const char* mobTexturePath(int row) {
-    static constexpr const char* kPaths[kMobTextureRows] = {
+    static constexpr const char* kPaths[] = {
         "assets/minecraft/textures/entity/clone/zombie.png", "assets/minecraft/textures/entity/clone/cow.png",
         "assets/minecraft/textures/entity/clone/sheep.png",  "assets/minecraft/textures/entity/clone/pig.png",
         "assets/minecraft/textures/entity/clone/chicken.png", "assets/minecraft/textures/entity/clone/skeleton.png",
@@ -89,10 +91,17 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/llama.png",
         "assets/minecraft/textures/entity/clone/trader_llama.png",
         "assets/minecraft/textures/entity/clone/camel.png",
+        "assets/minecraft/textures/entity/clone/rabbit.png",
+        "assets/minecraft/textures/entity/clone/fox.png",
+        "assets/minecraft/textures/entity/clone/polar_bear.png",
+        "assets/minecraft/textures/entity/clone/panda.png",
+        "assets/minecraft/textures/entity/clone/goat.png",
+        "assets/minecraft/textures/entity/clone/armadillo.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",
         "assets/minecraft/textures/entity/clone/mount_gear.png"};
+    static_assert(std::size(kPaths) == size_t(kMobTextureRows)); // (one skin per row)
     return kPaths[row];
 }
 // Wool colours by dye index (wiki: Dye - the colours of the 16 dyes).

@@ -305,6 +305,10 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::Beetroots:
         tickCrop(p, s);
         break;
+    case B::SweetBerryBush: // (M26.3) a stage 1 in 5 random ticks in light 9+ (wiki: Sweet Berry Bush)
+        if (R().get(s, age3) < 3 && m_random.nextInt(5) == 0 && rawBrightness(p) >= 9)
+            set(p, R().set(s, age3, R().get(s, age3) + 1));
+        break;
     case B::Lava:
         lavaIgnites(p); // sources and flowing lava alike
         break;

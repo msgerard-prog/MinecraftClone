@@ -111,6 +111,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     if (type == MobType::Cat) m.woolColour = uint8_t(rng.nextInt(10)); // (all black only from swamp huts)
     if (type == MobType::Parrot) m.woolColour = uint8_t(rng.nextInt(5));
     if (isMount(type)) initMount(m, rng); // (M26.2: its own health, speed and jump; coat)
+    initWildlife(m, rng);                 // (M26.3: panda genes, screaming goats, scute timers)
     if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
         wanderingTraderTrades(m, rng);
         m.despawnDelay = 48000;
@@ -394,10 +395,15 @@ void Mobs::ai(Context& ctx, MobData& m) {
                                                         : 16.0;
     // An angered iron golem goes for the player like a monster (wiki: Iron Golem), until
     // its anger runs out (counted here, also while it chases).
-    if ((m.type == MobType::IronGolem || m.type == MobType::Wolf) && m.angry && --m.angerTicks <= 0) m.angry = false;
-    // (M26.1) and a wild wolf that was hit, until it calms down.
+    if ((m.type == MobType::IronGolem || m.type == MobType::Wolf || m.type == MobType::PolarBear ||
+         m.type == MobType::Panda) &&
+        m.angry && --m.angerTicks <= 0)
+        m.angry = false;
+    // (M26.1) and a wild wolf that was hit, until it calms down; (M26.3) a polar bear or an
+    // aggressive panda that was provoked.
     const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry) ||
-                            (m.type == MobType::Wolf && m.angry && !m.tamed);
+                            (m.type == MobType::Wolf && m.angry && !m.tamed) ||
+                            ((m.type == MobType::PolarBear || m.type == MobType::Panda) && m.angry);
     if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
@@ -452,6 +458,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // (home, work, the bell, sleep: Villagers.cpp)
     } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 && petGoal(ctx, m, speed)) {
         // (sitting, following, fighting, dancing: Pets.cpp)
+    } else if (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo && wildlifeGoal(ctx, m, speed)) {
+        // (fleeing, sleeping foxes, hunts, crops and berries, rams, rolled armadillos: Wildlife.cpp)
     } else if (isMount(m.type) && m.panicTicks == 0 && mountGoal(ctx, m, speed)) {
         // (camels resting, trader llamas with their trader: Mounts.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
@@ -544,7 +552,13 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.headYaw = approachAngle(m.headYaw, m.yaw, 10.0f);
         m.pitch *= 0.9f;
     }
+    // Rabbits get about by hopping (wiki: Rabbit).
+    if (m.type == MobType::Rabbit && (wish.x != 0.0 || wish.z != 0.0) && m.onGround) jump = true;
+    if (m.type == MobType::Armadillo && m.sitting) wish = glm::dvec3(0.0); // (rolled up)
+    const glm::dvec3 before = m.pos;
     physics(ctx.world, m, wish, jump);
+    if (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo)
+        wildlifeTick(ctx, m, m.climbing && glm::length(m.pos - before) < 0.05);
 
     // Melee (wiki: Zombie - 3 damage on normal, once a second, reach ~ width*2).
     if (m.attackCooldown > 0) --m.attackCooldown;
@@ -623,6 +637,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
+    if (m.type == MobType::Armadillo && m.sitting) damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
     m.health -= damage;
     m.hurtTime = 10;
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
@@ -637,6 +652,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
             m.angry = true;
             m.angerTicks = 600;
         }
+    } else if (m.type == MobType::PolarBear ||
+               (m.type == MobType::Panda && pandaPersonality(m.woolColour, m.color2) == 6)) {
+        m.angry = true; // (M26.3: they fight back - wiki: Polar Bear, Panda)
+        m.angerTicks = 400;
+        m.targeting = true;
     } else if (isLlama(m.type)) { // llamas spit back (wiki: Llama)
         m.angry = true;
         m.angerTicks = 200;
@@ -668,6 +688,16 @@ void Mobs::die(Context& ctx, MobData& m) {
         return;
     }
     if (isMount(m.type)) dropMountGear(ctx, m); // (M26.2)
+    if (m.type == MobType::Fox && m.mouthItem != kNoItem) { // (M26.3) what it carried
+        ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), {m.mouthItem, 1}, ctx.rng);
+        m.mouthItem = kNoItem;
+    }
+    if (m.type == MobType::Wolf && m.horseArmor > 0) { // (M26.3) its wolf armor, worn as it was
+        ItemStack armor{*itemRegistry().find("wolf_armor"), 1};
+        armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
+        ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), armor, ctx.rng);
+        m.horseArmor = 0;
+    }
     if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
         m.deathTime = 19;
         if (const auto cart = itemRegistry().find("minecart")) ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
@@ -822,6 +852,18 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::Mule:
     case MobType::Llama:
     case MobType::TraderLlama: drop("leather", 0, 2); break;
+    // (M26.3; wiki) rabbit: hide 0-1, meat 0-1, a rabbit's foot 10% (+3% a Looting level)
+    // for player kills; polar bear: cod 0-2 (3 in 4) or salmon 0-2; panda: bamboo 0-2.
+    case MobType::Rabbit:
+        drop("rabbit_hide", 0, 1);
+        drop(burning ? "cooked_rabbit" : "rabbit", 0, 1);
+        if (m.lastHurtByPlayer && int(ctx.rng.nextInt(100)) < 10 + 3 * m.looting) drop("rabbit_foot", 1, 1);
+        break;
+    case MobType::PolarBear:
+        if (ctx.rng.nextInt(4) != 0) drop(burning ? "cooked_cod" : "cod", 0, 2);
+        else drop(burning ? "cooked_salmon" : "salmon", 0, 2);
+        break;
+    case MobType::Panda: drop("bamboo", 0, 2); break;
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
@@ -947,6 +989,21 @@ void Mobs::tick(Context& ctx) {
             m.prevYaw = m.yaw;
             m.prevHeadYaw = m.headYaw;
             m.prevPitch = m.pitch;
+            // Wolf armor (M26.3; wiki: Wolf Armor) takes the damage the wolf took since the
+            // last tick, wearing down until it breaks at 64.
+            if (m.type == MobType::Wolf) {
+                if (m.horseArmor > 0 && m.health < m.lastHealth && m.lastHealth > 0.0f) {
+                    m.armorWear = int16_t(m.armorWear + int(std::ceil(m.lastHealth - m.health)));
+                    m.health = m.lastHealth;
+                    m.deathTime = 0;
+                    if (m.armorWear >= 64) {
+                        m.horseArmor = 0;
+                        m.armorWear = 0;
+                        ctx.world.playSound(Sound::ToolBreak, m.pos.x, m.pos.y + 0.5, m.pos.z);
+                    }
+                }
+                m.lastHealth = m.health;
+            }
             // Sounds (M22.4): hurt since last tick (hurtTime was set to 10), and now and
             // then its ambient call - vanilla: 1/1000 chance growing each tick, then 80
             // ticks of quiet. Babies squeak half an octave higher.
@@ -1005,7 +1062,8 @@ void Mobs::tick(Context& ctx) {
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
                 m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot ||
-                                (isMount(m.type) && m.type != MobType::TraderLlama)) &&
+                                (isMount(m.type) && m.type != MobType::TraderLlama) ||
+                                (m.type >= MobType::Rabbit && m.type <= MobType::Armadillo)) &&
                                !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;

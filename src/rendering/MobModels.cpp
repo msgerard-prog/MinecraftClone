@@ -398,7 +398,7 @@ constexpr std::array<MobPart, 10> kGuardian = {{
 // Wolf (M26.1): body, head with snout and ears, four legs, a tail that wags; a collar
 // when tamed. Box UVs: body 6x6x9 @ (0,0), head 6x6x4 @ (32,0), snout 3x3x4 @ (0,16),
 // ear 2x2x1 @ (16,16), leg 2x8x2 @ (0,24), tail 2x2x6 @ (10,24), collar @ (32,12).
-constexpr std::array<MobPart, 11> kWolf = {{
+constexpr std::array<MobPart, 12> kWolf = {{
     {{-3, 8, -5}, {3, 14, 4}, {0, 8, 0}, 0, 0, A::None, 8},
     {{-3, 9, 4}, {3, 15, 8}, {0, 12, 4}, 32, 0, A::Head, 8},
     {{-1.5f, 9, 8}, {1.5f, 12, 12}, {0, 12, 4}, 0, 16, A::Head, 8},
@@ -410,6 +410,7 @@ constexpr std::array<MobPart, 11> kWolf = {{
     {{1, 0, -4}, {3, 8, -2}, {2, 8, -3}, 0, 24, A::LegA, 8},
     {{-1, 10, -11}, {1, 12, -5}, {0, 11, -5}, 10, 24, A::Tail, 8},
     {{-3.3f, 9, 3}, {3.3f, 15, 4.2f}, {0, 12, 4}, 32, 12, A::Head, 7, 0.1f},
+    {{-3, 8, -5}, {3, 14, 4}, {0, 8, 0}, 0, 16, A::None, 10, 0.4f}, // (M26.3: wolf armor)
 }};
 // Cat and ocelot (M26.1): a slim body, a round head with ears and a nose, thin legs and
 // a long tail; cats wear a collar when tamed. Body 4x4x13 @ (0,0), head 5x4x4 @ (36,0),
@@ -512,6 +513,87 @@ constexpr std::array<MobPart, 6> kChestBoat = {{
     {{-3, 1, -6}, {3, 6, -1}, {0, 0, 0}, 36, 0, A::None, 11},
 }};
 
+// Wildlife (M26.3). Rabbit: body 5x5x7 @ (0,0), head 4x4x4 @ (24,0), ear 1x4x1 @
+// (40,0), tail 2x2x1 @ (44,0), hind leg 2x2x4 @ (0,12), front leg 1x3x1 @ (12,12) - the
+// legs move together: it hops.
+constexpr std::array<MobPart, 9> kRabbit = {{
+    {{-2.5f, 2, -3.5f}, {2.5f, 7, 3.5f}, {0, 2, 0}, 0, 0, A::None, 8},
+    {{-2, 5, 3}, {2, 9, 7}, {0, 6, 3}, 24, 0, A::Head, 8},
+    {{-1.5f, 9, 4}, {-0.5f, 13, 5}, {0, 6, 3}, 40, 0, A::Head, 8},
+    {{0.5f, 9, 4}, {1.5f, 13, 5}, {0, 6, 3}, 40, 0, A::Head, 8},
+    {{-1, 4, -4.5f}, {1, 6, -3.5f}, {0, 5, -3.5f}, 44, 0, A::None},
+    {{-2.5f, 0, -3}, {-0.5f, 2, 1}, {-1.5f, 2, -1}, 0, 12, A::LegA, 8},
+    {{0.5f, 0, -3}, {2.5f, 2, 1}, {1.5f, 2, -1}, 0, 12, A::LegA, 8},
+    {{-2, 0, 2}, {-1, 3, 3}, {-1.5f, 3, 2.5f}, 12, 12, A::LegB, 8},
+    {{1, 0, 2}, {2, 3, 3}, {1.5f, 3, 2.5f}, 12, 12, A::LegB, 8},
+}};
+// Fox: body 6x6x9 @ (0,0), head 8x6x6 @ (30,0), snout 3x3x3 @ (0,15), ear 2x2x1 @
+// (12,15), leg 2x3x2 @ (18,15), tail 4x4x8 @ (26,15).
+constexpr std::array<MobPart, 10> kFox = {{
+    {{-3, 3, -5}, {3, 9, 4}, {0, 3, 0}, 0, 0, A::None, 8},
+    {{-4, 5, 4}, {4, 11, 10}, {0, 8, 4}, 30, 0, A::Head, 8},
+    {{-1.5f, 5, 10}, {1.5f, 8, 13}, {0, 8, 4}, 0, 15, A::Head},
+    {{-4, 11, 7}, {-2, 13, 8}, {0, 8, 4}, 12, 15, A::Head, 8},
+    {{2, 11, 7}, {4, 13, 8}, {0, 8, 4}, 12, 15, A::Head, 8},
+    {{-3, 0, 1}, {-1, 3, 3}, {-2, 3, 2}, 18, 15, A::LegA},
+    {{1, 0, 1}, {3, 3, 3}, {2, 3, 2}, 18, 15, A::LegB},
+    {{-3, 0, -4}, {-1, 3, -2}, {-2, 3, -3}, 18, 15, A::LegB},
+    {{1, 0, -4}, {3, 3, -2}, {2, 3, -3}, 18, 15, A::LegA},
+    {{-2, 4, -13}, {2, 8, -5}, {0, 6, -5}, 26, 15, A::Tail, 8},
+}};
+// Polar bear: body 12x11x20 @ (0,33), leg 5x10x5 @ (0,0), head 7x7x7 @ (20,0), snout
+// 4x3x3 @ (48,0), ear 2x2x1 @ (48,6).
+constexpr std::array<MobPart, 9> kPolarBear = {{
+    {{-6, 10, -10}, {6, 21, 10}, {0, 10, 0}, 0, 33, A::None},
+    {{-6, 0, 5}, {-1, 10, 10}, {-3.5f, 10, 7.5f}, 0, 0, A::LegA},
+    {{1, 0, 5}, {6, 10, 10}, {3.5f, 10, 7.5f}, 0, 0, A::LegB},
+    {{-6, 0, -10}, {-1, 10, -5}, {-3.5f, 10, -7.5f}, 0, 0, A::LegB},
+    {{1, 0, -10}, {6, 10, -5}, {3.5f, 10, -7.5f}, 0, 0, A::LegA},
+    {{-3.5f, 13, 9}, {3.5f, 20, 16}, {0, 16, 9}, 20, 0, A::Head},
+    {{-2, 13, 16}, {2, 16, 19}, {0, 16, 9}, 48, 0, A::Head},
+    {{-3.5f, 20, 11}, {-1.5f, 22, 12}, {0, 16, 9}, 48, 6, A::Head},
+    {{1.5f, 20, 11}, {3.5f, 22, 12}, {0, 16, 9}, 48, 6, A::Head},
+}};
+// Panda: body 13x11x18 @ (0,35), leg 5x9x5 @ (0,0), head 9x8x7 @ (20,0), ear 3x3x1 @
+// (52,0), snout 4x3x2 @ (52,4); a brown panda is tinted (layer 8).
+constexpr std::array<MobPart, 9> kPanda = {{
+    {{-6.5f, 9, -9}, {6.5f, 20, 9}, {0, 9, 0}, 0, 35, A::None, 8},
+    {{-6.5f, 0, 4}, {-1.5f, 9, 9}, {-4, 9, 6.5f}, 0, 0, A::LegA, 8},
+    {{1.5f, 0, 4}, {6.5f, 9, 9}, {4, 9, 6.5f}, 0, 0, A::LegB, 8},
+    {{-6.5f, 0, -9}, {-1.5f, 9, -4}, {-4, 9, -6.5f}, 0, 0, A::LegB, 8},
+    {{1.5f, 0, -9}, {6.5f, 9, -4}, {4, 9, -6.5f}, 0, 0, A::LegA, 8},
+    {{-4.5f, 12, 8}, {4.5f, 20, 15}, {0, 15, 8}, 20, 0, A::Head, 8},
+    {{-5, 19, 10}, {-2, 22, 11}, {0, 15, 8}, 52, 0, A::Head, 8},
+    {{2, 19, 10}, {5, 22, 11}, {0, 15, 8}, 52, 0, A::Head, 8},
+    {{-2, 12, 15}, {2, 15, 17}, {0, 15, 8}, 52, 4, A::Head, 8},
+}};
+// Goat: body 9x8x16 @ (0,40), leg 3x9x3 @ (0,0), head 5x7x6 @ (12,0), horn 2x6x2 @
+// (34,0) (layers 13 / 14: drawn while it has them), beard 1x4x2 @ (42,0).
+constexpr std::array<MobPart, 9> kGoat = {{
+    {{-4.5f, 9, -8}, {4.5f, 17, 8}, {0, 9, 0}, 0, 40, A::None},
+    {{-4.5f, 0, 4.5f}, {-1.5f, 9, 7.5f}, {-3, 9, 6}, 0, 0, A::LegA},
+    {{1.5f, 0, 4.5f}, {4.5f, 9, 7.5f}, {3, 9, 6}, 0, 0, A::LegB},
+    {{-4.5f, 0, -7.5f}, {-1.5f, 9, -4.5f}, {-3, 9, -6}, 0, 0, A::LegB},
+    {{1.5f, 0, -7.5f}, {4.5f, 9, -4.5f}, {3, 9, -6}, 0, 0, A::LegA},
+    {{-2.5f, 13, 7}, {2.5f, 20, 13}, {0, 16, 8}, 12, 0, A::Head},
+    {{-2.5f, 20, 9}, {-0.5f, 26, 11}, {0, 16, 8}, 34, 0, A::Head, 13},
+    {{0.5f, 20, 9}, {2.5f, 26, 11}, {0, 16, 8}, 34, 0, A::Head, 14},
+    {{-0.5f, 10, 11}, {0.5f, 14, 13}, {0, 16, 8}, 42, 0, A::Head},
+}};
+// Armadillo: shell 7x6x9 @ (0,0), head 3x3x4 @ (32,0), ear 1x2x1 @ (46,0), leg 2x3x2 @
+// (0,15), tail 1x1x4 @ (8,15).
+constexpr std::array<MobPart, 9> kArmadillo = {{
+    {{-3.5f, 3, -4.5f}, {3.5f, 9, 4.5f}, {0, 3, 0}, 0, 0, A::None},
+    {{-1.5f, 3, 4.5f}, {1.5f, 6, 8.5f}, {0, 4.5f, 4.5f}, 32, 0, A::Head},
+    {{-1.5f, 6, 6}, {-0.5f, 8, 7}, {0, 4.5f, 4.5f}, 46, 0, A::Head},
+    {{0.5f, 6, 6}, {1.5f, 8, 7}, {0, 4.5f, 4.5f}, 46, 0, A::Head},
+    {{-3, 0, 2}, {-1, 3, 4}, {-2, 3, 3}, 0, 15, A::LegA},
+    {{1, 0, 2}, {3, 3, 4}, {2, 3, 3}, 0, 15, A::LegB},
+    {{-3, 0, -4}, {-1, 3, -2}, {-2, 3, -3}, 0, 15, A::LegB},
+    {{1, 0, -4}, {3, 3, -2}, {2, 3, -3}, 0, 15, A::LegA},
+    {{-0.5f, 3, -8.5f}, {0.5f, 4, -4.5f}, {0, 3.5f, -4.5f}, 8, 15, A::None},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -570,6 +652,12 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Llama:
     case world::MobType::TraderLlama: return kLlama;
     case world::MobType::Camel: return kCamel;
+    case world::MobType::Rabbit: return kRabbit;
+    case world::MobType::Fox: return kFox;
+    case world::MobType::PolarBear: return kPolarBear;
+    case world::MobType::Panda: return kPanda;
+    case world::MobType::Goat: return kGoat;
+    case world::MobType::Armadillo: return kArmadillo;
     default: return kCow;
     }
 }

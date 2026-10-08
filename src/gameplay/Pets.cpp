@@ -56,6 +56,14 @@ Mobs::Use Mobs::petInteract(MobData& m, ItemId held, Xoroshiro& rng) {
         return Use::Fed; // (the food is used either way)
     }
     if (m.type == MobType::Ocelot) return Use::None;
+    // Wolf armor (M26.3; wiki: Wolf Armor) on a tamed wolf; shears take it off again.
+    static ItemId wolfArmor;
+    if (m.type == MobType::Wolf && held != kNoItem && held == itemNamed("wolf_armor", wolfArmor) && m.horseArmor == 0 &&
+        !m.isBaby()) {
+        m.horseArmor = 1;
+        m.armorWear = 0;
+        return Use::Fed;
+    }
     // A dye on a tamed wolf or cat: its collar's colour.
     if (held != kNoItem && m.type != MobType::Parrot) {
         const std::string_view id = items.item(held).id;
@@ -229,6 +237,12 @@ void Mobs::spawnCreatures(Context& ctx) {
         ctx.rng.nextInt(2) == 0) {
         spawnMounts(ctx, biome, x, y, z);
         return;
+    }
+    // Rabbits, foxes, polar bears, pandas, goats, armadillos (M26.3, Wildlife.cpp).
+    if (ctx.rng.nextInt(2) == 0 && biome != Biome::Forest && biome != Biome::SparseJungle) {
+        const auto before = m_creatures;
+        spawnWildlife(ctx, biome, ground, x, y, z);
+        if (m_creatures != before) return;
     }
     if (ground != blocks::GrassBlock && ground != blocks::Podzol && ground != blocks::Snow && ground != blocks::SnowBlock) return;
     MobType kind = MobType::Count;

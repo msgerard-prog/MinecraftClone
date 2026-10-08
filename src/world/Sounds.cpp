@@ -108,6 +108,11 @@ std::vector<SoundInfo> buildTable() {
     set(Sound::ToolBreak, "entity.item.break", {"random/break"}, 0.8f, 0.8f, 1.2f);
     set(Sound::Minecart, "entity.minecart.riding", {"random/minecart"}, 0.4f, 1.0f, 1.0f);
     set(Sound::SuccessfulHit, "entity.arrow.hit_player", {"random/successful_hit"}, 0.18f, 0.45f, 0.45f);
+    set(Sound::BerryPick, "block.sweet_berry_bush.pick_berries", {"item/sweet_berries/pick"}, 1.0f, 0.8f, 1.2f);
+    for (int i = 0; i < 8; ++i) // (M26.3) a goat horn's call, heard far (volume 16: 256 blocks)
+        set(static_cast<Sound>(int(Sound::GoatHorn0) + i), "item.goat_horn.sound." + std::to_string(i),
+            {"item/goat_horn/call" + std::to_string(i)}, 16.0f, 1.0f, 1.0f);
+    set(Sound::GoatRam, "entity.goat.ram_impact", {"mob/goat/ram"}, 1.0f, 0.9f, 1.1f);
     // Blocks (vanilla SoundType: break and place at (volume + 1) / 2 and pitch 0.8,
     // steps at 0.15, mining hits at 1/8 volume and pitch 0.5).
     for (int m = 0; m < int(SoundType::Count); ++m) {
@@ -126,13 +131,13 @@ std::vector<SoundInfo> buildTable() {
     // Mobs: say1.., hurt1.., death (missing ones fall back to hurt, or stay silent).
     // Vanilla mob pitch: 1 + (random - random) x 0.2 (babies +0.5, added by the caller).
     static constexpr int kSays[] = {3, 3, 3, 3, 3, 3, 0, 2, 3, 3, 2, 0, 3, 3, 3, 2, 0, 2, 2, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3,
-                                    0, 0, 0, 0, 3, 3, 0, 3, 3, 2, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3};
+                                    0, 0, 0, 0, 3, 3, 0, 3, 3, 2, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3};
     static constexpr int kHurts[] = {2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-                                     2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
+                                     2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
     static constexpr bool kDeath[] = {true, false, false, true, false, true, true, true, true, true, true,
                                       true, true, true, true, true, false, true, true, false, true, true, true, true, true, true, true, true, true, true, true,
                                       true, true, true, true, true, true, false, true, true, true, true, true, true, true, true, true,
-                                      true, true, true, true, true, true};
+                                      true, true, true, true, true, true, true, true, true, true, true, true};
     static_assert(std::size(kSays) == size_t(MobType::Count) && std::size(kHurts) == size_t(MobType::Count) &&
                   std::size(kDeath) == size_t(MobType::Count));
     for (int i = 0; i < int(MobType::Count); ++i) {

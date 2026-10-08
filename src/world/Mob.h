@@ -69,6 +69,12 @@ enum class MobType : uint8_t {
     Llama,       // (M26.2) variant in woolColour (kLlamaVariants); strength 1-5 (3 slots each)
     TraderLlama, // (M26.2) walks with a wandering trader (vanilla: on its lead)
     Camel,       // (M26.2) needs no taming; dashes, sits
+    Rabbit,      // (M26.3) kind in woolColour (kRabbitKinds); hops
+    Fox,         // (M26.3) red / snow in woolColour; sleeps by day, carries an item in its mouth
+    PolarBear,   // (M26.3) neutral; fights for its cubs
+    Panda,       // (M26.3) main / hidden gene in woolColour / color2 (kPandaGenes)
+    Goat,        // (M26.3) rams; horns (bits 1 left, 2 right) in `horns`; screaming in `powered`
+    Armadillo,   // (M26.3) rolls up when scared (`sitting`); sheds scutes
     Count
 };
 
@@ -148,6 +154,18 @@ inline int chestSlots(MobType t, int strength) {
     return t == MobType::Boat ? 27 : isLlama(t) ? 3 * std::clamp(strength, 1, 5) : canCarryChest(t) ? 15 : 0;
 }
 
+// Wildlife (M26.3; wiki: Rabbit, Fox, Panda, Goat, Armadillo).
+inline constexpr NamedColour kRabbitKinds[6] = {{"brown", 0x8A6A4A},        {"white", 0xF2F2F2}, {"black", 0x2E2A2A},
+                                                {"white_splotched", 0xD0D0D0}, {"gold", 0xE0C070}, {"salt", 0xB09A7A}};
+inline constexpr const char* kPandaGenes[7] = {"normal", "lazy", "worried", "playful", "brown", "weak", "aggressive"};
+// Brown and weak are recessive: they show only when both genes carry them.
+inline int pandaPersonality(int main, int hidden) {
+    const bool recessive = main == 4 || main == 5;
+    return recessive && main != hidden ? 0 : main;
+}
+// Goat horn instruments (wiki: Goat Horn), stored in the item's `damage`.
+inline constexpr const char* kGoatHorns[8] = {"ponder", "sing", "seek", "feel", "admire", "call", "yearn", "dream"};
+
 // Fish, squid (M25.2): water creatures.
 inline bool isFish(MobType t) {
     return t == MobType::Cod || t == MobType::Salmon || t == MobType::TropicalFish || t == MobType::Pufferfish;
@@ -215,6 +233,10 @@ struct MobData {
     float jumpStrength = 0.0f;
     int8_t riderJump = 0;    // the rider's jump: charge 1..100 released this tick (camels: dash)
     int16_t dashCooldown = 0; // camel: 55 ticks between dashes
+    // Wildlife (M26.3).
+    uint8_t horns = 3;        // goat: bit 0 left horn, bit 1 right horn
+    ItemId mouthItem = 0;     // fox: what it carries (one item)
+    int16_t armorWear = 0;    // a wolf's armor: damage it has taken (breaks at 64)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

@@ -268,7 +268,14 @@ M26.2: entities `minecraft:horse` (`Variant` = colour | markings << 8), `donkey`
 `camel` (`LastPoseTick` < 0: sitting) with `Tame`, `Temper`, `Owner`, `ChestedHorse`,
 `Items` (chest slots numbered from 2), `attributes` [{id: max_health / movement_speed /
 jump_strength, base}] and 1.21.5+ `equipment` {saddle, body (horse armor or carpet)};
-`minecraft:<wood>_chest_boat` / `bamboo_chest_raft` with `Items` (from 0). Items `saddle`,
+`minecraft:<wood>_chest_boat` / `bamboo_chest_raft` with `Items` (from 0).
+M26.3a: entities `minecraft:rabbit` (`RabbitType` 0-5), `fox` (`Type` red/snow, `Sleeping`,
+`Trusted` [UUID], equipment.mainhand), `polar_bear`, `panda` (`MainGene`, `HiddenGene`),
+`goat` (`HasLeftHorn`, `HasRightHorn`, `IsScreamingGoat`), `armadillo` (`state`,
+`scute_time`); wolves' equipment.body `wolf_armor` (its damage). Block
+`sweet_berry_bush[age]`; items `sweet_berries`, `rabbit`, `cooked_rabbit`, `rabbit_hide`,
+`rabbit_foot`, `goat_horn` (component `minecraft:instrument` "minecraft:<name>_goat_horn"),
+`armadillo_scute`, `wolf_armor`. /summon shorthands `FoxType`, `MainGene`, `HiddenGene`. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

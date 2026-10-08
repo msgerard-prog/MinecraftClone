@@ -401,11 +401,16 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
                 "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
                 "mangrove_propagule", "pale_oak_sapling"};
-            if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots") {
+            if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots" ||
+                name == "sweet_berry_bush") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
                 // 2-3, 4-6, 7). Drawn as a cross (vanilla's crop model is a # of 4 planes).
                 const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
-                const int stage = name == "wheat" || name == "beetroots" ? a : a < 2 ? 0 : a < 4 ? 1 : a < 7 ? 2 : 3;
+                const int stage = name == "wheat" || name == "beetroots" || name == "sweet_berry_bush" ? a
+                                  : a < 2                                                         ? 0
+                                  : a < 4                                                         ? 1
+                                  : a < 7                                                         ? 2
+                                                                                                  : 3;
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite((name + "_stage" + std::to_string(stage)).c_str());

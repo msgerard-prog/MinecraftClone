@@ -18,9 +18,10 @@ M26 - Mobs 3 (wiki pages of each mob):
 2. ✅ M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,
    breeding stats), llamas and trader llamas (spit; caravans need leads - M28), camels;
    chest boats.
-3. M26.3 - Wildlife: foxes (sleeping, carrying items), bees (nests, hives, honey,
-   pollination), goats (ramming, horns), frogs and tadpoles (froglights), axolotls
-   (buckets, play dead), pandas (personalities), polar bears, rabbits.
+3. M26.3 - Wildlife: ✅ a) rabbits, foxes (sleeping, carrying items, sweet berry bushes),
+   polar bears, pandas (genes), goats (ramming, horns, goat horns), armadillos and wolf
+   armor; b) bees (nests, hives, honey, pollination), frogs and tadpoles (froglights),
+   axolotls (buckets, play dead).
 4. M26.4 - Monsters: phantoms (insomnia), silverfish (infested blocks), cave spiders,
    wither skeletons and the Wither (summoning, nether star, beacon), the breeze and wind
    charges, the warden (with the deep dark in M27).

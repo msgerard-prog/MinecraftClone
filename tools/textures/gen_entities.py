@@ -1083,6 +1083,29 @@ def trader_llama():
     return img
 
 
+def panda():
+    """A panda (M26.3): white body and head, black legs, ears, shoulder band and eye patches."""
+    rng = random.Random("panda")
+    img = pet("panda", [(0, 35, 13, 11, 18), (20, 0, 9, 8, 7), (52, 4, 4, 3, 2)], (20, 0, 9, 8, 7), (52, 4, 4, 3, 2),
+              base="#F0F0EC")
+    black = ramp(hexc("#24242A"), 5, spread=0.2)
+    for box in ((0, 0, 5, 9, 5), (52, 0, 3, 3, 1)):
+        for f in box_faces(*box).values():
+            paint(img, f, black, rng)
+    body = box_faces(0, 35, 13, 11, 18)
+    for name in ("left", "right"):  # a dark band over the shoulders
+        x0, y0, w, h = body[name]
+        paint(img, (x0 + w - 5, y0, 4, h), black, rng)
+    x0, y0, w, h = body["top"]
+    paint(img, (x0, y0 + h - 5, w, 4), black, rng)
+    fx, fy, fw, fh = box_faces(20, 0, 9, 8, 7)["front"]
+    for (ex, ey) in ((1, 2), (2, 2), (1, 3), (2, 3), (6, 2), (7, 2), (6, 3), (7, 3)):  # eye patches
+        img.set(fx + ex, fy + ey, black[2])
+    img.set(fx + 2, fy + 2, (250, 250, 250, 255))
+    img.set(fx + 6, fy + 2, (250, 250, 250, 255))
+    return img
+
+
 HORSE_BOXES = [(0, 0, 4, 11, 4), (16, 0, 5, 5, 10), (46, 0, 3, 10, 4), (0, 15, 4, 10, 6), (20, 15, 2, 10, 3),
                (30, 15, 2, 3, 1), (0, 32, 10, 10, 22)]
 LLAMA_BOXES = [(0, 0, 4, 11, 4), (16, 0, 6, 12, 6), (40, 0, 6, 5, 6), (16, 18, 2, 3, 2), (24, 18, 2, 4, 2),
@@ -1149,7 +1172,23 @@ def main():
               "camel": pet("camel", [(0, 0, 4, 18, 4), (16, 0, 5, 12, 5), (36, 0, 6, 6, 8), (48, 14, 2, 2, 1),
                                      (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#C8A060",
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
-              "mount_gear": mount_gear()}
+              "mount_gear": mount_gear(),
+              # M26.3 wildlife: rabbits and foxes light (tinted by kind), the rest in their own colours
+              "rabbit": pet("rabbit", [(0, 0, 5, 5, 7), (24, 0, 4, 4, 4), (40, 0, 1, 4, 1), (0, 12, 2, 2, 4),
+                                       (12, 12, 1, 3, 1)], (24, 0, 4, 4, 4), (24, 0, 4, 4, 4),
+                            extra=[((44, 0, 2, 2, 1), "#F4F4F4")]),
+              "fox": pet("fox", [(0, 0, 6, 6, 9), (30, 0, 8, 6, 6), (12, 15, 2, 2, 1), (26, 15, 4, 4, 8)],
+                         (30, 0, 8, 6, 6), (0, 15, 3, 3, 3),
+                         extra=[((0, 15, 3, 3, 3), "#F0EAE0"), ((18, 15, 2, 3, 2), "#2A2220")]),
+              "polar_bear": pet("polar_bear", [(0, 33, 12, 11, 20), (0, 0, 5, 10, 5), (20, 0, 7, 7, 7),
+                                               (48, 6, 2, 2, 1)], (20, 0, 7, 7, 7), (48, 0, 4, 3, 3),
+                                base="#EEEEE8", extra=[((48, 0, 4, 3, 3), "#E0E0D8")]),
+              "panda": panda(),
+              "goat": pet("goat", [(0, 40, 9, 8, 16), (0, 0, 3, 9, 3), (12, 0, 5, 7, 6), (42, 0, 1, 4, 2)],
+                          (12, 0, 5, 7, 6), None, base="#E8E4DA", extra=[((34, 0, 2, 6, 2), "#8A8478")]),
+              "armadillo": pet("armadillo", [(0, 0, 7, 6, 9), (32, 0, 3, 3, 4), (46, 0, 1, 2, 1), (0, 15, 2, 3, 2),
+                                             (8, 15, 1, 1, 4)], (32, 0, 3, 3, 4), None, base="#E8B0A0",
+                               extra=[((0, 0, 7, 6, 9), "#A8685A"), ((8, 15, 1, 1, 4), "#A8685A")])}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")
