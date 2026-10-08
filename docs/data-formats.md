@@ -219,6 +219,9 @@ Entities `minecraft:villager`: `VillagerData` {type, profession, level}, `Xp`,
 (`facing`, `has_book`), fletching table, bell (`facing`; ours stands on the floor).
 Level.dat `generator` "overworld3" (new worlds). `Offers.Recipes`: {buy, buyB, sell
 (items), uses, maxUses, rewardExp, xp, priceMultiplier, specialPrice, demand} (M24.2).
+Villager food as `Inventory` (stacks of bread, carrots, potatoes, beetroots, wheat,
+seeds); zombie villagers save `ConversionTime` (-1 when not curing) and the villager
+fields; `minecraft:iron_golem`, block `carved_pumpkin` (`facing`) (M24.3).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

@@ -1770,3 +1770,38 @@ TEST_CASE("three villagers with beds call an iron golem when none is near (M24.3
     }
     CHECK(golems == 1);
 }
+
+TEST_CASE("villagers pick up food; two willing villagers with a free bed have a baby (M24.3)") {
+    MobScene s;
+    auto bed = [&](int x, int z) {
+        s.world.setBlock({x, 64, z}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=head]"));
+        s.world.setBlock({x, 64, z + 1}, *blockRegistry().parse("minecraft:red_bed[facing=north,occupied=false,part=foot]"));
+    };
+    bed(2, 10);
+    bed(4, 10);
+    bed(6, 10); // a third, free bed for the child
+    MobData a = Mobs::make(MobType::Villager, {3.5, 64.0, 4.5}, s.rng);
+    MobData b = Mobs::make(MobType::Villager, {5.5, 64.0, 4.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, a));
+    REQUIRE(Mobs::add(s.world, b));
+    // Bread on the ground next to each: 3 loaves = 12 points, enough to be willing.
+    s.items.spawn({3.5, 64.2, 4.5}, {*itemRegistry().find("bread"), 3}, s.rng);
+    s.items.spawn({5.5, 64.2, 4.5}, {*itemRegistry().find("bread"), 3}, s.rng);
+    s.player.setPosition({30.5, 64.0, 30.5});
+    int babies = 0;
+    Inventory inv;
+    for (int t = 0; t < 1200 && babies == 0; ++t) {
+        s.player.tick(s.world, {});
+        s.items.tick(s.world, s.player.box(), false, inv);
+        Mobs::Context ctx{s.world, s.player, s.vitals, false, false, 3000, 0.0f, s.rng, s.items};
+        ctx.naturalSpawning = false;
+        s.mobs.tick(ctx);
+        for (MobData* m : s.all()) babies += m->type == MobType::Villager && m->isBaby();
+    }
+    CHECK(babies == 1);
+    for (MobData* m : s.all())
+        if (m->type == MobType::Villager && !m->isBaby()) {
+            CHECK(m->age > 0); // resting before breeding again
+            CHECK(m->food[0] == 0); // the bread went into it
+        }
+}

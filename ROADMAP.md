@@ -21,9 +21,9 @@ M24 - Villages 2 (wiki pages of each mob/mechanic):
 2. ✅ M24.2 - Trading: per-profession trade tables from the wiki, the trading screen,
    uses and restocking at the job site, villager experience and levels, demand and
    price changes, emeralds.
-3. M24.3 - Villager breeding (food, beds), iron golems (built and spawned, defend the
-   village), zombie villagers (infection, curing with weakness + golden apple),
-   witches from lightning.
+3. ✅ M24.3 - Villager breeding (food, beds), iron golems (built and spawned, defend the
+   village), zombie villagers (infection, curing with weakness + golden apple).
+   (Witches from lightning moved to M24.4 with witches.)
 4. M24.4 - Wandering traders, witches (swamp huts, potion throwing), pillagers and
    pillager outposts (crossbow shots).
 5. M24.5 - Raids: ominous bottles and Bad Omen, raid waves (pillagers, vindicators,

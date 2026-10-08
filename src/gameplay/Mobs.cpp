@@ -310,6 +310,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::Villager) {
         villagersCallGolem(ctx, m);
+        villagerUpkeep(ctx, m);
         villagerFear(ctx, m);
         double unused = 0.0;
         if (m.sleeping && villagerGoal(ctx, m, unused) && m.sleeping) { // asleep: nothing else turns or moves it

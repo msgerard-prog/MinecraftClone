@@ -361,6 +361,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (villager xp and levels at 10/70/150/250), `restock` at the job site twice a day;
   `ContainerScreen::Type::Trading` (offers in two columns, payments auto-filled;
   main re-points it at the villager by UUID each frame and drops the player's orbs).
+  M24.3: `zombieHunt` (zombies chase villagers by UUID; a kill infects half the time,
+  turning the villager into a `ZombieVillager` in place), `zombieVillagerTick` (the
+  weakness + golden apple cure); `Golems.cpp`: `golemGoal` (monsters within 16,
+  patrol, anger), `villagersCallGolem`, `buildIronGolem` (T of iron + carved pumpkin);
+  villager food (`MobData::food`, picked up, harvested by farmers, shared) and breeding
+  (12 points each, a free bed for the baby).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

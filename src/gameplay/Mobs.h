@@ -121,6 +121,7 @@ private:
     // it chose the goal) and running from zombies.
     bool villagerGoal(Context& ctx, world::MobData& m, double& speed);
     void villagerFear(Context& ctx, world::MobData& m);
+    void villagerUpkeep(Context& ctx, world::MobData& v); // (M24.3) food, bread, sharing
     // Zombies hunting villagers, zombie villagers' cure (M24.3, Villagers.cpp).
     bool zombieHunt(Context& ctx, world::MobData& z);
     static void zombieVillagerTick(world::MobData& m);

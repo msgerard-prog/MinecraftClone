@@ -995,6 +995,15 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             data.put("level", int32_t(m.villagerLevel));
             e.put("VillagerData", std::move(data));
             e.put("Xp", int32_t(m.villagerXp));
+            { // its food (M24.3) as vanilla's Inventory: up to 8 stacks
+                static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
+                std::vector<nbt::Tag> inv;
+                for (int i = 0; i < 6; ++i)
+                    if (m.food[size_t(i)] > 0)
+                        if (const auto id = itemRegistry().find(kFood[i]))
+                            inv.emplace_back(itemNbt({*id, m.food[size_t(i)]}, -1));
+                e.put("Inventory", nbt::listOf(nbt::TagType::Compound, std::move(inv)));
+            }
             e.put("LastRestock", int64_t(m.lastRestockDay));
             e.put("RestocksToday", int32_t(m.restocksToday));
             nbt::Compound memories; // Brain.memories: home / job_site / meeting_point {value: {pos, dimension}}
@@ -1126,6 +1135,16 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.villagerLevel = uint8_t(std::clamp<int64_t>(data->integer("level").value_or(1), 1, 5));
             }
             m.villagerXp = int(std::clamp<int64_t>(e->integer("Xp").value_or(0), 0, 1000000));
+            if (const nbt::List* inv = e->list("Inventory")) {
+                static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
+                for (const nbt::Tag& it : inv->items)
+                    if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                        const ItemStack st = itemFromNbt(*ic);
+                        for (int i = 0; i < 6; ++i)
+                            if (!st.empty() && itemRegistry().find(kFood[i]) == st.item)
+                                m.food[size_t(i)] = uint8_t(std::min(64, m.food[size_t(i)] + st.count));
+                    }
+            }
             m.lastRestockDay = e->integer("LastRestock").value_or(-1);
             m.restocksToday = uint8_t(std::clamp<int64_t>(e->integer("RestocksToday").value_or(0), 0, 2));
             if (const nbt::Compound* brain = e->compound("Brain"))

@@ -154,6 +154,11 @@ struct MobData {
     int16_t weaknessTicks = 0;
     int16_t convertTicks = 0;
     uint64_t targetUuid = 0;
+    // A villager's food (M24.3; vanilla keeps an 8-slot Inventory): bread, carrots,
+    // potatoes, beetroots, wheat and wheat seeds - saved as Inventory.
+    std::array<uint8_t, 6> food{};
+    int16_t breedTogether = 0; // ticks next to a willing partner
+    glm::ivec3 workTarget{0, kNoPoint, 0}; // a farmer's ripe crop
     std::array<TradeOffer, kMaxOffers> offers{};
     float limbSwing = 0.0f, limbSwingAmount = 0.0f; // walk animation
 };
