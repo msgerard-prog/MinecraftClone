@@ -23,6 +23,8 @@ public:
     GuiRenderer& operator=(const GuiRenderer&) = delete;
 
     bool init(const PackStack& packs, const TextureAtlas& atlas);
+    // The held map's 128x128 picture (M28.2b; RGBA, row by row), drawn as GuiTexture::Map.
+    void uploadMap(const uint8_t* rgba);
     static constexpr const char* kHudIconPaths[] = {
         "hud/heart/full.png", "hud/heart/half.png", "hud/heart/container.png",
         "hud/food_full.png",  "hud/food_half.png",  "hud/food_empty.png", "hud/air.png", "hud/air_bursting.png",
@@ -42,7 +44,7 @@ private:
     Shader m_shader;
     uint32_t m_vao = 0;
     uint32_t m_vbo = 0;
-    uint32_t m_textures[6] = {}; // indexed by GuiTexture
+    uint32_t m_textures[7] = {}; // indexed by GuiTexture
     GuiBatch m_batch;
 };
 

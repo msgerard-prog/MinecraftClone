@@ -13,6 +13,7 @@
 #include "gameplay/Brewing.h"
 #include "gameplay/Buckets.h"
 #include "gameplay/Combat.h"
+#include "gameplay/Cartography.h"
 #include "gameplay/Commands.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
@@ -65,6 +66,7 @@
 #include "world/FlatGenerator.h"
 #include "world/ItemExtras.h"
 #include "world/LevelData.h"
+#include "world/Maps.h"
 #include "world/Statistics.h"
 #include "world/LightManager.h"
 #include "world/NetherGenerator.h"
@@ -569,6 +571,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (auto s = mc::world::Statistics::load(mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
             stats = std::move(*s);
     shared.menuState.stats = &stats;
+    // Maps (M28.2b): data/map_<id>.dat; the held one's picture is uploaded when it changes.
+    mc::world::Maps maps;
+    if (!worldDir.empty()) maps.load(worldDir);
+    std::vector<uint8_t> mapRgba(128 * 128 * 4, 0);
+    int shownMap = -1;
+    uint32_t shownMapVersion = 0;
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
@@ -825,7 +833,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (s.empty()) return;
             mc::world::LevelData::SavedItem it{
                 slot, mc::world::itemRegistry().item(s.item).id,
-                s.state ? mc::world::blockRegistry().toString(s.state) : std::string(), s.count,
+                s.state && mc::world::itemRegistry().item(s.item).block ? mc::world::blockRegistry().toString(s.state)
+                                                                        : std::string(),
+                s.count,
                 s.damage};
             for (const uint16_t v : s.enchantments)
                 if (v)
@@ -853,6 +863,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (!l.save(worldDir)) MC_LOG_ERROR("Failed to write level.dat");
         if (!stats.save(mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
             MC_LOG_ERROR("Failed to write the statistics");
+        if (!maps.save(worldDir)) MC_LOG_ERROR("Failed to write the maps");
         if (wait) storage->flush();
         MC_LOG_INFO("Saved world \"%s\" (%d changed chunks)", worldName.c_str(), chunks);
     };
@@ -2295,6 +2306,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!dead && heldId == "minecraft:wind_charge" && clicks.useClick && windCooldown == 0) {
                     mc::throwWindCharge(inventory, survival, eye, look, projectiles, gameRng); // (M26.4c)
                     windCooldown = 10; // (wiki: half a second between throws)
+                    clicks.useClick = false;
+                }
+                if (!dead && heldId == "minecraft:map" && clicks.useClick) {
+                    // An empty map becomes a map of where it's used (M28.2b; wiki: Map):
+                    // scale 0, centred on the 128-block grid cell around the player.
+                    mc::world::ItemStack filled{*mc::world::itemRegistry().find("filled_map"), 1};
+                    filled.damage = uint16_t(maps.create(int(std::floor(player.position().x)),
+                                                         int(std::floor(player.position().z)), 0, uint8_t(dimension)));
+                    if (inventory.selectedStack().count == 1 && survival) {
+                        inventory.setSlot(inventory.selected(), filled);
+                    } else {
+                        if (survival) inventory.consumeSelected(1);
+                        if (inventory.add(filled) > 0) droppedItems.spawn(player.position(), filled, gameRng);
+                    }
                     clicks.useClick = false;
                 }
                 if (!dead && heldId == "minecraft:snowball" && clicks.useClick) { // (M26.5b)
@@ -3744,6 +3769,41 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     copy.extra = mc::world::addLodestoneTarget(lost);
                     inventory.setSlot(slot, copy);
                 }
+            { // Maps (M28.2b): new map data for maps a table zoomed out or locked, then the
+              // held map draws the terrain around the player.
+                static const mc::world::ItemId filledMap = *mc::world::itemRegistry().find("filled_map");
+                for (int slot = 0; slot < mc::Inventory::kSlots; ++slot) {
+                    const mc::world::ItemStack& s = inventory.slot(slot);
+                    if (s.item != filledMap || s.state == 0 || s.empty()) continue;
+                    mc::world::ItemStack done = s;
+                    done.state = 0;
+                    if (const mc::world::MapData* old = maps.get(s.damage)) {
+                        const mc::world::MapData from = *old; // (create() may move the map store)
+                        if (s.state == mc::kMapScale && from.scale < 4 && !from.locked) {
+                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ, from.scale + 1, from.dimension));
+                        } else if (s.state == mc::kMapLock && !from.locked) {
+                            done.damage = uint16_t(maps.create(from.centerX, from.centerZ, from.scale, from.dimension));
+                            mc::world::MapData* copy = maps.get(done.damage);
+                            copy->colors = from.colors;
+                            copy->centerX = from.centerX; // (the same place exactly)
+                            copy->centerZ = from.centerZ;
+                            copy->locked = true;
+                        }
+                    }
+                    inventory.setSlot(slot, done);
+                }
+                // (a map whose data doesn't exist - given by a command - starts where it is held)
+                if (inventory.selectedStack().item == filledMap && !maps.get(inventory.selectedStack().damage)) {
+                    mc::world::ItemStack s = inventory.selectedStack();
+                    s.damage = uint16_t(maps.create(int(std::floor(player.position().x)),
+                                                    int(std::floor(player.position().z)), 0, uint8_t(dimension)));
+                    inventory.setSlot(inventory.selected(), s);
+                }
+                for (const mc::world::ItemStack* held : {&inventory.selectedStack(), &inventory.offhand()})
+                    if (held->item == filledMap && !dead)
+                        if (mc::world::MapData* md = maps.get(held->damage); md && md->dimension == uint8_t(dimension))
+                            mc::world::Maps::update(world, *md, player.position(), gameTime);
+            }
             stats.add(mc::world::Stat::PlayTime); // (M28.1d)
             stats.add(mc::world::Stat::TotalWorldTime);
             if (!dead) stats.add(mc::world::Stat::TimeSinceDeath);
@@ -4359,6 +4419,39 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 itemIcons.setDials(dials);
             }
             if (gameMode != 3) mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
+            { // The held map (M28.2b): ours is a panel at the bottom right (vanilla holds it
+              // in first person), the player a white marker.
+                static const mc::world::ItemId filledMap = *mc::world::itemRegistry().find("filled_map");
+                const mc::world::ItemStack& held =
+                    inventory.selectedStack().item == filledMap ? inventory.selectedStack() : inventory.offhand();
+                const mc::world::MapData* md = held.item == filledMap && !dead && gameMode != 3 ? maps.get(held.damage) : nullptr;
+                if (md) {
+                    if (int(held.damage) != shownMap || md->version != shownMapVersion) {
+                        for (size_t i = 0; i < md->colors.size(); ++i) {
+                            const uint32_t c = mc::world::mapColorRgb(md->colors[i]);
+                            mapRgba[i * 4 + 0] = uint8_t(c >> 16);
+                            mapRgba[i * 4 + 1] = uint8_t(c >> 8);
+                            mapRgba[i * 4 + 2] = uint8_t(c);
+                            mapRgba[i * 4 + 3] = md->colors[i] >> 2 ? 255 : 0; // (unexplored: the paper shows)
+                        }
+                        gui.uploadMap(mapRgba.data());
+                        shownMap = held.damage;
+                        shownMapVersion = md->version;
+                    }
+                    const float size = std::min(128.0f, float(guiH) - 60.0f);
+                    const float mx = float(guiW) - size - 10.0f, my = float(guiH) - size - 34.0f;
+                    batch.fill(mx - 5.0f, my - 5.0f, size + 10.0f, size + 10.0f, mc::gfx::rgba(120, 96, 60));
+                    batch.fill(mx - 4.0f, my - 4.0f, size + 8.0f, size + 8.0f, mc::gfx::rgba(222, 206, 162));
+                    batch.sprite(mc::gfx::GuiTexture::Map, mx, my, size, size, 0.0f, 0.0f, 128.0f, 128.0f);
+                    if (md->dimension == uint8_t(dimension)) {
+                        const glm::dvec2 p = mc::world::Maps::pixelOf(*md, player.position().x, player.position().z);
+                        const float k = size / 128.0f;
+                        const float px = mx + std::clamp(float(p.x), 0.0f, 128.0f) * k, py = my + std::clamp(float(p.y), 0.0f, 128.0f) * k;
+                        batch.fill(px - 2.0f, py - 2.0f, 4.0f, 4.0f, mc::gfx::rgba(40, 40, 40));
+                        batch.fill(px - 1.0f, py - 1.0f, 2.0f, 2.0f, mc::gfx::rgba(255, 255, 255));
+                    }
+                }
+            }
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints());

@@ -328,6 +328,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:compass", .texture = "item/compass_00"});
     r.add({.id = "minecraft:recovery_compass", .texture = "item/recovery_compass_00"});
     r.add({.id = "minecraft:clock", .texture = "item/clock_00"});
+    // Maps (M28.2b; wiki: Map): a filled map's id (vanilla minecraft:map_id) is kept in
+    // ItemStack::damage.
+    r.add({.id = "minecraft:map", .texture = "item/map"});
+    r.add({.id = "minecraft:filled_map", .texture = "item/filled_map"});
     r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).
     r.add({.id = "minecraft:bow", .maxStack = 1, .durability = 384, .texture = "item/bow"});

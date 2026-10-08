@@ -10,7 +10,7 @@
 namespace mc::gfx {
 
 // Textures the GUI samples (vertex field `texture`; see assets/shaders/gui.frag).
-enum class GuiTexture : uint32_t { White = 0, Font = 1, Hotbar = 2, Selection = 3, Atlas = 4, Icons = 5 };
+enum class GuiTexture : uint32_t { White = 0, Font = 1, Hotbar = 2, Selection = 3, Atlas = 4, Icons = 5, Map = 6 };
 
 // Survival HUD icons: 9x9 cells in the Icons strip (u = index * 9).
 enum class HudIcon : int {

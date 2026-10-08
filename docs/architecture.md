@@ -604,6 +604,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   picks compass, recovery compass and clock frames (`compassFrame`, `clockFrame`). Main
   binds compasses to lodestones, drops a lost lodestone's target once a second and keeps
   the last death (level.dat Player.LastDeathLocation).
+- Maps (M28.2b, `world/Maps`): `MapData` (centre, scale, dimension, lock, 128x128
+  colour bytes, a version), `mapColorOf` (vanilla's 62 base colours assigned by block
+  name), `Maps::update` (a sixteenth of the columns per tick within 128 blocks, shaded by
+  height or water depth); main holds `Maps` (saved as data/map_<id>.dat + idcounts.dat),
+  turns empty maps into filled ones (map id in `ItemStack::damage`), makes the new data
+  for maps marked by `gameplay/Cartography` (`craftMap`, `cartography`: copy, zoom, lock;
+  the mark is `ItemStack::state`, saved as map_post_processing) and draws the held map
+  through `GuiRenderer::uploadMap` (GuiTexture::Map, unit 6).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
@@ -753,7 +761,7 @@ Fixed bindings (add new ones here):
 | uniform location (skygradient) | 0-4 | `uInvViewProj`, `uSky`, `uFog`, `uSunrise`, `uSunSide` |
 | uniform location (clouds) | 0-3 | `uViewProj`, `uOffset`, `uColor`, `uFade` |
 | uniform location (gui) | 0 | `uGuiSize` (framebuffer / GUI scale) |
-| texture units (gui) | 0–5 | white, font, hotbar, selection, block atlas, HUD icons strip (= `GuiTexture`) |
+| texture units (gui) | 0–6 | white, font, hotbar, selection, block atlas, HUD icons strip, held map (= `GuiTexture`) |
 | uniform location (entity) | 0, 1 | `uViewProj`, `uAlphaCutoff` (dropped items, crack overlay) |
 
 Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)

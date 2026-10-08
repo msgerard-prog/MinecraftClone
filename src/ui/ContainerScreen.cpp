@@ -1,6 +1,7 @@
 #include "ui/ContainerScreen.h"
 
 #include "gameplay/Brewing.h"
+#include "gameplay/Cartography.h"
 
 #include "gameplay/Anvil.h"
 #include "gameplay/Beacons.h"
@@ -145,7 +146,7 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
             out.push_back({K::Result, 0, 120, 112});
         } else if (type == Type::Beacon) { // the payment (our compact layout: buttons above)
             out.push_back({K::Grid, 0, 124, 47});
-        } else if (type == Type::Cartography) { // map, paper/glass, result (maps come in M28)
+        } else if (type == Type::Cartography) { // map, paper/glass/empty map, result (M28.2b)
             out.push_back({K::Grid, 0, 15, 15});
             out.push_back({K::Grid, 1, 15, 52});
             out.push_back({K::Result, 0, 145, 39});
@@ -364,8 +365,11 @@ void ContainerScreen::updateResult() {
             }
         return;
     }
-    if (m_type == Type::Loom || m_type == Type::Cartography ||
-        m_type == Type::Beacon) { // (no result slot)
+    if (m_type == Type::Cartography) { // (M28.2b)
+        m_result = cartography(m_grid[0], m_grid[1]);
+        return;
+    }
+    if (m_type == Type::Loom || m_type == Type::Beacon) { // (no result slot)
         m_result = {};
         return;
     }

@@ -97,3 +97,114 @@ TEST_CASE("compass, clock, recovery compass and lodestone recipes") {
     REQUIRE(r);
     CHECK(itemRegistry().item(r->item).id == "minecraft:lodestone");
 }
+
+#include "gameplay/Cartography.h"
+#include "gameplay/Commands.h"
+#include "world/Maps.h"
+#include "world/World.h"
+
+TEST_CASE("map colours: vanilla's base colours by block; shades") {
+    auto col = [](const char* id) { return mapColorOf(*blockRegistry().findBlock(id)); };
+    CHECK(col("grass_block") == 1);
+    CHECK(col("water") == 12);
+    CHECK(col("stone") == 11);
+    CHECK(col("spruce_leaves") == 7);
+    CHECK(col("spruce_planks") == 34);
+    CHECK(col("white_wool") == 8);
+    CHECK(col("red_wool") == 28);
+    CHECK(col("glass") == 0);
+    CHECK(col("sand") == 2);
+    CHECK(mapColorRgb(1 * 4 + 2) == 0x7FB238);              // grass, full brightness
+    const uint32_t darkWater = uint32_t((64 * 180 / 255) << 16 | (64 * 180 / 255) << 8 | (255 * 180 / 255));
+    CHECK(mapColorRgb(12 * 4 + 0) == darkWater);
+    CHECK(mapColorRgb(0) == 0);
+}
+
+TEST_CASE("maps: centred on vanilla's grid, drawn from the terrain, saved as map_<id>.dat") {
+    Maps maps;
+    const int a = maps.create(40, 40, 0, 0);
+    CHECK(maps.get(a)->centerX == 0);
+    const int b = maps.create(100, -65, 0, 0);
+    CHECK(maps.get(b)->centerX == 128);
+    CHECK(maps.get(b)->centerZ == -128);
+    const int c = maps.create(10, 10, 1, 0); // 256-block cells
+    CHECK(maps.get(c)->centerX == 64);
+    CHECK(b != a);
+
+    World world;
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx) {
+            Chunk& ch = world.createChunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    ch.set(x, 63, z, blockRegistry().defaultState(blocks::GrassBlock));
+                    if (cx == 1) ch.set(x, 64, z, blockRegistry().defaultState(blocks::Water));
+                }
+        }
+    MapData& m = *maps.get(a);
+    for (int t = 0; t < 16; ++t)
+        Maps::update(world, m, {0.5, 64.0, 0.5}, t);
+    CHECK(int(m.colors[size_t(64 * 128 + 64)] >> 2) == 1);  // grass at the centre
+    CHECK(int(m.colors[size_t(64 * 128 + 84)] >> 2) == 12); // water to the east (x 20)
+    CHECK(m.colors[size_t(64 * 128 + 120)] == 0);      // unloaded: nothing drawn
+    CHECK(m.version > 0);
+
+    const auto dir = std::filesystem::temp_directory_path() / "mc_maps_test";
+    std::filesystem::remove_all(dir);
+    REQUIRE(maps.save(dir));
+    CHECK(std::filesystem::exists(dir / "data" / "map_0.dat"));
+    CHECK(std::filesystem::exists(dir / "data" / "idcounts.dat"));
+    Maps back;
+    REQUIRE(back.load(dir));
+    REQUIRE(back.get(a));
+    CHECK(back.get(a)->colors == m.colors);
+    CHECK(back.get(c)->scale == 1);
+    CHECK(back.create(0, 0, 0, 0) == 3); // (ids go on after the saved ones)
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("maps: copying and zooming out by crafting, the cartography table; map_id saved") {
+    auto stack = [](const char* id) { return ItemStack{*itemRegistry().find(id), 1}; };
+    ItemStack filled = stack("filled_map");
+    filled.damage = 7;
+    std::array<ItemStack, 9> g{};
+    g[0] = filled;
+    g[1] = g[2] = stack("map");
+    auto r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(r->item == filled.item);
+    CHECK(r->count == 3);
+    CHECK(r->damage == 7);
+    g.fill(stack("paper"));
+    g[4] = filled;
+    r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(r->state == kMapScale);
+    CHECK(cartography(filled, stack("glass_pane")).state == kMapLock);
+    CHECK(cartography(filled, stack("map")).count == 2);
+    CHECK(cartography(filled, stack("stick")).empty());
+
+    ItemStack marked = filled;
+    marked.state = kMapScale;
+    const nbt::Compound n = itemToNbt(marked, 0);
+    CHECK(n.compound("components")->integer("minecraft:map_id") == 7);
+    CHECK(n.compound("components")->integer("minecraft:map_post_processing") == 1);
+    const ItemStack back = itemFromNbtPublic(n);
+    CHECK(back.damage == 7);
+    CHECK(back.state == kMapScale);
+}
+
+TEST_CASE("/item replace entity @s weapon.mainhand / offhand / hotbar.N") {
+    Player player;
+    Inventory inv;
+    int64_t dayTime = 0;
+    CommandContext ctx{player, inv, dayTime, 0, 42};
+    CHECK(runCommand("/item replace entity @s weapon.mainhand with filled_map", ctx).ok);
+    CHECK(itemRegistry().item(inv.selectedStack().item).id == "minecraft:filled_map");
+    CHECK(runCommand("/item replace entity @s weapon.offhand with compass", ctx).ok);
+    CHECK(itemRegistry().item(inv.offhand().item).id == "minecraft:compass");
+    CHECK(runCommand("/item replace entity @s hotbar.3 with stick 5", ctx).ok);
+    CHECK(inv.slot(3).count == 5);
+    CHECK_FALSE(runCommand("/item replace entity @s hotbar.9 with stick", ctx).ok);
+    CHECK_FALSE(runCommand("/item replace entity @s nowhere with stick", ctx).ok);
+}

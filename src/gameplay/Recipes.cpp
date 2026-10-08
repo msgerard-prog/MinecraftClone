@@ -1,5 +1,7 @@
 #include "gameplay/Recipes.h"
 
+#include "gameplay/Cartography.h"
+
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
@@ -617,6 +619,7 @@ std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size);
 
 // A dyed shulker box keeps what it holds (wiki: Shulker Box › Dyeing).
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
+    if (auto map = craftMap(grid, size)) return map; // (M28.2b: copying, zooming out)
     std::optional<ItemStack> out = craftPlain(grid, size);
     if (out)
         for (const ItemStack& s : grid)

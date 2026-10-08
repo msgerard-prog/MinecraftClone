@@ -41,7 +41,7 @@ Image loadImage(const PackStack& packs, const char* path, int fallbackW, int fal
 GuiRenderer::~GuiRenderer() {
     // The atlas texture (index 4) belongs to TextureAtlas.
     glDeleteTextures(4, m_textures);
-    glDeleteTextures(1, &m_textures[5]);
+    glDeleteTextures(2, &m_textures[5]); // (the HUD icons and the map)
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
@@ -55,6 +55,7 @@ bool GuiRenderer::init(const PackStack& packs, const TextureAtlas& atlas) {
     if (!m_shader.load("gui")) return false;
     const Image font = loadImage(packs, "assets/minecraft/textures/font/ascii.png", 128, 128);
     m_textures[0] = makeTexture(Image{1, 1, {255, 255, 255, 255}});
+    m_textures[6] = makeTexture(Image{128, 128, std::vector<uint8_t>(128 * 128 * 4, 0)}); // (M28.2b)
     m_textures[1] = makeTexture(font);
     m_textures[2] =
         makeTexture(loadImage(packs, "assets/minecraft/textures/gui/sprites/hud/hotbar.png", 182, 22));
@@ -101,6 +102,10 @@ bool GuiRenderer::init(const PackStack& packs, const TextureAtlas& atlas) {
     return true;
 }
 
+void GuiRenderer::uploadMap(const uint8_t* rgba) {
+    glTextureSubImage2D(m_textures[6], 0, 0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+}
+
 void GuiRenderer::draw(int framebufferWidth, int framebufferHeight) {
     const auto& v = m_batch.vertices();
     const size_t count = std::min(v.size(), size_t(kMaxQuads) * 6);
@@ -112,7 +117,7 @@ void GuiRenderer::draw(int framebufferWidth, int framebufferHeight) {
     glBindVertexArray(m_vao);
     // GUI pixels -> NDC, origin top-left.
     glUniform2f(0, float(framebufferWidth) / float(scale), float(framebufferHeight) / float(scale));
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 7; ++i)
         glBindTextureUnit(GLuint(i), m_textures[i]);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);

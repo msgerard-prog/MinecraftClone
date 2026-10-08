@@ -189,6 +189,43 @@ CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) 
     return {true, format("Gave %d [%.*s] to Player", given, int(id.size()), id.data())};
 }
 
+CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) {
+    // /item replace entity @s <slot> with <item> [count] (wiki: Commands/item): slots
+    // weapon.mainhand, weapon.offhand, hotbar.0-8, inventory.0-26, armor.head/chest/legs/feet.
+    if (a.size() < 7 || a.size() > 8 || a[1] != "replace" || a[2] != "entity" || !isSelf(a[3]) || a[5] != "with")
+        return fail("Usage: /item replace entity @s <slot> with <item> [count]");
+    std::string_view id = a[6];
+    if (id.starts_with("minecraft:")) id.remove_prefix(10);
+    const auto it = world::itemRegistry().find(id);
+    if (!it || *it == world::kNoItem) return fail(format("Unknown item '%.*s'", int(id.size()), id.data()));
+    int count = 1;
+    if (a.size() == 8) {
+        const auto n = number<int64_t>(a[7]);
+        if (!n || *n < 1 || *n > 99) return fail("Invalid count");
+        count = int(std::min<int64_t>(*n, world::itemRegistry().item(*it).maxStack));
+    }
+    const world::ItemStack stack{*it, uint8_t(count)};
+    const std::string_view slot = a[4];
+    static constexpr std::string_view kArmor[4] = {"armor.head", "armor.chest", "armor.legs", "armor.feet"};
+    if (slot == "weapon.mainhand" || slot == "weapon") {
+        ctx.inventory.setSlot(ctx.inventory.selected(), stack);
+    } else if (slot == "weapon.offhand") {
+        ctx.inventory.setOffhand(stack);
+    } else if (slot.starts_with("hotbar.") || slot.starts_with("inventory.")) {
+        const bool hotbar = slot.starts_with("hotbar.");
+        const auto n = number<int64_t>(slot.substr(hotbar ? 7 : 10));
+        if (!n || *n < 0 || *n > (hotbar ? 8 : 26)) return fail("Unknown slot");
+        ctx.inventory.setSlot(int(*n) + (hotbar ? 0 : 9), stack);
+    } else {
+        int piece = -1;
+        for (int k = 0; k < 4; ++k)
+            if (slot == kArmor[k]) piece = k;
+        if (piece < 0) return fail(format("Unknown slot '%.*s'", int(slot.size()), slot.data()));
+        ctx.inventory.setArmor(piece, stack);
+    }
+    return {true, format("Replaced a slot on Player with [%.*s]", int(id.size()), id.data())};
+}
+
 } // namespace
 
 CommandResult runCommand(std::string_view line, CommandContext& ctx) {
@@ -198,6 +235,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "tp" || a[0] == "teleport") return teleport(a, ctx);
     if (a[0] == "time") return time(a, ctx);
     if (a[0] == "give") return give(a, ctx);
+    if (a[0] == "item") return item(a, ctx);
     if (a[0] == "gamemode") {
         // /gamemode survival|creative|adventure|spectator (wiki: Commands/gamemode; the
         // number ids were removed). Adventure plays as survival, spectator as creative.
@@ -497,7 +535,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/data /difficulty /effect /fill /gamemode /gamerule /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
+    if (a[0] == "help") return {true, "/data /difficulty /effect /fill /gamemode /gamerule /give /help /item /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

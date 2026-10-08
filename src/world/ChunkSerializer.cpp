@@ -181,9 +181,14 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     nbt::Compound components;
     if (itemRegistry().item(s.item).id == "minecraft:goat_horn") // (M26.3: its instrument, kept in `damage`)
         components.put("minecraft:instrument", "minecraft:" + std::string(kGoatHorns[s.damage % 8]) + "_goat_horn");
+    else if (itemRegistry().item(s.item).id == "minecraft:filled_map") // (M28.2b: its map id, in `damage`)
+        components.put("minecraft:map_id", int32_t{s.damage});
     else if (s.damage)
         components.put("minecraft:damage", int32_t{s.damage});
-    if (s.state) { // exact block state (vanilla's minecraft:block_state component)
+    if (s.state && !itemRegistry().item(s.item).block) { // (M28.2b) a map waiting to be zoomed out or locked
+        if (itemRegistry().item(s.item).id == "minecraft:filled_map")
+            components.put("minecraft:map_post_processing", int32_t(s.state == 1 ? 0 : 1)); // (vanilla: 0 lock, 1 scale)
+    } else if (s.state) { // exact block state (vanilla's minecraft:block_state component)
         nbt::Compound props;
         const std::string text = blockRegistry().toString(s.state);
         if (const size_t open = text.find('['); open != std::string::npos) {
@@ -259,6 +264,10 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
     if (const nbt::Compound* comps = c.compound("components")) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
         const ItemDef& def = itemRegistry().item(*item);
+        if (def.id == "minecraft:filled_map") {
+            s.damage = static_cast<uint16_t>(std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
+            if (const auto pp = comps->integer("minecraft:map_post_processing")) s.state = *pp == 0 ? 1 : 2;
+        }
         if (const std::string* inst = comps->string("minecraft:instrument"); inst && def.id == "minecraft:goat_horn")
             for (int k = 0; k < 8; ++k)
                 if (*inst == "minecraft:" + std::string(kGoatHorns[k]) + "_goat_horn") s.damage = uint16_t(k);

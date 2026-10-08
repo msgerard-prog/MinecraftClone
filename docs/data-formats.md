@@ -110,6 +110,12 @@ session.lock               held exclusively while the world is open (one instanc
                            (Items may carry minecraft:lodestone_tracker {target: {pos,
                            dimension}, tracked} - M28.2a; Player.LastDeathLocation
                            {dimension, pos} is kept too.)
+data/map_<id>.dat          (M28.2b) gzip NBT { data { scale, dimension, trackingPosition,
+                           unlimitedTracking, locked, xCenter, zCenter, banners [], frames [],
+                           colors byte[16384] (base x 4 + shade) }, DataVersion }; written
+                           when changed. data/idcounts.dat { data { map: last id } }. Filled
+                           map items carry minecraft:map_id (and map_post_processing 0 lock /
+                           1 scale until the next tick).
 stats/<uuid>.json          (M28.1d) the player's statistics, vanilla's JSON: { "stats": {
                            "minecraft:custom": { "minecraft:play_time": ticks, ...distances
                            in cm, damage in tenths }, "minecraft:mined" (blocks),

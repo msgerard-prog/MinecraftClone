@@ -6,6 +6,7 @@ layout(binding = 2) uniform sampler2D uHotbar;
 layout(binding = 3) uniform sampler2D uSelection;
 layout(binding = 4) uniform sampler2D uAtlas;
 layout(binding = 5) uniform sampler2D uIcons; // survival HUD icons strip
+layout(binding = 6) uniform sampler2D uMap;   // the held map (M28.2b)
 
 in vec2 vUv;
 in vec4 vColor;
@@ -23,6 +24,7 @@ void main() {
     else if (vTexture == 3u) t = sampleTexel(uSelection);
     else if (vTexture == 4u) t = sampleTexel(uAtlas);
     else if (vTexture == 5u) t = sampleTexel(uIcons);
+    else if (vTexture == 6u) t = sampleTexel(uMap);
     else t = vec4(1.0);
     const vec4 c = t * vColor;
     if (c.a < 0.004) discard;

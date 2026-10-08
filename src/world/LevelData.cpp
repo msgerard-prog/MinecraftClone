@@ -171,7 +171,8 @@ bool LevelData::save(const std::filesystem::path& dir) const {
         item.put("count", int32_t{it.count});
         item.put("Slot", static_cast<int8_t>(it.slot));
         Compound components;
-        if (it.damage > 0) components.put("minecraft:damage", int32_t{it.damage});
+        if (it.id == "minecraft:filled_map") components.put("minecraft:map_id", int32_t{it.damage}); // (M28.2b)
+        else if (it.damage > 0) components.put("minecraft:damage", int32_t{it.damage});
         // The exact state (e.g. log axis) as vanilla's block_state item component.
         if (const size_t open = s.find('['); open != std::string::npos) {
             Compound props;
@@ -475,6 +476,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
             const Compound* comps = item.compound("components");
             if (comps) {
                 saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
+                if (*id == "minecraft:filled_map") saved.damage = static_cast<int>(comps->integer("minecraft:map_id").value_or(0));
                 saved.repairCost = static_cast<int>(comps->integer("minecraft:repair_cost").value_or(0));
                 if (const Compound* pc = comps->compound("minecraft:potion_contents"))
                     if (const std::string* pid = pc->string("potion"))
