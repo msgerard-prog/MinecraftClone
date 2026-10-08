@@ -441,6 +441,29 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
+    case MobType::Breeze: {
+        // The breeze (M26.4c; wiki: Breeze): within 16 blocks and in sight, it shoots a
+        // wind charge every 2-3 s, and leaps about - up and toward or away from its target.
+        if (!chase) break;
+        if (m.chargeTicks > 0) --m.chargeTicks;
+        const glm::dvec3 eye = m.pos + glm::dvec3(0.0, 1.3, 0.0);
+        const glm::dvec3 to = playerPos + glm::dvec3(0.0, 1.0, 0.0) - eye;
+        const double dist = glm::length(to);
+        if (m.chargeTicks == 0 && ctx.projectiles && dist < 16.0 && dist > 1e-6 &&
+            !raycastBlocks(ctx.world, eye, to / dist, dist)) {
+            ctx.projectiles->shoot(ProjectileKind::WindCharge, eye + to / dist * 0.8, to / dist, 0.7, 1.0, false, false,
+                                   ctx.rng, m.uuidHi);
+            m.chargeTicks = int16_t(40 + ctx.rng.nextInt(20));
+        }
+        if (m.onGround && ctx.rng.nextInt(40) == 0) {
+            glm::dvec3 flat(to.x, 0.0, to.z);
+            const double l = glm::length(flat);
+            flat = l > 1e-6 ? flat / l : glm::dvec3(1, 0, 0);
+            const double away = playerDist2 < 4.0 * 4.0 ? -1.0 : 1.0; // (backs off when close)
+            m.vel += flat * (0.4 * away) + glm::dvec3(0.0, 0.7, 0.0);
+        }
+        break;
+    }
     default: break;
     }
 }

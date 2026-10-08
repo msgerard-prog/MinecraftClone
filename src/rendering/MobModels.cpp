@@ -674,6 +674,16 @@ constexpr std::array<MobPart, 10> kWither = {{
     {{-1, 22, -1}, {1, 27, 1}, {0, 27, 0}, 12, 22, A::Tail},
 }};
 
+// Breeze (M26.4c): a head over a whirl of wind and three rods circling it. Head 8x8x8 @
+// (0,0), whirl 6x10x6 @ (32,0), rod 2x8x2 @ (0,16).
+constexpr std::array<MobPart, 5> kBreeze = {{
+    {{-4, 20, -4}, {4, 28, 4}, {0, 20, 0}, 0, 0, A::Head},
+    {{-3, 4, -3}, {3, 14, 3}, {0, 9, 0}, 32, 0, A::Tail},
+    {{-1, 12, 4}, {1, 20, 6}, {0, 16, 0}, 0, 16, A::Tail},
+    {{-6, 10, -3}, {-4, 18, -1}, {0, 16, 0}, 0, 16, A::Tail},
+    {{4, 10, -3}, {6, 18, -1}, {0, 16, 0}, 0, 16, A::Tail},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -747,6 +757,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::WitherSkeleton: return kSkeleton; // (drawn 1.2x, its own skin)
     case world::MobType::Phantom: return kPhantom;
     case world::MobType::Wither: return kWither;
+    case world::MobType::Breeze: return kBreeze;
     default: return kCow;
     }
 }

@@ -131,6 +131,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:phantom", 20.0f, 0.9, 0.5, 0.5, 6.0f, true, false, true},
         // wiki: Wither - 300 health (Java), 0.9 x 3.5, flies at 0.6, fireproof; skulls.
         {"minecraft:wither", 300.0f, 0.9, 3.5, 0.6, 0.0f, true, true, true},
+        // wiki: Breeze - 30 health, 0.6 x 1.77, speed 0.63 (its leaps), wind charges for 1.
+        {"minecraft:breeze", 30.0f, 0.6, 1.77, 0.63, 1.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

@@ -308,6 +308,20 @@ def honey_bottle():
     return s.render()
 
 
+def wind_charge():
+    """A swirl of pale wind (M26.4c)."""
+    s = Shape()
+    pal = ramp(hexc("#C8E0F4"), 5, spread=0.3)
+    import math
+    pts = set()
+    for k in range(60):
+        t = k / 60 * 2.5 * math.pi
+        rr = 1.0 + t * 0.9
+        pts.add((int(round(7.5 + math.cos(t) * rr)), int(round(7.5 + math.sin(t) * rr))))
+    s.add(pts, pal)
+    return s.render()
+
+
 def meat(name, base, fat, marbled=True):
     rng = random.Random(name)
     pal = ramp(hexc(base), 5, spread=0.35)
@@ -752,13 +766,13 @@ def ghast_tear():
     return img
 
 
-def blaze_rod():
-    pal = ramp(hexc("#F0A020"), 5, spread=0.45)
+def blaze_rod(base="#F0A020", glint="#FFE070"):
+    pal = ramp(hexc(base), 5, spread=0.45)
     s = Shape()
     s.add({(x, 15 - x) for x in range(3, 13)} | {(x + 1, 15 - x) for x in range(3, 12)}, pal)
     img = s.render()
     for x in range(4, 12, 2):
-        img.set(x, 15 - x, hexc("#FFE070"))
+        img.set(x, 15 - x, hexc(glint))
     return img
 
 
@@ -1030,6 +1044,8 @@ def all_items():
     items["wolf_armor"] = wolf_armor()
     items["sweet_berries"] = sweet_berries()
     items["honey_bottle"] = honey_bottle()
+    items["wind_charge"] = wind_charge()  # (M26.4c)
+    items["breeze_rod"] = blaze_rod("#8AB0E0", "#E0F0FF")
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

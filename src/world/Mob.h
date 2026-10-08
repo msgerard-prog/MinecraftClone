@@ -84,6 +84,7 @@ enum class MobType : uint8_t {
     WitherSkeleton, // (M26.4a) Nether fortresses: its hits wither
     Phantom,        // (M26.4a) swoops on players who haven't slept for 3 days
     Wither,         // (M26.4b) the boss built of soul sand and wither skeleton skulls
+    Breeze,         // (M26.4c) leaps about and shoots wind charges (trial chambers: M27)
     Count
 };
 

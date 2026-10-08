@@ -692,6 +692,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID; boats, mounts)
     int mountJumpTicks = 0;  // (M26.2) jump held while riding: the jump bar, 0..10
     int hornCooldown = 0;    // (M26.3) ticks before a goat horn sounds again
+    int windCooldown = 0;    // (M26.4c) ticks before another wind charge
     // The cart the player rides (nullptr: none / gone), found around the player.
     auto findCart = [&]() -> mc::world::MobData* {
         if (ridingCart == 0) return nullptr;
@@ -2164,6 +2165,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                           projectiles, gameRng);
                     clicks.useClick = false;
                 }
+                if (!dead && heldId == "minecraft:wind_charge" && clicks.useClick && windCooldown == 0) {
+                    mc::throwWindCharge(inventory, survival, eye, look, projectiles, gameRng); // (M26.4c)
+                    windCooldown = 10; // (wiki: half a second between throws)
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
@@ -2937,6 +2943,49 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // third of the open spots around it); blaze fireballs lit blocks.
             for (const mc::world::BlockPos& b : projectiles.channeled()) // (Channeling: next tick's bolts)
                 commandBolts.push_back(b);
+            // Wind bursts (M26.4c; wiki: Wind Charge): what is within 2.5 blocks is thrown away
+            // from the burst - a player's own charge under their feet sends them high (and
+            // spares their fall) - and doors, trapdoors, gates, buttons and levers within
+            // a block are worked.
+            for (const auto& wb : projectiles.windBursts()) {
+                const double radius = 2.5;
+                const glm::dvec3 centre = player.position() + glm::dvec3(0.0, 0.9, 0.0);
+                const glm::dvec3 d = centre - wb.pos;
+                const double l = glm::length(d);
+                if (!dead && l < radius) {
+                    const double f = 1.0 - l / radius;
+                    const glm::dvec3 away = l > 1e-6 ? d / l : glm::dvec3(0, 1, 0);
+                    player.setVelocity(player.velocity() + away * (1.4 * f) + glm::dvec3(0.0, 0.5 * f, 0.0));
+                    vitals.resetFall();
+                }
+                const mc::world::ChunkPos wc{mc::world::blockToChunk(int(std::floor(wb.pos.x))),
+                                             mc::world::blockToChunk(int(std::floor(wb.pos.z)))};
+                for (int dz = -1; dz <= 1; ++dz)
+                    for (int dx = -1; dx <= 1; ++dx)
+                        if (mc::world::Chunk* ch = world.chunk({wc.x + dx, wc.z + dz}))
+                            for (auto& mob : ch->mobs()) {
+                                const glm::dvec3 md = mob.pos + glm::dvec3(0.0, 0.5, 0.0) - wb.pos;
+                                const double ml = glm::length(md);
+                                if (ml >= radius || mob.type == mc::world::MobType::Breeze) continue;
+                                const double f = 1.0 - ml / radius;
+                                mob.vel += (ml > 1e-6 ? md / ml : glm::dvec3(0, 1, 0)) * (1.2 * f) + glm::dvec3(0.0, 0.4 * f, 0.0);
+                            }
+                const mc::world::BlockPos bc{int(std::floor(wb.pos.x)), int(std::floor(wb.pos.y)), int(std::floor(wb.pos.z))};
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            const mc::world::BlockPos q{bc.x + dx, bc.y + dy, bc.z + dz};
+                            const auto qs = world.getBlock(q);
+                            const auto qb = reg.likeOf(reg.blockOf(qs));
+                            if ((qb == mc::world::blocks::OakDoor || qb == mc::world::blocks::OakTrapdoor ||
+                                 qb == mc::world::blocks::OakFenceGate || qb == mc::world::blocks::Lever ||
+                                 qb == mc::world::blocks::OakButton || qb == mc::world::blocks::StoneButton) &&
+                                (qb != mc::world::blocks::OakDoor || reg.get(qs, mc::world::properties::doorHalf) == 1) &&
+                                blockUpdates.use(q))
+                                frameEdits.push_back(q);
+                        }
+                playSound(mc::world::Sound::Explode, wb.pos, 0.3f, 1.6f, false);
+            }
             for (const glm::dvec3& at : projectiles.witherBlasts()) // (M26.4b: wither skulls, power 1, no fire)
                 fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
                                       {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
@@ -3387,6 +3436,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             ++gameTime;
             if (pearlCooldown > 0) --pearlCooldown;
             if (hornCooldown > 0) --hornCooldown;
+            if (windCooldown > 0) --windCooldown;
             if (!dead && survival) vitals.addRestTime(); // (M26.4a: insomnia - phantoms)
             // Vanilla autosave: every 6000 ticks (5 minutes) of play.
             if (++sessionTicks % 6000 == 0) {

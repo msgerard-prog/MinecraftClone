@@ -286,7 +286,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
         if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && m.type != MobType::Slime &&
-            !mobInfo(m.type).flies && !vehicle)
+            m.type != MobType::Breeze && !mobInfo(m.type).flies && !vehicle) // (breezes: no fall damage - M26.4c)
             m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
@@ -900,6 +900,9 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Phantom:
         if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
+        break;
+    case MobType::Breeze: // (M26.4c; wiki: 1-2 breeze rods for player kills)
+        if (m.lastHurtByPlayer) drop("breeze_rod", 1, 2);
         break;
     case MobType::Wither: // (M26.4b; wiki: the nether star, always)
         ctx.items.spawn(m.pos + glm::dvec3(0, 1.5, 0), {*itemRegistry().find("nether_star"), 1}, ctx.rng);

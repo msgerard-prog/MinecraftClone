@@ -96,6 +96,12 @@ double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, 
     return 0.0;
 }
 
+void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                     Projectiles& projectiles, Xoroshiro& rng) {
+    if (projectiles.shoot(ProjectileKind::WindCharge, eye + look * 0.3, look, 1.5, 1.0, true, false, rng) && survival)
+        inventory.consumeSelected(1);
+}
+
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, Xoroshiro& rng) {
     projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng);
@@ -168,6 +174,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_eyeDrops.clear();
     m_explosions.clear();
     m_witherBlasts.clear();
+    m_windBursts.clear();
     m_pearls.clear();
     m_channeled.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
@@ -427,6 +434,25 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 }
                 remove = true;
+            } else if (p.kind == ProjectileKind::WindCharge && (target != Target::None || block)) {
+                // A wind charge (M26.4c; wiki: Wind Charge): 1 damage to what it hits, then
+                // its burst (main: knockback, no harm to blocks).
+                if (target == Target::Player) {
+                    if (vitals && survival && !p.fromPlayer && vitals->attacked(1.0f, &p.pos, Vitals::Hit::Projectile))
+                        hits.playerDamage += 1.0f;
+                } else if (target == Target::Mob) {
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (m.hurtTime == 0 && m.type != MobType::Breeze) {
+                        m.health -= 1.0f;
+                        m.hurtTime = 10;
+                        if (p.fromPlayer) m.lastHurtByPlayer = true;
+                        ++hits.mobsHit;
+                    }
+                }
+                const glm::dvec3 at = block && target == Target::None ? p.pos + dir * std::max(0.0, block->distance - 0.1)
+                                                                      : p.pos + dir * reach;
+                if (m_windBursts.size() < m_windBursts.capacity()) m_windBursts.push_back({at, p.fromPlayer});
+                remove = true;
             } else if (p.kind == ProjectileKind::WitherSkull && (target != Target::None || block)) {
                 // A wither skull (M26.4b; wiki: Wither › Wither skulls): 8 damage and
                 // Wither II for 40 s on Normal to what it hits, then a power-1 blast.
@@ -511,7 +537,9 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
                         const bool perchedDragon = (m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6)) ||
                                                    (m.type == MobType::Shulker && m.peek == 0); // (closed shells too)
-                        if (m.type == MobType::Wither && (m.health < mobInfo(m.type).maxHealth * 0.5f || m.spellTicks > 0)) {
+                        if (m.type == MobType::Breeze) {
+                            // (M26.4c) arrows glance off a breeze (wiki: it deflects projectiles)
+                        } else if (m.type == MobType::Wither && (m.health < mobInfo(m.type).maxHealth * 0.5f || m.spellTicks > 0)) {
                             // (M26.4b) below half health its armour turns arrows (wiki: Wither)
                         } else if (m.type == MobType::Enderman) {
                             m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
@@ -551,7 +579,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 p.pos += p.vel;
                 const bool inWater = blockRegistry().blockOf(world.getBlock(cell)) == blocks::Water;
                 if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball &&
-                    p.kind != ProjectileKind::DragonFireball && p.kind != ProjectileKind::WitherSkull) { // (fireballs fly straight)
+                    p.kind != ProjectileKind::DragonFireball && p.kind != ProjectileKind::WitherSkull &&
+                    p.kind != ProjectileKind::WindCharge) { // (fireballs and wind charges fly straight)
                     const double drag = inWater && p.kind != ProjectileKind::Trident ? 0.6 : 0.99; // (tridents keep going in water)
                     p.vel *= drag;
                     p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ||

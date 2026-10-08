@@ -218,6 +218,7 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"PPP", "HHH", "PPP"}, {{'P', kPlanks}, {'H', item("honeycomb")}}, "beehive"));
     r.push_back(shaped({"BB", "BB"}, {{'B', item("honey_bottle")}}, "honey_block"));
     r.push_back(shaped({"HH", "HH"}, {{'H', item("honeycomb")}}, "honeycomb_block"));
+    r.push_back(shapeless({item("breeze_rod")}, "wind_charge", 4)); // (M26.4c)
     r.push_back(shapeless({item("honey_bottle")}, "sugar", 3));
     // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
     r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));

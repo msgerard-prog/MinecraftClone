@@ -293,7 +293,8 @@ M26.4b: entity `minecraft:wither`; blocks `skeleton_skull`, `wither_skeleton_sku
 `zombie_head`, `creeper_head`, `piglin_head`, `dragon_head` [rotation 0-15] and their
 `*_wall_skull`/`*_wall_head` [facing]; items: the six standing kinds (wall kinds drop
 them). Block textures `clone_head_<kind>_{front,back,side,top}` are ours (not vanilla
-names). Items `saddle`,
+names).
+M26.4c: entity `minecraft:breeze`; items `breeze_rod`, `wind_charge`. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

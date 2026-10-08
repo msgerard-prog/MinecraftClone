@@ -40,7 +40,8 @@ enum class ProjectileKind : uint8_t {
     ShulkerBullet, // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
     Trident,       // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
     LlamaSpit,     // (M26.2: 1 damage)
-    WitherSkull    // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
+    WitherSkull,   // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
+    WindCharge     // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -88,6 +89,7 @@ public:
         m_eyeDrops.reserve(16);
         m_explosions.reserve(16);
         m_witherBlasts.reserve(16);
+        m_windBursts.reserve(32);
         m_edits.reserve(64);
         m_clouds.reserve(kMaxClouds);
         m_pearls.reserve(16);
@@ -125,6 +127,13 @@ public:
     const std::vector<glm::dvec3>& explosions() const { return m_explosions; }
     // Where wither skulls blew up this tick (M26.4b): main explodes them, power 1, no fire.
     const std::vector<glm::dvec3>& witherBlasts() const { return m_witherBlasts; }
+    // Where wind charges burst this tick (M26.4c): main pushes what's near and works
+    // the doors, trapdoors, gates, buttons and levers within a block.
+    struct WindBurst {
+        glm::dvec3 pos;
+        bool fromPlayer;
+    };
+    const std::vector<WindBurst>& windBursts() const { return m_windBursts; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
     // Channeling strikes this tick (M25.3): main calls lightning down there. `thundering`
@@ -145,6 +154,7 @@ private:
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
     std::vector<glm::dvec3> m_witherBlasts;
+    std::vector<WindBurst> m_windBursts;
     std::vector<world::BlockPos> m_edits;
     std::vector<BreathCloud> m_clouds;
     std::vector<PearlLanding> m_pearls;
@@ -169,6 +179,9 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
 double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, const glm::dvec3& eye,
                       const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held egg (speed 1.5); survival uses it up.
+// Throwing the held wind charge (M26.4c; wiki: Wind Charge - speed 1.5, flies straight).
+void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                     Projectiles& projectiles, world::Xoroshiro& rng);
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing an eye of ender toward the nearest stronghold at (x, z) (wiki: Eye of

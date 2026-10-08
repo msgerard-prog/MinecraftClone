@@ -476,6 +476,10 @@ def mob_sounds(name, rng):
                                         env(int(d * RATE), 0.05, d / 2))
         return ([screech(r(0.8, 1.1), r(700, 900), r(500, 600)) for _ in range(3)],
                 [screech(0.3, 1100, 900) for _ in range(2)], screech(1.0, 900, 300))
+    if name == "breeze":  # whooshing gusts (ours)
+        gust = lambda d, lo, hi: mul(bandpass(noise(int(d * RATE), rng), lo, hi), env(int(d * RATE), d / 3, d / 2))
+        return ([gust(r(0.6, 0.9), 400, 2500) for _ in range(3)], [gust(0.3, 800, 4000) for _ in range(2)],
+                gust(1.2, 200, 1500))
     if name == "wither":  # a hollow, droning howl (ours)
         drone = lambda d, f0, f1: mul(voice(rng, d, f0, f1, wave="saw", formant=(200, 900), vibrato=0.2, vib_rate=6, breath=0.6),
                                       env(int(d * RATE), 0.2, d / 2))
@@ -496,7 +500,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
-        "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither"]
+        "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze"]
 
 
 # --- Everything else ----------------------------------------------------------------

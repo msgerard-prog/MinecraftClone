@@ -1207,6 +1207,8 @@ def main():
               "wither_skeleton": skeleton("wither_skeleton", "#3A3A3C"),
               "silverfish": pet("silverfish", [(0, 0, 4, 3, 8), (24, 0, 3, 2, 2), (24, 4, 2, 2, 3)], (24, 0, 3, 2, 2), None,
                                 base="#9A9AA0", stripes=True),
+              "breeze": pet("breeze", [(0, 0, 8, 8, 8), (32, 0, 6, 10, 6), (0, 16, 2, 8, 2)], (0, 0, 8, 8, 8), None,
+                            base="#B8D8F0", extra=[((0, 16, 2, 8, 2), "#6A8AC8"), ((32, 0, 6, 10, 6), "#D8ECFA")]),
               "wither": pet("wither", [(0, 0, 8, 8, 8), (32, 0, 6, 6, 6), (0, 16, 20, 3, 3), (0, 22, 3, 10, 3),
                                        (24, 22, 11, 2, 2), (12, 22, 3, 6, 3)], (0, 0, 8, 8, 8), None, base="#2A2A2E",
                             extra=[((32, 0, 6, 6, 6), "#26262A")]),
