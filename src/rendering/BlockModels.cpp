@@ -851,6 +851,16 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 for (int k = 0; k < n; ++k)
                     addBox(m, kAt[n - 1][k][0], 0, kAt[n - 1][k][1], kAt[n - 1][k][0] + 4, 6,
                            kAt[n - 1][k][1] + 4, sprite("sea_pickle"));
+            } else if (name == "turtle_egg") {
+                // 1-4 eggs (4x5x4, a little apart), cracking as they near hatching.
+                static constexpr int kAt[4][4][2] = {{{6, 6}}, {{3, 4}, {9, 9}}, {{3, 3}, {9, 4}, {6, 10}},
+                                                     {{3, 3}, {10, 3}, {3, 10}, {10, 10}}};
+                const int n = std::stoi(std::string(registry.value(state, "eggs").value_or("1")));
+                const std::string_view h = registry.value(state, "hatch").value_or("0");
+                const uint16_t egg = sprite(h == "0" ? "turtle_egg" : h == "1" ? "turtle_egg_slightly_cracked" : "turtle_egg_very_cracked");
+                m.visible = true;
+                for (int k = 0; k < n; ++k)
+                    addBox(m, kAt[n - 1][k][0], 0, kAt[n - 1][k][1], kAt[n - 1][k][0] + 4, 5, kAt[n - 1][k][1] + 4, egg);
             } else if (name == "dried_kelp_block") {
                 BakedVariant v = cubeAll(sprite("dried_kelp_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("dried_kelp_top");

@@ -385,6 +385,13 @@ def mob_sounds(name, rng):
             return [s * 0.9 for s in g]
         return ([gargle(r(0.6, 0.9), r(95, 115), r(75, 90)) for _ in range(3)],
                 [gargle(0.3, 150, 110) for _ in range(2)], gargle(1.0, 120, 50))
+    if name == "dolphin":  # whistles and clicks (ours)
+        whistle = lambda d, f0, f1: mul(tone(d, f0, f1, "sine", vibrato=0.04, vib_rate=12), env(int(d * RATE), 0.02, d / 2))
+        return ([whistle(r(0.3, 0.5), r(1800, 2300), r(2500, 3200)) for _ in range(3)],
+                [whistle(0.2, 2600, 1900) for _ in range(2)], whistle(0.7, 2400, 900))
+    if name == "turtle":  # soft low grunts (ours)
+        grunt = lambda d, f: voice(rng, d, f, f * 0.8, wave="triangle", formant=(200, 900), breath=0.4)
+        return ([grunt(r(0.25, 0.4), r(110, 140)) for _ in range(3)], [grunt(0.2, 180) for _ in range(2)], grunt(0.6, 90))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -397,7 +404,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
-        "glow_squid", "drowned"]
+        "glow_squid", "drowned", "dolphin", "turtle"]
 
 
 # --- Everything else ----------------------------------------------------------------

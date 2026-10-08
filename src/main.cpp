@@ -1622,6 +1622,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   vitals.effectLevel(E::JumpBoost),
                                   vitals.effectLevel(E::SlowFalling) > 0,
                                   vitals.effectLevel(E::Levitation));
+                player.setDolphinsGrace(vitals.effectLevel(E::DolphinsGrace) > 0); // (M25.3b)
+                // A turtle shell worn above water gives 10 s of Water Breathing, which then
+                // runs down under water (wiki: Turtle Shell).
+                static const mc::world::ItemId turtleHelmet = *mc::world::itemRegistry().find("turtle_helmet");
+                if (inventory.armor(0).item == turtleHelmet && !dead) {
+                    const glm::dvec3 eyeAt = player.eyePosition(1.0);
+                    const auto es = world.getBlock({int(std::floor(eyeAt.x)), int(std::floor(eyeAt.y)), int(std::floor(eyeAt.z))});
+                    if (mc::world::blockRegistry().blockOf(es) != mc::world::blocks::Water &&
+                        !mc::world::blockRegistry().waterlogged(es))
+                        vitals.addEffect(E::WaterBreathing, 0, 200);
+                }
             }
             {
                 // An elytra worn and not about to break can glide (wiki: Elytra - it stops
@@ -2680,6 +2691,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             blockUpdates.drops().clear();
+            for (const auto& h : blockUpdates.hatched()) // (M25.3b: baby turtles from eggs, at home there)
+                for (int k = 0; k < h.count; ++k) {
+                    mc::world::MobData baby = mc::Mobs::make(mc::world::MobType::Turtle, {h.pos.x + 0.5, double(h.pos.y), h.pos.z + 0.5}, gameRng);
+                    baby.age = -24000;
+                    baby.home = {h.pos.x, h.pos.y, h.pos.z};
+                    baby.persistent = true;
+                    mc::Mobs::add(world, baby);
+                }
+            blockUpdates.hatched().clear();
             // Sand/gravel that lost its support falls as an entity (M16).
             for (const auto& f : blockUpdates.fallingStarts())
                 fallingBlocks.spawn(f.pos, f.state);

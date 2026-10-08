@@ -126,12 +126,12 @@ std::vector<SoundInfo> buildTable() {
     // Mobs: say1.., hurt1.., death (missing ones fall back to hurt, or stay silent).
     // Vanilla mob pitch: 1 + (random - random) x 0.2 (babies +0.5, added by the caller).
     static constexpr int kSays[] = {3, 3, 3, 3, 3, 3, 0, 2, 3, 3, 2, 0, 3, 3, 3, 2, 0, 2, 2, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3,
-                                    0, 0, 0, 0, 3, 3, 0, 3};
+                                    0, 0, 0, 0, 3, 3, 0, 3, 3, 2};
     static constexpr int kHurts[] = {2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-                                     2, 2, 2, 2, 2, 2, 0, 2};
+                                     2, 2, 2, 2, 2, 2, 0, 2, 2, 2};
     static constexpr bool kDeath[] = {true, false, false, true, false, true, true, true, true, true, true,
                                       true, true, true, true, true, false, true, true, false, true, true, true, true, true, true, true, true, true, true, true,
-                                      true, true, true, true, true, true, false, true};
+                                      true, true, true, true, true, true, false, true, true, true};
     static_assert(std::size(kSays) == size_t(MobType::Count) && std::size(kHurts) == size_t(MobType::Count) &&
                   std::size(kDeath) == size_t(MobType::Count));
     for (int i = 0; i < int(MobType::Count); ++i) {

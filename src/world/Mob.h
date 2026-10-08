@@ -54,6 +54,8 @@ enum class MobType : uint8_t {
     GlowSquid,
     Boat, // (M25.2b) its wood in `woolColour` (kBoatWoods); saved as "<wood>_boat" / "bamboo_raft"
     Drowned, // (M25.3) a zombie of the seas: swims, throws a trident if it holds one
+    Dolphin, // (M25.3b) swims fast, gives swimming players Dolphin's Grace
+    Turtle,  // (M25.3b) walks and swims; lays eggs on its home beach (`home`)
     Count
 };
 
@@ -131,6 +133,7 @@ struct MobData {
     int8_t paddleForward = 0, paddleTurn = 0; // (M25.2b) a boat's rider input this tick (-1, 0, 1)
     float yawVel = 0.0f;                      // (M25.2b) a boat's turning momentum (degrees a tick)
     bool heldTrident = false;                 // (M25.3) a drowned holding a trident (equipment.mainhand)
+    bool hasEgg = false;                      // (M25.3b) a turtle carrying eggs home (HasEgg)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

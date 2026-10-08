@@ -214,6 +214,11 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
+    } else if (m.type == MobType::Turtle && inWater) {
+        // Turtles swim (wiki: Turtle): toward the goal, its height too.
+        m.vel = m.vel * 0.9 + wish * 0.15;
+        m.vel.y += std::clamp((m.goal.y - m.pos.y) * 0.02, -0.02, 0.02);
+        m.vel.y *= 0.9;
     } else if (m.type == MobType::Drowned && inWater) {
         // Drowned swim after their target (wiki: Drowned): like fish, rising or diving
         // toward the goal's height.
@@ -767,6 +772,8 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
         break;
     case MobType::Squid: drop("ink_sac", 1, 3); break;
+    case MobType::Dolphin: drop(burning ? "cooked_cod" : "cod", 0, 1); break; // (wiki: Dolphin)
+    case MobType::Turtle: drop("seagrass", 0, 2); break; // (wiki: Turtle - 0-2 seagrass)
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
@@ -947,7 +954,7 @@ void Mobs::tick(Context& ctx) {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_fish += isFish(m.type);
-                m_squid += m.type == MobType::Squid;
+                m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_striders += m.type == MobType::Strider;
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks

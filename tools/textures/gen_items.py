@@ -991,6 +991,8 @@ def all_items():
         items[f"{fish}_bucket"] = img
     items["fishing_rod"] = fishing_rod()
     items["trident"] = trident()  # (M25.3)
+    items["turtle_scute"] = lump("turtle_scute", "#4E9A3A", "#7EC060", size=5.0)  # (M25.3b)
+    items["turtle_helmet"] = armor("helmet", "#4E9A3A")
     for wood, colour in (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
                          ("acacia", "#BA6337"), ("dark_oak", "#4F3218"), ("mangrove", "#773636"),
                          ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD")):

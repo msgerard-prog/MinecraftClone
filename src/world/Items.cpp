@@ -298,6 +298,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:end_crystal", .texture = "item/end_crystal"});
     // (wiki: Elytra - worn in the chest slot, 432 durability, no armor points; M20.4)
     r.add({.id = "minecraft:elytra", .maxStack = 1, .durability = 432, .texture = "item/elytra", .armorSlot = 2});
+    // (M25.3b; wiki: Turtle Scute, Turtle Shell - 2 armor, 275 uses, Water Breathing above water)
+    r.add({.id = "minecraft:turtle_scute", .texture = "item/turtle_scute"});
+    r.add({.id = "minecraft:turtle_helmet", .maxStack = 1, .durability = 275, .texture = "item/turtle_helmet",
+           .armorSlot = 1, .armor = 2});
     r.add({.id = "minecraft:shulker_shell", .texture = "item/shulker_shell"});
     r.add({.id = "minecraft:minecart", .maxStack = 1, .texture = "item/minecart"}); // (M21.4)
     r.add({.id = "minecraft:slime_ball", .texture = "item/slime_ball"});             // (M21.5)

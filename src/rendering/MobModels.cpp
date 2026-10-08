@@ -358,6 +358,28 @@ constexpr std::array<MobPart, 5> kBoat = {{
     {{-4, 1, -7}, {4, 4, -6}, {0, 0, 0}, 0, 36, A::None, 6},
 }};
 
+// Dolphin (M25.3b): a long body, a head with a snout, a back fin, flippers, a tail
+// that beats (drawn 1.4x).
+constexpr std::array<MobPart, 7> kDolphin = {{
+    {{-4, 0, -6}, {4, 7, 7}, {0, 3, 0}, 0, 0, A::None},
+    {{-3, 1, 7}, {3, 6, 12}, {0, 3, 7}, 0, 22, A::None},
+    {{-1, 1, 12}, {1, 3, 16}, {0, 3, 7}, 24, 22, A::None},
+    {{-0.5f, 7, -1}, {0.5f, 11, 3}, {0, 3, 0}, 42, 0, A::None},
+    {{-5, 2, -12}, {5, 3, -6}, {0, 3, -6}, 0, 34, A::Tail},
+    {{-7, 1, 2}, {-4, 2, 5}, {-4, 1, 3}, 32, 34, A::WingL},
+    {{4, 1, 2}, {7, 2, 5}, {4, 1, 3}, 32, 34, A::WingR},
+}};
+// Turtle (M25.3b): a domed shell over a belly plate, a head, four flippers (drawn 1.5x).
+constexpr std::array<MobPart, 7> kTurtle = {{
+    {{-6, 2, -7}, {6, 7, 7}, {0, 2, 0}, 0, 0, A::None},
+    {{-5, 1, -6}, {5, 2, 6}, {0, 2, 0}, 0, 20, A::None},
+    {{-2, 2, 7}, {2, 5, 11}, {0, 3, 7}, 0, 34, A::Head},
+    {{-9, 2, 3}, {-6, 3, 6}, {-6, 2, 4}, 16, 34, A::LegA},
+    {{6, 2, 3}, {9, 3, 6}, {6, 2, 4}, 16, 34, A::LegB},
+    {{-6, 2, -8}, {-3, 3, -6}, {-4, 2, -7}, 28, 34, A::LegB},
+    {{3, 2, -8}, {6, 3, -6}, {4, 2, -7}, 28, 34, A::LegA},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -399,6 +421,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::GlowSquid: return kSquid;
     case world::MobType::Boat: return kBoat;
     case world::MobType::Drowned: return kZombie; // (the zombie's shape, our own drowned skin)
+    case world::MobType::Dolphin: return kDolphin;
+    case world::MobType::Turtle: return kTurtle;
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

@@ -253,6 +253,9 @@ mangrove, cherry, pale_oak) and `bamboo_raft`.
 M25.3: entity `minecraft:drowned` (a held trident as `equipment.mainhand`); items
 `trident`, `nautilus_shell`, `heart_of_the_sea`; enchantments `loyalty`, `riptide`,
 `impaling`, `channeling`.
+M25.3b: entities `minecraft:dolphin`, `minecraft:turtle` (`HasEgg`, `home_pos`); block
+`turtle_egg` (eggs 1..4, hatch 0..2); items `turtle_scute`, `turtle_helmet`; effect
+`dolphins_grace`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

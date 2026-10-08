@@ -82,6 +82,8 @@ public:
     // x (1 + 0.2 speed) x (1 - 0.15 slowness); jumps 0.1 higher per jump boost level;
     // slow falling: gravity 0.01 while falling; levitation (M20.4): drifts up toward
     // 0.05 blocks a tick per level instead of falling (wiki: Levitation, ~0.9 b/s).
+    // Dolphin's Grace (M25.3b): water keeps 0.96 of the speed a tick instead of 0.8.
+    void setDolphinsGrace(bool on) { m_dolphinsGrace = on; }
     void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling, int levitation = 0) {
         m_walkMultiplier = std::max(0.0, (1.0 + 0.2 * speed) * (1.0 - 0.15 * slowness));
         m_jumpBoost = jumpBoost;
@@ -147,6 +149,7 @@ private:
     int m_ticksSinceJumpPress = 1000;
     int m_jumpDelay = 0;
     double m_flyMultiplier = 1.0;
+    bool m_dolphinsGrace = false;
     double m_walkMultiplier = 1.0;
     int m_jumpBoost = 0;
     bool m_slowFalling = false;

@@ -90,6 +90,8 @@ const Property hasRecord{"has_record", {"true", "false"}};
 const Property hasBook{"has_book", {"true", "false"}};
 const Property waterlogged{"waterlogged", {"true", "false"}};
 const Property pickles{"pickles", {"1", "2", "3", "4"}};
+const Property eggs{"eggs", {"1", "2", "3", "4"}};
+const Property hatch{"hatch", {"0", "1", "2"}};
 } // namespace properties
 
 namespace {
@@ -1045,6 +1047,11 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("dried_kelp_block", {.hardness = 0.5f, .resistance = 2.5f, .tool = HarvestTool::Hoe}),
           blocks::DriedKelpBlock);
     check(r.add("blue_ice", {.hardness = 2.8f, .resistance = 2.8f, .tool = HarvestTool::Pickaxe}), blocks::BlueIce);
+    // (M25.3b; wiki: Turtle Egg - 0.5, cracks toward hatching on random ticks)
+    check(r.add("turtle_egg", {.hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                               .randomTicks = true},
+                {{&eggs, "1"}, {&hatch, "0"}}),
+          blocks::TurtleEgg);
     for (uint32_t i = 0; i < r.block(blocks::SeaPickle).stateCount; ++i) {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
         r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);

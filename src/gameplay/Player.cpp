@@ -209,7 +209,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         const bool bumped = m_velocity.x != wanted.x || m_velocity.z != wanted.z;
         // Water slows all axes by 0.8; lava horizontal 0.5, vertical 0.8 (wiki: Lava -
         // "horizontal speed -50%, vertical -20%").
-        if (fluid.water) m_velocity *= kWaterDrag;
+        if (fluid.water && m_dolphinsGrace) m_velocity *= glm::dvec3(0.96, kWaterDrag, 0.96); // (Dolphin's Grace)
+        else if (fluid.water) m_velocity *= kWaterDrag;
         else m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
         m_velocity.y -= kFluidGravity;
         if (bumped) { // climb out over a ledge (vanilla: if the space 0.6 up is free)

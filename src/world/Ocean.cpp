@@ -136,4 +136,20 @@ void BlockUpdates::growKelp(const BlockPos& p, BlockStateId s) {
     set(p, R().defaultState(B::KelpPlant));
 }
 
+void BlockUpdates::tickTurtleEgg(const BlockPos& p, BlockStateId s) {
+    // On sand, eggs crack a stage on a random tick at night (always) or by day (1 in 500);
+    // past the second crack they hatch into baby turtles (wiki: Turtle Egg › Hatching).
+    const BlockId below = R().blockOf(at(rel(p, Direction::Down)));
+    if (below != B::Sand && below != B::RedSand) return;
+    const bool night = m_skyDarken >= 4; // (the sky has darkened: night)
+    if (!night && m_random.nextInt(500) != 0) return;
+    const int h = R().get(s, hatch);
+    if (h < 2) {
+        set(p, R().set(s, hatch, h + 1));
+        return;
+    }
+    m_hatched.push_back({p, R().get(s, eggs) + 1});
+    set(p, 0);
+}
+
 } // namespace mc::world

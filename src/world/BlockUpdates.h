@@ -238,6 +238,13 @@ public:
     static BlockStateId fluidState(BlockId kind, int amount, bool falling);
     static bool breaksInFluid(BlockId b); // washed away (plants, torches, redstone...)
     static bool isOceanPlant(BlockId b);  // kelp, seagrass, sea pickles, corals (M25.1)
+    // Turtle eggs that hatched this tick (M25.3b): main adds that many baby turtles
+    // there, at home on that spot. Cleared by the caller.
+    struct Hatch {
+        BlockPos pos;
+        int count;
+    };
+    std::vector<Hatch>& hatched() { return m_hatched; }
 
 private:
     void runRandomTicks();
@@ -262,6 +269,7 @@ private:
     bool coralWet(const BlockPos& p, BlockStateId s) const;
     bool tickOcean(const BlockPos& p, BlockStateId s); // true: a coral's tick, handled
     void growKelp(const BlockPos& p, BlockStateId s);
+    void tickTurtleEgg(const BlockPos& p, BlockStateId s);
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
     bool grassSurvives(const BlockPos& p) const;
@@ -377,6 +385,7 @@ private:
     std::vector<BlockPos> m_changed;
     std::vector<BlockPos> m_remesh;
     std::vector<BlockPos> m_settling;
+    std::vector<Hatch> m_hatched; // (M25.3b)
     std::vector<Drop> m_drops;
     std::vector<FallStart> m_falling;
     std::vector<BlockPos> m_push;      // blocks a piston moves (reused)

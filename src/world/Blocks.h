@@ -51,6 +51,8 @@ extern const Property hasRecord;      // "has_record": true | false (jukebox)
 extern const Property hasBook;        // "has_book": true | false (lectern)
 extern const Property waterlogged;    // true | false (M25.1: corals, sea pickles)
 extern const Property pickles;        // 1..4 (sea pickles)
+extern const Property eggs;           // 1..4 (turtle eggs)
+extern const Property hatch;          // 0..2 (turtle eggs)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -376,6 +378,7 @@ enum : BlockId {
     SeaPickle,         // pickles 1..4, waterlogged (glows only in water)
     DriedKelpBlock,
     BlueIce,
+    TurtleEgg, // eggs 1..4, hatch 0..2 (M25.3b)
     Count
 };
 } // namespace blocks

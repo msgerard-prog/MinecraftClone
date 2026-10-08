@@ -413,6 +413,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   carries its `stack` (enchantments, wear): sticks, picked up, Loyalty flies it back,
   Channeling lists `channeled()` strikes for main's bolts; `releaseTrident` throws or
   returns the Riptide launch; Impaling in `MeleeHit` and the projectile.
+  Dolphins and turtles (M25.3b): dolphins run `waterAi` (near the surface, Dolphin's
+  Grace to swimming players: `Player::setDolphinsGrace` drag 0.96); turtles are animals
+  that swim (`physics`), breed with seagrass into `hasEgg`, lay `turtle_egg` at `home`
+  (Animals.cpp); eggs crack on random ticks (Ocean.cpp `tickTurtleEgg`) and report
+  `BlockUpdates::hatched()` for main to add babies, which drop a scute when grown;
+  overworld4 puts turtles on beaches. The turtle shell gives Water Breathing above water.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -1249,6 +1249,33 @@ void OverworldGenerator::generate(Chunk& out) const {
             out.mobs().push_back(cow);
         }
     }
+    // Turtles (overworld4, M25.3b; wiki: Turtle › Spawning): 2-5 on the sand of a beach in
+    // 1 of 10 beach chunks, each at home where it stands (its own random stream).
+    if (m_version >= 4 && herdBiome == Biome::Beach) {
+        Xoroshiro tr(chunkSeed(m_seed, cx, cz, 502));
+        if (tr.nextInt(10) == 0) {
+            const int n = 2 + int(tr.nextInt(4));
+            for (int i = 0; i < n; ++i) {
+                const int x = int(tr.nextInt(16)), z = int(tr.nextInt(16));
+                const uint64_t hi = tr.nextLong(), lo = tr.nextLong();
+                const float yaw = tr.nextFloat() * 360.0f - 180.0f;
+                const int y = top(x, z);
+                if (y < kSeaLevel - 1 || blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Sand ||
+                    chunk.get(x, y + 1, z) != B.air)
+                    continue;
+                MobData t;
+                t.type = MobType::Turtle;
+                t.uuidHi = (hi & ~0xF000ull) | 0x4000ull;
+                t.uuidLo = (lo & ~(3ull << 62)) | (2ull << 62);
+                t.pos = t.prevPos = t.goal = glm::dvec3(baseX + x + 0.5, y + 1.0, baseZ + z + 0.5);
+                t.yaw = t.prevYaw = t.headYaw = t.prevHeadYaw = yaw;
+                t.health = mobInfo(MobType::Turtle).maxHealth;
+                t.home = {baseX + x, y + 1, baseZ + z};
+                t.persistent = true;
+                out.mobs().push_back(t);
+            }
+        }
+    }
 }
 
 // --- Overworld 2 features (M18.1) ----------------------------------------------------

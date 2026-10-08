@@ -205,7 +205,7 @@ struct Sea {
 
 TEST_CASE("kelp grows into the water above, its old tip becoming a stem; a stem without its tip is the tip again") {
     Sea s;
-    s.updates.setRandomTicks({0, 0}, 1, 4096); // (every block every tick, more or less)
+    s.updates.setRandomTicks({0, 0}, 1, 1000); // (often; not 4096: the random repeats its low bits every 4096)
     s.put({0, 64, 0}, R().defaultState(blocks::Kelp));
     s.tick(200);
     CHECK(s.block({0, 64, 0}) == blocks::KelpPlant);

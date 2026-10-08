@@ -68,6 +68,9 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
         }
         if (m.attackCooldown > 0) --m.attackCooldown;
     }
+    // A dolphin gives a player swimming within 5 blocks Dolphin's Grace (wiki: Dolphin).
+    if (m.type == MobType::Dolphin && ctx.player.inWater() && playerDist2 < 5.0 * 5.0 && !ctx.playerDead)
+        ctx.vitals.addEffect(Effect::DolphinsGrace, 0, 100);
     glm::dvec3 wish(0.0);
     if (fluid.water) {
         // Fish flee a player within 8 blocks (wiki: avoid-entity goal); otherwise a
@@ -85,8 +88,9 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             for (int tries = 0; tries < 4; ++tries) {
                 const glm::dvec3 g = m.pos + glm::dvec3(ctx.rng.nextDouble() * 12 - 6, ctx.rng.nextDouble() * 6 - 3,
                                                         ctx.rng.nextDouble() * 12 - 6);
-                if (waterAt(ctx.world, g)) {
-                    m.goal = g;
+                if (waterAt(ctx.world, g) &&
+                    (m.type != MobType::Dolphin || !waterAt(ctx.world, g + glm::dvec3(0.0, 4.0, 0.0)))) {
+                    m.goal = g; // (dolphins keep within a few blocks of the surface, for air)
                     break;
                 }
             }
@@ -150,7 +154,11 @@ void Mobs::spawnWater(Context& ctx) {
                                 biome == Biome::DeepOcean || biome == Biome::ColdOcean || biome == Biome::DeepColdOcean ||
                                 biome == Biome::LukewarmOcean || biome == Biome::DeepLukewarmOcean ||
                                 biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean);
-        if (squidBiome && m_squid < 5) kind = MobType::Squid, group = 1 + int(ctx.rng.nextInt(4));
+        // Dolphins in the warmer oceans (wiki: Dolphin - not cold or frozen), groups of 1-2.
+        const bool dolphinBiome = biome == Biome::Ocean || biome == Biome::DeepOcean || biome == Biome::LukewarmOcean ||
+                                  biome == Biome::DeepLukewarmOcean || biome == Biome::WarmOcean;
+        if (dolphinBiome && m_squid < 5 && ctx.rng.nextInt(2) == 0) kind = MobType::Dolphin, group = 1 + int(ctx.rng.nextInt(2));
+        else if (squidBiome && m_squid < 5) kind = MobType::Squid, group = 1 + int(ctx.rng.nextInt(4));
     } else if (m_fish < 20) { // the ambient list (wiki: each ocean's spawn table)
         const uint32_t w = ctx.rng.nextInt(100);
         switch (biome) {
@@ -187,7 +195,7 @@ void Mobs::spawnWater(Context& ctx) {
         mob.color2 = look.color2;
         if (!add(ctx.world, mob)) continue;
         if (kind == MobType::GlowSquid) ++m_glowSquid;
-        else if (kind == MobType::Squid) ++m_squid;
+        else if (kind == MobType::Squid || kind == MobType::Dolphin) ++m_squid;
         else ++m_fish;
     }
 }

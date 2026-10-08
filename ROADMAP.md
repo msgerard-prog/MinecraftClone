@@ -17,7 +17,7 @@ M25 - Oceans (wiki pages of each biome/mob/structure):
    aquifers in a new overworld generator version.
 2. ✅ M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
    items and fish buckets; cod, salmon, tropical fish, pufferfish, squid and glow squid.
-3. M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
+3. ✅ M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
    (throwing, Loyalty/Riptide/Impaling/Channeling), dolphins (Dolphin's Grace), turtles
    (eggs, scutes, turtle helmet).
 4. M25.4 - Shipwrecks, ocean ruins (with suspicious sand left for M27), buried

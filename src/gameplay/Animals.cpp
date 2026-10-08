@@ -27,6 +27,7 @@ bool Mobs::isFood(MobType type, ItemId item) {
     case MobType::Pig: return item == carrot;
     case MobType::Chicken: return item == seeds;
     case MobType::Strider: return item == warpedFungus; // (wiki: Strider)
+    case MobType::Turtle: return item == itemRegistry().blockItem(blocks::Seagrass); // (M25.3b)
     default: return false;
     }
 }
@@ -111,6 +112,13 @@ MobData* Mobs::findMob(World& world, const MobData& self, double range, bool wan
 }
 
 void Mobs::animalUpkeep(Context& ctx, MobData& m) {
+    if (m.type == MobType::Turtle && m.home.y == kNoPoint) // (its home: where it first stood)
+        m.home = {int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+    // A baby turtle growing up sheds a scute (wiki: Turtle Scute).
+    if (m.type == MobType::Turtle && m.age == -1) {
+        static const ItemId scute = itemId("turtle_scute");
+        ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {scute, 1}, ctx.rng);
+    }
     if (m.age < 0) ++m.age;      // babies grow up in 20 minutes
     else if (m.age > 0) --m.age; // breeding cooldown (5 minutes)
     if (m.loveTicks > 0) --m.loveTicks;
@@ -157,12 +165,38 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
         m.goal = m.pos;
         return true;
     }
+    // A turtle with eggs goes back to its home beach and lays 1-4 there in the sand
+    // (wiki: Turtle › Breeding).
+    if (m.type == MobType::Turtle && m.hasEgg) {
+        const glm::dvec3 home(m.home.x + 0.5, double(m.home.y), m.home.z + 0.5);
+        m.goal = home;
+        speed *= 1.3;
+        const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+        const auto& r = blockRegistry();
+        if (glm::length(glm::dvec2(home.x - m.pos.x, home.z - m.pos.z)) < 2.0 && ctx.world.getBlock(feet) == 0 &&
+            (r.blockOf(ctx.world.getBlock({feet.x, feet.y - 1, feet.z})) == blocks::Sand ||
+             r.blockOf(ctx.world.getBlock({feet.x, feet.y - 1, feet.z})) == blocks::RedSand)) {
+            ctx.world.updateBlock(feet, r.set(r.defaultState(blocks::TurtleEgg), properties::eggs, int(ctx.rng.nextInt(4))));
+            if (ctx.edits) ctx.edits->push_back(feet);
+            m.hasEgg = false;
+        }
+        return true;
+    }
     // In love: walk to the nearest partner in love; after 3 s side by side, a baby.
     if (m.loveTicks > 0 && !m.isBaby()) {
         if (MobData* partner = findMob(ctx.world, m, 8.0, true, true)) {
             m.goal = partner->pos;
             if (glm::length(partner->pos - m.pos) < 3.0) {
-                if (++m.breedTicks >= 60) {
+                if (++m.breedTicks >= 60 && m.type == MobType::Turtle) {
+                    // Turtles lay eggs instead of having a baby (wiki: Turtle).
+                    m.hasEgg = true;
+                    if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng);
+                    for (MobData* parent : {&m, partner}) {
+                        parent->loveTicks = 0;
+                        parent->breedTicks = 0;
+                        parent->age = 6000;
+                    }
+                } else if (m.breedTicks >= 60) {
                     MobData baby = make(m.type, (m.pos + partner->pos) * 0.5, ctx.rng);
                     baby.age = -24000;
                     baby.persistent = true;

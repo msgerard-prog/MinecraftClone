@@ -924,6 +924,35 @@ def drowned():
     return img
 
 
+def boxed(name, boxes, eyes=None, shell=None):
+    """Boxes painted from (top colour, belly colour) palettes (M25.3b dolphin, turtle): the
+    belly colour on bottoms and the lower part of the sides; eyes on the eye box's sides
+    (or front); a shell gets a darker plate pattern on top."""
+    rng = random.Random(name)
+    img = Img(64, 64, CLEAR)
+    for (u, v, w, h, d), top, belly in boxes:
+        tp = ramp(hexc(top), 5, spread=0.3)
+        bp = ramp(hexc(belly), 5, spread=0.2) if belly else tp
+        for fname, (x0, y0, fw, fh) in box_faces(u, v, w, h, d).items():
+            for y in range(fh):
+                for x in range(fw):
+                    low = fname == "bottom" or (fname in ("left", "right", "front", "back") and y >= fh * 0.6)
+                    pal = bp if low else tp
+                    r = rng.random()
+                    img.set(x0 + x, y0 + y, pal[2 if r > 0.35 else (1 if r < 0.17 else 3)])
+    if shell:
+        x0, y0, fw, fh = box_faces(*shell)["top"]
+        for y in range(fh):
+            for x in range(fw):
+                if x % 4 == 0 or y % 5 == 0:
+                    img.set(x0 + x, y0 + y, (40, 70, 30, 255))
+    if eyes:
+        for fname in ("left", "right"):
+            x0, y0, fw, fh = box_faces(*eyes)[fname]
+            img.set(x0 + (fw - 2 if fname == "left" else 1), y0 + 1, (20, 20, 24, 255))
+    return img
+
+
 def boat():
     """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
     (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
@@ -966,7 +995,15 @@ def main():
                              [(24, 0, 1, 1, 5), (24, 8, 1, 1, 3)], "#9A3A30", "#C88070", stripes="#5E8A6A"),
               "tropical_fish": tropical_fish(), "pufferfish": pufferfish(),
               "squid": squid("squid", "#3A5070", "#5A7898"), "glow_squid": squid("glow_squid", "#1E8C8A", "#9AFFE8"),
-              "boat": boat(), "drowned": drowned()}
+              "boat": boat(), "drowned": drowned(),
+              "dolphin": boxed("dolphin", [((0, 0, 8, 7, 13), "#7E8E9E", "#C8D0D8"), ((0, 22, 6, 5, 5), "#7E8E9E", "#C8D0D8"),
+                                           ((24, 22, 2, 2, 4), "#8E9EAE", "#D8E0E8"), ((42, 0, 1, 4, 4), "#6E7E8E", None),
+                                           ((0, 34, 10, 1, 6), "#6E7E8E", None), ((32, 34, 3, 1, 3), "#6E7E8E", None)],
+                               eyes=(0, 22, 6, 5, 5)),
+              "turtle": boxed("turtle", [((0, 0, 12, 5, 14), "#3E7A30", "#C8C080"), ((0, 20, 10, 1, 12), "#C8C080", None),
+                                         ((0, 34, 4, 3, 4), "#8AB050", None), ((16, 34, 3, 1, 3), "#8AB050", None),
+                                         ((28, 34, 3, 1, 2), "#8AB050", None)],
+                              eyes=(0, 34, 4, 3, 4), shell=(0, 0, 12, 5, 14))}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

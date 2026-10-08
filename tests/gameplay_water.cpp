@@ -284,3 +284,69 @@ TEST_CASE("tridents: thrown at 2.5, 8 damage, stick and come back with Loyalty; 
     h.aquatic = true;
     CHECK(meleeDamage(h) == doctest::Approx(14.0f));
 }
+
+#include "world/BlockUpdates.h"
+
+TEST_CASE("dolphins give swimming players Dolphin's Grace, which keeps their speed in water (M25.3b)") {
+    Pool p;
+    p.player.setCreative(false);
+    p.player.setPosition({0.5, 66.0, 0.5});
+    REQUIRE(Mobs::add(p.world, Mobs::make(MobType::Dolphin, {2.5, 67.0, 0.5}, p.rng)));
+    p.tick(5, true);
+    CHECK(p.vitals.effectLevel(Effect::DolphinsGrace) == 1);
+    // Swimming forward for 2 s with and without it.
+    auto swim = [&](bool grace) {
+        Player pl;
+        pl.setCreative(false);
+        pl.setPosition({0.5, 66.0, 0.5});
+        pl.setDolphinsGrace(grace);
+        PlayerInput in;
+        in.forward = 1.0f;
+        for (int t = 0; t < 40; ++t) pl.tick(p.world, in);
+        return glm::length(pl.position() - glm::dvec3(0.5, 66.0, 0.5));
+    };
+    CHECK(swim(true) > swim(false) * 1.5);
+}
+
+TEST_CASE("turtles fed seagrass carry eggs home and lay them in the sand; eggs hatch into babies that grow a scute (M25.3b)") {
+    Pool p;
+    for (int z = -16; z < 32; ++z) // a beach: sand floor, no water
+        for (int x = -16; x < 32; ++x) {
+            for (int y = 64; y <= 70; ++y) p.world.setBlock({x, y, z}, 0);
+            p.world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::Sand));
+            p.world.setBlock({x, 62, z}, blockRegistry().defaultState(blocks::Stone)); // (sand falls over air)
+        }
+    for (int i = 0; i < 2; ++i) {
+        MobData t = Mobs::make(MobType::Turtle, {2.5 + i, 64.0, 2.5}, p.rng);
+        t.home = {8, 64, 8};
+        t.loveTicks = 600; // (fed seagrass)
+        REQUIRE(Mobs::add(p.world, t));
+    }
+    CHECK(Mobs::isFood(MobType::Turtle, itemRegistry().blockItem(blocks::Seagrass)));
+    p.tick(900);
+    int eggsAtHome = 0; // (laid within 2 blocks of home)
+    for (int z = 6; z <= 10; ++z)
+        for (int x = 6; x <= 10; ++x) eggsAtHome += blockRegistry().blockOf(p.world.getBlock({x, 64, z})) == blocks::TurtleEgg;
+    CHECK(eggsAtHome == 1);
+    // Eggs hatch at night on sand: two cracks, then babies.
+    BlockUpdates updates(p.world);
+    updates.setSkyDarken(11);
+    p.world.setBlock({2, 64, 12}, blockRegistry().set(blockRegistry().defaultState(blocks::TurtleEgg), properties::eggs, 2));
+    updates.setRandomTicks({0, 0}, 1, 1000); // (not 4096: the random's low bits repeat every 4096 draws)
+    for (int t = 0; t < 400 && updates.hatched().empty(); ++t) {
+        updates.setTime(t);
+        updates.tick();
+    }
+    REQUIRE(!updates.hatched().empty());
+    bool three = false; // (the 3-egg clutch; the turtles' own may hatch too)
+    for (const auto& h : updates.hatched()) three = three || (h.pos == BlockPos{2, 64, 12} && h.count == 3);
+    CHECK(three);
+    // A baby about to grow up drops a scute.
+    MobData baby = Mobs::make(MobType::Turtle, {12.5, 64.0, 2.5}, p.rng);
+    baby.age = -2;
+    REQUIRE(Mobs::add(p.world, baby));
+    p.tick(3);
+    bool scute = false;
+    for (const auto& it : p.items.items()) scute = scute || it.stack.item == *itemRegistry().find("turtle_scute");
+    CHECK(scute);
+}

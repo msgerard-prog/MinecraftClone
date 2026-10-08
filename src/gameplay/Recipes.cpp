@@ -195,6 +195,8 @@ std::vector<Recipe> build() {
         const std::string m = mat;
         const Ingredient x = item(ing);
         r.push_back(shaped({"###", "#.#"}, {{'#', x}}, m + "_helmet"));
+        if (m == "iron") // (once: M25.3b, wiki: Turtle Shell from 5 scutes)
+            r.push_back(shaped({"###", "#.#"}, {{'#', item("turtle_scute")}}, "turtle_helmet"));
         r.push_back(shaped({"#.#", "###", "###"}, {{'#', x}}, m + "_chestplate"));
         r.push_back(shaped({"###", "#.#", "#.#"}, {{'#', x}}, m + "_leggings"));
         r.push_back(shaped({"#.#", "#.#"}, {{'#', x}}, m + "_boots"));

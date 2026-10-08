@@ -80,6 +80,10 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:oak_boat", 4.0f, 1.375, 0.5625, 0.0, 0.0f, false, false, false, 2.0f},
         // wiki: Drowned - as a zombie (20, 0.6 x 1.95, 0.23, 3); a thrown trident hits for 8.
         {"minecraft:drowned", 20.0f, 0.6, 1.95, 0.23, 3.0f, true},
+        // wiki: Dolphin - 10 health, 0.9 x 0.6, swims fast; Turtle - 30 health, 1.2 x 0.4,
+        // slow on land (0.25 our walk), drawn 1.5x its model.
+        {"minecraft:dolphin", 10.0f, 0.9, 0.6, 0.22, 0.0f, false, false, false, 1.4f, true},
+        {"minecraft:turtle", 30.0f, 1.2, 0.4, 0.12, 0.0f, false, false, false, 1.5f},
     };
     return kInfo[static_cast<int>(t)];
 }
