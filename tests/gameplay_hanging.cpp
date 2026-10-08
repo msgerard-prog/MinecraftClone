@@ -98,3 +98,66 @@ TEST_CASE("item frames and paintings are saved as vanilla's entities") {
     REQUIRE(back.mobStore(back.mobs()[0].uuidHi));
     CHECK(itemRegistry().item((*back.mobStore(back.mobs()[0].uuidHi))[0].item).id == "minecraft:compass");
 }
+
+#include "gameplay/Recipes.h"
+
+TEST_CASE("armor stands: placed facing the player, dressed and undressed, two quick hits break them") {
+    Scene s;
+    for (int z = -3; z <= 3; ++z)
+        for (int x = -3; x <= 3; ++x) s.world.setBlock({x, 59, z}, blockRegistry().defaultState(blocks::Stone));
+    REQUIRE(Mobs::placeArmorStand(s.world, {0, 60, 0}, 10.0f, s.rng));
+    MobData* stand = nullptr;
+    s.world.forEachChunk([&](Chunk& c) {
+        for (auto& m : c.mobs())
+            if (m.type == MobType::ArmorStand) stand = &m;
+    });
+    REQUIRE(stand);
+    CHECK(stand->yaw == doctest::Approx(180.0f)); // (facing back at the player, 45-degree steps)
+
+    ItemStack helmet{*itemRegistry().find("iron_helmet"), 1};
+    CHECK(Mobs::useArmorStand(s.world, *stand, helmet, 61.8));
+    CHECK(helmet.empty());
+    CHECK(stand->worn[0] == 3); // iron
+    ItemStack boots{*itemRegistry().find("golden_boots"), 1};
+    CHECK(Mobs::useArmorStand(s.world, *stand, boots, 61.0)); // (armor goes to its own slot wherever clicked)
+    CHECK(stand->worn[3] == 4);
+    ItemStack hand{};
+    CHECK(Mobs::useArmorStand(s.world, *stand, hand, 61.7)); // empty hand at head height: the helmet
+    CHECK(itemRegistry().item(hand.item).id == "minecraft:iron_helmet");
+    CHECK(stand->worn[0] == 0);
+
+    CHECK_FALSE(Mobs::hitArmorStand(s.world, *stand, false)); // shakes
+    CHECK(Mobs::hitArmorStand(s.world, *stand, false));       // a second hit within 5 ticks
+    CHECK(stand->health <= 0.0f);
+
+    auto stack = [](const char* id) { return ItemStack{*itemRegistry().find(id), 1}; };
+    std::array<ItemStack, 9> g{};
+    g[0] = g[1] = g[2] = g[4] = g[6] = g[8] = stack("stick");
+    g[7] = stack("smooth_stone_slab");
+    const auto r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(itemRegistry().item(r->item).id == "minecraft:armor_stand");
+}
+
+TEST_CASE("armor stands save their armor as vanilla's equipment") {
+    Scene s;
+    REQUIRE(Mobs::placeArmorStand(s.world, {0, 60, 0}, 0.0f, s.rng));
+    MobData* stand = nullptr;
+    s.world.forEachChunk([&](Chunk& c) {
+        for (auto& m : c.mobs())
+            if (m.type == MobType::ArmorStand) stand = &m;
+    });
+    REQUIRE(stand);
+    ItemStack chest{*itemRegistry().find("diamond_chestplate"), 1};
+    REQUIRE(Mobs::useArmorStand(s.world, *stand, chest, 61.0));
+    Chunk& c = *s.world.chunk({0, 0});
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(c, 0));
+    const nbt::Compound& e = *n.list("Entities")->items[0].get<nbt::Compound>();
+    CHECK(*e.string("id") == "minecraft:armor_stand");
+    REQUIRE(e.compound("equipment"));
+    CHECK(*e.compound("equipment")->compound("chest")->string("id") == "minecraft:diamond_chestplate");
+    Chunk back({0, 0}, s.world.height());
+    entitiesFromNbt(n, back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].worn[1] == 5);
+}

@@ -99,6 +99,9 @@ enum class MobType : uint8_t {
     ItemFrame,
     GlowItemFrame,
     Painting,
+    // (M28.3b; wiki: Armor Stand) wears armor (its chunk's mob store, slots 0 head .. 3
+    // feet; `worn` keeps each piece's material for drawing); two quick hits break it.
+    ArmorStand,
     Count
 };
 
@@ -219,6 +222,15 @@ inline bool despawnsInPeaceful(MobType t) {
 inline bool isHanging(MobType t) {
     return t == MobType::ItemFrame || t == MobType::GlowItemFrame || t == MobType::Painting;
 }
+// (M28.3b) how a worn item is drawn on an armor stand: 1 leather, 2 chainmail, 3 iron,
+// 4 gold, 5 diamond, 6 netherite, 7 turtle, 8 copper, 9 anything else (a block, a head).
+inline uint8_t armorMaterial(std::string_view id) {
+    if (id.empty()) return 0;
+    static constexpr std::string_view kNames[8] = {"leather", "chainmail", "iron", "golden", "diamond", "netherite", "turtle", "copper"};
+    for (int i = 0; i < 8; ++i)
+        if (id.find(kNames[i]) != std::string_view::npos) return uint8_t(i + 1);
+    return 9;
+}
 inline bool isUndead(MobType t) {
     return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
            t == MobType::Phantom || t == MobType::Wither;
@@ -293,6 +305,7 @@ struct MobData {
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)
     bool showBottom = true; // end crystals: drawn on a bedrock base (ShowBottom)
+    std::array<uint8_t, 4> worn{}; // (M28.3b) an armor stand's armor materials, head..feet (armorMaterial; 0 none)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love

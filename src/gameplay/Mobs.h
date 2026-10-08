@@ -152,6 +152,13 @@ public:
     static world::ItemStack frameItem(const world::World& world, const world::MobData& frame);
     // A hit on an item frame holding something drops the item instead of breaking it.
     static bool popFrameItem(world::World& world, world::MobData& frame, ItemEntities& items, world::Xoroshiro& rng);
+    // Armor stands (M28.3b, ArmorStands.cpp; wiki: Armor Stand): placed in `cell` facing
+    // the player; a right-click puts `held` on (or, empty-handed, takes the piece at the
+    // clicked height `hitY` back into `held`); a hit returns true when it broke.
+    static bool placeArmorStand(world::World& world, const world::BlockPos& cell, float playerYaw, world::Xoroshiro& rng);
+    static bool useArmorStand(world::World& world, world::MobData& m, world::ItemStack& held, double hitY);
+    static bool hitArmorStand(world::World& world, world::MobData& m, bool creative);
+    static void refreshWorn(world::World& world, world::MobData& m);
     // The mob with this UUID, searched from the chunks around `near` outward.
     static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
 
@@ -211,6 +218,9 @@ private:
     bool snifferTick(Context& ctx, world::MobData& m);
     // Hanging entities (Hanging.cpp, M28.3a): dropping off when their wall goes.
     void hangingTick(Context& ctx, world::MobData& m);
+    // Armor stands (ArmorStands.cpp, M28.3b).
+    void armorStandTick(Context& ctx, world::MobData& m);
+    void dropArmorStand(Context& ctx, world::MobData& m);
     void dropHanging(Context& ctx, world::MobData& m);
     // Trial spawners (TrialChambers.cpp, M27.4d).
     void tickTrialSpawner(Context& ctx, world::Chunk& chunk, const world::BlockPos& p, world::SpawnerData& s);

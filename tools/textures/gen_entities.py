@@ -459,6 +459,26 @@ def strider():
     return img
 
 
+def armor_stand():
+    # M28.3b: oak sticks, a smooth stone base plate, and the armor shapes it shows when
+    # something is worn - pale grey, tinted by the material (head 8x8x8, body 8x12x4,
+    # legs 8x6x4, feet 8x4x4).
+    rng = random.Random("armor_stand")
+    img = Img(64, 64, CLEAR)
+    wood = ramp(hexc("#B8945F"), 5, spread=0.3)
+    for (u, v, w, h, d) in ((0, 0, 2, 11, 2), (8, 0, 2, 11, 2), (16, 0, 8, 2, 2), (36, 0, 2, 10, 2),
+                            (44, 0, 2, 4, 2), (0, 14, 12, 3, 3)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, wood, rng)
+    for f in box_faces(0, 51, 12, 1, 12).values():
+        paint(img, f, ramp(hexc("#9A9A9A"), 5, spread=0.25), rng)
+    plate = ramp(hexc("#E4E4E4"), 5, spread=0.2)
+    for (u, v, w, h, d) in ((32, 14, 8, 8, 8), (0, 22, 8, 12, 4), (24, 32, 8, 6, 4), (0, 40, 8, 4, 4)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, plate, rng, noise=0.2)
+    return img
+
+
 def end_crystal():
     # Core 6x6x6 @ (0,0): pink-magenta; glass cube 8x8x8 @ (0,16): only its edges
     # (the rest clear, so the core shows); base 12x4x12 @ (0,40): dark bedrock grey.
@@ -1251,6 +1271,7 @@ def main():
               "creaking": creaking(),
               "warden": warden(),
               "sniffer": sniffer(),
+              "armor_stand": armor_stand(),
               "copper_golem": pet("copper_golem", [(0, 0, 8, 5, 6), (28, 0, 2, 3, 2), (36, 0, 1, 4, 1), (0, 11, 4, 6, 3),
                                                    (14, 11, 2, 6, 2), (22, 11, 2, 5, 2)], (0, 0, 8, 5, 6), None,
                                   base="#F0F0F0"),

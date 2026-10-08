@@ -209,6 +209,11 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
     r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
     r.push_back(shapeless({item("book"), item("ink_sac"), item("feather")}, "writable_book")); // (M28.2c)
+    // Decorations (M28.3; wiki: Item Frame, Glow Item Frame, Painting, Armor Stand).
+    r.push_back(shaped({"###", "#L#", "###"}, {{'#', item("stick")}, {'L', item("leather")}}, "item_frame"));
+    r.push_back(shapeless({item("item_frame"), item("glow_ink_sac")}, "glow_item_frame"));
+    r.push_back(shaped({"###", "#W#", "###"}, {{'#', item("stick")}, {'W', item("white_wool")}}, "painting"));
+    r.push_back(shaped({"###", ".#.", "#S#"}, {{'#', item("stick")}, {'S', item("smooth_stone_slab")}}, "armor_stand"));
     // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("gold_ingot")}, {'R', item("redstone")}}, "clock"));

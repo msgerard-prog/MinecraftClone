@@ -625,6 +625,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `hangingTick` (the 100-tick wall check), `dropHanging` (from `die`). Paintings are cut
   into one atlas sprite per block (`TextureAtlas::AtlasFolder::blocksWide`,
   "painting/<name>:<x>,<y>"); `EntityRenderer::addItemFrame/addPainting` draw them.
+- Armor stands (M28.3b, `gameplay/ArmorStands.cpp`, part of `Mobs`): `MobType::ArmorStand`
+  falls but has no AI; its armor is in its chunk's mob store (slots head..feet, saved as
+  vanilla `equipment`) and `MobData::worn` (materials) shows model layers 15-18 tinted by
+  material. `placeArmorStand`, `useArmorStand` (the clicked height picks the piece),
+  `hitArmorStand` (two hits within 5 ticks). Main gives clicks on frames and stands
+  priority over the held item (`decorInFront`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

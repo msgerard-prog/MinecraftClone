@@ -593,6 +593,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             (part.layer == 11 && !mob.hasChest) || (part.layer == 12 && mob.decor == 0) ||
             (part.layer == 13 && !(mob.horns & 1)) || (part.layer == 14 && !(mob.horns & 2))) // (M26.3: goat horns)
             continue;
+        if (part.layer >= 15 && part.layer <= 18 && mob.worn[size_t(part.layer - 15)] == 0) continue; // (M28.3b)
         if (part.layer == 1 && mob.sheared) continue;
         if (part.layer == 2 && !mob.showBottom) continue;
         if (part.layer == 3 && mob.type != world::MobType::Villager && mob.type != world::MobType::ZombieVillager)
@@ -636,6 +637,12 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         if (part.layer == 10) { // horse armor's material (M26.2): leather, iron, gold, diamond
             static constexpr uint32_t kArmor[5] = {0xFFFFFF, 0xA0643A, 0xDADADA, 0xF4D040, 0x5CE0D8};
             const uint32_t c = kArmor[mob.horseArmor % 5];
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
+        if (part.layer >= 15 && part.layer <= 18) { // an armor stand's armor (M28.3b), by material
+            static constexpr uint32_t kMaterials[10] = {0xFFFFFF, 0xA0643A, 0x9A9AA0, 0xDADADA, 0xF4D040,
+                                                        0x5CE0D8, 0x4A4048, 0x4E9A3A, 0xD9804F, 0xC87A2A};
+            const uint32_t c = kMaterials[mob.worn[size_t(part.layer - 15)] % 10];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 12) { // a llama's carpet (M26.2)

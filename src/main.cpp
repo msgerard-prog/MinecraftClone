@@ -2129,6 +2129,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (gameMode == 3) clicks = {}; // spectators touch nothing (M28.1c)
             const bool mayBuild = gameMode != 2; // adventure: no breaking, placing or block-changing items
+            // (M28.3) a click on an item frame or an armor stand is for it, not for the held item
+            bool decorInFront = false;
+            if (clicks.useClick) {
+                const auto mh = mc::Mobs::raycast(world, player.eyePosition(1.0),
+                                                  glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())),
+                                                  survival ? 3.0 : 5.0, ridingCart);
+                if (mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    const auto t = world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type;
+                    decorInFront = mc::world::isHanging(t) || t == mc::world::MobType::ArmorStand;
+                }
+            }
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
             // Campfires (M23.4c): raw food goes on (any lit or unlit campfire with room), a
             // shovel puts it out, flint and steel lights it again (wiki: Campfire).
@@ -2247,7 +2258,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.setProtection(prot[0], prot[1], prot[2], prot[3], prot[4]);
                 }
                 vitals.setShield(shieldTicks >= 5, player.eyePosition(1.0), facing);
-                if (!dead && clicks.useClick &&
+                if (!dead && clicks.useClick && !decorInFront &&
                     inventory.equipSelected()) { // armor in hand: put it on
                     clicks.useClick = false;
                     clicks.use = false;
@@ -2367,20 +2378,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                     clicks.use = false;
                 }
-                const auto hangingInFront = [&] { // (a click on a frame uses the frame, not the wall)
-                    const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
-                    return mh && (!lastHit || mh->distance < lastHit->distance) &&
-                           mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type);
-                };
                 if (!dead && mayBuild && clicks.useClick && lastHit &&
                     (heldId == "minecraft:item_frame" || heldId == "minecraft:glow_item_frame" || heldId == "minecraft:painting") &&
-                    !hangingInFront()) {
+                    !decorInFront) {
                     // Hanging an item frame or a painting on the clicked face (M28.3a).
                     const auto type = heldId == "minecraft:painting"       ? mc::world::MobType::Painting
                                       : heldId == "minecraft:glow_item_frame" ? mc::world::MobType::GlowItemFrame
                                                                               : mc::world::MobType::ItemFrame;
                     if (mc::Mobs::placeHanging(world, type, lastHit->block, lastHit->face, gameRng) && survival)
                         inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+                if (!dead && mayBuild && clicks.useClick && lastHit && heldId == "minecraft:armor_stand") {
+                    const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
+                    const mc::world::BlockPos cell{lastHit->block.x + n.x, lastHit->block.y + n.y, lastHit->block.z + n.z};
+                    if (mc::Mobs::placeArmorStand(world, cell, player.yaw(), gameRng) && survival) inventory.consumeSelected(1);
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -2718,10 +2731,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
-                    mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type)) {
+                    (mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand)) {
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if (mc::Mobs::useItemFrame(world, m, inventory.selectedStack()) && survival)
+                    if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) dressing it
+                        mc::world::ItemStack held = inventory.selectedStack();
+                        if (gameMode != 2 && mc::Mobs::useArmorStand(world, m, held, eye.y + look.y * mh->distance) && survival)
+                            inventory.setSlot(inventory.selected(), held);
+                    } else if (mc::Mobs::useItemFrame(world, m, inventory.selectedStack()) && survival) {
                         inventory.consumeSelected(1);
+                    }
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -2930,10 +2949,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
-                    mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type)) {
+                    (mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand)) {
                     mc::world::Chunk* hc = world.chunk(mh->chunk);
                     auto& m = hc->mobs()[size_t(mh->index)];
-                    if (gameMode != 2 && m.health > 0.0f && !mc::Mobs::popFrameItem(world, m, droppedItems, gameRng)) {
+                    if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) two quick hits
+                        if (gameMode != 2 && m.health > 0.0f) mc::Mobs::hitArmorStand(world, m, !survival);
+                    } else if (gameMode != 2 && m.health > 0.0f &&
+                               !mc::Mobs::popFrameItem(world, m, droppedItems, gameRng)) {
                         m.health = 0.0f;
                         m.lastHurtByPlayer = true;
                         if (!survival) { // (gone without its item)

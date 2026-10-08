@@ -153,6 +153,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:item_frame", 1.0f, 0.75, 0.75, 0.0, 0.0f, false},
         {"minecraft:glow_item_frame", 1.0f, 0.75, 0.75, 0.0, 0.0f, false},
         {"minecraft:painting", 1.0f, 1.0, 1.0, 0.0, 0.0f, false},
+        // wiki: Armor Stand - 0.5 x 1.975; any damage but the player's knocks it over (ours: 1 health)
+        {"minecraft:armor_stand", 1.0f, 0.5, 1.975, 0.0, 0.0f, false},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

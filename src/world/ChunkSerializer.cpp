@@ -1162,6 +1162,20 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsChickenJockey", int8_t{0});
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
+        if (m.type == MobType::ArmorStand) { // (M28.3b; wiki: Armor Stand › Entity data)
+            nbt::Compound eq;
+            static constexpr const char* kSlots[4] = {"head", "chest", "legs", "feet"};
+            for (const auto& st : chunk.mobStores)
+                if (st.uuidHi == m.uuidHi)
+                    for (int i = 0; i < 4; ++i)
+                        if (!st.slots[size_t(i)].empty()) eq.put(kSlots[i], itemNbt(st.slots[size_t(i)], -1));
+            if (!eq.entries.empty()) e.put("equipment", std::move(eq));
+            e.put("ShowArms", int8_t{0});
+            e.put("Small", int8_t{0});
+            e.put("NoBasePlate", int8_t{0});
+            e.put("Invisible", int8_t{0});
+            e.put("Marker", int8_t{0});
+        }
         if (isHanging(m.type)) { // (M28.3a; wiki: Item Frame, Painting › Entity data)
             e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
             if (m.type == MobType::Painting) { // facing: 2D (south 0, west 1, north 2, east 3)
@@ -1745,6 +1759,20 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
                     }
             }
+        if (m.type == MobType::ArmorStand) { // (M28.3b) its armor
+            m.health = 1.0f;
+            m.persistent = true;
+            if (const nbt::Compound* eq = e->compound("equipment")) {
+                static constexpr const char* kSlots[4] = {"head", "chest", "legs", "feet"};
+                for (int i = 0; i < 4; ++i)
+                    if (const nbt::Compound* it = eq->compound(kSlots[i])) {
+                        const ItemStack s = itemFromNbt(*it);
+                        if (s.empty()) continue;
+                        chunk.addMobStore(m.uuidHi)[size_t(i)] = s;
+                        m.worn[size_t(i)] = armorMaterial(itemRegistry().item(s.item).id);
+                    }
+            }
+        }
         if (isHanging(m.type)) { // (M28.3a)
             m.health = 1.0f; // (vanilla saves no health for them)
             if (const nbt::Tag* bp = e->find("block_pos"))

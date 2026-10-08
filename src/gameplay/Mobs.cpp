@@ -317,6 +317,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
         hangingTick(ctx, m);
         return;
     }
+    if (m.type == MobType::ArmorStand) { // (M28.3b, ArmorStands.cpp)
+        armorStandTick(ctx, m);
+        return;
+    }
     if (m.type == MobType::Minecart) {
         minecartTick(ctx, m);
         return;
@@ -720,6 +724,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.type == MobType::ArmorStand) { // (M28.3b) itself and what it wore, gone at once
+        dropArmorStand(ctx, m);
+        m.deathTime = 19;
+        return;
+    }
     if (isHanging(m.type)) { // (M28.3a) the frame or painting as an item, gone at once
         dropHanging(ctx, m);
         m.deathTime = 19;
@@ -1171,7 +1180,7 @@ void Mobs::tick(Context& ctx) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
                     if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish &&
-                        !isHanging(m.type))
+                        !isHanging(m.type) && m.type != MobType::ArmorStand)
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);

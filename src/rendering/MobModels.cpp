@@ -184,6 +184,21 @@ constexpr std::array<MobPart, 3> kStrider = {{
     {{2, 0, -2}, {6, 14, 2}, {4, 14, 0}, 0, 32, A::LegB},
 }};
 
+// Armor stand (M28.3b): a base plate, two leg sticks, a hip bar, a pole, a shoulder bar
+// and a neck; the armor it wears as layers 15-18 (vanilla: a player-shaped stand).
+constexpr std::array<MobPart, 10> kArmorStand = {{
+    {{-6, 0, -6}, {6, 1, 6}, {0, 0, 0}, 0, 51, A::None},
+    {{-3, 1, -1}, {-1, 12, 1}, {0, 0, 0}, 0, 0, A::None},
+    {{1, 1, -1}, {3, 12, 1}, {0, 0, 0}, 8, 0, A::None},
+    {{-4, 12, -1}, {4, 14, 1}, {0, 0, 0}, 16, 0, A::None},
+    {{-1, 14, -1}, {1, 24, 1}, {0, 0, 0}, 36, 0, A::None},
+    {{-6, 24, -1.5f}, {6, 27, 1.5f}, {0, 0, 0}, 0, 14, A::None},
+    {{-4, 24, -4}, {4, 32, 4}, {0, 0, 0}, 32, 14, A::None, 15, 0.5f},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 0, 0}, 0, 22, A::None, 16, 0.6f},
+    {{-4, 5, -2}, {4, 11, 2}, {0, 0, 0}, 24, 32, A::None, 17, 0.4f},
+    {{-4, 1, -2}, {4, 5, 2}, {0, 0, 0}, 0, 40, A::None, 18, 0.5f},
+}};
+
 // End crystal: a bedrock-like base, a glass cube around a pink core turning about its
 // middle (vanilla: two glass cubes tumbling on tilted axes, bobbing up and down).
 constexpr std::array<MobPart, 3> kEndCrystal = {{
@@ -851,6 +866,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Creaking: return kCreaking;
     case world::MobType::Warden: return kWarden;
     case world::MobType::Sniffer: return kSniffer;
+    case world::MobType::ArmorStand: return kArmorStand;
     default: return kCow;
     }
 }

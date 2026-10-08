@@ -965,6 +965,17 @@ def frame_item(inner, picture=False):
     return img
 
 
+def armor_stand_item():
+    """M28.3b: a wooden stand on a stone plate: pole, shoulder bar, hips."""
+    s = Shape()
+    wood = ramp(hexc("#B8945F"), 5, spread=0.3)
+    s.add({(7, y) for y in range(2, 13)} | {(8, y) for y in range(2, 13)}, wood)
+    s.add({(x, 4) for x in range(3, 13)} | {(x, 5) for x in range(3, 13)}, wood)
+    s.add({(x, 9) for x in range(5, 11)}, wood)
+    s.add({(x, y) for x in range(3, 13) for y in (13, 14)}, ramp(hexc("#9A9A9A"), 5, spread=0.25))
+    return s.render()
+
+
 def ghast_tear():
     pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
     s = Shape()
@@ -1309,6 +1320,7 @@ def all_items():
     items["item_frame"] = frame_item("#7A4A2A")  # (M28.3a)
     items["glow_item_frame"] = frame_item("#3AB8A0")
     items["painting"] = frame_item("#5E8A3C", picture=True)
+    items["armor_stand"] = armor_stand_item()  # (M28.3b)
     items["enchanted_book"] = book(True)
     # Nether mobs (M19.2).
     items["ghast_tear"] = ghast_tear()

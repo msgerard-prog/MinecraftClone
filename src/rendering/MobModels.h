@@ -29,6 +29,8 @@ struct MobPart {
     // 10 horse armor (tinted by its material; a wolf's armor too), 11 chest packs (with a
     // chest), 12 a llama's carpet (tinted by its dye).
     // 13, 14 = a goat's left / right horn (shown while it has it - M26.3).
+    // 15-18 = an armor stand's head, chest, legs, feet piece (shown when worn, tinted by
+    // its material - M28.3b).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -118,6 +120,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
+        "assets/minecraft/textures/entity/clone/armor_stand.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",
