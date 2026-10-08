@@ -1,5 +1,7 @@
 #include "world/Mob.h"
 
+#include <iterator>
+
 namespace mc::world {
 
 const MobInfo& mobInfo(MobType t) {
@@ -94,8 +96,25 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:cat", 10.0f, 0.6, 0.7, 0.3, 3.0f, false},
         {"minecraft:ocelot", 10.0f, 0.6, 0.7, 0.3, 3.0f, false},
         {"minecraft:parrot", 6.0f, 0.5, 0.9, 0.2, 0.0f, false},
+        // wiki: Horse - 15-30 health (each its own; 30 here is the cap), 1.3965 x 1.6,
+        // speed 0.1125-0.3375; Donkey and Mule - 15-30, 1.3965 x 1.5 / 1.6, speed 0.175;
+        // Llama - 15-30 (by strength), 0.9 x 1.87, 0.175, spits for 1; Camel - 32,
+        // 1.7 x 2.375, 0.09.
+        {"minecraft:horse", 30.0f, 1.3965, 1.6, 0.225, 0.0f, false},
+        {"minecraft:donkey", 30.0f, 1.3965, 1.5, 0.175, 0.0f, false},
+        {"minecraft:mule", 30.0f, 1.3965, 1.6, 0.175, 0.0f, false},
+        {"minecraft:llama", 30.0f, 0.9, 1.87, 0.175, 1.0f, false},
+        {"minecraft:trader_llama", 30.0f, 0.9, 1.87, 0.175, 1.0f, false},
+        {"minecraft:camel", 32.0f, 1.7, 2.375, 0.09, 0.0f, false},
     };
+    static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];
+}
+
+float maxHealthOf(const MobData& m) {
+    if (m.maxHealth > 0.0f) return m.maxHealth;
+    if (m.type == MobType::Wolf && m.tamed) return 40.0f; // (wiki: Wolf - 40 once tamed)
+    return mobInfo(m.type).maxHealth;
 }
 
 } // namespace mc::world

@@ -64,6 +64,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.hoppers() = snap.hoppers;
             chunk.dispensers() = snap.dispensers;
             chunk.mobs() = snap.mobs;
+            chunk.mobStores() = snap.mobStores;
             chunk.blockTicks() = snap.blockTicks; // delays (see ChunkSnapshot::of)
             chunk.ticksRelative = !snap.blockTicks.empty();
             chunk.clearDirty();

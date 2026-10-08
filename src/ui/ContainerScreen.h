@@ -40,7 +40,8 @@ public:
         Loom,
         Cartography,
         Beacon,
-        Trading
+        Trading,
+        Mount // (M26.2) a horse's, donkey's, llama's or camel's gear and chest; a chest boat's chest
     };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).
@@ -130,6 +131,15 @@ public:
         m_dropper = dropper;
     }
     void setStore(std::span<world::ItemStack> slots) { m_store = slots; }
+    // A mount's screen (M26.2; vanilla's horse screen): its saddle and body slots (horse
+    // armor or a llama's carpet) where it has them, and its chest (`chest`: 0-15 slots,
+    // 27 for a chest boat), both owned by the world. The gear slots edit the mob's fields;
+    // re-pointed every frame (mobs move in memory).
+    void openMount(world::MobData* mob, std::span<world::ItemStack> chest);
+    void setMount(world::MobData* mob, std::span<world::ItemStack> chest) {
+        m_mount = mob;
+        m_store = chest;
+    }
     const world::ItemStack& carried() const { return m_carried; }
     // Recipe uses whose experience was earned by taking smelted items out of a
     // furnace since the last call (main pays them with recipesExperience).
@@ -157,7 +167,8 @@ private:
             BrewBottle,
             BrewIngredient,
             BrewFuel,
-            Store
+            Store,
+            MountGear // (index 0 saddle, 1 body)
         } kind;
         int index;
         int x, y; // panel coordinates of the 16x16 item area
@@ -177,6 +188,10 @@ private:
     world::BrewingData* m_brewing = nullptr;
     world::BeaconData* m_beacon = nullptr;
     world::MobData* m_trader = nullptr;
+    world::MobData* m_mount = nullptr;
+    world::ItemStack m_gearScratch; // (what a gear slot shows: built from the mob's fields)
+    bool gearFits(int slot, const world::ItemStack& s) const;
+    void setGear(int slot, const world::ItemStack& s);
     int m_heroLevel = 0;
     int m_tradeChoice = -1, m_tradeXp = 0;
     world::Xoroshiro m_tradeRng{0x7a4d'e5u}; // (trade rewards and new trades)

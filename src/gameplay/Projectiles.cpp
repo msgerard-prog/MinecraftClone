@@ -426,6 +426,20 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 }
                 remove = true;
+            } else if (p.kind == ProjectileKind::LlamaSpit && (target != Target::None || block)) {
+                // A llama's spit (M26.2; wiki: Llama): 1 damage, gone on whatever it hits.
+                if (target == Target::Player) {
+                    if (vitals && survival && vitals->attacked(1.0f, &p.pos, Vitals::Hit::Projectile)) hits.playerDamage += 1.0f;
+                } else if (target == Target::Mob) {
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (m.hurtTime == 0) {
+                        m.health -= 1.0f;
+                        m.hurtTime = 10;
+                        if (!mobInfo(m.type).hostile) m.panicTicks = 100; // (wolves run off)
+                        ++hits.mobsHit;
+                    }
+                }
+                remove = true;
             } else if (target != Target::None && p.kind == ProjectileKind::Trident) {
                 // A trident (M25.3; wiki: Trident): 8 damage, Impaling +2.5 a level on
                 // water mobs; Channeling calls lightning on a mob in a thunderstorm where

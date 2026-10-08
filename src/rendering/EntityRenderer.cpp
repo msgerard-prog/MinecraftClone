@@ -470,7 +470,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
-    if (mob.sitting && mob.type != world::MobType::Villager) base.y -= 0.25f; // (a sitting pet sinks onto its haunches)
+    if (mob.sitting && mob.type != world::MobType::Villager) // (a sitting pet sinks onto its haunches; a camel lies down)
+        base.y -= mob.type == world::MobType::Camel ? 1.0f : 0.25f;
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
         base.x += 0.05f * std::sin(float(mob.convertTicks) * 2.5f);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
@@ -502,7 +503,12 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         scale *= 1.0f + f * 0.2f;
         if ((mob.fuse / 3) % 2 == 1) flash = glm::vec3(0.6f * f);
     }
-    for (const MobPart& part : mobModel(mob.type)) {
+    const bool chestBoat = mob.type == world::MobType::Boat && mob.hasChest;
+    for (const MobPart& part : chestBoat ? gfx::chestBoatModel() : mobModel(mob.type)) {
+        // Mount gear (M26.2): what it wears.
+        if ((part.layer == 9 && !mob.saddled) || (part.layer == 10 && mob.horseArmor == 0) ||
+            (part.layer == 11 && !mob.hasChest) || (part.layer == 12 && mob.decor == 0))
+            continue;
         if (part.layer == 1 && mob.sheared) continue;
         if (part.layer == 2 && !mob.showBottom) continue;
         if (part.layer == 3 && mob.type != world::MobType::Villager && mob.type != world::MobType::ZombieVillager)
@@ -514,6 +520,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         mx += glm::vec3(part.inflate);
         const float u = float(part.u), v = float(part.v) + (part.layer == 1   ? float(kSheepWoolRow * 64)
                                                              : part.layer == 3 ? float(kVillagerApronRow * 64)
+                                                             : part.layer >= 9 ? float(kMountGearRow * 64)
                                                                                : vrow);
         glm::vec3 partTint = tint;
         if (part.layer == 3) { // the profession's colour (M24.1)
@@ -529,7 +536,18 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             const uint32_t c = mob.type == world::MobType::Wolf ? world::kWolfVariants[mob.woolColour % 9].colour
                                : mob.type == world::MobType::Cat ? world::kCatVariants[mob.woolColour % 11].colour
                                : mob.type == world::MobType::Parrot ? world::kParrotColours[mob.woolColour % 5]
+                               : mob.type == world::MobType::Horse  ? world::kHorseColours[mob.woolColour % 7].colour
+                               : mob.type == world::MobType::Llama  ? world::kLlamaVariants[mob.woolColour % 4].colour
                                                                      : 0xFFFFFFu;
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
+        if (part.layer == 10) { // horse armor's material (M26.2): leather, iron, gold, diamond
+            static constexpr uint32_t kArmor[5] = {0xFFFFFF, 0xA0643A, 0xDADADA, 0xF4D040, 0x5CE0D8};
+            const uint32_t c = kArmor[mob.horseArmor % 5];
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
+        if (part.layer == 12) { // a llama's carpet (M26.2)
+            const uint32_t c = kWoolColours[(mob.decor + 15) & 15];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 6) { // a boat's wood (M25.2b)

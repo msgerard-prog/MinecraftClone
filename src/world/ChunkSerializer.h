@@ -33,6 +33,7 @@ struct ChunkSnapshot {
     std::vector<Chunk::HopperEntry> hoppers;
     std::vector<Chunk::DispenserEntry> dispensers;
     std::vector<MobData> mobs;                 // saved in entities/ (1.17+ layout)
+    std::vector<Chunk::MobStoreEntry> mobStores; // (M26.2) their chests
     std::vector<Chunk::BlockTick> blockTicks;  // times relative to gameTime when saved
     int64_t gameTime = 0; // written as LastUpdate
 

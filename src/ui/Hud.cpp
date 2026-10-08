@@ -75,6 +75,13 @@ void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidt
     }
 }
 
+void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight) {
+    const float x = float(guiWidth / 2 - 91), y = float(guiHeight - 29);
+    batch.fill(x, y, 182, 5, gfx::rgba(20, 20, 20));
+    batch.fill(x + 1, y + 1, 180, 3, gfx::rgba(40, 50, 70));
+    if (charge > 0.0f) batch.fill(x + 1, y + 1, 180.0f * std::min(1.0f, charge), 3, gfx::rgba(120, 170, 255));
+}
+
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight) {
     batch.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0x80700000));
     const std::string_view title = "You died!";

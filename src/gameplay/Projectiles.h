@@ -38,7 +38,8 @@ enum class ProjectileKind : uint8_t {
     DragonFireball,
     EnderPearl,
     ShulkerBullet, // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
-    Trident        // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
+    Trident,       // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
+    LlamaSpit      // (M26.2: 1 damage)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).

@@ -48,6 +48,13 @@ bool WanderingTraderSpawner::tick(World& world, const glm::dvec3& player, Xorosh
             if (r.collides(world.getBlock({x, y, z})) || r.collides(world.getBlock({x, y + 1, z}))) break;
             MobData trader = Mobs::make(MobType::WanderingTrader, {x + 0.5, double(y), z + 0.5}, rng);
             if (!Mobs::add(world, trader)) return false;
+            // Two trader llamas come with it (wiki: Trader Llama; vanilla: on its leads).
+            for (int i = 0; i < 2; ++i) {
+                MobData llama = Mobs::make(MobType::TraderLlama, {x + 0.5 + (i ? 1.0 : -1.0), double(y), z + 0.5}, rng);
+                llama.targetUuid = trader.uuidHi;
+                llama.despawnDelay = trader.despawnDelay;
+                Mobs::add(world, llama);
+            }
             chance = 25;
             return true;
         }

@@ -441,7 +441,80 @@ constexpr std::array<MobPart, 8> kParrot = {{
     {{0.5f, 0, 0}, {1, 4, 0.5f}, {0, 4, 0}, 14, 10, A::LegB},
 }};
 
+// Horses, donkeys and mules (M26.2): a long body on four tall legs, an upright neck with
+// a mane, a long head, ears, a tail; gear from the mount-gear texture (layers 9-11:
+// saddle, horse armor, chest packs). Leg 4x11x4 @ (0,0), head 5x5x10 @ (16,0), tail
+// 3x10x4 @ (46,0), neck 4x10x6 @ (0,15), mane 2x10x3 @ (20,15), ear 2x3x1 @ (30,15),
+// body 10x10x22 @ (0,32). Gear texture: saddle @ (0,0), chest @ (36,0), armor @ (0,16),
+// carpet @ (0,48).
+constexpr std::array<MobPart, 17> kHorse = {{
+    {{-5, 11, -11}, {5, 21, 11}, {0, 11, 0}, 0, 32, A::None, 8},
+    {{-5, 0, 7}, {-1, 11, 11}, {-3, 11, 9}, 0, 0, A::LegA, 8},
+    {{1, 0, 7}, {5, 11, 11}, {3, 11, 9}, 0, 0, A::LegB, 8},
+    {{-5, 0, -11}, {-1, 11, -7}, {-3, 11, -9}, 0, 0, A::LegB, 8},
+    {{1, 0, -11}, {5, 11, -7}, {3, 11, -9}, 0, 0, A::LegA, 8},
+    {{-2, 18, 6}, {2, 28, 12}, {0, 20, 9}, 0, 15, A::Head, 8},
+    {{-2.5f, 24, 9}, {2.5f, 29, 19}, {0, 20, 9}, 16, 0, A::Head, 8},
+    {{-1, 19, 5}, {1, 29, 8}, {0, 20, 9}, 20, 15, A::Head},
+    {{-2.5f, 29, 10}, {-0.5f, 32, 11}, {0, 20, 9}, 30, 15, A::Head, 8},
+    {{0.5f, 29, 10}, {2.5f, 32, 11}, {0, 20, 9}, 30, 15, A::Head, 8},
+    {{-1.5f, 10, -13}, {1.5f, 20, -9}, {0, 20, -11}, 46, 0, A::Tail},
+    {{-5, 21, -4}, {5, 23, 4}, {0, 0, 0}, 0, 0, A::None, 9, 0.3f},
+    {{-5, 11, -11}, {5, 21, 11}, {0, 11, 0}, 0, 16, A::None, 10, 0.5f},
+    {{-2, 18, 6}, {2, 28, 12}, {0, 20, 9}, 0, 16, A::Head, 10, 0.4f},
+    {{-2.5f, 24, 9}, {2.5f, 29, 19}, {0, 20, 9}, 0, 16, A::Head, 10, 0.4f},
+    {{-8, 13, -7}, {-5, 21, 1}, {0, 0, 0}, 36, 0, A::None, 11},
+    {{5, 13, -7}, {8, 21, 1}, {0, 0, 0}, 36, 0, A::None, 11},
+}};
+// Llamas (M26.2): a woolly body, tall neck and head, upright ears, a stub of a tail; a
+// carpet (layer 12, tinted) and chest packs. Leg 4x11x4 @ (0,0), neck 6x12x6 @ (16,0),
+// head 6x5x6 @ (40,0), ear 2x3x2 @ (16,18), tail 2x4x2 @ (24,18), body 12x10x18 @ (0,36).
+constexpr std::array<MobPart, 13> kLlama = {{
+    {{-6, 11, -9}, {6, 21, 9}, {0, 11, 0}, 0, 36, A::None, 8},
+    {{-5.5f, 0, 5}, {-1.5f, 11, 9}, {-3.5f, 11, 7}, 0, 0, A::LegA, 8},
+    {{1.5f, 0, 5}, {5.5f, 11, 9}, {3.5f, 11, 7}, 0, 0, A::LegB, 8},
+    {{-5.5f, 0, -9}, {-1.5f, 11, -5}, {-3.5f, 11, -7}, 0, 0, A::LegB, 8},
+    {{1.5f, 0, -9}, {5.5f, 11, -5}, {3.5f, 11, -7}, 0, 0, A::LegA, 8},
+    {{-3, 17, 5}, {3, 29, 11}, {0, 20, 8}, 16, 0, A::Head, 8},
+    {{-3, 26, 9}, {3, 31, 15}, {0, 20, 8}, 40, 0, A::Head, 8},
+    {{-3, 31, 10}, {-1, 34, 12}, {0, 20, 8}, 16, 18, A::Head, 8},
+    {{1, 31, 10}, {3, 34, 12}, {0, 20, 8}, 16, 18, A::Head, 8},
+    {{-1, 15, -11}, {1, 19, -9}, {0, 19, -9}, 24, 18, A::None, 8},
+    {{-6, 21, -7}, {6, 22, 7}, {0, 0, 0}, 0, 48, A::None, 12, 0.3f},
+    {{-9, 12, -6}, {-6, 20, 2}, {0, 0, 0}, 36, 0, A::None, 11},
+    {{6, 12, -6}, {9, 20, 2}, {0, 0, 0}, 36, 0, A::None, 11},
+}};
+// Camel (M26.2): long legs, a body with a hump, a neck reaching forward, a long head,
+// small ears and a tail; a saddle on the hump. Leg 4x18x4 @ (0,0), neck 5x12x5 @ (16,0),
+// head 6x6x8 @ (36,0), hump 8x5x8 @ (16,17), ear 2x2x1 @ (48,14), tail 2x8x2 @ (0,22),
+// body 12x10x20 @ (0,34).
+constexpr std::array<MobPart, 12> kCamel = {{
+    {{-6, 18, -10}, {6, 28, 10}, {0, 18, 0}, 0, 34, A::None},
+    {{-4, 28, -4}, {4, 33, 4}, {0, 28, 0}, 16, 17, A::None},
+    {{-6, 0, 6}, {-2, 18, 10}, {-4, 18, 8}, 0, 0, A::LegA},
+    {{2, 0, 6}, {6, 18, 10}, {4, 18, 8}, 0, 0, A::LegB},
+    {{-6, 0, -10}, {-2, 18, -6}, {-4, 18, -8}, 0, 0, A::LegB},
+    {{2, 0, -10}, {6, 18, -6}, {4, 18, -8}, 0, 0, A::LegA},
+    {{-2.5f, 22, 10}, {2.5f, 34, 15}, {0, 24, 10}, 16, 0, A::Head},
+    {{-3, 30, 12}, {3, 36, 20}, {0, 24, 10}, 36, 0, A::Head},
+    {{-4, 34, 13}, {-3, 36, 14}, {0, 24, 10}, 48, 14, A::Head},
+    {{3, 34, 13}, {4, 36, 14}, {0, 24, 10}, 48, 14, A::Head},
+    {{-1, 18, -12}, {1, 26, -10}, {0, 26, -10}, 0, 22, A::None},
+    {{-5, 33, -4}, {5, 35, 4}, {0, 0, 0}, 0, 0, A::None, 9, 0.3f},
+}};
+// A chest boat (M26.2): the boat with a chest standing at its back (layer 11).
+constexpr std::array<MobPart, 6> kChestBoat = {{
+    {{-5, 0, -7}, {5, 1, 7}, {0, 0, 0}, 0, 0, A::None, 6},
+    {{-5, 1, -7}, {-4, 4, 7}, {0, 0, 0}, 0, 16, A::None, 6},
+    {{4, 1, -7}, {5, 4, 7}, {0, 0, 0}, 0, 16, A::None, 6},
+    {{-4, 1, 6}, {4, 4, 7}, {0, 0, 0}, 0, 36, A::None, 6},
+    {{-4, 1, -7}, {4, 4, -6}, {0, 0, 0}, 0, 36, A::None, 6},
+    {{-3, 1, -6}, {3, 6, -1}, {0, 0, 0}, 36, 0, A::None, 11},
+}};
+
 } // namespace
+
+std::span<const MobPart> chestBoatModel() { return kChestBoat; }
 
 std::span<const MobPart> mobModel(world::MobType type) {
     switch (type) {
@@ -491,6 +564,12 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Ocelot: return kCat;
     case world::MobType::Parrot: return kParrot;
     case world::MobType::Ravager: return kRavager;
+    case world::MobType::Horse:
+    case world::MobType::Donkey:
+    case world::MobType::Mule: return kHorse;
+    case world::MobType::Llama:
+    case world::MobType::TraderLlama: return kLlama;
+    case world::MobType::Camel: return kCamel;
     default: return kCow;
     }
 }

@@ -685,7 +685,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
-    uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID)
+    uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID; boats, mounts)
+    int mountJumpTicks = 0;  // (M26.2) jump held while riding: the jump bar, 0..10
     // The cart the player rides (nullptr: none / gone), found around the player.
     auto findCart = [&]() -> mc::world::MobData* {
         if (ridingCart == 0) return nullptr;
@@ -696,7 +697,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Boat) &&
+                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Boat ||
+                             mc::world::isMount(m.type)) &&
                             m.uuidHi == ridingCart)
                             return &m;
         return nullptr;
@@ -941,6 +943,44 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!screenshotMode) window.setCursorCaptured(true);
         }
     };
+    // A mount's screen (M26.2) follows its mob the same way; its chest's slots live in
+    // the mob's chunk (created on first use).
+    uint64_t mountUuid = 0;
+    auto pointMount = [&] {
+        mc::world::MobData* mount = nullptr;
+        mc::world::Chunk* in = nullptr;
+        const mc::world::ChunkPos pc{mc::world::blockToChunk(int(std::floor(player.position().x))),
+                                     mc::world::blockToChunk(int(std::floor(player.position().z)))};
+        for (int dz = -1; dz <= 1 && !mount; ++dz)
+            for (int dx = -1; dx <= 1 && !mount; ++dx)
+                if (mc::world::Chunk* tc = world.chunk({pc.x + dx, pc.z + dz}))
+                    for (auto& mob : tc->mobs())
+                        if (mob.uuidHi == mountUuid && mob.health > 0.0f) {
+                            mount = &mob;
+                            in = tc;
+                        }
+        if (mount && glm::length(mount->pos - player.position()) > 8.0) mount = nullptr;
+        if (mount) {
+            std::span<mc::world::ItemStack> chest;
+            if (mount->hasChest) {
+                mc::world::ItemContents& slots = in->addMobStore(mount->uuidHi);
+                chest = std::span(slots.data(), size_t(mc::world::chestSlots(mount->type, mount->strength)));
+                in->markDirty();
+            }
+            container.setMount(mount, chest);
+        } else {
+            screenDrops.clear();
+            container.close(inventory, screenDrops);
+            pendingThrows.insert(pendingThrows.end(), screenDrops.begin(), screenDrops.end());
+            if (!screenshotMode) window.setCursorCaptured(true);
+        }
+    };
+    auto openMountScreen = [&](uint64_t uuid) {
+        mountUuid = uuid;
+        container.openMount(nullptr, {});
+        pointMount();
+        window.setCursorCaptured(false);
+    };
     // Opens a chest's screen unless a solid block sits on it (wiki: Chest); a double
     // chest shows its "left" half first.
     auto openChestAt = [&](const mc::world::BlockPos& p) {
@@ -997,6 +1037,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     };
     bool openBlockPending = opts->hasOpenBlock;
     bool tradePending = opts->trade;
+    bool mountPending = opts->mount;
     std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
     // The rain/snow columns around the camera (ground, kind, light), refilled once a
@@ -1040,6 +1081,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             pointStore();
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
             pointTrader();
+        if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount) pointMount();
         // An open beacon screen follows its block (closed if it was broken) (M23.6).
         if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
             mc::world::Chunk* c = world.chunk(containerBlock.chunk());
@@ -1240,7 +1282,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     chat.open();
                     window.setCursorCaptured(false);
                 } else if (window.takePresses(mc::Press::Inventory) > 0) {
-                    if (survival)
+                    // (M26.2) on a tamed mount or in a chest boat: its screen
+                    const mc::world::MobData* ride = ridingCart ? findCart() : nullptr;
+                    if (ride && ((mc::world::isMount(ride->type) && (ride->tamed || ride->type == mc::world::MobType::Camel)) ||
+                                 (ride->type == mc::world::MobType::Boat && ride->hasChest)))
+                        openMountScreen(ride->uuidHi);
+                    else if (survival)
                         container.open(mc::ui::ContainerScreen::Type::Inventory);
                     else
                         creative.open();
@@ -1669,7 +1716,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
             if (ridingCart != 0) { // in a minecart: shift gets out; forward pushes it on
                 mc::world::MobData* cart = findCart();
-                if (!cart || dead || input.sneak) {
+                // (a wild mount that threw its rider: ridden is cleared - M26.2)
+                if (!cart || dead || input.sneak || !cart->ridden || cart->health <= 0.0f) {
+                    mountJumpTicks = 0;
                     if (cart) { // out to a safe spot beside the cart, else on top (wiki: Minecart)
                         const auto& reg = mc::world::blockRegistry();
                         cart->ridden = false;
@@ -1690,6 +1739,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         player.setPosition(out);
                     }
                     ridingCart = 0;
+                } else if (mc::world::isMount(cart->type)) {
+                    // Riding (M26.2, Mounts.cpp applies it): W/S/A/D, the mount faces the
+                    // rider's look; holding jump fills the jump bar (vanilla: about a second
+                    // to full), letting go jumps; a camel's jump is its dash; sprinting
+                    // speeds a camel up.
+                    cart->paddleForward = int8_t(input.forward > 0.0f ? (input.sprint ? 2 : 1) : input.forward < 0.0f ? -1 : 0);
+                    cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
+                    cart->headYaw = player.yaw();
+                    if (input.jump) {
+                        mountJumpTicks = std::min(mountJumpTicks + 1, 10);
+                    } else if (mountJumpTicks > 0) {
+                        cart->riderJump = int8_t(mountJumpTicks * 10);
+                        mountJumpTicks = 0;
+                    }
                 } else if (cart->type == mc::world::MobType::Boat) {
                     // Paddling (M25.2b): W/S forward/back, A/D turn (Boats.cpp applies it).
                     cart->paddleForward = int8_t(input.forward > 0.0f ? 1 : input.forward < 0.0f ? -1 : 0);
@@ -2075,7 +2138,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
-                if (!dead && clicks.useClick && (heldId.ends_with("_boat") || heldId == "minecraft:bamboo_raft")) {
+                if (!dead && clicks.useClick &&
+                    (heldId.ends_with("_boat") || heldId == "minecraft:bamboo_raft" || heldId == "minecraft:bamboo_chest_raft")) {
                     // Boats (M25.2b; wiki: Boat): on the water surface in view, else on the
                     // block clicked, facing the way the player looks.
                     const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
@@ -2085,10 +2149,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                            mc::world::blocks::Water;
                         const mc::world::BlockPos at = water ? hit->block : mc::world::neighbour(hit->block, hit->face);
                         int wood = 0;
-                        for (int w = 0; w < 10; ++w)
+                        bool chest = false; // (M26.2: a chest boat)
+                        for (int w = 0; w < 10; ++w) {
                             if (mc::world::boatId(w) == heldId) wood = w;
+                            if (mc::world::chestBoatId(w) == heldId) wood = w, chest = true;
+                        }
                         if (mc::Mobs::placeBoat(world, {at.x + 0.5, at.y + (water ? 0.8 : 0.0), at.z + 0.5}, player.yaw(),
-                                                wood, gameRng) &&
+                                                wood, gameRng, chest) &&
                             survival)
                             inventory.consumeSelected(1);
                     }
@@ -2268,7 +2335,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick && !container.isOpen()) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     if ((mob.type == mc::world::MobType::Villager || mob.type == mc::world::MobType::WanderingTrader) && !mob.isBaby() &&
@@ -2282,11 +2349,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
+            // A tamed mount's or a chest boat's screen (M26.2): sneak + right-click.
+            if (!dead && clicks.useClick && player.sneaking()) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    const auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    if ((mc::world::isMount(mob.type) && (mob.tamed || mob.type == mc::world::MobType::Camel) &&
+                         !mob.isBaby()) ||
+                        (mob.type == mc::world::MobType::Boat && mob.hasChest)) {
+                        openMountScreen(mob.uuidHi);
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
+            }
             // Getting into a minecart (M21.4): right-click it (not sneaking).
             if (!dead && clicks.useClick && !player.sneaking() && ridingCart == 0) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     if ((mob.type == mc::world::MobType::Minecart || mob.type == mc::world::MobType::Boat) && !mob.ridden) {
@@ -2302,14 +2385,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.useClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
                     (!inventory.selectedStack().empty() ||
                      (mc::world::isPet(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) &&
-                      world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed))) {
+                      world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed) ||
+                     mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const mc::world::ItemStack held = inventory.selectedStack();
-                    const auto use = mc::Mobs::interact(mob, held.item, gameRng, droppedItems);
+                    auto use = mc::Mobs::interact(mob, held.item, gameRng, droppedItems);
+                    if (use == mc::Mobs::Use::Ride && (ridingCart != 0 || player.sneaking())) { // (one ride at a time)
+                        mob.ridden = false;
+                        use = mc::Mobs::Use::None;
+                    }
+                    if (use == mc::Mobs::Use::Ride) ridingCart = mob.uuidHi; // (M26.2: on a mount)
                     if (use != mc::Mobs::Use::None) {
                         world.chunk(mh->chunk)->markDirty();
                         if (survival && use == mc::Mobs::Use::Fed) inventory.consumeSelected(1);
@@ -2361,7 +2450,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     std::optional<mc::BucketResult> result;
                     if (heldId == "minecraft:bucket")
                         if (const auto mh =
-                                mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                                mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                             mh &&
                             (!lastHit || mh->distance < lastHit->distance) && // not through walls
                             world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
@@ -2371,7 +2460,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A water bucket scoops up a fish in front (M25.2): a bucket of that fish.
                     bool scooped = false;
                     if (heldId == "minecraft:water_bucket")
-                        if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                        if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                             mh && (!lastHit || mh->distance < lastHit->distance)) {
                             auto& fish = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                             if (const mc::world::ItemId bucketItem = mc::fishBucketFor(fish.type)) {
@@ -2437,7 +2526,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
                 const double reach = survival ? 3.0 : 5.0; // wiki: entity interaction range
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, reach);
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const auto& stack = inventory.selectedStack();
@@ -2883,9 +2972,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mc::tickHoppers(world, droppedItems); // (M21.3)
             if (ridingCart !=
                 0) { // the rider goes with the cart (an activator rail throws them out)
-                if (mc::world::MobData* cart = findCart()) {
+                if (mc::world::MobData* cart = findCart(); cart && cart->ridden) {
                     const bool boat = cart->type == mc::world::MobType::Boat;
-                    player.setPosition(cart->pos + glm::dvec3(0.0, boat ? 0.15 : 0.3, 0.0));
+                    player.setPosition(cart->pos + glm::dvec3(0.0, mc::Mobs::seatHeight(*cart), 0.0));
                     if (boat) player.setRotation(player.yaw() + cart->yawVel, player.pitch()); // (turning with it)
                     player.setVelocity(glm::dvec3(0.0));
                     vitals.resetFall();
@@ -3270,7 +3359,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 container.openTrading(best);
             }
         }
-        if (openInventoryPending && gameTime > 0) {
+        if (mountPending && gameTime > 2) { // --mount (M26.2: screenshots of riding / a mount's screen)
+            mc::world::MobData* best = nullptr;
+            double bestD = 10.0 * 10.0;
+            world.forEachChunk([&](mc::world::Chunk& c) {
+                for (auto& mob : c.mobs())
+                    if (mc::world::isMount(mob.type) && !mob.isBaby()) {
+                        const double d = glm::dot(mob.pos - player.position(), mob.pos - player.position());
+                        if (d < bestD) bestD = d, best = &mob;
+                    }
+            });
+            if (best) {
+                mountPending = false;
+                best->ridden = true;
+                best->tameCheck = 30000; // (a wild one stays calm for the picture)
+                ridingCart = best->uuidHi;
+                if (openInventoryPending) {
+                    openInventoryPending = false;
+                    openMountScreen(best->uuidHi);
+                }
+            }
+        }
+        if (openInventoryPending && gameTime > 0 && !mountPending) {
             openInventoryPending = false;
             if (survival)
                 container.open(mc::ui::ContainerScreen::Type::Inventory);
@@ -3741,7 +3851,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints());
-            if (survival)
+            const mc::world::MobData* steed = ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
+            if (steed && steed->saddled && (mc::world::isHorseKind(steed->type) || steed->type == mc::world::MobType::Camel))
+                mc::ui::drawJumpBar(batch, float(mountJumpTicks) / 10.0f, guiW, guiH);
+            else if (survival)
                 mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
             if (mobs.bossHealth() >= 0.0f) // (M20.2)
                 mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f,
@@ -3771,6 +3884,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Trading)
                 pointTrader();
+            if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Mount) pointMount();
             if (container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Beacon) {
                 mc::world::Chunk* bc = world.chunk(containerBlock.chunk());
                 container.setBeacon(bc ? bc->beacon(mc::world::blockToLocal(containerBlock.x),

@@ -21,6 +21,7 @@ bool Mobs::isFood(MobType type, ItemId item) {
     // seeds for chickens (others not added yet).
     static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"), seeds = itemId("wheat_seeds");
     static const ItemId warpedFungus = itemRegistry().blockItem(blocks::WarpedFungus);
+    if (isMount(type)) return isMountFood(type, item); // (M26.2)
     switch (type) {
     case MobType::Cow:
     case MobType::Sheep: return item == wheat;
@@ -34,6 +35,7 @@ bool Mobs::isFood(MobType type, ItemId item) {
 
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
+    if (isMount(m.type)) return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
     if (isPet(m.type) || m.type == MobType::Ocelot) // (M26.1: taming, sitting, collars, healing)
         if (const Use u = petInteract(m, held, rng); u != Use::None) return u;
     static const ItemId shears = itemId("shears");
@@ -100,7 +102,8 @@ MobData* Mobs::findMob(World& world, const MobData& self, double range, bool wan
             Chunk* ch = world.chunk({c.x + dx, c.z + dz});
             if (!ch) continue;
             for (MobData& o : ch->mobs()) {
-                if (&o == &self || o.type != self.type || o.health <= 0.0f) continue;
+                // (in love: any mate - a horse and a donkey too, M26.2)
+                if (&o == &self || (wantLove ? !canMate(self, o) : o.type != self.type) || o.health <= 0.0f) continue;
                 if (wantLove && (o.loveTicks == 0 || o.isBaby())) continue;
                 if (wantAdult && o.isBaby()) continue;
                 const double d = glm::dot(o.pos - self.pos, o.pos - self.pos);
@@ -207,6 +210,7 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     baby.color2 = m.color2;
                     if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
                         baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
+                    if (isMount(m.type)) mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
                     m_births.push_back(baby);
                     if (ctx.orbs) ctx.orbs->drop(m.pos, 1 + static_cast<int>(ctx.rng.nextInt(7)), ctx.rng); // wiki: 1-7
                     for (MobData* parent : {&m, partner}) {

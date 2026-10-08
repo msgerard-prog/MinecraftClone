@@ -23,18 +23,23 @@ struct MobPart {
     // 4, 5 = a tropical fish's body and pattern, tinted by its two colours (M25.2).
     // 6 = a boat's planks, tinted by its wood (M25.2b).
     // 7 = a pet's collar, shown when tamed, tinted by its dye (M26.1).
-    // 8 = fur/feathers tinted by the variant (wolves, cats, parrots - M26.1).
+    // 8 = fur/feathers tinted by the variant (wolves, cats, parrots - M26.1; horses, llamas).
+    // 9-12 = mount gear from the mount-gear texture (M26.2): 9 saddle (when saddled),
+    // 10 horse armor (tinted by its material), 11 chest packs (with a chest), 12 a
+    // llama's carpet (tinted by its dye).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
 
 std::span<const MobPart> mobModel(world::MobType type);
+std::span<const MobPart> chestBoatModel(); // (M26.2: a boat with a chest)
 // Rows of the stacked mob atlas (64 x 64 each): one per mob type, then sheep wool,
 // then projectiles (the arrow: 16 x 5 at (0,0), tip at +x).
-inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 3;
+inline constexpr int kMobTextureRows = static_cast<int>(world::MobType::Count) + 4;
 inline constexpr int kSheepWoolRow = static_cast<int>(world::MobType::Count);
 inline constexpr int kProjectileRow = static_cast<int>(world::MobType::Count) + 1;
 inline constexpr int kVillagerApronRow = static_cast<int>(world::MobType::Count) + 2; // (M24.1)
+inline constexpr int kMountGearRow = static_cast<int>(world::MobType::Count) + 3;     // (M26.2)
 inline int mobTextureRow(world::MobType type) { return static_cast<int>(type); }
 inline const char* mobTexturePath(int row) {
     static constexpr const char* kPaths[kMobTextureRows] = {
@@ -78,9 +83,16 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/cat.png",
         "assets/minecraft/textures/entity/clone/ocelot.png",
         "assets/minecraft/textures/entity/clone/parrot.png",
+        "assets/minecraft/textures/entity/clone/horse.png",
+        "assets/minecraft/textures/entity/clone/donkey.png",
+        "assets/minecraft/textures/entity/clone/mule.png",
+        "assets/minecraft/textures/entity/clone/llama.png",
+        "assets/minecraft/textures/entity/clone/trader_llama.png",
+        "assets/minecraft/textures/entity/clone/camel.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
-        "assets/minecraft/textures/entity/clone/villager_apron.png"};
+        "assets/minecraft/textures/entity/clone/villager_apron.png",
+        "assets/minecraft/textures/entity/clone/mount_gear.png"};
     return kPaths[row];
 }
 // Wool colours by dye index (wiki: Dye - the colours of the 16 dyes).

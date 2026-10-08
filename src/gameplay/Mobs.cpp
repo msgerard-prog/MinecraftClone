@@ -72,7 +72,9 @@ Aabb Mobs::box(const MobData& m) {
     const MobInfo& info = mobInfo(m.type);
     double s = m.isBaby() ? 0.5 : 1.0; // babies are half size (wiki: Breeding)
     if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
-    return Aabb::fromFeet(m.pos, info.width * s, info.height * s);
+    // (a sitting camel is 0.945 tall - wiki: Camel)
+    const double h = m.type == MobType::Camel && m.sitting ? 0.945 : info.height;
+    return Aabb::fromFeet(m.pos, info.width * s, h * s);
 }
 
 uint8_t Mobs::naturalWoolColour(Xoroshiro& rng) {
@@ -108,6 +110,7 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     if (isPet(type) || type == MobType::Ocelot) m.color2 = 14; // (red collars - wiki)
     if (type == MobType::Cat) m.woolColour = uint8_t(rng.nextInt(10)); // (all black only from swamp huts)
     if (type == MobType::Parrot) m.woolColour = uint8_t(rng.nextInt(5));
+    if (isMount(type)) initMount(m, rng); // (M26.2: its own health, speed and jump; coat)
     if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
         wanderingTraderTrades(m, rng);
         m.despawnDelay = 48000;
@@ -261,15 +264,17 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         }
         return d;
     };
-    gather(start.expandedTowards(m.vel).expandedTowards({0, kStep, 0}));
+    // Mounts step up whole blocks (wiki: Horse - step height 1; Camel 1.5).
+    const double step = m.type == MobType::Camel ? 1.5 : isMount(m.type) ? 1.0 : kStep;
+    gather(start.expandedTowards(m.vel).expandedTowards({0, step, 0}));
     glm::dvec3 moved = slide(start, m.vel);
     const bool blockedH = moved.x != m.vel.x || moved.z != m.vel.z;
     if (blockedH && m.onGround) { // try stepping up (slabs, snow)
-        const glm::dvec3 up = slide(start, {0, kStep, 0});
+        const glm::dvec3 up = slide(start, {0, step, 0});
         const Aabb raised = start.moved(up);
         glm::dvec3 across = slide(raised, {m.vel.x, 0, m.vel.z});
         const Aabb over = raised.moved(across);
-        const glm::dvec3 down = slide(over, {0, -kStep, 0});
+        const glm::dvec3 down = slide(over, {0, -step, 0});
         const glm::dvec3 stepped = up + across + down;
         if (stepped.x * stepped.x + stepped.z * stepped.z > moved.x * moved.x + moved.z * moved.z + 1e-9)
             moved = stepped;
@@ -284,7 +289,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
             m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
-        const float damage = std::ceil(m.fallDistance - 3.0f);
+        // (mounts: half the damage and 3 more safe blocks - wiki: Horse, Camel)
+        const float damage = isMount(m.type) ? std::ceil(m.fallDistance * 0.5f - 3.0f) : std::ceil(m.fallDistance - 3.0f);
         if (damage > 0.0f) {
             m.health -= damage;
             m.hurtTime = 10;
@@ -312,6 +318,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         boatTick(ctx, m);
         return;
     }
+    if (isMount(m.type) && mountTick(ctx, m)) return; // (ridden: Mounts.cpp, M26.2)
     if (m.type == MobType::EnderDragon) {
         dragonAi(ctx, m);
         if (m.phaseTicks > 30000) m.phaseTicks = 30000;
@@ -445,6 +452,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // (home, work, the bell, sleep: Villagers.cpp)
     } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 && petGoal(ctx, m, speed)) {
         // (sitting, following, fighting, dancing: Pets.cpp)
+    } else if (isMount(m.type) && m.panicTicks == 0 && mountGoal(ctx, m, speed)) {
+        // (camels resting, trader llamas with their trader: Mounts.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
         // (breeding partner, food, parent)
     } else if (m.panicTicks > 0) {
@@ -555,6 +564,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
 
     if (info.hostile) monsterTick(ctx, m, chase, playerDist2);
+    if (isLlama(m.type)) llamaTick(ctx, m);
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
     // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
@@ -627,6 +637,9 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
             m.angry = true;
             m.angerTicks = 600;
         }
+    } else if (isLlama(m.type)) { // llamas spit back (wiki: Llama)
+        m.angry = true;
+        m.angerTicks = 200;
     } else if (!mobInfo(m.type).hostile) {
         m.panicTicks = 100; // passive mobs flee (wiki: Cow)
     }
@@ -649,10 +662,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 void Mobs::die(Context& ctx, MobData& m) {
     if (m.type == MobType::Boat) { // broken: the boat item, gone at once (M25.2b)
         m.deathTime = 19;
-        if (const auto boat = itemRegistry().find(boatId(m.woolColour)))
+        if (const auto boat = itemRegistry().find(m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour)))
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*boat, 1}, ctx.rng);
+        if (m.hasChest) dropMountGear(ctx, m); // (M26.2: its chest's stacks)
         return;
     }
+    if (isMount(m.type)) dropMountGear(ctx, m); // (M26.2)
     if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
         m.deathTime = 19;
         if (const auto cart = itemRegistry().find("minecart")) ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
@@ -802,6 +817,11 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Dolphin: drop(burning ? "cooked_cod" : "cod", 0, 1); break; // (wiki: Dolphin)
     case MobType::Turtle: drop("seagrass", 0, 2); break; // (wiki: Turtle - 0-2 seagrass)
+    case MobType::Horse: // (M26.2; wiki: Horse, Donkey, Mule, Llama - 0-2 leather; camels nothing)
+    case MobType::Donkey:
+    case MobType::Mule:
+    case MobType::Llama:
+    case MobType::TraderLlama: drop("leather", 0, 2); break;
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
@@ -984,7 +1004,9 @@ void Mobs::tick(Context& ctx) {
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
-                m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot) && !m.tamed;
+                m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot ||
+                                (isMount(m.type) && m.type != MobType::TraderLlama)) &&
+                               !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_striders += m.type == MobType::Strider;
@@ -1003,7 +1025,7 @@ void Mobs::tick(Context& ctx) {
             const ChunkPos now{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
             if (!remove && !(now == chunk.pos())) {
                 if (ctx.world.chunk(now)) {
-                    m_moves.push_back({now, m});
+                    m_moves.push_back({now, chunk.pos(), m});
                     remove = true;
                 } else { // the next chunk isn't loaded: stay at the border
                     m.pos = m.prevPos;
@@ -1025,6 +1047,14 @@ void Mobs::tick(Context& ctx) {
     for (const Move& mv : m_moves)
         if (Chunk* c = ctx.world.chunk(mv.to)) {
             c->mobs().push_back(mv.mob);
+            // A mount's or chest boat's chest goes with it (M26.2).
+            if (mv.mob.hasChest)
+                if (Chunk* from = ctx.world.chunk(mv.from))
+                    if (ItemContents* slots = from->mobStore(mv.mob.uuidHi)) {
+                        c->addMobStore(mv.mob.uuidHi) = *slots;
+                        from->removeMobStore(mv.mob.uuidHi);
+                        from->markDirty();
+                    }
             c->markDirty();
             ctx.world.markTicking(mv.to);
         }

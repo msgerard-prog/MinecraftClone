@@ -411,6 +411,26 @@ def mob_sounds(name, rng):
         chirp = lambda f: mul(tone(0.08, f, f * 1.4, "sine"), env(int(0.08 * RATE), 0.003, 0.03))
         trill = lambda f: add(chirp(f), at(chirp(f * 1.1), 0.1, 0.3), at(chirp(f * 0.9), 0.2, 0.3))
         return [trill(r(2200, 3000)) for _ in range(3)], [chirp(3400) for _ in range(2)], trill(1800)
+    if name in ("horse", "mule"):  # a whinny: a falling, wavering neigh, snorts when hurt (ours)
+        f = 900 if name == "horse" else 700
+        neigh = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(700, 2400), vibrato=0.12, vib_rate=14, breath=0.3)
+        snort = lambda: mul(bandpass(noise(int(0.25 * RATE), rng), 400, 2500), env(int(0.25 * RATE), 0.01, 0.08))
+        return ([neigh(r(0.7, 1.0), f * r(0.95, 1.1), f * 0.45) for _ in range(3)],
+                [add(snort(), [x * 0.5 for x in neigh(0.25, f * 1.2, f)]) for _ in range(2)], neigh(1.2, f * 1.1, f * 0.3))
+    if name == "donkey":  # hee-haw: a high in-breath and a low out-breath (ours)
+        hee = lambda: voice(rng, 0.3, 700, 760, wave="saw", formant=(800, 2600), breath=0.4)
+        haw = lambda: voice(rng, 0.45, 260, 200, wave="saw", formant=(500, 1600), breath=0.4)
+        call = lambda: add(at(hee(), 0, 1.6), at(haw(), 0.33, 1.6), at(hee(), 0.8, 1.6), at(haw(), 1.13, 1.6))
+        return [call() for _ in range(3)], [voice(rng, 0.3, 600, 300, wave="saw", formant=(600, 2000)) for _ in range(2)], \
+            voice(rng, 1.0, 500, 150, wave="saw", formant=(600, 2000), vibrato=0.1)
+    if name in ("llama", "trader_llama"):  # a nasal hum and bleat (ours)
+        hum = lambda d, f0, f1: voice(rng, d, f0, f1, wave="triangle", formant=(400, 1800), vibrato=0.05, vib_rate=7, breath=0.2)
+        return ([hum(r(0.4, 0.7), r(260, 320), r(220, 260)) for _ in range(3)],
+                [hum(0.25, 480, 360) for _ in range(2)], hum(0.9, 380, 140))
+    if name == "camel":  # deep grumbles (ours)
+        grumble = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(250, 1000), vibrato=0.2, vib_rate=18, breath=0.5)
+        return ([grumble(r(0.6, 0.9), r(90, 120), r(70, 85)) for _ in range(3)],
+                [grumble(0.3, 160, 120) for _ in range(2)], grumble(1.1, 130, 50))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -423,7 +443,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
-        "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot"]
+        "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
+        "horse", "donkey", "mule", "llama", "trader_llama", "camel"]
 
 
 # --- Everything else ----------------------------------------------------------------

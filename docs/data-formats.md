@@ -263,6 +263,14 @@ M25.5: entities `minecraft:guardian`, `minecraft:elder_guardian`; blocks `sponge
 M26.1: entities `minecraft:wolf`, `cat` (`Owner` int-array UUID, `Sitting`, `CollarColor`,
 `variant` "minecraft:pale"...), `ocelot` (`Trusting`), `parrot` (`Variant` 0-4, `Owner`,
 `Sitting`); level.dat `Player.UUID`.
+M26.2: entities `minecraft:horse` (`Variant` = colour | markings << 8), `donkey`, `mule`,
+`llama` and `trader_llama` (`Variant` 0-3, `Strength`; trader llamas `DespawnDelay`),
+`camel` (`LastPoseTick` < 0: sitting) with `Tame`, `Temper`, `Owner`, `ChestedHorse`,
+`Items` (chest slots numbered from 2), `attributes` [{id: max_health / movement_speed /
+jump_strength, base}] and 1.21.5+ `equipment` {saddle, body (horse armor or carpet)};
+`minecraft:<wood>_chest_boat` / `bamboo_chest_raft` with `Items` (from 0). Items `saddle`,
+`leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
+shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

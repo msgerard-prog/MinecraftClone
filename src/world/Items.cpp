@@ -196,6 +196,15 @@ ItemRegistry buildItems() {
         const std::string id = boatId(w);
         r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
     }
+    for (int w = 0; w < 10; ++w) { // chest boats (M26.2)
+        const std::string id = chestBoatId(w);
+        r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
+    }
+    // Mount gear (M26.2; wiki: Saddle, Horse Armor - unstackable).
+    r.add({.id = "minecraft:saddle", .maxStack = 1, .texture = "item/saddle"});
+    for (int k = 1; k < 5; ++k)
+        r.add({.id = std::string("minecraft:") + kHorseArmorItems[k], .maxStack = 1,
+               .texture = std::string("item/") + kHorseArmorItems[k]});
     r.add({.id = "minecraft:rotten_flesh", .food = 4, .saturation = 0.8f, .texture = "item/rotten_flesh"});
     // Farm animals (M16.3; wiki: each food's page - hunger / saturation).
     r.add({.id = "minecraft:porkchop", .food = 3, .saturation = 1.8f, .texture = "item/porkchop"});

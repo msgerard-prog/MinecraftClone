@@ -26,6 +26,9 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
 // Air bubbles show above the hunger bar while breath is below full (wiki: Drowning).
 // The experience bar above the hotbar and the level number (wiki: Experience › HUD).
 void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidth, int guiHeight);
+// The jump bar in its place while riding a steerable mount (M26.2; wiki: Horse ›
+// Riding): how far the held jump has charged, 0..1.
+void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight);
 void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300,
                 int armor = 0);
 

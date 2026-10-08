@@ -90,6 +90,15 @@ TEST_CASE("command line: --trade opens a villager's trades") {
     CHECK(opts->trade);
 }
 
+TEST_CASE("command line: --mount rides the nearest mount") {
+    std::array<const char*, 2> args = {"--mount", "--inventory"};
+    std::string error;
+    const auto opts = mc::parseCommandLine(args, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->mount);
+    CHECK(opts->inventory);
+}
+
 TEST_CASE("command line: --f3, --inventory, repeatable --command, signed --seed") {
     std::array<const char*, 8> args = {"--f3",    "--inventory", "--command", "/time set night",
                                        "--command", "/seed",     "--seed",    "-42"};

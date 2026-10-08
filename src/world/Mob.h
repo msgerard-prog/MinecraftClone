@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -62,6 +63,12 @@ enum class MobType : uint8_t {
     Cat,     // (M26.1) variant in woolColour (kCatVariants), collar dye in color2
     Ocelot,  // (M26.1) trusting (fed fish) in `tamed`
     Parrot,  // (M26.1) variant 0-4 in woolColour
+    Horse,       // (M26.2) coat colour in woolColour (kHorseColours), markings in color2
+    Donkey,      // (M26.2) carries a chest (15 slots)
+    Mule,        // (M26.2) a horse and a donkey's foal; carries a chest, never breeds
+    Llama,       // (M26.2) variant in woolColour (kLlamaVariants); strength 1-5 (3 slots each)
+    TraderLlama, // (M26.2) walks with a wandering trader (vanilla: on its lead)
+    Camel,       // (M26.2) needs no taming; dashes, sits
     Count
 };
 
@@ -91,6 +98,9 @@ inline constexpr BoatWood kBoatWoods[10] = {{"oak", 0xB8945F},     {"spruce", 0x
 inline std::string boatId(int wood) { // entity and item id
     return std::string("minecraft:") + kBoatWoods[wood % 10].name + (wood % 10 == 9 ? "_raft" : "_boat");
 }
+inline std::string chestBoatId(int wood) { // (M26.2) a boat with a chest
+    return std::string("minecraft:") + kBoatWoods[wood % 10].name + (wood % 10 == 9 ? "_chest_raft" : "_chest_boat");
+}
 
 // Pets (M26.1): what tames them and what they look like (wiki: Wolf, Cat, Parrot).
 inline bool isPet(MobType t) {
@@ -110,11 +120,42 @@ inline constexpr NamedColour kCatVariants[11] = {{"tabby", 0x9C7A54},      {"bla
                                                  {"white", 0xF4F4F0},      {"jellie", 0x5A5A60},  {"all_black", 0x1E1C1C}};
 inline constexpr uint32_t kParrotColours[5] = {0xD02A20, 0x2850D8, 0x50C830, 0x30C8D8, 0xA8A8A8}; // red blue green cyan grey
 
+// Mounts (M26.2; wiki: Horse, Donkey, Mule, Llama, Camel): ridden by the player.
+inline bool isMount(MobType t) {
+    return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule || t == MobType::Llama ||
+           t == MobType::TraderLlama || t == MobType::Camel;
+}
+inline bool isHorseKind(MobType t) { return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule; }
+inline bool isLlama(MobType t) { return t == MobType::Llama || t == MobType::TraderLlama; }
+// Takes a chest (donkeys, mules, llamas; chest boats are boats with `hasChest`).
+inline bool canCarryChest(MobType t) { return t == MobType::Donkey || t == MobType::Mule || isLlama(t); }
+// The 7 horse coat colours and 5 markings (wiki: Horse › Appearance; saved as Variant =
+// colour | markings << 8).
+inline constexpr NamedColour kHorseColours[7] = {{"white", 0xE8E4DC},  {"creamy", 0xC8A878},   {"chestnut", 0xA0603A},
+                                                 {"brown", 0x6E4A2C},  {"black", 0x2C2624},    {"gray", 0x6E6A68},
+                                                 {"dark_brown", 0x3E2A1C}};
+inline constexpr const char* kHorseMarkings[5] = {"none", "white", "white_field", "white_dots", "black_dots"};
+inline constexpr NamedColour kLlamaVariants[4] = {{"creamy", 0xD8C8A0}, {"white", 0xEEEAE2}, {"brown", 0x7A5A3C},
+                                                  {"gray", 0x8A8682}};
+// Horse armor (wiki: Horse Armor - leather 3, iron 5, golden 7, diamond 11 armor points),
+// indexed by MobData::horseArmor (0: none).
+inline constexpr const char* kHorseArmorItems[5] = {"", "leather_horse_armor", "iron_horse_armor",
+                                                    "golden_horse_armor", "diamond_horse_armor"};
+inline constexpr int kHorseArmorPoints[5] = {0, 3, 5, 7, 11};
+// Chest slots a mount (or chest boat) carries: donkeys and mules 15, llamas 3 per
+// strength, chest boats 27 (wiki).
+inline int chestSlots(MobType t, int strength) {
+    return t == MobType::Boat ? 27 : isLlama(t) ? 3 * std::clamp(strength, 1, 5) : canCarryChest(t) ? 15 : 0;
+}
+
 // Fish, squid (M25.2): water creatures.
 inline bool isFish(MobType t) {
     return t == MobType::Cod || t == MobType::Salmon || t == MobType::TropicalFish || t == MobType::Pufferfish;
 }
 const MobInfo& mobInfo(MobType t);
+struct MobData;
+// A mob's top health: its own (mounts), a tamed wolf's 40, else its type's.
+float maxHealthOf(const MobData& m);
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.
@@ -159,7 +200,21 @@ struct MobData {
     bool heldTrident = false;                 // (M25.3) a drowned holding a trident (equipment.mainhand)
     bool hasEgg = false;                      // (M25.3b) a turtle carrying eggs home (HasEgg)
     bool tamed = false;   // (M26.1) a pet of the player (Owner: the player's UUID); ocelots: trusting
-    bool sitting = false; // (M26.1) ordered to sit (Sitting)
+    bool sitting = false; // (M26.1) ordered to sit (Sitting); camels: resting on the ground
+    // Mounts (M26.2): taming temper (Temper), equipment, chests and their own stats
+    // (vanilla attributes: max_health, movement_speed, jump_strength).
+    int16_t temper = 0;
+    int16_t tameCheck = 0;   // ticks until a wild mount ridden decides: tamed, or the rider thrown
+    bool saddled = false;
+    bool hasChest = false;   // donkeys, mules, llamas (ChestedHorse) and chest boats
+    uint8_t horseArmor = 0;  // kHorseArmorItems index
+    uint8_t decor = 0;       // a llama's carpet: dye colour + 1 (0: none)
+    uint8_t strength = 3;    // llama: 1-5 (Strength)
+    float maxHealth = 0.0f;  // its own top health (0: the type's)
+    float moveSpeed = 0.0f;  // its own movement speed (0: the type's)
+    float jumpStrength = 0.0f;
+    int8_t riderJump = 0;    // the rider's jump: charge 1..100 released this tick (camels: dash)
+    int16_t dashCooldown = 0; // camel: 55 ticks between dashes
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

@@ -15,8 +15,9 @@ M26 - Mobs 3 (wiki pages of each mob):
 1. ✅ M26.1 - Companions: wolves (taming, sitting, following, wolf armor, variants), cats
    and ocelots (taming, gifts, scaring creepers and phantoms), parrots (shoulders,
    dancing, imitating).
-2. M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,
-   breeding stats), llamas and trader llamas (caravans, spit), camels; chest boats.
+2. ✅ M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,
+   breeding stats), llamas and trader llamas (spit; caravans need leads - M28), camels;
+   chest boats.
 3. M26.3 - Wildlife: foxes (sleeping, carrying items), bees (nests, hives, honey,
    pollination), goats (ramming, horns), frogs and tadpoles (froglights), axolotls
    (buckets, play dead), pandas (personalities), polar bears, rabbits.
@@ -276,7 +277,7 @@ and GUI textures are made with their systems.
 | M25 | Oceans: water aquifers, ocean biomes and features, drowned, guardians and ocean monuments, shipwrecks, ocean ruins, boats, fishing, fish, squid, dolphins, turtles, tridents | ✅ 2026-10-08 v0.25.0 (simple flooded caves, own monument design, no chest boats: see deviations) |
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | Vanilla's mob roster |
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | Vanilla's world |
-| M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
+| M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | Complete first revision |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)

@@ -15,10 +15,11 @@ namespace mc {
 
 using namespace world;
 
-bool Mobs::placeBoat(World& world, const glm::dvec3& at, float yaw, int wood, Xoroshiro& rng) {
+bool Mobs::placeBoat(World& world, const glm::dvec3& at, float yaw, int wood, Xoroshiro& rng, bool chest) {
     MobData m = make(MobType::Boat, at, rng);
     m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = yaw;
     m.woolColour = uint8_t(wood);
+    m.hasChest = chest; // (M26.2: a chest boat)
     m.persistent = true;
     return add(world, m);
 }

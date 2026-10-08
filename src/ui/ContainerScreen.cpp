@@ -106,6 +106,7 @@ void ContainerScreen::close(Inventory& inventory, std::vector<world::ItemStack>&
     m_furnace = nullptr;
     m_chests = {};
     m_store = {};
+    m_mount = nullptr;
     m_open = false;
 }
 
@@ -162,6 +163,14 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         } else if (type == Type::Hopper) { // (vanilla hopper: 5 in a row)
             for (int i = 0; i < 5; ++i)
                 out.push_back({K::Store, i, 44 + i * 18, 20});
+        } else if (type == Type::Mount && rows == 3) { // a chest boat: a chest's 3 rows
+            for (int i = 0; i < 27; ++i)
+                out.push_back({K::Store, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
+        } else if (type == Type::Mount) { // (vanilla horse screen: gear on the left, the chest 5 wide)
+            out.push_back({K::MountGear, 0, 8, 18});
+            out.push_back({K::MountGear, 1, 8, 36});
+            for (int i = 0; i < 15; ++i)
+                out.push_back({K::Store, i, 80 + (i % 5) * 18, 18 + (i / 5) * 18});
         } else if (type == Type::Dispenser) { // (vanilla generic_3x3)
             for (int i = 0; i < 9; ++i)
                 out.push_back({K::Store, i, 62 + (i % 3) * 18, 17 + (i / 3) * 18});
@@ -203,7 +212,9 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
                                    smithing = build(Type::Smithing, 0), loom = build(Type::Loom, 0),
                                    cartography = build(Type::Cartography, 0),
                                    beacon = build(Type::Beacon, 0),
-                                   trading = build(Type::Trading, 0);
+                                   trading = build(Type::Trading, 0), mount = build(Type::Mount, 0),
+                                   chestBoat = build(Type::Mount, 3);
+    if (m_type == Type::Mount) return m_mount && m_mount->type == world::MobType::Boat ? chestBoat : mount;
     if (m_type == Type::Beacon) return beacon;
     if (m_type == Type::Trading) return trading;
     if (m_type == Type::Smithing) return smithing;
@@ -250,8 +261,59 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
     }
     case Slot::Kind::Store:
         return size_t(s.index) < m_store.size() ? &m_store[size_t(s.index)] : nullptr;
+    case Slot::Kind::MountGear: { // (a view of the mob's fields; written back through setGear)
+        if (!m_mount) return nullptr;
+        using world::MobType;
+        const MobType t = m_mount->type;
+        const auto& items = world::itemRegistry();
+        m_gearScratch = {};
+        if (s.index == 0) {
+            if (!world::isHorseKind(t) && t != MobType::Camel) return nullptr; // (llamas take no saddle)
+            if (m_mount->saddled) m_gearScratch = {*items.find("saddle"), 1};
+        } else {
+            if (t != MobType::Horse && !world::isLlama(t)) return nullptr;
+            if (m_mount->horseArmor > 0) m_gearScratch = {*items.find(world::kHorseArmorItems[m_mount->horseArmor]), 1};
+            if (m_mount->decor > 0)
+                m_gearScratch = {*items.find(std::string(world::kDyeColours[m_mount->decor - 1]) + "_carpet"), 1};
+        }
+        return &m_gearScratch;
+    }
     }
     return nullptr;
+}
+
+void ContainerScreen::openMount(world::MobData* mob, std::span<world::ItemStack> chest) {
+    open(Type::Mount);
+    m_mount = mob;
+    m_store = chest;
+}
+
+bool ContainerScreen::gearFits(int slot, const world::ItemStack& s) const {
+    if (!m_mount || s.empty()) return s.empty();
+    const std::string_view id = world::itemRegistry().item(s.item).id;
+    if (slot == 0) return id == "minecraft:saddle";
+    if (m_mount->type == world::MobType::Horse)
+        for (int k = 1; k < 5; ++k)
+            if (id == std::string("minecraft:") + world::kHorseArmorItems[k]) return true;
+    if (world::isLlama(m_mount->type))
+        for (int c = 0; c < 16; ++c)
+            if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") return true;
+    return false;
+}
+
+void ContainerScreen::setGear(int slot, const world::ItemStack& s) {
+    if (!m_mount) return;
+    const std::string_view id = s.empty() ? std::string_view{} : world::itemRegistry().item(s.item).id;
+    if (slot == 0) {
+        m_mount->saddled = !s.empty();
+        return;
+    }
+    m_mount->horseArmor = 0;
+    m_mount->decor = 0;
+    for (int k = 1; k < 5 && !s.empty(); ++k)
+        if (id == std::string("minecraft:") + world::kHorseArmorItems[k]) m_mount->horseArmor = uint8_t(k);
+    for (int c = 0; c < 16 && !s.empty(); ++c)
+        if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") m_mount->decor = uint8_t(c + 1);
 }
 
 void ContainerScreen::updateResult() {
@@ -582,6 +644,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                 inventory.setArmor(slot.index, v);
             else if (slot.kind == Slot::Kind::Offhand)
                 inventory.setOffhand(v);
+            else if (slot.kind == Slot::Kind::MountGear)
+                setGear(slot.index, v);
             else
                 *s = v;
             if (slot.kind == Slot::Kind::Grid) updateResult();
@@ -600,7 +664,20 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
-                if ((m_type == Type::Hopper || m_type == Type::Dispenser) &&
+                if (m_type == Type::Mount) // (gear first: a saddle, armor or carpet onto an empty gear slot)
+                    for (int g = 0; g < 2; ++g) {
+                        const Slot gear{Slot::Kind::MountGear, g, 0, 0};
+                        world::ItemStack* cur = stackAt(gear, inventory);
+                        if (cur && cur->empty() && gearFits(g, v)) {
+                            world::ItemStack one = v;
+                            one.count = 1;
+                            setGear(g, one);
+                            v.count = uint8_t(v.count - 1);
+                            store();
+                            return;
+                        }
+                    }
+                if ((m_type == Type::Hopper || m_type == Type::Dispenser || m_type == Type::Mount) &&
                     !m_store.empty()) { // into its slots
                     for (int pass = 0; pass < 2 && !v.empty(); ++pass)
                         for (world::ItemStack& t : m_store) {
@@ -722,6 +799,15 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         if (slot.kind == Slot::Kind::Chest && !m_carried.empty() && isShulkerBoxItem(m_carried) &&
             m_chests[size_t(slot.index / 27)] && m_chests[size_t(slot.index / 27)]->shulker)
             return;
+        // A mount's gear slots take one saddle / one horse armor or carpet (wiki: Horse).
+        if (slot.kind == Slot::Kind::MountGear && !m_carried.empty()) {
+            if (!gearFits(slot.index, m_carried) || !v.empty()) return;
+            v = m_carried;
+            v.count = 1;
+            if (--m_carried.count == 0) m_carried = {};
+            store();
+            return;
+        }
         // An armor slot only takes its own piece (wiki: Inventory).
         if (slot.kind == Slot::Kind::Armor && !m_carried.empty() &&
             world::itemRegistry().item(m_carried.item).armorSlot != slot.index + 1)
@@ -815,6 +901,14 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
             ? (m_trader && m_trader->type == world::MobType::WanderingTrader ? "Wandering Trader"
                : m_trader                                                 ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)]
                                                                           : "Trading")
+        : m_type == Type::Mount       ? (!m_mount                                        ? "Mount"
+                                         : m_mount->type == world::MobType::Boat          ? "Chest Boat"
+                                         : m_mount->type == world::MobType::Horse         ? "Horse"
+                                         : m_mount->type == world::MobType::Donkey        ? "Donkey"
+                                         : m_mount->type == world::MobType::Mule          ? "Mule"
+                                         : m_mount->type == world::MobType::Camel         ? "Camel"
+                                         : m_mount->type == world::MobType::TraderLlama   ? "Trader Llama"
+                                                                                          : "Llama")
         : m_type == Type::Beacon      ? "Beacon"
         : m_type == Type::Smithing    ? "Upgrade Gear"
         : m_type == Type::Loom        ? "Loom"
@@ -838,7 +932,9 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
     const float titleX =
         m_type == Type::Inventory                                                       ? 97.0f
         : m_type == Type::Crafting                                                      ? 28.0f
-        : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper || m_type == Type::Trading ? 8.0f
+        : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper || m_type == Type::Trading ||
+                m_type == Type::Mount
+            ? 8.0f
         : m_type == Type::Anvil                                                         ? 60.0f
                                                                                         : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
@@ -1007,6 +1103,9 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
     const double px = mx - left, py = my - top;
     for (const Slot& slot : slots()) {
         const float x = left + slot.x, y = top + slot.y;
+        if (m_type == Type::Mount && slot.kind != Slot::Kind::Inv &&
+            !const_cast<ContainerScreen*>(this)->stackAt(slot, inv))
+            continue; // (gear it can't wear, chest slots it doesn't have)
         const bool big = (slot.kind == Slot::Kind::Result && m_type == Type::Crafting) ||
                          slot.kind == Slot::Kind::FurnaceOut;
         if (big) { // result slots are 26x26 frames in vanilla

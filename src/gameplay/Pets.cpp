@@ -28,7 +28,7 @@ bool solid(const World& w, int x, int y, int z) { return blockRegistry().collide
 } // namespace
 
 float Mobs::petMaxHealth(const MobData& m) {
-    return m.type == MobType::Wolf && m.tamed ? 40.0f : mobInfo(m.type).maxHealth; // (wiki: tamed wolves 40)
+    return maxHealthOf(m);
 }
 
 // Right-clicking a pet or a wild one with its taming food (wiki: Taming): wolves take
@@ -221,9 +221,16 @@ void Mobs::spawnCreatures(Context& ctx) {
     int y = int(std::floor(p.y)) + 32;
     while (y > int(std::floor(p.y)) - 32 && !solid(ctx.world, x, y - 1, z)) --y;
     const BlockId ground = r.blockOf(ctx.world.getBlock({x, y - 1, z}));
-    if (ground != blocks::GrassBlock && ground != blocks::Podzol && ground != blocks::Snow && ground != blocks::SnowBlock) return;
     if (solid(ctx.world, x, y, z) || c->skyLight(blockToLocal(x), y, blockToLocal(z)) < 9) return;
     const Biome biome = c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height());
+    // Horses, donkeys, llamas and camels (M26.2, Mounts.cpp): grass, or a desert's sand.
+    if ((ground == blocks::GrassBlock || (biome == Biome::Desert && ground == blocks::Sand)) &&
+        (biome == Biome::Plains || biome == Biome::Savanna || biome == Biome::WindsweptHills || biome == Biome::Desert) &&
+        ctx.rng.nextInt(2) == 0) {
+        spawnMounts(ctx, biome, x, y, z);
+        return;
+    }
+    if (ground != blocks::GrassBlock && ground != blocks::Podzol && ground != blocks::Snow && ground != blocks::SnowBlock) return;
     MobType kind = MobType::Count;
     int group = 1, variant = 0;
     switch (biome) { // (wiki: Wolf › Variants - each biome's wolf)

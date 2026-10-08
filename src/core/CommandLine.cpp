@@ -102,6 +102,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.inventory = true;
         } else if (arg == "--trade") {
             opts.trade = true;
+        } else if (arg == "--mount") {
+            opts.mount = true;
         } else if (arg == "--f3") {
             opts.debugScreen = true;
         } else if (arg == "--command") {

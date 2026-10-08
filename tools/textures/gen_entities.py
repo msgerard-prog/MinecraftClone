@@ -1016,6 +1016,39 @@ def pet(name, boxes, eyebox, nosebox, base="#E4E4E4", collar=None, stripes=False
     return img
 
 
+def mount_gear():
+    """Mount gear (M26.2), one texture for every mount: a leather saddle @ (0,0), chest
+    packs @ (36,0), horse armor plates @ (0,16) (light: tinted by its material), a
+    carpet @ (0,48) (white wool: tinted by its dye)."""
+    rng = random.Random("mount_gear")
+    img = Img(64, 64, CLEAR)
+    leather = ramp(hexc("#7A4424"), 5, spread=0.3)
+    for y in range(0, 12):
+        for x in range(0, 36):
+            img.set(x, y, leather[0] if y in (0, 11) else leather[2 if rng.random() > 0.3 else 3])
+    wood = ramp(hexc("#A8742E"), 5, spread=0.3)
+    for y in range(0, 16):
+        for x in range(36, 58):
+            c = wood[2 if rng.random() > 0.3 else 1]
+            if y % 4 == 0:
+                c = wood[0]
+            img.set(x, y, c)
+    for (x, y) in ((46, 6), (47, 6), (46, 7), (47, 7)):
+        img.set(x, y, (200, 200, 205, 255))  # a latch
+    metal = ramp(hexc("#E8E8E8"), 5, spread=0.2)
+    for y in range(16, 48):
+        for x in range(64):
+            c = metal[2 if rng.random() > 0.25 else 1]
+            if (x % 8 == 0) or (y % 6 == 0):
+                c = metal[3]  # plate seams
+            img.set(x, y, c)
+    wool = ramp(hexc("#F0F0F0"), 5, spread=0.15)
+    for y in range(48, 64):
+        for x in range(64):
+            img.set(x, y, wool[2 if rng.random() > 0.3 else 1])
+    return img
+
+
 def boat():
     """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
     (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
@@ -1032,6 +1065,28 @@ def boat():
                         c = wood[0]
                     img.set(x0 + x, y0 + y, c)
     return img
+
+
+def trader_llama():
+    """A creamy llama under the trader's blue and gold blanket (top and upper sides)."""
+    img = pet("trader_llama", LLAMA_BOXES, (40, 0, 6, 5, 6), None, base="#D8C8A0")
+    rng = random.Random("trader_blanket")
+    blue = ramp(hexc("#2E4E9A"), 5, spread=0.25)
+    faces = box_faces(0, 36, 12, 10, 18)
+    x0, y0, w, h = faces["top"]
+    paint(img, (x0, y0, w, h), blue, rng)
+    for name in ("left", "right", "front", "back"):
+        x0, y0, w, h = faces[name]
+        paint(img, (x0, y0, w, 4), blue, rng)
+        for x in range(w):
+            img.set(x0 + x, y0 + 4, (230, 180, 50, 255))  # gold trim
+    return img
+
+
+HORSE_BOXES = [(0, 0, 4, 11, 4), (16, 0, 5, 5, 10), (46, 0, 3, 10, 4), (0, 15, 4, 10, 6), (20, 15, 2, 10, 3),
+               (30, 15, 2, 3, 1), (0, 32, 10, 10, 22)]
+LLAMA_BOXES = [(0, 0, 4, 11, 4), (16, 0, 6, 12, 6), (40, 0, 6, 5, 6), (16, 18, 2, 3, 2), (24, 18, 2, 4, 2),
+               (0, 36, 12, 10, 18)]
 
 
 def main():
@@ -1080,7 +1135,21 @@ def main():
                                        (0, 22, 2, 6, 2), (10, 22, 1, 1, 8)], (36, 0, 5, 4, 4), (0, 18, 3, 2, 1),
                             base="#E0B860", spots=True),
               "parrot": pet("parrot", [(0, 0, 3, 6, 3), (12, 0, 2, 3, 2), (0, 10, 1, 4, 2.5), (8, 10, 2, 3, 1)],
-                            (12, 0, 2, 3, 2), None, extra=[((20, 0, 1, 1.5, 1.5), "#E8B030"), ((14, 10, 0.5, 4, 0.5), "#606060")])}
+                            (12, 0, 2, 3, 2), None, extra=[((20, 0, 1, 1.5, 1.5), "#E8B030"), ((14, 10, 0.5, 4, 0.5), "#606060")]),
+              # M26.2 mounts: horses and llamas light (tinted by coat), donkeys, mules,
+              # trader llamas and camels in their own colours; manes and tails darker
+              "horse": pet("horse", HORSE_BOXES, (16, 0, 5, 5, 10), None,
+                           extra=[((20, 15, 2, 10, 3), "#3A2A20"), ((46, 0, 3, 10, 4), "#3A2A20")]),
+              "donkey": pet("donkey", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#8A8078",
+                            extra=[((20, 15, 2, 10, 3), "#4A4440"), ((46, 0, 3, 10, 4), "#4A4440")]),
+              "mule": pet("mule", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#6A4630",
+                          extra=[((20, 15, 2, 10, 3), "#2E2018"), ((46, 0, 3, 10, 4), "#2E2018")]),
+              "llama": pet("llama", LLAMA_BOXES, (40, 0, 6, 5, 6), None),
+              "trader_llama": trader_llama(),
+              "camel": pet("camel", [(0, 0, 4, 18, 4), (16, 0, 5, 12, 5), (36, 0, 6, 6, 8), (48, 14, 2, 2, 1),
+                                     (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#C8A060",
+                           extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
+              "mount_gear": mount_gear()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

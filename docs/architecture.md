@@ -436,6 +436,20 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   biome variant, jungle ocelots and parrots; village cats every 1200). Pets save the
   player's UUID (level.dat Player.UUID, `setPlayerUuid`) as Owner. Creepers won't target
   near cats (`mayTarget`); cats bring gifts when the player wakes (main).
+- Mounts (M26.2, `gameplay/Mounts.cpp`, part of `Mobs`): horses, donkeys, mules, llamas,
+  trader llamas and camels carry their own stats (`MobData::maxHealth/moveSpeed/
+  jumpStrength`, `world::maxHealthOf`), `temper`, gear flags (`saddled`, `horseArmor`,
+  `decor`, `hasChest`) and llama `strength`. `mountInteract` (food: heal/grow/temper/love,
+  gear, shears, getting on: `Use::Ride`), `mountTick` (ridden: a wild one bucks then
+  tames or throws the rider; saddled ones follow the rider's `headYaw`/`paddleForward`/
+  `paddleTurn` and `riderJump`, the camel's dash), `mountGoal` (camels sit, trader llamas
+  follow their trader and leave), `llamaTick` (`ProjectileKind::LlamaSpit`),
+  `mountOffspring` (parents' average + spread, horse + donkey = mule), `spawnMounts`
+  (from `spawnCreatures`). A mob's chest lives in its chunk (`Chunk::mobStores()`, by
+  UUID; moved with the mob in `Mobs::tick`, saved as its Items; chest boats too).
+  Riding reuses main's `ridingCart` (seat height `Mobs::seatHeight`), the jump bar
+  (`ui::drawJumpBar`) and `ContainerScreen::Type::Mount` (gear slots edit the mob's
+  fields; opened by sneak-click or E while riding).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -206,6 +206,10 @@ std::vector<Recipe> build() {
     // Block of Iron).
     r.push_back(shaped({"###"}, {{'#', item("sugar_cane")}}, "paper", 3));
     r.push_back(shapeless({item("paper"), item("paper"), item("paper"), item("leather")}, "book"));
+    // Mount gear (M26.2; wiki: Leather Horse Armor - 7 leather in an H; Saddle - craftable
+    // since 1.21.6 from 3 leather and an iron ingot: our layout assumption).
+    r.push_back(shaped({"#.#", "###", "#.#"}, {{'#', item("leather")}}, "leather_horse_armor"));
+    r.push_back(shaped({"###", ".I."}, {{'#', item("leather")}, {'I', item("iron_ingot")}}, "saddle"));
     // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
     r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));
     r.push_back(shapeless({item("ender_pearl"), item("blaze_powder")}, "ender_eye"));
@@ -240,6 +244,10 @@ std::vector<Recipe> build() {
             // Boats (M25.2b; wiki: Boat): 5 planks in a U; bamboo makes a raft.
             if (wood != "crimson" && wood != "warped")
                 r.push_back(shaped({"#.#", "###"}, {{'#', planks}}, wood == "bamboo" ? "bamboo_raft" : wood + "_boat"));
+            // Chest boats (M26.2; wiki: Boat with Chest): a boat and a chest.
+            if (wood != "crimson" && wood != "warped")
+                r.push_back(shapeless({item(wood == "bamboo" ? "bamboo_raft" : wood + "_boat"), item("chest")},
+                                      wood == "bamboo" ? "bamboo_chest_raft" : wood + "_chest_boat"));
             // Signs: 6 planks and a stick make 3; hanging signs: 2 chains over 6 stripped
             // logs make 6 (wiki: Sign, Hanging Sign).
             r.push_back(shaped({"###", "###", ".S."}, {{'#', planks}, {'S', stick}}, wood + "_sign", 3));

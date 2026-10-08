@@ -38,6 +38,7 @@ struct LaunchOptions {
     bool debugScreen = false;          // --f3: start with the F3 debug screen open
     bool inventory = false;            // --inventory: start with the creative inventory open
     bool trade = false;                // --trade: open the nearest employed villager's trades (screenshots)
+    bool mount = false;                // --mount: ride the nearest mount (with --inventory: its screen)
     bool hasOpenBlock = false;         // --open-block x,y,z: open that block's screen (chest...)
     int openBlock[3] = {0, 0, 0};
     std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start

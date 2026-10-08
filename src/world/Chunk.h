@@ -4,6 +4,7 @@
 #include "world/BlockEntity.h"
 #include "world/Mob.h"
 #include "world/Coords.h"
+#include "world/ItemContainers.h"
 #include "world/Light.h"
 #include "world/TickSet.h"
 #include "world/Section.h"
@@ -346,6 +347,33 @@ public:
     // saved in the world's entities/ region files).
     std::vector<MobData>& mobs() { return m_mobs; }
     const std::vector<MobData>& mobs() const { return m_mobs; }
+    // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
+    // UUID; they go with the mob when it changes chunks (Mobs) and are saved as its Items.
+    struct MobStoreEntry {
+        uint64_t uuidHi;
+        ItemContents slots;
+    };
+    ItemContents* mobStore(uint64_t uuidHi) {
+        for (auto& e : m_mobStores)
+            if (e.uuidHi == uuidHi) return &e.slots;
+        return nullptr;
+    }
+    const ItemContents* mobStore(uint64_t uuidHi) const {
+        for (const auto& e : m_mobStores)
+            if (e.uuidHi == uuidHi) return &e.slots;
+        return nullptr;
+    }
+    ItemContents& addMobStore(uint64_t uuidHi) {
+        if (ItemContents* s = mobStore(uuidHi)) return *s;
+        m_dirty = true;
+        m_mobStores.push_back({uuidHi, {}});
+        return m_mobStores.back().slots;
+    }
+    void removeMobStore(uint64_t uuidHi) {
+        std::erase_if(m_mobStores, [&](const MobStoreEntry& e) { return e.uuidHi == uuidHi; });
+    }
+    std::vector<MobStoreEntry>& mobStores() { return m_mobStores; }
+    const std::vector<MobStoreEntry>& mobStores() const { return m_mobStores; }
 
     // Scheduled block ticks in this chunk (wiki: Tick › Scheduled tick; redstone
     // delays). Ordered by time, then priority, then scheduling order.
@@ -425,6 +453,7 @@ private:
     std::vector<JukeboxEntry> m_jukeboxes;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
+    std::vector<MobStoreEntry> m_mobStores;
     std::vector<BlockTick> m_blockTicks;
     TickSet m_tickSet; // keys of m_blockTicks (valid unless edited in bulk)
     bool m_tickSetValid = true;

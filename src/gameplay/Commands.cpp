@@ -385,6 +385,19 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.size = v >= 3.0 ? 4 : v >= 1.0 ? 2 : 1;
                     mob.health = float(mob.size * mob.size);
                 } else if (key == "Health") mob.health = std::clamp(float(v), 0.1f, world::mobInfo(*type).maxHealth);
+                // Mounts (M26.2): vanilla's Tame, Variant (horses: colour | markings << 8),
+                // Strength, ChestedHorse; and our shorthands Saddle:1b, Armor:1-4 (leather..
+                // diamond), Decor:1-16 (a carpet's dye + 1) for their equipment.
+                else if (key == "Tame" && world::isMount(*type)) mob.tamed = v != 0.0;
+                else if (key == "Variant" && *type == world::MobType::Horse) {
+                    mob.woolColour = uint8_t(std::clamp(int(v) & 255, 0, 6));
+                    mob.color2 = uint8_t(std::clamp(int(v) >> 8, 0, 4));
+                } else if (key == "Variant" && world::isLlama(*type)) mob.woolColour = uint8_t(std::clamp(int(v), 0, 3));
+                else if (key == "Strength" && world::isLlama(*type)) mob.strength = uint8_t(std::clamp(int(v), 1, 5));
+                else if (key == "ChestedHorse" && world::canCarryChest(*type)) mob.hasChest = v != 0.0;
+                else if (key == "Saddle" && world::isMount(*type)) mob.saddled = v != 0.0;
+                else if (key == "Armor" && *type == world::MobType::Horse) mob.horseArmor = uint8_t(std::clamp(int(v), 0, 4));
+                else if (key == "Decor" && world::isLlama(*type)) mob.decor = uint8_t(std::clamp(int(v), 0, 16));
                 else return fail(format("Unknown data tag '%.*s'", int(key.size()), key.data()));
             }
         }

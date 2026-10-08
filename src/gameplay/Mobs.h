@@ -82,7 +82,8 @@ public:
     static uint8_t naturalWoolColour(world::Xoroshiro& rng);
     // Adds a mob to the chunk it stands in (false if that chunk isn't loaded).
     // A boat of `wood` (kBoatWoods) facing `yaw` (M25.2b).
-    static bool placeBoat(world::World& world, const glm::dvec3& at, float yaw, int wood, world::Xoroshiro& rng);
+    static bool placeBoat(world::World& world, const glm::dvec3& at, float yaw, int wood, world::Xoroshiro& rng,
+                          bool chest = false);
     static bool add(world::World& world, const world::MobData& mob);
     // A lightning bolt at `at` (wiki: Lightning): mobs within 3 blocks (6 up) take 5
     // damage and burn 8 s; creepers become charged, pigs zombified piglins. Returns
@@ -102,13 +103,20 @@ public:
     // Right-click on a mob with `held` (M16.3; wiki: Breeding, Sheep): feeding its food
     // puts an adult in love mode (or speeds a baby's growth by 10%), shears shear a
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
-    enum class Use { None, Fed, Sheared, Sat }; // (Sat: a pet sat down or stood up - M26.1)
+    // (Sat: a pet sat down or stood up - M26.1; Ride: the player got on a mount - M26.2)
+    enum class Use { None, Fed, Sheared, Sat, Ride };
     static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
     // A pet's top health (tamed wolves: 40 - M26.1).
     static float petMaxHealth(const world::MobData& m);
     // The mob that last hurt the player (tamed wolves go for it).
     uint64_t playerAttacker() const { return m_playerAttacker; }
     static bool isFood(world::MobType type, world::ItemId item); // breeding / tempting food
+    // Mounts (Mounts.cpp, M26.2): where the rider's feet sit above the mount (boats and
+    // minecarts too), and the gear a dead mount leaves (saddle, armor, carpet, its chest).
+    static double seatHeight(const world::MobData& m);
+    // A foal's type (a horse and a donkey: a mule) and stats from its parents.
+    static void mountOffspring(const world::MobData& a, const world::MobData& b, world::MobData& baby,
+                               world::Xoroshiro& rng);
     // The player hits a mob for `damage` (knockback away from the player).
     static void attack(world::MobData& mob, float damage, const glm::dvec3& from);
 
@@ -130,6 +138,16 @@ private:
     static Use petInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng);
     bool petGoal(Context& ctx, world::MobData& m, double& speed);
     void spawnCreatures(Context& ctx);
+    // Mounts (Mounts.cpp, M26.2).
+    static bool isMountFood(world::MobType type, world::ItemId item);
+    static void initMount(world::MobData& m, world::Xoroshiro& rng);
+    static bool canMate(const world::MobData& a, const world::MobData& b);
+    static Use mountInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    bool mountTick(Context& ctx, world::MobData& m); // ridden: steering, jumps, taming (true: handled)
+    bool mountGoal(Context& ctx, world::MobData& m, double& speed); // camels sitting, trader llamas
+    void llamaTick(Context& ctx, world::MobData& m);                // spitting
+    void dropMountGear(Context& ctx, world::MobData& m);
+    void spawnMounts(Context& ctx, world::Biome biome, int x, int y, int z);
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp
@@ -167,7 +185,7 @@ private:
     bool teleport(world::World& world, world::MobData& m, const glm::dvec3& around, world::Xoroshiro& rng);
 
     struct Move {
-        world::ChunkPos to;
+        world::ChunkPos to, from;
         world::MobData mob;
     };
     std::vector<Move> m_moves; // reused: mobs crossing chunk borders this tick

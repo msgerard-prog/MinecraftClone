@@ -35,6 +35,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
     s.mobs = chunk.mobs();
+    s.mobStores = chunk.mobStores();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
         for (auto& t : s.blockTicks)
@@ -949,7 +950,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // Dying mobs are not saved - except the dragon, whose 10 s death ends the fight.
         if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
-        e.put("id", m.type == MobType::Boat ? boatId(m.woolColour) : std::string(mobInfo(m.type).id)); // (boats: per wood)
+        e.put("id", m.type == MobType::Boat ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
+                                            : std::string(mobInfo(m.type).id)); // (boats: per wood)
         e.put("Pos", nbt::listOf(nbt::TagType::Double, {m.pos.x, m.pos.y, m.pos.z}));
         e.put("Motion", nbt::listOf(nbt::TagType::Double, {m.vel.x, m.vel.y, m.vel.z}));
         e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
@@ -996,7 +998,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::MagmaCube || m.type == MobType::Slime) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
-        if (m.type == MobType::WanderingTrader) e.put("DespawnDelay", int32_t(m.despawnDelay));
+        if (m.type == MobType::WanderingTrader || m.type == MobType::TraderLlama) e.put("DespawnDelay", int32_t(m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
         if (isPet(m.type) || m.type == MobType::Ocelot) { // (M26.1; wiki: Wolf, Cat, Parrot › Entity data)
             if (m.type == MobType::Ocelot) e.put("Trusting", int8_t(m.tamed ? 1 : 0));
@@ -1015,6 +1017,55 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::Turtle) { // (wiki: Turtle › Entity data)
             e.put("HasEgg", int8_t(m.hasEgg ? 1 : 0));
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+        }
+        if (isMount(m.type) || (m.type == MobType::Boat && m.hasChest)) { // (M26.2; wiki: Horse, Llama, Camel › Entity data)
+            if (m.type != MobType::Boat) {
+                e.put("Tame", int8_t(m.tamed ? 1 : 0));
+                e.put("Temper", int32_t(m.temper));
+                if (m.tamed)
+                    e.put("Owner", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                                        int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                if (m.type == MobType::Horse) e.put("Variant", int32_t(m.woolColour | m.color2 << 8));
+                if (isLlama(m.type)) {
+                    e.put("Variant", int32_t(m.woolColour % 4));
+                    e.put("Strength", int32_t(m.strength));
+                }
+                if (m.type == MobType::Camel) e.put("LastPoseTick", int64_t(m.sitting ? -1 : 0)); // (sitting: negative)
+                // Its own stats as attribute bases (1.21: attributes [{id, base}]).
+                std::vector<nbt::Tag> attrs;
+                auto attr = [&](const char* id, double base) {
+                    nbt::Compound a;
+                    a.put("id", std::string(id));
+                    a.put("base", base);
+                    attrs.emplace_back(std::move(a));
+                };
+                if (m.maxHealth > 0.0f) attr("minecraft:max_health", m.maxHealth);
+                if (m.moveSpeed > 0.0f) attr("minecraft:movement_speed", m.moveSpeed);
+                if (m.jumpStrength > 0.0f) attr("minecraft:jump_strength", m.jumpStrength);
+                if (!attrs.empty()) e.put("attributes", nbt::listOf(nbt::TagType::Compound, std::move(attrs)));
+                // 1.21.5+ equipment: saddle, body (horse armor, a llama's carpet).
+                nbt::Compound eq;
+                auto piece = [&](const char* slot, const std::string& item) {
+                    nbt::Compound c;
+                    c.put("id", "minecraft:" + item);
+                    c.put("count", int32_t{1});
+                    eq.put(slot, std::move(c));
+                };
+                if (m.saddled) piece("saddle", "saddle");
+                if (m.horseArmor > 0 && m.horseArmor < 5) piece("body", kHorseArmorItems[m.horseArmor]);
+                if (m.decor > 0 && m.decor <= 16) piece("body", std::string(kDyeColours[m.decor - 1]) + "_carpet");
+                if (!eq.entries.empty()) e.put("equipment", std::move(eq));
+            }
+            if (canCarryChest(m.type)) e.put("ChestedHorse", int8_t(m.hasChest ? 1 : 0));
+            if (m.hasChest) { // Items: the chest's stacks (horses number them from 2: 0 and 1 were saddle and armor)
+                std::vector<nbt::Tag> items;
+                const int base = m.type == MobType::Boat ? 0 : 2;
+                for (const auto& st : chunk.mobStores)
+                    if (st.uuidHi == m.uuidHi)
+                        for (int i = 0; i < chestSlots(m.type, m.strength); ++i)
+                            if (!st.slots[size_t(i)].empty()) items.emplace_back(itemNbt(st.slots[size_t(i)], base + i));
+                e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
+            }
         }
         if (m.heldTrident) { // (1.21.5+ equipment.mainhand)
             nbt::Compound eq, hand;
@@ -1118,6 +1169,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
 
 void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
     chunk.mobs().clear();
+    chunk.mobStores().clear();
     const nbt::List* list = root.list("Entities");
     if (!list) return;
     for (const nbt::Tag& t : list->items) {
@@ -1132,9 +1184,10 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 known = true;
             }
         for (int w = 0; w < 10 && !known; ++w) // (M25.2b: every wood's boat is one type here)
-            if (boatId(w) == *id) {
+            if (boatId(w) == *id || chestBoatId(w) == *id) {
                 m.type = MobType::Boat;
                 m.woolColour = uint8_t(w);
+                m.hasChest = chestBoatId(w) == *id;
                 known = true;
             }
         if (!known) continue; // entity types we don't have yet are skipped
@@ -1156,7 +1209,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (auto v = r->items[1].get<float>()) m.pitch = m.prevPitch = *v;
         }
         m.health = static_cast<float>(e->real("Health").value_or(mobInfo(m.type).maxHealth));
-        m.health = std::isfinite(m.health) ? std::min(m.health, mobInfo(m.type).maxHealth) : 0.0f;
+        m.health = std::isfinite(m.health) ? m.health : 0.0f; // (capped once the mob's own top health is known)
         m.onGround = e->integer("OnGround").value_or(0) != 0;
         if (const auto f = e->real("fall_distance").value_or(e->real("FallDistance").value_or(0.0)); std::isfinite(f))
             m.fallDistance = static_cast<float>(std::clamp(f, 0.0, 1.0e6));
@@ -1188,6 +1241,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.convertTicks = int16_t(std::clamp<int64_t>(e->integer("ConversionTime").value_or(-1), 0, 6000));
         if (m.type == MobType::WanderingTrader)
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
+        if (m.type == MobType::TraderLlama) // (0: stays - one the player tamed)
+            m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(0), 0, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
         m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
         if (isPet(m.type) || m.type == MobType::Ocelot) {
@@ -1287,12 +1342,59 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             m.persistent = true;
         }
+        if (isMount(m.type)) { // (M26.2)
+            m.tamed = e->integer("Tame").value_or(0) != 0;
+            m.temper = int16_t(std::clamp<int64_t>(e->integer("Temper").value_or(0), 0, 100));
+            if (m.type == MobType::Horse) {
+                const int64_t v = e->integer("Variant").value_or(0);
+                m.woolColour = uint8_t(std::clamp<int64_t>(v & 255, 0, 6));
+                m.color2 = uint8_t(std::clamp<int64_t>((v >> 8) & 255, 0, 4));
+            }
+            if (isLlama(m.type)) {
+                m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 3));
+                m.strength = uint8_t(std::clamp<int64_t>(e->integer("Strength").value_or(3), 1, 5));
+            }
+            if (m.type == MobType::Camel) m.sitting = e->integer("LastPoseTick").value_or(0) < 0;
+            if (const nbt::List* attrs = e->list("attributes"))
+                for (const nbt::Tag& at : attrs->items)
+                    if (const nbt::Compound* a = at.get<nbt::Compound>()) {
+                        const std::string* aid = a->string("id");
+                        const double base = a->real("base").value_or(0.0);
+                        if (!aid || !std::isfinite(base)) continue;
+                        if (*aid == "minecraft:max_health") m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
+                        if (*aid == "minecraft:movement_speed") m.moveSpeed = float(std::clamp(base, 0.0, 1.0));
+                        if (*aid == "minecraft:jump_strength") m.jumpStrength = float(std::clamp(base, 0.0, 2.0));
+                    }
+            if (const nbt::Compound* eq = e->compound("equipment")) {
+                if (const nbt::Compound* sd = eq->compound("saddle"))
+                    m.saddled = sd->string("id") && *sd->string("id") == "minecraft:saddle";
+                if (const nbt::Compound* body = eq->compound("body"))
+                    if (const std::string* bid = body->string("id")) {
+                        for (int k = 1; k < 5; ++k)
+                            if (*bid == std::string("minecraft:") + kHorseArmorItems[k]) m.horseArmor = uint8_t(k);
+                        for (int c = 0; c < 16; ++c)
+                            if (*bid == std::string("minecraft:") + kDyeColours[c] + "_carpet") m.decor = uint8_t(c + 1);
+                    }
+            }
+            if (canCarryChest(m.type)) m.hasChest = e->integer("ChestedHorse").value_or(0) != 0;
+        }
         if (const nbt::Compound* carried = e->compound("carriedBlockState"))
             if (const auto s = blockRegistry().parse(paletteText(*carried))) m.carried = *s;
         if (const nbt::Tag* u = e->find("UUID"))
             if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
                 m.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
+            }
+        m.health = std::min(m.health, maxHealthOf(m)); // (after Owner/attributes: a tamed wolf keeps its 40)
+        if (m.hasChest && m.health > 0.0f) // (M26.2) the chest's stacks
+            if (const nbt::List* items = e->list("Items")) {
+                ItemContents& slots = chunk.addMobStore(m.uuidHi);
+                const int base = m.type == MobType::Boat ? 0 : 2;
+                for (const nbt::Tag& it : items->items)
+                    if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                        const int slot = int(ic->integer("Slot").value_or(-1)) - base;
+                        if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
+                    }
             }
         if (m.health > 0.0f || (m.type == MobType::EnderDragon && m.deathTime > 0)) chunk.mobs().push_back(m);
     }

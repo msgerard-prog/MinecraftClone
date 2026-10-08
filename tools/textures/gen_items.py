@@ -196,6 +196,42 @@ def apple(base="#D02A1C"):
     return s.render()
 
 
+def saddle():
+    """A brown leather saddle from the side (M26.2): seat, raised back, stirrup strap."""
+    pal = ramp(hexc("#8A4E26"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(6, 10) if not (y == 6 and 4 < x < 11)}, pal)
+    s.add({(2, 4), (2, 5), (3, 5), (13, 3), (13, 4), (13, 5), (12, 5)}, pal)
+    s.add({(7, y) for y in range(10, 14)} | {(8, y) for y in range(10, 14)}, ramp(hexc("#5A3418"), 5))
+    s.add({(6, 13), (7, 14), (8, 14), (9, 13)}, ramp(hexc("#BFC4C8"), 5))
+    return s.render()
+
+
+def horse_armor(base):
+    """Horse armor (M26.2): a plated horse head and neck from the side."""
+    pal = ramp(hexc(base), 5, spread=0.4)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 9) for y in range(4, 14) if x + 13 - y >= 3}, pal)    # neck
+    s.add({(x, y) for x in range(7, 15) for y in range(3, 8) if not (x > 12 and y < 5)}, pal)  # head
+    s.add({(5, 2), (6, 2), (6, 3)}, pal)                                                     # ear
+    img = s.render()
+    img.set(10, 5, (30, 30, 34, 255))  # eye hole
+    return img
+
+
+def chest_boat_item(colour, raft=False):
+    """A boat with a chest standing in it (M26.2)."""
+    img = boat_item(colour, raft)
+    top = 7 if raft else 5
+    for x in range(5, 11):
+        for y in range(top - 4, top + 1):
+            edge = x in (5, 10) or y in (top - 4, top)
+            img.set(x, y, (92, 60, 26, 255) if edge else (168, 118, 54, 255))
+    img.set(7, top - 2, (200, 200, 205, 255))
+    img.set(8, top - 2, (200, 200, 205, 255))
+    return img
+
+
 def meat(name, base, fat, marbled=True):
     rng = random.Random(name)
     pal = ramp(hexc(base), 5, spread=0.35)
@@ -993,11 +1029,18 @@ def all_items():
     items["trident"] = trident()  # (M25.3)
     items["turtle_scute"] = lump("turtle_scute", "#4E9A3A", "#7EC060", size=5.0)  # (M25.3b)
     items["turtle_helmet"] = armor("helmet", "#4E9A3A")
-    for wood, colour in (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
+    BOAT_WOODS = (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
                          ("acacia", "#BA6337"), ("dark_oak", "#4F3218"), ("mangrove", "#773636"),
-                         ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD")):
+                         ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD"))
+    for wood, colour in BOAT_WOODS:
         items[f"{wood}_boat"] = boat_item(colour)
     items["bamboo_raft"] = boat_item("#C9B758", raft=True)
+    for wood, colour in BOAT_WOODS:
+        items[f"{wood}_chest_boat"] = chest_boat_item(colour)
+    items["bamboo_chest_raft"] = chest_boat_item("#C9B758", raft=True)
+    items["saddle"] = saddle()
+    for mat, base in (("leather", "#9A5A30"), ("iron", "#C8CCD0"), ("golden", "#F0C83C"), ("diamond", "#4ADCD0")):
+        items[f"{mat}_horse_armor"] = horse_armor(base)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")
