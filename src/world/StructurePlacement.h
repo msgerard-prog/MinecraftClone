@@ -30,6 +30,7 @@ inline constexpr RandomSpread kAncientCities{24, 8, 20083232}; // (M27.3b; wiki:
 inline constexpr RandomSpread kRuinedPortals{40, 15, 34222645}; // (M27.4b; wiki: Ruined Portal)
 inline constexpr RandomSpread kMansions{80, 20, 10387319};       // (M27.4c; wiki: Woodland Mansion)
 inline constexpr RandomSpread kTrialChambers{34, 12, 94251327};  // (M27.4d; wiki: Trial Chambers)
+inline constexpr RandomSpread kTrailRuins{34, 8, 83469867};      // (M27.5b; wiki: Trail Ruins)
 inline constexpr RandomSpread kShipwrecks{24, 4, 165745295}; // (M25.4; wiki: Shipwreck, Structure set)
 inline constexpr RandomSpread kOceanRuins{20, 8, 14357621};  // (M25.4; wiki: Ocean Ruins)
 inline constexpr RandomSpread kMonuments{32, 5, 10387313, true}; // (M25.5; wiki: Ocean Monument - triangular spread)

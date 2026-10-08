@@ -107,6 +107,7 @@ public:
         bool nitwit = false;
         bool spawnMob = false; // (M24.4: a `mob` standing here - swamp hut witches)
         bool beeNest = false;  // (M26.3b: a bee nest's bees)
+        bool brushable = false; // (M27.5b: suspicious sand/gravel holding `loot`)
     };
     struct GeneratedEntities {
         int count = 0;
@@ -154,6 +155,9 @@ private:
     void placeMansions(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.4d): trial chambers underground, on their grid.
     void placeTrialChambers(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
+    // overworld6 (M27.5b): trail ruins (buried, full of suspicious gravel) and desert wells.
+    void placeArchaeology6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                           const std::array<Biome, 16>& columnBiome, GeneratedEntities& out) const;
     // overworld6 (M27.4b): ruined portals on their grid.
     void placeRuinedPortals(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.3b): ancient cities in the deep dark, on their grid.

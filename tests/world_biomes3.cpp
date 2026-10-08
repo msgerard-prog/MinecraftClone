@@ -482,3 +482,33 @@ TEST_CASE("suspicious sand keeps its loot table through dusting and a save; loot
     }
     CHECK(sherds > 50);
 }
+
+TEST_CASE("overworld6 trail ruins: buried rooms of mud bricks and terracotta full of suspicious gravel (M27.5b)") {
+    const OverworldGenerator gen(42);
+    std::optional<ChunkPos> at;
+    for (int cz = -150; cz <= 150 && !at; ++cz)
+        for (int cx = -150; cx <= 150 && !at; ++cx) {
+            if (!isSpreadCandidate(42, kTrailRuins, {cx, cz})) continue;
+            const Biome b = gen.biomeAt(gen.column(cx * 16 + 7, cz * 16 + 7));
+            if ((b == Biome::Taiga || b == Biome::SnowyTaiga || b == Biome::OldGrowthPineTaiga ||
+                 b == Biome::OldGrowthSpruceTaiga || b == Biome::OldGrowthBirchForest || b == Biome::Jungle) &&
+                gen.surfaceY(cx * 16 + 7, cz * 16 + 7) >= OverworldGenerator::kSeaLevel)
+                at = ChunkPos{cx, cz};
+        }
+    REQUIRE(at);
+    Chunk c(*at);
+    gen.generate(c);
+    int suspicious = 0, mud = 0;
+    for (int y = 40; y < 200; ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const BlockId b = R().blockOf(c.get(x, y, z));
+                suspicious += b == blocks::SuspiciousGravel;
+                mud += R().block(b).id == "minecraft:mud_bricks";
+            }
+    CHECK(suspicious > 10);
+    CHECK(mud > 50);
+    CHECK(int(c.brushables().size()) == suspicious);
+    for (const auto& e : c.brushables())
+        CHECK((e.data.table == uint8_t(LootTable::ArchaeologyTrailCommon) || e.data.table == uint8_t(LootTable::ArchaeologyTrailRare)));
+}

@@ -1335,6 +1335,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeRuinedPortals(blockArray.data(), cx, cz, entities);         // (M27.4b)
         placeMansions(blockArray.data(), cx, cz, entities);              // (M27.4c)
         placeTrialChambers(blockArray.data(), cx, cz, entities);         // (M27.4d)
+        placeArchaeology6(blockArray.data(), cx, cz, topY, columnBiome, entities); // (M27.5b)
     }
 
     if (m_version >= 2) {
@@ -1435,6 +1436,10 @@ void OverworldGenerator::generate(Chunk& out) const {
         const BlockId here = reg.blockOf(out.get(e.x, e.y, e.z));
         if (e.furnace) {
             if (here == blocks::Furnace) out.addFurnace(e.x, e.y, e.z);
+            continue;
+        }
+        if (e.brushable) { // (M27.5b)
+            if (isSuspicious(here)) out.addBrushable(e.x, e.y, e.z).table = uint8_t(e.loot);
             continue;
         }
         if (!e.chest && here == blocks::TrialSpawner) { // (M27.4d)
@@ -1937,6 +1942,19 @@ struct StructureBuilder {
         e.spawnMob = true;
         entities->list[size_t(entities->count++)] = e;
     }
+    void suspicious(int x, int y, int z, bool gravel, LootTable loot) { // (M27.5b)
+        int lx, lz;
+        if (!toChunk(x, z, lx, lz)) return;
+        if (entities->full()) { // (no room for its loot: plain sand or gravel)
+            chunk.set(lx, oy + y, lz, blockRegistry().defaultState(gravel ? blocks::Gravel : blocks::Sand));
+            return;
+        }
+        chunk.set(lx, oy + y, lz, blockRegistry().defaultState(gravel ? blocks::SuspiciousGravel : blocks::SuspiciousSand));
+        OverworldGenerator::GeneratedEntity e{static_cast<int8_t>(lx), static_cast<int8_t>(lz), static_cast<int16_t>(oy + y),
+                                              false, MobType::Zombie, loot};
+        e.brushable = true;
+        entities->list[size_t(entities->count++)] = e;
+    }
     void trialSpawner(int x, int y, int z, MobType mob) { // (M27.4d)
         int lx, lz;
         if (!toChunk(x, z, lx, lz) || entities->full()) return;
@@ -2054,6 +2072,10 @@ void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, 
                                 if (r.nextInt(6) != 0) sb.set(x, y, z, stone());
                         }
                     sb.chest(size / 2, 0, size / 2, big ? LootTable::UnderwaterRuinBig : LootTable::UnderwaterRuinSmall);
+                    if (m_version >= 6) // (M27.5b) suspicious sand (warm) or gravel (cold) in the floor
+                        for (int k = 0; k < (big ? 3 : 2); ++k)
+                            sb.suspicious(1 + int(r.nextInt(uint32_t(size - 2))), -1, 1 + int(r.nextInt(uint32_t(size - 2))), !warm,
+                                          warm ? LootTable::ArchaeologyOceanRuinWarm : LootTable::ArchaeologyOceanRuinCold);
                     for (int x = 0; x < size; ++x)
                         for (int z = 0; z < size; ++z) sb.foundation(x, z, warm ? sandstone : bricks, 4);
                 }
@@ -2212,6 +2234,10 @@ void OverworldGenerator::placeStructures(BlockStateId* blocks, int32_t cx, int32
                     sb.chest(10, -12, 12, LootTable::DesertPyramid);
                     sb.chest(8, -12, 10, LootTable::DesertPyramid);
                     sb.chest(12, -12, 10, LootTable::DesertPyramid);
+                    if (m_version >= 6) // (M27.5b) suspicious sand in the hall's floor (wiki: Desert Pyramid)
+                        for (const auto& [px, pz] : {std::pair{3, 3}, std::pair{17, 4}, std::pair{4, 16}, std::pair{16, 17},
+                                                     std::pair{2, 10}, std::pair{18, 11}})
+                            sb.suspicious(px, 0, pz, false, LootTable::ArchaeologyDesertPyramid);
                 } else if (k == 1) { // ---- Jungle temple (wiki: Jungle Pyramid) ----
                     // Three floors of mossy and plain cobblestone, 12x15, a stepped top,
                     // chiseled stone bricks over the door, 2 loot chests below.
@@ -3958,6 +3984,67 @@ void OverworldGenerator::placeTrialChambers(BlockStateId* blocks, int32_t cx, in
                     }
                 }
         }
+}
+
+void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                                          const std::array<Biome, 16>& columnBiome, GeneratedEntities& out) const {
+    // Trail ruins (wiki: Trail Ruins): on their grid (spacing 34, separation 8) in taigas,
+    // old growth forests and jungles, buried - rooms of mud bricks and terracotta filled
+    // with gravel, 1 block in 24 of it suspicious (1 in 8 of those from the rare table), a
+    // tower stub or two showing above the grass (vanilla: a tower and roads of templates).
+    // Desert wells (wiki: Desert Well): in 1 desert chunk of 500, a sandstone well with a
+    // suspicious sand under its water.
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    static const BlockStateId mud = *reg.parse("minecraft:mud_bricks");
+    static const BlockStateId terracotta = B.terracotta;
+    static const BlockStateId orange = B.orangeTerracotta;
+    Buf chunk{blocks};
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kTrailRuins, start)) continue;
+            const int32_t sx = start.x * 16, sz = start.z * 16;
+            const Biome biome = biomeAt(column(sx + 7, sz + 7));
+            if (biome != Biome::Taiga && biome != Biome::SnowyTaiga && biome != Biome::OldGrowthPineTaiga &&
+                biome != Biome::OldGrowthSpruceTaiga && biome != Biome::OldGrowthBirchForest && biome != Biome::Jungle)
+                continue;
+            const int ground = surfaceY(sx + 7, sz + 7);
+            if (ground < kSeaLevel) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 770));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, ground - 7, sz, 15, 15, 0, &out};
+            for (int x = 0; x < 15; ++x)
+                for (int z = 0; z < 15; ++z) {
+                    const bool wall = x == 0 || z == 0 || x == 14 || z == 14 || x == 7 || z == 7;
+                    for (int y = 0; y <= 5; ++y) {
+                        if (wall) {
+                            sb.set(x, y, z, (x + y + z) % 5 == 0 ? orange : (x * 7 + z + y) % 3 == 0 ? terracotta : mud);
+                        } else if (r.nextInt(24) == 0) {
+                            sb.suspicious(x, y, z, true,
+                                          r.nextInt(8) == 0 ? LootTable::ArchaeologyTrailRare : LootTable::ArchaeologyTrailCommon);
+                        } else {
+                            sb.set(x, y, z, B.gravel);
+                        }
+                    }
+                    sb.set(x, 6, z, B.dirt); // (the ground over it)
+                }
+            for (int y = 6; y <= 8; ++y) sb.set(0, y, 0, mud), sb.set(14, y + 1, 7, mud); // (stubs showing)
+        }
+    // A desert well.
+    if (columnBiome[5] != Biome::Desert) return;
+    Xoroshiro w(chunkSeed(m_seed, cx, cz, 771));
+    if (w.nextInt(500) != 0) return;
+    const int ground = topY[size_t(8 * 16 + 8)];
+    if (ground < kSeaLevel || chunk.get(8, ground, 8) != B.sand) return;
+    StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, cx * 16 + 6, ground, cz * 16 + 6, 5, 5, 0, &out};
+    sb.fill(0, -1, 0, 4, -1, 4, B.sandstone);
+    sb.fill(0, 0, 0, 4, 0, 4, B.sandstone);
+    sb.set(2, 0, 2, B.water);
+    sb.suspicious(2, -1, 2, false, LootTable::ArchaeologyDesertWell);
+    sb.fill(1, 0, 1, 1, 0, 1, B.sandstone);
+    for (const auto& [px, pz] : {std::pair{1, 1}, std::pair{3, 1}, std::pair{1, 3}, std::pair{3, 3}})
+        for (int y = 1; y <= 2; ++y) sb.set(px, y, pz, B.sandstone);
+    sb.fill(1, 3, 1, 3, 3, 3, B.sandstone);
 }
 
 } // namespace mc::world
