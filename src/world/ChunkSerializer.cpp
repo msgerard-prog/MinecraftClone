@@ -175,6 +175,73 @@ std::vector<int8_t> nibbles(const LightLayer& layer) {
 
 namespace {
 
+// A firework explosion as vanilla's {shape, colors: [I; rgb...], fade_colors, has_trail,
+// has_twinkle} (M28.4c); colours map back to the nearest dye.
+nbt::Compound fireworkExplosionNbt(const FireworkExplosion& e) {
+    nbt::Compound c;
+    c.put("shape", std::string(kFireworkShapes[e.shape % 5]));
+    auto list = [](uint16_t mask) {
+        std::vector<int32_t> v;
+        for (int d = 0; d < 16; ++d)
+            if (mask >> d & 1) v.push_back(int32_t(kFireworkColours[d]));
+        return v;
+    };
+    c.put("colors", list(e.colours));
+    c.put("fade_colors", list(e.fades));
+    c.put("has_trail", int8_t(e.trail ? 1 : 0));
+    c.put("has_twinkle", int8_t(e.twinkle ? 1 : 0));
+    return c;
+}
+
+FireworkExplosion fireworkExplosionFromNbt(const nbt::Compound& c) {
+    FireworkExplosion e;
+    if (const std::string* s = c.string("shape"))
+        for (int i = 0; i < 5; ++i)
+            if (*s == kFireworkShapes[i]) e.shape = uint8_t(i);
+    auto mask = [&](const char* key) {
+        uint16_t m = 0;
+        const nbt::Tag* t = c.find(key);
+        if (const auto* a = t ? t->get<std::vector<int32_t>>() : nullptr)
+            for (const int32_t rgb : *a) {
+                int best = 0;
+                long bestD = -1;
+                for (int d = 0; d < 16; ++d) {
+                    const uint32_t k = kFireworkColours[d];
+                    const long dr = long(rgb >> 16 & 255) - long(k >> 16 & 255), dg = long(rgb >> 8 & 255) - long(k >> 8 & 255),
+                               db = long(rgb & 255) - long(k & 255);
+                    const long dist = dr * dr + dg * dg + db * db;
+                    if (bestD < 0 || dist < bestD) bestD = dist, best = d;
+                }
+                m = uint16_t(m | (1u << best));
+            }
+        return m;
+    };
+    e.colours = mask("colors");
+    e.fades = mask("fade_colors");
+    e.trail = c.integer("has_trail").value_or(0) != 0;
+    e.twinkle = c.integer("has_twinkle").value_or(0) != 0;
+    return e;
+}
+
+nbt::Compound fireworksNbt(const Fireworks& f) {
+    nbt::Compound c;
+    c.put("flight_duration", int8_t(f.flight));
+    std::vector<nbt::Tag> list;
+    for (int i = 0; i < f.count; ++i) list.emplace_back(fireworkExplosionNbt(f.explosions[size_t(i)]));
+    c.put("explosions", nbt::listOf(nbt::TagType::Compound, std::move(list)));
+    return c;
+}
+
+Fireworks fireworksFromNbt(const nbt::Compound& c) {
+    Fireworks f;
+    f.flight = uint8_t(std::clamp<int64_t>(c.integer("flight_duration").value_or(1), 0, 3));
+    if (const nbt::List* l = c.list("explosions"))
+        for (const nbt::Tag& t : l->items)
+            if (const nbt::Compound* e = t.get<nbt::Compound>(); e && f.count < Fireworks::kMax)
+                f.explosions[f.count++] = fireworkExplosionFromNbt(*e);
+    return f;
+}
+
 // Banner layers as vanilla's list [{pattern: "minecraft:<id>", color: "<dye>"}] (M28.3d).
 nbt::Tag bannerPatternsNbt(const BannerLayers& l) {
     std::vector<nbt::Tag> list;
@@ -226,8 +293,20 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
             const int n = enchantLevel(s, Enchantment::Multishot) > 0 ? 3 : 1;
             for (int i = 0; i < n; ++i) {
                 nbt::Compound a;
-                a.put("id", std::string("minecraft:arrow"));
+                a.put("id", std::string(s.state == 4   ? "minecraft:firework_rocket"
+                                        : s.state == 2 ? "minecraft:spectral_arrow"
+                                        : s.state == 3 ? "minecraft:tipped_arrow"
+                                                       : "minecraft:arrow"));
                 a.put("count", int32_t{1});
+                nbt::Compound inner;
+                if (s.state == 4)
+                    if (const auto f = fireworks(s.extra)) inner.put("minecraft:fireworks", fireworksNbt(*f));
+                if (s.state == 3 && s.potion) {
+                    nbt::Compound pc;
+                    pc.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
+                    inner.put("minecraft:potion_contents", std::move(pc));
+                }
+                if (!inner.entries.empty()) a.put("components", std::move(inner));
                 loaded.emplace_back(std::move(a));
             }
             components.put("minecraft:charged_projectiles", nbt::listOf(nbt::TagType::Compound, std::move(loaded)));
@@ -295,6 +374,13 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         tracker.put("tracked", int8_t(t->tracked ? 1 : 0));
         components.put("minecraft:lodestone_tracker", std::move(tracker));
     }
+    if (const auto f = s.extra && itemRegistry().item(s.item).id != "minecraft:crossbow" ? fireworks(s.extra) : std::nullopt) {
+        if (itemRegistry().item(s.item).id == "minecraft:firework_star") { // (M28.4c)
+            if (f->count > 0) components.put("minecraft:firework_explosion", fireworkExplosionNbt(f->explosions[0]));
+        } else {
+            components.put("minecraft:fireworks", fireworksNbt(*f));
+        }
+    }
     if (const auto layers = s.extra ? bannerLayers(s.extra) : std::nullopt) // (M28.3d)
         components.put("minecraft:banner_patterns", bannerPatternsNbt(*layers));
     if (const auto book = s.extra ? bookContent(s.extra) : std::nullopt) {
@@ -335,8 +421,33 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
         const ItemDef& def = itemRegistry().item(*item);
         if (def.id == "minecraft:crossbow")
-            if (const nbt::List* loaded = comps->list("minecraft:charged_projectiles"); loaded && !loaded->items.empty())
+            if (const nbt::List* loaded = comps->list("minecraft:charged_projectiles"); loaded && !loaded->items.empty()) {
                 s.state = 1; // (M28.4a: loaded with an arrow)
+                if (const nbt::Compound* first = loaded->items[0].get<nbt::Compound>()) {
+                    const std::string* pid = first->string("id");
+                    const nbt::Compound* inner = first->compound("components");
+                    if (pid && *pid == "minecraft:firework_rocket") {
+                        s.state = 4;
+                        if (const nbt::Compound* fc = inner ? inner->compound("minecraft:fireworks") : nullptr)
+                            s.extra = addFireworks(fireworksFromNbt(*fc));
+                    } else if (pid && *pid == "minecraft:spectral_arrow") {
+                        s.state = 2;
+                    } else if (pid && *pid == "minecraft:tipped_arrow") {
+                        s.state = 3;
+                        if (const nbt::Compound* pc = inner ? inner->compound("minecraft:potion_contents") : nullptr)
+                            if (const std::string* p = pc->string("potion"))
+                                if (const auto pp = findPotion(*p)) s.potion = static_cast<uint8_t>(*pp);
+                    }
+                }
+            }
+        if (const nbt::Compound* fc = comps->compound("minecraft:fireworks"); fc && def.id == "minecraft:firework_rocket")
+            s.extra = addFireworks(fireworksFromNbt(*fc));
+        if (const nbt::Compound* ec = comps->compound("minecraft:firework_explosion"); ec && def.id == "minecraft:firework_star") {
+            Fireworks f;
+            f.count = 1;
+            f.explosions[0] = fireworkExplosionFromNbt(*ec);
+            s.extra = addFireworks(f);
+        }
         if (def.id == "minecraft:filled_map") {
             s.damage = static_cast<uint16_t>(std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
             if (const auto pp = comps->integer("minecraft:map_post_processing")) s.state = *pp == 0 ? 1 : 2;

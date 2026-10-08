@@ -15,6 +15,7 @@
 #include "gameplay/Combat.h"
 #include "gameplay/Cartography.h"
 #include "gameplay/Commands.h"
+#include "gameplay/Fireworks.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
 #include "gameplay/Enchanting.h"
@@ -591,6 +592,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::PrimedTnt primedTnt;
     int bowTicks = 0;      // how long the bow has been drawn
     int crossbowTicks = 0; // (M28.4a) how long the crossbow has been loading
+    int elytraBoost = 0;   // (M28.4c) ticks of a firework's push left while gliding
     uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
     int playerTargetTicks = 0;     // (forgotten after 100 ticks, like vanilla's last-hurt memory)
     int tridentTicks = 0;  // how long a trident has been held back (M25.3)
@@ -1821,6 +1823,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 player.setCanGlide(!dead && chestPiece.item == elytraItem &&
                                    chestPiece.damage < 431);
             }
+            if (elytraBoost > 0) { // (M28.4c) a firework pushing the glide along the look
+                if (player.gliding()) {
+                    player.setVelocity(mc::boostedVelocity(player.velocity(),
+                                                           glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch()))));
+                    --elytraBoost;
+                } else {
+                    elytraBoost = 0;
+                }
+            }
             if (!arrival && ridingCart == 0)
                 player.tick(world, input);               // waiting for a destination: held in place
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
@@ -2316,7 +2327,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!dead && heldId == "minecraft:crossbow") {
                     static const mc::world::ItemId arrowItem = *mc::world::itemRegistry().find("arrow");
                     if (inventory.selectedStack().state == 0) {
-                        if (clicks.use && (!survival || inventory.has(arrowItem))) {
+                        if (clicks.use && mc::canLoadCrossbow(inventory, survival)) {
                             if (++crossbowTicks >= mc::crossbowChargeTicks(inventory.selectedStack()) &&
                                 mc::loadCrossbow(inventory, survival)) {
                                 crossbowTicks = 0;
@@ -2426,6 +2437,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
                     const mc::world::BlockPos cell{lastHit->block.x + n.x, lastHit->block.y + n.y, lastHit->block.z + n.z};
                     if (mc::Mobs::placeArmorStand(world, cell, player.yaw(), gameRng) && survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+                if (!dead && heldId == "minecraft:firework_rocket" && clicks.useClick && (player.gliding() || lastHit)) {
+                    // (M28.4c; wiki: Firework Rocket) used on a block it flies up from there;
+                    // in the air while gliding it pushes the elytra flight.
+                    const mc::world::ItemStack rocket = inventory.selectedStack();
+                    bool used = false;
+                    if (player.gliding()) {
+                        const int flight = mc::world::fireworks(rocket.extra).value_or(mc::world::Fireworks{}).flight;
+                        elytraBoost = mc::rocketLifetime(flight, gameRng.nextInt(6), gameRng.nextInt(7));
+                        used = true;
+                    } else {
+                        const glm::dvec3 n(mc::world::kDirectionNormals[int(lastHit->face)]);
+                        const glm::dvec3 at = eye + look * lastHit->distance + n * 0.15;
+                        used = projectiles.launchFirework(at, rocket, false, glm::dvec3(0, 1, 0), gameRng);
+                    }
+                    if (used) {
+                        if (survival) inventory.consumeSelected(1);
+                        playSound(mc::world::Sound::BowShoot, eye, 0.8f, 0.6f, false); // (our launch whoosh)
+                    }
                     clicks.useClick = false;
                     clicks.use = false;
                 }
@@ -3467,6 +3499,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // from the burst - a player's own charge under their feet sends them high (and
             // spares their fall) - and doors, trapdoors, gates, buttons and levers within
             // a block are worked.
+            for (const auto& fb : projectiles.fireworkBursts()) { // (M28.4c) sparks and a bang
+                world.levelEvent(mc::world::LevelEvent::Type::Firework, fb.pos.x, fb.pos.y, fb.pos.z, fb.fireworks);
+                playSound(mc::world::Sound::Explode, fb.pos, 0.4f, 1.6f, false);
+            }
             for (const auto& wb : projectiles.windBursts()) {
                 const double radius = 2.5;
                 const glm::dvec3 centre = player.position() + glm::dvec3(0.0, 0.9, 0.0);
@@ -4329,6 +4365,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // (M26.2-M26.5: spit, wither skulls, wind charges, snowballs)
             static const mc::world::ItemId snowItem = *mc::world::itemRegistry().find("snowball");
             static const mc::world::ItemId windItem = *mc::world::itemRegistry().find("wind_charge");
+            static const mc::world::ItemId rocketItem = *mc::world::itemRegistry().find("firework_rocket");
             static const mc::world::ItemId skullItem = *mc::world::itemRegistry().find("wither_skeleton_skull");
             // (dragon fireballs too)
             if (pr.kind == mc::ProjectileKind::Arrow)
@@ -4346,6 +4383,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                           : pr.kind == mc::ProjectileKind::Snowball || pr.kind == mc::ProjectileKind::LlamaSpit
                                               ? snowItem
                                           : pr.kind == mc::ProjectileKind::WindCharge  ? windItem
+                                          : pr.kind == mc::ProjectileKind::Firework    ? rocketItem
                                           : pr.kind == mc::ProjectileKind::WitherSkull ? skullItem
                                                                                          : fireItem,
                                           1};

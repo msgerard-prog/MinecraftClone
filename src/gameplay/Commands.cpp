@@ -160,7 +160,58 @@ std::optional<world::ItemStack> parseStack(std::string_view id, std::string& err
     if (!item || *item == world::kNoItem)
         return failed(format("Unknown item '%.*s'", int(id.size()), id.data()));
     world::ItemStack stack{*item, 1};
-    if (id.find("[charged_projectiles=") != std::string_view::npos) {
+    if (const size_t fw = id.find("[fireworks={"); fw != std::string_view::npos) {
+        // firework_rocket[fireworks={flight_duration:2,explosions:[{shape:"large_ball",colors:[I;11743532],
+        // has_trail:true}]}] (M28.4c; vanilla's component, colours as RGB ints)
+        world::Fireworks f;
+        std::string_view rest = id.substr(fw);
+        if (const size_t d = rest.find("flight_duration:"); d != std::string_view::npos) {
+            const auto n = number<int64_t>(rest.substr(d + 16, rest.find_first_of(",}", d + 16) - d - 16));
+            f.flight = uint8_t(std::clamp<int64_t>(n.value_or(1), 0, 3));
+        }
+        for (size_t s = rest.find("shape:"); s != std::string_view::npos && f.count < world::Fireworks::kMax;
+             s = rest.find("shape:", s + 6)) {
+            world::FireworkExplosion e;
+            std::string_view shape = rest.substr(s + 6);
+            if (!shape.empty() && shape.front() == '"') shape.remove_prefix(1);
+            shape = shape.substr(0, shape.find_first_of("\",}"));
+            for (int k = 0; k < 5; ++k)
+                if (shape == world::kFireworkShapes[k]) e.shape = uint8_t(k);
+            const size_t end = rest.find('}', s);
+            const std::string_view body = rest.substr(s, end == std::string_view::npos ? std::string_view::npos : end - s);
+            auto colours = [&](std::string_view key) {
+                uint16_t m = 0;
+                const size_t c = body.find(key);
+                if (c == std::string_view::npos) return m;
+                std::string_view list = body.substr(c + key.size());
+                list = list.substr(0, list.find(']'));
+                while (!list.empty()) {
+                    const size_t comma = list.find(',');
+                    const auto rgb = number<int64_t>(list.substr(0, comma));
+                    if (rgb) {
+                        int best = 0;
+                        long bestD = -1;
+                        for (int d = 0; d < 16; ++d) {
+                            const uint32_t k = world::kFireworkColours[d];
+                            const long dr = long(*rgb >> 16 & 255) - long(k >> 16 & 255), dg = long(*rgb >> 8 & 255) - long(k >> 8 & 255),
+                                       db = long(*rgb & 255) - long(k & 255);
+                            if (bestD < 0 || dr * dr + dg * dg + db * db < bestD) bestD = dr * dr + dg * dg + db * db, best = d;
+                        }
+                        m = uint16_t(m | (1u << best));
+                    }
+                    if (comma == std::string_view::npos) break;
+                    list.remove_prefix(comma + 1);
+                }
+                return m;
+            };
+            e.colours = colours("colors:[I;");
+            e.fades = colours("fade_colors:[I;");
+            e.trail = body.find("has_trail:true") != std::string_view::npos || body.find("has_trail:1") != std::string_view::npos;
+            e.twinkle = body.find("has_twinkle:true") != std::string_view::npos || body.find("has_twinkle:1") != std::string_view::npos;
+            f.explosions[f.count++] = e;
+        }
+        stack.extra = world::addFireworks(f);
+    } else if (id.find("[charged_projectiles=") != std::string_view::npos) {
         stack.state = 1; // (M28.4a) a crossbow loaded with an arrow
     } else if (const size_t bp = id.find("[banner_patterns=["); bp != std::string_view::npos) {
         // red_banner[banner_patterns=[{pattern:"cross",color:"white"},...]] (M28.3d; vanilla components)

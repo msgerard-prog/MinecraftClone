@@ -1,6 +1,7 @@
 #include "gameplay/Recipes.h"
 
 #include "gameplay/Cartography.h"
+#include "gameplay/Fireworks.h"
 
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
@@ -637,6 +638,7 @@ std::optional<ItemStack> craftPlain(std::span<const ItemStack> grid, int size);
 std::optional<ItemStack> craft(std::span<const ItemStack> grid, int size) {
     if (auto map = craftMap(grid, size)) return map; // (M28.2b: copying, zooming out)
     if (auto book = craftBookCopy(grid)) return book; // (M28.2c)
+    if (auto firework = craftFirework(grid)) return firework; // (M28.4c)
     if (size == 3) { // (M28.4b; wiki: Tipped Arrow) 8 arrows around a lingering potion: 8 of its tipped arrows
         static const ItemId arrow = id("arrow"), lingering = id("lingering_potion"), tipped = id("tipped_arrow");
         bool ok = grid[4].item == lingering && grid[4].potion != 0 && !grid[4].empty();

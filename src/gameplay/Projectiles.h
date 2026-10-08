@@ -43,7 +43,8 @@ enum class ProjectileKind : uint8_t {
     WitherSkull,   // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
     WindCharge,    // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
     Snowball,      // (M26.5b: knocks back; 3 damage to blazes)
-    LingeringPotion // (M28.4b: leaves a cloud of its effect)
+    LingeringPotion, // (M28.4b: leaves a cloud of its effect)
+    Firework         // (M28.4c: rises and bursts; `stack` is the rocket)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -83,6 +84,8 @@ struct Projectile {
     bool dealt = false;       // tridents: has hit something (drops away, hits nothing more)
     uint8_t pierce = 0;       // (M28.4a) crossbow Piercing: mobs it may still go through
     bool spectral = false;    // (M28.4b) a spectral arrow: Glowing on what it hits (`potion`: a tipped arrow's)
+    int16_t fuse = 0;         // (M28.4c) a rocket's flight time; `straight`: shot from a crossbow
+    bool straight = false;
 };
 
 class Projectiles {
@@ -96,6 +99,7 @@ public:
         m_explosions.reserve(16);
         m_witherBlasts.reserve(16);
         m_windBursts.reserve(32);
+        m_fireworkBursts.reserve(32);
         m_edits.reserve(64);
         m_clouds.reserve(kMaxClouds);
         m_pearls.reserve(16);
@@ -139,6 +143,15 @@ public:
         glm::dvec3 pos;
         bool fromPlayer;
     };
+    // (M28.4c) a rocket that burst this tick: where, and its fireworks (ItemStack::extra).
+    struct FireworkBurst {
+        glm::dvec3 pos;
+        uint32_t fireworks;
+    };
+    const std::vector<FireworkBurst>& fireworkBursts() const { return m_fireworkBursts; }
+    // A rocket from `at`: up (used on a block) or along `dir` (`straight`: a crossbow's).
+    bool launchFirework(const glm::dvec3& at, const world::ItemStack& rocket, bool straight, const glm::dvec3& dir,
+                        world::Xoroshiro& rng);
     const std::vector<WindBurst>& windBursts() const { return m_windBursts; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
@@ -161,6 +174,7 @@ private:
     std::vector<glm::dvec3> m_explosions;
     std::vector<glm::dvec3> m_witherBlasts;
     std::vector<WindBurst> m_windBursts;
+    std::vector<FireworkBurst> m_fireworkBursts;
     std::vector<world::BlockPos> m_edits;
     std::vector<BreathCloud> m_clouds;
     std::vector<PearlLanding> m_pearls;
@@ -182,10 +196,12 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
 // Charge level) they load an arrow (survival uses one up) and stay loaded (ItemStack::state
 // kCrossbowArrow); a right-click fires it at 3.15 blocks a tick - with Multishot three, 10
 // degrees apart (the side ones can't be picked up), with Piercing through level + 1 mobs.
-inline constexpr world::BlockStateId kCrossbowArrow = 1, kCrossbowSpectral = 2, kCrossbowTipped = 3;
+inline constexpr world::BlockStateId kCrossbowArrow = 1, kCrossbowSpectral = 2, kCrossbowTipped = 3,
+                                     kCrossbowFirework = 4; // (M28.4c: a rocket in the offhand loads first; its fireworks in `extra`)
 // (M28.4b) the ammunition a bow or crossbow uses: the offhand, then the inventory in order
 // (vanilla); -1 offhand, 0..35 a slot, -2 none. Arrows, tipped arrows, spectral arrows.
 int ammoSlot(const Inventory& inventory);
+bool canLoadCrossbow(const Inventory& inventory, bool survival); // (an arrow, or a rocket in the offhand)
 int crossbowChargeTicks(const world::ItemStack& crossbow);
 bool loadCrossbow(Inventory& inventory, bool survival);
 bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,

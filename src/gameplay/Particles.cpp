@@ -1,5 +1,7 @@
 #include "gameplay/Particles.h"
 
+#include "world/ItemExtras.h"
+
 #include "world/Biome.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
@@ -166,6 +168,84 @@ void Particles::splashPotion(const glm::dvec3& at, uint32_t c, Xoroshiro& rng) {
         p.friction = 0.85f;
         p.lifetime = life(rng, 8.0f, 0.8f, 0.2f);
         add(p);
+    }
+}
+
+void Particles::firework(const glm::dvec3& at, uint32_t id, Xoroshiro& rng) {
+    // (M28.4c; wiki: Firework Star › Shapes) sparks in the explosion's colours, fading to its
+    // fade colours half way; a trail doubles them, slower; twinkling ones glitter (brightness).
+    const auto f = world::fireworks(id);
+    if (!f || f->count == 0) {
+        smoke(at, false, rng);
+        return;
+    }
+    static constexpr const char* kCreeper[8] = {"........", ".##..##.", ".##..##.", "...##...",
+                                                "..####..", "..####..", "..#..#..", "........"};
+    for (int k = 0; k < f->count; ++k) {
+        const world::FireworkExplosion& e = f->explosions[size_t(k)];
+        std::array<glm::vec3, 16> cols{}, fades{};
+        int nc = 0, nf = 0;
+        for (int d = 0; d < 16; ++d) {
+            if (e.colours >> d & 1) cols[size_t(nc++)] = rgb(world::kFireworkColours[d]);
+            if (e.fades >> d & 1) fades[size_t(nf++)] = rgb(world::kFireworkColours[d]);
+        }
+        if (nc == 0) cols[size_t(nc++)] = glm::vec3(1.0f);
+        auto spark = [&](const glm::dvec3& vel) {
+            for (int t = 0; t < (e.trail ? 2 : 1); ++t) {
+                Particle p;
+                p.pos = at;
+                p.vel = vel * (t == 0 ? 1.0 : 0.6);
+                p.color = cols[rng.nextInt(uint32_t(nc))] * (e.twinkle ? 0.6f + rng.nextFloat() * 0.4f : 1.0f);
+                if (nf > 0) p.fade = fades[rng.nextInt(uint32_t(nf))];
+                p.size = 0.08f;
+                p.sprite = ParticleSprite::Effect;
+                p.fullBright = true;
+                p.physics = false;
+                p.gravity = 0.004f;
+                p.friction = 0.91f;
+                p.lifetime = int16_t(30 + rng.nextInt(15) + (t ? 10 : 0));
+                add(p);
+            }
+        };
+        const double turn = rng.nextDouble() * 2.0 * std::numbers::pi; // (flat shapes face a random way)
+        const glm::dvec3 right(std::cos(turn), 0.0, std::sin(turn)), up(0.0, 1.0, 0.0);
+        switch (e.shape) {
+        case 1: // large ball
+        case 0: { // small ball: a shell of sparks
+            const int n = e.shape == 1 ? 150 : 70;
+            const double speed = e.shape == 1 ? 0.5 : 0.25;
+            for (int i = 0; i < n; ++i) {
+                glm::dvec3 d(centred(rng), centred(rng), centred(rng));
+                if (glm::length(d) < 1e-3) continue;
+                spark(glm::normalize(d) * speed * (0.85 + rng.nextDouble() * 0.15));
+            }
+            break;
+        }
+        case 2: // a five-pointed star's outline
+            for (int i = 0; i < 100; ++i) {
+                const double t = double(i) / 100.0 * 10.0;
+                const int v = int(t);
+                const double a0 = double(v) * std::numbers::pi / 5.0, a1 = double(v + 1) * std::numbers::pi / 5.0;
+                const double r0 = v % 2 ? 0.4 : 1.0, r1 = v % 2 ? 1.0 : 0.4, w = t - v;
+                const double x = (1 - w) * r0 * std::sin(a0) + w * r1 * std::sin(a1);
+                const double y = (1 - w) * r0 * std::cos(a0) + w * r1 * std::cos(a1);
+                spark((right * x + up * y) * 0.5);
+            }
+            break;
+        case 3: // a creeper's face
+            for (int y = 0; y < 8; ++y)
+                for (int x = 0; x < 8; ++x)
+                    if (kCreeper[y][x] == '#')
+                        for (int r = 0; r < 2; ++r)
+                            spark((right * ((x - 3.5) / 3.5) + up * ((3.5 - y) / 3.5)) * (0.5 + 0.05 * r));
+            break;
+        default: // burst: a fountain upward
+            for (int i = 0; i < 80; ++i) {
+                const glm::dvec3 d(centred(rng) * 0.4, 1.0, centred(rng) * 0.4);
+                spark(glm::normalize(d) * (0.2 + rng.nextDouble() * 0.3));
+            }
+            break;
+        }
     }
 }
 
@@ -452,6 +532,7 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
             poof(at, double(e.data & 0xFFFF) / 100.0, double(e.data >> 16) / 100.0, rng);
             break;
         case LevelEvent::Type::PotionSplash: splashPotion(at, e.data, rng); break;
+        case LevelEvent::Type::Firework: firework(at, e.data, rng); break;
         case LevelEvent::Type::Crit: crit(at, rng); break;
         case LevelEvent::Type::BlockPlace: break; // (a sound only)
         case LevelEvent::Type::Extinguish:
@@ -502,6 +583,7 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
     for (Particle& p : m_particles) {
         ++p.age;
         if (p.age >= p.lifetime) continue;
+        if (p.fade.r >= 0.0f && p.age == p.lifetime / 2) p.color = p.fade; // (M28.4c)
         move(world, p);
         if (p.hangs && p.onGround) p.age = p.lifetime; // a drip hitting the floor is gone
         // Rain splashes on the ground vanish half the time each tick (vanilla's water drops).

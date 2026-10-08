@@ -212,6 +212,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                 for (const char* key : {"minecraft:container", "minecraft:trim", "minecraft:lodestone_tracker",
                                         "minecraft:writable_book_content", "minecraft:written_book_content",
                                         "minecraft:banner_patterns", "minecraft:charged_projectiles",
+                                        "minecraft:fireworks", "minecraft:firework_explosion",
                                         "minecraft:map_post_processing"})
                     if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
@@ -494,7 +495,8 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                 if (comps->list("minecraft:container") || comps->compound("minecraft:trim") ||
                     comps->compound("minecraft:lodestone_tracker") || comps->compound("minecraft:writable_book_content") ||
                     comps->compound("minecraft:written_book_content") || comps->list("minecraft:banner_patterns") ||
-                    comps->list("minecraft:charged_projectiles") || comps->find("minecraft:map_post_processing")) {
+                    comps->list("minecraft:charged_projectiles") || comps->find("minecraft:map_post_processing") ||
+                    comps->compound("minecraft:fireworks") || comps->compound("minecraft:firework_explosion")) {
                     const ItemStack parsed = itemFromNbtPublic(item);
                     saved.contents = parsed.contents;
                     saved.trim = parsed.trim;

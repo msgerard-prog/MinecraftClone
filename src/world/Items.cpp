@@ -386,6 +386,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:dragon_breath", .texture = "item/dragon_breath"});
     r.add({.id = "minecraft:tipped_arrow", .texture = "item/tipped_arrow_base"});
     r.add({.id = "minecraft:spectral_arrow", .texture = "item/spectral_arrow"});
+    // (M28.4c; wiki: Firework Rocket, Firework Star) - what they carry is ItemStack::extra
+    r.add({.id = "minecraft:firework_rocket", .texture = "item/firework_rocket"});
+    r.add({.id = "minecraft:firework_star", .texture = "item/firework_star"});
     r.add({.id = "minecraft:sugar", .texture = "item/sugar"});
     r.add({.id = "minecraft:fermented_spider_eye", .texture = "item/fermented_spider_eye"});
     r.add({.id = "minecraft:golden_carrot", .food = 6, .saturation = 14.4f, .texture = "item/golden_carrot"});

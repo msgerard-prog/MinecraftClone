@@ -36,6 +36,31 @@ struct BookContent {
 uint32_t addBook(BookContent book);
 std::optional<BookContent> bookContent(uint32_t id);
 
+// Fireworks (M28.4c; wiki: Firework Rocket, Firework Star; vanilla minecraft:fireworks /
+// firework_explosion): a rocket's flight duration (1-3) and explosions (a star has one).
+// Colours are dye bit masks (bit = dye index; saved as vanilla's RGB ints).
+struct FireworkExplosion {
+    uint8_t shape = 0; // 0 small ball, 1 large ball, 2 star, 3 creeper, 4 burst
+    uint16_t colours = 0, fades = 0;
+    bool trail = false, twinkle = false;
+    bool operator==(const FireworkExplosion&) const = default;
+};
+struct Fireworks {
+    static constexpr int kMax = 7;
+    uint8_t flight = 1;
+    uint8_t count = 0;
+    std::array<FireworkExplosion, kMax> explosions{};
+    bool operator==(const Fireworks&) const = default;
+};
+inline constexpr std::string_view kFireworkShapes[5] = {"small_ball", "large_ball", "star", "creeper", "burst"};
+// The colours fireworks use for each dye (wiki: Firework Star › Colors), 0xRRGGBB.
+inline constexpr uint32_t kFireworkColours[16] = {0xF0F0F0, 0xEB8844, 0xC354CD, 0x6689D3, 0xDECF2A, 0x41CD34,
+                                                  0xD88198, 0x434343, 0xABABAB, 0x287697, 0x7B2FBE, 0x253192,
+                                                  0x51301A, 0x3B511A, 0xB3312C, 0x1E1B1B};
+// Equal fireworks share an entry (they stack).
+uint32_t addFireworks(const Fireworks& f);
+std::optional<Fireworks> fireworks(uint32_t id);
+
 // A banner item's layers (M28.3d; vanilla minecraft:banner_patterns). Identical layers
 // share one entry, so such banners stack.
 uint32_t addBannerLayers(const BannerLayers& layers);

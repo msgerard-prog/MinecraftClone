@@ -619,6 +619,24 @@ def arrow_head_overlay():
     return img
 
 
+def firework_rocket():
+    """M28.4c: a red paper tube with a cone, a stick below."""
+    s = Shape()
+    s.add({(x, y) for x in (6, 7, 8, 9) for y in range(4, 11)}, ramp(hexc("#C83A2E"), 5, spread=0.3))
+    s.add({(7, 2), (8, 2), (7, 3), (8, 3), (6, 3), (9, 3)}, ramp(hexc("#E8E0C8"), 5))
+    s.add({(7, y) for y in range(11, 15)} | {(8, y) for y in range(11, 15)}, ramp(hexc("#9A7A4E"), 5))
+    img = s.render()
+    for y in (5, 8):
+        for x in (6, 7, 8, 9):
+            img.set(x, y, hexc("#F2E8C8"))
+    return img
+
+
+def firework_star():
+    """M28.4c: a rough grey ball of gunpowder."""
+    return lump("firework_star", "#6A6A6A", "#9A9A9A", size=4.6)
+
+
 def bone():
     pal = ramp(hexc("#E8E2CC"), 5, spread=0.25)
     s = Shape()
@@ -1434,6 +1452,8 @@ def all_items():
     items["tipped_arrow_base"] = arrow_variant(None)
     items["tipped_arrow_head"] = arrow_head_overlay()
     items["spectral_arrow"] = arrow_variant("#F4D040")
+    items["firework_rocket"] = firework_rocket()  # (M28.4c)
+    items["firework_star"] = firework_star()
     items["sugar"] = sugar()
     items["fermented_spider_eye"] = fermented_spider_eye()
     items["golden_carrot"] = golden_carrot()

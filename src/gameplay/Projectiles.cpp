@@ -1,5 +1,7 @@
 #include "gameplay/Projectiles.h"
 
+#include "gameplay/Fireworks.h"
+
 #include "gameplay/FluidContact.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
@@ -87,6 +89,10 @@ void loadArrow(Projectile& p, const ItemStack& ammo) {
 } // namespace
 
 bool canDrawBow(const Inventory& inventory, bool survival) { return !survival || ammoSlot(inventory) != -2; }
+bool canLoadCrossbow(const Inventory& inventory, bool survival) {
+    static const ItemId rocket = *itemRegistry().find("firework_rocket");
+    return !survival || ammoSlot(inventory) != -2 || (inventory.offhand().item == rocket && !inventory.offhand().empty());
+}
 
 bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                 Projectiles& projectiles, Xoroshiro& rng) {
@@ -116,8 +122,21 @@ int crossbowChargeTicks(const ItemStack& crossbow) {
 
 bool loadCrossbow(Inventory& inventory, bool survival) {
     static const ItemId tipped = *itemRegistry().find("tipped_arrow"), spectral = *itemRegistry().find("spectral_arrow");
+    static const ItemId rocket = *itemRegistry().find("firework_rocket");
     ItemStack bow = inventory.selectedStack();
-    if (bow.state != 0 || (survival && ammoSlot(inventory) == -2)) return false;
+    if (bow.state != 0) return false;
+    if (inventory.offhand().item == rocket && !inventory.offhand().empty()) { // (M28.4c) a rocket first
+        bow.state = kCrossbowFirework;
+        bow.extra = inventory.offhand().extra;
+        if (survival) {
+            ItemStack off = inventory.offhand();
+            off.count = uint8_t(off.count - 1);
+            inventory.setOffhand(off.count ? off : ItemStack{});
+        }
+        inventory.setSlot(inventory.selected(), bow);
+        return true;
+    }
+    if (survival && ammoSlot(inventory) == -2) return false;
     const ItemStack ammo = takeAmmo(inventory, survival, false);
     bow.state = ammo.item == spectral ? kCrossbowSpectral : ammo.item == tipped ? kCrossbowTipped : kCrossbowArrow;
     bow.potion = ammo.item == tipped ? ammo.potion : 0;
@@ -135,6 +154,22 @@ bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, co
     ammo.potion = bow.state == kCrossbowTipped ? bow.potion : 0;
     const bool multishot = enchantLevel(bow, Enchantment::Multishot) > 0;
     const uint8_t pierce = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Piercing));
+    if (bow.state == kCrossbowFirework) { // (M28.4c) rockets fly straight and burst on what they hit
+        static const ItemId rocket = *itemRegistry().find("firework_rocket");
+        ItemStack r{rocket, 1};
+        r.extra = bow.extra;
+        for (const float turn : {0.0f, -10.0f, 10.0f}) {
+            if (turn != 0.0f && !multishot) break;
+            const float a = glm::radians(turn);
+            const glm::dvec3 dir(look.x * std::cos(a) - look.z * std::sin(a), look.y, look.x * std::sin(a) + look.z * std::cos(a));
+            projectiles.launchFirework(eye, r, true, dir, rng);
+        }
+        bow.state = 0;
+        bow.extra = 0;
+        if (survival) bow = wearItem(bow, multishot ? 3 : 1, rng);
+        inventory.setSlot(inventory.selected(), bow);
+        return true;
+    }
     for (const float turn : {0.0f, -10.0f, 10.0f}) {
         if (turn != 0.0f && !multishot) break;
         const float a = glm::radians(turn); // about the vertical, like vanilla's side shots
@@ -229,6 +264,23 @@ void throwSplashPotion(Inventory& inventory, bool survival, const glm::dvec3& ey
     if (survival) inventory.consumeSelected(1);
 }
 
+bool Projectiles::launchFirework(const glm::dvec3& at, const ItemStack& rocket, bool straight, const glm::dvec3& dir,
+                                 Xoroshiro& rng) {
+    const int flight = fireworks(rocket.extra).value_or(Fireworks{}).flight;
+    if (!shoot(ProjectileKind::Firework, at, straight ? dir : glm::dvec3(0, 1, 0), straight ? 1.6 : 0.05, 0.0, true,
+               false, rng))
+        return false;
+    Projectile& p = last();
+    if (!straight) // (a little sideways drift: wiki)
+        p.vel += glm::dvec3((rng.nextDouble() - 0.5) * 0.002, 0.0, (rng.nextDouble() - 0.5) * 0.002);
+    p.straight = straight;
+    p.stack = rocket;
+    p.stack.count = 1;
+    p.pickup = false;
+    p.fuse = int16_t(rocketLifetime(flight, rng.nextInt(6), rng.nextInt(7)));
+    return true;
+}
+
 bool Projectiles::shoot(ProjectileKind kind, const glm::dvec3& from, const glm::dvec3& dir, double speed,
                         double inaccuracy, bool fromPlayer, bool critical, Xoroshiro& rng, uint64_t owner) {
     if (m_items.size() >= size_t(kMax)) {
@@ -263,6 +315,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_explosions.clear();
     m_witherBlasts.clear();
     m_windBursts.clear();
+    m_fireworkBursts.clear();
     m_pearls.clear();
     m_channeled.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
@@ -328,6 +381,46 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 p.pos += p.vel;
             }
             if (p.life > 400) remove = true;
+        } else if (p.kind == ProjectileKind::Firework) {
+            // (M28.4c; wiki: Firework Rocket) rises faster and faster - a crossbow's flies
+            // straight - and bursts when its time is up or it hits something.
+            if (!p.straight) {
+                p.vel.x *= 1.15;
+                p.vel.z *= 1.15;
+                p.vel.y += 0.04;
+            }
+            const double speed = glm::length(p.vel);
+            const glm::dvec3 dir = speed > 1e-9 ? p.vel / speed : glm::dvec3(0, 1, 0);
+            p.facing = dir;
+            bool burst = p.life >= p.fuse;
+            if (speed > 1e-9 && raycastBlocks(world, p.pos, dir, speed)) burst = true;
+            if (p.straight && Mobs::raycast(world, p.pos, dir, speed, p.owner)) burst = true;
+            if (burst) {
+                if (m_fireworkBursts.size() < m_fireworkBursts.capacity()) m_fireworkBursts.push_back({p.pos, p.stack.extra});
+                const int stars = fireworks(p.stack.extra).value_or(Fireworks{}).count;
+                if (stars > 0) { // (rockets with stars hurt what's around: wiki)
+                    const double dp = glm::length(player.position() + glm::dvec3(0.0, 0.9, 0.0) - p.pos);
+                    if (vitals && survival)
+                        if (const float d = fireworkDamage(stars, dp); d > 0.0f) vitals->attacked(d, &p.pos, Vitals::Hit::Explosion);
+                    const ChunkPos c0{blockToChunk(int(std::floor(p.pos.x))), blockToChunk(int(std::floor(p.pos.z)))};
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx)
+                            if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
+                                for (MobData& m : ch->mobs()) {
+                                    if (m.health <= 0.0f || isHanging(m.type)) continue;
+                                    const Aabb mb = Mobs::box(m);
+                                    const float d = fireworkDamage(stars, glm::length((mb.min + mb.max) * 0.5 - p.pos));
+                                    if (d > 0.0f && m.hurtTime == 0) {
+                                        m.health -= d;
+                                        m.hurtTime = 10;
+                                        if (p.fromPlayer) m.lastHurtByPlayer = true;
+                                    }
+                                }
+                }
+                remove = true;
+            } else {
+                p.pos += p.vel;
+            }
         } else if (p.kind == ProjectileKind::EyeOfEnder) {
             // Glides toward its target (through blocks), then comes down (wiki).
             p.vel = (p.target - p.pos) * 0.06;

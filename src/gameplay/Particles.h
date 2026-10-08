@@ -33,6 +33,7 @@ struct Particle {
     bool fullBright = false;   // flames, lava, portal sparks glow
     bool hangs = false;        // drips: wait under the block, then fall
     bool toOrigin = false;     // portal sparks: drift back toward their start
+    glm::vec3 fade{-1.0f};     // (M28.4c) firework sparks: the colour they fade to half way
     glm::dvec3 origin{0.0};
     uint8_t skyLight = 15, blockLight = 0;
     // The current sprite cell (animated ones step through their frames).
@@ -76,6 +77,8 @@ public:
     void explosion(const glm::dvec3& at, float power, world::Xoroshiro& rng);
     void poof(const glm::dvec3& feet, double width, double height, world::Xoroshiro& rng);
     void splashPotion(const glm::dvec3& at, uint32_t rgb, world::Xoroshiro& rng);
+    // (M28.4c) a rocket's burst: each explosion's shape in its colours (none: a puff).
+    void firework(const glm::dvec3& at, uint32_t fireworks, world::Xoroshiro& rng);
     void crit(const glm::dvec3& at, world::Xoroshiro& rng);
     void smoke(const glm::dvec3& at, bool large, world::Xoroshiro& rng);
     Particle& flame(const glm::dvec3& at, world::Xoroshiro& rng);

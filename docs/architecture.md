@@ -657,6 +657,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   potions (`ProjectileKind::LingeringPotion`, brewed from splash potions with dragon's
   breath) leave a `BreathCloud` with a `potion` and `shrink`; clouds give their effect a
   quarter as long once a second.
+- Fireworks (M28.4c, `gameplay/Fireworks`): stars, fades and rockets crafted by
+  `craftFirework` (`world::Fireworks` in `ItemStack::extra`, saved as minecraft:fireworks /
+  firework_explosion); `Projectiles::launchFirework` (rising, or straight from a crossbow
+  loaded from the offhand), `fireworkBursts()` -> main's `LevelEvent::Firework` ->
+  `Particles::firework` (shapes, colours, fades); `fireworkDamage` to things within 5;
+  main's `elytraBoost` pushes a glide with `boostedVelocity`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

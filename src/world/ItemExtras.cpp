@@ -12,7 +12,8 @@ template <typename T> struct Table {
     std::mutex lock;
     std::deque<T> entries; // index + 1 = id within its kind
 };
-// The kinds share the id space: id = index x 4 + kind (books 1, lodestones 2, banners 3).
+// The kinds share the id space: id = index x 4 + kind (books 1, lodestones 2, banners 3,
+// fireworks 0 - at (index + 1) x 4, so 0 stays "none").
 Table<LodestoneTarget>& lodestones() {
     static Table<LodestoneTarget> t;
     return t;
@@ -23,6 +24,10 @@ Table<BookContent>& books() {
 }
 Table<BannerLayers>& banners() {
     static Table<BannerLayers> t;
+    return t;
+}
+Table<Fireworks>& fireworkTable() {
+    static Table<Fireworks> t;
     return t;
 }
 
@@ -71,6 +76,22 @@ std::optional<BannerLayers> bannerLayers(uint32_t id) {
     const std::lock_guard guard(t.lock);
     if (id % 4 != 3 || id / 4 >= t.entries.size()) return std::nullopt;
     return t.entries[id / 4];
+}
+
+uint32_t addFireworks(const Fireworks& f) {
+    auto& t = fireworkTable();
+    const std::lock_guard guard(t.lock);
+    for (size_t i = 0; i < t.entries.size(); ++i)
+        if (t.entries[i] == f) return static_cast<uint32_t>(i + 1) * 4;
+    t.entries.push_back(f);
+    return static_cast<uint32_t>(t.entries.size()) * 4;
+}
+
+std::optional<Fireworks> fireworks(uint32_t id) {
+    auto& t = fireworkTable();
+    const std::lock_guard guard(t.lock);
+    if (id == 0 || id % 4 != 0 || id / 4 > t.entries.size()) return std::nullopt;
+    return t.entries[id / 4 - 1];
 }
 
 } // namespace mc::world

@@ -32,6 +32,7 @@ struct LevelEvent {
         Extinguish,   // pos = centre (fire or a burning thing put out: smoke)
         Portal,       // pos = where an entity teleported (portal/ender particles)
         Note,         // pos = above a note block, data = the note 0..24 (its colour)
+        Firework,     // pos = where a rocket burst, data = its fireworks (ItemStack::extra; M28.4c)
     };
     Type type;
     double x, y, z;
