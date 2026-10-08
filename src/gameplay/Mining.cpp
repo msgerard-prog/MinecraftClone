@@ -365,6 +365,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         }
         // Geodes (M27.4a; wiki): a cluster gives 4 shards to a pickaxe (Fortune more), 2
         // otherwise; buds only with Silk Touch; budding amethyst never drops.
+        if (isSuspicious(ob)) return; // (M27.5; wiki: broken, it gives nothing - its item is lost)
         if (ob == blocks::AmethystCluster) {
             const bool silk = enchantLevel(held, Enchantment::SilkTouch) > 0;
             if (silk) out.push_back({itemRegistry().blockItem(ob), 1});

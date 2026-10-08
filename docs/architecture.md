@@ -566,6 +566,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   anger in `angerTicks` from `World::vibrations()` - BlockUpdates::vibrate fills it,
   Mobs::tick clears it - from sniffing and hits; Darkness pulses; the sonic boom on
   `spellTicks`/`chargeTicks`), `wardenGoal` (investigating), `mayTarget` at anger 80.
+- Archaeology (M27.5): suspicious sand and gravel carry a `BrushableData` block entity
+  (`Chunk::brushables()`: an item or an archaeology `LootTable`, saved as vanilla's
+  brushable_block with `lootTableName`); main brushes them with a held brush (a dusted
+  stage every 10 ticks, then the item out of the brushed face via `rollOne`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

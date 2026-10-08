@@ -96,6 +96,13 @@ struct BeaconData {
     bool beam = false;      // beacon: the sky is open above it (its beam shows)
 };
 
+// Suspicious sand or gravel (M27.5; wiki: Suspicious Sand › Block data): its item, or the
+// archaeology loot table it will be rolled from when brushed (255: none).
+struct BrushableData {
+    ItemStack item;
+    uint8_t table = 255; // (a world::LootTable)
+};
+
 // A jukebox's disc and how long it has played (M23.6; wiki: Jukebox › Block data:
 // RecordItem, ticks_since_song_started).
 struct JukeboxData {

@@ -261,6 +261,42 @@ def trial_key():
     return s.render()
 
 
+def brush():
+    """A brush (M27.5): a wooden handle, a copper band, a tuft of feather bristles."""
+    s = Shape()
+    s.add(line(3, 13, 9, 7, 2), HANDLE)
+    s.add({(9, 6), (10, 7), (9, 7), (10, 6)}, ramp(hexc("#C07A50"), 5))
+    s.add({(x, y) for x in range(10, 15) for y in range(1, 7) if x + y <= 17 and y + 14 - x >= 3}, ramp(hexc("#E8E4DC"), 5))
+    return s.render()
+
+
+SHERD_MARKS = {
+    "angler": [(5, 9), (6, 8), (7, 7), (8, 7), (9, 8), (8, 10), (7, 10)], "archer": [(5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (9, 6), (6, 9)],
+    "arms_up": [(7, 5), (7, 6), (7, 7), (7, 8), (5, 6), (9, 6), (6, 10), (8, 10)], "blade": [(5, 10), (6, 9), (7, 8), (8, 7), (9, 6), (10, 5)],
+    "brewer": [(6, 6), (8, 6), (5, 8), (6, 9), (7, 9), (8, 9), (9, 8)], "burn": [(7, 5), (6, 7), (8, 7), (5, 9), (7, 9), (9, 9)],
+    "danger": [(7, 5), (6, 7), (8, 7), (5, 9), (6, 9), (7, 9), (8, 9), (9, 9)], "explorer": [(5, 5), (9, 5), (7, 7), (5, 9), (9, 9)],
+    "flow": [(5, 7), (6, 6), (7, 7), (8, 8), (9, 7), (10, 6)], "friend": [(6, 6), (8, 6), (5, 8), (9, 8), (6, 9), (7, 10), (8, 9)],
+    "guster": [(5, 6), (6, 5), (7, 6), (8, 7), (9, 8), (8, 9), (7, 9)], "heart": [(6, 6), (8, 6), (5, 7), (7, 7), (9, 7), (6, 8), (8, 8), (7, 9)],
+    "heartbreak": [(6, 6), (9, 6), (5, 7), (10, 7), (6, 8), (9, 8), (7, 9)], "howl": [(6, 5), (6, 6), (7, 7), (8, 7), (9, 8), (9, 9)],
+    "miner": [(5, 5), (6, 5), (7, 5), (8, 5), (6, 6), (7, 7), (7, 8), (7, 9)], "mourner": [(7, 5), (6, 6), (8, 6), (6, 8), (8, 8), (7, 9)],
+    "plenty": [(5, 6), (6, 6), (7, 6), (8, 6), (9, 6), (6, 8), (8, 8), (7, 9)], "prize": [(7, 5), (6, 6), (8, 6), (5, 7), (9, 7), (7, 9)],
+    "scrape": [(5, 9), (6, 8), (7, 9), (8, 8), (9, 9), (10, 8)], "sheaf": [(6, 5), (7, 5), (8, 5), (7, 6), (7, 7), (6, 9), (8, 9)],
+    "shelter": [(7, 5), (6, 6), (8, 6), (5, 7), (9, 7), (6, 9), (8, 9)], "skull": [(6, 6), (8, 6), (5, 7), (9, 7), (6, 9), (7, 9), (8, 9)],
+    "snort": [(5, 7), (6, 7), (7, 6), (8, 6), (9, 7), (10, 7), (7, 9)],
+}
+
+
+def sherd(name):
+    """A pottery sherd (M27.5): a terracotta shard with its mark scratched in (ours)."""
+    pal = ramp(hexc("#9A5A40"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(3, 13) if not (x + y < 6 or x - y > 7 or y - x > 8)}, pal)
+    img = s.render()
+    for x, y in SHERD_MARKS[name]:
+        img.set(x, y, (60, 30, 22, 255))
+    return img
+
+
 def horn():
     """A goat horn (M26.3): a ridged, curving cone."""
     s = Shape()
@@ -1099,6 +1135,9 @@ def all_items():
     items["resin_brick"] = ingot("#E0702C")  # (M27.1c)
     items["echo_shard"] = gem("#1E6E78", "emerald")  # (M27.3b)
     items["trial_key"] = trial_key()  # (M27.4d)
+    items["brush"] = brush()  # (M27.5)
+    for name in SHERD_MARKS:
+        items[name + "_pottery_sherd"] = sherd(name)
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

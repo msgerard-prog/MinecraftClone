@@ -248,6 +248,39 @@ constexpr LootEntry kTrialSupply1[] = {
     {"torch", 3, 6, 1},  {"bread", 1, 3, 1},        {"wind_charge", 1, 3, 1},   {"iron_ingot", 1, 3, 1}};
 constexpr LootPool kTrialSupply[] = {{3, 5, kTrialSupply1}};
 
+// wiki: Archaeology (Java) - one item from each table when brushed.
+constexpr LootEntry kArchPyramid1[] = {{"archer_pottery_sherd"}, {"miner_pottery_sherd"}, {"prize_pottery_sherd"},
+                                       {"skull_pottery_sherd"},  {"diamond"},             {"tnt"},
+                                       {"gunpowder"},            {"emerald"}};
+constexpr LootPool kArchPyramid[] = {{1, 1, kArchPyramid1}};
+constexpr LootEntry kArchWell1[] = {{"arms_up_pottery_sherd", 1, 1, 2}, {"brewer_pottery_sherd", 1, 1, 2},
+                                    {"brick"}, {"emerald"}, {"stick"}, {"suspicious_stew"}};
+constexpr LootPool kArchWell[] = {{1, 1, kArchWell1}};
+constexpr LootEntry kArchCold1[] = {
+    {"blade_pottery_sherd"}, {"explorer_pottery_sherd"}, {"mourner_pottery_sherd"}, {"plenty_pottery_sherd"},
+    {"iron_axe"},            {"emerald", 1, 1, 2},       {"wheat", 1, 1, 2},         {"wooden_hoe", 1, 1, 2},
+    {"coal", 1, 1, 2},       {"gold_nugget", 1, 1, 2}};
+constexpr LootPool kArchCold[] = {{1, 1, kArchCold1}};
+constexpr LootEntry kArchWarm1[] = {
+    {"angler_pottery_sherd"}, {"shelter_pottery_sherd"}, {"snort_pottery_sherd"}, {"sniffer_egg"},
+    {"iron_axe"},             {"emerald", 1, 1, 2},      {"wheat", 1, 1, 2},      {"wooden_hoe", 1, 1, 2},
+    {"coal", 1, 1, 2},        {"gold_nugget", 1, 1, 2}};
+constexpr LootPool kArchWarm[] = {{1, 1, kArchWarm1}};
+constexpr LootEntry kArchTrailCommon1[] = {
+    {"emerald", 1, 1, 2},        {"wheat", 1, 1, 2},           {"wooden_hoe", 1, 1, 2},   {"clay", 1, 1, 2},
+    {"brick", 1, 1, 2},          {"yellow_dye", 1, 1, 2},      {"blue_dye", 1, 1, 2},     {"light_blue_dye", 1, 1, 2},
+    {"white_dye", 1, 1, 2},      {"orange_dye", 1, 1, 2},      {"red_stained_glass_pane", 1, 1, 2},
+    {"yellow_stained_glass_pane", 1, 1, 2}, {"blue_stained_glass_pane", 1, 1, 2}, {"magenta_stained_glass_pane", 1, 1, 2},
+    {"lead"},                    {"beetroot_seeds"},           {"dead_bush"},             {"flower_pot"},
+    {"string"},                  {"wheat_seeds"}};
+constexpr LootPool kArchTrailCommon[] = {{1, 1, kArchTrailCommon1}};
+constexpr LootEntry kArchTrailRare1[] = {
+    {"burn_pottery_sherd"}, {"danger_pottery_sherd"}, {"friend_pottery_sherd"}, {"heart_pottery_sherd"},
+    {"heartbreak_pottery_sherd"}, {"howl_pottery_sherd"}, {"sheaf_pottery_sherd"},
+    {"wayfinder_armor_trim_smithing_template"}, {"raiser_armor_trim_smithing_template"},
+    {"shaper_armor_trim_smithing_template"}, {"host_armor_trim_smithing_template"}, {"music_disc_relic"}};
+constexpr LootPool kArchTrailRare[] = {{1, 1, kArchTrailRare1}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -299,6 +332,12 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::TrialVault: return kVault;
     case LootTable::TrialReward: return kTrialReward;
     case LootTable::TrialSupply: return kTrialSupply;
+    case LootTable::ArchaeologyDesertPyramid: return kArchPyramid;
+    case LootTable::ArchaeologyDesertWell: return kArchWell;
+    case LootTable::ArchaeologyOceanRuinCold: return kArchCold;
+    case LootTable::ArchaeologyOceanRuinWarm: return kArchWarm;
+    case LootTable::ArchaeologyTrailCommon: return kArchTrailCommon;
+    case LootTable::ArchaeologyTrailRare: return kArchTrailRare;
     default: return {}; // (filled in as their structures arrive)
     }
 }
@@ -377,6 +416,38 @@ void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots
                 break;
             }
     }
+}
+
+namespace {
+constexpr std::string_view kTableNames[] = {
+    "chests/simple_dungeon",     "chests/desert_pyramid",       "chests/jungle_temple",
+    "chests/igloo_chest",        "chests/abandoned_mineshaft",  "chests/stronghold_corridor",
+    "chests/stronghold_crossing", "chests/stronghold_library",  "chests/village/village_plains_house",
+    "chests/village/village_desert_house", "gameplay/piglin_bartering", "chests/nether_bridge",
+    "chests/bastion_other",      "chests/end_city_treasure",    "chests/pillager_outpost",
+    "chests/shipwreck_supply",   "chests/shipwreck_map",        "chests/shipwreck_treasure",
+    "chests/underwater_ruin_small", "chests/underwater_ruin_big", "chests/buried_treasure",
+    "chests/ancient_city",       "chests/ruined_portal",        "chests/woodland_mansion",
+    "chests/trial_chambers/reward", "spawners/trial_chamber/consumables", "chests/trial_chambers/supply",
+    "archaeology/desert_pyramid", "archaeology/desert_well",    "archaeology/ocean_ruin_cold",
+    "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare"};
+static_assert(std::size(kTableNames) == size_t(LootTable::Count));
+} // namespace
+
+std::string_view lootTableName(LootTable table) {
+    static const auto names = [] {
+        std::array<std::string, size_t(LootTable::Count)> n;
+        for (size_t i = 0; i < n.size(); ++i) n[i] = "minecraft:" + std::string(kTableNames[i]);
+        return n;
+    }();
+    return names[size_t(table)];
+}
+
+std::optional<LootTable> lootTableFromName(std::string_view name) {
+    if (name.starts_with("minecraft:")) name.remove_prefix(10);
+    for (size_t i = 0; i < std::size(kTableNames); ++i)
+        if (kTableNames[i] == name) return LootTable(i);
+    return std::nullopt;
 }
 
 } // namespace mc::world

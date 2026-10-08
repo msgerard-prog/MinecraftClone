@@ -113,6 +113,7 @@ BlockShape compute(BlockStateId s) {
     }
     switch (b) {
     case B::Mud: return box(0, 0, 0, 16, 14, 16); // (M27.1; wiki: Mud - 14 pixels, so things sink a little)
+    case B::DecoratedPot: return box(1, 0, 1, 15, 16, 15); // (M27.5)
     case B::SculkSensor: // (M27.3; wiki: half a block)
     case B::SculkShrieker: return box(0, 0, 0, 16, 8, 16);
     case B::PointedDripstone: { // (M27.2b; ours: thinner toward the tip)

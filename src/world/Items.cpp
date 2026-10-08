@@ -224,6 +224,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M27.5; wiki: Brush - 64 uses; Pottery Sherd - from suspicious blocks)
+    r.add({.id = "minecraft:brush", .maxStack = 1, .durability = 64, .texture = "item/brush"});
+    for (const char* s : kSherds)
+        r.add({.id = std::string("minecraft:") + s + "_pottery_sherd", .texture = std::string("item/") + s + "_pottery_sherd"});
     // (M27.4d; wiki: Trial Key - opens a vault; from trial spawners)
     r.add({.id = "minecraft:trial_key", .texture = "item/trial_key"});
     // (M27.3b; wiki: Echo Shard - found in ancient cities)

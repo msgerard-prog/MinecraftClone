@@ -29,6 +29,7 @@ struct ChunkSnapshot {
     std::vector<Chunk::CampfireEntry> campfires;
     std::vector<Chunk::BeaconEntry> beacons;
     std::vector<Chunk::JukeboxEntry> jukeboxes;
+    std::vector<Chunk::BrushableEntry> brushables;
     std::vector<Chunk::BeehiveEntry> beehives; // (M26.3b)
     std::vector<Chunk::ComparatorEntry> comparators;
     std::vector<Chunk::HopperEntry> hoppers;

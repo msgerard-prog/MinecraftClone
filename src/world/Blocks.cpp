@@ -107,6 +107,7 @@ const Property trialState{"trial_spawner_state",
                            "cooldown"}};
 const Property vaultState{"vault_state", {"inactive", "active", "unlocking", "ejecting"}};
 const Property ominous{"ominous", {"true", "false"}};
+const Property dusted{"dusted", {"0", "1", "2", "3"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1247,6 +1248,14 @@ BlockRegistry buildVanillaBlocks() {
                           .layer = RenderLayer::Cutout},
                 {{&facing, "north"}, {&vaultState, "inactive"}, {&ominous, "false"}}),
           blocks::Vault);
+    // (M27.5; wiki: Suspicious Sand 0.25, Suspicious Gravel 0.25, shovel; Decorated Pot 0)
+    check(r.add("suspicious_sand", {.hardness = 0.25f, .resistance = 0.25f, .tool = HarvestTool::Shovel}, {{&dusted, "0"}}),
+          blocks::SuspiciousSand);
+    check(r.add("suspicious_gravel", {.hardness = 0.25f, .resistance = 0.25f, .tool = HarvestTool::Shovel},
+                {{&dusted, "0"}}),
+          blocks::SuspiciousGravel);
+    check(r.add("decorated_pot", {.opaqueCube = false, .layer = RenderLayer::Cutout}, {{&facing, "north"}}),
+          blocks::DecoratedPot);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

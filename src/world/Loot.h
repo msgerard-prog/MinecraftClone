@@ -41,8 +41,20 @@ enum class LootTable : uint8_t {
     WoodlandMansion, // (M27.4c)
     TrialVault,      // (M27.4d) a vault opened with a trial key
     TrialReward,     // (M27.4d) a trial spawner's reward (beside its key)
-    TrialSupply      // (M27.4d) the chambers' supply chests
+    TrialSupply,     // (M27.4d) the chambers' supply chests
+    // Archaeology (M27.5): what brushing suspicious sand or gravel turns up.
+    ArchaeologyDesertPyramid,
+    ArchaeologyDesertWell,
+    ArchaeologyOceanRuinCold,
+    ArchaeologyOceanRuinWarm,
+    ArchaeologyTrailCommon,
+    ArchaeologyTrailRare,
+    Count
 };
+// Vanilla's loot table ids ("minecraft:chests/simple_dungeon", "minecraft:archaeology/
+// desert_pyramid"...) for saves; and back (nullopt: one we don't have).
+std::string_view lootTableName(LootTable table);
+std::optional<LootTable> lootTableFromName(std::string_view name);
 
 struct LootEntry {
     std::string_view item; // without "minecraft:"; "" = an empty entry

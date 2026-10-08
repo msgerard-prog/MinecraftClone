@@ -968,6 +968,12 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite(name.c_str());
+            } else if (name == "suspicious_sand" || name == "suspicious_gravel") { // (M27.5) by how dusted
+                m = single(cubeAll(sprite((name + "_" + std::string(registry.value(state, "dusted").value_or("0"))).c_str())));
+            } else if (name == "decorated_pot") { // (M27.5) a terracotta pot with a neck (no sherd faces)
+                m.visible = true;
+                addBox(m, 1, 0, 1, 15, 13, 15, sprite("terracotta"));
+                addBox(m, 4, 13, 4, 12, 16, 12, sprite("terracotta"));
             } else if (name == "trial_spawner") { // (M27.4d) a cage by its state
                 const std::string_view st = registry.value(state, "trial_spawner_state").value_or("inactive");
                 const bool active = st == "active" || st == "waiting_for_reward_ejection";

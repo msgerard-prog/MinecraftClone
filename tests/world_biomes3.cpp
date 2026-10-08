@@ -450,3 +450,35 @@ TEST_CASE("overworld6 trial chambers: a tuff hall with trial spawners (a breeze'
     CHECK(vaults == 2);
     CHECK(chests >= 3);
 }
+
+#include "world/ChunkSerializer.h"
+#include "world/Loot.h"
+
+TEST_CASE("suspicious sand keeps its loot table through dusting and a save; loot tables have vanilla's names (M27.5)") {
+    Garden g;
+    g.world.updateBlock({3, 62, 3}, S(blocks::SuspiciousSand));
+    Chunk* c = g.world.chunk({0, 0});
+    REQUIRE(c->brushable(3, 62, 3));
+    c->brushable(3, 62, 3)->table = uint8_t(LootTable::ArchaeologyDesertPyramid);
+    g.world.updateBlock({3, 62, 3}, R().set(S(blocks::SuspiciousSand), properties::dusted, 2));
+    REQUIRE(c->brushable(3, 62, 3));
+    CHECK(c->brushable(3, 62, 3)->table == uint8_t(LootTable::ArchaeologyDesertPyramid));
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(*c, 0)), back));
+    REQUIRE(back.brushable(3, 62, 3));
+    CHECK(back.brushable(3, 62, 3)->table == uint8_t(LootTable::ArchaeologyDesertPyramid));
+    // Brushed clean: plain sand, and the loot is gone with it.
+    g.world.updateBlock({3, 62, 3}, S(blocks::Sand));
+    CHECK(c->brushable(3, 62, 3) == nullptr);
+    CHECK(lootTableName(LootTable::ArchaeologyTrailRare) == "minecraft:archaeology/trail_ruins_rare");
+    CHECK(lootTableFromName("minecraft:chests/simple_dungeon") == LootTable::SimpleDungeon);
+    for (int i = 0; i < int(LootTable::Count); ++i) CHECK(lootTableFromName(lootTableName(LootTable(i))) == LootTable(i));
+    // Desert pyramid archaeology turns up sherds among other things.
+    Xoroshiro rng(5);
+    int sherds = 0;
+    for (int i = 0; i < 200; ++i) {
+        const ItemStack it = rollOne(LootTable::ArchaeologyDesertPyramid, rng);
+        sherds += !it.empty() && itemRegistry().item(it.item).id.ends_with("_pottery_sherd");
+    }
+    CHECK(sherds > 50);
+}

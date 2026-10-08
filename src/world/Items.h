@@ -26,6 +26,11 @@ struct TierInfo {
 };
 const TierInfo& tierInfo(ToolTier tier);
 
+// Pottery sherds (M27.5; wiki: Pottery Sherd), vanilla's 23.
+inline constexpr const char* kSherds[23] = {"angler", "archer", "arms_up", "blade", "brewer", "burn", "danger", "explorer",
+                                            "flow", "friend", "guster", "heart", "heartbreak", "howl", "miner", "mourner",
+                                            "plenty", "prize", "scrape", "sheaf", "shelter", "skull", "snort"};
+
 struct ItemDef {
     std::string id;          // "minecraft:stick"
     uint8_t maxStack = 64;   // tools 1

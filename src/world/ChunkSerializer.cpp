@@ -3,6 +3,7 @@
 #include "core/Log.h"
 #include "world/ArmorTrims.h"
 #include "world/Blocks.h"
+#include "world/Loot.h"
 #include "world/Enchantments.h"
 #include "world/ItemContainers.h"
 #include "world/LevelData.h"
@@ -31,6 +32,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.campfires = chunk.campfires();
     s.beacons = chunk.beacons();
     s.jukeboxes = chunk.jukeboxes();
+    s.brushables = chunk.brushables();
     s.beehives = chunk.beehives();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
@@ -429,6 +431,17 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& br : chunk.brushables) { // (M27.5) wiki: Suspicious Sand › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:brushable_block"));
+        e.put("x", int32_t{chunk.pos.x * 16 + br.x});
+        e.put("y", int32_t{br.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + br.z});
+        e.put("keepPacked", int8_t{0});
+        if (!br.data.item.empty()) e.put("item", itemNbt(br.data.item, -1));
+        else if (br.data.table != 255) e.put("LootTable", std::string(lootTableName(LootTable(br.data.table))));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& jb : chunk.jukeboxes) { // wiki: Jukebox › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:jukebox"));
@@ -762,6 +775,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" &&
                         *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
+                        *id != "minecraft:brushable_block" &&
                         *id != "minecraft:beehive"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
@@ -818,6 +832,14 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                                 b.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
                             }
                     }
+                continue;
+            }
+            if (*id == "minecraft:brushable_block") { // (M27.5)
+                if (!isSuspicious(blockRegistry().blockOf(chunk.get(x, y, z)))) continue;
+                BrushableData& bd = chunk.addBrushable(x, y, z);
+                if (const nbt::Compound* it = e->compound("item")) bd.item = itemFromNbt(*it);
+                if (const std::string* lt = e->string("LootTable"))
+                    if (const auto table = lootTableFromName(*lt)) bd.table = uint8_t(*table);
                 continue;
             }
             if (*id == "minecraft:jukebox") {

@@ -601,6 +601,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                    p * pitch, positional);
     };
     double stepDistance = 0.0, nextStep = 1.0; // footsteps (vanilla moveDist / nextStep)
+    int brushTicks = 0;                        // (M27.5) how long the brush has worked the block
     float lastHealth = vitals.health();        // (the loaded values: no sound on the first tick)
     int lastXpLevel = vitals.xpLevel(), lastEatTicks = 0, rainSoundTime = 0;
     bool wasInWater = false;
@@ -2557,6 +2558,42 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                         if (mc::world::blockRegistry().collides(s)) break;
                     }
+                }
+                // Brushing (M27.5; wiki: Brush, Suspicious Sand): held on suspicious sand or
+                // gravel it dusts the block a stage every 10 ticks; after the last, the
+                // block gives up its item (out of the brushed face) and the brush wears.
+                if (heldId == "minecraft:brush" && clicks.use && lastHit && !blockUse &&
+                    mc::world::isSuspicious(reg.blockOf(world.getBlock(lastHit->block)))) {
+                    clicks.useClick = false;
+                    if (++brushTicks % 10 == 0) {
+                        const mc::world::BlockPos bp = lastHit->block;
+                        const mc::world::BlockStateId bs = world.getBlock(bp);
+                        const int d = reg.get(bs, mc::world::properties::dusted);
+                        if (d < 3) {
+                            world.updateBlock(bp, reg.set(bs, mc::world::properties::dusted, d + 1));
+                        } else {
+                            mc::world::ItemStack found;
+                            if (mc::world::Chunk* bc = world.chunk(bp.chunk()))
+                                if (const mc::world::BrushableData* bd = bc->brushable(mc::world::blockToLocal(bp.x), bp.y,
+                                                                                      mc::world::blockToLocal(bp.z))) {
+                                    found = bd->item;
+                                    if (found.empty() && bd->table != 255)
+                                        found = mc::world::rollOne(mc::world::LootTable(bd->table), gameRng);
+                                }
+                            const glm::ivec3 n = mc::world::normal(lastHit->face);
+                            if (!found.empty())
+                                droppedItems.spawn({bp.x + 0.5 + n.x * 0.7, bp.y + 0.5 + n.y * 0.7, bp.z + 0.5 + n.z * 0.7},
+                                                   found, gameRng);
+                            world.updateBlock(bp, reg.defaultState(reg.blockOf(bs) == mc::world::blocks::SuspiciousSand
+                                                                       ? mc::world::blocks::Sand
+                                                                       : mc::world::blocks::Gravel));
+                            if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                            brushTicks = 0;
+                        }
+                        frameEdits.push_back(bp);
+                    }
+                } else if (!clicks.use) {
+                    brushTicks = 0;
                 }
                 // A water bottle poured on dirt makes mud (M27.1; wiki: Mud).
                 if (heldId == "minecraft:potion" && held.potion == static_cast<uint8_t>(mc::world::Potion::Water) &&

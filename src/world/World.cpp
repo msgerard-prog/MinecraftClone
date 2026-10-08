@@ -82,6 +82,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         markTicking(c->pos());
     }
     if (was != b && was == blocks::Jukebox) c->removeBlockEntity(x, p.y, z); // (M23.6)
+    if (was != b && isSuspicious(was)) c->removeBlockEntity(x, p.y, z); // (M27.5: its loot goes)
+    if (isSuspicious(b)) c->addBrushable(x, p.y, z);                    // (kept while it is dusted)
     const auto isHive = [](BlockId id) { return id == blocks::BeeNest || id == blocks::Beehive; };
     if (was != b && isHive(was)) { // (M26.3b) the bees inside come out angry
         if (BeehiveData* h = c->beehive(x, p.y, z)) releaseBees(*this, p, *h, true);

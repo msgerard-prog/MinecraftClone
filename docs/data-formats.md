@@ -336,7 +336,10 @@ M27.4a: blocks `amethyst_block`, `budding_amethyst`, `small_amethyst_bud`/`mediu
 `crying_obsidian`; loot table ruined_portal. M27.4c: loot table woodland_mansion. M27.4d:
 blocks `trial_spawner[trial_spawner_state,ominous]` (block entity minecraft:trial_spawner:
 spawn_data like a mob spawner's, our tags `spawned`, `total`, `cooldown`),
-`vault[facing,vault_state,ominous]`; item `trial_key`.
+`vault[facing,vault_state,ominous]`; item `trial_key`. M27.5: blocks `suspicious_sand`,
+`suspicious_gravel` [dusted] with block entity minecraft:brushable_block {item | LootTable
+"minecraft:archaeology/..."}, `decorated_pot[facing]`; items `brush`, 23
+`<name>_pottery_sherd`. Loot tables are saved by vanilla's ids (`lootTableName`).
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

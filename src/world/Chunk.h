@@ -76,6 +76,7 @@ public:
         m_campfires.clear();
         m_beacons.clear();
         m_jukeboxes.clear();
+        m_brushables.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -325,6 +326,23 @@ public:
         return m_jukeboxes.back().data;
     }
     std::vector<JukeboxEntry>& jukeboxes() { return m_jukeboxes; }
+    struct BrushableEntry { // (M27.5)
+        int x, y, z;
+        BrushableData data;
+    };
+    BrushableData* brushable(int x, int y, int z) {
+        for (auto& b : m_brushables)
+            if (b.x == x && b.y == y && b.z == z) return &b.data;
+        return nullptr;
+    }
+    BrushableData& addBrushable(int x, int y, int z) {
+        if (BrushableData* b = brushable(x, y, z)) return *b;
+        m_dirty = true;
+        m_brushables.push_back({x, y, z, {}});
+        return m_brushables.back().data;
+    }
+    std::vector<BrushableEntry>& brushables() { return m_brushables; }
+    const std::vector<BrushableEntry>& brushables() const { return m_brushables; }
     const std::vector<JukeboxEntry>& jukeboxes() const { return m_jukeboxes; }
     struct BeehiveEntry { // (M26.3b) bee nests and beehives
         int x, y, z;
@@ -350,6 +368,7 @@ public:
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
+        std::erase_if(m_brushables, [&](const BrushableEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_beehives, [&](const BeehiveEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
@@ -469,6 +488,7 @@ private:
     std::vector<CampfireEntry> m_campfires;
     std::vector<BeaconEntry> m_beacons;
     std::vector<JukeboxEntry> m_jukeboxes;
+    std::vector<BrushableEntry> m_brushables;
     std::vector<BeehiveEntry> m_beehives;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;

@@ -70,6 +70,7 @@ extern const Property trialState;     // "trial_spawner_state": inactive | waiti
                                       // waiting_for_reward_ejection | ejecting_reward | cooldown (M27.4d)
 extern const Property vaultState;     // "vault_state": inactive | active | unlocking | ejecting
 extern const Property ominous;        // true | false
+extern const Property dusted;         // 0..3 (M27.5: suspicious sand and gravel being brushed)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -490,9 +491,14 @@ enum : BlockId {
     // Trial chambers (M27.4d; wiki: Trial Spawner, Vault).
     TrialSpawner, // trial_spawner_state, ominous
     Vault,        // facing, vault_state, ominous
+    // Archaeology (M27.5; wiki: Suspicious Sand, Suspicious Gravel, Decorated Pot).
+    SuspiciousSand,   // dusted 0..3 (block entity: its loot)
+    SuspiciousGravel,
+    DecoratedPot,     // facing
     Count
 };
 } // namespace blocks
+inline bool isSuspicious(BlockId b) { return b == blocks::SuspiciousSand || b == blocks::SuspiciousGravel; }
 // Amethyst buds and clusters, smallest to grown (M27.4a), in enum order.
 inline bool isAmethystBud(BlockId b) { return b >= blocks::SmallAmethystBud && b <= blocks::AmethystCluster; }
 // Two-block plants (M27.1), in enum order.
