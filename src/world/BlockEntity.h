@@ -56,6 +56,20 @@ struct BrewingData {
                         // loaded brew takes the slot's; vanilla also keeps it in memory)
 };
 
+// A sign's text (M23.3c; wiki: Sign › Block data): 4 lines a side, each up to 24
+// ASCII characters (vanilla allows any text that fits 90 font pixels), a dye colour
+// (vanilla default black) and whether wax locked it.
+struct SignData {
+    static constexpr int kLines = 4, kChars = 24;
+    struct Side {
+        std::array<std::array<char, kChars + 1>, kLines> lines{}; // NUL-terminated
+        uint8_t colour = 15;  // dye index (15 black)
+        bool glowing = false;
+    } front, back;
+    bool waxed = false;
+    bool hanging = false; // saved as minecraft:hanging_sign
+};
+
 // A redstone comparator's output strength (M21.2; wiki: Redstone Comparator › Block
 // data: OutputSignal) - its block state only says whether it is on.
 struct ComparatorData {

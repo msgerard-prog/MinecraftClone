@@ -24,6 +24,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.chests = chunk.chests();
     s.spawners = chunk.spawners();
     s.brewing = chunk.brewingStands();
+    s.signs = chunk.signs();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
@@ -371,6 +372,28 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("RecipesUsed", std::move(used));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& sg : chunk.signs) { // wiki: Sign › Block data (front_text / back_text)
+        nbt::Compound e;
+        e.put("id", std::string(sg.data.hanging ? "minecraft:hanging_sign" : "minecraft:sign"));
+        e.put("x", int32_t{chunk.pos.x * 16 + sg.x});
+        e.put("y", int32_t{sg.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + sg.z});
+        e.put("keepPacked", int8_t{0});
+        auto side = [&](const SignData::Side& sd) {
+            nbt::Compound t;
+            std::vector<nbt::Tag> lines; // (1.21.5+: text components as plain strings)
+            for (const auto& l : sd.lines)
+                lines.emplace_back(std::string(l.data()));
+            t.put("messages", nbt::listOf(nbt::TagType::String, std::move(lines)));
+            t.put("color", std::string(kDyeColours[sd.colour & 15]));
+            t.put("has_glowing_text", int8_t(sd.glowing ? 1 : 0));
+            return t;
+        };
+        e.put("front_text", side(sg.data.front));
+        e.put("back_text", side(sg.data.back));
+        e.put("is_waxed", int8_t(sg.data.waxed ? 1 : 0));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& br : chunk.brewing) { // wiki: Brewing Stand › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:brewing_stand"));
@@ -597,7 +620,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
-                        *id != "minecraft:dispenser" && *id != "minecraft:dropper"))
+                        *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
+                        *id != "minecraft:hanging_sign"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -630,6 +654,38 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =
                     static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
+            if (*id == "minecraft:sign" || *id == "minecraft:hanging_sign") {
+                const BlockKind k = blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
+                if (k != BlockKind::Sign && k != BlockKind::WallSign && k != BlockKind::HangingSign &&
+                    k != BlockKind::WallHangingSign)
+                    continue;
+                SignData& sg = chunk.addSign(x, y, z);
+                sg.hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;
+                auto readSide = [&](const char* key, SignData::Side& sd) {
+                    const nbt::Compound* t = e->compound(key);
+                    if (!t) return;
+                    if (const nbt::List* msgs = t->list("messages"))
+                        for (size_t i = 0; i < msgs->items.size() && i < size_t(SignData::kLines); ++i)
+                            if (const std::string* m = msgs->items[i].get<std::string>()) {
+                                std::string_view text = *m; // (older saves: a JSON string "\"...\"")
+                                if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
+                                    text = text.substr(1, text.size() - 2);
+                                auto& line = sd.lines[i];
+                                size_t n = 0;
+                                for (const char c : text)
+                                    if (n < size_t(SignData::kChars) && c >= 32 && c < 127) line[n++] = c;
+                                line[n] = 0;
+                            }
+                    if (const std::string* c = t->string("color"))
+                        for (int k2 = 0; k2 < 16; ++k2)
+                            if (*c == kDyeColours[k2]) sd.colour = uint8_t(k2);
+                    sd.glowing = t->integer("has_glowing_text").value_or(0) != 0;
+                };
+                readSide("front_text", sg.front);
+                readSide("back_text", sg.back);
+                sg.waxed = e->integer("is_waxed").value_or(0) != 0;
                 continue;
             }
             if (*id == "minecraft:brewing_stand") {

@@ -163,6 +163,65 @@ bool bakeFamilyModel(const world::BlockRegistry& registry, world::BlockStateId s
         m.visible = true;
         addBoxFrom(m, 0, 0, 0, 16, 1, 16, base);
         return true;
+    case BlockKind::Sign:
+    case BlockKind::WallSign:
+    case BlockKind::HangingSign:
+    case BlockKind::WallHangingSign: {
+        // Boards of the wood's planks (hanging signs: its stripped log) - standing
+        // signs on a post, turned to the nearest quarter of their 16 directions (box
+        // models can't turn 22.5 degrees: known deviation); wall signs flat on the
+        // wall; hanging signs under two chains (wiki: Sign, Hanging Sign).
+        m.visible = true;
+        const BlockKind k = registry.kind(b);
+        std::string name = registry.block(b).id.substr(10);
+        std::string woodName = name.substr(0, name.find(k == BlockKind::Sign || k == BlockKind::WallSign
+                                                            ? (k == BlockKind::WallSign ? "_wall_sign" : "_sign")
+                                                            : (k == BlockKind::HangingSign ? "_hanging_sign" : "_wall_hanging_sign")));
+        const bool nether = woodName == "crimson" || woodName == "warped";
+        const std::string logTex = woodName == "bamboo" ? "stripped_bamboo_block"
+                                                        : "stripped_" + woodName + (nether ? "_stem" : "_log");
+        BakedVariant hang = base;
+        for (auto& f : hang.faces)
+            f.sprite = static_cast<uint16_t>(atlas.spriteIndex(logTex));
+        // Facing as quarter turns from north: wall kinds by facing, standing by rotation.
+        int quarter = 0; // 0: board faces south (built so), 1 west, 2 north, 3 east
+        if (k == BlockKind::WallSign || k == BlockKind::WallHangingSign) {
+            const int f = registry.get(state, properties::facing); // north, south, west, east
+            quarter = f == 0 ? 2 : f == 1 ? 0 : f == 2 ? 1 : 3;
+        } else {
+            quarter = ((registry.get(state, properties::rotation16) + 2) / 4) & 3;
+        }
+        // Boxes built for a board facing south, then turned.
+        auto put = [&](int x0, int y0, int z0, int x1, int y1, int z1, const BakedVariant& tex) {
+            int a[3] = {x0, y0, z0}, c[3] = {x1, y1, z1};
+            for (int q = 0; q < quarter; ++q) { // turn 90 degrees about y: (x, z) -> (16 - z, x)
+                const int ax = a[0], az = a[2], cx = c[0], cz = c[2];
+                a[0] = 16 - az, a[2] = ax;
+                c[0] = 16 - cz, c[2] = cx;
+            }
+            addBoxFrom(m, std::min(a[0], c[0]), a[1], std::min(a[2], c[2]), std::max(a[0], c[0]), c[1],
+                       std::max(a[2], c[2]), tex);
+        };
+        switch (k) {
+        case BlockKind::Sign:
+            put(0, 8, 7, 16, 16, 9, base); // the board
+            put(7, 0, 7, 9, 8, 9, base);   // the post
+            break;
+        case BlockKind::WallSign: put(0, 4, 0, 16, 12, 2, base); break; // against the north wall
+        case BlockKind::HangingSign:
+            put(1, 0, 7, 15, 10, 9, hang);
+            put(3, 10, 7, 4, 16, 9, hang); // the two chains
+            put(12, 10, 7, 13, 16, 9, hang);
+            break;
+        default: // wall hanging: the board under a bar into the wall
+            put(1, 0, 7, 15, 10, 9, hang);
+            put(0, 14, 6, 16, 16, 10, hang);
+            put(3, 10, 7, 4, 14, 9, hang);
+            put(12, 10, 7, 13, 14, 9, hang);
+            break;
+        }
+        return true;
+    }
     case BlockKind::Plain: break;
     }
     return false;

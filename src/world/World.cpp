@@ -66,6 +66,16 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     // Block entities follow their block (a furnace's contents are dropped by the
     // caller before it breaks it).
     const BlockId b = blockRegistry().blockOf(state);
+    const auto isSign = [](BlockId id) {
+        const BlockKind k = blockRegistry().kind(id);
+        return k == BlockKind::Sign || k == BlockKind::WallSign || k == BlockKind::HangingSign ||
+               k == BlockKind::WallHangingSign;
+    };
+    if (was != b && isSign(was)) c->removeBlockEntity(x, p.y, z); // (M23.3c)
+    if (b != was && isSign(b)) {
+        const BlockKind k = blockRegistry().kind(b);
+        c->addSign(x, p.y, z).hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;
+    }
     if (was != b && (was == blocks::Furnace || was == blocks::Chest || was == blocks::Spawner ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
                      ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper)))

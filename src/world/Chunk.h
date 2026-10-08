@@ -71,6 +71,7 @@ public:
         m_comparators.clear();
         m_hoppers.clear();
         m_dispensers.clear();
+        m_signs.clear();
         m_mobs.clear();
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -248,9 +249,32 @@ public:
     }
     std::vector<DispenserEntry>& dispensers() { return m_dispensers; }
     const std::vector<DispenserEntry>& dispensers() const { return m_dispensers; }
+    struct SignEntry { // (M23.3c)
+        int x, y, z; // local x/z, world y
+        SignData data;
+    };
+    SignData* sign(int x, int y, int z) {
+        for (auto& s : m_signs)
+            if (s.x == x && s.y == y && s.z == z) return &s.data;
+        return nullptr;
+    }
+    const SignData* sign(int x, int y, int z) const {
+        for (const auto& s : m_signs)
+            if (s.x == x && s.y == y && s.z == z) return &s.data;
+        return nullptr;
+    }
+    SignData& addSign(int x, int y, int z) {
+        if (SignData* s = sign(x, y, z)) return *s;
+        m_dirty = true;
+        m_signs.push_back({x, y, z, {}});
+        return m_signs.back().data;
+    }
+    std::vector<SignEntry>& signs() { return m_signs; }
+    const std::vector<SignEntry>& signs() const { return m_signs; }
     void removeBlockEntity(int x, int y, int z) {
         std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
+        std::erase_if(m_signs, [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
@@ -338,6 +362,7 @@ private:
     std::vector<ComparatorEntry> m_comparators;
     std::vector<HopperEntry> m_hoppers;
     std::vector<DispenserEntry> m_dispensers;
+    std::vector<SignEntry> m_signs;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<BlockTick> m_blockTicks;

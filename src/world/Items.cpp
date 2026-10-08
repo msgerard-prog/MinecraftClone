@@ -53,8 +53,18 @@ ItemRegistry buildItems() {
             b == blocks::Carrots || b == blocks::Potatoes || b == blocks::Beetroots) // crops: planted by seeds
             continue;
         const std::string& id = blocks.block(b).id;
-        r.mapBlock(b, r.add({.id = id, .block = b}));
+        // Wall signs come from the sign items (M23.3c), like wall torches from torches.
+        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) continue;
+        const bool sign = blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
+        r.mapBlock(b, r.add({.id = id, .maxStack = uint8_t(sign ? 16 : 64), .block = b})); // (signs stack to 16)
     }
+    // Wall signs pick and drop as their sign.
+    for (BlockId b = 1; b < blocks.blockCount(); ++b)
+        if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) {
+            std::string id = blocks.block(b).id;
+            id.erase(id.find("_wall"), 5); // "oak_wall_sign" -> "oak_sign"
+            if (const auto item = r.find(id)) r.mapBlock(b, *item);
+        }
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword - attack damage per tier).
     struct ToolKind {
         const char* name;

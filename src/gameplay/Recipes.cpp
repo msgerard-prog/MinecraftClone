@@ -177,6 +177,13 @@ std::vector<Recipe> build() {
             r.push_back(shaped({"S#S", "S#S"}, {{'#', planks}, {'S', stick}}, wood + "_fence_gate"));
             r.push_back(shaped({"##"}, {{'#', planks}}, wood + "_pressure_plate"));
             if (wood != "oak") r.push_back(shapeless({planks}, wood + "_button"));
+            // Signs: 6 planks and a stick make 3; hanging signs: 2 chains over 6 stripped
+            // logs make 6 (wiki: Sign, Hanging Sign).
+            r.push_back(shaped({"###", "###", ".S."}, {{'#', planks}, {'S', stick}}, wood + "_sign", 3));
+            const bool nether = wood == "crimson" || wood == "warped";
+            const std::string stripped = wood == "bamboo" ? "stripped_bamboo_block"
+                                                          : "stripped_" + wood + (nether ? "_stem" : "_log");
+            r.push_back(shaped({"C.C", "###", "###"}, {{'C', item("chain")}, {'#', item(stripped)}}, wood + "_hanging_sign", 6));
         }
         r.push_back(shaped({"##", "##", "##"}, {{'#', item("iron_ingot")}}, "iron_door", 3));
         r.push_back(shaped({"##", "##"}, {{'#', item("iron_ingot")}}, "iron_trapdoor"));

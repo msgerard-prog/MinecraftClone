@@ -53,6 +53,8 @@ extern const Property stairShape; // "shape": straight | inner_left | inner_righ
 extern const Property wallNorth, wallEast, wallSouth, wallWest; // none | low | tall
 extern const Property hanging; // true | false (lanterns)
 extern const Property bambooLeaves; // "leaves": none | small | large
+extern const Property rotation16;   // "rotation": 0..15 (standing signs; 22.5 degrees each, 0 = facing south)
+extern const Property attached;     // true | false (hanging signs on chains to one block)
 extern const Property inWall;    // "in_wall": true | false (fence gates)
 extern const Property comparatorMode; // "mode": compare | subtract
 extern const Property hopperFacing;   // "facing": down | north | south | west | east

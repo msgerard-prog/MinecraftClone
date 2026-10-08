@@ -54,6 +54,7 @@
 #include "gameplay/Portals.h"
 #include "rendering/GuiRenderer.h"
 #include "ui/Menus.h"
+#include "ui/SignEditor.h"
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
@@ -277,6 +278,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     sessionEnd = SessionEnd::Quit;
     renderer.clearWorld(); // (the previous world's meshes)
     mc::ui::Chat chat;
+    mc::ui::SignEditor signEditor; // (M23.3c)
+    bool signClick = false, signDone = false;
     mc::ui::DebugScreen debugScreen;
     mc::gfx::ItemIcons itemIcons;
     itemIcons.build(renderer.atlas());
@@ -904,6 +907,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
                            mc::Press::Inventory, mc::Press::LeftMouse, mc::Press::RightMouse})
                 window.takePresses(p); // typing, not game keys
+        } else if (signEditor.isOpen()) {
+            // Sign editing (M23.3c): typing goes to the active line; Done or Esc saves.
+            signEditor.type({typed.data(), size_t(typedCount)}, gui.batch().font());
+            window.takePresses(mc::Press::Backspace);
+            for (int n = window.takePresses(mc::Press::Up); n > 0; --n)
+                signEditor.previousLine();
+            for (int n = window.takePresses(mc::Press::Down) + window.takePresses(mc::Press::Enter); n > 0; --n)
+                signEditor.nextLine();
+            signClick = window.takePresses(mc::Press::LeftMouse) > 0;
+            if (window.takePresses(mc::Press::Escape) > 0 || signDone) {
+                const mc::world::BlockPos sp = signEditor.pos();
+                if (mc::world::Chunk* sc = world.chunk(sp.chunk()))
+                    if (mc::world::SignData* sd = sc->sign(mc::world::blockToLocal(sp.x), sp.y, mc::world::blockToLocal(sp.z))) {
+                        sd->front.lines = signEditor.text().lines;
+                        sc->markDirty();
+                    }
+                signEditor.close();
+                signDone = false;
+                window.setCursorCaptured(true);
+                attackArmed = false;
+            }
+            for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory, mc::Press::RightMouse})
+                window.takePresses(p);
         } else if (container.isOpen()) {
             container.setPlayer(vitals.xpLevel(), !survival, vitals.enchantSeed());
             int fw = 0, fh = 0;
@@ -1578,6 +1604,36 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                 }
             }
+            // Signs (M23.3c): a dye recolours the text, otherwise right-click edits it.
+            if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
+                const auto st = world.getBlock(lastHit->block);
+                const auto kind = mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(st));
+                if (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::WallSign ||
+                    kind == mc::world::BlockKind::HangingSign || kind == mc::world::BlockKind::WallHangingSign) {
+                    mc::world::Chunk* sc = world.chunk(lastHit->block.chunk());
+                    mc::world::SignData* sd = sc ? sc->sign(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
+                                                            mc::world::blockToLocal(lastHit->block.z))
+                                                 : nullptr;
+                    if (sd && !sd->waxed) {
+                        const std::string_view held = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                        int dye = -1;
+                        for (int c = 0; c < 16; ++c)
+                            if (held.size() > 10 && held.substr(10) == std::string(mc::world::kDyeColours[c]) + "_dye") dye = c;
+                        if (dye >= 0) {
+                            if (sd->front.colour != dye) {
+                                sd->front.colour = uint8_t(dye);
+                                sc->markDirty();
+                                if (survival) inventory.consumeSelected(1);
+                            }
+                        } else if (!screenshotMode) {
+                            signEditor.open(lastHit->block, sd->front);
+                            window.setCursorCaptured(false);
+                        }
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
+            }
             // Hoes and bone meal (M17.1; wiki: Hoe, Bone Meal) on the targeted block.
             if (!dead && clicks.useClick && lastHit && !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
@@ -2116,10 +2172,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Break), centre, 1.0f,
                               1.0f, true);
                     break;
-                case T::BlockPlace:
+                case T::BlockPlace: {
                     playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place), centre, 1.0f,
                               1.0f, true);
+                    // A placed sign opens its editor (vanilla).
+                    const auto kind = mc::world::blockRegistry().kind(mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));
+                    const mc::world::BlockPos sp{int(e.x), int(e.y), int(e.z)};
+                    if (!screenshotMode && (kind == mc::world::BlockKind::Sign || kind == mc::world::BlockKind::HangingSign))
+                        if (mc::world::Chunk* sc = world.chunk(sp.chunk()))
+                            if (const mc::world::SignData* sd =
+                                    sc->sign(mc::world::blockToLocal(sp.x), sp.y, mc::world::blockToLocal(sp.z))) {
+                                signEditor.open(sp, sd->front);
+                                window.setCursorCaptured(false);
+                            }
                     break;
+                }
                 case T::BlockHit: // (vanilla: every 4 ticks while mining)
                     if (gameTime % 4 == 0)
                         playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data & 0xFFFF), BlockSound::Hit),
@@ -2222,7 +2289,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const mc::world::BlockPos ob{opts->openBlock[0], opts->openBlock[1], opts->openBlock[2]};
             const auto obBlock = mc::world::blockRegistry().blockOf(world.getBlock(ob));
             containerBlock = ob;
-            if (obBlock == mc::world::blocks::EnchantingTable)
+            mc::world::Chunk* obc = world.chunk(ob.chunk());
+            const mc::world::SignData* obSign =
+                obc ? obc->sign(mc::world::blockToLocal(ob.x), ob.y, mc::world::blockToLocal(ob.z)) : nullptr;
+            if (obSign) // (M23.3c: the sign editor)
+                signEditor.open(ob, obSign->front);
+            else if (obBlock == mc::world::blocks::EnchantingTable)
                 container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
             else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||
                      obBlock == mc::world::blocks::DamagedAnvil)
@@ -2436,6 +2508,57 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                      p.color * light, camera.position, right, up);
             }
         }
+        {
+            // Sign text (M23.3c): the front lines of signs within 3 chunks, on the board's
+            // face - 1/96 block per font pixel, lines 10 pixels apart (vanilla's sign
+            // text scale), in the sign's dye colour.
+            static constexpr uint32_t kTextColours[16] = {
+                0xFFFFFF, 0xFF681F, 0xFF00FF, 0x9AC0CD, 0xFFFF00, 0xBFFF00, 0xFF69B4, 0x808080,
+                0xD3D3D3, 0x00FFFF, 0xA020F0, 0x0000FF, 0x8B4513, 0x00FF00, 0xFF0000, 0x000000};
+            const auto& reg = mc::world::blockRegistry();
+            const mc::world::ChunkPos cc{mc::world::blockToChunk(int32_t(std::floor(camera.position.x))),
+                                         mc::world::blockToChunk(int32_t(std::floor(camera.position.z)))};
+            for (int dz = -3; dz <= 3; ++dz)
+                for (int dx = -3; dx <= 3; ++dx) {
+                    const mc::world::Chunk* ch = world.chunk({cc.x + dx, cc.z + dz});
+                    if (!ch) continue;
+                    for (const auto& sg : ch->signs()) {
+                        const auto st = ch->get(sg.x, sg.y, sg.z);
+                        const mc::world::BlockKind k = reg.kind(reg.blockOf(st));
+                        // The board's facing as quarter turns (south 0, west 1, north 2, east 3)
+                        // and the centre of its face, as the models build them.
+                        int quarter = 0;
+                        if (k == mc::world::BlockKind::WallSign || k == mc::world::BlockKind::WallHangingSign) {
+                            const int f = reg.get(st, mc::world::properties::facing);
+                            quarter = f == 0 ? 2 : f == 1 ? 0 : f == 2 ? 1 : 3;
+                        } else if (k == mc::world::BlockKind::Sign || k == mc::world::BlockKind::HangingSign) {
+                            quarter = ((reg.get(st, mc::world::properties::rotation16) + 2) / 4) & 3;
+                        } else {
+                            continue;
+                        }
+                        static constexpr glm::vec3 kOut[4] = {{0, 0, 1}, {-1, 0, 0}, {0, 0, -1}, {1, 0, 0}};
+                        const glm::vec3 out = kOut[quarter];
+                        const glm::vec3 right(out.z, 0.0f, -out.x); // (as seen looking at the face)
+                        glm::dvec3 centre(ch->pos().x * 16 + sg.x + 0.5, sg.y, ch->pos().z * 16 + sg.z + 0.5);
+                        double faceOffset = 1.0 / 16.0 + 0.002; // half the board's thickness
+                        switch (k) {
+                        case mc::world::BlockKind::Sign: centre.y += 12.0 / 16.0; break;
+                        case mc::world::BlockKind::WallSign:
+                            centre.y += 8.0 / 16.0;
+                            faceOffset = 2.0 / 16.0 - 0.5 + 0.002; // board against the wall behind
+                            break;
+                        default: centre.y += 5.0 / 16.0; break; // hanging boards
+                        }
+                        centre += glm::dvec3(out) * faceOffset;
+                        const float px = 1.0f / 96.0f;
+                        for (int i = 0; i < mc::world::SignData::kLines; ++i) {
+                            const glm::dvec3 lineCentre = centre + glm::dvec3(0.0, (1.5 - i) * 10.0 * px, 0.0);
+                            entities.addText(sg.data.front.lines[size_t(i)].data(), lineCentre, right, glm::vec3(0, 1, 0), px,
+                                             kTextColours[sg.data.front.colour & 15], camera.position);
+                        }
+                    }
+                }
+        }
         for (const auto& c : projectiles.clouds()) // (M20.2) dragon's breath
             entities.addCloud(c.pos, c.radius, float(gameTime) + float(clock.alpha), camera.position);
         for (const auto& o : orbs.orbs())
@@ -2617,6 +2740,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 d.height = fbHeight;
                 d.gpuMs = renderer.averageGpuMs();
                 debugScreen.draw(batch, d, guiW);
+            }
+            if (signEditor.isOpen()) { // (M23.3c)
+                double mx = 0, my = 0;
+                window.cursorPos(mx, my);
+                if (signEditor.draw(batch, guiW, guiH, mx / scale, my / scale, signClick,
+                                    int64_t(mc::timeSeconds() * 1000.0)))
+                    signDone = true;
+                signClick = false;
             }
             gui.draw(fbWidth, fbHeight);
         }

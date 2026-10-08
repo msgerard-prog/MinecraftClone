@@ -3,6 +3,7 @@
 #include "gameplay/Recipes.h"
 #include "world/BlockShapes.h"
 #include "world/BlockUpdates.h"
+#include "world/ChunkSerializer.h"
 #include "world/Blocks.h"
 #include "world/Items.h"
 #include "world/Raycast.h"
@@ -11,6 +12,7 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <cstdio>
 
 using namespace mc;
 using namespace mc::world;
@@ -247,4 +249,41 @@ TEST_CASE("new woods: planks from every log and wood, 4 logs make 3 wood") {
     REQUIRE(wood);
     CHECK(wood->item == *itemRegistry().find("mangrove_wood"));
     CHECK(wood->count == 3);
+}
+
+TEST_CASE("signs: placement, text saved with the chunk, the editor's line width (M23.3c)") {
+    Scene s;
+    // On top: a standing sign facing the player (yaw 180 looks north: rotation 0, south).
+    const BlockStateId sign = R().defaultState(B("oak_sign"));
+    const auto standing = BlockUpdates::placement(s.world, sign, {0, 64, 0}, Direction::Up, 180.0f, 0);
+    REQUIRE(standing);
+    CHECK(R().value(*standing, "rotation") == "0");
+    // On a side: the wall sign.
+    s.world.setBlock({3, 64, 1}, R().defaultState(blocks::Stone));
+    const auto wall = BlockUpdates::placement(s.world, sign, {3, 64, 0}, Direction::North, 0, 0);
+    REQUIRE(wall);
+    CHECK(R().blockOf(*wall) == B("oak_wall_sign"));
+    CHECK(R().value(*wall, "facing") == "north");
+    // A sign block brings its block entity; the text saves and loads.
+    s.world.updateBlock({5, 64, 5}, *standing);
+    Chunk* c = s.world.chunk({0, 0});
+    SignData* data = c->sign(5, 64, 5);
+    REQUIRE(data);
+    std::snprintf(data->front.lines[1].data(), SignData::kChars + 1, "%s", "Hello sign");
+    data->front.colour = 14; // red
+    const auto nbt = chunkToNbt(ChunkSnapshot::of(*c, 0));
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(nbt, back));
+    const SignData* loaded = back.sign(5, 64, 5);
+    REQUIRE(loaded);
+    CHECK(std::string(loaded->front.lines[1].data()) == "Hello sign");
+    CHECK(loaded->front.colour == 14);
+    // Breaking it removes the entity; it drops the sign item.
+    s.world.updateBlock({5, 64, 5}, 0);
+    CHECK(c->sign(5, 64, 5) == nullptr);
+    Xoroshiro rng(1);
+    std::vector<ItemStack> drops;
+    blockDrops(*wall, {}, rng, drops);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].item == *itemRegistry().find("oak_sign"));
 }

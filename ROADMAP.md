@@ -19,7 +19,7 @@ M23 - Building blocks & workstations (wiki pages of each block):
 2. ✅ M23.2 - Thin and small blocks: glass panes, the 16 stained glass blocks and panes,
    16 carpets, ladders (climbing), lanterns and soul lanterns (standing/hanging),
    chains, wall torches.
-3. M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,
+3. ✅ M23.3 - Woods: mangrove, bamboo and pale oak wood sets; every wood's doors,
    trapdoors, fences, gates, buttons and plates (the M21 oak-only code generalised by
    kind); signs and hanging signs with text editing and rendering.
 4. M23.4 - Decorative and ageing: concrete and concrete powder (hardens in water), 16

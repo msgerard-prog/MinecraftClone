@@ -56,6 +56,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.chests() = snap.chests;
             chunk.spawners() = snap.spawners;
             chunk.brewingStands() = snap.brewing;
+            chunk.signs() = snap.signs;
             chunk.comparators() = snap.comparators;
             chunk.hoppers() = snap.hoppers;
             chunk.dispensers() = snap.dispensers;

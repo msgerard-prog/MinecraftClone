@@ -59,6 +59,8 @@ const Property wallSouth{"south", {"none", "low", "tall"}};
 const Property wallWest{"west", {"none", "low", "tall"}};
 const Property hanging{"hanging", {"true", "false"}};
 const Property bambooLeaves{"leaves", {"none", "small", "large"}};
+const Property rotation16{"rotation", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"}};
+const Property attached{"attached", {"true", "false"}};
 const Property inWall{"in_wall", {"true", "false"}};
 const Property comparatorMode{"mode", {"compare", "subtract"}};
 const Property hopperFacing{"facing", {"down", "north", "south", "west", "east"}};
@@ -296,6 +298,23 @@ void addWoodSets(BlockRegistry& r) {
         copy(blocks::OakFenceGate, wood + "_fence_gate");
         copy(blocks::OakButton, wood + "_button");
         copy(blocks::OakPressurePlate, wood + "_pressure_plate");
+    }
+    // Signs (M23.3c; wiki: Sign, Hanging Sign - 1.0 hardness, no collision): standing
+    // (16 rotations) and wall signs, hanging and wall hanging signs, for every wood.
+    for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped",
+                          "mangrove", "bamboo", "pale_oak"}) {
+        const std::string wood(w);
+        const BlockId planks = *r.findBlock(wood + "_planks");
+        BlockSettings st{.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false, .collision = false,
+                         .layer = RenderLayer::Cutout, .base = planks, .tool = HarvestTool::Axe};
+        st.kind = BlockKind::Sign;
+        r.add(wood + "_sign", st, {{&rotation16, "0"}});
+        st.kind = BlockKind::WallSign;
+        r.add(wood + "_wall_sign", st, {{&facing, "north"}});
+        st.kind = BlockKind::HangingSign;
+        r.add(wood + "_hanging_sign", st, {{&attached, "false"}, {&rotation16, "0"}});
+        st.kind = BlockKind::WallHangingSign;
+        r.add(wood + "_wall_hanging_sign", st, {{&facing, "north"}});
     }
     copy(blocks::StoneButton, "polished_blackstone_button", HarvestTool::Pickaxe);
     copy(blocks::StonePressurePlate, "polished_blackstone_pressure_plate", HarvestTool::Pickaxe);

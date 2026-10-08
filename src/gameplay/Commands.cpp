@@ -263,6 +263,40 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             ctx.world->notifyChanged(at, was, *state);
         return {true, format("Successfully filled %d block(s)", int(old.size()))};
     }
+    if (a[0] == "data") {
+        // /data merge block x y z {front_text:{messages:["a","b","c","d"]}} - only a
+        // sign's front lines (wiki: Commands/data; M23.3c).
+        if (!ctx.world || a.size() < 6 || a[1] != "merge" || a[2] != "block")
+            return fail("Usage: /data merge block <x> <y> <z> {front_text:{messages:[...]}}");
+        const glm::dvec3 here = ctx.player.position();
+        const auto x = coordinate(a[3], here.x, true), y = coordinate(a[4], here.y, false), z = coordinate(a[5], here.z, true);
+        if (!x || !y || !z) return fail("Invalid position");
+        const world::BlockPos p{int(std::floor(*x)), int(std::floor(*y)), int(std::floor(*z))};
+        world::Chunk* c = ctx.world->chunk(p.chunk());
+        world::SignData* sign = c ? c->sign(world::blockToLocal(p.x), p.y, world::blockToLocal(p.z)) : nullptr;
+        if (!sign) return fail("The target block is not a block entity");
+        // The rest of the line (the tag may contain spaces inside quotes).
+        const size_t brace = line.find('{');
+        if (brace == std::string_view::npos) return fail("Invalid data tag");
+        const std::string_view tag = line.substr(brace);
+        const size_t msgs = tag.find("messages:[");
+        if (msgs == std::string_view::npos) return fail("Invalid data tag");
+        size_t i = msgs + 10;
+        for (int n = 0; n < world::SignData::kLines && i < tag.size(); ++n) {
+            const size_t open = tag.find('"', i);
+            if (open == std::string_view::npos) break;
+            const size_t close = tag.find('"', open + 1);
+            if (close == std::string_view::npos) break;
+            auto& out = sign->front.lines[size_t(n)];
+            size_t k = 0;
+            for (const char ch : tag.substr(open + 1, close - open - 1))
+                if (k < size_t(world::SignData::kChars) && ch >= 32 && ch < 127) out[k++] = ch;
+            out[k] = 0;
+            i = close + 1;
+        }
+        c->markDirty();
+        return {true, format("Modified block data of %d, %d, %d", p.x, p.y, p.z)};
+    }
     if (a[0] == "weather") {
         // /weather (clear|rain|thunder) [duration] (wiki: Commands/weather): the duration
         // in ticks or with a unit (10s, 2d); without one, a random length as the natural
@@ -383,7 +417,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
+    if (a[0] == "help") return {true, "/fill /gamemode /give /help /kill /seed /setblock /data /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

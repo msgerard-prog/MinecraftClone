@@ -880,7 +880,14 @@ void BlockUpdates::pop(const BlockPos& p) {
 }
 
 bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
-    if (R().kind(blockOf(s)) == BlockKind::Carpet) return at(rel(p, Direction::Down)) != 0; // (any block below)
+    switch (R().kind(blockOf(s))) {
+    case BlockKind::Carpet: return at(rel(p, Direction::Down)) != 0; // (any block below)
+    case BlockKind::Sign: return supports(at(rel(p, Direction::Down))); // (M23.3c)
+    case BlockKind::HangingSign: return supports(at(rel(p, Direction::Up)));
+    case BlockKind::WallSign:
+    case BlockKind::WallHangingSign: return supports(at(rel(p, opposite(hFacing(s)))));
+    default: break;
+    }
     switch (blockOf(s)) {
     case B::Torch: // (M23.2: plain torches pop too when their support goes)
     case B::SoulTorch:
@@ -935,7 +942,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     // ladders, carpets.
     if (const BlockId b = blockOf(s); b == B::Torch || b == B::SoulTorch || b == B::WallTorch || b == B::SoulWallTorch ||
                                       b == B::Lantern || b == B::SoulLantern || b == B::Ladder || b == B::Bamboo ||
-                                      R().kind(b) == BlockKind::Carpet) {
+                                      R().kind(b) == BlockKind::Carpet || R().kind(b) == BlockKind::Sign ||
+                                      R().kind(b) == BlockKind::WallSign || R().kind(b) == BlockKind::HangingSign ||
+                                      R().kind(b) == BlockKind::WallHangingSign) {
         if (!survives(p, s)) pop(p);
         --m_depth;
         return;
@@ -1862,6 +1871,24 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case BlockKind::Pane: return paneConnected(world, at, state);
     case BlockKind::Carpet:
         if (world.getBlock(rel(at, Direction::Down)) == 0) return std::nullopt;
+        return state;
+    case BlockKind::Sign: // on a side: the wall sign; on top: turned to face the player (wiki: Sign)
+    case BlockKind::HangingSign: {
+        const bool hangingSign = r.kind(blockOf(state)) == BlockKind::HangingSign;
+        if (horizontal(faceDir)) {
+            if (!solid(opposite(faceDir))) return std::nullopt;
+            std::string id = r.block(R().blockOf(state)).id; // (the real block: blockOf follows `like`)
+            id.insert(id.rfind(hangingSign ? "_hanging_sign" : "_sign"), "_wall");
+            return withHFacing(r.defaultState(*r.findBlock(id)), faceDir);
+        }
+        if (hangingSign ? !solid(Direction::Up) : !solid(Direction::Down)) return std::nullopt;
+        if (hangingSign && faceDir != Direction::Down) return std::nullopt;
+        // 16 directions, 0 = facing south, toward the player (vanilla: yaw + 180).
+        const int rotation = int(std::floor((yaw + 180.0f) * 16.0f / 360.0f + 0.5f)) & 15;
+        return r.set(state, rotation16, rotation);
+    }
+    case BlockKind::WallSign:
+    case BlockKind::WallHangingSign:
         return state;
     case BlockKind::Plain: break;
     }

@@ -46,6 +46,7 @@ glm::vec3 lightColor(int sky, int block, float skyDarken, float ambient, bool fo
 EntityRenderer::~EntityRenderer() {
     if (m_mobTexture) glDeleteTextures(1, &m_mobTexture);
     if (m_weatherTexture) glDeleteTextures(1, &m_weatherTexture);
+    if (m_fontTexture) glDeleteTextures(1, &m_fontTexture);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
@@ -124,11 +125,26 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     m_particleSprites[int(ParticleSprite::Effect)] = static_cast<uint16_t>(atlas.spriteIndex("particle_effect"));
     m_particleSprites[int(ParticleSprite::Drip)] = static_cast<uint16_t>(atlas.spriteIndex("particle_drip"));
     m_weather.reserve(size_t(kMaxWeatherQuads) * 6);
+    m_text.reserve(size_t(4096) * 6);
+    { // the font sheet for sign text (as the GUI's)
+        const auto bytes = packs.read("assets/minecraft/textures/font/ascii.png");
+        const auto img = bytes ? decodePng(*bytes) : std::nullopt;
+        if (img && img->width == img->height) {
+            m_font = FontMetrics::fromImage(img->pixels.data(), img->width);
+            glCreateTextures(GL_TEXTURE_2D, 1, &m_fontTexture);
+            glTextureStorage2D(m_fontTexture, 1, GL_RGBA8, img->width, img->height);
+            glTextureSubImage2D(m_fontTexture, 0, 0, 0, img->width, img->height, GL_RGBA, GL_UNSIGNED_BYTE, img->pixels.data());
+            glTextureParameteri(m_fontTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTextureParameteri(m_fontTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        } else {
+            MC_LOG_WARN("Entity: no font sheet - signs show no text");
+        }
+    }
     m_bolts.reserve(size_t(1024) * 6);
     m_crack.reserve(36);
     glCreateVertexArrays(1, &m_vao);
     glCreateBuffers(1, &m_vbo);
-    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads + kMaxWeatherQuads + 1024) * 6 * sizeof(Vertex), nullptr,
+    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads + kMaxWeatherQuads + 1024 + 4096) * 6 * sizeof(Vertex), nullptr,
                          GL_DYNAMIC_STORAGE_BIT);
     glEnableVertexArrayAttrib(m_vao, 0);
     glVertexArrayAttribFormat(m_vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, x));
@@ -363,6 +379,29 @@ void EntityRenderer::addParticle(const glm::dvec3& pos, float size, ParticleSpri
     quad(q, u0, v0, u1, v1, pack(color), m_items);
 }
 
+void EntityRenderer::addText(std::string_view text, const glm::dvec3& centre, const glm::vec3& right, const glm::vec3& up,
+                             float pixel, uint32_t rgb, const glm::dvec3& cameraPos) {
+    if (!m_fontTexture || text.empty()) return;
+    // Width in font pixels (vanilla advances), then glyph quads left to right.
+    int width = 0;
+    for (const char c : text)
+        width += m_font.advance[uint8_t(c)];
+    const glm::vec3 c(centre - cameraPos);
+    glm::vec3 pen = c - right * (float(width) * pixel * 0.5f) + up * (4.0f * pixel);
+    const float cell = float(m_font.cell);
+    const uint32_t colour = pack(glm::vec3(float((rgb >> 16) & 255), float((rgb >> 8) & 255), float(rgb & 255)) / 255.0f);
+    for (const char ch : text) {
+        const uint8_t code = uint8_t(ch);
+        if (ch != ' ' && m_text.size() + 6 <= m_text.capacity()) {
+            const float u = float(code % 16) * cell, v = float(code / 16) * cell;
+            const glm::vec3 r8 = right * (8.0f * pixel), d8 = up * (8.0f * pixel);
+            const glm::vec3 q[4] = {pen, pen - d8, pen - d8 + r8, pen + r8};
+            quad(q, u, v, u + cell, v + cell, colour, m_text);
+        }
+        pen += right * (float(m_font.advance[code]) * pixel);
+    }
+}
+
 void EntityRenderer::addCloud(const glm::dvec3& centre, float radius, float time, const glm::dvec3& cameraPos) {
     // 13 puffs: the middle and two rings, drifting slowly.
     for (int i = 0; i < 13; ++i) {
@@ -515,12 +554,15 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
                  crack = std::min(m_crack.size(), cap - items),
                  mobs = std::min(m_mobs.size(), cap - items - crack);
     const size_t weatherBase = cap, weather = std::min(m_weather.size(), size_t(kMaxWeatherQuads) * 6),
-                 bolts = std::min(m_bolts.size(), size_t(1024) * 6);
+                 bolts = std::min(m_bolts.size(), size_t(1024) * 6), text = std::min(m_text.size(), size_t(4096) * 6);
+    const size_t textBase = weatherBase + weather + bolts;
+    if (text)
+        glNamedBufferSubData(m_vbo, GLintptr(textBase * sizeof(Vertex)), GLsizeiptr(text * sizeof(Vertex)), m_text.data());
     if (weather) glNamedBufferSubData(m_vbo, GLintptr(weatherBase * sizeof(Vertex)), GLsizeiptr(weather * sizeof(Vertex)), m_weather.data());
     if (bolts)
         glNamedBufferSubData(m_vbo, GLintptr((weatherBase + weather) * sizeof(Vertex)), GLsizeiptr(bolts * sizeof(Vertex)),
                              m_bolts.data());
-    if (items + crack + mobs + weather + bolts == 0) return;
+    if (items + crack + mobs + weather + bolts + text == 0) return;
     glNamedBufferSubData(m_vbo, 0, GLsizeiptr(items * sizeof(Vertex)), m_items.data());
     if (crack)
         glNamedBufferSubData(m_vbo, GLintptr(items * sizeof(Vertex)), GLsizeiptr(crack * sizeof(Vertex)),
@@ -553,6 +595,12 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
     }
+    if (text) { // sign text: cut out of the font sheet (M23.3c)
+        glUniform1f(1, 0.5f);
+        glBindTextureUnit(0, m_fontTexture);
+        glDrawArrays(GL_TRIANGLES, GLint(textBase), GLsizei(text));
+        glBindTextureUnit(0, m_atlasTexture);
+    }
     if (weather || bolts) { // after the world and entities, blended, no depth writes
         glEnable(GL_BLEND);
         glDepthMask(GL_FALSE);
@@ -575,6 +623,7 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     m_mobs.clear();
     m_weather.clear();
     m_bolts.clear();
+    m_text.clear();
 }
 
 } // namespace mc::gfx

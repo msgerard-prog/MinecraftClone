@@ -97,6 +97,11 @@ private:
     std::vector<GuiVertex> m_vertices;
     size_t m_maxVertices = 0; // 0: uncapped (tests)
     FontMetrics m_font;
+
+public:
+    const FontMetrics& font() const { return m_font; }
+
+private:
     AtlasLayout m_atlas;
 };
 

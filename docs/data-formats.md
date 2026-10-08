@@ -189,3 +189,8 @@ straight|inner_left|inner_right|outer_left|outer_right) and walls (`up`, `north`
 `east`/`south`/`west` none|low|tall) use vanilla's property names and values, so saved
 states read back by name. Vanilla's `waterlogged` property isn't modelled (states with
 it load with it ignored). New materials: brick, nether_brick, clay_ball items.
+
+## Signs (M23.3c)
+block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
+`back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are
+unquoted on load), `color` (dye name), `has_glowing_text` }, `is_waxed`.

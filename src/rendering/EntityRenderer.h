@@ -2,6 +2,7 @@
 
 #include "rendering/BlockModels.h"
 #include "rendering/Camera.h"
+#include "rendering/GuiBatch.h"
 #include "rendering/ItemIcons.h"
 #include "rendering/Shader.h"
 #include "world/Chunk.h"
@@ -11,6 +12,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 namespace mc::gfx {
@@ -69,6 +71,10 @@ public:
     // A lightning bolt from the sky down to `ground`: jagged segments (from `seed`)
     // and a few branches, drawn additively.
     void addLightning(const glm::dvec3& ground, uint32_t seed, const glm::dvec3& cameraPos);
+    // A line of text in the world (M23.3c: signs), centred on `centre`, in the plane of
+    // `right` and `up` (unit vectors), `pixel` blocks per font pixel, colour 0xRRGGBB.
+    void addText(std::string_view text, const glm::dvec3& centre, const glm::vec3& right, const glm::vec3& up,
+                 float pixel, uint32_t rgb, const glm::dvec3& cameraPos);
     // A particle (M22.3): a camera-facing square of half-size `size`; Terrain particles
     // show the 4x4-texel piece (u, v) (quarters) of the block's texture.
     void addParticle(const glm::dvec3& pos, float size, ParticleSprite sprite, world::BlockStateId state, uint8_t u,
@@ -107,6 +113,9 @@ private:
     std::vector<Vertex> m_bolts;   // additive
     uint16_t m_boltSprite = 0;
     uint32_t m_weatherTexture = 0; // rain | snow side by side (16 + 16 wide), repeating in v
+    uint32_t m_fontTexture = 0;    // sign text (font/ascii.png)
+    FontMetrics m_font;
+    std::vector<Vertex> m_text;    // reserved; drawn with the font texture
     uint16_t m_particleSprites[size_t(ParticleSprite::Count)] = {};
 };
 
