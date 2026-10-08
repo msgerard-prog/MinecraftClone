@@ -166,9 +166,10 @@ ItemRegistry buildItems() {
     // Music discs (M23.6; wiki: Music Disc - stack to 1). Ours play tunes the game makes
     // from note-block sounds (gameplay/Jukebox), not recordings.
     for (const char* name : {"13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward", "11",
-                             "wait", "pigstep", "otherside"})
+                             "wait", "pigstep", "otherside", "5"})
         r.add({.id = std::string("minecraft:music_disc_") + name, .maxStack = 1,
                .texture = std::string("item/music_disc_") + name});
+    r.add({.id = "minecraft:disc_fragment_5", .texture = "item/disc_fragment_5"}); // (M28.5b: 9 make disc 5)
     for (const char* name : {"netherite_scrap", "netherite_ingot", "netherite_upgrade_smithing_template"})
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     for (const std::string_view pattern : kTrimPatterns) { // (wiki: one template per armor trim)

@@ -222,6 +222,10 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"MMM", "SES", "WWW"},
                        {{'M', item("milk_bucket")}, {'S', item("sugar")}, {'E', item("egg")}, {'W', item("wheat")}}, "cake"));
     r.push_back(shaped({"S", "H"}, {{'S', item("string")}, {'H', item("honeycomb")}}, "candle"));
+    r.push_back(shapeless({item("disc_fragment_5"), item("disc_fragment_5"), item("disc_fragment_5"), item("disc_fragment_5"),
+                           item("disc_fragment_5"), item("disc_fragment_5"), item("disc_fragment_5"), item("disc_fragment_5"),
+                           item("disc_fragment_5")},
+                          "music_disc_5")); // (M28.5b; wiki: Disc Fragment)
     for (const char* c : kDyeColours)
         r.push_back(shapeless({item("candle"), item(std::string(c) + "_dye")}, std::string(c) + "_candle"));
     // Spears (M28.4e; ours: the head at the top right, two sticks down the diagonal)
@@ -230,13 +234,13 @@ std::vector<Recipe> build() {
                                     std::pair{"diamond", "diamond"}})
         r.push_back(shaped({"..M", ".S.", "S.."}, {{'M', item(head)}, {'S', item("stick")}}, std::string(mat) + "_spear"));
     r.push_back(shaped({"..M", ".S.", "S.."}, {{'M', kPlanks}, {'S', item("stick")}}, "wooden_spear"));
-    // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern; no vines yet for
-    // bordure indented).
+    // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern).
     for (const char* c : kDyeColours)
         r.push_back(shaped({"WWW", "WWW", ".|."}, {{'W', item(std::string(c) + "_wool")}, {'|', item("stick")}},
                            std::string(c) + "_banner"));
     for (const auto& [pattern, with] : {std::pair{"flower", "oxeye_daisy"}, std::pair{"creeper", "creeper_head"},
-                                        std::pair{"skull", "wither_skeleton_skull"}, std::pair{"field_masoned", "bricks"}})
+                                        std::pair{"skull", "wither_skeleton_skull"}, std::pair{"field_masoned", "bricks"},
+                                        std::pair{"bordure_indented", "vine"}})
         r.push_back(shapeless({item("paper"), item(with)}, std::string(pattern) + "_banner_pattern"));
     // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));

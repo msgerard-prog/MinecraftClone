@@ -346,7 +346,8 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
     if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
         static constexpr std::string_view kDiscs[] = {"13",   "cat",  "blocks", "chirp", "far", "mall",    "mellohi",
-                                                      "stal", "strad", "ward",  "11",    "wait", "pigstep", "otherside"};
+                                                      "stal", "strad", "ward",  "11",    "wait", "pigstep", "otherside",
+                                                      "5"}; // (M28.5b)
         Chunk* jc = chunkAt(p);
         const JukeboxData* jd = jc ? jc->jukebox(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
         if (!jd || jd->record.empty()) return 0;

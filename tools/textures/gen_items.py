@@ -1314,7 +1314,8 @@ def music_disc(label):
 
 DISC_LABELS = {"13": "#E8D040", "cat": "#60D040", "blocks": "#E05030", "chirp": "#C03028", "far": "#90E060",
                "mall": "#8060D0", "mellohi": "#E0A0E0", "stal": "#303030", "strad": "#F0F0F0", "ward": "#208040",
-               "11": "#606060", "wait": "#40A0E0", "pigstep": "#C06030", "otherside": "#40A8C0"}
+               "11": "#606060", "wait": "#40A0E0", "pigstep": "#C06030", "otherside": "#40A8C0",
+               "5": "#3A6A8A"}  # (M28.5b)
 
 
 def all_items():
@@ -1476,6 +1477,12 @@ def all_items():
     items["firework_rocket"] = firework_rocket()  # (M28.4c)
     items["firework_star"] = firework_star()
     items["mace"] = mace()  # (M28.4d)
+    frag = music_disc("#3A6A8A")  # (M28.5b) a wedge of disc 5
+    for y in range(16):
+        for x in range(16):
+            if x < 8 or y > 9:
+                frag.set(x, y, (0, 0, 0, 0))
+    items["disc_fragment_5"] = frag
     cake = Shape()  # (M28.5a) a cake: white icing over a sponge
     cake.add({(x, y) for x in range(2, 14) for y in range(6, 13)}, ramp(hexc("#C8884A"), 5, spread=0.25))
     cake.add({(x, y) for x in range(2, 14) for y in range(4, 7)}, ramp(hexc("#F4F0EA"), 5, spread=0.1))

@@ -120,3 +120,23 @@ TEST_CASE("vines hang on walls, are climbed, grow down and drop off when the wal
     REQUIRE(r);
     CHECK(itemRegistry().item(r->item).id == "minecraft:cake");
 }
+
+#include "gameplay/Jukebox.h"
+
+TEST_CASE("disc 5: nine fragments make it; it plays 2:58 and gives comparators 15 (M28.5b)") {
+    std::array<ItemStack, 9> g{};
+    g.fill({*itemRegistry().find("disc_fragment_5"), 1});
+    const auto r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(itemRegistry().item(r->item).id == "minecraft:music_disc_5");
+    const int d = discIndex(r->item);
+    REQUIRE(d >= 0);
+    CHECK(discInfo(d).comparator == 15);
+    CHECK(discInfo(d).lengthTicks == 178 * 20);
+    std::array<ItemStack, 9> p{};
+    p[0] = {*itemRegistry().find("paper"), 1};
+    p[1] = {*itemRegistry().find("vine"), 1};
+    const auto pat = craft(p, 3);
+    REQUIRE(pat);
+    CHECK(itemRegistry().item(pat->item).id == "minecraft:bordure_indented_banner_pattern");
+}
