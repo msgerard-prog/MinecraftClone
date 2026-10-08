@@ -519,6 +519,10 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
+        if (part.layer == 6) { // a boat's wood (M25.2b)
+            const uint32_t c = world::kBoatWoods[mob.woolColour % 10].colour;
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
         if (part.layer == 4 || part.layer == 5) { // a tropical fish's colours (M25.2)
             const uint32_t c = kWoolColours[(part.layer == 4 ? mob.woolColour : mob.color2) & 15];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;

@@ -157,3 +157,47 @@ TEST_CASE("fishing: the bobber floats, a fish bites after 5-30 s, reeling in the
     CHECK(canEnchant(*itemRegistry().find("fishing_rod"), Enchantment::Lure));
     CHECK_FALSE(canEnchant(*itemRegistry().find("bow"), Enchantment::LuckOfTheSea));
 }
+
+TEST_CASE("boats float, paddle up to 0.4 blocks a tick, turn 1 degree a tick more, keep their wood when saved (M25.2b)") {
+    Pool p;
+    REQUIRE(Mobs::placeBoat(p.world, {0.5, 70.8, 0.5}, 0.0f, 7, p.rng)); // cherry
+    MobData* boat = nullptr;
+    auto find = [&] {
+        boat = nullptr;
+        for (MobData* m : p.all())
+            if (m->type == MobType::Boat) boat = m;
+        return boat != nullptr;
+    };
+    REQUIRE(find());
+    p.tick(60);
+    REQUIRE(find());
+    CHECK(boat->pos.y > 70.0); // afloat (the water's top is y 71)
+    CHECK(boat->pos.y < 71.2);
+    for (int t = 0; t < 120; ++t) {
+        REQUIRE(find());
+        boat->paddleForward = 1;
+        p.tick(1);
+    }
+    REQUIRE(find());
+    const double speed = glm::length(glm::dvec2(boat->vel.x, boat->vel.z));
+    CHECK(speed > 0.3);
+    CHECK(speed < 0.41);
+    CHECK(boat->vel.z > 0.0); // yaw 0: toward +Z (south)
+    const float yaw0 = boat->yaw;
+    for (int t = 0; t < 10; ++t) {
+        REQUIRE(find());
+        boat->paddleTurn = 1;
+        p.tick(1);
+    }
+    REQUIRE(find());
+    CHECK(boat->yaw - yaw0 > 20.0f); // (turning builds up: 1, 1.9, 2.7...)
+    Chunk c({0, 0});
+    c.mobs().push_back(*boat);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].type == MobType::Boat);
+    CHECK(back.mobs()[0].woolColour == 7);
+    CHECK(boatId(9) == "minecraft:bamboo_raft");
+    CHECK(itemRegistry().find("cherry_boat").has_value());
+}

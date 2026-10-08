@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace mc::world {
@@ -51,6 +52,7 @@ enum class MobType : uint8_t {
     Pufferfish,   // puff state 0..2 in `size`
     Squid,
     GlowSquid,
+    Boat, // (M25.2b) its wood in `woolColour` (kBoatWoods); saved as "<wood>_boat" / "bamboo_raft"
     Count
 };
 
@@ -67,6 +69,20 @@ struct MobInfo {
     float modelScale = 1.0f; // drawn this much larger than its model (ghast 4.5)
     bool swims = false;      // lives in water (M25.2): swims in 3D there, flops and suffocates on land
 };
+// Boat woods (M25.2b; wiki: Boat): the item and entity names, and a colour for our
+// tinted model.
+struct BoatWood {
+    const char* name;  // "oak" (item "oak_boat"; bamboo makes "bamboo_raft")
+    uint32_t colour;   // 0xRRGGBB, the planks' look
+};
+inline constexpr BoatWood kBoatWoods[10] = {{"oak", 0xB8945F},     {"spruce", 0x7A5A34},  {"birch", 0xD7C185},
+                                            {"jungle", 0xB88764},  {"acacia", 0xBA6337},  {"dark_oak", 0x4F3218},
+                                            {"mangrove", 0x773636}, {"cherry", 0xE7B7AE}, {"pale_oak", 0xE5DACD},
+                                            {"bamboo", 0xC9B758}};
+inline std::string boatId(int wood) { // entity and item id
+    return std::string("minecraft:") + kBoatWoods[wood % 10].name + (wood % 10 == 9 ? "_raft" : "_boat");
+}
+
 // Fish, squid (M25.2): water creatures.
 inline bool isFish(MobType t) {
     return t == MobType::Cod || t == MobType::Salmon || t == MobType::TropicalFish || t == MobType::Pufferfish;
@@ -111,6 +127,8 @@ struct MobData {
     uint8_t color2 = 0;     // tropical fish: pattern colour (dye index, M25.2)
     bool fromBucket = false; // (M25.2) a fish let out of a bucket: never despawns (FromBucket)
     int16_t airTicks = 300;  // (M25.2) water mobs' air out of water (Air)
+    int8_t paddleForward = 0, paddleTurn = 0; // (M25.2b) a boat's rider input this tick (-1, 0, 1)
+    float yawVel = 0.0f;                      // (M25.2b) a boat's turning momentum (degrees a tick)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

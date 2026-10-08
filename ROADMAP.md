@@ -15,7 +15,7 @@ M25 - Oceans (wiki pages of each biome/mob/structure):
 1. ✅ M25.1 - Ocean biomes (warm/lukewarm/cold/frozen, deep variants) with their floors,
    kelp, seagrass, sea pickles and coral (blocks, fans, reefs), icebergs; water
    aquifers in a new overworld generator version.
-2. M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
+2. ✅ M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
    items and fish buckets; cod, salmon, tropical fish, pufferfish, squid and glow squid.
 3. M25.3 - Drowned (spawning, conversion of zombies under water, tridents), tridents
    (throwing, Loyalty/Riptide/Impaling/Channeling), dolphins (Dolphin's Grace), turtles

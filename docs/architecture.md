@@ -402,6 +402,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   bucket and lets it out with the water). `gameplay/Fishing`: one bobber per player
   (flight, floating, wait / nibble / bite timers, `rollCatch` from the fish/junk/
   treasure tables, Lure and Luck of the Sea), drawn by main as beams.
+  Boats (M25.2b, `gameplay/Boats.cpp`, part of `Mobs`): `MobType::Boat` with its wood in
+  `woolColour` (`kBoatWoods`, saved under vanilla's per-wood ids), `boatTick` (paddle
+  input from main's `paddleForward/paddleTurn`, friction by water/ice/land, buoyancy;
+  `physics` only collides it); main reuses the minecart rider code (`ridingCart`).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

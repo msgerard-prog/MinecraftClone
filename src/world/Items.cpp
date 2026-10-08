@@ -1,5 +1,7 @@
 #include "world/Items.h"
 
+#include "world/Mob.h"
+
 #include "world/ArmorTrims.h"
 #include "world/Blocks.h"
 
@@ -188,6 +190,10 @@ ItemRegistry buildItems() {
     for (const char* fish : {"cod", "salmon", "tropical_fish", "pufferfish"})
         r.add({.id = std::string("minecraft:") + fish + "_bucket", .maxStack = 1, .texture = std::string("item/") + fish + "_bucket"});
     r.add({.id = "minecraft:fishing_rod", .maxStack = 1, .durability = 64, .texture = "item/fishing_rod"});
+    for (int w = 0; w < 10; ++w) { // boats (M25.2b; wiki: Boat - stack to 1)
+        const std::string id = boatId(w);
+        r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
+    }
     r.add({.id = "minecraft:rotten_flesh", .food = 4, .saturation = 0.8f, .texture = "item/rotten_flesh"});
     // Farm animals (M16.3; wiki: each food's page - hunger / saturation).
     r.add({.id = "minecraft:porkchop", .food = 3, .saturation = 1.8f, .texture = "item/porkchop"});

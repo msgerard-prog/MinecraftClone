@@ -235,6 +235,9 @@ std::vector<Recipe> build() {
             r.push_back(shaped({"S#S", "S#S"}, {{'#', planks}, {'S', stick}}, wood + "_fence_gate"));
             r.push_back(shaped({"##"}, {{'#', planks}}, wood + "_pressure_plate"));
             if (wood != "oak") r.push_back(shapeless({planks}, wood + "_button"));
+            // Boats (M25.2b; wiki: Boat): 5 planks in a U; bamboo makes a raft.
+            if (wood != "crimson" && wood != "warped")
+                r.push_back(shaped({"#.#", "###"}, {{'#', planks}}, wood == "bamboo" ? "bamboo_raft" : wood + "_boat"));
             // Signs: 6 planks and a stick make 3; hanging signs: 2 chains over 6 stripped
             // logs make 6 (wiki: Sign, Hanging Sign).
             r.push_back(shaped({"###", "###", ".S."}, {{'#', planks}, {'S', stick}}, wood + "_sign", 3));

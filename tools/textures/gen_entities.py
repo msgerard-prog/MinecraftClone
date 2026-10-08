@@ -896,6 +896,24 @@ def squid(name, base, spot):
     return img
 
 
+def boat():
+    """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
+    (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
+    rng = random.Random("boat")
+    img = Img(64, 64, CLEAR)
+    wood = ramp(hexc("#D0D0D0"), 5, spread=0.22)
+    for box in ((0, 0, 10, 1, 14), (0, 16, 1, 3, 14), (0, 36, 8, 3, 1)):
+        for (x0, y0, w, h) in box_faces(*box).values():
+            for y in range(h):
+                for x in range(w):
+                    r = rng.random()
+                    c = wood[2 if r > 0.3 else (1 if r < 0.15 else 3)]
+                    if (x + 1) % 3 == 0 and w >= 8:
+                        c = wood[0]
+                    img.set(x0 + x, y0 + y, c)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for 4x previews")
@@ -919,7 +937,8 @@ def main():
               "salmon": fish("salmon", (0, 0, 3, 5, 9), (0, 16, 2, 4, 3), (0, 24, 1, 5, 6),
                              [(24, 0, 1, 1, 5), (24, 8, 1, 1, 3)], "#9A3A30", "#C88070", stripes="#5E8A6A"),
               "tropical_fish": tropical_fish(), "pufferfish": pufferfish(),
-              "squid": squid("squid", "#3A5070", "#5A7898"), "glow_squid": squid("glow_squid", "#1E8C8A", "#9AFFE8")}
+              "squid": squid("squid", "#3A5070", "#5A7898"), "glow_squid": squid("glow_squid", "#1E8C8A", "#9AFFE8"),
+              "boat": boat()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

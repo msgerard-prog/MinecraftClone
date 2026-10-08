@@ -535,6 +535,21 @@ def fishing_rod():
     return img
 
 
+def boat_item(colour, raft=False):
+    """A boat seen from the side (M25.2b): a hull with a darker rim; a raft is flat."""
+    pal = ramp(hexc(colour), 5, spread=0.35)
+    s = Shape()
+    if raft:
+        s.add({(x, y) for x in range(1, 15) for y in range(8, 12)}, pal)
+    else:
+        s.add({(x, y) for x in range(16) for y in range(6, 12) if abs(x - 7.5) <= 7.5 - (y - 6) * 0.6}, pal)
+    img = s.render()
+    for x in range(16):
+        if img.get(x, 6 if not raft else 8)[3]:
+            img.set(x, 6 if not raft else 8, pal[0])
+    return img
+
+
 def bone_meal():
     rng = random.Random("bone_meal")
     pal = ramp(hexc("#ECECE4"), 5, spread=0.2)
@@ -965,6 +980,11 @@ def all_items():
         img.set(9, 6, hexc(colour))
         items[f"{fish}_bucket"] = img
     items["fishing_rod"] = fishing_rod()
+    for wood, colour in (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
+                         ("acacia", "#BA6337"), ("dark_oak", "#4F3218"), ("mangrove", "#773636"),
+                         ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD")):
+        items[f"{wood}_boat"] = boat_item(colour)
+    items["bamboo_raft"] = boat_item("#C9B758", raft=True)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

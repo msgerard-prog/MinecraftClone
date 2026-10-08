@@ -348,6 +348,16 @@ constexpr std::array<MobPart, 9> kSquid = {{
     {{-6, 0, -1}, {-4, 10, 1}, {-5, 10, 0}, 48, 0, A::LegB},
 }};
 
+// Boat (M25.2b; wiki: Boat): a flat bottom and four low sides, at half size (drawn at
+// modelScale 2: 20 x 28 pixels overall; vanilla's are 28 x 16 x 3 plates), tinted by the wood.
+constexpr std::array<MobPart, 5> kBoat = {{
+    {{-5, 0, -7}, {5, 1, 7}, {0, 0, 0}, 0, 0, A::None, 6},
+    {{-5, 1, -7}, {-4, 4, 7}, {0, 0, 0}, 0, 16, A::None, 6},
+    {{4, 1, -7}, {5, 4, 7}, {0, 0, 0}, 0, 16, A::None, 6},
+    {{-4, 1, 6}, {4, 4, 7}, {0, 0, 0}, 0, 36, A::None, 6},
+    {{-4, 1, -7}, {4, 4, -6}, {0, 0, 0}, 0, 36, A::None, 6},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -387,6 +397,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Pufferfish: return kPufferfish;
     case world::MobType::Squid:
     case world::MobType::GlowSquid: return kSquid;
+    case world::MobType::Boat: return kBoat;
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

@@ -196,16 +196,21 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fireTicks = 300;
         m.vel *= 0.5;
     }
+    const bool vehicle = m.type == MobType::Boat; // (its velocity is set by boatTick: collision only)
     // Walking: horizontal speed approaches `wish` (blocks/tick) with ground friction.
-    const double friction = m.onGround ? kGroundFriction : kAirFriction;
+    const double friction = vehicle ? 1.0 : m.onGround ? kGroundFriction : kAirFriction;
     const double accel = m.onGround ? (1.0 - kGroundFriction) : 0.02 / 0.1 * (1.0 - kGroundFriction) * 0.25;
-    m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
-    m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
+    if (!vehicle) {
+        m.vel.x = m.vel.x * friction + wish.x * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
+        m.vel.z = m.vel.z * friction + wish.z * accel / (1.0 - friction + 1e-9) * (1.0 - friction);
+    }
     if (m.type == MobType::Spider && m.climbing) {
         m.vel.y = 0.2; // spiders climb walls (wiki: Spider)
         m.fallDistance = 0.0f;
     }
-    if (m.type == MobType::Strider && fluid.lava) {
+    if (vehicle) {
+        // (set by boatTick)
+    } else if (m.type == MobType::Strider && fluid.lava) {
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
@@ -261,7 +266,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
         if (m.type != MobType::Chicken && m.type != MobType::MagmaCube && m.type != MobType::Slime &&
-            !mobInfo(m.type).flies)
+            !mobInfo(m.type).flies && !vehicle)
             m.fallDistance -= static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
     }
     if (m.onGround) {
@@ -287,6 +292,10 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 void Mobs::ai(Context& ctx, MobData& m) {
     if (m.type == MobType::Minecart) {
         minecartTick(ctx, m);
+        return;
+    }
+    if (m.type == MobType::Boat) { // (M25.2b, Boats.cpp)
+        boatTick(ctx, m);
         return;
     }
     if (m.type == MobType::EnderDragon) {
@@ -605,6 +614,12 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.type == MobType::Boat) { // broken: the boat item, gone at once (M25.2b)
+        m.deathTime = 19;
+        if (const auto boat = itemRegistry().find(boatId(m.woolColour)))
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*boat, 1}, ctx.rng);
+        return;
+    }
     if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
         m.deathTime = 19;
         if (const auto cart = itemRegistry().find("minecart")) ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
@@ -901,7 +916,7 @@ void Mobs::tick(Context& ctx) {
                 if (m.deathTime >= 20) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
-                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal)
+                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat)
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);

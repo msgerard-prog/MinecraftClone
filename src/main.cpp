@@ -683,7 +683,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if (m.type == mc::world::MobType::Minecart && m.uuidHi == ridingCart)
+                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Boat) &&
+                            m.uuidHi == ridingCart)
                             return &m;
         return nullptr;
     };
@@ -1656,6 +1657,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         player.setPosition(out);
                     }
                     ridingCart = 0;
+                } else if (cart->type == mc::world::MobType::Boat) {
+                    // Paddling (M25.2b): W/S forward/back, A/D turn (Boats.cpp applies it).
+                    cart->paddleForward = int8_t(input.forward > 0.0f ? 1 : input.forward < 0.0f ? -1 : 0);
+                    cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
                 } else if (input.forward > 0.0f) {
                     const glm::dvec3 f(mc::world::forwardFlat(player.yaw()));
                     if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01)
@@ -2020,6 +2025,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
+                if (!dead && clicks.useClick && (heldId.ends_with("_boat") || heldId == "minecraft:bamboo_raft")) {
+                    // Boats (M25.2b; wiki: Boat): on the water surface in view, else on the
+                    // block clicked, facing the way the player looks.
+                    const double reach = survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach;
+                    const auto hit = mc::world::raycastBlocks(world, eye, look, reach, mc::world::RayFluids::Sources);
+                    if (hit) {
+                        const bool water = mc::world::blockRegistry().blockOf(world.getBlock(hit->block)) ==
+                                           mc::world::blocks::Water;
+                        const mc::world::BlockPos at = water ? hit->block : mc::world::neighbour(hit->block, hit->face);
+                        int wood = 0;
+                        for (int w = 0; w < 10; ++w)
+                            if (mc::world::boatId(w) == heldId) wood = w;
+                        if (mc::Mobs::placeBoat(world, {at.x + 0.5, at.y + (water ? 0.8 : 0.0), at.z + 0.5}, player.yaw(),
+                                                wood, gameRng) &&
+                            survival)
+                            inventory.consumeSelected(1);
+                    }
+                    clicks.useClick = false;
+                }
                 if (!dead && heldId == "minecraft:fishing_rod" && clicks.useClick) { // (M25.2: cast / reel in)
                     const mc::world::ItemStack rod = inventory.selectedStack();
                     if (fishing.active()) {
@@ -2215,7 +2239,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
-                    if (mob.type == mc::world::MobType::Minecart && !mob.ridden) {
+                    if ((mob.type == mc::world::MobType::Minecart || mob.type == mc::world::MobType::Boat) && !mob.ridden) {
                         mob.ridden = true;
                         ridingCart = mob.uuidHi;
                         clicks.useClick = false;
@@ -2789,7 +2813,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (ridingCart !=
                 0) { // the rider goes with the cart (an activator rail throws them out)
                 if (mc::world::MobData* cart = findCart()) {
-                    player.setPosition(cart->pos + glm::dvec3(0.0, 0.3, 0.0));
+                    const bool boat = cart->type == mc::world::MobType::Boat;
+                    player.setPosition(cart->pos + glm::dvec3(0.0, boat ? 0.15 : 0.3, 0.0));
+                    if (boat) player.setRotation(player.yaw() + cart->yawVel, player.pitch()); // (turning with it)
                     player.setVelocity(glm::dvec3(0.0));
                     vitals.resetFall();
                     const mc::world::BlockPos under{int(std::floor(cart->pos.x)),

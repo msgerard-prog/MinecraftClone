@@ -941,7 +941,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // Dying mobs are not saved - except the dragon, whose 10 s death ends the fight.
         if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
-        e.put("id", std::string(mobInfo(m.type).id));
+        e.put("id", m.type == MobType::Boat ? boatId(m.woolColour) : std::string(mobInfo(m.type).id)); // (boats: per wood)
         e.put("Pos", nbt::listOf(nbt::TagType::Double, {m.pos.x, m.pos.y, m.pos.z}));
         e.put("Motion", nbt::listOf(nbt::TagType::Double, {m.vel.x, m.vel.y, m.vel.z}));
         e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
@@ -1098,6 +1098,12 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.type = static_cast<MobType>(k);
                 known = true;
             }
+        for (int w = 0; w < 10 && !known; ++w) // (M25.2b: every wood's boat is one type here)
+            if (boatId(w) == *id) {
+                m.type = MobType::Boat;
+                m.woolColour = uint8_t(w);
+                known = true;
+            }
         if (!known) continue; // entity types we don't have yet are skipped
         auto vec3 = [&](const char* key, glm::dvec3& out) {
             if (const nbt::List* l = e->list(key); l && l->items.size() == 3)
@@ -1125,7 +1131,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
         m.age = static_cast<int>(std::clamp<int64_t>(e->integer("Age").value_or(0), -24000, 24000));
         m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
-        m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
+        if (m.type != MobType::Boat) // (a boat's wood came from its id)
+            m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
         m.powered = m.type == MobType::Creeper && e->integer("powered").value_or(0) != 0;
         m.showBottom = e->integer("ShowBottom").value_or(1) != 0;

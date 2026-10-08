@@ -21,6 +21,7 @@ struct MobPart {
     // 2 = an end crystal's base, hidden without ShowBottom.
     // 3 = a villager's profession robe: drawn from the apron texture, tinted.
     // 4, 5 = a tropical fish's body and pattern, tinted by its two colours (M25.2).
+    // 6 = a boat's planks, tinted by its wood (M25.2b).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -65,6 +66,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/pufferfish.png",
         "assets/minecraft/textures/entity/clone/squid.png",
         "assets/minecraft/textures/entity/clone/glow_squid.png",
+        "assets/minecraft/textures/entity/clone/boat.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png"};

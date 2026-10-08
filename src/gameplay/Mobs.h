@@ -79,6 +79,8 @@ public:
     static world::MobData make(world::MobType type, const glm::dvec3& pos, world::Xoroshiro& rng);
     static uint8_t naturalWoolColour(world::Xoroshiro& rng);
     // Adds a mob to the chunk it stands in (false if that chunk isn't loaded).
+    // A boat of `wood` (kBoatWoods) facing `yaw` (M25.2b).
+    static bool placeBoat(world::World& world, const glm::dvec3& at, float yaw, int wood, world::Xoroshiro& rng);
     static bool add(world::World& world, const world::MobData& mob);
     // A lightning bolt at `at` (wiki: Lightning): mobs within 3 blocks (6 up) take 5
     // damage and burn 8 s; creepers become charged, pigs zombified piglins. Returns
@@ -117,6 +119,7 @@ private:
     // attack on their own (true: handled); zombified piglins' anger runs down.
     bool netherAi(Context& ctx, world::MobData& m);
     bool waterAi(Context& ctx, world::MobData& m); // fish and squid (WaterMobs.cpp, M25.2)
+    void boatTick(Context& ctx, world::MobData& m); // (Boats.cpp, M25.2b)
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp

@@ -248,6 +248,8 @@ M25.2: entities `minecraft:cod`, `salmon`, `tropical_fish` (`Variant`: shape | p
 `glow_squid`; fish save `FromBucket`, water mobs `Air`. Items `cod`, `cooked_cod`,
 `salmon`, `cooked_salmon`, `tropical_fish`, `pufferfish`, `ink_sac`, `glow_ink_sac`,
 `<fish>_bucket`, `fishing_rod`; enchantments `luck_of_the_sea`, `lure`; effect `hunger`.
+M25.2b: entities and items `<wood>_boat` (oak, spruce, birch, jungle, acacia, dark_oak,
+mangrove, cherry, pale_oak) and `bamboo_raft`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
