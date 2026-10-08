@@ -41,6 +41,7 @@ public:
         class PrimedTnt* tnt = nullptr; // explosions set off TNT (M21.1b)
         uint64_t worldSeed = 0;         // slime chunks (M21.5)
         const world::Weather* weather = nullptr; // rain: undead don't burn, endermen get hurt (M22.1)
+        bool thundering = false; // monsters spawn as if sky light were 10 lower (any time of day)
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

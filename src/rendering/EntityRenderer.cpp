@@ -45,6 +45,7 @@ glm::vec3 lightColor(int sky, int block, float skyDarken, float ambient, bool fo
 
 EntityRenderer::~EntityRenderer() {
     if (m_mobTexture) glDeleteTextures(1, &m_mobTexture);
+    if (m_weatherTexture) glDeleteTextures(1, &m_weatherTexture);
     if (m_vbo) glDeleteBuffers(1, &m_vbo);
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
@@ -83,8 +84,34 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
         m_crackSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("destroy_stage_" + std::to_string(i)));
     m_orbSprite = static_cast<uint16_t>(atlas.spriteIndex("experience_orb")); // (our texture, in the block atlas)
     m_items.reserve(size_t(kMaxQuads) * 6);
-    m_rainSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_rain"));
-    m_snowSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_snow"));
+    {
+        // Rain and snow in one texture that repeats vertically (vanilla draws each
+        // column as one long quad with a scrolling v).
+        Image both{32, 16, std::vector<uint8_t>(size_t(32) * 16 * 4, 0)};
+        const char* paths[2] = {"assets/minecraft/textures/environment/rain.png",
+                                "assets/minecraft/textures/environment/snow.png"};
+        for (int k = 0; k < 2; ++k) {
+            const auto bytes = packs.read(paths[k]);
+            const auto img = bytes ? decodePng(*bytes) : std::nullopt;
+            if (!img || img->width <= 0 || img->height <= 0) {
+                MC_LOG_WARN("Weather texture %s missing", paths[k]);
+                continue;
+            }
+            for (int y = 0; y < 16; ++y)
+                for (int x = 0; x < 16; ++x) { // (resampled to 16x16)
+                    const size_t from = (size_t(y * img->height / 16) * size_t(img->width) + size_t(x * img->width / 16)) * 4;
+                    std::copy_n(img->pixels.begin() + std::ptrdiff_t(from), 4,
+                                both.pixels.begin() + std::ptrdiff_t((size_t(y) * 32 + size_t(k * 16 + x)) * 4));
+                }
+        }
+        glCreateTextures(GL_TEXTURE_2D, 1, &m_weatherTexture);
+        glTextureStorage2D(m_weatherTexture, 1, GL_RGBA8, 32, 16);
+        glTextureSubImage2D(m_weatherTexture, 0, 0, 0, 32, 16, GL_RGBA, GL_UNSIGNED_BYTE, both.pixels.data());
+        glTextureParameteri(m_weatherTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTextureParameteri(m_weatherTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTextureParameteri(m_weatherTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(m_weatherTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    }
     m_boltSprite = static_cast<uint16_t>(atlas.spriteIndex("weather_bolt"));
     for (int i = 0; i < 8; ++i)
         m_particleSprites[i] = static_cast<uint16_t>(atlas.spriteIndex("particle_generic_" + std::to_string(i)));
@@ -244,36 +271,25 @@ void EntityRenderer::addBeam(const glm::dvec3& from, const glm::dvec3& to, const
 
 void EntityRenderer::addPrecipitation(int32_t x, int32_t z, int y0, int y1, bool snow, float scroll, float drift,
                                       float alpha, const glm::vec3& light, const glm::dvec3& cameraPos) {
-    if (y1 <= y0 || m_weather.size() + size_t(y1 - y0 + 1) * 6 > m_weather.capacity()) return;
+    if (y1 <= y0 || m_weather.size() + 6 > m_weather.capacity()) return;
     // The quad faces the camera around the vertical axis through the column's centre
     // (vanilla turns each column's quad toward the viewer).
     const glm::vec3 c(float(double(x) + 0.5 - cameraPos.x), 0.0f, float(double(z) + 0.5 - cameraPos.z));
     const float len = std::sqrt(c.x * c.x + c.z * c.z);
     const glm::vec3 side = len > 1e-3f ? glm::vec3(-c.z / len, 0.0f, c.x / len) * 0.5f : glm::vec3(0.5f, 0, 0);
-    const uint16_t sprite = snow ? m_snowSprite : m_rainSprite;
-    const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
+    // Texels: u is the rain (0..16) or snow (16..32) half; v repeats every 16 texels
+    // (one block) and grows as the texture slides down.
+    const float u0 = snow ? 16.0f : 0.0f, u1 = u0 + 16.0f;
+    const float vt = (-scroll - float(y1)) * 16.0f, vb = (-scroll - float(y0)) * 16.0f; // (features fall)
+    const float yt = float(double(y1) - cameraPos.y), yb = float(double(y0) - cameraPos.y);
+    const glm::vec3 base = c + side * 2.0f * drift; // (snow slides sideways)
     const uint32_t color = pack(light, alpha);
-    // Scrolling: each 1-block quad shows the whole (vertically tiling) sprite; moving
-    // the quads down by the fractional scroll and starting one block higher looks like
-    // continuous falling. Snow also slides sideways by `drift` blocks.
-    const float f = scroll - std::floor(scroll);
-    const glm::vec3 shift = side * 2.0f * drift;
-    for (int y = y0 - 1; y < y1; ++y) { // segment [y + 1 - f, y + 2 - f], clipped to the column
-        const float top = std::min(float(y + 1) - f + 1.0f, float(y1)), bottom = std::max(float(y) - f + 1.0f, float(y0));
-        if (top <= bottom) continue;
-        const float vt = v0 + (float(y + 1) - f + 1.0f - top) * float(m_cell), vb = v0 + (float(y + 1) - f + 1.0f - bottom) * float(m_cell);
-        const float yt = float(double(top) - cameraPos.y), yb = float(double(bottom) - cameraPos.y);
-        const glm::vec3 base = c + shift;
-        const glm::vec3 p[4] = {base - side + glm::vec3(0, yt, 0), base - side + glm::vec3(0, yb, 0),
-                                base + side + glm::vec3(0, yb, 0), base + side + glm::vec3(0, yt, 0)};
-        Vertex v[4];
-        const float us[4] = {u0, u0, u0 + float(m_cell), u0 + float(m_cell)};
-        const float vs[4] = {vt, vb, vb, vt};
-        for (int k = 0; k < 4; ++k)
-            v[k] = {p[k].x, p[k].y, p[k].z, us[k], vs[k], color};
-        for (const int k : {0, 1, 2, 0, 2, 3})
-            m_weather.push_back(v[k]);
-    }
+    const Vertex v[4] = {{base.x - side.x, yt, base.z - side.z, u0, vt, color},
+                         {base.x - side.x, yb, base.z - side.z, u0, vb, color},
+                         {base.x + side.x, yb, base.z + side.z, u1, vb, color},
+                         {base.x + side.x, yt, base.z + side.z, u1, vt, color}};
+    for (const int k : {0, 1, 2, 0, 2, 3})
+        m_weather.push_back(v[k]);
 }
 
 void EntityRenderer::addLightning(const glm::dvec3& ground, uint32_t seed, const glm::dvec3& cameraPos) {
@@ -543,7 +559,9 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         glUniform1f(1, 0.01f);
         if (weather) {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glBindTextureUnit(0, m_weatherTexture);
             glDrawArrays(GL_TRIANGLES, GLint(weatherBase), GLsizei(weather));
+            glBindTextureUnit(0, m_atlasTexture);
         }
         if (bolts) {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE); // lightning glows (vanilla: additive)

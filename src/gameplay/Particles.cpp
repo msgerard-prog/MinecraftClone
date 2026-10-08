@@ -23,11 +23,27 @@ double centred(Xoroshiro& rng) { return rng.nextDouble() * 2.0 - 1.0; }
 int16_t life(Xoroshiro& rng, float base, float spread, float floor) {
     return static_cast<int16_t>(std::clamp(base / (rng.nextFloat() * spread + floor), 1.0f, 400.0f));
 }
-bool solidAt(const World& world, const glm::dvec3& p) {
-    return R().collides(world.getBlock({int(std::floor(p.x)), int(std::floor(p.y)), int(std::floor(p.z))}));
-}
 
 } // namespace
+
+void Particles::fillGrid(const World& world, const glm::dvec3& player) {
+    m_gridX = blockToChunk(int32_t(std::floor(player.x))) - 2;
+    m_gridZ = blockToChunk(int32_t(std::floor(player.z))) - 2;
+    for (int dz = 0; dz < 5; ++dz)
+        for (int dx = 0; dx < 5; ++dx)
+            m_grid[size_t(dz * 5 + dx)] = world.chunk({m_gridX + dx, m_gridZ + dz});
+}
+
+const Chunk* Particles::chunkAt(const World& world, int32_t x, int32_t z) const {
+    const int32_t cx = blockToChunk(x) - m_gridX, cz = blockToChunk(z) - m_gridZ;
+    if (cx >= 0 && cx < 5 && cz >= 0 && cz < 5) return m_grid[size_t(cz * 5 + cx)];
+    return world.chunk({blockToChunk(x), blockToChunk(z)});
+}
+
+BlockStateId Particles::blockAt(const World& world, const BlockPos& p) const {
+    const Chunk* c = chunkAt(world, p.x, p.z);
+    return c ? c->get(blockToLocal(p.x), p.y, blockToLocal(p.z)) : BlockStateId(0);
+}
 
 Particle& Particles::add(const Particle& p) {
     Particle* slot = nullptr;
@@ -230,7 +246,7 @@ void Particles::effectSwirl(const glm::dvec3& feet, double width, double height,
 }
 
 void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
-    const BlockStateId s = world.getBlock(b);
+    const BlockStateId s = blockAt(world, b);
     if (s == 0) return;
     const BlockId id = R().blockOf(s);
     const glm::dvec3 c(b.x + 0.5, b.y + 0.5, b.z + 0.5);
@@ -282,7 +298,7 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         break;
     case blocks::Lava:
         // Lava pops: an ember jumps from the surface now and then (wiki: Lava).
-        if (world.getBlock({b.x, b.y + 1, b.z}) == 0 && rng.nextInt(100) == 0) {
+        if (blockAt(world, {b.x, b.y + 1, b.z}) == 0 && rng.nextInt(100) == 0) {
             world.playSound(Sound::LavaPop, b.x + 0.5, b.y + 1.0, b.z + 0.5);
             Particle p;
             p.pos = {b.x + rng.nextDouble(), b.y + 1.0, b.z + rng.nextDouble()};
@@ -321,8 +337,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     }
     // Drips: under a solid block with water or lava resting on it (wiki: Particles ›
     // dripping_water / dripping_lava) - they hang, then fall.
-    if (R().opaqueCube(s) && rng.nextInt(10) == 0 && world.getBlock({b.x, b.y - 1, b.z}) == 0) {
-        const BlockId above = R().blockOf(world.getBlock({b.x, b.y + 1, b.z}));
+    if (R().opaqueCube(s) && rng.nextInt(10) == 0 && blockAt(world, {b.x, b.y - 1, b.z}) == 0) {
+        const BlockId above = R().blockOf(blockAt(world, {b.x, b.y + 1, b.z}));
         if (above == blocks::Water || above == blocks::Lava) {
             Particle p;
             p.pos = {b.x + 0.1 + rng.nextDouble() * 0.8, b.y - 0.05, b.z + 0.1 + rng.nextDouble() * 0.8};
@@ -347,9 +363,9 @@ void Particles::rain(const World& world, const glm::dvec3& player, const Weather
         const int z = int(std::floor(player.z)) + int(rng.nextInt(21)) - 10;
         const int top = rainHeight(world, x, z);
         if (top > player.y + 10.0 || top < player.y - 10.0) continue;
-        if (!rainingAt(world, weather, {x, top, z})) continue;
+        if (!rainFallsOn(world, weather, {x, top, z})) continue; // (top is the rain height already)
         const glm::dvec3 at(x + rng.nextDouble(), top + 0.02, z + rng.nextDouble());
-        if (R().blockOf(world.getBlock({x, top - 1, z})) == blocks::Lava) {
+        if (R().blockOf(blockAt(world, {x, top - 1, z})) == blocks::Lava) {
             smoke(at, false, rng);
             continue;
         }
@@ -382,7 +398,7 @@ void Particles::move(const World& world, Particle& p) {
         for (const int a : {1, 0, 2}) {
             glm::dvec3 next = p.pos;
             next[a] += p.vel[a];
-            if (solidAt(world, next)) {
+            if (R().collides(blockAt(world, {int(std::floor(next.x)), int(std::floor(next.y)), int(std::floor(next.z))}))) {
                 if (a == 1 && p.vel.y < 0.0) p.onGround = true;
                 p.vel[a] = 0.0;
             } else {
@@ -399,6 +415,7 @@ void Particles::move(const World& world, Particle& p) {
 
 void Particles::tick(World& world, const std::vector<LevelEvent>& events, const glm::dvec3& player,
                      const Weather* weather, Xoroshiro& rng) {
+    fillGrid(world, player);
     for (const LevelEvent& e : events) {
         const glm::dvec3 at(e.x, e.y, e.z);
         const BlockPos b{int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))};
@@ -448,8 +465,10 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         if (p.age >= p.lifetime) continue;
         move(world, p);
         if (p.hangs && p.onGround) p.age = p.lifetime; // a drip hitting the floor is gone
+        // Rain splashes on the ground vanish half the time each tick (vanilla's water drops).
+        if (p.sprite == ParticleSprite::Splash0 && p.onGround && (rng.nextInt(2) == 0)) p.age = p.lifetime;
         const BlockPos at{int(std::floor(p.pos.x)), int(std::floor(p.pos.y)), int(std::floor(p.pos.z))};
-        if (const Chunk* c = world.chunk(at.chunk()); c && c->lit()) {
+        if (const Chunk* c = chunkAt(world, at.x, at.z); c && c->lit()) {
             p.skyLight = c->skyLight(blockToLocal(at.x), at.y, blockToLocal(at.z));
             p.blockLight = c->blockLight(blockToLocal(at.x), at.y, blockToLocal(at.z));
         }

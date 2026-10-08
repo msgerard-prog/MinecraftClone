@@ -94,3 +94,11 @@ TEST_CASE("beds: creative ignores monsters; too far or a block over the head sto
     // Over air: Java beds don't need support.
     CHECK(BlockUpdates::placement(s.world, S(blocks::RedBed), {8, 70, 8}, Direction::Up, 0.0f, 0.0f).has_value());
 }
+
+TEST_CASE("beds: rain widens the sleeping window, thunderstorms allow sleep at any time") {
+    CHECK_FALSE(canSleepAt(12100));
+    CHECK(canSleepAt(12100, true));
+    CHECK(canSleepAt(23990, true));
+    CHECK_FALSE(canSleepAt(6000, true));
+    CHECK(canSleepAt(6000, true, true)); // noon in a thunderstorm
+}

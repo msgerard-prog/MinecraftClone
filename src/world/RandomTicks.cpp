@@ -5,6 +5,7 @@
 // (vanilla counts them per section too).
 #include "world/BlockUpdates.h"
 
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 #include "world/TreeFeature.h"
 #include "world/Weather.h"
@@ -415,9 +416,13 @@ void BlockUpdates::runWeatherTicks() {
             if (storm && m_random.nextInt(100000) == 0) {
                 const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
                 const BlockPos top{x, rainHeight(m_world, x, z), z};
-                if (rainingAt(m_world, *m_weather, top)) strikeLightning(top);
+                if (rainFallsOn(m_world, *m_weather, top)) strikeLightning(top);
             }
-            if (m_random.nextInt(16) != 0) continue;
+            // Vanilla: random_tick_speed tries of 1 in 48 (1 in 16 a tick at the default 3).
+            bool picked = false;
+            for (int i = 0; i < m_rtSpeed && !picked; ++i)
+                picked = m_random.nextInt(48) == 0;
+            if (!picked) continue;
             const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
             const BlockPos top{x, rainHeight(m_world, x, z), z};
             const BlockPos below{x, top.y - 1, z};
@@ -436,7 +441,14 @@ void BlockUpdates::runWeatherTicks() {
                 bc->blockLight(blockToLocal(x), std::min(top.y, m_world.height().maxY()), blockToLocal(z)) < 10) {
                 const BlockStateId under = at(below);
                 const BlockId ub = blockOf(under);
-                if ((R().opaqueCube(under) || isLeaves(ub)) && ub != B::Ice && ub != B::PackedIce)
+                // On a full solid top (glass too) or leaves, not on ice (wiki: Snow).
+                const BlockShape& shape = collisionShape(under);
+                const bool fullTop = R().collides(under) &&
+                                     (shape.count == 0 ? true
+                                                       : shape.count == 1 && shape.boxes[0].to[1] == 16 &&
+                                                             shape.boxes[0].from[0] == 0 && shape.boxes[0].to[0] == 16 &&
+                                                             shape.boxes[0].from[2] == 0 && shape.boxes[0].to[2] == 16);
+                if ((fullTop || isLeaves(ub)) && ub != B::Ice && ub != B::PackedIce)
                     set(top, R().defaultState(B::Snow));
             }
         }

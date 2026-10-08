@@ -164,6 +164,8 @@ TEST_CASE("world folders: bad characters replaced, taken names numbered") {
     using mc::world::folderForWorld;
     CHECK(folderForWorld("My: World?", dir) == "My_ World_");
     CHECK(folderForWorld("", dir) == "New World");
+    CHECK(folderForWorld("con", dir) == "_con_"); // (a device name on Windows)
+    CHECK(folderForWorld("LPT1.txt", dir) == "_LPT1.txt_");
     std::filesystem::create_directories(dir / "New World");
     CHECK(folderForWorld("New World", dir) == "New World (1)");
     // A world with a level.dat shows in the list; a bare folder doesn't.

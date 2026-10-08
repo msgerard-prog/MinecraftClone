@@ -26,6 +26,7 @@
 #include "world/ChunkStorage.h"
 #include "world/LevelData.h"
 #include "core/FileLock.h"
+#include "gameplay/Combat.h"
 #include "gameplay/Commands.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
@@ -216,13 +217,18 @@ struct Shared {
     mc::ui::Menu& menu;
     mc::ui::MenuState& menuState;
     uint16_t dirtSprite;
+    // Command-line overrides (never written to options.txt): --render-distance holds
+    // until the slider moves away from options.txt's value; --no-vsync for the run.
+    int cliRenderDistance = 0; // 0: none
+    int optionsRenderDistance = 0; // options.txt's value when the game started
+    bool cliNoVsync = false;
 };
 enum class SessionEnd { Quit, ToTitle };
 
 // Settings that live outside a world (volume, VSync, GUI scale).
 void applyGlobalOptions(Shared& shared) {
     shared.audio.setMasterVolume(shared.options.masterVolume);
-    shared.window.setVsync(shared.options.vsync);
+    shared.window.setVsync(shared.options.vsync && !shared.cliNoVsync);
     mc::gfx::GuiRenderer::setScaleSetting(shared.options.guiScale);
 }
 
@@ -527,8 +533,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         audio.play(handles[soundRng.nextInt(uint32_t(handles.size()))], pos, info.volume * volume, p * pitch, positional);
     };
     double stepDistance = 0.0, nextStep = 1.0; // footsteps (vanilla moveDist / nextStep)
-    float lastHealth = 20.0f;
-    int lastXpLevel = 0, lastEatTicks = 0, rainSoundTime = 0;
+    float lastHealth = vitals.health(); // (the loaded values: no sound on the first tick)
+    int lastXpLevel = vitals.xpLevel(), lastEatTicks = 0, rainSoundTime = 0;
     bool wasInWater = false;
     glm::dvec3 lastFeet(0.0);
     if (level && !opts->hasPos) { // resume where the player left
@@ -722,7 +728,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     auto runChatLine = [&](std::string_view text) {
         if (text.empty()) return;
         if (text.front() == '/') {
-            mc::CommandContext ctx{player, inventory, dayTime, gameTime, opts->seed, &survival, &vitals, &world, &gameRng,
+            mc::CommandContext ctx{player, inventory, dayTime, gameTime, seed, &survival, &vitals, &world, &gameRng,
                                   &frameEdits, &weather, &commandBolts};
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
@@ -801,13 +807,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
+    glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
+    // The rain/snow columns around the camera (ground, kind, light), refilled once a
+    // tick or when the camera's block changes - not every frame.
+    struct RainColumn {
+        int ground;
+        mc::world::Precipitation kind;
+        uint8_t light; // sky x 16 + block
+    };
+    constexpr int kRainRadius = 10;
+    std::array<RainColumn, (2 * kRainRadius + 1) * (2 * kRainRadius + 1)> rainColumns{};
+    int64_t rainColumnsTick = -1;
+    int rainCx = INT32_MIN, rainCy = 0, rainCz = 0;
     // Settings that touch this world (M22.5): view and simulation distance, clouds.
     auto applySessionOptions = [&] {
         const mc::GameOptions& o = shared.options;
-        if (loader && !screenshotMode && !opts->hidden && o.renderDistance != opts->renderDistance) {
-            opts->renderDistance = o.renderDistance;
-            loader->setRenderDistance(o.renderDistance);
-            renderer.setRenderDistance(o.renderDistance);
+        const int distance = shared.cliRenderDistance > 0 && o.renderDistance == shared.optionsRenderDistance
+                                 ? shared.cliRenderDistance
+                                 : o.renderDistance;
+        if (loader && distance != opts->renderDistance) {
+            opts->renderDistance = distance;
+            loader->setRenderDistance(distance);
+            renderer.setRenderDistance(distance);
         }
         mobs.setSimulationDistance(o.simulationDistance);
         renderer.setClouds(o.clouds);
@@ -855,7 +876,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // Text typed this frame (only the chat consumes it).
         const int typedCount = paused ? 0 : window.takeText(typed.data(), static_cast<int>(typed.size()));
         if (paused) {
-            // (the menu reads clicks, keys and text when it is drawn)
+            // (the menu reads clicks, Enter, Esc and text when it is drawn; game keys
+            // pressed meanwhile must not act after resuming)
+            for (const mc::Press p : {mc::Press::Chat, mc::Press::Command, mc::Press::Inventory, mc::Press::F3,
+                                      mc::Press::Up, mc::Press::Down, mc::Press::Drop, mc::Press::Jump,
+                                      mc::Press::RightMouse})
+                window.takePresses(p);
         } else if (chat.isOpen()) {
             chat.type({typed.data(), size_t(typedCount)}); // backspaces included, in order
             window.takePresses(mc::Press::Backspace);
@@ -1203,7 +1229,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos bedPos = *pendingBedUse;
                 pendingBedUse.reset();
                 const glm::dvec3 feetNow = player.position();
-                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow)) {
+                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow, weather.raining,
+                                   weather.raining && weather.thundering)) {
                         case mc::BedUse::Sleep:
                             bedSpawn = *mc::bedHead(world, bedPos);
                             sleepBed = *bedSpawn;
@@ -1282,7 +1309,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     player.setPosition({sleepBed.x + 0.5, sleepBed.y + 0.5625, sleepBed.z + 0.5});
                     player.setVelocity(glm::dvec3(0.0));
                 } else {
-                    if (sleepTicks >= 100) dayTime = mc::morningAfter(dayTime); // the night passes
+                    if (sleepTicks >= 100) {
+                        dayTime = mc::morningAfter(dayTime); // the night passes
+                        // ...and the rain stops: the weather cycle starts over (wiki: Bed).
+                        if (weather.raining) weather.set(mc::world::Weather::Kind::Clear, 0);
+                    }
                     if (stillBed)
                         if (const auto spot = mc::bedStandSpot(world, sleepBed)) player.setPosition(*spot);
                     sleepTicks = 0;
@@ -1681,25 +1712,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // Weapon enchantments (wiki): Sharpness +0.5 per level +0.5, Smite and
                     // Bane of Arthropods +2.5 per level against their mobs.
                     using E = mc::world::Enchantment;
-                    float dmg = stack.empty() ? 1.0f : held.attackDamage;
-                    if (const int s = mc::world::enchantLevel(stack, E::Sharpness)) dmg += 0.5f * float(s) + 0.5f;
-                    // Strength +3 and weakness -4 per level (wiki: Strength, Weakness).
-                    dmg += 3.0f * float(vitals.effectLevel(mc::world::Effect::Strength));
-                    dmg = std::max(0.0f, dmg - 4.0f * float(vitals.effectLevel(mc::world::Effect::Weakness)));
-                    if (m.type == mc::world::MobType::Zombie || m.type == mc::world::MobType::Skeleton)
-                        dmg += 2.5f * float(mc::world::enchantLevel(stack, E::Smite));
-                    if (m.type == mc::world::MobType::Spider)
-                        dmg += 2.5f * float(mc::world::enchantLevel(stack, E::BaneOfArthropods));
+                    const bool hit = m.hurtTime == 0 && m.deathTime == 0;
+                    // A critical hit: falling, not on the ground, in water, flying, gliding,
+                    // riding or slow falling - 150% of the base damage, before enchantments
+                    // add theirs (wiki: Damage › Critical hit).
+                    const bool crit = !player.onGround() && player.velocity().y < 0.0 && !player.inWater() &&
+                                      !player.flying() && !player.gliding() && ridingCart == 0 && !player.sprinting() &&
+                                      vitals.effectLevel(mc::world::Effect::SlowFalling) == 0;
+                    mc::MeleeHit mhit;
+                    mhit.itemDamage = stack.empty() ? 1.0f : held.attackDamage;
+                    mhit.strength = vitals.effectLevel(mc::world::Effect::Strength);
+                    mhit.weakness = vitals.effectLevel(mc::world::Effect::Weakness);
+                    mhit.critical = crit;
+                    mhit.sharpness = mc::world::enchantLevel(stack, E::Sharpness);
+                    mhit.smite = mc::world::enchantLevel(stack, E::Smite);
+                    mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
+                    mhit.undead = m.type == mc::world::MobType::Zombie || m.type == mc::world::MobType::Skeleton;
+                    mhit.arthropod = m.type == mc::world::MobType::Spider;
+                    float dmg = mc::meleeDamage(mhit);
                     if (m.type == mc::world::MobType::EnderDragon) // (the head takes it all)
                         dmg = mc::Mobs::dragonDamage(m, dmg, eye + look * mh->distance);
-                    const bool hit = m.hurtTime == 0 && m.deathTime == 0;
-                    // A critical hit: falling, not on the ground, in water or flying -
-                    // 150% damage and crit particles (wiki: Damage › Critical hit).
-                    const bool crit = !player.onGround() && player.velocity().y < 0.0 && !player.inWater() &&
-                                      !player.flying() && !player.gliding() && ridingCart == 0 && !player.sprinting();
                     if (hit && !crit) playSound(mc::world::Sound::AttackHit, eye + look * mh->distance, 1.0f, 1.0f, true);
                     if (crit && hit) {
-                        dmg *= 1.5f;
                         const glm::dvec3 at = eye + look * mh->distance;
                         world.levelEvent(mc::world::LevelEvent::Type::Crit, at.x, at.y, at.z);
                     }
@@ -1764,6 +1798,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.tnt = &primedTnt;
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
+            mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
             for (int piece = 0; piece < 4; ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() &&
                     mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with("minecraft:golden_"))
@@ -2146,9 +2181,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const int x = int(std::floor(eye.x)) + int(soundRng.nextInt(21)) - 10;
                 const int z = int(std::floor(eye.z)) + int(soundRng.nextInt(21)) - 10;
                 const int top = mc::world::rainHeight(world, x, z);
-                if (mc::world::rainingAt(world, weather, {x, top, z}) && std::abs(top - eye.y) < 20.0)
-                    playSound(mc::world::Sound::Rain, {x + 0.5, double(top), z + 0.5},
-                              (top > eye.y + 1.0 ? 0.5f : 1.0f) * weather.rain, top > eye.y + 1.0 ? 0.5f : 1.0f, true);
+                if (mc::world::rainFallsOn(world, weather, {x, top, z}) && std::abs(top - eye.y) < 20.0)
+                    playSound(mc::world::Sound::Rain, {x + 0.5, double(top), z + 0.5}, top > eye.y + 1.0 ? 0.5f : 1.0f,
+                              top > eye.y + 1.0 ? 0.5f : 1.0f, true);
             }
             ++dayTime; // the daylight cycle advances one tick per tick
             weather.tick(gameRng);
@@ -2210,7 +2245,6 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
         if (dimension == Dimension::Nether) { // fog of the Nether biome at the camera, eased in
-            static glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f);
             const mc::world::BlockPos cam{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
                                           int(std::floor(camera.position.z))};
             if (const mc::world::Chunk* c = world.chunk(cam.chunk()); c && c->biomes()) {
@@ -2332,20 +2366,41 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const float a = static_cast<float>(clock.alpha);
             const float rain = weather.rainAt(a);
             if (rain > 0.0f) {
-                constexpr int r = 10;
+                constexpr int r = kRainRadius;
                 const int cx = int(std::floor(camera.position.x)), cz = int(std::floor(camera.position.z)),
                           cy = int(std::floor(camera.position.y));
+                if (rainColumnsTick != gameTime || cx != rainCx || cz != rainCz || cy != rainCy) {
+                    rainColumnsTick = gameTime;
+                    rainCx = cx;
+                    rainCy = cy;
+                    rainCz = cz;
+                    for (int dz = -r; dz <= r; ++dz)
+                        for (int dx = -r; dx <= r; ++dx) {
+                            RainColumn& col = rainColumns[size_t((dz + r) * (2 * r + 1) + dx + r)];
+                            const int x = cx + dx, z = cz + dz;
+                            col.ground = mc::world::rainHeight(world, x, z);
+                            const mc::world::BlockPos at{x, std::max(col.ground, cy), z};
+                            col.kind = mc::world::precipitationAt(world, at);
+                            int sky = 15, blk = 0;
+                            const mc::world::Chunk* c = world.chunk(at.chunk());
+                            if (c && c->lit() && world.isInHeight(at.y)) {
+                                sky = c->skyLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
+                                blk = c->blockLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
+                            }
+                            col.light = uint8_t(sky * 16 + blk);
+                        }
+                }
                 const float t = float(gameTime) + a;
                 for (int dz = -r; dz <= r; ++dz)
                     for (int dx = -r; dx <= r; ++dx) {
                         const int d2 = dx * dx + dz * dz;
                         if (d2 > r * r) continue;
                         const int x = cx + dx, z = cz + dz;
-                        const int ground = mc::world::rainHeight(world, x, z);
+                        const RainColumn& col = rainColumns[size_t((dz + r) * (2 * r + 1) + dx + r)];
+                        const int ground = col.ground;
                         const int y0 = std::max(ground, cy - r), y1 = std::max(ground, cy + r);
                         if (y0 >= y1) continue;
-                        const mc::world::BlockPos at{x, std::max(ground, cy), z};
-                        const auto kind = mc::world::precipitationAt(world, at);
+                        const auto kind = col.kind;
                         if (kind == mc::world::Precipitation::None) continue;
                         const uint32_t ux = uint32_t(x), uz = uint32_t(z);
                         const uint32_t h = ux * 3121u + ux * ux * 45238971u + uz * uz * 418711u + uz * 13761u;
@@ -2355,14 +2410,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const float scroll = snow ? t * 0.05f * speed + phase : t * speed + phase; // (grows: falls)
                         const float drift = snow ? 0.15f * std::sin(t * 0.03f + phase * 6.28f) : 0.0f;
                         const float alpha = ((1.0f - float(d2) / float(r * r)) * 0.5f + 0.5f) * rain;
-                        const mc::world::Chunk* c = world.chunk(at.chunk());
-                        int sky = 15, blk = 0;
-                        if (c && c->lit() && world.isInHeight(at.y)) {
-                            sky = c->skyLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
-                            blk = c->blockLight(mc::world::blockToLocal(x), at.y, mc::world::blockToLocal(z));
-                        }
-                        entities.addPrecipitation(x, z, y0, y1, snow, scroll, drift, alpha,
-                                                  lightTable[size_t(sky * 16 + blk)], camera.position);
+                        entities.addPrecipitation(x, z, y0, y1, snow, scroll, drift, alpha, lightTable[col.light],
+                                                  camera.position);
                     }
             }
             for (const Bolt& b : bolts)
@@ -2552,6 +2601,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (action == mc::ui::MenuAction::Resume) {
                 shared.menuState.screen = mc::ui::MenuScreen::None;
                 window.setCursorCaptured(true);
+                attackArmed = false; // (the click on the button mustn't break a block)
                 last = mc::timeSeconds(); // (no catching up on the paused time)
             } else if (action == mc::ui::MenuAction::SaveAndQuit) {
                 sessionEnd = SessionEnd::ToTitle;
@@ -2640,7 +2690,16 @@ mc::ui::MenuAction runMenus(Shared& shared) {
         if (action == mc::ui::MenuAction::DeleteWorld && st.selected >= 0 && st.selected < int(st.worlds.size())) {
             // (vanilla deletes the whole folder; the confirmation screen came first)
             std::error_code ec;
-            std::filesystem::remove_all(std::filesystem::path(MC_SAVES_DIR) / st.worlds[size_t(st.selected)].folder, ec);
+            const auto dir = std::filesystem::path(MC_SAVES_DIR) / st.worlds[size_t(st.selected)].folder;
+            {
+                mc::FileLock lock; // (open in another instance: leave it alone, as vanilla)
+                if (!lock.acquire(dir / "session.lock")) {
+                    MC_LOG_WARN("World \"%s\" is open elsewhere; not deleted", st.worlds[size_t(st.selected)].name.c_str());
+                    st.screen = mc::ui::MenuScreen::WorldList;
+                    continue;
+                }
+            }
+            std::filesystem::remove_all(dir, ec);
             st.worlds = mc::world::listWorlds(MC_SAVES_DIR);
             st.selected = st.worlds.empty() ? -1 : 0;
             st.screen = mc::ui::MenuScreen::WorldList;
@@ -2707,21 +2766,17 @@ int main(int argc, char** argv) {
     mc::GameOptions options;
     const std::filesystem::path optionsFile = std::filesystem::path(MC_SAVES_DIR).parent_path() / "options.txt";
     const bool interactive = !screenshotMode && !opts->hidden;
-    if (interactive) {
-        options.load(optionsFile);
-        if (!opts->renderDistanceSet) launch.renderDistance = options.renderDistance;
-        if (!opts->vsync) options.vsync = false; // (--no-vsync wins)
-    } else {
-        options.renderDistance = launch.renderDistance; // (scripted runs: the command line only)
-        options.clouds = true;
-        options.vsync = launch.vsync;
-    }
+    if (interactive) options.load(optionsFile); // (scripted runs: defaults and the command line only)
+    if (interactive && !opts->renderDistanceSet) launch.renderDistance = options.renderDistance;
     audio.setMasterVolume(options.masterVolume);
     mc::ui::Menu menu;
     mc::ui::MenuState menuState;
     menuState.splash = mc::ui::splashText(uint32_t(mc::timeSeconds() * 1000.0));
     Shared shared{window, renderer, overlay, gui, audio, soundHandles, options, optionsFile, menu, menuState,
                   static_cast<uint16_t>(renderer.atlas().spriteIndex("dirt"))};
+    shared.optionsRenderDistance = options.renderDistance;
+    if (!interactive || opts->renderDistanceSet) shared.cliRenderDistance = launch.renderDistance;
+    shared.cliNoVsync = !opts->vsync;
     // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
     if (!opts->menu.empty() && opts->menu != "pause") {
         menuState.worlds = mc::world::listWorlds(MC_SAVES_DIR);
@@ -2741,11 +2796,23 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
-    // With --world, --no-save, screenshots or hidden runs: straight into the world.
+    // Settings of one run that must not follow the player into other worlds.
+    auto clearOneShots = [&] {
+        launch.commands.clear(); // (--command lines run in the first world only)
+        launch.hasPos = launch.hasLook = false;
+        launch.dimension.clear();
+        launch.autoFly = launch.demoEdit = launch.inventory = launch.hasOpenBlock = false;
+    };
+    // With --world, --no-save, screenshots or hidden runs: straight into the world;
+    // interactive ones come back to the title on "Save and Quit to Title".
     if (!interactive || !opts->world.empty() || opts->noSave) {
         menuState.screen = opts->menu == "pause" ? mc::ui::MenuScreen::Pause : mc::ui::MenuScreen::None;
         SessionEnd end;
-        return runSession(shared, &launch, end);
+        const int code = runSession(shared, &launch, end);
+        if (!interactive || end != SessionEnd::ToTitle || window.shouldClose()) return code;
+        clearOneShots();
+        launch.noSave = false;
+        menuState.screen = mc::ui::MenuScreen::Title;
     }
     const std::filesystem::path savesDir(MC_SAVES_DIR);
     std::error_code ec;
@@ -2771,10 +2838,14 @@ int main(int argc, char** argv) {
         menuState.screen = mc::ui::MenuScreen::None;
         SessionEnd end;
         const int code = runSession(shared, &launch, end);
-        launch.commands.clear(); // (--command lines run in the first world only)
-        if (end == SessionEnd::Quit || code != 0) return code;
+        clearOneShots();
+        if (window.shouldClose()) return code;
         menuState.worlds = mc::world::listWorlds(savesDir);
-        menuState.screen = mc::ui::MenuScreen::Title;
+        // A world that couldn't open (locked, unreadable, unknown generator: logged)
+        // leaves the player in the world list rather than quitting the game.
+        menuState.screen = code != 0 ? mc::ui::MenuScreen::WorldList : mc::ui::MenuScreen::Title;
+        if (code != 0) MC_LOG_WARN("World \"%s\" could not be opened (see above)", launch.world.c_str());
+        menuState.selected = menuState.worlds.empty() ? -1 : 0;
     }
     return 0;
 }

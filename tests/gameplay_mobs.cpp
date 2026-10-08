@@ -1,6 +1,7 @@
 // Mobs (wiki: Zombie, Cow, Spawn, Entity format).
 #include "gameplay/Inventory.h"
 #include "gameplay/Mobs.h"
+#include "world/Weather.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/ChunkSerializer.h"
@@ -24,6 +25,8 @@ struct MobScene {
     bool survival = true;
     int64_t dayTime = 18000; // night: no burning
     float skyDarken = 11.0f;
+    bool thundering = false;
+    const Weather* weather = nullptr;
     MobScene() {
         for (int cz = -2; cz <= 2; ++cz)
             for (int cx = -2; cx <= 2; ++cx) {
@@ -42,6 +45,8 @@ struct MobScene {
         for (int i = 0; i < n; ++i) {
             player.tick(world, {});
             Mobs::Context ctx{world, player, vitals, survival, false, dayTime, skyDarken, rng, items};
+            ctx.thundering = thundering;
+            ctx.weather = weather;
             mobs.tick(ctx);
         }
     }
@@ -1571,4 +1576,40 @@ TEST_CASE("M21 review: hoppers move 1 item every 8 ticks, skip stacks that can't
     for (int i = 0; i < 10; ++i)
         tickHoppers(s.world, s.items);
     CHECK(s.world.chunk({0, 0})->furnace(12, 65, 12)->output.count == 4);
+}
+
+TEST_CASE("thunderstorms let monsters spawn under the open sky at midday (M22 review)") {
+    MobScene storm;
+    storm.survival = false;
+    storm.dayTime = 6000;
+    storm.skyDarken = 5.8f; // rain and thunder at noon
+    storm.thundering = true;
+    storm.world.forEachChunk([](Chunk& c) {
+        std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+        auto lit = std::make_shared<SectionLight>();
+        lit->sky.fill(15);
+        light.fill(lit);
+        c.setLight(light);
+    });
+    storm.tick(2000);
+    CHECK(storm.mobs.hostileCount() > 0);
+}
+
+TEST_CASE("rain puts out any burning mob, not only the undead (M22 review)") {
+    MobScene s;
+    s.world.forEachChunk([](Chunk& c) {
+        std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+        auto lit = std::make_shared<SectionLight>();
+        lit->sky.fill(15);
+        light.fill(lit);
+        c.setLight(light);
+    });
+    Weather w;
+    w.set(Weather::Kind::Rain, 10000);
+    s.weather = &w;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {3.5, 64.0, 3.5}, s.rng)));
+    MobData* cow = s.all()[0];
+    cow->fireTicks = 100;
+    s.tick(1);
+    CHECK(s.all()[0]->fireTicks == 0);
 }

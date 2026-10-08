@@ -98,7 +98,7 @@ bool SoundEngine::init() {
     fmt.nBlockAlign = 2;
     fmt.nAvgBytesPerSec = kRate * 2;
     for (auto*& v : impl->voices)
-        if (FAILED(impl->xaudio->CreateSourceVoice(&v, &fmt, 0, XAUDIO2_DEFAULT_FREQ_RATIO))) {
+        if (FAILED(impl->xaudio->CreateSourceVoice(&v, &fmt, 0, 4.0f))) { // (vanilla pitches reach 3.4)
             MC_LOG_WARN("Audio: can't create voices - no sound");
             return false;
         }
@@ -173,7 +173,7 @@ void SoundEngine::play(int handle, const glm::dvec3& pos, float volume, float pi
         matrix[1] = gain * rightGain;
     }
     voice->SetOutputMatrix(m->master, 1, std::min<uint32_t>(m->channels, 8), matrix);
-    voice->SetFrequencyRatio(std::clamp(pitch, 0.5f, 2.0f));
+    voice->SetFrequencyRatio(std::clamp(pitch, 0.25f, 4.0f));
     if (SUCCEEDED(voice->SubmitSourceBuffer(&buf))) voice->Start();
 }
 

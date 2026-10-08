@@ -48,6 +48,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M22 perf review: sound plays poll `GetState` over 32 voices (TNT chains:
+  ~1-3 ms in one tick - keep voice end times, merge identical events per tick, cap
+  plays); cloud mesh rebuilt on every 12-block cell crossing (hysteresis of a few
+  cells, indexed quads); `rainingNear` per fire tick in rain (a 3x3 chunk fetch);
+  `runWeatherTicks` is another pass over the simulation square (merge it into the
+  random tick loop - changes the gameplay RNG order); per-instance weather columns
+  drawn by the vertex shader (today one quad per column, ~30 KB a frame).
 - From the M21 perf review: comparators reading containers recompute their target every
   tick (cache the last container signal; vanilla: containers notify comparators);
   ticking-chunk passes per tick are now 6 (store Chunk* or merge them) and hoppers,
@@ -131,6 +138,10 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M22 checks:** listen to the sounds (`tools/run.sh`): ours are synthesized - say if
+  they need a pass. Cloud colour in rain and in a thunderstorm (the wiki says rgb 191 /
+  30; ours ~158 / ~38). On a fresh 1.21.11 install: the default simulation distance and
+  cloud type (the wiki says 6 and Fast; we use 12 and Fancy, as M13 assumed).
 - **M20 decision (dragon head damage):** in 1.21.4-1.21.11 vanilla also reduces hits
   on the dragon's head (a bug, MC-308469, fixed in 26.3). Ours deals full damage to
   the head, as intended and as from 26.3. Keep that, or copy 1.21.11's bug?

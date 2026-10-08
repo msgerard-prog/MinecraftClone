@@ -87,6 +87,13 @@ private:
     void rain(const world::World& world, const glm::dvec3& player, const world::Weather& weather, world::Xoroshiro& rng);
     void move(const world::World& world, Particle& p);
     void puff(const glm::dvec3& at, world::Xoroshiro& rng);
+    // Chunks within 2 of the player's, looked up once a tick (animate ticks, particle
+    // movement and light read blocks through it; outside it, World::chunk).
+    void fillGrid(const world::World& world, const glm::dvec3& player);
+    const world::Chunk* chunkAt(const world::World& world, int32_t x, int32_t z) const;
+    world::BlockStateId blockAt(const world::World& world, const world::BlockPos& p) const;
+    std::array<const world::Chunk*, 25> m_grid{};
+    int32_t m_gridX = 0, m_gridZ = 0;
     std::vector<Particle> m_particles;
     struct Emitter { // explosions of power 2+: 6 puffs a tick for 8 ticks
         glm::dvec3 at;

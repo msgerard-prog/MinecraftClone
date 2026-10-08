@@ -27,7 +27,7 @@ public:
     int load(const std::vector<uint8_t>& wav);
     // The listener: eye position and vanilla yaw (degrees, 0 = facing +Z).
     void setListener(const glm::dvec3& eye, float yawDegrees);
-    // Plays a loaded sound: volume (above 1 only extends the range), pitch 0.5..2.
+    // Plays a loaded sound: volume (above 1 only extends the range), pitch 0.25..4.
     // Non-positional sounds (UI, the player's own) play centred at `volume`.
     void play(int handle, const glm::dvec3& pos, float volume, float pitch, bool positional = true);
     void setMasterVolume(float volume);

@@ -430,16 +430,21 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (info.hostile) monsterTick(ctx, m, chase, playerDist2);
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
-    if (m.type == MobType::Zombie || m.type == MobType::Skeleton) {
-        const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 1.6)), int(std::floor(m.pos.z))};
+    // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
+    const bool undead = m.type == MobType::Zombie || m.type == MobType::Skeleton;
+    if (undead || m.fireTicks > 0) {
+        const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
+                            int(std::floor(m.pos.z))};
         const Chunk* c = ctx.world.chunk(head.chunk());
         const bool day = ctx.skyDarken < 4.0f;
         const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
-        const bool wet = blockRegistry().blockOf(ctx.world.getBlock(head)) == blocks::Water ||
-                         (ctx.weather && rainingAt(ctx.world, *ctx.weather, head)); // (rain puts them out)
+        bool wet = c && blockRegistry().blockOf(c->get(blockToLocal(head.x), head.y, blockToLocal(head.z))) == blocks::Water;
+        if (!wet && ctx.weather && ctx.weather->raining && ((undead && day && sky) || m.fireTicks > 0))
+            // (sky light 15 at the head: open sky, so no column scan is needed)
+            wet = sky ? precipitationAt(ctx.world, head) == Precipitation::Rain : rainingAt(ctx.world, *ctx.weather, head);
         // Re-lit to 8 s while in the sun; refreshed once a second so the 1-per-second
         // damage clock below keeps running.
-        if (day && sky && !wet && m.fireTicks <= 140) m.fireTicks = 160;
+        if (undead && day && sky && !wet && m.fireTicks <= 140) m.fireTicks = 160;
         if (wet) m.fireTicks = 0;
     }
     if (m.fireTicks > 0) { // wiki: Fire - 1 damage a second
@@ -896,7 +901,10 @@ void Mobs::spawnHostiles(Context& ctx) {
         }
     }
     if (c->blockLight(lx, y, lz) > 0) return;
-    const int sky = c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken);
+    // In a thunderstorm the spawner darkens the sky by at least 10 (wiki: Weather ›
+    // Thunderstorm): monsters spawn in the open at midday.
+    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken)) : static_cast<int>(ctx.skyDarken);
+    const int sky = c->skyLight(lx, y, lz) - darken;
     if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
     // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
     // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.

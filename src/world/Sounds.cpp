@@ -62,7 +62,7 @@ std::vector<SoundInfo> buildTable() {
     };
     // Vanilla's pitch spreads: most sounds 0.8-1.2 or so; explosions lower.
     set(Sound::Explode, "entity.generic.explode", variants("random/explode", 3), 4.0f, 0.56f, 0.84f);
-    set(Sound::ItemPickup, "entity.item.pickup", {"random/pop"}, 0.2f, 0.7f, 2.0f);
+    set(Sound::ItemPickup, "entity.item.pickup", {"random/pop"}, 0.2f, 1.6f, 3.4f); // (wiki: ((r - r) x 0.7 + 1) x 2)
     set(Sound::OrbPickup, "entity.experience_orb.pickup", {"random/orb"}, 0.1f, 0.55f, 1.25f);
     set(Sound::LevelUp, "entity.player.levelup", {"random/levelup"}, 0.75f, 1.0f, 1.0f);
     set(Sound::BowShoot, "entity.arrow.shoot", {"random/bow"}, 1.0f, 0.8f, 1.2f);
@@ -71,10 +71,10 @@ std::vector<SoundInfo> buildTable() {
     set(Sound::DoorClose, "block.wooden_door.close", {"random/door_close"}, 1.0f, 0.9f, 1.0f);
     set(Sound::ChestOpen, "block.chest.open", {"random/chestopen"}, 0.5f, 0.9f, 1.0f);
     set(Sound::ChestClose, "block.chest.close", {"random/chestclosed"}, 0.5f, 0.9f, 1.0f);
-    set(Sound::Click, "block.lever.click", {"random/click"}, 0.3f, 0.5f, 0.6f);
+    set(Sound::Click, "block.lever.click", {"random/click"}, 0.3f, 0.6f, 0.6f); // (0.5 switching off)
     set(Sound::WoodClick, "block.wooden_button.click_on", {"random/wood_click"}, 0.3f, 0.6f, 0.6f);
     set(Sound::Fuse, "entity.tnt.primed", {"random/fuse"}, 1.0f, 1.0f, 1.0f);
-    set(Sound::Fizz, "block.fire.extinguish", {"random/fizz"}, 0.5f, 1.8f, 3.0f);
+    set(Sound::Fizz, "block.lava.extinguish", {"random/fizz"}, 0.5f, 1.8f, 3.4f);
     set(Sound::Eat, "entity.generic.eat", variants("random/eat", 2), 0.5f, 0.8f, 1.2f);
     set(Sound::Drink, "entity.generic.drink", {"random/drink"}, 0.5f, 0.9f, 1.0f);
     set(Sound::Burp, "entity.player.burp", {"random/burp"}, 0.5f, 0.9f, 1.0f);
@@ -87,9 +87,9 @@ std::vector<SoundInfo> buildTable() {
     set(Sound::Enchant, "block.enchantment_table.use", {"random/enchant"}, 1.0f, 0.9f, 1.1f);
     set(Sound::PistonOut, "block.piston.extend", {"tile/piston/out"}, 0.5f, 0.6f, 0.85f);
     set(Sound::PistonIn, "block.piston.contract", {"tile/piston/in"}, 0.5f, 0.6f, 0.75f);
-    set(Sound::FireAmbient, "block.fire.ambient", {"fire/fire"}, 1.0f, 0.7f, 1.0f);
+    set(Sound::FireAmbient, "block.fire.ambient", {"fire/fire"}, 1.0f, 0.3f, 1.0f);
     set(Sound::LavaPop, "block.lava.pop", {"liquid/lavapop"}, 0.2f, 0.9f, 1.05f);
-    set(Sound::Rain, "weather.rain", variants("ambient/weather/rain", 2), 0.2f, 0.8f, 1.0f);
+    set(Sound::Rain, "weather.rain", variants("ambient/weather/rain", 2), 0.2f, 1.0f, 1.0f); // (above: 0.1, pitch 0.5)
     set(Sound::Thunder, "entity.lightning_bolt.thunder", variants("ambient/weather/thunder", 2), 10000.0f, 0.8f, 1.0f);
     set(Sound::PortalAmbient, "block.portal.ambient", {"portal/portal"}, 0.5f, 0.8f, 1.2f);
     set(Sound::Teleport, "entity.enderman.teleport", {"mob/endermen/portal"}, 1.0f, 1.0f, 1.0f);
@@ -119,7 +119,8 @@ std::vector<SoundInfo> buildTable() {
     static constexpr int kHurts[] = {2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 1, 0, 2};
     static constexpr bool kDeath[] = {true, false, false, true, false, true, true, true, true, true, true,
                                       true, true, true, true, true, false, true, true, false, true};
-    static_assert(std::size(kSays) == size_t(MobType::Count));
+    static_assert(std::size(kSays) == size_t(MobType::Count) && std::size(kHurts) == size_t(MobType::Count) &&
+                  std::size(kDeath) == size_t(MobType::Count));
     for (int i = 0; i < int(MobType::Count); ++i) {
         const auto type = static_cast<MobType>(i);
         std::string name(mobInfo(type).id.substr(10)); // "minecraft:zombie" -> "zombie"

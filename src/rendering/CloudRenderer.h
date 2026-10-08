@@ -14,13 +14,13 @@ struct Camera;
 class PackStack;
 
 // Clouds (M22.2; wiki: Cloud), the Fancy kind: translucent boxes 12 x 4 x 12 blocks at
-// Y 192-196, one per opaque pixel of the 256x256 clouds texture (it tiles), drifting
+// Y 192.33, one per opaque pixel of the 256x256 clouds texture (it tiles), drifting
 // west (-X) by 0.03 blocks a tick of game time. Top faces are lit fully, sides 0.9 /
 // 0.8, bottoms 0.7; only faces between a cloud cell and an empty one are built. The
 // mesh is rebuilt when the camera's cloud cell changes, then shifted by a uniform.
 class CloudRenderer {
 public:
-    static constexpr float kHeight = 192.0f, kThickness = 4.0f, kCell = 12.0f;
+    static constexpr float kHeight = 192.33f, kThickness = 4.0f, kCell = 12.0f; // (wiki: Cloud - Y 192.33)
     static constexpr float kSpeed = 0.03f; // blocks per tick, toward -X
     static constexpr int kMaxRadius = 32;  // cells (384 blocks)
 

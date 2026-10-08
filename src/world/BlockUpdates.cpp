@@ -1529,7 +1529,7 @@ void BlockUpdates::extend(const BlockPos& p) {
     std::vector<BlockPos>& destroy = m_pushDestroy;
     if (!gatherPush(p, rel(p, f), f, destroy)) return;
     if (m_moving.size() + m_push.size() + 1 > m_moving.capacity()) return; // (too much in flight: stays put)
-    m_world.playSound(Sound::PistonOut, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.0f + m_random.nextFloat() * 0.3f);
+    m_world.playSound(Sound::PistonOut, p.x + 0.5, p.y + 0.5, p.z + 0.5);
     BlockStateId destroyedStates[16];
     for (size_t i = 0; i < destroy.size(); ++i) {
         const BlockPos& d = destroy[i];
@@ -1570,7 +1570,7 @@ void BlockUpdates::extend(const BlockPos& p) {
 
 void BlockUpdates::retract(const BlockPos& p) {
     const BlockStateId s = at(p);
-    m_world.playSound(Sound::PistonIn, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.0f + m_random.nextFloat() * 0.2f);
+    m_world.playSound(Sound::PistonIn, p.x + 0.5, p.y + 0.5, p.z + 0.5);
     const Direction f = facing6Of(s);
     const BlockPos front = rel(p, f);
     const BlockStateId h = at(front);
@@ -1667,7 +1667,7 @@ bool BlockUpdates::use(const BlockPos& p) {
     switch (blockOf(s)) {
     case B::Lever:
         // Vanilla: pitch 0.6 switching on, 0.5 off.
-        m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, flag(s, powered) ? 0.83f : 1.0f);
+        m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, flag(s, powered) ? 0.5f / 0.6f : 1.0f);
         set(p, withFlag(s, powered, !flag(s, powered)));
         return true;
     case B::StoneButton:

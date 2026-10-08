@@ -209,7 +209,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   and snow forming; rain puts out fires (Fire.cpp) and waters farmland (Farming.cpp).
   Main applies bolts to mobs (`Mobs::strikeLightning`) and the player and draws rain/
   snow columns and bolts (`EntityRenderer::addPrecipitation/addLightning`, a blended
-  pass after entities; textures `block/weather_*.png`).
+  pass after entities: one quad per column with the repeating `environment/rain.png` / `snow.png`; main caches the column table per tick).
 - Level events and particles (M22.3): gameplay code reports what players should see or
   hear with `World::levelEvent` (block break / mining hit, explosion, mob death poof,
   potion splash, crit, extinguish, teleport; a reserved list, vanilla's level events).

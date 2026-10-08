@@ -17,12 +17,12 @@ void Weather::tick(Xoroshiro& rng) {
         if (thunderTime > 0) {
             if (--thunderTime == 0) thundering = !thundering;
         } else {
-            thunderTime = thundering ? 3600 + int(rng.nextInt(12000)) : 12000 + int(rng.nextInt(168000));
+            thunderTime = thundering ? 3600 + int(rng.nextInt(12001)) : 12000 + int(rng.nextInt(168001));
         }
         if (rainTime > 0) {
             if (--rainTime == 0) raining = !raining;
         } else {
-            rainTime = raining ? 12000 + int(rng.nextInt(12000)) : 12000 + int(rng.nextInt(168000));
+            rainTime = raining ? 12000 + int(rng.nextInt(12001)) : 12000 + int(rng.nextInt(168001));
         }
     }
     prevRain = rain;

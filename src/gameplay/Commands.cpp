@@ -266,7 +266,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "weather") {
         // /weather (clear|rain|thunder) [duration] (wiki: Commands/weather): the duration
         // in ticks or with a unit (10s, 2d); without one, a random length as the natural
-        // cycle would pick (clear 12,000-179,999, rain 12,000-23,999, thunder 3,600-15,599).
+        // cycle would pick (clear 12,000-180,000, rain 12,000-24,000, thunder 3,600-15,600).
         if (!ctx.weather || a.size() < 2 || a.size() > 3) return fail("Usage: /weather (clear|rain|thunder) [duration]");
         world::Weather::Kind kind;
         if (a[1] == "clear") kind = world::Weather::Kind::Clear;
@@ -285,9 +285,9 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             if (r.ec != std::errc() || duration <= 0 || duration > 1000000) return fail("Invalid duration");
             duration *= unit;
         } else if (ctx.rng) {
-            duration = kind == world::Weather::Kind::Clear  ? 12000 + int(ctx.rng->nextInt(168000))
-                       : kind == world::Weather::Kind::Rain ? 12000 + int(ctx.rng->nextInt(12000))
-                                                            : 3600 + int(ctx.rng->nextInt(12000));
+            duration = kind == world::Weather::Kind::Clear  ? 12000 + int(ctx.rng->nextInt(168001))
+                       : kind == world::Weather::Kind::Rain ? 12000 + int(ctx.rng->nextInt(12001))
+                                                            : 3600 + int(ctx.rng->nextInt(12001));
         } else {
             duration = 6000;
         }

@@ -3,6 +3,7 @@
 #include "world/LevelData.h"
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 
 namespace mc::world {
@@ -28,6 +29,18 @@ std::string folderForWorld(std::string_view name, const std::filesystem::path& s
         base += (c < 32 || std::string_view("<>:\"/\\|?*").find(c) != std::string_view::npos) ? '_' : c;
     while (!base.empty() && (base.back() == ' ' || base.back() == '.')) base.pop_back(); // (Windows trims these)
     if (base.empty()) base = "New World";
+    // Names Windows reserves for devices (vanilla adds '_' to these).
+    {
+        std::string upper;
+        for (const char c : base.substr(0, base.find('.')))
+            upper += char(std::toupper(uint8_t(c)));
+        static constexpr std::string_view kReserved[] = {"CON",  "PRN",  "AUX",  "NUL",  "COM1", "COM2", "COM3",
+                                                         "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1",
+                                                         "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8",
+                                                         "LPT9"};
+        for (const std::string_view r : kReserved)
+            if (upper == r) base = "_" + base + "_";
+    }
     std::string folder = base;
     std::error_code ec;
     for (int n = 1; std::filesystem::exists(savesDir / folder, ec); ++n)

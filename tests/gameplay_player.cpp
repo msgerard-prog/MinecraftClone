@@ -1,4 +1,5 @@
 // Player physics against the wiki's published numbers (blocks per second etc.).
+#include "gameplay/Combat.h"
 #include "gameplay/FluidContact.h"
 #include "gameplay/Player.h"
 #include "world/BlockUpdates.h"
@@ -573,4 +574,19 @@ TEST_CASE("slime blocks bounce a falling player back up (not when sneaking)") {
     }
     REQUIRE(bounced);
     CHECK(p.velocity().y > 0.5); // back up about as fast as it fell
+}
+
+TEST_CASE("melee: a critical hit multiplies the base damage, not the enchantment bonus") {
+    mc::MeleeHit h;
+    h.itemDamage = 7.0f; // diamond sword
+    h.sharpness = 5;     // +3
+    CHECK(mc::meleeDamage(h) == doctest::Approx(10.0f));
+    h.critical = true;
+    CHECK(mc::meleeDamage(h) == doctest::Approx(7.0f * 1.5f + 3.0f));
+    h.strength = 1; // +3 before the crit
+    CHECK(mc::meleeDamage(h) == doctest::Approx(10.0f * 1.5f + 3.0f));
+    h = {};
+    h.weakness = 1; // hand 1 - 4: no damage left to multiply
+    h.critical = true;
+    CHECK(mc::meleeDamage(h) == doctest::Approx(0.0f));
 }

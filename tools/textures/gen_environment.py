@@ -7,9 +7,9 @@ Writes assets/minecraft/textures/environment/
                    waxing back), drawn additively
   end_sky.png      32x32, tiled on the End's sky box, tinted #282828
   clouds.png       256x256 cloud map (opaque = a 12x12-block cloud cell)
+  rain.png, snow.png 16x16, tiling vertically (one quad per column, scrolled)
 and into textures/block/ (the block atlas, which the entity renderer samples):
-  end_portal.png, weather_rain.png, weather_snow.png (16x16, tile vertically:
-  M22.1 draws them as scrolling 1-block segments), weather_bolt.png (white)
+  end_portal.png, weather_bolt.png (white)
 
 Deterministic (fixed seeds). Usage: tools/textures/gen_environment.py [--preview DIR]
 """
@@ -193,14 +193,15 @@ def main():
     ap.add_argument("--preview", help="directory for a 4x preview")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    images = {"sun": sun(), "moon_phases": moon_phases(), "end_sky": end_sky(), "clouds": clouds()}
+    images = {"sun": sun(), "moon_phases": moon_phases(), "end_sky": end_sky(), "clouds": clouds(),
+              "rain": weather_rain(), "snow": weather_snow()}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png ({img.w}x{img.h})")
     block = OUT.parent / "block" / "end_portal.png"
     block.write_bytes(encode_png(end_portal()))
     print(f"wrote {block}")
-    for name, img in {"weather_rain": weather_rain(), "weather_snow": weather_snow(), "weather_bolt": weather_bolt()}.items():
+    for name, img in {"weather_bolt": weather_bolt()}.items():
         out = OUT.parent / "block" / f"{name}.png"
         out.write_bytes(encode_png(img))
         print(f"wrote {out}")

@@ -23,15 +23,16 @@ enum class BedUse {
     NotABed,
 };
 
-// Night for sleeping: day time 12523..23477 in clear weather (sky light 11 or less;
-// wiki: Bed).
-bool canSleepAt(int64_t dayTime);
+// Night for sleeping (wiki: Bed): day time 12523..23477 in clear weather,
+// 12002..23998 while it rains, any time in a thunderstorm.
+bool canSleepAt(int64_t dayTime, bool raining = false, bool thundering = false);
 
 // What happens when the player uses the bed block at `p` (either half).
 // `creative`: monsters don't keep a creative player awake. `player`: the player's
 // feet - too far (more than 3 blocks) or a solid block over the head stops it.
 BedUse useBed(const world::World& world, const world::BlockPos& p, int64_t dayTime, world::Dimension dimension,
-              bool creative = false, const glm::dvec3* player = nullptr);
+              bool creative = false, const glm::dvec3* player = nullptr, bool raining = false,
+              bool thundering = false);
 
 // The bed's head half (where the player lies and the spawn point is kept).
 std::optional<world::BlockPos> bedHead(const world::World& world, const world::BlockPos& p);
