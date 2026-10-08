@@ -631,6 +631,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   material. `placeArmorStand`, `useArmorStand` (the clicked height picks the piece),
   `hitArmorStand` (two hits within 5 ticks). Main gives clicks on frames and stands
   priority over the held item (`decorInFront`).
+- Leads (M28.3c, `gameplay/Leads.cpp`, part of `Mobs`): `MobData::leash` (1 the player,
+  2 the fence at `leashPos`, saved as vanilla `leash`: UUID compound or position), pulled
+  in past 6 blocks and snapping past 10 (`leashTick`); `MobType::LeashKnot` on the post
+  (`tieToFence`, `takeFromKnot`, `breakKnot`, `knotTick` removes unused knots); llama
+  caravans through `caravanHead` (`caravanTick`: up to 10, joining at the tail). Main
+  draws leads as beams and knots with `EntityRenderer::addKnot`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

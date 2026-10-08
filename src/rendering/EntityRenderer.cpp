@@ -295,6 +295,18 @@ void EntityRenderer::addItemFrame(const glm::dvec3& centre, int facing, bool glo
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, pack(glow ? glm::vec3(1.0f) : light), m_items);
 }
 
+void EntityRenderer::addKnot(const glm::dvec3& pos, const glm::dvec3& cameraPos) {
+    const glm::vec3 c(pos - cameraPos);
+    uint16_t sprites[6];
+    uint32_t tints[6];
+    for (int f = 0; f < 6; ++f) {
+        sprites[f] = m_frameWood;
+        tints[f] = 0x305A8Cu; // (rope brown: R | G << 8 | B << 16)
+    }
+    cube(c + glm::vec3(-0.1875f, 0.0f, -0.1875f), c + glm::vec3(0.1875f, 0.5f, 0.1875f), sprites, glm::vec3(1.0f), tints,
+         m_items, true);
+}
+
 void EntityRenderer::addPainting(int variant, const glm::dvec3& centre, int facing, const glm::vec3& light,
                                  const glm::dvec3& cameraPos) {
     if (variant < 0 || variant >= int(m_paintingTiles.size())) return;

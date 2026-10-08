@@ -102,6 +102,9 @@ enum class MobType : uint8_t {
     // (M28.3b; wiki: Armor Stand) wears armor (its chunk's mob store, slots 0 head .. 3
     // feet; `worn` keeps each piece's material for drawing); two quick hits break it.
     ArmorStand,
+    // (M28.3c; wiki: Lead) a lead tied to the fence at `home`; mobs tied there have
+    // `leash` 2 and `leashPos` = that fence.
+    LeashKnot,
     Count
 };
 
@@ -231,6 +234,20 @@ inline uint8_t armorMaterial(std::string_view id) {
         if (id.find(kNames[i]) != std::string_view::npos) return uint8_t(i + 1);
     return 9;
 }
+// (M28.3c; wiki: Lead › Usage) mobs a lead can hold: animals, golems, mounts, pets,
+// squid... not villagers, traders, monsters (hoglins and zoglins are) or things.
+inline bool isLeashable(MobType t) {
+    switch (t) {
+    case MobType::Villager: case MobType::WanderingTrader: case MobType::EndCrystal: case MobType::Minecart:
+    case MobType::Boat: case MobType::ItemFrame: case MobType::GlowItemFrame: case MobType::Painting:
+    case MobType::ArmorStand: case MobType::LeashKnot: case MobType::EnderDragon: case MobType::Wither:
+    case MobType::Turtle: case MobType::Cod: case MobType::Salmon: case MobType::TropicalFish:
+    case MobType::Pufferfish: case MobType::Tadpole: case MobType::Allay:
+        return false;
+    case MobType::Hoglin: return true;
+    default: return !mobInfo(t).hostile;
+    }
+}
 inline bool isUndead(MobType t) {
     return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
            t == MobType::Phantom || t == MobType::Wither;
@@ -306,6 +323,9 @@ struct MobData {
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)
     bool showBottom = true; // end crystals: drawn on a bedrock base (ShowBottom)
     std::array<uint8_t, 4> worn{}; // (M28.3b) an armor stand's armor materials, head..feet (armorMaterial; 0 none)
+    uint8_t leash = 0;             // (M28.3c) on a lead: 0 no, 1 held by the player, 2 tied to the fence at `leashPos`
+    glm::ivec3 leashPos{0};
+    uint64_t caravanHead = 0;      // (M28.3c) a llama following another in a caravan (its UUID high half)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love

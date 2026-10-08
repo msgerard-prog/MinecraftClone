@@ -2137,7 +2137,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                   survival ? 3.0 : 5.0, ridingCart);
                 if (mh && (!lastHit || mh->distance < lastHit->distance)) {
                     const auto t = world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type;
-                    decorInFront = mc::world::isHanging(t) || t == mc::world::MobType::ArmorStand;
+                    decorInFront = mc::world::isHanging(t) || t == mc::world::MobType::ArmorStand ||
+                                   t == mc::world::MobType::LeashKnot ||
+                                   (inventory.selectedStack().item == *mc::world::itemRegistry().find("lead") &&
+                                    mc::world::isLeashable(t)) ||
+                                   world.chunk(mh->chunk)->mobs()[size_t(mh->index)].leash == 1;
                 }
             }
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
@@ -2745,6 +2749,40 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.use = false;
                 }
             }
+            // Leads (M28.3c; wiki: Lead): a lead on a mob in front puts it on the player's lead;
+            // clicking a mob already on it lets it go (the lead drops); clicking a knot ties the
+            // player's mobs to it or takes its mobs back; clicking a fence ties them there.
+            if (!dead && clicks.useClick) {
+                static const mc::world::ItemId leadItem = *mc::world::itemRegistry().find("lead");
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                bool used = false;
+                if (mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    mc::world::Chunk* lc = world.chunk(mh->chunk);
+                    auto& m = lc->mobs()[size_t(mh->index)];
+                    if (m.type == mc::world::MobType::LeashKnot) {
+                        if (mc::Mobs::tieToFence(world, {m.home.x, m.home.y, m.home.z}, player.position(), gameRng) == 0)
+                            mc::Mobs::takeFromKnot(world, m);
+                        used = true;
+                    } else if (m.leash == 1) {
+                        m.leash = 0;
+                        droppedItems.spawn(m.pos + glm::dvec3(0.0, 0.5, 0.0), {leadItem, 1}, gameRng);
+                        used = true;
+                    } else if (inventory.selectedStack().item == leadItem && mc::Mobs::leashToPlayer(m)) {
+                        if (survival) inventory.consumeSelected(1);
+                        used = true;
+                    }
+                    if (used) lc->markDirty();
+                } else if (lastHit && !player.sneaking() &&
+                           mc::Mobs::tieToFence(world, lastHit->block, player.position(), gameRng) > 0) {
+                    used = true;
+                }
+                if (used) {
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+            }
             // Feeding and shearing animals (M16.3): right-click the mob in front.
             // (M26.1: an empty hand makes a tamed pet sit or stand)
             if (!dead && clicks.useClick) {
@@ -2950,10 +2988,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance) &&
                     (mc::world::isHanging(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
-                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand)) {
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::ArmorStand ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::LeashKnot)) {
                     mc::world::Chunk* hc = world.chunk(mh->chunk);
                     auto& m = hc->mobs()[size_t(mh->index)];
-                    if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) two quick hits
+                    if (m.type == mc::world::MobType::LeashKnot) { // (M28.3c) the knot breaks, its leads drop
+                        if (gameMode != 2 && m.health > 0.0f) mc::Mobs::breakKnot(world, m, droppedItems, gameRng);
+                    } else if (m.type == mc::world::MobType::ArmorStand) { // (M28.3b) two quick hits
                         if (gameMode != 2 && m.health > 0.0f) mc::Mobs::hitArmorStand(world, m, !survival);
                     } else if (gameMode != 2 && m.health > 0.0f &&
                                !mc::Mobs::popFrameItem(world, m, droppedItems, gameRng)) {
@@ -4487,6 +4528,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const double maxDist = 64.0 * (info.width * 2.0 + info.height) / 3.0;
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
+                if (m.leash != 0 && m.health > 0.0f) { // (M28.3c) the lead, from its neck to the holder
+                    const glm::dvec3 neck = p + glm::dvec3(0.0, info.height * 0.75, 0.0);
+                    const glm::dvec3 to = m.leash == 1 ? player.renderPosition(clock.alpha) + glm::dvec3(0.0, 1.1, 0.0)
+                                                       : glm::dvec3(m.leashPos) + glm::dvec3(0.5, 0.5, 0.5);
+                    entities.addBeam(neck, to, camera.position, {0.42f, 0.30f, 0.16f}, 0.03f);
+                }
+                if (m.type == mc::world::MobType::LeashKnot) {
+                    entities.addKnot(p, camera.position);
+                    continue;
+                }
                 if (mc::world::isHanging(m.type)) { // (M28.3a) item frames and paintings, from the atlas
                     const mc::Aabb hb = mc::Mobs::hangingBox(m);
                     if (!mobFrustum.intersectsBox(glm::vec3(hb.min - camera.position), glm::vec3(hb.max - camera.position)))

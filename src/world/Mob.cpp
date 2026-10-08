@@ -155,6 +155,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:painting", 1.0f, 1.0, 1.0, 0.0, 0.0f, false},
         // wiki: Armor Stand - 0.5 x 1.975; any damage but the player's knocks it over (ours: 1 health)
         {"minecraft:armor_stand", 1.0f, 0.5, 1.975, 0.0, 0.0f, false},
+        // wiki: Leash Knot - 0.375 x 0.5 on its fence post
+        {"minecraft:leash_knot", 1.0f, 0.375, 0.5, 0.0, 0.0f, false},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

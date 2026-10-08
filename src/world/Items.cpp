@@ -339,6 +339,7 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:glow_item_frame", .texture = "item/glow_item_frame"});
     r.add({.id = "minecraft:painting", .texture = "item/painting"});
     r.add({.id = "minecraft:armor_stand", .maxStack = 16, .texture = "item/armor_stand"}); // (M28.3b)
+    r.add({.id = "minecraft:lead", .texture = "item/lead"}); // (M28.3c)
     r.add({.id = "minecraft:written_book", .maxStack = 16, .texture = "item/written_book"});
     r.add({.id = "minecraft:enchanted_book", .maxStack = 1, .texture = "item/enchanted_book"});
     // Projectiles (M16.4; wiki: Bow - 384 uses; Arrow).

@@ -159,6 +159,14 @@ public:
     static bool useArmorStand(world::World& world, world::MobData& m, world::ItemStack& held, double hitY);
     static bool hitArmorStand(world::World& world, world::MobData& m, bool creative);
     static void refreshWorn(world::World& world, world::MobData& m);
+    // Leads (M28.3c, Leads.cpp; wiki: Lead): put a mob on the player's lead; tie the
+    // player's mobs within 7 blocks to a fence (a knot appears; returns how many); take
+    // the mobs tied to a knot back; break a knot (their leads drop).
+    static bool leashToPlayer(world::MobData& m);
+    static int tieToFence(world::World& world, const world::BlockPos& fence, const glm::dvec3& player,
+                          world::Xoroshiro& rng);
+    static int takeFromKnot(world::World& world, const world::MobData& knot);
+    static void breakKnot(world::World& world, world::MobData& knot, ItemEntities& items, world::Xoroshiro& rng);
     // The mob with this UUID, searched from the chunks around `near` outward.
     static world::MobData* mobByUuid(world::World& world, const glm::dvec3& near, uint64_t uuid);
 
@@ -218,6 +226,10 @@ private:
     bool snifferTick(Context& ctx, world::MobData& m);
     // Hanging entities (Hanging.cpp, M28.3a): dropping off when their wall goes.
     void hangingTick(Context& ctx, world::MobData& m);
+    // Leads (Leads.cpp, M28.3c): pulling and snapping, knots, llama caravans.
+    void leashTick(Context& ctx, world::MobData& m);
+    void caravanTick(Context& ctx, world::MobData& m);
+    void knotTick(Context& ctx, world::MobData& k);
     // Armor stands (ArmorStands.cpp, M28.3b).
     void armorStandTick(Context& ctx, world::MobData& m);
     void dropArmorStand(Context& ctx, world::MobData& m);

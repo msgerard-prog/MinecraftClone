@@ -71,6 +71,8 @@ bool canSpawnAt(const World& w, int x, int y, int z) {
 
 Aabb Mobs::box(const MobData& m) {
     if (isHanging(m.type)) return hangingBox(m); // (M28.3a: flat on their wall)
+    if (m.type == MobType::LeashKnot) // (M28.3c: around its fence post's middle)
+        return {m.pos - glm::dvec3(0.1875, 0.0, 0.1875), m.pos + glm::dvec3(0.1875, 0.5, 0.1875)};
     const MobInfo& info = mobInfo(m.type);
     double s = m.isBaby() ? (m.type == MobType::HappyGhast ? 0.2375 : 0.5) : 1.0; // babies are half size (ghastlings 0.95)
     if (m.type == MobType::MagmaCube || m.type == MobType::Slime) s = m.size / 4.0; // (info is the large one)
@@ -319,6 +321,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::ArmorStand) { // (M28.3b, ArmorStands.cpp)
         armorStandTick(ctx, m);
+        return;
+    }
+    if (m.type == MobType::LeashKnot) { // (M28.3c, Leads.cpp)
+        knotTick(ctx, m);
         return;
     }
     if (m.type == MobType::Minecart) {
@@ -724,6 +730,14 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.leash != 0) { // (M28.3c) its lead drops
+        if (const auto lead = itemRegistry().find("lead")) ctx.items.spawn(m.pos, {*lead, 1}, ctx.rng);
+        m.leash = 0;
+    }
+    if (m.type == MobType::LeashKnot) {
+        m.deathTime = 19;
+        return;
+    }
     if (m.type == MobType::ArmorStand) { // (M28.3b) itself and what it wore, gone at once
         dropArmorStand(ctx, m);
         m.deathTime = 19;
@@ -1180,13 +1194,15 @@ void Mobs::tick(Context& ctx) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
                     if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish &&
-                        !isHanging(m.type) && m.type != MobType::ArmorStand)
+                        !isHanging(m.type) && m.type != MobType::ArmorStand && m.type != MobType::LeashKnot)
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);
                 }
             } else {
                 ai(ctx, m);
+                if (m.leash != 0) leashTick(ctx, m);                 // (M28.3c)
+                if (m.type == MobType::Llama) caravanTick(ctx, m); // (M28.3c)
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;

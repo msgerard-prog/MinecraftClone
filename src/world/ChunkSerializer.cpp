@@ -1162,6 +1162,15 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsChickenJockey", int8_t{0});
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
+        if (m.leash == 1) { // (M28.3c; wiki: Entity format › leash: the holder's UUID, or a knot's position)
+            nbt::Compound l;
+            l.put("UUID", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                               int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+            e.put("leash", std::move(l));
+        } else if (m.leash == 2) {
+            e.put("leash", std::vector<int32_t>{m.leashPos.x, m.leashPos.y, m.leashPos.z});
+        }
+        if (m.type == MobType::LeashKnot) e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         if (m.type == MobType::ArmorStand) { // (M28.3b; wiki: Armor Stand › Entity data)
             nbt::Compound eq;
             static constexpr const char* kSlots[4] = {"head", "chest", "legs", "feet"};
@@ -1759,6 +1768,20 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
                     }
             }
+        if (const nbt::Tag* l = e->find("leash")) { // (M28.3c)
+            if (l->get<nbt::Compound>()) {
+                m.leash = 1;
+            } else if (const auto* a = l->get<std::vector<int32_t>>(); a && a->size() == 3) {
+                m.leash = 2;
+                m.leashPos = {(*a)[0], (*a)[1], (*a)[2]};
+            }
+        }
+        if (m.type == MobType::LeashKnot) {
+            m.health = 1.0f;
+            m.persistent = true;
+            if (const nbt::Tag* bp = e->find("block_pos"))
+                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+        }
         if (m.type == MobType::ArmorStand) { // (M28.3b) its armor
             m.health = 1.0f;
             m.persistent = true;

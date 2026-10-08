@@ -214,6 +214,7 @@ std::vector<Recipe> build() {
     r.push_back(shapeless({item("item_frame"), item("glow_ink_sac")}, "glow_item_frame"));
     r.push_back(shaped({"###", "#W#", "###"}, {{'#', item("stick")}, {'W', item("white_wool")}}, "painting"));
     r.push_back(shaped({"###", ".#.", "#S#"}, {{'#', item("stick")}, {'S', item("smooth_stone_slab")}}, "armor_stand"));
+    r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
     // Navigation (M28.2a; wiki: Compass, Clock, Recovery Compass, Lodestone).
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("iron_ingot")}, {'R', item("redstone")}}, "compass"));
     r.push_back(shaped({".#.", "#R#", ".#."}, {{'#', item("gold_ingot")}, {'R', item("redstone")}}, "clock"));

@@ -976,6 +976,19 @@ def armor_stand_item():
     return s.render()
 
 
+def lead_item():
+    """M28.3c: a coil of rope with a loop at its end."""
+    s = Shape()
+    pts = set()
+    for k in range(60):
+        a = k / 60 * 2 * math.pi * 1.5
+        r = 3.2 + 1.2 * math.sin(k * 0.4)
+        pts.add((int(round(7 + r * math.cos(a))), int(round(8 + r * math.sin(a) * 0.8))))
+    pts |= {(11 + i, 3 - i // 2) for i in range(3)} | {(12, 4), (13, 3)}
+    s.add(pts, ramp(hexc("#9A7A4E"), 5, spread=0.3))
+    return s.render()
+
+
 def ghast_tear():
     pal = ramp(hexc("#C8E4EE"), 5, spread=0.3)
     s = Shape()
@@ -1321,6 +1334,7 @@ def all_items():
     items["glow_item_frame"] = frame_item("#3AB8A0")
     items["painting"] = frame_item("#5E8A3C", picture=True)
     items["armor_stand"] = armor_stand_item()  # (M28.3b)
+    items["lead"] = lead_item()  # (M28.3c)
     items["enchanted_book"] = book(True)
     # Nether mobs (M19.2).
     items["ghast_tear"] = ghast_tear()

@@ -54,6 +54,8 @@ public:
     // A painting (M28.3a): its canvas tiles (world::kPaintings[variant]) facing `facing`.
     void addPainting(int variant, const glm::dvec3& centre, int facing, const glm::vec3& light,
                      const glm::dvec3& cameraPos);
+    // A leash knot (M28.3c): a small wooden knot on its fence post, its bottom at `pos`.
+    void addKnot(const glm::dvec3& pos, const glm::dvec3& cameraPos);
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
     void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
                   const glm::dvec3& cameraPos);
