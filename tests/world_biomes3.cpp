@@ -216,3 +216,15 @@ TEST_CASE("overworld6 output is pinned (re-pinned while M27 builds it)") {
     MESSAGE("overworld6 hash " << h);
     CHECK(h == 10209103907293581985ull);
 }
+
+TEST_CASE("generator kinds map to their versions; every kind names itself back (M27.1 regression)") {
+    // (the game once built every kind after overworld4 as version 5, so new worlds
+    // silently stayed on the previous generator)
+    CHECK(OverworldGenerator::versionOf("overworld") == 1);
+    CHECK(OverworldGenerator::versionOf("terrain") == 0);
+    CHECK(OverworldGenerator::versionOf("overworld9") == 0);
+    for (int v = 1; v <= OverworldGenerator::kNewest; ++v) {
+        const OverworldGenerator gen(1, v);
+        CHECK(OverworldGenerator::versionOf(gen.kind()) == v);
+    }
+}

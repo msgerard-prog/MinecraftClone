@@ -396,9 +396,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                      worldName.c_str(), netherKind.c_str());
         return 1;
     }
-    if (generatorKind != "terrain" && generatorKind != "overworld" &&
-        generatorKind != "overworld2" && generatorKind != "overworld3" && generatorKind != "overworld4" &&
-        generatorKind != "overworld5" && generatorKind != "overworld6") {
+    if (generatorKind != "terrain" && mc::world::OverworldGenerator::versionOf(generatorKind) == 0) {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -413,13 +411,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (d == Dimension::End)
             return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
-        return std::make_unique<mc::world::OverworldGenerator>(seed,
-                                                               generatorKind == "overworld"    ? 1
-                                                               : generatorKind == "overworld2" ? 2
-                                                               : generatorKind == "overworld3" ? 3
-                                                               : generatorKind == "overworld4" ? 4
-                                                               : generatorKind == "overworld5" ? 5
-                                                                                               : 6);
+        return std::make_unique<mc::world::OverworldGenerator>(
+            seed, mc::world::OverworldGenerator::versionOf(generatorKind));
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);

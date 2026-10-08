@@ -39,6 +39,13 @@ public:
     // pale garden - giant spruces, two-block plants, bamboo, mud and moss).
     static constexpr int kNewest = 6;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
+    // The version of a generator kind ("overworld" 1 ... "overworld6" 6), 0 if unknown.
+    static int versionOf(std::string_view kind) {
+        if (kind == "overworld") return 1;
+        if (kind.size() == 10 && kind.starts_with("overworld") && kind[9] >= '2' && kind[9] <= '0' + kNewest)
+            return kind[9] - '0';
+        return 0;
+    }
 
     void generate(Chunk& chunk) const override;
     glm::dvec3 findSpawn() const override;
