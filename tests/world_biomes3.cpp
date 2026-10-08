@@ -365,3 +365,28 @@ TEST_CASE("budding amethyst grows buds to clusters; a cluster gives 4 shards to 
     blockDrops(S(blocks::BuddingAmethyst), {*itemRegistry().find("iron_pickaxe"), 1}, rng, out);
     CHECK(out.empty());
 }
+
+TEST_CASE("overworld6 ruined portals: a broken obsidian frame, netherrack about, a loot chest (M27.4b)") {
+    const OverworldGenerator gen(42);
+    int found = 0;
+    for (int cz = -60; cz <= 60 && found == 0; ++cz)
+        for (int cx = -60; cx <= 60 && found == 0; ++cx) {
+            if (!isSpreadCandidate(42, kRuinedPortals, {cx, cz})) continue;
+            if (gen.surfaceY(cx * 16 + 6, cz * 16 + 6) < OverworldGenerator::kSeaLevel) continue;
+            Chunk c({cx, cz});
+            gen.generate(c);
+            int obsidian = 0, rack = 0;
+            for (int y = 40; y < 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = R().blockOf(c.get(x, y, z));
+                        obsidian += b == blocks::Obsidian || b == blocks::CryingObsidian;
+                        rack += b == blocks::Netherrack || b == blocks::MagmaBlock;
+                    }
+            CHECK(obsidian >= 6);
+            CHECK(rack > 10);
+            CHECK(c.chests().size() >= 1);
+            ++found;
+        }
+    CHECK(found == 1);
+}

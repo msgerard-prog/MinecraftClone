@@ -36,7 +36,8 @@ enum class LootTable : uint8_t {
     UnderwaterRuinSmall,
     UnderwaterRuinBig,
     BuriedTreasure,
-    AncientCity // (M27.3b)
+    AncientCity, // (M27.3b)
+    RuinedPortal // (M27.4b)
 };
 
 struct LootEntry {

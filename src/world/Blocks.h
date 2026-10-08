@@ -482,6 +482,7 @@ enum : BlockId {
     AmethystCluster,
     SmoothBasalt,
     TintedGlass,
+    CryingObsidian, // (M27.4b; wiki: Crying Obsidian - glows 10)
     Count
 };
 } // namespace blocks

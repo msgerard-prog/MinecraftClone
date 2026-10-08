@@ -1230,6 +1230,9 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("tinted_glass", {.hardness = 0.3f, .resistance = 0.3f, .lightOpacity = 15, .opaqueCube = false,
                                  .layer = RenderLayer::Cutout}),
           blocks::TintedGlass);
+    check(r.add("crying_obsidian", {.hardness = 50.0f, .resistance = 1200.0f, .lightEmission = 10,
+                                    .tool = HarvestTool::Pickaxe, .tier = 3}),
+          blocks::CryingObsidian);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

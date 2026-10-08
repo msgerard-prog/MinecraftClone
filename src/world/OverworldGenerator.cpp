@@ -1332,6 +1332,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeGeodes(blockArray.data(), cx, cz);                          // (M27.4a)
         placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
         placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
+        placeRuinedPortals(blockArray.data(), cx, cz, entities);         // (M27.4b)
     }
 
     if (m_version >= 2) {
@@ -3731,6 +3732,62 @@ void OverworldGenerator::placeGeodes(BlockStateId* blocks, int32_t cx, int32_t c
                             chunk.set(ax, ay, az, reg.set(reg.defaultState(kind), properties::facing6, d));
                         }
                     }
+        }
+}
+
+void OverworldGenerator::placeRuinedPortals(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    // Ruined portals (wiki: Ruined Portal): on their grid (spacing 40, separation 15) on
+    // land. Ours: a broken obsidian frame (4 wide, 5 tall; some blocks gone, some crying
+    // obsidian), netherrack and magma spread on the ground around it, now and then a gold
+    // block, and a chest of their loot (vanilla: templates, some buried or in the air).
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    static const BlockStateId obsidian = reg.defaultState(blocks::Obsidian);
+    static const BlockStateId crying = reg.defaultState(blocks::CryingObsidian);
+    static const BlockStateId netherrack = reg.defaultState(blocks::Netherrack);
+    static const BlockStateId magma = reg.defaultState(blocks::MagmaBlock);
+    static const BlockStateId gold = reg.defaultState(blocks::GoldBlock);
+    Buf chunk{blocks};
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kRuinedPortals, start)) continue;
+            const int32_t sx = start.x * 16 + 4, sz = start.z * 16 + 6;
+            const int ground = surfaceY(sx + 2, sz);
+            if (ground < kSeaLevel) continue; // (ours: land only)
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 740));
+            const bool alongX = r.nextInt(2) == 0;
+            // The ground around: netherrack (and some magma) over the top block, within 4.
+            for (int oz = -4; oz <= 4; ++oz)
+                for (int ox = -3; ox <= 6; ++ox) {
+                    const int lx = sx + ox - cx * 16, lz = sz + oz - cz * 16;
+                    const uint32_t k = uint32_t(positional(m_seed, sx + ox, 0, sz + oz, 741) * 100.0);
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || int(k) > 70 - 6 * (std::abs(oz) + std::abs(ox - 1))) continue;
+                    for (int y = ground + 3; y >= ground - 3; --y) {
+                        const BlockStateId cur = chunk.get(lx, y, lz);
+                        if (cur == B.air || !reg.opaqueCube(cur)) continue;
+                        chunk.set(lx, y, lz, k % 9 == 0 ? magma : netherrack);
+                        break;
+                    }
+                }
+            // The frame, standing on the ground.
+            for (int u = 0; u < 4; ++u)
+                for (int v = 0; v < 5; ++v) {
+                    if (u > 0 && u < 3 && v > 0 && v < 4) continue; // (the hole)
+                    const uint32_t k = r.nextInt(100);
+                    if (k < 22) continue; // (broken away)
+                    const int wx = sx + (alongX ? u : 1), wz = sz + (alongX ? 0 : u - 1);
+                    const int lx = wx - cx * 16, lz = wz - cz * 16;
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || !kOverworldHeight.contains(ground + v)) continue;
+                    chunk.set(lx, ground + v, lz, k < 37 ? crying : obsidian);
+                }
+            // A gold block and the chest beside it.
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx - 2, ground + 1, sz + 2, 1, 1, 0, &out};
+            sb.chest(0, 0, 0, LootTable::RuinedPortal);
+            if (r.nextInt(4) == 0) {
+                const int lx = sx + 4 - cx * 16, lz = sz + 2 - cz * 16;
+                if (lx >= 0 && lx <= 15 && lz >= 0 && lz <= 15) chunk.set(lx, ground + 1, lz, gold);
+            }
         }
 }
 

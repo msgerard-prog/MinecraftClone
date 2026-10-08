@@ -204,6 +204,19 @@ constexpr LootEntry kAncient1[] = {
     {"coal", 6, 15, 7}, {"enchanted_book", 1, 1, 4, false, 0, uint8_t(Enchantment::SwiftSneak)}};
 constexpr LootPool kAncientCity[] = {{5, 10, kAncient1}};
 
+// wiki: Ruined Portal › Loot (Java).
+constexpr LootEntry kRuined1[] = {
+    {"obsidian", 1, 2, 40},        {"flint", 1, 4, 40},          {"iron_nugget", 9, 18, 40},
+    {"flint_and_steel", 1, 1, 40}, {"fire_charge", 1, 1, 40},    {"golden_apple", 1, 1, 15},
+    {"gold_nugget", 4, 24, 15},    {"golden_sword", 1, 1, 15, true}, {"golden_axe", 1, 1, 15, true},
+    {"golden_hoe", 1, 1, 15, true}, {"golden_shovel", 1, 1, 15, true}, {"golden_pickaxe", 1, 1, 15, true},
+    {"golden_boots", 1, 1, 15, true}, {"golden_chestplate", 1, 1, 15, true}, {"golden_helmet", 1, 1, 15, true},
+    {"golden_leggings", 1, 1, 15, true}, {"glistering_melon_slice", 4, 12, 5}, {"golden_horse_armor", 1, 1, 5},
+    {"light_weighted_pressure_plate", 1, 1, 5}, {"golden_carrot", 4, 12, 5}, {"clock", 1, 1, 5},
+    {"gold_ingot", 2, 8, 5},       {"bell", 1, 1, 1},            {"enchanted_golden_apple", 1, 1, 1},
+    {"gold_block", 1, 2, 1}};
+constexpr LootPool kRuinedPortal[] = {{4, 8, kRuined1}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -250,6 +263,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::UnderwaterRuinBig: return kRuinBig;
     case LootTable::BuriedTreasure: return kBuried;
     case LootTable::AncientCity: return kAncientCity;
+    case LootTable::RuinedPortal: return kRuinedPortal;
     default: return {}; // (filled in as their structures arrive)
     }
 }
