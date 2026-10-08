@@ -99,6 +99,23 @@ struct JukeboxData {
     bool playing = false; // (stops at the song's end; the disc stays in)
 };
 
+// A bee nest's or beehive's bees (M26.3b; wiki: Beehive › Block data: bees [{entity_data,
+// ticks_in_hive, min_ticks_in_hive}]). Up to 3 bees wait inside: 600 ticks at least, 2400
+// after bringing nectar (which turns into honey as they leave); they come out by day when
+// it isn't raining.
+struct HiveBee {
+    uint64_t uuidHi = 0, uuidLo = 0;
+    float health = 10.0f;
+    int age = 0;           // < 0: a baby
+    bool nectar = false;
+    int ticksInHive = 0;
+    int minTicks = 600;
+};
+struct BeehiveData {
+    std::array<HiveBee, 3> bees{};
+    uint8_t count = 0;
+};
+
 // A redstone comparator's output strength (M21.2; wiki: Redstone Comparator › Block
 // data: OutputSignal) - its block state only says whether it is on.
 struct ComparatorData {

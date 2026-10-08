@@ -210,6 +210,8 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:goat_horn", .maxStack = 1, .texture = "item/goat_horn"});
     r.add({.id = "minecraft:armadillo_scute", .texture = "item/armadillo_scute"});
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
+    // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
+    r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
     // Mount gear (M26.2; wiki: Saddle, Horse Armor - unstackable).
     r.add({.id = "minecraft:saddle", .maxStack = 1, .texture = "item/saddle"});
     for (int k = 1; k < 5; ++k)

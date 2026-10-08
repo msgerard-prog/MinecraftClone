@@ -315,7 +315,13 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 m_ateChorus = true;
                 m_chorusCooldown = 20;
             }
-            inventory.consumeSelected(1);
+            if (held.id == "minecraft:honey_bottle") { // (M26.3b; wiki: Honey Bottle - cures Poison, keeps the bottle)
+                vitals.removeEffect(world::Effect::Poison);
+                inventory.consumeSelected(1);
+                inventory.add({*items.find("glass_bottle"), 1});
+            } else {
+                inventory.consumeSelected(1);
+            }
             m_eatTicks = 0;
         }
     } else {

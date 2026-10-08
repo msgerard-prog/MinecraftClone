@@ -625,7 +625,7 @@ const OverworldGenerator::TreePlan& OverworldGenerator::treePlan(int32_t cx, int
             if (steep) continue;
         }
         e.plan.trees[size_t(e.plan.count++)] = {wx, wz, ground, static_cast<uint8_t>(kind),
-                                                 static_cast<uint8_t>(height)};
+                                                 static_cast<uint8_t>(height), biome};
     }
     return e.plan;
 }
@@ -1124,6 +1124,10 @@ void OverworldGenerator::generate(Chunk& out) const {
     if (m_version >= 2) placeVegetation(blockArray.data(), cx, cz, topY, columnBiome);
     // 7c. Surface structures (ours after the plants, so no tree grows through them).
     if (m_version >= 4) placeOceanFloor(blockArray.data(), cx, cz, topY, columnBiome);
+    if (m_version >= 5) { // (M26.3b)
+        placeBeeNests(blockArray.data(), pos, entities);
+        placeBerryBushes(blockArray.data(), cx, cz, topY, columnBiome);
+    }
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -1188,6 +1192,19 @@ void OverworldGenerator::generate(Chunk& out) const {
             mob.health = mobInfo(e.mob).maxHealth;
             mob.persistent = true;
             out.mobs().push_back(mob);
+            continue;
+        }
+        if (e.beeNest) { // (M26.3b) 2-3 bees waiting inside (wiki: Bee Nest › Natural generation)
+            if (reg.blockOf(out.get(e.x, e.y, e.z)) != blocks::BeeNest || out.beehive(e.x, e.y, e.z)) continue;
+            Xoroshiro br(chunkSeed(m_seed, cx, cz, 690 + uint64_t(i)));
+            BeehiveData& hive = out.addBeehive(e.x, e.y, e.z);
+            hive.count = uint8_t(2 + br.nextInt(2));
+            for (int k = 0; k < hive.count; ++k) {
+                HiveBee& b = hive.bees[size_t(k)];
+                b.uuidHi = (br.nextLong() & ~0xF000ull) | 0x4000ull;
+                b.uuidLo = (br.nextLong() & ~(3ull << 62)) | (2ull << 62);
+                b.minTicks = 600;
+            }
             continue;
         }
         if (e.villager) { // (M24.1) a villager of the village, standing on its floor
@@ -3002,6 +3019,82 @@ void OverworldGenerator::placeOceanFloor(BlockStateId* blocks, int32_t cx, int32
                 }
             }
         }
+}
+
+void OverworldGenerator::placeBeeNests(BlockStateId* blocks, ChunkPos pos, GeneratedEntities& out) const {
+    // Bee nests (M26.3b; wiki: Bee Nest › Natural generation): on oak, birch and cherry
+    // trees - every one in meadows, 5% in plains and cherry groves, 2% in flower forests,
+    // 0.2% in forests - on a side of the trunk under the leaves (south first), facing
+    // away from it. Each tree decides with its own random stream, so the chunk that holds
+    // the nest places it whichever chunk planned the tree.
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    const int32_t baseX = pos.x * 16, baseZ = pos.z * 16;
+    const BlockStateId nest = reg.defaultState(blocks::BeeNest);
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const TreePlan& plan = treePlan(pos.x + dx, pos.z + dz);
+            for (int t = 0; t < plan.count; ++t) {
+                const auto& tree = plan.trees[size_t(t)];
+                const auto kind = static_cast<TreeShape::Kind>(tree.kind);
+                if (kind != TreeShape::Oak && kind != TreeShape::Birch && kind != TreeShape::Cherry) continue;
+                const int per1000 = tree.biome == Biome::Meadow                                         ? 1000
+                                    : tree.biome == Biome::Plains || tree.biome == Biome::CherryGrove   ? 50
+                                    : tree.biome == Biome::FlowerForest                                ? 20
+                                    : tree.biome == Biome::Forest || tree.biome == Biome::BirchForest ? 2
+                                                                                                       : 0;
+                Xoroshiro r(chunkSeed(m_seed, tree.wx, tree.wz, 302));
+                r.nextLong(); // (as for berry patches)
+                if (per1000 == 0 || int(r.nextInt(1000)) >= per1000) continue;
+                // (under the lowest leaves - as for saplings, RandomTicks.cpp)
+                const int y = tree.ground + 1 + std::max(0, int(tree.height) - (kind == TreeShape::Cherry ? 3 : 4));
+                static constexpr int kSide[4][3] = {{0, 1, 1}, {0, -1, 0}, {-1, 0, 2}, {1, 0, 3}}; // dx, dz, facing
+                for (const auto& sd : kSide) {
+                    const int lx = tree.wx + sd[0] - baseX, lz = tree.wz + sd[1] - baseZ;
+                    // (the side cell must be free: decided the same way in every chunk)
+                    const int tx = tree.wx - baseX, tz = tree.wz - baseZ;
+                    const bool trunkHere = tx >= 0 && tx < 16 && tz >= 0 && tz < 16;
+                    if (trunkHere && reg.blockOf(chunk.get(tx, y, tz)) == 0) break; // (no trunk there)
+                    if (lx < 0 || lx > 15 || lz < 0 || lz > 15) break; // (its chunk places it)
+                    if (chunk.get(lx, y, lz) != 0) continue;
+                    chunk.set(lx, y, lz, reg.set(nest, properties::facing, sd[2]));
+                    if (!out.full()) {
+                        GeneratedEntity e{static_cast<int8_t>(lx), static_cast<int8_t>(lz), static_cast<int16_t>(y), false,
+                                          MobType::Bee};
+                        e.beeNest = true;
+                        out.list[size_t(out.count++)] = e;
+                    }
+                    break;
+                }
+            }
+        }
+}
+
+void OverworldGenerator::placeBerryBushes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                                          const std::array<Biome, 16>& biomes) const {
+    // Sweet berry bushes (M26.3b; wiki: Sweet Berry Bush › Natural generation): a patch
+    // in about 1 taiga chunk in 12 (rarer elsewhere in the cold forests), ripe ones, on
+    // grass.
+    const Biome centre = biomes[5];
+    const bool taiga = centre == Biome::Taiga || centre == Biome::SnowyTaiga || centre == Biome::OldGrowthSpruceTaiga;
+    if (!taiga && centre != Biome::Grove) return;
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 640));
+    r.nextLong(); // (the first draw of nearby chunks' streams is too alike for a rare roll)
+    if (r.nextInt(taiga ? 12 : 40) != 0) return;
+
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    Buf chunk{blocks};
+    const BlockStateId bush = reg.set(reg.defaultState(blocks::SweetBerryBush), properties::age3, 3);
+    const int ox = static_cast<int>(r.nextInt(16)), oz = static_cast<int>(r.nextInt(16));
+    for (int t = 0; t < 24; ++t) {
+        const int x = ox + static_cast<int>(r.nextInt(7)) - 3, z = oz + static_cast<int>(r.nextInt(7)) - 3;
+        if (x < 0 || x > 15 || z < 0 || z > 15) continue;
+        const int y = topY[size_t(z * 16 + x)];
+        const BlockStateId ground = chunk.get(x, y, z);
+        if ((ground == B.grass || ground == B.snowyGrass || ground == B.podzol) && chunk.get(x, y + 1, z) == B.air)
+            chunk.set(x, y + 1, z, bush);
+    }
 }
 
 } // namespace mc::world

@@ -31,6 +31,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.campfires = chunk.campfires();
     s.beacons = chunk.beacons();
     s.jukeboxes = chunk.jukeboxes();
+    s.beehives = chunk.beehives();
     s.comparators = chunk.comparators();
     s.hoppers = chunk.hoppers();
     s.dispensers = chunk.dispensers();
@@ -442,6 +443,31 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         }
         entities.emplace_back(std::move(e));
     }
+    for (const auto& hv : chunk.beehives) { // (M26.3b) wiki: Beehive › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:beehive"));
+        e.put("x", int32_t{chunk.pos.x * 16 + hv.x});
+        e.put("y", int32_t{hv.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + hv.z});
+        e.put("keepPacked", int8_t{0});
+        std::vector<nbt::Tag> bees;
+        for (int i = 0; i < hv.data.count && i < 3; ++i) {
+            const HiveBee& b = hv.data.bees[size_t(i)];
+            nbt::Compound data, entry;
+            data.put("id", std::string("minecraft:bee"));
+            data.put("Health", b.health);
+            data.put("Age", int32_t(b.age));
+            data.put("HasNectar", int8_t(b.nectar ? 1 : 0));
+            data.put("UUID", std::vector<int32_t>{int32_t(b.uuidHi >> 32), int32_t(b.uuidHi), int32_t(b.uuidLo >> 32),
+                                                  int32_t(b.uuidLo)});
+            entry.put("entity_data", std::move(data));
+            entry.put("ticks_in_hive", int32_t(b.ticksInHive));
+            entry.put("min_ticks_in_hive", int32_t(b.minTicks));
+            bees.emplace_back(std::move(entry));
+        }
+        e.put("bees", nbt::listOf(nbt::TagType::Compound, std::move(bees)));
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& bc : chunk.beacons) { // wiki: Beacon › Block data; Conduit
         nbt::Compound e;
         e.put("id", std::string(bc.data.conduit ? "minecraft:conduit" : "minecraft:beacon"));
@@ -730,7 +756,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" &&
-                        *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox"))
+                        *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
+                        *id != "minecraft:beehive"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -763,6 +790,29 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
                 chunk.addComparator(x, y, z).output =
                     static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                continue;
+            }
+            if (*id == "minecraft:beehive") { // (M26.3b: nests too)
+                const BlockId hb = blockRegistry().blockOf(chunk.get(x, y, z));
+                if (hb != blocks::BeeNest && hb != blocks::Beehive) continue;
+                BeehiveData& hd = chunk.addBeehive(x, y, z);
+                if (const nbt::List* bees = e->list("bees"))
+                    for (const nbt::Tag& bt : bees->items) {
+                        const nbt::Compound* entry = bt.get<nbt::Compound>();
+                        const nbt::Compound* data = entry ? entry->compound("entity_data") : nullptr;
+                        if (!data || hd.count >= 3) continue;
+                        HiveBee& b = hd.bees[hd.count++];
+                        b.health = float(std::clamp(data->real("Health").value_or(10.0), 0.5, 10.0));
+                        b.age = int(std::clamp<int64_t>(data->integer("Age").value_or(0), -24000, 24000));
+                        b.nectar = data->integer("HasNectar").value_or(0) != 0;
+                        b.ticksInHive = int(std::clamp<int64_t>(entry->integer("ticks_in_hive").value_or(0), 0, 1 << 20));
+                        b.minTicks = int(std::clamp<int64_t>(entry->integer("min_ticks_in_hive").value_or(600), 0, 1 << 20));
+                        if (const nbt::Tag* u = data->find("UUID"))
+                            if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                                b.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
+                                b.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
+                            }
+                    }
                 continue;
             }
             if (*id == "minecraft:jukebox") {
@@ -1092,6 +1142,12 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasLeftHorn", int8_t(m.horns & 1 ? 1 : 0));
             e.put("HasRightHorn", int8_t(m.horns & 2 ? 1 : 0));
             e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
+        }
+        if (m.type == MobType::Bee) { // (M26.3b; wiki: Bee › Entity data)
+            e.put("HasNectar", int8_t(m.nectar ? 1 : 0));
+            e.put("HasStung", int8_t(m.stung ? 1 : 0));
+            e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
+            if (m.home.y != kNoPoint) e.put("hive_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
         if (m.type == MobType::Armadillo) {
             e.put("state", std::string(m.sitting ? "scared" : "idle"));
@@ -1444,6 +1500,15 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                               (e->integer("HasRightHorn").value_or(1) != 0 ? 2 : 0));
             m.powered = e->integer("IsScreamingGoat").value_or(0) != 0;
             m.chargeTicks = int16_t(600 + std::abs(int(m.pos.x * 31 + m.pos.z * 17)) % 5400); // (not saved by vanilla)
+        }
+        if (m.type == MobType::Bee) {
+            m.nectar = e->integer("HasNectar").value_or(0) != 0;
+            m.stung = e->integer("HasStung").value_or(0) != 0;
+            m.angerTicks = int16_t(std::clamp<int64_t>(e->integer("AngerTime").value_or(0), 0, 2000));
+            m.angry = m.angerTicks > 0;
+            m.despawnDelay = m.stung ? 600 : 0;
+            if (const nbt::Tag* hp = e->find("hive_pos"))
+                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
         if (m.type == MobType::Armadillo) {
             const std::string* st = e->string("state");

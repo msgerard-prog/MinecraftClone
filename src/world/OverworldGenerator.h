@@ -32,8 +32,9 @@ public:
     // 1 = "overworld" (M8), 2 = "overworld2" (M18: + lava lakes, springs, ravines,
     // sugar cane, pumpkins, cacti, mushrooms), 3 = "overworld3" (M24: beds, job sites,
     // a bell and villagers in villages), 4 = "overworld4" (M25: deep ocean variants, ocean
-    // floors with kelp, seagrass, sea pickles, coral reefs, icebergs, flooded caves).
-    static constexpr int kNewest = 4;
+    // floors with kelp, seagrass, sea pickles, coral reefs, icebergs, flooded caves), 5 =
+    // "overworld5" (M26.3b: bee nests on trees, sweet berry bushes in taigas).
+    static constexpr int kNewest = 5;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
@@ -41,7 +42,8 @@ public:
     // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
     std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override {
-        return m_version >= 4   ? "overworld4"
+        return m_version >= 5   ? "overworld5"
+               : m_version == 4 ? "overworld4"
                : m_version == 3 ? "overworld3"
                : m_version == 2 ? "overworld2"
                                 : "overworld";
@@ -89,6 +91,7 @@ public:
         uint8_t villagerType = 0;
         bool nitwit = false;
         bool spawnMob = false; // (M24.4: a `mob` standing here - swamp hut witches)
+        bool beeNest = false;  // (M26.3b: a bee nest's bees)
     };
     struct GeneratedEntities {
         int count = 0;
@@ -110,6 +113,7 @@ private:
             int32_t wx, wz;
             int ground;
             uint8_t kind, height;
+            Biome biome; // (M26.3b: bee nests by biome)
         };
         int count = 0;
         std::array<Tree, 10> trees{};
@@ -117,6 +121,11 @@ private:
     const TreePlan& treePlan(int32_t cx, int32_t cz) const;
     bool groundCarved(int32_t x, int32_t y, int32_t z) const;
     void placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t cx, int32_t cz) const;
+    // overworld5 (M26.3b): nests on the trees of this chunk and its neighbours (only the
+    // part in this chunk), sweet berry patches.
+    void placeBeeNests(BlockStateId* blocks, ChunkPos pos, GeneratedEntities& out) const;
+    void placeBerryBushes(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                          const std::array<Biome, 16>& columnBiome) const;
 
     // --- Overworld 2 features (M18.1) ---
     void carveRavines(BlockStateId* blocks, int32_t cx, int32_t cz, std::array<int, 256>& topY) const;

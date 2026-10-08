@@ -156,6 +156,9 @@ private:
     bool wildlifeGoal(Context& ctx, world::MobData& m, double& speed);
     void wildlifeTick(Context& ctx, world::MobData& m, bool blockedAhead); // (after moving)
     void spawnWildlife(Context& ctx, world::Biome biome, world::BlockId ground, int x, int y, int z);
+    // Bees (Bees.cpp, M26.3b): flying, pollen, crops, going home; hives letting them out.
+    bool beeAi(Context& ctx, world::MobData& m);
+    void tickHives(Context& ctx, world::Chunk& chunk);
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp

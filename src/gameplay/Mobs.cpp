@@ -361,6 +361,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
     if (waterAi(ctx, m)) return;  // fish and squid (WaterMobs.cpp)
+    if (beeAi(ctx, m)) return;    // (M26.3b, Bees.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -670,6 +671,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.angerTicks = 600;
     }
     if (m.type == MobType::ZombifiedPiglin) m.angerAlert = true; // (the herd joins in: Mobs::tick)
+    if (m.type == MobType::Bee && !m.stung) { // (M26.3b: it stings back, and its hive-mates join in)
+        m.angry = true;
+        m.angerTicks = 400;
+        m.angerAlert = true;
+    }
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
     if (l > 1e-6) { // wiki: Knockback - 0.4 away; lifted only when on the ground
@@ -982,6 +988,7 @@ void Mobs::tick(Context& ctx) {
             std::abs(chunk.pos().z - playerChunk.z) > m_simulationDistance)
             return;
         if (!chunk.spawners().empty()) tickSpawners(ctx, chunk);
+        if (!chunk.beehives().empty()) tickHives(ctx, chunk); // (M26.3b: bees leaving their hives)
         auto& mobs = chunk.mobs();
         for (size_t i = 0; i < mobs.size();) {
             MobData& m = mobs[i];
@@ -1051,7 +1058,7 @@ void Mobs::tick(Context& ctx) {
                 if (m.deathTime >= 20) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).
-                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat)
+                    if (m.type != MobType::Minecart && m.type != MobType::EndCrystal && m.type != MobType::Boat && !m.vanish)
                         ctx.world.levelEvent(LevelEvent::Type::MobDeath, m.pos.x, m.pos.y, m.pos.z,
                                              uint32_t(mobInfo(m.type).width * 100.0f) |
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);
@@ -1131,6 +1138,9 @@ void Mobs::tick(Context& ctx) {
                             std::abs(o.pos.z - hit.z) < 33.5 && std::abs(o.pos.y - hit.y) < 11.0) {
                             o.angry = true;
                             o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
+                        } else if (o.type == MobType::Bee && !o.stung && glm::length(o.pos - hit) < 20.0) {
+                            o.angry = true; // (bees within 20 blocks - our reading of the wiki's "nearby")
+                            o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(400));
                         }
     }
     if (ctx.naturalSpawning) {

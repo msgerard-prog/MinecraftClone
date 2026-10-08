@@ -594,6 +594,20 @@ constexpr std::array<MobPart, 9> kArmadillo = {{
     {{-0.5f, 3, -8.5f}, {0.5f, 4, -4.5f}, {0, 3.5f, -4.5f}, 8, 15, A::None},
 }};
 
+// Bee (M26.3b): a striped body, two beating wings, a stinger, antennae, little legs.
+// Body 7x7x10 @ (0,0), wing 6x1x8? -> 0x? flat 6x0x8 drawn 6x1x8 @ (0,18), stinger
+// 1x1x2 @ (34,0), antenna 1x2x3 @ (34,4), legs 7x2x1 @ (16,18).
+constexpr std::array<MobPart, 8> kBee = {{
+    {{-3.5f, 2, -5}, {3.5f, 9, 5}, {0, 5, 0}, 0, 0, A::None},
+    {{-9, 9, -2}, {-1, 9.5f, 4}, {-1, 9, 0}, 0, 18, A::WingL},
+    {{1, 9, -2}, {9, 9.5f, 4}, {1, 9, 0}, 0, 18, A::WingR},
+    {{-0.5f, 4.5f, -7}, {0.5f, 5.5f, -5}, {0, 5, -5}, 34, 0, A::None},
+    {{-2, 9, 5}, {-1, 11, 8}, {0, 7, 5}, 34, 4, A::Head},
+    {{1, 9, 5}, {2, 11, 8}, {0, 7, 5}, 34, 4, A::Head},
+    {{-3.5f, 0, -2}, {3.5f, 2, -1}, {0, 2, 0}, 16, 18, A::LegA},
+    {{-3.5f, 0, 1}, {3.5f, 2, 2}, {0, 2, 0}, 16, 18, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -658,6 +672,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Panda: return kPanda;
     case world::MobType::Goat: return kGoat;
     case world::MobType::Armadillo: return kArmadillo;
+    case world::MobType::Bee: return kBee;
     default: return kCow;
     }
 }

@@ -943,6 +943,26 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                                                            : Direction::North;
                 v.faces[int(front)].sprite = sprite("loom_front");
                 m = single(v);
+            } else if (name == "bee_nest" || name == "beehive") {
+                // (M26.3b) the front faces `facing`; full of honey it shows dripping combs
+                const bool nest = name == "bee_nest";
+                const bool full = registry.value(state, "honey_level") == "5";
+                const auto facing = registry.value(state, "facing").value_or("north");
+                BakedVariant v = cubeAll(sprite(nest ? "bee_nest_side" : "beehive_side"));
+                v.faces[int(Direction::Up)].sprite = sprite(nest ? "bee_nest_top" : "beehive_end");
+                v.faces[int(Direction::Down)].sprite = sprite(nest ? "bee_nest_bottom" : "beehive_end");
+                const Direction front = facing == "south" ? Direction::South
+                                        : facing == "west" ? Direction::West
+                                        : facing == "east" ? Direction::East
+                                                           : Direction::North;
+                v.faces[int(front)].sprite = sprite(nest ? (full ? "bee_nest_front_honey" : "bee_nest_front")
+                                                         : (full ? "beehive_front_honey" : "beehive_front"));
+                m = single(v);
+            } else if (name == "honey_block") {
+                BakedVariant v = cubeAll(sprite("honey_block_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("honey_block_top");
+                v.faces[int(Direction::Down)].sprite = sprite("honey_block_bottom");
+                m = single(v);
             } else if (name == "crafting_table") {
                 BakedVariant v = cubeAll(sprite("crafting_table_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("crafting_table_top");

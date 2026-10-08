@@ -452,6 +452,9 @@ def mob_sounds(name, rng):
         snuff = lambda: mul(bandpass(noise(int(0.15 * RATE), rng), 800, 3000), env(int(0.15 * RATE), 0.01, 0.05))
         return [add(snuff(), at(snuff(), 0.2, 0.4)) for _ in range(3)], [snuff() for _ in range(2)], \
             add(snuff(), at(snuff(), 0.25, 0.6))
+    if name == "bee":  # a buzz (ours): a saw at ~220 Hz with a fast flutter
+        buzz = lambda d, f: mul(tone(d, f, f * 1.02, "saw", vibrato=0.03, vib_rate=40), env(int(d * RATE), 0.05, 0.15))
+        return [buzz(r(0.8, 1.2), r(200, 240)) for _ in range(3)], [buzz(0.3, 300) for _ in range(2)], buzz(0.6, 160)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -466,7 +469,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
-        "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo"]
+        "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee"]
 
 
 # --- Everything else ----------------------------------------------------------------

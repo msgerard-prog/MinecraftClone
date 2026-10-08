@@ -297,6 +297,17 @@ def rabbit_foot():
     return s.render()
 
 
+def honey_bottle():
+    """A glass bottle of golden honey (M26.3b)."""
+    s = Shape()
+    glass = ramp(hexc("#C8E0E8"), 5, spread=0.2)
+    honey = ramp(hexc("#F0A020"), 5, spread=0.35)
+    s.add({(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 4.5) ** 2 + ((y - 10) / 4.5) ** 2 < 1}, honey)
+    s.add({(x, y) for x in range(6, 10) for y in range(3, 6)}, glass)
+    s.add({(x, 2) for x in range(6, 10)}, ramp(hexc("#8A6A48"), 5))
+    return s.render()
+
+
 def meat(name, base, fat, marbled=True):
     rng = random.Random(name)
     pal = ramp(hexc(base), 5, spread=0.35)
@@ -1018,6 +1029,7 @@ def all_items():
     items["armadillo_scute"] = scute("#B87A6A")
     items["wolf_armor"] = wolf_armor()
     items["sweet_berries"] = sweet_berries()
+    items["honey_bottle"] = honey_bottle()
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

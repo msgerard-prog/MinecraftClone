@@ -1106,6 +1106,34 @@ def panda():
     return img
 
 
+def bee():
+    """A bee (M26.3b): yellow body with dark stripes, pale see-through wings, a dark
+    stinger and antennae."""
+    rng = random.Random("bee")
+    img = Img(64, 64, CLEAR)
+    yellow = ramp(hexc("#F0C030"), 5, spread=0.25)
+    dark = ramp(hexc("#2A2018"), 5, spread=0.2)
+    for name, (x0, y0, w, h) in box_faces(0, 0, 7, 7, 10).items():
+        for y in range(h):
+            for x in range(w):
+                along = x if name in ("left", "right") else (y if name in ("top", "bottom") else -1)
+                c = yellow[2 if rng.random() > 0.3 else 1]
+                if along >= 0 and along % 4 == 2:
+                    c = dark[2]
+                img.set(x0 + x, y0 + y, c)
+    fx, fy, fw, fh = box_faces(0, 0, 7, 7, 10)["front"]
+    for (ex, ey) in ((1, 2), (1, 3), (5, 2), (5, 3)):
+        img.set(fx + ex, fy + ey, (20, 20, 30, 255))
+    for (x0, y0, w, h) in box_faces(0, 18, 8, 1, 6).values():
+        for y in range(h):
+            for x in range(w):
+                img.set(x0 + x, y0 + y, (220, 235, 245, 170))
+    for box in ((34, 0, 1, 1, 2), (34, 4, 1, 2, 3), (16, 18, 7, 2, 1)):
+        for f in box_faces(*box).values():
+            paint(img, f, dark, rng)
+    return img
+
+
 HORSE_BOXES = [(0, 0, 4, 11, 4), (16, 0, 5, 5, 10), (46, 0, 3, 10, 4), (0, 15, 4, 10, 6), (20, 15, 2, 10, 3),
                (30, 15, 2, 3, 1), (0, 32, 10, 10, 22)]
 LLAMA_BOXES = [(0, 0, 4, 11, 4), (16, 0, 6, 12, 6), (40, 0, 6, 5, 6), (16, 18, 2, 3, 2), (24, 18, 2, 4, 2),
@@ -1173,6 +1201,7 @@ def main():
                                      (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#C8A060",
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
               "mount_gear": mount_gear(),
+              "bee": bee(),
               # M26.3 wildlife: rabbits and foxes light (tinted by kind), the rest in their own colours
               "rabbit": pet("rabbit", [(0, 0, 5, 5, 7), (24, 0, 4, 4, 4), (40, 0, 1, 4, 1), (0, 12, 2, 2, 4),
                                        (12, 12, 1, 3, 1)], (24, 0, 4, 4, 4), (24, 0, 4, 4, 4),

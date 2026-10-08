@@ -1,5 +1,6 @@
 #include "world/World.h"
 
+#include "world/Beehives.h"
 #include "world/Blocks.h"
 
 namespace mc::world {
@@ -18,7 +19,8 @@ Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
         !slot->brewingStands().empty() || !slot->comparators().empty() || !slot->hoppers().empty() ||
-        !slot->campfires().empty() || !slot->beacons().empty() || !slot->jukeboxes().empty())
+        !slot->campfires().empty() || !slot->beacons().empty() || !slot->jukeboxes().empty() ||
+        !slot->beehives().empty())
         markTicking(slot->pos());
     return *slot;
 }
@@ -80,6 +82,15 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         markTicking(c->pos());
     }
     if (was != b && was == blocks::Jukebox) c->removeBlockEntity(x, p.y, z); // (M23.6)
+    const auto isHive = [](BlockId id) { return id == blocks::BeeNest || id == blocks::Beehive; };
+    if (was != b && isHive(was)) { // (M26.3b) the bees inside come out angry
+        if (BeehiveData* h = c->beehive(x, p.y, z)) releaseBees(*c, p, *h, true);
+        c->removeBlockEntity(x, p.y, z);
+    }
+    if (b != was && isHive(b)) {
+        c->addBeehive(x, p.y, z);
+        markTicking(c->pos());
+    }
     if (b != was && b == blocks::Jukebox) {
         c->addJukebox(x, p.y, z);
         markTicking(c->pos());

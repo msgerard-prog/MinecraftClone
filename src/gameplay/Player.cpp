@@ -279,9 +279,13 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // Holding jump re-jumps only every 10 ticks; releasing it resets the delay.
     if (!input.jump) m_jumpDelay = 0;
     if (m_jumpDelay > 0) --m_jumpDelay;
+    // A honey block underfoot (M26.3b; wiki: Honey Block): half the jump, 0.4 the speed.
+    const bool onHoney = !m_flying && m_onGround &&
+                         world::blockRegistry().blockOf(world.getBlock({int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.5)),
+                                                                        int(std::floor(m_pos.z))})) == world::blocks::HoneyBlock;
     if (!m_flying && input.jump && m_onGround && m_jumpDelay == 0) {
         m_jumpDelay = kJumpDelay;
-        m_velocity.y = kJumpVelocity + 0.1 * m_jumpBoost;
+        m_velocity.y = (kJumpVelocity + 0.1 * m_jumpBoost) * (onHoney ? 0.5 : 1.0);
         if (m_sprinting) {
             const glm::dvec3 f(world::forwardFlat(m_yaw));
             m_velocity += f * kSprintJumpBoost;
@@ -331,6 +335,10 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     }
     m_velocity.x *= friction;
     m_velocity.z *= friction;
+    if (onHoney) { // (its speed factor: vanilla scales the motion after moving)
+        m_velocity.x *= 0.4;
+        m_velocity.z *= 0.4;
+    }
 }
 
 } // namespace mc

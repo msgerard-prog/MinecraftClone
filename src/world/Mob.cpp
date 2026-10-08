@@ -115,6 +115,8 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:panda", 20.0f, 1.3, 1.25, 0.15, 6.0f, false},
         {"minecraft:goat", 10.0f, 0.9, 1.3, 0.2, 2.0f, false},
         {"minecraft:armadillo", 12.0f, 0.7, 0.65, 0.14, 0.0f, false},
+        // wiki: Bee - 10 health, 0.7 x 0.6, flying speed 0.6, stings for 2 (+ Poison).
+        {"minecraft:bee", 10.0f, 0.7, 0.6, 0.3, 2.0f, false, false, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

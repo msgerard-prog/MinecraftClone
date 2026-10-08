@@ -55,6 +55,7 @@
 #include "ui/Menus.h"
 #include "ui/SignEditor.h"
 #include "world/BlockShapes.h"
+#include "world/Beehives.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/ChunkLoader.h"
@@ -396,7 +397,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return 1;
     }
     if (generatorKind != "terrain" && generatorKind != "overworld" &&
-        generatorKind != "overworld2" && generatorKind != "overworld3" && generatorKind != "overworld4") {
+        generatorKind != "overworld2" && generatorKind != "overworld3" && generatorKind != "overworld4" &&
+        generatorKind != "overworld5") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -415,7 +417,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                                generatorKind == "overworld"    ? 1
                                                                : generatorKind == "overworld2" ? 2
                                                                : generatorKind == "overworld3" ? 3
-                                                                                               : 4);
+                                                               : generatorKind == "overworld4" ? 4
+                                                                                               : 5);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -2276,6 +2279,33 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         blockUpdates.jukeboxChanged(at);
                         acted = true;
                     }
+                } else if ((hb == mc::world::blocks::BeeNest || hb == mc::world::blocks::Beehive) && !held.empty() &&
+                           reg.get(world.getBlock(at), mc::world::properties::honeyLevel) == 5 &&
+                           (mc::world::itemRegistry().item(held.item).id == "minecraft:shears" ||
+                            mc::world::itemRegistry().item(held.item).id == "minecraft:glass_bottle")) {
+                    // Harvesting a full hive (M26.3b; wiki: Beehive): shears cut 3 honeycombs,
+                    // a bottle fills with honey. Without a campfire's smoke below, the
+                    // bees inside come out angry.
+                    const bool shearing = mc::world::itemRegistry().item(held.item).id == "minecraft:shears";
+                    if (shearing) {
+                        droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5},
+                                           {*mc::world::itemRegistry().find("honeycomb"), 3}, gameRng);
+                        if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    } else {
+                        if (survival) inventory.consumeSelected(1);
+                        const mc::world::ItemStack honey{*mc::world::itemRegistry().find("honey_bottle"), 1};
+                        if (inventory.add(honey) > 0) droppedItems.spawn(player.position(), honey, gameRng);
+                    }
+                    world.updateBlock(at, reg.set(world.getBlock(at), mc::world::properties::honeyLevel, 0));
+                    frameEdits.push_back(at);
+                    if (!mc::world::hiveSmoked(world, at))
+                        if (mc::world::Chunk* hc = world.chunk(at.chunk()))
+                            if (mc::world::BeehiveData* hd =
+                                    hc->beehive(mc::world::blockToLocal(at.x), at.y, mc::world::blockToLocal(at.z))) {
+                                mc::world::releaseBees(*hc, at, *hd, true);
+                                world.markTicking(at.chunk());
+                            }
+                    acted = true;
                 } else if (hb == mc::world::blocks::SweetBerryBush) { // (M26.3) picking berries
                     if (const int n = mc::world::BlockUpdates::pickBerries(world, at, gameRng); n > 0) {
                         droppedItems.spawn({at.x + 0.5, at.y + 0.5, at.z + 0.5},

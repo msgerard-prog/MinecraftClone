@@ -75,6 +75,7 @@ enum class MobType : uint8_t {
     Panda,       // (M26.3) main / hidden gene in woolColour / color2 (kPandaGenes)
     Goat,        // (M26.3) rams; horns (bits 1 left, 2 right) in `horns`; screaming in `powered`
     Armadillo,   // (M26.3) rolls up when scared (`sitting`); sheds scutes
+    Bee,         // (M26.3b) home: its hive (`home`); pollen in `nectar`
     Count
 };
 
@@ -237,6 +238,9 @@ struct MobData {
     uint8_t horns = 3;        // goat: bit 0 left horn, bit 1 right horn
     ItemId mouthItem = 0;     // fox: what it carries (one item)
     int16_t armorWear = 0;    // a wolf's armor: damage it has taken (breaks at 64)
+    bool nectar = false;      // (M26.3b) a bee carrying pollen home (HasNectar)
+    bool stung = false;       // a bee that stung: it dies soon (HasStung)
+    bool vanish = false;      // (not saved) gone without a death: a bee entering its hive
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

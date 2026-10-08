@@ -90,6 +90,7 @@ const Property hasRecord{"has_record", {"true", "false"}};
 const Property hasBook{"has_book", {"true", "false"}};
 const Property waterlogged{"waterlogged", {"true", "false"}};
 const Property pickles{"pickles", {"1", "2", "3", "4"}};
+const Property honeyLevel{"honey_level", {"0", "1", "2", "3", "4", "5"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
 } // namespace properties
@@ -1061,6 +1062,16 @@ BlockRegistry buildVanillaBlocks() {
                                      .randomTicks = true},
                 {{&age3, "0"}}),
           blocks::SweetBerryBush);
+    // (M26.3b; wiki: Bee Nest 0.3, Beehive 0.6 - axe; Honey Block 0, translucent; Honeycomb
+    // Block 0.6)
+    check(r.add("bee_nest", {.hardness = 0.3f, .resistance = 0.3f, .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&honeyLevel, "0"}}),
+          blocks::BeeNest);
+    check(r.add("beehive", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&honeyLevel, "0"}}),
+          blocks::Beehive);
+    check(r.add("honey_block", {.opaqueCube = false, .layer = RenderLayer::Translucent}), blocks::HoneyBlock);
+    check(r.add("honeycomb_block", {.hardness = 0.6f, .resistance = 0.6f}), blocks::HoneycombBlock);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

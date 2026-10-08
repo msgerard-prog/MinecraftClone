@@ -326,6 +326,23 @@ public:
     }
     std::vector<JukeboxEntry>& jukeboxes() { return m_jukeboxes; }
     const std::vector<JukeboxEntry>& jukeboxes() const { return m_jukeboxes; }
+    struct BeehiveEntry { // (M26.3b) bee nests and beehives
+        int x, y, z;
+        BeehiveData data;
+    };
+    BeehiveData* beehive(int x, int y, int z) {
+        for (auto& h : m_beehives)
+            if (h.x == x && h.y == y && h.z == z) return &h.data;
+        return nullptr;
+    }
+    BeehiveData& addBeehive(int x, int y, int z) {
+        if (BeehiveData* h = beehive(x, y, z)) return *h;
+        m_dirty = true;
+        m_beehives.push_back({x, y, z, {}});
+        return m_beehives.back().data;
+    }
+    std::vector<BeehiveEntry>& beehives() { return m_beehives; }
+    const std::vector<BeehiveEntry>& beehives() const { return m_beehives; }
     void removeBlockEntity(int x, int y, int z) {
         std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
@@ -333,6 +350,7 @@ public:
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
+        std::erase_if(m_beehives, [&](const BeehiveEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
@@ -451,6 +469,7 @@ private:
     std::vector<CampfireEntry> m_campfires;
     std::vector<BeaconEntry> m_beacons;
     std::vector<JukeboxEntry> m_jukeboxes;
+    std::vector<BeehiveEntry> m_beehives;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<MobStoreEntry> m_mobStores;

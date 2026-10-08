@@ -53,6 +53,7 @@ extern const Property waterlogged;    // true | false (M25.1: corals, sea pickle
 extern const Property pickles;        // 1..4 (sea pickles)
 extern const Property eggs;           // 1..4 (turtle eggs)
 extern const Property hatch;          // 0..2 (turtle eggs)
+extern const Property honeyLevel;     // "honey_level": 0..5 (M26.3b: bee nests and beehives)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -382,6 +383,10 @@ enum : BlockId {
     Sponge,    // (M25.5) soaks up water around it, turning wet
     WetSponge, // dries in the Nether (or a furnace)
     SweetBerryBush, // age 0..3 (M26.3: berries at 2 and 3; foxes eat them)
+    BeeNest,        // facing, honey_level 0..5 (M26.3b; a block entity holds the bees inside)
+    Beehive,        // facing, honey_level 0..5
+    HoneyBlock,     // slows and sticks (M26.3b)
+    HoneycombBlock,
     Count
 };
 } // namespace blocks

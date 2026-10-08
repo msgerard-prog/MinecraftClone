@@ -33,6 +33,11 @@ bool Mobs::isFood(MobType type, ItemId item) {
     if (type == MobType::Panda) return item != kNoItem && item == bamboo;
     if (type == MobType::Goat) return item == wheat;
     if (type == MobType::Armadillo) return item != kNoItem && item == spiderEye;
+    if (type == MobType::Bee && item != kNoItem) { // (M26.3b) flowers
+        const BlockId b = itemRegistry().item(item).block;
+        return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower || b == blocks::AzureBluet ||
+               b == blocks::OxeyeDaisy;
+    }
     switch (type) {
     case MobType::Cow:
     case MobType::Sheep: return item == wheat;

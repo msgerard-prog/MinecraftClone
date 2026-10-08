@@ -97,6 +97,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/panda.png",
         "assets/minecraft/textures/entity/clone/goat.png",
         "assets/minecraft/textures/entity/clone/armadillo.png",
+        "assets/minecraft/textures/entity/clone/bee.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",

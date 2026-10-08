@@ -59,7 +59,7 @@ TEST_CASE("waterlogged blocks: kelp and seagrass always, corals and pickles by t
 
 TEST_CASE("overworld4: deep lukewarm/cold/frozen oceans; seagrass and kelp on ocean floors, always under water") {
     const OverworldGenerator gen(42);
-    CHECK(gen.kind() == "overworld4");
+    CHECK(gen.kind() == "overworld5"); // (the newest keeps overworld4's oceans)
     const auto deep = findChunk(gen, {Biome::DeepColdOcean, Biome::DeepLukewarmOcean, Biome::DeepFrozenOcean});
     REQUIRE(deep.has_value());
     const auto ocean = findChunk(gen, {Biome::Ocean, Biome::ColdOcean, Biome::LukewarmOcean, Biome::DeepOcean,
@@ -146,7 +146,7 @@ TEST_CASE("overworld4: flooded caves - no water inside a chunk hangs over or bes
 }
 
 TEST_CASE("overworld4 is deterministic; older generators keep their output (pinned)") {
-    const OverworldGenerator a(42), b(42);
+    const OverworldGenerator a(42, 4), b(42, 4);
     Chunk c1({5, -3}), c2({5, -3});
     a.generate(c1);
     b.generate(c2);
@@ -345,4 +345,47 @@ TEST_CASE("overworld4: ocean monuments - prismarine, gold blocks inside, elder g
     CHECK(gold == 8);
     CHECK(bricks > 500);
     CHECK(elders == 3);
+}
+
+TEST_CASE("overworld5 (M26.3b): bee nests with 2-3 bees on meadow and plains trees; berry bushes in taigas; pinned") {
+    const OverworldGenerator gen(42);
+    CHECK(gen.kind() == "overworld5");
+    // Around a meadow or plains: nests hang on trunk sides and hold their bees. Around a
+    // taiga: berry bushes.
+    int nests = 0, bushes = 0;
+    const auto meadow = findChunk(gen, {Biome::Meadow, Biome::FlowerForest, Biome::CherryGrove});
+    const auto taiga = findChunk(gen, {Biome::Taiga, Biome::SnowyTaiga, Biome::OldGrowthSpruceTaiga});
+    REQUIRE(meadow.has_value());
+    REQUIRE(taiga.has_value());
+    MESSAGE("nest search near " << meadow->x << ", " << meadow->z << "; bushes near " << taiga->x << ", " << taiga->z);
+    for (const ChunkPos centre : {*meadow, *taiga})
+        for (int cz = centre.z - 5; cz <= centre.z + 5 && (centre == *meadow ? nests == 0 : bushes == 0); ++cz)
+            for (int cx = centre.x - 5; cx <= centre.x + 5; ++cx) {
+                Chunk c({cx, cz});
+                gen.generate(c);
+                for (const auto& h : c.beehives()) {
+                    ++nests;
+                    CHECK(R().blockOf(c.get(h.x, h.y, h.z)) == blocks::BeeNest);
+                    CHECK(h.data.count >= 2);
+                    CHECK(h.data.count <= 3);
+                }
+                for (int y = 60; y < 200; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x) bushes += R().blockOf(c.get(x, y, z)) == blocks::SweetBerryBush;
+            }
+    CHECK(nests > 0);
+    CHECK(bushes > 0);
+    // A land chunk with the new features about, pinned (re-pinned while M26 builds it).
+    Chunk o(*meadow);
+    gen.generate(o);
+    uint64_t h = 1469598103934665603ull;
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                for (const char ch : R().toString(o.get(x, y, z))) {
+                    h ^= uint8_t(ch);
+                    h *= 1099511628211ull;
+                }
+    MESSAGE("overworld5 hash " << h);
+    CHECK(h == 7109397372215393852ull);
 }

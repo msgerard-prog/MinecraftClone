@@ -213,6 +213,12 @@ std::vector<Recipe> build() {
     // (M26.3; wiki: Leather - 4 rabbit hides; Wolf Armor - 6 armadillo scutes)
     r.push_back(shaped({"##", "##"}, {{'#', item("rabbit_hide")}}, "leather"));
     r.push_back(shaped({"#..", "###", "#.#"}, {{'#', item("armadillo_scute")}}, "wolf_armor"));
+    // (M26.3b; wiki: Beehive - planks around 3 honeycombs; Honey Block - 4 honey bottles;
+    // Honeycomb Block - 4 honeycombs; Sugar - a honey bottle makes 3)
+    r.push_back(shaped({"PPP", "HHH", "PPP"}, {{'P', kPlanks}, {'H', item("honeycomb")}}, "beehive"));
+    r.push_back(shaped({"BB", "BB"}, {{'B', item("honey_bottle")}}, "honey_block"));
+    r.push_back(shaped({"HH", "HH"}, {{'H', item("honeycomb")}}, "honeycomb_block"));
+    r.push_back(shapeless({item("honey_bottle")}, "sugar", 3));
     // Nether (M19.2; wiki: Blaze Powder, Eye of Ender, Gold Nugget, Fire Charge).
     r.push_back(shapeless({item("blaze_rod")}, "blaze_powder", 2));
     r.push_back(shapeless({item("ender_pearl"), item("blaze_powder")}, "ender_eye"));

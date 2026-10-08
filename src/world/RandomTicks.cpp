@@ -428,6 +428,37 @@ bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
         const BlockPos ground{p.x + (k & 1), p.y - 1, p.z + (k >> 1)};
         if (blockOf(at(ground)) == B::GrassBlock) set(ground, R().defaultState(B::Dirt));
     }
+    // (M26.3b) An oak, birch or cherry grown within 2 blocks of a flower gets a bee nest
+    // 5% of the time, on the trunk under the leaves, with 1-3 bees (wiki: Bee Nest ›
+    // Natural generation; the bee count is our assumption).
+    if ((t.kind == TreeKind::Oak || t.kind == TreeKind::Birch || t.kind == TreeKind::Cherry) && m_random.nextInt(20) == 0) {
+        bool flowers = false;
+        for (int dz = -2; dz <= 2 && !flowers; ++dz)
+            for (int dx = -2; dx <= 2 && !flowers; ++dx) {
+                const BlockId f = blockOf(at({p.x + dx, p.y, p.z + dz}));
+                flowers = f == B::Dandelion || f == B::Poppy || f == B::Cornflower || f == B::AzureBluet || f == B::OxeyeDaisy;
+            }
+        static constexpr int kSide[4][3] = {{0, 1, 1}, {0, -1, 0}, {-1, 0, 2}, {1, 0, 3}}; // dx, dz, facing (s, n, w, e)
+        // (just under the lowest leaves: oak/birch canopies start 3 below the top log,
+        // cherry crowns 2)
+        const int y = p.y + std::max(0, height - (t.kind == TreeKind::Cherry ? 3 : 4));
+        for (const auto& sd : kSide) {
+            const BlockPos n{p.x + sd[0], y, p.z + sd[1]};
+            if (!flowers || at(n) != 0 || blockOf(at({p.x, y, p.z})) != blockOf(log)) continue;
+            set(n, R().set(R().set(R().defaultState(B::BeeNest), facing, sd[2]), honeyLevel, 0));
+            if (Chunk* c = m_world.chunk(n.chunk()))
+                if (BeehiveData* h = c->beehive(blockToLocal(n.x), n.y, blockToLocal(n.z))) {
+                    h->count = uint8_t(1 + m_random.nextInt(3));
+                    for (int i = 0; i < h->count; ++i) {
+                        HiveBee& b = h->bees[size_t(i)];
+                        b.uuidHi = (m_random.nextLong() & ~0xF000ull) | 0x4000ull;
+                        b.uuidLo = (m_random.nextLong() & ~(3ull << 62)) | (2ull << 62);
+                        b.minTicks = 600;
+                    }
+                }
+            break;
+        }
+    }
     return true;
 }
 
