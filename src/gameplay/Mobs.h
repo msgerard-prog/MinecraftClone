@@ -165,6 +165,9 @@ private:
     bool phantomAi(Context& ctx, world::MobData& m);
     // The Wither (Wither.cpp, M26.4b).
     bool witherAi(Context& ctx, world::MobData& m);
+    // Allays (Allays.cpp, M26.5a).
+    bool allayAi(Context& ctx, world::MobData& m);
+    static Use allayInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
 
 public:
     // Wither skeleton skulls on a T of soul sand / soil (the last skull just placed at

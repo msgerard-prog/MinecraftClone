@@ -14,7 +14,9 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         m_air = m_air + 4 > kMaxAir ? kMaxAir : m_air + 4;
         return 0.0f;
     }
-    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0) return 0.0f;
+    if (keepBreath || effectLevel(world::Effect::WaterBreathing) > 0 ||
+        effectLevel(world::Effect::BreathOfTheNautilus) > 0) // (M26.5a: riding a nautilus)
+        return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
         // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).

@@ -294,7 +294,10 @@ M26.4b: entity `minecraft:wither`; blocks `skeleton_skull`, `wither_skeleton_sku
 `*_wall_skull`/`*_wall_head` [facing]; items: the six standing kinds (wall kinds drop
 them). Block textures `clone_head_<kind>_{front,back,side,top}` are ours (not vanilla
 names).
-M26.4c: entity `minecraft:breeze`; items `breeze_rod`, `wind_charge`. Items `saddle`,
+M26.4c: entity `minecraft:breeze`; items `breeze_rod`, `wind_charge`.
+M26.5a: entities `minecraft:allay` (equipment.mainhand: its item, `Inventory`,
+`DuplicationCooldown`), `nautilus` (Tame, Owner, equipment.saddle); item `amethyst_shard`;
+effect `minecraft:breath_of_the_nautilus`. Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

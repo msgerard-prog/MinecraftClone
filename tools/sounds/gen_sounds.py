@@ -476,6 +476,14 @@ def mob_sounds(name, rng):
                                         env(int(d * RATE), 0.05, d / 2))
         return ([screech(r(0.8, 1.1), r(700, 900), r(500, 600)) for _ in range(3)],
                 [screech(0.3, 1100, 900) for _ in range(2)], screech(1.0, 900, 300))
+    if name == "allay":  # a little humming trill (ours)
+        hum = lambda f: mul(add(tone(0.25, f, f * 1.25, "sine"), at(tone(0.2, f * 1.5, f * 1.6, "sine"), 0.08, 0.25)),
+                            env(int(0.25 * RATE), 0.02, 0.08))
+        return [hum(r(700, 900)) for _ in range(3)], [hum(1100) for _ in range(2)], hum(500)
+    if name == "nautilus":  # bubbly clicks (ours)
+        click = lambda f: [x * 3 for x in resonator(mul(noise(800, rng), env(800, 0.0005, 0.004)), f, 10)]
+        bubbles = lambda: add(*[at(click(r(400, 900)), k * 0.09, 0.5) for k in range(4)])
+        return [bubbles() for _ in range(3)], [click(1200) for _ in range(2)], bubbles()
     if name == "breeze":  # whooshing gusts (ours)
         gust = lambda d, lo, hi: mul(bandpass(noise(int(d * RATE), rng), lo, hi), env(int(d * RATE), d / 3, d / 2))
         return ([gust(r(0.6, 0.9), 400, 2500) for _ in range(3)], [gust(0.3, 800, 4000) for _ in range(2)],
@@ -500,7 +508,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot",
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
-        "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze"]
+        "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
+        "allay", "nautilus"]
 
 
 # --- Everything else ----------------------------------------------------------------

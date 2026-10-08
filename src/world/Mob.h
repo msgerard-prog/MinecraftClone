@@ -85,6 +85,8 @@ enum class MobType : uint8_t {
     Phantom,        // (M26.4a) swoops on players who haven't slept for 3 days
     Wither,         // (M26.4b) the boss built of soul sand and wither skeleton skulls
     Breeze,         // (M26.4c) leaps about and shoots wind charges (trial chambers: M27)
+    Allay,          // (M26.5a) holds a liked item (`mouthItem`), gathers more of it (`allayCount`)
+    Nautilus,       // (M26.5a) tamed with pufferfish, ridden under water with a saddle
     Count
 };
 
@@ -139,7 +141,7 @@ inline constexpr uint32_t kParrotColours[5] = {0xD02A20, 0x2850D8, 0x50C830, 0x3
 // Mounts (M26.2; wiki: Horse, Donkey, Mule, Llama, Camel): ridden by the player.
 inline bool isMount(MobType t) {
     return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule || t == MobType::Llama ||
-           t == MobType::TraderLlama || t == MobType::Camel;
+           t == MobType::TraderLlama || t == MobType::Camel || t == MobType::Nautilus;
 }
 inline bool isHorseKind(MobType t) { return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule; }
 inline bool isLlama(MobType t) { return t == MobType::Llama || t == MobType::TraderLlama; }
@@ -260,6 +262,7 @@ struct MobData {
     bool nectar = false;      // (M26.3b) a bee carrying pollen home (HasNectar)
     bool stung = false;       // a bee that stung: it dies soon (HasStung)
     bool vanish = false;      // (not saved) gone without a death: a bee entering its hive
+    uint8_t allayCount = 0;   // (M26.5a) how many of its liked item an allay carries
     int8_t chargedBlast = 0;  // (M26.4b) ticks left in which a death counts as a charged creeper's kill (a head)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)

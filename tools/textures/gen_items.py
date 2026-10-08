@@ -1045,6 +1045,7 @@ def all_items():
     items["sweet_berries"] = sweet_berries()
     items["honey_bottle"] = honey_bottle()
     items["wind_charge"] = wind_charge()  # (M26.4c)
+    items["amethyst_shard"] = gem("#A87AE0", "emerald")  # (M26.5a)
     items["breeze_rod"] = blaze_rod("#8AB0E0", "#E0F0FF")
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)

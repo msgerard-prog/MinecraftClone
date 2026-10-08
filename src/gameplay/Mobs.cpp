@@ -364,6 +364,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (beeAi(ctx, m)) return;    // (M26.3b, Bees.cpp)
     if (phantomAi(ctx, m)) return; // (M26.4a, Phantoms.cpp)
     if (witherAi(ctx, m)) return;  // (M26.4b, Wither.cpp)
+    if (allayAi(ctx, m)) return;   // (M26.5a, Allays.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -665,6 +666,9 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.angry = true; // (M26.3: they fight back - wiki: Polar Bear, Panda)
         m.angerTicks = 400;
         m.targeting = true;
+    } else if (m.type == MobType::Nautilus && !m.tamed) { // (M26.5a: neutral - it bites back)
+        m.angry = true;
+        m.angerTicks = 400;
     } else if (isLlama(m.type)) { // llamas spit back (wiki: Llama)
         m.angry = true;
         m.angerTicks = 200;
@@ -900,6 +904,15 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Phantom:
         if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
+        break;
+    case MobType::Allay: // (M26.5a) what it held and carried
+        if (m.mouthItem != kNoItem) {
+            ctx.items.spawn(m.pos, {m.mouthItem, 1}, ctx.rng);
+            if (m.allayCount > 0) ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
+        }
+        break;
+    case MobType::Nautilus: // (M26.5a; wiki: a nautilus shell 5%, +1% a Looting level)
+        if (ctx.rng.nextInt(100) < 5u + m.looting) drop("nautilus_shell", 1, 1);
         break;
     case MobType::Breeze: // (M26.4c; wiki: 1-2 breeze rods for player kills)
         if (m.lastHurtByPlayer) drop("breeze_rod", 1, 2);

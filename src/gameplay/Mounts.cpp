@@ -93,7 +93,7 @@ bool Mobs::isMountFood(MobType type, ItemId item) {
 void Mobs::initMount(MobData& m, Xoroshiro& rng) {
     // Spawn stats (wiki: Horse › Statistics): health 15 + 0-7 + 0-8; speed and jump
     // strength from three averaged rolls.
-    if (m.type == MobType::Camel) return; // (32 health, fixed stats)
+    if (m.type == MobType::Camel || m.type == MobType::Nautilus) return; // (fixed stats)
     m.maxHealth = 15.0f + float(rng.nextInt(8) + rng.nextInt(9));
     m.health = m.maxHealth;
     if (m.type == MobType::Horse) {
@@ -114,7 +114,7 @@ void Mobs::mountOffspring(const MobData& a, const MobData& b, MobData& baby, Xor
     // A horse and a donkey have a mule (wiki: Mule).
     if ((a.type == MobType::Horse && b.type == MobType::Donkey) || (a.type == MobType::Donkey && b.type == MobType::Horse))
         baby.type = MobType::Mule;
-    if (baby.type == MobType::Camel) return;
+    if (baby.type == MobType::Camel || baby.type == MobType::Nautilus) return;
     // A foal's stat: the parents' average + (their difference + 30% of the range) x a
     // centred random factor, reflected back inside the range (wiki: Horse › Breeding).
     auto stat = [&](double x, double y, double lo, double hi) {
@@ -158,6 +158,49 @@ bool Mobs::canMate(const MobData& a, const MobData& b) {
 
 Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     const std::string_view id = held != kNoItem ? itemRegistry().item(held).id : std::string_view{};
+    if (m.type == MobType::Nautilus) { // (M26.5a; wiki: Nautilus)
+        const bool puffer = id == "minecraft:pufferfish" || id == "minecraft:pufferfish_bucket";
+        const bool fish = puffer || id == "minecraft:cod" || id == "minecraft:salmon" || id == "minecraft:tropical_fish" ||
+                          id == "minecraft:cod_bucket" || id == "minecraft:salmon_bucket" ||
+                          id == "minecraft:tropical_fish_bucket";
+        if (!m.tamed) { // tamed with pufferfish, 1 in 3
+            if (!puffer) return Use::None;
+            if (rng.nextInt(3) == 0) {
+                m.tamed = true;
+                m.persistent = true;
+                m.angry = false;
+            }
+            return Use::Fed;
+        }
+        if (fish) { // heals, grows, breeds
+            if (m.health < maxHealthOf(m)) {
+                m.health = std::min(maxHealthOf(m), m.health + 2.0f);
+                return Use::Fed;
+            }
+            if (m.isBaby()) {
+                m.age = std::min(0, m.age + 2400);
+                return Use::Fed;
+            }
+            if (m.age == 0 && m.loveTicks == 0) {
+                m.loveTicks = 600;
+                return Use::Fed;
+            }
+            return Use::None;
+        }
+        if (m.isBaby()) return Use::None;
+        if (id == "minecraft:shears" && m.saddled) {
+            dropNamed(items, m.pos + glm::dvec3(0.0, 0.5, 0.0), "saddle", rng);
+            m.saddled = false;
+            return Use::Sheared;
+        }
+        if (id == "minecraft:saddle" && !m.saddled) {
+            m.saddled = true;
+            return Use::Fed;
+        }
+        if (m.ridden) return Use::None;
+        m.ridden = true;
+        return Use::Ride;
+    }
     const bool tame = m.tamed || m.type == MobType::Camel; // (camels need no taming)
     const glm::dvec3 at = m.pos + glm::dvec3(0.0, 1.0, 0.0);
     // Shears take off its body armor or carpet, then its saddle (1.21.6).
@@ -236,6 +279,7 @@ double Mobs::seatHeight(const MobData& m) {
     case MobType::Boat: return 0.15;
     case MobType::Minecart: return 0.3;
     case MobType::Camel: return 1.75;
+    case MobType::Nautilus: return 0.55;
     case MobType::Llama:
     case MobType::TraderLlama: return 1.15;
     case MobType::Donkey:
@@ -268,6 +312,21 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
                 ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x, m.pos.y + 1.0, m.pos.z);
             }
         }
+        return true;
+    }
+    if (m.type == MobType::Nautilus && m.saddled) {
+        // Ridden under water (M26.5a; wiki: Nautilus): forward swims where the rider looks
+        // (6.5 blocks/s), jump dashes up to 12 blocks (every 2 s).
+        m.yaw = m.headYaw;
+        const glm::dvec3 look(lookVector(m.headYaw, m.pitch));
+        const glm::dvec3 wish = look * (m.paddleForward > 0 ? 0.325 : m.paddleForward < 0 ? -0.08 : 0.0);
+        if (m.riderJump > 0 && m.dashCooldown == 0) {
+            m.vel += look * (1.4 * m.riderJump / 100.0);
+            m.dashCooldown = 40;
+        }
+        m.riderJump = 0;
+        m.paddleForward = m.paddleTurn = 0;
+        physics(ctx.world, m, wish, false);
         return true;
     }
     const bool steered = m.saddled && (isHorseKind(m.type) || m.type == MobType::Camel);

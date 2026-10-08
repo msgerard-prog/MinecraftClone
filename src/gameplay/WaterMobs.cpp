@@ -85,6 +85,21 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
         m.age = 0;
         return true;
     }
+    if (m.type == MobType::Nautilus) { // (M26.5a) breeding like animals; provoked, it bites back
+        animalUpkeep(ctx, m);
+        if (double unused = 0.0; fluid.water && animalGoal(ctx, m, unused)) m.goalTicks = 0;
+        if (m.angry && --m.angerTicks <= 0) m.angry = false;
+        if (m.angry && !m.tamed && ctx.survival && !ctx.playerDead && playerDist2 < 16.0 * 16.0) {
+            m.goal = playerPos + glm::dvec3(0.0, 0.5, 0.0);
+            m.goalTicks = 0;
+            if (m.attackCooldown > 0) --m.attackCooldown;
+            if (m.attackCooldown == 0 &&
+                box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.3), ctx.player.box().max + glm::dvec3(0.3)})) {
+                if (ctx.vitals.attacked(mobInfo(m.type).attackDamage, &m.pos)) m_playerAttacker = m.uuidHi;
+                m.attackCooldown = 20;
+            }
+        }
+    }
     if (m.type == MobType::Axolotl) {
         // Playing dead (wiki: Axolotl): a hurt axolotl may lie still for 10 s, healing.
         // (hurtTime was 10 at the hit; the tick counted it down once before the AI)
@@ -325,6 +340,9 @@ void Mobs::spawnWater(Context& ctx) {
         // water below y 0 until lush caves come in M27), else glow squid.
         if (y < 0 && m_axolotls < 5 && ctx.rng.nextInt(3) == 0) kind = MobType::Axolotl, group = 4 + int(ctx.rng.nextInt(3));
         else if (m_glowSquid < 5) kind = MobType::GlowSquid, group = 4 + int(ctx.rng.nextInt(3)); // (wiki: 4-6)
+    } else if (y >= 38 && y <= 58 && sea && biome != Biome::River && biome != Biome::FrozenRiver && roll < 4 &&
+               m_squid < 5) {
+        kind = MobType::Nautilus, group = 1 + int(ctx.rng.nextInt(3)); // (M26.5a; wiki: oceans, y 38-58, 1-3)
     } else if (y < 50 || y > 63) {
         return; // (fish, squid and dolphins: y 50-63 only - wiki)
     } else if (roll < 30) { // the creature list

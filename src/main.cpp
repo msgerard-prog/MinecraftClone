@@ -1778,6 +1778,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     cart->paddleForward = int8_t(input.forward > 0.0f ? (input.sprint ? 2 : 1) : input.forward < 0.0f ? -1 : 0);
                     cart->paddleTurn = int8_t(input.strafe > 0.0f ? 1 : input.strafe < 0.0f ? -1 : 0);
                     cart->headYaw = player.yaw();
+                    cart->pitch = player.pitch(); // (a nautilus swims where the rider looks - M26.5a)
+                    if (cart->type == mc::world::MobType::Nautilus) // (its rider keeps their breath)
+                        vitals.addEffect(mc::world::Effect::BreathOfTheNautilus, 0, 40);
                     if (input.jump) {
                         mountJumpTicks = std::min(mountJumpTicks + 1, 10);
                     } else if (mountJumpTicks > 0) {
@@ -2471,6 +2474,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     (!inventory.selectedStack().empty() ||
                      (mc::world::isPet(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) &&
                       world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed) ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type == mc::world::MobType::Allay ||
                      mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const mc::world::ItemStack held = inventory.selectedStack();
@@ -4001,7 +4005,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints());
             const mc::world::MobData* steed = ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
-            if (steed && steed->saddled && (mc::world::isHorseKind(steed->type) || steed->type == mc::world::MobType::Camel))
+            if (steed && steed->saddled &&
+                (mc::world::isHorseKind(steed->type) || steed->type == mc::world::MobType::Camel ||
+                 steed->type == mc::world::MobType::Nautilus))
                 mc::ui::drawJumpBar(batch, float(mountJumpTicks) / 10.0f, guiW, guiH);
             else if (survival)
                 mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);

@@ -2633,6 +2633,19 @@ void OverworldGenerator::placeOutposts(BlockStateId* blocks, int32_t cx, int32_t
             sb.mob(2, 1, 2, MobType::Pillager);
             sb.mob(4, 6, 2, MobType::Pillager);
             sb.mob(2, 16, 2, MobType::Pillager);
+            // (overworld5, M26.5a) half the outposts keep a dark oak cage beside the tower
+            // with 1-3 allays inside (wiki: Pillager Outpost, Allay › Spawning).
+            if (m_version >= 5 && r.nextInt(2) == 0) {
+                const int allays = 1 + int(r.nextInt(3));
+                StructureBuilder cage{Buf{blocks}, cx * 16, cz * 16, sx + 9, surfaceY(sx + 10, sz + 3) + 1, sz + 2, 3, 3, 0, &out};
+                for (int x = 0; x < 3; ++x)
+                    for (int z = 0; z < 3; ++z) cage.foundation(x, z, cobble, 8);
+                cage.fill(0, 0, 0, 2, 0, 2, darkPlanks);
+                cage.fill(0, 1, 0, 2, 2, 2, fence);
+                cage.fill(1, 1, 1, 1, 2, 1, 0);
+                cage.fill(0, 3, 0, 2, 3, 2, darkPlanks);
+                for (int k = 0; k < allays; ++k) cage.mob(1, 1, 1, MobType::Allay);
+            }
         }
 }
 

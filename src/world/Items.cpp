@@ -223,6 +223,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wolf_armor", .maxStack = 1, .durability = 64, .texture = "item/wolf_armor"});
     // (M26.3b; wiki: Honey Bottle - 6 hunger, 1.2 saturation, stacks to 16)
     r.add({.id = "minecraft:honey_bottle", .maxStack = 16, .food = 6, .saturation = 1.2f, .texture = "item/honey_bottle"});
+    // (M26.5a; wiki: Amethyst Shard - an allay dancing to a jukebox duplicates with one;
+    // the geodes it comes from arrive in M27)
+    r.add({.id = "minecraft:amethyst_shard", .texture = "item/amethyst_shard"});
     // (M26.4c; wiki: Breeze Rod - 4 wind charges; Wind Charge - thrown, a burst of wind)
     r.add({.id = "minecraft:breeze_rod", .texture = "item/breeze_rod"});
     r.add({.id = "minecraft:wind_charge", .texture = "item/wind_charge"});

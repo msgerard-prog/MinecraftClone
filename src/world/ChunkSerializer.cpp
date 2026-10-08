@@ -1154,9 +1154,16 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("state", std::string(m.sitting ? "scared" : "idle"));
             e.put("scute_time", int32_t(m.eggTicks));
         }
-        if ((m.type == MobType::Fox && m.mouthItem != kNoItem) || (m.type == MobType::Wolf && m.horseArmor > 0)) {
-            nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, a wolf's armor)
-            if (m.type == MobType::Fox) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
+        if (m.type == MobType::Allay) { // (M26.5a; wiki: Allay › Entity data)
+            e.put("DuplicationCooldown", int64_t(m.age));
+            std::vector<nbt::Tag> inv;
+            if (m.allayCount > 0 && m.mouthItem != kNoItem) inv.emplace_back(itemNbt({m.mouthItem, m.allayCount}, -1));
+            e.put("Inventory", nbt::listOf(nbt::TagType::Compound, std::move(inv)));
+        }
+        if (((m.type == MobType::Fox || m.type == MobType::Allay) && m.mouthItem != kNoItem) ||
+            (m.type == MobType::Wolf && m.horseArmor > 0)) {
+            nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's armor)
+            if (m.type == MobType::Fox || m.type == MobType::Allay) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
             if (m.type == MobType::Wolf) {
                 ItemStack armor{*itemRegistry().find("wolf_armor"), 1};
                 armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
@@ -1478,6 +1485,17 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (canCarryChest(m.type)) m.hasChest = e->integer("ChestedHorse").value_or(0) != 0;
         }
         if (m.type == MobType::Rabbit) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("RabbitType").value_or(0), 0, 5));
+        if (m.type == MobType::Allay) {
+            m.age = int(std::clamp<int64_t>(e->integer("DuplicationCooldown").value_or(0), 0, 6000));
+            if (const nbt::Compound* eq = e->compound("equipment"))
+                if (const nbt::Compound* hand = eq->compound("mainhand")) m.mouthItem = itemFromNbt(*hand).item;
+            if (const nbt::List* inv = e->list("Inventory"))
+                for (const nbt::Tag& it : inv->items)
+                    if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
+                        const ItemStack st = itemFromNbt(*ic);
+                        if (!st.empty() && st.item == m.mouthItem) m.allayCount = uint8_t(std::min<int>(64, st.count));
+                    }
+        }
         if (m.type == MobType::Fox) {
             const std::string* foxType = e->string("Type");
             m.woolColour = foxType && *foxType == "snow" ? 1 : 0;

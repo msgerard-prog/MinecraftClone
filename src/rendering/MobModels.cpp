@@ -684,6 +684,27 @@ constexpr std::array<MobPart, 5> kBreeze = {{
     {{4, 10, -3}, {6, 18, -1}, {0, 16, 0}, 0, 16, A::Tail},
 }};
 
+// Allay (M26.5a): a small blue spirit - head, body, arms, two wings. Head 5x5x5 @ (0,0),
+// body 3x4x2 @ (20,0), arm 1x4x1 @ (30,0), wing 0.5x5x8 -> 1x5x8 @ (0,10).
+constexpr std::array<MobPart, 6> kAllay = {{
+    {{-2.5f, 5, -2.5f}, {2.5f, 10, 2.5f}, {0, 5, 0}, 0, 0, A::Head},
+    {{-1.5f, 1, -1}, {1.5f, 5, 1}, {0, 3, 0}, 20, 0, A::None},
+    {{-2.5f, 1, -0.5f}, {-1.5f, 5, 0.5f}, {-2, 5, 0}, 30, 0, A::LegA},
+    {{1.5f, 1, -0.5f}, {2.5f, 5, 0.5f}, {2, 5, 0}, 30, 0, A::LegB},
+    {{-0.5f, 2, -9}, {0.5f, 7, -1}, {0, 5, -1}, 0, 10, A::WingL},
+    {{-0.5f, 2, -9}, {0.5f, 7, -1}, {0, 5, -1}, 0, 10, A::WingR},
+}};
+// Nautilus (M26.5a): a coiled shell, a body peeking out, tentacles. Shell 8x8x8 @ (0,0),
+// body 6x5x4 @ (32,0), tentacle 1x1x5 @ (0,16).
+constexpr std::array<MobPart, 6> kNautilus = {{
+    {{-4, 4, -5}, {4, 12, 3}, {0, 8, 0}, 0, 0, A::None},
+    {{-3, 3, 3}, {3, 8, 7}, {0, 5, 3}, 32, 0, A::Head},
+    {{-2, 3, 7}, {-1, 4, 12}, {0, 4, 7}, 0, 16, A::Tail},
+    {{1, 3, 7}, {2, 4, 12}, {0, 4, 7}, 0, 16, A::Tail},
+    {{-0.5f, 5, 7}, {0.5f, 6, 13}, {0, 5, 7}, 0, 16, A::Tail},
+    {{-3, 4, 7}, {-2, 5, 11}, {0, 4, 7}, 0, 16, A::Tail},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -758,6 +779,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Phantom: return kPhantom;
     case world::MobType::Wither: return kWither;
     case world::MobType::Breeze: return kBreeze;
+    case world::MobType::Allay: return kAllay;
+    case world::MobType::Nautilus: return kNautilus;
     default: return kCow;
     }
 }

@@ -268,7 +268,7 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
         const auto& items = world::itemRegistry();
         m_gearScratch = {};
         if (s.index == 0) {
-            if (!world::isHorseKind(t) && t != MobType::Camel) return nullptr; // (llamas take no saddle)
+            if (!world::isHorseKind(t) && t != MobType::Camel && t != MobType::Nautilus) return nullptr; // (llamas take no saddle)
             if (m_mount->saddled) m_gearScratch = {*items.find("saddle"), 1};
         } else {
             if (t != MobType::Horse && !world::isLlama(t)) return nullptr;

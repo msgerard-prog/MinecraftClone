@@ -133,6 +133,10 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:wither", 300.0f, 0.9, 3.5, 0.6, 0.0f, true, true, true},
         // wiki: Breeze - 30 health, 0.6 x 1.77, speed 0.63 (its leaps), wind charges for 1.
         {"minecraft:breeze", 30.0f, 0.6, 1.77, 0.63, 1.0f, true},
+        // wiki: Allay - 20 health, 0.35 x 0.6, flies at 0.4; Nautilus - 15, 0.875 x 0.95,
+        // swims (6.5 blocks/s), bites for 3 when provoked.
+        {"minecraft:allay", 20.0f, 0.35, 0.6, 0.4, 0.0f, false, false, true},
+        {"minecraft:nautilus", 15.0f, 0.875, 0.95, 0.3, 3.0f, false, false, false, 1.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

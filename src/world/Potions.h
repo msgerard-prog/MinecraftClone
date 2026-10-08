@@ -35,6 +35,7 @@ enum class Effect : uint8_t {
     DolphinsGrace,    // (M25.3b) swimming near a dolphin: much less water drag
     MiningFatigue,    // (M25.5: elder guardians) mining x 0.3 per level
     Wither,           // (M26.4a: wither skeletons) like Poison, but it can kill
+    BreathOfTheNautilus, // (M26.5a: riding a nautilus) the air bar doesn't drop under water
     Count
 };
 struct EffectInfo {
