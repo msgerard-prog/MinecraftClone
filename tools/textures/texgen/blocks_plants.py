@@ -76,6 +76,27 @@ reg("fern", lambda r: P.fern(r, GREY, top=4))
 reg("large_fern_bottom", lambda r: P.fern(r, GREY, top=0))
 reg("large_fern_top", lambda r: P.fern(r, GREY, top=3))
 reg("dead_bush", lambda r: P.coral(r, ramp(hexc("7a5a32")), "plant"))
+# (M28.5a: the 1.21.5 plants) a leafy bush (tinted), dry grasses, a firefly bush with
+# glowing dots, a cactus flower, wildflowers and leaf litter (laid flat).
+reg("bush", lambda r: P.grass_cross(r, GREY, height=9, blades=11))
+DRY = ramp(hexc("c8aa6a"), spread=0.3)
+reg("short_dry_grass", lambda r: P.grass_cross(r, DRY, height=8, blades=6))
+reg("tall_dry_grass", lambda r: P.grass_cross(r, DRY, height=14, blades=8))
+
+
+def _firefly_bush(rng):
+    img = P.grass_cross(rng, ramp(hexc("4a6a3a"), spread=0.3), height=13, blades=10)
+    for _ in range(6):
+        img.set(rng.randrange(2, 14), rng.randrange(2, 12), hexc("e8f060"))
+    return img
+
+
+reg("firefly_bush", _firefly_bush)
+reg("cactus_flower", lambda r: P.flower(r, ramp(hexc("5a9a3a")), ramp(hexc("e868a8")), hexc("f8c8e0"), "round"))
+WILD = [hexc("f2e04a"), hexc("f8f8f0"), hexc("f0c040")]
+reg("wildflowers", lambda r: M.speckle(Img(), r, WILD, 34))
+LITTER = [hexc("9a6a2a"), hexc("b8803a"), hexc("7a5222"), hexc("c89a4a")]
+reg("leaf_litter", lambda r: M.speckle(Img(), r, LITTER, 70))
 
 # --- Mushrooms ----------------------------------------------------------------------------
 MUSH_STEM = ramp(hexc("d8d0c0"), spread=0.15)

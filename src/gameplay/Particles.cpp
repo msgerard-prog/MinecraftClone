@@ -344,6 +344,27 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
         p.lifetime = life(rng, 8.0f, 0.8f, 0.2f);
         add(p);
     };
+    // (M28.5a) a small flame over a lit candle (or a candle cake's); fireflies about a bush
+    if ((R().likeOf(id) == blocks::Candle || R().likeOf(id) == blocks::CandleCake) && R().get(s, properties::lit) == 0) {
+        const double top = R().likeOf(id) == blocks::Candle ? 0.45 : 0.95;
+        Particle& f = flame({c.x + centred(rng) * 0.15, b.y + top, c.z + centred(rng) * 0.15}, rng);
+        f.size *= 0.6f;
+        return;
+    }
+    if (id == blocks::FireflyBush && rng.nextInt(4) == 0) {
+        Particle p;
+        p.pos = {b.x + rng.nextDouble(), b.y + 0.3 + rng.nextDouble() * 1.2, b.z + rng.nextDouble()};
+        p.vel = {centred(rng) * 0.01, centred(rng) * 0.01, centred(rng) * 0.01};
+        p.color = glm::vec3(0.85f, 1.0f, 0.35f);
+        p.size = 0.04f;
+        p.sprite = ParticleSprite::Effect;
+        p.fullBright = true;
+        p.physics = false;
+        p.friction = 1.0f;
+        p.lifetime = int16_t(40 + rng.nextInt(40));
+        add(p);
+        return;
+    }
     switch (id) {
     case blocks::Torch: // smoke and a flame over the tip (wiki: Torch)
     case blocks::SoulTorch:

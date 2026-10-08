@@ -110,6 +110,10 @@ const Property ominous{"ominous", {"true", "false"}};
 const Property dusted{"dusted", {"0", "1", "2", "3"}};
 const Property age1{"age", {"0", "1"}};
 const Property age4{"age", {"0", "1", "2", "3", "4"}};
+const Property candles{"candles", {"1", "2", "3", "4"}};
+const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
+const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
+const Property segmentAmount{"segment_amount", {"1", "2", "3", "4"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1274,6 +1278,33 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("heavy_core", {.hardness = 10.0f, .resistance = 1200.0f, .opaqueCube = false, .layer = RenderLayer::Cutout},
                 {{&waterlogged, "false"}}),
           blocks::HeavyCore);
+    // (M28.5a; wiki: Cake 0.5, Candle 0.1 - 3 light a lit candle, Candle Cake 0.5 - 3 lit,
+    // the plants break at once, Vines 0.2)
+    check(r.add("cake", {.hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&bites, "0"}}),
+          blocks::Cake);
+    check(r.add("candle_cake", {.hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&lit, "false"}}),
+          blocks::CandleCake);
+    check(r.add("candle", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&candles, "1"}, {&lit, "false"}, {&waterlogged, "false"}}),
+          blocks::Candle);
+    check(r.add("pink_petals", kPlant, {{&facing, "north"}, {&flowerAmount, "1"}}), blocks::PinkPetals);
+    check(r.add("wildflowers", kPlant, {{&facing, "north"}, {&flowerAmount, "1"}}), blocks::Wildflowers);
+    check(r.add("leaf_litter", kPlant, {{&facing, "north"}, {&segmentAmount, "1"}}), blocks::LeafLitter);
+    BlockSettings firefly = kPlant;
+    firefly.lightEmission = 2;
+    check(r.add("firefly_bush", firefly), blocks::FireflyBush);
+    check(r.add("bush", kPlant), blocks::Bush);
+    check(r.add("short_dry_grass", kPlant), blocks::ShortDryGrass);
+    check(r.add("tall_dry_grass", kPlant), blocks::TallDryGrass);
+    check(r.add("cactus_flower", kPlant), blocks::CactusFlower);
+    BlockSettings vine = kPlant;
+    vine.hardness = vine.resistance = 0.2f;
+    vine.randomTicks = true;
+    check(r.add("vine", vine, {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireUp, "false"},
+                               {&fireWest, "false"}}),
+          blocks::Vine);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
@@ -1349,6 +1380,25 @@ BlockRegistry buildVanillaBlocks() {
         wall.kind = BlockKind::WallBanner;
         r.add(colour + "_banner", standing, {{&rotation16, "0"}});
         r.add(colour + "_wall_banner", wall, {{&facing, "north"}});
+    }
+    // Dyed candles and candle cakes (M28.5a), after the banners.
+    for (const char* colour : kDyeColours) {
+        BlockSettings candle{.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                             .like = blocks::Candle};
+        r.add(std::string(colour) + "_candle", candle, {{&candles, "1"}, {&lit, "false"}, {&waterlogged, "false"}});
+        BlockSettings cake{.hardness = 0.5f, .resistance = 0.5f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                           .like = blocks::CandleCake};
+        r.add(std::string(colour) + "_candle_cake", cake, {{&lit, "false"}});
+    }
+    // Lit candles glow 3 a candle, lit candle cakes 3 (wiki).
+    for (BlockId b = 0; b < r.blockCount(); ++b) {
+        const BlockId like = r.likeOf(b);
+        if (like != blocks::Candle && like != blocks::CandleCake) continue;
+        for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {
+            const BlockStateId s = static_cast<BlockStateId>(r.block(b).firstState + i);
+            if (r.get(s, lit) != 0) continue;
+            r.setStateEmission(s, like == blocks::Candle ? uint8_t(3 * (r.get(s, candles) + 1)) : 3);
+        }
     }
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})

@@ -1058,7 +1058,27 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     case BlockKind::WallBanner: return supports(at(rel(p, opposite(hFacing(s)))));
     default: break;
     }
+    if (R().likeOf(blockOf(s)) == B::Candle || R().likeOf(blockOf(s)) == B::CandleCake) // (M28.5a)
+        return R().collides(at(rel(p, Direction::Down)));
     switch (blockOf(s)) {
+    case B::Cake:
+    case B::PinkPetals:
+    case B::Wildflowers:
+    case B::LeafLitter:
+    case B::FireflyBush:
+    case B::Bush:
+    case B::ShortDryGrass:
+    case B::TallDryGrass:
+    case B::CactusFlower: return R().collides(at(rel(p, Direction::Down))); // (M28.5a)
+    case B::Vine: { // (M28.5a) while one of its faces still has a block behind it, or a vine above
+        if (blockOf(at(rel(p, Direction::Up))) == B::Vine) return true;
+        const std::pair<const Property*, Direction> kSides[5] = {{&fireNorth, Direction::North}, {&fireSouth, Direction::South},
+                                                                 {&fireWest, Direction::West}, {&fireEast, Direction::East},
+                                                                 {&fireUp, Direction::Up}};
+        for (const auto& [prop, d] : kSides)
+            if (R().get(s, *prop) == 0 && supports(at(rel(p, d)))) return true;
+        return false;
+    }
     case B::Torch: // (M23.2: plain torches pop too when their support goes)
     case B::SoulTorch:
         return supports(at(rel(p, Direction::Down)));
@@ -1198,7 +1218,11 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
                                       R().kind(b) == BlockKind::Carpet || R().kind(b) == BlockKind::Sign ||
                                       R().kind(b) == BlockKind::WallSign || R().kind(b) == BlockKind::HangingSign ||
                                       R().kind(b) == BlockKind::WallHangingSign || R().kind(b) == BlockKind::Banner ||
-                                      R().kind(b) == BlockKind::WallBanner) {
+                                      R().kind(b) == BlockKind::WallBanner || R().likeOf(b) == B::Candle ||
+                                      R().likeOf(b) == B::CandleCake || b == B::Cake || b == B::PinkPetals ||
+                                      b == B::Wildflowers || b == B::LeafLitter || b == B::FireflyBush || b == B::Bush ||
+                                      b == B::ShortDryGrass || b == B::TallDryGrass || b == B::CactusFlower ||
+                                      b == B::Vine) {
         if (!survives(p, s)) pop(p);
         --m_depth;
         return;
@@ -2187,6 +2211,34 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case BlockKind::WallBanner: return state;
     case BlockKind::Plain: break;
     }
+    // The remaining blocks (M28.5a): petals and litter on a floor, turned to the player;
+    // bushes and dry grass on the ground; cactus flowers on a cactus (or a floor); vines on
+    // the face they were put against (under a block: its "up"); cakes and candles on a floor.
+    switch (blockOf(state)) {
+    case B::PinkPetals:
+    case B::Wildflowers:
+    case B::LeafLitter:
+        if (!solid(Direction::Down)) return std::nullopt;
+        return withHFacing(state, look);
+    case B::FireflyBush:
+    case B::Bush:
+    case B::ShortDryGrass:
+    case B::TallDryGrass:
+    case B::CactusFlower:
+    case B::Cake:
+        if (!r.collides(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
+        return state;
+    case B::Vine: {
+        if (faceDir == Direction::Up) return std::nullopt; // (they hang from walls and ceilings)
+        const Direction support = opposite(faceDir);
+        if (!solid(support)) return std::nullopt;
+        const Property* side = support == Direction::North ? &fireNorth : support == Direction::South ? &fireSouth
+                               : support == Direction::West ? &fireWest : support == Direction::East ? &fireEast : &fireUp;
+        return r.set(state, *side, 0);
+    }
+    default: break;
+    }
+    if (R().likeOf(blockOf(state)) == B::Candle && !r.collides(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;
     // Lush caves (M27.2): glow berries plant cave vines under a block or vine; spore
     // blossoms and hanging roots go under a block; azaleas and dripleaves on dirt, moss or
     // clay (big dripleaves also on each other); dripleaves face the player.

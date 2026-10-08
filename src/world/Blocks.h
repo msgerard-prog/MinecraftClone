@@ -73,6 +73,10 @@ extern const Property ominous;        // true | false
 extern const Property dusted;         // 0..3 (M27.5: suspicious sand and gravel being brushed)
 extern const Property age1;           // "age": 0..1 (M27.5c: torchflower crops)
 extern const Property age4;           // "age": 0..4 (pitcher crops)
+extern const Property candles;        // 1..4 (M28.5a: candles)
+extern const Property bites;          // 0..6 (cake)
+extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
+extern const Property segmentAmount;  // "segment_amount": 1..4 (leaf litter)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -505,6 +509,21 @@ enum : BlockId {
     PitcherPlant,     // half
     Lodestone,        // (M28.2a; wiki: Lodestone)
     HeavyCore,        // (M28.4d; wiki: Heavy Core) the mace's head, from ominous vaults
+    // The remaining blocks (M28.5a; wiki: Cake, Candle, Candle Cake, Pink Petals, Wildflowers,
+    // Leaf Litter, Firefly Bush, Bush, Short/Tall Dry Grass, Cactus Flower, Vines). Dyed
+    // candles and candle cakes are added after the enum (like = Candle / CandleCake).
+    Cake,         // bites 0..6
+    CandleCake,   // lit
+    Candle,       // candles 1..4, lit, waterlogged
+    PinkPetals,   // flower_amount, facing
+    Wildflowers,
+    LeafLitter,   // segment_amount, facing
+    FireflyBush,  // glows 2
+    Bush,
+    ShortDryGrass,
+    TallDryGrass,
+    CactusFlower,
+    Vine,         // up, north, east, south, west
     Count
 };
 } // namespace blocks

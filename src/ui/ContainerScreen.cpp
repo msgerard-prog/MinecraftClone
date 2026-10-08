@@ -524,9 +524,16 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
                 m_carried.count = uint8_t(m_carried.count + made.count);
         }
         noteCrafted(made.empty() ? m_result : made);
-        for (int i = 0; i < n * n; ++i) // each ingredient is used once
-            if (i != keep && !m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
-                m_grid[size_t(i)] = {};
+        static const world::ItemId milk = *world::itemRegistry().find("milk_bucket"),
+                                   bucket = *world::itemRegistry().find("bucket");
+        for (int i = 0; i < n * n; ++i) { // each ingredient is used once
+            if (i == keep || m_grid[size_t(i)].empty()) continue;
+            if (m_grid[size_t(i)].item == milk) { // (M28.5a) the bucket stays behind, empty (vanilla's remainder)
+                m_grid[size_t(i)] = {bucket, 1};
+                continue;
+            }
+            if (--m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+        }
         updateResult();
         if (!shift) return;
     }

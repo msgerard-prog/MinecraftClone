@@ -114,6 +114,16 @@ BlockShape compute(BlockStateId s) {
     switch (b) {
     case B::Mud: return box(0, 0, 0, 16, 14, 16); // (M27.1; wiki: Mud - 14 pixels, so things sink a little)
     case B::DecoratedPot: return box(1, 0, 1, 15, 16, 15); // (M27.5)
+    // (M28.4d-M28.5a; wiki) the heavy core 8 wide, a cake 14 wide and 8 tall less its bites,
+    // a candle cake with its candle, candles a small post (ours: grows with the count)
+    case B::HeavyCore: return box(4, 0, 4, 12, 8, 12);
+    case B::Cake: return box(1 + 2 * r.get(s, bites), 0, 1, 15, 8, 15);
+    case B::CandleCake: {
+        BlockShape sh = box(1, 0, 1, 15, 8, 15);
+        add(sh, 7, 8, 7, 9, 14, 9);
+        return sh;
+    }
+    case B::Candle: return r.get(s, candles) == 0 ? box(7, 0, 7, 9, 6, 9) : box(5, 0, 5, 11, 6, 11);
     case B::SculkSensor: // (M27.3; wiki: half a block)
     case B::SculkShrieker: return box(0, 0, 0, 16, 8, 16);
     case B::PointedDripstone: { // (M27.2b; ours: thinner toward the tip)

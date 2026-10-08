@@ -218,6 +218,12 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
     r.push_back(shaped({".G.", "GAG", ".G."}, {{'G', item("glowstone_dust")}, {'A', item("arrow")}}, "spectral_arrow", 2));
     r.push_back(shaped({"H", "R"}, {{'H', item("heavy_core")}, {'R', item("breeze_rod")}}, "mace")); // (M28.4d)
+    // (M28.5a; wiki: Cake - the milk buckets come back empty; Candle; dyed candles)
+    r.push_back(shaped({"MMM", "SES", "WWW"},
+                       {{'M', item("milk_bucket")}, {'S', item("sugar")}, {'E', item("egg")}, {'W', item("wheat")}}, "cake"));
+    r.push_back(shaped({"S", "H"}, {{'S', item("string")}, {'H', item("honeycomb")}}, "candle"));
+    for (const char* c : kDyeColours)
+        r.push_back(shapeless({item("candle"), item(std::string(c) + "_dye")}, std::string(c) + "_candle"));
     // Spears (M28.4e; ours: the head at the top right, two sticks down the diagonal)
     for (const auto& [mat, head] : {std::pair{"stone", "cobblestone"}, std::pair{"copper", "copper_ingot"},
                                     std::pair{"iron", "iron_ingot"}, std::pair{"golden", "gold_ingot"},

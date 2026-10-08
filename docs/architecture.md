@@ -673,6 +673,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   jabs (Lunge pushes the player), and holding right-click charges (`spearCharge`, up to
   100 ticks) hitting what is in front by `spearChargeDamage` of the player's or mount's
   speed.
+- The remaining blocks (M28.5a): cake (bites), candles (`candles`, lit; 3 light each) and
+  candle cakes (dyed ones `like` the plain), pink petals, wildflowers, leaf litter
+  (`flower_amount`/`segment_amount` quarters), firefly bush, bush, dry grasses, cactus
+  flowers (grown by full cacti), vines (faces; climbable; grow down). Stacking and candle
+  cakes in `BlockInteraction::place`, lighting and eating in main, support in
+  `BlockUpdates::survives`, fireflies and candle flames in `Particles::animate`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

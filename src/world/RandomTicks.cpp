@@ -263,7 +263,10 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
         int height = 1;
         while (height < 3 && blockOf(at({p.x, p.y - height, p.z})) == B::Cactus)
             ++height;
-        if (height >= 3) break;
+        if (height >= 3) { // (M28.5a; ours) a full-grown cactus now and then flowers on top
+            if (m_random.nextInt(50) == 0) set(up, R().defaultState(B::CactusFlower));
+            break;
+        }
         const int a = R().get(s, age);
         if (a < 15) {
             setRaw(p, R().set(s, age, a + 1));
@@ -355,6 +358,13 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::PointedDripstone: // (M27.2b) dripping and growing
         tickDripstone(p, s);
         break;
+    case B::Vine: { // (M28.5a; wiki: Vines - ours: they only grow down, 1 random tick in 4)
+        const BlockPos down{p.x, p.y - 1, p.z};
+        if (m_random.nextInt(4) != 0 || !m_world.isInHeight(down.y) || at(down) != 0) break;
+        const BlockStateId below = R().set(s, fireUp, 1);
+        if (below != R().set(R().defaultState(B::Vine), fireUp, 1)) set(down, below); // (only with a wall face)
+        break;
+    }
     case B::CaveVines: // (M27.2) the tip grows
         tickCaveVines(p, s);
         break;

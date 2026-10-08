@@ -1476,6 +1476,13 @@ def all_items():
     items["firework_rocket"] = firework_rocket()  # (M28.4c)
     items["firework_star"] = firework_star()
     items["mace"] = mace()  # (M28.4d)
+    cake = Shape()  # (M28.5a) a cake: white icing over a sponge
+    cake.add({(x, y) for x in range(2, 14) for y in range(6, 13)}, ramp(hexc("#C8884A"), 5, spread=0.25))
+    cake.add({(x, y) for x in range(2, 14) for y in range(4, 7)}, ramp(hexc("#F4F0EA"), 5, spread=0.1))
+    cake_img = cake.render()
+    for (x, y) in ((4, 5), (8, 4), (11, 5), (6, 7), (10, 8)):
+        cake_img.set(x, y, hexc("#D0302A"))
+    items["cake"] = cake_img
     for mat, base in (("wooden", "#A07A48"), ("stone", "#8E8E8E"), ("copper", "#D9804F"), ("iron", "#D6D6D6"),
                       ("golden", "#F2CF3C"), ("diamond", "#45DCCB"), ("netherite", "#5A4E56")):  # (M28.4e)
         items[f"{mat}_spear"] = spear(base)

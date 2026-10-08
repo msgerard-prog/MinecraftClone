@@ -66,6 +66,11 @@ ItemRegistry buildItems() {
         if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign ||
             blocks.kind(b) == BlockKind::WallBanner)
             continue;
+        if (blocks.likeOf(b) == blocks::CandleCake) continue; // (M28.5a: made by putting a candle on a cake)
+        if (b == blocks::Cake) { // (M28.5a) one at a time
+            r.mapBlock(b, r.add({.id = id, .maxStack = 1, .block = b, .texture = "item/cake"}));
+            continue;
+        }
         if (blocks.kind(b) == BlockKind::Banner) { // (M28.3d) stacks of 16, drawn from their own icon
             r.mapBlock(b, r.add({.id = id, .maxStack = 16, .block = b, .texture = "item/" + id.substr(10)}));
             continue;

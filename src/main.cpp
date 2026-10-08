@@ -2160,6 +2160,60 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
+            // Candles and cakes (M28.5a; wiki: Candle, Cake): flint and steel or a fire charge
+            // lights candles (not under water), an empty hand puts them out; a cake is eaten a
+            // slice at a time (2 hunger, 0.4 saturation) when hungry - a candle cake gives its
+            // candle back first.
+            if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
+                const auto& creg = mc::world::blockRegistry();
+                const mc::world::BlockPos at = lastHit->block;
+                const mc::world::BlockStateId cs = world.getBlock(at);
+                const mc::world::BlockId cb = creg.blockOf(cs), like = creg.likeOf(cb);
+                const std::string_view heldName = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                const bool igniter = heldName == "minecraft:flint_and_steel" || heldName == "minecraft:fire_charge";
+                bool used = false;
+                if (like == mc::world::blocks::Candle || like == mc::world::blocks::CandleCake) {
+                    const bool isLit = creg.get(cs, mc::world::properties::lit) == 0;
+                    const bool wet = like == mc::world::blocks::Candle && creg.get(cs, mc::world::properties::waterlogged) == 0;
+                    if (igniter && !isLit && !wet) {
+                        world.updateBlock(at, creg.set(cs, mc::world::properties::lit, 0));
+                        if (survival) {
+                            if (heldName == "minecraft:fire_charge") inventory.consumeSelected(1);
+                            else inventory.setSlot(inventory.selected(), mc::wearItem(inventory.selectedStack(), 1, gameRng));
+                        }
+                        used = true;
+                    } else if (inventory.selectedStack().empty() && isLit) {
+                        world.updateBlock(at, creg.set(cs, mc::world::properties::lit, 1));
+                        world.levelEvent(mc::world::LevelEvent::Type::Extinguish, at.x + 0.5, at.y + 0.5, at.z + 0.5);
+                        used = true;
+                    }
+                }
+                const bool candleOnCake = like == mc::world::blocks::Candle; // (handled by placing)
+                if (!used && !candleOnCake && (cb == mc::world::blocks::Cake || like == mc::world::blocks::CandleCake) &&
+                    !(cb == mc::world::blocks::Cake && creg.likeOf(mc::world::itemRegistry().item(inventory.selectedStack().item).block) ==
+                                                           mc::world::blocks::Candle &&
+                      creg.get(cs, mc::world::properties::bites) == 0) &&
+                    (!survival || vitals.food() < mc::Vitals::kMaxFood)) {
+                    if (like == mc::world::blocks::CandleCake) { // its candle comes off, then a slice
+                        std::string candle(creg.block(cb).id);
+                        candle.erase(candle.rfind("_cake"));
+                        if (const auto ci = mc::world::itemRegistry().find(candle))
+                            droppedItems.spawn({at.x + 0.5, at.y + 0.9, at.z + 0.5}, {*ci, 1}, gameRng);
+                        world.updateBlock(at, creg.set(creg.defaultState(mc::world::blocks::Cake), mc::world::properties::bites, 1));
+                    } else if (creg.get(cs, mc::world::properties::bites) >= 6) {
+                        world.updateBlock(at, 0); // (the last slice)
+                    } else {
+                        world.updateBlock(at, creg.set(cs, mc::world::properties::bites, creg.get(cs, mc::world::properties::bites) + 1));
+                    }
+                    vitals.eat(2, 0.4f);
+                    used = true;
+                }
+                if (used) {
+                    frameEdits.push_back(at);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
+            }
             // Campfires (M23.4c): raw food goes on (any lit or unlit campfire with room), a
             // shovel puts it out, flint and steel lights it again (wiki: Campfire).
             if (!dead && clicks.useClick && lastHit) {

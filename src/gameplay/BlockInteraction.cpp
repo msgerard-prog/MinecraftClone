@@ -167,6 +167,34 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         };
         if (merge(hit->block, true) || merge(world::neighbour(hit->block, hit->face), false)) return;
     }
+    // (M28.5a) another candle of its colour onto 1-3 (wiki: Candle); a candle onto an uneaten
+    // cake makes a candle cake; petals, wildflowers and leaf litter fill up to 4 quarters.
+    {
+        const world::BlockStateId s = world.getBlock(hit->block);
+        const world::BlockId pb = reg.blockOf(placeState), sb = reg.blockOf(s);
+        auto grow = [&](const world::Property& p, int max) {
+            if (reg.get(s, p) >= max) return false;
+            world.updateBlock(hit->block, reg.set(s, p, reg.get(s, p) + 1));
+            world.levelEvent(world::LevelEvent::Type::BlockPlace, hit->block.x, hit->block.y, hit->block.z, s);
+            changed.push_back(hit->block);
+            placed = true;
+            return true;
+        };
+        if (reg.likeOf(pb) == world::blocks::Candle && sb == pb && grow(world::properties::candles, 3)) return;
+        if ((pb == world::blocks::PinkPetals || pb == world::blocks::Wildflowers) && sb == pb &&
+            grow(world::properties::flowerAmount, 3))
+            return;
+        if (pb == world::blocks::LeafLitter && sb == pb && grow(world::properties::segmentAmount, 3)) return;
+        if (reg.likeOf(pb) == world::blocks::Candle && sb == world::blocks::Cake && reg.get(s, world::properties::bites) == 0) {
+            if (const auto cc = reg.findBlock(std::string(reg.block(pb).id).substr(10) + "_cake")) {
+                world.updateBlock(hit->block, reg.defaultState(*cc));
+                world.levelEvent(world::LevelEvent::Type::BlockPlace, hit->block.x, hit->block.y, hit->block.z, s);
+                changed.push_back(hit->block);
+                placed = true;
+                return;
+            }
+        }
+    }
     // Another sea pickle into a clump of 1-3 (wiki: Sea Pickle).
     if (reg.blockOf(placeState) == world::blocks::SeaPickle) {
         const world::BlockStateId s = world.getBlock(hit->block);

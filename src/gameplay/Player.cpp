@@ -306,7 +306,8 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // are capped at 0.15; sneaking holds on (no sliding); walking into the wall or
     // holding jump climbs at 0.2.
     const world::BlockPos feetCell{int(std::floor(m_pos.x)), int(std::floor(m_pos.y)), int(std::floor(m_pos.z))};
-    m_climbing = !m_flying && world::blockRegistry().blockOf(world.getBlock(feetCell)) == world::blocks::Ladder;
+    const world::BlockId climbBlock = world::blockRegistry().blockOf(world.getBlock(feetCell));
+    m_climbing = !m_flying && (climbBlock == world::blocks::Ladder || climbBlock == world::blocks::Vine); // (M28.5a: vines too)
     if (m_climbing) {
         m_velocity.x = std::clamp(m_velocity.x, -0.15, 0.15);
         m_velocity.z = std::clamp(m_velocity.z, -0.15, 0.15);

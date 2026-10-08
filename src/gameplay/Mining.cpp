@@ -545,6 +545,30 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     auto between = [&](int lo, int hi) {
         return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
     };
+    // (M28.5a; wiki) candles each candle, a candle cake its candle (the cake is lost), cake
+    // nothing; petals, wildflowers and leaf litter each piece; vines, bushes and dry grass
+    // only with shears (not collected yet).
+    if (reg.likeOf(b) == blocks::Candle) {
+        add(itemRegistry().blockItem(b), reg.get(state, properties::candles) + 1);
+        return;
+    }
+    if (reg.likeOf(b) == blocks::CandleCake) {
+        std::string id = reg.block(b).id;
+        id.erase(id.rfind("_cake"));
+        if (const auto c = itemRegistry().find(id)) add(*c);
+        return;
+    }
+    if (b == blocks::Cake || b == blocks::Vine || b == blocks::Bush || b == blocks::ShortDryGrass ||
+        b == blocks::TallDryGrass)
+        return;
+    if (b == blocks::PinkPetals || b == blocks::Wildflowers) {
+        add(itemRegistry().blockItem(b), reg.get(state, properties::flowerAmount) + 1);
+        return;
+    }
+    if (b == blocks::LeafLitter) {
+        add(itemRegistry().blockItem(b), reg.get(state, properties::segmentAmount) + 1);
+        return;
+    }
     // Ocean blocks (M25.1): kelp stems drop kelp, sea pickles each pickle; coral plants and
     // fans and blue ice nothing; a living coral block its dead block (wiki).
     {

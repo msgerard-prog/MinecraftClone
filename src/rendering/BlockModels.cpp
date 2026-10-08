@@ -1150,6 +1150,64 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite("dried_kelp_top");
                 v.faces[int(Direction::Down)].sprite = sprite("dried_kelp_bottom");
                 m = single(v);
+            } else if (name == "cake" || registry.likeOf(registry.blockOf(state)) == world::blocks::CandleCake) {
+                // (M28.5a) the cake (bites eaten from its west side) and a candle cake's candle
+                m.visible = true;
+                const int bitten = name == "cake" ? std::stoi(std::string(registry.value(state, "bites").value_or("0"))) : 0;
+                addBox(m, 1 + 2 * bitten, 0, 1, 15, 8, 15, sprite("cake_side"));
+                BakedBox& c = m.boxes[m.boxCount - 1];
+                c.faces[int(Direction::Up)].sprite = sprite("cake_top");
+                c.faces[int(Direction::Down)].sprite = sprite("cake_bottom");
+                if (bitten > 0) c.faces[int(Direction::West)].sprite = sprite("cake_inner");
+                if (name != "cake") {
+                    const std::string candle = name.substr(0, name.rfind("_cake")) +
+                                               (registry.value(state, "lit") == "true" ? "_lit" : "");
+                    addBox(m, 7, 8, 7, 9, 14, 9, sprite(candle.c_str()));
+                }
+            } else if (registry.likeOf(registry.blockOf(state)) == world::blocks::Candle) {
+                // (M28.5a) 1-4 candles, 2x6x2 (vanilla's places, a little apart)
+                static constexpr int kAt[4][4][2] = {{{7, 7}}, {{5, 7}, {9, 8}}, {{5, 8}, {8, 6}, {9, 9}},
+                                                     {{5, 5}, {9, 5}, {5, 9}, {9, 8}}};
+                const int n = std::stoi(std::string(registry.value(state, "candles").value_or("1")));
+                const std::string tex = name + (registry.value(state, "lit") == "true" ? "_lit" : "");
+                m.visible = true;
+                for (int k = 0; k < n; ++k)
+                    addBox(m, kAt[n - 1][k][0], 0, kAt[n - 1][k][1], kAt[n - 1][k][0] + 2, 6 - (k % 2),
+                           kAt[n - 1][k][1] + 2, sprite(tex.c_str()));
+            } else if (name == "pink_petals" || name == "wildflowers" || name == "leaf_litter") {
+                // (M28.5a) 1-4 quarters of the floor, turned by the facing
+                const int n = std::stoi(std::string(registry.value(state, name == "leaf_litter" ? "segment_amount" : "flower_amount")
+                                                        .value_or("1")));
+                const std::string_view f = registry.value(state, "facing").value_or("north");
+                const int turn = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;
+                static constexpr int kQuarter[4][2] = {{0, 0}, {8, 0}, {8, 8}, {0, 8}}; // NW, NE, SE, SW
+                m.visible = true;
+                for (int k = 0; k < n; ++k) {
+                    const int q = (k + turn) % 4;
+                    addBox(m, kQuarter[q][0], 0, kQuarter[q][1], kQuarter[q][0] + 8, 1, kQuarter[q][1] + 8,
+                           sprite(name.c_str()));
+                    BakedBox& b = m.boxes[m.boxCount - 1];
+                    for (int d = 0; d < 6; ++d) b.faces[d].present = d == int(Direction::Up);
+                }
+            } else if (name == "firefly_bush" || name == "bush" || name == "short_dry_grass" || name == "tall_dry_grass" ||
+                       name == "cactus_flower") {
+                m.visible = true; // (M28.5a) crossed plants
+                m.cross = true;
+                m.crossSprite = sprite(name.c_str());
+                m.crossTint = name == "bush" ? Tint::Grass : Tint::None;
+            } else if (name == "vine") { // (M28.5a) a thin panel on each face it clings to, foliage green
+                m.visible = true;
+                auto side = [&](const char* prop) { return registry.value(state, prop) == "true"; };
+                const auto add = [&](int x0, int y0, int z0, int x1, int y1, int z1) {
+                    addBox(m, x0, y0, z0, x1, y1, z1, sprite("vine"));
+                    for (auto& f : m.boxes[m.boxCount - 1].faces) f.tint = Tint::Foliage;
+                };
+                if (side("north")) add(0, 0, 0, 16, 16, 1);
+                if (side("south")) add(0, 0, 15, 16, 16, 16);
+                if (side("west")) add(0, 0, 0, 1, 16, 16);
+                if (side("east")) add(15, 0, 0, 16, 16, 16);
+                if (side("up")) add(0, 15, 0, 16, 16, 16);
+                if (m.boxCount == 0) m.visible = false;
             } else if (std::find(std::begin(kPlants), std::end(kPlants), name) != std::end(kPlants)) {
                 m.visible = true;
                 m.cross = true;
