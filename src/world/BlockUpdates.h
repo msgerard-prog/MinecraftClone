@@ -187,6 +187,14 @@ public:
     static bool waxCopper(World& world, const BlockPos& p);
     static bool scrapeCopper(World& world, const BlockPos& p);
     static bool isCopper(BlockId b);
+    // Composters and cauldrons (M23.5, Workstations.cpp). compost: an item put in (true
+    // if used up; hoppers too); takeCompost: a full composter's bone meal (else empty);
+    // useCauldron: what one held bucket/bottle becomes, or nullopt if nothing happened.
+    static int compostChance(ItemId item); // percent, 0 = not compostable
+    bool compost(const BlockPos& p, ItemId item);
+    ItemStack takeCompost(const BlockPos& p);
+    std::optional<ItemStack> useCauldron(const BlockPos& p, const ItemStack& held);
+    static int cauldronSignal(BlockStateId s); // comparator level; -1: not one of them
     // Bone meal used on the block at p. True if it was used up.
     bool boneMeal(const BlockPos& p);
     // An entity landed hard on this farmland (the caller rolls the chance).
@@ -231,6 +239,7 @@ private:
     bool hardenPowder(const BlockPos& p, BlockStateId s); // true if it turned into concrete
     void tickCopper(const BlockPos& p, BlockStateId s);    // oxidation (Copper.cpp)
     void updateBulb(const BlockPos& p, BlockStateId s);    // copper bulbs on power changes
+    void fillCauldronByWeather(const BlockPos& p, bool snow); // rain/snow into a cauldron
     // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
     void fizz(const BlockPos& p) {
         m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);

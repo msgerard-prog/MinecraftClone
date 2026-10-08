@@ -43,6 +43,8 @@ extern const Property age25;    // "age": 0..25 (weeping and twisting vine tips)
 extern const Property chestType; // "type": single | left | right
 extern const Property bedPart;   // "part": head | foot
 extern const Property occupied;  // true | false
+extern const Property composterLevel; // "level": 0..8 (M23.5)
+extern const Property cauldronLevel;  // "level": 1..3 (water and powder snow cauldrons)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -334,6 +336,11 @@ enum : BlockId {
     Smoker,            // facing, lit (M23.5: a furnace for food, twice as fast)
     BlastFurnace,      // facing, lit (ores and metal, twice as fast)
     Barrel,            // facing (6), open (27 slots like a chest)
+    Composter,         // level 0..8 (8 = bone meal ready)
+    Cauldron,          // empty
+    WaterCauldron,     // level 1..3
+    LavaCauldron,      // full
+    PowderSnowCauldron, // level 1..3
     Count
 };
 } // namespace blocks

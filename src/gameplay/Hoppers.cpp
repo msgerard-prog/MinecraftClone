@@ -51,6 +51,7 @@ bool putInto(ItemStack& t, const ItemStack& one) {
     return false;
 }
 ItemStack* g_lastSlot = nullptr; // (the slot the last take came from; main thread only)
+BlockUpdates* g_updates = nullptr; // (composters; main thread only)
 bool takeFrom(ItemStack& s, ItemStack& out) {
     if (s.empty()) return false;
     out = s;
@@ -68,9 +69,11 @@ bool takeFirst(std::array<ItemStack, N>& slots, ItemStack& out) {
 
 } // namespace
 
+void setHopperBlockUpdates(BlockUpdates* updates) { g_updates = updates; }
+
 bool isContainer(const World& world, const BlockPos& p) {
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p))); // (smokers: furnaces)
-    return b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
+    return (b == blocks::Composter && g_updates) || b == blocks::Chest || b == blocks::Barrel || b == blocks::Hopper || b == blocks::Dispenser ||
            b == blocks::Dropper || b == blocks::Furnace || b == blocks::BrewingStand;
 }
 
@@ -81,6 +84,9 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Composter: // only from above, while it takes compost (wiki: Composter)
+        ok = g_updates && from == Direction::Up && g_updates->compost(p, one.item);
+        break;
     case blocks::Barrel: // (M23.5: 27 slots like a chest)
         if (ChestData* d = c->chest(x, p.y, z)) ok = putIn(d->items, one);
         break;
@@ -147,6 +153,12 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
     const BlockId b = blockRegistry().likeOf(blockRegistry().blockOf(world.getBlock(p)));
     bool ok = false;
     switch (b) {
+    case blocks::Composter: // its bone meal, only out of the bottom
+        if (g_updates && from == Direction::Down) {
+            out = g_updates->takeCompost(p);
+            ok = !out.empty();
+        }
+        break;
     case blocks::Barrel:
         if (ChestData* d = c->chest(x, p.y, z)) ok = takeFirst(d->items, out);
         break;
@@ -238,6 +250,8 @@ void tickHoppers(World& world, ItemEntities& items) {
                     } else if (from) { // it doesn't fit here: back where it came from
                         if (from->empty()) *from = one;
                         else ++from->count;
+                    } else if (r.blockOf(world.getBlock(above)) == blocks::Composter) { // (the bone meal stays)
+                        world.updateBlock(above, r.set(world.getBlock(above), properties::composterLevel, 8));
                     }
                 }
             } else if (!r.opaqueCube(world.getBlock(above))) { // (only containers and full blocks stop pickup)

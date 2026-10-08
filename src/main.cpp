@@ -712,6 +712,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     if (storage && !level) saveWorld(false); // a new world gets its level.dat at once
     mc::BlockInteraction interaction;
     mc::world::BlockUpdates blockUpdates(world); // block updates, scheduled ticks, redstone (M11)
+    mc::setHopperBlockUpdates(&blockUpdates);    // (composters, M23.5)
+    struct HopperUpdatesReset { // (cleared when the session ends: no dangling pointer)
+        ~HopperUpdatesReset() { mc::setHopperBlockUpdates(nullptr); }
+    } hopperUpdatesReset;
     interaction.setBlockUpdates(&blockUpdates);
     std::vector<mc::world::BlockPos> changedBlocks;
     changedBlocks.reserve(8);
@@ -1454,6 +1458,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             reg.get(inState, mc::world::properties::lit) == 0)
                             vitals.attacked(inBlock == mc::world::blocks::SoulCampfire ? 2.0f : 1.0f, nullptr,
                                             mc::Vitals::Hit::Fire);
+                        // Cauldrons (M23.5; wiki: Cauldron): inside a lava one burns like lava;
+                        // a burning player in a water one is put out and the water drops a level.
+                        const double depth = feet.y - in.y;
+                        if (inBlock == mc::world::blocks::LavaCauldron && depth < 15.0 / 16.0) {
+                            vitals.attacked(4.0f, nullptr, mc::Vitals::Hit::Fire);
+                            vitals.setOnFire(300);
+                        } else if (inBlock == mc::world::blocks::WaterCauldron && vitals.burning()) {
+                            const int lvl = reg.get(inState, mc::world::properties::cauldronLevel); // 0..2 = 1..3
+                            if (depth < (6.0 + 3.0 * (lvl + 1)) / 16.0) {
+                                vitals.setFireTicks(0);
+                                world.updateBlock(in, lvl == 0 ? reg.defaultState(mc::world::blocks::Cauldron)
+                                                               : reg.set(inState, mc::world::properties::cauldronLevel, lvl - 1));
+                            }
+                        }
                     }
                     // Touching a cactus (beside or on top) hurts 1 (wiki: Cactus); our
                     // cactus collides as a full cube, so the box reaches out a hair.
@@ -1703,6 +1721,42 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         clicks.useClick = false;
                         clicks.use = false;
                     }
+                }
+            }
+            // Composters and cauldrons (M23.5; wiki: Composter, Cauldron): a full composter
+            // gives its bone meal, compostables go in; buckets and bottles fill or empty a
+            // cauldron. Survival swaps one held item for the result; creative keeps it and
+            // gets the result once.
+            if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
+                const mc::world::BlockPos at = lastHit->block;
+                const mc::world::BlockId hb = reg.blockOf(world.getBlock(at));
+                const mc::world::ItemStack held = inventory.selectedStack();
+                bool acted = false;
+                if (hb == mc::world::blocks::Composter) {
+                    if (const mc::world::ItemStack meal = blockUpdates.takeCompost(at); !meal.empty()) {
+                        droppedItems.spawn({at.x + 0.5, at.y + 1.05, at.z + 0.5}, meal, gameRng);
+                        acted = true;
+                    } else if (!held.empty() && blockUpdates.compost(at, held.item)) {
+                        if (survival) inventory.consumeSelected(1);
+                        acted = true;
+                    }
+                } else if (const auto give = blockUpdates.useCauldron(at, held)) {
+                    if (survival && held.count == 1) {
+                        inventory.setSlot(inventory.selected(), *give);
+                    } else {
+                        bool carried = false;
+                        for (int sl = 0; sl < mc::Inventory::kSlots && !survival; ++sl)
+                            carried = carried || (inventory.slot(sl).item == give->item &&
+                                                  inventory.slot(sl).potion == give->potion);
+                        if (survival) inventory.consumeSelected(1);
+                        if (!carried && inventory.add(*give) > 0)
+                            droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), *give, gameRng);
+                    }
+                    acted = true;
+                }
+                if (acted) {
+                    clicks.useClick = false;
+                    clicks.use = false;
                 }
             }
             // Hoes and bone meal (M17.1; wiki: Hoe, Bone Meal) on the targeted block.

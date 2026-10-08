@@ -4,6 +4,10 @@
 #include "world/Direction.h"
 #include "world/World.h"
 
+namespace mc::world {
+class BlockUpdates;
+}
+
 namespace mc {
 
 // Containers as hoppers and droppers see them (M21.3; wiki: Hopper › Behavior): which
@@ -21,6 +25,9 @@ bool insertOne(world::World& world, const world::BlockPos& container, world::Dir
 bool extractOne(world::World& world, const world::BlockPos& container, world::Direction from, world::ItemStack& out,
                 world::ItemStack** fromSlot = nullptr);
 bool isContainer(const world::World& world, const world::BlockPos& p);
+// Composters (M23.5) take compostables from above and give bone meal below through the
+// block updates (chances, the ready tick); main sets them once (null: composters ignored).
+void setHopperBlockUpdates(world::BlockUpdates* updates);
 
 // Every hopper in the ticking chunks, each game tick (wiki: Hopper): while enabled
 // (not powered) and its 8-tick cooldown is over, it pushes one item into the container

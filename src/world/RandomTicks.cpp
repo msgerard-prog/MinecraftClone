@@ -469,7 +469,10 @@ void BlockUpdates::runWeatherTicks() {
             const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
             const BlockPos top{x, rainHeight(m_world, x, z), z};
             const BlockPos below{x, top.y - 1, z};
-            if (!m_world.isInHeight(below.y) || precipitationAt(m_world, below) != Precipitation::Snow) continue;
+            if (!m_world.isInHeight(below.y)) continue;
+            const Precipitation fall = precipitationAt(m_world, below);
+            if (m_weather->raining && fall != Precipitation::None) fillCauldronByWeather(below, fall == Precipitation::Snow);
+            if (fall != Precipitation::Snow) continue;
             const Chunk* bc = chunkAt(below);
             if (!bc) continue;
             const BlockStateId ws = at(below);

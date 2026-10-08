@@ -7,6 +7,7 @@
 #include "world/ChunkSerializer.h"
 #include "world/Blocks.h"
 #include "world/Items.h"
+#include "world/Potions.h"
 #include "world/Raycast.h"
 #include "world/Sounds.h"
 
@@ -457,4 +458,74 @@ TEST_CASE("smokers cook food, blast furnaces ores, both twice as fast; barrels h
     CHECK(barrel->item == *itemRegistry().find("barrel"));
     g[1] = I("stone_slab"); // not a wooden slab
     CHECK_FALSE(craft(g, 3));
+}
+
+TEST_CASE("composters fill by chance and give bone meal; cauldrons take buckets, bottles and rain (M23.5)") {
+    auto I = [](const char* n, int c = 1) { return ItemStack{*itemRegistry().find(n), static_cast<uint8_t>(c)}; };
+    CHECK(BlockUpdates::compostChance(I("wheat_seeds").item) == 30);
+    CHECK(BlockUpdates::compostChance(I("oak_leaves").item) == 30);
+    CHECK(BlockUpdates::compostChance(I("apple").item) == 65);
+    CHECK(BlockUpdates::compostChance(I("bread").item) == 85);
+    CHECK(BlockUpdates::compostChance(I("stone").item) == 0);
+    Scene s;
+    const BlockPos p{1, 64, 1};
+    s.world.updateBlock(p, R().defaultState(blocks::Composter));
+    CHECK_FALSE(s.updates.compost(p, I("stone").item));
+    CHECK(s.updates.compost(p, I("wheat_seeds").item)); // the first always adds a layer
+    CHECK(R().get(s.at(p), properties::composterLevel) == 1);
+    int used = 1;
+    while (R().get(s.at(p), properties::composterLevel) < 7 && used < 200)
+        used += s.updates.compost(p, I("wheat_seeds").item);
+    CHECK(R().get(s.at(p), properties::composterLevel) == 7);
+    CHECK(used > 7); // 30%: about 21 seeds on average
+    CHECK_FALSE(s.updates.compost(p, I("apple").item)); // level 7: waits for the ready tick
+    CHECK(s.updates.takeCompost(p).empty());
+    for (int t = 0; t <= 21; ++t) {
+        s.updates.setTime(t);
+        s.updates.tick();
+    }
+    CHECK(R().get(s.at(p), properties::composterLevel) == 8);
+    CHECK(BlockUpdates::cauldronSignal(s.at(p)) == 8);
+    const ItemStack meal = s.updates.takeCompost(p);
+    CHECK(meal.item == I("bone_meal").item);
+    CHECK(R().get(s.at(p), properties::composterLevel) == 0);
+    // Cauldrons: a water bucket fills it, three bottles empty it, a bucket takes it all.
+    const BlockPos c{3, 64, 1};
+    s.world.updateBlock(c, R().defaultState(blocks::Cauldron));
+    CHECK_FALSE(s.updates.useCauldron(c, I("bucket")));
+    auto back = s.updates.useCauldron(c, I("water_bucket"));
+    REQUIRE(back);
+    CHECK(back->item == I("bucket").item);
+    CHECK(BlockUpdates::cauldronSignal(s.at(c)) == 3);
+    back = s.updates.useCauldron(c, I("glass_bottle"));
+    REQUIRE(back);
+    CHECK(back->potion == static_cast<uint8_t>(Potion::Water));
+    CHECK(BlockUpdates::cauldronSignal(s.at(c)) == 2);
+    CHECK(s.updates.useCauldron(c, *back)); // pour it back: 3
+    CHECK(BlockUpdates::cauldronSignal(s.at(c)) == 3);
+    back = s.updates.useCauldron(c, I("bucket"));
+    REQUIRE(back);
+    CHECK(back->item == I("water_bucket").item);
+    CHECK(R().blockOf(s.at(c)) == blocks::Cauldron);
+    CHECK(s.updates.useCauldron(c, I("lava_bucket")));
+    CHECK(R().blockOf(s.at(c)) == blocks::LavaCauldron);
+    CHECK(R().lightEmission(s.at(c)) == 15);
+    back = s.updates.useCauldron(c, I("bucket"));
+    REQUIRE(back);
+    CHECK(back->item == I("lava_bucket").item);
+    // A filled cauldron drops the cauldron; it has a bowl to stand in.
+    Xoroshiro rng(1);
+    std::vector<ItemStack> drops;
+    blockDrops(R().defaultState(blocks::WaterCauldron), {I("iron_pickaxe")}, rng, drops);
+    REQUIRE(drops.size() == 1);
+    CHECK(drops[0].item == I("cauldron").item);
+    CHECK(collisionShape(R().defaultState(blocks::Cauldron)).count == 5);
+    // Recipes.
+    std::array<ItemStack, 9> g{I("iron_ingot"), {}, I("iron_ingot"), I("iron_ingot"), {}, I("iron_ingot"),
+                               I("iron_ingot"), I("iron_ingot"), I("iron_ingot")};
+    REQUIRE(craft(g, 3));
+    CHECK(craft(g, 3)->item == I("cauldron").item);
+    g = {I("oak_slab"), {}, I("birch_slab"), I("oak_slab"), {}, I("oak_slab"), I("oak_slab"), I("oak_slab"), I("oak_slab")};
+    REQUIRE(craft(g, 3));
+    CHECK(craft(g, 3)->item == I("composter").item);
 }

@@ -173,6 +173,25 @@ BlockShape compute(BlockStateId s) {
     case B::DirtPath: return box(0, 0, 0, 16, 15, 16);
     case B::SoulSand: return box(0, 0, 0, 16, 14, 16);
     case B::Chest: return box(1, 0, 1, 15, 14, 15);
+    case B::Composter: { // a 2-thick open box with a 2-high floor (wiki: Composter)
+        BlockShape sh = box(0, 0, 0, 16, 2, 16);
+        add(sh, 0, 0, 0, 16, 16, 2);
+        add(sh, 0, 0, 14, 16, 16, 16);
+        add(sh, 0, 0, 0, 2, 16, 16);
+        add(sh, 14, 0, 0, 16, 16, 16);
+        return sh;
+    }
+    case B::Cauldron:
+    case B::WaterCauldron:
+    case B::LavaCauldron:
+    case B::PowderSnowCauldron: { // the bowl's floor at 4 pixels, walls 2 thick (wiki: Cauldron)
+        BlockShape sh = box(0, 0, 0, 16, 4, 16);
+        add(sh, 0, 0, 0, 16, 16, 2);
+        add(sh, 0, 0, 14, 16, 16, 16);
+        add(sh, 0, 0, 0, 2, 16, 16);
+        add(sh, 14, 0, 0, 16, 16, 16);
+        return sh;
+    }
     case B::RedBed: return box(0, 0, 0, 16, 9, 16);
     case B::EnchantingTable: return box(0, 0, 0, 16, 12, 16);
     case B::EndPortalFrame: return box(0, 0, 0, 16, 13, 16);

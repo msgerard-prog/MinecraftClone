@@ -79,6 +79,8 @@ const Property age25{"age", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8"
 const Property chestType{"type", {"single", "left", "right"}};
 const Property bedPart{"part", {"head", "foot"}};
 const Property occupied{"occupied", {"true", "false"}};
+const Property composterLevel{"level", {"0", "1", "2", "3", "4", "5", "6", "7", "8"}};
+const Property cauldronLevel{"level", {"1", "2", "3"}};
 } // namespace properties
 
 namespace {
@@ -920,6 +922,20 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("barrel", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe},
                 {{&facing6, "north"}, {&open, "false"}}),
           blocks::Barrel);
+    // Composter (wiki: Composter - 0.6, axe) and cauldrons (wiki: Cauldron - 2.0, needs
+    // a pickaxe; the filled ones are separate blocks, as in vanilla since 1.17).
+    check(r.add("composter", {.hardness = 0.6f, .resistance = 0.6f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                              .tool = HarvestTool::Axe},
+                {{&composterLevel, "0"}}),
+          blocks::Composter);
+    const BlockSettings cauldron{.hardness = 2.0f, .resistance = 2.0f, .opaqueCube = false,
+                                 .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe, .tier = 0};
+    check(r.add("cauldron", cauldron), blocks::Cauldron);
+    check(r.add("water_cauldron", cauldron, {{&cauldronLevel, "1"}}), blocks::WaterCauldron);
+    BlockSettings lavaCauldron = cauldron;
+    lavaCauldron.lightEmission = 15; // (wiki: a lava cauldron gives light 15)
+    check(r.add("lava_cauldron", lavaCauldron), blocks::LavaCauldron);
+    check(r.add("powder_snow_cauldron", cauldron, {{&cauldronLevel, "1"}}), blocks::PowderSnowCauldron);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

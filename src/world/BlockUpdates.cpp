@@ -283,7 +283,8 @@ int BlockUpdates::strongAt(const BlockPos& q, Direction toward) const {
 int BlockUpdates::containerSignal(const BlockPos& p) const {
     // Fullness 0..15: 0 when empty, else floor(1 + (sum of count / max stack) / slots x 14)
     // (wiki: Redstone Comparator › Measure block state).
-    const BlockId b = blockOf(at(p));
+    if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
+    const BlockId b = R().likeOf(blockOf(at(p))); // (smokers and blast furnaces count as furnaces)
     Chunk* c = chunkAt(p);
     if (!c) return -1;
     const int x = blockToLocal(p.x), z = blockToLocal(p.z);
@@ -296,7 +297,7 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
         any = true;
         fill += double(st.count) / std::max(1, int(itemRegistry().item(st.item).maxStack));
     };
-    if (b == B::Chest) {
+    if (b == B::Chest || b == B::Barrel) {
         if (const ChestData* d = c->chest(x, p.y, z))
             for (const ItemStack& st : d->items)
                 count(st);
@@ -1372,6 +1373,9 @@ void BlockUpdates::tick() {
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     switch (blockOf(s)) {
+    case B::Composter: // 20 ticks after reaching 7: bone meal ready (wiki: Composter)
+        if (R().get(s, properties::composterLevel) == 7) set(p, R().set(s, properties::composterLevel, 8));
+        break;
     case B::RedstoneTorch:
     case B::RedstoneWallTorch: {
         const bool input = torchInput(p, s);

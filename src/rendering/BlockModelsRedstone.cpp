@@ -349,6 +349,64 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
         b.cube(faces, kFacingRot[int(facing)]);
         return true;
     }
+    case B::Composter:
+    case B::Cauldron:
+    case B::WaterCauldron:
+    case B::LavaCauldron:
+    case B::PowderSnowCauldron: {
+        // An open box: four 2-thick walls (outside and inside faces, the rim on top), a
+        // floor (composter 2 high; cauldron at 3-4 over legs cut out of the side
+        // texture), and the contents as a top face at their level.
+        Builder b(atlas, out);
+        const bool composter = block == B::Composter;
+        const char* side = composter ? "composter_side" : "cauldron_side";
+        const char* top = composter ? "composter_top" : "cauldron_top";
+        const char* inner = composter ? "composter_side" : "cauldron_inner";
+        auto wall = [&](glm::ivec3 from, glm::ivec3 to) {
+            BoxSpec w = allFaces(from, to, side, {0, 0, 16, 16});
+            w.faces[int(Direction::Up)] = {top, {uint8_t(from.x), uint8_t(from.z), uint8_t(to.x), uint8_t(to.z)}};
+            w.faces[int(Direction::Down)] = {composter ? "composter_bottom" : "cauldron_bottom",
+                                             {uint8_t(from.x), uint8_t(from.z), uint8_t(to.x), uint8_t(to.z)}};
+            // Inside faces show the inner texture.
+            if (from.z == 0 && to.z == 2) w.faces[int(Direction::South)] = {inner};
+            if (from.z == 14) w.faces[int(Direction::North)] = {inner};
+            if (from.x == 0 && to.x == 2) w.faces[int(Direction::East)] = {inner};
+            if (from.x == 14) w.faces[int(Direction::West)] = {inner};
+            b.box(w);
+        };
+        wall({0, 0, 0}, {16, 16, 2});
+        wall({0, 0, 14}, {16, 16, 16});
+        wall({0, 0, 2}, {2, 16, 14});
+        wall({14, 0, 2}, {16, 16, 14});
+        const int floorLo = composter ? 0 : 3, floorHi = composter ? 2 : 4;
+        BoxSpec floor{{2, floorLo, 2}, {14, floorHi, 14}, {}};
+        floor.faces[int(Direction::Up)] = {composter ? "composter_bottom" : "cauldron_inner", {2, 2, 14, 14}};
+        floor.faces[int(Direction::Down)] = {composter ? "composter_bottom" : "cauldron_bottom", {2, 2, 14, 14}};
+        b.box(floor);
+        int level = 0; // contents' top in pixels (vanilla: water 6 + 3 x level, compost 1 + 2 x level)
+        const char* contents = nullptr;
+        Tint tint = Tint::None;
+        if (composter) {
+            const int l = r.get(s, P::composterLevel);
+            if (l > 0) {
+                level = l == 8 ? 15 : 1 + 2 * l;
+                contents = l == 8 ? "composter_ready" : "composter_compost";
+            }
+        } else if (block == B::WaterCauldron || block == B::PowderSnowCauldron) {
+            level = 6 + 3 * (r.get(s, P::cauldronLevel) + 1);
+            contents = block == B::WaterCauldron ? "water_still" : "powder_snow";
+            if (block == B::WaterCauldron) tint = Tint::Water;
+        } else if (block == B::LavaCauldron) {
+            level = 15;
+            contents = "lava_still";
+        }
+        if (contents) {
+            BoxSpec c{{2, level - 1, 2}, {14, level, 14}, {}};
+            c.faces[int(Direction::Up)] = {contents, {2, 2, 14, 14}, glm::ivec3(0), tint};
+            b.box(c);
+        }
+        return true;
+    }
     case B::Barrel: {
         // Built facing up: the lid on top (open: the dark inside), turned like a dispenser.
         Builder b(atlas, out);

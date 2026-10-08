@@ -119,6 +119,8 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));
     r.mapBlock(blocks::WallTorch, *r.find("torch")); // (M23.2: picked and dropped as the torch)
     r.mapBlock(blocks::SoulWallTorch, *r.find("soul_torch"));
+    for (const BlockId c : {BlockId(blocks::WaterCauldron), BlockId(blocks::LavaCauldron), BlockId(blocks::PowderSnowCauldron)})
+        r.mapBlock(c, *r.find("cauldron")); // (filled cauldrons pick and drop as the cauldron)
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
