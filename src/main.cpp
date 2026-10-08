@@ -590,6 +590,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Explosion tntBlast;          // (M21.1b)
     mc::PrimedTnt primedTnt;
     int bowTicks = 0;      // how long the bow has been drawn
+    int crossbowTicks = 0; // (M28.4a) how long the crossbow has been loading
     uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
     int playerTargetTicks = 0;     // (forgotten after 100 ticks, like vanilla's last-hurt memory)
     int tridentTicks = 0;  // how long a trident has been held back (M25.3)
@@ -665,6 +666,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             s.contents = it.contents;
             s.trim = it.trim;
             s.extra = it.extra;
+            if (it.itemState) s.state = it.itemState;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103)
                 inventory.setArmor(103 - it.slot, s);
@@ -854,6 +856,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             it.contents = s.contents;
             it.trim = s.trim;
             it.extra = s.extra;
+            if (!mc::world::itemRegistry().item(s.item).block) it.itemState = s.state;
             l.inventory.push_back(std::move(it));
         };
         for (int i = 0; i < mc::Inventory::kSlots; ++i)
@@ -2307,6 +2310,30 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         playSound(mc::world::Sound::BowShoot, eye, 1.0f,
                                   0.75f + mc::bowPower(bowTicks) * 0.5f, false);
                     bowTicks = 0;
+                }
+                // Crossbows (M28.4a; wiki: Crossbow): hold right-click to load (an arrow), then
+                // a right-click fires; letting go before it is loaded starts over.
+                if (!dead && heldId == "minecraft:crossbow") {
+                    static const mc::world::ItemId arrowItem = *mc::world::itemRegistry().find("arrow");
+                    if (inventory.selectedStack().state == 0) {
+                        if (clicks.use && (!survival || inventory.has(arrowItem))) {
+                            if (++crossbowTicks >= mc::crossbowChargeTicks(inventory.selectedStack()) &&
+                                mc::loadCrossbow(inventory, survival)) {
+                                crossbowTicks = 0;
+                                playSound(mc::world::Sound::DoorOpen, eye, 0.5f, 1.4f, false); // (our click as it locks)
+                            }
+                            clicks.useClick = false;
+                        } else {
+                            crossbowTicks = 0;
+                        }
+                    } else if (clicks.useClick) {
+                        if (mc::fireCrossbow(inventory, survival, eye, look, projectiles, gameRng))
+                            playSound(mc::world::Sound::BowShoot, eye, 1.0f, 1.1f, false);
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                } else {
+                    crossbowTicks = 0;
                 }
                 // Tridents (M25.3): hold right-click, release to throw - or, with Riptide,
                 // to fly along the look when in water or rain.

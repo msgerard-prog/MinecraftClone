@@ -78,6 +78,7 @@ struct Projectile {
     uint8_t potion = 0;     // splash potions: the potion (world::Potion)
     world::ItemStack stack{}; // tridents: the item itself (enchantments, wear), given back on pickup
     bool dealt = false;       // tridents: has hit something (drops away, hits nothing more)
+    uint8_t pierce = 0;       // (M28.4a) crossbow Piercing: mobs it may still go through
 };
 
 class Projectiles {
@@ -173,6 +174,15 @@ bool canDrawBow(const Inventory& inventory, bool survival);
 // durability). Returns true if it shot.
 bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
                 Projectiles& projectiles, world::Xoroshiro& rng);
+// Crossbows (M28.4a; wiki: Crossbow): held for `crossbowChargeTicks` (25, 5 less a Quick
+// Charge level) they load an arrow (survival uses one up) and stay loaded (ItemStack::state
+// kCrossbowArrow); a right-click fires it at 3.15 blocks a tick - with Multishot three, 10
+// degrees apart (the side ones can't be picked up), with Piercing through level + 1 mobs.
+inline constexpr world::BlockStateId kCrossbowArrow = 1;
+int crossbowChargeTicks(const world::ItemStack& crossbow);
+bool loadCrossbow(Inventory& inventory, bool survival);
+bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                  Projectiles& projectiles, world::Xoroshiro& rng);
 // Releasing a trident held back for `ticks` (M25.3; wiki: Trident): at least 10 ticks;
 // thrown at 2.5 blocks a tick (survival: it leaves the hand and wears by 1; creative:
 // a copy that can't be picked up). With Riptide it can't be thrown: returns the

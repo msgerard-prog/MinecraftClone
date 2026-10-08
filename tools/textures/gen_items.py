@@ -1005,16 +1005,29 @@ def banner_item(colour):
     return s.render()
 
 
+PATTERN_EMBLEMS = {  # (M28.3d) a small fixed emblem per pattern item, 5x5
+    "field_masoned": ["#####", "#.#.#", "#####", ".#.#.", "#####"],
+    "bordure_indented": ["#.#.#", ".....", "#...#", ".....", "#.#.#"],
+    "creeper": ["#####", "#.#.#", "#####", "#...#", "#.#.#"],
+    "skull": [".###.", "#####", "#.#.#", "#####", ".#.#."],
+    "flower": ["..#..", ".###.", "##.##", ".###.", "..#.."],
+    "mojang": ["..#..", "#####", ".###.", ".#.#.", "#...#"],  # (our own star for "Thing")
+    "globe": [".###.", "#.#.#", "###.#", "#.###", ".###."],
+    "piglin": [".....", "#####", "#.#.#", "#####", "....."],
+    "flow": ["####.", "...#.", ".#.#.", ".###.", "....."],
+    "guster": [".###.", "#...#", "#.#.#", "#..#.", ".#..."],
+}
+
+
 def pattern_item(seed):
-    """M28.3d: a banner pattern (paper with a stencilled emblem)."""
+    """M28.3d: a banner pattern: paper with its stencilled emblem."""
     s = Shape()
     s.add({(x, y) for x in range(3, 13) for y in range(2, 14)}, ramp(hexc("#E8E0C8"), 5, spread=0.15))
     img = s.render()
-    rng = random.Random(seed)
-    for y in range(5, 11):
-        for x in range(5, 11):
-            if rng.random() < 0.45 or (x in (7, 8) and y in (7, 8)):
-                img.set(x, y, hexc("#6A5A48"))
+    for j, row in enumerate(PATTERN_EMBLEMS[seed]):
+        for i, ch in enumerate(row):
+            if ch == "#":
+                img.set(5 + i, 5 + j, hexc("#6A5A48"))
     return img
 
 
@@ -1364,6 +1377,14 @@ def all_items():
     items["painting"] = frame_item("#5E8A3C", picture=True)
     items["armor_stand"] = armor_stand_item()  # (M28.3b)
     items["lead"] = lead_item()  # (M28.3c)
+    loaded = crossbow()  # (M28.4a) a crossbow with an arrow on the string: shaft, head, fletching
+    for k in range(7):
+        loaded.set(5 + k, 12 - k, hexc("#F0F0F0"))
+    for (x, y) in ((12, 4), (13, 3), (12, 3), (13, 4)):
+        loaded.set(x, y, hexc("#9AD8F0"))
+    for (x, y) in ((4, 12), (4, 13), (5, 13)):
+        loaded.set(x, y, hexc("#D04030"))
+    items["crossbow_arrow"] = loaded
     for dye, colour in DYES:  # (M28.3d)
         items[f"{dye}_banner"] = banner_item(colour)
     for pat in ("field_masoned", "bordure_indented", "creeper", "skull", "flower", "mojang", "globe", "piglin",

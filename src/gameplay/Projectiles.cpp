@@ -73,6 +73,41 @@ bool releaseBow(Inventory& inventory, int ticks, bool survival, const glm::dvec3
     return true;
 }
 
+int crossbowChargeTicks(const ItemStack& crossbow) {
+    return std::max(0, 25 - 5 * enchantLevel(crossbow, Enchantment::QuickCharge));
+}
+
+bool loadCrossbow(Inventory& inventory, bool survival) {
+    static const ItemId arrow = *itemRegistry().find("arrow");
+    ItemStack bow = inventory.selectedStack();
+    if (bow.state != 0 || (survival && !inventory.has(arrow))) return false;
+    if (survival) inventory.takeOne(arrow);
+    bow.state = kCrossbowArrow;
+    inventory.setSlot(inventory.selected(), bow);
+    return true;
+}
+
+bool fireCrossbow(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                  Projectiles& projectiles, Xoroshiro& rng) {
+    ItemStack bow = inventory.selectedStack();
+    if (bow.state != kCrossbowArrow) return false;
+    const bool multishot = enchantLevel(bow, Enchantment::Multishot) > 0;
+    const uint8_t pierce = static_cast<uint8_t>(enchantLevel(bow, Enchantment::Piercing));
+    for (const float turn : {0.0f, -10.0f, 10.0f}) {
+        if (turn != 0.0f && !multishot) break;
+        const float a = glm::radians(turn); // about the vertical, like vanilla's side shots
+        const glm::dvec3 dir(look.x * std::cos(a) - look.z * std::sin(a), look.y, look.x * std::sin(a) + look.z * std::cos(a));
+        if (!projectiles.shoot(ProjectileKind::Arrow, eye, dir, 3.15, 1.0, true, false, rng)) continue;
+        Projectile& p = projectiles.last();
+        p.pickup = turn == 0.0f && survival;
+        p.pierce = pierce;
+    }
+    bow.state = 0;
+    if (survival) bow = wearItem(bow, multishot ? 3 : 1, rng); // (wiki: Multishot wears it 3)
+    inventory.setSlot(inventory.selected(), bow);
+    return true;
+}
+
 double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet, const glm::dvec3& eye,
                       const glm::dvec3& look, Projectiles& projectiles, Xoroshiro& rng) {
     if (ticks < 10) return 0.0; // (held back at least half a second)
@@ -286,6 +321,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             double reach = block ? block->distance : speed;
             // Entities in the way, nearer than the block.
             enum class Target { None, Player, Mob } target = Target::None;
+            bool pierced = false; // (M28.4a) went on through a mob
             Mobs::MobHit mob{};
             if (const auto mh = p.dealt ? std::nullopt : Mobs::raycast(world, p.pos, dir, reach, p.owner)) {
                 mob = *mh;
@@ -565,6 +601,12 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             if (p.flame) m.fireTicks = std::max<int16_t>(m.fireTicks, 100); // Flame: 5 s
                             ++hits.mobsHit;
                         }
+                        if (p.pierce > 0) { // (M28.4a) Piercing: on through it, never hitting it again
+                            --p.pierce;
+                            p.owner = m.uuidHi;
+                            p.pos += dir * (reach + 0.05);
+                            pierced = true;
+                        }
                     }
                 } else if (target == Target::Mob) {
                     ++hits.mobsHit; // eggs only knock (no damage)
@@ -580,7 +622,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     player.knockback(p.vel.x, p.vel.z, 0.3);
                 }
                 if (p.kind == ProjectileKind::Egg) m_chicks.push_back(p.pos + dir * reach);
-                remove = true;
+                remove = !pierced;
             } else if (block) {
                 if (p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident) { // sticks just inside the face it hit
                     p.pos += dir * (block->distance + 0.05);

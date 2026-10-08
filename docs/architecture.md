@@ -644,6 +644,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   per frame with `EntityRenderer::addBanner` (wood, then the base mask and each layer's
   mask from `textures/clone_banner/`, cut into atlas halves, tinted by dye). The loom
   (`gameplay/Loom`: `loomPatterns`, `loomResult`) backs `ContainerScreen::Type::Loom`.
+- Crossbows (M28.4a, `gameplay/Projectiles`): `crossbowChargeTicks`, `loadCrossbow` (the
+  load is `ItemStack::state` = `kCrossbowArrow`, saved as charged_projectiles; level.dat
+  carries non-block item states in `SavedItem::itemState`), `fireCrossbow` (Multishot's
+  three arrows, `Projectile::pierce` for Piercing: the arrow flies on, skipping the mob it
+  went through). Quick Charge, Multishot, Piercing come after Swift Sneak (random loot keeps
+  its range).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

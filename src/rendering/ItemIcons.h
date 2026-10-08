@@ -61,7 +61,8 @@ public:
 private:
     uint16_t dialSprite(const world::ItemStack& stack, uint16_t sprite) const;
     Dials m_dials;
-    world::ItemId m_compass = 0, m_recovery = 0, m_clock = 0;
+    world::ItemId m_compass = 0, m_recovery = 0, m_clock = 0, m_crossbow = 0;
+    uint16_t m_crossbowLoaded = 0;
     std::array<uint16_t, 32> m_compassFrames{}, m_recoveryFrames{};
     std::array<uint16_t, 64> m_clockFrames{};
     std::vector<uint16_t> m_bannerMasks;

@@ -160,7 +160,9 @@ std::optional<world::ItemStack> parseStack(std::string_view id, std::string& err
     if (!item || *item == world::kNoItem)
         return failed(format("Unknown item '%.*s'", int(id.size()), id.data()));
     world::ItemStack stack{*item, 1};
-    if (const size_t bp = id.find("[banner_patterns=["); bp != std::string_view::npos) {
+    if (id.find("[charged_projectiles=") != std::string_view::npos) {
+        stack.state = 1; // (M28.4a) a crossbow loaded with an arrow
+    } else if (const size_t bp = id.find("[banner_patterns=["); bp != std::string_view::npos) {
         // red_banner[banner_patterns=[{pattern:"cross",color:"white"},...]] (M28.3d; vanilla components)
         world::BannerLayers layers;
         std::string_view rest = id.substr(bp + 18);

@@ -44,6 +44,11 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:channeling", "Channeling", 1, 1, 25, 0, 25, 50, EnchantTarget::Trident, 0},
     // (M27.3; wiki: Swift Sneak - III, a treasure: weight 0, never from the table)
     {"minecraft:swift_sneak", "Swift Sneak", 3, 0, 25, 25, 50, 50, EnchantTarget::Legs, 0},
+    // (M28.4a; wiki: Quick Charge III weight 5, Multishot I weight 2, Piercing IV weight 10;
+    // costs up to 50)
+    {"minecraft:quick_charge", "Quick Charge", 3, 5, 12, 20, 38, 50, EnchantTarget::Crossbow, 0},
+    {"minecraft:multishot", "Multishot", 1, 2, 20, 0, 30, 50, EnchantTarget::Crossbow, 0},
+    {"minecraft:piercing", "Piercing", 4, 10, 1, 10, 49, 50, EnchantTarget::Crossbow, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -103,6 +108,7 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::Bow: return item == ids().bow;
     case EnchantTarget::FishingRod: return item == ids().rod;
     case EnchantTarget::Trident: return item == ids().trident;
+    case EnchantTarget::Crossbow: return d.id == "minecraft:crossbow";
     }
     return false;
 }
@@ -112,7 +118,8 @@ bool conflicts(Enchantment a, Enchantment b) {
     const uint8_t g = enchantmentInfo(a).group;
     if (g && enchantmentInfo(b).group == g) return true;
     auto pair = [&](Enchantment x, Enchantment y) { return (a == x && b == y) || (a == y && b == x); };
-    return pair(Enchantment::Riptide, Enchantment::Loyalty) || pair(Enchantment::Riptide, Enchantment::Channeling);
+    return pair(Enchantment::Riptide, Enchantment::Loyalty) || pair(Enchantment::Riptide, Enchantment::Channeling) ||
+           pair(Enchantment::Multishot, Enchantment::Piercing); // (M28.4a)
 }
 
 int enchantability(ItemId item) { return item < ids().enchantability.size() ? ids().enchantability[item] : 0; }

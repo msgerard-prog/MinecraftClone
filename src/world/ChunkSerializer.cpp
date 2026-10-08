@@ -221,6 +221,17 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     if (s.state && !itemRegistry().item(s.item).block) { // (M28.2b) a map waiting to be zoomed out or locked
         if (itemRegistry().item(s.item).id == "minecraft:filled_map")
             components.put("minecraft:map_post_processing", int32_t(s.state == 1 ? 0 : 1)); // (vanilla: 0 lock, 1 scale)
+        if (itemRegistry().item(s.item).id == "minecraft:crossbow") { // (M28.4a) what it is loaded with
+            std::vector<nbt::Tag> loaded;
+            const int n = enchantLevel(s, Enchantment::Multishot) > 0 ? 3 : 1;
+            for (int i = 0; i < n; ++i) {
+                nbt::Compound a;
+                a.put("id", std::string("minecraft:arrow"));
+                a.put("count", int32_t{1});
+                loaded.emplace_back(std::move(a));
+            }
+            components.put("minecraft:charged_projectiles", nbt::listOf(nbt::TagType::Compound, std::move(loaded)));
+        }
     } else if (s.state) { // exact block state (vanilla's minecraft:block_state component)
         nbt::Compound props;
         const std::string text = blockRegistry().toString(s.state);
@@ -323,6 +334,9 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
     if (const nbt::Compound* comps = c.compound("components")) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
         const ItemDef& def = itemRegistry().item(*item);
+        if (def.id == "minecraft:crossbow")
+            if (const nbt::List* loaded = comps->list("minecraft:charged_projectiles"); loaded && !loaded->items.empty())
+                s.state = 1; // (M28.4a: loaded with an arrow)
         if (def.id == "minecraft:filled_map") {
             s.damage = static_cast<uint16_t>(std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
             if (const auto pp = comps->integer("minecraft:map_post_processing")) s.state = *pp == 0 ? 1 : 2;

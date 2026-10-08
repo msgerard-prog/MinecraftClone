@@ -38,6 +38,8 @@ void ItemIcons::build(const TextureAtlas& atlas) {
         for (const char* half : {":0,0", ":0,1"})
             m_bannerMasks.push_back(static_cast<uint16_t>(atlas.spriteIndex("clone_banner/" + std::string(p.name) + half)));
     m_compass = items.find("compass").value_or(0);
+    m_crossbow = items.find("crossbow").value_or(0);
+    m_crossbowLoaded = static_cast<uint16_t>(atlas.spriteIndex("item/crossbow_arrow"));
     m_recovery = items.find("recovery_compass").value_or(0);
     m_clock = items.find("clock").value_or(0);
 }
@@ -59,6 +61,7 @@ int ItemIcons::clockFrame(double celestial) {
 
 uint16_t ItemIcons::dialSprite(const world::ItemStack& stack, uint16_t sprite) const {
     const Dials& d = m_dials;
+    if (stack.item == m_crossbow && m_crossbow && stack.state != 0) return m_crossbowLoaded; // (M28.4a: loaded)
     const int spin = int(d.seconds * 24.0); // (a needle with nothing to find turns round and round)
     if (stack.item == m_clock && m_clock)
         return m_clockFrames[size_t(d.dimension == 0 ? clockFrame(d.celestial) : spin % 64)];

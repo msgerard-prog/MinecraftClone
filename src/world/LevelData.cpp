@@ -199,9 +199,10 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             contents.put("potion", "minecraft:" + it.potion);
             components.put("minecraft:potion_contents", std::move(contents));
         }
-        if (it.contents || it.trim || it.extra) { // (the item writer knows these components' layouts)
+        if (it.contents || it.trim || it.extra || it.itemState) { // (the item writer knows these components' layouts)
             ItemStack carrier{};
-            carrier.item = 1; // (any item: only these components are used)
+            carrier.item = itemRegistry().find(it.id).value_or(ItemId(1)); // (its own: some components depend on it)
+            carrier.state = it.itemState;
             carrier.count = 1;
             carrier.contents = it.contents;
             carrier.trim = it.trim;
@@ -210,7 +211,8 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             if (const Compound* fc = full.compound("components"))
                 for (const char* key : {"minecraft:container", "minecraft:trim", "minecraft:lodestone_tracker",
                                         "minecraft:writable_book_content", "minecraft:written_book_content",
-                                        "minecraft:banner_patterns"})
+                                        "minecraft:banner_patterns", "minecraft:charged_projectiles",
+                                        "minecraft:map_post_processing"})
                     if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
@@ -491,11 +493,13 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     }
                 if (comps->list("minecraft:container") || comps->compound("minecraft:trim") ||
                     comps->compound("minecraft:lodestone_tracker") || comps->compound("minecraft:writable_book_content") ||
-                    comps->compound("minecraft:written_book_content") || comps->list("minecraft:banner_patterns")) {
+                    comps->compound("minecraft:written_book_content") || comps->list("minecraft:banner_patterns") ||
+                    comps->list("minecraft:charged_projectiles") || comps->find("minecraft:map_post_processing")) {
                     const ItemStack parsed = itemFromNbtPublic(item);
                     saved.contents = parsed.contents;
                     saved.trim = parsed.trim;
                     saved.extra = parsed.extra;
+                    if (!itemRegistry().item(parsed.item).block) saved.itemState = parsed.state;
                 }
             }
             const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;

@@ -40,6 +40,9 @@ enum class Enchantment : uint8_t {
     Impaling,     // (M25.3) tridents: +2.5 a level against water mobs
     Channeling,   // (M25.3) tridents: a hit in a thunderstorm calls lightning
     SwiftSneak,   // (M27.3) leggings: sneaking 15% faster a level (ancient cities only)
+    QuickCharge,  // (M28.4a) crossbows: 0.25 s faster to load a level
+    Multishot,    // (M28.4a) crossbows: three arrows for one
+    Piercing,     // (M28.4a) crossbows: arrows go through a mob a level
     Count
 };
 // Random enchantments (loot enchant_randomly, fishing treasure) draw from the ones before
@@ -48,7 +51,7 @@ enum class Enchantment : uint8_t {
 inline constexpr uint32_t kRandomEnchantments = uint32_t(Enchantment::Channeling);
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"
