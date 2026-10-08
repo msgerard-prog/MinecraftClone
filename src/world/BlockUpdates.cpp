@@ -93,6 +93,7 @@ Push pushKind(BlockStateId s) {
     const BlockId b = blockOf(s);
     if (b == B::MovingPiston) return Push::Block; // (already in flight)
     if (R().likeOf(b) == B::Chest) return Push::Block; // (copper chests too: block entities don't move)
+    if (isTallPlant(b) || b == B::PaleHangingMoss) return Push::Destroy; // (M27.1: plants break)
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
     // lanterns, ladders and bamboo break off (a shulker box keeping its slots, see
     // pistonDrops); jukeboxes, beacons, conduits and grindstones don't move; glazed
@@ -800,7 +801,8 @@ bool BlockUpdates::replaceable(BlockStateId s) {
     // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
     const BlockId b = blockOf(s);
     return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass ||
-           b == B::Fern || b == B::DeadBush || (b == B::Snow && R().get(s, layers) == 0);
+           b == B::Fern || b == B::DeadBush || b == B::TallGrass || b == B::LargeFern ||
+           (b == B::Snow && R().get(s, layers) == 0);
 }
 
 bool BlockUpdates::fallThrough(BlockStateId below) { return replaceable(below); }
@@ -894,6 +896,11 @@ void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStat
         const BlockPos head = rel(p, hFacing(now));
         if (blockOf(at(head)) != B::RedBed && replaceable(at(head)))
             set(head, R().set(now, bedPart, 0));
+    }
+    // A two-block plant's lower half brings its upper half (M27.1).
+    if (isTallPlant(blockOf(now)) && R().get(now, doorHalf) == 1 && blockOf(old) != blockOf(now)) {
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (replaceable(at(up)) && blockOf(at(up)) != blockOf(now)) set(up, R().set(now, doorHalf, 0));
     }
     // A door's lower half placed by a player brings its upper half (wiki: Door).
     if (isDoor(blockOf(now)) && R().get(now, doorHalf) == 1 && !isDoor(blockOf(old))) {
@@ -1091,6 +1098,33 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
                                   : kind == BlockKind::Wall ? wallConnected(m_world, p, s)
                                                             : paneConnected(m_world, p, s);
         if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
+    // Two-block plants (M27.1): the upper half goes with the lower; the lower needs its
+    // upper half and soil (it drops the plant).
+    if (isTallPlant(blockOf(s))) {
+        if (R().get(s, doorHalf) == 0) {
+            const BlockStateId ls = at({p.x, p.y - 1, p.z});
+            if (blockOf(ls) != blockOf(s) || R().get(ls, doorHalf) != 1) set(p, leftAfterBreaking(s));
+        } else {
+            const BlockStateId us = at({p.x, p.y + 1, p.z});
+            if (blockOf(us) != blockOf(s) || R().get(us, doorHalf) != 0 || !plantableSoil(at(rel(p, Direction::Down))))
+                pop(p);
+        }
+        --m_depth;
+        return;
+    }
+    // Pale hanging moss (M27.1; wiki): under a solid block, leaves or more moss; the
+    // lowest one of a strand shows the tip.
+    if (blockOf(s) == B::PaleHangingMoss) {
+        const BlockStateId above = at({p.x, p.y + 1, p.z});
+        if (!R().collides(above) && blockOf(above) != B::PaleHangingMoss) {
+            pop(p);
+        } else {
+            const BlockStateId want = R().set(s, mossTip, blockOf(at({p.x, p.y - 1, p.z})) == B::PaleHangingMoss ? 1 : 0);
+            if (want != s) set(p, want);
+        }
         --m_depth;
         return;
     }
@@ -2058,6 +2092,17 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case BlockKind::WallHangingSign:
         return state;
     case BlockKind::Plain: break;
+    }
+    // Two-block plants (M27.1): on soil with room above for the upper half.
+    if (isTallPlant(blockOf(state))) {
+        if (!plantableSoil(world.getBlock(rel(at, Direction::Down))) || !replaceable(world.getBlock(rel(at, Direction::Up))))
+            return std::nullopt;
+        return r.set(state, doorHalf, 1);
+    }
+    if (blockOf(state) == B::PaleHangingMoss) { // under a block or more moss
+        const BlockStateId above = world.getBlock(rel(at, Direction::Up));
+        if (!r.collides(above) && blockOf(above) != B::PaleHangingMoss) return std::nullopt;
+        return state;
     }
     // Mob heads (M26.4b): on a side, the wall kind; on top, turned to face the player.
     if (isMobHead(blockOf(state)) && !isWallHead(blockOf(state))) {

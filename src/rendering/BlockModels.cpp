@@ -932,6 +932,26 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite(name.c_str());
+            } else if (name == "sunflower" || name == "lilac" || name == "rose_bush" || name == "peony" ||
+                       name == "tall_grass" || name == "large_fern") {
+                // Two-block plants (M27.1): a cross per half; the sunflower's upper half also
+                // shows its flower head, a plane facing east (vanilla: tilted, also east).
+                const bool upper = registry.value(state, "half") == "upper";
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite((name + (upper ? "_top" : "_bottom")).c_str());
+                m.crossTint = name == "tall_grass" || name == "large_fern" ? Tint::Grass : Tint::None;
+                if (name == "sunflower" && upper) {
+                    addBox(m, 9, 0, 0, 9, 16, 16, sprite("sunflower_front"));
+                    m.boxes[0].faces[int(Direction::West)].sprite = sprite("sunflower_back");
+                }
+            } else if (name == "pale_hanging_moss") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(registry.value(state, "tip") == "true" ? "pale_hanging_moss_tip" : "pale_hanging_moss");
+            } else if (name == "muddy_mangrove_roots") {
+                m = single(cubeColumn(sprite("muddy_mangrove_roots_side"), sprite("muddy_mangrove_roots_top"),
+                                      registry.value(state, "axis").value_or("y")));
             } else if (name == "tall_seagrass") {
                 m.visible = true;
                 m.cross = true;

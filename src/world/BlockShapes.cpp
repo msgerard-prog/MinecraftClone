@@ -112,6 +112,7 @@ BlockShape compute(BlockStateId s) {
     case BlockKind::Plain: break;
     }
     switch (b) {
+    case B::Mud: return box(0, 0, 0, 16, 14, 16); // (M27.1; wiki: Mud - 14 pixels, so things sink a little)
     case B::Lantern: // wiki: Lantern - 6x7x6 (with the handle 6x9), hanging one pixel lower
     case B::SoulLantern: {
         const int y0 = r.get(s, hanging) == 0 ? 1 : 0;

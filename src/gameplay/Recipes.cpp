@@ -462,6 +462,15 @@ std::vector<Recipe> build() {
             {"bone_meal", "white_dye"},     {"lapis_lazuli", "blue_dye"}};
         for (const auto& [from, to] : kFrom)
             if (has(from)) r.push_back(shapeless({item(from)}, to));
+        // Tall flowers give two (M27.1; wiki: Dye).
+        for (const auto& [from, to] : {std::pair{"sunflower", "yellow_dye"}, std::pair{"lilac", "magenta_dye"},
+                                       std::pair{"rose_bush", "red_dye"}, std::pair{"peony", "pink_dye"}})
+            r.push_back(shapeless({item(from)}, to, 2));
+        // Mud and moss (M27.1; wiki: Packed Mud, Mud Bricks, Moss Carpet, Pale Moss Carpet).
+        r.push_back(shapeless({item("mud"), item("wheat")}, "packed_mud"));
+        r.push_back(shaped({"##", "##"}, {{'#', item("packed_mud")}}, "mud_bricks", 4));
+        r.push_back(shaped({"##"}, {{'#', item("moss_block")}}, "moss_carpet", 3));
+        r.push_back(shaped({"##"}, {{'#', item("pale_moss_block")}}, "pale_moss_carpet", 3));
         static constexpr std::array<const char*, 3> kMix[] = {
             {"red_dye", "yellow_dye", "orange_dye"}, {"red_dye", "white_dye", "pink_dye"},
             {"blue_dye", "white_dye", "light_blue_dye"}, {"blue_dye", "green_dye", "cyan_dye"},

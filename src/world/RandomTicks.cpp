@@ -74,9 +74,10 @@ bool treeReplaceable(BlockStateId s) {
 
 bool BlockUpdates::plantableSoil(BlockStateId s) {
     const BlockId b = blockOf(s);
-    // vanilla #dirt: dirt, grass, coarse dirt, podzol, mycelium (+ moss, rooted dirt, mud later)
-    return b == B::Dirt || b == B::GrassBlock || b == B::CoarseDirt || b == B::Podzol ||
-           b == B::Mycelium;
+    // vanilla #dirt: dirt, grass, coarse dirt, podzol, mycelium, moss, pale moss, mud and
+    // muddy mangrove roots (M27.1; rooted dirt with lush caves)
+    return b == B::Dirt || b == B::GrassBlock || b == B::CoarseDirt || b == B::Podzol || b == B::Mycelium ||
+           b == B::MossBlock || b == B::PaleMossBlock || b == B::Mud || b == B::MuddyMangroveRoots;
 }
 
 // Leaves and logs by name, once (M23.3b: every wood; vanilla's #leaves and #logs tags:

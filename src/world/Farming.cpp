@@ -5,6 +5,7 @@
 #include "world/Weather.h"
 
 #include "world/Blocks.h"
+#include "world/Items.h"
 
 #include <cmath>
 
@@ -153,6 +154,20 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
             else growTree(p, s);
         }
         return true; // used up either way
+    }
+    // (M27.1; wiki: Bone Meal) a tall flower drops a copy of itself; short grass and ferns
+    // grow into their two-block kinds when there is room above.
+    if (b == B::Sunflower || b == B::Lilac || b == B::RoseBush || b == B::Peony) {
+        m_drops.push_back({p, {itemRegistry().blockItem(b), 1}, 0});
+        return true;
+    }
+    if (b == B::ShortGrass || b == B::Fern) {
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (at(up) != 0) return false;
+        const BlockId tall = b == B::ShortGrass ? B::TallGrass : B::LargeFern;
+        setRaw(p, R().set(R().defaultState(tall), doorHalf, 1));
+        setRaw(up, R().set(R().defaultState(tall), doorHalf, 0));
+        return true;
     }
     if (b == B::GrassBlock && at({p.x, p.y + 1, p.z}) == 0) {
         for (int i = 0; i < 32; ++i) {

@@ -333,6 +333,22 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         const BlockId ob = blockRegistry().blockOf(state);
         const std::string& id = blockRegistry().block(ob).id;
         const bool shears = held.item != 0 && itemRegistry().item(held.item).id == "minecraft:shears";
+        // Two-block plants (M27.1; wiki): only the lower half drops - flowers themselves,
+        // tall grass and large ferns two short ones with shears, else wheat seeds 1 in 8.
+        if (isTallPlant(ob)) {
+            if (blockRegistry().get(state, properties::doorHalf) != 1) return;
+            if (ob == blocks::TallGrass || ob == blocks::LargeFern) {
+                if (shears) out.push_back({itemRegistry().blockItem(ob == blocks::TallGrass ? blocks::ShortGrass : blocks::Fern), 2});
+                else if (rng.nextInt(8) == 0) out.push_back({*itemRegistry().find("wheat_seeds"), 1});
+            } else {
+                out.push_back({itemRegistry().blockItem(ob), 1});
+            }
+            return;
+        }
+        if (ob == blocks::PaleHangingMoss) { // (wiki: only with shears or Silk Touch)
+            if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0) out.push_back({itemRegistry().blockItem(ob), 1});
+            return;
+        }
         if (ob == blocks::Seagrass || ob == blocks::TallSeagrass) {
             if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), uint8_t(ob == blocks::TallSeagrass ? 2 : 1)});
             return;

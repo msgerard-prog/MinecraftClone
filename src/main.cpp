@@ -2537,6 +2537,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (mc::world::blockRegistry().collides(s)) break;
                     }
                 }
+                // A water bottle poured on dirt makes mud (M27.1; wiki: Mud).
+                if (heldId == "minecraft:potion" && held.potion == static_cast<uint8_t>(mc::world::Potion::Water) &&
+                    clicks.useClick && lastHit && !blockUse) {
+                    const mc::world::BlockId hb = mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block));
+                    if (hb == mc::world::blocks::Dirt || hb == mc::world::blocks::CoarseDirt) {
+                        world.updateBlock(lastHit->block, mc::world::blockRegistry().defaultState(mc::world::blocks::Mud));
+                        frameEdits.push_back(lastHit->block);
+                        if (survival) {
+                            static const mc::world::ItemId bottle = *mc::world::itemRegistry().find("glass_bottle");
+                            inventory.setSlot(inventory.selected(), {bottle, 1});
+                        }
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
                 if (heldId.ends_with("bucket") && heldId != "minecraft:milk_bucket" && !blockUse) {
                     const glm::dvec3 eye = player.eyePosition(1.0);
                     const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));

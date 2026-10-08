@@ -91,6 +91,7 @@ const Property hasBook{"has_book", {"true", "false"}};
 const Property waterlogged{"waterlogged", {"true", "false"}};
 const Property pickles{"pickles", {"1", "2", "3", "4"}};
 const Property honeyLevel{"honey_level", {"0", "1", "2", "3", "4", "5"}};
+const Property mossTip{"tip", {"true", "false"}};
 const Property hydration{"hydration", {"0", "1", "2", "3"}};
 const Property eggs{"eggs", {"1", "2", "3", "4"}};
 const Property hatch{"hatch", {"0", "1", "2"}};
@@ -1111,6 +1112,30 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("dried_ghast", {.opaqueCube = false, .layer = RenderLayer::Cutout, .randomTicks = true},
                 {{&facing, "north"}, {&hydration, "0"}, {&waterlogged, "false"}}),
           blocks::DriedGhast);
+    // Two-block plants (M27.1; wiki: each plant - broken at once, the halves together).
+    for (const auto& [id, b] : {std::pair{"sunflower", blocks::Sunflower}, std::pair{"lilac", blocks::Lilac},
+                                std::pair{"rose_bush", blocks::RoseBush}, std::pair{"peony", blocks::Peony},
+                                std::pair{"tall_grass", blocks::TallGrass}, std::pair{"large_fern", blocks::LargeFern}})
+        check(r.add(id, kPlant, {{&doorHalf, "lower"}}), b);
+    // Mud (wiki: Mud - 0.5, shovel; its top sits 2 pixels low, see BlockShapes), packed
+    // mud (1.0 / 3.0), muddy mangrove roots (0.7, shovel), moss and pale moss (0.1, hoe)
+    // with their carpets.
+    check(r.add("mud", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Shovel}), blocks::Mud);
+    check(r.add("packed_mud", {.hardness = 1.0f, .resistance = 3.0f}), blocks::PackedMud);
+    check(r.add("muddy_mangrove_roots", {.hardness = 0.7f, .resistance = 0.7f, .tool = HarvestTool::Shovel},
+                {{&axis, "y"}}),
+          blocks::MuddyMangroveRoots);
+    check(r.add("moss_block", {.hardness = 0.1f, .resistance = 0.1f, .tool = HarvestTool::Hoe}), blocks::MossBlock);
+    check(r.add("moss_carpet", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false, .kind = BlockKind::Carpet,
+                                .base = blocks::MossBlock}),
+          blocks::MossCarpet);
+    check(r.add("pale_moss_block", {.hardness = 0.1f, .resistance = 0.1f, .tool = HarvestTool::Hoe}),
+          blocks::PaleMossBlock);
+    check(r.add("pale_moss_carpet", {.hardness = 0.1f, .resistance = 0.1f, .opaqueCube = false,
+                                     .kind = BlockKind::Carpet, .base = blocks::PaleMossBlock}),
+          blocks::PaleMossCarpet);
+    // (wiki: Pale Hanging Moss - hangs under a block or more moss; the lowest is the tip)
+    check(r.add("pale_hanging_moss", kPlant, {{&mossTip, "true"}}), blocks::PaleHangingMoss);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

@@ -55,6 +55,7 @@ extern const Property eggs;           // 1..4 (turtle eggs)
 extern const Property hatch;          // 0..2 (turtle eggs)
 extern const Property hydration;      // "hydration": 0..3 (M26.5b: dried ghasts)
 extern const Property honeyLevel;     // "honey_level": 0..5 (M26.3b: bee nests and beehives)
+extern const Property mossTip;        // "tip": true | false (M27.1: pale hanging moss)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -414,9 +415,28 @@ enum : BlockId {
     DragonHead,
     DragonWallHead,
     DriedGhast, // facing, hydration 0..3, waterlogged (M26.5b: soaked, it becomes a ghastling)
+    // Two-block plants (M27.1; wiki: Sunflower, Lilac, Rose Bush, Peony, Tall Grass, Large
+    // Fern): half (upper | lower), the two halves stay together.
+    Sunflower,
+    Lilac,
+    RoseBush,
+    Peony,
+    TallGrass,
+    LargeFern,
+    // Swamp and garden ground (M27.1): mangrove swamps, pale gardens, lush caves (M27.2).
+    Mud,
+    PackedMud,
+    MuddyMangroveRoots, // axis
+    MossBlock,
+    MossCarpet,
+    PaleMossBlock,
+    PaleMossCarpet,
+    PaleHangingMoss, // tip (true: the lowest of a strand)
     Count
 };
 } // namespace blocks
+// Two-block plants (M27.1), in enum order.
+inline bool isTallPlant(BlockId b) { return b >= blocks::Sunflower && b <= blocks::LargeFern; }
 // Mob heads (M26.4b): the standing kinds sit at even ids, each wall kind right after.
 inline bool isMobHead(BlockId b) { return b >= blocks::SkeletonSkull && b <= blocks::DragonWallHead; }
 inline bool isWallHead(BlockId b) { return isMobHead(b) && (b - blocks::SkeletonSkull) % 2 == 1; }
