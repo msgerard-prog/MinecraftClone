@@ -88,6 +88,12 @@ const MobInfo& mobInfo(MobType t) {
         // 1.9975 x 1.9975, laser 8 (Normal). Their swim speed is ours.
         {"minecraft:guardian", 30.0f, 0.85, 0.85, 0.1, 0.0f, true, false, false, 1.1f, true},
         {"minecraft:elder_guardian", 80.0f, 1.9975, 1.9975, 0.06, 0.0f, true, false, false, 2.6f, true},
+        // wiki: Wolf - 8 health wild (40 tamed), 0.6 x 0.85, speed 0.3, bites for 4; Cat - 10,
+        // 0.6 x 0.7, 0.3, 3; Ocelot - 10, 0.6 x 0.7, 0.3, 3; Parrot - 6, 0.5 x 0.9, flies.
+        {"minecraft:wolf", 8.0f, 0.6, 0.85, 0.3, 4.0f, false},
+        {"minecraft:cat", 10.0f, 0.6, 0.7, 0.3, 3.0f, false},
+        {"minecraft:ocelot", 10.0f, 0.6, 0.7, 0.3, 3.0f, false},
+        {"minecraft:parrot", 6.0f, 0.5, 0.9, 0.2, 0.0f, false},
     };
     return kInfo[static_cast<int>(t)];
 }

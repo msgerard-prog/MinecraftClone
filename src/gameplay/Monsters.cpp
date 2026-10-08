@@ -84,6 +84,17 @@ bool Mobs::mayTarget(Context& ctx, const MobData& m) const {
     case MobType::ZombifiedPiglin: return m.angry; // neutral until it (or one nearby) is hit
     // Drowned go after players in water, or anywhere at night (wiki: Drowned).
     case MobType::Drowned: return ctx.player.inWater() || ctx.skyDarken >= 4.0f || ctx.thundering;
+    case MobType::Creeper: { // creepers keep away from cats and ocelots (wiki: Creeper › Behavior)
+        const ChunkPos c{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
+                    for (const MobData& o : ch->mobs())
+                        if ((o.type == MobType::Cat || o.type == MobType::Ocelot) && o.health > 0.0f &&
+                            glm::dot(o.pos - m.pos, o.pos - m.pos) < 6.0 * 6.0)
+                            return false;
+        return true;
+    }
     case MobType::Piglin: // hostile unless the player wears gold; babies never (wiki: Piglin)
         return !m.isBaby() && m.admireTicks == 0 && (m.angry || !ctx.wearsGold);
     default: return true;

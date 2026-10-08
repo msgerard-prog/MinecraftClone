@@ -397,6 +397,20 @@ def mob_sounds(name, rng):
         moan = lambda d, a, b: voice(rng, d, a, b, wave="triangle", formant=(300, 1400), vibrato=0.06, vib_rate=5, breath=0.4)
         return ([moan(r(0.8, 1.2), f * r(0.9, 1.1), f * 0.8) for _ in range(3)],
                 [moan(0.3, f * 1.6, f * 1.2) for _ in range(2)], moan(1.4, f * 1.3, f * 0.4))
+    if name == "wolf":  # barks and a whine (ours)
+        bark = lambda f: mul(add(voice(rng, 0.14, f, f * 0.7, wave="saw", formant=(500, 2200), breath=0.4, attack=0.004),
+                                 [s * 0.3 for s in lowpass(noise(int(0.14 * RATE), rng), 1500)]), env(int(0.14 * RATE), 0.003, 0.05))
+        return ([add(bark(r(320, 380)), at(bark(r(300, 360)), 0.2, 0.4)) for _ in range(3)],
+                [voice(rng, 0.3, 900, 600, wave="triangle", formant=(800, 3000)) for _ in range(2)],
+                voice(rng, 0.8, 700, 250, wave="triangle", formant=(700, 2600), vibrato=0.05))
+    if name in ("cat", "ocelot"):  # meows (ours); ocelots stay quiet
+        meow = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(900, 3200), vibrato=0.03, attack=0.03)
+        say = [meow(r(0.35, 0.5), r(500, 600), r(700, 800)) for _ in range(3)] if name == "cat" else None
+        return say, [meow(0.25, 900, 700) for _ in range(2)], meow(0.7, 800, 350)
+    if name == "parrot":  # chirps and trills (ours)
+        chirp = lambda f: mul(tone(0.08, f, f * 1.4, "sine"), env(int(0.08 * RATE), 0.003, 0.03))
+        trill = lambda f: add(chirp(f), at(chirp(f * 1.1), 0.1, 0.3), at(chirp(f * 0.9), 0.2, 0.3))
+        return [trill(r(2200, 3000)) for _ in range(3)], [chirp(3400) for _ in range(2)], trill(1800)
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -409,7 +423,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
-        "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian"]
+        "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian", "wolf", "cat", "ocelot", "parrot"]
 
 
 # --- Everything else ----------------------------------------------------------------

@@ -260,6 +260,9 @@ M25.4: loot tables ShipwreckSupply/Map/Treasure, UnderwaterRuinSmall/Big, Buried
 (authored from the wiki; missing items such as maps are skipped).
 M25.5: entities `minecraft:guardian`, `minecraft:elder_guardian`; blocks `sponge`,
 `wet_sponge`; effect `mining_fatigue`.
+M26.1: entities `minecraft:wolf`, `cat` (`Owner` int-array UUID, `Sitting`, `CollarColor`,
+`variant` "minecraft:pale"...), `ocelot` (`Trusting`), `parrot` (`Variant` 0-4, `Owner`,
+`Sitting`); level.dat `Player.UUID`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

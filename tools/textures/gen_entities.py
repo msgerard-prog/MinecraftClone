@@ -980,6 +980,42 @@ def guardian(name, body, spike):
     return img
 
 
+def pet(name, boxes, eyebox, nosebox, base="#E4E4E4", collar=None, stripes=False, spots=False, extra=()):
+    """Pets (M26.1): light fur (the game tints wolves, cats and parrots by variant), dark
+    eyes on the head's front, a dark nose; ocelots keep their own yellow with spots."""
+    rng = random.Random(name)
+    img = Img(64, 64, CLEAR)
+    fur = ramp(hexc(base), 5, spread=0.25)
+    for (u, v, w, h, d) in boxes:
+        for fname, (x0, y0, fw, fh) in box_faces(u, v, int(round(w + 0.49)), int(round(h + 0.49)), int(round(d + 0.49))).items():
+            for y in range(fh):
+                for x in range(fw):
+                    r = rng.random()
+                    c = fur[2 if r > 0.35 else (1 if r < 0.17 else 3)]
+                    if stripes and (x + y) % 5 == 0:
+                        c = fur[0]
+                    if spots and rng.random() < 0.12:
+                        c = (70, 50, 30, 255)
+                    img.set(x0 + x, y0 + y, c)
+    for box, colour in extra:
+        u, v, w, h, d = box
+        for f in box_faces(u, v, max(1, int(round(w))), max(1, int(round(h))), max(1, int(round(d)))).values():
+            paint(img, f, ramp(hexc(colour), 5, spread=0.2), rng)
+    u, v, w, h, d = eyebox
+    fx, fy, fw, fh = box_faces(u, v, int(w), int(h), int(d))["front"]
+    img.set(fx, fy + 1, (24, 20, 20, 255))
+    img.set(fx + fw - 1, fy + 1, (24, 20, 20, 255))
+    if nosebox:
+        u, v, w, h, d = nosebox
+        fx, fy, fw, fh = box_faces(u, v, int(w), int(h), int(d))["front"]
+        img.set(fx + fw // 2, fy, (30, 24, 24, 255))
+    if collar:
+        u, v, w, h, d = collar
+        for f in box_faces(u, v, int(round(w)), int(h), max(1, int(round(d)))).values():
+            paint(img, f, ramp(hexc("#E8E8E8"), 5, spread=0.1), rng, noise=0.1)
+    return img
+
+
 def boat():
     """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
     (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
@@ -1032,7 +1068,19 @@ def main():
                                          ((28, 34, 3, 1, 2), "#8AB050", None)],
                               eyes=(0, 34, 4, 3, 4), shell=(0, 0, 12, 5, 14)),
               "guardian": guardian("guardian", "#5E9A8C", "#D88A40"),
-              "elder_guardian": guardian("elder_guardian", "#C8C4B0", "#8A7A9A")}
+              "elder_guardian": guardian("elder_guardian", "#C8C4B0", "#8A7A9A"),
+              # M26.1 pets: light fur the game tints per variant; dark eyes and noses
+              "wolf": pet("wolf", [(0, 0, 6, 6, 9), (32, 0, 6, 6, 4), (0, 16, 3, 3, 4), (16, 16, 2, 2, 1),
+                                   (0, 24, 2, 8, 2), (10, 24, 2, 2, 6)], (32, 0, 6, 6, 4), (0, 16, 3, 3, 4),
+                          collar=(32, 12, 6.6, 6, 1.2)),
+              "cat": pet("cat", [(0, 0, 4, 4, 13), (36, 0, 5, 4, 4), (0, 18, 3, 2, 1), (10, 18, 1, 1, 2),
+                                 (0, 22, 2, 6, 2), (10, 22, 1, 1, 8)], (36, 0, 5, 4, 4), (0, 18, 3, 2, 1),
+                         collar=(36, 10, 5.4, 4, 1), stripes=True),
+              "ocelot": pet("ocelot", [(0, 0, 4, 4, 13), (36, 0, 5, 4, 4), (0, 18, 3, 2, 1), (10, 18, 1, 1, 2),
+                                       (0, 22, 2, 6, 2), (10, 22, 1, 1, 8)], (36, 0, 5, 4, 4), (0, 18, 3, 2, 1),
+                            base="#E0B860", spots=True),
+              "parrot": pet("parrot", [(0, 0, 3, 6, 3), (12, 0, 2, 3, 2), (0, 10, 1, 4, 2.5), (8, 10, 2, 3, 1)],
+                            (12, 0, 2, 3, 2), None, extra=[((20, 0, 1, 1.5, 1.5), "#E8B030"), ((14, 10, 0.5, 4, 0.5), "#606060")])}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

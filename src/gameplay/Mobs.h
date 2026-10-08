@@ -43,6 +43,8 @@ public:
         const world::Weather* weather = nullptr; // rain: undead don't burn, endermen get hurt (M22.1)
         bool thundering = false; // monsters spawn as if sky light were 10 lower (any time of day)
         const glm::ivec3* raidCentre = nullptr; // a raid is on (M24.5): raiders head there, villagers hide
+        uint64_t playerTargetUuid = 0;   // (M26.1) the mob the player hit last: tamed wolves join in
+        uint64_t playerAttackerUuid = 0; // (M26.1) the mob that last hurt the player
         int32_t raidId = 0;                     // (its id: raiders of older raids stay out of it)
     };
 
@@ -100,8 +102,12 @@ public:
     // Right-click on a mob with `held` (M16.3; wiki: Breeding, Sheep): feeding its food
     // puts an adult in love mode (or speeds a baby's growth by 10%), shears shear a
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
-    enum class Use { None, Fed, Sheared };
+    enum class Use { None, Fed, Sheared, Sat }; // (Sat: a pet sat down or stood up - M26.1)
     static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
+    // A pet's top health (tamed wolves: 40 - M26.1).
+    static float petMaxHealth(const world::MobData& m);
+    // The mob that last hurt the player (tamed wolves go for it).
+    uint64_t playerAttacker() const { return m_playerAttacker; }
     static bool isFood(world::MobType type, world::ItemId item); // breeding / tempting food
     // The player hits a mob for `damage` (knockback away from the player).
     static void attack(world::MobData& mob, float damage, const glm::dvec3& from);
@@ -120,6 +126,10 @@ private:
     bool netherAi(Context& ctx, world::MobData& m);
     bool waterAi(Context& ctx, world::MobData& m); // fish and squid (WaterMobs.cpp, M25.2)
     void boatTick(Context& ctx, world::MobData& m); // (Boats.cpp, M25.2b)
+    // Pets (Pets.cpp, M26.1).
+    static Use petInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng);
+    bool petGoal(Context& ctx, world::MobData& m, double& speed);
+    void spawnCreatures(Context& ctx);
     void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp
@@ -168,6 +178,8 @@ private:
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
     int m_fish = 0, m_squid = 0, m_glowSquid = 0; // (M25.2: water mob caps)
+    int m_creatures = 0, m_cats = 0, m_creatureTicks = 0; // (M26.1: animal spawning)
+    uint64_t m_playerAttacker = 0; // (M26.1) the mob that last hurt the player
     int m_striders = 0;
     float m_bossHealth = -1.0f;
     std::vector<glm::dvec3> m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)

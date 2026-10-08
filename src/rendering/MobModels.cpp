@@ -395,6 +395,52 @@ constexpr std::array<MobPart, 10> kGuardian = {{
     {{-0.5f, 5.5f, -12}, {0.5f, 6.5f, -8}, {0, 6, 0}, 56, 10, A::None},
 }};
 
+// Wolf (M26.1): body, head with snout and ears, four legs, a tail that wags; a collar
+// when tamed. Box UVs: body 6x6x9 @ (0,0), head 6x6x4 @ (32,0), snout 3x3x4 @ (0,16),
+// ear 2x2x1 @ (16,16), leg 2x8x2 @ (0,24), tail 2x2x6 @ (10,24), collar @ (32,12).
+constexpr std::array<MobPart, 11> kWolf = {{
+    {{-3, 8, -5}, {3, 14, 4}, {0, 8, 0}, 0, 0, A::None, 8},
+    {{-3, 9, 4}, {3, 15, 8}, {0, 12, 4}, 32, 0, A::Head, 8},
+    {{-1.5f, 9, 8}, {1.5f, 12, 12}, {0, 12, 4}, 0, 16, A::Head, 8},
+    {{-3, 15, 6}, {-1, 17, 7}, {0, 12, 4}, 16, 16, A::Head, 8},
+    {{1, 15, 6}, {3, 17, 7}, {0, 12, 4}, 16, 16, A::Head, 8},
+    {{-3, 0, 1}, {-1, 8, 3}, {-2, 8, 2}, 0, 24, A::LegA, 8},
+    {{1, 0, 1}, {3, 8, 3}, {2, 8, 2}, 0, 24, A::LegB, 8},
+    {{-3, 0, -4}, {-1, 8, -2}, {-2, 8, -3}, 0, 24, A::LegB, 8},
+    {{1, 0, -4}, {3, 8, -2}, {2, 8, -3}, 0, 24, A::LegA, 8},
+    {{-1, 10, -11}, {1, 12, -5}, {0, 11, -5}, 10, 24, A::Tail, 8},
+    {{-3.3f, 9, 3}, {3.3f, 15, 4.2f}, {0, 12, 4}, 32, 12, A::Head, 7, 0.1f},
+}};
+// Cat and ocelot (M26.1): a slim body, a round head with ears and a nose, thin legs and
+// a long tail; cats wear a collar when tamed. Body 4x4x13 @ (0,0), head 5x4x4 @ (36,0),
+// nose 3x2x1 @ (0,18), ear 1x1x2 @ (10,18), leg 2x6x2 @ (0,22), tail 1x1x8 @ (10,22),
+// collar @ (36,10).
+constexpr std::array<MobPart, 12> kCat = {{
+    {{-2, 6, -6}, {2, 10, 7}, {0, 6, 0}, 0, 0, A::None, 8},
+    {{-2.5f, 7, 7}, {2.5f, 11, 11}, {0, 9, 7}, 36, 0, A::Head, 8},
+    {{-1.5f, 7, 11}, {1.5f, 9, 12}, {0, 9, 7}, 0, 18, A::Head, 8},
+    {{-2, 11, 8}, {-1, 12, 10}, {0, 9, 7}, 10, 18, A::Head, 8},
+    {{1, 11, 8}, {2, 12, 10}, {0, 9, 7}, 10, 18, A::Head, 8},
+    {{-2, 0, 4}, {0, 6, 6}, {-1, 6, 5}, 0, 22, A::LegA, 8},
+    {{0, 0, 4}, {2, 6, 6}, {1, 6, 5}, 0, 22, A::LegB, 8},
+    {{-2, 0, -5}, {0, 6, -3}, {-1, 6, -4}, 0, 22, A::LegB, 8},
+    {{0, 0, -5}, {2, 6, -3}, {1, 6, -4}, 0, 22, A::LegA, 8},
+    {{-0.5f, 9, -14}, {0.5f, 10, -6}, {0, 9.5f, -6}, 10, 22, A::Tail, 8},
+    {{-0.5f, 4, -16}, {0.5f, 9, -15}, {0, 9.5f, -6}, 10, 22, A::Tail, 8},
+    {{-2.7f, 7, 6.8f}, {2.7f, 11, 7.8f}, {0, 9, 7}, 36, 10, A::Head, 7, 0.1f},
+}};
+// Parrot (M26.1): a small upright body, head and beak, two wings that flap, a tail.
+constexpr std::array<MobPart, 8> kParrot = {{
+    {{-1.5f, 4, -1.5f}, {1.5f, 10, 1.5f}, {0, 4, 0}, 0, 0, A::None, 8},
+    {{-1, 10, -1}, {1, 13, 1}, {0, 10, 0}, 12, 0, A::Head, 8},
+    {{-0.5f, 10.5f, 1}, {0.5f, 12, 2.5f}, {0, 10, 0}, 20, 0, A::Head},
+    {{-2.5f, 5, -1}, {-1.5f, 9, 1.5f}, {-1.5f, 9, 0}, 0, 10, A::WingL, 8},
+    {{1.5f, 5, -1}, {2.5f, 9, 1.5f}, {1.5f, 9, 0}, 0, 10, A::WingR, 8},
+    {{-1, 1, -2.5f}, {1, 4, -1.5f}, {0, 4, -1.5f}, 8, 10, A::None, 8},
+    {{-1, 0, 0}, {-0.5f, 4, 0.5f}, {0, 4, 0}, 14, 10, A::LegA},
+    {{0.5f, 0, 0}, {1, 4, 0.5f}, {0, 4, 0}, 14, 10, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -440,6 +486,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Turtle: return kTurtle;
     case world::MobType::Guardian:
     case world::MobType::ElderGuardian: return kGuardian;
+    case world::MobType::Wolf: return kWolf;
+    case world::MobType::Cat:
+    case world::MobType::Ocelot: return kCat;
+    case world::MobType::Parrot: return kParrot;
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

@@ -75,6 +75,7 @@ struct LevelData {
     // UUID (0: none spawned), the gateways spawned so far (M20.3, angles 0..19).
     bool dragonKilled = false, dragonPreviouslyKilled = false;
     int traderSpawnDelay = 24000, traderSpawnChance = 25; // (M24.4) WanderingTraderSpawnDelay/Chance
+    uint64_t playerUuidHi = 0, playerUuidLo = 0; // (M26.1) Player.UUID: pets' Owner (0: none yet)
     // The village raid in progress (M24.5; our tag "Raid" - vanilla keeps raids in
     // data/raids.dat): bell position, waves spawned/total, omen level, ticks running,
     // ticks to the next wave, the wave's starting health (the bar).

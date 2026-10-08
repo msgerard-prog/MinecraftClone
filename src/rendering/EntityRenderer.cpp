@@ -458,7 +458,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         const float c = std::cos(a), s = std::sin(a);
         return glm::mat3(c, s, 0, -s, c, 0, 0, 0, 1);
     };
-    const float swing = std::cos(mob.limbSwing * 0.6662f) * 1.4f * mob.limbSwingAmount;
+    const float swing = mob.sitting ? 0.0f : std::cos(mob.limbSwing * 0.6662f) * 1.4f * mob.limbSwingAmount;
     // Body: vanilla yaw turns from +Z towards -X; dying tips over sideways over 20 ticks.
     glm::mat3 body = rotY(-bodyYaw * kDeg);
     if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
@@ -470,6 +470,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
+    if (mob.sitting && mob.type != world::MobType::Villager) base.y -= 0.25f; // (a sitting pet sinks onto its haunches)
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
         base.x += 0.05f * std::sin(float(mob.convertTicks) * 2.5f);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);
@@ -517,6 +518,18 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         glm::vec3 partTint = tint;
         if (part.layer == 3) { // the profession's colour (M24.1)
             const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
+        if (part.layer == 7 && !mob.tamed) continue; // (collars: pets only - M26.1)
+        if (part.layer == 7) {
+            const uint32_t c = kWoolColours[mob.color2 & 15];
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
+        if (part.layer == 8) { // fur by variant (M26.1)
+            const uint32_t c = mob.type == world::MobType::Wolf ? world::kWolfVariants[mob.woolColour % 9].colour
+                               : mob.type == world::MobType::Cat ? world::kCatVariants[mob.woolColour % 11].colour
+                               : mob.type == world::MobType::Parrot ? world::kParrotColours[mob.woolColour % 5]
+                                                                     : 0xFFFFFFu;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 6) { // a boat's wood (M25.2b)

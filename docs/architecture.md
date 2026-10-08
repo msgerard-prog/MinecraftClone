@@ -427,6 +427,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   fatigue); `spawnWater` adds guardians in water beside monument prismarine. Sponges
   (Ocean.cpp `spongeChanged`: soak 65 blocks within 7, wet; dry in the Nether / furnace).
   Main's conduit tick strikes hostile mobs in water within 8 of a full (42) frame.
+- Pets (M26.1, `gameplay/Pets.cpp`, part of `Mobs`): wolves, cats, ocelots, parrots with
+  `MobData::tamed`/`sitting` (variant in `woolColour`, collar dye in `color2`);
+  `petInteract` (taming food 1 in 3, dye, healing, love, sit/stand - also with an empty
+  hand), `petGoal` (sit, follow and teleport, tamed wolves fight `Context::
+  playerTargetUuid` / `playerAttackerUuid`, wild wolves hunt sheep, parrots dance by
+  jukeboxes, untrusting ocelots keep away), `spawnCreatures` (every 400 ticks: wolves by
+  biome variant, jungle ocelots and parrots; village cats every 1200). Pets save the
+  player's UUID (level.dat Player.UUID, `setPlayerUuid`) as Owner. Creepers won't target
+  near cats (`mayTarget`); cats bring gifts when the player wakes (main).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

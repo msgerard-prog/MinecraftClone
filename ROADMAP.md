@@ -12,7 +12,7 @@ M1-M24 done. v1.0 waits for M26-M28.
 
 ## Next
 M26 - Mobs 3 (wiki pages of each mob):
-1. M26.1 - Companions: wolves (taming, sitting, following, wolf armor, variants), cats
+1. ✅ M26.1 - Companions: wolves (taming, sitting, following, wolf armor, variants), cats
    and ocelots (taming, gifts, scaring creepers and phantoms), parrots (shoulders,
    dancing, imitating).
 2. M26.2 - Mounts: horses, donkeys, mules (taming, saddles, horse armor, chests,

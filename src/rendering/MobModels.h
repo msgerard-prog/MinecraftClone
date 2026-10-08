@@ -22,6 +22,8 @@ struct MobPart {
     // 3 = a villager's profession robe: drawn from the apron texture, tinted.
     // 4, 5 = a tropical fish's body and pattern, tinted by its two colours (M25.2).
     // 6 = a boat's planks, tinted by its wood (M25.2b).
+    // 7 = a pet's collar, shown when tamed, tinted by its dye (M26.1).
+    // 8 = fur/feathers tinted by the variant (wolves, cats, parrots - M26.1).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -72,6 +74,10 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/turtle.png",
         "assets/minecraft/textures/entity/clone/guardian.png",
         "assets/minecraft/textures/entity/clone/elder_guardian.png",
+        "assets/minecraft/textures/entity/clone/wolf.png",
+        "assets/minecraft/textures/entity/clone/cat.png",
+        "assets/minecraft/textures/entity/clone/ocelot.png",
+        "assets/minecraft/textures/entity/clone/parrot.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png"};

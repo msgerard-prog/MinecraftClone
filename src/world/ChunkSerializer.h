@@ -64,6 +64,8 @@ ItemStack itemFromNbtPublic(const nbt::Compound& c);
 // { DataVersion, Position [I; x, z], Entities [ {id, Pos, Motion, Rotation, Health,
 // OnGround, fall_distance (1.21.5+ double; FallDistance read), Fire, Air, equipment,
 // HurtTime, DeathTime, PersistenceRequired, UUID, ...} ] }.
+// The player's UUID, written as tamed pets' Owner (M26.1). Set once per session.
+void setPlayerUuid(uint64_t hi, uint64_t lo);
 nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk);
 void entitiesFromNbt(const nbt::Compound& nbt, Chunk& chunk);
 

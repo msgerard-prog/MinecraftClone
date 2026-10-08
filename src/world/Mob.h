@@ -58,6 +58,10 @@ enum class MobType : uint8_t {
     Turtle,  // (M25.3b) walks and swims; lays eggs on its home beach (`home`)
     Guardian,      // (M25.5) ocean monument guard: a charging laser
     ElderGuardian, // (M25.5) three per monument: a stronger laser, Mining Fatigue nearby
+    Wolf,    // (M26.1) variant in woolColour (kWolfVariants), collar dye in color2
+    Cat,     // (M26.1) variant in woolColour (kCatVariants), collar dye in color2
+    Ocelot,  // (M26.1) trusting (fed fish) in `tamed`
+    Parrot,  // (M26.1) variant 0-4 in woolColour
     Count
 };
 
@@ -87,6 +91,24 @@ inline constexpr BoatWood kBoatWoods[10] = {{"oak", 0xB8945F},     {"spruce", 0x
 inline std::string boatId(int wood) { // entity and item id
     return std::string("minecraft:") + kBoatWoods[wood % 10].name + (wood % 10 == 9 ? "_raft" : "_boat");
 }
+
+// Pets (M26.1): what tames them and what they look like (wiki: Wolf, Cat, Parrot).
+inline bool isPet(MobType t) {
+    return t == MobType::Wolf || t == MobType::Cat || t == MobType::Parrot;
+}
+// Wolf variants (1.20.5, by biome) and their fur colour for our tinted model.
+struct NamedColour {
+    const char* name;
+    uint32_t colour;
+};
+inline constexpr NamedColour kWolfVariants[9] = {{"pale", 0xD8D4CE},     {"woods", 0x8C6E50},  {"ashen", 0x9A9CA4},
+                                                 {"black", 0x3A3634},    {"chestnut", 0x9A6A4A}, {"rusty", 0xB8703C},
+                                                 {"spotted", 0xC8A880},  {"striped", 0xB89060}, {"snowy", 0xF0F0F0}};
+inline constexpr NamedColour kCatVariants[11] = {{"tabby", 0x9C7A54},      {"black", 0x2E2A2A},   {"red", 0xD2783A},
+                                                 {"siamese", 0xE8DCC4},    {"british_shorthair", 0x8A8E94},
+                                                 {"calico", 0xD8B890},     {"persian", 0xE8C89A}, {"ragdoll", 0xEEE6DA},
+                                                 {"white", 0xF4F4F0},      {"jellie", 0x5A5A60},  {"all_black", 0x1E1C1C}};
+inline constexpr uint32_t kParrotColours[5] = {0xD02A20, 0x2850D8, 0x50C830, 0x30C8D8, 0xA8A8A8}; // red blue green cyan grey
 
 // Fish, squid (M25.2): water creatures.
 inline bool isFish(MobType t) {
@@ -136,6 +158,8 @@ struct MobData {
     float yawVel = 0.0f;                      // (M25.2b) a boat's turning momentum (degrees a tick)
     bool heldTrident = false;                 // (M25.3) a drowned holding a trident (equipment.mainhand)
     bool hasEgg = false;                      // (M25.3b) a turtle carrying eggs home (HasEgg)
+    bool tamed = false;   // (M26.1) a pet of the player (Owner: the player's UUID); ocelots: trusting
+    bool sitting = false; // (M26.1) ordered to sit (Sitting)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

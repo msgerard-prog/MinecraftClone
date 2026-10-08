@@ -76,6 +76,7 @@
 
 #include <array>
 #include <cmath>
+#include <ctime>
 #include <cstdio>
 #include <filesystem>
 #include <memory>
@@ -524,6 +525,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::WanderingTraderSpawner traderSpawner; // (M24.4)
     mc::PatrolSpawner patrolSpawner;          // (M24.4)
     mc::Raid raid;                            // (M24.5)
+    // The player's UUID (M26.1): pets' Owner; made once for a world without one.
+    uint64_t playerUuidHi = 0, playerUuidLo = 0;
     if (level) {
         raid.restore({level->raidActive,
                       {level->raidCentre[0], level->raidCentre[1], level->raidCentre[2]},
@@ -540,6 +543,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       {level->raidPendingCentre[0], level->raidPendingCentre[1], level->raidPendingCentre[2]}});
         dragonFight.killed = level->dragonKilled;
         traderSpawner.delay = level->traderSpawnDelay;
+        playerUuidHi = level->playerUuidHi;
+        playerUuidLo = level->playerUuidLo;
         traderSpawner.chance = level->traderSpawnChance;
         dragonFight.previouslyKilled = level->dragonPreviouslyKilled;
         dragonFight.uuidHi = level->dragonUuidHi;
@@ -547,6 +552,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         dragonFight.gateways = level->gateways;
         dragonFight.gatewaysReady = level->hasGateways;
     }
+    if (playerUuidHi == 0 && playerUuidLo == 0) { // (a version-4 UUID for this world's player)
+        mc::world::Xoroshiro uuidRng(seed ^ 0x9E3779B97F4A7C15ull ^ uint64_t(std::time(nullptr)));
+        playerUuidHi = (uuidRng.nextLong() & ~0xF000ull) | 0x4000ull;
+        playerUuidLo = (uuidRng.nextLong() & ~(3ull << 62)) | (2ull << 62);
+    }
+    mc::world::setPlayerUuid(playerUuidHi, playerUuidLo); // (written as pets' Owner)
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
@@ -556,6 +567,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Explosion tntBlast;          // (M21.1b)
     mc::PrimedTnt primedTnt;
     int bowTicks = 0;      // how long the bow has been drawn
+    uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
     int tridentTicks = 0;  // how long a trident has been held back (M25.3)
     double airPeakY = 0.0; // highest feet height since leaving the ground (trampling)
     int shieldTicks = 0;   // how long right-click has held a shield up
@@ -713,6 +725,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.endGenerator = endKind;
         l.dragonKilled = dragonFight.killed;
         l.traderSpawnDelay = traderSpawner.delay;
+        l.playerUuidHi = playerUuidHi;
+        l.playerUuidLo = playerUuidLo;
         l.traderSpawnChance = traderSpawner.chance;
         {
             const mc::Raid::State r = raid.state();
@@ -1603,6 +1617,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 } else {
                     if (sleepTicks >= 100) {
                         dayTime = mc::morningAfter(dayTime); // the night passes
+                        // A tamed cat near the bed may bring a morning gift (wiki: Cat › Gifts:
+                        // 70%; ours from the items we have).
+                        static constexpr const char* kGifts[4] = {"string", "feather", "chicken", "rotten_flesh"};
+                        world.forEachChunk([&](mc::world::Chunk& gc) {
+                            for (const auto& cat : gc.mobs())
+                                if (cat.type == mc::world::MobType::Cat && cat.tamed && !cat.sitting && cat.health > 0.0f &&
+                                    glm::length(cat.pos - player.position()) < 16.0 && gameRng.nextInt(10) < 7)
+                                    if (const auto gift = mc::world::itemRegistry().find(kGifts[gameRng.nextInt(4)]))
+                                        droppedItems.spawn(player.position() + glm::dvec3(0, 0.5, 0), {*gift, 1}, gameRng);
+                        });
                         // ...and the rain stops: the weather cycle starts over (wiki: Bed).
                         if (weather.raining) weather.set(mc::world::Weather::Kind::Clear, 0);
                     }
@@ -2274,11 +2298,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             // Feeding and shearing animals (M16.3): right-click the mob in front.
-            if (!dead && clicks.useClick && !inventory.selectedStack().empty()) {
+            // (M26.1: an empty hand makes a tamed pet sit or stand)
+            if (!dead && clicks.useClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
-                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    mh && (!lastHit || mh->distance < lastHit->distance) &&
+                    (!inventory.selectedStack().empty() ||
+                     (mc::world::isPet(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) &&
+                      world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed))) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const mc::world::ItemStack held = inventory.selectedStack();
                     const auto use = mc::Mobs::interact(mob, held.item, gameRng, droppedItems);
@@ -2450,6 +2478,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
+                    playerTargetUuid = m.uuidHi; // (tamed wolves join in - M26.1)
                     if (m.type == mc::world::MobType::Villager) { // golems defend villagers (wiki)
                         const mc::world::ChunkPos vc{mc::world::blockToChunk(int(std::floor(m.pos.x))),
                                                      mc::world::blockToChunk(int(std::floor(m.pos.z)))};
@@ -2548,6 +2577,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
             mobCtx.raidCentre = overworld && raid.active() && raid.loaded() ? &raid.centre() : nullptr;
             mobCtx.raidId = raid.id();
+            mobCtx.playerTargetUuid = playerTargetUuid;
+            mobCtx.playerAttackerUuid = mobs.playerAttacker();
             for (int piece = 0; piece < 4;
                  ++piece) // piglins: any golden armor piece (wiki: Piglin)
                 if (!inventory.armor(piece).empty() && mc::world::itemRegistry()

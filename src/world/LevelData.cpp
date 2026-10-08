@@ -214,6 +214,9 @@ bool LevelData::save(const std::filesystem::path& dir) const {
         items.emplace_back(std::move(item));
     }
     player.put("Inventory", listOf(TagType::Compound, std::move(items)));
+    if (playerUuidHi || playerUuidLo)
+        player.put("UUID", std::vector<int32_t>{int32_t(playerUuidHi >> 32), int32_t(playerUuidHi), int32_t(playerUuidLo >> 32),
+                                                int32_t(playerUuidLo)});
     if (!equipment.entries.empty()) player.put("equipment", std::move(equipment));
     player.put("EnderItems", listOf(TagType::Compound, std::move(enderItems)));
     data.put("Player", std::move(player));
@@ -350,6 +353,11 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                                          static_cast<int32_t>(c->integer("z").value_or(0))});
     }
     if (const Compound* p = data->compound("Player")) {
+        if (const Tag* u = p->find("UUID"))
+            if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                l.playerUuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
+                l.playerUuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
+            }
         if (const List* pos = p->list("Pos"); pos && pos->items.size() == 3)
             for (int i = 0; i < 3; ++i)
                 if (auto d = pos->items[size_t(i)].get<double>()) l.pos[i] = *d;

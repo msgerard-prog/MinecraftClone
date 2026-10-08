@@ -34,6 +34,8 @@ bool Mobs::isFood(MobType type, ItemId item) {
 
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
+    if (isPet(m.type) || m.type == MobType::Ocelot) // (M26.1: taming, sitting, collars, healing)
+        if (const Use u = petInteract(m, held, rng); u != Use::None) return u;
     static const ItemId shears = itemId("shears");
     if (held == shears && m.type == MobType::Sheep && !m.sheared && !m.isBaby()) {
         // Shearing drops 1-3 wool of its colour (wiki: Sheep › Shearing).
@@ -200,6 +202,9 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     MobData baby = make(m.type, (m.pos + partner->pos) * 0.5, ctx.rng);
                     baby.age = -24000;
                     baby.persistent = true;
+                    baby.tamed = m.tamed && partner->tamed; // (M26.1: pets' young are pets)
+                    baby.woolColour = m.woolColour;
+                    baby.color2 = m.color2;
                     if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
                         baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
                     m_births.push_back(baby);

@@ -932,6 +932,14 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
     return true;
 }
 
+namespace {
+uint64_t g_playerUuidHi = 0x5EED00000000F00Dull, g_playerUuidLo = 0x8000000000000001ull; // (until set)
+}
+void setPlayerUuid(uint64_t hi, uint64_t lo) {
+    g_playerUuidHi = hi;
+    g_playerUuidLo = lo;
+}
+
 nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
     nbt::Compound root;
     root.put("DataVersion", kDataVersion);
@@ -990,6 +998,20 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
         if (m.type == MobType::WanderingTrader) e.put("DespawnDelay", int32_t(m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
+        if (isPet(m.type) || m.type == MobType::Ocelot) { // (M26.1; wiki: Wolf, Cat, Parrot › Entity data)
+            if (m.type == MobType::Ocelot) e.put("Trusting", int8_t(m.tamed ? 1 : 0));
+            else if (m.tamed) {
+                e.put("Owner", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                                    int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                e.put("Sitting", int8_t(m.sitting ? 1 : 0));
+            }
+            if (m.type == MobType::Wolf || m.type == MobType::Cat) {
+                e.put("CollarColor", int8_t(m.color2));
+                e.put("variant", std::string("minecraft:") + (m.type == MobType::Wolf ? kWolfVariants[m.woolColour % 9].name
+                                                                                     : kCatVariants[m.woolColour % 11].name));
+            }
+            if (m.type == MobType::Parrot) e.put("Variant", int32_t(m.woolColour % 5));
+        }
         if (m.type == MobType::Turtle) { // (wiki: Turtle › Entity data)
             e.put("HasEgg", int8_t(m.hasEgg ? 1 : 0));
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
@@ -1168,6 +1190,17 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
         m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
+        if (isPet(m.type) || m.type == MobType::Ocelot) {
+            if (m.type == MobType::Ocelot) m.tamed = e->integer("Trusting").value_or(0) != 0;
+            else m.tamed = e->find("Owner") != nullptr;
+            m.sitting = m.tamed && e->integer("Sitting").value_or(0) != 0;
+            m.color2 = uint8_t(std::clamp<int64_t>(e->integer("CollarColor").value_or(14), 0, 15)); // (red by default)
+            if (const std::string* v = e->string("variant"))
+                for (int k = 0; k < (m.type == MobType::Wolf ? 9 : 11); ++k)
+                    if (*v == std::string("minecraft:") + (m.type == MobType::Wolf ? kWolfVariants[k].name : kCatVariants[k].name))
+                        m.woolColour = uint8_t(k);
+            if (m.type == MobType::Parrot) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
+        }
         if (m.type == MobType::Turtle) {
             m.hasEgg = e->integer("HasEgg").value_or(0) != 0;
             if (const nbt::Tag* hp = e->find("home_pos"))

@@ -128,7 +128,7 @@ TEST_CASE("mobs move to the chunk they walk into; far hostiles despawn") {
 TEST_CASE("monsters spawn in the dark around the player, never in light") {
     MobScene dark;
     dark.survival = false; // (creative: no creeper blasts through the thin test floor)
-    dark.tick(2000);
+    dark.tick(6000); // (several groups: each group is one kind)
     CHECK(dark.mobs.hostileCount() > 0);
     int kinds[int(MobType::Count)] = {};
     for (MobData* m : dark.all())

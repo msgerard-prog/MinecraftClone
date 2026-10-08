@@ -105,6 +105,9 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
         if (m.color2 == m.woolColour) m.color2 = uint8_t((m.color2 + 7) & 15);
     }
     if (type == MobType::Pufferfish) m.size = 0; // (deflated)
+    if (isPet(type) || type == MobType::Ocelot) m.color2 = 14; // (red collars - wiki)
+    if (type == MobType::Cat) m.woolColour = uint8_t(rng.nextInt(10)); // (all black only from swamp huts)
+    if (type == MobType::Parrot) m.woolColour = uint8_t(rng.nextInt(5));
     if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
         wanderingTraderTrades(m, rng);
         m.despawnDelay = 48000;
@@ -384,8 +387,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
                                                         : 16.0;
     // An angered iron golem goes for the player like a monster (wiki: Iron Golem), until
     // its anger runs out (counted here, also while it chases).
-    if (m.type == MobType::IronGolem && m.angry && --m.angerTicks <= 0) m.angry = false;
-    const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry);
+    if ((m.type == MobType::IronGolem || m.type == MobType::Wolf) && m.angry && --m.angerTicks <= 0) m.angry = false;
+    // (M26.1) and a wild wolf that was hit, until it calms down.
+    const bool hostileNow = info.hostile || (m.type == MobType::IronGolem && m.angry) ||
+                            (m.type == MobType::Wolf && m.angry && !m.tamed);
     if (!hostileNow || !ctx.survival || ctx.playerDead || playerDist2 >= follow * follow || !mayTarget(ctx, m)) {
         m.targeting = false;
     } else if (!m.targeting && ++m.sightCheck >= 10) {
@@ -438,6 +443,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         m.goal = glm::dvec3(*ctx.raidCentre) + glm::dvec3(0.5, 0.0, 0.5);
     } else if (m.type == MobType::Villager && villagerGoal(ctx, m, speed)) {
         // (home, work, the bell, sleep: Villagers.cpp)
+    } else if ((isPet(m.type) || m.type == MobType::Ocelot) && m.panicTicks == 0 && petGoal(ctx, m, speed)) {
+        // (sitting, following, fighting, dancing: Pets.cpp)
     } else if (m.panicTicks == 0 && !info.hostile && animalGoal(ctx, m, speed)) {
         // (breeding partner, food, parent)
     } else if (m.panicTicks > 0) {
@@ -539,6 +546,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
             // (golems: 7.5 + 0-14 and a throw upward)
             const float hit = info.attackDamage + (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
             if (ctx.vitals.attacked(hit, &m.pos)) {
+                m_playerAttacker = m.uuidHi; // (tamed wolves go for it - M26.1)
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
                 if (m.type == MobType::IronGolem) ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
             }
@@ -610,7 +618,11 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.noPlayerTicks = 0;                                 // damage resets the despawn clock
     m.lastHurtByPlayer = true;                           // (Mobs::attack: the player's hits)
     m.lastHurtBySkeleton = false;
-    if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless player-built
+    if (m.type == MobType::Wolf && !m.tamed) { // a wild wolf turns on the player (wiki: Wolf)
+        m.angry = true;
+        m.angerTicks = 600;
+        m.targeting = true;
+    } else if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless player-built
         if (!m.playerCreated) {
             m.angry = true;
             m.angerTicks = 600;
@@ -894,6 +906,7 @@ void Mobs::tick(Context& ctx) {
     m_births.clear();
     m_hostiles = 0;
     m_fish = m_squid = m_glowSquid = 0;
+    m_creatures = m_cats = 0;
     m_striders = 0;
     m_angerAlertCount = 0;
     m_bossHealth = -1.0f;
@@ -971,6 +984,8 @@ void Mobs::tick(Context& ctx) {
                 if (mobInfo(m.type).hostile) ++m_hostiles;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
+                m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot || m.type == MobType::Parrot) && !m.tamed;
+                m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_striders += m.type == MobType::Strider;
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
@@ -1034,6 +1049,7 @@ void Mobs::tick(Context& ctx) {
         if (ctx.world.isUltrawarm()) spawnNether(ctx);
         else spawnHostiles(ctx);
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
+        if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
     }
 }
 
