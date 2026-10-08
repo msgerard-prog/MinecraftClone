@@ -364,6 +364,21 @@ def mob_sounds(name, rng):
     if name == "ravager":  # deep roars (ours)
         roar = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(60, 900), breath=0.7, attack=0.05)
         return [roar(1.0, 70, 55) for _ in range(3)], [roar(0.5, 110, 80) for _ in range(2)], roar(1.6, 90, 35)
+    if name in ("cod", "salmon", "tropical_fish", "pufferfish"):  # wet flops (ours); fish have no voice
+        def flop(f):
+            n = int(0.15 * RATE)
+            return mul(add(resonator(mul(noise(n, rng), env(n, 0.001, 0.01)), f, 12),
+                           [s * 0.4 for s in lowpass(noise(n, rng), 900)]), env(n, 0.002, 0.04))
+        base = {"cod": 420, "salmon": 380, "tropical_fish": 520, "pufferfish": 330}[name]
+        return None, [flop(base * r(0.9, 1.1)) for _ in range(2)], add(flop(base * 0.8), at(flop(base * 0.7), 0.12, 0.3))
+    if name in ("squid", "glow_squid"):  # soft squelches (ours)
+        def squish(d, f0, f1):
+            x = tone(d, f0, f1, "triangle", vibrato=0.05, vib_rate=9)
+            return mul(add(lowpass(x, 900), [s * 0.3 for s in bandpass(noise(int(d * RATE), rng), 200, 1500)]),
+                       env(int(d * RATE), 0.03, d / 2))
+        lift = 1.2 if name == "glow_squid" else 1.0
+        return ([squish(r(0.4, 0.6), 140 * lift, 110 * lift) for _ in range(3)],
+                [squish(0.25, 220 * lift, 160 * lift) for _ in range(2)], squish(0.8, 180 * lift, 70 * lift))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -375,7 +390,8 @@ def mob_sounds(name, rng):
 MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spider", "enderman", "ghast",
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
-        "vindicator", "evoker", "vex", "ravager"]
+        "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
+        "glow_squid"]
 
 
 # --- Everything else ----------------------------------------------------------------

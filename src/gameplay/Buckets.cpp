@@ -23,7 +23,8 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
         changed.push_back(hit->block);
         return BucketResult{*items.find(b == blocks::Water ? "water_bucket" : "lava_bucket")};
     }
-    const bool water = id == "minecraft:water_bucket", lava = id == "minecraft:lava_bucket";
+    const MobType fish = bucketFish(held);
+    const bool water = id == "minecraft:water_bucket" || fish != MobType::Count, lava = id == "minecraft:lava_bucket";
     if (!water && !lava) return std::nullopt;
     const auto hit = raycastBlocks(world, eye, look, reach);
     if (!hit) return std::nullopt;
@@ -44,7 +45,28 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
         if (const ItemId item = items.blockItem(t)) result.washed = {item, 1};
     world.updateBlock(at, reg.defaultState(water ? blocks::Water : blocks::Lava));
     changed.push_back(at);
+    result.fish = fish; // (a fish bucket lets its fish out with the water)
+    result.at = at;
     return result;
+}
+
+// Fish buckets (M25.2; wiki: Bucket of Fish): a water bucket used on a fish takes it
+// with its water; emptied, the bucket places the water and lets the fish out.
+static constexpr std::pair<MobType, const char*> kFishBuckets[] = {{MobType::Cod, "cod_bucket"},
+                                                                   {MobType::Salmon, "salmon_bucket"},
+                                                                   {MobType::TropicalFish, "tropical_fish_bucket"},
+                                                                   {MobType::Pufferfish, "pufferfish_bucket"}};
+
+MobType bucketFish(ItemId item) {
+    for (const auto& [fish, name] : kFishBuckets)
+        if (itemRegistry().find(name) == std::optional<ItemId>(item)) return fish;
+    return MobType::Count;
+}
+
+ItemId fishBucketFor(MobType fish) {
+    for (const auto& [f, name] : kFishBuckets)
+        if (f == fish) return itemRegistry().find(name).value_or(0);
+    return 0;
 }
 
 ItemStack applyBucket(Inventory& inventory, ItemId filled, bool survival) {

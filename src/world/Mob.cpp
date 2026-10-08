@@ -67,6 +67,15 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:evoker", 24.0f, 0.6, 1.95, 0.5, 0.0f, true},
         {"minecraft:vex", 14.0f, 0.4, 0.8, 1.0, 9.0f, true, false, true},
         {"minecraft:ravager", 100.0f, 1.95, 2.2, 0.3, 12.0f, true},
+        // Water mobs (M25.2; wiki: Cod 0.5 x 0.3, Salmon 0.7 x 0.4, Tropical Fish 0.5 x
+        // 0.4, Pufferfish 0.7 x 0.7 - all 3 health; Squid and Glow Squid 10, 0.8 x 0.8).
+        // Speed: their swim speed in blocks a tick (ours).
+        {"minecraft:cod", 3.0f, 0.5, 0.3, 0.12, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:salmon", 3.0f, 0.7, 0.4, 0.14, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:tropical_fish", 3.0f, 0.5, 0.4, 0.12, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:pufferfish", 3.0f, 0.7, 0.7, 0.08, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:squid", 10.0f, 0.8, 0.8, 0.1, 0.0f, false, false, false, 1.0f, true},
+        {"minecraft:glow_squid", 10.0f, 0.8, 0.8, 0.1, 0.0f, false, false, false, 1.0f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

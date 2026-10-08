@@ -303,6 +303,10 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             vitals.eat(held.food, held.saturation);
             if (held.id == "minecraft:golden_apple") // (wiki: Regeneration II for 5 s; no Absorption yet)
                 vitals.addEffect(world::Effect::Regeneration, 1, 100);
+            if (held.id == "minecraft:pufferfish") { // (wiki: Hunger III 15 s, Poison II 60 s; no Nausea yet)
+                vitals.addEffect(world::Effect::Hunger, 2, 300);
+                vitals.addEffect(world::Effect::Poison, 1, 1200);
+            }
             if (held.id == "minecraft:chorus_fruit") { // main teleports (wiki: 1 s cooldown)
                 m_ateChorus = true;
                 m_chorusCooldown = 20;

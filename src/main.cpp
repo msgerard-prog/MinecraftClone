@@ -36,6 +36,7 @@
 #include "gameplay/Player.h"
 #include "gameplay/Portals.h"
 #include "gameplay/PrimedTnt.h"
+#include "gameplay/Fishing.h"
 #include "gameplay/Projectiles.h"
 #include "gameplay/Recipes.h"
 #include "gameplay/Vitals.h"
@@ -549,6 +550,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::ItemEntities droppedItems;
     mc::FallingBlocks fallingBlocks; // sand and gravel in the air (M16)
     mc::Projectiles projectiles;     // arrows and eggs (M16.4)
+    mc::Fishing fishing;             // the cast bobber (M25.2)
     mc::ExperienceOrbs orbs;         // experience orbs (M17.5)
     mc::Explosion fireballBlast;     // ghast fireballs (M19.2)
     mc::Explosion tntBlast;          // (M21.1b)
@@ -1374,6 +1376,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 droppedItems.clear(); // (items stay behind in vanilla; ours are lost)
                 fallingBlocks.clear();
                 projectiles.clear();
+                fishing.cancel();
                 particles.clear();
                 primedTnt.clear();
                 blockUpdates.landAll();
@@ -2017,6 +2020,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
+                if (!dead && heldId == "minecraft:fishing_rod" && clicks.useClick) { // (M25.2: cast / reel in)
+                    const mc::world::ItemStack rod = inventory.selectedStack();
+                    if (fishing.active()) {
+                        const int wear = fishing.reel(world, player.position(), droppedItems, &orbs, gameRng);
+                        if (survival && wear > 0) inventory.setSlot(inventory.selected(), mc::wearItem(rod, wear, gameRng));
+                    } else {
+                        fishing.cast(eye, look, mc::world::enchantLevel(rod, mc::world::Enchantment::Lure),
+                                     mc::world::enchantLevel(rod, mc::world::Enchantment::LuckOfTheSea), gameRng);
+                        playSound(mc::world::Sound::BowShoot, eye, 0.5f, 0.4f, true); // (the cast's whoosh)
+                    }
+                    clicks.useClick = false;
+                }
             }
             // Signs (M23.3c): a dye recolours the text, otherwise right-click edits it.
             if (!dead && clicks.useClick && lastHit && !player.sneaking()) {
@@ -2275,8 +2290,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 mc::world::MobType::Cow)
                             result =
                                 mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
+                    // A water bucket scoops up a fish in front (M25.2): a bucket of that fish.
+                    bool scooped = false;
+                    if (heldId == "minecraft:water_bucket")
+                        if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0);
+                            mh && (!lastHit || mh->distance < lastHit->distance)) {
+                            auto& fish = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                            if (const mc::world::ItemId bucketItem = mc::fishBucketFor(fish.type)) {
+                                fish.health = 0.0f;
+                                fish.deathTime = 19; // (gone next tick: not a death)
+                                fish.lastHurtByPlayer = false;
+                                world.chunk(mh->chunk)->markDirty();
+                                result = mc::BucketResult{bucketItem};
+                                scooped = true;
+                            }
+                        }
                     if (!result)
                         result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
+                    if (result && result->fish != mc::world::MobType::Count) { // its fish swims off
+                        mc::world::MobData fish = mc::Mobs::make(
+                            result->fish, {result->at.x + 0.5, double(result->at.y) + 0.1, result->at.z + 0.5}, gameRng);
+                        fish.fromBucket = true;
+                        mc::Mobs::add(world, fish);
+                    }
                     if (result) {
                         if (!result->washed.empty() && survival) {
                             const mc::world::BlockPos w = frameEdits.back();
@@ -2284,7 +2320,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                gameRng);
                         }
                         const mc::world::ItemStack extra =
-                            mc::applyBucket(inventory, result->filled, survival);
+                            mc::applyBucket(inventory, result->filled, survival || scooped);
                         if (!extra.empty())
                             droppedItems.spawn(player.position() + glm::dvec3(0, 1, 0), extra,
                                                gameRng);
@@ -2619,6 +2655,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 else if (inventory.offhand().item == shieldItem)
                     inventory.setOffhand(wearShield(inventory.offhand()));
             }
+            // The line breaks when the rod leaves the hand (vanilla) or the player dies.
+            if (dead || mc::world::itemRegistry().item(inventory.selectedStack().item).id != "minecraft:fishing_rod")
+                fishing.cancel();
+            fishing.tick(world, player.position(), gameRng);
             projectiles.tick(world, player, !dead ? &vitals : nullptr, inventory, survival,
                              gameRng);
             // Ghast fireballs explode (wiki: Fireball - power 1, incendiary: fire on a
@@ -3253,6 +3293,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             entities.addItem(e.stack, p, t / 20.0f + e.spinOffset,
                              std::sin(t / 10.0f + e.spinOffset) * 0.1f + 0.1f,
                              lightTable[size_t(e.skyLight * 16 + e.blockLight)], camera.position);
+        }
+        if (fishing.active()) { // the bobber (red over white) and the line to the rod (M25.2)
+            const glm::dvec3 b = glm::mix(fishing.prevBobber(), fishing.bobber(), clock.alpha);
+            const glm::dvec3 hand = camera.position + glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())) * 0.6 +
+                                    glm::dvec3(0.0, -0.35, 0.0);
+            entities.addBeam(hand, b + glm::dvec3(0.0, 0.18, 0.0), camera.position, {0.1f, 0.1f, 0.1f}, 0.008f);
+            entities.addBeam(b, b + glm::dvec3(0.0, 0.09, 0.0), camera.position, {0.9f, 0.9f, 0.9f}, 0.06f);
+            entities.addBeam(b + glm::dvec3(0.0, 0.09, 0.0), b + glm::dvec3(0.0, 0.18, 0.0), camera.position,
+                             {0.85f, 0.15f, 0.1f}, 0.06f);
         }
         for (const auto& pr : projectiles.items()) {
             const glm::dvec3 p = glm::mix(pr.prevPos, pr.pos, clock.alpha);

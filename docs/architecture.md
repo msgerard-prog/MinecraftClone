@@ -393,6 +393,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   breaking leaves the water (`leftAfterBreaking`). `world/Ocean.cpp` (part of
   `BlockUpdates`): supports, kelp growth on random ticks, coral dying out of water.
   Under water the renderer switches to the biome's water fog (`setUnderwater`, no sky).
+- Water mobs and fishing (M25.2): `MobInfo::swims` mobs (cod, salmon, tropical fish,
+  pufferfish, squid, glow squid) run `gameplay/WaterMobs.cpp` (part of `Mobs`): 3D
+  swimming toward water cells (`physics` eases velocity like fliers while in water),
+  fleeing players, air out of water, pufferfish puffing and stinging, and
+  `spawnWater` (by ocean biome, caps 20 fish / 5 squid / 5 glow squid). Fish buckets
+  (`gameplay/Buckets`: `bucketFish`, `fishBucketFor`; main scoops a fish with a water
+  bucket and lets it out with the water). `gameplay/Fishing`: one bobber per player
+  (flight, floating, wait / nibble / bite timers, `rollCatch` from the fish/junk/
+  treasure tables, Lure and Luck of the Sea), drawn by main as beams.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

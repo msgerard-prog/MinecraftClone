@@ -303,6 +303,51 @@ constexpr std::array<MobPart, 8> kIronGolem = {{
     {{1, 0, -2.5f}, {7, 16, 2.5f}, {4, 16, 0}, 0, 18, A::LegB},
 }};
 
+// Fish (M25.2): a body with a head in front, a tail fin that wags (Tail) and fins.
+// Cod: 2 x 4 x 7 body (wiki: Cod), a 2 x 3 head, a 4-tall tail.
+constexpr std::array<MobPart, 4> kCod = {{
+    {{-1, 0, -3}, {1, 4, 4}, {0, 2, 0}, 0, 0, A::None},
+    {{-1, 0, 4}, {1, 3, 7}, {0, 2, 0}, 0, 12, A::None},
+    {{-0.5f, 0, -8}, {0.5f, 4, -3}, {0, 2, -3}, 0, 20, A::Tail},
+    {{-0.5f, 4, -1}, {0.5f, 5, 3}, {0, 2, 0}, 20, 0, A::None},
+}};
+// Salmon: longer, 3 wide, a hooked head.
+constexpr std::array<MobPart, 5> kSalmon = {{
+    {{-1.5f, 0, -4}, {1.5f, 5, 5}, {0, 2.5f, 0}, 0, 0, A::None},
+    {{-1, 0, 5}, {1, 4, 8}, {0, 2.5f, 0}, 0, 16, A::None},
+    {{-0.5f, 0, -10}, {0.5f, 5, -4}, {0, 2.5f, -4}, 0, 24, A::Tail},
+    {{-0.5f, 5, -2}, {0.5f, 6, 3}, {0, 2.5f, 0}, 24, 0, A::None},
+    {{-0.5f, -1, -1}, {0.5f, 0, 2}, {0, 2.5f, 0}, 24, 8, A::None},
+}};
+// Tropical fish: a short tall body, tinted by its base colour (layer 4), a pattern
+// over it tinted by the pattern colour (layer 5), and a tail.
+constexpr std::array<MobPart, 4> kTropicalFish = {{
+    {{-1, 0, -3}, {1, 5, 3}, {0, 2.5f, 0}, 0, 0, A::None, 4},
+    {{-1, 0, -3}, {1, 5, 3}, {0, 2.5f, 0}, 0, 16, A::None, 5, 0.05f},
+    {{-0.5f, 0, -7}, {0.5f, 5, -3}, {0, 2.5f, -3}, 0, 32, A::Tail, 4},
+    {{-0.5f, 5, -2}, {0.5f, 7, 2}, {0, 2.5f, 0}, 16, 32, A::None, 5},
+}};
+// Pufferfish: a round body (drawn larger as it puffs up), with spines on its sides.
+constexpr std::array<MobPart, 5> kPufferfish = {{
+    {{-4, 0, -4}, {4, 8, 4}, {0, 4, 0}, 0, 0, A::None},
+    {{-0.5f, 2, -7}, {0.5f, 6, -4}, {0, 4, -4}, 0, 20, A::Tail},
+    {{-5, 3, -1}, {-4, 5, 1}, {0, 4, 0}, 32, 0, A::None},
+    {{4, 3, -1}, {5, 5, 1}, {0, 4, 0}, 32, 0, A::None},
+    {{-1, 8, -1}, {1, 9, 1}, {0, 4, 0}, 32, 4, A::None},
+}};
+// Squid (wiki: Squid): a 12 x 16 x 12 body over eight 2 x 18 x 2 tentacles that swing.
+constexpr std::array<MobPart, 9> kSquid = {{
+    {{-6, 10, -6}, {6, 26, 6}, {0, 10, 0}, 0, 0, A::None},
+    {{-5, 0, -5}, {-3, 10, -3}, {-4, 10, -4}, 48, 0, A::LegA},
+    {{-1, 0, -6}, {1, 10, -4}, {0, 10, -5}, 48, 0, A::LegB},
+    {{3, 0, -5}, {5, 10, -3}, {4, 10, -4}, 48, 0, A::LegA},
+    {{4, 0, -1}, {6, 10, 1}, {5, 10, 0}, 48, 0, A::LegB},
+    {{3, 0, 3}, {5, 10, 5}, {4, 10, 4}, 48, 0, A::LegA},
+    {{-1, 0, 4}, {1, 10, 6}, {0, 10, 5}, 48, 0, A::LegB},
+    {{-5, 0, 3}, {-3, 10, 5}, {-4, 10, 4}, 48, 0, A::LegA},
+    {{-6, 0, -1}, {-4, 10, 1}, {-5, 10, 0}, 48, 0, A::LegB},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -336,6 +381,12 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Vindicator: return kIllager;
     case world::MobType::Evoker: return kEvoker;
     case world::MobType::Vex: return kVex;
+    case world::MobType::Cod: return kCod;
+    case world::MobType::Salmon: return kSalmon;
+    case world::MobType::TropicalFish: return kTropicalFish;
+    case world::MobType::Pufferfish: return kPufferfish;
+    case world::MobType::Squid:
+    case world::MobType::GlowSquid: return kSquid;
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

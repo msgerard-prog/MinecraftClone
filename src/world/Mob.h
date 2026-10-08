@@ -45,6 +45,12 @@ enum class MobType : uint8_t {
     Evoker,
     Vex,
     Ravager,
+    Cod,          // (M25.2: water mobs)
+    Salmon,
+    TropicalFish, // pattern in `size`, colours in `woolColour` (base) and `color2`
+    Pufferfish,   // puff state 0..2 in `size`
+    Squid,
+    GlowSquid,
     Count
 };
 
@@ -59,7 +65,12 @@ struct MobInfo {
     bool fireImmune = false; // fire and lava don't hurt it (Nether mobs)
     bool flies = false;      // no gravity: ghasts, blazes hover
     float modelScale = 1.0f; // drawn this much larger than its model (ghast 4.5)
+    bool swims = false;      // lives in water (M25.2): swims in 3D there, flops and suffocates on land
 };
+// Fish, squid (M25.2): water creatures.
+inline bool isFish(MobType t) {
+    return t == MobType::Cod || t == MobType::Salmon || t == MobType::TropicalFish || t == MobType::Pufferfish;
+}
 const MobInfo& mobInfo(MobType t);
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
 inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager; }
@@ -96,7 +107,10 @@ struct MobData {
     // Sheared, EggLayTime.
     int age = 0;            // < 0: a baby growing up (-24000 at birth); > 0: breeding cooldown
     int loveTicks = 0;      // in love mode after being fed (600)
-    uint8_t woolColour = 0; // sheep: dye index (0 white .. 15 black)
+    uint8_t woolColour = 0; // sheep: dye index (0 white .. 15 black); tropical fish: base colour
+    uint8_t color2 = 0;     // tropical fish: pattern colour (dye index, M25.2)
+    bool fromBucket = false; // (M25.2) a fish let out of a bucket: never despawns (FromBucket)
+    int16_t airTicks = 300;  // (M25.2) water mobs' air out of water (Air)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

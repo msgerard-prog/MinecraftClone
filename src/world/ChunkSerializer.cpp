@@ -990,6 +990,14 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
         if (m.type == MobType::WanderingTrader) e.put("DespawnDelay", int32_t(m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
+        if (mobInfo(m.type).swims) { // (M25.2; wiki: Fish, Tropical Fish › Entity data)
+            e.put("Air", int16_t(m.airTicks));
+            if (isFish(m.type)) e.put("FromBucket", int8_t(m.fromBucket ? 1 : 0));
+            // Variant: shape (0..1) | pattern << 8 | base colour << 16 | pattern colour << 24.
+            if (m.type == MobType::TropicalFish)
+                e.put("Variant", int32_t((m.size % 2) | (m.size / 2) << 8 | m.woolColour << 16 | m.color2 << 24));
+            if (m.type == MobType::Pufferfish) e.put("PuffState", int32_t(m.size));
+        }
         if (m.type == MobType::Pillager) { // wiki: Raider › Entity data
             e.put("PatrolLeader", int8_t(m.captain ? 1 : 0));
             e.put("Patrolling", int8_t{0});
@@ -1142,6 +1150,17 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
         m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
+        if (mobInfo(m.type).swims) {
+            m.airTicks = int16_t(std::clamp<int64_t>(e->integer("Air").value_or(300), -20, 300));
+            m.fromBucket = e->integer("FromBucket").value_or(0) != 0;
+            if (m.type == MobType::TropicalFish) {
+                const uint32_t v = uint32_t(e->integer("Variant").value_or(0));
+                m.size = uint8_t((v & 1) + 2 * std::min<uint32_t>((v >> 8) & 255, 5));
+                m.woolColour = uint8_t((v >> 16) & 15);
+                m.color2 = uint8_t((v >> 24) & 15);
+            }
+            if (m.type == MobType::Pufferfish) m.size = uint8_t(std::clamp<int64_t>(e->integer("PuffState").value_or(0), 0, 2));
+        }
         m.raidId = isRaider(m.type) ? int32_t(std::clamp<int64_t>(e->integer("RaidId").value_or(0), 0, 1 << 30)) : 0;
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager || m.type == MobType::WanderingTrader) {
             if (const nbt::Compound* data = e->compound("VillagerData")) {

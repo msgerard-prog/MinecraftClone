@@ -33,6 +33,9 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:punch", "Punch", 2, 2, 12, 20, 19, 57, EnchantTarget::Bow, 0},
     {"minecraft:flame", "Flame", 1, 2, 20, 0, 30, 50, EnchantTarget::Bow, 0},
     {"minecraft:infinity", "Infinity", 1, 1, 20, 0, 30, 50, EnchantTarget::Bow, 4},
+    // (M25.2; wiki: Luck of the Sea, Lure - weight 2, levels 1-3, cost 15 + 9 (L-1) .. +50)
+    {"minecraft:luck_of_the_sea", "Luck of the Sea", 3, 2, 15, 9, 50, 65, EnchantTarget::FishingRod, 0},
+    {"minecraft:lure", "Lure", 3, 2, 15, 9, 50, 65, EnchantTarget::FishingRod, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -54,13 +57,14 @@ std::optional<Enchantment> findEnchantment(std::string_view id) {
 namespace {
 // Item ids resolved once (no string compares on hot paths).
 struct Ids {
-    ItemId book, enchantedBook, bow;
+    ItemId book, enchantedBook, bow, rod;
     std::vector<int> enchantability; // per item
     Ids() {
         const auto& r = itemRegistry();
         book = *r.find("book");
         enchantedBook = *r.find("enchanted_book");
         bow = *r.find("bow");
+        rod = *r.find("fishing_rod");
         enchantability.resize(r.count());
         for (size_t i = 0; i < r.count(); ++i)
             enchantability[i] = computeEnchantability(ItemId(i));
@@ -87,6 +91,7 @@ bool canEnchant(ItemId item, Enchantment e) {
                d.tool == ToolType::Hoe;
     case EnchantTarget::Durable: return d.durability > 0;
     case EnchantTarget::Bow: return item == ids().bow;
+    case EnchantTarget::FishingRod: return item == ids().rod;
     }
     return false;
 }
@@ -97,7 +102,7 @@ int Ids::computeEnchantability(ItemId item) {
     // wiki: Enchanting mechanics › Enchantability.
     const ItemDef& d = itemRegistry().item(item);
     const std::string_view id = d.id;
-    if (id == "minecraft:book" || id == "minecraft:bow") return 1;
+    if (id == "minecraft:book" || id == "minecraft:bow" || id == "minecraft:fishing_rod") return 1;
     if (d.armorSlot) {
         if (id.find("leather") != std::string_view::npos) return 15;
         if (id.find("golden") != std::string_view::npos) return 25;

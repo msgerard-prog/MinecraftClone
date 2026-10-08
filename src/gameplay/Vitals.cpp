@@ -65,6 +65,8 @@ void Vitals::tickEffects() {
             } else if (e.type == Effect::Poison) {
                 const int every = std::max(1, 25 >> e.amplifier);
                 if (e.duration % every == 0 && m_health > 1.0f) m_health -= 1.0f; // (never kills)
+            } else if (e.type == Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
+                exhaust(0.005f * float(e.amplifier + 1));
             }
         }
         if (--e.duration <= 0) e = {};

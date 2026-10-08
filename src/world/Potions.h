@@ -31,6 +31,7 @@ enum class Effect : uint8_t {
     BadOmen,          // (M24.5) from an ominous bottle: a raid when entering a village
     RaidOmen,         // (M24.5) 30 s, then the raid starts
     HeroOfTheVillage, // (M24.5) won a raid: villagers trade cheaper
+    Hunger,           // (M25.2: pufferfish) 0.005 exhaustion a tick per level
     Count
 };
 struct EffectInfo {

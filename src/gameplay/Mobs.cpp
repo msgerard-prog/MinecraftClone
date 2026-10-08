@@ -98,6 +98,13 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     if (type == MobType::Sheep) m.woolColour = naturalWoolColour(rng);
     if (type == MobType::Chicken) m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
     if (type == MobType::IronGolem) m.persistent = true;
+    if (type == MobType::TropicalFish) { // (wiki: Tropical Fish - 2 shapes x 6 patterns x 16 x 16 colours)
+        m.size = uint8_t(rng.nextInt(12));
+        m.woolColour = uint8_t(rng.nextInt(16));
+        m.color2 = uint8_t(rng.nextInt(16));
+        if (m.color2 == m.woolColour) m.color2 = uint8_t((m.color2 + 7) & 15);
+    }
+    if (type == MobType::Pufferfish) m.size = 0; // (deflated)
     if (type == MobType::WanderingTrader) { // (M24.4) its wares; it leaves after 40 minutes (wiki)
         wanderingTraderTrades(m, rng);
         m.despawnDelay = 48000;
@@ -202,6 +209,9 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         // Striders stand on lava (wiki): it holds them up like ground.
         m.vel.y = std::max(m.vel.y, 0.0) * 0.5 + 0.04;
         m.onGround = true;
+    } else if (mobInfo(m.type).swims && inWater) {
+        // Fish and squid swim (M25.2): like fliers, velocity eases toward the 3D wish.
+        m.vel = m.vel * 0.9 + wish * 0.1;
     } else if (mobInfo(m.type).flies) {
         // Ghasts and blazes fly: velocity eases toward the wish (with its height), no
         // gravity (our motion model).
@@ -319,6 +329,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         return;
     }
     if (netherAi(ctx, m)) return; // ghasts, blazes, magma cubes (NetherMobs.cpp)
+    if (waterAi(ctx, m)) return;  // fish and squid (WaterMobs.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -641,7 +652,7 @@ void Mobs::die(Context& ctx, MobData& m) {
             const char* name;
             ItemId item;
         };
-        static Cached cache[64] = {}; // (room for every name dropped here)
+        static Cached cache[128] = {}; // (room for every name dropped here: ~55 in M25)
         ItemId item = 0;
         for (Cached& c : cache) {
             if (c.name == id) { // same literal
@@ -700,6 +711,26 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (ctx.rng.nextInt(1000) < 85) drop("crossbow", 1, 1);
         if (m.captain && m.raidId == 0 && m.lastHurtByPlayer) drop("ominous_bottle", 1, 1); // (a captain's: M24.5 raids)
         break;
+    // Water mobs (M25.2; wiki): each fish itself (cod cooked when burning, 5% bone meal
+    // from cod, salmon and pufferfish), squid 1-3 ink sacs, glow squid 1-3 glow ink sacs.
+    case MobType::Cod:
+        drop(burning ? "cooked_cod" : "cod", 1, 1);
+        if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
+        break;
+    case MobType::Salmon:
+        drop(burning ? "cooked_salmon" : "salmon", 1, 1);
+        if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
+        break;
+    case MobType::TropicalFish:
+        drop("tropical_fish", 1, 1);
+        if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
+        break;
+    case MobType::Pufferfish:
+        drop("pufferfish", 1, 1);
+        if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
+        break;
+    case MobType::Squid: drop("ink_sac", 1, 3); break;
+    case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
         drop("iron_ingot", 3, 5);
         drop("poppy", 0, 2);
@@ -802,6 +833,7 @@ void Mobs::tick(Context& ctx) {
     m_moves.clear();
     m_births.clear();
     m_hostiles = 0;
+    m_fish = m_squid = m_glowSquid = 0;
     m_striders = 0;
     m_angerAlertCount = 0;
     m_bossHealth = -1.0f;
@@ -877,12 +909,17 @@ void Mobs::tick(Context& ctx) {
             } else {
                 ai(ctx, m);
                 if (mobInfo(m.type).hostile) ++m_hostiles;
+                m_fish += isFish(m.type);
+                m_squid += m.type == MobType::Squid;
+                m_glowSquid += m.type == MobType::GlowSquid;
                 m_striders += m.type == MobType::Strider;
                 // Despawning (wiki: Spawn › Despawning): hostiles beyond 128 blocks
                 // vanish; beyond 32 they may after 30 s without a player near.
                 const double d2 = glm::dot(m.pos - playerPos, m.pos - playerPos);
-                if (mobInfo(m.type).hostile && !m.persistent) {
-                    if (d2 > 128.0 * 128.0) remove = true;
+                // Water mobs too (wiki): squid as monsters, fish beyond 64 blocks; never
+                // fish from a bucket.
+                if ((mobInfo(m.type).hostile || mobInfo(m.type).swims) && !m.persistent && !m.fromBucket) {
+                    if (d2 > (isFish(m.type) ? 64.0 * 64.0 : 128.0 * 128.0)) remove = true;
                     else if (d2 > 32.0 * 32.0 && ++m.noPlayerTicks > 600 && ctx.rng.nextInt(800) == 0) remove = true;
                     else if (d2 <= 32.0 * 32.0) m.noPlayerTicks = 0;
                 }
@@ -936,6 +973,7 @@ void Mobs::tick(Context& ctx) {
     if (ctx.naturalSpawning) {
         if (ctx.world.isUltrawarm()) spawnNether(ctx);
         else spawnHostiles(ctx);
+        if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
     }
 }
 

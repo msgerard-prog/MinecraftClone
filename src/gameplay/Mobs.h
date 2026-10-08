@@ -116,6 +116,8 @@ private:
     // Nether mobs (M19.2, NetherMobs.cpp): ghasts, blazes and magma cubes move and
     // attack on their own (true: handled); zombified piglins' anger runs down.
     bool netherAi(Context& ctx, world::MobData& m);
+    bool waterAi(Context& ctx, world::MobData& m); // fish and squid (WaterMobs.cpp, M25.2)
+    void spawnWater(Context& ctx);
     void dragonAi(Context& ctx, world::MobData& m); // EnderDragon.cpp
     void minecartTick(Context& ctx, world::MobData& m); // Minecarts.cpp
     void spawnNether(Context& ctx);
@@ -162,6 +164,7 @@ private:
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
+    int m_fish = 0, m_squid = 0, m_glowSquid = 0; // (M25.2: water mob caps)
     int m_striders = 0;
     float m_bossHealth = -1.0f;
     std::vector<glm::dvec3> m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)

@@ -801,6 +801,101 @@ def villager_apron():
     return img
 
 
+def fish(name, body, head, tail, fins, base, belly, eye=(16, 16, 20, 255), stripes=None):
+    """A fish (M25.2): boxes (u, v, w, h, d); the body darker on top, a pale belly, an eye
+    on each side of the head (or the body's front end), optional dark stripes."""
+    rng = random.Random(name)
+    img = Img(64, 64, CLEAR)
+    top = ramp(hexc(base), 5, spread=0.3)
+    low = ramp(hexc(belly), 5, spread=0.2)
+    for box in (body, head, tail) + tuple(fins):
+        if box is None:
+            continue
+        u, v, w, h, d = box
+        for fname, (x0, y0, fw, fh) in box_faces(u, v, w, h, d).items():
+            for y in range(fh):
+                for x in range(fw):
+                    pal = low if (fname == "bottom" or (fname in ("left", "right", "front", "back") and y >= fh * 0.6)) else top
+                    r = rng.random()
+                    img.set(x0 + x, y0 + y, pal[2 if r > 0.35 else (1 if r < 0.17 else 3)])
+    if stripes:
+        u, v, w, h, d = body
+        for fname in ("left", "right"):
+            x0, y0, fw, fh = box_faces(u, v, w, h, d)[fname]
+            for x in range(1, fw, 3):
+                for y in range(fh - 1):
+                    img.set(x0 + x, y0 + y, hexc(stripes))
+    eyebox = head or body
+    u, v, w, h, d = eyebox
+    for fname in ("left", "right"):
+        x0, y0, fw, fh = box_faces(u, v, w, h, d)[fname]
+        img.set(x0 + (fw - 2 if fname == "left" else 1), y0 + 1, eye)
+    return img
+
+
+def tropical_fish():
+    """Greyscale (tinted by the fish's two colours): body and tail light, a pattern layer
+    (same box) with stripes and alpha between them."""
+    rng = random.Random("tropical_fish")
+    img = Img(64, 64, CLEAR)
+    light = ramp(hexc("#E8E8E8"), 5, spread=0.12)
+    for u, v, w, h, d in ((0, 0, 2, 5, 6), (0, 32, 1, 5, 4)):
+        for f in box_faces(u, v, w, h, d).values():
+            paint(img, f, light, rng, noise=0.2)
+    for fname, (x0, y0, fw, fh) in box_faces(0, 16, 2, 5, 6).items():  # the pattern: two bands
+        for y in range(fh):
+            for x in range(fw):
+                if (x // 2) % 2 == 0 and fname in ("left", "right", "top"):
+                    img.set(x0 + x, y0 + y, light[2])
+    for f in box_faces(16, 32, 1, 2, 4).values():
+        paint(img, f, light, rng, noise=0.2)
+    x0, y0, fw, fh = box_faces(0, 0, 2, 5, 6)["left"]
+    img.set(x0 + fw - 2, y0 + 1, (16, 16, 20, 255))
+    x0, y0, fw, fh = box_faces(0, 0, 2, 5, 6)["right"]
+    img.set(x0 + 1, y0 + 1, (16, 16, 20, 255))
+    return img
+
+
+def pufferfish():
+    rng = random.Random("pufferfish")
+    img = Img(64, 64, CLEAR)
+    yellow = ramp(hexc("#E8C23A"), 5, spread=0.25)
+    pale = ramp(hexc("#F2E6B0"), 5, spread=0.15)
+    spine = ramp(hexc("#D8D8C8"), 5, spread=0.15)
+    for fname, f in box_faces(0, 0, 8, 8, 8).items():
+        paint(img, f, pale if fname == "bottom" else yellow, rng)
+        x0, y0, fw, fh = f
+        for k in range(4):  # brown spots
+            img.set(x0 + rng.randrange(fw), y0 + rng.randrange(fh), (120, 84, 40, 255))
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((1, 2), (6, 2)), (20, 20, 20, 255),
+         tuple(((x, 6), (150, 90, 60, 255)) for x in range(3, 5)))
+    for f in box_faces(0, 20, 1, 4, 3).values():
+        paint(img, f, yellow, rng)
+    for box in ((32, 0, 1, 2, 2), (32, 4, 2, 1, 2)):
+        for f in box_faces(*box).values():
+            paint(img, f, spine, rng)
+    return img
+
+
+def squid(name, base, spot):
+    rng = random.Random(name)
+    img = Img(64, 64, CLEAR)
+    body = ramp(hexc(base), 5, spread=0.3)
+    for fname, f in box_faces(0, 0, 12, 16, 12).items():
+        paint(img, f, body, rng, noise=0.4)
+        x0, y0, fw, fh = f
+        for k in range(6):  # spots
+            img.set(x0 + rng.randrange(fw), y0 + rng.randrange(fh), hexc(spot))
+    for fname in ("front", "back", "left", "right"):  # eyes low on every side
+        x0, y0, fw, fh = box_faces(0, 0, 12, 16, 12)[fname]
+        for x in (3, 8):
+            img.set(x0 + x, y0 + fh - 4, (240, 240, 230, 255))
+            img.set(x0 + x, y0 + fh - 3, (20, 20, 30, 255))
+    for f in box_faces(48, 0, 2, 10, 2).values():
+        paint(img, f, body, rng, noise=0.4)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", help="directory for 4x previews")
@@ -817,7 +912,14 @@ def main():
               "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
               "witch": witch(), "wandering_trader": wandering_trader(),
               "pillager": pillager(), "vindicator": vindicator(), "evoker": evoker(), "vex": vex(),
-              "ravager": ravager()}
+              "ravager": ravager(),
+              # M25.2: water mobs (layouts match MobModels.cpp's kCod, kSalmon, ...)
+              "cod": fish("cod", (0, 0, 2, 4, 7), (0, 12, 2, 3, 3), (0, 20, 1, 4, 5), [(20, 0, 1, 1, 4)],
+                          "#A08860", "#D8CDB0"),
+              "salmon": fish("salmon", (0, 0, 3, 5, 9), (0, 16, 2, 4, 3), (0, 24, 1, 5, 6),
+                             [(24, 0, 1, 1, 5), (24, 8, 1, 1, 3)], "#9A3A30", "#C88070", stripes="#5E8A6A"),
+              "tropical_fish": tropical_fish(), "pufferfish": pufferfish(),
+              "squid": squid("squid", "#3A5070", "#5A7898"), "glow_squid": squid("glow_squid", "#1E8C8A", "#9AFFE8")}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

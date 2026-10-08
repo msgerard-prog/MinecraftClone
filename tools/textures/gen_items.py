@@ -485,6 +485,56 @@ def dried_kelp():
     return img
 
 
+def fish_item(body, belly, cooked=False, fin=None, stripes=None, spots=None):
+    """A fish lying diagonally, head at the top right (M25.2)."""
+    top = ramp(hexc(body), 5, spread=0.35)
+    low = ramp(hexc(belly), 5, spread=0.25)
+    s = Shape()
+    pts = {(x, y) for x in range(16) for y in range(16)
+           if ((x - y) / 2.0) ** 2 / 2.2 ** 2 + ((x + y - 15) / 2.0) ** 2 / 5.6 ** 2 < 1}
+    s.add({p for p in pts if p[0] - p[1] >= 0}, top)
+    s.add({p for p in pts if p[0] - p[1] < 0}, low)
+    tail = {(x, y) for x in range(16) for y in range(16) if x + y <= 6 and abs(x - y) <= 3 - (x + y) * 0.0 and x + y >= 2}
+    s.add(tail, ramp(hexc(fin or body), 5, spread=0.3))
+    img = s.render()
+    if stripes:
+        for k in range(-2, 3, 2):
+            for t in range(-2, 3):
+                img.set(7 + k + t, 8 + k - t, hexc(stripes)) if img.get(7 + k + t, 8 + k - t)[3] else None
+    if spots:
+        rng = random.Random(body)
+        for _ in range(6):
+            x, y = rng.randrange(4, 13), rng.randrange(3, 12)
+            if img.get(x, y)[3]:
+                img.set(x, y, hexc(spots))
+    if not cooked:
+        img.set(11, 4, hexc("#141414"))  # the eye
+    return img
+
+
+def ink_sac(base):
+    pal = ramp(hexc(base), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 5.0) ** 2 + ((y - 9) / 5.5) ** 2 < 1}, pal)
+    s.add({(x, y) for x in range(6, 10) for y in range(2, 5)}, pal)
+    img = s.render()
+    img.set(6, 7, pal[4])
+    img.set(7, 6, pal[4])
+    return img
+
+
+def fishing_rod():
+    wood = ramp(hexc("#8A6236"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(1, 14)} | {(x + 1, 15 - x) for x in range(1, 13)}, wood)
+    img = s.render()
+    for y in range(2, 13):  # the line hanging from the tip
+        img.set(14, y, (230, 230, 230, 255))
+    img.set(14, 13, (180, 180, 190, 255))  # the hook
+    img.set(13, 13, (180, 180, 190, 255))
+    return img
+
+
 def bone_meal():
     rng = random.Random("bone_meal")
     pal = ramp(hexc("#ECECE4"), 5, spread=0.2)
@@ -898,6 +948,23 @@ def all_items():
     items["totem_of_undying"] = totem()  # (M24.5)
     items["ominous_bottle"] = bottle(filled=True)  # (M24.4; tinted dark below)
     items["dried_kelp"] = dried_kelp()  # (M25.1)
+    # M25.2: fish, ink, fish buckets, the fishing rod
+    items["cod"] = fish_item("#9C8460", "#D2C6A8")
+    items["cooked_cod"] = fish_item("#C89A62", "#E8D2A8", cooked=True)
+    items["salmon"] = fish_item("#A8463A", "#D07A68", fin="#4E7A60")
+    items["cooked_salmon"] = fish_item("#C8743E", "#E8A878", cooked=True, fin="#8A5A3A")
+    items["tropical_fish"] = fish_item("#E87A2A", "#F2F2F2", stripes="#F8F8F8")
+    items["pufferfish"] = fish_item("#E2BC3A", "#F2E6B0", spots="#7A5428")
+    items["ink_sac"] = ink_sac("#2A2A36")
+    items["glow_ink_sac"] = ink_sac("#2ACCB0")
+    for fish, colour in (("cod", "#9C8460"), ("salmon", "#A8463A"), ("tropical_fish", "#E87A2A"),
+                         ("pufferfish", "#E2BC3A")):
+        img = bucket("#3C6EE6")
+        img.set(7, 5, hexc(colour))
+        img.set(8, 5, hexc(colour))
+        img.set(9, 6, hexc(colour))
+        items[f"{fish}_bucket"] = img
+    items["fishing_rod"] = fishing_rod()
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

@@ -182,6 +182,7 @@ std::vector<Recipe> build() {
     r.push_back(shaped({".#", "#."}, {{'#', item("iron_ingot")}}, "shears"));
     // (wiki: Bow - 3 sticks and 3 string; White Wool - 4 string)
     r.push_back(shaped({".SX", "S.X", ".SX"}, {{'S', stick}, {'X', item("string")}}, "bow"));
+    r.push_back(shaped({"..S", ".SX", "S.X"}, {{'S', stick}, {'X', item("string")}}, "fishing_rod")); // (M25.2)
     r.push_back(shaped({"##", "##"}, {{'#', item("string")}}, "white_wool"));
     // (wiki: Bread - 3 wheat in a row; Bone Meal - a bone makes 3)
     r.push_back(shaped({"###"}, {{'#', item("wheat")}}, "bread"));
@@ -638,6 +639,8 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "potato") return out("baked_potato");
     if (n == "chorus_fruit") return out("popped_chorus_fruit");
     if (n == "kelp") return out("dried_kelp"); // (M25.1)
+    if (n == "cod") return out("cooked_cod"); // (M25.2)
+    if (n == "salmon") return out("cooked_salmon");
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;
@@ -652,7 +655,8 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "nether_quartz_ore" || n.ends_with("lapis_ore")) return 0.2f;
     if (n == "ancient_debris") return 2.0f;
     if (n.ends_with("coal_ore")) return 0.1f;
-    if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
+    if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato" || n == "cod" || n == "salmon")
+        return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
     if (n == "kelp") return 0.1f; // (wiki: Dried Kelp)

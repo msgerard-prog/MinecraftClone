@@ -174,6 +174,20 @@ ItemRegistry buildItems() {
     // (wiki: Raw Beef 3 / 1.8, Steak 8 / 12.8, Rotten Flesh 4 / 0.8)
     r.add({.id = "minecraft:beef", .food = 3, .saturation = 1.8f, .texture = "item/beef"});
     r.add({.id = "minecraft:cooked_beef", .food = 8, .saturation = 12.8f, .texture = "item/cooked_beef"});
+    // Fish (M25.2; wiki: Raw Cod 2/0.4, Cooked Cod 5/6, Raw Salmon 2/0.4, Cooked Salmon
+    // 6/9.6, Tropical Fish 1/0.2, Pufferfish 1/0.2 - which poisons), ink sacs, fish
+    // buckets (a fish and its water), the fishing rod (64 uses).
+    r.add({.id = "minecraft:cod", .food = 2, .saturation = 0.4f, .texture = "item/cod"});
+    r.add({.id = "minecraft:cooked_cod", .food = 5, .saturation = 6.0f, .texture = "item/cooked_cod"});
+    r.add({.id = "minecraft:salmon", .food = 2, .saturation = 0.4f, .texture = "item/salmon"});
+    r.add({.id = "minecraft:cooked_salmon", .food = 6, .saturation = 9.6f, .texture = "item/cooked_salmon"});
+    r.add({.id = "minecraft:tropical_fish", .food = 1, .saturation = 0.2f, .texture = "item/tropical_fish"});
+    r.add({.id = "minecraft:pufferfish", .food = 1, .saturation = 0.2f, .texture = "item/pufferfish"});
+    r.add({.id = "minecraft:ink_sac", .texture = "item/ink_sac"});
+    r.add({.id = "minecraft:glow_ink_sac", .texture = "item/glow_ink_sac"});
+    for (const char* fish : {"cod", "salmon", "tropical_fish", "pufferfish"})
+        r.add({.id = std::string("minecraft:") + fish + "_bucket", .maxStack = 1, .texture = std::string("item/") + fish + "_bucket"});
+    r.add({.id = "minecraft:fishing_rod", .maxStack = 1, .durability = 64, .texture = "item/fishing_rod"});
     r.add({.id = "minecraft:rotten_flesh", .food = 4, .saturation = 0.8f, .texture = "item/rotten_flesh"});
     // Farm animals (M16.3; wiki: each food's page - hunger / saturation).
     r.add({.id = "minecraft:porkchop", .food = 3, .saturation = 1.8f, .texture = "item/porkchop"});

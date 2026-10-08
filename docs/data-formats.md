@@ -243,6 +243,11 @@ holds a water source (fluids, swimming, light opacity 1, meshing, `leftAfterBrea
 Item `dried_kelp` (food); recipes dried kelp block <-> 9 dried kelp, kelp smelts to
 dried kelp. Biomes `deep_lukewarm_ocean`, `deep_cold_ocean`, `deep_frozen_ocean`.
 Level.dat `generator` "overworld4" (new worlds).
+M25.2: entities `minecraft:cod`, `salmon`, `tropical_fish` (`Variant`: shape | pattern
+<< 8 | base colour << 16 | pattern colour << 24), `pufferfish` (`PuffState`), `squid`,
+`glow_squid`; fish save `FromBucket`, water mobs `Air`. Items `cod`, `cooked_cod`,
+`salmon`, `cooked_salmon`, `tropical_fish`, `pufferfish`, `ink_sac`, `glow_ink_sac`,
+`<fish>_bucket`, `fishing_rod`; enchantments `luck_of_the_sea`, `lure`; effect `hunger`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

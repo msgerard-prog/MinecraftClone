@@ -467,6 +467,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const glm::mat3 legA = rotX(swing), legB = rotX(-swing), arm = rotX(-90.0f * kDeg + swing * 0.2f);
     const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
     const glm::mat3 wingL = rotZ(flap), wingR = rotZ(-flap);
+    const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
@@ -491,6 +492,9 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     scale *= world::mobInfo(mob.type).modelScale; // (ghasts: 4.5)
     if (mob.type == world::MobType::MagmaCube || mob.type == world::MobType::Slime)
         scale *= float(mob.size); // its model is the size-1 cube
+    if (mob.type == world::MobType::Pufferfish) scale *= 0.5f + 0.25f * float(mob.size); // puffing up (0..2)
+    // Glow squid glow in the dark (wiki: Glow Squid - its texture is drawn bright).
+    const glm::vec3 glowing = mob.type == world::MobType::GlowSquid ? glm::max(light, glm::vec3(0.9f)) : light;
     glm::vec3 flash(0.0f);
     if (mob.fuse > 0) { // a swelling creeper grows and flashes white (wiki: Creeper)
         const float f = std::min(1.0f, float(mob.fuse) / 30.0f);
@@ -515,6 +519,10 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
+        if (part.layer == 4 || part.layer == 5) { // a tropical fish's colours (M25.2)
+            const uint32_t c = kWoolColours[(part.layer == 4 ? mob.woolColour : mob.color2) & 15];
+            partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
+        }
         if (part.layer == 1) {
             const uint32_t c = kWoolColours[mob.woolColour & 15];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
@@ -525,6 +533,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                 : part.anim == MobPart::Anim::ArmForward ? &arm
                                 : part.anim == MobPart::Anim::WingL      ? &wingL
                                 : part.anim == MobPart::Anim::WingR      ? &wingR
+                                : part.anim == MobPart::Anim::Tail       ? &tail
                                                                          : nullptr;
         glm::vec3 corners[8];
         for (int i = 0; i < 8; ++i) {
@@ -541,7 +550,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             const Face& face = kFaces[f];
             const glm::vec3 p[4] = {corners[face.c[0]], corners[face.c[1]], corners[face.c[2]], corners[face.c[3]]};
             quad(p, uv[f][0], uv[f][1], uv[f][0] + uv[f][2], uv[f][1] + uv[f][3],
-                 pack(glm::min(light * partTint * face.shade + flash, glm::vec3(1.0f))),
+                 pack(glm::min(glowing * partTint * face.shade + flash, glm::vec3(1.0f))),
                  m_mobs);
         }
     }

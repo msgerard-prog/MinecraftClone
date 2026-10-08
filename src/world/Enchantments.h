@@ -33,11 +33,13 @@ enum class Enchantment : uint8_t {
     Punch,
     Flame,
     Infinity,
+    LuckOfTheSea, // (M25.2) fishing rods: more treasure
+    Lure,         // (M25.2) fishing rods: bites 5 s sooner per level
     Count
 };
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"

@@ -11,7 +11,7 @@ namespace mc::gfx {
 // facing +Z. Parts rotate about their pivot for animation.
 struct MobPart {
     // LegA/B swing opposite; Lift: raised by a shulker's Peek (up to 8 px).
-    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward, WingL, WingR, Lift };
+    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward, WingL, WingR, Lift, Tail };
     float from[3], to[3];
     float pivot[3];
     int u, v; // box-UV origin in the mob's 64x64 texture
@@ -20,6 +20,7 @@ struct MobPart {
     // UV), tinted by the wool colour, hidden once sheared (vanilla's wool layer).
     // 2 = an end crystal's base, hidden without ShowBottom.
     // 3 = a villager's profession robe: drawn from the apron texture, tinted.
+    // 4, 5 = a tropical fish's body and pattern, tinted by its two colours (M25.2).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };
@@ -58,6 +59,12 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/evoker.png",
         "assets/minecraft/textures/entity/clone/vex.png",
         "assets/minecraft/textures/entity/clone/ravager.png",
+        "assets/minecraft/textures/entity/clone/cod.png",
+        "assets/minecraft/textures/entity/clone/salmon.png",
+        "assets/minecraft/textures/entity/clone/tropical_fish.png",
+        "assets/minecraft/textures/entity/clone/pufferfish.png",
+        "assets/minecraft/textures/entity/clone/squid.png",
+        "assets/minecraft/textures/entity/clone/glow_squid.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png"};

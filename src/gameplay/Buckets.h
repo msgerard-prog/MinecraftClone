@@ -17,7 +17,14 @@ namespace mc {
 struct BucketResult {
     world::ItemId filled = 0;  // the item the used bucket becomes
     world::ItemStack washed{}; // the drop of a plant/torch the placed fluid replaced
+    // A fish bucket emptied (M25.2): the fish to let out where the water went.
+    world::MobType fish = world::MobType::Count;
+    world::BlockPos at{};
 };
+// The fish a fish bucket holds (M25.2), or Count for any other item.
+world::MobType bucketFish(world::ItemId item);
+// The bucket a water bucket becomes when it scoops up this fish, or 0 if it can't.
+world::ItemId fishBucketFor(world::MobType fish);
 
 // `held` is the bucket item used. Returns what it turns into (survival: the caller
 // swaps or splits the stack), or nullopt if nothing happened. `changed` gets edits.
