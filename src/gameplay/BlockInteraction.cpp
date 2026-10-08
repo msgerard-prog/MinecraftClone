@@ -329,7 +329,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     }
 
     // Breaking.
-    if (!attack || !hit) {
+    if (!attack || !hit || !m_mayBuild) {
         m_breaking.reset();
         m_progress = 0.0f;
         m_progressExact = 0.0;
@@ -396,7 +396,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     // Using a block (lever, button...), else placing, which uses up the held block.
     if (use && m_useCooldown == 0 && hit && useBlock(player, *hit, !inventory.selectedStack().empty())) {
         // used
-    } else if (use && m_useCooldown == 0 && hit && held.block) {
+    } else if (use && m_useCooldown == 0 && hit && held.block && m_mayBuild) {
         m_useCooldown = kUseDelay;
         bool placed = false;
         place(world, player, *hit, inventory.placeState(), changed, placed);

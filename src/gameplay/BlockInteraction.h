@@ -96,9 +96,13 @@ public:
 
     // Game rule block_drops (M28.1): off, broken blocks give no items or experience.
     void setBlockDrops(bool on) { m_blockDrops = on; }
+    // Adventure mode (M28.1c; wiki: Adventure): no breaking or placing blocks; using
+    // them (doors, buttons, containers) still works.
+    void setMayBuild(bool on) { m_mayBuild = on; }
 
 private:
     bool m_blockDrops = true;
+    bool m_mayBuild = true;
     int m_experience = 0;
     world::BlockPos m_xpAt{};
     bool useBlock(const Player& player, const world::RayHit& hit, bool holding);

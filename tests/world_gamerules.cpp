@@ -1,12 +1,16 @@
 // Game rules (M28.1; wiki: Game rule): ids, values, level.dat, /gamerule, /difficulty.
+#include "gameplay/BlockInteraction.h"
 #include "gameplay/Commands.h"
 #include "gameplay/Vitals.h"
+#include "world/Blocks.h"
+#include "world/Raycast.h"
 #include "world/GameRules.h"
 #include "world/LevelData.h"
 
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <vector>
 
 using namespace mc;
 using namespace mc::world;
@@ -138,4 +142,67 @@ TEST_CASE("keep_inventory: experience survives the respawn") {
     CHECK(v.xpLevel() == level);
     v.reset();
     CHECK(v.xpLevel() == 0);
+}
+
+TEST_CASE("/gamemode adventure and spectator; spectators fly through blocks") {
+    Player player;
+    Inventory inv;
+    int64_t dayTime = 0;
+    bool survival = false;
+    int gameMode = 1;
+    CommandContext ctx{player, inv, dayTime, 0, 42, &survival};
+    ctx.gameMode = &gameMode;
+    CHECK(runCommand("/gamemode adventure", ctx).message == "Set own game mode to Adventure Mode");
+    CHECK(survival);
+    CHECK(gameMode == 2);
+    CHECK(runCommand("/gamemode spectator", ctx).ok);
+    CHECK_FALSE(survival);
+    CHECK(gameMode == 3);
+    CHECK_FALSE(runCommand("/gamemode hardcore", ctx).ok);
+
+    World world;
+    Chunk& c = world.createChunk({0, 0});
+    for (int y = 60; y < 70; ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                c.set(x, y, z, blockRegistry().defaultState(blocks::Stone));
+    Player ghost;
+    ghost.setPosition({8.5, 64.0, 8.5});
+    ghost.setSpectator(true);
+    CHECK(ghost.flying());
+    PlayerInput in;
+    in.forward = 1.0f;
+    for (int t = 0; t < 10; ++t)
+        ghost.tick(world, in);
+    CHECK(glm::length(ghost.position() - glm::dvec3(8.5, 64.0, 8.5)) > 0.5); // moved inside stone
+}
+
+TEST_CASE("adventure: blocks can't be broken or placed") {
+    World world;
+    Chunk& c = world.createChunk({0, 0});
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x)
+            c.set(x, 63, z, blockRegistry().defaultState(blocks::Dirt));
+    Player player;
+    player.setPosition({8.5, 64.0, 8.5});
+    player.setCreative(false);
+    Inventory inv;
+    inv.setSlot(0, {*itemRegistry().find("dirt"), 64});
+    Vitals vitals;
+    Xoroshiro rng{1};
+    BlockInteraction bi;
+    bi.setMayBuild(false);
+    const RayHit hit{{8, 63, 8}, Direction::Up, 1.0};
+    std::vector<BlockPos> changed;
+    std::vector<BlockInteraction::Drop> drops;
+    InteractionInput in;
+    in.attack = true;
+    for (int t = 0; t < 100; ++t)
+        bi.tickSurvival(world, player, hit, inv, vitals, in, false, rng, changed, drops);
+    CHECK(blockRegistry().blockOf(world.getBlock({8, 63, 8})) == blocks::Dirt);
+    in = {};
+    in.useClick = true;
+    bi.tickSurvival(world, player, hit, inv, vitals, in, false, rng, changed, drops);
+    CHECK(world.getBlock({8, 64, 8}) == 0);
+    CHECK(inv.slot(0).count == 64);
 }

@@ -779,7 +779,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.survival = survival;
         l.rules = rules;
         l.difficulty = difficulty;
-        l.gameMode = survival ? (gameMode == 2 ? 2 : 0) : (gameMode == 3 ? 3 : 1);
+        l.gameMode = gameMode;
         l.health = vitals.health();
         l.food = vitals.food();
         l.saturation = vitals.saturation();
@@ -867,6 +867,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                    &gameRng, &frameEdits, &weather, &commandBolts};
             ctx.rules = &rules;
             ctx.difficulty = &difficulty;
+            ctx.gameMode = &gameMode;
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -1303,6 +1304,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (ride && ((mc::world::isMount(ride->type) && (ride->tamed || ride->type == mc::world::MobType::Camel)) ||
                                  (ride->type == mc::world::MobType::Boat && ride->hasChest)))
                         openMountScreen(ride->uuidHi);
+                    else if (gameMode == 3)
+                        ; // (spectators have no inventory)
                     else if (survival)
                         container.open(mc::ui::ContainerScreen::Type::Inventory);
                     else
@@ -1665,6 +1668,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 input.forward = 1.0f;
                 input.sprint = true;
             }
+            player.setSpectator(gameMode == 3);
             player.setCreative(!survival);
             if (survival && player.flying()) player.setFlying(false);
             if (dead) input = {};
@@ -1708,6 +1712,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 vitals.setRules(rules.fallDamage, rules.fireDamage, rules.drowningDamage,
                                 rules.naturalRegeneration);
                 interaction.setBlockDrops(rules.blockDrops);
+                interaction.setMayBuild(gameMode != 2);
                 vitals.setDifficulty(difficulty);
                 vitals.tickEffects(); // (M19.4: in any game mode)
                 player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
@@ -1992,6 +1997,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.cursorCaptured() && window.takePresses(mc::Press::LeftMouse) > 0;
             clicks.useClick =
                 window.cursorCaptured() && window.takePresses(mc::Press::RightMouse) > 0;
+            if (gameMode == 3) clicks = {}; // spectators touch nothing (M28.1c)
+            const bool mayBuild = gameMode != 2; // adventure: no breaking, placing or block-changing items
             // Flint and steel lights portals; eyes of ender go into end portal frames (M12).
             // Campfires (M23.4c): raw food goes on (any lit or unlit campfire with room), a
             // shovel puts it out, flint and steel lights it again (wiki: Campfire).
@@ -2044,7 +2051,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
-            if (!dead && clicks.useClick && lastHit &&
+            if (!dead && clicks.useClick && lastHit && mayBuild &&
                 reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::Tnt) {
                 // Flint and steel or a fire charge lights TNT (wiki: TNT).
                 const mc::world::ItemStack held = inventory.selectedStack();
@@ -2060,7 +2067,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                 }
             }
-            if (!dead && clicks.useClick && lastHit) { // (sneaking only skips block actions)
+            if (!dead && clicks.useClick && lastHit && mayBuild) { // (sneaking only skips block actions)
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const size_t editsBefore = frameEdits.size();
                 if (!held.empty() &&
@@ -2411,7 +2418,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
             }
             // Hoes and bone meal (M17.1; wiki: Hoe, Bone Meal) on the targeted block.
-            if (!dead && clicks.useClick && lastHit && !inventory.selectedStack().empty()) {
+            if (!dead && clicks.useClick && lastHit && mayBuild && !inventory.selectedStack().empty()) {
                 const mc::world::ItemStack held = inventory.selectedStack();
                 const auto& def = mc::world::itemRegistry().item(held.item);
                 static const mc::world::ItemId boneMealItem =
@@ -2662,7 +2669,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 scooped = true;
                             }
                         }
-                    if (!result)
+                    if (!result && mayBuild)
                         result = mc::useBucket(world, held.item, eye, look, reach, frameEdits);
                     if (result && result->fish != mc::world::MobType::Count) { // its fish swims off
                         mc::world::MobData fish = mc::Mobs::make(
@@ -2835,7 +2842,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
-            if (droppedItems.tick(world, player.box(), !dead, inventory) >
+            if (droppedItems.tick(world, player.box(), !dead && gameMode != 3, inventory) >
                 0) // vanilla pitch ((r - r) x 0.7 + 1) x 2
                 playSound(mc::world::Sound::ItemPickup, player.position(), 1.0f, 1.0f, false);
             // Game rules read the tick's own time, not the renderer's interpolated value.
@@ -4196,8 +4203,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                 }
             }
-            overlay.draw(camera, fbWidth, fbHeight,
-                         hit ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt, lo,
+            overlay.draw(camera, fbWidth, fbHeight, // (no outline for spectators)
+                         hit && gameMode != 3 ? std::optional<mc::world::BlockPos>(hit->block) : std::nullopt, lo,
                          hi);
         }
 
@@ -4206,7 +4213,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
             const int guiW = fbWidth / scale, guiH = fbHeight / scale;
             auto& batch = gui.batch();
-            mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
+            if (gameMode != 3) mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints());

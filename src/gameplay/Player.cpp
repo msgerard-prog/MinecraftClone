@@ -90,6 +90,11 @@ glm::dvec3 Player::backOffFromEdge(const world::World& world, glm::dvec3 d) {
 }
 
 glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
+    if (m_spectator) { // no collision at all
+        m_pos += delta;
+        m_onGround = false;
+        return delta;
+    }
     // Sneak edge protection: on the ground or up to 0.6 above it, but never on the
     // tick a jump starts (jumping off an edge while sneaking works, wiki: Sneaking).
     if (m_sneaking && !m_flying && delta.y <= 0.0 && (m_onGround || hasGroundBelow(world, box()))) {
@@ -149,7 +154,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     ++m_ticksSinceJumpPress;
     for (int k = 0; k < input.jumpPresses; ++k) {
         if (m_creative && m_ticksSinceJumpPress <= kDoubleTapTicks) {
-            m_flying = !m_flying;
+            m_flying = !m_flying || m_spectator; // (spectators never land)
             m_ticksSinceJumpPress = 1000;
         } else {
             m_ticksSinceJumpPress = 0;

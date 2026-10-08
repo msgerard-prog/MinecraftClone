@@ -586,7 +586,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   that have a source position (mobs) and explosions (`scaledDamage`), sets the starvation
   floor and Peaceful's refill; `Mobs::Context::difficulty` gates monster spawning,
   removes `despawnsInPeaceful` mobs and sets poison/infection odds; main stops raids
-  and patrols on Peaceful.
+  and patrols on Peaceful. Game modes (M28.1c): main's `gameMode` (saved as GameType)
+  with `survival` = survival or adventure; adventure sets `BlockInteraction::setMayBuild`
+  (and main's `mayBuild` gates block-changing items: buckets, flint and steel, hoes, bone
+  meal, TNT); spectator is `Player::setSpectator` (always flying, `move` without
+  collision), no clicks, pickups, inventory, hotbar or outline.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

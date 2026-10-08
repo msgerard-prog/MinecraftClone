@@ -31,6 +31,7 @@ struct CommandContext {
     std::vector<world::BlockPos>* lightning = nullptr; // /summon lightning_bolt: where to strike
     world::GameRules* rules = nullptr; // /gamerule (M28.1)
     int* difficulty = nullptr;         // /difficulty: 0 peaceful .. 3 hard
+    int* gameMode = nullptr;           // /gamemode adventure|spectator (0 survival .. 3 spectator)
 };
 
 struct CommandResult {

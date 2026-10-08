@@ -75,7 +75,13 @@ public:
     void setRotation(float yawDeg, float pitchDeg);
     void setCreative(bool creative) { m_creative = creative; }
     void setVelocity(const glm::dvec3& v) { m_velocity = v; }
-    void setFlying(bool flying) { m_flying = flying && m_creative; }
+    void setFlying(bool flying) { m_flying = (flying && m_creative) || m_spectator; }
+    // Spectator mode (M28.1c; wiki: Spectator): always flying, through blocks.
+    void setSpectator(bool on) {
+        m_spectator = on;
+        if (on) m_creative = m_flying = true;
+    }
+    bool spectator() const { return m_spectator; }
     // Benchmarks only (--auto-fly): scales flight acceleration.
     void setFlySpeedMultiplier(double k) { m_flyMultiplier = k; }
     // Effects (M19.4; wiki: Speed, Slowness, Jump Boost, Slow Falling): walking speed
@@ -145,6 +151,7 @@ private:
     bool m_onGround = false;
     bool m_inWater = false, m_inLava = false;
     bool m_creative = true;
+    bool m_spectator = false;
     bool m_flying = false;
     bool m_sprinting = false;
     bool m_sneaking = false;

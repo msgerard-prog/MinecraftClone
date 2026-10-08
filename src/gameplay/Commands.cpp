@@ -199,13 +199,20 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "time") return time(a, ctx);
     if (a[0] == "give") return give(a, ctx);
     if (a[0] == "gamemode") {
-        // /gamemode survival|creative (wiki: Commands/gamemode; ids 0/1 were removed).
-        if (a.size() != 2 || !ctx.survival || (a[1] != "survival" && a[1] != "creative"))
-            return fail("Usage: /gamemode survival|creative");
-        *ctx.survival = a[1] == "survival";
+        // /gamemode survival|creative|adventure|spectator (wiki: Commands/gamemode; the
+        // number ids were removed). Adventure plays as survival, spectator as creative.
+        static constexpr std::string_view kModes[4] = {"survival", "creative", "adventure", "spectator"};
+        static constexpr std::string_view kShown[4] = {"Survival", "Creative", "Adventure", "Spectator"};
+        int mode = -1;
+        for (int i = 0; i < 4; ++i)
+            if (a.size() == 2 && a[1] == kModes[i]) mode = i;
+        if (!ctx.survival || mode < 0 || (mode >= 2 && !ctx.gameMode))
+            return fail(ctx.gameMode ? "Usage: /gamemode survival|creative|adventure|spectator"
+                                     : "Usage: /gamemode survival|creative");
+        *ctx.survival = mode == 0 || mode == 2;
+        if (ctx.gameMode) *ctx.gameMode = mode;
         if (ctx.vitals) ctx.vitals->resetFall();
-        return {true, *ctx.survival ? "Set own game mode to Survival Mode"
-                                    : "Set own game mode to Creative Mode"};
+        return {true, "Set own game mode to " + std::string(kShown[mode]) + " Mode"};
     }
     if (a[0] == "gamerule") {
         // /gamerule <rule> [value] (wiki: Commands/gamerule; 1.21.11 ids such as
