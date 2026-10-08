@@ -107,6 +107,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                     }
     }
     if (targets.tnt) targets.tnt->push(centre, power);
+    if (!targets.breakBlocks) m_hits.clear(); // (M28.1: mob_griefing off)
     int destroyed = 0;
     for (const BlockPos& b : m_hits) {
         const BlockStateId s = world.getBlock(b);
@@ -125,7 +126,9 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
             if (const Chunk* ch = world.chunk(b.chunk()))
                 if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                     boxContents = addItemContents(cd->items);
-        if (shulker) {
+        if (!targets.blockDrops) {
+            // (M28.1: block_drops off - nothing drops)
+        } else if (shulker) {
             ItemStack box{itemRegistry().blockItem(reg.blockOf(s)), 1};
             box.contents = boxContents;
             items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, box, rng);

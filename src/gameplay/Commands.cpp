@@ -207,6 +207,30 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, *ctx.survival ? "Set own game mode to Survival Mode"
                                     : "Set own game mode to Creative Mode"};
     }
+    if (a[0] == "gamerule") {
+        // /gamerule <rule> [value] (wiki: Commands/gamerule; 1.21.11 ids such as
+        // minecraft:keep_inventory, the older camelCase names still accepted).
+        if (!ctx.rules || a.size() < 2 || a.size() > 3) return fail("Usage: /gamerule <rule> [value]");
+        const auto now = ctx.rules->get(a[1]);
+        if (!now) return fail("Unknown game rule: " + std::string(a[1]));
+        if (a.size() == 2) return {true, "Gamerule " + std::string(a[1]) + " is currently set to: " + *now};
+        if (!ctx.rules->set(a[1], a[2])) return fail("Invalid value for " + std::string(a[1]) + ": " + std::string(a[2]));
+        return {true, "Gamerule " + std::string(a[1]) + " is now set to: " + *ctx.rules->get(a[1])};
+    }
+    if (a[0] == "difficulty") {
+        // /difficulty [peaceful|easy|normal|hard] (wiki: Commands/difficulty).
+        static constexpr std::string_view kNames[4] = {"peaceful", "easy", "normal", "hard"};
+        static constexpr std::string_view kShown[4] = {"Peaceful", "Easy", "Normal", "Hard"};
+        if (!ctx.difficulty || a.size() > 2) return fail("Usage: /difficulty [peaceful|easy|normal|hard]");
+        if (a.size() == 1) return {true, "The difficulty is " + std::string(kShown[*ctx.difficulty & 3])};
+        for (int i = 0; i < 4; ++i)
+            if (a[1] == kNames[i]) {
+                if (*ctx.difficulty == i) return fail("The difficulty did not change; it is already set to " + std::string(kShown[i]));
+                *ctx.difficulty = i;
+                return {true, "The difficulty has been set to " + std::string(kShown[i])};
+            }
+        return fail("Usage: /difficulty [peaceful|easy|normal|hard]");
+    }
     if (a[0] == "setblock") {
         // /setblock <x> <y> <z> <block> (wiki: Commands/setblock): neighbours update.
         if (!ctx.world || a.size() != 5) return fail("Usage: /setblock <x> <y> <z> <block>");
@@ -466,7 +490,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         return {true, "Killed Player"};
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
-    if (a[0] == "help") return {true, "/data /effect /fill /gamemode /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
+    if (a[0] == "help") return {true, "/data /difficulty /effect /fill /gamemode /gamerule /give /help /kill /seed /setblock /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }
 

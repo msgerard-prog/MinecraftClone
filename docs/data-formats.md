@@ -63,10 +63,11 @@ default "New World" for interactive runs; `--no-save`):
 level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, LevelName,
                            DayTime, Time, LastPlayed, GameType, allowCommands, initialized,
                            spawn { dimension, pos [I; x,y,z], yaw, pitch } (1.21.9+; older
-                           SpawnX/Y/Z still read), Difficulty 2, DifficultyLocked, hardcore,
+                           SpawnX/Y/Z still read), Difficulty (0-3, M28.1), DifficultyLocked, hardcore,
                            raining, rainTime, thundering, thunderTime, clearWeatherTime
                            (M22.1), WasModded 1, ServerBrands, GameRules { 1.21.11
-                           ids "minecraft:keep_inventory"... : string values }, DataPacks
+                           ids "minecraft:keep_inventory"... : string values; the 20 rules of
+                           world/GameRules are read back, M28.1 }, DataPacks
                            { Enabled ["vanilla"], Disabled [] }, Version { Id 4671, Name
                            "1.21.11", Series, Snapshot }, WorldGenSettings { seed,
                            generate_features, bonus_chest, dimensions { overworld, the_nether,

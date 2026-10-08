@@ -797,6 +797,8 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
+    // Game rule mob_drops off: no loot and no experience (what it wore or carried still falls).
+    if (!ctx.mobDrops) return;
     // Killed by a charged creeper's blast: its head (M26.4b; wiki: Head - zombies,
     // skeletons, creepers, piglins and wither skeletons).
     if (m.chargedBlast > 0) {

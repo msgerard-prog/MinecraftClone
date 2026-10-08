@@ -28,6 +28,7 @@ struct MobScene {
     float skyDarken = 11.0f;
     bool thundering = false;
     const Weather* weather = nullptr;
+    bool mobDrops = true, mobGriefing = true; // (game rules, M28.1)
     MobScene() {
         for (int cz = -2; cz <= 2; ++cz)
             for (int cx = -2; cx <= 2; ++cx) {
@@ -48,6 +49,8 @@ struct MobScene {
             Mobs::Context ctx{world, player, vitals, survival, false, dayTime, skyDarken, rng, items};
             ctx.thundering = thundering;
             ctx.weather = weather;
+            ctx.mobDrops = mobDrops;
+            ctx.mobGriefing = mobGriefing;
             mobs.tick(ctx);
         }
     }
@@ -2164,4 +2167,21 @@ TEST_CASE("review fixes (M24): restocks reset each day; struck sleepers wake as 
     bool bottle = false;
     for (const auto& it : d.items.items()) bottle = bottle || it.stack.item == *itemRegistry().find("ominous_bottle");
     CHECK_FALSE(bottle);
+}
+
+TEST_CASE("game rules: mob_drops off - no loot; tnt_explodes off - TNT can't be lit") {
+    MobScene s;
+    s.mobDrops = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {4.5, 64.0, 4.5}, s.rng)));
+    for (MobData* m : s.all())
+        if (m->type == MobType::Cow) Mobs::attack(*m, 20.0f, s.player.position());
+    s.tick(25);
+    CHECK(s.items.items().empty());
+
+    BlockUpdates updates(s.world);
+    updates.setTntExplodes(false);
+    s.world.updateBlock({4, 64, 4}, blockRegistry().defaultState(blocks::Tnt));
+    s.world.updateBlock({5, 64, 4}, blockRegistry().defaultState(blocks::RedstoneBlock));
+    CHECK(updates.primedTnt().empty());
+    CHECK(blockRegistry().blockOf(s.world.getBlock({4, 64, 4})) == blocks::Tnt);
 }

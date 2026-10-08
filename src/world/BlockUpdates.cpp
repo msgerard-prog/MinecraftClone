@@ -780,7 +780,7 @@ bool BlockUpdates::railPowered(const BlockPos& p, BlockStateId s) const {
 }
 
 void BlockUpdates::primeTnt(const BlockPos& p) {
-    if (blockOf(at(p)) != B::Tnt || m_tntPrimed.size() >= m_tntPrimed.capacity()) return; // (full: lit next tick)
+    if (!m_tntExplodes || blockOf(at(p)) != B::Tnt || m_tntPrimed.size() >= m_tntPrimed.capacity()) return; // (full: lit next tick)
     set(p, 0);
     m_tntPrimed.push_back(p);
     m_world.playSound(Sound::Fuse, p.x + 0.5, p.y + 0.5, p.z + 0.5);

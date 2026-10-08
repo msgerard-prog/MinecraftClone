@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world/GameRules.h"
+
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -64,6 +66,9 @@ struct LevelData {
     float xpProgress = 0.0f;
     int xpTotal = 0;
     int32_t xpSeed = 0;    // XpSeed: the enchanting table's seed
+    GameRules rules;      // (M28.1) level.dat GameRules
+    int difficulty = 2;   // (M28.1) Difficulty: 0 peaceful, 1 easy, 2 normal, 3 hard
+    int gameMode = 0;     // (M28.1) GameType: 0 survival, 1 creative, 2 adventure, 3 spectator
     int32_t timeSinceRest = 0; // (M26.4a) ticks awake (our tag TimeSinceRest; vanilla keeps it in stats/)
     int32_t wardenLevel = 0, wardenTicks = 0, wardenCooldown = 0; // (M27.3) vanilla warden_spawn_tracker
     // Status effects (M19.4): Player.active_effects [{id, amplifier, duration, ...}].

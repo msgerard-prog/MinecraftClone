@@ -79,6 +79,7 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
                 t.vitals = &ctx.vitals;
             }
             m_scratchEdits.clear();
+            t.breakBlocks = ctx.mobGriefing; // (M28.1: game rule)
             m_explosion.explode(ctx.world, m.pos + glm::dvec3(0.0, 1.75, 0.0), 7.0f, ctx.rng, ctx.items,
                                 ctx.edits ? *ctx.edits : m_scratchEdits, t);
             m.health = info.maxHealth;
@@ -89,7 +90,7 @@ bool Mobs::witherAi(Context& ctx, MobData& m) {
     // Regeneration: 1 a second (wiki).
     if (++m.goalTicks % 20 == 0) m.health = std::min(info.maxHealth, m.health + 1.0f);
     // Hurt: it breaks what it's stuck in and around (3 wide, 4 high).
-    if (m.hurtTime == 9) {
+    if (m.hurtTime == 9 && ctx.mobGriefing) {
         const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
         for (int dy = 0; dy <= 3; ++dy)
             for (int dz = -1; dz <= 1; ++dz)

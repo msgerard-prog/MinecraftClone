@@ -505,6 +505,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::Inventory inventory;
     // Survival (M9): game mode, health/hunger, dropped items.
     bool survival = level ? level->survival : opts->survival; // (new worlds: the menu's game mode)
+    // M28.1: the world's game rules, difficulty and game mode (0 survival .. 3 spectator).
+    mc::world::GameRules rules = level ? level->rules : mc::world::GameRules{};
+    int difficulty = level ? level->difficulty : 2;
+    int gameMode = level ? level->gameMode : (survival ? 0 : 1);
     mc::Vitals vitals;
     vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
     if (level) {
@@ -773,6 +777,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.pitch = player.pitch();
         l.flying = player.flying();
         l.survival = survival;
+        l.rules = rules;
+        l.difficulty = difficulty;
+        l.gameMode = survival ? (gameMode == 2 ? 2 : 0) : (gameMode == 3 ? 3 : 1);
         l.health = vitals.health();
         l.food = vitals.food();
         l.saturation = vitals.saturation();
@@ -858,6 +865,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mc::CommandContext ctx{player,   inventory,   dayTime,  gameTime,
                                    seed,     &survival,   &vitals,  &world,
                                    &gameRng, &frameEdits, &weather, &commandBolts};
+            ctx.rules = &rules;
+            ctx.difficulty = &difficulty;
             const auto result = mc::runCommand(text, ctx);
             if (!result.message.empty())
                 chat.addMessage(result.message, result.ok ? 0xFFFFFFFFu : mc::gfx::argb(0xFFFF5555),
@@ -1696,6 +1705,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const bool wasOnGround = player.onGround();
             {
                 using E = mc::world::Effect;
+                vitals.setRules(rules.fallDamage, rules.fireDamage, rules.drowningDamage,
+                                rules.naturalRegeneration);
+                interaction.setBlockDrops(rules.blockDrops);
                 vitals.tickEffects(); // (M19.4: in any game mode)
                 player.setEffects(vitals.effectLevel(E::Speed), vitals.effectLevel(E::Slowness),
                                   vitals.effectLevel(E::JumpBoost),
@@ -1927,8 +1939,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     world.levelEvent(mc::world::LevelEvent::Type::Crit, f.x, f.y + 1.0, f.z);
                 }
             }
-            if (!dead && vitals.dead()) { // drop everything where we died (keepInventory off)
-                {
+            if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
+                if (rules.keepInventory) {
+                    screenDrops.clear();
+                    if (container.isOpen()) container.close(inventory, screenDrops);
+                    if (creative.isOpen()) creative.close();
+                    for (const auto& d : screenDrops) // (the crafting grid still spills)
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), d, gameRng);
+                    dead = true;
+                    if (rules.showDeathMessages) chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
+                } else {
                     // Open screens close first: their grid/carried items drop too.
                     screenDrops.clear();
                     if (container.isOpen()) container.close(inventory, screenDrops);
@@ -1951,7 +1971,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     inventory.setOffhand({});
                     orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(),
                               gameRng); // (the rest is lost)
-                    chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
+                    if (rules.showDeathMessages) chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
             // Q drops one of the held item (wiki: Controls).
@@ -2837,6 +2857,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                      &projectiles,
                                      &orbs};
             mobCtx.tnt = &primedTnt;
+            mobCtx.naturalSpawning = rules.spawnMobs;
+            mobCtx.mobDrops = rules.mobDrops;
+            mobCtx.mobGriefing = rules.mobGriefing;
+            mobCtx.spawnPhantoms = rules.spawnPhantoms;
+            mobCtx.difficulty = difficulty;
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
@@ -2859,7 +2884,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 // Ticking chunks: within the simulation distance, never past what's loaded.
                 blockUpdates.setRandomTicks(
                     at.chunk(), std::min(mobs.simulationDistance(), opts->renderDistance),
-                    mc::world::BlockUpdates::kDefaultRandomTickSpeed);
+                    rules.randomTickSpeed); // (game rule random_tick_speed)
+                blockUpdates.setTntExplodes(rules.tntExplodes);
                 blockUpdates.setPlayer(feet);
                 blockUpdates.setSkyDarken(overworld ? int(tickSkyDarken) : 0);
                 blockUpdates.setDayTime(dayTime);
@@ -2969,6 +2995,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 mc::ExplosionTargets t;
                 t.tnt = &primedTnt;
                 t.dropAll = true;
+                t.blockDrops = rules.blockDrops;
                 if (survival && !dead) {
                     t.player = &player;
                     t.vitals = &vitals;
@@ -2985,6 +3012,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             blockUpdates.settling().clear();
             blockUpdates.remeshOnly().clear();
             for (const auto& d : blockUpdates.drops()) {
+                if (!rules.blockDrops) break; // (game rule block_drops)
                 const glm::dvec3 where{d.pos.x + 0.5, d.pos.y + 0.25, d.pos.z + 0.5};
                 if (d.loot) { // the block's own loot, as if broken by hand
                     lootScratch.clear();
@@ -3039,7 +3067,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const int warned = vitals.wardenWarn();
                 if (warned < 0) continue; // (within its 10 s: nothing)
                 vitals.addEffect(mc::world::Effect::Darkness, 0, 240);
-                if (warned > 0) mc::Mobs::summonWarden(world, sh.pos, gameRng);
+                if (warned > 0 && rules.spawnWardens) mc::Mobs::summonWarden(world, sh.pos, gameRng);
             }
             blockUpdates.shrieks().clear();
             for (const auto& sp : blockUpdates.silverfishOut()) // (M26.4a: out of a broken infested block)
@@ -3133,11 +3161,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             for (const glm::dvec3& at : projectiles.witherBlasts()) // (M26.4b: wither skulls, power 1, no fire)
                 fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
+                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt, false,
+                                       rules.mobGriefing, rules.blockDrops});
             for (const glm::dvec3& at : projectiles.explosions()) {
                 fireballBlast.explode(
                     world, at, 1.0f, gameRng, droppedItems, frameEdits,
-                    {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
+                    {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt, false,
+                     rules.mobGriefing, rules.blockDrops});
+                if (!rules.mobGriefing) continue; // (no fire either)
                 const mc::world::BlockPos c{int(std::floor(at.x)), int(std::floor(at.y)),
                                             int(std::floor(at.z))};
                 for (int dx = -2; dx <= 2; ++dx)
@@ -3284,8 +3315,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 dragonFight.tick(world, *endGen, mobs, player.position(), orbs, gameRng,
                                  frameEdits);
             if (dimension == Dimension::Overworld && !dead) { // (M24.4)
-                traderSpawner.tick(world, player.position(), gameRng);
-                patrolSpawner.tick(world, player.position(), dayTime, gameRng);
+                if (rules.spawnWanderingTraders) traderSpawner.tick(world, player.position(), gameRng);
+                if (rules.spawnPatrols) patrolSpawner.tick(world, player.position(), dayTime, gameRng);
                 raid.tick(world, vitals, player.position(), gameRng);
             }
             // Furnaces smelt in every loaded chunk (block entities tick, wiki).
@@ -3584,8 +3615,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               top > eye.y + 1.0 ? 0.5f : 1.0f, top > eye.y + 1.0 ? 0.5f : 1.0f,
                               true);
             }
-            ++dayTime; // the daylight cycle advances one tick per tick
-            weather.tick(gameRng);
+            if (rules.advanceTime) ++dayTime; // the daylight cycle advances one tick per tick
+            if (rules.advanceWeather) weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
             for (Bolt& b : bolts)
                 --b.ticks;

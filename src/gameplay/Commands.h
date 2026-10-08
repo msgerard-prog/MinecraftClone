@@ -3,6 +3,7 @@
 #include "gameplay/Inventory.h"
 #include "gameplay/Player.h"
 #include "gameplay/Vitals.h"
+#include "world/GameRules.h"
 #include "world/Random.h"
 #include "world/Weather.h"
 #include "world/World.h"
@@ -28,6 +29,8 @@ struct CommandContext {
     std::vector<world::BlockPos>* changed = nullptr; // /setblock: edited positions (relight)
     world::Weather* weather = nullptr;                // /weather
     std::vector<world::BlockPos>* lightning = nullptr; // /summon lightning_bolt: where to strike
+    world::GameRules* rules = nullptr; // /gamerule (M28.1)
+    int* difficulty = nullptr;         // /difficulty: 0 peaceful .. 3 hard
 };
 
 struct CommandResult {

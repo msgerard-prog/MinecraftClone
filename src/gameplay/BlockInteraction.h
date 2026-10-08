@@ -94,7 +94,11 @@ public:
     // Ticks spent eating or drinking the held item so far (sounds, M22.4).
     int eatTicks() const { return m_eatTicks; }
 
+    // Game rule block_drops (M28.1): off, broken blocks give no items or experience.
+    void setBlockDrops(bool on) { m_blockDrops = on; }
+
 private:
+    bool m_blockDrops = true;
     int m_experience = 0;
     world::BlockPos m_xpAt{};
     bool useBlock(const Player& player, const world::RayHit& hit, bool holding);

@@ -22,7 +22,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("LevelName", name);
     data.put("DayTime", dayTime);
     data.put("Time", gameTime);
-    data.put("GameType", int32_t{survival ? 0 : 1});
+    data.put("GameType", int32_t{gameMode}); // (M28.1: 0 survival, 1 creative, 2 adventure, 3 spectator)
     data.put("allowCommands", int8_t{1});
     data.put("initialized", int8_t{1});
     // World spawn: since 1.21.9 a compound that names its dimension (was SpawnX/Y/Z,
@@ -33,7 +33,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     spawnTag.put("yaw", 0.0f);
     spawnTag.put("pitch", 0.0f);
     data.put("spawn", std::move(spawnTag));
-    data.put("Difficulty", int8_t{2}); // normal (fixed: known deviation)
+    data.put("Difficulty", int8_t(difficulty)); // (M28.1)
     data.put("DifficultyLocked", int8_t{0});
     data.put("hardcore", int8_t{0});
     data.put("raining", int8_t{raining ? 1 : 0});
@@ -44,15 +44,11 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     data.put("WasModded", int8_t{1}); // not written by vanilla's own server
     data.put("ServerBrands", listOf(TagType::String, {std::string("minecraftclone")}));
     // Game rules: 1.21.11 ids (namespaced snake_case; wiki: Game rule). Only the ones
-    // our game follows; vanilla fills in the rest with defaults.
-    Compound rules;
-    for (const auto& [id, value] : {std::pair{"minecraft:advance_time", "true"}, std::pair{"minecraft:spawn_mobs", "true"},
-                                    std::pair{"minecraft:keep_inventory", "false"}, std::pair{"minecraft:fall_damage", "true"},
-                                    std::pair{"minecraft:natural_health_regeneration", "true"},
-                                    std::pair{"minecraft:mob_drops", "true"}, std::pair{"minecraft:block_drops", "true"},
-                                    std::pair{"minecraft:random_tick_speed", "3"}})
-        rules.put(id, std::string(value));
-    data.put("GameRules", std::move(rules));
+    // our game follows (M28.1: world/GameRules); vanilla fills in the rest with defaults.
+    Compound gameRules;
+    for (int i = 0; i < GameRules::kCount; ++i)
+        gameRules.put(std::string(GameRules::id(i)), *rules.get(GameRules::id(i)));
+    data.put("GameRules", std::move(gameRules));
     Compound packs;
     packs.put("Enabled", listOf(TagType::String, {std::string("vanilla")}));
     packs.put("Disabled", listOf(TagType::String, {}));
@@ -143,14 +139,14 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("Score", int32_t{0});
     Compound abilities;
     abilities.put("flying", static_cast<int8_t>(flying ? 1 : 0));
-    abilities.put("mayfly", static_cast<int8_t>(survival ? 0 : 1));
-    abilities.put("instabuild", static_cast<int8_t>(survival ? 0 : 1));
-    abilities.put("invulnerable", static_cast<int8_t>(survival ? 0 : 1));
-    abilities.put("mayBuild", int8_t{1});
+    abilities.put("mayfly", static_cast<int8_t>(gameMode == 1 || gameMode == 3 ? 1 : 0));
+    abilities.put("instabuild", static_cast<int8_t>(gameMode == 1 ? 1 : 0));
+    abilities.put("invulnerable", static_cast<int8_t>(gameMode == 1 || gameMode == 3 ? 1 : 0));
+    abilities.put("mayBuild", static_cast<int8_t>(gameMode <= 1 ? 1 : 0));
     abilities.put("flySpeed", 0.05f);
     abilities.put("walkSpeed", 0.1f);
     player.put("abilities", std::move(abilities));
-    player.put("playerGameType", int32_t{survival ? 0 : 1});
+    player.put("playerGameType", int32_t{gameMode});
     player.put("Health", health);
     player.put("foodLevel", int32_t{food});
     player.put("foodSaturationLevel", saturation);
@@ -327,6 +323,10 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
     LevelData l;
     if (auto s = data->string("LevelName")) l.name = *s;
     l.dayTime = data->integer("DayTime").value_or(0);
+    l.difficulty = int(std::clamp<int64_t>(data->integer("Difficulty").value_or(2), 0, 3)); // (M28.1)
+    if (const Compound* gr = data->compound("GameRules")) // (string values, as vanilla writes them)
+        for (int i = 0; i < GameRules::kCount; ++i)
+            if (const std::string* v = gr->string(GameRules::id(i))) l.rules.set(GameRules::id(i), *v);
     l.gameTime = data->integer("Time").value_or(0);
     l.lastPlayed = data->integer("LastPlayed").value_or(0);
     l.raining = data->integer("raining").value_or(0) != 0;
@@ -436,7 +436,8 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                         l.respawn[i] = (*a)[size_t(i)];
                 }
         if (const Compound* a = p->compound("abilities")) l.flying = a->integer("flying").value_or(0) != 0;
-        l.survival = p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)) == 0;
+        l.gameMode = int(std::clamp<int64_t>(p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)), 0, 3));
+        l.survival = l.gameMode == 0 || l.gameMode == 2;
         if (auto h = p->real("Health")) l.health = static_cast<float>(*h);
         l.food = static_cast<int>(p->integer("foodLevel").value_or(20));
         if (auto v = p->real("foodSaturationLevel")) l.saturation = static_cast<float>(*v);

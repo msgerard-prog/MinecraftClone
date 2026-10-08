@@ -357,8 +357,8 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
             m_progress = static_cast<float>(std::min(1.0, m_progressExact));
             if (m_progressExact >= 1.0 - 1e-9) {
                 m_dropScratch.clear();
-                blockDrops(state, inventory.selectedStack(), rng, m_dropScratch);
-                if (canHarvest(state, inventory.selectedStack()) &&
+                if (m_blockDrops) blockDrops(state, inventory.selectedStack(), rng, m_dropScratch);
+                if (m_blockDrops && canHarvest(state, inventory.selectedStack()) &&
                     world::enchantLevel(inventory.selectedStack(), world::Enchantment::SilkTouch) == 0) // (wiki)
                     m_experience += blockExperience(state, rng);
                 m_xpAt = hit->block;

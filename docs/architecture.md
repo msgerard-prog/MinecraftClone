@@ -576,6 +576,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   digs up torchflower seeds or pitcher pods every few minutes; bred, they lay a sniffer egg
   (Animals.cpp), which hatches on scheduled ticks into `hatched()` for main; torchflower and
   pitcher crops grow on random ticks (`growSniffCrop`).
+- Game rules (M28.1, `world/GameRules`): the world's rules (1.21.11 ids, older camelCase
+  names accepted), difficulty and game mode live in `LevelData`; main holds them and
+  passes each where it applies: `Mobs::Context` (spawning, mob_drops, mob_griefing,
+  phantoms), `Vitals::setRules` (damage kinds, regeneration), `BlockInteraction::
+  setBlockDrops`, `BlockUpdates::setTntExplodes`, random tick speed, `ExplosionTargets::
+  breakBlocks/blockDrops`, the day/weather clocks, keep_inventory on death; `/gamerule`
+  and `/difficulty` edit them.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

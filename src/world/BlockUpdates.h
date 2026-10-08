@@ -169,6 +169,8 @@ public:
     // TNT (M21.1b; wiki: TNT): redstone power, fire, flint and steel light it - the
     // block goes and gameplay spawns primed TNT where primedTnt() lists.
     void primeTnt(const BlockPos& p);
+    // Game rule tnt_explodes (M28.1): off, TNT can't be lit.
+    void setTntExplodes(bool on) { m_tntExplodes = on; }
     // Dispensers and droppers fired this tick (M21.3b): a rising edge of power (also
     // one block above them: quasi-connectivity) fires them 4 ticks later; gameplay does
     // what their item does.
@@ -415,6 +417,7 @@ private:
     ChunkPos m_rtCentre{0, 0};
     int m_rtDistance = -1; // no random ticks until set
     int m_rtSpeed = kDefaultRandomTickSpeed;
+    bool m_tntExplodes = true;
     int m_skyDarken = 0;
     int64_t m_dayTime = 0;
     const Weather* m_weather = nullptr;

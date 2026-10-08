@@ -166,6 +166,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
                             for (MobData& o : ch->mobs())
                                 if (&o != &m && glm::length(o.pos - m.pos) < 12.0) o.chargedBlast = 3;
             }
+            t.breakBlocks = ctx.mobGriefing; // (M28.1: game rule)
             m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0), m.powered ? 6.0f : 3.0f, ctx.rng, ctx.items, changed, t);
         }
         break;
@@ -388,7 +389,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         // Blocks: pick one up (1 in 20 a tick, within 2 blocks) or put it down (1 in 2000).
         const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
-        if (!m.carried && ctx.rng.nextInt(20) == 0) {
+        // (game rule mob_griefing off: endermen leave blocks alone)
+        if (!ctx.mobGriefing) {
+        } else if (!m.carried && ctx.rng.nextInt(20) == 0) {
             const BlockPos q{at.x + int(ctx.rng.nextInt(5)) - 2, at.y + int(ctx.rng.nextInt(3)),
                              at.z + int(ctx.rng.nextInt(5)) - 2};
             const BlockStateId s = ctx.world.getBlock(q);
@@ -426,7 +429,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         // Idle, it now and then slips into a stone block beside it (wiki: Silverfish ›
         // Behavior): the block becomes infested and the silverfish is gone into it.
-        if (!chase && m.hurtTime == 0 && ctx.rng.nextInt(200) == 0) {
+        if (!chase && m.hurtTime == 0 && ctx.mobGriefing && ctx.rng.nextInt(200) == 0) {
             static constexpr int kDir[6][3] = {{0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}};
             const int* d = kDir[ctx.rng.nextInt(6)];
             const BlockPos q{int(std::floor(m.pos.x)) + d[0], int(std::floor(m.pos.y)) + d[1], int(std::floor(m.pos.z)) + d[2]};

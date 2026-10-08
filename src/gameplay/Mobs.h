@@ -47,6 +47,10 @@ public:
         uint64_t playerAttackerUuid = 0; // (M26.1) the mob that last hurt the player
         int32_t raidId = 0;                     // (its id: raiders of older raids stay out of it)
         int timeSinceRest = 0;                  // (M26.4a) the player's: phantoms after 3 days awake
+        // Game rules (M28.1): mob_drops, mob_griefing, spawn_phantoms; the difficulty
+        // (0 peaceful .. 3 hard).
+        bool mobDrops = true, mobGriefing = true, spawnPhantoms = true;
+        int difficulty = 2;
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

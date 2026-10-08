@@ -19,6 +19,7 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
         return 0.0f;
     if (--m_air <= -20) {
         m_air = 0;
+        if (!m_drowningDamage) return 0.0f; // (M28.1: game rule)
         // Drowning: armor doesn't help, Protection does (wiki: Armor › Enchantments).
         const float d = protectionReduced(2.0f, Hit::Generic, false);
         if (damage(d, false)) return d;
@@ -85,6 +86,10 @@ float Vitals::tickFire(bool inWater) {
         return 0.0f;
     }
     if (m_fire <= 0) return 0.0f;
+    if (!m_fireDamage) { // (M28.1: game rule)
+        --m_fire;
+        return 0.0f;
+    }
     // Burning: armor doesn't help; Protection and Fire Protection do.
     const float d = protectionReduced(1.0f, Hit::Fire, false);
     const bool hurt = m_fire % 20 == 0 && damage(d, false);
@@ -149,6 +154,7 @@ float Vitals::protectionReduced(float amount, Hit kind, bool fall) const {
 bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
     if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
+    if (kind == Hit::Fire && !m_fireDamage) return false; // (M28.1: game rule)
     if (m_shieldRaised && from) {
         glm::dvec3 to = *from - m_eye;
         to.y = 0.0;
@@ -212,7 +218,7 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
         const float amount = static_cast<float>(m_stalagmite ? std::ceil(fall * 2.0 - 2.0) : std::ceil(fall - 3.0));
         // Armor doesn't help with falls; Feather Falling and Protection do.
         // Landing on a hay bale takes 80% off (wiki: Hay Bale; main tells us the block).
-        const float reduced = protectionReduced(amount, Hit::Generic, true) * m_landingFactor;
+        const float reduced = m_fallDamage ? protectionReduced(amount, Hit::Generic, true) * m_landingFactor : 0.0f;
         if (reduced > 0.0f && damage(reduced, false)) hurt += reduced;
         m_falling = false;
     }
@@ -231,7 +237,9 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
 
     // Regeneration and starvation (wiki: Hunger › Mechanics, normal difficulty).
     if (dead()) return hurt;
-    if (m_food >= kMaxFood && m_saturation > 0.0f && m_health < kMaxHealth) {
+    if (!m_naturalRegen && m_food > 0) { // (M28.1: game rule - no healing from food)
+        m_foodTimer = 0;
+    } else if (m_food >= kMaxFood && m_saturation > 0.0f && m_health < kMaxHealth) {
         if (++m_foodTimer >= 10) { // fast: saturation-fuelled, every half second
             const float heal = std::min(m_saturation, 6.0f) / 6.0f;
             m_health = std::min(kMaxHealth, m_health + heal);

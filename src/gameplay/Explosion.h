@@ -29,6 +29,10 @@ struct ExplosionTargets {
     // false), mob blasts 1 in power.
     class PrimedTnt* tnt = nullptr;
     bool dropAll = false;
+    // Game rules (M28.1): mob_griefing off - a mob's blast breaks nothing; block_drops off -
+    // broken blocks drop nothing.
+    bool breakBlocks = true;
+    bool blockDrops = true;
 };
 
 class Explosion {
