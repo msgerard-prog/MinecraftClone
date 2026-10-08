@@ -39,7 +39,8 @@ enum class ProjectileKind : uint8_t {
     EnderPearl,
     ShulkerBullet, // (M20.4: homes in on the player; 4 damage + Levitation for 10 s)
     Trident,       // (M25.3: 8 damage, + Impaling on water mobs; sticks, Loyalty brings it back)
-    LlamaSpit      // (M26.2: 1 damage)
+    LlamaSpit,     // (M26.2: 1 damage)
+    WitherSkull    // (M26.4b: 8 damage + Wither 10 s, explodes with power 1)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -86,6 +87,7 @@ public:
         m_chicks.reserve(16);
         m_eyeDrops.reserve(16);
         m_explosions.reserve(16);
+        m_witherBlasts.reserve(16);
         m_edits.reserve(64);
         m_clouds.reserve(kMaxClouds);
         m_pearls.reserve(16);
@@ -121,6 +123,8 @@ public:
     // Ghast fireballs that hit this tick (the caller explodes them, power 1, with fire)
     // and blocks set alight by blaze fireballs (to relight and re-mesh).
     const std::vector<glm::dvec3>& explosions() const { return m_explosions; }
+    // Where wither skulls blew up this tick (M26.4b): main explodes them, power 1, no fire.
+    const std::vector<glm::dvec3>& witherBlasts() const { return m_witherBlasts; }
     std::vector<world::BlockPos>& edits() { return m_edits; }
     Projectile& last() { return m_items.back(); } // the one just shot
     // Channeling strikes this tick (M25.3): main calls lightning down there. `thundering`
@@ -140,6 +144,7 @@ private:
     std::vector<glm::dvec3> m_chicks;   // reused
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
+    std::vector<glm::dvec3> m_witherBlasts;
     std::vector<world::BlockPos> m_edits;
     std::vector<BreathCloud> m_clouds;
     std::vector<PearlLanding> m_pearls;

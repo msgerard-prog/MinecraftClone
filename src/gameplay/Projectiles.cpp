@@ -167,6 +167,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     m_chicks.clear();
     m_eyeDrops.clear();
     m_explosions.clear();
+    m_witherBlasts.clear();
     m_pearls.clear();
     m_channeled.clear();
     // Breath clouds: Instant Damage once a second to a survival player standing in one.
@@ -426,6 +427,24 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     }
                 }
                 remove = true;
+            } else if (p.kind == ProjectileKind::WitherSkull && (target != Target::None || block)) {
+                // A wither skull (M26.4b; wiki: Wither › Wither skulls): 8 damage and
+                // Wither II for 40 s on Normal to what it hits, then a power-1 blast.
+                if (target == Target::Player) {
+                    if (vitals && survival && vitals->attacked(8.0f, &p.pos, Vitals::Hit::Projectile)) {
+                        vitals->addEffect(Effect::Wither, 1, 800);
+                        hits.playerDamage += 8.0f;
+                    }
+                } else if (target == Target::Mob) {
+                    MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
+                    if (m.hurtTime == 0 && m.type != MobType::Wither) {
+                        m.health -= 8.0f;
+                        m.hurtTime = 10;
+                        ++hits.mobsHit;
+                    }
+                }
+                if (m_witherBlasts.size() < m_witherBlasts.capacity()) m_witherBlasts.push_back(p.pos + dir * reach);
+                remove = true;
             } else if (p.kind == ProjectileKind::LlamaSpit && (target != Target::None || block)) {
                 // A llama's spit (M26.2; wiki: Llama): 1 damage, gone on whatever it hits.
                 if (target == Target::Player) {
@@ -492,7 +511,9 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];
                         const bool perchedDragon = (m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6)) ||
                                                    (m.type == MobType::Shulker && m.peek == 0); // (closed shells too)
-                        if (m.type == MobType::Enderman) {
+                        if (m.type == MobType::Wither && (m.health < mobInfo(m.type).maxHealth * 0.5f || m.spellTicks > 0)) {
+                            // (M26.4b) below half health its armour turns arrows (wiki: Wither)
+                        } else if (m.type == MobType::Enderman) {
                             m.wantsTeleport = true; // arrows can't hurt endermen: they teleport away (wiki)
                         } else if (perchedDragon) {
                             // A perched dragon shrugs arrows off (wiki: Ender Dragon).
@@ -530,7 +551,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 p.pos += p.vel;
                 const bool inWater = blockRegistry().blockOf(world.getBlock(cell)) == blocks::Water;
                 if (p.kind != ProjectileKind::GhastFireball && p.kind != ProjectileKind::BlazeFireball &&
-                    p.kind != ProjectileKind::DragonFireball) { // (fireballs fly straight)
+                    p.kind != ProjectileKind::DragonFireball && p.kind != ProjectileKind::WitherSkull) { // (fireballs fly straight)
                     const double drag = inWater && p.kind != ProjectileKind::Trident ? 0.6 : 0.99; // (tridents keep going in water)
                     p.vel *= drag;
                     p.vel.y -= p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::SplashPotion ||

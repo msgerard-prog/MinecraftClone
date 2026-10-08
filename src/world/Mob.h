@@ -83,6 +83,7 @@ enum class MobType : uint8_t {
     Silverfish,     // (M26.4a) hides in infested stone, calls the others out when hurt
     WitherSkeleton, // (M26.4a) Nether fortresses: its hits wither
     Phantom,        // (M26.4a) swoops on players who haven't slept for 3 days
+    Wither,         // (M26.4b) the boss built of soul sand and wither skeleton skulls
     Count
 };
 
@@ -258,6 +259,7 @@ struct MobData {
     bool nectar = false;      // (M26.3b) a bee carrying pollen home (HasNectar)
     bool stung = false;       // a bee that stung: it dies soon (HasStung)
     bool vanish = false;      // (not saved) gone without a death: a bee entering its hive
+    int8_t chargedBlast = 0;  // (M26.4b) ticks left in which a death counts as a charged creeper's kill (a head)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)

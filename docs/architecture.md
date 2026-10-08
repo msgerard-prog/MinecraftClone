@@ -482,6 +482,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `spawnPhantoms` from `Context::timeSinceRest` = `Vitals::timeSinceRest`, saved in
   level.dat). Cobwebs slow the player (main). overworld5: mountain infested veins,
   mineshaft cobwebs and cave spider spawners, the stronghold's silverfish spawner.
+- Heads and the Wither (M26.4b): 12 head blocks (standing `rotation`, wall `facing`;
+  `isMobHead`/`isWallHead`), items worn in the helmet slot, block textures cut from our
+  mob skins by `tools/textures/gen_heads.py` (`clone_head_*`); heads from charged creeper
+  kills (`MobData::chargedBlast`) and wither skeleton skulls. `gameplay/Wither.cpp`:
+  `buildWither` (soul sand T + 3 skulls, from main's BlockPlace events), `witherAi`
+  (charging `spellTicks` then a power-7 blast, hovering, `ProjectileKind::WitherSkull` ->
+  `Projectiles::witherBlasts` exploded by main, breaking blocks when hurt, regeneration,
+  arrow-proof below half health); the boss bar follows `Mobs::bossType`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

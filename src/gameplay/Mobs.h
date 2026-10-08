@@ -71,6 +71,8 @@ public:
     static float dragonDamage(const world::MobData& m, float damage, const glm::dvec3& at);
     // The dragon's health this tick for the boss bar (below 0: no dragon ticking).
     float bossHealth() const { return m_bossHealth; }
+    // Which boss the bar shows (the ender dragon or the Wither - M26.4b) and its top health.
+    world::MobType bossType() const { return m_bossType; }
     // Where dragons finished dying this tick (the fight ends there: main).
     const std::vector<glm::dvec3>& dragonDeaths() const { return m_dragonDeaths; }
     // A minecart item used on a rail (M21.4): a cart on it. False if not a rail.
@@ -161,6 +163,17 @@ private:
     bool beeAi(Context& ctx, world::MobData& m);
     // Phantoms (Phantoms.cpp, M26.4a).
     bool phantomAi(Context& ctx, world::MobData& m);
+    // The Wither (Wither.cpp, M26.4b).
+    bool witherAi(Context& ctx, world::MobData& m);
+
+public:
+    // Wither skeleton skulls on a T of soul sand / soil (the last skull just placed at
+    // `skull`): the blocks vanish and a Wither appears (wiki: Wither › Summoning).
+    static bool buildWither(world::World& world, const world::BlockPos& skull, world::Xoroshiro& rng);
+    // Blocks a Wither or its skulls can't destroy (bedrock, end portal parts, barriers).
+    static bool witherProof(world::BlockId b);
+
+private:
     void spawnPhantoms(Context& ctx);
     int m_phantomTicks = 0;
     void tickHives(Context& ctx, world::Chunk& chunk);
@@ -216,6 +229,7 @@ private:
     uint64_t m_playerAttacker = 0; // (M26.1) the mob that last hurt the player
     int m_striders = 0;
     float m_bossHealth = -1.0f;
+    world::MobType m_bossType = world::MobType::EnderDragon;
     std::vector<glm::dvec3> m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)
     // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
     std::array<glm::dvec3, 8> m_angerAlerts{};

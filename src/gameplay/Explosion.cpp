@@ -93,6 +93,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                 if (Chunk* ch = world.chunk({c.x + dx, c.z + dz}))
                     for (MobData& m : ch->mobs()) {
                         if (m.health <= 0.0f) continue;
+                        if (m.type == MobType::Wither && m.spellTicks > 0) continue; // (M26.4b: charging, unhurt)
                         if (m.type == MobType::EndCrystal) { // (Java: blown away without exploding, MC-118429)
                             m.health = 0.0f;
                             m.deathTime = 19;

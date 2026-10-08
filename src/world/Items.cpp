@@ -62,10 +62,21 @@ ItemRegistry buildItems() {
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
         if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) continue;
+        if (isMobHead(b)) continue; // (M26.4b: below - worn on the head, wall kinds from the standing ones)
         const bool sign = blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
         r.mapBlock(b, r.add({.id = id, .maxStack = uint8_t(sign ? 16 : 64), .block = b})); // (signs stack to 16)
     }
     r.mapBlock(blocks::KelpPlant, *r.find("kelp")); // (M25.1)
+    // Mob heads (M26.4b; wiki: Head): placeable, and worn in the helmet slot.
+    for (BlockId b = blocks::SkeletonSkull; b <= blocks::DragonHead; b += 2) {
+        ItemDef head;
+        head.id = blocks.block(b).id;
+        head.block = b;
+        head.armorSlot = 1;
+        const ItemId item = r.add(head);
+        r.mapBlock(b, item);
+        r.mapBlock(static_cast<BlockId>(b + 1), item);
+    }
     r.mapBlock(blocks::TallSeagrass, *r.find("seagrass"));
     // Wall signs pick and drop as their sign.
     for (BlockId b = 1; b < blocks.blockCount(); ++b)

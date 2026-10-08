@@ -399,9 +399,25 @@ enum : BlockId {
     InfestedCrackedStoneBricks,
     InfestedChiseledStoneBricks,
     InfestedDeepslate,    // axis
+    // Mob heads (M26.4b): standing (rotation 0..15) and wall (facing) kinds.
+    SkeletonSkull,
+    SkeletonWallSkull,
+    WitherSkeletonSkull,
+    WitherSkeletonWallSkull,
+    ZombieHead,
+    ZombieWallHead,
+    CreeperHead,
+    CreeperWallHead,
+    PiglinHead,
+    PiglinWallHead,
+    DragonHead,
+    DragonWallHead,
     Count
 };
 } // namespace blocks
+// Mob heads (M26.4b): the standing kinds sit at even ids, each wall kind right after.
+inline bool isMobHead(BlockId b) { return b >= blocks::SkeletonSkull && b <= blocks::DragonWallHead; }
+inline bool isWallHead(BlockId b) { return isMobHead(b) && (b - blocks::SkeletonSkull) % 2 == 1; }
 
 // Dye colours in vanilla's order (wiki: Dye › Data values): wool, carpets, stained
 // glass, dyes...

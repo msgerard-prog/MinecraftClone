@@ -686,6 +686,48 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m = base == "deepslate" ? single(cubeColumn(sprite("deepslate"), sprite("deepslate_top"),
                                                             registry.value(state, "axis").value_or("y")))
                                         : single(cubeAll(sprite(base.c_str())));
+            } else if (name.ends_with("_skull") || name.ends_with("_head")) {
+                // Mob heads (M26.4b): an 8x8x8 head of the mob's own skin (textures cut from
+                // it by tools/textures/gen_heads.py); standing ones turned to the nearest
+                // quarter of their 16 directions, wall ones against the wall behind them.
+                const bool wall = name.find("_wall_") != std::string::npos;
+                std::string kind = name.substr(0, name.rfind('_'));
+                if (wall) kind = kind.substr(0, kind.rfind('_')); // ("zombie_wall_head" -> "zombie")
+                auto tex = [&](const char* face) { return sprite(("clone_head_" + kind + "_" + face).c_str()); };
+                int quarter = 0; // 0: facing south
+                if (wall) {
+                    const int f = registry.get(state, world::properties::facing); // north, south, west, east
+                    quarter = f == 0 ? 2 : f == 1 ? 0 : f == 2 ? 1 : 3;
+                } else {
+                    quarter = ((registry.get(state, world::properties::rotation16) + 2) / 4) & 3;
+                }
+                // Faces of a head facing south, then turned: south -> west -> north -> east.
+                static constexpr Direction kRing[4] = {Direction::South, Direction::West, Direction::North, Direction::East};
+                auto turned = [&](Direction d) {
+                    for (int i = 0; i < 4; ++i)
+                        if (kRing[i] == d) return kRing[(i + quarter) & 3];
+                    return d;
+                };
+                BakedVariant v = cubeAll(tex("side"));
+                v.faces[int(turned(Direction::South))].sprite = tex("front");
+                v.faces[int(turned(Direction::North))].sprite = tex("back");
+                v.faces[int(turned(Direction::West))].sprite = tex("side");
+                v.faces[int(turned(Direction::East))].sprite = tex("side");
+                v.faces[int(Direction::Up)].sprite = tex("top");
+                v.faces[int(Direction::Down)].sprite = tex("top");
+                int a[3] = {4, wall ? 4 : 0, wall ? 0 : 4}, c[3] = {12, wall ? 12 : 8, wall ? 8 : 12};
+                for (int q = 0; q < quarter; ++q) { // (x, z) -> (16 - z, x)
+                    const int ax = a[0], az = a[2], cx = c[0], cz = c[2];
+                    a[0] = 16 - az, a[2] = ax;
+                    c[0] = 16 - cz, c[2] = cx;
+                }
+                m.visible = true;
+                addBoxFrom(m, std::min(a[0], c[0]), a[1], std::min(a[2], c[2]), std::max(a[0], c[0]), c[1],
+                           std::max(a[2], c[2]), v);
+                for (auto& f : m.boxes[m.boxCount - 1].faces) { // (each face shows its whole texture)
+                    f.uv[0] = f.uv[1] = 0;
+                    f.uv[2] = f.uv[3] = 16;
+                }
             } else if (name == "cobweb") {
                 m.visible = true;
                 m.cross = true;

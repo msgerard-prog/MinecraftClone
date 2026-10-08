@@ -363,6 +363,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (waterAi(ctx, m)) return;  // fish and squid (WaterMobs.cpp)
     if (beeAi(ctx, m)) return;    // (M26.3b, Bees.cpp)
     if (phantomAi(ctx, m)) return; // (M26.4a, Phantoms.cpp)
+    if (witherAi(ctx, m)) return;  // (M26.4b, Wither.cpp)
     const MobInfo& info = mobInfo(m.type);
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
@@ -642,6 +643,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
+    if (m.type == MobType::Wither && m.spellTicks > 0) return; // (M26.4b: charging, it can't be hurt)
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
     if (m.type == MobType::Armadillo && m.sitting) damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
     m.health -= damage;
@@ -775,13 +777,25 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (n > 0) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {item, uint8_t(n)}, ctx.rng);
     };
     if (m.isBaby()) return; // babies drop nothing (wiki: Breeding)
+    // Killed by a charged creeper's blast: its head (M26.4b; wiki: Head - zombies,
+    // skeletons, creepers, piglins and wither skeletons).
+    if (m.chargedBlast > 0) {
+        const char* head = m.type == MobType::Zombie            ? "zombie_head"
+                           : m.type == MobType::Skeleton        ? "skeleton_skull"
+                           : m.type == MobType::Creeper         ? "creeper_head"
+                           : m.type == MobType::Piglin          ? "piglin_head"
+                           : m.type == MobType::WitherSkeleton  ? "wither_skeleton_skull"
+                                                                 : nullptr;
+        if (head) ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find(head), 1}, ctx.rng); // (one, Looting or not)
+    }
     // Experience when the player killed it (wiki: Experience): monsters 5, animals 1-3.
     // (wiki: blazes and evokers 10, ravagers 20, magma cubes their size; villagers,
     // wandering traders and iron golems none)
     const bool noXp = m.type == MobType::Villager || m.type == MobType::WanderingTrader || m.type == MobType::IronGolem;
     if (ctx.orbs && m.lastHurtByPlayer && !noXp)
         ctx.orbs->drop(m.pos + glm::dvec3(0, 0.5, 0),
-                       m.type == MobType::Ravager                             ? 20
+                       m.type == MobType::Wither                              ? 50 // (M26.4b)
+                       : m.type == MobType::Ravager                           ? 20
                        : m.type == MobType::Blaze || m.type == MobType::Evoker ? 10
                        : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
                        : mobInfo(m.type).hostile      ? 5
@@ -880,9 +894,15 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::WitherSkeleton:
         if (ctx.rng.nextInt(3) == 0) drop("coal", 1, 1);
         drop("bone", 0, 2);
+        // its skull: 2.5% (+1% a Looting level) for player kills (wiki: Wither Skeleton Skull)
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 25u + 10u * m.looting && m.chargedBlast == 0)
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*itemRegistry().find("wither_skeleton_skull"), 1}, ctx.rng);
         break;
     case MobType::Phantom:
         if (m.lastHurtByPlayer) drop("phantom_membrane", 0, 1);
+        break;
+    case MobType::Wither: // (M26.4b; wiki: the nether star, always)
+        ctx.items.spawn(m.pos + glm::dvec3(0, 1.5, 0), {*itemRegistry().find("nether_star"), 1}, ctx.rng);
         break;
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
     case MobType::IronGolem: // wiki: Iron Golem - 3-5 iron ingots, 0-2 poppies
@@ -1011,6 +1031,7 @@ void Mobs::tick(Context& ctx) {
             m.prevYaw = m.yaw;
             m.prevHeadYaw = m.headYaw;
             m.prevPitch = m.pitch;
+            if (m.chargedBlast > 0 && m.health > 0.0f) --m.chargedBlast; // (M26.4b)
             // Wolf armor (M26.3; wiki: Wolf Armor) takes the damage the wolf took since the
             // last tick, wearing down until it breaks at 64.
             if (m.type == MobType::Wolf) {
@@ -1043,7 +1064,10 @@ void Mobs::tick(Context& ctx) {
                 m.angerAlert = false;
                 if (m_angerAlertCount < int(m_angerAlerts.size())) m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
             }
-            if (m.type == MobType::EnderDragon) m_bossHealth = std::max(0.0f, m.health);
+            if (m.type == MobType::EnderDragon || m.type == MobType::Wither) { // (M26.4b: the Wither's bar too)
+                m_bossHealth = std::max(0.0f, m.health);
+                m_bossType = m.type;
+            }
             if (m.health <= 0.0f && m.type == MobType::EnderDragon) {
                 // The dragon rises slowly for 10 s, then is gone (wiki: Ender Dragon -
                 // its death animation; experience, portal and egg: main).

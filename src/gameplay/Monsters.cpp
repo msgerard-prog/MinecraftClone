@@ -155,6 +155,15 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             }
             m.health = 0.0f;
             m.deathTime = 19; // gone next tick, without loot (it blew itself up)
+            // (M26.4b) a charged creeper's blast: the mobs it kills drop their heads
+            if (m.powered) {
+                const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+                for (int dz = -1; dz <= 1; ++dz)
+                    for (int dx = -1; dx <= 1; ++dx)
+                        if (Chunk* ch = ctx.world.chunk({c0.x + dx, c0.z + dz}))
+                            for (MobData& o : ch->mobs())
+                                if (&o != &m && glm::length(o.pos - m.pos) < 12.0) o.chargedBlast = 3;
+            }
             m_explosion.explode(ctx.world, m.pos + glm::dvec3(0, 0.0625, 0), m.powered ? 6.0f : 3.0f, ctx.rng, ctx.items, changed, t);
         }
         break;

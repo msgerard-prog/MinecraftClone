@@ -288,7 +288,12 @@ M26.3c: entities `minecraft:frog` (`variant` minecraft:temperate|warm|cold), `ta
 M26.4a: entities `minecraft:cave_spider`, `silverfish`, `wither_skeleton`, `phantom`;
 blocks `cobweb`, `infested_stone|cobblestone|stone_bricks|mossy_stone_bricks|
 cracked_stone_bricks|chiseled_stone_bricks`, `infested_deepslate[axis]`; item
-`phantom_membrane`; effect `minecraft:wither`; level.dat Player `TimeSinceRest` (our tag). Items `saddle`,
+`phantom_membrane`; effect `minecraft:wither`; level.dat Player `TimeSinceRest` (our tag).
+M26.4b: entity `minecraft:wither`; blocks `skeleton_skull`, `wither_skeleton_skull`,
+`zombie_head`, `creeper_head`, `piglin_head`, `dragon_head` [rotation 0-15] and their
+`*_wall_skull`/`*_wall_head` [facing]; items: the six standing kinds (wall kinds drop
+them). Block textures `clone_head_<kind>_{front,back,side,top}` are ours (not vanilla
+names). Items `saddle`,
 `leather/iron/golden/diamond_horse_armor`, the chest boats. /summon also takes our
 shorthands `Saddle:1b`, `Armor:1-4`, `Decor:1-16`.
 

@@ -1207,6 +1207,9 @@ def main():
               "wither_skeleton": skeleton("wither_skeleton", "#3A3A3C"),
               "silverfish": pet("silverfish", [(0, 0, 4, 3, 8), (24, 0, 3, 2, 2), (24, 4, 2, 2, 3)], (24, 0, 3, 2, 2), None,
                                 base="#9A9AA0", stripes=True),
+              "wither": pet("wither", [(0, 0, 8, 8, 8), (32, 0, 6, 6, 6), (0, 16, 20, 3, 3), (0, 22, 3, 10, 3),
+                                       (24, 22, 11, 2, 2), (12, 22, 3, 6, 3)], (0, 0, 8, 8, 8), None, base="#2A2A2E",
+                            extra=[((32, 0, 6, 6, 6), "#26262A")]),
               "phantom": pet("phantom", [(0, 0, 5, 3, 9), (28, 0, 7, 3, 5), (0, 12, 10, 1, 9), (40, 12, 3, 2, 6)],
                              (28, 0, 7, 3, 5), None, base="#3A4A78", extra=[((0, 12, 10, 1, 9), "#5A6A98")]),
               # M26.3c: frogs and axolotls light (tinted by kind / colour), tadpoles dark

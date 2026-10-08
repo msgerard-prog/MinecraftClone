@@ -1094,6 +1094,17 @@ BlockRegistry buildVanillaBlocks() {
           std::tuple{"infested_chiseled_stone_bricks", blocks::InfestedChiseledStoneBricks, 0.75f}})
         check(r.add(id, {.hardness = hard, .resistance = 0.75f}), b);
     check(r.add("infested_deepslate", {.hardness = 1.5f, .resistance = 0.75f}, {{&axis, "y"}}), blocks::InfestedDeepslate);
+    // (M26.4b; wiki: Head - 1, no tool; standing heads turn in 16 directions)
+    for (const auto& [floor, wall, b] : {std::tuple{"skeleton_skull", "skeleton_wall_skull", blocks::SkeletonSkull},
+                                         std::tuple{"wither_skeleton_skull", "wither_skeleton_wall_skull", blocks::WitherSkeletonSkull},
+                                         std::tuple{"zombie_head", "zombie_wall_head", blocks::ZombieHead},
+                                         std::tuple{"creeper_head", "creeper_wall_head", blocks::CreeperHead},
+                                         std::tuple{"piglin_head", "piglin_wall_head", blocks::PiglinHead},
+                                         std::tuple{"dragon_head", "dragon_wall_head", blocks::DragonHead}}) {
+        check(r.add(floor, {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false}, {{&rotation16, "0"}}), b);
+        check(r.add(wall, {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false}, {{&facing, "north"}}),
+              static_cast<BlockId>(b + 1));
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

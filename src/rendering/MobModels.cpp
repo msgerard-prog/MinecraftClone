@@ -658,6 +658,22 @@ constexpr std::array<MobPart, 5> kPhantom = {{
     {{-1.5f, 1.5f, -10.5f}, {1.5f, 3.5f, -4.5f}, {0, 2.5f, -4.5f}, 40, 12, A::Tail},
 }};
 
+// The Wither (M26.4b): three skull heads (the middle one larger) on a bar of shoulders,
+// a spine with ribs, a tail. Head 8x8x8 @ (0,0), side head 6x6x6 @ (32,0), shoulders
+// 20x3x3 @ (0,16), spine 3x10x3 @ (0,22), rib 11x2x2 @ (24,22), tail 3x6x3 @ (12,22).
+constexpr std::array<MobPart, 10> kWither = {{
+    {{-4, 46, -4}, {4, 54, 4}, {0, 46, 0}, 0, 0, A::Head},
+    {{-15, 42, -3}, {-9, 48, 3}, {-12, 42, 0}, 32, 0, A::Head},
+    {{9, 42, -3}, {15, 48, 3}, {12, 42, 0}, 32, 0, A::Head},
+    {{-10, 43, -1.5f}, {10, 46, 1.5f}, {0, 44, 0}, 0, 16, A::None},
+    {{-1.5f, 33, -1.5f}, {1.5f, 43, 1.5f}, {0, 43, 0}, 0, 22, A::None},
+    {{-5.5f, 40, -1}, {5.5f, 42, 1}, {0, 41, 0}, 24, 22, A::None},
+    {{-5.5f, 37, -1}, {5.5f, 39, 1}, {0, 38, 0}, 24, 22, A::None},
+    {{-5.5f, 34, -1}, {5.5f, 36, 1}, {0, 35, 0}, 24, 22, A::None},
+    {{-1.5f, 27, -1.5f}, {1.5f, 33, 1.5f}, {0, 33, 0}, 12, 22, A::Tail},
+    {{-1, 22, -1}, {1, 27, 1}, {0, 27, 0}, 12, 22, A::Tail},
+}};
+
 } // namespace
 
 std::span<const MobPart> chestBoatModel() { return kChestBoat; }
@@ -730,6 +746,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Silverfish: return kSilverfish;
     case world::MobType::WitherSkeleton: return kSkeleton; // (drawn 1.2x, its own skin)
     case world::MobType::Phantom: return kPhantom;
+    case world::MobType::Wither: return kWither;
     default: return kCow;
     }
 }

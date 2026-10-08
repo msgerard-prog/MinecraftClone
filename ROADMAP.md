@@ -23,7 +23,7 @@ M26 - Mobs 3 (wiki pages of each mob):
    armor; ✅ b) bees (nests, hives, honey, pollination; overworld5: nests on trees, berry
    bushes); ✅ c) frogs and tadpoles (frogspawn, froglights), axolotls (buckets, play dead).
 4. M26.4 - Monsters: ✅ a) phantoms (insomnia), silverfish (infested blocks), cave
-   spiders (mineshaft spawners, cobwebs), wither skeletons; b) mob heads, the Wither
+   spiders (mineshaft spawners, cobwebs), wither skeletons; ✅ b) mob heads, the Wither
    (summoning, nether star, beacon); c) the breeze and wind charges. (The warden comes
    with the deep dark in M27.)
 5. M26.5 - 1.21.x mobs: allays, the happy ghast (dried ghast, harness), the copper

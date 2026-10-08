@@ -2055,6 +2055,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case BlockKind::Plain: break;
     }
+    // Mob heads (M26.4b): on a side, the wall kind; on top, turned to face the player.
+    if (isMobHead(blockOf(state)) && !isWallHead(blockOf(state))) {
+        if (horizontal(faceDir)) return withHFacing(r.defaultState(static_cast<BlockId>(blockOf(state) + 1)), faceDir);
+        const int rotation = int(std::floor((yaw + 180.0f) * 16.0f / 360.0f + 0.5f)) & 15;
+        return r.set(state, rotation16, rotation);
+    }
     // Glazed terracotta faces the player (wiki: Glazed Terracotta); concrete powder put
     // by water hardens at once (wiki: Concrete Powder).
     if (R().block(R().blockOf(state)).id.ends_with("_glazed_terracotta")) return withHFacing(state, opposite(look));

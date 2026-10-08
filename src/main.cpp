@@ -2937,6 +2937,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // third of the open spots around it); blaze fireballs lit blocks.
             for (const mc::world::BlockPos& b : projectiles.channeled()) // (Channeling: next tick's bolts)
                 commandBolts.push_back(b);
+            for (const glm::dvec3& at : projectiles.witherBlasts()) // (M26.4b: wither skulls, power 1, no fire)
+                fireballBlast.explode(world, at, 1.0f, gameRng, droppedItems, frameEdits,
+                                      {survival && !dead ? &player : nullptr, &vitals, true, &primedTnt});
             for (const glm::dvec3& at : projectiles.explosions()) {
                 fireballBlast.explode(
                     world, at, 1.0f, gameRng, droppedItems, frameEdits,
@@ -3263,6 +3266,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::world::blocks::CarvedPumpkin)
                         mc::Mobs::buildIronGolem(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
                                                  gameRng);
+                    // A wither skeleton skull topping a T of soul sand makes the Wither (M26.4b).
+                    if (const auto pb = mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data));
+                        pb == mc::world::blocks::WitherSkeletonSkull || pb == mc::world::blocks::WitherSkeletonWallSkull)
+                        mc::Mobs::buildWither(world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))}, gameRng);
                     // A placed sign opens its editor (vanilla).
                     const auto kind = mc::world::blockRegistry().kind(
                         mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)));
@@ -3949,8 +3956,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             else if (survival)
                 mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);
             if (mobs.bossHealth() >= 0.0f) // (M20.2)
-                mc::ui::drawBossBar(batch, "Ender Dragon", mobs.bossHealth() / 200.0f,
-                                    mc::gfx::rgba(236, 72, 200), guiW);
+                mc::ui::drawBossBar(batch, mobs.bossType() == mc::world::MobType::Wither ? "Wither" : "Ender Dragon",
+                                    mobs.bossHealth() / mc::world::mobInfo(mobs.bossType()).maxHealth,
+                                    mobs.bossType() == mc::world::MobType::Wither ? mc::gfx::rgba(150, 60, 220)
+                                                                                 : mc::gfx::rgba(236, 72, 200),
+                                    guiW);
             if (raid.active() && raid.loaded() && dimension == Dimension::Overworld && // (M24.5: vanilla's red raid bar)
                 glm::length(glm::dvec3(raid.centre()) - player.position()) < 96.0)
                 mc::ui::drawBossBar(batch, "Raid", raid.progress(),
