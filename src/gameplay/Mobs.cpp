@@ -1310,7 +1310,9 @@ void Mobs::spawnHostiles(Context& ctx) {
     if (!c || !c->lit()) return;
     if (!canSpawnAt(ctx.world, x, y, z)) return;
     // No monsters spawn in mushroom fields (wiki: Mushroom Fields); spawners still work.
-    if (c->biomes() && c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::MushroomFields)
+    // Nor in the deep dark (M27.3b; wiki: Deep Dark).
+    if (c->biomes() && (c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::MushroomFields ||
+                        c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) == Biome::DeepDark))
         return;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
     // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)

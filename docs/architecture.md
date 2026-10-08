@@ -146,7 +146,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   5x5 sky blend). Cave biomes (M27.2c): `caveBiome` (humid -> lush caves, far inland ->
   dripstone caves) fills the biome cells more than 14 under the column's surface, and
   `placeCaveBiomes6` decorates their cave floors and ceilings (moss, vines, dripleaves,
-  azaleas; dripstone blocks and spikes) and puts azalea trees over lush caves.
+  azaleas; dripstone blocks and spikes) and puts azalea trees over lush caves. The deep
+  dark (M27.3b): `deepDark` columns are deep dark below y -16 (sculk floors and ceilings,
+  sensors, summoning shriekers, catalysts; no monster spawning); `placeAncientCities`
+  (grid `kAncientCities`) builds our 48x48 hall at y -51, walling off fluids around it.
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column

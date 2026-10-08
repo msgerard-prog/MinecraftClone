@@ -21,7 +21,7 @@ M27 - World 3 (wiki pages of each biome and structure):
    eyeblossoms, resin.
 2. ✅ M27.2 - Lush caves (azalea, moss, glow berries, dripleaves, spore blossoms) and
    dripstone caves (pointed dripstone: falling, dripping, cauldron filling).
-3. M27.3 - The deep dark: sculk blocks, sensors, shriekers, catalysts; ancient cities;
+3. ✅ M27.3 - The deep dark: sculk blocks, sensors, shriekers, catalysts; ancient cities;
    the warden (darkness, sonic boom, digging out).
 4. M27.4 - Structures: woodland mansions (vindicators, allay cells), ruined portals,
    trail ruins, trial chambers (trial spawners, vaults, breezes), amethyst geodes.

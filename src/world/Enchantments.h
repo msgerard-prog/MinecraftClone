@@ -39,11 +39,12 @@ enum class Enchantment : uint8_t {
     Riptide,      // (M25.3) tridents: in water or rain, throws the player instead
     Impaling,     // (M25.3) tridents: +2.5 a level against water mobs
     Channeling,   // (M25.3) tridents: a hit in a thunderstorm calls lightning
+    SwiftSneak,   // (M27.3) leggings: sneaking 15% faster a level (ancient cities only)
     Count
 };
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"

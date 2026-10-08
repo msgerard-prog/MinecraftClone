@@ -280,3 +280,39 @@ TEST_CASE("overworld6 lush caves and dripstone caves under the land, with their 
         }
     }
 }
+
+#include "world/StructurePlacement.h"
+
+TEST_CASE("overworld6: the deep dark under the mountains with sculk; ancient cities in it (M27.3b)") {
+    const OverworldGenerator gen(42);
+    // An ancient city: the first grid candidate within reach in the deep dark.
+    std::optional<ChunkPos> city;
+    for (int cz = -150; cz <= 150 && !city; ++cz)
+        for (int cx = -150; cx <= 150 && !city; ++cx)
+            if (isSpreadCandidate(42, kAncientCities, {cx, cz}) &&
+                OverworldGenerator::deepDark(gen.column(cx * 16 - 16 + 24, cz * 16 - 16 + 24)))
+                city = ChunkPos{cx, cz};
+    REQUIRE(city);
+    int reinforced = 0, summoning = 0, sculk = 0, chests = 0, dark = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk c({city->x + dx, city->z + dz});
+            gen.generate(c);
+            dark += c.biomes()->at(8, -51, 8) == Biome::DeepDark;
+            chests += int(c.chests().size());
+            for (int y = -60; y < -30; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockStateId s = c.get(x, y, z);
+                        const BlockId b = R().blockOf(s);
+                        reinforced += b == blocks::ReinforcedDeepslate;
+                        sculk += b == blocks::Sculk;
+                        summoning += b == blocks::SculkShrieker && R().get(s, properties::canSummon) == 0;
+                    }
+        }
+    CHECK(dark > 0);
+    CHECK(reinforced > 50);
+    CHECK(sculk > 100);
+    CHECK(summoning > 0);
+    CHECK(chests >= 4);
+}

@@ -1088,6 +1088,7 @@ def all_items():
     items["breeze_rod"] = blaze_rod("#8AB0E0", "#E0F0FF")
     items["phantom_membrane"] = membrane()  # (M26.4a; was missing)
     items["resin_brick"] = ingot("#E0702C")  # (M27.1c)
+    items["echo_shard"] = gem("#1E6E78", "emerald")  # (M27.3b)
     items["cooked_mutton"] = meat("cooked_mutton", "#7A4026", "#C08A54", marbled=False)
     items["chicken"] = meat("chicken", "#F0C0B0", "#F8E0D8", marbled=False)
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)

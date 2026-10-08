@@ -913,12 +913,14 @@ void OverworldGenerator::generate(Chunk& out) const {
             for (int qx = 0; qx < 4; ++qx) {
                 const Column& col = columnCol[size_t(qz * 4 + qx)];
                 const Biome cave = caveBiome(col);
-                if (cave == Biome::Count) continue;
+                const bool deep = deepDark(col);
+                if (cave == Biome::Count && !deep) continue;
                 for (int s = 0; s < kOverworldHeight.sections(); ++s)
                     for (int qy = 0; qy < 4; ++qy) {
                         const int y = kOverworldHeight.minY + s * 16 + qy * 4 + 2;
-                        if (y < col.height - 14.0 && y > kOverworldHeight.minY + 6)
-                            biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = cave;
+                        if (y >= col.height - 14.0 || y <= kOverworldHeight.minY + 6) continue;
+                        if (deep && y < -16) biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = Biome::DeepDark;
+                        else if (cave != Biome::Count) biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = cave;
                     }
             }
 
@@ -1327,6 +1329,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     if (m_version >= 6) {
         placeBiomeFeatures6(blockArray.data(), cx, cz, topY, columnBiome); // (M27.1)
         placeCaveBiomes6(blockArray.data(), cx, cz, *biomes, topY);     // (M27.2c)
+        placeAncientCities(blockArray.data(), cx, cz, entities);         // (M27.3b)
     }
 
     if (m_version >= 2) {
@@ -3444,6 +3447,11 @@ void OverworldGenerator::placeBiomeFeatures6(BlockStateId* blocks, int32_t cx, i
         }
 }
 
+bool OverworldGenerator::deepDark(const Column& c) {
+    // (wiki: Deep Dark - deep under low-erosion, inland ground: the mountains)
+    return c.erosion < -0.38 && c.continentalness > 0.0;
+}
+
 Biome OverworldGenerator::caveBiome(const Column& c) {
     // (wiki: Lush Caves - very humid; Dripstone Caves - far inland; our thresholds)
     if (c.continentalness < -0.11) return Biome::Count; // (not under the sea)
@@ -3482,6 +3490,9 @@ void OverworldGenerator::placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int3
         }
     };
     const BlockStateId moss = B.mossBlock, carpet = reg.defaultState(blocks::MossCarpet);
+    const BlockStateId sculk = reg.defaultState(blocks::Sculk), sensor = reg.defaultState(blocks::SculkSensor),
+                       catalyst = reg.defaultState(blocks::SculkCatalyst), vein = reg.defaultState(blocks::SculkVein),
+                       shrieker = reg.set(reg.defaultState(blocks::SculkShrieker), properties::canSummon, 0);
     const BlockStateId vine = reg.defaultState(blocks::CaveVinesPlant), vineTip = reg.set(reg.defaultState(blocks::CaveVines), properties::age25, 25);
     for (int z = 0; z < 16; ++z)
         for (int x = 0; x < 16; ++x) {
@@ -3489,7 +3500,7 @@ void OverworldGenerator::placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int3
             for (int y = kOverworldHeight.minY + 6; y < top; ++y) {
                 if (chunk.get(x, y, z) != B.air) continue;
                 const Biome b = biomes.at(x, y, z);
-                if (b != Biome::LushCaves && b != Biome::DripstoneCaves) continue;
+                if (b != Biome::LushCaves && b != Biome::DripstoneCaves && b != Biome::DeepDark) continue;
                 const bool floor = stone(chunk.get(x, y - 1, z)), ceiling = stone(chunk.get(x, y + 1, z));
                 if (!floor && !ceiling) continue;
                 const float f = r.nextFloat(), c = r.nextFloat();
@@ -3522,6 +3533,16 @@ void OverworldGenerator::placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int3
                             chunk.set(x, y, z, reg.defaultState(blocks::SporeBlossom));
                         }
                     }
+                } else if (b == Biome::DeepDark) { // (M27.3b; wiki: Deep Dark - sculk patches)
+                    if (floor && f < 0.75f) {
+                        chunk.set(x, y - 1, z, sculk);
+                        const uint32_t g = pick % 1000;
+                        if (g < 30) chunk.set(x, y, z, sensor);
+                        else if (g < 38) chunk.set(x, y, z, shrieker);
+                        else if (g < 41) chunk.set(x, y, z, catalyst);
+                        else if (g < 120) chunk.set(x, y, z, vein);
+                    }
+                    if (ceiling && c < 0.25f) chunk.set(x, y + 1, z, sculk);
                 } else { // dripstone caves
                     if (floor) {
                         if (f < 0.55f) chunk.set(x, y - 1, z, dripBlock);
@@ -3565,6 +3586,89 @@ void OverworldGenerator::placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int3
             break;
         }
     }
+}
+
+void OverworldGenerator::placeAncientCities(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    // Ancient cities (wiki: Ancient City): in the deep dark on their grid (spacing 24,
+    // separation 8), the floor at y -51. Ours: a 48x48 hall of deepslate tiles and bricks
+    // patched with sculk, the great reinforced deepslate frame in the middle, four houses
+    // with loot chests, pillars, soul lanterns, and sculk sensors and shriekers that can
+    // summon the warden (vanilla: a maze of templates, much larger).
+    const auto& reg = blockRegistry();
+    static const BlockStateId tiles = *reg.parse("minecraft:deepslate_tiles");
+    static const BlockStateId bricks = *reg.parse("minecraft:deepslate_bricks");
+    static const BlockStateId cracked = *reg.parse("minecraft:cracked_deepslate_bricks");
+    static const BlockStateId polished = *reg.parse("minecraft:polished_deepslate");
+    static const BlockStateId reinforced = reg.defaultState(blocks::ReinforcedDeepslate);
+    static const BlockStateId sculk = reg.defaultState(blocks::Sculk);
+    static const BlockStateId sensor = reg.defaultState(blocks::SculkSensor);
+    static const BlockStateId shrieker = reg.set(reg.defaultState(blocks::SculkShrieker), properties::canSummon, 0);
+    static const BlockStateId lantern = reg.defaultState(blocks::SoulLantern);
+    constexpr int kSize = 48, kHeight = 14, kFloor = -51;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kAncientCities, start)) continue;
+            const int32_t sx = start.x * 16 - 16, sz = start.z * 16 - 16; // (its corner)
+            if (!deepDark(column(sx + kSize / 2, sz + kSize / 2))) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 720));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, kFloor, sz, kSize, kSize, 0, &out};
+            // The hall: emptied, floored, its ceiling left as the cave rock - water or lava
+            // around it walled off with bricks so nothing floods in.
+            sb.fill(0, 0, 0, kSize - 1, kHeight, kSize - 1, 0);
+            {
+                Buf chunk{blocks};
+                const Blocks& B = blockSet();
+                for (int z = -1; z <= kSize; ++z)
+                    for (int x = -1; x <= kSize; ++x) {
+                        const int lx = sx + x - cx * 16, lz = sz + z - cz * 16;
+                        if (lx < 0 || lx > 15 || lz < 0 || lz > 15) continue;
+                        const bool rim = x < 0 || z < 0 || x >= kSize || z >= kSize;
+                        for (int y = rim ? -1 : kHeight + 1; y <= kHeight + 1; ++y) {
+                            const BlockStateId cur = chunk.get(lx, kFloor + y, lz);
+                            if (cur == B.water || cur == B.lava) chunk.set(lx, kFloor + y, lz, bricks);
+                        }
+                    }
+            }
+            for (int z = 0; z < kSize; ++z)
+                for (int x = 0; x < kSize; ++x) {
+                    const uint32_t k = r.nextInt(100);
+                    sb.set(x, -1, z, k < 35 ? sculk : ((x + z) % 7 == 0 ? polished : k < 70 ? tiles : bricks));
+                    sb.set(x, -2, z, bricks);
+                }
+            // The frame: reinforced deepslate, 13 wide and 11 tall, two thick, open inside.
+            for (int y = 0; y <= 10; ++y)
+                for (int x = 17; x <= 29; ++x)
+                    for (int z = 23; z <= 24; ++z) {
+                        const bool inside = x >= 20 && x <= 26 && y <= 7;
+                        sb.set(x, y, z, inside ? BlockStateId{0} : reinforced);
+                    }
+            // Four houses with a chest each.
+            static constexpr int kHouses[4][2] = {{4, 4}, {35, 4}, {4, 35}, {35, 35}};
+            for (const auto& h : kHouses) {
+                sb.room(h[0], 0, h[1], h[0] + 8, 5, h[1] + 8, bricks);
+                sb.fill(h[0] + 3, 1, h[1], h[0] + 5, 3, h[1], 0); // (a doorway)
+                sb.fill(h[0], 5, h[1], h[0] + 8, 5, h[1] + 8, tiles);
+                sb.chest(h[0] + 4, 1, h[1] + 6, LootTable::AncientCity);
+                sb.set(h[0] + 2, 1, h[1] + 6, sensor);
+            }
+            sb.chest(23, 0, 30, LootTable::AncientCity); // (one by the frame)
+            sb.chest(23, 0, 17, LootTable::AncientCity);
+            // Pillars with soul lanterns, cracked here and there.
+            for (int k = 0; k < 10; ++k) {
+                const int px = 2 + int(r.nextInt(kSize - 4)), pz = 2 + int(r.nextInt(kSize - 4));
+                if (px >= 15 && px <= 31 && pz >= 20 && pz <= 27) continue;
+                for (int y = 0; y < kHeight; ++y) sb.set(px, y, pz, r.nextInt(4) == 0 ? cracked : bricks);
+                sb.set(px + 1, 3, pz, lantern);
+            }
+            // Sensors and shriekers about the floor.
+            for (int k = 0; k < 24; ++k) {
+                const int px = int(r.nextInt(kSize)), pz = int(r.nextInt(kSize));
+                if (px >= 15 && px <= 31 && pz >= 20 && pz <= 27) continue;
+                sb.set(px, -1, pz, sculk);
+                sb.set(px, 0, pz, k % 3 == 0 ? shrieker : sensor);
+            }
+        }
 }
 
 } // namespace mc::world

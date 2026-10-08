@@ -35,7 +35,8 @@ enum class LootTable : uint8_t {
     ShipwreckTreasure,
     UnderwaterRuinSmall,
     UnderwaterRuinBig,
-    BuriedTreasure
+    BuriedTreasure,
+    AncientCity // (M27.3b)
 };
 
 struct LootEntry {
@@ -44,6 +45,7 @@ struct LootEntry {
     uint16_t weight = 1;
     bool enchant = false; // an enchanted book / item with one random enchantment
     uint8_t potion = 0;   // potion items: their world::Potion
+    uint8_t enchantment = 0; // (M27.3b) this enchantment (world::Enchantment) at a random level
 };
 struct LootPool {
     uint8_t minRolls, maxRolls;

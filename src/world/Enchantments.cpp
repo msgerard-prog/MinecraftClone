@@ -42,6 +42,8 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:riptide", "Riptide", 3, 2, 17, 7, 33, 50, EnchantTarget::Trident, 0},
     {"minecraft:impaling", "Impaling", 5, 2, 1, 8, 20, 53, EnchantTarget::Trident, 0},
     {"minecraft:channeling", "Channeling", 1, 1, 25, 0, 25, 50, EnchantTarget::Trident, 0},
+    // (M27.3; wiki: Swift Sneak - III, a treasure: weight 0, never from the table)
+    {"minecraft:swift_sneak", "Swift Sneak", 3, 0, 25, 25, 50, 50, EnchantTarget::Legs, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -92,6 +94,7 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::Armor: return d.armorSlot != 0;
     case EnchantTarget::Head: return d.armorSlot == 1;
     case EnchantTarget::Feet: return d.armorSlot == 4;
+    case EnchantTarget::Legs: return d.armorSlot == 3;
     case EnchantTarget::Sword: return d.tool == ToolType::Sword;
     case EnchantTarget::Digger:
         return d.tool == ToolType::Pickaxe || d.tool == ToolType::Axe || d.tool == ToolType::Shovel ||

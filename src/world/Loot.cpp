@@ -189,6 +189,21 @@ constexpr LootEntry kBuried6[] = {{"potion", 1, 1, 1, false, uint8_t(Potion::Wat
 constexpr LootPool kBuried[] = {{1, 1, kBuried1}, {5, 8, kBuried2}, {1, 3, kBuried3}, {0, 1, kBuried4}, {2, 2, kBuried5},
                                 {0, 2, kBuried6}};
 
+// wiki: Ancient City › Loot (Java; ours without disc fragments, the disc 5 and the
+// recovery compass, which aren't in the game yet - their weights left out).
+constexpr LootEntry kAncient1[] = {
+    {"enchanted_golden_apple", 1, 1, 1}, {"music_disc_otherside", 1, 1, 1}, {"diamond_hoe", 1, 1, 2, true},
+    {"lead", 1, 1, 2},                   {"diamond_horse_armor", 1, 1, 2},  {"saddle", 1, 1, 2},
+    {"music_disc_13", 1, 1, 2},          {"music_disc_cat", 1, 1, 2},       {"diamond_leggings", 1, 1, 2, true},
+    {"enchanted_book", 1, 1, 3, true},   {"sculk_catalyst", 1, 2, 3},       {"name_tag", 1, 1, 3},
+    {"echo_shard", 1, 3, 4},             {"potion", 1, 3, 5, false, uint8_t(Potion::LongRegeneration)},
+    {"book", 3, 10, 5},                  {"glow_berries", 1, 15, 5},        {"iron_leggings", 1, 1, 5, true},
+    {"sculk", 4, 10, 6},                 {"sculk_sensor", 1, 3, 6},         {"candle", 1, 4, 6},
+    {"amethyst_shard", 1, 15, 6},        {"experience_bottle", 1, 3, 6},    {"bone", 1, 15, 6},
+    {"soul_torch", 1, 15, 6},            {"snowball", 1, 7, 6},             {"golden_apple", 1, 2, 7},
+    {"coal", 6, 15, 7}, {"enchanted_book", 1, 1, 4, false, 0, uint8_t(Enchantment::SwiftSneak)}};
+constexpr LootPool kAncientCity[] = {{5, 10, kAncient1}};
+
 // wiki: Bastion Remnant › Loot, the generic chests (Java Edition). Enchanted/damaged
 // gear comes plain or with one random enchantment here.
 constexpr LootEntry kBastion1[] = {
@@ -234,6 +249,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::UnderwaterRuinSmall: return kRuinSmall;
     case LootTable::UnderwaterRuinBig: return kRuinBig;
     case LootTable::BuriedTreasure: return kBuried;
+    case LootTable::AncientCity: return kAncientCity;
     default: return {}; // (filled in as their structures arrive)
     }
 }
@@ -285,7 +301,10 @@ void fillChest(LootTable table, Xoroshiro& rng, std::array<ItemStack, 27>& slots
             if (!id || count >= 27) continue; // an item we don't have yet: nothing
             ItemStack s{*id, static_cast<uint8_t>(std::min<int>(n, items.item(*id).maxStack))};
             s.potion = chosen->potion;
-            if (chosen->enchant) { // one random enchantment at a random level (vanilla enchant_randomly)
+            if (chosen->enchantment != 0) { // a given enchantment at a random level
+                const auto e = static_cast<Enchantment>(chosen->enchantment);
+                setEnchantment(s, e, 1 + static_cast<int>(rng.nextInt(uint32_t(enchantmentInfo(e).maxLevel))));
+            } else if (chosen->enchant) { // one random enchantment at a random level (vanilla enchant_randomly)
                 for (int tries = 0; tries < 64; ++tries) { // (Thorns has no effect yet: never handed out)
                     const auto e = static_cast<Enchantment>(1 + rng.nextInt(uint32_t(Enchantment::Count) - 1));
                     if (e == Enchantment::Thorns || !canEnchant(*id, e)) continue;

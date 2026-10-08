@@ -1701,6 +1701,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   vitals.effectLevel(E::SlowFalling) > 0,
                                   vitals.effectLevel(E::Levitation));
                 player.setDolphinsGrace(vitals.effectLevel(E::DolphinsGrace) > 0); // (M25.3b)
+                player.setSwiftSneak(mc::world::enchantLevel(inventory.armor(2), mc::world::Enchantment::SwiftSneak)); // (M27.3)
                 // A turtle shell worn above water gives 10 s of Water Breathing, which then
                 // runs down under water (wiki: Turtle Shell).
                 static const mc::world::ItemId turtleHelmet = *mc::world::itemRegistry().find("turtle_helmet");

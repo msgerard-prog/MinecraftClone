@@ -86,6 +86,7 @@ enum class Biome : uint8_t {
     // Cave biomes (M27.2c; overworld6): under the surface, by climate.
     LushCaves,
     DripstoneCaves,
+    DeepDark, // (M27.3b) deep under the mountains: sculk, ancient cities, no monsters
     Count
 };
 

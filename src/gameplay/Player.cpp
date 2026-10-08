@@ -177,7 +177,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
 
     // Horizontal input, scaled like vanilla (0.98, sneak 0.3), normalised if > 1.
     glm::dvec2 in(input.strafe * kInputScale, input.forward * kInputScale);
-    if (m_sneaking) in *= kSneakFactor;
+    if (m_sneaking) in *= m_sneakFactor;
     if (glm::dot(in, in) > 1.0) in = glm::normalize(in);
 
     // In water or lava (not flying): swim (M14; vanilla travel in fluids - acceleration

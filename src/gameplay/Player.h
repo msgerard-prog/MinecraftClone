@@ -84,6 +84,8 @@ public:
     // 0.05 blocks a tick per level instead of falling (wiki: Levitation, ~0.9 b/s).
     // Dolphin's Grace (M25.3b): water keeps 0.96 of the speed a tick instead of 0.8.
     void setDolphinsGrace(bool on) { m_dolphinsGrace = on; }
+    // Swift Sneak (M27.3; wiki): sneaking speed 0.3 + 0.15 a level of the leggings'.
+    void setSwiftSneak(int level) { m_sneakFactor = std::min(1.0, kSneakFactor + 0.15 * level); }
     void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling, int levitation = 0) {
         m_walkMultiplier = std::max(0.0, (1.0 + 0.2 * speed) * (1.0 - 0.15 * slowness));
         m_jumpBoost = jumpBoost;
@@ -146,6 +148,7 @@ private:
     bool m_flying = false;
     bool m_sprinting = false;
     bool m_sneaking = false;
+    double m_sneakFactor = kSneakFactor;
     int m_ticksSinceJumpPress = 1000;
     int m_jumpDelay = 0;
     double m_flyMultiplier = 1.0;
