@@ -153,3 +153,12 @@ TEST_CASE("command line: --open-block takes whole block coordinates") {
     std::array<const char*, 2> bad = {"--open-block", "1.5,2,3"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
+
+TEST_CASE("command line: --mute") {
+    std::array<const char*, 2> args = {"--mute", "--sound"};
+    std::string error;
+    const auto opts = mc::parseCommandLine(args, error);
+    REQUIRE(opts.has_value());
+    CHECK(opts->mute);
+    CHECK(opts->sound);
+}

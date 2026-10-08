@@ -23,3 +23,4 @@ Template:
 | 0005 | Dense global block-state ids, paletted sections | Accepted |
 | 0006 | Original textures in vanilla's style, sharper than vanilla | Accepted |
 | 0007 | Save format: vanilla Anvil (Java 1.21 chunk NBT, level.dat) | Proposed |
+| 0008 | Audio: XAudio2 (system API) and our own synthesized sounds | Accepted |

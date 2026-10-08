@@ -80,6 +80,7 @@ struct MobData {
     uint8_t woolColour = 0; // sheep: dye index (0 white .. 15 black)
     bool sheared = false;
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
+    int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)
     bool showBottom = true; // end crystals: drawn on a bedrock base (ShowBottom)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)

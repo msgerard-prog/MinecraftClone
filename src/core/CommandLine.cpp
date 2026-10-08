@@ -186,6 +186,10 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.vsync = false;
         } else if (arg == "--hidden") {
             opts.hidden = true;
+        } else if (arg == "--mute") {
+            opts.mute = true;
+        } else if (arg == "--sound") {
+            opts.sound = true;
         } else {
             error = "unknown option: " + std::string(arg);
             return std::nullopt;

@@ -359,6 +359,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 remove = true;
             } else if (target != Target::None) {
                 if (p.kind == ProjectileKind::Arrow) {
+                    world.playSound(Sound::ArrowHit, p.pos.x, p.pos.y, p.pos.z);
                     // Base damage 2, Power adds 0.5 per level + 0.5 (wiki: Power).
                     const double base = 2.0 + (p.power ? 0.5 * p.power + 0.5 : 0.0);
                     float damage = float(std::ceil(speed * base));
@@ -400,6 +401,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             } else if (block) {
                 if (p.kind == ProjectileKind::Arrow) { // sticks just inside the face it hit
                     p.pos += dir * (block->distance + 0.05);
+                    world.playSound(Sound::ArrowHit, p.pos.x, p.pos.y, p.pos.z);
                     p.vel = glm::dvec3(0.0);
                     p.stuck = true;
                     p.life = 0;

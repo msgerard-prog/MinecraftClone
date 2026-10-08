@@ -137,6 +137,7 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         if (!fitted) return;
         state = *fitted;
         world.updateBlock(at, state);
+        world.levelEvent(world::LevelEvent::Type::BlockPlace, at.x, at.y, at.z, state);
         changed.push_back(at);
         placed = true;
     }

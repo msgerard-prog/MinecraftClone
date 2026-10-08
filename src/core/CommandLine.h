@@ -18,6 +18,8 @@ struct LaunchOptions {
     std::string screenshotPath; // empty = normal interactive run
     int screenshotFrames = 60;  // frames to render before capturing
     bool hidden = false;        // no visible window (screenshot runs)
+    bool mute = false;          // --mute: no sound (also implied by --hidden and --screenshot)
+    bool sound = false;         // --sound: sound even in hidden/screenshot runs (audio checks)
     bool vsync = true;          // --no-vsync: measure real frame cost
     std::string resourcePacks;  // --resourcepacks DIR (default: <repo>/resourcepacks)
     bool flat = false;          // --flat: the M2 superflat test world instead of terrain

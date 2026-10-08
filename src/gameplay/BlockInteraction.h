@@ -88,6 +88,9 @@ public:
     int takeExperience() { return std::exchange(m_experience, 0); }
     world::BlockPos experienceAt() const { return m_xpAt; }
 
+    // Ticks spent eating or drinking the held item so far (sounds, M22.4).
+    int eatTicks() const { return m_eatTicks; }
+
 private:
     int m_experience = 0;
     world::BlockPos m_xpAt{};

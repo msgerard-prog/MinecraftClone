@@ -683,6 +683,17 @@ void Mobs::tick(Context& ctx) {
             m.prevYaw = m.yaw;
             m.prevHeadYaw = m.headYaw;
             m.prevPitch = m.pitch;
+            // Sounds (M22.4): hurt since last tick (hurtTime was set to 10), and now and
+            // then its ambient call - vanilla: 1/1000 chance growing each tick, then 80
+            // ticks of quiet. Babies squeak half an octave higher.
+            if (m.hurtTime == 10 && m.health > 0.0f)
+                ctx.world.playSound(mobSound(m.type, MobSound::Hurt), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.5,
+                                    m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
+            if (m.health > 0.0f && int(m_soundRng.nextInt(1000)) < m.ambientTime++) { // (own RNG: gameplay unchanged)
+                m.ambientTime = -80;
+                ctx.world.playSound(mobSound(m.type, MobSound::Ambient), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.85,
+                                    m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
+            }
             if (m.hurtTime > 0) --m.hurtTime;
             bool remove = false;
             if (m.angerAlert) { // (also from one killed by the hit)
@@ -711,7 +722,11 @@ void Mobs::tick(Context& ctx) {
                     if (m_dragonDeaths.size() < m_dragonDeaths.capacity()) m_dragonDeaths.push_back(m.pos);
                 }
             } else if (m.health <= 0.0f) { // loot at the moment of death, then the death animation
-                if (++m.deathTime == 1) die(ctx, m);
+                if (++m.deathTime == 1) {
+                    die(ctx, m);
+                    ctx.world.playSound(mobSound(m.type, MobSound::Death), m.pos.x, m.pos.y + mobInfo(m.type).height * 0.5,
+                                        m.pos.z, 1.0f, m.isBaby() ? 1.5f : 1.0f);
+                }
                 if (m.deathTime >= 20) {
                     remove = true;
                     // The poof of smoke when the body vanishes (vanilla: 20 particles).

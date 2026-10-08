@@ -229,7 +229,7 @@ void Particles::effectSwirl(const glm::dvec3& feet, double width, double height,
     add(p);
 }
 
-void Particles::animate(const World& world, const BlockPos& b, Xoroshiro& rng) {
+void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     const BlockStateId s = world.getBlock(b);
     if (s == 0) return;
     const BlockId id = R().blockOf(s);
@@ -264,7 +264,9 @@ void Particles::animate(const World& world, const BlockPos& b, Xoroshiro& rng) {
             dust({b.x + rng.nextDouble(), b.y + 0.06, b.z + rng.nextDouble()}, redstoneColor(power));
         break;
     }
-    case blocks::Fire: // rising large smoke (wiki: Fire)
+    case blocks::Fire: // rising large smoke (wiki: Fire); crackling 1 in 24
+        if (rng.nextInt(24) == 0)
+            world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 1.0f + rng.nextFloat(), 1.0f);
         smoke({b.x + rng.nextDouble(), b.y + 0.5 + rng.nextDouble() * 0.5, b.z + rng.nextDouble()}, true, rng);
         break;
     case blocks::Furnace:
@@ -275,11 +277,13 @@ void Particles::animate(const World& world, const BlockPos& b, Xoroshiro& rng) {
                                 c.z + n.z * 0.52 + (n.z == 0 ? side : 0.0));
             smoke(at, false, rng);
             flame(at, rng);
+            if (rng.nextInt(10) == 0) world.playSound(Sound::FireAmbient, c.x, c.y, c.z, 0.5f, 1.0f); // (crackle)
         }
         break;
     case blocks::Lava:
         // Lava pops: an ember jumps from the surface now and then (wiki: Lava).
         if (world.getBlock({b.x, b.y + 1, b.z}) == 0 && rng.nextInt(100) == 0) {
+            world.playSound(Sound::LavaPop, b.x + 0.5, b.y + 1.0, b.z + 0.5);
             Particle p;
             p.pos = {b.x + rng.nextDouble(), b.y + 1.0, b.z + rng.nextDouble()};
             p.vel = {centred(rng) * 0.04, rng.nextDouble() * 0.25 + 0.05, centred(rng) * 0.04};
@@ -293,6 +297,7 @@ void Particles::animate(const World& world, const BlockPos& b, Xoroshiro& rng) {
         }
         break;
     case blocks::NetherPortal:
+        if (rng.nextInt(100) == 0) world.playSound(Sound::PortalAmbient, c.x, c.y, c.z);
         for (int i = 0; i < 4; ++i)
             portal({b.x + rng.nextDouble(), b.y + rng.nextDouble(), b.z + rng.nextDouble()}, rng);
         break;
@@ -392,7 +397,7 @@ void Particles::move(const World& world, Particle& p) {
     }
 }
 
-void Particles::tick(const World& world, const std::vector<LevelEvent>& events, const glm::dvec3& player,
+void Particles::tick(World& world, const std::vector<LevelEvent>& events, const glm::dvec3& player,
                      const Weather* weather, Xoroshiro& rng) {
     for (const LevelEvent& e : events) {
         const glm::dvec3 at(e.x, e.y, e.z);
@@ -408,6 +413,7 @@ void Particles::tick(const World& world, const std::vector<LevelEvent>& events, 
             break;
         case LevelEvent::Type::PotionSplash: splashPotion(at, e.data, rng); break;
         case LevelEvent::Type::Crit: crit(at, rng); break;
+        case LevelEvent::Type::BlockPlace: break; // (a sound only)
         case LevelEvent::Type::Extinguish:
             for (int i = 0; i < 8; ++i)
                 smoke(at + glm::dvec3(centred(rng), rng.nextDouble(), centred(rng)) * 0.5, true, rng);

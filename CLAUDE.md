@@ -24,7 +24,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
+`--hidden`, `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
 runs default to "New World"), `--no-save`, `--generator overworld2|overworld|terrain` (new worlds; overworld2 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--pos x,y,z`, `--look yaw,pitch` (vanilla

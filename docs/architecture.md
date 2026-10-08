@@ -11,7 +11,7 @@ depend on layers **above** it in this list (enforced by CMake target links):
 | `core` | Window/input (GLFW), fixed-tick clock, logging, command line, files, math helpers, allocators | glfw, glm |
 | `world` | Coordinates, block registry & states, chunks/sections, worldgen, lighting, saves | core |
 | `rendering` | All OpenGL: context, shaders, textures/atlas, chunk meshes, camera, screenshots | core, world, glad, stb |
-| `audio` | Sound (stub) | core |
+| `audio` | Sound playback: `SoundEngine` (XAudio2, voice pool, positional gain/pan; ADR 0008) | core |
 | `gameplay` | Player, physics/collision, entities, inventory, items, crafting | core, world |
 | `ui` | HUD, hotbar, inventory screens, F3 debug, menus | core, rendering, gameplay |
 | `main.cpp` | Wires everything together; owns the main loop | all |
@@ -213,6 +213,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   rods, drips) and rain splashes. `EntityRenderer::addParticle` draws camera-facing
   quads from `block/particle_*.png` (`world/ParticleSprite.h` names them; terrain
   pieces use a quarter of the block's texture).
+- Sound (M22.4, ADR 0008): gameplay queues vanilla-named events with
+  `World::playSound` (`world/Sounds`: event table - files, volume, pitch range; block
+  sound groups; per-mob ambient/hurt/death ids). Main loads every event's WAVs through
+  the pack stack into `audio::SoundEngine` at startup, turns sound-making level events
+  (break/place/mining hits, explosions, crits, splashes, teleports) and the queue into
+  playback each tick, and adds the player's own sounds (footsteps every 1/0.6 blocks,
+  swimming, splashes, hurt, eating, pickups, level-ups, rain nearby). Mobs call out on
+  vanilla's ambient clock (own RNG: gameplay sequences unchanged).
 - Fire (M15, `world/Fire.cpp`): scheduled every 30-40 ticks; ages, burns neighbours
   by their burn odds, spreads by ignite odds; flint and steel (`gameplay/Portals`)
   places it (or a portal inside a frame); `Vitals::touchFire`, mobs and items burn in

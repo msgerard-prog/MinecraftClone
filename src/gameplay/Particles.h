@@ -58,7 +58,7 @@ public:
 
     // One tick: spawn from this tick's level events (not cleared here), animate blocks
     // around `player`, rain splashes, then move and age everything.
-    void tick(const world::World& world, const std::vector<world::LevelEvent>& events, const glm::dvec3& player,
+    void tick(world::World& world, const std::vector<world::LevelEvent>& events, const glm::dvec3& player,
               const world::Weather* weather, world::Xoroshiro& rng);
     // Status effect swirls around an entity (the player: colour 0xRRGGBB).
     void effectSwirl(const glm::dvec3& feet, double width, double height, uint32_t rgb, world::Xoroshiro& rng);
@@ -82,7 +82,8 @@ public:
     void portal(const glm::dvec3& at, world::Xoroshiro& rng);
 
 private:
-    void animate(const world::World& world, const world::BlockPos& p, world::Xoroshiro& rng);
+    // (also plays blocks' ambient sounds: fire, lava pops, portals, furnaces)
+    void animate(world::World& world, const world::BlockPos& p, world::Xoroshiro& rng);
     void rain(const world::World& world, const glm::dvec3& player, const world::Weather& weather, world::Xoroshiro& rng);
     void move(const world::World& world, Particle& p);
     void puff(const glm::dvec3& at, world::Xoroshiro& rng);

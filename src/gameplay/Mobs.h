@@ -105,6 +105,7 @@ public:
     static Aabb box(const world::MobData& m);
 
 private:
+    world::Xoroshiro m_soundRng{0xa3b1'e47cull}; // ambient sound timing only
     void ai(Context& ctx, world::MobData& m);
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
     void spawnHostiles(Context& ctx);

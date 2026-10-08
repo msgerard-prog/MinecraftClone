@@ -118,6 +118,8 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // 30 ticks of swelling, with power 3 (wiki: Creeper).
         const bool swelling = chase && playerDist2 <= 7.0 * 7.0 && (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
                               sees(ctx.world, m, ctx.player);
+        if (swelling && m.fuse == 0) // the hiss (vanilla: pitch 0.5)
+            ctx.world.playSound(Sound::Fuse, m.pos.x, m.pos.y + 1.0, m.pos.z, 1.0f, 0.5f);
         if (swelling) ++m.fuse;
         else if (m.fuse > 0) --m.fuse;
         if (m.fuse >= 30) {
@@ -153,6 +155,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             // (Starts just outside its own box: vanilla's arrows ignore their shooter.)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
             ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false, ctx.rng, m.uuidHi);
+            ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z);
         }
         break;
     }

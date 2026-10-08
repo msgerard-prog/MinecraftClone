@@ -209,6 +209,11 @@ private:
     void runRandomTicks();
     void runWeatherTicks();
     bool rainingNear(const BlockPos& p) const; // on p or a horizontal neighbour
+    // Lava and water meeting: the hiss and a puff of smoke (wiki: Lava).
+    void fizz(const BlockPos& p) {
+        m_world.playSound(Sound::Fizz, p.x + 0.5, p.y + 0.5, p.z + 0.5);
+        m_world.levelEvent(LevelEvent::Type::Extinguish, p.x + 0.5, p.y + 0.6, p.z + 0.5);
+    }
     void randomTick(const BlockPos& p, BlockStateId s);
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;

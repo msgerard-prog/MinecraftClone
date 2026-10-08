@@ -1,6 +1,7 @@
 #pragma once
 
 #include "world/Chunk.h"
+#include "world/Sounds.h"
 
 #include <memory>
 #include <algorithm>
@@ -23,6 +24,7 @@ struct LevelEvent {
     enum class Type : uint8_t {
         BlockBreak,   // pos = block corner, data = the broken state
         BlockHit,     // pos = block corner, data = state | face << 16 (mining cracks)
+        BlockPlace,   // pos = block corner, data = the placed state (sound only)
         Explosion,    // pos = centre, data = power x 10
         MobDeath,     // pos = feet, data = width x 100 | height x 100 << 16 (poof)
         PotionSplash, // pos = impact, data = 0xRRGGBB
@@ -41,7 +43,14 @@ public:
     World() {
         m_ticking.reserve(4096);
         m_events.reserve(1024);
+        m_sounds.reserve(512);
     }
+
+    // Sounds (M22.4, world/Sounds.h): queued for main to play; dropped when full.
+    void playSound(Sound sound, double x, double y, double z, float volume = 1.0f, float pitch = 1.0f) {
+        if (m_sounds.size() < m_sounds.capacity()) m_sounds.push_back({sound, x, y, z, volume, pitch});
+    }
+    std::vector<SoundEvent>& soundEvents() { return m_sounds; }
 
     // Level events (M22.3): dropped beyond the reserved capacity (hard rule 1).
     void levelEvent(LevelEvent::Type type, double x, double y, double z, uint32_t data = 0) {
@@ -123,6 +132,7 @@ public:
 
 private:
     std::vector<LevelEvent> m_events;
+    std::vector<SoundEvent> m_sounds;
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;

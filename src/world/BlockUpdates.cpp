@@ -530,6 +530,8 @@ BlockStateId BlockUpdates::fenceConnected(const World& world, const BlockPos& p,
 void BlockUpdates::setDoor(const BlockPos& lower, BlockStateId s, bool openNow, bool poweredNow) {
     // Both halves change together (the upper half mirrors the lower one).
     const BlockStateId lowerNow = withFlag(withFlag(s, open, openNow), powered, poweredNow);
+    if (openNow != flag(s, open))
+        m_world.playSound(openNow ? Sound::DoorOpen : Sound::DoorClose, lower.x + 0.5, lower.y + 0.5, lower.z + 0.5);
     set(lower, lowerNow);
     const BlockPos up{lower.x, lower.y + 1, lower.z};
     if (isDoor(blockOf(at(up)))) set(up, R().set(lowerNow, doorHalf, 0));
@@ -586,6 +588,7 @@ void BlockUpdates::primeTnt(const BlockPos& p) {
     if (blockOf(at(p)) != B::Tnt || m_tntPrimed.size() >= m_tntPrimed.capacity()) return; // (full: lit next tick)
     set(p, 0);
     m_tntPrimed.push_back(p);
+    m_world.playSound(Sound::Fuse, p.x + 0.5, p.y + 0.5, p.z + 0.5);
 }
 
 void BlockUpdates::settlePlates() {
@@ -1526,6 +1529,7 @@ void BlockUpdates::extend(const BlockPos& p) {
     std::vector<BlockPos>& destroy = m_pushDestroy;
     if (!gatherPush(p, rel(p, f), f, destroy)) return;
     if (m_moving.size() + m_push.size() + 1 > m_moving.capacity()) return; // (too much in flight: stays put)
+    m_world.playSound(Sound::PistonOut, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.0f + m_random.nextFloat() * 0.3f);
     BlockStateId destroyedStates[16];
     for (size_t i = 0; i < destroy.size(); ++i) {
         const BlockPos& d = destroy[i];
@@ -1566,6 +1570,7 @@ void BlockUpdates::extend(const BlockPos& p) {
 
 void BlockUpdates::retract(const BlockPos& p) {
     const BlockStateId s = at(p);
+    m_world.playSound(Sound::PistonIn, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.0f + m_random.nextFloat() * 0.2f);
     const Direction f = facing6Of(s);
     const BlockPos front = rel(p, f);
     const BlockStateId h = at(front);
@@ -1661,11 +1666,15 @@ bool BlockUpdates::use(const BlockPos& p) {
     const BlockStateId s = at(p);
     switch (blockOf(s)) {
     case B::Lever:
+        // Vanilla: pitch 0.6 switching on, 0.5 off.
+        m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, flag(s, powered) ? 0.83f : 1.0f);
         set(p, withFlag(s, powered, !flag(s, powered)));
         return true;
     case B::StoneButton:
     case B::OakButton:
         if (!flag(s, powered)) {
+            m_world.playSound(blockOf(s) == B::StoneButton ? Sound::Click : Sound::WoodClick, p.x + 0.5, p.y + 0.5,
+                              p.z + 0.5);
             set(p, withFlag(s, powered, true));
             // Pressed for 1 s (stone) or 1.5 s (wood) (wiki: Button).
             schedule(p, blockOf(s), blockOf(s) == B::StoneButton ? 20 : 30, 0);
@@ -1684,6 +1693,7 @@ bool BlockUpdates::use(const BlockPos& p) {
     }
     case B::OakTrapdoor:
     case B::OakFenceGate:
+        m_world.playSound(flag(s, open) ? Sound::DoorClose : Sound::DoorOpen, p.x + 0.5, p.y + 0.5, p.z + 0.5);
         set(p, withFlag(s, open, !flag(s, open)));
         return true;
     case B::Comparator: { // compare <-> subtract

@@ -154,6 +154,7 @@ bool BlockUpdates::lavaMeetsWater(const BlockPos& p, BlockStateId s) {
          {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
         if (blockOf(at(rel(p, d))) == B::Water) {
             set(p, R().defaultState(levelOf(s) == 0 ? B::Obsidian : B::Cobblestone));
+            fizz(p);
             return true;
         }
     return false;
@@ -203,6 +204,7 @@ void BlockUpdates::tickFluid(const BlockPos& p, BlockStateId s) {
         const BlockStateId bs = at(below);
         if (kind == B::Lava && blockOf(bs) == B::Water) { // lava falling onto water: stone
             set(below, R().defaultState(B::Stone));
+            fizz(below);
             return;
         }
         const FluidInto into = fluidInto(below, kind);

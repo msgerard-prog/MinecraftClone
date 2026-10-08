@@ -20,7 +20,7 @@ M22 - World & presentation:
    colours (night fog no longer black), clouds, the End sky.
 3. ✅ M22.3 - Particles: block breaking, torch flames and smoke, explosions, portals,
    drips, crits, potion swirls, mob death puffs, rain splashes.
-4. M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
+4. ✅ M22.4 - Sound: Windows XAudio2 (system API, no new dependency) playing our own
    synthesized sounds - footsteps by block, breaking/placing, mobs, explosions,
    ambience, music later.
 5. M22.5 - Menus: title screen, world list and creation (name, seed, game mode -

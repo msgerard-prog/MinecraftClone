@@ -1,3 +1,4 @@
+#include "audio/SoundEngine.h"
 #include "core/CommandLine.h"
 #include "core/FrameStats.h"
 #include "core/GameClock.h"
@@ -473,6 +474,41 @@ int main(int argc, char** argv) {
     bool dead = false;
     mc::gfx::EntityRenderer entities;
     if (!entities.init(renderer.atlas(), renderer.models(), itemIcons, renderer.packs())) return 1;
+
+    // Sound (M22.4, ADR 0008): every sound event's files, loaded through the pack stack
+    // (a pack may replace any WAV). Screenshot and hidden runs stay silent.
+    mc::audio::SoundEngine audio;
+    std::vector<std::vector<int>> soundHandles(static_cast<size_t>(mc::world::kSoundCount));
+    if (!opts->mute && (opts->sound || (!opts->hidden && opts->screenshotPath.empty())) && audio.init()) {
+        int loaded = 0;
+        for (int s = 0; s < mc::world::kSoundCount; ++s)
+            for (const std::string& f : mc::world::soundInfo(static_cast<mc::world::Sound>(s)).files) {
+                const auto bytes = renderer.packs().read("assets/minecraft/sounds/" + f + ".wav");
+                const int h = bytes ? audio.load(*bytes) : -1;
+                if (h >= 0) {
+                    soundHandles[size_t(s)].push_back(h);
+                    ++loaded;
+                } else {
+                    MC_LOG_WARN("Sound: missing or unusable %s.wav", f.c_str());
+                }
+            }
+        MC_LOG_INFO("Sound: %d files loaded", loaded);
+    }
+    mc::world::Xoroshiro soundRng(0x50'0d'5eedull);
+    // Plays a sound event: one of its files at random, its volume and a pitch in its range.
+    auto playSound = [&](mc::world::Sound s, const glm::dvec3& pos, float volume, float pitch, bool positional) {
+        if (!audio.active()) return;
+        const auto& handles = soundHandles[size_t(s)];
+        if (handles.empty()) return;
+        const auto& info = mc::world::soundInfo(s);
+        const float p = info.pitchMin + (info.pitchMax - info.pitchMin) * soundRng.nextFloat();
+        audio.play(handles[soundRng.nextInt(uint32_t(handles.size()))], pos, info.volume * volume, p * pitch, positional);
+    };
+    double stepDistance = 0.0, nextStep = 1.0; // footsteps (vanilla moveDist / nextStep)
+    float lastHealth = 20.0f;
+    int lastXpLevel = 0, lastEatTicks = 0, rainSoundTime = 0;
+    bool wasInWater = false;
+    glm::dvec3 lastFeet(0.0);
     if (level && !opts->hasPos) { // resume where the player left
         player.setPosition({level->pos[0], level->pos[1], level->pos[2]});
         player.setRotation(level->yaw, level->pitch);
@@ -739,6 +775,7 @@ int main(int argc, char** argv) {
         chestSecond = partner ? std::optional(leftFirst ? *partner : p) : std::nullopt;
         container.openChest(nullptr, nullptr);
         pointChests();
+        playSound(mc::world::Sound::ChestOpen, {p.x + 0.5, p.y + 0.5, p.z + 0.5}, 1.0f, 1.0f, true);
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
@@ -1420,8 +1457,10 @@ int main(int argc, char** argv) {
                     ++bowTicks;
                     clicks.useClick = false;
                 } else if (bowTicks > 0) {
-                    if (!dead && heldId == "minecraft:bow")
-                        mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles, gameRng);
+                    if (!dead && heldId == "minecraft:bow" &&
+                        mc::releaseBow(inventory, bowTicks, survival, eye, look, projectiles, gameRng))
+                        // Vanilla: pitch 1 / (random x 0.4 + 1.2) + power / 2.
+                        playSound(mc::world::Sound::BowShoot, eye, 1.0f, 0.75f + mc::bowPower(bowTicks) * 0.5f, false);
                     bowTicks = 0;
                 }
                 // Eyes of ender (M18.5) fly toward the nearest stronghold - in the
@@ -1617,6 +1656,7 @@ int main(int argc, char** argv) {
                     // 150% damage and crit particles (wiki: Damage › Critical hit).
                     const bool crit = !player.onGround() && player.velocity().y < 0.0 && !player.inWater() &&
                                       !player.flying() && !player.gliding() && ridingCart == 0 && !player.sprinting();
+                    if (hit && !crit) playSound(mc::world::Sound::AttackHit, eye + look * mh->distance, 1.0f, 1.0f, true);
                     if (crit && hit) {
                         dmg *= 1.5f;
                         const glm::dvec3 at = eye + look * mh->distance;
@@ -1670,7 +1710,8 @@ int main(int argc, char** argv) {
                     droppedItems.spawn(d.pos, d.stack, gameRng);
             }
             frameEdits.insert(frameEdits.end(), changedBlocks.begin(), changedBlocks.end());
-            droppedItems.tick(world, player.box(), !dead, inventory);
+            if (droppedItems.tick(world, player.box(), !dead, inventory) > 0) // vanilla pitch ((r - r) x 0.7 + 1) x 2
+                playSound(mc::world::Sound::ItemPickup, player.position(), 1.0f, 1.0f, false);
             // Game rules read the tick's own time, not the renderer's interpolated value.
             const bool overworld = dimension == Dimension::Overworld;
             const double tickSkyDarken =
@@ -1741,6 +1782,7 @@ int main(int argc, char** argv) {
                         vitals.setOnFire(160); // 8 s
                     }
                     if (bolts.size() < bolts.capacity()) bolts.push_back({at, uint32_t(gameRng.nextLong()), 8});
+                    playSound(mc::world::Sound::Thunder, at, 1.0f, 1.0f, true); // (heard everywhere)
                     skyFlash = 2;
                 };
                 for (const auto& b : blockUpdates.lightning())
@@ -1893,8 +1935,14 @@ int main(int argc, char** argv) {
             // Enchanting and anvils (M17.5): levels spent, a new seed after enchanting,
             // and the anvil's wear: 12% a use - anvil, chipped, damaged, gone (wiki).
             if (const int spent = container.takeLevelsSpent(); spent > 0) vitals.spendLevels(spent);
-            if (container.takeEnchanted()) vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
-            if (container.takeAnvilUsed() && survival && gameRng.nextFloat() < 0.12f) {
+            const glm::dvec3 blockCentre(containerBlock.x + 0.5, containerBlock.y + 0.5, containerBlock.z + 0.5);
+            if (container.takeEnchanted()) {
+                vitals.setEnchantSeed(gameRng.nextLong() & 0xFFFFFFFFull);
+                playSound(mc::world::Sound::Enchant, blockCentre, 1.0f, 1.0f, true);
+            }
+            const bool anvilUsed = container.takeAnvilUsed();
+            if (anvilUsed) playSound(mc::world::Sound::AnvilUse, blockCentre, 1.0f, 1.0f, true);
+            if (anvilUsed && survival && gameRng.nextFloat() < 0.12f) {
                 const auto st = world.getBlock(containerBlock);
                 const auto b = reg.blockOf(st);
                 const mc::world::BlockId next = b == mc::world::blocks::Anvil          ? mc::world::BlockId(mc::world::blocks::ChippedAnvil)
@@ -1915,7 +1963,10 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            vitals.addExperience(orbs.tick(world, player.box(), !dead));
+            if (const int xp = orbs.tick(world, player.box(), !dead); xp > 0) {
+                vitals.addExperience(xp);
+                playSound(mc::world::Sound::OrbPickup, player.position(), 1.0f, 1.0f, false);
+            }
             mobs.tick(mobCtx);
             mc::tickHoppers(world, droppedItems); // (M21.3)
             if (ridingCart != 0) { // the rider goes with the cart (an activator rail throws them out)
@@ -1971,7 +2022,93 @@ int main(int argc, char** argv) {
                                               particleRng);
             particles.tick(world, world.levelEvents(), player.eyePosition(1.0),
                            dimension == Dimension::Overworld ? &weather : nullptr, particleRng);
+            // Sounds (M22.4): level events that make a sound, then everything queued.
+            for (const auto& e : world.levelEvents()) {
+                using T = mc::world::LevelEvent::Type;
+                using mc::world::BlockSound;
+                const glm::dvec3 at(e.x, e.y, e.z), centre(e.x + 0.5, e.y + 0.5, e.z + 0.5);
+                switch (e.type) {
+                case T::BlockBreak:
+                    playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Break), centre, 1.0f,
+                              1.0f, true);
+                    break;
+                case T::BlockPlace:
+                    playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place), centre, 1.0f,
+                              1.0f, true);
+                    break;
+                case T::BlockHit: // (vanilla: every 4 ticks while mining)
+                    if (gameTime % 4 == 0)
+                        playSound(mc::world::blockSoundOf(mc::world::BlockStateId(e.data & 0xFFFF), BlockSound::Hit),
+                                  centre, 1.0f, 1.0f, true);
+                    break;
+                case T::Explosion: playSound(mc::world::Sound::Explode, at, 1.0f, 1.0f, true); break;
+                case T::PotionSplash: playSound(mc::world::Sound::GlassBreak, at, 1.0f, 1.0f, true); break;
+                case T::Crit: playSound(mc::world::Sound::Crit, at, 1.0f, 1.0f, true); break;
+                case T::Portal: playSound(mc::world::Sound::Teleport, at, 1.0f, 1.0f, true); break;
+                default: break;
+                }
+            }
             world.levelEvents().clear();
+            for (const auto& s : world.soundEvents())
+                playSound(s.sound, {s.x, s.y, s.z}, s.volume, s.pitch, true);
+            world.soundEvents().clear();
+            if (!dead) {
+                const glm::dvec3 feetNow = player.position();
+                // Footsteps: one per 1/0.6 blocks walked on the ground (vanilla moveDist
+                // grows by 0.6 x the horizontal distance), the block underfoot's sound;
+                // swimming splashes instead.
+                if (player.onGround() && !player.flying()) {
+                    stepDistance += glm::length(glm::dvec2(feetNow.x - lastFeet.x,
+                                                          feetNow.z - lastFeet.z)) * 0.6;
+                    if (stepDistance > nextStep) {
+                        nextStep = std::floor(stepDistance) + 1.0;
+                        const mc::world::BlockPos under{int(std::floor(feetNow.x)), int(std::floor(feetNow.y - 0.2)),
+                                                        int(std::floor(feetNow.z))};
+                        const auto us = world.getBlock(under);
+                        if (us != 0 && !player.inWater())
+                            playSound(mc::world::blockSoundOf(us, mc::world::BlockSound::Step), feetNow, 1.0f, 1.0f, false);
+                    }
+                } else if (player.inWater()) {
+                    stepDistance += glm::length(feetNow - lastFeet) * 0.6;
+                    if (stepDistance > nextStep) {
+                        nextStep = std::floor(stepDistance) + 1.0;
+                        playSound(mc::world::Sound::Swim, feetNow, 1.0f, 1.0f, false);
+                    }
+                }
+                if (player.inWater() && !wasInWater && player.velocity().y < -0.1) // falling in
+                    playSound(mc::world::Sound::Splash, feetNow, 1.0f, 1.0f, false);
+                wasInWater = player.inWater();
+                lastFeet = feetNow;
+                if (survival && vitals.health() < lastHealth - 0.01f)
+                    playSound(mc::world::Sound::PlayerHurt, feetNow, 1.0f, 1.0f, false);
+                // Every 5th level a fanfare (vanilla: levels that are multiples of 5).
+                if (vitals.xpLevel() > lastXpLevel && vitals.xpLevel() % 5 == 0)
+                    playSound(mc::world::Sound::LevelUp, feetNow, 1.0f, 1.0f, false);
+                // Eating and drinking: a bite every 4 ticks after the first 7, a burp
+                // when a food is finished.
+                const int eat = interaction.eatTicks();
+                const auto& heldDef = mc::world::itemRegistry().item(inventory.selectedStack().item);
+                const bool drinkable = heldDef.id == "minecraft:potion" || heldDef.id == "minecraft:milk_bucket";
+                if (eat > 7 && eat % 4 == 0)
+                    playSound(drinkable ? mc::world::Sound::Drink : mc::world::Sound::Eat, feetNow, 1.0f, 1.0f, false);
+                if (eat == 0 && lastEatTicks >= 30 && !drinkable)
+                    playSound(mc::world::Sound::Burp, feetNow, 1.0f, 1.0f, false);
+                lastEatTicks = eat;
+            }
+            lastHealth = vitals.health();
+            lastXpLevel = vitals.xpLevel();
+            // Rain on the ground nearby (vanilla's weather sounds: a spot within 10
+            // blocks that rain reaches, quieter when it's above the player).
+            if (dimension == Dimension::Overworld && weather.rain > 0.2f && ++rainSoundTime >= 10) {
+                rainSoundTime = 0;
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const int x = int(std::floor(eye.x)) + int(soundRng.nextInt(21)) - 10;
+                const int z = int(std::floor(eye.z)) + int(soundRng.nextInt(21)) - 10;
+                const int top = mc::world::rainHeight(world, x, z);
+                if (mc::world::rainingAt(world, weather, {x, top, z}) && std::abs(top - eye.y) < 20.0)
+                    playSound(mc::world::Sound::Rain, {x + 0.5, double(top), z + 0.5},
+                              (top > eye.y + 1.0 ? 0.5f : 1.0f) * weather.rain, top > eye.y + 1.0 ? 0.5f : 1.0f, true);
+            }
             ++dayTime; // the daylight cycle advances one tick per tick
             weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
@@ -2028,6 +2165,7 @@ int main(int argc, char** argv) {
         mc::gfx::Camera camera;
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
+        audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
         if (dimension == Dimension::Nether) { // fog of the Nether biome at the camera, eased in
             static glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f);
