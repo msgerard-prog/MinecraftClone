@@ -335,7 +335,8 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         // Haste speeds mining; Conduit Power counts as Haste I (wiki: Conduit Power).
         const int haste = std::max(vitals.effectLevel(world::Effect::Haste),
                                    vitals.effectLevel(world::Effect::ConduitPower) > 0 ? 1 : 0);
-        const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater, haste);
+        const int ticks = breakTicks(state, inventory.selectedStack(), player.onGround(), eyesInWater, haste,
+                                     vitals.effectLevel(world::Effect::MiningFatigue));
         if (ticks >= 0) {
             // Progress grows by the current tool's per-tick share (vanilla), so switching
             // tools mid-break changes the remaining time, not the progress made.

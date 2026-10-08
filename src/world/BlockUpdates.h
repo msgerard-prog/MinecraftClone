@@ -270,6 +270,7 @@ private:
     bool tickOcean(const BlockPos& p, BlockStateId s); // true: a coral's tick, handled
     void growKelp(const BlockPos& p, BlockStateId s);
     void tickTurtleEgg(const BlockPos& p, BlockStateId s);
+    bool spongeChanged(const BlockPos& p, BlockStateId s); // true: a sponge, handled
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
     bool grassSurvives(const BlockPos& p) const;

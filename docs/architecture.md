@@ -132,7 +132,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   dry columns and above the lava; caves may open through the sea floor),
   `placeOceanFloor` (seagrass, kelp, coral reefs and sea pickles, icebergs as pure shapes
   from their start chunks); `placeOceanStructures` (M25.4: shipwrecks on grid
-  `kShipwrecks`, ocean ruins on `kOceanRuins`, buried treasure in 1% of beach chunks).
+  `kShipwrecks`, ocean ruins on `kOceanRuins`, buried treasure in 1% of beach chunks;
+  M25.5: ocean monuments on `kMonuments` in deep oceans, with elder guardians and guards
+  as generated mobs).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
@@ -420,6 +422,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   (Animals.cpp); eggs crack on random ticks (Ocean.cpp `tickTurtleEgg`) and report
   `BlockUpdates::hatched()` for main to add babies, which drop a scute when grown;
   overworld4 puts turtles on beaches. The turtle shell gives Water Breathing above water.
+  Guardians (M25.5): `waterAi` lock-on (sight within 16, `hasBeam`/`beam`, `chargeTicks`
+  to 80 / elder 60, then 6 / 8 damage), elders' Mining Fatigue III aura (`breakTicks`
+  fatigue); `spawnWater` adds guardians in water beside monument prismarine. Sponges
+  (Ocean.cpp `spongeChanged`: soak 65 blocks within 7, wet; dry in the Nether / furnace).
+  Main's conduit tick strikes hostile mobs in water within 8 of a full (42) frame.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

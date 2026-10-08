@@ -6,6 +6,7 @@
 #include "gameplay/FluidContact.h"
 #include "world/Blocks.h"
 #include "world/Potions.h"
+#include "world/Raycast.h"
 
 #include <algorithm>
 #include <cmath>
@@ -67,6 +68,42 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
             m.attackCooldown = 20;
         }
         if (m.attackCooldown > 0) --m.attackCooldown;
+    }
+    // Guardians (M25.5; wiki: Guardian, Elder Guardian): a player within 16 blocks in
+    // sight is locked on - the guardian stops and its beam charges for 4 s (elder 3 s),
+    // then hits for 6 (elder 8). Elders give players within 50 blocks Mining Fatigue III
+    // for 5 minutes, checked every minute.
+    if (m.type == MobType::Guardian || m.type == MobType::ElderGuardian) {
+        const bool elder = m.type == MobType::ElderGuardian;
+        if (elder && ++m.spellTicks >= 1200) {
+            m.spellTicks = 0;
+            if (ctx.survival && !ctx.playerDead && playerDist2 < 50.0 * 50.0 &&
+                ctx.vitals.effectLevel(Effect::MiningFatigue) < 3)
+                ctx.vitals.addEffect(Effect::MiningFatigue, 2, 6000);
+        }
+        const glm::dvec3 eye = ctx.player.eyePosition(1.0);
+        const glm::dvec3 from = m.pos + glm::dvec3(0.0, info.height * 0.5, 0.0);
+        bool locked = ctx.survival && !ctx.playerDead && playerDist2 < 16.0 * 16.0;
+        if (locked) {
+            const glm::dvec3 d = eye - from;
+            const double len = glm::length(d);
+            locked = len < 1e-6 || !raycastBlocks(ctx.world, from, d / len, len);
+        }
+        if (locked) {
+            m.hasBeam = true;
+            m.beam = eye - glm::dvec3(0.0, 0.3, 0.0);
+            m.yaw = m.headYaw = yawTo(m.pos, eye);
+            m.vel *= 0.8;
+            if (++m.chargeTicks >= (elder ? 60 : 80)) {
+                ctx.vitals.attacked(elder ? 8.0f : 6.0f, &m.pos);
+                m.chargeTicks = 0;
+            }
+            if (!fluid.water && m.onGround && ctx.rng.nextInt(10) == 0) m.vel.y = 0.4; // (flopping still)
+            physics(ctx.world, m, glm::dvec3(0.0), false);
+            return true;
+        }
+        m.hasBeam = false;
+        m.chargeTicks = 0;
     }
     // A dolphin gives a player swimming within 5 blocks Dolphin's Grace (wiki: Dolphin).
     if (m.type == MobType::Dolphin && ctx.player.inWater() && playerDist2 < 5.0 * 5.0 && !ctx.playerDead)
@@ -133,6 +170,23 @@ void Mobs::spawnWater(Context& ctx) {
     MobType kind = MobType::Count;
     int group = 1;
     const uint32_t roll = ctx.rng.nextInt(100);
+    // Guardians (M25.5): only in a monument's water - here, water beside its prismarine
+    // walls (wiki: Guardian › Spawning: within the monument's bounds), groups of 2-4.
+    if (y >= 39 && y <= 62 && m_hostiles < 70) {
+        static const BlockId bricks = *r.findBlock("prismarine_bricks"), dark = *r.findBlock("dark_prismarine");
+        bool monument = false;
+        for (int d = 1; d <= 3 && !monument; ++d)
+            for (const glm::ivec3 o : {glm::ivec3{d, 0, 0}, glm::ivec3{-d, 0, 0}, glm::ivec3{0, 0, d}, glm::ivec3{0, 0, -d},
+                                        glm::ivec3{0, -d, 0}}) {
+                const BlockId b = r.blockOf(ctx.world.getBlock({x + o.x, y + o.y, z + o.z}));
+                if (b == bricks || b == dark) monument = true;
+            }
+        if (monument) {
+            for (int i = 0, n = 2 + int(ctx.rng.nextInt(3)); i < n && m_hostiles < 70; ++i)
+                if (add(ctx.world, make(MobType::Guardian, {x + 0.5, double(y) + 0.1, z + 0.5}, ctx.rng))) ++m_hostiles;
+            return;
+        }
+    }
     // Drowned (M25.3; wiki: Drowned › Spawning): monsters of dark ocean and river water
     // (block light 0, sky light after night darkening at most a random 0..7), under the
     // monster cap; 1 in 16 holds a trident.

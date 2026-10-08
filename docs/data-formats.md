@@ -258,6 +258,8 @@ M25.3b: entities `minecraft:dolphin`, `minecraft:turtle` (`HasEgg`, `home_pos`);
 `dolphins_grace`.
 M25.4: loot tables ShipwreckSupply/Map/Treasure, UnderwaterRuinSmall/Big, BuriedTreasure
 (authored from the wiki; missing items such as maps are skipped).
+M25.5: entities `minecraft:guardian`, `minecraft:elder_guardian`; blocks `sponge`,
+`wet_sponge`; effect `mining_fatigue`.
 
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and

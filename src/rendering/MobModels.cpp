@@ -380,6 +380,21 @@ constexpr std::array<MobPart, 7> kTurtle = {{
     {{3, 2, -8}, {6, 3, -6}, {4, 2, -7}, 28, 34, A::LegA},
 }};
 
+// Guardian (M25.5): a spiky 12 x 12 x 16 body with one big eye in front and a tail of
+// three shrinking segments that wags (the elder is the same, drawn larger).
+constexpr std::array<MobPart, 10> kGuardian = {{
+    {{-6, 0, -8}, {6, 12, 8}, {0, 6, 0}, 0, 0, A::None},
+    {{-1, 5, 8}, {1, 7, 9}, {0, 6, 0}, 56, 0, A::None},
+    {{-2, 4, -16}, {2, 8, -8}, {0, 6, -8}, 0, 30, A::Tail},
+    {{-1.5f, 4.5f, -23}, {1.5f, 7.5f, -16}, {0, 6, -16}, 24, 30, A::Tail},
+    {{-1, 5, -29}, {1, 7, -23}, {0, 6, -23}, 44, 30, A::Tail},
+    {{-0.5f, 12, -0.5f}, {0.5f, 16, 0.5f}, {0, 6, 0}, 56, 4, A::None},
+    {{-0.5f, -4, -0.5f}, {0.5f, 0, 0.5f}, {0, 6, 0}, 56, 4, A::None},
+    {{-10, 5.5f, -0.5f}, {-6, 6.5f, 0.5f}, {0, 6, 0}, 56, 10, A::None},
+    {{6, 5.5f, -0.5f}, {10, 6.5f, 0.5f}, {0, 6, 0}, 56, 10, A::None},
+    {{-0.5f, 5.5f, -12}, {0.5f, 6.5f, -8}, {0, 6, 0}, 56, 10, A::None},
+}};
+
 } // namespace
 
 std::span<const MobPart> mobModel(world::MobType type) {
@@ -423,6 +438,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Drowned: return kZombie; // (the zombie's shape, our own drowned skin)
     case world::MobType::Dolphin: return kDolphin;
     case world::MobType::Turtle: return kTurtle;
+    case world::MobType::Guardian:
+    case world::MobType::ElderGuardian: return kGuardian;
     case world::MobType::Ravager: return kRavager;
     default: return kCow;
     }

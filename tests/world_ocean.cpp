@@ -319,3 +319,30 @@ TEST_CASE("overworld4: shipwrecks and ocean ruins on the sea floor with their ch
         }
     CHECK(heart);
 }
+
+TEST_CASE("overworld4: ocean monuments - prismarine, gold blocks inside, elder guardians (M25.5)") {
+    const OverworldGenerator gen(42);
+    std::optional<ChunkPos> found;
+    for (int rz = -80; rz <= 80 && !found; ++rz)
+        for (int rx = -80; rx <= 80 && !found; ++rx) {
+            if (!isSpreadCandidate(42, kMonuments, {rx, rz})) continue;
+            const Biome b = gen.biomeAt(gen.column(rx * 16 + 8, rz * 16 + 8));
+            if (b == Biome::DeepOcean || b == Biome::DeepColdOcean || b == Biome::DeepLukewarmOcean ||
+                b == Biome::DeepFrozenOcean)
+                found = ChunkPos{rx, rz};
+        }
+    REQUIRE(found.has_value());
+    MESSAGE("monument at chunk " << found->x << ", " << found->z);
+    int gold = 0, bricks = 0, elders = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            Chunk c({found->x + dx, found->z + dz});
+            gen.generate(c);
+            gold += countBlock(c, blocks::GoldBlock);
+            bricks += countBlock(c, *R().findBlock("prismarine_bricks"));
+            for (const MobData& m : c.mobs()) elders += m.type == MobType::ElderGuardian;
+        }
+    CHECK(gold == 8);
+    CHECK(bricks > 500);
+    CHECK(elders == 3);
+}

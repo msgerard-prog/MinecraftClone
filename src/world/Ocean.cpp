@@ -5,6 +5,7 @@
 
 #include "world/Blocks.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -150,6 +151,55 @@ void BlockUpdates::tickTurtleEgg(const BlockPos& p, BlockStateId s) {
     }
     m_hatched.push_back({p, R().get(s, eggs) + 1});
     set(p, 0);
+}
+
+bool BlockUpdates::spongeChanged(const BlockPos& p, BlockStateId s) {
+    // A dry sponge next to water soaks up the water within 7 blocks (taxicab, through
+    // water), up to 65 blocks, and turns wet; waterlogged plants in reach are washed
+    // out with their drops (wiki: Sponge). A wet sponge put in the Nether dries at once.
+    const BlockId b = R().blockOf(s);
+    if (b == B::WetSponge) {
+        if (m_world.isUltrawarm()) {
+            set(p, R().defaultState(B::Sponge));
+            fizz(p);
+        }
+        return true;
+    }
+    if (b != B::Sponge) return false;
+    auto wet = [&](const BlockPos& q) {
+        const BlockStateId t = at(q);
+        return R().blockOf(t) == B::Water || R().waterlogged(t);
+    };
+    bool touching = false;
+    for (int d = 0; d < kDirectionCount && !touching; ++d) touching = wet(rel(p, static_cast<Direction>(d)));
+    if (!touching) return true;
+    set(p, R().defaultState(B::WetSponge)); // (first: the updates below mustn't wake it again)
+    struct Q {
+        BlockPos pos;
+        int dist;
+    };
+    std::array<Q, 512> queue{}; // (65 removed at most, a few hundred visited)
+    int head = 0, tail = 0, removed = 0;
+    queue[size_t(tail++)] = {p, 0};
+    while (head < tail && removed < 65) {
+        const Q q = queue[size_t(head++)];
+        for (int d = 0; d < kDirectionCount && removed < 65; ++d) {
+            const BlockPos n = rel(q.pos, static_cast<Direction>(d));
+            if (!m_world.isInHeight(n.y) || !wet(n)) continue;
+            const BlockStateId t = at(n);
+            if (R().blockOf(t) == B::Water) set(n, 0);
+            else if (R().blockOf(t) == B::Kelp || R().blockOf(t) == B::KelpPlant || R().blockOf(t) == B::Seagrass ||
+                     R().blockOf(t) == B::TallSeagrass) {
+                m_drops.push_back({n, {}, t}); // (washed out, dropping as if broken)
+                set(n, 0);
+            } else {
+                set(n, R().set(t, waterlogged, 1)); // (drained)
+            }
+            ++removed;
+            if (q.dist + 1 < 7 && tail < int(queue.size())) queue[size_t(tail++)] = {n, q.dist + 1};
+        }
+    }
+    return true;
 }
 
 } // namespace mc::world

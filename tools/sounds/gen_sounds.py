@@ -392,6 +392,11 @@ def mob_sounds(name, rng):
     if name == "turtle":  # soft low grunts (ours)
         grunt = lambda d, f: voice(rng, d, f, f * 0.8, wave="triangle", formant=(200, 900), breath=0.4)
         return ([grunt(r(0.25, 0.4), r(110, 140)) for _ in range(3)], [grunt(0.2, 180) for _ in range(2)], grunt(0.6, 90))
+    if name in ("guardian", "elder_guardian"):  # watery moans, the elder deeper (ours)
+        f = 160 if name == "guardian" else 95
+        moan = lambda d, a, b: voice(rng, d, a, b, wave="triangle", formant=(300, 1400), vibrato=0.06, vib_rate=5, breath=0.4)
+        return ([moan(r(0.8, 1.2), f * r(0.9, 1.1), f * 0.8) for _ in range(3)],
+                [moan(0.3, f * 1.6, f * 1.2) for _ in range(2)], moan(1.4, f * 1.3, f * 0.4))
     if name == "player":
         hurt = [add(voice(rng, 0.18, r(190, 220), 150, formant=(200, 1500), breath=0.3, attack=0.005),
                     mul(lowpass(noise(int(0.18 * RATE), rng), 300), env(int(0.18 * RATE), 0.001, 0.03)))
@@ -404,7 +409,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "blaze", "magma_cube", "slime", "piglin", "zombified_piglin", "hoglin", "strider", "shulker",
         "ender_dragon", "player", "villager", "zombie_villager", "iron_golem", "witch", "wandering_trader", "pillager",
         "vindicator", "evoker", "vex", "ravager", "cod", "salmon", "tropical_fish", "pufferfish", "squid",
-        "glow_squid", "drowned", "dolphin", "turtle"]
+        "glow_squid", "drowned", "dolphin", "turtle", "guardian", "elder_guardian"]
 
 
 # --- Everything else ----------------------------------------------------------------

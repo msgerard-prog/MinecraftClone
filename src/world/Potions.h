@@ -33,6 +33,7 @@ enum class Effect : uint8_t {
     HeroOfTheVillage, // (M24.5) won a raid: villagers trade cheaper
     Hunger,           // (M25.2: pufferfish) 0.005 exhaustion a tick per level
     DolphinsGrace,    // (M25.3b) swimming near a dolphin: much less water drag
+    MiningFatigue,    // (M25.5: elder guardians) mining x 0.3 per level
     Count
 };
 struct EffectInfo {

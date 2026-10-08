@@ -379,6 +379,8 @@ enum : BlockId {
     DriedKelpBlock,
     BlueIce,
     TurtleEgg, // eggs 1..4, hatch 0..2 (M25.3b)
+    Sponge,    // (M25.5) soaks up water around it, turning wet
+    WetSponge, // dries in the Nether (or a furnace)
     Count
 };
 } // namespace blocks

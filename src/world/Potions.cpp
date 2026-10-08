@@ -30,6 +30,7 @@ constexpr EffectInfo kEffects[] = {
     {"minecraft:hero_of_the_village", false, 0x44FF44},
     {"minecraft:hunger", false, 0x587653},
     {"minecraft:dolphins_grace", false, 0x88A3BE},
+    {"minecraft:mining_fatigue", false, 0x4A4217},
 };
 static_assert(std::size(kEffects) == size_t(Effect::Count));
 

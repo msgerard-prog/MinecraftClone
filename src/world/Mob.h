@@ -56,6 +56,8 @@ enum class MobType : uint8_t {
     Drowned, // (M25.3) a zombie of the seas: swims, throws a trident if it holds one
     Dolphin, // (M25.3b) swims fast, gives swimming players Dolphin's Grace
     Turtle,  // (M25.3b) walks and swims; lays eggs on its home beach (`home`)
+    Guardian,      // (M25.5) ocean monument guard: a charging laser
+    ElderGuardian, // (M25.5) three per monument: a stronger laser, Mining Fatigue nearby
     Count
 };
 

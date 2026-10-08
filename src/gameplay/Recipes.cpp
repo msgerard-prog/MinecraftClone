@@ -646,6 +646,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "kelp") return out("dried_kelp"); // (M25.1)
     if (n == "cod") return out("cooked_cod"); // (M25.2)
     if (n == "salmon") return out("cooked_salmon");
+    if (n == "wet_sponge") return out("sponge"); // (M25.5)
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;
@@ -665,6 +666,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
     if (n == "kelp") return 0.1f; // (wiki: Dried Kelp)
+    if (n == "wet_sponge") return 0.15f;
     if (n == "clay_ball") return 0.3f; // (wiki: Brick)
     if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta")) return 0.1f;
     if (n == "cactus") return 1.0f;

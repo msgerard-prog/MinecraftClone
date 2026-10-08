@@ -212,7 +212,7 @@ bool canHarvest(BlockStateId state, const ItemStack& held) {
     return !held.empty() && item.tool == h.tool && tierInfo(item.tier).level >= h.minLevel;
 }
 
-int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater, int haste) {
+int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool eyesInWater, int haste, int fatigue) {
     const auto& reg = blockRegistry();
     const float hardness = reg.block(reg.blockOf(state)).settings.hardness;
     if (hardness < 0.0f) return -1; // unbreakable
@@ -235,10 +235,12 @@ int breakTicks(BlockStateId state, const ItemStack& held, bool onGround, bool ey
             speed = std::max(speed, 1.5f);
     }
     if (haste > 0) speed *= 1.0f + 0.2f * float(haste);
+    for (int f = 0; f < std::min(fatigue, 4); ++f) speed *= 0.3f; // (Mining Fatigue III: 0.027)
     if (eyesInWater) speed /= 5.0f;
     if (!onGround) speed /= 5.0f;
     const float damage = speed / hardness / (harvest ? 30.0f : 100.0f);
     if (damage >= 1.0f) return 0; // wiki: instant at damage >= 1
+    if (damage < 1e-4f) return 1000000; // (practically never)
     return static_cast<int>(std::ceil(1.0f / damage));
 }
 

@@ -2906,6 +2906,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             if (frame >= 16 && mc::conduitWet(world, bp) && wet && !dead &&
                                 glm::length(d) <= double(mc::conduitRange(frame)))
                                 vitals.addEffect(mc::world::Effect::ConduitPower, 0, 260); // 13 s
+                            // A full frame (42 blocks) strikes the nearest hostile mob in the
+                            // water within 8 blocks for 4 every 2 s (wiki: Conduit › Attack).
+                            if (frame >= 42 && mc::conduitWet(world, bp)) {
+                                mc::world::MobData* target = nullptr;
+                                double best = 8.0 * 8.0;
+                                const glm::dvec3 at(bp.x + 0.5, bp.y + 0.5, bp.z + 0.5);
+                                for (int ddz = -1; ddz <= 1; ++ddz)
+                                    for (int ddx = -1; ddx <= 1; ++ddx)
+                                        if (mc::world::Chunk* tc = world.chunk({c.pos().x + ddx, c.pos().z + ddz}))
+                                            for (auto& mob : tc->mobs()) {
+                                                if (!mc::world::mobInfo(mob.type).hostile || mob.health <= 0.0f) continue;
+                                                const double d2 = glm::dot(mob.pos - at, mob.pos - at);
+                                                if (d2 >= best) continue;
+                                                if (!mc::fluidContact(world, mc::Mobs::box(mob)).water) continue;
+                                                best = d2;
+                                                target = &mob;
+                                            }
+                                if (target) {
+                                    target->health -= 4.0f;
+                                    target->hurtTime = 10;
+                                }
+                            }
                             continue;
                         }
                         if (gameTime % 80 != 0) continue;
@@ -3646,6 +3668,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
                 if (m.type == mc::world::MobType::EnderDragon && m.hasBeam && m.deathTime == 0)
                     entities.addBeam(m.beam, p + glm::dvec3(0.0, 0.75, 0.0), camera.position);
+                if ((m.type == mc::world::MobType::Guardian || m.type == mc::world::MobType::ElderGuardian) && m.hasBeam &&
+                    m.deathTime == 0) { // the laser, purple turning yellow as it charges (M25.5)
+                    const float f = std::min(1.0f, float(m.chargeTicks) / (m.type == mc::world::MobType::Guardian ? 80.0f : 60.0f));
+                    entities.addBeam(p + glm::dvec3(0.0, mc::world::mobInfo(m.type).height * 0.5, 0.0), m.beam, camera.position,
+                                     {0.5f + 0.5f * f, 0.3f + 0.6f * f, 0.9f - 0.7f * f}, 0.04f);
+                }
             }
         });
         if (survival && interaction.breakingBlock())

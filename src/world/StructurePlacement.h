@@ -28,6 +28,7 @@ inline constexpr RandomSpread kSwampHuts{32, 8, 14357620};
 inline constexpr RandomSpread kOutposts{32, 8, 165745296}; // (M24.4; wiki: Pillager Outpost)
 inline constexpr RandomSpread kShipwrecks{24, 4, 165745295}; // (M25.4; wiki: Shipwreck, Structure set)
 inline constexpr RandomSpread kOceanRuins{20, 8, 14357621};  // (M25.4; wiki: Ocean Ruins)
+inline constexpr RandomSpread kMonuments{32, 5, 10387313};    // (M25.5; wiki: Ocean Monument)
 
 inline int32_t floorDivChunks(int32_t a, int32_t b) { return (a >= 0 ? a : a - b + 1) / b; }
 

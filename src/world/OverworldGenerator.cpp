@@ -1783,6 +1783,76 @@ void OverworldGenerator::placeOceanStructures(BlockStateId* blocks, int32_t cx, 
                 }
             }
         }
+    // ---- Ocean monuments (M25.5): 58 x 58 from y 39 to 61, in deep oceans ----
+    static const BlockStateId prismarine = reg.defaultState(*reg.findBlock("prismarine"));
+    static const BlockStateId prisBricks = reg.defaultState(*reg.findBlock("prismarine_bricks"));
+    static const BlockStateId darkPris = reg.defaultState(*reg.findBlock("dark_prismarine"));
+    static const BlockStateId lantern = reg.defaultState(blocks::SeaLantern);
+    static const BlockStateId gold = reg.defaultState(blocks::GoldBlock);
+    static const BlockStateId wetSponge = reg.defaultState(blocks::WetSponge);
+    for (int dz = -4; dz <= 4; ++dz)
+        for (int dx = -4; dx <= 4; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kMonuments, start)) continue;
+            const int32_t sx = start.x * 16 - 21, sz = start.z * 16 - 21; // (centred on the start chunk)
+            const Biome biome = biomeAt(column(start.x * 16 + 8, start.z * 16 + 8));
+            if (biome != Biome::DeepOcean && biome != Biome::DeepColdOcean && biome != Biome::DeepLukewarmOcean &&
+                biome != Biome::DeepFrozenOcean)
+                continue;
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, sx, 39, sz, 58, 58, 0, &out};
+            // Water through the whole volume first (it stands in the sea), then the shell.
+            sb.fill(0, 0, 0, 57, 22, 57, water);
+            sb.fill(0, 0, 0, 57, 0, 57, prisBricks); // the base
+            for (int x = 0; x < 58; x += 6) // pillars down to the floor
+                for (int z = 0; z < 58; z += 6)
+                    if (x == 0 || z == 0 || x >= 54 || z >= 54) sb.foundation(x, z, prismarine, 30);
+            // The outer wall: 9 high, an entrance in the middle of the front (z 0).
+            for (int i = 0; i < 58; ++i)
+                for (int y = 1; y <= 8; ++y) {
+                    const BlockStateId wall = (i % 4 == 2 && y == 4) ? lantern : y == 8 ? darkPris : prismarine;
+                    if (!(i >= 26 && i <= 31 && y <= 5)) sb.set(i, y, 0, wall);
+                    sb.set(i, y, 57, wall);
+                    sb.set(0, y, i, wall);
+                    sb.set(57, y, i, wall);
+                }
+            // Two wing towers (12 x 12 to y 54) and the central hall (26 x 26 to y 57)
+            // with its top room (14 x 14 to y 61).
+            auto building = [&](int x0, int z0, int w, int h) {
+                for (int x = x0; x < x0 + w; ++x)
+                    for (int z = z0; z < z0 + w; ++z)
+                        for (int y = 1; y <= h; ++y) {
+                            const bool edge = x == x0 || z == z0 || x == x0 + w - 1 || z == z0 + w - 1 || y == h;
+                            if (!edge) continue;
+                            const bool light = y % 4 == 2 && (x + z) % 4 == 0 && y < h;
+                            sb.set(x, y, z, light ? lantern : (y == h ? darkPris : prisBricks));
+                        }
+            };
+            building(3, 23, 12, 15);
+            building(43, 23, 12, 15);
+            building(16, 16, 26, 18);
+            building(22, 22, 14, 22);
+            for (int x = 26; x <= 31; ++x) // doors into the hall, the wings and the top room
+                for (int y = 1; y <= 4; ++y) sb.set(x, y, 16, water);
+            for (int z = 27; z <= 30; ++z)
+                for (int y = 1; y <= 4; ++y) {
+                    sb.set(14, y, z, water);
+                    sb.set(43, y, z, water);
+                    sb.set(16, y, z, water);
+                    sb.set(41, y, z, water);
+                }
+            sb.fill(26, 18, 22, 31, 18, 35, water); // (the top room opens onto the hall's roof)
+            // The treasure: 8 gold blocks in a dark prismarine case in the middle.
+            sb.fill(27, 5, 27, 30, 8, 30, darkPris);
+            sb.fill(28, 6, 28, 29, 7, 29, gold);
+            // A sponge room ceiling in the west wing.
+            for (int x = 5; x <= 12; x += 2)
+                for (int z = 25; z <= 32; z += 3) sb.set(x, 14, z, wetSponge);
+            // The guardians: an elder in each wing and in the top room; guards in the hall.
+            sb.mob(8, 6, 28, MobType::ElderGuardian);
+            sb.mob(48, 6, 28, MobType::ElderGuardian);
+            sb.mob(28, 19, 28, MobType::ElderGuardian);
+            for (int k = 0; k < 4; ++k) sb.mob(20 + k * 5, 3 + k, 20 + (k % 2) * 16, MobType::Guardian);
+        }
     // ---- Buried treasure: this chunk only, 1 in 100 beach chunks (wiki) ----
     {
         Xoroshiro r(chunkSeed(m_seed, cx, cz, 722));

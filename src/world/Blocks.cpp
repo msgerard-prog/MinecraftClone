@@ -1052,6 +1052,9 @@ BlockRegistry buildVanillaBlocks() {
                                .randomTicks = true},
                 {{&eggs, "1"}, {&hatch, "0"}}),
           blocks::TurtleEgg);
+    // (M25.5; wiki: Sponge - 0.6, hoe)
+    check(r.add("sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::Sponge);
+    check(r.add("wet_sponge", {.hardness = 0.6f, .resistance = 0.6f, .tool = HarvestTool::Hoe}), blocks::WetSponge);
     for (uint32_t i = 0; i < r.block(blocks::SeaPickle).stateCount; ++i) {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
         r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);

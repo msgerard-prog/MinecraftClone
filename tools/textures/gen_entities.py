@@ -953,6 +953,33 @@ def boxed(name, boxes, eyes=None, shell=None):
     return img
 
 
+def guardian(name, body, spike):
+    """A spiny prismarine-coloured body with plates, one eye (M25.5): body 12x12x16 @ (0,0),
+    eye 2x2x1 @ (56,0), tail 4x4x8 / 3x3x7 / 2x2x6 @ (0,30) (24,30) (44,30), spikes @ (56,4)."""
+    rng = random.Random(name)
+    img = Img(64, 64, CLEAR)
+    bp = ramp(hexc(body), 5, spread=0.35)
+    for box in ((0, 0, 12, 12, 16), (0, 30, 4, 4, 8), (24, 30, 3, 3, 7), (44, 30, 2, 2, 6)):
+        for (x0, y0, w, h) in box_faces(*box).values():
+            for y in range(h):
+                for x in range(w):
+                    r = rng.random()
+                    c = bp[2 if r > 0.35 else (1 if r < 0.17 else 3)]
+                    if (x // 3 + y // 3) % 3 == 0:
+                        c = bp[0]  # darker plates
+                    img.set(x0 + x, y0 + y, c)
+    for (x0, y0, w, h) in box_faces(56, 0, 2, 2, 1).values():  # the eye
+        for y in range(h):
+            for x in range(w):
+                img.set(x0 + x, y0 + y, (240, 230, 200, 255))
+    fx, fy, _, _ = box_faces(56, 0, 2, 2, 1)["front"]
+    img.set(fx, fy + 1, (40, 30, 60, 255))
+    for box in ((56, 4, 1, 4, 1), (56, 10, 4, 1, 1)):
+        for f in box_faces(*box).values():
+            paint(img, f, ramp(hexc(spike), 5, spread=0.2), rng)
+    return img
+
+
 def boat():
     """Greyscale planks (tinted per wood, M25.2b): bottom 10x1x14 @ (0,0), sides 1x3x14 @
     (0,16), ends 8x3x1 @ (0,36) (the model is drawn at twice its size); plank seams."""
@@ -1003,7 +1030,9 @@ def main():
               "turtle": boxed("turtle", [((0, 0, 12, 5, 14), "#3E7A30", "#C8C080"), ((0, 20, 10, 1, 12), "#C8C080", None),
                                          ((0, 34, 4, 3, 4), "#8AB050", None), ((16, 34, 3, 1, 3), "#8AB050", None),
                                          ((28, 34, 3, 1, 2), "#8AB050", None)],
-                              eyes=(0, 34, 4, 3, 4), shell=(0, 0, 12, 5, 14))}
+                              eyes=(0, 34, 4, 3, 4), shell=(0, 0, 12, 5, 14)),
+              "guardian": guardian("guardian", "#5E9A8C", "#D88A40"),
+              "elder_guardian": guardian("elder_guardian", "#C8C4B0", "#8A7A9A")}
     for name, img in images.items():
         (OUT / f"{name}.png").write_bytes(encode_png(img))
         print(f"wrote {OUT / name}.png")

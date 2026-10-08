@@ -350,3 +350,58 @@ TEST_CASE("turtles fed seagrass carry eggs home and lay them in the sand; eggs h
     for (const auto& it : p.items.items()) scute = scute || it.stack.item == *itemRegistry().find("turtle_scute");
     CHECK(scute);
 }
+
+#include "gameplay/Mining.h"
+#include "gameplay/Recipes.h"
+
+TEST_CASE("guardians charge their laser for 4 s then hit for 6; elders give Mining Fatigue III, which slows mining (M25.5)") {
+    Pool p;
+    p.player.setCreative(false);
+    p.player.setPosition({0.5, 66.0, 0.5});
+    REQUIRE(Mobs::add(p.world, Mobs::make(MobType::Guardian, {6.5, 66.0, 0.5}, p.rng)));
+    p.tick(70, true);
+    CHECK(p.vitals.health() == doctest::Approx(Vitals::kMaxHealth)); // still charging
+    bool beam = false;
+    for (MobData* m : p.all()) beam = beam || (m->type == MobType::Guardian && m->hasBeam);
+    CHECK(beam);
+    p.tick(15, true);
+    CHECK(p.vitals.health() < Vitals::kMaxHealth - 4.0f); // 6 (no armor)
+    // An elder: within a minute, Mining Fatigue III.
+    Pool e;
+    e.player.setCreative(false);
+    e.player.setPosition({0.5, 66.0, 0.5});
+    for (int y = 64; y <= 70; ++y) // (out of its sight: a wall)
+        for (int z = -3; z <= 3; ++z) e.world.setBlock({3, y, z}, blockRegistry().defaultState(blocks::Stone));
+    REQUIRE(Mobs::add(e.world, Mobs::make(MobType::ElderGuardian, {10.5, 66.0, 0.5}, e.rng)));
+    e.tick(1210, true);
+    CHECK(e.vitals.effectLevel(Effect::MiningFatigue) == 3);
+    const BlockStateId stone = blockRegistry().defaultState(blocks::Stone);
+    const ItemStack pick{*itemRegistry().find("iron_pickaxe"), 1};
+    CHECK(breakTicks(stone, pick, true, false, 0, 3) > breakTicks(stone, pick, true, false) * 30);
+}
+
+TEST_CASE("a sponge soaks up the water around it and turns wet; a wet sponge dries in a furnace (M25.5)") {
+    World w;
+    BlockUpdates updates(w);
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx) {
+            Chunk& c = w.createChunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    c.set(x, 63, z, blockRegistry().defaultState(blocks::Stone));
+                    for (int y = 64; y <= 66; ++y) c.set(x, y, z, blockRegistry().defaultState(blocks::Water));
+                }
+        }
+    w.updateBlock({0, 64, 0}, blockRegistry().defaultState(blocks::Sponge));
+    CHECK(blockRegistry().blockOf(w.getBlock({0, 64, 0})) == blocks::WetSponge);
+    int removed = 0;
+    for (int y = 64; y <= 66; ++y)
+        for (int z = -8; z <= 8; ++z)
+            for (int x = -8; x <= 8; ++x) removed += w.getBlock({x, y, z}) == 0;
+    CHECK(removed == 65); // (its limit)
+    CHECK(w.getBlock({1, 64, 0}) == 0);
+    CHECK(blockRegistry().blockOf(w.getBlock({8, 64, 8})) == blocks::Water); // beyond its reach
+    const auto dried = smelt({itemRegistry().blockItem(blocks::WetSponge), 1});
+    REQUIRE(dried.has_value());
+    CHECK(dried->item == itemRegistry().blockItem(blocks::Sponge));
+}

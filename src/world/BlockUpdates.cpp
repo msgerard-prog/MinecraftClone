@@ -1046,6 +1046,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         --m_depth;
         return;
     }
+    if (spongeChanged(p, s)) { // (M25.5: sponges soak up water)
+        --m_depth;
+        return;
+    }
     if (oceanNeighbourChanged(p, s)) { // (M25.1: kelp, seagrass, pickles, corals)
         --m_depth;
         return;

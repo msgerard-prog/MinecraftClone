@@ -84,6 +84,10 @@ const MobInfo& mobInfo(MobType t) {
         // slow on land (0.25 our walk), drawn 1.5x its model.
         {"minecraft:dolphin", 10.0f, 0.9, 0.6, 0.22, 0.0f, false, false, false, 1.4f, true},
         {"minecraft:turtle", 30.0f, 1.2, 0.4, 0.12, 0.0f, false, false, false, 1.5f},
+        // wiki: Guardian - 30 health, 0.85 x 0.85, laser 6; Elder Guardian - 80 health,
+        // 1.9975 x 1.9975, laser 8 (Normal). Their swim speed is ours.
+        {"minecraft:guardian", 30.0f, 0.85, 0.85, 0.1, 0.0f, true, false, false, 1.1f, true},
+        {"minecraft:elder_guardian", 80.0f, 1.9975, 1.9975, 0.06, 0.0f, true, false, false, 2.6f, true},
     };
     return kInfo[static_cast<int>(t)];
 }

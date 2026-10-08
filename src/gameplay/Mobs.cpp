@@ -772,6 +772,15 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (ctx.rng.nextInt(20) == 0) drop("bone_meal", 1, 1);
         break;
     case MobType::Squid: drop("ink_sac", 1, 3); break;
+    // (wiki: Guardian - 0-2 prismarine shards, and 40% a raw cod or 0-1 prismarine
+    // crystals otherwise; Elder Guardian - also a wet sponge when killed by a player)
+    case MobType::Guardian:
+    case MobType::ElderGuardian:
+        drop("prismarine_shard", 0, 2);
+        if (ctx.rng.nextInt(10) < 4) drop(burning ? "cooked_cod" : "cod", 1, 1);
+        else drop("prismarine_crystals", 0, 1);
+        if (m.type == MobType::ElderGuardian && m.lastHurtByPlayer) drop("wet_sponge", 1, 1);
+        break;
     case MobType::Dolphin: drop(burning ? "cooked_cod" : "cod", 0, 1); break; // (wiki: Dolphin)
     case MobType::Turtle: drop("seagrass", 0, 2); break; // (wiki: Turtle - 0-2 seagrass)
     case MobType::GlowSquid: drop("glow_ink_sac", 1, 3); break;
