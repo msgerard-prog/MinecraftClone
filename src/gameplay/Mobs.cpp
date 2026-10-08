@@ -526,7 +526,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const Chunk* c = ctx.world.chunk(head.chunk());
         const bool day = ctx.skyDarken < 4.0f;
         const bool sky = c && c->lit() && c->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z)) >= 15;
-        bool wet = c && blockRegistry().blockOf(c->get(blockToLocal(head.x), head.y, blockToLocal(head.z))) == blocks::Water;
+        const BlockStateId hs = c ? c->get(blockToLocal(head.x), head.y, blockToLocal(head.z)) : BlockStateId{0};
+        bool wet = c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
         if (!wet && ctx.weather && ctx.weather->raining && ((undead && day && sky) || m.fireTicks > 0))
             // (sky light 15 at the head: open sky, so no column scan is needed)
             wet = sky ? precipitationAt(ctx.world, head) == Precipitation::Rain : rainingAt(ctx.world, *ctx.weather, head);

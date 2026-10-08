@@ -88,6 +88,8 @@ const Property note{"note", {"0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8"
                              "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"}};
 const Property hasRecord{"has_record", {"true", "false"}};
 const Property hasBook{"has_book", {"true", "false"}};
+const Property waterlogged{"waterlogged", {"true", "false"}};
+const Property pickles{"pickles", {"1", "2", "3", "4"}};
 } // namespace properties
 
 namespace {
@@ -340,6 +342,22 @@ void addBuildingFamilies(BlockRegistry& r) {
 // wiki: Door, Trapdoor, Fence, Fence Gate, Button, Pressure Plate): copies of the oak
 // ones that behave like them (`like`); polished blackstone's button and plate behave
 // like stone's.
+// Corals (M25.1; wiki: Coral, Coral Block, Coral Fan): 5 kinds, each a block, a plant
+// and a fan, alive and dead. Living ones die without water next to them (blocks) or
+// when not waterlogged (plants, fans). Fans stand on the floor (no wall fans yet).
+void addCorals(BlockRegistry& r) {
+    using namespace properties;
+    for (const char* kind : kCoralKinds)
+        for (const char* dead : {"", "dead_"}) {
+            const std::string k = std::string(dead) + kind;
+            r.add(k + "_coral_block", {.hardness = 1.5f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 1});
+            r.add(k + "_coral", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                  {{&waterlogged, "true"}});
+            r.add(k + "_coral_fan", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                  {{&waterlogged, "true"}});
+        }
+}
+
 void addWoodSets(BlockRegistry& r) {
     using namespace properties;
     static constexpr const char* kWoods[] = {"spruce", "birch",   "jungle",   "acacia", "dark_oak", "cherry",
@@ -1010,6 +1028,27 @@ BlockRegistry buildVanillaBlocks() {
           blocks::Bell);
     check(r.add("carved_pumpkin", {.hardness = 1.0f, .resistance = 1.0f, .tool = HarvestTool::Axe}, {{&facing, "north"}}),
           blocks::CarvedPumpkin);
+    // Ocean plants (M25.1; wiki: Kelp, Seagrass, Sea Pickle, Dried Kelp Block, Blue Ice):
+    // kelp and seagrass always stand in water; sea pickles glow 6/9/12/15 (1-4 pickles)
+    // only when waterlogged.
+    constexpr BlockSettings kWaterPlant{
+        .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout, .water = true};
+    BlockSettings kelpTip = kWaterPlant;
+    kelpTip.randomTicks = true; // (grows a block on 14% of its random ticks)
+    check(r.add("kelp", kelpTip, {{&age25, "0"}}), blocks::Kelp);
+    check(r.add("kelp_plant", kWaterPlant), blocks::KelpPlant);
+    check(r.add("seagrass", kWaterPlant), blocks::Seagrass);
+    check(r.add("tall_seagrass", kWaterPlant, {{&doorHalf, "lower"}}), blocks::TallSeagrass);
+    check(r.add("sea_pickle", {.opaqueCube = false, .layer = RenderLayer::Cutout},
+                {{&pickles, "1"}, {&waterlogged, "true"}}),
+          blocks::SeaPickle);
+    check(r.add("dried_kelp_block", {.hardness = 0.5f, .resistance = 2.5f, .tool = HarvestTool::Hoe}),
+          blocks::DriedKelpBlock);
+    check(r.add("blue_ice", {.hardness = 2.8f, .resistance = 2.8f, .tool = HarvestTool::Pickaxe}), blocks::BlueIce);
+    for (uint32_t i = 0; i < r.block(blocks::SeaPickle).stateCount; ++i) {
+        const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
+        r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);
+    }
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);
@@ -1025,6 +1064,7 @@ BlockRegistry buildVanillaBlocks() {
               {.hardness = 2.0f, .resistance = 2.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
                .tool = HarvestTool::Pickaxe, .like = blocks::ShulkerBox},
               {{&facing6, "up"}});
+    addCorals(r);
     // Random ticks (wiki: Tick › Random tick): grass spreads/dies, snow layers and ice
     // melt, lava sets fires; leaves only while they can decay (distance 7, not
     // persistent: vanilla's isRandomlyTicking).

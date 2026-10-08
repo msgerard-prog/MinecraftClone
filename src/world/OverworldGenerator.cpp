@@ -72,7 +72,10 @@ bool isOcean(Biome b) {
     case Biome::WarmOcean:
     case Biome::LukewarmOcean:
     case Biome::ColdOcean:
-    case Biome::FrozenOcean: return true;
+    case Biome::FrozenOcean:
+    case Biome::DeepLukewarmOcean:
+    case Biome::DeepColdOcean:
+    case Biome::DeepFrozenOcean: return true;
     default: return false;
     }
 }
@@ -330,11 +333,12 @@ double OverworldGenerator::terrainDensity(int32_t x, int32_t y, int32_t z, const
 double OverworldGenerator::caveDensity(int32_t x, int32_t y, int32_t z, const Column& c) const {
     // Cheese and noodle caves stay ~12 blocks under the terrain's target surface
     // (fading out over 8 blocks above that); spaghetti tunnels may break through on
-    // land (cave entrances), but not under the sea (no aquifers yet: they would
-    // leave dry holes in the sea floor). All stay above the bedrock floor.
+    // land (cave entrances), but not under the sea before overworld4 (without its
+    // flooded caves they would leave dry holes in the sea floor). All stay above the
+    // bedrock floor.
     const double floor = std::clamp((y - (kOverworldHeight.minY + 5.0)) / 4.0, 0.0, 1.0);
     const double fade = std::clamp((c.height - 12.0 - y) / 8.0, 0.0, 1.0) * floor;
-    const bool land = c.height > kSeaLevel + 3;
+    const bool land = c.height > kSeaLevel + 3 || (m_version >= 4 && c.height < kSeaLevel + 2.0);
     const double entranceFade = land ? std::clamp((c.height + 6.0 - y) / 6.0, 0.0, 1.0) * floor : fade;
     if (fade <= 0.0 && entranceFade <= 0.0) return 1e9;
     // Cheese: large open chambers where a low-frequency noise is high.
@@ -396,6 +400,13 @@ Biome OverworldGenerator::biomeAt(const Column& c) const {
     const int temp = T < -0.45 ? 0 : T < -0.15 ? 1 : T < 0.2 ? 2 : T < 0.55 ? 3 : 4;
     const int hum = H < -0.35 ? 0 : H < -0.1 ? 1 : H < 0.1 ? 2 : H < 0.3 ? 3 : 4;
     if (c.continentalness < -0.82 && c.height > 61.0) return Biome::MushroomFields;
+    // Overworld 4 (M25.1): every ocean temperature but warm has a deep variant (wiki:
+    // Ocean › Deep variants) where the continentalness is lowest.
+    if (m_version >= 4 && isOcean(b) && c.continentalness < -0.455) {
+        static constexpr Biome kDeep[5] = {Biome::DeepFrozenOcean, Biome::DeepColdOcean, Biome::DeepOcean,
+                                           Biome::DeepLukewarmOcean, Biome::WarmOcean};
+        return kDeep[temp];
+    }
     switch (b) {
     case Biome::SnowyPlains: return hum == 0 && W > 0.0 ? Biome::IceSpikes : b;
     case Biome::Taiga: return hum == 4 ? Biome::OldGrowthSpruceTaiga : b;
@@ -765,6 +776,36 @@ void OverworldGenerator::generate(Chunk& out) const {
                 for (int qx = 0; qx < 4; ++qx)
                     biomes->cells[size_t(ChunkBiomes::index(s, qx, qy, qz))] = columnBiome[size_t(qz * 4 + qx)];
 
+    // Flooded caves (overworld4, our simple aquifers): a column is wet where its terrain
+    // height (interpolated from the corner columns, the same in every chunk) is below
+    // sea level + 2; cave air below the sea there is water, sealed with stone toward
+    // dry columns and above the lava. The corners just outside the chunk are needed
+    // for its edge columns' neighbours (only when something here is wet).
+    const bool aquifers = m_version >= 4 &&
+                          std::any_of(cornerCols.begin(), cornerCols.end(),
+                                      [](const Column& c) { return c.height < kSeaLevel + 2.0; });
+    std::array<double, kCornersXZ> edgeW{}, edgeE{}, edgeN{}, edgeS{};
+    if (aquifers)
+        for (int k = 0; k < kCornersXZ; ++k) {
+            edgeW[size_t(k)] = column(baseX - kCellW, baseZ + k * kCellW).height;
+            edgeE[size_t(k)] = column(baseX + 16 + kCellW, baseZ + k * kCellW).height;
+            edgeN[size_t(k)] = column(baseX + k * kCellW, baseZ - kCellW).height;
+            edgeS[size_t(k)] = column(baseX + k * kCellW, baseZ + 16 + kCellW).height;
+        }
+    auto wetAt = [&](int x, int z) { // x, z in -1..16 (not both outside)
+        auto corner = [&](int i, int k) { // corner grid index, -1..5
+            if (i < 0) return edgeW[size_t(k)];
+            if (i >= kCornersXZ) return edgeE[size_t(k)];
+            if (k < 0) return edgeN[size_t(i)];
+            if (k >= kCornersXZ) return edgeS[size_t(i)];
+            return cornerCols[size_t(k * kCornersXZ + i)].height;
+        };
+        const int i = floorDiv(x, kCellW), k = floorDiv(z, kCellW);
+        const double fx = (x - i * kCellW) / double(kCellW), fz = (z - k * kCellW) / double(kCellW);
+        const double h = lerp(lerp(corner(i, k), corner(i + 1, k), fx), lerp(corner(i, k + 1), corner(i + 1, k + 1), fx), fz);
+        return h < kSeaLevel + 2.0;
+    };
+
     // 3. Fill: stone / deepslate where the density is solid; sea and lava elsewhere.
     std::array<int, 256> topY;
     topY.fill(kOverworldHeight.minY - 1);
@@ -816,9 +857,15 @@ void OverworldGenerator::generate(Chunk& out) const {
                         topY[size_t(z * 16 + x)] = y;
                     } else if (y < kSeaLevel) {
                         // Open water below sea level; cave air (terrain solid there) stays
-                        // dry, or lava at the bottom of the world.
+                        // dry, or lava at the bottom of the world - flooded under the sea
+                        // in overworld4 (flooded caves).
                         const bool cave = j + 1 < kCornersY && tri(terrain) > 0.0;
                         b = cave ? (y < kLavaLevel ? B.lava : B.air) : B.water;
+                        if (cave && aquifers && y >= kLavaLevel && wetAt(x, z)) {
+                            const bool barrier = y == kLavaLevel || !wetAt(x - 1, z) || !wetAt(x + 1, z) ||
+                                                 !wetAt(x, z - 1) || !wetAt(x, z + 1);
+                            b = barrier ? (y < 0 ? B.deepslate : B.stone) : B.water;
+                        }
                     }
                     buffer[Section::index(x, ly, z)] = b;
                 }
@@ -852,7 +899,8 @@ void OverworldGenerator::generate(Chunk& out) const {
                 if (underwater) {
                     if (k >= depth) break;
                     const bool warm = biome == Biome::WarmOcean || biome == Biome::LukewarmOcean ||
-                                      biome == Biome::Beach || biome == Biome::Desert;
+                                      biome == Biome::DeepLukewarmOcean || biome == Biome::Beach ||
+                                      biome == Biome::Desert;
                     if (biome == Biome::River || biome == Biome::Swamp)
                         b = positional(m_seed, wx, 0, wz, 12) < 0.15 ? B.clay : (k == 0 ? B.dirt : B.dirt);
                     else
@@ -1067,6 +1115,8 @@ void OverworldGenerator::generate(Chunk& out) const {
     // 7b. More vegetation (M18.1): sugar cane, pumpkins, cacti, mushrooms.
     if (m_version >= 2) placeVegetation(blockArray.data(), cx, cz, topY, columnBiome);
     // 7c. Surface structures (ours after the plants, so no tree grows through them).
+    if (m_version >= 4) placeOceanFloor(blockArray.data(), cx, cz, topY, columnBiome);
+
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
         placeVillages(blockArray.data(), cx, cz, topY, entities);
@@ -1082,7 +1132,8 @@ void OverworldGenerator::generate(Chunk& out) const {
             while (y > kOverworldHeight.minY && chunk.get(x, y, z) == B.air)
                 --y;
             const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
-            const float temp = biomeInfo(biome).temperature - std::max(0, y - 80) / 800.0f;
+            const float temp = (biome == Biome::DeepFrozenOcean ? 0.0f : biomeInfo(biome).temperature) -
+                               std::max(0, y - 80) / 800.0f; // (deep frozen oceans: frozen by their surface rule)
             if (temp >= 0.15f) continue;
             const BlockStateId surface = chunk.get(x, y, z);
             if (surface == B.water) {
@@ -2579,6 +2630,141 @@ glm::dvec3 OverworldGenerator::findSpawn() const {
         }
     }
     return {0.5, surfaceY(0, 0) + 1.0, 0.5};
+}
+
+// Ocean floors (overworld4, M25.1; wiki: Ocean, Warm Ocean, Frozen Ocean, Kelp,
+// Seagrass, Sea Pickle, Coral Reef, Iceberg): seagrass in every unfrozen ocean (and
+// rivers), kelp forests in normal, cold and lukewarm oceans, coral reefs and sea pickles
+// in warm oceans, icebergs in frozen oceans. Chunk-local, from this chunk's own random
+// stream; icebergs are pure shapes from their start chunk, so neighbours agree.
+void OverworldGenerator::placeOceanFloor(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                                         const std::array<Biome, 16>& columnBiome) const {
+    const auto& r = blockRegistry();
+    Buf chunk{blocks};
+    struct Ocean {
+        BlockStateId water, sand, gravel, packedIce, blueIce, snow, seagrass, tallLower, tallUpper, kelp, kelpPlant;
+        BlockStateId coralBlock[5], coral[5], fan[5], pickle[4];
+    };
+    static const Ocean O = [&] {
+        Ocean o{};
+        auto S = [&](BlockId b) { return r.defaultState(b); };
+        o.water = S(blocks::Water);
+        o.sand = S(blocks::Sand);
+        o.gravel = S(blocks::Gravel);
+        o.packedIce = S(blocks::PackedIce);
+        o.blueIce = S(blocks::BlueIce);
+        o.snow = S(blocks::SnowBlock);
+        o.seagrass = S(blocks::Seagrass);
+        o.tallLower = r.set(S(blocks::TallSeagrass), properties::doorHalf, 1);
+        o.tallUpper = r.set(S(blocks::TallSeagrass), properties::doorHalf, 0);
+        o.kelp = S(blocks::Kelp);
+        o.kelpPlant = S(blocks::KelpPlant);
+        for (int k = 0; k < 5; ++k) {
+            const std::string kind = kCoralKinds[k];
+            o.coralBlock[k] = S(*r.findBlock(kind + "_coral_block"));
+            o.coral[k] = S(*r.findBlock(kind + "_coral"));    // (waterlogged by default)
+            o.fan[k] = S(*r.findBlock(kind + "_coral_fan"));
+        }
+        for (int n = 0; n < 4; ++n) o.pickle[n] = r.set(S(blocks::SeaPickle), properties::pickles, n);
+        return o;
+    }();
+    const int32_t baseX = cx * 16, baseZ = cz * 16;
+
+    // Icebergs (wiki: Iceberg): about one start in 8 frozen-ocean chunks, a packed ice
+    // mound of radius 4-9 rising 4-15 blocks with a snow cap, as deep below the surface as it is
+    // high (at most to the floor), blue ice in its core now and then.
+    struct Berg {
+        int x, z, radius, height;
+        bool blue;
+    };
+    std::array<Berg, 9> bergs{};
+    int bergCount = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Xoroshiro br(chunkSeed(m_seed, cx + dx, cz + dz, 700));
+            if (br.nextInt(8) != 0) continue;
+            const int sx = (cx + dx) * 16 + 4 + int(br.nextInt(8)), sz = (cz + dz) * 16 + 4 + int(br.nextInt(8));
+            const Column c = column(sx, sz);
+            const Biome b = biomeAt(c);
+            if ((b != Biome::FrozenOcean && b != Biome::DeepFrozenOcean) || c.height > kSeaLevel - 6) continue;
+            bergs[size_t(bergCount++)] = {sx, sz, 4 + int(br.nextInt(6)), 4 + int(br.nextInt(12)), br.nextInt(3) == 0};
+        }
+    for (int i = 0; i < bergCount; ++i) {
+        const Berg& g = bergs[size_t(i)];
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const double dx = baseX + x - g.x, dz = baseZ + z - g.z;
+                // A lumpy outline: the radius wobbles with the direction (same in every chunk).
+                const double wobble = 1.0 + 0.25 * std::sin(std::atan2(dz, dx) * 3.0 + g.x * 0.37);
+                const double t = std::sqrt(dx * dx + dz * dz) / (g.radius * wobble);
+                if (t >= 1.0) continue;
+                const double shape = 1.0 - t * t;
+                const int top = kSeaLevel - 1 + int(std::lround(g.height * shape));
+                const int bottom = std::max(topY[size_t(z * 16 + x)] + 1, kSeaLevel - 1 - int(std::lround(g.height * 1.4 * shape)));
+                for (int y = bottom; y <= top; ++y) {
+                    const BlockStateId cur = chunk.get(x, y, z);
+                    if (cur != 0 && cur != O.water) continue;
+                    BlockStateId b = O.packedIce;
+                    if (y == top && y >= kSeaLevel) b = O.snow;
+                    else if (g.blue && t < 0.45 && y < kSeaLevel - 2) b = O.blueIce;
+                    chunk.set(x, y, z, b);
+                }
+            }
+    }
+
+    Xoroshiro rng(chunkSeed(m_seed, cx, cz, 710));
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const float roll = rng.nextFloat(), roll2 = rng.nextFloat();
+            const uint32_t pick = rng.nextInt(1000);
+            const Biome biome = columnBiome[size_t((z / 4) * 4 + x / 4)];
+            const bool river = biome == Biome::River;
+            if (!isOcean(biome) && !river) continue;
+            const int ty = topY[size_t(z * 16 + x)];
+            const int depth = kSeaLevel - 1 - ty; // water blocks above the floor
+            if (depth < 1 || chunk.get(x, ty + 1, z) != O.water) continue;
+            const BlockStateId floor = chunk.get(x, ty, z);
+            if (!r.collides(floor) || floor == O.packedIce) continue;
+            const bool frozen = biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
+            const bool warm = biome == Biome::WarmOcean;
+            const int32_t wx = baseX + x, wz = baseZ + z;
+            if (warm) {
+                // Coral reefs: patches (8x8 cells, a third of them reef) of coral block
+                // stacks 1-3 high, one kind per 3x3 cell, with corals and fans on top.
+                const bool reef = positional(m_seed, wx >> 3, 0, wz >> 3, 720) < 0.35;
+                const int kind = int(positional(m_seed, floorDiv(wx, 3), 0, floorDiv(wz, 3), 721) * 5.0) % 5;
+                int y = ty + 1;
+                if (reef && roll < 0.55f && depth >= 3) {
+                    const int h = std::min(1 + int(pick % 3), depth - 2);
+                    for (int k = 0; k < h; ++k) chunk.set(x, y++, z, O.coralBlock[kind]);
+                }
+                if ((reef && roll2 < 0.5f) || roll2 < 0.08f) {
+                    chunk.set(x, y, z, (pick & 1) ? O.coral[(kind + int(pick >> 4)) % 5] : O.fan[(kind + int(pick >> 5)) % 5]);
+                } else if (roll2 > 0.97f) {
+                    chunk.set(x, y, z, O.pickle[pick % 4]); // (sea pickles: glowing clumps of 1-4)
+                } else if (roll2 > 0.6f && !reef) {
+                    chunk.set(x, y, z, O.seagrass);
+                }
+                continue;
+            }
+            if (frozen) continue; // (no plants under the ice)
+            const bool kelpy = !river && biome != Biome::WarmOcean;
+            if (kelpy && roll < 0.07f && depth >= 3) {
+                // Kelp: a stalk of 1-10 blocks (never out of the water), tipped by a
+                // growing kelp with a random age (wiki: Kelp › Generation).
+                const int h = std::min(1 + int(pick % 10), depth);
+                for (int k = 0; k < h - 1; ++k) chunk.set(x, ty + 1 + k, z, O.kelpPlant);
+                chunk.set(x, ty + h, z, r.set(O.kelp, properties::age25, 20 + int(pick % 5)));
+            } else if (roll < (river ? 0.25f : 0.38f)) {
+                // Seagrass; a quarter tall where there is room (wiki: Seagrass).
+                if (depth >= 2 && roll2 < 0.25f) {
+                    chunk.set(x, ty + 1, z, O.tallLower);
+                    chunk.set(x, ty + 2, z, O.tallUpper);
+                } else {
+                    chunk.set(x, ty + 1, z, O.seagrass);
+                }
+            }
+        }
 }
 
 } // namespace mc::world

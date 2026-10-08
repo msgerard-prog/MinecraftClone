@@ -63,6 +63,15 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
     m_stateOpacity.insert(m_stateOpacity.end(), def.stateCount, opacity);
     m_stateEmission.insert(m_stateEmission.end(), def.stateCount, settings.lightEmission);
     m_stateRandomTicks.insert(m_stateRandomTicks.end(), def.stateCount, settings.randomTicks ? 1 : 0);
+    m_stateWaterlogged.insert(m_stateWaterlogged.end(), def.stateCount, settings.water ? 1 : 0);
+    for (size_t p = 0; p < def.properties.size(); ++p)
+        if (def.properties[p]->name == "waterlogged") // (values true, false: index 0 holds water)
+            for (uint32_t k = 0; k < def.stateCount; ++k)
+                if ((k / def.strides[p]) % def.properties[p]->values.size() == 0)
+                    m_stateWaterlogged[def.firstState + k] = 1;
+    for (uint32_t k = 0; k < def.stateCount; ++k) // (water dims light 1 a block - wiki: Light)
+        if (m_stateWaterlogged[def.firstState + k] && m_stateOpacity[def.firstState + k] == 0)
+            m_stateOpacity[def.firstState + k] = 1;
     m_blocks.push_back(std::move(def));
     return blockId;
 }

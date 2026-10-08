@@ -94,9 +94,15 @@ void emitReversed(std::vector<PackedVertex>& dst, VertexAttribs v[4]) {
 // A fluid cell's surface height (vanilla: amount / 9, so a source is 8/9; falling
 // fluid and fluid with the same fluid above are full).
 static float fluidHeight(const world::BlockRegistry& reg, world::BlockStateId s) {
+    if (reg.waterlogged(s)) return 8.0f / 9.0f; // (a water source shares the cell)
     const int level = reg.get(s, world::properties::level);
     const int amount = level == 0 || level >= 8 ? 8 : 8 - level;
     return float(amount) / 9.0f;
+}
+
+// The fluid a cell holds for meshing: its own block, or water when waterlogged (M25.1).
+static world::BlockId fluidBlockOf(const world::BlockRegistry& reg, world::BlockStateId s) {
+    return reg.waterlogged(s) ? world::BlockId(world::blocks::Water) : reg.blockOf(s);
 }
 
 // Height (1/16 block) of a fluid surface corner: vanilla averages the 4 cells around
@@ -109,9 +115,9 @@ uint32_t fluidCornerHeight(const world::BlockStateId* blocks, const world::Block
     for (int dz = cz - 1; dz <= cz; ++dz)
         for (int dx = cx - 1; dx <= cx; ++dx) {
             const int c = paddedIndex(x + dx, y, z + dz);
-            if (reg.blockOf(blocks[c + up]) == fluid) return 16u;
+            if (fluidBlockOf(reg, blocks[c + up]) == fluid) return 16u;
             const world::BlockStateId s = blocks[c];
-            if (reg.blockOf(s) == fluid) {
+            if (fluidBlockOf(reg, s) == fluid) {
                 const float h = fluidHeight(reg, s);
                 const float w = h >= 0.8f ? 10.0f : 1.0f;
                 sum += h * w;
@@ -136,13 +142,82 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                 const int i = paddedIndex(x, y, z);
                 const world::BlockStateId state = blocks[i];
                 const BakedModel& model = models[state];
+                const bool wet = registry.waterlogged(state);
+                if (!model.visible && !wet) continue;
                 // Tint palette slot: the biome of this block's 4x4x4 cell (no blending), or the
                 // model's fixed slot (birch/spruce leaves).
-                if (!model.visible) continue;
-                const uint32_t biome =
-                    model.fixedTintSlot ? model.fixedTintSlot
-                    : biomes ? static_cast<uint32_t>(biomes[((y >> 2) * 4 + (z >> 2)) * 4 + (x >> 2)])
-                             : 0u;
+                const uint32_t cellBiome =
+                    biomes ? static_cast<uint32_t>(biomes[((y >> 2) * 4 + (z >> 2)) * 4 + (x >> 2)]) : 0u;
+                uint32_t biome = model.fixedTintSlot ? model.fixedTintSlot : cellBiome;
+
+                // Full-cell faces (cubes and fluids), hidden against opaque neighbours.
+                auto cube = [&](const BakedModel& cm, world::BlockId block) {
+                    std::vector<PackedVertex>& cdst = cm.translucent ? out.translucent : out.opaque;
+                const BakedVariant& variant = cm.variants[variantIndex(
+                    origin.x + x, origin.y + y, origin.z + z, cm.variantCount)];
+                // Fluid surfaces sit at their corner heights unless the same fluid is above.
+                const bool lowerTop = cm.fluid && fluidBlockOf(registry, blocks[i + up]) != block;
+                uint32_t cornerH[2][2] = {{16u, 16u}, {16u, 16u}};
+                if (lowerTop)
+                    for (int cz = 0; cz < 2; ++cz)
+                        for (int cx = 0; cx < 2; ++cx)
+                            cornerH[cx][cz] = fluidCornerHeight(blocks, registry, block, x, y, z, cx, cz);
+                const int upFace = static_cast<int>(Direction::Up);
+                for (int f = 0; f < world::kDirectionCount; ++f) {
+                    const int n = i + kNeighbour[f];
+                    const world::BlockStateId neighbour = blocks[n];
+                    // A lowered fluid surface stays visible under a solid block.
+                    const bool keepLoweredTop = lowerTop && f == upFace;
+                    if (registry.opaqueCube(neighbour) && !keepLoweredTop) continue; // hidden
+                    if (cm.cullSame && (cm.fluid ? fluidBlockOf(registry, neighbour) : registry.blockOf(neighbour)) == block)
+                        continue;
+                    const BakedFace& face = variant.faces[f];
+                    VertexAttribs v[4];
+                    for (int c = 0; c < 4; ++c) {
+                        const glm::ivec3& k = kCorners[f][c];
+                        // Rotation shifts which UV corner each geometric corner gets
+                        // (+1 = texture turned 90 degrees clockwise); mirroring swaps
+                        // left and right.
+                        uint32_t uvc = uint32_t(c + face.rotation) & 3u;
+                        if (face.mirror) uvc = 3u - uvc;
+                        v[c].x16 = uint32_t((x + k.x) * 16);
+                        v[c].y16 = uint32_t(y * 16) + (k.y ? cornerH[k.x][k.z] : 0u);
+                        v[c].z16 = uint32_t((z + k.z) * 16);
+                        v[c].face = uint32_t(f);
+                        v[c].sprite = face.sprite;
+                        v[c].u = uint32_t(kCornerU[uvc]);
+                        v[c].v = uint32_t(kCornerV[uvc]);
+                        v[c].tint = face.tint;
+                        v[c].biome = biome;
+                        if (cm.fluid) {
+                            // Fluids: flat light, the brighter of the fluid's own cell and
+                            // the one in front (a lowered top under a solid block faces an
+                            // opaque cell whose stored light is 0).
+                            v[c].sky4 = std::max(sky[n], sky[i]) * 4u;
+                            v[c].block4 = std::max(bl[n], bl[i]) * 4u;
+                        } else {
+                            const CornerLight l = cornerLight(blocks, sky, bl, registry, n, f, k);
+                            v[c].sky4 = l.sky4;
+                            v[c].block4 = l.block4;
+                            v[c].ao = l.ao;
+                        }
+                    }
+                    const auto bright = [&](int c) {
+                        return int(v[c].sky4 + v[c].block4) - int(v[c].ao) * 8;
+                    };
+                    emitQuad(cdst, v, bright(0) + bright(2) < bright(1) + bright(3));
+                    // Vanilla shows fluid top and side faces from both sides (the surface
+                    // from underwater) but not the bottom from above.
+                    if (cm.fluid && f != static_cast<int>(Direction::Down)) emitReversed(cdst, v);
+                }
+                };
+                if (wet) { // waterlogged (M25.1): the water first, then the block in it
+                    biome = cellBiome;
+                    const BakedModel& water = models[registry.defaultState(world::blocks::Water)];
+                    cube(water, world::blocks::Water);
+                    biome = model.fixedTintSlot ? model.fixedTintSlot : cellBiome;
+                    if (!model.visible) continue;
+                }
                 std::vector<PackedVertex>& dst = model.translucent ? out.translucent : out.opaque;
                 const world::BlockId block = registry.blockOf(state);
 
@@ -201,62 +276,7 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                     continue;
                 }
 
-                const BakedVariant& variant = model.variants[variantIndex(
-                    origin.x + x, origin.y + y, origin.z + z, model.variantCount)];
-                // Fluid surfaces sit at their corner heights unless the same fluid is above.
-                const bool lowerTop = model.fluid && registry.blockOf(blocks[i + up]) != block;
-                uint32_t cornerH[2][2] = {{16u, 16u}, {16u, 16u}};
-                if (lowerTop)
-                    for (int cz = 0; cz < 2; ++cz)
-                        for (int cx = 0; cx < 2; ++cx)
-                            cornerH[cx][cz] = fluidCornerHeight(blocks, registry, block, x, y, z, cx, cz);
-                const int upFace = static_cast<int>(Direction::Up);
-                for (int f = 0; f < world::kDirectionCount; ++f) {
-                    const int n = i + kNeighbour[f];
-                    const world::BlockStateId neighbour = blocks[n];
-                    // A lowered fluid surface stays visible under a solid block.
-                    const bool keepLoweredTop = lowerTop && f == upFace;
-                    if (registry.opaqueCube(neighbour) && !keepLoweredTop) continue; // hidden
-                    if (model.cullSame && registry.blockOf(neighbour) == block) continue;
-                    const BakedFace& face = variant.faces[f];
-                    VertexAttribs v[4];
-                    for (int c = 0; c < 4; ++c) {
-                        const glm::ivec3& k = kCorners[f][c];
-                        // Rotation shifts which UV corner each geometric corner gets
-                        // (+1 = texture turned 90 degrees clockwise); mirroring swaps
-                        // left and right.
-                        uint32_t uvc = uint32_t(c + face.rotation) & 3u;
-                        if (face.mirror) uvc = 3u - uvc;
-                        v[c].x16 = uint32_t((x + k.x) * 16);
-                        v[c].y16 = uint32_t(y * 16) + (k.y ? cornerH[k.x][k.z] : 0u);
-                        v[c].z16 = uint32_t((z + k.z) * 16);
-                        v[c].face = uint32_t(f);
-                        v[c].sprite = face.sprite;
-                        v[c].u = uint32_t(kCornerU[uvc]);
-                        v[c].v = uint32_t(kCornerV[uvc]);
-                        v[c].tint = face.tint;
-                        v[c].biome = biome;
-                        if (model.fluid) {
-                            // Fluids: flat light, the brighter of the fluid's own cell and
-                            // the one in front (a lowered top under a solid block faces an
-                            // opaque cell whose stored light is 0).
-                            v[c].sky4 = std::max(sky[n], sky[i]) * 4u;
-                            v[c].block4 = std::max(bl[n], bl[i]) * 4u;
-                        } else {
-                            const CornerLight l = cornerLight(blocks, sky, bl, registry, n, f, k);
-                            v[c].sky4 = l.sky4;
-                            v[c].block4 = l.block4;
-                            v[c].ao = l.ao;
-                        }
-                    }
-                    const auto bright = [&](int c) {
-                        return int(v[c].sky4 + v[c].block4) - int(v[c].ao) * 8;
-                    };
-                    emitQuad(dst, v, bright(0) + bright(2) < bright(1) + bright(3));
-                    // Vanilla shows fluid top and side faces from both sides (the surface
-                    // from underwater) but not the bottom from above.
-                    if (model.fluid && f != static_cast<int>(Direction::Down)) emitReversed(dst, v);
-                }
+                cube(model, block);
             }
         }
     }

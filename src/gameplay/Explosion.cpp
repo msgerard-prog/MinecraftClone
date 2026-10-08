@@ -153,7 +153,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                 for (const ItemStack& st : cf->items)
                     if (!st.empty()) items.spawn({b.x + 0.5, b.y + 0.5, b.z + 0.5}, st, rng);
         }
-        world.updateBlock(b, 0);
+        world.updateBlock(b, leftAfterBreaking(s)); // (waterlogged: the water stays)
         changed.push_back(b);
         ++destroyed;
     }

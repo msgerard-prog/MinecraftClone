@@ -80,6 +80,12 @@ public:
     // The Nether's fog colour (each Nether biome has its own; main eases it toward
     // the one at the camera). Default: Nether Wastes' #330808.
     void setNetherFog(const glm::vec3& rgb) { m_netherFog = rgb; }
+    // The camera is under water (M25.1): fog in the biome's water fog colour from 8
+    // blocks behind the eye to 96 ahead, no sky or clouds (wiki: Fog › Underwater).
+    void setUnderwater(bool under, const glm::vec3& waterFog) {
+        m_underwater = under;
+        m_waterFog = waterFog;
+    }
     // The Overworld biome colours around the camera (M22.2; main blends them over
     // nearby biomes): the sky overhead and the fog at the horizon, at full daylight.
     void setBiomeSky(const glm::vec3& sky, const glm::vec3& fog) {
@@ -185,6 +191,8 @@ private:
     int m_inFlight = 0;
     int m_maxInFlight = 0;
     glm::vec3 m_netherFog{0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f};
+    bool m_underwater = false;
+    glm::vec3 m_waterFog{0.0f};
     bool m_nightVision = false;
 };
 

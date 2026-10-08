@@ -397,6 +397,8 @@ std::vector<Recipe> build() {
         }
         r.push_back(shaped({"###", "###", "###"}, {{'#', item("wheat")}}, "hay_block")); // (wiki: Hay Bale)
         r.push_back(shapeless({item("hay_block")}, "wheat", 9));
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("dried_kelp")}}, "dried_kelp_block")); // (M25.1)
+        r.push_back(shapeless({item("dried_kelp_block")}, "dried_kelp", 9));
         // Campfire (wiki): sticks around coal over three logs.
         r.push_back(shaped({".S.", "SCS", "LLL"}, {{'S', stick}, {'C', kCoal}, {'L', kLogs}}, "campfire"));
         r.push_back(shapeless({item("iron_ingot")}, "iron_nugget", 9));
@@ -635,6 +637,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "chicken") return out("cooked_chicken");
     if (n == "potato") return out("baked_potato");
     if (n == "chorus_fruit") return out("popped_chorus_fruit");
+    if (n == "kelp") return out("dried_kelp"); // (M25.1)
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
     return std::nullopt;
@@ -652,6 +655,7 @@ float smeltExperienceByName(std::string_view n) {
     if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
     if (n == "clay") return 0.35f;
+    if (n == "kelp") return 0.1f; // (wiki: Dried Kelp)
     if (n == "clay_ball") return 0.3f; // (wiki: Brick)
     if (n.ends_with("_terracotta") && !n.ends_with("glazed_terracotta")) return 0.1f;
     if (n == "cactus") return 1.0f;
@@ -672,6 +676,7 @@ int fuelByName(std::string_view n, const ItemDef& def) {
     if (n == "bookshelf") return 300;
     if (n == "lava_bucket") return 20000; // the empty bucket stays in the fuel slot
     if (n == "coal_block") return 16000;
+    if (n == "dried_kelp_block") return 4001; // (wiki: Fuel)
     if (n == "barrel" || n == "composter" || n == "smithing_table" || n == "loom" || n == "cartography_table")
         return 300; // (wooden workstations, M23.5-6)
     if (def.tool != ToolType::None && def.tier == ToolTier::Wood) return 200;

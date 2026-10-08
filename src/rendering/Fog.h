@@ -21,4 +21,11 @@ constexpr FogRange netherFog(int renderDistanceChunks) {
     return {10.0f, rd < 96.0f ? rd : 96.0f};
 }
 
+// Under water (wiki: Fog): from 8 blocks behind the eye to 96 ahead (vanilla eases the
+// distance in over ~30 s after diving; ours is at once), never past the render distance.
+constexpr FogRange waterFog(int renderDistanceChunks) {
+    const float rd = static_cast<float>(renderDistanceChunks * 16);
+    return {-8.0f, rd < 96.0f ? rd : 96.0f};
+}
+
 } // namespace mc::gfx

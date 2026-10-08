@@ -12,7 +12,7 @@ M1-M23 done. v1.0 waits for M25-M28.
 
 ## Next
 M25 - Oceans (wiki pages of each biome/mob/structure):
-1. M25.1 - Ocean biomes (warm/lukewarm/cold/frozen, deep variants) with their floors,
+1. ✅ M25.1 - Ocean biomes (warm/lukewarm/cold/frozen, deep variants) with their floors,
    kelp, seagrass, sea pickles and coral (blocks, fans, reefs), icebergs; water
    aquifers in a new overworld generator version.
 2. M25.2 - Boats (every wood, chest boats), fishing rods and fishing loot, fish
@@ -266,6 +266,9 @@ and GUI textures are made with their systems.
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
+- Two thin dark lines cross the screen near the horizon over the sea when looking down
+  from high up (seen since at least M24: `tools/screenshot.sh x --seed 42 --pos 8,95,-60
+  --look 180,30`) - find which pass draws them.
 - F2 screenshot key (vanilla) for interactive play.
 - NVIDIA debug output: "vertex shader recompiled based on GL state" (id 131218) on the
   block program in debug runs — find which state triggers it.

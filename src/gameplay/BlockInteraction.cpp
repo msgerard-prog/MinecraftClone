@@ -105,7 +105,7 @@ void BlockInteraction::tick(world::World& world, const Player& player,
         dropContents(world, hit->block, drops); // containers drop their items in every mode
         world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z,
                          world.getBlock(hit->block));
-        world.updateBlock(hit->block, 0);
+        world.updateBlock(hit->block, world::leftAfterBreaking(world.getBlock(hit->block))); // (its water stays)
         changed.push_back(hit->block);
         m_destroyCooldown = kDestroyDelay;
         return; // one action per tick
@@ -155,13 +155,42 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         };
         if (merge(hit->block, true) || merge(world::neighbour(hit->block, hit->face), false)) return;
     }
+    // Another sea pickle into a clump of 1-3 (wiki: Sea Pickle).
+    if (reg.blockOf(placeState) == world::blocks::SeaPickle) {
+        const world::BlockStateId s = world.getBlock(hit->block);
+        if (reg.blockOf(s) == world::blocks::SeaPickle && reg.get(s, world::properties::pickles) < 3) {
+            world.updateBlock(hit->block, reg.set(s, world::properties::pickles, reg.get(s, world::properties::pickles) + 1));
+            world.levelEvent(world::LevelEvent::Type::BlockPlace, hit->block.x, hit->block.y, hit->block.z, s);
+            changed.push_back(hit->block);
+            placed = true;
+            return;
+        }
+    }
     {
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world.isInHeight(at.y)) return;
         const world::BlockStateId existing = world.getBlock(at);
         // Air and fluids can be replaced (not by torches, dust...: they can't exist in water).
         const bool torch = reg.blockOf(placeState) == world::blocks::Torch;
-        if (existing != 0 && (reg.blockOf(existing) != world::blocks::Water || !reg.collides(placeState))) return;
+        // Ocean plants (M25.1) go into water: kelp and seagrass only into a water source,
+        // corals and pickles anywhere (waterlogged when placed in a source).
+        const world::BlockId placeBlock = reg.blockOf(placeState);
+        const bool oceanPlant = world::BlockUpdates::isOceanPlant(placeBlock) && reg.kind(placeBlock) == world::BlockKind::Plain &&
+                                !reg.block(placeBlock).id.ends_with("_coral_block");
+        const bool waterSource =
+            reg.blockOf(existing) == world::blocks::Water && reg.get(existing, world::properties::level) == 0;
+        if (reg.waterlogged(reg.defaultState(placeBlock)) && reg.get(placeState, world::properties::waterlogged) < 0 &&
+            !waterSource)
+            return; // (kelp and seagrass need water)
+        if (oceanPlant) {
+            const world::BlockStateId below = world.getBlock({at.x, at.y - 1, at.z});
+            const bool onKelp = placeBlock == world::blocks::Kelp &&
+                                (reg.blockOf(below) == world::blocks::Kelp || reg.blockOf(below) == world::blocks::KelpPlant);
+            if (!onKelp && !reg.collides(below)) return; // (they stand on a block)
+        }
+        if (existing != 0 && !(oceanPlant && reg.blockOf(existing) == world::blocks::Water) &&
+            (reg.blockOf(existing) != world::blocks::Water || !reg.collides(placeState)))
+            return;
         const Aabb blockBox{{at.x, at.y, at.z}, {at.x + 1.0, at.y + 1.0, at.z + 1.0}};
         if (reg.collides(placeState) && player.box().intersects(blockBox))
             return; // not inside the player
@@ -184,6 +213,8 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             world::BlockUpdates::placement(world, state, at, hit->face, player.yaw(), player.pitch(), hitY);
         if (!fitted) return;
         state = *fitted;
+        if (reg.get(state, world::properties::waterlogged) >= 0) // (holds the water it went into)
+            state = reg.set(state, world::properties::waterlogged, waterSource ? 0 : 1);
         world.updateBlock(at, state);
         if (m_placeContents) // a shulker box item's slots go back into the placed box (M23.6)
             if (world::Chunk* pc = world.chunk(at.chunk()))
@@ -267,7 +298,8 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
     if (tickDrinking(inventory, vitals, use, true)) {
     } else if (use && !planting && held.food > 0 && (vitals.food() < Vitals::kMaxFood || held.alwaysEdible) &&
                !(m_chorusCooldown > 0 && held.id == "minecraft:chorus_fruit")) {
-        if (++m_eatTicks >= kEatTicks) {
+        // (dried kelp is eaten twice as fast - wiki: Dried Kelp)
+        if (++m_eatTicks >= (held.id == "minecraft:dried_kelp" ? kEatTicks / 2 : kEatTicks)) {
             vitals.eat(held.food, held.saturation);
             if (held.id == "minecraft:golden_apple") // (wiki: Regeneration II for 5 s; no Absorption yet)
                 vitals.addEffect(world::Effect::Regeneration, 1, 100);
@@ -324,7 +356,7 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                             fc->furnace(world::blockToLocal(hit->block.x), hit->block.y, world::blockToLocal(hit->block.z)))
                         m_experience += takeFurnaceExperience(*f, rng);
                 world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y, hit->block.z, state);
-                world.updateBlock(hit->block, 0);
+                world.updateBlock(hit->block, world::leftAfterBreaking(state)); // (its water stays)
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
                 // Tools wear 1 per block, swords 2 (wiki: Durability); blocks that break

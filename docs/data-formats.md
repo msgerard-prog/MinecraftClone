@@ -233,6 +233,17 @@ raids in data/raids.dat): `Active`, `Id`, `NextAvailableID`, `Center` [x,y,z], `
 `NumGroups`, `BadOmenLevel`, `TicksActive`, `PreRaidTicks`, `TotalHealth`, and the
 pending raid `OmenTicks`, `OmenLevel`, `OmenCenter`.
 
+## Oceans (M25.1)
+Blocks `kelp` (age 0..25), `kelp_plant`, `seagrass`, `tall_seagrass` (half) - always
+waterlogged, no property; `sea_pickle` (pickles 1..4, waterlogged), `dried_kelp_block`,
+`blue_ice`; for each of tube, brain, bubble, fire, horn, alive and `dead_`:
+`<kind>_coral_block`, `<kind>_coral` and `<kind>_coral_fan` (waterlogged). Properties
+`waterlogged` (true|false), `pickles`. `BlockRegistry::waterlogged(state)`: the block
+holds a water source (fluids, swimming, light opacity 1, meshing, `leftAfterBreaking`).
+Item `dried_kelp` (food); recipes dried kelp block <-> 9 dried kelp, kelp smelts to
+dried kelp. Biomes `deep_lukewarm_ocean`, `deep_cold_ocean`, `deep_frozen_ocean`.
+Level.dat `generator` "overworld4" (new worlds).
+
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are

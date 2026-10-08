@@ -237,6 +237,7 @@ public:
     static int fluidAmount(BlockStateId s);
     static BlockStateId fluidState(BlockId kind, int amount, bool falling);
     static bool breaksInFluid(BlockId b); // washed away (plants, torches, redstone...)
+    static bool isOceanPlant(BlockId b);  // kelp, seagrass, sea pickles, corals (M25.1)
 
 private:
     void runRandomTicks();
@@ -255,6 +256,12 @@ private:
         m_world.levelEvent(LevelEvent::Type::Extinguish, p.x + 0.5, p.y + 0.6, p.z + 0.5);
     }
     void randomTick(const BlockPos& p, BlockStateId s);
+    // Ocean blocks (M25.1, Ocean.cpp).
+    bool oceanSurvives(const BlockPos& p, BlockStateId s) const;
+    bool oceanNeighbourChanged(const BlockPos& p, BlockStateId s); // true: an ocean block, handled
+    bool coralWet(const BlockPos& p, BlockStateId s) const;
+    bool tickOcean(const BlockPos& p, BlockStateId s); // true: a coral's tick, handled
+    void growKelp(const BlockPos& p, BlockStateId s);
     int rawBrightness(const BlockPos& p) const;
     int blockLightAt(const BlockPos& p) const;
     bool grassSurvives(const BlockPos& p) const;
@@ -283,6 +290,7 @@ private:
     bool lavaMeetsWater(const BlockPos& p, BlockStateId s);
     void fluidNeighbourChanged(const BlockPos& p, BlockStateId s);
     void placeFluid(const BlockPos& p, BlockStateId state);
+    void waterloggedFlow(const BlockPos& p);
     void tickFluid(const BlockPos& p, BlockStateId s);
     int slopeDistance(const BlockPos& p, int depth, Direction from, BlockId kind) const;
     void spreadSideways(const BlockPos& p, BlockStateId s);

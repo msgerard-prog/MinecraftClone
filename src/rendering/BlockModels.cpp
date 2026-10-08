@@ -830,6 +830,32 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 m.visible = true;
                 m.cross = true;
                 m.crossSprite = sprite("fire_0");
+            } else if (name == "kelp" || name == "kelp_plant" || name == "seagrass" || ends("_coral") ||
+                       ends("_coral_fan")) {
+                // Ocean plants (M25.1): crosses, drawn over the water they stand in. Coral
+                // fans are a cross here (vanilla: four tilted planes).
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite(name.c_str());
+            } else if (name == "tall_seagrass") {
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite =
+                    sprite(registry.value(state, "half") == "upper" ? "tall_seagrass_top" : "tall_seagrass_bottom");
+            } else if (name == "sea_pickle") {
+                // 1-4 small pickles (4x6x4, vanilla's size) on the floor.
+                static constexpr int kAt[4][4][2] = {{{6, 6}}, {{3, 4}, {9, 9}}, {{3, 3}, {9, 4}, {6, 10}},
+                                                     {{3, 3}, {10, 3}, {3, 10}, {10, 10}}};
+                const int n = std::stoi(std::string(registry.value(state, "pickles").value_or("1")));
+                m.visible = true;
+                for (int k = 0; k < n; ++k)
+                    addBox(m, kAt[n - 1][k][0], 0, kAt[n - 1][k][1], kAt[n - 1][k][0] + 4, 6,
+                           kAt[n - 1][k][1] + 4, sprite("sea_pickle"));
+            } else if (name == "dried_kelp_block") {
+                BakedVariant v = cubeAll(sprite("dried_kelp_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("dried_kelp_top");
+                v.faces[int(Direction::Down)].sprite = sprite("dried_kelp_bottom");
+                m = single(v);
             } else if (std::find(std::begin(kPlants), std::end(kPlants), name) != std::end(kPlants)) {
                 m.visible = true;
                 m.cross = true;

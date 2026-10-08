@@ -50,6 +50,9 @@ struct BlockSettings {
     // Behaves like this block (M23.3: a birch door like the oak door) in block
     // updates, shapes and mining; 0 = itself. Models and drops keep the real block.
     BlockId like = 0;
+    // Always holds water (M25.1: kelp, seagrass - vanilla's inherently waterlogged
+    // plants). Blocks with a `waterlogged` property hold water in its true states.
+    bool water = false;
 };
 
 // A property plus the value this block uses in its default state.
@@ -92,6 +95,9 @@ public:
     uint8_t lightOpacity(BlockStateId state) const { return m_stateOpacity[state]; }
     uint8_t lightEmission(BlockStateId state) const { return m_stateEmission[state]; }
     bool randomTicks(BlockStateId state) const { return m_stateRandomTicks[state] != 0; }
+    // Holds a water source as well as the block (M25.1, wiki: Waterlogging): fluids,
+    // swimming, light and the mesher treat it as water too; breaking it leaves water.
+    bool waterlogged(BlockStateId state) const { return m_stateWaterlogged[state] != 0; }
     // Registration time: only some states tick (persistent leaves, lit redstone ore).
     void setStateRandomTicks(BlockStateId state, bool ticks) { m_stateRandomTicks[state] = ticks ? 1 : 0; }
     // Registration time: light depending on state (furnace lit=true emits 13).
@@ -136,6 +142,7 @@ private:
     std::vector<uint8_t> m_stateOpacity;  // state -> light opacity 0..15
     std::vector<uint8_t> m_stateEmission; // state -> light emission 0..15
     std::vector<uint8_t> m_stateRandomTicks; // state -> receives random ticks
+    std::vector<uint8_t> m_stateWaterlogged; // state -> holds water
 };
 
 } // namespace mc::world

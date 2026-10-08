@@ -468,6 +468,23 @@ def bread():
     return img
 
 
+def dried_kelp():
+    # A dark, wrinkled leaf, wavy along its length (M25.1).
+    pal = ramp(hexc("#3E4A26"), 5, spread=0.4)
+    s = Shape()
+    pts = set()
+    for y in range(2, 15):
+        cx = 8 + round(1.6 * math.sin(y * 0.9))
+        for x in range(cx - 2, cx + 2):
+            pts.add((x, y))
+    s.add(pts, pal)
+    img = s.render()
+    for y in range(3, 14, 3):
+        cx = 8 + round(1.6 * math.sin(y * 0.9))
+        img.set(cx - 1, y, hexc("#262E16"))
+    return img
+
+
 def bone_meal():
     rng = random.Random("bone_meal")
     pal = ramp(hexc("#ECECE4"), 5, spread=0.2)
@@ -880,6 +897,7 @@ def all_items():
     items["crossbow"] = crossbow()  # (M24.4)
     items["totem_of_undying"] = totem()  # (M24.5)
     items["ominous_bottle"] = bottle(filled=True)  # (M24.4; tinted dark below)
+    items["dried_kelp"] = dried_kelp()  # (M25.1)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

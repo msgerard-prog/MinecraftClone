@@ -49,6 +49,8 @@ extern const Property noteInstrument; // "instrument": harp | basedrum | ... (16
 extern const Property note;           // 0..24
 extern const Property hasRecord;      // "has_record": true | false (jukebox)
 extern const Property hasBook;        // "has_book": true | false (lectern)
+extern const Property waterlogged;    // true | false (M25.1: corals, sea pickles)
+extern const Property pickles;        // 1..4 (sea pickles)
 // Redstone 2 (M21).
 extern const Property open;      // true | false (doors, trapdoors, fence gates)
 extern const Property doorHalf;  // "half": upper | lower
@@ -367,6 +369,13 @@ enum : BlockId {
     FletchingTable,
     Bell,              // facing (M24.1: the village meeting point)
     CarvedPumpkin,     // facing (M24.3: shears on a pumpkin; tops iron golems)
+    Kelp,              // age 0..25 (M25.1: the growing tip; always water)
+    KelpPlant,         // the stem below a kelp tip (always water)
+    Seagrass,          // always water
+    TallSeagrass,      // half (always water)
+    SeaPickle,         // pickles 1..4, waterlogged (glows only in water)
+    DriedKelpBlock,
+    BlueIce,
     Count
 };
 } // namespace blocks
@@ -377,7 +386,16 @@ inline constexpr const char* kDyeColours[16] = {"white", "orange", "magenta", "l
                                                 "pink",  "gray",   "light_gray", "cyan",     "purple", "blue",
                                                 "brown", "green",  "red",        "black"};
 
+// Coral kinds (M25.1; wiki: Coral): blocks, plants and fans of each, alive and dead.
+inline constexpr const char* kCoralKinds[5] = {"tube", "brain", "bubble", "fire", "horn"};
+
 // The global registry, built on first use (thread-safe) and immutable afterwards.
 const BlockRegistry& blockRegistry();
+
+// What stays when a block is broken or blown up: its water if it was waterlogged
+// (M25.1, wiki: Waterlogging), else air.
+inline BlockStateId leftAfterBreaking(BlockStateId s) {
+    return blockRegistry().waterlogged(s) ? blockRegistry().defaultState(blocks::Water) : BlockStateId{0};
+}
 
 } // namespace mc::world

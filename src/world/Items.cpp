@@ -49,6 +49,7 @@ ItemRegistry buildItems() {
     const auto& blocks = blockRegistry();
     for (BlockId b = 1; b < blocks.blockCount(); ++b) {
         if (b == blocks::Water || b == blocks::Lava) continue; // buckets, not items
+        if (b == blocks::KelpPlant || b == blocks::TallSeagrass) continue; // (picked as kelp / seagrass)
         // Placed by another item (redstone dust, torches on walls) or never an item.
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::WallTorch ||
             b == blocks::SoulWallTorch || b == blocks::PistonHead ||
@@ -61,6 +62,8 @@ ItemRegistry buildItems() {
         const bool sign = blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
         r.mapBlock(b, r.add({.id = id, .maxStack = uint8_t(sign ? 16 : 64), .block = b})); // (signs stack to 16)
     }
+    r.mapBlock(blocks::KelpPlant, *r.find("kelp")); // (M25.1)
+    r.mapBlock(blocks::TallSeagrass, *r.find("seagrass"));
     // Wall signs pick and drop as their sign.
     for (BlockId b = 1; b < blocks.blockCount(); ++b)
         if (blocks.kind(b) == BlockKind::WallSign || blocks.kind(b) == BlockKind::WallHangingSign) {
@@ -195,6 +198,8 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:beetroot_seeds", .block = blocks::Beetroots, .texture = "item/beetroot_seeds"});
     r.add({.id = "minecraft:bread", .food = 5, .saturation = 6.0f, .texture = "item/bread"});
     r.add({.id = "minecraft:bone_meal", .texture = "item/bone_meal"});
+    // (M25.1; wiki: Dried Kelp - 1 food, 0.6 saturation, eaten in 0.8 s)
+    r.add({.id = "minecraft:dried_kelp", .food = 1, .saturation = 0.6f, .texture = "item/dried_kelp"});
     // Armor (M17.3; wiki: Armor, Copper Armor): points and durability per piece
     // (helmet, chestplate, leggings, boots); diamond adds 2 toughness per piece.
     static constexpr struct {

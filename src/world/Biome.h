@@ -68,6 +68,10 @@ enum class Biome : uint8_t {
     EndMidlands,
     SmallEndIslands,
     EndBarrens,
+    // Overworld 4 (M25.1; the "overworld4" generator): the deep ocean variants.
+    DeepLukewarmOcean,
+    DeepColdOcean,
+    DeepFrozenOcean,
     Count
 };
 
@@ -81,6 +85,17 @@ struct BiomeInfo {
 };
 
 const BiomeInfo& biomeInfo(Biome b);
+// Under-water fog colour (wiki: biome pages, water fog colour): warm oceans #041F33,
+// lukewarm #041633, swamps #232317, everywhere else #050533. 0xRRGGBB.
+inline uint32_t waterFogColor(Biome b) {
+    switch (b) {
+    case Biome::WarmOcean: return 0x041F33;
+    case Biome::LukewarmOcean:
+    case Biome::DeepLukewarmOcean: return 0x041633;
+    case Biome::Swamp: return 0x232317;
+    default: return 0x050533;
+    }
+}
 
 // The sky colour of a biome from its temperature (wiki: Sky; vanilla's formula, which
 // gives plains #78A7FF): hue 0.62222 - t x 0.05, saturation 0.5 + t x 0.1, value 1,

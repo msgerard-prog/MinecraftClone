@@ -375,14 +375,18 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
         if (m_rain > 0.0f) m_fogColor *= glm::vec3(1.0f - m_rain * 0.5f, 1.0f - m_rain * 0.5f, 1.0f - m_rain * 0.4f);
         if (m_thunder > 0.0f) m_fogColor *= 1.0f - m_thunder * 0.5f;
     }
+    // Under water the water's fog takes over, dimmed at night with the sky light.
+    if (m_underwater) m_fogColor = m_waterFog * (1.0f - m_skyDarken / 15.0f);
     glClearColor(m_fogColor.r, m_fogColor.g, m_fogColor.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     const float aspect = float(framebufferWidth) / float(framebufferHeight);
-    if (m_dimension == world::Dimension::Overworld)
-        m_sky.drawGradient(camera, aspect, m_skyColor, m_fogColor, m_sunrise, m_sunSide);
-    else if (m_dimension == world::Dimension::End)
-        m_sky.drawEndSky(camera, aspect);
-    m_sky.draw(camera, aspect, m_skyState);
+    if (!m_underwater) {
+        if (m_dimension == world::Dimension::Overworld)
+            m_sky.drawGradient(camera, aspect, m_skyColor, m_fogColor, m_sunrise, m_sunSide);
+        else if (m_dimension == world::Dimension::End)
+            m_sky.drawEndSky(camera, aspect);
+        m_sky.draw(camera, aspect, m_skyState);
+    }
     m_blockShader.bind();
     // Fixed locations/bindings: see docs/architecture.md › Rendering.
     glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(viewProj));
@@ -391,6 +395,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     // Distance fog toward the sky colour so the edge of the loaded world fades out.
     FogRange fog = terrainFog(m_renderDistance);
     if (m_dimension == world::Dimension::Nether) fog = netherFog(m_renderDistance);
+    if (m_underwater) fog = waterFog(m_renderDistance);
     glUniform2f(4, fog.start, fog.end);
     glUniform3fv(5, 1, glm::value_ptr(m_fogColor));
     glUniform1f(7, m_skyDarken);
@@ -418,7 +423,7 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     glDisable(GL_BLEND);
     // Clouds (Overworld; none below render distance 4, wiki: Cloud), last: they're
     // translucent and almost always farther than water surfaces.
-    if (m_dimension == world::Dimension::Overworld && m_renderDistance >= 4 && m_cloudsOn)
+    if (m_dimension == world::Dimension::Overworld && m_renderDistance >= 4 && m_cloudsOn && !m_underwater)
         m_clouds.draw(camera, viewProj, m_cloudTime, float(m_renderDistance * 16), m_cloudColor);
     glEndQuery(GL_TIME_ELAPSED);
     m_queryPending[q] = true;

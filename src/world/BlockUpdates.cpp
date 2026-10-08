@@ -982,7 +982,7 @@ void BlockUpdates::pistonDrops(const BlockPos& p, BlockStateId s) {
 
 void BlockUpdates::pop(const BlockPos& p) {
     m_drops.push_back({p, {}, at(p)}); // its loot, as if broken by hand
-    set(p, 0);
+    set(p, leftAfterBreaking(at(p))); // (waterlogged: its water stays)
 }
 
 bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
@@ -1035,6 +1035,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     }
     ++m_depth;
     const BlockStateId s = at(p);
+    if (R().waterlogged(s)) schedule(p, B::Water, fluidDelay(B::Water), 0); // its water may flow (M25.1)
     if (hardenPowder(p, s)) {
         --m_depth;
         return;
@@ -1042,6 +1043,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     if (blockOf(s) == B::Campfire || blockOf(s) == B::SoulCampfire) { // signal fire follows the hay below
         const BlockStateId want = R().set(s, signalFire, blockOf(at(rel(p, Direction::Down))) == B::HayBlock ? 0 : 1);
         if (want != s) set(p, want);
+        --m_depth;
+        return;
+    }
+    if (oceanNeighbourChanged(p, s)) { // (M25.1: kelp, seagrass, pickles, corals)
         --m_depth;
         return;
     }
@@ -1428,6 +1433,7 @@ void BlockUpdates::tick() {
     for (const Due& d : m_due) {
         const BlockStateId s = at(d.pos);
         if (blockOf(s) == d.tick.block) tickBlock(d.pos, s);
+        else if (d.tick.block == B::Water && R().waterlogged(s)) waterloggedFlow(d.pos); // (M25.1)
     }
     watchComparators();
     finishMoves(); // (pistons: blocks 2 ticks in flight land)
@@ -1458,6 +1464,7 @@ void BlockUpdates::tick() {
 }
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
+    if (tickOcean(p, s)) return; // (M25.1: coral drying out)
     switch (blockOf(s)) {
     case B::Composter: // 20 ticks after reaching 7: bone meal ready (wiki: Composter)
         if (R().get(s, properties::composterLevel) == 7) set(p, R().set(s, properties::composterLevel, 8));

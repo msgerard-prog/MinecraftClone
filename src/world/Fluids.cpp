@@ -31,12 +31,17 @@ constexpr Direction kSides[4] = {Direction::North, Direction::South, Direction::
                                  Direction::East};
 
 int levelOf(BlockStateId s) { return R().get(s, level); }
+// Waterlogged blocks (M25.1: kelp, seagrass, corals...) count as water sources for
+// their neighbours (wiki: Waterlogging).
+BlockId fluidKindOf(BlockStateId s) { return R().waterlogged(s) ? BlockId(B::Water) : blockOf(s); }
+int fluidLevelOf(BlockStateId s) { return R().waterlogged(s) ? 0 : levelOf(s); }
 
 } // namespace
 
 bool BlockUpdates::isFluid(BlockId b) { return b == B::Water || b == B::Lava; }
 
 int BlockUpdates::fluidAmount(BlockStateId s) {
+    if (R().waterlogged(s)) return 8;
     if (!isFluid(blockOf(s))) return 0;
     const int l = levelOf(s);
     return l == 0 || l >= 8 ? 8 : 8 - l;
@@ -134,18 +139,18 @@ BlockStateId BlockUpdates::newFluidState(const BlockPos& p, BlockId kind) const 
     int maxAmount = 0, sources = 0;
     for (const Direction d : kSides) {
         const BlockStateId n = at(rel(p, d));
-        if (blockOf(n) != kind) continue;
-        if (levelOf(n) == 0) ++sources;
+        if (fluidKindOf(n) != kind) continue;
+        if (fluidLevelOf(n) == 0) ++sources;
         maxAmount = std::max(maxAmount, fluidAmount(n));
     }
     // A new source between two sources, over a solid block or another source (wiki:
     // Water › Infinite water source; lava doesn't by default).
     if (kind == B::Water && sources >= 2) {
         const BlockStateId below = at(rel(p, Direction::Down));
-        if (R().collides(below) || (blockOf(below) == kind && levelOf(below) == 0))
+        if (R().collides(below) || (fluidKindOf(below) == kind && fluidLevelOf(below) == 0))
             return fluidState(kind, 8, false);
     }
-    if (blockOf(at(rel(p, Direction::Up))) == kind) return fluidState(kind, 8, true); // falling
+    if (fluidKindOf(at(rel(p, Direction::Up))) == kind) return fluidState(kind, 8, true); // falling
     const int amount = maxAmount - fluidDrop(kind);
     return amount > 0 ? fluidState(kind, amount, false) : BlockStateId{0};
 }
@@ -155,7 +160,7 @@ bool BlockUpdates::lavaMeetsWater(const BlockPos& p, BlockStateId s) {
     // lava into cobblestone (wiki: Lava › Water and lava).
     for (const Direction d :
          {Direction::Up, Direction::North, Direction::South, Direction::West, Direction::East})
-        if (blockOf(at(rel(p, d))) == B::Water) {
+        if (fluidKindOf(at(rel(p, d))) == B::Water) {
             set(p, R().defaultState(levelOf(s) == 0 ? B::Obsidian : B::Cobblestone));
             fizz(p);
             return true;
@@ -218,12 +223,27 @@ void BlockUpdates::tickFluid(const BlockPos& p, BlockStateId s) {
             placeFluid(below, fluidState(kind, 8, true));
             int sources = 0;
             for (const Direction d : kSides)
-                sources += blockOf(at(rel(p, d))) == kind && levelOf(at(rel(p, d))) == 0;
+                sources += fluidKindOf(at(rel(p, d))) == kind && fluidLevelOf(at(rel(p, d))) == 0;
             if (levelOf(s) == 0 && sources >= 3) spreadSideways(p, s);
             return;
         }
     }
     if (levelOf(s) == 0 || !isHole(p, kind)) spreadSideways(p, s);
+}
+
+// A waterlogged block's water flows out like a source's (down first, else sideways),
+// the block itself staying (M25.1).
+void BlockUpdates::waterloggedFlow(const BlockPos& p) {
+    const BlockStateId source = R().defaultState(B::Water);
+    const BlockPos below = rel(p, Direction::Down);
+    if (m_world.isInHeight(below.y)) {
+        const FluidInto into = fluidInto(below, B::Water);
+        if (into == FluidInto::Empty || into == FluidInto::Breaks) {
+            placeFluid(below, fluidState(B::Water, 8, true));
+            return;
+        }
+    }
+    spreadSideways(p, source);
 }
 
 int BlockUpdates::slopeDistance(const BlockPos& p, int depth, Direction from, BlockId kind) const {

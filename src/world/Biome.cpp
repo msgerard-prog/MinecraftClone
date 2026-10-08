@@ -60,6 +60,9 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:end_midlands", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
     {"minecraft:small_end_islands", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
     {"minecraft:end_barrens", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
+    {"minecraft:deep_lukewarm_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x45ADF2},
+    {"minecraft:deep_cold_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3D57D6},
+    {"minecraft:deep_frozen_ocean", 0.5f, 0x8EB971, 0x71A74D, 0x3938C9}, // (wiki: 0.5, frozen by its surface rule)
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

@@ -12,11 +12,16 @@ using namespace world;
 
 namespace {
 
+// The fluid in a cell: waterlogged blocks hold water (M25.1).
+BlockId fluidIn(BlockStateId s) {
+    return blockRegistry().waterlogged(s) ? BlockId(blocks::Water) : blockRegistry().blockOf(s);
+}
+
 // Surface height above the cell's bottom: amount / 9; a full cell under the same fluid.
 double surface(const World& w, int x, int y, int z, BlockId kind) {
     const BlockStateId s = w.getBlock({x, y, z});
-    if (blockRegistry().blockOf(s) != kind) return -1.0;
-    if (blockRegistry().blockOf(w.getBlock({x, y + 1, z})) == kind) return 1.0;
+    if (fluidIn(s) != kind) return -1.0;
+    if (fluidIn(w.getBlock({x, y + 1, z})) == kind) return 1.0;
     return BlockUpdates::fluidAmount(s) / 9.0;
 }
 
@@ -31,10 +36,10 @@ FluidContact fluidContact(const World& world, const Aabb& box) {
             for (int z = int(std::floor(box.min.z + e)); z <= int(std::floor(box.max.z - e)); ++z) {
                 // One lookup per cell; only fluid cells read their neighbours.
                 const BlockStateId s = world.getBlock({x, y, z});
-                const BlockId kind = reg.blockOf(s);
+                const BlockId kind = fluidIn(s);
                 if (kind == blocks::Fire) c.fire = true;
                 if (kind != blocks::Water && kind != blocks::Lava) continue;
-                const double h = reg.blockOf(world.getBlock({x, y + 1, z})) == kind
+                const double h = fluidIn(world.getBlock({x, y + 1, z})) == kind
                                      ? 1.0
                                      : BlockUpdates::fluidAmount(s) / 9.0;
                 if (y + h < box.min.y) continue;

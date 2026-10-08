@@ -382,7 +382,7 @@ TEST_CASE("overworld2 review fixes: stronghold side rooms exist (libraries); rav
 }
 
 TEST_CASE("overworld3: villages get beds, job sites, a bell and a villager per bed (M24.1)") {
-    const OverworldGenerator gen(42), v2(42, 2);
+    const OverworldGenerator gen(42, 3), v2(42, 2);
     CHECK(gen.kind() == "overworld3");
     ChunkPos found{0, 0};
     bool ok = false;
@@ -436,7 +436,7 @@ TEST_CASE("overworld3: villages get beds, job sites, a bell and a villager per b
 }
 
 TEST_CASE("overworld3: pillager outposts - a watchtower with its chest and pillagers, away from villages (M24.4)") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 3);
     ChunkPos found{0, 0};
     bool ok = false;
     for (int rz = -16; rz <= 16 && !ok; ++rz)

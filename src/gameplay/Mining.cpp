@@ -319,6 +319,22 @@ int blockExperience(BlockStateId state, Xoroshiro& rng) {
 void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
                 std::vector<ItemStack>& out, bool anyTool) {
     if (!anyTool && !canHarvest(state, held)) return;
+    {
+        // Ocean blocks (M25.1; wiki: Seagrass - only with shears; Coral, Coral Fan, Coral
+        // Block, Blue Ice - themselves only with Silk Touch).
+        const BlockId ob = blockRegistry().blockOf(state);
+        const std::string& id = blockRegistry().block(ob).id;
+        const bool shears = held.item != 0 && itemRegistry().item(held.item).id == "minecraft:shears";
+        if (ob == blocks::Seagrass || ob == blocks::TallSeagrass) {
+            if (shears) out.push_back({itemRegistry().blockItem(blocks::Seagrass), 1});
+            return;
+        }
+        if (enchantLevel(held, Enchantment::SilkTouch) > 0 &&
+            (id.ends_with("_coral") || id.ends_with("_coral_fan") || id.ends_with("_coral_block") || ob == blocks::BlueIce)) {
+            out.push_back({itemRegistry().blockItem(ob), 1});
+            return;
+        }
+    }
     // Silk Touch: the block itself, for blocks that otherwise drop something else
     // (wiki: Silk Touch).
     if (enchantLevel(held, Enchantment::SilkTouch) > 0) {
@@ -430,6 +446,24 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     auto between = [&](int lo, int hi) {
         return lo + static_cast<int>(rng.nextInt(uint32_t(hi - lo + 1)));
     };
+    // Ocean blocks (M25.1): kelp stems drop kelp, sea pickles each pickle; coral plants and
+    // fans and blue ice nothing; a living coral block its dead block (wiki).
+    {
+        const std::string& id = reg.block(b).id;
+        if (b == blocks::KelpPlant) {
+            add(itemRegistry().blockItem(blocks::Kelp));
+            return;
+        }
+        if (b == blocks::SeaPickle) {
+            add(itemRegistry().blockItem(b), reg.get(state, properties::pickles) + 1);
+            return;
+        }
+        if (id.ends_with("_coral") || id.ends_with("_coral_fan") || b == blocks::BlueIce) return;
+        if (id.ends_with("_coral_block") && !id.starts_with("minecraft:dead_")) {
+            add(itemRegistry().blockItem(*reg.findBlock("dead_" + id.substr(10))));
+            return;
+        }
+    }
     // Glass panes and stained glass drop nothing without Silk Touch (wiki: Glass Pane).
     if (reg.kind(b) == BlockKind::Pane || reg.block(b).id.ends_with("_stained_glass")) return;
     // A double slab is two slabs (wiki: Slab).

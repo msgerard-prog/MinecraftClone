@@ -394,7 +394,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return 1;
     }
     if (generatorKind != "terrain" && generatorKind != "overworld" &&
-        generatorKind != "overworld2" && generatorKind != "overworld3") {
+        generatorKind != "overworld2" && generatorKind != "overworld3" && generatorKind != "overworld4") {
         // A world from a newer/other build: generating here would leave seams.
         MC_LOG_ERROR("World \"%s\" uses generator \"%s\", which this build doesn't have",
                      worldName.c_str(), generatorKind.c_str());
@@ -412,7 +412,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return std::make_unique<mc::world::OverworldGenerator>(seed,
                                                                generatorKind == "overworld"    ? 1
                                                                : generatorKind == "overworld2" ? 2
-                                                                                               : 3);
+                                                               : generatorKind == "overworld3" ? 3
+                                                                                               : 4);
     };
     std::unique_ptr<mc::world::ChunkGenerator> generatorPtr = makeGenerator(dimension);
     world.setHasSkyLight(mc::world::dimensionInfo(dimension).hasSkyLight);
@@ -3181,6 +3182,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     ++n;
                 }
             if (n > 0) renderer.setBiomeSky(sky / float(n), fog / float(n));
+        }
+        {
+            // Under water: the biome's water fog (M25.1). Vanilla's dark fog colours are
+            // lifted toward the biome's water colour so daylight water reads blue.
+            const mc::world::BlockPos eye{int(std::floor(camera.position.x)), int(std::floor(camera.position.y)),
+                                          int(std::floor(camera.position.z))};
+            const mc::world::BlockStateId es = world.getBlock(eye);
+            const auto& reg = mc::world::blockRegistry();
+            const bool under = reg.blockOf(es) == mc::world::blocks::Water || reg.waterlogged(es);
+            glm::vec3 waterFog(0.0f);
+            if (under)
+                if (const mc::world::Chunk* c = world.chunk(eye.chunk()); c && c->biomes()) {
+                    const mc::world::Biome b = c->biomes()->at(mc::world::blockToLocal(eye.x), eye.y,
+                                                               mc::world::blockToLocal(eye.z), world.height());
+                    auto rgb = [](uint32_t v) {
+                        return glm::vec3(float((v >> 16) & 255), float((v >> 8) & 255), float(v & 255)) / 255.0f;
+                    };
+                    waterFog = glm::mix(rgb(mc::world::waterFogColor(b)), rgb(mc::world::biomeInfo(b).water) * 0.55f, 0.6f);
+                }
+            renderer.setUnderwater(under, waterFog);
         }
         {
             const bool overworld = dimension == Dimension::Overworld;

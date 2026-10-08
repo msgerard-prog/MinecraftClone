@@ -126,6 +126,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Version 3, "overworld3" (M24.1, new worlds), furnishes villages: a bed per villager,
   a job site per house (only job sites without block entities), a bell by the well,
   and the villagers themselves (`GeneratedEntity::villager`).
+  Version 4, "overworld4" (M25.1, new worlds): deep lukewarm/cold/frozen oceans
+  (`biomeAt`), flooded caves (a column is wet where its corner-interpolated height is
+  under sea level + 2: cave air below the sea there is water, sealed with stone toward
+  dry columns and above the lava; caves may open through the sea floor),
+  `placeOceanFloor` (seagrass, kelp, coral reefs and sea pickles, icebergs as pure shapes
+  from their start chunks).
   `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
   debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
@@ -379,6 +385,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   waves spawn ~32 blocks out (`MobData::raidId`, saved as `Wave`/`RaidId`; the raid pauses while the village is unloaded, the pending omen is saved); `Context::raidCentre`
   sends idle raiders to the bell and villagers home; the red bar is the living raiders'
   health; victory gives Hero of the Village (`offerPrice(o, heroLevel)` discount).
+- Waterlogging and ocean blocks (M25.1): `BlockSettings::water` (kelp, seagrass) or a
+  `waterlogged` property makes `BlockRegistry::waterlogged(state)` true; `Fluids.cpp`
+  counts such cells as water sources and lets their water flow out
+  (`waterloggedFlow`, scheduled as a water tick), `FluidContact` treats them as water,
+  the mesher draws the water cube in the cell before the block (`fluidBlockOf`), and
+  breaking leaves the water (`leftAfterBreaking`). `world/Ocean.cpp` (part of
+  `BlockUpdates`): supports, kelp growth on random ticks, coral dying out of water.
+  Under water the renderer switches to the biome's water fog (`setUnderwater`, no sky).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

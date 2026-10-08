@@ -31,8 +31,9 @@ public:
     // it was created with, so its chunks never change; new worlds get the newest.
     // 1 = "overworld" (M8), 2 = "overworld2" (M18: + lava lakes, springs, ravines,
     // sugar cane, pumpkins, cacti, mushrooms), 3 = "overworld3" (M24: beds, job sites,
-    // a bell and villagers in villages).
-    static constexpr int kNewest = 3;
+    // a bell and villagers in villages), 4 = "overworld4" (M25: deep ocean variants, ocean
+    // floors with kelp, seagrass, sea pickles, coral reefs, icebergs, flooded caves).
+    static constexpr int kNewest = 4;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
@@ -40,7 +41,10 @@ public:
     // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
     std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override {
-        return m_version >= 3 ? "overworld3" : m_version == 2 ? "overworld2" : "overworld";
+        return m_version >= 4   ? "overworld4"
+               : m_version == 3 ? "overworld3"
+               : m_version == 2 ? "overworld2"
+                                : "overworld";
     }
     int version() const { return m_version; }
     uint64_t seed() const override { return m_seed; }
@@ -97,6 +101,8 @@ public:
 
 private:
     double terrainDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
+    void placeOceanFloor(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                         const std::array<Biome, 16>& columnBiome) const; // overworld4 (M25.1)
     double caveDensity(int32_t x, int32_t y, int32_t z, const Column& c) const;
     struct TreePlan {
         struct Tree {
