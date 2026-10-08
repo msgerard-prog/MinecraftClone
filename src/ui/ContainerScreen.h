@@ -33,7 +33,10 @@ public:
         Hopper,
         Dispenser,
         Stonecutter,
-        Grindstone
+        Grindstone,
+        Smithing,
+        Loom,
+        Cartography
     };
     static constexpr int kWidth = 176, kHeight = 166;
     // Panel height: 166, or a chest's 114 + 18 per row (3 rows single, 6 double).

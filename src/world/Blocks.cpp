@@ -954,6 +954,18 @@ BlockRegistry buildVanillaBlocks() {
                                 .tool = HarvestTool::Pickaxe},
                 {{&facing6, "up"}}),
           blocks::ShulkerBox);
+    // wiki: Ancient Debris (30 / 1200), Block of Netherite (50 / 1200): diamond pickaxe.
+    check(r.add("ancient_debris", {.hardness = 30.0f, .resistance = 1200.0f, .tool = HarvestTool::Pickaxe, .tier = 3}),
+          blocks::AncientDebris);
+    check(r.add("netherite_block", {.hardness = 50.0f, .resistance = 1200.0f, .tool = HarvestTool::Pickaxe, .tier = 3}),
+          blocks::NetheriteBlock);
+    // wiki: Smithing Table, Loom, Cartography Table (2.5, axe).
+    check(r.add("smithing_table", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe}),
+          blocks::SmithingTable);
+    check(r.add("loom", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe}, {{&facing, "north"}}),
+          blocks::Loom);
+    check(r.add("cartography_table", {.hardness = 2.5f, .resistance = 2.5f, .tool = HarvestTool::Axe}),
+          blocks::CartographyTable);
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);

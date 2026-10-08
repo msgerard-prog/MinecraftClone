@@ -225,6 +225,33 @@ void NetherGenerator::generate(Chunk& out) const {
     vein(quartz, 16, 14, 10, 117);
     vein(gold, 10, 10, 10, 117);
     vein(magma, 4, 33, 27, 36);
+    if (m_version >= 3) {
+        // Ancient debris (wiki: Ancient Debris › Generation): per chunk one vein of up to
+        // 3 at Y 8-24 (most at 16) and one of up to 2 at Y 8-119, in netherrack, basalt
+        // or blackstone, never touching air. Its own random stream: nether2's blocks
+        // stay exactly as they were.
+        Xoroshiro debrisRng(chunkSeed(m_seed, pos.x, pos.z, 0x4E44));
+        const BlockStateId debris = r.defaultState(blocks::AncientDebris);
+        const BlockStateId basaltS = r.defaultState(blocks::Basalt), blackstoneS = r.defaultState(blocks::Blackstone);
+        auto debrisVein = [&](int size, int y0) {
+            const int vx = 1 + static_cast<int>(debrisRng.nextInt(14)), vz = 1 + static_cast<int>(debrisRng.nextInt(14));
+            for (int i = 0; i < size; ++i) {
+                const int x = std::clamp(vx + static_cast<int>(debrisRng.nextInt(3)) - 1, 1, 14);
+                const int y = std::clamp(y0 + static_cast<int>(debrisRng.nextInt(3)) - 1, 2, kNetherTop - 3);
+                const int z = std::clamp(vz + static_cast<int>(debrisRng.nextInt(3)) - 1, 1, 14);
+                const BlockStateId here = blocks[at(x, y, z)];
+                if (here != netherrack && here != basaltS && here != blackstoneS) continue;
+                bool exposed = false;
+                for (const auto& d : {std::array{1, 0, 0}, std::array{-1, 0, 0}, std::array{0, 1, 0},
+                                      std::array{0, -1, 0}, std::array{0, 0, 1}, std::array{0, 0, -1}})
+                    exposed = exposed || blocks[at(x + d[0], y + d[1], z + d[2])] == 0;
+                if (!exposed) blocks[at(x, y, z)] = debris;
+            }
+        };
+        const int big = 8 + static_cast<int>(debrisRng.nextInt(9)) + static_cast<int>(debrisRng.nextInt(9)); // 8..24, peak 16
+        debrisVein(3, big);
+        debrisVein(2, 8 + static_cast<int>(debrisRng.nextInt(112)));
+    }
 
     // 4. Glowstone clusters hanging from the ceiling (wiki: Glowstone › Generation:
     //    ~10 attempts per chunk, a blob grown down from netherrack above).

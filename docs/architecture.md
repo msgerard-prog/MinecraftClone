@@ -123,7 +123,8 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   source plus a pending fluid tick, `Chunk::ticksRelative`) and more vegetation;
   "overworld" (version 1) stays for worlds created with it. `TerrainGenerator`
   (M3 placeholder, kind "terrain") stays too. Each pins a hash.
-  `NetherGenerator` is versioned the same way: "nether2" (M19, new worlds; level.dat
+  `NetherGenerator` is versioned the same way: "nether3" (M23.6, new worlds: ancient
+  debris on its own random stream), "nether2" (M19; level.dat
   `nether_generator`, unknown kinds refused like the Overworld's) adds per-column
   Nether biomes (`biomeAt`), their surfaces and features (`netherFeatures`) and
   fortresses/bastions; "nether" (M12) stays for older worlds. `EndGenerator` too:

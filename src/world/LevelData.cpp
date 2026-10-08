@@ -186,14 +186,16 @@ bool LevelData::save(const std::filesystem::path& dir) const {
             contents.put("potion", "minecraft:" + it.potion);
             components.put("minecraft:potion_contents", std::move(contents));
         }
-        if (it.contents) { // (the item writer knows minecraft:container's layout)
+        if (it.contents || it.trim) { // (the item writer knows these components' layouts)
             ItemStack carrier{};
-            carrier.item = 1; // (any item: only its container component is used)
+            carrier.item = 1; // (any item: only these components are used)
             carrier.count = 1;
             carrier.contents = it.contents;
+            carrier.trim = it.trim;
             const nbt::Compound full = itemToNbt(carrier, -1);
             if (const Compound* fc = full.compound("components"))
-                if (const Tag* box = fc->find("minecraft:container")) components.put("minecraft:container", *box);
+                for (const char* key : {"minecraft:container", "minecraft:trim"})
+                    if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
         if (it.slot >= 200) { // the ender chest
@@ -400,7 +402,11 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                         for (const auto& e : levels->entries)
                             if (const auto lvl = levels->integer(e.name)) saved.enchantments.emplace_back(e.name, int(*lvl));
                     }
-                if (comps->list("minecraft:container")) saved.contents = itemFromNbtPublic(item).contents;
+                if (comps->list("minecraft:container") || comps->compound("minecraft:trim")) {
+                    const ItemStack parsed = itemFromNbtPublic(item);
+                    saved.contents = parsed.contents;
+                    saved.trim = parsed.trim;
+                }
             }
             const Compound* props = comps ? comps->compound("minecraft:block_state") : nullptr;
             if (props && !props->entries.empty()) {

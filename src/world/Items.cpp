@@ -1,5 +1,6 @@
 #include "world/Items.h"
 
+#include "world/ArmorTrims.h"
 #include "world/Blocks.h"
 
 namespace mc::world {
@@ -14,6 +15,7 @@ const TierInfo& tierInfo(ToolTier tier) {
         {3, 8.0f, 1561}, // Diamond
         {0, 12.0f, 32},  // Gold
         {1, 5.0f, 190},  // Copper (1.21.9; wiki: Copper Pickaxe - stone's level, faster)
+        {4, 9.0f, 2031}, // Netherite (M23.6)
     };
     return kTiers[static_cast<int>(tier)];
 }
@@ -28,6 +30,7 @@ std::optional<ItemId> ItemRegistry::find(std::string_view id) const {
 }
 
 ItemId ItemRegistry::add(ItemDef def) {
+    def.fireResistant = def.id.find("netherite") != std::string::npos || def.id == "minecraft:ancient_debris";
     m_items.push_back(std::move(def));
     return static_cast<ItemId>(m_items.size() - 1);
 }
@@ -98,6 +101,29 @@ ItemRegistry buildItems() {
                    .attackDamage = t.damage[m],
                    .texture = "item/" + name});
         }
+    // Netherite tools (M23.6; wiki: Netherite Sword 8, Axe 10, Pickaxe 6, Shovel 6.5, Hoe 1).
+    for (const auto& [kind, type, damage] : {std::tuple{"sword", ToolType::Sword, 8.0f},
+                                             std::tuple{"pickaxe", ToolType::Pickaxe, 6.0f},
+                                             std::tuple{"axe", ToolType::Axe, 10.0f},
+                                             std::tuple{"shovel", ToolType::Shovel, 6.5f},
+                                             std::tuple{"hoe", ToolType::Hoe, 1.0f}}) {
+        const std::string name = std::string("netherite_") + kind;
+        r.add({.id = "minecraft:" + name,
+               .maxStack = 1,
+               .tool = type,
+               .tier = ToolTier::Netherite,
+               .durability = tierInfo(ToolTier::Netherite).durability,
+               .attackDamage = damage,
+               .texture = "item/" + name});
+    }
+    // Netherite materials and the smithing templates (M23.6; wiki: Netherite Ingot,
+    // Smithing Template).
+    for (const char* name : {"netherite_scrap", "netherite_ingot", "netherite_upgrade_smithing_template"})
+        r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
+    for (const std::string_view pattern : kTrimPatterns) { // (wiki: one template per armor trim)
+        const std::string name = std::string(pattern) + "_armor_trim_smithing_template";
+        r.add({.id = "minecraft:" + name, .texture = "item/" + name});
+    }
     // Materials (wiki: each item's page).
     for (const char* name : {"stick", "coal", "charcoal", "raw_iron", "raw_gold", "raw_copper",
                              "iron_ingot", "gold_ingot", "copper_ingot", "diamond", "emerald",
@@ -163,6 +189,7 @@ ItemRegistry buildItems() {
         {"golden", {2, 5, 3, 1}, {77, 112, 105, 91}, 0.0f},
         {"iron", {2, 6, 5, 2}, {165, 240, 225, 195}, 0.0f},
         {"diamond", {3, 8, 6, 3}, {363, 528, 495, 429}, 2.0f},
+        {"netherite", {3, 8, 6, 3}, {407, 592, 555, 481}, 3.0f}, // (M23.6; +0.1 knockback resistance, not modelled)
     };
     static constexpr const char* kPieces[4] = {"helmet", "chestplate", "leggings", "boots"};
     for (const auto& a : kArmor)

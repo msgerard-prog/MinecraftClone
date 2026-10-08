@@ -94,6 +94,7 @@ struct LevelData {
         std::string potion; // potion id without "minecraft:" ("" = none)
         bool storedEnchantments = false; // an enchanted book's (minecraft:stored_enchantments)
         uint32_t contents = 0; // a shulker box's slots (world/ItemContainers.h, M23.6)
+        uint16_t trim = 0;     // an armor trim (world/ArmorTrims.h, M23.6)
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;

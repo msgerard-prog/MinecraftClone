@@ -25,6 +25,7 @@ MATERIALS = {
     "golden": hexc("#F2CF3C"),
     "diamond": hexc("#45DCCB"),
     "copper": hexc("#D9804F"),
+    "netherite": hexc("#5A4E56"),
 }
 HANDLE = ramp(hexc("#7C5A30"), 5)
 
@@ -450,7 +451,8 @@ def bone_meal():
     return s.render()
 
 
-ARMOR = {"leather": "#8A5530", "copper": "#D9804F", "golden": "#F2CF3C", "iron": "#D6D6D6", "diamond": "#45DCCB"}
+ARMOR = {"leather": "#8A5530", "copper": "#D9804F", "golden": "#F2CF3C", "iron": "#D6D6D6", "diamond": "#45DCCB",
+         "netherite": "#5A4E56"}
 
 
 def armor(piece, base):
@@ -690,6 +692,29 @@ def golden_carrot():
     return img
 
 
+# Trim template accents (M23.6): one colour per pattern so the 18 templates differ.
+TRIM_ACCENTS = {
+    "sentry": "#9A9A9A", "dune": "#E0C878", "coast": "#5AA0C8", "wild": "#5A9A3A", "ward": "#2A6070",
+    "eye": "#7AD8C0", "vex": "#B0B8C8", "tide": "#4AB0A0", "snout": "#E8B83A", "rib": "#E8E0D0",
+    "spire": "#B080C0", "wayfinder": "#C88A5A", "shaper": "#B85A3A", "silence": "#3A4A60",
+    "raiser": "#C89A6A", "host": "#A87A5A", "flow": "#6AC8E0", "bolt": "#D8B040"}
+
+
+def smithing_template(accent, base="#3A3540"):
+    """A slate tablet (our drawing) with a glyph in the pattern's colour."""
+    rng = random.Random("template_" + accent)
+    pal = ramp(hexc(base), 5, spread=0.3)
+    acc = ramp(hexc(accent), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(1, 15) if not ((x in (3, 12)) and (y in (1, 14)))}, pal)
+    img = s.render()
+    for _ in range(14):  # the glyph: a small random rune, mirrored for symmetry
+        x, y = rng.randint(5, 7), rng.randint(3, 12)
+        for px in (x, 15 - x):
+            img.set(px, y, acc[3] if y < 8 else acc[2])
+    return img
+
+
 def all_items():
     items = {}
     for mat in MATERIALS:
@@ -792,6 +817,12 @@ def all_items():
     items["slime_ball"] = lump("slime_ball", "#6CC060", "#B8F0A8", size=4.8)
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)
+    # Netherite and smithing (M23.6).
+    items["netherite_ingot"] = ingot("#4A4048")
+    items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
+    items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")
+    for pattern, accent in TRIM_ACCENTS.items():
+        items[f"{pattern}_armor_trim_smithing_template"] = smithing_template(accent)
     return items
 
 

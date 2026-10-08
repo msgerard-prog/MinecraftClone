@@ -202,6 +202,16 @@ chest (`ChestData::barrel`). Composters (`level` 0..8) and the four cauldron blo
 `lava_cauldron`) are block states only, as in vanilla. Stonecutters (`facing`) and
 grindstones (`face`, `facing`) have no block entity.
 
+## Workstations 2 (M23.6)
+- Items carry vanilla's `minecraft:container` component (`[{slot: int, item: {...}}]`,
+  shulker boxes; at runtime `ItemStack::contents` indexes `world/ItemContainers`) and
+  `minecraft:trim` (`{pattern: "minecraft:coast", material: "minecraft:iron"}`,
+  `ItemStack::trim` = pattern << 8 | material, tables in `world/ArmorTrims.h`).
+- level.dat `Player.EnderItems` (Slot 0..26) holds the ender chest; in `LevelData`
+  these are inventory slots 200..226.
+- block_entities `minecraft:shulker_box` save `Items` (`ChestData::shulker`).
+- `nether_generator` "nether3" (new worlds): nether2 plus ancient debris.
+
 ## Signs (M23.3c)
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are

@@ -183,8 +183,8 @@ TEST_CASE("creative inventory: take from the grid, put into the hotbar, drop out
 TEST_CASE("creative inventory scrolling is clamped to the item rows") {
     CreativeInventory inv;
     inv.build(visibleModels());
-    inv.scroll(-100); // wheel down
+    inv.scroll(-10000); // wheel down (further than there are rows)
     CHECK(inv.scrollRow() == inv.maxScrollRow());
-    inv.scroll(100);
+    inv.scroll(10000);
     CHECK(inv.scrollRow() == 0);
 }

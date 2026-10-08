@@ -104,6 +104,7 @@ int Ids::computeEnchantability(ItemId item) {
         if (id.find("iron") != std::string_view::npos) return 9;
         if (id.find("copper") != std::string_view::npos) return 8;
         if (id.find("diamond") != std::string_view::npos) return 10;
+        if (id.find("netherite") != std::string_view::npos) return 15;
         return 0;
     }
     switch (d.tier) {
@@ -113,6 +114,7 @@ int Ids::computeEnchantability(ItemId item) {
     case ToolTier::Gold: return 22;
     case ToolTier::Diamond: return 10;
     case ToolTier::Copper: return 13;
+    case ToolTier::Netherite: return 15;
     default: return 0;
     }
 }

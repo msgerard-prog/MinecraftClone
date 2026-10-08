@@ -1,8 +1,11 @@
 // Container screens: slot clicks and crafting (wiki: Inventory › Controls, Crafting).
 #include "ui/ContainerScreen.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
+#include "world/ArmorTrims.h"
 #include "world/Blocks.h"
+#include "world/ChunkSerializer.h"
 #include "world/Enchantments.h"
 
 #include <doctest/doctest.h>
@@ -235,4 +238,43 @@ TEST_CASE("grindstone: strips enchantments for experience; merges two worn tools
     CHECK(f.screen.grid(0).empty());
     CHECK_FALSE(isEnchanted(f.screen.carried()));
     CHECK(f.screen.takeGrindCost() == one.xpCost);
+}
+
+TEST_CASE("smithing: netherite upgrades keep enchantments and wear; trims go on armor (M23.6)") {
+    ItemStack pick = I("diamond_pickaxe");
+    pick.damage = 300;
+    setEnchantment(pick, Enchantment::Efficiency, 4);
+    const ItemStack up = smith(I("netherite_upgrade_smithing_template"), pick, I("netherite_ingot"));
+    CHECK(up.item == I("netherite_pickaxe").item);
+    CHECK(up.damage == 300);
+    CHECK(enchantLevel(up, Enchantment::Efficiency) == 4);
+    CHECK(smith(I("netherite_upgrade_smithing_template"), I("iron_pickaxe"), I("netherite_ingot")).empty());
+    CHECK(smith(I("netherite_upgrade_smithing_template"), pick, I("diamond")).empty());
+    CHECK(tierInfo(itemRegistry().item(up.item).tier).level == 4);
+    const ItemStack trimmed = smith(I("coast_armor_trim_smithing_template"), I("iron_chestplate"), I("emerald"));
+    REQUIRE_FALSE(trimmed.empty());
+    CHECK(int(trimmed.trim >> 8) == *findTrimPattern("coast"));
+    const int trimMaterial = trimmed.trim & 0xFF;
+    CHECK(trimMaterial == *findTrimMaterial("minecraft:emerald"));
+    CHECK(smith(I("coast_armor_trim_smithing_template"), trimmed, I("emerald")).empty()); // already that trim
+    CHECK(smith(I("coast_armor_trim_smithing_template"), I("iron_sword"), I("emerald")).empty()); // not armor
+    const ItemStack back = itemFromNbtPublic(itemToNbt(trimmed, 0));
+    CHECK(back.trim == trimmed.trim);
+    CHECK(itemRegistry().item(I("netherite_sword").item).fireResistant);
+    // Through the screen: each input is used once.
+    Fixture f;
+    f.inv.setSlot(0, I("netherite_upgrade_smithing_template", 2));
+    f.inv.setSlot(1, pick);
+    f.inv.setSlot(2, I("netherite_ingot", 3));
+    f.screen.open(ContainerScreen::Type::Smithing);
+    for (int i = 0; i < 3; ++i) {
+        f.left(invX(i), hotbarY());
+        f.left(sx(8 + 18 * i), sy(48));
+    }
+    REQUIRE(f.screen.result().item == I("netherite_pickaxe").item);
+    f.left(sx(98), sy(48));
+    CHECK(f.screen.carried().item == I("netherite_pickaxe").item);
+    CHECK(f.screen.grid(0).count == 1);
+    CHECK(f.screen.grid(1).empty());
+    CHECK(f.screen.grid(2).count == 2);
 }

@@ -4,6 +4,7 @@
 
 #include "gameplay/Anvil.h"
 #include "gameplay/Grindstone.h"
+#include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
 #include "gameplay/Enchanting.h"
 #include "gameplay/Recipes.h"
@@ -114,6 +115,20 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         } else if (type == Type::Stonecutter) { // input, result (vanilla layout)
             out.push_back({K::Grid, 0, 20, 33});
             out.push_back({K::Result, 0, 143, 33});
+        } else if (type == Type::Smithing) { // template, base, addition, result (1.20+ layout)
+            out.push_back({K::Grid, 0, 8, 48});
+            out.push_back({K::Grid, 1, 26, 48});
+            out.push_back({K::Grid, 2, 44, 48});
+            out.push_back({K::Result, 0, 98, 48});
+        } else if (type == Type::Loom) { // banner, dye, pattern, result (banners come in M28)
+            out.push_back({K::Grid, 0, 13, 26});
+            out.push_back({K::Grid, 1, 33, 26});
+            out.push_back({K::Grid, 2, 23, 45});
+            out.push_back({K::Result, 0, 143, 58});
+        } else if (type == Type::Cartography) { // map, paper/glass, result (maps come in M28)
+            out.push_back({K::Grid, 0, 15, 15});
+            out.push_back({K::Grid, 1, 15, 52});
+            out.push_back({K::Result, 0, 145, 39});
         } else if (type == Type::Grindstone) { // two inputs, result
             out.push_back({K::Grid, 0, 49, 19});
             out.push_back({K::Grid, 1, 49, 40});
@@ -161,7 +176,12 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
                                    chest6 = build(Type::Chest, 6), enchanting = build(Type::Enchanting, 0),
                                    anvil = build(Type::Anvil, 0), brewing = build(Type::Brewing, 0),
                                    hopper = build(Type::Hopper, 0), dispenser = build(Type::Dispenser, 0),
-                                   stonecutter = build(Type::Stonecutter, 0), grindstone = build(Type::Grindstone, 0);
+                                   stonecutter = build(Type::Stonecutter, 0), grindstone = build(Type::Grindstone, 0),
+                                   smithing = build(Type::Smithing, 0), loom = build(Type::Loom, 0),
+                                   cartography = build(Type::Cartography, 0);
+    if (m_type == Type::Smithing) return smithing;
+    if (m_type == Type::Loom) return loom;
+    if (m_type == Type::Cartography) return cartography;
     if (m_type == Type::Stonecutter) return stonecutter;
     if (m_type == Type::Grindstone) return grindstone;
     if (m_type == Type::Hopper) return hopper;
@@ -215,6 +235,14 @@ void ContainerScreen::updateResult() {
         m_result = grind(m_grid[0], m_grid[1]).out;
         return;
     }
+    if (m_type == Type::Smithing) {
+        m_result = smith(m_grid[0], m_grid[1], m_grid[2]);
+        return;
+    }
+    if (m_type == Type::Loom || m_type == Type::Cartography) { // (their outputs come with banners and maps)
+        m_result = {};
+        return;
+    }
     if (m_type == Type::Anvil) {
         const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
         m_result = r.out;
@@ -249,6 +277,14 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 }
 
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
+    if (m_type == Type::Smithing) { // one of each input is used
+        if (m_result.empty() || !m_carried.empty()) return;
+        m_carried = m_result;
+        for (int i = 0; i < 3; ++i)
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+        updateResult();
+        return;
+    }
     if (m_type == Type::Grindstone) { // both inputs are used up; their enchantments pay experience
         if (m_result.empty() || !m_carried.empty()) return;
         m_grindCost += grind(m_grid[0], m_grid[1]).xpCost;
@@ -574,7 +610,10 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
     b.fill(left + 2, top + float(h - 3), kWidth - 3, 2, kDark);
     b.fill(left + kWidth - 3, top + 2, 2, float(h - 3), kDark);
     const int furnaceKind = m_furnace ? m_furnace->kind : 0;
-    const char* title = m_type == Type::Stonecutter ? "Stonecutter"
+    const char* title = m_type == Type::Smithing      ? "Upgrade Gear"
+                        : m_type == Type::Loom        ? "Loom"
+                        : m_type == Type::Cartography ? "Cartography Table"
+                        : m_type == Type::Stonecutter ? "Stonecutter"
                         : m_type == Type::Grindstone ? "Repair & Disenchant"
                         : m_type == Type::Hopper      ? "Item Hopper"
                         : m_type == Type::Dispenser ? (m_dropper ? "Dropper" : "Dispenser")
@@ -656,6 +695,7 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons, const 
         b.fill(left + 119, top + 15 + knob, 12, 15, rows > 3 ? kLight : kSlotFill);
     }
     if (m_type == Type::Grindstone) arrow(98, 34, 0);
+    if (m_type == Type::Smithing) arrow(68, 48, 0);
     if (m_type == Type::Inventory) arrow(134, 28, 0);
     if (m_type == Type::Crafting) arrow(90, 35, 0);
     if (m_type == Type::Brewing && m_brewing) {

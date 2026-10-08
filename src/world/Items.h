@@ -18,7 +18,7 @@ enum class ToolType : uint8_t { None, Pickaxe, Axe, Shovel, Hoe, Sword };
 
 // Tool material tiers (wiki: Tiers): mining level, speed, durability, enchantability
 // left out until enchanting exists.
-enum class ToolTier : uint8_t { None, Wood, Stone, Iron, Diamond, Gold, Copper };
+enum class ToolTier : uint8_t { None, Wood, Stone, Iron, Diamond, Gold, Copper, Netherite };
 struct TierInfo {
     int level;      // harvest level: wood/gold 0, stone 1, iron 2, diamond 3
     float speed;    // mining speed multiplier
@@ -38,6 +38,9 @@ struct ItemDef {
     float saturation = 0;
     bool alwaysEdible = false; // eaten even when not hungry (chorus fruit, golden apples)
     std::string texture;     // item sprite ("item/<name>"), empty for block items with a model
+    // Netherite things and ancient debris don't burn: dropped, they float on lava
+    // (wiki: Netherite › Properties). Set from the name.
+    bool fireResistant = false;
     // Armor (M17.3; wiki: Armor): where it is worn (0 none, 1 head, 2 chest, 3 legs,
     // 4 feet), its armor points and toughness.
     uint8_t armorSlot = 0;
@@ -84,11 +87,14 @@ struct ItemStack {
     // Items carried inside (M23.6, vanilla minecraft:container: shulker boxes): an id in
     // world/ItemContainers.h, 0 = none.
     uint32_t contents = 0;
+    // An armor trim (M23.6, world/ArmorTrims.h): pattern << 8 | material, 0 = none.
+    uint16_t trim = 0;
 
     bool empty() const { return item == kNoItem || count == 0; }
     bool sameKind(const ItemStack& o) const {
         return item == o.item && state == o.state && damage == o.damage && enchantments == o.enchantments &&
-               repairCost == o.repairCost && potion == o.potion && contents == o.contents;
+               repairCost == o.repairCost && potion == o.potion && contents == o.contents &&
+               trim == o.trim;
     }
 };
 

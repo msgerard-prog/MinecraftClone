@@ -18,6 +18,7 @@ ItemId repairMaterial(ItemId item) {
         if (id.find("golden") != std::string_view::npos) return find("gold_ingot");
         if (id.find("iron") != std::string_view::npos) return find("iron_ingot");
         if (id.find("diamond") != std::string_view::npos) return find("diamond");
+        if (id.find("netherite") != std::string_view::npos) return find("netherite_ingot");
         return 0;
     }
     switch (d.tier) {
@@ -27,6 +28,7 @@ ItemId repairMaterial(ItemId item) {
     case ToolTier::Gold: return find("gold_ingot");
     case ToolTier::Diamond: return find("diamond");
     case ToolTier::Copper: return find("copper_ingot");
+    case ToolTier::Netherite: return find("netherite_ingot");
     default: return 0;
     }
 }

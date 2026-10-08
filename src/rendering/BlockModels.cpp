@@ -855,6 +855,33 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_bottom").c_str());
                 m = single(v);
+            } else if (name == "ancient_debris") {
+                m = single(cubeColumn(sprite("ancient_debris_side"), sprite("ancient_debris_top"), "y"));
+            } else if (name == "smithing_table") { // (fronts on the north and south sides)
+                BakedVariant v = cubeAll(sprite("smithing_table_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("smithing_table_top");
+                v.faces[int(Direction::Down)].sprite = sprite("smithing_table_bottom");
+                v.faces[int(Direction::North)].sprite = sprite("smithing_table_front");
+                v.faces[int(Direction::South)].sprite = sprite("smithing_table_front");
+                m = single(v);
+            } else if (name == "cartography_table") { // (three different sides)
+                BakedVariant v = cubeAll(sprite("cartography_table_side3"));
+                v.faces[int(Direction::Up)].sprite = sprite("cartography_table_top");
+                v.faces[int(Direction::Down)].sprite = sprite("dark_oak_planks");
+                v.faces[int(Direction::South)].sprite = sprite("cartography_table_side1");
+                v.faces[int(Direction::West)].sprite = sprite("cartography_table_side2");
+                m = single(v);
+            } else if (name == "loom") { // the front toward `facing`
+                const auto facing = registry.value(state, "facing").value_or("north");
+                BakedVariant v = cubeAll(sprite("loom_side"));
+                v.faces[int(Direction::Up)].sprite = sprite("loom_top");
+                v.faces[int(Direction::Down)].sprite = sprite("loom_bottom");
+                const Direction front = facing == "south" ? Direction::South
+                                        : facing == "west" ? Direction::West
+                                        : facing == "east" ? Direction::East
+                                                           : Direction::North;
+                v.faces[int(front)].sprite = sprite("loom_front");
+                m = single(v);
             } else if (name == "crafting_table") {
                 BakedVariant v = cubeAll(sprite("crafting_table_side"));
                 v.faces[int(Direction::Up)].sprite = sprite("crafting_table_top");

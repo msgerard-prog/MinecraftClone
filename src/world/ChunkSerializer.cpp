@@ -1,6 +1,7 @@
 #include "world/ChunkSerializer.h"
 
 #include "core/Log.h"
+#include "world/ArmorTrims.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 #include "world/ItemContainers.h"
@@ -199,6 +200,16 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         contents.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
         components.put("minecraft:potion_contents", std::move(contents));
     }
+    if (s.trim) { // 1.20.5+ minecraft:trim {pattern, material}
+        const int pattern = s.trim >> 8, material = s.trim & 0xFF;
+        if (pattern >= 1 && pattern <= int(std::size(kTrimPatterns)) && material >= 1 &&
+            material <= int(std::size(kTrimMaterials))) {
+            nbt::Compound trim;
+            trim.put("pattern", "minecraft:" + std::string(kTrimPatterns[pattern - 1]));
+            trim.put("material", "minecraft:" + std::string(kTrimMaterials[material - 1].id));
+            components.put("minecraft:trim", std::move(trim));
+        }
+    }
     if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker boxes)
         const ItemContents slots = itemContents(s.contents);
         std::vector<nbt::Tag> list;
@@ -249,6 +260,13 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
         if (const nbt::Compound* pc = comps->compound("minecraft:potion_contents"))
             if (const std::string* pid = pc->string("potion"))
                 if (const auto p = findPotion(*pid)) s.potion = static_cast<uint8_t>(*p);
+        if (const nbt::Compound* trim = comps->compound("minecraft:trim")) {
+            const std::string* pattern = trim->string("pattern");
+            const std::string* material = trim->string("material");
+            const auto p = pattern ? findTrimPattern(*pattern) : std::nullopt;
+            const auto m = material ? findTrimMaterial(*material) : std::nullopt;
+            if (p && m) s.trim = static_cast<uint16_t>(*p << 8 | *m);
+        }
         if (const nbt::List* box = comps->list("minecraft:container")) {
             ItemContents slots{};
             for (const nbt::Tag& t : box->items)

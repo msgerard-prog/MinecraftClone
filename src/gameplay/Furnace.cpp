@@ -24,6 +24,7 @@ bool tickFurnace(Furnace& f) {
     if (result && f.kind == 2) {
         const std::string_view in = world::itemRegistry().item(f.input.item).id;
         const bool ore = in.find("_ore") != std::string_view::npos || in.find("raw_") != std::string_view::npos ||
+                         in == "minecraft:ancient_debris" ||
                          in.find("iron_") != std::string_view::npos || in.find("golden_") != std::string_view::npos;
         if (!ore) result.reset();
     }

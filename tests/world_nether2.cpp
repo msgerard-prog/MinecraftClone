@@ -10,7 +10,7 @@
 using namespace mc::world;
 
 TEST_CASE("nether2: five biomes with their ground and plants; the M12 nether stays wastes only") {
-    const NetherGenerator gen(42), old(42, 1);
+    const NetherGenerator gen(42, 2), old(42, 1); // (nether2, pinned; nether3 adds debris)
     CHECK(gen.kind() == "nether2");
     CHECK(old.kind() == "nether");
     std::array<bool, size_t(Biome::Count)> seen{};
@@ -67,7 +67,7 @@ TEST_CASE("nether2: five biomes with their ground and plants; the M12 nether sta
 }
 
 TEST_CASE("nether2: fortresses (bridges, blaze spawners, loot) and bastions (blackstone, gold, piglins)") {
-    const NetherGenerator gen(42);
+    const NetherGenerator gen(42, 2);
     ChunkPos fortress{0, 0}, bastion{0, 0};
     bool haveF = false, haveB = false;
     for (int z = -60; z <= 60 && !(haveF && haveB); ++z)

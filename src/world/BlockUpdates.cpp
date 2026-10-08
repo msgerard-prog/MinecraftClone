@@ -2146,6 +2146,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return withHFacing(r.set(state, face, 1), faceDir);
     case B::Stonecutter:
         return withHFacing(state, look);
+    case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));
     case B::Lever:

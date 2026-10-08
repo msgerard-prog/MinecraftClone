@@ -285,6 +285,45 @@ TEST_CASE("nether and end output are pinned (seed 42)") {
     EndGenerator(42).generate(e);
     CHECK(chunkHash(n) == 4236505564017377935ull);
     CHECK(chunkHash(e) == 11352441782643008173ull);
+    Chunk n2({3, -5}, kNetherHeight);
+    NetherGenerator(42, 2).generate(n2); // "nether2" (M19, frozen at v0.19.0; pinned in M23.6)
+    CHECK(chunkHash(n2) == 6092863011108455525ull);
+    Chunk n3({3, -5}, kNetherHeight);
+    NetherGenerator(42).generate(n3); // "nether3" (M23.6, new worlds)
+    CHECK(chunkHash(n3) == 16372624135412048177ull); // (pinned while M23 builds nether3)
+}
+
+TEST_CASE("nether3: nether2 plus ancient debris, never touching air (M23.6)") {
+    using namespace mc::world;
+    const auto& r = blockRegistry();
+    const NetherGenerator gen(42), old(42, 2);
+    CHECK(gen.kind() == "nether3");
+    int debris = 0, exposed = 0, otherDiffs = 0;
+    for (int cz = 0; cz < 6; ++cz)
+        for (int cx = 0; cx < 6; ++cx) {
+            Chunk a({cx, cz}, kNetherHeight), b({cx, cz}, kNetherHeight);
+            gen.generate(a);
+            old.generate(b);
+            for (int y = 1; y < 127; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        if (a.get(x, y, z) == b.get(x, y, z)) continue;
+                        if (r.blockOf(a.get(x, y, z)) != blocks::AncientDebris) {
+                            ++otherDiffs;
+                            continue;
+                        }
+                        ++debris;
+                        CHECK(y >= 7);
+                        for (const auto& d : {std::array{1, 0, 0}, std::array{-1, 0, 0}, std::array{0, 1, 0},
+                                              std::array{0, -1, 0}, std::array{0, 0, 1}, std::array{0, 0, -1}}) {
+                            const int nx = x + d[0], nz = z + d[2];
+                            if (nx >= 0 && nx < 16 && nz >= 0 && nz < 16) exposed += a.get(nx, y + d[1], nz) == 0;
+                        }
+                    }
+        }
+    CHECK(otherDiffs == 0); // only debris added
+    CHECK(debris > 10);     // about 1-5 per chunk, fewer where it would touch air
+    CHECK(exposed == 0);
 }
 
 TEST_CASE("dimensions: ids, folders, void depth; far End chunks are empty (no int overflow)") {

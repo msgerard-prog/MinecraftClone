@@ -367,14 +367,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
     // The Nether's generator (M19): new worlds get the newest; old ones keep theirs.
-    const std::string netherKind = level ? level->netherGenerator : std::string("nether2");
+    const std::string netherKind = level ? level->netherGenerator : std::string("nether3");
     const std::string endKind = level ? level->endGenerator : std::string("end2"); // (M20)
     if (endKind != "end" && endKind != "end2") {
         MC_LOG_ERROR("World \"%s\" uses End generator \"%s\", which this build doesn't have", worldName.c_str(),
                      endKind.c_str());
         return 1;
     }
-    if (netherKind != "nether" && netherKind != "nether2") {
+    if (netherKind != "nether" && netherKind != "nether2" && netherKind != "nether3") {
         MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have", worldName.c_str(),
                      netherKind.c_str());
         return 1;
@@ -387,7 +387,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
         if (d == Dimension::Nether)
-            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether" ? 1 : 2);
+            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether"    ? 1
+                                                                      : netherKind == "nether2" ? 2
+                                                                                                : 3);
         if (d == Dimension::End) return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);
         return std::make_unique<mc::world::OverworldGenerator>(seed, generatorKind == "overworld" ? 1 : 2);
@@ -570,6 +572,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             s.repairCost = static_cast<uint8_t>(std::clamp(it.repairCost, 0, 255));
             if (const auto p = mc::world::findPotion(it.potion)) s.potion = static_cast<uint8_t>(*p);
             s.contents = it.contents;
+            s.trim = it.trim;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103) inventory.setArmor(103 - it.slot, s);
             else if (it.slot == 150) inventory.setOffhand(s);
@@ -701,6 +704,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (s.potion) it.potion = std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
             it.storedEnchantments = it.id == "minecraft:enchanted_book";
             it.contents = s.contents;
+            it.trim = s.trim;
             l.inventory.push_back(std::move(it));
         };
         for (int i = 0; i < mc::Inventory::kSlots; ++i)
@@ -1068,10 +1072,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::RedBed) {
                         pendingBedUse = lastHit->block; // used in the next tick (simulation stays in ticks)
-                    } else if (block == mc::world::blocks::Stonecutter || block == mc::world::blocks::Grindstone) {
-                        containerBlock = lastHit->block; // (M23.5)
-                        container.open(block == mc::world::blocks::Stonecutter ? mc::ui::ContainerScreen::Type::Stonecutter
-                                                                               : mc::ui::ContainerScreen::Type::Grindstone);
+                    } else if (block == mc::world::blocks::Stonecutter || block == mc::world::blocks::Grindstone ||
+                               block == mc::world::blocks::SmithingTable || block == mc::world::blocks::Loom ||
+                               block == mc::world::blocks::CartographyTable) {
+                        using T = mc::ui::ContainerScreen::Type; // (M23.5-6 workstations)
+                        containerBlock = lastHit->block;
+                        container.open(block == mc::world::blocks::Stonecutter     ? T::Stonecutter
+                                       : block == mc::world::blocks::Grindstone    ? T::Grindstone
+                                       : block == mc::world::blocks::SmithingTable ? T::Smithing
+                                       : block == mc::world::blocks::Loom          ? T::Loom
+                                                                                   : T::Cartography);
                         window.setCursorCaptured(false);
                     } else if (block == mc::world::blocks::EnchantingTable) {
                         containerBlock = lastHit->block;
@@ -2481,6 +2491,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 container.open(mc::ui::ContainerScreen::Type::Stonecutter);
             else if (obBlock == mc::world::blocks::Grindstone)
                 container.open(mc::ui::ContainerScreen::Type::Grindstone);
+            else if (obBlock == mc::world::blocks::SmithingTable)
+                container.open(mc::ui::ContainerScreen::Type::Smithing);
             else if (obBlock == mc::world::blocks::EnchantingTable)
                 container.openEnchanting(mc::countBookshelves(world, ob), vitals.enchantSeed());
             else if (obBlock == mc::world::blocks::Anvil || obBlock == mc::world::blocks::ChippedAnvil ||

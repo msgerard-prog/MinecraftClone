@@ -90,6 +90,21 @@ std::vector<Recipe> build() {
     // M23.6 (wiki: Ender Chest, Shulker Box): 8 obsidian around an eye; shells over a
     // chest; any shulker box with a dye becomes that colour (contents kept: craft()).
     r.push_back(shaped({"###", "#E#", "###"}, {{'#', item("obsidian")}, {'E', item("ender_eye")}}, "ender_chest"));
+    // Netherite (wiki: Netherite Ingot - 4 scrap and 4 gold; Smithing Template - copied
+    // with 7 diamonds and its material; Smithing Table).
+    r.push_back(shapeless({item("netherite_scrap"), item("netherite_scrap"), item("netherite_scrap"),
+                           item("netherite_scrap"), item("gold_ingot"), item("gold_ingot"), item("gold_ingot"),
+                           item("gold_ingot")},
+                          "netherite_ingot"));
+    r.push_back(shaped({"###", "###", "###"}, {{'#', item("netherite_ingot")}}, "netherite_block"));
+    r.push_back(shapeless({item("netherite_block")}, "netherite_ingot", 9));
+    r.push_back(shaped({"DTD", "DND", "DDD"},
+                       {{'D', item("diamond")}, {'T', item("netherite_upgrade_smithing_template")}, {'N', item("netherrack")}},
+                       "netherite_upgrade_smithing_template", 2));
+    r.push_back(shaped({"II", "PP", "PP"}, {{'I', item("iron_ingot")}, {'P', kPlanks}}, "smithing_table"));
+    r.push_back(shaped({"SS", "PP"}, {{'S', item("string")}, {'P', kPlanks}}, "loom"));                   // wiki: Loom
+    r.push_back(shaped({"AA", "PP", "PP"}, {{'A', item("paper")}, {'P', kPlanks}}, "cartography_table")); // wiki
+
     r.push_back(shaped({"S", "C", "S"}, {{'S', item("shulker_shell")}, {'C', item("chest")}}, "shulker_box"));
     for (const char* colour : kDyeColours) {
         const std::string c(colour);
@@ -559,6 +574,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "raw_iron" || n == "iron_ore" || n == "deepslate_iron_ore") return out("iron_ingot");
     if (n == "raw_gold" || n == "gold_ore" || n == "deepslate_gold_ore" || n == "nether_gold_ore") return out("gold_ingot");
     if (n == "nether_quartz_ore") return out("quartz");
+    if (n == "ancient_debris") return out("netherite_scrap"); // (wiki: Netherite Scrap, M23.6)
     if (n == "raw_copper" || n == "copper_ore" || n == "deepslate_copper_ore") return out("copper_ingot");
     if (n == "sand" || n == "red_sand") return out("glass");
     if (n == "cobblestone") return out("stone");
@@ -600,6 +616,7 @@ float smeltExperienceByName(std::string_view n) {
         n.ends_with("redstone_ore"))
         return 0.7f;
     if (n == "nether_quartz_ore" || n.ends_with("lapis_ore")) return 0.2f;
+    if (n == "ancient_debris") return 2.0f;
     if (n.ends_with("coal_ore")) return 0.1f;
     if (n == "beef" || n == "porkchop" || n == "mutton" || n == "chicken" || n == "potato") return 0.35f;
     if (n.ends_with("_log")) return 0.15f;
