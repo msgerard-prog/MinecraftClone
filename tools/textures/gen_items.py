@@ -649,6 +649,15 @@ def mace():
     return img
 
 
+def spear(base):
+    """M28.4e: a long shaft with a leaf-shaped head (upper right)."""
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(1, 11)}, ramp(hexc("#8A6A42"), 5))
+    s.add({(10, 4), (11, 3), (12, 2), (13, 1), (11, 4), (12, 3), (13, 2), (10, 3), (12, 1), (11, 2)},
+          ramp(hexc(base), 5, spread=0.35))
+    return s.render()
+
+
 def bone():
     pal = ramp(hexc("#E8E2CC"), 5, spread=0.25)
     s = Shape()
@@ -1467,6 +1476,9 @@ def all_items():
     items["firework_rocket"] = firework_rocket()  # (M28.4c)
     items["firework_star"] = firework_star()
     items["mace"] = mace()  # (M28.4d)
+    for mat, base in (("wooden", "#A07A48"), ("stone", "#8E8E8E"), ("copper", "#D9804F"), ("iron", "#D6D6D6"),
+                      ("golden", "#F2CF3C"), ("diamond", "#45DCCB"), ("netherite", "#5A4E56")):  # (M28.4e)
+        items[f"{mat}_spear"] = spear(base)
     ok = trial_key()
     for y in range(16):
         for x in range(16):

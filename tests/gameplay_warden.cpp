@@ -223,3 +223,28 @@ TEST_CASE("the mace: smash damage by the height fallen, Density, Wind Burst; the
     REQUIRE(m);
     CHECK(itemRegistry().item(m->item).id == "minecraft:mace");
 }
+
+#include "world/Enchantments.h"
+
+TEST_CASE("spears: seven tiers, a long jab, a charge by speed, Lunge; crafted on the diagonal (M28.4e)") {
+    const auto& items = itemRegistry();
+    for (const char* id : {"wooden_spear", "stone_spear", "copper_spear", "iron_spear", "golden_spear", "diamond_spear",
+                           "netherite_spear"}) {
+        const auto s = items.find(id);
+        REQUIRE(s);
+        CHECK(items.item(*s).tool == ToolType::Spear);
+        CHECK(items.item(*s).durability > 0);
+    }
+    CHECK(kSpearReach > 3.0);
+    CHECK(spearChargeDamage(5.0f, 0.1) == 0.0f);   // (walking: no charge)
+    CHECK(spearChargeDamage(5.0f, 0.3) == doctest::Approx(6.0f)); // (sprinting)
+    CHECK(spearChargeDamage(5.0f, 0.6) == doctest::Approx(12.0f)); // (on a horse)
+    CHECK(canEnchant(*items.find("iron_spear"), Enchantment::Lunge));
+    CHECK_FALSE(canEnchant(*items.find("iron_sword"), Enchantment::Lunge));
+    std::array<ItemStack, 9> g{};
+    g[2] = {*items.find("iron_ingot"), 1};
+    g[4] = g[6] = {*items.find("stick"), 1};
+    const auto r = craft(g, 3);
+    REQUIRE(r);
+    CHECK(items.item(r->item).id == "minecraft:iron_spear");
+}

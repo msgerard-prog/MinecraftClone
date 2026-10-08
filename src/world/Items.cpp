@@ -142,6 +142,16 @@ ItemRegistry buildItems() {
                .attackDamage = damage,
                .texture = "item/" + name});
     }
+    // Spears (M28.4e; 1.21.11): a jab with a long reach, a charge that hits by speed. Ours:
+    // a jab does a sword's damage less 1; durability by tier.
+    for (const auto& [mat, tier, damage] : {std::tuple{"wooden", ToolTier::Wood, 3.0f}, std::tuple{"stone", ToolTier::Stone, 4.0f},
+                                            std::tuple{"copper", ToolTier::Copper, 4.0f}, std::tuple{"iron", ToolTier::Iron, 5.0f},
+                                            std::tuple{"golden", ToolTier::Gold, 3.0f}, std::tuple{"diamond", ToolTier::Diamond, 6.0f},
+                                            std::tuple{"netherite", ToolTier::Netherite, 7.0f}}) {
+        const std::string name = std::string(mat) + "_spear";
+        r.add({.id = "minecraft:" + name, .maxStack = 1, .tool = ToolType::Spear, .tier = tier,
+               .durability = tierInfo(tier).durability, .attackDamage = damage, .texture = "item/" + name});
+    }
     // Netherite materials and the smithing templates (M23.6; wiki: Netherite Ingot,
     // Smithing Template).
     // Beacons and conduits (M23.6): the nether star comes with the Wither (M26), the

@@ -593,6 +593,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     int bowTicks = 0;      // how long the bow has been drawn
     int crossbowTicks = 0; // (M28.4a) how long the crossbow has been loading
     int elytraBoost = 0;   // (M28.4c) ticks of a firework's push left while gliding
+    int spearCharge = 0;   // (M28.4e) ticks the spear has been held out
     uint64_t playerTargetUuid = 0; // the mob the player last hit (M26.1: tamed wolves join in)
     int playerTargetTicks = 0;     // (forgotten after 100 ticks, like vanilla's last-hurt memory)
     int tridentTicks = 0;  // how long a trident has been held back (M25.3)
@@ -2322,6 +2323,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                   0.75f + mc::bowPower(bowTicks) * 0.5f, false);
                     bowTicks = 0;
                 }
+                // Spears (M28.4e): held out (right-click) for up to 5 s, the charge hits what is in
+                // front when moving fast - on foot sprinting, faster on a mount.
+                if (!dead && mc::world::itemRegistry().item(inventory.selectedStack().item).tool == mc::world::ToolType::Spear &&
+                    clicks.use && spearCharge < 100) {
+                    ++spearCharge;
+                    const mc::world::MobData* steed = ridingCart ? findCart() : nullptr;
+                    const glm::dvec3 v = steed ? steed->vel : player.velocity();
+                    const double speed = glm::length(glm::dvec2(v.x, v.z));
+                    const float dmg = mc::spearChargeDamage(mc::world::itemRegistry().item(inventory.selectedStack().item).attackDamage, speed);
+                    if (dmg > 0.0f)
+                        if (const auto mh = mc::Mobs::raycast(world, eye, look, mc::kSpearReach, ridingCart);
+                            mh && (!lastHit || mh->distance < lastHit->distance)) {
+                            auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                            if (m.hurtTime == 0 && m.health > 0.0f && !mc::world::isHanging(m.type)) {
+                                mc::Mobs::attack(m, dmg, player.position());
+                                m.vel += glm::dvec3(look.x, 0.2, look.z) * 0.6; // (knocked along)
+                                stats.add(mc::world::Stat::DamageDealt, std::lround(dmg * 10.0f));
+                                playSound(mc::world::Sound::AttackHit, m.pos, 1.0f, 0.8f, true);
+                                if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(inventory.selectedStack(), 1, gameRng));
+                            }
+                        }
+                    clicks.useClick = false;
+                } else if (!clicks.use) {
+                    spearCharge = 0;
+                }
                 // Crossbows (M28.4a; wiki: Crossbow): hold right-click to load (an arrow), then
                 // a right-click fires; letting go before it is loaded starts over.
                 if (!dead && heldId == "minecraft:crossbow") {
@@ -3093,7 +3119,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!dead && clicks.attackClick) {
                 const glm::dvec3 eye = player.eyePosition(1.0);
                 const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
-                const double reach = survival ? 3.0 : 5.0; // wiki: entity interaction range
+                const bool spearHeld = mc::world::itemRegistry().item(inventory.selectedStack().item).tool ==
+                                       mc::world::ToolType::Spear; // (M28.4e: a jab reaches farther)
+                const double reach = spearHeld ? (survival ? mc::kSpearReach : 5.0)
+                                               : survival ? 3.0 : 5.0; // wiki: entity interaction range
+                if (spearHeld && survival)
+                    if (const int lunge = mc::world::enchantLevel(inventory.selectedStack(), mc::world::Enchantment::Lunge); lunge > 0) {
+                        const glm::dvec3 f(std::cos(glm::radians(player.yaw() + 90.0)), 0.0, std::sin(glm::radians(player.yaw() + 90.0)));
+                        player.setVelocity(player.velocity() + f * mc::lungeImpulse(lunge)); // (Lunge: forward with the jab)
+                        vitals.exhaust(1.0f * float(lunge));
+                    }
                 if (const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
@@ -3195,7 +3230,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             (held.tool != mc::world::ToolType::None || stack.item == maceItem)) // swords wear 1 per hit, tools 2 (wiki)
                             inventory.setSlot(
                                 inventory.selected(),
-                                mc::wearItem(stack, held.tool == mc::world::ToolType::Sword || stack.item == maceItem ? 1 : 2,
+                                mc::wearItem(stack,
+                                             held.tool == mc::world::ToolType::Sword || held.tool == mc::world::ToolType::Spear ||
+                                                     stack.item == maceItem
+                                                 ? 1
+                                                 : 2,
                                              gameRng));
                     }
                     if (survival) vitals.exhaust(0.1f); // wiki: attacking

@@ -53,6 +53,8 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:density", "Density", 5, 5, 5, 8, 20, 45, EnchantTarget::Mace, 5},
     {"minecraft:breach", "Breach", 4, 2, 15, 9, 50, 50, EnchantTarget::Mace, 5},
     {"minecraft:wind_burst", "Wind Burst", 3, 0, 15, 9, 50, 50, EnchantTarget::Mace, 0},
+    // (M28.4e; ours: III, weight 5, costs like Quick Charge)
+    {"minecraft:lunge", "Lunge", 3, 5, 12, 20, 38, 50, EnchantTarget::Spear, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -114,6 +116,7 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::Trident: return item == ids().trident;
     case EnchantTarget::Crossbow: return d.id == "minecraft:crossbow";
     case EnchantTarget::Mace: return d.id == "minecraft:mace";
+    case EnchantTarget::Spear: return d.tool == ToolType::Spear;
     }
     return false;
 }

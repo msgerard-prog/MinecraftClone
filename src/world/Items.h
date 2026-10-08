@@ -14,7 +14,7 @@ namespace mc::world {
 using ItemId = uint16_t; // dense, runtime-only (saves store "minecraft:<id>")
 inline constexpr ItemId kNoItem = 0; // empty slot ("minecraft:air")
 
-enum class ToolType : uint8_t { None, Pickaxe, Axe, Shovel, Hoe, Sword };
+enum class ToolType : uint8_t { None, Pickaxe, Axe, Shovel, Hoe, Sword, Spear };
 
 // Tool material tiers (wiki: Tiers): mining level, speed, durability, enchantability
 // left out until enchanting exists.

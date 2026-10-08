@@ -20,9 +20,9 @@ M28 - Progression & game (wiki pages of each feature):
    b) maps (empty, filled, drawn, zoom, cartography); c) books and quills, written books.
 3. ✅ M28.3 - Decorations: a) item frames, paintings; b) armor stands; c) leads (fences,
    llama caravans); d) banners (patterns, the loom).
-4. M28.4 - Combat items: crossbows (multishot, piercing, quick charge), tipped and
-   spectral arrows, lingering potions, fireworks (rockets for elytra), the mace (heavy
-   core from ominous vaults), spears.
+4. ✅ M28.4 - Combat items: a) crossbows (multishot, piercing, quick charge), b) tipped and
+   spectral arrows, lingering potions, c) fireworks (rockets for elytra), d) the mace (heavy
+   core from ominous vaults; Trial Omen), e) spears.
 5. M28.5 - Advancements; the remaining blocks: candles, 1.21.5 plants (firefly bushes,
    leaf litter, wildflowers, bushes, cactus flowers, dry grass), disc fragments and disc 5.
 

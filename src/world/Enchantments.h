@@ -46,6 +46,7 @@ enum class Enchantment : uint8_t {
     Density,      // (M28.4d) maces: +0.5 smash damage per block fallen a level
     Breach,       // (M28.4d) maces: armor protects 15% less a level
     WindBurst,    // (M28.4d) maces: a smash launches the player up (treasure)
+    Lunge,        // (M28.4e) spears: a jab throws the player forward
     Count
 };
 // Random enchantments (loot enchant_randomly, fishing treasure) draw from the ones before
@@ -54,7 +55,7 @@ enum class Enchantment : uint8_t {
 inline constexpr uint32_t kRandomEnchantments = uint32_t(Enchantment::Channeling);
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow, Mace };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow, Mace, Spear };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"

@@ -218,6 +218,12 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"~~.", "~O.", "..~"}, {{'~', item("string")}, {'O', item("slime_ball")}}, "lead", 2)); // (M28.3c)
     r.push_back(shaped({".G.", "GAG", ".G."}, {{'G', item("glowstone_dust")}, {'A', item("arrow")}}, "spectral_arrow", 2));
     r.push_back(shaped({"H", "R"}, {{'H', item("heavy_core")}, {'R', item("breeze_rod")}}, "mace")); // (M28.4d)
+    // Spears (M28.4e; ours: the head at the top right, two sticks down the diagonal)
+    for (const auto& [mat, head] : {std::pair{"stone", "cobblestone"}, std::pair{"copper", "copper_ingot"},
+                                    std::pair{"iron", "iron_ingot"}, std::pair{"golden", "gold_ingot"},
+                                    std::pair{"diamond", "diamond"}})
+        r.push_back(shaped({"..M", ".S.", "S.."}, {{'M', item(head)}, {'S', item("stick")}}, std::string(mat) + "_spear"));
+    r.push_back(shaped({"..M", ".S.", "S.."}, {{'M', kPlanks}, {'S', item("stick")}}, "wooden_spear"));
     // Banners and banner patterns (M28.3d; wiki: Banner, Banner Pattern; no vines yet for
     // bordure indented).
     for (const char* c : kDyeColours)

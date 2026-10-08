@@ -44,4 +44,12 @@ inline double windBurstLift(int level) {
     return level <= 0 ? 0.0 : std::sqrt(2.0 * 0.08 * double(6 + level) / 0.9);
 }
 
+// Spears (M28.4e; 1.21.11 - our assumptions): a jab reaches 4.5 blocks; held out while
+// moving at least 0.25 blocks a tick (a sprint is about 0.28, a horse more), the charge hits
+// what is in front for the jab damage x speed x 4; Lunge throws the player 0.5 blocks a tick
+// forward a level when jabbing.
+inline constexpr double kSpearReach = 4.5;
+inline float spearChargeDamage(float jab, double speed) { return speed < 0.25 ? 0.0f : jab * float(speed) * 4.0f; }
+inline double lungeImpulse(int level) { return 0.5 * double(level); }
+
 } // namespace mc
