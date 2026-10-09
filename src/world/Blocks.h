@@ -86,6 +86,8 @@ extern const Property drag;             // true | false (M29.5: bubble columns p
 extern const Property sideChain;        // unconnected | right | center | left (M29.6: powered shelves in a row)
 extern const Property golemPose;        // standing | sitting | running | star (M29.6: copper golem statues)
 extern const Property conditional;      // true | false (M29.7: command blocks)
+extern const Property structureMode;    // save | load | corner | data (M29.7)
+extern const Property testMode;         // start | log | fail | accept (M29.7)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -620,6 +622,16 @@ enum : BlockId {
     CommandBlock,          // impulse (conditional, facing)
     ChainCommandBlock,     // runs after the one pointing into it
     RepeatingCommandBlock, // runs every tick while active
+    StructureBlock,        // mode (save, load, corner, data) - ours keeps only its mode
+    StructureVoid,         // an invisible, see-through marker
+    Jigsaw,                // orientation - for structure pieces (no function of ours)
+    Barrier,               // invisible and solid
+    Light,                 // invisible light, level 0..15
+    PlayerHead,            // as the mob heads (rotation)
+    PlayerWallHead,        // (facing)
+    PetrifiedOakSlab,      // an oak slab that is stone to tools
+    TestBlock,             // mode (start, log, fail, accept) - 1.21.5 game tests
+    TestInstanceBlock,
     Count
 };
 } // namespace blocks
@@ -633,8 +645,13 @@ inline bool isTallPlant(BlockId b) { // (M27.5c: and the pitcher plant)
 // Two-block plants with halves kept together: those and the small dripleaf (M27.2).
 inline bool isTwoBlockPlant(BlockId b) { return isTallPlant(b) || b == blocks::SmallDripleaf; }
 // Mob heads (M26.4b): the standing kinds sit at even ids, each wall kind right after.
-inline bool isMobHead(BlockId b) { return b >= blocks::SkeletonSkull && b <= blocks::DragonWallHead; }
-inline bool isWallHead(BlockId b) { return isMobHead(b) && (b - blocks::SkeletonSkull) % 2 == 1; }
+// (M29.7: player heads too, registered later)
+inline bool isMobHead(BlockId b) {
+    return (b >= blocks::SkeletonSkull && b <= blocks::DragonWallHead) || b == blocks::PlayerHead || b == blocks::PlayerWallHead;
+}
+inline bool isWallHead(BlockId b) {
+    return b == blocks::PlayerWallHead || (isMobHead(b) && b != blocks::PlayerHead && (b - blocks::SkeletonSkull) % 2 == 1);
+}
 
 // Dye colours in vanilla's order (wiki: Dye › Data values): wool, carpets, stained
 // glass, dyes...

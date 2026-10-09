@@ -97,6 +97,10 @@ ItemRegistry buildItems() {
         }
         if (isMobHead(b))
             continue; // (M26.4b: below - worn on the head, wall kinds from the standing ones)
+        if (b == blocks::Barrier || b == blocks::Light || b == blocks::StructureVoid) { // (M29.7) invisible: a flat icon
+            r.mapBlock(b, r.add({.id = id, .block = b, .texture = "item/" + id.substr(10)}));
+            continue;
+        }
         const bool sign =
             blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
         const bool bed = blocks.likeOf(b) == blocks::RedBed; // (M29.4b; wiki: Bed - unstackable)
@@ -106,7 +110,9 @@ ItemRegistry buildItems() {
     }
     r.mapBlock(blocks::KelpPlant, *r.find("kelp")); // (M25.1)
     // Mob heads (M26.4b; wiki: Head): placeable, and worn in the helmet slot.
-    for (BlockId b = blocks::SkeletonSkull; b <= blocks::DragonHead; b += 2) {
+    for (BlockId b : {BlockId(blocks::SkeletonSkull), BlockId(blocks::WitherSkeletonSkull), BlockId(blocks::ZombieHead),
+                      BlockId(blocks::CreeperHead), BlockId(blocks::PiglinHead), BlockId(blocks::DragonHead),
+                      BlockId(blocks::PlayerHead)}) { // (M29.7: the player's too)
         ItemDef head;
         head.id = blocks.block(b).id;
         head.block = b;

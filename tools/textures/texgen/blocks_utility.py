@@ -802,3 +802,27 @@ for _st, _hx in COPPER_STAGES.items():
     reg(_st + "copper_chain", lambda r, h=_hx: _chain(r, ramp(hexc(h), spread=0.28)))
     reg(_st + "copper_lantern", lambda r, h=_hx: _lantern(r, COPPER_FLAME, ramp(hexc(h), spread=0.28)))
 reg("copper_torch", lambda r: _torch(r, COPPER_FLAME))
+
+
+# --- Test blocks (M29.7, 1.21.5 game tests; wiki: Test Block): a framed panel per mode.
+def _test_block(rng, colour, mark):
+    img = Img()
+    pal = ramp(hexc(colour), spread=0.25)
+    for y in range(N):
+        for x in range(N):
+            edge = x in (0, 15) or y in (0, 15)
+            img.set(x, y, pal[1] if edge else pal[2 if (x + y) % 5 else 3])
+    for (x, y) in mark:
+        img.set(x, y, (240, 240, 240, 255))
+    return img
+
+
+_CHECK = [(4, 8), (5, 9), (6, 10), (7, 9), (8, 8), (9, 7), (10, 6), (11, 5)]
+_CROSS = [(i, i) for i in range(4, 12)] + [(i, 15 - i) for i in range(4, 12)]
+_ARROW = [(x, 8) for x in range(4, 12)] + [(9, 6), (10, 7), (9, 10), (10, 9)]
+_LINES = [(x, y) for y in (5, 8, 11) for x in range(4, 12)]
+reg("test_block_start", lambda r: _test_block(r, "3a7ad0", _ARROW))
+reg("test_block_log", lambda r: _test_block(r, "8a8a8a", _LINES))
+reg("test_block_fail", lambda r: _test_block(r, "c03030", _CROSS))
+reg("test_block_accept", lambda r: _test_block(r, "30a040", _CHECK))
+reg("test_instance_block", lambda r: _test_block(r, "6a4a9a", _LINES[:8]))

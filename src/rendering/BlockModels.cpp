@@ -431,6 +431,23 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name == "barrier" || name == "light" || name == "structure_void") { // (M29.7) never drawn
+        m = BakedModel{};
+        m.visible = false;
+    } else if (name == "structure_block") { // (M29.7) its mode's face all round
+        m = single(cubeAll(sprite(("structure_block_" + std::string(registry.value(state, "mode").value_or("load"))).c_str())));
+    } else if (name == "test_block") {
+        m = single(cubeAll(sprite(("test_block_" + std::string(registry.value(state, "mode").value_or("start"))).c_str())));
+    } else if (name == "jigsaw") { // (M29.7) its arrow face toward its front, the back opposite
+        const std::string o(registry.value(state, "orientation").value_or("north_up"));
+        static constexpr const char* kSides[6] = {"down", "up", "north", "south", "west", "east"};
+        int front = 2;
+        for (int k = 0; k < 6; ++k)
+            if (o.starts_with(kSides[k])) front = k;
+        BakedVariant v = cubeAll(sprite("jigsaw_side"));
+        v.faces[front].sprite = sprite("jigsaw_top");
+        v.faces[front ^ 1].sprite = sprite("jigsaw_bottom");
+        m = single(v);
     } else if (name.ends_with("command_block")) { // (M29.7) the arrow front, its back, marked sides
         const auto f = registry.value(state, "facing").value_or("north");
         static constexpr const char* kSides[6] = {"down", "up", "north", "south", "west", "east"};

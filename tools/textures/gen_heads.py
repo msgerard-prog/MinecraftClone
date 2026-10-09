@@ -44,6 +44,23 @@ def main():
                              ("top", faces["top"])):
             (OUT / f"clone_head_{kind}_{name}.png").write_bytes(encode_png(face16(skin, region)))
     print(f"wrote {len(heads) * 4} head textures to {OUT}")
+    # (M29.7) the player head: our own default player - brown hair over a plain face.
+    from texgen.core import hexc as _hex
+    skin, hair, eye = _hex("#C8946E"), _hex("#4A3020"), _hex("#3060B0")
+    for name in ("front", "back", "side", "top"):
+        img = Img(16, 16, CLEAR)
+        for y in range(16):
+            for x in range(16):
+                c = skin
+                if name in ("back", "top") or y < 4 or (name == "side" and (y < 8 or x > 11)):
+                    c = hair
+                img.set(x, y, c)
+        if name == "front":
+            for x in (4, 5, 10, 11):
+                img.set(x, 8, (255, 255, 255, 255) if x in (4, 11) else eye)
+            for x in range(6, 10):
+                img.set(x, 12, _hex("#8A5A44"))
+        (OUT / f"clone_head_player_{name}.png").write_bytes(encode_png(img))
     # (M26.5b) the dried ghast: a shrivelled grey-brown ghast, eyes shut; soaked stages
     # look the same (ours).
     import random

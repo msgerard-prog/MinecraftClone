@@ -475,3 +475,27 @@ TEST_CASE("M29.6: copper golem statues age like copper and change pose when used
     CHECK(u.use({4, 64, 4}));
     CHECK(r.value(w.getBlock({4, 64, 4}), "copper_golem_pose") == "sitting");
 }
+
+TEST_CASE("M29.7: technical blocks - barriers block, light blocks shine, player heads, petrified oak slabs") {
+    const auto& r = blockRegistry();
+    CHECK(r.collides(r.defaultState(blocks::Barrier)));
+    CHECK_FALSE(r.opaqueCube(r.defaultState(blocks::Barrier)));
+    CHECK_FALSE(r.collides(r.defaultState(blocks::Light)));
+    CHECK(r.lightEmission(r.defaultState(blocks::Light)) == 15);
+    CHECK(r.lightEmission(r.set(r.defaultState(blocks::Light), properties::level, 7)) == 7);
+    CHECK(isMobHead(blocks::PlayerHead));
+    CHECK(isWallHead(blocks::PlayerWallHead));
+    CHECK_FALSE(isWallHead(blocks::PlayerHead));
+    const ItemId head = *itemRegistry().find("player_head");
+    CHECK(itemRegistry().item(head).armorSlot == 1);
+    CHECK(itemRegistry().blockItem(blocks::PlayerWallHead) == head);
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 64, 4}, r.defaultState(blocks::Stone));
+    const auto wall = BlockUpdates::placement(w, r.defaultState(blocks::PlayerHead), {5, 64, 4}, Direction::East, 0, 0);
+    REQUIRE(wall);
+    CHECK(r.blockOf(*wall) == blocks::PlayerWallHead);
+    CHECK(r.kind(blocks::PetrifiedOakSlab) == BlockKind::Slab);
+    CHECK(r.block(blocks::PetrifiedOakSlab).settings.tool == HarvestTool::Pickaxe);
+    CHECK(itemRegistry().item(*itemRegistry().find("barrier")).texture == "item/barrier");
+}

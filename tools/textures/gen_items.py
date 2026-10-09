@@ -819,6 +819,32 @@ def beetroot_seeds():
     return s.render()
 
 
+def barrier_icon():
+    # (M29.7) a red ring with a slash
+    s = Shape()
+    ring = {(x, y) for x in range(16) for y in range(16) if 4.5 < ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5 < 7.0}
+    slash = {(x, y) for x in range(16) for y in range(16) if abs(x - (15 - y)) <= 1 and ((x - 7.5) ** 2 + (y - 7.5) ** 2) < 30}
+    s.add(ring | slash, ramp(hexc("#D02020"), 5))
+    return s.render()
+
+
+def light_icon():
+    # (M29.7) a light bulb
+    s = Shape()
+    bulb = {(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 4.5) ** 2 + ((y - 6) / 4.5) ** 2 < 1}
+    s.add(bulb, ramp(hexc("#F8E070"), 5, spread=0.25))
+    s.add({(x, y) for x in range(6, 10) for y in range(11, 14)}, ramp(hexc("#8A8A8A"), 5))
+    return s.render()
+
+
+def void_icon():
+    # (M29.7) a pink dashed frame
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(2, 14) if (x in (2, 13) or y in (2, 13)) and (x + y) % 3},
+          ramp(hexc("#E070C0"), 5))
+    return s.render()
+
+
 def flat_seeds(colour, edge):
     # (M29.4b) melon and pumpkin seeds: flat teardrops with a darker rim.
     s = Shape()
@@ -1802,6 +1828,9 @@ def all_items():
     items["pumpkin_pie"] = pumpkin_pie()
     items["melon_slice"] = melon_slice()
     items["melon_seeds"] = flat_seeds("#2E2418", "#14100A")  # (M29.4b)
+    items["barrier"] = barrier_icon()  # (M29.7)
+    items["light"] = light_icon()
+    items["structure_void"] = void_icon()
     items["pumpkin_seeds"] = flat_seeds("#E6DCA6", "#B0A070")
     items["cocoa_beans"] = cocoa_beans()
     items["powder_snow_bucket"] = bucket("#F2F6FA")

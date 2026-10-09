@@ -2581,6 +2581,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         used = true;
                     }
                 }
+                // (M29.7; wiki: Light) a light block clicked with a light item glows a level brighter.
+                if (!used && cb == mc::world::blocks::Light && heldName == "minecraft:light") {
+                    world.updateBlock(at, creg.set(cs, mc::world::properties::level,
+                                                   (creg.get(cs, mc::world::properties::level) + 1) % 16));
+                    used = true;
+                }
                 // Flower pots (M29.4b; wiki: Flower Pot): a plant goes into an empty pot; a
                 // planted pot gives its plant back (into the inventory, else dropped).
                 if (!used && mayBuild && like == mc::world::blocks::FlowerPot) {

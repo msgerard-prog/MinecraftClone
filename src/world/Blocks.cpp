@@ -122,6 +122,8 @@ const Property drag{"drag", {"true", "false"}};
 const Property sideChain{"side_chain", {"unconnected", "right", "center", "left"}};
 const Property golemPose{"copper_golem_pose", {"standing", "sitting", "running", "star"}};
 const Property conditional{"conditional", {"true", "false"}};
+const Property structureMode{"mode", {"save", "load", "corner", "data"}};
+const Property testMode{"mode", {"start", "log", "fail", "accept"}};
 const Property orientation{"orientation", {"down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
                                            "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
@@ -1525,6 +1527,34 @@ BlockRegistry buildVanillaBlocks() {
     for (const auto& [id, b] : {std::pair{"command_block", blocks::CommandBlock}, std::pair{"chain_command_block", blocks::ChainCommandBlock},
                                 std::pair{"repeating_command_block", blocks::RepeatingCommandBlock}})
         check(r.add(id, {.hardness = -1.0f, .resistance = 3600000.0f}, {{&conditional, "false"}, {&facing6, "north"}}), b);
+    // (M29.7; wiki: each technical block - unbreakable outside creative)
+    const BlockSettings technical{.hardness = -1.0f, .resistance = 3600000.0f};
+    check(r.add("structure_block", technical, {{&structureMode, "load"}}), blocks::StructureBlock);
+    check(r.add("structure_void", {.opaqueCube = false, .collision = false}), blocks::StructureVoid);
+    check(r.add("jigsaw", technical, {{&orientation, "north_up"}}), blocks::Jigsaw);
+    check(r.add("barrier", {.hardness = -1.0f, .resistance = 3600000.0f, .lightOpacity = 0, .opaqueCube = false}),
+          blocks::Barrier);
+    check(r.add("light", {.hardness = -1.0f, .resistance = 3600000.0f, .lightOpacity = 0, .opaqueCube = false,
+                          .collision = false},
+                {{&level, "15"}, {&waterlogged, "false"}}),
+          blocks::Light);
+    check(r.add("player_head", {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false}, {{&rotation16, "0"}}),
+          blocks::PlayerHead);
+    check(r.add("player_wall_head", {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false}, {{&facing, "north"}}),
+          blocks::PlayerWallHead);
+    {
+        BlockSettings slab{.hardness = 2.0f, .resistance = 6.0f, .opaqueCube = false, .kind = BlockKind::Slab,
+                           .base = blocks::OakPlanks, .tool = HarvestTool::Pickaxe};
+        check(r.add("petrified_oak_slab", slab, {{&slabType, "bottom"}}), blocks::PetrifiedOakSlab);
+        for (uint32_t i = 0; i < r.block(blocks::PetrifiedOakSlab).stateCount; ++i) {
+            const BlockStateId st = BlockStateId(r.block(blocks::PetrifiedOakSlab).firstState + i);
+            if (r.get(st, slabType) == 2) r.setStateOpaque(st, true); // (a double slab is a full block)
+        }
+    }
+    check(r.add("test_block", technical, {{&testMode, "start"}}), blocks::TestBlock);
+    check(r.add("test_instance_block", technical), blocks::TestInstanceBlock);
+    for (int lv = 0; lv < 16; ++lv) // (the light block shines at its level)
+        r.setStateEmission(r.set(r.defaultState(blocks::Light), level, lv), uint8_t(lv));
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
