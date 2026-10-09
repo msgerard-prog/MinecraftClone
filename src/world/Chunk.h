@@ -1,14 +1,14 @@
 #pragma once
 
-#include "world/Biome.h"
 #include "world/Banners.h"
+#include "world/Biome.h"
 #include "world/BlockEntity.h"
-#include "world/Mob.h"
 #include "world/Coords.h"
 #include "world/ItemContainers.h"
 #include "world/Light.h"
-#include "world/TickSet.h"
+#include "world/Mob.h"
 #include "world/Section.h"
+#include "world/TickSet.h"
 
 #include <array>
 #include <atomic>
@@ -45,7 +45,8 @@ struct BlockPos {
 class Chunk {
 public:
     // A column of its dimension's height (vanilla: the level's min_y and height).
-    explicit Chunk(ChunkPos pos, HeightRange height = kOverworldHeight) : m_pos(pos), m_height(height) {
+    explicit Chunk(ChunkPos pos, HeightRange height = kOverworldHeight)
+        : m_pos(pos), m_height(height) {
         for (int i = 0; i < m_height.sections(); ++i)
             m_sections[size_t(i)] = std::make_shared<Section>();
         m_mobs.reserve(4); // mobs walking in don't allocate during the tick (usually)
@@ -60,7 +61,8 @@ public:
         if (!(height == m_height)) {
             m_height = height;
             for (int i = 0; i < kMaxSections; ++i)
-                m_sections[size_t(i)] = i < m_height.sections() ? std::make_shared<Section>() : nullptr;
+                m_sections[size_t(i)] =
+                    i < m_height.sections() ? std::make_shared<Section>() : nullptr;
         }
         m_pos = pos;
         m_lit = false;
@@ -263,7 +265,7 @@ public:
     std::vector<DispenserEntry>& dispensers() { return m_dispensers; }
     const std::vector<DispenserEntry>& dispensers() const { return m_dispensers; }
     struct SignEntry { // (M23.3c)
-        int x, y, z; // local x/z, world y
+        int x, y, z;   // local x/z, world y
         SignData data;
     };
     SignData* sign(int x, int y, int z) {
@@ -408,21 +410,36 @@ public:
     std::vector<BeehiveEntry>& beehives() { return m_beehives; }
     const std::vector<BeehiveEntry>& beehives() const { return m_beehives; }
     void removeBlockEntity(int x, int y, int z) {
-        std::erase_if(m_hoppers, [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
-        std::erase_if(m_dispensers, [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
-        std::erase_if(m_signs, [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
-        std::erase_if(m_banners, [&](const BannerEntry& b) { return b.x == x && b.y == y && b.z == z; });
-        std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
-        std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
-        std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
-        std::erase_if(m_commandBlocks, [&](const CommandBlockEntry& c) { return c.x == x && c.y == y && c.z == z; });
-        std::erase_if(m_brushables, [&](const BrushableEntry& b) { return b.x == x && b.y == y && b.z == z; });
-        std::erase_if(m_beehives, [&](const BeehiveEntry& h) { return h.x == x && h.y == y && h.z == z; });
-        std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
-        std::erase_if(m_brewing, [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
-        std::erase_if(m_spawners, [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
-        std::erase_if(m_furnaces, [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
-        std::erase_if(m_chests, [&](const ChestEntry& c) { return c.x == x && c.y == y && c.z == z; });
+        std::erase_if(m_hoppers,
+                      [&](const HopperEntry& h) { return h.x == x && h.y == y && h.z == z; });
+        std::erase_if(m_dispensers,
+                      [&](const DispenserEntry& d) { return d.x == x && d.y == y && d.z == z; });
+        std::erase_if(m_signs,
+                      [&](const SignEntry& s) { return s.x == x && s.y == y && s.z == z; });
+        std::erase_if(m_banners,
+                      [&](const BannerEntry& b) { return b.x == x && b.y == y && b.z == z; });
+        std::erase_if(m_campfires,
+                      [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
+        std::erase_if(m_beacons,
+                      [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
+        std::erase_if(m_jukeboxes,
+                      [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
+        std::erase_if(m_commandBlocks,
+                      [&](const CommandBlockEntry& c) { return c.x == x && c.y == y && c.z == z; });
+        std::erase_if(m_brushables,
+                      [&](const BrushableEntry& b) { return b.x == x && b.y == y && b.z == z; });
+        std::erase_if(m_beehives,
+                      [&](const BeehiveEntry& h) { return h.x == x && h.y == y && h.z == z; });
+        std::erase_if(m_comparators,
+                      [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
+        std::erase_if(m_brewing,
+                      [&](const BrewingEntry& b) { return b.x == x && b.y == y && b.z == z; });
+        std::erase_if(m_spawners,
+                      [&](const SpawnerEntry& s) { return s.x == x && s.y == y && s.z == z; });
+        std::erase_if(m_furnaces,
+                      [&](const FurnaceEntry& f) { return f.x == x && f.y == y && f.z == z; });
+        std::erase_if(m_chests,
+                      [&](const ChestEntry& c) { return c.x == x && c.y == y && c.z == z; });
     }
     std::vector<FurnaceEntry>& furnaces() { return m_furnaces; }
     const std::vector<FurnaceEntry>& furnaces() const { return m_furnaces; }
@@ -452,19 +469,24 @@ public:
         enum class Kind : uint8_t { Arrow, Trident, Tnt, FallingBlock };
         Kind kind = Kind::Arrow;
         glm::dvec3 pos{0.0}, vel{0.0}, facing{0.0, -1.0, 0.0};
-        ItemStack stack;  // an arrow's ammunition (tipped...), a trident itself
-        int32_t time = 0; // an arrow's life, TNT's fuse, a falling block's time
+        ItemStack stack;        // an arrow's ammunition (tipped...), a trident itself
+        int32_t time = 0;       // an arrow's life, TNT's fuse, a falling block's time
         BlockStateId state = 0; // a falling block
         double startY = 0.0;    // (where a falling stalactite started)
         uint64_t shooter = 0;
         uint8_t potion = 0, pierce = 0, power = 0, punch = 0;
-        bool stuck = false, pickup = true, critical = false, fromPlayer = false, dealt = false, spectral = false,
-             flame = false;
+        uint8_t hitEffect = 0; // (M32 review) a stray's/bogged's/parched's arrow: its effect...
+        int32_t hitTicks = 0;  // ...and how long
+        bool skeleton = false; // (shot by a skeleton: creepers it kills drop a disc)
+        bool stuck = false, pickup = true, critical = false, fromPlayer = false, dealt = false,
+             spectral = false, flame = false;
     };
     std::vector<ParkedEntity>& parkedEntities() { return m_parked; }
     const std::vector<ParkedEntity>& parkedEntities() const { return m_parked; }
     // Anything parked here (drops or entities): a save's touched list (DropKeeper).
-    bool holdsParked() const { return !m_droppedItems.empty() || !m_droppedOrbs.empty() || !m_parked.empty(); }
+    bool holdsParked() const {
+        return !m_droppedItems.empty() || !m_droppedOrbs.empty() || !m_parked.empty();
+    }
     std::vector<DroppedItem>& droppedItems() { return m_droppedItems; }
     const std::vector<DroppedItem>& droppedItems() const { return m_droppedItems; }
     std::vector<DroppedOrb>& droppedOrbs() { return m_droppedOrbs; }
@@ -488,16 +510,18 @@ public:
         for (const DroppedItem& d : m_droppedItems) {
             const ItemStack& st = d.stack;
             uint64_t e = 0;
-            for (uint16_t en : st.enchantments) e = e * 31 + en;
-            sum += mixAll({st.item, st.count, st.damage, st.state, int64_t(e), st.potion, st.contents, st.trim, st.extra,
-                           int64_t(d.pos.x * 16.0), int64_t(d.pos.y * 16.0), int64_t(d.pos.z * 16.0), d.age >> 10});
+            for (uint16_t en : st.enchantments)
+                e = e * 31 + en;
+            sum += mixAll({st.item, st.count, st.damage, st.state, int64_t(e), st.potion,
+                           st.contents, st.trim, st.extra, int64_t(d.pos.x * 16.0),
+                           int64_t(d.pos.y * 16.0), int64_t(d.pos.z * 16.0), d.age >> 10});
         }
         for (const DroppedOrb& o : m_droppedOrbs)
             sum += mixAll({-1, o.value, o.count, int64_t(o.pos.x * 16.0), int64_t(o.pos.y * 16.0),
                            int64_t(o.pos.z * 16.0), o.age >> 10});
         for (const ParkedEntity& p : m_parked)
-            sum += mixAll({-2, int64_t(p.kind), p.stack.item, p.state, int64_t(p.pos.x * 16.0), int64_t(p.pos.y * 16.0),
-                           int64_t(p.pos.z * 16.0), p.time >> 10});
+            sum += mixAll({-2, int64_t(p.kind), p.stack.item, p.state, int64_t(p.pos.x * 16.0),
+                           int64_t(p.pos.y * 16.0), int64_t(p.pos.z * 16.0), p.time >> 10});
         return sum | 1; // (never 0: 0 means "no drops")
     }
     // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
@@ -531,12 +555,12 @@ public:
     // Scheduled block ticks in this chunk (wiki: Tick › Scheduled tick; redstone
     // delays). Ordered by time, then priority, then scheduling order.
     struct BlockTick {
-        int8_t x, z;      // local
-        int16_t y;        // world
-        int8_t priority;  // lower runs first
-        BlockId block;    // runs only if this block is still there
-        int64_t time;     // game time it runs at (a delay while `ticksRelative`)
-        uint64_t order;   // scheduling order within the same time and priority
+        int8_t x, z;     // local
+        int16_t y;       // world
+        int8_t priority; // lower runs first
+        BlockId block;   // runs only if this block is still there
+        int64_t time;    // game time it runs at (a delay while `ticksRelative`)
+        uint64_t order;  // scheduling order within the same time and priority
     };
     // Mutable access for bulk edits (loading): the pending-tick set is rebuilt lazily.
     std::vector<BlockTick>& blockTicks() {
@@ -547,13 +571,16 @@ public:
     // Hot paths (BlockUpdates): add a tick, ask whether one is pending in O(1), and
     // remove the ticks due by `now` (passing each to `fn`). Returns true if any ran.
     static uint64_t tickKey(int x, int y, int z, BlockId block) {
-        return (uint64_t(uint32_t(y) & 0xFFFFu) << 24) | (uint64_t(z) << 20) | (uint64_t(x) << 16) | block;
+        return (uint64_t(uint32_t(y) & 0xFFFFu) << 24) | (uint64_t(z) << 20) | (uint64_t(x) << 16) |
+               block;
     }
     void addTick(const BlockTick& t) {
         tickSet().insert(tickKey(t.x, t.y, t.z, t.block));
         m_blockTicks.push_back(t);
     }
-    bool hasTick(int x, int y, int z, BlockId block) { return tickSet().contains(tickKey(x, y, z, block)); }
+    bool hasTick(int x, int y, int z, BlockId block) {
+        return tickSet().contains(tickKey(x, y, z, block));
+    }
     template <typename Fn> bool takeDueTicks(int64_t now, Fn&& fn) {
         TickSet& set = tickSet();
         return std::erase_if(m_blockTicks, [&](const BlockTick& t) {
@@ -575,17 +602,19 @@ public:
 
     // Ticks players have spent nearby (M32.2; vanilla InhabitedTime): regional difficulty.
     int64_t inhabitedTicks = 0;
+    int64_t savedInhabitedTicks = 0; // (M32 review: re-saved only once it moved 1200 ticks)
+    bool inhabitedChanged() const { return inhabitedTicks - savedInhabitedTicks >= 1200; }
 
     // LightManager bookkeeping (main thread only).
     struct LightJobState {
-        uint32_t version = 0; // latest submitted job (0: none); globally unique
-        bool queued = false;  // waiting in a LightManager queue
-        uint8_t priority = 0; // of the queue it waits in: 0 settling, 1 streaming, 2 edits
-        bool settleWanted = false;  // fluid flowed here; relight when its turn comes
-        uint32_t lastSettle = 0;    // LightManager frame of its last settling request
-        uint8_t inFlight = 0;       // (M31.1) jobs running that write its light
-        uint32_t incremental = 0;   // the incremental job writing it (0: none)
-        uint32_t epoch = 0;         // the job version when it was loaded: older jobs are another load's
+        uint32_t version = 0;      // latest submitted job (0: none); globally unique
+        bool queued = false;       // waiting in a LightManager queue
+        uint8_t priority = 0;      // of the queue it waits in: 0 settling, 1 streaming, 2 edits
+        bool settleWanted = false; // fluid flowed here; relight when its turn comes
+        uint32_t lastSettle = 0;   // LightManager frame of its last settling request
+        uint8_t inFlight = 0;      // (M31.1) jobs running that write its light
+        uint32_t incremental = 0;  // the incremental job writing it (0: none)
+        uint32_t epoch = 0; // the job version when it was loaded: older jobs are another load's
     } lightJob;
 
     // Light at local x/z, world y (above the world: full sky light).
@@ -595,7 +624,7 @@ public:
 private:
     ChunkPos m_pos;
     HeightRange m_height;
-    std::array<std::shared_ptr<Section>, kMaxSections> m_sections;      // [0, sectionCount)
+    std::array<std::shared_ptr<Section>, kMaxSections> m_sections; // [0, sectionCount)
     std::array<std::shared_ptr<const SectionLight>, kMaxSections> m_light;
     bool m_lit = false;
     bool m_dirty = false;

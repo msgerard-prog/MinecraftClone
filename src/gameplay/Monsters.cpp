@@ -24,7 +24,9 @@ using namespace world;
 
 namespace {
 
-bool sees(const World& w, const MobData& m, const Player& player) { return Mobs::seesPlayer(w, m, player); }
+bool sees(const World& w, const MobData& m, const Player& player) {
+    return Mobs::seesPlayer(w, m, player);
+}
 
 } // namespace
 
@@ -204,8 +206,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // (speed 1.6, spread 6) and waits 40 more: one arrow every 3 s on Normal (wiki:
         // Skeleton). (M29.1a) Bogged shoot every 3.5 s, parched every 4.5 s; strays' arrows
         // slow for 30 s, bogged ones poison for 4 s, parched ones weaken for 30 s.
+        // (M32 review: a targeting skeleton's sight this tick is in seeTime - no second ray)
         if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles ||
-            !sees(ctx.world, m, ctx.player)) {
+            !(m.targeting ? m.seeTime > 0 : sees(ctx.world, m, ctx.player))) {
             m.shootTicks = 0;
             break;
         }
@@ -215,7 +218,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             ctx.vitals.addEffect(Effect::Blindness, 0, 400);
         if (++m.shootTicks >= 20) {
             m.shootTicks = 0;
-            m.attackCooldown = m.type == MobType::Bogged ? 50 : m.type == MobType::Parched ? 70 : 40;
+            m.attackCooldown = m.type == MobType::Bogged    ? 50
+                               : m.type == MobType::Parched ? 70
+                                                            : 40;
             if (ctx.difficulty == 3) m.attackCooldown -= 20; // (wiki: a second faster on Hard)
             const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
             glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
@@ -445,23 +450,31 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             }
             m.wantsTeleport = true;
         }
-        // Sunlight (M32.2; vanilla EnderMan.customServerAiStep): by day under the open sky it
-        // teleports now and then - the brighter, the likelier - and forgets its target.
-        {
-            const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.5)), int(std::floor(m.pos.z))};
-            if (const Chunk* hc = ctx.world.chunk(head.chunk()); hc && hc->lit() && ctx.world.isInHeight(head.y)) {
+        // Sunlight (M32.2; wiki: Enderman - it disengages about every 20-30 s in daylight): by
+        // day under the open sky it teleports now and then - the brighter, the likelier - and
+        // forgets its target, then waits at least 30 s before the next (M32 review).
+        if (m.daylightWait > 0) {
+            --m.daylightWait;
+        } else {
+            const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.5)),
+                                int(std::floor(m.pos.z))};
+            if (const Chunk* hc = ctx.world.chunk(head.chunk());
+                hc && hc->lit() && ctx.world.isInHeight(head.y)) {
                 const int sky = hc->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z));
                 const float bright = float(std::max(0, sky - int(ctx.skyDarken))) / 15.0f;
-                if (bright > 0.5f && sky >= 15 && ctx.rng.nextFloat() * 30.0f < (bright - 0.4f) * 2.0f) {
+                if (bright > 0.5f && sky >= 15 &&
+                    ctx.rng.nextFloat() * 30.0f < (bright - 0.4f) * 2.0f) {
                     m.angry = false;
                     m.targeting = false;
                     m.wantsTeleport = true;
+                    m.daylightWait = 600;
                 }
             }
         }
         // Hurt by something that isn't a creature (fire, lava, a cactus, a fall): it teleports
         // away (vanilla: 9 times in 10).
-        if (m.hurtTime == 9 && !m.lastHurtByPlayer && ctx.rng.nextInt(10) != 0) m.wantsTeleport = true;
+        if (m.hurtTime == 9 && !m.lastHurtByPlayer && ctx.rng.nextInt(10) != 0)
+            m.wantsTeleport = true;
         if (m.wantsTeleport) {
             m.wantsTeleport = false;
             teleport(ctx.world, m, m.pos, ctx.rng);

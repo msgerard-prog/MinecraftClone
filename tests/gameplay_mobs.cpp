@@ -591,6 +591,7 @@ TEST_CASE("spiders climb walls, and stay calm in bright light until hit") {
 
 TEST_CASE("endermen anger when stared at, teleport out of water, shrug off arrows") {
     MonsterScene s;
+    s.naturalSpawning = false; // (only this enderman)
     MobData e = Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, s.rng);
     REQUIRE(Mobs::add(s.world, e));
     s.player.setPosition({0.5, 64.0, 0.5});
@@ -601,6 +602,7 @@ TEST_CASE("endermen anger when stared at, teleport out of water, shrug off arrow
     CHECK(s.all().at(0)->angry);
     // Arrows: it teleports, no damage.
     MonsterScene a;
+    a.naturalSpawning = false;
     REQUIRE(Mobs::add(a.world, Mobs::make(MobType::Enderman, {0.5, 64.0, 8.5}, a.rng)));
     a.player.setPosition({30.5, 64.0, 30.5});
     a.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.5, 2.5}, {0, 0, 1}, 2.0, 0.0, false, false, a.rng);
@@ -610,6 +612,7 @@ TEST_CASE("endermen anger when stared at, teleport out of water, shrug off arrow
     CHECK(glm::length(m->pos - glm::dvec3(0.5, 64.0, 8.5)) > 2.0); // teleported away
     // Water: hurts and teleports.
     MonsterScene w;
+    w.naturalSpawning = false;
     for (int x = -2; x <= 2; ++x)
         for (int z = 6; z <= 10; ++z)
             w.world.setBlock({x, 64, z}, blockRegistry().defaultState(blocks::Water));
@@ -1681,6 +1684,7 @@ TEST_CASE("villagers claim a job site (profession), a bed and the bell; they wor
 
 TEST_CASE("zombies hunt villagers and infect them; weakness and a golden apple cure them (M24.3)") {
     MobScene s;
+    s.naturalSpawning = false; // (only its own zombie: natural ones are zombie villagers too)
     MobData v = Mobs::make(MobType::Villager, {6.5, 64.0, 0.5}, s.rng);
     v.profession = uint8_t(Profession::Mason);
     v.health = 3.0f; // one hit from death
@@ -2326,6 +2330,32 @@ TEST_CASE("M32.1: animals come back on grass every 400 ticks (vanilla's creature
         }
     MESSAGE("farm animals " << farm);
     CHECK(farm > 0);
+    // (M32 review regression) they count toward the creature cap: more cycles add no more.
+    s.tick(1600);
+    int later = 0;
+    for (MobData* m : s.all())
+        later += m->type == MobType::Sheep || m->type == MobType::Pig || m->type == MobType::Chicken ||
+                 m->type == MobType::Cow;
+    MESSAGE("after five cycles " << later);
+    CHECK(later <= std::max(farm, 2));
+}
+
+TEST_CASE("M32 review: a second cure adds nothing (gossip caps 20 / 25); the hit window forgets a stale hit") {
+    MobData v;
+    v.type = MobType::Villager;
+    for (int k = 0; k < 2; ++k) {
+        addGossip(v, Gossip::MajorPositive, 20);
+        addGossip(v, Gossip::MinorPositive, 25);
+    }
+    CHECK(reputation(v) == 125);
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {3.5, 64.0, 3.5}, s.rng)));
+    MobData* cow = s.all().at(0);
+    Mobs::attack(*cow, 6.0f, s.player.position());
+    s.run(12); // (its hurt time runs out)
+    Mobs::attack(*cow, 2.0f, s.player.position());
+    CHECK(cow->health == doctest::Approx(10.0f - 8.0f));
 }
 
 TEST_CASE("M32.2: skeletons strafe around a player in range instead of standing still") {

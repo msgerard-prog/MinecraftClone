@@ -47,6 +47,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M32 perf review (bench: night on Hard CPU p99 ~1.2 ms, streaming ~1.0 ms, GPU
+  0.18-0.37 ms; fixed in the review: pickup staggered to every 4 ticks, one sight ray per
+  skeleton, InhabitedTime saves only once moved): monster gear lives in 27-slot mob-store
+  entries that are copied and may grow the destination vector when a geared mob changes chunk
+  (a hard-rule-1 exception like the M26 mount chests - keep 5 stacks inline or in a pooled side
+  table); `ItemEntities::takeOne` searches for a pointer it could index; the spawn cycle's
+  289 `rainHeight` walks a tick (~0.05-0.1 ms).
 - From the M30 perf review (bench: CPU p99 ~1.0 ms steady, ~1.5 ms streaming, GPU 0.16 ms -
   no regression): item merging scans the whole pool per moving item (a per-tick cell hash
   when drops pile up: ~3-5 ms at 2048 moving items); mob suffocation reads 4 cells a mob a

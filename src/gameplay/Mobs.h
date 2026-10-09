@@ -63,7 +63,7 @@ public:
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
     // (vanilla's simulation distance option; 12 on the default Fancy preset, 6 on Fast).
     static constexpr int kDefaultSimulationDistance = 12;
-    // (M32.2; vanilla BreakDoorGoal) ticks a zombie beats on a door before it breaks.
+    // (M32.2; wiki: Zombie › Breaking doors) ticks a zombie beats on a door before it breaks.
     static constexpr int kDoorBreakTicks = 240;
     // (M32.2c) a mob effect with this many ticks never wears off (vanilla's infinite -1).
     static constexpr int kInfiniteEffect = 32767;
@@ -264,7 +264,7 @@ private:
     bool witherAi(Context& ctx, world::MobData& m);
     // Allays (Allays.cpp, M26.5a).
     bool allayAi(Context& ctx, world::MobData& m);
-    bool batAi(Context& ctx, world::MobData& m); // (M29.1c, Bats.cpp)
+    bool batAi(Context& ctx, world::MobData& m);         // (M29.1c, Bats.cpp)
     void snowGolemTick(Context& ctx, world::MobData& m); // (M29.1c, Golems.cpp)
     void spawnBats(Context& ctx);
     static Use allayInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng,
@@ -294,7 +294,8 @@ private:
     void ridePass(Context& ctx);
     void tickMobEffects(Context& ctx, world::MobData& m); // (M29.2c)
     // (M29.3e, Minecarts.cpp) furnace, hopper and TNT carts' own work after the move.
-    void cartKindTick(Context& ctx, world::MobData& m, world::BlockStateId rail, const world::BlockPos& cell);
+    void cartKindTick(Context& ctx, world::MobData& m, world::BlockStateId rail,
+                      const world::BlockPos& cell);
     // Armor stands (ArmorStands.cpp, M28.3b).
     void armorStandTick(Context& ctx, world::MobData& m);
     void dropArmorStand(Context& ctx, world::MobData& m);
@@ -356,7 +357,8 @@ public:
     static bool buildIronGolem(world::World& world, const world::BlockPos& pumpkin,
                                world::Xoroshiro& rng);
     // (M29.1c) a carved pumpkin on two snow blocks: a snow golem.
-    static bool buildSnowGolem(world::World& world, const world::BlockPos& pumpkin, world::Xoroshiro& rng);
+    static bool buildSnowGolem(world::World& world, const world::BlockPos& pumpkin,
+                               world::Xoroshiro& rng);
 
 private:
     void die(Context& ctx, world::MobData& m);
@@ -378,12 +380,14 @@ private:
     // (M32.2c, MobGear.cpp) equipped monsters: picking up dropped items, their drops on death.
     void gearPickup(Context& ctx, world::MobData& m);
     void dropGear(Context& ctx, world::MobData& m);
+
 public:
     // (M32.2c, MobGear.cpp) spawn equipment by the clamped regional difficulty `crd` (vanilla
-    // populateDefaultEquipmentSlots + enchantments + CanPickUpLoot): zombies and skeletons.
+    // wiki: Zombie › Spawning, Regional difficulty): zombies and skeletons.
     void rollSpawnGear(Context& ctx, world::MobData& mob, double crd);
     // Puts `stack` in gear slot `slot` (0-3 head..feet, 4 mainhand) and refreshes the mirrors.
-    static void setGear(world::World& world, world::MobData& m, int slot, const world::ItemStack& stack);
+    static void setGear(world::World& world, world::MobData& m, int slot,
+                        const world::ItemStack& stack);
     static void refreshGear(world::World& world, world::MobData& m);
     // Its armor points (natural - zombies 2 - plus what it wears) and toughness.
     static int armorPoints(const world::MobData& m);
@@ -398,6 +402,7 @@ public:
     void zombieSpawnRolls(Context& ctx, world::MobData& mob, double crd);
     // The clamped regional difficulty at a block (its chunk's inhabited time).
     static double clampedDifficultyAt(const Context& ctx, double x, double z);
+
 private:
     bool teleport(world::World& world, world::MobData& m, const glm::dvec3& around,
                   world::Xoroshiro& rng);
@@ -435,9 +440,10 @@ private:
     float m_bossHealth = -1.0f;
     world::MobType m_bossType = world::MobType::EnderDragon;
     std::vector<glm::dvec3>
-        m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)
+        m_dragonDeaths;                  // (counted in the tick's mob pass, for strider spawning)
     std::vector<glm::dvec3> m_trapBolts; // (M29.1b) skeleton traps sprung this tick
     // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
+    uint64_t m_tickCount = 0; // (M32 review) ticks run: staggered checks
     struct AngerAlert { // (M32.6: by kind - piglins call piglins, bees bees, wolves their pack)
         glm::dvec3 pos{0.0};
         world::MobType type = world::MobType::Zombie;

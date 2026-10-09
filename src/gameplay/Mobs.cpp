@@ -215,20 +215,23 @@ bool Mobs::add(World& world, const MobData& mob) {
 static void setMobDoor(World& world, const BlockPos& lower, bool open) {
     const auto& reg = blockRegistry();
     const BlockStateId ls = world.getBlock(lower);
-    if (reg.likeOf(reg.blockOf(ls)) != blocks::OakDoor || reg.get(ls, properties::doorHalf) != 1) return;
+    if (reg.likeOf(reg.blockOf(ls)) != blocks::OakDoor || reg.get(ls, properties::doorHalf) != 1)
+        return;
     const BlockStateId now = reg.set(ls, properties::open, open ? 0 : 1);
     if (now == ls) return;
     world.updateBlock(lower, now);
     const BlockPos up{lower.x, lower.y + 1, lower.z};
     const BlockStateId us = world.getBlock(up);
-    if (reg.likeOf(reg.blockOf(us)) == blocks::OakDoor) world.updateBlock(up, reg.set(us, properties::open, open ? 0 : 1));
-    world.playSound(open ? Sound::DoorOpen : Sound::DoorClose, lower.x + 0.5, lower.y + 0.5, lower.z + 0.5);
+    if (reg.likeOf(reg.blockOf(us)) == blocks::OakDoor)
+        world.updateBlock(up, reg.set(us, properties::open, open ? 0 : 1));
+    world.playSound(open ? Sound::DoorOpen : Sound::DoorClose, lower.x + 0.5, lower.y + 0.5,
+                    lower.z + 0.5);
 }
 
 void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool jump) {
     const FluidContact fluid = fluidContact(world, box(m));
     const bool inWater = fluid.water;
-    m.vel += fluid.flow * 0.014; // carried by currents (vanilla pushes mobs too)
+    m.vel += fluid.flow * 0.014;     // carried by currents (vanilla pushes mobs too)
     applyBubbleColumn(fluid, m.vel); // (M29.5)
     const bool fireproof = mobInfo(m.type).fireImmune; // Nether mobs (wiki)
     if (fireproof) m.fireTicks = 0;
@@ -252,10 +255,12 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     // by the hurt cooldown (living mobs only; flat things and vehicles don't breathe).
     if (m.hurtTime == 0 && m.deathTime == 0 && !isHanging(m.type) && !isTechnical(m.type) &&
         m.type != MobType::Boat && m.type != MobType::Minecart && m.type != MobType::EndCrystal &&
-        m.type != MobType::LeashKnot && m.type != MobType::ArmorStand && m.type != MobType::Shulker &&
+        m.type != MobType::LeashKnot && m.type != MobType::ArmorStand &&
+        m.type != MobType::Shulker &&
         [&] { // (its own size: babies, small slimes, sitting camels - M30 review)
             const Aabb bb = box(m);
-            return headInWall(world, {m.pos.x, bb.min.y + (bb.max.y - bb.min.y) * 0.85, m.pos.z}, bb.max.x - bb.min.x);
+            return headInWall(world, {m.pos.x, bb.min.y + (bb.max.y - bb.min.y) * 0.85, m.pos.z},
+                              bb.max.x - bb.min.x);
         }()) {
         m.health -= 1.0f;
         m.hurtTime = 10;
@@ -388,7 +393,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
     // An endermite crumbles away after its 2 minutes unless it was made to stay (wiki).
-    if (m.type == MobType::Endermite && !m.persistent && m.despawnDelay > 0 && --m.despawnDelay == 0) {
+    if (m.type == MobType::Endermite && !m.persistent && m.despawnDelay > 0 &&
+        --m.despawnDelay == 0) {
         m.health = 0.0f;
         m.deathTime = 19; // (gone, no drops)
         m.lastHurtByPlayer = false;
@@ -398,7 +404,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         hangingTick(ctx, m);
         return;
     }
-    if (m.type == MobType::Giant || m.type == MobType::Mannequin) { // (M29.7e) no AI: they only fall
+    if (m.type == MobType::Giant ||
+        m.type == MobType::Mannequin) { // (M29.7e) no AI: they only fall
         physics(ctx.world, m, glm::dvec3(0.0), false);
         return;
     }
@@ -409,7 +416,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (m.type == MobType::OminousItemSpawner && --m.eggTicks <= 0) {
             const ItemId item = ItemId(m.commandId);
             if (item == *itemRegistry().find("arrow") && ctx.projectiles)
-                ctx.projectiles->shoot(ProjectileKind::Arrow, m.pos, {0.0, -1.0, 0.0}, 1.0, 0.0, false, false, ctx.rng);
+                ctx.projectiles->shoot(ProjectileKind::Arrow, m.pos, {0.0, -1.0, 0.0}, 1.0, 0.0,
+                                       false, false, ctx.rng);
             else if (item != 0)
                 ctx.items.spawn(m.pos, {item, 1}, ctx.rng);
             m.vanish = true;
@@ -439,7 +447,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // the rider looks while they hold its stick (paddleForward set by main); a boost
         // (spellTicks) speeds it up for a while.
         m.yaw = approachAngle(m.yaw, m.headYaw, 20.0f);
-        const double boost = m.spellTicks > 0 ? 1.0 + 1.15 * std::sin(double(m.spellTicks) * 0.0224) : 1.0;
+        const double boost =
+            m.spellTicks > 0 ? 1.0 + 1.15 * std::sin(double(m.spellTicks) * 0.0224) : 1.0;
         if (m.spellTicks > 0) --m.spellTicks;
         const glm::dvec3 f(forwardFlat(m.yaw));
         const double pace = mobInfo(m.type).speed * (m.type == MobType::Pig ? 0.9 : 0.55) * boost;
@@ -541,7 +550,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         for (int k = 0; k < 4; ++k) {
             MobData h = k == 0 ? m : make(MobType::SkeletonHorse, m.pos, ctx.rng);
             if (k > 0) {
-                h.pos += glm::dvec3(ctx.rng.nextDouble() * 2.0 - 1.0, 0.0, ctx.rng.nextDouble() * 2.0 - 1.0);
+                h.pos += glm::dvec3(ctx.rng.nextDouble() * 2.0 - 1.0, 0.0,
+                                    ctx.rng.nextDouble() * 2.0 - 1.0);
             }
             h.tamed = true;
             MobData rider = make(MobType::Skeleton, h.pos, ctx.rng);
@@ -556,8 +566,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
             ctx.world.queueMob(rider);
         }
     }
-    if (m.mobRidden) speed = (m.moveSpeed > 0.0f ? m.moveSpeed : info.speed) * 0.5; // (its own pace)
-    if (m.isBaby() && isZombie(m.type)) speed *= 1.5; // (M32.2; wiki: Zombie - babies are 50% faster)
+    if (m.mobRidden)
+        speed = (m.moveSpeed > 0.0f ? m.moveSpeed : info.speed) * 0.5; // (its own pace)
+    if (m.isBaby() && isZombie(m.type))
+        speed *= 1.5; // (M32.2; wiki: Zombie - babies are 50% faster)
     // (M29.2c; wiki: Speed, Slowness) +20% / -15% a level, as the player's
     speed *= std::max(0.0, (1.0 + 0.2 * m.effectLevel(uint8_t(Effect::Speed))) *
                                (1.0 - 0.15 * m.effectLevel(uint8_t(Effect::Slowness))));
@@ -592,9 +604,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const auto block = raycastBlocks(ctx.world, eye, (target - eye) / dist, dist);
         m.targeting = !block;
         m.unseenTicks = 0;
-    } else if (m.targeting && ++m.sightCheck >= 10 && m.type != MobType::Vex && m.type != MobType::Enderman &&
-               m.type != MobType::Warden) {
-        // (M32.6; vanilla TargetGoal unseenMemoryTicks) a target out of sight for 3 s is
+    } else if (m.targeting && ++m.sightCheck >= 10 && m.type != MobType::Vex &&
+               m.type != MobType::Enderman && m.type != MobType::Warden) {
+        // (M32.6; observed: about 3 s) a target out of sight for 3 s is
         // forgotten (checked twice a second); it has to be seen again.
         m.sightCheck = 0;
         if (seesPlayer(ctx.world, m, ctx.player)) {
@@ -609,11 +621,12 @@ void Mobs::ai(Context& ctx, MobData& m) {
     } else if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
-        // Skeletons (M32.2; vanilla RangedBowAttackGoal): walk up until within 15 blocks having
+        // Skeletons (M32.2; wiki: Skeleton › Behavior): walk up until within 15 blocks having
         // seen the player for a second, then stand and strafe (below).
         if (isSkeleton(m.type) || m.type == MobType::Illusioner) {
             const bool seen = seesPlayer(ctx.world, m, ctx.player);
-            m.seeTime = seen ? int16_t(std::max<int>(0, m.seeTime) + 1) : int16_t(std::min<int>(0, m.seeTime) - 1);
+            m.seeTime = seen ? int16_t(std::max<int>(0, m.seeTime) + 1)
+                             : int16_t(std::min<int>(0, m.seeTime) - 1);
             if (playerDist2 <= 15.0 * 15.0 && m.seeTime >= 20) {
                 m.goal = m.pos;
                 ++m.strafeTime;
@@ -711,13 +724,15 @@ void Mobs::ai(Context& ctx, MobData& m) {
     PathOptions pathOpts;
     pathOpts.height = int(std::ceil(info.height));
     pathOpts.footprint = std::clamp(int(std::ceil(info.width - 1e-6)), 1, 3);
-    pathOpts.openDoors = m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
-                         m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
-                         (m.type == MobType::Vindicator && m.raidId != 0); // (wiki: raid vindicators)
+    pathOpts.openDoors =
+        m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
+        m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
+        (m.type == MobType::Vindicator && m.raidId != 0); // (wiki: raid vindicators)
     // (M32.2; wiki: Zombie) on Hard, zombies born with the ability (not drowned) path through
     // wooden doors - and break them instead of opening them.
-    const bool breaksDoors =
-        m.canBreakDoors && ctx.difficulty >= 3 && isZombie(m.type) && m.type != MobType::Drowned && !m.isBaby();
+    const bool breaksDoors = m.canBreakDoors && ctx.difficulty >= 3 && ctx.mobGriefing &&
+                             isZombie(m.type) && m.type != MobType::Drowned &&
+                             !m.isBaby(); // (M32 review: mob_griefing off keeps doors)
     pathOpts.openDoors = pathOpts.openDoors || breaksDoors;
     const double cellCentre = double(pathOpts.footprint) * 0.5;
     const glm::ivec3 feet = Pathfinder::cellOf(m.pos, pathOpts.footprint);
@@ -725,8 +740,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.repathTicks > 0) --m.repathTicks;
     const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
     const bool wantsPath = goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished));
-    if (wantsPath && m_searches >= kMaxSearches) m.repathTicks = 1; // (next tick; deterministic, though the
-                                                                  // shared RNG then runs in another order)
+    if (wantsPath && m_searches >= kMaxSearches)
+        m.repathTicks = 1; // (next tick; deterministic, though the
+                           // shared RNG then runs in another order)
     if (wantsPath && m_searches < kMaxSearches) {
         ++m_searches;
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
@@ -768,8 +784,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
             const auto& reg = blockRegistry();
             const BlockPos dp{c.x, c.y, c.z};
             const BlockStateId ds = ctx.world.getBlock(dp);
-            // (a breaker starts within 1.5 blocks - vanilla DoorInteractGoal)
-            if (reg.likeOf(reg.blockOf(ds)) == blocks::OakDoor && reg.get(ds, properties::open) == 1 &&
+            // (a breaker starts within 1.5 blocks - ours)
+            if (reg.likeOf(reg.blockOf(ds)) == blocks::OakDoor &&
+                reg.get(ds, properties::open) == 1 &&
                 cdx * cdx + cdz * cdz < (breaksDoors ? 1.5 * 1.5 : 2.0 * 2.0)) {
                 const bool upper = reg.get(ds, properties::doorHalf) == 0;
                 const BlockPos lower = upper ? BlockPos{dp.x, dp.y - 1, dp.z} : dp;
@@ -784,7 +801,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
             }
         }
     }
-    // (M32.2; vanilla BreakDoorGoal) beating on the door, a bang 1 tick in 20, for 240
+    // (M32.2; wiki: Zombie › Breaking doors) beating on the door, a bang 1 tick in 20, for 240
     // ticks (12 s), then it is gone - no drop. It gives up when the door opens or goes,
     // when it is more than 2 blocks away or the difficulty drops below Hard.
     if (m.doorBreaking.y != INT32_MIN) {
@@ -792,16 +809,19 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const BlockPos lower{m.doorBreaking.x, m.doorBreaking.y, m.doorBreaking.z};
         const BlockStateId ds = ctx.world.getBlock(lower);
         const double ddx = lower.x + 0.5 - m.pos.x, ddz = lower.z + 0.5 - m.pos.z;
-        if (!breaksDoors || reg.likeOf(reg.blockOf(ds)) != blocks::OakDoor || reg.get(ds, properties::open) == 0 ||
-            ddx * ddx + ddz * ddz > 2.0 * 2.0) {
+        if (!breaksDoors || reg.likeOf(reg.blockOf(ds)) != blocks::OakDoor ||
+            reg.get(ds, properties::open) == 0 || ddx * ddx + ddz * ddz > 2.0 * 2.0) {
             m.doorBreaking.y = INT32_MIN;
         } else {
-            if (ctx.rng.nextInt(20) == 0) ctx.world.levelEvent(LevelEvent::Type::BlockHit, lower.x, lower.y, lower.z, ds);
+            if (ctx.rng.nextInt(20) == 0)
+                ctx.world.levelEvent(LevelEvent::Type::BlockHit, lower.x, lower.y, lower.z, ds);
             if (++m.doorBreakTicks >= kDoorBreakTicks) {
                 ctx.world.levelEvent(LevelEvent::Type::BlockBreak, lower.x, lower.y, lower.z, ds);
                 ctx.world.updateBlock(lower, 0);
-                const BlockPos upper{lower.x, lower.y + 1, lower.z}; // (block updates take it too; made sure)
-                if (reg.likeOf(reg.blockOf(ctx.world.getBlock(upper))) == blocks::OakDoor) ctx.world.updateBlock(upper, 0);
+                const BlockPos upper{lower.x, lower.y + 1,
+                                     lower.z}; // (block updates take it too; made sure)
+                if (reg.likeOf(reg.blockOf(ctx.world.getBlock(upper))) == blocks::OakDoor)
+                    ctx.world.updateBlock(upper, 0);
                 if (ctx.edits) {
                     ctx.edits->push_back(lower);
                     ctx.edits->push_back({lower.x, lower.y + 1, lower.z});
@@ -814,13 +834,15 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.doorOpened.y != INT32_MIN) {
         const glm::dvec3 door(m.doorOpened.x + 0.5, m.doorOpened.y, m.doorOpened.z + 0.5);
         const double gone = glm::length(glm::dvec2(door.x - m.pos.x, door.z - m.pos.z));
-        ++m.doorTicks; // (every tick: the 10 s fallback must fire even beside the door - M30 review)
+        ++m.doorTicks; // (every tick: the 10 s fallback must fire even beside the door - M30
+                       // review)
         if ((gone > 1.5 && m.doorTicks > 20) || m.doorTicks > 200) {
             // Not on top of someone in the doorway (vanilla waits for them).
             const Aabb cell{glm::dvec3(m.doorOpened.x, m.doorOpened.y, m.doorOpened.z),
                             glm::dvec3(m.doorOpened.x + 1, m.doorOpened.y + 2, m.doorOpened.z + 1)};
             bool blocked = false;
-            if (const Chunk* dc = ctx.world.chunk({blockToChunk(m.doorOpened.x), blockToChunk(m.doorOpened.z)}))
+            if (const Chunk* dc =
+                    ctx.world.chunk({blockToChunk(m.doorOpened.x), blockToChunk(m.doorOpened.z)}))
                 for (const MobData& o : dc->mobs())
                     if (&o != &m && o.health > 0.0f && box(o).intersects(cell)) blocked = true;
             if (!blocked || m.doorTicks > 400) {
@@ -839,8 +861,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     // (stopping short of the target only where the path reaches it: at the end of a partial
     // path a chaser keeps pushing on - spiders up the wall - M30.5)
     const bool reaches = m.pathLength > 0 && m.path[size_t(m.pathLength - 1)] == m.pathRequest;
-    const double stopAt =
-        chase && last && reaches ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
+    const double stopAt = chase && last && reaches ? info.width * 0.5 + 0.5
+                                                   : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
     if (dl > stopAt) {
         wish = glm::dvec3(d.x / dl, 0, d.y / dl) * speed;
         m.yaw = approachAngle(m.yaw, yawTowards(m.pos, steer), 10.0f);
@@ -851,7 +873,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
                (solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
                 !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z))));
     }
-    // Strafing (M32.2; vanilla RangedBowAttackGoal): sideways at half speed, flipping either way
+    // Strafing (M32.2; wiki: Skeleton › Behavior): sideways at half speed, flipping either way
     // 3 times in 10 each second; backing off inside a quarter of the range (15), coming in again
     // beyond three quarters; facing the player throughout.
     if (chase && (isSkeleton(m.type) || m.type == MobType::Illusioner) && m.strafeTime >= 0) {
@@ -860,16 +882,20 @@ void Mobs::ai(Context& ctx, MobData& m) {
             if (ctx.rng.nextFloat() < 0.3f) m.strafeBack = !m.strafeBack;
             m.strafeTime = 0;
         }
-        if (playerDist2 > 15.0 * 15.0 * 0.75) m.strafeBack = false;
-        else if (playerDist2 < 15.0 * 15.0 * 0.25) m.strafeBack = true;
+        if (playerDist2 > 15.0 * 15.0 * 0.75)
+            m.strafeBack = false;
+        else if (playerDist2 < 15.0 * 15.0 * 0.25)
+            m.strafeBack = true;
         const glm::dvec2 f = glm::length(glm::dvec2(toPlayer.x, toPlayer.z)) > 1e-6
                                  ? glm::normalize(glm::dvec2(toPlayer.x, toPlayer.z))
                                  : glm::dvec2(0.0, 1.0);
         const glm::dvec2 side(-f.y, f.x);
-        const glm::dvec2 w = f * (m.strafeBack ? -0.5 : 0.5) + side * (m.strafeClockwise ? 0.5 : -0.5);
+        const glm::dvec2 w =
+            f * (m.strafeBack ? -0.5 : 0.5) + side * (m.strafeClockwise ? 0.5 : -0.5);
         // (only onto ground: no strafing off a ledge)
         const glm::dvec3 ahead = m.pos + glm::dvec3(w.x, 0.0, w.y) * 2.0;
-        if (solidAt(ctx.world, int(std::floor(ahead.x)), int(std::floor(m.pos.y - 0.5)), int(std::floor(ahead.z))))
+        if (solidAt(ctx.world, int(std::floor(ahead.x)), int(std::floor(m.pos.y - 0.5)),
+                    int(std::floor(ahead.z))))
             wish = glm::dvec3(w.x, 0.0, w.y) * speed;
         m.yaw = approachAngle(m.yaw, yawTowards(m.pos, playerPos), 30.0f);
     }
@@ -899,18 +925,19 @@ void Mobs::ai(Context& ctx, MobData& m) {
                                    ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
             // (golems: 7.5 + 0-14 and a throw upward)
             // (M29.2c; wiki: Strength +3, Weakness -4 a level)
-            const float hit = std::max(0.0f, info.attackDamage + (isZombie(m.type) ? weaponBonus(ctx.world, m) : 0.0f) +
-                                                 (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f) +
-                                                 3.0f * float(m.effectLevel(uint8_t(Effect::Strength))) -
-                                                 4.0f * float(m.effectLevel(uint8_t(Effect::Weakness))));
+            const float hit = std::max(
+                0.0f, info.attackDamage + (isZombie(m.type) ? weaponBonus(ctx.world, m) : 0.0f) +
+                          (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f) +
+                          3.0f * float(m.effectLevel(uint8_t(Effect::Strength))) -
+                          4.0f * float(m.effectLevel(uint8_t(Effect::Weakness))));
             if (ctx.vitals.attacked(hit, &m.pos)) {
                 setPlayerAttacker(m.uuidHi); // (tamed wolves go for it - M26.1)
                 // Thorns (M29.2b; wiki): 15% a level (added up over the armor, ours) to hit
                 // back for 1-4.
                 if (ctx.thorns > 0 && int(ctx.rng.nextInt(100)) < 15 * ctx.thorns)
                     attack(m, float(1 + ctx.rng.nextInt(4)), ctx.player.position());
-                ctx.player.knockback(toPlayer.x, toPlayer.z);
-                if (m.type == MobType::IronGolem)
+                if (ctx.vitals.lastHitFresh()) ctx.player.knockback(toPlayer.x, toPlayer.z);
+                if (m.type == MobType::IronGolem && ctx.vitals.lastHitFresh())
                     ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));
                 // (M26.4a; wiki, Normal) a cave spider's bite poisons for 7 s, a wither
                 // skeleton's hit withers for 10 s.
@@ -949,7 +976,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
         // A zombie under water turns into a drowned: 30 s submerged, then 15 s of
         // shaking (wiki: Zombie › Drowned conversion; ours counts 45 s in one go).
         // A husk does the same and becomes a zombie (wiki: Husk).
-        if (m.type == MobType::Zombie || m.type == MobType::Husk) { // (babies too; it keeps the zombie's persistence - review)
+        if (m.type == MobType::Zombie ||
+            m.type == MobType::Husk) { // (babies too; it keeps the zombie's persistence - review)
             if (!wet)
                 m.airTicks = 300;
             else if (--m.airTicks <= -600) {
@@ -995,7 +1023,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 }
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
-    // (M32.3; vanilla LivingEntity.hurt) for 10 ticks after a hit only a stronger one
+    // (M32.3; wiki: Damage › Immunity) for 10 ticks after a hit only a stronger one
     // counts, by the difference - without a new hurt flash or anger.
     if (m.deathTime > 0) return;
     const bool cooling = m.hurtTime > 0;
@@ -1007,7 +1035,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     } else {
         m.lastHurtAmount = damage;
     }
-    if (isTechnical(m.type)) return;                // (M29.7e: nothing to hurt)
+    if (isTechnical(m.type)) return; // (M29.7e: nothing to hurt)
     if (m.type == MobType::Wither && m.spellTicks > 0)
         return; // (M26.4b: charging, it can't be hurt)
     if (m.type == MobType::Creaking && m.home.y != kNoPoint)
@@ -1025,11 +1053,13 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     // max(points / 5, points - damage / (2 + toughness / 4)) x 4%, up to 80%).
     if (m.horseArmor > 0 && isMount(m.type)) {
         const bool nautilus = isNautilus(m.type);
-        const float points = float(nautilus ? kNautilusArmorPoints[m.horseArmor % 6] : kHorseArmorPoints[m.horseArmor % 7]);
+        const float points = float(nautilus ? kNautilusArmorPoints[m.horseArmor % 6]
+                                            : kHorseArmorPoints[m.horseArmor % 7]);
         const float toughness = m.horseArmor == (nautilus ? 4 : 6) ? (nautilus ? 2.0f : 3.0f)
-                                : nautilus && m.horseArmor == 5 ? 3.0f
-                                                                : 0.0f;
-        const float cut = std::clamp(std::max(points / 5.0f, points - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
+                                : nautilus && m.horseArmor == 5    ? 3.0f
+                                                                   : 0.0f;
+        const float cut = std::clamp(
+            std::max(points / 5.0f, points - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
         damage *= 1.0f - cut / 25.0f;
     }
     // (M32.2c) a monster's armor - natural and worn - by the same formula, then Protection
@@ -1037,7 +1067,8 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     damage = armorReduced(m, damage);
     m.health -= damage;
     if (cooling) return; // (the rest happened with the first hit)
-    if (m.type == MobType::Villager) addGossip(m, Gossip::MinorNegative, 25); // (M32.5: it remembers)
+    if (m.type == MobType::Villager)
+        addGossip(m, Gossip::MinorNegative, 25); // (M32.5: it remembers)
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock
     m.lastHurtByPlayer = true; // (Mobs::attack: the player's hits)
@@ -1047,7 +1078,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.angry = true;
         m.angerTicks = 600;
         m.targeting = true;
-        m.angerAlert = true; // (M32.6: and its pack with it)
+        m.angerAlert = true;                   // (M32.6: and its pack with it)
     } else if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless
                                                // player-built
         if (!m.playerCreated) {
@@ -1099,7 +1130,8 @@ float Mobs::armorReduced(const MobData& m, float damage) {
     if (isMount(m.type)) return damage; // (their body armor: Mobs::attack)
     if (const int points = armorPoints(m); points > 0) {
         const float p = float(points), toughness = armorToughness(m);
-        const float cut = std::clamp(std::max(p / 5.0f, p - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
+        const float cut =
+            std::clamp(std::max(p / 5.0f, p - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
         damage *= 1.0f - cut / 25.0f;
     }
     if (m.gearEpf > 0) damage *= 1.0f - float(std::min<int>(m.gearEpf, 20)) / 25.0f;
@@ -1112,14 +1144,26 @@ double Mobs::knockbackResistance(const MobData& m) {
     // random 0-0.05 they were born with (ours from the UUID) - plus 0.1 a netherite piece.
     double r = 0.0;
     switch (m.type) {
-    case MobType::IronGolem: case MobType::Warden: case MobType::Shulker: r = 1.0; break;
-    case MobType::Ravager: r = 0.75; break;
-    case MobType::Hoglin: case MobType::Zoglin: r = 0.6; break;
+    case MobType::IronGolem:
+    case MobType::Warden:
+    case MobType::Shulker:
+        r = 1.0;
+        break;
+    case MobType::Ravager:
+        r = 0.75;
+        break;
+    case MobType::Hoglin:
+    case MobType::Zoglin:
+        r = 0.6;
+        break;
     default:
-        if (isZombie(m.type)) r = double(m.uuidHi % 51) / 1000.0;
+        if (isNautilus(m.type)) r = 0.3; // (wiki: Attribute - nautiluses)
+        if (isZombie(m.type) || m.type == MobType::ZombifiedPiglin)
+            r = double(m.uuidHi % 51) / 1000.0;
         break;
     }
-    for (uint8_t w : m.worn) r += w == 6 && m.type != MobType::ArmorStand ? 0.1 : 0.0;
+    for (uint8_t w : m.worn)
+        r += w == 6 && m.type != MobType::ArmorStand ? 0.1 : 0.0;
     return std::min(r, 1.0);
 }
 
@@ -1155,9 +1199,10 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (m.hasChest) dropMountGear(ctx, m); // (M26.2: its chest's stacks)
         return;
     }
-    if (m.hasGear || isSkeleton(m.type)) dropGear(ctx, m); // (M32.2c)
+    if (m.hasGear || isSkeleton(m.type)) dropGear(ctx, m);   // (M32.2c)
     if (m.type == MobType::Villager && m.lastHurtByPlayer) { // (M32.5) the village remembers
-        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
+                          blockToChunk(int(std::floor(m.pos.z)))};
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx)
                 if (Chunk* ch = ctx.world.chunk({c0.x + dx, c0.z + dz}))
@@ -1599,6 +1644,7 @@ void Mobs::die(Context& ctx, MobData& m) {
 }
 
 void Mobs::tick(Context& ctx) {
+    ++m_tickCount; // (staggered checks; never the game clock)
     m_searches = 0;
     m_moves.clear();
     m_births.clear();
@@ -1683,7 +1729,8 @@ void Mobs::tick(Context& ctx) {
                                     m.pos.y + mobInfo(m.type).height * 0.85, m.pos.z, 1.0f,
                                     m.isBaby() ? 1.5f : 1.0f);
             }
-            if (m.hurtTime > 0) --m.hurtTime;
+            if (m.hurtTime > 0 && --m.hurtTime == 0)
+                m.lastHurtAmount = 0.0f; // (M32 review: the window is over)
             bool remove = false;
             if (m.angerAlert) { // (also from one killed by the hit)
                 m.angerAlert = false;
@@ -1744,12 +1791,14 @@ void Mobs::tick(Context& ctx) {
                 m_bats += m.type == MobType::Bat;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
-                m_creatures +=
-                    (m.type == MobType::Wolf || m.type == MobType::Ocelot ||
-                     m.type == MobType::Parrot ||
-                     (isMount(m.type) && m.type != MobType::TraderLlama) || isWildlife(m.type) ||
-                     m.type == MobType::Mooshroom) &&
-                    !m.tamed;
+                m_creatures += (m.type == MobType::Wolf || m.type == MobType::Ocelot ||
+                                m.type == MobType::Parrot ||
+                                (isMount(m.type) && m.type != MobType::TraderLlama) ||
+                                isWildlife(m.type) || m.type == MobType::Mooshroom ||
+                                ((m.type == MobType::Cow || m.type == MobType::Sheep ||
+                                  m.type == MobType::Pig || m.type == MobType::Chicken) &&
+                                 !m.persistent)) && // (M32 review: the farm animals too)
+                               !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
                 m_axolotls += m.type == MobType::Axolotl;
@@ -1804,7 +1853,11 @@ void Mobs::tick(Context& ctx) {
             if (mv.mob.hasChest || mv.mob.hasGear) // (M32.2c: a monster's gear too)
                 if (Chunk* from = ctx.world.chunk(mv.from))
                     if (ItemContents* slots = from->mobStore(mv.mob.uuidHi)) {
-                        c->addMobStore(mv.mob.uuidHi) = *slots;
+                        // (M32 review: merged - gear picked up this tick may already sit in the new
+                        // chunk)
+                        ItemContents& to = c->addMobStore(mv.mob.uuidHi);
+                        for (size_t k = 0; k < to.size(); ++k)
+                            if (to[k].empty()) to[k] = (*slots)[k];
                         from->removeMobStore(mv.mob.uuidHi);
                         from->markDirty();
                     }
@@ -1817,7 +1870,8 @@ void Mobs::tick(Context& ctx) {
     for (const MobData& q : ctx.world.queuedMobs())
         add(ctx.world, q);
     ctx.world.queuedMobs().clear();
-    for (const MobData& b : m_births) riders += b.vehicle != 0; // (jockeys spawned this tick)
+    for (const MobData& b : m_births)
+        riders += b.vehicle != 0; // (jockeys spawned this tick)
     if (riders > 0) ridePass(ctx);
     ctx.world.vibrations().clear(); // (M27.3c: heard by the wardens this pass)
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
@@ -1831,15 +1885,16 @@ void Mobs::tick(Context& ctx) {
             for (int dx = -3; dx <= 3; ++dx)
                 if (Chunk* c = ctx.world.chunk({hc.x + dx, hc.z + dz}))
                     for (MobData& o : c->mobs())
-                        if (o.type == MobType::ZombifiedPiglin && kind == MobType::ZombifiedPiglin &&
-                            std::abs(o.pos.x - hit.x) < 33.5 && std::abs(o.pos.z - hit.z) < 33.5 &&
-                            std::abs(o.pos.y - hit.y) < 11.0) {
+                        if (o.type == MobType::ZombifiedPiglin &&
+                            kind == MobType::ZombifiedPiglin && std::abs(o.pos.x - hit.x) < 33.5 &&
+                            std::abs(o.pos.z - hit.z) < 33.5 && std::abs(o.pos.y - hit.y) < 11.0) {
                             o.angry = true;
                             o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
                         } else if (o.type == MobType::Wolf && kind == MobType::Wolf && !o.tamed &&
-                                   std::abs(o.pos.x - hit.x) < 16.5 && std::abs(o.pos.z - hit.z) < 16.5 &&
+                                   std::abs(o.pos.x - hit.x) < 16.5 &&
+                                   std::abs(o.pos.z - hit.z) < 16.5 &&
                                    std::abs(o.pos.y - hit.y) < 10.0) {
-                            // (M32.6; vanilla HurtByTargetGoal.setAlertOthers) the pack joins in
+                            // (M32.6; wiki: Wolf › Behavior) the pack joins in
                             o.angry = true;
                             o.angerTicks = 600;
                             o.targeting = true;
@@ -1856,7 +1911,7 @@ void Mobs::tick(Context& ctx) {
         else if (ctx.difficulty > 0)
             spawnHostiles(ctx);                       // (Peaceful: no monsters)
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
-        if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnBats(ctx); // (M29.1c)
+        if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnBats(ctx);      // (M29.1c)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnPhantoms(ctx);  // (M26.4a)
     }
@@ -1925,7 +1980,7 @@ void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
 }
 
 void Mobs::spawnHostiles(Context& ctx) {
-    // Vanilla's spawn cycle (M32.1; wiki: Spawn › Java Edition, NaturalSpawner): every tick
+    // Vanilla's spawn cycle (M32.1; wiki: Mob spawning › Java Edition): every tick
     // each chunk within 8 chunks of the player (loaded and lit) gets one try at a random spot
     // between the bottom of the world and just above its surface; the monster cap 70 is scaled
     // by those chunks (70 x chunks / 289), so caves and the surface fill alike.
@@ -1944,7 +1999,8 @@ void Mobs::spawnHostiles(Context& ctx) {
         const ChunkPos cp{pc.x + i % 17 - 8, pc.z + i / 17 - 8};
         const Chunk* c = ctx.world.chunk(cp);
         if (!c || !c->lit()) continue;
-        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)), z = cp.z * 16 + int(ctx.rng.nextInt(16));
+        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)),
+                  z = cp.z * 16 + int(ctx.rng.nextInt(16));
         const int top = rainHeight(ctx.world, x, z) + 1;
         const int y = minY + int(ctx.rng.nextInt(uint32_t(std::max(1, top - minY + 1))));
         spawnMonsterPacks(ctx, x, y, z);
@@ -1956,20 +2012,25 @@ void Mobs::spawnMonsterPacks(Context& ctx, int x0, int y, int z0) {
     // (x and z move by random(6) - random(6) per member), up to 4 members, the kind chosen at
     // the first spot that works; members need 24+ blocks to the player (and within 128).
     if (!ctx.world.isInHeight(y) || !ctx.world.isInHeight(y + 2)) return;
-    if (blockRegistry().collides(ctx.world.getBlock({x0, y, z0}))) return; // (vanilla: a solid start spot)
+    if (blockRegistry().collides(ctx.world.getBlock({x0, y, z0})))
+        return; // (vanilla: a solid start spot)
     const glm::dvec3 p = ctx.player.position();
     for (int pack = 0; pack < 3; ++pack) {
         int x = x0, z = z0;
         MobType kind = MobType::Count;
         int spawned = 0, packMax = 4;
-        for (int member = 0; member < 4 && spawned < packMax && m_hostiles < m_monsterCap; ++member) {
+        // (M32 review; wiki: Mob spawning - "up to four" spots a pack)
+        const int tries = 1 + int(ctx.rng.nextInt(4));
+        for (int member = 0; member < tries && spawned < packMax && m_hostiles < m_monsterCap;
+             ++member) {
             x += int(ctx.rng.nextInt(6)) - int(ctx.rng.nextInt(6));
             z += int(ctx.rng.nextInt(6)) - int(ctx.rng.nextInt(6));
             const double dx = x + 0.5 - p.x, dy = y - p.y, dz = z + 0.5 - p.z;
             const double d2 = dx * dx + dy * dy + dz * dz;
             if (d2 < 24.0 * 24.0 || d2 > 128.0 * 128.0) continue;
             if (spawnMonsterAt(ctx, x, y, z, kind, member == 0 || spawned == 0)) ++spawned;
-            if (kind == MobType::Slime || kind == MobType::Witch || kind == MobType::ZombieVillager) packMax = 1;
+            if (kind == MobType::Witch || kind == MobType::ZombieVillager)
+                packMax = 1; // (slimes come in fours)
         }
     }
 }
@@ -1979,7 +2040,8 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
     if (!c || !c->lit()) return false;
     if (!canSpawnAt(ctx.world, x, y, z)) return false;
     const int lx = blockToLocal(x), lz = blockToLocal(z);
-    const Biome biome = c->biomes() ? c->biomes()->at(lx, y, lz, ctx.world.height()) : Biome::Plains;
+    const Biome biome =
+        c->biomes() ? c->biomes()->at(lx, y, lz, ctx.world.height()) : Biome::Plains;
     // No monsters spawn in mushroom fields (wiki: Mushroom Fields); spawners still work.
     // Nor in the deep dark (M27.3b; wiki: Deep Dark).
     if (biome == Biome::MushroomFields || biome == Biome::DeepDark) return false;
@@ -2014,12 +2076,14 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
         if (!slimeChunk || !ctx.world.hasSkyLight()) {
             if (!swamp) return false;
         }
-        return add(ctx.world, make(MobType::Slime, {x + 0.5, double(y), z + 0.5}, ctx.rng)) && (++m_hostiles, true);
+        return add(ctx.world, make(MobType::Slime, {x + 0.5, double(y), z + 0.5}, ctx.rng)) &&
+               (++m_hostiles, true);
     }
     // Monsters need darkness: block light 0, sky light (dimmed by the time of day - in a
     // thunderstorm by at least 10, wiki: Weather) at most a random 0..7.
     if (c->blockLight(lx, y, lz) > 0) return false;
-    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken)) : static_cast<int>(ctx.skyDarken);
+    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken))
+                                      : static_cast<int>(ctx.skyDarken);
     if (c->skyLight(lx, y, lz) - darken > static_cast<int>(ctx.rng.nextInt(8))) return false;
     if (kind == MobType::Enderman && solidAt(ctx.world, x, y + 2, z)) return false; // (3 tall)
     MobData mob = make(kind, {x + 0.5, double(y), z + 0.5}, ctx.rng);
@@ -2028,21 +2092,26 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
     // are parched and half the swamp skeletons bogged.
     if (kind == MobType::Zombie || kind == MobType::Skeleton) {
         const bool open = c->skyLight(lx, y, lz) >= 15;
-        const bool snowy = biome == Biome::SnowyPlains || biome == Biome::IceSpikes || biome == Biome::FrozenRiver ||
-                           biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
+        const bool snowy = biome == Biome::SnowyPlains || biome == Biome::IceSpikes ||
+                           biome == Biome::FrozenRiver || biome == Biome::FrozenOcean ||
+                           biome == Biome::DeepFrozenOcean;
         const uint32_t v = ctx.rng.nextInt(10);
-        if (kind == MobType::Zombie && biome == Biome::Desert && open && v < 8) mob.type = MobType::Husk;
+        if (kind == MobType::Zombie && biome == Biome::Desert && open && v < 8)
+            mob.type = MobType::Husk;
         if (kind == MobType::Skeleton && snowy && open && v < 8) mob.type = MobType::Stray;
-        if (kind == MobType::Skeleton && biome == Biome::Desert && v < 5) mob.type = MobType::Parched;
-        if (kind == MobType::Skeleton && (biome == Biome::Swamp || biome == Biome::MangroveSwamp) && v < 5)
+        if (kind == MobType::Skeleton && biome == Biome::Desert && v < 5)
+            mob.type = MobType::Parched;
+        if (kind == MobType::Skeleton && (biome == Biome::Swamp || biome == Biome::MangroveSwamp) &&
+            v < 5)
             mob.type = MobType::Bogged;
         if (mob.type != kind) mob.health = mobInfo(mob.type).maxHealth;
         // Jockeys (M29.1b; wiki: Zombie Horse, Camel Husk): zombie horsemen with iron spears on
         // plains, savannas and snowy plains (about 1 in 100 zombies); 1 in 10 husks rides a camel
         // husk with a parched behind.
         static const uint16_t ironSpear = uint16_t(*itemRegistry().find("iron_spear"));
-        const bool horsemen = biome == Biome::Plains || biome == Biome::SunflowerPlains || biome == Biome::Savanna ||
-                              biome == Biome::SavannaPlateau || biome == Biome::SnowyPlains;
+        const bool horsemen = biome == Biome::Plains || biome == Biome::SunflowerPlains ||
+                              biome == Biome::Savanna || biome == Biome::SavannaPlateau ||
+                              biome == Biome::SnowyPlains;
         if (mob.type == MobType::Zombie && horsemen && open && first && ctx.rng.nextInt(100) == 0) {
             MobData horse = make(MobType::ZombieHorse, mob.pos, ctx.rng);
             mob.vehicle = horse.uuidHi;
@@ -2058,15 +2127,18 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
             if (add(ctx.world, back)) ++m_hostiles;
         }
     }
-    if (isZombie(mob.type)) zombieSpawnRolls(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
-    if (isSkeleton(mob.type)) rollSpawnGear(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
-    // (M32.2c; vanilla Spider.finalizeSpawn) on Hard, 10% x the clamped regional difficulty
+    if (isZombie(mob.type))
+        zombieSpawnRolls(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
+    if (isSkeleton(mob.type))
+        rollSpawnGear(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
+    // (M32.2c; wiki: Spider › Spawning) on Hard, 10% x the clamped regional difficulty
     // of spiders carry an endless Speed, Strength, Regeneration or Invisibility.
     if (isSpider(kind) && ctx.difficulty >= 3 &&
         ctx.rng.nextFloat() < float(0.1 * clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z))) {
-        static constexpr Effect kSpiderEffects[4] = {Effect::Speed, Effect::Strength, Effect::Regeneration,
-                                                     Effect::Invisibility};
-        addEffect(mob, kSpiderEffects[ctx.rng.nextInt(4)], 0, kInfiniteEffect);
+        // (wiki: Spider - Speed 2 in 5, Strength, Regeneration, Invisibility 1 in 5 each)
+        static constexpr Effect kSpiderEffects[5] = {Effect::Speed, Effect::Speed, Effect::Strength,
+                                                     Effect::Regeneration, Effect::Invisibility};
+        addEffect(mob, kSpiderEffects[ctx.rng.nextInt(5)], 0, kInfiniteEffect);
     }
     // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
     if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
@@ -2080,20 +2152,22 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
 }
 
 double Mobs::clampedDifficultyAt(const Context& ctx, double x, double z) {
-    const Chunk* c = ctx.world.chunk({blockToChunk(int(std::floor(x))), blockToChunk(int(std::floor(z)))});
-    return clampedRegionalDifficulty(regionalDifficulty(ctx.difficulty, ctx.dayTime, c ? c->inhabitedTicks : 0,
-                                                        moonBrightness(ctx.dayTime)));
+    const Chunk* c =
+        ctx.world.chunk({blockToChunk(int(std::floor(x))), blockToChunk(int(std::floor(z)))});
+    return clampedRegionalDifficulty(regionalDifficulty(
+        ctx.difficulty, ctx.dayTime, c ? c->inhabitedTicks : 0, moonBrightness(ctx.dayTime)));
 }
 
 void Mobs::zombieSpawnRolls(Context& ctx, MobData& mob, double crd) {
-    // Vanilla Zombie.finalizeSpawn: 5% are babies (they never grow up); 5% of those ride a
+    // (wiki: Zombie › Spawning) 5% are babies (they never grow up); 5% of those ride a
     // chicken (a chicken jockey). Drowned can be babies but don't ride.
     if (ctx.rng.nextFloat() < 0.05f) {
         mob.age = -24000;
         if (mob.type != MobType::Drowned && mob.vehicle == 0 && ctx.rng.nextFloat() < 0.05f) {
             MobData chicken = make(MobType::Chicken, mob.pos, ctx.rng);
             mob.vehicle = chicken.uuidHi;
-            add(ctx.world, chicken);
+            ctx.world.queueMob(
+                chicken); // (M32 review: may run inside the mob pass - added after it)
         }
     }
     rollSpawnGear(ctx, mob, crd); // (M32.2c: CanPickUpLoot, armor, weapons, enchantments)
@@ -2111,14 +2185,15 @@ void Mobs::zombieSpawnRolls(Context& ctx, MobData& mob, double crd) {
 }
 
 void Mobs::zombieReinforcements(Context& ctx, MobData& m) {
-    // Vanilla Zombie.hurt: on Hard, a zombie hurt by the player calls another zombie with its
-    // reinforcement chance - 50 tries at 7-40 blocks out each way, a dark spot a zombie can
-    // stand in with no player within 7. Both then have 0.05 less chance from then on.
+    // (wiki: Zombie › Reinforcements) on Hard, a zombie hurt by the player calls another zombie
+    // with its reinforcement chance - 50 tries at 7-40 blocks out each way, a dark spot a zombie
+    // can stand in with no player within 7. Both then have 0.05 less chance from then on.
     m.callReinforcements = false;
     if (ctx.difficulty < 3 || !ctx.naturalSpawning || m.health <= 0.0f || ctx.playerDead) return;
     if (ctx.rng.nextFloat() >= m.reinforcements) return;
     const glm::dvec3 player = ctx.player.position();
-    const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+    const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)),
+              bz = int(std::floor(m.pos.z));
     auto offset = [&] { // (vanilla: nextInt(7, 40) x nextInt(-1, 1))
         return (7 + int(ctx.rng.nextInt(34))) * (int(ctx.rng.nextInt(3)) - 1);
     };
@@ -2129,11 +2204,13 @@ void Mobs::zombieReinforcements(Context& ctx, MobData& m) {
         if (!c || !c->lit()) continue;
         const int lx = blockToLocal(x), lz = blockToLocal(z);
         if (c->blockLight(lx, y, lz) > 0 ||
-            c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) > static_cast<int>(ctx.rng.nextInt(8)))
+            c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) >
+                static_cast<int>(ctx.rng.nextInt(8)))
             continue;
         const glm::dvec3 at{x + 0.5, double(y), z + 0.5};
         if (glm::dot(at - player, at - player) < 7.0 * 7.0) continue;
-        MobData z2 = make(MobType::Zombie, at, ctx.rng); // (vanilla: a plain zombie, whoever called)
+        MobData z2 =
+            make(MobType::Zombie, at, ctx.rng); // (vanilla: a plain zombie, whoever called)
         zombieSpawnRolls(ctx, z2, clampedDifficultyAt(ctx, at.x, at.z));
         z2.targeting = true; // (it comes for the player)
         z2.goal = player;
@@ -2146,7 +2223,10 @@ void Mobs::zombieReinforcements(Context& ctx, MobData& m) {
 }
 
 bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty, Xoroshiro& rng) {
-    const uint32_t odds = difficulty <= 0 ? 0u : difficulty == 1 ? 10u : difficulty == 2 ? 25u : 45u; // per 1000
+    const uint32_t odds = difficulty <= 0   ? 0u
+                          : difficulty == 1 ? 10u
+                          : difficulty == 2 ? 25u
+                                            : 45u; // per 1000
     if (rng.nextInt(1000) >= odds) return false;
     MobData h = make(MobType::SkeletonHorse, at, rng);
     h.skeletonTrap = true;
@@ -2155,12 +2235,15 @@ bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty,
 }
 
 void Mobs::addEffect(MobData& mob, Effect effect, int amplifier, int ticks) {
-    if (mob.type == MobType::EnderDragon || mob.type == MobType::EndCrystal || isHanging(mob.type) ||
-        mob.type == MobType::ArmorStand || mob.type == MobType::LeashKnot || mob.type == MobType::Boat ||
-        mob.type == MobType::Minecart || effect == Effect::None || effectInfo(effect).instant)
+    if (mob.type == MobType::EnderDragon || mob.type == MobType::EndCrystal ||
+        isHanging(mob.type) || mob.type == MobType::ArmorStand || mob.type == MobType::LeashKnot ||
+        mob.type == MobType::Boat || mob.type == MobType::Minecart || effect == Effect::None ||
+        effectInfo(effect).instant)
         return;
     if (isUndead(mob.type) && (effect == Effect::Poison || effect == Effect::Regeneration)) return;
-    if ((mob.type == MobType::WitherSkeleton || mob.type == MobType::Wither) && effect == Effect::Wither) return;
+    if ((mob.type == MobType::WitherSkeleton || mob.type == MobType::Wither) &&
+        effect == Effect::Wither)
+        return;
     MobData::ActiveEffect* free = nullptr;
     for (MobData::ActiveEffect& e : mob.effects) {
         if (e.type == uint8_t(effect) && e.ticks > 0) {
@@ -2176,9 +2259,9 @@ void Mobs::addEffect(MobData& mob, Effect effect, int amplifier, int ticks) {
 void Mobs::tickMobEffects(Context& ctx, MobData& m) {
     // (M29.4a) a wither rose withers what stands in it (not on Peaceful; addEffect spares
     // wither skeletons and the Wither - wiki: Wither (effect), M29 review)
-    if (ctx.difficulty != 0 &&
-        blockRegistry().blockOf(ctx.world.getBlock({int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
-                                                    int(std::floor(m.pos.z))})) == blocks::WitherRose)
+    if (ctx.difficulty != 0 && blockRegistry().blockOf(ctx.world.getBlock(
+                                   {int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                                    int(std::floor(m.pos.z))})) == blocks::WitherRose)
         addEffect(m, Effect::Wither, 0, 40);
     // Lasting effects on mobs (M29.2c; wiki: each effect): poison down to 1, regeneration,
     // wither (may kill), levitation rising; speed/slowness and strength/weakness act where
@@ -2186,7 +2269,8 @@ void Mobs::tickMobEffects(Context& ctx, MobData& m) {
     for (MobData::ActiveEffect& e : m.effects) {
         if (e.ticks <= 0) continue;
         const auto type = Effect(e.type);
-        if (type == Effect::Poison && e.ticks % std::max(1, 25 >> e.amplifier) == 0 && m.health > 1.0f) {
+        if (type == Effect::Poison && e.ticks % std::max(1, 25 >> e.amplifier) == 0 &&
+            m.health > 1.0f) {
             m.health -= 1.0f;
             m.hurtTime = 10;
         } else if (type == Effect::Wither && e.ticks % std::max(1, 40 >> e.amplifier) == 0 &&
@@ -2254,7 +2338,8 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye,
             for (size_t i = 0; i < c->mobs().size(); ++i) {
                 const MobData& m = c->mobs()[i];
                 if (m.health <= 0.0f || (skipUuidHi && m.uuidHi == skipUuidHi)) continue;
-                if (isTechnical(m.type) && m.type != MobType::Interaction) continue; // (M29.7e: no box)
+                if (isTechnical(m.type) && m.type != MobType::Interaction)
+                    continue; // (M29.7e: no box)
                 // The dragon's head reaches out of its body box: rayed as its own box.
                 for (int part = 0; part < (m.type == MobType::EnderDragon ? 2 : 1); ++part) {
                     const Aabb b = part == 0 ? box(m)

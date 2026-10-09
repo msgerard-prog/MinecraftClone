@@ -21,7 +21,9 @@ public:
 
     float health() const { return m_health; }
     // (M29.2a) Health Boost: +4 a level; Absorption's golden health (taken first by damage).
-    float maxHealth() const { return kMaxHealth + 4.0f * float(effectLevel(world::Effect::HealthBoost)); }
+    float maxHealth() const {
+        return kMaxHealth + 4.0f * float(effectLevel(world::Effect::HealthBoost));
+    }
     float absorption() const { return m_absorption; }
     void setAbsorption(float a) { m_absorption = std::max(0.0f, a); } // (loading: AbsorptionAmount)
     int takeInfestedHits() { return std::exchange(m_infestedHits, 0); }
@@ -60,9 +62,11 @@ public:
     // Exhaustion from actions (wiki: Hunger › Exhaustion level increase).
     void exhaust(float amount) { m_exhaustion += amount; }
     // Hurts; for 10 ticks after a hit only a stronger one counts, by the difference (M32.3;
-    // vanilla LivingEntity.hurt: invulnerableTime > 10). Returns true if it applied.
+    // wiki: Damage › Immunity: invulnerableTime > 10). Returns true if it applied.
     // `exhausts`: false for falls and the void (wiki: they cause no exhaustion).
     bool damage(float amount, bool exhausts = true);
+    // Whether the last hit that applied started a new hurt window (vanilla: only those knock back).
+    bool lastHitFresh() const { return m_freshHit; }
     // An attack (mobs, arrows, explosions, lava, fire blocks): a raised shield blocks
     // it from the front (no damage); otherwise armor reduces it (wiki: Armor):
     //   damage x (1 - min(20, max(armor / 5, armor - 4 x damage / (toughness + 8))) / 25)
@@ -239,8 +243,8 @@ public:
 private:
     float m_landingFactor = 1.0f;
     bool m_stalagmite = false;
-    bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true,
-         m_naturalRegen = true, m_freezeDamage = true; // (M28.1; freeze: M29.4c)
+    bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true, m_naturalRegen = true,
+         m_freezeDamage = true; // (M28.1; freeze: M29.4c)
     int m_difficulty = 2;
     float m_damageTaken = 0.0f;
     int m_peacefulTicks = 0;
@@ -251,9 +255,10 @@ private:
     int m_food = kMaxFood;
     float m_saturation = 5.0f;
     float m_exhaustion = 0.0f;
-    int m_foodTimer = 0;    // regeneration / starvation clock
-    int m_invulnerable = 0; // ticks left after a hit
+    int m_foodTimer = 0;     // regeneration / starvation clock
+    int m_invulnerable = 0;  // ticks left after a hit
     float m_lastHurt = 0.0f; // (M32.3) that hit's damage (before armor)
+    bool m_freshHit = true;
     bool hurtNow(float amount, bool exhausts);
     int m_air = kMaxAir;
     int m_fire = 0;        // burning ticks left

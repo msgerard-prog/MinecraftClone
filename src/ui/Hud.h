@@ -1,9 +1,9 @@
 #pragma once
 
 #include "gameplay/Inventory.h"
-#include "rendering/ItemIcons.h"
 #include "rendering/BlockModels.h"
 #include "rendering/GuiBatch.h"
+#include "rendering/ItemIcons.h"
 
 #include <glm/glm.hpp>
 
@@ -34,22 +34,24 @@ void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight
 void drawAttackIndicator(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight);
 // (M29.2a) maxHealth over 20 adds heart rows above (Health Boost); absorption is drawn as
 // golden hearts after them.
-void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300,
-                int armor = 0, float maxHealth = 20.0f, float absorption = 0.0f);
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight,
+                int air = 300, int armor = 0, float maxHealth = 20.0f, float absorption = 0.0f);
 
 // A boss bar (wiki: Boss bar): its name centred at the top, a 182x5 bar below it
 // filled by `fraction` (the ender dragon's is pink).
-void drawBossBar(gfx::GuiBatch& batch, std::string_view name, float fraction, uint32_t color, int guiWidth);
+void drawBossBar(gfx::GuiBatch& batch, std::string_view name, float fraction, uint32_t color,
+                 int guiWidth);
 
 // The death screen: red tint, "You died!" and how to respawn.
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);
 // Freezing in powder snow (M29.4c; vanilla: the powder_snow_outline vignette, faded in
 // with the frozen fraction 0..1): frosty bands closing in from the edges.
 void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiHeight);
-// (M32.3; vanilla GameRenderer item activation) a used totem of undying pops up in the middle
+// (M32.3; wiki: Totem of Undying › Usage) a used totem of undying pops up in the middle
 // of the screen over 40 ticks - growing, spinning about its upright axis, then gone.
 // `progress` 0..1 over those ticks; `sprite` the item's atlas sprite.
-void drawItemActivation(gfx::GuiBatch& batch, uint16_t sprite, float progress, int guiWidth, int guiHeight);
+void drawItemActivation(gfx::GuiBatch& batch, uint16_t sprite, float progress, int guiWidth,
+                        int guiHeight);
 
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {
@@ -59,9 +61,9 @@ struct DebugInfo {
     float yaw = 0.0f, pitch = 0.0f;
     bool hasTarget = false;
     glm::ivec3 target{0};
-    const char* targetName = ""; // registry string of the targeted state
+    const char* targetName = "";      // registry string of the targeted state
     int skyLight = 0, blockLight = 0; // at the feet block
-    const char* biome = "";          // at the feet block (vanilla id)
+    const char* biome = "";           // at the feet block (vanilla id)
     int64_t dayTime = 0;
     int64_t gameTime = 0;
     int renderDistance = 0;

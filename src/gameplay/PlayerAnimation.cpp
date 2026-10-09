@@ -33,7 +33,7 @@ void PlayerAnimation::tick(const glm::dvec3& pos, const glm::dvec3& prevPos, flo
     const double dx = pos.x - prevPos.x, dz = pos.z - prevPos.z;
     const float dist = float(std::sqrt(dx * dx + dz * dz));
     m_lastStep = dist;
-    // Limbs (vanilla LivingEntity.calculateEntityAnimation): the swing amount eases toward
+    // Limbs (observed vanilla walk animation): the swing amount eases toward
     // the distance moved x 4 (at most 1) and the swing phase advances by the amount.
     m_limbAmount += (std::min(dist * 4.0f, 1.0f) - m_limbAmount) * 0.4f;
     m_limb += m_limbAmount;

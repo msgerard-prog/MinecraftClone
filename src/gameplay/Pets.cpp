@@ -8,8 +8,8 @@
 #include "gameplay/Raids.h"
 
 #include "world/Blocks.h"
-#include "world/Weather.h"
 #include "world/Items.h"
+#include "world/Weather.h"
 
 #include <algorithm>
 #include <cmath>
@@ -250,7 +250,8 @@ void Mobs::spawnCreatures(Context& ctx) {
     for (int k = 0; k < 289 && m_creatures < m_creatureCap; ++k) {
         const int i = (start + k) % 289;
         const ChunkPos cp{pc.x + i % 17 - 8, pc.z + i / 17 - 8};
-        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)), z = cp.z * 16 + int(ctx.rng.nextInt(16));
+        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)),
+                  z = cp.z * 16 + int(ctx.rng.nextInt(16));
         const double dx = x + 0.5 - p.x, dz = z + 0.5 - p.z;
         if (dx * dx + dz * dz < 24.0 * 24.0) continue;
         spawnCreatureAt(ctx, x, z);
@@ -272,7 +273,8 @@ void Mobs::spawnCreatureAt(Context& ctx, int x, int z) {
         for (int i = 0; i < n && m_creatures < 10; ++i) {
             const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
             if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz)) continue;
-            if (add(ctx.world, make(MobType::Mooshroom, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_creatures;
+            if (add(ctx.world, make(MobType::Mooshroom, {gx + 0.5, double(y), gz + 0.5}, ctx.rng)))
+                ++m_creatures;
         }
         return;
     }
@@ -298,22 +300,29 @@ void Mobs::spawnCreatureAt(Context& ctx, int x, int z) {
     int group = 1, variant = 0;
     // Farm animals (M32.1; wiki: Spawn - the grassy biomes' creature lists: sheep 12, pig 10,
     // chicken 10, cow 8, groups of 4); wolves, ocelots and parrots below with their own odds.
-    const bool grassy = ground == blocks::GrassBlock &&
-                        (biome == Biome::Plains || biome == Biome::SunflowerPlains || biome == Biome::Meadow ||
-                         biome == Biome::Forest || biome == Biome::FlowerForest || biome == Biome::BirchForest ||
-                         biome == Biome::OldGrowthBirchForest || biome == Biome::DarkForest || biome == Biome::Taiga ||
-                         biome == Biome::OldGrowthPineTaiga || biome == Biome::OldGrowthSpruceTaiga ||
-                         biome == Biome::Jungle || biome == Biome::SparseJungle || biome == Biome::BambooJungle ||
-                         biome == Biome::Savanna || biome == Biome::SavannaPlateau || biome == Biome::WindsweptHills ||
-                         biome == Biome::WindsweptForest || biome == Biome::Swamp || biome == Biome::CherryGrove);
+    const bool grassy =
+        ground == blocks::GrassBlock &&
+        (biome == Biome::Plains || biome == Biome::SunflowerPlains || biome == Biome::Meadow ||
+         biome == Biome::Forest || biome == Biome::FlowerForest || biome == Biome::BirchForest ||
+         biome == Biome::OldGrowthBirchForest || biome == Biome::DarkForest ||
+         biome == Biome::Taiga || biome == Biome::OldGrowthPineTaiga ||
+         biome == Biome::OldGrowthSpruceTaiga || biome == Biome::Jungle ||
+         biome == Biome::SparseJungle || biome == Biome::BambooJungle || biome == Biome::Savanna ||
+         biome == Biome::SavannaPlateau || biome == Biome::WindsweptHills ||
+         biome == Biome::WindsweptForest || biome == Biome::Swamp || biome == Biome::CherryGrove);
     if (grassy && ctx.rng.nextInt(5) != 0) {
         const uint32_t roll = ctx.rng.nextInt(40);
-        const MobType farm = roll < 12 ? MobType::Sheep : roll < 22 ? MobType::Pig : roll < 32 ? MobType::Chicken : MobType::Cow;
+        const MobType farm = roll < 12   ? MobType::Sheep
+                             : roll < 22 ? MobType::Pig
+                             : roll < 32 ? MobType::Chicken
+                                         : MobType::Cow;
         for (int i = 0, placed = 0; i < 4 && m_creatures < m_creatureCap; ++i) {
             const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
-            if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
+            if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) ||
+                solid(ctx.world, gx, y + 1, gz))
+                continue;
             MobData a = make(farm, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
-            // (M32.6; vanilla AgeableMob.finalizeSpawn) after the first of a group, 5% are young.
+            // (M32.6; wiki: Mob spawning) after the first of a group, 5% are young.
             if (placed > 0 && ctx.rng.nextFloat() < 0.05f) a.age = -24000;
             if (add(ctx.world, a)) {
                 ++m_creatures;

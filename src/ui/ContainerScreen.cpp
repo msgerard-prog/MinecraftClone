@@ -1,7 +1,7 @@
 #include "ui/ContainerScreen.h"
 
-#include "gameplay/Bundles.h"
 #include "gameplay/Brewing.h"
+#include "gameplay/Bundles.h"
 #include "gameplay/Cartography.h"
 
 #include "gameplay/Anvil.h"
@@ -13,8 +13,8 @@
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
 #include "ui/Hud.h"
-#include "world/ItemExtras.h"
 #include "world/Enchantments.h"
+#include "world/ItemExtras.h"
 #include "world/Trades.h"
 
 #include <algorithm>
@@ -212,7 +212,8 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
         } else if (type == Type::Mount && rows == 3) { // a chest boat: a chest's 3 rows
             for (int i = 0; i < 27; ++i)
                 out.push_back({K::Store, i, 8 + (i % 9) * 18, 18 + (i / 9) * 18});
-        } else if (type == Type::Mount) { // (vanilla horse screen: gear on the left, the chest 5 wide)
+        } else if (type ==
+                   Type::Mount) { // (vanilla horse screen: gear on the left, the chest 5 wide)
             out.push_back({K::MountGear, 0, 8, 18});
             out.push_back({K::MountGear, 1, 8, 36});
             for (int i = 0; i < 15; ++i)
@@ -260,7 +261,8 @@ std::span<const ContainerScreen::Slot> ContainerScreen::slots() const {
                                    beacon = build(Type::Beacon, 0),
                                    trading = build(Type::Trading, 0), mount = build(Type::Mount, 0),
                                    chestBoat = build(Type::Mount, 3);
-    if (m_type == Type::Mount) return m_mount && m_mount->type == world::MobType::Boat ? chestBoat : mount;
+    if (m_type == Type::Mount)
+        return m_mount && m_mount->type == world::MobType::Boat ? chestBoat : mount;
     if (m_type == Type::Beacon) return beacon;
     if (m_type == Type::Trading) return trading;
     if (m_type == Type::Smithing) return smithing;
@@ -314,14 +316,19 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
         const auto& items = world::itemRegistry();
         m_gearScratch = {};
         if (s.index == 0) {
-            if (!world::isHorseKind(t) && !world::isCamel(t) && !world::isNautilus(t)) return nullptr; // (llamas take no saddle)
+            if (!world::isHorseKind(t) && !world::isCamel(t) && !world::isNautilus(t))
+                return nullptr; // (llamas take no saddle)
             if (m_mount->saddled) m_gearScratch = {*items.find("saddle"), 1};
         } else {
-            if (t != MobType::Horse && t != MobType::ZombieHorse && !world::isLlama(t) && !world::isNautilus(t)) return nullptr;
+            if (t != MobType::Horse && t != MobType::ZombieHorse && !world::isLlama(t) &&
+                !world::isNautilus(t))
+                return nullptr;
             if (m_mount->horseArmor > 0)
                 m_gearScratch = {*items.find(world::bodyArmorItems(t)[m_mount->horseArmor]), 1};
             if (m_mount->decor > 0)
-                m_gearScratch = {*items.find(std::string(world::kDyeColours[m_mount->decor - 1]) + "_carpet"), 1};
+                m_gearScratch = {
+                    *items.find(std::string(world::kDyeColours[m_mount->decor - 1]) + "_carpet"),
+                    1};
         }
         return &m_gearScratch;
     }
@@ -342,7 +349,8 @@ bool ContainerScreen::gearFits(int slot, const world::ItemStack& s) const {
     if (m_mount->type == world::MobType::Horse || m_mount->type == world::MobType::ZombieHorse ||
         world::isNautilus(m_mount->type))
         for (int k = 1; k < int(world::bodyArmorItems(m_mount->type).size()); ++k)
-            if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k]) return true;
+            if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k])
+                return true;
     if (world::isLlama(m_mount->type))
         for (int c = 0; c < 16; ++c)
             if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") return true;
@@ -351,7 +359,8 @@ bool ContainerScreen::gearFits(int slot, const world::ItemStack& s) const {
 
 void ContainerScreen::setGear(int slot, const world::ItemStack& s) {
     if (!m_mount) return;
-    const std::string_view id = s.empty() ? std::string_view{} : world::itemRegistry().item(s.item).id;
+    const std::string_view id =
+        s.empty() ? std::string_view{} : world::itemRegistry().item(s.item).id;
     if (slot == 0) {
         m_mount->saddled = !s.empty();
         return;
@@ -359,9 +368,11 @@ void ContainerScreen::setGear(int slot, const world::ItemStack& s) {
     m_mount->horseArmor = 0;
     m_mount->decor = 0;
     for (int k = 1; k < int(world::bodyArmorItems(m_mount->type).size()) && !s.empty(); ++k)
-        if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k]) m_mount->horseArmor = uint8_t(k);
+        if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k])
+            m_mount->horseArmor = uint8_t(k);
     for (int c = 0; c < 16 && !s.empty(); ++c)
-        if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") m_mount->decor = uint8_t(c + 1);
+        if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet")
+            m_mount->decor = uint8_t(c + 1);
 }
 
 bool ContainerScreen::placeRecipe(const Recipe& r, Inventory& inventory) {
@@ -444,7 +455,9 @@ void ContainerScreen::updateResult() {
         if (!m_trader) return;
         auto matches = [&](const world::TradeOffer& o) {
             if (o.uses >= o.maxUses) return false; // out of stock
-            const world::ItemStack a = world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0), b = world::offerBuyB(o);
+            const world::ItemStack a = world::offerBuyA(
+                                       o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0),
+                                   b = world::offerBuyB(o);
             if (m_grid[0].item != a.item || m_grid[0].count < a.count) return false;
             return b.empty() || (m_grid[1].item == b.item && m_grid[1].count >= b.count);
         };
@@ -478,14 +491,16 @@ void ContainerScreen::updateResult() {
         if (m_grid[0].item != m_anvilNamedItem) {
             m_anvilNamedItem = m_grid[0].item;
             m_anvilName = m_grid[0].empty() ? std::string()
-                                            : m_grid[0].name ? std::string(world::nameText(m_grid[0].name))
-                                                             : prettyItemName(m_grid[0].item);
+                          : m_grid[0].name  ? std::string(world::nameText(m_grid[0].name))
+                                            : prettyItemName(m_grid[0].item);
             m_anvilNameEdited = false;
         }
         // (an unnamed item keeps no name when the field still shows its own)
-        const bool renaming = m_anvilNameEdited && !(m_grid[0].name == 0 && m_anvilName == prettyItemName(m_grid[0].item));
-        const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative,
-                                           renaming ? std::optional<std::string_view>(m_anvilName) : std::nullopt);
+        const bool renaming = m_anvilNameEdited && !(m_grid[0].name == 0 &&
+                                                     m_anvilName == prettyItemName(m_grid[0].item));
+        const AnvilResult r =
+            anvilCombine(m_grid[0], m_grid[1], m_creative,
+                         renaming ? std::optional<std::string_view>(m_anvilName) : std::nullopt);
         m_result = r.out;
         m_anvilCost = r.cost;
         m_anvilMaterial = r.materialUsed;
@@ -519,12 +534,13 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
 }
 
 void ContainerScreen::moveToPlayer(world::ItemStack& s, Inventory& inventory) {
-    // (M32.4; vanilla quickMoveStack into the player's slots, reversed) out of a container or
+    // (M32.4; observed shift-click order into the player's slots) out of a container or
     // a result slot: merging, then empty slots - the hotbar from its right end, then the
     // main rows from the bottom right.
     for (int pass = 0; pass < 2 && !s.empty(); ++pass)
         for (int k = 0; k < Inventory::kSlots && !s.empty(); ++k) {
-            const int i = k < Inventory::kHotbar ? Inventory::kHotbar - 1 - k : Inventory::kSlots - 1 - (k - Inventory::kHotbar);
+            const int i = k < Inventory::kHotbar ? Inventory::kHotbar - 1 - k
+                                                 : Inventory::kSlots - 1 - (k - Inventory::kHotbar);
             world::ItemStack t = inventory.slot(i);
             if (pass == 0 && !t.empty() && t.sameKind(s) && t.count < maxStack(t)) {
                 const int n = std::min<int>(s.count, maxStack(t) - t.count);
@@ -546,7 +562,9 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
                              m_tradeChoice < m_trader->offerCount;
              ++rounds) {
             const world::TradeOffer& o = m_trader->offers[size_t(m_tradeChoice)];
-            const world::ItemStack a = world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0), b = world::offerBuyB(o);
+            const world::ItemStack a = world::offerBuyA(
+                                       o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0),
+                                   b = world::offerBuyB(o);
             world::ItemStack made = m_result;
             if (shift) {
                 Inventory probe = inventory;
@@ -589,7 +607,8 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         m_carried = m_result;
         noteCrafted(m_result);
         for (int i = 0; i < 2; ++i)
-            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0) m_grid[size_t(i)] = {};
+            if (!m_grid[size_t(i)].empty() && --m_grid[size_t(i)].count == 0)
+                m_grid[size_t(i)] = {};
         updateResult();
         return;
     }
@@ -629,7 +648,8 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
         int keep = -1;
         if (world::itemRegistry().item(made.item).id == "minecraft:written_book")
             for (int i = 0; i < n * n; ++i)
-                if (m_grid[size_t(i)].item == made.item && m_grid[size_t(i)].extra == made.extra) keep = i;
+                if (m_grid[size_t(i)].item == made.item && m_grid[size_t(i)].extra == made.extra)
+                    keep = i;
         if (keep >= 0) made = bookCopy(made, made.count);
         if (shift) {
             // Craft only if the whole result fits (no partial insert without using up
@@ -653,7 +673,8 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
                                    bucket = *world::itemRegistry().find("bucket");
         for (int i = 0; i < n * n; ++i) { // each ingredient is used once
             if (i == keep || m_grid[size_t(i)].empty()) continue;
-            if (m_grid[size_t(i)].item == milk) { // (M28.5a) the bucket stays behind, empty (vanilla's remainder)
+            if (m_grid[size_t(i)].item ==
+                milk) { // (M28.5a) the bucket stays behind, empty (vanilla's remainder)
                 m_grid[size_t(i)] = {bucket, 1};
                 continue;
             }
@@ -668,17 +689,21 @@ void ContainerScreen::noteCrafted(const world::ItemStack& s) {
     if (s.item == 0 || s.count == 0) return;
     for (int i = 0; i < m_craftedCount; ++i)
         if (m_crafted[size_t(i)].item == s.item) {
-            m_crafted[size_t(i)].count = uint8_t(std::min(255, m_crafted[size_t(i)].count + s.count));
+            m_crafted[size_t(i)].count =
+                uint8_t(std::min(255, m_crafted[size_t(i)].count + s.count));
             return;
         }
-    if (m_craftedCount < int(m_crafted.size())) m_crafted[size_t(m_craftedCount++)] = {s.item, s.count};
+    if (m_craftedCount < int(m_crafted.size()))
+        m_crafted[size_t(m_craftedCount++)] = {s.item, s.count};
 }
 
-const ContainerScreen::Slot* ContainerScreen::slotAt(double mx, double my, int guiWidth, int guiHeight) const {
+const ContainerScreen::Slot* ContainerScreen::slotAt(double mx, double my, int guiWidth,
+                                                     int guiHeight) const {
     const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
     const double px = mx - left, py = my - top;
     for (const Slot& slot : slots())
-        if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17) return &slot;
+        if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17)
+            return &slot;
     return nullptr;
 }
 
@@ -721,7 +746,8 @@ bool ContainerScreen::beginDrag(double mx, double my, Button button, int guiWidt
     return true;
 }
 
-void ContainerScreen::dragTo(double mx, double my, int guiWidth, int guiHeight, Inventory& inventory) {
+void ContainerScreen::dragTo(double mx, double my, int guiWidth, int guiHeight,
+                             Inventory& inventory) {
     if (m_dragCount == 0) return;
     const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
     if (!s || !plainSlot(*s)) return;
@@ -735,13 +761,15 @@ void ContainerScreen::dragTo(double mx, double my, int guiWidth, int guiHeight, 
     m_dragSlots[size_t(m_dragCount++)] = idx;
 }
 
-void ContainerScreen::endDrag(int guiWidth, int guiHeight, Inventory& inventory, std::vector<world::ItemStack>& drops) {
+void ContainerScreen::endDrag(int guiWidth, int guiHeight, Inventory& inventory,
+                              std::vector<world::ItemStack>& drops) {
     const int n = std::exchange(m_dragCount, 0);
     if (n == 0) return;
     const Slot& first = slots()[size_t(m_dragSlots[0])];
     if (n == 1) { // a plain click on that slot
         const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
-        clickSlots(left + first.x + 8, top + first.y + 8, m_dragButton, false, guiWidth, guiHeight, inventory, drops);
+        clickSlots(left + first.x + 8, top + first.y + 8, m_dragButton, false, guiWidth, guiHeight,
+                   inventory, drops);
         return;
     }
     // Left: floor(count / slots) each (vanilla quick craft); right: one each.
@@ -767,7 +795,8 @@ void ContainerScreen::endDrag(int guiWidth, int guiHeight, Inventory& inventory,
 }
 
 void ContainerScreen::collectAll(Inventory& inventory) {
-    // Vanilla PICKUP_ALL: part stacks first, then full ones, until the carried stack is full.
+    // (wiki: Inventory › Controls - double-click) part stacks first, then full ones, until the
+    // carried stack is full.
     if (m_carried.empty()) return;
     const int max = maxStack(m_carried);
     for (int pass = 0; pass < 2 && m_carried.count < max; ++pass)
@@ -789,17 +818,22 @@ void ContainerScreen::swapWithHotbar(double mx, double my, int hotbar, int guiWi
                                      Inventory& inventory) {
     if (!m_carried.empty()) return;
     const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
-    if (!s || s->kind == Slot::Kind::Result || s->kind == Slot::Kind::FurnaceOut || s->kind == Slot::Kind::MountGear)
+    if (!s || s->kind == Slot::Kind::Result || s->kind == Slot::Kind::FurnaceOut ||
+        s->kind == Slot::Kind::MountGear)
         return;
     world::ItemStack* cur = stackAt(*s, inventory);
     if (!cur) return;
     const world::ItemStack here = *cur;
     const world::ItemStack other = hotbar < 0 ? inventory.offhand() : inventory.slot(hotbar);
     if (s->kind == Slot::Kind::Armor) { // (only its own piece goes on; Curse of Binding holds)
-        if (!other.empty() && world::itemRegistry().item(other.item).armorSlot != s->index + 1) return;
-        if (!m_creative && !here.empty() && world::enchantLevel(here, world::Enchantment::BindingCurse) > 0) return;
+        if (!other.empty() && world::itemRegistry().item(other.item).armorSlot != s->index + 1)
+            return;
+        if (!m_creative && !here.empty() &&
+            world::enchantLevel(here, world::Enchantment::BindingCurse) > 0)
+            return;
     }
-    if (!plainSlot(*s) && s->kind != Slot::Kind::Armor && s->kind != Slot::Kind::Offhand && !other.empty())
+    if (!plainSlot(*s) && s->kind != Slot::Kind::Armor && s->kind != Slot::Kind::Offhand &&
+        !other.empty())
         return; // (furnace and brewing slots: only taking out)
     if (hotbar < 0)
         inventory.setOffhand(here);
@@ -808,14 +842,15 @@ void ContainerScreen::swapWithHotbar(double mx, double my, int hotbar, int guiWi
     writeSlot(*s, inventory, other);
 }
 
-void ContainerScreen::dropFromSlot(double mx, double my, bool all, int guiWidth, int guiHeight, Inventory& inventory,
-                                   std::vector<world::ItemStack>& drops) {
+void ContainerScreen::dropFromSlot(double mx, double my, bool all, int guiWidth, int guiHeight,
+                                   Inventory& inventory, std::vector<world::ItemStack>& drops) {
     if (!m_carried.empty()) return;
     const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
     if (!s || s->kind == Slot::Kind::Result || s->kind == Slot::Kind::MountGear) return;
     if (s->kind == Slot::Kind::Armor && !m_creative) {
         const world::ItemStack& worn = inventory.armor(s->index);
-        if (!worn.empty() && world::enchantLevel(worn, world::Enchantment::BindingCurse) > 0) return;
+        if (!worn.empty() && world::enchantLevel(worn, world::Enchantment::BindingCurse) > 0)
+            return;
     }
     const world::ItemStack* cur = stackAt(*s, inventory);
     if (!cur || cur->empty()) return;
@@ -833,7 +868,8 @@ void ContainerScreen::click(double mx, double my, Button button, bool shift, int
     // since the last take (vanilla RecipesUsed, wiki: Furnace): the counts move here
     // and main turns them into orbs at the player.
     const int outBefore = m_type == Type::Furnace && m_furnace ? m_furnace->output.count : 0;
-    const world::ItemId outItem = m_type == Type::Furnace && m_furnace ? m_furnace->output.item : world::ItemId(0);
+    const world::ItemId outItem =
+        m_type == Type::Furnace && m_furnace ? m_furnace->output.item : world::ItemId(0);
     clickSlots(mx, my, button, shift, guiWidth, guiHeight, inventory, drops);
     if (m_type == Type::Furnace && m_furnace && m_furnace->output.count < outBefore) {
         noteCrafted({outItem, uint8_t(outBefore - m_furnace->output.count)});
@@ -915,7 +951,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                 inventory.setSlot(sl, t.count ? t : world::ItemStack{});
             }
         };
-        pull(m_grid[0], world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0));
+        pull(m_grid[0],
+             world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0));
         pull(m_grid[1], world::offerBuyB(o));
         updateResult();
         return;
@@ -1004,7 +1041,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         // Bundles (M29.3f; wiki: Bundle): a right-click with a bundle on an item takes it in;
         // with an item on a bundle puts it in; with nothing on a bundle takes the last out.
         if (button == Button::Right && !shift &&
-            (slot.kind == Slot::Kind::Inv || slot.kind == Slot::Kind::Chest || slot.kind == Slot::Kind::Offhand)) {
+            (slot.kind == Slot::Kind::Inv || slot.kind == Slot::Kind::Chest ||
+             slot.kind == Slot::Kind::Offhand)) {
             if (!m_carried.empty() && isBundle(m_carried.item) && !v.empty() && !isBundle(v.item)) {
                 v.count = uint8_t(v.count - addToBundle(m_carried, v));
                 store();
@@ -1032,7 +1070,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                     store();
                     return;
                 }
-                if (m_type == Type::Mount) // (gear first: a saddle, armor or carpet onto an empty gear slot)
+                if (m_type ==
+                    Type::Mount) // (gear first: a saddle, armor or carpet onto an empty gear slot)
                     for (int g = 0; g < 2; ++g) {
                         const Slot gear{Slot::Kind::MountGear, g, 0, 0};
                         world::ItemStack* cur = stackAt(gear, inventory);
@@ -1045,7 +1084,8 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                             return;
                         }
                     }
-                if ((m_type == Type::Hopper || m_type == Type::Dispenser || m_type == Type::Mount) &&
+                if ((m_type == Type::Hopper || m_type == Type::Dispenser ||
+                     m_type == Type::Mount) &&
                     !m_store.empty()) { // into its slots
                     for (int pass = 0; pass < 2 && !v.empty(); ++pass)
                         for (world::ItemStack& t : m_store) {
@@ -1267,20 +1307,21 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
     const char* title =
         m_type == Type::Trading
             ? (m_trader && m_trader->type == world::MobType::WanderingTrader ? "Wandering Trader"
-               : m_trader                                                 ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)]
-                                                                          : "Trading")
-        : m_type == Type::Mount       ? (!m_mount                                        ? "Mount"
-                                         : m_mount->type == world::MobType::Boat          ? "Chest Boat"
-                                         : m_mount->type == world::MobType::Horse         ? "Horse"
-                                         : m_mount->type == world::MobType::Donkey        ? "Donkey"
-                                         : m_mount->type == world::MobType::Mule          ? "Mule"
-                                         : m_mount->type == world::MobType::Camel         ? "Camel"
-                                         : m_mount->type == world::MobType::CamelHusk     ? "Camel Husk"
-                                         : m_mount->type == world::MobType::SkeletonHorse ? "Skeleton Horse"
-                                         : m_mount->type == world::MobType::ZombieHorse   ? "Zombie Horse"
-                                         : m_mount->type == world::MobType::ZombieNautilus ? "Zombie Nautilus"
-                                         : m_mount->type == world::MobType::TraderLlama   ? "Trader Llama"
-                                                                                          : "Llama")
+               : m_trader ? kLevels[std::clamp<int>(m_trader->villagerLevel, 1, 5)]
+                          : "Trading")
+        : m_type == Type::Mount
+            ? (!m_mount                                          ? "Mount"
+               : m_mount->type == world::MobType::Boat           ? "Chest Boat"
+               : m_mount->type == world::MobType::Horse          ? "Horse"
+               : m_mount->type == world::MobType::Donkey         ? "Donkey"
+               : m_mount->type == world::MobType::Mule           ? "Mule"
+               : m_mount->type == world::MobType::Camel          ? "Camel"
+               : m_mount->type == world::MobType::CamelHusk      ? "Camel Husk"
+               : m_mount->type == world::MobType::SkeletonHorse  ? "Skeleton Horse"
+               : m_mount->type == world::MobType::ZombieHorse    ? "Zombie Horse"
+               : m_mount->type == world::MobType::ZombieNautilus ? "Zombie Nautilus"
+               : m_mount->type == world::MobType::TraderLlama    ? "Trader Llama"
+                                                                 : "Llama")
         : m_type == Type::Beacon      ? "Beacon"
         : m_type == Type::Smithing    ? "Upgrade Gear"
         : m_type == Type::Loom        ? "Loom"
@@ -1301,14 +1342,14 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
         : m_type == Type::Enchanting  ? "Enchant"
         : m_type == Type::Anvil       ? "Repair & Name"
                                       : "Crafting";
-    const float titleX =
-        m_type == Type::Inventory                                                       ? 97.0f
-        : m_type == Type::Crafting                                                      ? 28.0f
-        : m_type == Type::Chest || m_type == Type::Enchanting || m_type == Type::Hopper || m_type == Type::Trading ||
-                m_type == Type::Mount
-            ? 8.0f
-        : m_type == Type::Anvil                                                         ? 60.0f
-                                                                                        : 70.0f;
+    const float titleX = m_type == Type::Inventory  ? 97.0f
+                         : m_type == Type::Crafting ? 28.0f
+                         : m_type == Type::Chest || m_type == Type::Enchanting ||
+                                 m_type == Type::Hopper || m_type == Type::Trading ||
+                                 m_type == Type::Mount
+                             ? 8.0f
+                         : m_type == Type::Anvil ? 60.0f
+                                                 : 70.0f;
     b.text(title, left + titleX, top + 6, kLabel, false);
     if (m_type != Type::Inventory)
         b.text("Inventory", left + 8,
@@ -1391,13 +1432,20 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
             const int i = m_loomScroll * 4 + k;
             if (m_grid[0].empty() || i >= n) continue;
             const float bx = left + 58 + float(k % 4) * 16, by = top + 13 + float(k / 4) * 14;
-            const bool hover = hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 14;
-            b.fill(bx, by, 16, 14, pats[size_t(i)] == m_loomChoice ? gfx::rgba(120, 160, 120) : hover ? kLight : kSlotFill);
-            b.fill(bx + 5, by + 1, 6, 12, gfx::rgba(230, 230, 230)); // the cloth, both halves of the mask
+            const bool hover =
+                hx >= bx - left && hx < bx - left + 16 && hy >= by - top && hy < by - top + 14;
+            b.fill(bx, by, 16, 14,
+                   pats[size_t(i)] == m_loomChoice ? gfx::rgba(120, 160, 120)
+                   : hover                         ? kLight
+                                                   : kSlotFill);
+            b.fill(bx + 5, by + 1, 6, 12,
+                   gfx::rgba(230, 230, 230)); // the cloth, both halves of the mask
             for (int half = 0; half < 2; ++half)
                 if (const uint16_t mask = icons.bannerMask(pats[size_t(i)], half))
-                    b.sprite(gfx::GuiTexture::Atlas, bx + 5, by + 1 + 6.0f * float(half), 6, 6, float(icons.spriteU(mask)),
-                             float(icons.spriteV(mask)), float(icons.cellSize()), float(icons.cellSize()), gfx::rgba(60, 60, 60));
+                    b.sprite(gfx::GuiTexture::Atlas, bx + 5, by + 1 + 6.0f * float(half), 6, 6,
+                             float(icons.spriteU(mask)), float(icons.spriteV(mask)),
+                             float(icons.cellSize()), float(icons.cellSize()),
+                             gfx::rgba(60, 60, 60));
             b.fill(bx, by + 13, 16, 1, kDark);
         }
         const int rows = (n + 3) / 4;
@@ -1418,7 +1466,10 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
                    i == m_tradeChoice ? gfx::rgba(150, 190, 150)
                    : hover            ? kLight
                                       : kSlotFill);
-            icons.draw(b, models, world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0), rx + 1, ry, kIconGrassTint);
+            icons.draw(
+                b, models,
+                world::offerBuyA(o, m_heroLevel, m_trader ? world::reputation(*m_trader) : 0),
+                rx + 1, ry, kIconGrassTint);
             icons.draw(b, models, world::offerBuyB(o), rx + 19, ry, kIconGrassTint);
             b.fill(rx + 38, ry + 7, 12, 3, kDark); // the arrow
             icons.draw(b, models, world::offerSell(o), rx + 56, ry, kIconGrassTint);
@@ -1428,13 +1479,13 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
         // Experience toward the next level (10 / 70 / 150 / 250); traders have none.
         static constexpr int kNeed[6] = {0, 0, 10, 70, 150, 250};
         if (m_trader->type == world::MobType::Villager) {
-        const int level = std::clamp<int>(m_trader->villagerLevel, 1, 5);
-        const float fill = level >= 5 ? 1.0f
-                                      : std::clamp(float(m_trader->villagerXp - kNeed[level]) /
-                                                       float(kNeed[level + 1] - kNeed[level]),
-                                                   0.0f, 1.0f);
-        b.fill(left + 100, top + 8, 68, 4, kDark);
-        b.fill(left + 100, top + 8, 68.0f * fill, 4, gfx::rgba(120, 220, 80));
+            const int level = std::clamp<int>(m_trader->villagerLevel, 1, 5);
+            const float fill = level >= 5 ? 1.0f
+                                          : std::clamp(float(m_trader->villagerXp - kNeed[level]) /
+                                                           float(kNeed[level + 1] - kNeed[level]),
+                                                       0.0f, 1.0f);
+            b.fill(left + 100, top + 8, 68, 4, kDark);
+            b.fill(left + 100, top + 8, 68.0f * fill, 4, gfx::rgba(120, 220, 80));
         }
         arrow(90, 112, 0);
     }
@@ -1538,23 +1589,28 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
             colours[0] = gfx::argb(0xFFFFFFFF);
         }
         n = 1;
-        static constexpr const char* kRoman[11] = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+        static constexpr const char* kRoman[11] = {"",   "I",   "II",   "III", "IV", "V",
+                                                   "VI", "VII", "VIII", "IX",  "X"};
         for (const uint16_t v : hovered->enchantments)
             if (v && n < 9) {
                 const auto& info = world::enchantmentInfo(world::Enchantment(v >> 8));
-                std::snprintf(lines[n], sizeof(lines[n]), "%.*s%s%s", int(info.name.size()), info.name.data(),
-                              info.maxLevel > 1 ? " " : "", info.maxLevel > 1 ? kRoman[std::min(10, v & 0xFF)] : "");
-                colours[n] = info.name.starts_with("Curse") ? gfx::argb(0xFFFF5555) : gfx::argb(0xFFA8A8A8);
+                std::snprintf(lines[n], sizeof(lines[n]), "%.*s%s%s", int(info.name.size()),
+                              info.name.data(), info.maxLevel > 1 ? " " : "",
+                              info.maxLevel > 1 ? kRoman[std::min(10, v & 0xFF)] : "");
+                colours[n] =
+                    info.name.starts_with("Curse") ? gfx::argb(0xFFFF5555) : gfx::argb(0xFFA8A8A8);
                 ++n;
             }
         int w = 0;
-        for (int i = 0; i < n; ++i) w = std::max(w, b.textWidth(lines[i]));
+        for (int i = 0; i < n; ++i)
+            w = std::max(w, b.textWidth(lines[i]));
         const float tx = static_cast<float>(mx) + 12, ty = static_cast<float>(my) - 12;
         const float th = float(n) * 10.0f + 2.0f;
         b.fill(tx - 3, ty - 3, static_cast<float>(w + 6), th + 2, gfx::argb(0xF0100010));
         b.fill(tx - 2, ty - 2, static_cast<float>(w + 4), th, gfx::argb(0xFF2A0A5A));
         b.fill(tx - 1, ty - 1, static_cast<float>(w + 2), th - 2, gfx::argb(0xF0100010));
-        for (int i = 0; i < n; ++i) b.text(lines[i], tx, ty + float(i) * 10.0f, colours[i]);
+        for (int i = 0; i < n; ++i)
+            b.text(lines[i], tx, ty + float(i) * 10.0f, colours[i]);
     }
     icons.draw(b, models, m_carried, static_cast<float>(mx) - 8, static_cast<float>(my) - 8,
                kIconGrassTint);

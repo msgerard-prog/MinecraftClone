@@ -403,4 +403,4 @@ crit, PierceLevel, damage, item, DealtDamage; our `clone_facing`, `clone_power`,
 explosion_power, block_state) and `minecraft:falling_block` (BlockState, Time, DropItem; our
 `clone_startY`) - parked in `Chunk::parkedEntities` by gameplay/DropKeeper like the drops.
 Monsters (M32.2) save `equipment` head..feet/mainhand with `drop_chances` (2.0: picked up),
-`CanPickUpLoot`, zombies `IsBaby`, `CanBreakDoors` and the `spawn_reinforcements` attribute.
+`CanPickUpLoot`, zombies `IsBaby`, `CanBreakDoors` and the `spawn_reinforcements` attribute. Villagers save `Gossips` ({Type, Value, Target}: ours are all about the one player); creepers `ignited`.

@@ -465,7 +465,8 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
     case blocks::BubbleColumn: { // (M29.5; wiki: Bubble Column) bubbles rise, or are pulled down
         const bool down = blockRegistry().get(world.getBlock(b), properties::drag) == 0;
         Particle p;
-        p.pos = {b.x + 0.2 + rng.nextDouble() * 0.6, b.y + rng.nextDouble(), b.z + 0.2 + rng.nextDouble() * 0.6};
+        p.pos = {b.x + 0.2 + rng.nextDouble() * 0.6, b.y + rng.nextDouble(),
+                 b.z + 0.2 + rng.nextDouble() * 0.6};
         p.vel = {0.0, down ? -0.08 : 0.12, 0.0};
         p.size = 0.06f;
         p.sprite = ParticleSprite::Bubble;
@@ -613,7 +614,8 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
             for (int i = 0; i < 12; ++i) {
                 Particle p;
                 const double h = double(e.data) / 100.0;
-                p.pos = at + glm::dvec3(centred(rng) * 0.6, 0.5 + rng.nextDouble() * h, centred(rng) * 0.6);
+                p.pos = at + glm::dvec3(centred(rng) * 0.6, 0.5 + rng.nextDouble() * h,
+                                        centred(rng) * 0.6);
                 p.vel = glm::dvec3(0.0, 0.02, 0.0);
                 p.color = glm::vec3(0.3f, 0.95f, 0.3f);
                 p.size = 0.06f;
@@ -625,14 +627,15 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
                 add(p);
             }
             break;
-        case LevelEvent::Type::Totem: // (M32.3; vanilla TotemParticle) green and yellow sparks
+        case LevelEvent::Type::Totem: // (M32.3; wiki: Totem of Undying) green and yellow sparks
             for (int i = 0; i < 80; ++i) {
                 Particle p;
                 p.pos = at;
                 p.vel = glm::dvec3(centred(rng), centred(rng) * 0.6 + 0.3, centred(rng)) * 1.4;
                 const float r = rng.nextFloat();
-                p.color = rng.nextInt(4) == 0 ? glm::vec3(0.6f + r * 0.2f, 0.6f + r * 0.3f, r * 0.2f)
-                                              : glm::vec3(0.1f + r * 0.2f, 0.4f + r * 0.3f, r * 0.2f);
+                p.color = rng.nextInt(4) == 0
+                              ? glm::vec3(0.6f + r * 0.2f, 0.6f + r * 0.3f, r * 0.2f)
+                              : glm::vec3(0.1f + r * 0.2f, 0.4f + r * 0.3f, r * 0.2f);
                 p.size = 0.08f;
                 p.sprite = ParticleSprite::Effect;
                 p.fullBright = true;

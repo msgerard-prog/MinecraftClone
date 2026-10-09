@@ -29,8 +29,10 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
 }
 
 void Vitals::tickFreezing(bool inPowderSnow, bool immune) {
-    if (inPowderSnow && !immune) m_frozen = std::min(kFreezeTicks, m_frozen + 1);
-    else m_frozen = std::max(0, m_frozen - 2);
+    if (inPowderSnow && !immune)
+        m_frozen = std::min(kFreezeTicks, m_frozen + 1);
+    else
+        m_frozen = std::max(0, m_frozen - 2);
     if (m_frozen >= kFreezeTicks && inPowderSnow) {
         if (++m_freezeClock >= 40) {
             m_freezeClock = 0;
@@ -64,7 +66,8 @@ void Vitals::addEffect(world::Effect type, int amplifier, int duration, double s
         return;
     }
     // (M29.2a; wiki: Absorption) 4 golden health a level, refilled when it is given again.
-    if (type == Effect::Absorption) m_absorption = std::max(m_absorption, 4.0f * float(amplifier + 1));
+    if (type == Effect::Absorption)
+        m_absorption = std::max(m_absorption, 4.0f * float(amplifier + 1));
     ActiveEffect* free = nullptr;
     for (ActiveEffect& e : m_effects) {
         if (e.type == type && e.duration > 0) {
@@ -99,9 +102,11 @@ void Vitals::tickEffects() {
             } else if (e.type ==
                        Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
                 exhaust(0.005f * float(e.amplifier + 1));
-            } else if (e.type == Effect::Saturation) { // (M29.2a; wiki: food +1, saturation +2 a level a tick)
+            } else if (e.type == Effect::Saturation) { // (M29.2a; wiki: food +1, saturation +2 a
+                                                       // level a tick)
                 m_food = std::min(kMaxFood, m_food + e.amplifier + 1);
-                m_saturation = std::min(float(m_food), m_saturation + 2.0f * float(e.amplifier + 1));
+                m_saturation =
+                    std::min(float(m_food), m_saturation + 2.0f * float(e.amplifier + 1));
             }
         }
         if (--e.duration <= 0) {
@@ -131,7 +136,7 @@ float Vitals::tickFire(bool inWater) {
 }
 
 void Vitals::reset(bool keepExperience) {
-    m_effects = {};      // (death clears effects)
+    m_effects = {}; // (death clears effects)
     m_absorption = 0.0f;
     m_timeSinceRest = 0; // (and the time awake: phantoms - M26.4a)
     m_health = kMaxHealth;
@@ -184,7 +189,9 @@ bool Vitals::hurtNow(float amount, bool exhausts) {
     m_damageTaken += amount;
     // (M29.2a; wiki: Infested) a hit lets silverfish out 1 time in 10: main rolls them.
     if (effectLevel(world::Effect::Infested) > 0) ++m_infestedHits;
-    if (m_invulnerable == 0) m_invulnerable = 10; // (a stronger hit in the window doesn't restart it)
+    m_freshHit = m_invulnerable == 0; // (M32 review: a difference hit knocks nothing back)
+    if (m_invulnerable == 0)
+        m_invulnerable = 10;     // (a stronger hit in the window doesn't restart it)
     if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;
 }
@@ -226,7 +233,7 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     if (amount <= 0.0f || dead()) return false;
     if (m_invulnerable > 0 && amount <= m_lastHurt) return false; // (M32.3: see damage)
     if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
-    if (kind == Hit::Fire && !m_fireDamage) return false; // (M28.1: game rule)
+    if (kind == Hit::Fire && !m_fireDamage) return false;     // (M28.1: game rule)
     if (kind == Hit::Freeze && !m_freezeDamage) return false; // (M29.4c: freeze_damage)
     if (m_shieldRaised && from) {
         glm::dvec3 to = *from - m_eye;
@@ -240,7 +247,8 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     // (M32.3) within the window the difference to the last hit goes through armor
     const float apply = m_invulnerable > 0 ? amount - m_lastHurt : amount;
     m_lastHurt = amount;
-    return hurtNow(protectionReduced(armorReduced(apply, m_armorPoints, m_armorToughness), kind, false), true);
+    return hurtNow(
+        protectionReduced(armorReduced(apply, m_armorPoints, m_armorToughness), kind, false), true);
 }
 
 void Vitals::addExperience(int points) {

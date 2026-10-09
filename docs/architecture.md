@@ -197,7 +197,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   ticking list (`markTicking`, `forEachTickingChunk`) of chunks with furnaces or mobs.
   `gameplay/Mobs` ticks them (physics with step-up and floating, wander / panic /
   chase goals, melee, daylight burning, death + loot, despawning), moves mobs across
-  chunk borders, spawns zombies in the dark and ray-casts player attacks. Cows come
+  chunk borders, spawns monsters by vanilla's cycle (M32.1) and ray-casts player attacks. Cows come
   with new grassy chunks (`OverworldGenerator` step 10; mobs only, so block hashes
   are unchanged). `rendering/MobModels` holds the cuboid models (vanilla box-UV
   layout on our own 64×64 skins, `tools/textures/gen_entities.py`); `EntityRenderer`
@@ -750,6 +750,23 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   minecraft:item / experience_orb; `Chunk::savedDrops` makes emptied chunks save again).
   `World::setChunkListener` (`ChunkLifecycleListener`, called by `ChunkLoader`) lets main's
   `DropKeeper` park them on unload and take them back on load; `saveWorld` parks around saves.
+- Play parity (M32): the spawn cycle (`Mobs::spawnHostiles`: each chunk within 8 of the player
+  tries once a tick, `spawnMonsterPacks`/`spawnMonsterAt`, caps `m_monsterCap`/`m_creatureCap`
+  scaled by those chunks / 289; creatures every 400 ticks in `spawnCreatures`). Regional
+  difficulty (`world/RegionalDifficulty.h`) from the chunk's `inhabitedTicks` (main counts
+  17x17 chunks a tick, saved as InhabitedTime; DropKeeper re-saves a chunk once it moved
+  1200) - `Mobs::clampedDifficultyAt`. Zombies: `zombieSpawnRolls` (babies, chicken jockeys,
+  door breakers, leaders), `zombieReinforcements`, door breaking in `ai`. Monster gear
+  (`gameplay/MobGear.cpp`): stacks in the chunk's mob store (slots 0-3 armor, 4 mainhand;
+  `hasGear`, mirrored in `worn`/`heldItem`, `gearEpf`, `gearKept`), `rollSpawnGear`,
+  `armorReduced` (melee, arrows, explosions), `weaponBonus`, `gearPickup`, `dropGear`; the
+  store moves with the mob (merged). Hits: the 10-tick window with `lastHurtAmount` /
+  `Vitals::m_lastHurt` (`lastHitFresh` gates knockback), `knockbackResistance`. DropKeeper
+  also parks arrows, tridents, primed TNT and falling blocks (`Chunk::ParkedEntity`).
+  `ContainerScreen` drag/collect/swap/drop shortcuts and `moveToPlayer`. Gossip:
+  `world/Trades` `addGossip`/`reputation`/`decayGossip` (`MobData::gossip`), prices,
+  `Mobs::villagerSocial` (decay, hero gifts), golems defending (`golemGoal`). Level events
+  `Totem` and `Happy` (particles); `ui::drawItemActivation`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

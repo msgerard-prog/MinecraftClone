@@ -3,14 +3,14 @@
 #include "core/Log.h"
 #include "world/ArmorTrims.h"
 #include "world/Blocks.h"
-#include "world/Loot.h"
-#include "world/Enchantments.h"
 #include "world/Dimension.h"
 #include "world/Direction.h"
+#include "world/Enchantments.h"
 #include "world/ItemContainers.h"
 #include "world/ItemExtras.h"
-#include "world/Paintings.h"
 #include "world/LevelData.h"
+#include "world/Loot.h"
+#include "world/Paintings.h"
 #include "world/Potions.h"
 #include "world/RecipeIds.h"
 #include "world/Villagers.h"
@@ -66,8 +66,8 @@ namespace {
 // The four heightmaps vanilla stores for a full chunk (wiki: Heightmap).
 struct Heightmaps {
     static constexpr int kCount = 4;
-    static constexpr const char* kNames[kCount] = {"MOTION_BLOCKING", "MOTION_BLOCKING_NO_LEAVES", "OCEAN_FLOOR",
-                                                   "WORLD_SURFACE"};
+    static constexpr const char* kNames[kCount] = {"MOTION_BLOCKING", "MOTION_BLOCKING_NO_LEAVES",
+                                                   "OCEAN_FLOOR", "WORLD_SURFACE"};
     std::array<std::array<int, 256>, kCount> values{}; // height above the bottom; 0 = none
 };
 
@@ -80,7 +80,8 @@ const std::vector<uint8_t>& heightmapFlags() {
         for (size_t i = 0; i < f.size(); ++i) {
             const auto s = static_cast<BlockStateId>(i);
             const BlockId b = reg.blockOf(s);
-            f[i] = uint8_t((reg.collides(s) ? 1 : 0) | (b == blocks::Water || b == blocks::Lava ? 2 : 0) |
+            f[i] = uint8_t((reg.collides(s) ? 1 : 0) |
+                           (b == blocks::Water || b == blocks::Lava ? 2 : 0) |
                            (reg.block(b).id.ends_with("_leaves") ? 4 : 0));
         }
         return f;
@@ -96,7 +97,8 @@ void computeHeightmaps(const std::vector<BlockStateId>& all, int height, Heightm
         const int x = column & 15, z = column >> 4;
         int found = 0;
         for (int y = height - 1; y >= 0 && found != 15; --y) {
-            const BlockStateId s = all[size_t((y >> 4) * Section::kVolume + Section::index(x, y & 15, z))];
+            const BlockStateId s =
+                all[size_t((y >> 4) * Section::kVolume + Section::index(x, y & 15, z))];
             if (s == 0) continue;
             const uint8_t f = flags[s];
             const bool blocking = (f & 3) != 0;
@@ -106,10 +108,10 @@ void computeHeightmaps(const std::vector<BlockStateId>& all, int height, Heightm
                     found |= 1 << bit;
                 }
             };
-            mark(0, blocking);                  // MOTION_BLOCKING
-            mark(1, blocking && !(f & 4));      // MOTION_BLOCKING_NO_LEAVES
-            mark(2, (f & 1) != 0);              // OCEAN_FLOOR
-            mark(3, true);                      // WORLD_SURFACE
+            mark(0, blocking);             // MOTION_BLOCKING
+            mark(1, blocking && !(f & 4)); // MOTION_BLOCKING_NO_LEAVES
+            mark(2, (f & 1) != 0);         // OCEAN_FLOOR
+            mark(3, true);                 // WORLD_SURFACE
         }
     }
 }
@@ -212,7 +214,8 @@ FireworkExplosion fireworkExplosionFromNbt(const nbt::Compound& c) {
                 long bestD = -1;
                 for (int d = 0; d < 16; ++d) {
                     const uint32_t k = kFireworkColours[d];
-                    const long dr = long(rgb >> 16 & 255) - long(k >> 16 & 255), dg = long(rgb >> 8 & 255) - long(k >> 8 & 255),
+                    const long dr = long(rgb >> 16 & 255) - long(k >> 16 & 255),
+                               dg = long(rgb >> 8 & 255) - long(k >> 8 & 255),
                                db = long(rgb & 255) - long(k & 255);
                     const long dist = dr * dr + dg * dg + db * db;
                     if (bestD < 0 || dist < bestD) bestD = dist, best = d;
@@ -249,7 +252,8 @@ nbt::Compound fireworksNbt(const Fireworks& f) {
     nbt::Compound c;
     c.put("flight_duration", int8_t(f.flight));
     std::vector<nbt::Tag> list;
-    for (int i = 0; i < f.count; ++i) list.emplace_back(fireworkExplosionNbt(f.explosions[size_t(i)]));
+    for (int i = 0; i < f.count; ++i)
+        list.emplace_back(fireworkExplosionNbt(f.explosions[size_t(i)]));
     c.put("explosions", nbt::listOf(nbt::TagType::Compound, std::move(list)));
     return c;
 }
@@ -269,7 +273,9 @@ nbt::Tag bannerPatternsNbt(const BannerLayers& l) {
     std::vector<nbt::Tag> list;
     for (int i = 0; i < l.count && i < BannerLayers::kMax; ++i) {
         nbt::Compound p;
-        p.put("pattern", "minecraft:" + std::string(kBannerPatterns[l.pattern[size_t(i)] % kBannerPatterns.size()].name));
+        p.put("pattern",
+              "minecraft:" +
+                  std::string(kBannerPatterns[l.pattern[size_t(i)] % kBannerPatterns.size()].name));
         p.put("color", std::string(kDyeColours[l.colour[size_t(i)] & 15]));
         list.emplace_back(std::move(p));
     }
@@ -297,29 +303,38 @@ BannerLayers bannerPatternsFromNbt(const nbt::List& list) {
 // An item stack as vanilla 1.20.5+ saves it: id, count, components.
 nbt::Compound itemNbt(const ItemStack& s, int slot) {
     nbt::Compound c;
-    if (slot >= 0) c.put("Slot", static_cast<int8_t>(slot)); // (no Slot inside a container component)
+    if (slot >= 0)
+        c.put("Slot", static_cast<int8_t>(slot)); // (no Slot inside a container component)
     c.put("id", itemRegistry().item(s.item).id);
     c.put("count", int32_t{s.count});
     nbt::Compound components;
-    if (itemRegistry().item(s.item).id == "minecraft:goat_horn") // (M26.3: its instrument, kept in `damage`)
-        components.put("minecraft:instrument", "minecraft:" + std::string(kGoatHorns[s.damage % 8]) + "_goat_horn");
-    else if (itemRegistry().item(s.item).id == "minecraft:filled_map") // (M28.2b: its map id, in `damage`)
+    if (itemRegistry().item(s.item).id ==
+        "minecraft:goat_horn") // (M26.3: its instrument, kept in `damage`)
+        components.put("minecraft:instrument",
+                       "minecraft:" + std::string(kGoatHorns[s.damage % 8]) + "_goat_horn");
+    else if (itemRegistry().item(s.item).id ==
+             "minecraft:filled_map") // (M28.2b: its map id, in `damage`)
         components.put("minecraft:map_id", int32_t{s.damage});
     else if (s.damage)
         components.put("minecraft:damage", int32_t{s.damage});
-    if (s.state && !itemRegistry().item(s.item).block) { // (M28.2b) a map waiting to be zoomed out or locked
+    if (s.state &&
+        !itemRegistry().item(s.item).block) { // (M28.2b) a map waiting to be zoomed out or locked
         if (itemRegistry().item(s.item).id == "minecraft:filled_map")
-            components.put("minecraft:map_post_processing", int32_t(s.state == 1 ? 0 : 1)); // (vanilla: 0 lock, 1 scale)
-        if (itemRegistry().item(s.item).id == "minecraft:suspicious_stew" && s.state <= stewFlowers().size()) {
+            components.put("minecraft:map_post_processing",
+                           int32_t(s.state == 1 ? 0 : 1)); // (vanilla: 0 lock, 1 scale)
+        if (itemRegistry().item(s.item).id == "minecraft:suspicious_stew" &&
+            s.state <= stewFlowers().size()) {
             const StewFlower& f = stewFlowers()[size_t(s.state - 1)]; // (M29.3c) its effect
             nbt::Compound fx;
             fx.put("id", std::string(effectInfo(f.effect).id));
             fx.put("duration", int32_t(f.ticks));
             std::vector<nbt::Tag> list;
             list.emplace_back(std::move(fx));
-            components.put("minecraft:suspicious_stew_effects", nbt::listOf(nbt::TagType::Compound, std::move(list)));
+            components.put("minecraft:suspicious_stew_effects",
+                           nbt::listOf(nbt::TagType::Compound, std::move(list)));
         }
-        if (itemRegistry().item(s.item).id == "minecraft:crossbow") { // (M28.4a) what it is loaded with
+        if (itemRegistry().item(s.item).id ==
+            "minecraft:crossbow") { // (M28.4a) what it is loaded with
             std::vector<nbt::Tag> loaded;
             const int n = enchantLevel(s, Enchantment::Multishot) > 0 ? 3 : 1;
             for (int i = 0; i < n; ++i) {
@@ -331,16 +346,19 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
                 a.put("count", int32_t{1});
                 nbt::Compound inner;
                 if (s.state == 4)
-                    if (const auto f = fireworks(s.extra)) inner.put("minecraft:fireworks", fireworksNbt(*f));
+                    if (const auto f = fireworks(s.extra))
+                        inner.put("minecraft:fireworks", fireworksNbt(*f));
                 if (s.state == 3 && s.potion) {
                     nbt::Compound pc;
-                    pc.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
+                    pc.put("potion", "minecraft:" +
+                                         std::string(potionInfo(static_cast<Potion>(s.potion)).id));
                     inner.put("minecraft:potion_contents", std::move(pc));
                 }
                 if (!inner.entries.empty()) a.put("components", std::move(inner));
                 loaded.emplace_back(std::move(a));
             }
-            components.put("minecraft:charged_projectiles", nbt::listOf(nbt::TagType::Compound, std::move(loaded)));
+            components.put("minecraft:charged_projectiles",
+                           nbt::listOf(nbt::TagType::Compound, std::move(loaded)));
         }
     } else if (s.state) { // exact block state (vanilla's minecraft:block_state component)
         nbt::Compound props;
@@ -360,16 +378,22 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     if (isEnchanted(s)) { // 1.21.5+: minecraft:enchantments is a plain id -> level map
         nbt::Compound ench;
         for (const uint16_t v : s.enchantments)
-            if (v) ench.put(std::string(enchantmentInfo(Enchantment(v >> 8)).id), int32_t(v & 0xFF));
-        components.put(itemRegistry().item(s.item).id == "minecraft:enchanted_book" ? "minecraft:stored_enchantments"
-                                                                                  : "minecraft:enchantments",
+            if (v)
+                ench.put(std::string(enchantmentInfo(Enchantment(v >> 8)).id), int32_t(v & 0xFF));
+        components.put(itemRegistry().item(s.item).id == "minecraft:enchanted_book"
+                           ? "minecraft:stored_enchantments"
+                           : "minecraft:enchantments",
                        std::move(ench));
     }
     if (s.repairCost) components.put("minecraft:repair_cost", int32_t{s.repairCost});
-    if (s.name) components.put("minecraft:custom_name", std::string(nameText(s.name))); // (M29.3b: a text component as a plain string)
-    if (s.potion) { // 1.20.5+ potion_contents { potion: "minecraft:<id>" }
+    if (s.name)
+        components.put(
+            "minecraft:custom_name",
+            std::string(nameText(s.name))); // (M29.3b: a text component as a plain string)
+    if (s.potion) {                         // 1.20.5+ potion_contents { potion: "minecraft:<id>" }
         nbt::Compound contents;
-        contents.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
+        contents.put("potion",
+                     "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
         components.put("minecraft:potion_contents", std::move(contents));
     }
     if (s.trim) { // 1.20.5+ minecraft:trim {pattern, material}
@@ -383,12 +407,15 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         }
     }
     const std::string_view sid = itemRegistry().item(s.item).id;
-    if (s.contents && (sid == "minecraft:bundle" || sid.ends_with("_bundle"))) { // (M29.3f) bundle_contents: [{...}]
+    if (s.contents && (sid == "minecraft:bundle" ||
+                       sid.ends_with("_bundle"))) { // (M29.3f) bundle_contents: [{...}]
         std::vector<nbt::Tag> list;
         for (const ItemStack& b : itemContents(s.contents))
             if (!b.empty()) list.emplace_back(itemNbt(b, -1));
-        components.put("minecraft:bundle_contents", nbt::listOf(nbt::TagType::Compound, std::move(list)));
-    } else if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker boxes)
+        components.put("minecraft:bundle_contents",
+                       nbt::listOf(nbt::TagType::Compound, std::move(list)));
+    } else if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker
+                             // boxes)
         const ItemContents slots = itemContents(s.contents);
         std::vector<nbt::Tag> list;
         for (int i = 0; i < int(slots.size()); ++i) {
@@ -412,9 +439,13 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
         tracker.put("tracked", int8_t(t->tracked ? 1 : 0));
         components.put("minecraft:lodestone_tracker", std::move(tracker));
     }
-    if (const auto f = s.extra && itemRegistry().item(s.item).id != "minecraft:crossbow" ? fireworks(s.extra) : std::nullopt) {
+    if (const auto f = s.extra && itemRegistry().item(s.item).id != "minecraft:crossbow"
+                           ? fireworks(s.extra)
+                           : std::nullopt) {
         if (itemRegistry().item(s.item).id == "minecraft:firework_star") { // (M28.4c)
-            if (f->count > 0) components.put("minecraft:firework_explosion", fireworkExplosionNbt(f->explosions[0]));
+            if (f->count > 0)
+                components.put("minecraft:firework_explosion",
+                               fireworkExplosionNbt(f->explosions[0]));
         } else {
             components.put("minecraft:fireworks", fireworksNbt(*f));
         }
@@ -454,41 +485,50 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
     const auto item = id ? itemRegistry().find(*id) : std::nullopt;
     if (!item) return {};
     const int maxStack = std::max<int>(1, itemRegistry().item(*item).maxStack);
-    ItemStack s{*item, static_cast<uint8_t>(std::clamp<int64_t>(c.integer("count").value_or(1), 1, maxStack))};
+    ItemStack s{*item, static_cast<uint8_t>(
+                           std::clamp<int64_t>(c.integer("count").value_or(1), 1, maxStack))};
     if (const nbt::Compound* comps = c.compound("components")) {
         s.damage = static_cast<uint16_t>(comps->integer("minecraft:damage").value_or(0));
         const ItemDef& def = itemRegistry().item(*item);
         if (def.id == "minecraft:crossbow")
-            if (const nbt::List* loaded = comps->list("minecraft:charged_projectiles"); loaded && !loaded->items.empty()) {
+            if (const nbt::List* loaded = comps->list("minecraft:charged_projectiles");
+                loaded && !loaded->items.empty()) {
                 s.state = 1; // (M28.4a: loaded with an arrow)
                 if (const nbt::Compound* first = loaded->items[0].get<nbt::Compound>()) {
                     const std::string* pid = first->string("id");
                     const nbt::Compound* inner = first->compound("components");
                     if (pid && *pid == "minecraft:firework_rocket") {
                         s.state = 4;
-                        if (const nbt::Compound* fc = inner ? inner->compound("minecraft:fireworks") : nullptr)
+                        if (const nbt::Compound* fc =
+                                inner ? inner->compound("minecraft:fireworks") : nullptr)
                             s.extra = addFireworks(fireworksFromNbt(*fc));
                     } else if (pid && *pid == "minecraft:spectral_arrow") {
                         s.state = 2;
                     } else if (pid && *pid == "minecraft:tipped_arrow") {
                         s.state = 3;
-                        if (const nbt::Compound* pc = inner ? inner->compound("minecraft:potion_contents") : nullptr)
+                        if (const nbt::Compound* pc =
+                                inner ? inner->compound("minecraft:potion_contents") : nullptr)
                             if (const std::string* p = pc->string("potion"))
-                                if (const auto pp = findPotion(*p)) s.potion = static_cast<uint8_t>(*pp);
+                                if (const auto pp = findPotion(*p))
+                                    s.potion = static_cast<uint8_t>(*pp);
                     }
                 }
             }
-        if (const nbt::Compound* fc = comps->compound("minecraft:fireworks"); fc && def.id == "minecraft:firework_rocket")
+        if (const nbt::Compound* fc = comps->compound("minecraft:fireworks");
+            fc && def.id == "minecraft:firework_rocket")
             s.extra = addFireworks(fireworksFromNbt(*fc));
-        if (const nbt::Compound* ec = comps->compound("minecraft:firework_explosion"); ec && def.id == "minecraft:firework_star") {
+        if (const nbt::Compound* ec = comps->compound("minecraft:firework_explosion");
+            ec && def.id == "minecraft:firework_star") {
             Fireworks f;
             f.count = 1;
             f.explosions[0] = fireworkExplosionFromNbt(*ec);
             s.extra = addFireworks(f);
         }
         if (def.id == "minecraft:suspicious_stew") // (M29.3c) the flower whose effect it is
-            if (const nbt::List* fx = comps->list("minecraft:suspicious_stew_effects"); fx && !fx->items.empty())
-                if (const nbt::Compound* fc = fx->items[0].get<nbt::Compound>(); fc && fc->string("id"))
+            if (const nbt::List* fx = comps->list("minecraft:suspicious_stew_effects");
+                fx && !fx->items.empty())
+                if (const nbt::Compound* fc = fx->items[0].get<nbt::Compound>();
+                    fc && fc->string("id"))
                     if (const auto e = findEffect(*fc->string("id")))
                         for (size_t k = 0; k < stewFlowers().size(); ++k)
                             if (stewFlowers()[k].effect == *e) {
@@ -496,13 +536,18 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                                 break;
                             }
         if (def.id == "minecraft:filled_map") {
-            s.damage = static_cast<uint16_t>(std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
-            if (const auto pp = comps->integer("minecraft:map_post_processing")) s.state = *pp == 0 ? 1 : 2;
+            s.damage = static_cast<uint16_t>(
+                std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
+            if (const auto pp = comps->integer("minecraft:map_post_processing"))
+                s.state = *pp == 0 ? 1 : 2;
         }
-        if (const std::string* inst = comps->string("minecraft:instrument"); inst && def.id == "minecraft:goat_horn")
+        if (const std::string* inst = comps->string("minecraft:instrument");
+            inst && def.id == "minecraft:goat_horn")
             for (int k = 0; k < 8; ++k)
-                if (*inst == "minecraft:" + std::string(kGoatHorns[k]) + "_goat_horn") s.damage = uint16_t(k);
-        if (const nbt::Compound* props = comps->compound("minecraft:block_state"); props && def.block) {
+                if (*inst == "minecraft:" + std::string(kGoatHorns[k]) + "_goat_horn")
+                    s.damage = uint16_t(k);
+        if (const nbt::Compound* props = comps->compound("minecraft:block_state");
+            props && def.block) {
             BlockStateId st = blockRegistry().defaultState(def.block);
             for (const auto& p : props->entries)
                 if (const std::string* v = p.value.get<std::string>())
@@ -512,18 +557,23 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
         for (const char* key : {"minecraft:enchantments", "minecraft:stored_enchantments"})
             if (const nbt::Compound* ench = comps->compound(key)) {
                 // (pre-1.21.5 saves nest them under "levels")
-                const nbt::Compound* levels = ench->compound("levels") ? ench->compound("levels") : ench;
+                const nbt::Compound* levels =
+                    ench->compound("levels") ? ench->compound("levels") : ench;
                 for (const auto& e : levels->entries) {
                     const auto kind = findEnchantment(e.name);
                     const auto lvl = levels->integer(e.name);
-                    if (!kind || !lvl || !setEnchantment(s, *kind, int(std::clamp<int64_t>(*lvl, 1, 255)))) {
+                    if (!kind || !lvl ||
+                        !setEnchantment(s, *kind, int(std::clamp<int64_t>(*lvl, 1, 255)))) {
                         static bool logged = false; // (unknown kinds: Mending, curses...)
-                        if (!logged) MC_LOG_WARN("Dropping enchantment %s (not supported yet)", e.name.c_str());
+                        if (!logged)
+                            MC_LOG_WARN("Dropping enchantment %s (not supported yet)",
+                                        e.name.c_str());
                         logged = true;
                     }
                 }
             }
-        s.repairCost = static_cast<uint8_t>(std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
+        s.repairCost = static_cast<uint8_t>(
+            std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
         s.name = readName(comps->find("minecraft:custom_name")); // (M29.3b)
         if (const nbt::Compound* pc = comps->compound("minecraft:potion_contents"))
             if (const std::string* pid = pc->string("potion"))
@@ -549,7 +599,8 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                 if (const nbt::Compound* entry = t.get<nbt::Compound>()) {
                     const auto slot = entry->integer("slot").value_or(-1);
                     const nbt::Compound* inner = entry->compound("item");
-                    if (inner && slot >= 0 && slot < int(slots.size())) slots[size_t(slot)] = itemFromNbt(*inner);
+                    if (inner && slot >= 0 && slot < int(slots.size()))
+                        slots[size_t(slot)] = itemFromNbt(*inner);
                 }
             s.contents = addItemContents(slots);
         }
@@ -570,8 +621,10 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             }
             s.extra = addLodestoneTarget(t);
         }
-        if (const nbt::List* pats = comps->list("minecraft:banner_patterns")) s.extra = addBannerLayers(bannerPatternsFromNbt(*pats));
-        for (const char* key : {"minecraft:writable_book_content", "minecraft:written_book_content"})
+        if (const nbt::List* pats = comps->list("minecraft:banner_patterns"))
+            s.extra = addBannerLayers(bannerPatternsFromNbt(*pats));
+        for (const char* key :
+             {"minecraft:writable_book_content", "minecraft:written_book_content"})
             if (const nbt::Compound* content = comps->compound(key)) {
                 BookContent book;
                 auto text = [](const nbt::Tag& t) -> std::string { // {raw: "..."} or "..."
@@ -585,7 +638,8 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                         book.pages.push_back(text(p));
                 if (const nbt::Tag* title = content->find("title")) book.title = text(*title);
                 if (const std::string* author = content->string("author")) book.author = *author;
-                book.generation = int(std::clamp<int64_t>(content->integer("generation").value_or(0), 0, 3));
+                book.generation =
+                    int(std::clamp<int64_t>(content->integer("generation").value_or(0), 0, 3));
                 s.extra = addBook(std::move(book));
             }
     }
@@ -606,8 +660,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     // The lowest section's Y: -4 in the Overworld, 0 in the Nether and End (vanilla).
     root.put("yPos", int32_t{chunk.height.minSection()});
     root.put("Status", std::string("minecraft:full")); // 1.21.11 (renamed "status" only in 26.4)
-    root.put("LastUpdate", chunk.gameTime); // game tick of this save
-    root.put("InhabitedTime", chunk.inhabitedTicks); // (M32.2: regional difficulty)
+    root.put("LastUpdate", chunk.gameTime);            // game tick of this save
+    root.put("InhabitedTime", chunk.inhabitedTicks);   // (M32.2: regional difficulty)
     root.put("clone_format", kCloneFormat); // our tag (vanilla ignores it): see kCloneFormat
     bool lit = true;
     for (int s = 0; s < chunk.height.sections(); ++s)
@@ -617,7 +671,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     std::vector<nbt::Tag> sections;
     std::vector<BlockStateId> states(Section::kVolume);
     Heightmaps heights;
-    std::vector<BlockStateId> all(size_t(chunk.height.sections()) * Section::kVolume); // (IO thread)
+    std::vector<BlockStateId> all(size_t(chunk.height.sections()) *
+                                  Section::kVolume); // (IO thread)
     std::vector<BlockStateId> palette;
     std::unordered_map<BlockStateId, uint32_t> paletteIndex;
     for (int s = 0; s < chunk.height.sections(); ++s) {
@@ -629,7 +684,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         palette.clear();
         paletteIndex.clear();
         for (BlockStateId st : states)
-            if (paletteIndex.try_emplace(st, uint32_t(palette.size())).second) palette.push_back(st);
+            if (paletteIndex.try_emplace(st, uint32_t(palette.size())).second)
+                palette.push_back(st);
         nbt::Compound blockStates;
         std::vector<nbt::Tag> entries;
         for (BlockStateId st : palette)
@@ -667,8 +723,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
                 const int perLong = 64 / bits;
                 std::vector<int64_t> data((ChunkBiomes::kPerSection + perLong - 1) / perLong, 0);
                 for (int i = 0; i < ChunkBiomes::kPerSection; ++i) {
-                    const uint64_t v =
-                        indexOf[static_cast<int>(cb.cells[size_t(s * ChunkBiomes::kPerSection + i)])];
+                    const uint64_t v = indexOf[static_cast<int>(
+                        cb.cells[size_t(s * ChunkBiomes::kPerSection + i)])];
                     data[size_t(i / perLong)] |= static_cast<int64_t>(v << ((i % perLong) * bits));
                 }
                 biomes.put("data", std::move(data));
@@ -690,7 +746,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     computeHeightmaps(all, chunk.height.height, heights);
     nbt::Compound maps;
     for (int k = 0; k < Heightmaps::kCount; ++k)
-        maps.put(std::string(Heightmaps::kNames[k]), packHeightmap(heights.values[size_t(k)], chunk.height));
+        maps.put(std::string(Heightmaps::kNames[k]),
+                 packHeightmap(heights.values[size_t(k)], chunk.height));
     root.put("Heightmaps", std::move(maps));
     // Empty lists vanilla always writes for full chunks.
     std::vector<nbt::Tag> post;
@@ -705,8 +762,9 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     std::vector<nbt::Tag> entities;
     for (const auto& f : chunk.furnaces) {
         nbt::Compound e;
-        e.put("id", std::string(f.data.kind == 1 ? "minecraft:smoker" : f.data.kind == 2 ? "minecraft:blast_furnace"
-                                                                                      : "minecraft:furnace"));
+        e.put("id", std::string(f.data.kind == 1   ? "minecraft:smoker"
+                                : f.data.kind == 2 ? "minecraft:blast_furnace"
+                                                   : "minecraft:furnace"));
         e.put("x", int32_t{chunk.pos.x * 16 + f.x});
         e.put("y", int32_t{f.y});
         e.put("z", int32_t{chunk.pos.z * 16 + f.z});
@@ -736,8 +794,10 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("y", int32_t{br.y});
         e.put("z", int32_t{chunk.pos.z * 16 + br.z});
         e.put("keepPacked", int8_t{0});
-        if (!br.data.item.empty()) e.put("item", itemNbt(br.data.item, -1));
-        else if (br.data.table != 255) e.put("LootTable", std::string(lootTableName(LootTable(br.data.table))));
+        if (!br.data.item.empty())
+            e.put("item", itemNbt(br.data.item, -1));
+        else if (br.data.table != 255)
+            e.put("LootTable", std::string(lootTableName(LootTable(br.data.table))));
         entities.emplace_back(std::move(e));
     }
     for (const auto& cb : chunk.commandBlocks) { // (M29.7) wiki: Command Block › Block data
@@ -786,8 +846,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
             data.put("Health", b.health);
             data.put("Age", int32_t(b.age));
             data.put("HasNectar", int8_t(b.nectar ? 1 : 0));
-            data.put("UUID", std::vector<int32_t>{int32_t(b.uuidHi >> 32), int32_t(b.uuidHi), int32_t(b.uuidLo >> 32),
-                                                  int32_t(b.uuidLo)});
+            data.put("UUID", std::vector<int32_t>{int32_t(b.uuidHi >> 32), int32_t(b.uuidHi),
+                                                  int32_t(b.uuidLo >> 32), int32_t(b.uuidLo)});
             entry.put("entity_data", std::move(data));
             entry.put("ticks_in_hive", int32_t(b.ticksInHive));
             entry.put("min_ticks_in_hive", int32_t(b.minTicks));
@@ -806,9 +866,11 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         if (!bc.data.conduit) {
             e.put("Levels", int32_t{bc.data.levels});
             if (bc.data.primary)
-                e.put("primary_effect", std::string(effectInfo(static_cast<Effect>(bc.data.primary)).id));
+                e.put("primary_effect",
+                      std::string(effectInfo(static_cast<Effect>(bc.data.primary)).id));
             if (bc.data.secondary)
-                e.put("secondary_effect", std::string(effectInfo(static_cast<Effect>(bc.data.secondary)).id));
+                e.put("secondary_effect",
+                      std::string(effectInfo(static_cast<Effect>(bc.data.secondary)).id));
         }
         entities.emplace_back(std::move(e));
     }
@@ -822,7 +884,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         std::vector<nbt::Tag> items;
         std::vector<int32_t> times, totals;
         for (int i = 0; i < 4; ++i) {
-            if (!cf.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(cf.data.items[size_t(i)], i));
+            if (!cf.data.items[size_t(i)].empty())
+                items.emplace_back(itemNbt(cf.data.items[size_t(i)], i));
             times.push_back(cf.data.cookTime[size_t(i)]);
             totals.push_back(600);
         }
@@ -831,7 +894,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("CookingTotalTimes", std::move(totals));
         entities.emplace_back(std::move(e));
     }
-    for (const auto& bn : chunk.banners) { // (M28.3d; wiki: Banner › Block data: patterns [{pattern, color}])
+    for (const auto& bn :
+         chunk.banners) { // (M28.3d; wiki: Banner › Block data: patterns [{pattern, color}])
         nbt::Compound e;
         e.put("id", std::string("minecraft:banner"));
         e.put("x", int32_t{chunk.pos.x * 16 + bn.x});
@@ -872,7 +936,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("keepPacked", int8_t{0});
         std::vector<nbt::Tag> items; // Slot 0-2 bottles, 3 ingredient, 4 fuel
         for (int i = 0; i < 3; ++i)
-            if (!br.data.bottles[size_t(i)].empty()) items.emplace_back(itemNbt(br.data.bottles[size_t(i)], i));
+            if (!br.data.bottles[size_t(i)].empty())
+                items.emplace_back(itemNbt(br.data.bottles[size_t(i)], i));
         if (!br.data.ingredient.empty()) items.emplace_back(itemNbt(br.data.ingredient, 3));
         if (!br.data.fuel.empty()) items.emplace_back(itemNbt(br.data.fuel, 4));
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
@@ -889,7 +954,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("keepPacked", int8_t{0});
         std::vector<nbt::Tag> items;
         for (int i = 0; i < 5; ++i)
-            if (!h.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(h.data.items[size_t(i)], i));
+            if (!h.data.items[size_t(i)].empty())
+                items.emplace_back(itemNbt(h.data.items[size_t(i)], i));
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
         e.put("TransferCooldown", int32_t(h.data.cooldown));
         entities.emplace_back(std::move(e));
@@ -905,7 +971,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("keepPacked", int8_t{0});
         std::vector<nbt::Tag> items;
         for (int i = 0; i < 9; ++i)
-            if (!d.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(d.data.items[size_t(i)], i));
+            if (!d.data.items[size_t(i)].empty())
+                items.emplace_back(itemNbt(d.data.items[size_t(i)], i));
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
         entities.emplace_back(std::move(e));
     }
@@ -921,7 +988,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     }
     for (const auto& sp : chunk.spawners) { // wiki: Monster Spawner › Block data
         nbt::Compound e;
-        e.put("id", std::string(sp.data.trial ? "minecraft:trial_spawner" : "minecraft:mob_spawner"));
+        e.put("id",
+              std::string(sp.data.trial ? "minecraft:trial_spawner" : "minecraft:mob_spawner"));
         if (sp.data.trial) { // (M27.4d; our tags beside vanilla's spawn_data shape)
             e.put("spawned", int8_t(sp.data.spawned));
             e.put("total", int8_t(sp.data.total));
@@ -960,7 +1028,8 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         e.put("keepPacked", int8_t{0});
         std::vector<nbt::Tag> items;
         for (int i = 0; i < 27; ++i)
-            if (!c.data.items[size_t(i)].empty()) items.emplace_back(itemNbt(c.data.items[size_t(i)], i));
+            if (!c.data.items[size_t(i)].empty())
+                items.emplace_back(itemNbt(c.data.items[size_t(i)], i));
         e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
         entities.emplace_back(std::move(e));
     }
@@ -974,16 +1043,19 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     std::vector<const Chunk::BlockTick*> ordered;
     for (const auto& t : chunk.blockTicks)
         ordered.push_back(&t);
-    std::sort(ordered.begin(), ordered.end(), [](const auto* a, const auto* b) { return a->order < b->order; });
+    std::sort(ordered.begin(), ordered.end(),
+              [](const auto* a, const auto* b) { return a->order < b->order; });
     for (const Chunk::BlockTick* t : ordered) {
         nbt::Compound e;
         const bool fluid = t->block == blocks::Water || t->block == blocks::Lava;
         if (fluid) {
             const int s = chunk.height.sectionIndex(t->y);
-            const BlockStateId st = s >= 0 && s < chunk.height.sections()
-                                        ? chunk.sections[size_t(s)]->get(t->x, blockToLocal(t->y), t->z)
-                                        : BlockStateId{0};
-            const bool source = blockRegistry().blockOf(st) == t->block && blockRegistry().get(st, properties::level) == 0;
+            const BlockStateId st =
+                s >= 0 && s < chunk.height.sections()
+                    ? chunk.sections[size_t(s)]->get(t->x, blockToLocal(t->y), t->z)
+                    : BlockStateId{0};
+            const bool source = blockRegistry().blockOf(st) == t->block &&
+                                blockRegistry().get(st, properties::level) == 0;
             const std::string name = t->block == blocks::Water ? "water" : "lava";
             e.put("i", std::string(source ? "minecraft:" : "minecraft:flowing_") + name);
         } else {
@@ -1044,8 +1116,9 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 const uint64_t mask = (uint64_t{1} << bits) - 1;
                 if (bdata->size() >= size_t((ChunkBiomes::kPerSection + perLong - 1) / perLong))
                     for (int i = 0; i < ChunkBiomes::kPerSection; ++i) {
-                        const uint64_t v =
-                            (static_cast<uint64_t>((*bdata)[size_t(i / perLong)]) >> ((i % perLong) * bits)) & mask;
+                        const uint64_t v = (static_cast<uint64_t>((*bdata)[size_t(i / perLong)]) >>
+                                            ((i % perLong) * bits)) &
+                                           mask;
                         biomes->cells[size_t(index * ChunkBiomes::kPerSection + i)] =
                             v < ids.size() ? ids[v] : Biome::Plains;
                     }
@@ -1101,17 +1174,19 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
         for (const nbt::Tag& t : entities->items) {
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("id") : nullptr;
-            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
-                        *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" && *id != "minecraft:shulker_box" &&
-                        *id != "minecraft:trapped_chest" && *id != "minecraft:chiseled_bookshelf" && *id != "minecraft:shelf" &&
-                        *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
-                        *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
-                        *id != "minecraft:crafter" &&
-                        *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" && *id != "minecraft:banner" &&
-                        *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
-                        *id != "minecraft:command_block" &&
-                        *id != "minecraft:brushable_block" &&
-                        *id != "minecraft:beehive"))
+            if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" &&
+                        *id != "minecraft:mob_spawner" && *id != "minecraft:smoker" &&
+                        *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" &&
+                        *id != "minecraft:shulker_box" && *id != "minecraft:trapped_chest" &&
+                        *id != "minecraft:chiseled_bookshelf" && *id != "minecraft:shelf" &&
+                        *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" &&
+                        *id != "minecraft:hopper" && *id != "minecraft:dispenser" &&
+                        *id != "minecraft:dropper" && *id != "minecraft:sign" &&
+                        *id != "minecraft:crafter" && *id != "minecraft:hanging_sign" &&
+                        *id != "minecraft:campfire" && *id != "minecraft:banner" &&
+                        *id != "minecraft:beacon" && *id != "minecraft:conduit" &&
+                        *id != "minecraft:jukebox" && *id != "minecraft:command_block" &&
+                        *id != "minecraft:brushable_block" && *id != "minecraft:beehive"))
                 continue;
             const int x = static_cast<int>(e->integer("x").value_or(0)) - chunk.pos().x * 16;
             const int y = static_cast<int>(e->integer("y").value_or(chunk.height().minY - 1));
@@ -1123,28 +1198,33 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>())
-                            if (const auto slot = ic->integer("Slot").value_or(-1); slot >= 0 && slot < 5)
+                            if (const auto slot = ic->integer("Slot").value_or(-1);
+                                slot >= 0 && slot < 5)
                                 h.items[size_t(slot)] = itemFromNbt(*ic);
-                h.cooldown = static_cast<int>(std::clamp<int64_t>(e->integer("TransferCooldown").value_or(0), 0, 8));
+                h.cooldown = static_cast<int>(
+                    std::clamp<int64_t>(e->integer("TransferCooldown").value_or(0), 0, 8));
                 continue;
             }
-            if (*id == "minecraft:dispenser" || *id == "minecraft:dropper" || *id == "minecraft:crafter") {
+            if (*id == "minecraft:dispenser" || *id == "minecraft:dropper" ||
+                *id == "minecraft:crafter") {
                 const BlockId b = blockRegistry().blockOf(chunk.get(x, y, z));
-                if (b != blocks::Dispenser && b != blocks::Dropper && b != blocks::Crafter) continue;
+                if (b != blocks::Dispenser && b != blocks::Dropper && b != blocks::Crafter)
+                    continue;
                 DispenserData& d = chunk.addDispenser(x, y, z);
                 d.dropper = b == blocks::Dropper;
                 d.crafter = b == blocks::Crafter;
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>())
-                            if (const auto slot = ic->integer("Slot").value_or(-1); slot >= 0 && slot < 9)
+                            if (const auto slot = ic->integer("Slot").value_or(-1);
+                                slot >= 0 && slot < 9)
                                 d.items[size_t(slot)] = itemFromNbt(*ic);
                 continue;
             }
             if (*id == "minecraft:comparator") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Comparator) continue;
-                chunk.addComparator(x, y, z).output =
-                    static_cast<int>(std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
+                chunk.addComparator(x, y, z).output = static_cast<int>(
+                    std::clamp<int64_t>(e->integer("OutputSignal").value_or(0), 0, 15));
                 continue;
             }
             if (*id == "minecraft:beehive") { // (M26.3b: nests too)
@@ -1154,16 +1234,22 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (const nbt::List* bees = e->list("bees"))
                     for (const nbt::Tag& bt : bees->items) {
                         const nbt::Compound* entry = bt.get<nbt::Compound>();
-                        const nbt::Compound* data = entry ? entry->compound("entity_data") : nullptr;
+                        const nbt::Compound* data =
+                            entry ? entry->compound("entity_data") : nullptr;
                         if (!data || hd.count >= 3) continue;
                         HiveBee& b = hd.bees[hd.count++];
-                        b.health = float(std::clamp(data->real("Health").value_or(10.0), 0.5, 10.0));
-                        b.age = int(std::clamp<int64_t>(data->integer("Age").value_or(0), -24000, 24000));
+                        b.health =
+                            float(std::clamp(data->real("Health").value_or(10.0), 0.5, 10.0));
+                        b.age = int(
+                            std::clamp<int64_t>(data->integer("Age").value_or(0), -24000, 24000));
                         b.nectar = data->integer("HasNectar").value_or(0) != 0;
-                        b.ticksInHive = int(std::clamp<int64_t>(entry->integer("ticks_in_hive").value_or(0), 0, 1 << 20));
-                        b.minTicks = int(std::clamp<int64_t>(entry->integer("min_ticks_in_hive").value_or(600), 0, 1 << 20));
+                        b.ticksInHive = int(std::clamp<int64_t>(
+                            entry->integer("ticks_in_hive").value_or(0), 0, 1 << 20));
+                        b.minTicks = int(std::clamp<int64_t>(
+                            entry->integer("min_ticks_in_hive").value_or(600), 0, 1 << 20));
                         if (const nbt::Tag* u = data->find("UUID"))
-                            if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                            if (const auto* a = u->get<std::vector<int32_t>>();
+                                a && a->size() == 4) {
                                 b.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
                                 b.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
                             }
@@ -1180,21 +1266,24 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             }
             if (*id == "minecraft:command_block") { // (M29.7)
                 const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
-                if (cb != blocks::CommandBlock && cb != blocks::ChainCommandBlock && cb != blocks::RepeatingCommandBlock)
+                if (cb != blocks::CommandBlock && cb != blocks::ChainCommandBlock &&
+                    cb != blocks::RepeatingCommandBlock)
                     continue;
                 CommandBlockData& cd = chunk.addCommandBlock(x, y, z);
                 if (const std::string* c = e->string("Command")) cd.command = *c;
                 if (const std::string* o = e->string("LastOutput")) cd.lastOutput = *o;
                 cd.autoActive = e->integer("auto").value_or(0) != 0;
                 cd.powered = e->integer("powered").value_or(0) != 0;
-                cd.successCount = int(std::clamp<int64_t>(e->integer("SuccessCount").value_or(0), 0, 1 << 20));
+                cd.successCount =
+                    int(std::clamp<int64_t>(e->integer("SuccessCount").value_or(0), 0, 1 << 20));
                 cd.conditionMet = e->integer("conditionMet").value_or(0) != 0;
                 continue;
             }
             if (*id == "minecraft:jukebox") {
                 if (blockRegistry().blockOf(chunk.get(x, y, z)) != blocks::Jukebox) continue;
                 JukeboxData& jd = chunk.addJukebox(x, y, z);
-                if (const nbt::Compound* rec = e->compound("RecordItem")) jd.record = itemFromNbt(*rec);
+                if (const nbt::Compound* rec = e->compound("RecordItem"))
+                    jd.record = itemFromNbt(*rec);
                 const auto played = e->integer("ticks_since_song_started").value_or(0);
                 jd.playing = !jd.record.empty() && played > 0;
                 jd.ticks = int(std::clamp<int64_t>(played, 0, 1 << 20));
@@ -1230,15 +1319,18 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 continue;
             }
             if (*id == "minecraft:banner") { // (M28.3d)
-                const BlockKind k = blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
+                const BlockKind k =
+                    blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
                 if (k != BlockKind::Banner && k != BlockKind::WallBanner) continue;
-                if (const nbt::List* pats = e->list("patterns")) chunk.addBanner(x, y, z) = bannerPatternsFromNbt(*pats);
+                if (const nbt::List* pats = e->list("patterns"))
+                    chunk.addBanner(x, y, z) = bannerPatternsFromNbt(*pats);
                 continue;
             }
             if (*id == "minecraft:sign" || *id == "minecraft:hanging_sign") {
-                const BlockKind k = blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
-                if (k != BlockKind::Sign && k != BlockKind::WallSign && k != BlockKind::HangingSign &&
-                    k != BlockKind::WallHangingSign)
+                const BlockKind k =
+                    blockRegistry().kind(blockRegistry().blockOf(chunk.get(x, y, z)));
+                if (k != BlockKind::Sign && k != BlockKind::WallSign &&
+                    k != BlockKind::HangingSign && k != BlockKind::WallHangingSign)
                     continue;
                 SignData& sg = chunk.addSign(x, y, z);
                 sg.hanging = k == BlockKind::HangingSign || k == BlockKind::WallHangingSign;
@@ -1246,15 +1338,18 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                     const nbt::Compound* t = e->compound(key);
                     if (!t) return;
                     if (const nbt::List* msgs = t->list("messages"))
-                        for (size_t i = 0; i < msgs->items.size() && i < size_t(SignData::kLines); ++i)
+                        for (size_t i = 0; i < msgs->items.size() && i < size_t(SignData::kLines);
+                             ++i)
                             if (const std::string* m = msgs->items[i].get<std::string>()) {
-                                std::string_view text = *m; // (older saves: a JSON string "\"...\"")
+                                std::string_view text =
+                                    *m; // (older saves: a JSON string "\"...\"")
                                 if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
                                     text = text.substr(1, text.size() - 2);
                                 auto& line = sd.lines[i];
                                 size_t n = 0;
                                 for (const char c : text)
-                                    if (n < size_t(SignData::kChars) && c >= 32 && c < 127) line[n++] = c;
+                                    if (n < size_t(SignData::kChars) && c >= 32 && c < 127)
+                                        line[n++] = c;
                                 line[n] = 0;
                             }
                     if (const std::string* c = t->string("color"))
@@ -1274,38 +1369,52 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
                             const auto slot = ic->integer("Slot").value_or(-1);
-                            if (slot >= 0 && slot < 3) br.bottles[size_t(slot)] = itemFromNbt(*ic);
-                            else if (slot == 3) br.ingredient = itemFromNbt(*ic);
-                            else if (slot == 4) br.fuel = itemFromNbt(*ic);
+                            if (slot >= 0 && slot < 3)
+                                br.bottles[size_t(slot)] = itemFromNbt(*ic);
+                            else if (slot == 3)
+                                br.ingredient = itemFromNbt(*ic);
+                            else if (slot == 4)
+                                br.fuel = itemFromNbt(*ic);
                         }
-                br.brewTime = static_cast<int>(std::clamp<int64_t>(e->integer("BrewTime").value_or(0), 0, 400));
-                br.fuelLeft = static_cast<int>(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 20));
+                br.brewTime = static_cast<int>(
+                    std::clamp<int64_t>(e->integer("BrewTime").value_or(0), 0, 400));
+                br.fuelLeft =
+                    static_cast<int>(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 20));
                 continue;
             }
             if (*id == "minecraft:mob_spawner" || *id == "minecraft:trial_spawner") {
                 const bool trial = *id == "minecraft:trial_spawner";
-                if (blockRegistry().blockOf(chunk.get(x, y, z)) != (trial ? blocks::TrialSpawner : blocks::Spawner)) continue;
+                if (blockRegistry().blockOf(chunk.get(x, y, z)) !=
+                    (trial ? blocks::TrialSpawner : blocks::Spawner))
+                    continue;
                 SpawnerData& sp = chunk.addSpawner(x, y, z);
                 sp.trial = trial;
                 if (trial) {
-                    sp.spawned = uint8_t(std::clamp<int64_t>(e->integer("spawned").value_or(0), 0, 255));
-                    sp.total = uint8_t(std::clamp<int64_t>(e->integer("total").value_or(0), 0, 255));
-                    sp.cooldown = int32_t(std::clamp<int64_t>(e->integer("cooldown").value_or(0), 0, 1 << 30));
+                    sp.spawned =
+                        uint8_t(std::clamp<int64_t>(e->integer("spawned").value_or(0), 0, 255));
+                    sp.total =
+                        uint8_t(std::clamp<int64_t>(e->integer("total").value_or(0), 0, 255));
+                    sp.cooldown = int32_t(
+                        std::clamp<int64_t>(e->integer("cooldown").value_or(0), 0, 1 << 30));
                 }
-                sp.delay = static_cast<int16_t>(std::clamp<int64_t>(e->integer("Delay").value_or(20), 0, 32767));
+                sp.delay = static_cast<int16_t>(
+                    std::clamp<int64_t>(e->integer("Delay").value_or(20), 0, 32767));
                 const nbt::Compound* data = e->compound("SpawnData");
                 const nbt::Compound* entity = data ? data->compound("entity") : nullptr;
                 if (const std::string* mob = entity ? entity->string("id") : nullptr)
                     for (int k = 0; k < static_cast<int>(MobType::Count); ++k)
-                        if (mobInfo(static_cast<MobType>(k)).id == *mob) sp.mob = static_cast<MobType>(k);
+                        if (mobInfo(static_cast<MobType>(k)).id == *mob)
+                            sp.mob = static_cast<MobType>(k);
                 continue;
             }
-            if (*id == "minecraft:chest" || *id == "minecraft:barrel" || *id == "minecraft:shulker_box" ||
-                *id == "minecraft:trapped_chest" || *id == "minecraft:chiseled_bookshelf" || *id == "minecraft:shelf") {
+            if (*id == "minecraft:chest" || *id == "minecraft:barrel" ||
+                *id == "minecraft:shulker_box" || *id == "minecraft:trapped_chest" ||
+                *id == "minecraft:chiseled_bookshelf" || *id == "minecraft:shelf") {
                 const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
                 const bool shulker = blockRegistry().likeOf(cb) == blocks::ShulkerBox;
-                if (blockRegistry().likeOf(cb) != blocks::Chest && cb != blocks::Barrel && !shulker &&
-                    cb != blocks::ChiseledBookshelf && blockRegistry().likeOf(cb) != blocks::Shelf)
+                if (blockRegistry().likeOf(cb) != blocks::Chest && cb != blocks::Barrel &&
+                    !shulker && cb != blocks::ChiseledBookshelf &&
+                    blockRegistry().likeOf(cb) != blocks::Shelf)
                     continue; // (copper chests too)
                 ChestData& c = chunk.addChest(x, y, z);
                 c.barrel = cb == blocks::Barrel;
@@ -1313,7 +1422,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 c.trapped = cb == blocks::TrappedChest; // (M29.5)
                 c.bookshelf = cb == blocks::ChiseledBookshelf;
                 c.shelf = blockRegistry().likeOf(cb) == blocks::Shelf;
-                c.lastSlot = int8_t(std::clamp<int64_t>(e->integer("last_interacted_slot").value_or(-1), -1, 5));
+                c.lastSlot = int8_t(
+                    std::clamp<int64_t>(e->integer("last_interacted_slot").value_or(-1), -1, 5));
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
@@ -1331,7 +1441,10 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 for (const nbt::Tag& it : items->items)
                     if (const nbt::Compound* c = it.get<nbt::Compound>()) {
                         const auto slot = c->integer("Slot").value_or(-1);
-                        ItemStack* dst = slot == 0 ? &f.input : slot == 1 ? &f.fuel : slot == 2 ? &f.output : nullptr;
+                        ItemStack* dst = slot == 0   ? &f.input
+                                         : slot == 1 ? &f.fuel
+                                         : slot == 2 ? &f.output
+                                                     : nullptr;
                         if (dst) *dst = itemFromNbt(*c);
                     }
             // Current names first, then the pre-1.21.4 ones (our older saves).
@@ -1345,7 +1458,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             if (const nbt::Compound* used = e->compound("RecipesUsed"))
                 for (const auto& u : used->entries)
                     if (const auto n = used->integer(u.name); n && *n > 0)
-                        f.countRecipe(internRecipeId(u.name), static_cast<int32_t>(std::min<int64_t>(*n, INT32_MAX)));
+                        f.countRecipe(internRecipeId(u.name),
+                                      static_cast<int32_t>(std::min<int64_t>(*n, INT32_MAX)));
             // v0.17.0 kept the stored experience as a number (clone_experience): kept as
             // uses of the cobblestone -> stone recipe (0.1 each), which pays the same.
             if (const auto old = e->real("clone_experience"); old && *old > 0.0)
@@ -1361,23 +1475,30 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const nbt::Compound* e = t.get<nbt::Compound>();
             const std::string* id = e ? e->string("i") : nullptr;
             std::optional<BlockId> block;
-            if (id && (*id == "minecraft:water" || *id == "minecraft:flowing_water")) block = blocks::Water;
-            else if (id && (*id == "minecraft:lava" || *id == "minecraft:flowing_lava")) block = blocks::Lava;
-            else if (id) block = reg.findBlock(*id);
+            if (id && (*id == "minecraft:water" || *id == "minecraft:flowing_water"))
+                block = blocks::Water;
+            else if (id && (*id == "minecraft:lava" || *id == "minecraft:flowing_lava"))
+                block = blocks::Lava;
+            else if (id)
+                block = reg.findBlock(*id);
             if (!block) continue;
             const int64_t x = e->integer("x").value_or(INT32_MIN) - int64_t{chunk.pos().x} * 16;
             const int64_t z = e->integer("z").value_or(INT32_MIN) - int64_t{chunk.pos().z} * 16;
             const int64_t y = e->integer("y").value_or(INT32_MIN);
-            if (x < 0 || x > 15 || z < 0 || z > 15 || !chunk.height().contains(static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
+            if (x < 0 || x > 15 || z < 0 || z > 15 ||
+                !chunk.height().contains(
+                    static_cast<int32_t>(std::clamp<int64_t>(y, INT32_MIN, INT32_MAX))))
                 continue;
             // One pending tick per block (a duplicate would run twice in one tick).
-            const bool dup = std::any_of(chunk.blockTicks().begin(), chunk.blockTicks().end(), [&](const auto& t) {
-                return t.x == x && t.z == z && t.y == y && t.block == *block;
-            });
+            const bool dup = std::any_of(
+                chunk.blockTicks().begin(), chunk.blockTicks().end(), [&](const auto& t) {
+                    return t.x == x && t.z == z && t.y == y && t.block == *block;
+                });
             if (dup) continue;
-            chunk.blockTicks().push_back({static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y),
-                                          static_cast<int8_t>(std::clamp<int64_t>(e->integer("p").value_or(0), -3, 3)), *block,
-                                          std::clamp<int64_t>(e->integer("t").value_or(0), 0, 1 << 20), order++});
+            chunk.blockTicks().push_back(
+                {static_cast<int8_t>(x), static_cast<int8_t>(z), static_cast<int16_t>(y),
+                 static_cast<int8_t>(std::clamp<int64_t>(e->integer("p").value_or(0), -3, 3)),
+                 *block, std::clamp<int64_t>(e->integer("t").value_or(0), 0, 1 << 20), order++});
         }
     }
     chunk.ticksRelative = !chunk.blockTicks().empty();
@@ -1386,7 +1507,8 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
 }
 
 namespace {
-uint64_t g_playerUuidHi = 0x5EED00000000F00Dull, g_playerUuidLo = 0x8000000000000001ull; // (until set)
+uint64_t g_playerUuidHi = 0x5EED00000000F00Dull,
+         g_playerUuidLo = 0x8000000000000001ull; // (until set)
 }
 void setPlayerUuid(uint64_t hi, uint64_t lo) {
     g_playerUuidHi = hi;
@@ -1402,10 +1524,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // Dying mobs are not saved - except the dragon, whose 10 s death ends the fight.
         if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
-        e.put("id", m.type == MobType::Boat       ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
-                    : m.type == MobType::Minecart ? std::string("minecraft:") + kCartKinds[m.decor % 7] // (M29.3e)
-                                                  : std::string(mobInfo(m.type).id)); // (boats: per wood)
-        if (m.type == MobType::Minecart && m.decor == 2) { // (M29.3e; wiki: furnace cart Fuel, PushX/PushZ)
+        e.put("id", m.type == MobType::Boat
+                        ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
+                    : m.type == MobType::Minecart
+                        ? std::string("minecraft:") + kCartKinds[m.decor % 7] // (M29.3e)
+                        : std::string(mobInfo(m.type).id));                   // (boats: per wood)
+        if (m.type == MobType::Minecart &&
+            m.decor == 2) { // (M29.3e; wiki: furnace cart Fuel, PushX/PushZ)
             e.put("Fuel", int16_t(m.temper));
             e.put("PushX", double(m.home.x));
             e.put("PushZ", double(m.home.z));
@@ -1415,7 +1540,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
         e.put("Health", m.health);
         e.put("OnGround", static_cast<int8_t>(m.onGround ? 1 : 0));
-        e.put("fall_distance", double(m.fallDistance)); // 1.21.5+: a double (was FallDistance, float)
+        e.put("fall_distance",
+              double(m.fallDistance)); // 1.21.5+: a double (was FallDistance, float)
         e.put("Air", int16_t{300});
         e.put("PortalCooldown", int32_t{0});
         e.put("Invulnerable", int8_t{0});
@@ -1447,15 +1573,18 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("IsChickenJockey", int8_t{0});
         }
         if (m.type == MobType::EndCrystal) e.put("ShowBottom", int8_t(m.showBottom ? 1 : 0));
-        if (m.leash == 1) { // (M28.3c; wiki: Entity format › leash: the holder's UUID, or a knot's position)
+        if (m.leash ==
+            1) { // (M28.3c; wiki: Entity format › leash: the holder's UUID, or a knot's position)
             nbt::Compound l;
-            l.put("UUID", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
-                                               int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+            l.put("UUID",
+                  std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                       int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
             e.put("leash", std::move(l));
         } else if (m.leash == 2) {
             e.put("leash", std::vector<int32_t>{m.leashPos.x, m.leashPos.y, m.leashPos.z});
         }
-        if (m.type == MobType::LeashKnot) e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+        if (m.type == MobType::LeashKnot)
+            e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
         // mount's Passengers); a skeleton trap horse.
         if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
@@ -1470,7 +1599,10 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.commandId != 0) { // (M29.7: a command cart's command; M29.7e: what a display shows)
             if (m.type == MobType::BlockDisplay) {
                 nbt::Compound bs;
-                bs.put("Name", std::string(blockRegistry().block(blockRegistry().blockOf(BlockStateId(m.commandId))).id));
+                bs.put("Name",
+                       std::string(blockRegistry()
+                                       .block(blockRegistry().blockOf(BlockStateId(m.commandId)))
+                                       .id));
                 e.put("block_state", std::move(bs));
             } else if (m.type == MobType::ItemDisplay || m.type == MobType::OminousItemSpawner) {
                 nbt::Compound it;
@@ -1478,7 +1610,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 it.put("count", int32_t{1});
                 e.put("item", std::move(it));
             } else {
-                e.put(m.type == MobType::TextDisplay ? "text" : "Command", std::string(nameText(m.commandId)));
+                e.put(m.type == MobType::TextDisplay ? "text" : "Command",
+                      std::string(nameText(m.commandId)));
             }
         }
         { // (M29.2c) lasting effects, as vanilla's active_effects
@@ -1491,10 +1624,12 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                     c.put("duration", int32_t(a.ticks));
                     fx.emplace_back(std::move(c));
                 }
-            if (!fx.empty()) e.put("active_effects", nbt::listOf(nbt::TagType::Compound, std::move(fx)));
+            if (!fx.empty())
+                e.put("active_effects", nbt::listOf(nbt::TagType::Compound, std::move(fx)));
         }
         // (M29.1d; 1.21.5) a farm animal's variant, once chosen
-        if ((m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken) && m.color2 != 0)
+        if ((m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken) &&
+            m.color2 != 0)
             e.put("variant", std::string("minecraft:") + kFarmVariants[m.woolColour % 3]);
         if (m.type == MobType::SkeletonHorse) e.put("SkeletonTrap", int8_t(m.skeletonTrap ? 1 : 0));
         if (m.type == MobType::ArmorStand) { // (M28.3b; wiki: Armor Stand › Entity data)
@@ -1503,7 +1638,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             for (const auto& st : chunk.mobStores)
                 if (st.uuidHi == m.uuidHi)
                     for (int i = 0; i < 4; ++i)
-                        if (!st.slots[size_t(i)].empty()) eq.put(kSlots[i], itemNbt(st.slots[size_t(i)], -1));
+                        if (!st.slots[size_t(i)].empty())
+                            eq.put(kSlots[i], itemNbt(st.slots[size_t(i)], -1));
             if (!eq.entries.empty()) e.put("equipment", std::move(eq));
             e.put("ShowArms", int8_t{0});
             e.put("Small", int8_t{0});
@@ -1516,7 +1652,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.type == MobType::Painting) { // facing: 2D (south 0, west 1, north 2, east 3)
                 static constexpr int8_t k2d[6] = {0, 0, 2, 0, 1, 3};
                 e.put("facing", k2d[m.phase % 6]);
-                e.put("variant", "minecraft:" + std::string(kPaintings[m.woolColour % kPaintings.size()].name));
+                e.put("variant",
+                      "minecraft:" +
+                          std::string(kPaintings[m.woolColour % kPaintings.size()].name));
             } else {
                 e.put("Facing", int8_t(m.phase % 6));
                 e.put("ItemRotation", int8_t(m.node % 8));
@@ -1524,35 +1662,47 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 e.put("Invisible", int8_t{0});
                 e.put("Fixed", int8_t{0});
                 for (const auto& st : chunk.mobStores)
-                    if (st.uuidHi == m.uuidHi && !st.slots[0].empty()) e.put("Item", itemNbt(st.slots[0], -1));
+                    if (st.uuidHi == m.uuidHi && !st.slots[0].empty())
+                        e.put("Item", itemNbt(st.slots[0], -1));
             }
         }
-        if (m.type == MobType::EnderDragon) e.put("DragonPhase", int32_t(m.phase)); // (vanilla's numbers)
+        if (m.type == MobType::EnderDragon)
+            e.put("DragonPhase", int32_t(m.phase)); // (vanilla's numbers)
         if (m.type == MobType::Shulker) {
             e.put("AttachFace", int8_t{0}); // (ours always sit on a floor: down)
             e.put("Peek", int8_t(m.peek));
             e.put("Color", int8_t{16}); // (no colour)
         }
-        if (m.type == MobType::MagmaCube || m.type == MobType::Slime) e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
-        if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
-        if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
-        if (m.type == MobType::WanderingTrader || m.type == MobType::TraderLlama) e.put("DespawnDelay", int32_t(m.despawnDelay));
+        if (m.type == MobType::MagmaCube || m.type == MobType::Slime)
+            e.put("Size", int32_t(m.size == 4 ? 3 : m.size - 1)); // vanilla: size - 1
+        if (m.type == MobType::ZombifiedPiglin)
+            e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
+        if (m.type == MobType::ZombieVillager)
+            e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
+        if (m.type == MobType::WanderingTrader || m.type == MobType::TraderLlama)
+            e.put("DespawnDelay", int32_t(m.despawnDelay));
         // (M29.1c; wiki: Entity format) vanilla TimeInOverworld; an endermite's Lifetime
-        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute || m.type == MobType::Hoglin)
+        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
+            m.type == MobType::Hoglin)
             e.put("TimeInOverworld", int32_t(m.zombifyTicks));
         if (m.type == MobType::Endermite) e.put("Lifetime", int32_t(2400 - m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
-        if (isPet(m.type) || m.type == MobType::Ocelot) { // (M26.1; wiki: Wolf, Cat, Parrot › Entity data)
-            if (m.type == MobType::Ocelot) e.put("Trusting", int8_t(m.tamed ? 1 : 0));
+        if (isPet(m.type) ||
+            m.type == MobType::Ocelot) { // (M26.1; wiki: Wolf, Cat, Parrot › Entity data)
+            if (m.type == MobType::Ocelot)
+                e.put("Trusting", int8_t(m.tamed ? 1 : 0));
             else if (m.tamed) {
-                e.put("Owner", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
-                                                    int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                e.put("Owner",
+                      std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                           int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
                 e.put("Sitting", int8_t(m.sitting ? 1 : 0));
             }
             if (m.type == MobType::Wolf || m.type == MobType::Cat) {
                 e.put("CollarColor", int8_t(m.color2));
-                e.put("variant", std::string("minecraft:") + (m.type == MobType::Wolf ? kWolfVariants[m.woolColour % 9].name
-                                                                                     : kCatVariants[m.woolColour % 11].name));
+                e.put("variant",
+                      std::string("minecraft:") + (m.type == MobType::Wolf
+                                                       ? kWolfVariants[m.woolColour % 9].name
+                                                       : kCatVariants[m.woolColour % 11].name));
             }
             if (m.type == MobType::Parrot) e.put("Variant", int32_t(m.woolColour % 5));
         }
@@ -1560,19 +1710,23 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasEgg", int8_t(m.hasEgg ? 1 : 0));
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
-        if (isMount(m.type) || ((m.type == MobType::Boat || m.type == MobType::Minecart) && m.hasChest)) { // (M26.2; wiki: Horse, Llama, Camel › Entity data)
+        if (isMount(m.type) || ((m.type == MobType::Boat || m.type == MobType::Minecart) &&
+                                m.hasChest)) { // (M26.2; wiki: Horse, Llama, Camel › Entity data)
             if (m.type != MobType::Boat && m.type != MobType::Minecart) {
                 e.put("Tame", int8_t(m.tamed ? 1 : 0));
                 e.put("Temper", int32_t(m.temper));
                 if (m.tamed)
-                    e.put("Owner", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
-                                                        int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
-                if (m.type == MobType::Horse) e.put("Variant", int32_t(m.woolColour | m.color2 << 8));
+                    e.put("Owner", std::vector<int32_t>{
+                                       int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                       int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                if (m.type == MobType::Horse)
+                    e.put("Variant", int32_t(m.woolColour | m.color2 << 8));
                 if (isLlama(m.type)) {
                     e.put("Variant", int32_t(m.woolColour % 4));
                     e.put("Strength", int32_t(m.strength));
                 }
-                if (isCamel(m.type)) e.put("LastPoseTick", int64_t(m.sitting ? -1 : 0)); // (sitting: negative)
+                if (isCamel(m.type))
+                    e.put("LastPoseTick", int64_t(m.sitting ? -1 : 0)); // (sitting: negative)
                 // Its own stats as attribute bases (1.21: attributes [{id, base}]).
                 std::vector<nbt::Tag> attrs;
                 auto attr = [&](const char* id, double base) {
@@ -1584,7 +1738,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 if (m.maxHealth > 0.0f) attr("minecraft:max_health", m.maxHealth);
                 if (m.moveSpeed > 0.0f) attr("minecraft:movement_speed", m.moveSpeed);
                 if (m.jumpStrength > 0.0f) attr("minecraft:jump_strength", m.jumpStrength);
-                if (!attrs.empty()) e.put("attributes", nbt::listOf(nbt::TagType::Compound, std::move(attrs)));
+                if (!attrs.empty())
+                    e.put("attributes", nbt::listOf(nbt::TagType::Compound, std::move(attrs)));
                 // 1.21.5+ equipment: saddle, body (horse armor, a llama's carpet).
                 nbt::Compound eq;
                 auto piece = [&](const char* slot, const std::string& item) {
@@ -1597,17 +1752,20 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 if (m.horseArmor > 0 && m.horseArmor < bodyArmorItems(m.type).size())
                     piece("body", bodyArmorItems(m.type)[m.horseArmor]);
                 if (m.decor > 0 && m.decor <= 16)
-                    piece("body", std::string(kDyeColours[m.decor - 1]) + (m.type == MobType::HappyGhast ? "_harness" : "_carpet"));
+                    piece("body", std::string(kDyeColours[m.decor - 1]) +
+                                      (m.type == MobType::HappyGhast ? "_harness" : "_carpet"));
                 if (!eq.entries.empty()) e.put("equipment", std::move(eq));
             }
             if (canCarryChest(m.type)) e.put("ChestedHorse", int8_t(m.hasChest ? 1 : 0));
-            if (m.hasChest) { // Items: the chest's stacks (horses number them from 2: 0 and 1 were saddle and armor)
+            if (m.hasChest) { // Items: the chest's stacks (horses number them from 2: 0 and 1 were
+                              // saddle and armor)
                 std::vector<nbt::Tag> items;
                 const int base = m.type == MobType::Boat || m.type == MobType::Minecart ? 0 : 2;
                 for (const auto& st : chunk.mobStores)
                     if (st.uuidHi == m.uuidHi)
                         for (int i = 0; i < chestSlots(m.type, m.strength); ++i)
-                            if (!st.slots[size_t(i)].empty()) items.emplace_back(itemNbt(st.slots[size_t(i)], base + i));
+                            if (!st.slots[size_t(i)].empty())
+                                items.emplace_back(itemNbt(st.slots[size_t(i)], base + i));
                 e.put("Items", nbt::listOf(nbt::TagType::Compound, std::move(items)));
             }
         }
@@ -1618,8 +1776,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("Sleeping", int8_t(m.sitting ? 1 : 0));
             std::vector<nbt::Tag> trusted;
             if (m.tamed)
-                trusted.emplace_back(std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
-                                                          int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                trusted.emplace_back(
+                    std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                         int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
             e.put("Trusted", nbt::listOf(nbt::TagType::IntArray, std::move(trusted)));
         }
         if (m.type == MobType::Panda) {
@@ -1631,10 +1790,14 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasRightHorn", int8_t(m.horns & 2 ? 1 : 0));
             e.put("IsScreamingGoat", int8_t(m.powered ? 1 : 0));
         }
-        if (m.type == MobType::Frog) e.put("variant", "minecraft:" + std::string(kFrogVariants[m.woolColour % 3].name)); // (M26.3c)
-        if (m.type == MobType::Wither) e.put("Invul", int32_t(m.spellTicks)); // (M26 review: still charging)
-        if (m.type == MobType::CopperGolem) { // (M26.5b)
-            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
+        if (m.type == MobType::Frog)
+            e.put("variant",
+                  "minecraft:" + std::string(kFrogVariants[m.woolColour % 3].name)); // (M26.3c)
+        if (m.type == MobType::Wither)
+            e.put("Invul", int32_t(m.spellTicks)); // (M26 review: still charging)
+        if (m.type == MobType::CopperGolem) {      // (M26.5b)
+            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered",
+                                                        "oxidized"};
             e.put("weather_state", std::string(kWeather[m.woolColour % 4]));
             e.put("Waxed", int8_t(m.sheared ? 1 : 0));
         }
@@ -1642,16 +1805,19 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasNectar", int8_t(m.nectar ? 1 : 0));
             e.put("HasStung", int8_t(m.stung ? 1 : 0));
             e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
-            if (m.home.y != kNoPoint) e.put("hive_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+            if (m.home.y != kNoPoint)
+                e.put("hive_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
-        if (m.type == MobType::Warden) { // (M27 review; wiki: Warden - our tags beside vanilla's anger)
+        if (m.type ==
+            MobType::Warden) { // (M27 review; wiki: Warden - our tags beside vanilla's anger)
             e.put("clone_phase", int8_t(m.phase));
             e.put("clone_phase_ticks", int16_t(m.phaseTicks));
             e.put("clone_anger", int16_t(m.angerTicks));
         }
         // (M27.1c: a creaking's heart - wiki: Creaking, home_pos; M27 review: a trial spawner's
         // mobs keep their spawner the same way - our tag on them)
-        if (m.home.y != kNoPoint && m.type != MobType::Turtle && m.type != MobType::Bee && m.type != MobType::Villager) {
+        if (m.home.y != kNoPoint && m.type != MobType::Turtle && m.type != MobType::Bee &&
+            m.type != MobType::Villager) {
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
         if (m.type == MobType::Armadillo) {
@@ -1661,17 +1827,22 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::Allay) { // (M26.5a; wiki: Allay › Entity data)
             e.put("DuplicationCooldown", int64_t(m.age));
             std::vector<nbt::Tag> inv;
-            if (m.allayCount > 0 && m.mouthItem != kNoItem) inv.emplace_back(itemNbt({m.mouthItem, m.allayCount}, -1));
+            if (m.allayCount > 0 && m.mouthItem != kNoItem)
+                inv.emplace_back(itemNbt({m.mouthItem, m.allayCount}, -1));
             e.put("Inventory", nbt::listOf(nbt::TagType::Compound, std::move(inv)));
         }
         // Foxes, allays and copper golems keep their mainhand in mouthItem, never heldItem: one
         // field per mob, or a reload would copy the item into both (M29 review).
-        const bool mouthMob = m.type == MobType::Fox || m.type == MobType::Allay || m.type == MobType::CopperGolem;
-        nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's armor, held items)
+        const bool mouthMob =
+            m.type == MobType::Fox || m.type == MobType::Allay || m.type == MobType::CopperGolem;
+        nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's
+                          // armor, held items)
         if ((mouthMob && m.mouthItem != kNoItem) || (m.type == MobType::Wolf && m.horseArmor > 0)) {
-            if (m.type == MobType::Fox || m.type == MobType::Allay) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
+            if (m.type == MobType::Fox || m.type == MobType::Allay)
+                eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
             if (m.type == MobType::CopperGolem) // (what it carries between chests)
-                eq.put("mainhand", itemNbt({m.mouthItem, uint8_t(std::max<int>(1, m.allayCount))}, -1));
+                eq.put("mainhand",
+                       itemNbt({m.mouthItem, uint8_t(std::max<int>(1, m.allayCount))}, -1));
             if (m.type == MobType::Wolf) {
                 ItemStack armor{*itemRegistry().find("wolf_armor"), 1};
                 armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
@@ -1685,7 +1856,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             for (const auto& st : chunk.mobStores)
                 if (st.uuidHi == m.uuidHi) gear = &st.slots;
         if (gear) {
-            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet", "mainhand"};
+            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet",
+                                                          "mainhand"};
             nbt::Compound chances;
             for (int i = 0; i < 5; ++i)
                 if (!(*gear)[size_t(i)].empty()) {
@@ -1710,7 +1882,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.type == MobType::Axolotl) e.put("Variant", int32_t(m.woolColour % 5)); // (M26.3c)
             // Variant: shape (0..1) | pattern << 8 | base colour << 16 | pattern colour << 24.
             if (m.type == MobType::TropicalFish)
-                e.put("Variant", int32_t((m.size % 2) | (m.size / 2) << 8 | m.woolColour << 16 | m.color2 << 24));
+                e.put("Variant", int32_t((m.size % 2) | (m.size / 2) << 8 | m.woolColour << 16 |
+                                         m.color2 << 24));
             if (m.type == MobType::Pufferfish) e.put("PuffState", int32_t(m.size));
         }
         if (m.type == MobType::Pillager) { // wiki: Raider › Entity data
@@ -1723,10 +1896,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("RaidId", int32_t(m.raidId));
         }
         if (m.type == MobType::Villager || m.type == MobType::ZombieVillager ||
-            m.type == MobType::WanderingTrader) { // wiki: Villager › Entity data (the trader: Offers)
+            m.type ==
+                MobType::WanderingTrader) { // wiki: Villager › Entity data (the trader: Offers)
             nbt::Compound data;
-            data.put("type", std::string(villagerTypeId(static_cast<VillagerType>(m.villagerType))));
-            data.put("profession", std::string(professionInfo(static_cast<Profession>(m.profession)).id));
+            data.put("type",
+                     std::string(villagerTypeId(static_cast<VillagerType>(m.villagerType))));
+            data.put("profession",
+                     std::string(professionInfo(static_cast<Profession>(m.profession)).id));
             data.put("level", int32_t(m.villagerLevel));
             e.put("VillagerData", std::move(data));
             e.put("Xp", int32_t(m.villagerXp));
@@ -1737,14 +1913,18 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                         nbt::Compound g;
                         g.put("Type", std::string(kGossips[k].id));
                         g.put("Value", int32_t(m.gossip[k]));
-                        g.put("Target", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
-                                                             int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                        g.put("Target", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32),
+                                                             int32_t(g_playerUuidHi),
+                                                             int32_t(g_playerUuidLo >> 32),
+                                                             int32_t(g_playerUuidLo)});
                         gossips.emplace_back(std::move(g));
                     }
-                if (!gossips.empty()) e.put("Gossips", nbt::listOf(nbt::TagType::Compound, std::move(gossips)));
+                if (!gossips.empty())
+                    e.put("Gossips", nbt::listOf(nbt::TagType::Compound, std::move(gossips)));
             }
             { // its food (M24.3) as vanilla's Inventory: up to 8 stacks
-                static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
+                static constexpr const char* kFood[6] = {"bread",    "carrot", "potato",
+                                                         "beetroot", "wheat",  "wheat_seeds"};
                 std::vector<nbt::Tag> inv;
                 for (int i = 0; i < 6; ++i)
                     if (m.food[size_t(i)] > 0)
@@ -1754,7 +1934,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             }
             e.put("LastRestock", int64_t(m.lastRestockDay));
             e.put("RestocksToday", int32_t(m.restocksToday));
-            nbt::Compound memories; // Brain.memories: home / job_site / meeting_point {value: {pos, dimension}}
+            nbt::Compound memories; // Brain.memories: home / job_site / meeting_point {value: {pos,
+                                    // dimension}}
             auto memory = [&](const char* key, const glm::ivec3& p) {
                 if (p.y == kNoPoint) return;
                 nbt::Compound value, wrap;
@@ -1777,7 +1958,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                     r.put("buy", itemNbt({o.buyA, o.buyACount}, -1));
                     if (o.buyB) r.put("buyB", itemNbt({o.buyB, o.buyBCount}, -1));
                     ItemStack sold{o.sell, o.sellCount};
-                    if (o.sellEnchant) setEnchantment(sold, static_cast<Enchantment>(o.sellEnchant >> 8), o.sellEnchant & 0xFF);
+                    if (o.sellEnchant)
+                        setEnchantment(sold, static_cast<Enchantment>(o.sellEnchant >> 8),
+                                       o.sellEnchant & 0xFF);
                     r.put("sell", itemNbt(sold, -1));
                     r.put("uses", int32_t(o.uses));
                     r.put("maxUses", int32_t(o.maxUses));
@@ -1811,12 +1994,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.maxHealth > 0.0f) attr("minecraft:max_health", m.maxHealth);
             e.put("attributes", nbt::listOf(nbt::TagType::Compound, std::move(attrs)));
         }
-        e.put("Fire", static_cast<int16_t>(m.fireTicks > 0 ? m.fireTicks : -20)); // -20: not burning (wiki)
+        e.put("Fire",
+              static_cast<int16_t>(m.fireTicks > 0 ? m.fireTicks : -20)); // -20: not burning (wiki)
         e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
         e.put("DeathTime", static_cast<int16_t>(m.type == MobType::EnderDragon ? m.deathTime : 0));
         e.put("PersistenceRequired", static_cast<int8_t>(m.persistent ? 1 : 0));
-        e.put("UUID", std::vector<int32_t>{int32_t(m.uuidHi >> 32), int32_t(m.uuidHi), int32_t(m.uuidLo >> 32),
-                                           int32_t(m.uuidLo)});
+        e.put("UUID", std::vector<int32_t>{int32_t(m.uuidHi >> 32), int32_t(m.uuidHi),
+                                           int32_t(m.uuidLo >> 32), int32_t(m.uuidLo)});
         list.emplace_back(std::move(e));
     }
     // Dropped items and orbs (M30.4; wiki: Item (entity), Experience Orb › Entity data).
@@ -1870,16 +2054,23 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("pickup", int8_t(p.pickup ? (p.fromPlayer ? 1 : 0) : 0)); // (0 no, 1 yes)
             e.put("crit", int8_t(p.critical ? 1 : 0));
             e.put("PierceLevel", int8_t(p.pierce));
-            e.put("damage", 2.0 + 0.5 * p.power + (p.power ? 0.5 : 0.0)); // (vanilla base 2 + Power)
+            e.put("damage",
+                  2.0 + 0.5 * p.power + (p.power ? 0.5 : 0.0)); // (vanilla base 2 + Power)
             if (!p.stack.empty()) e.put("item", itemNbt(p.stack, -1));
             if (p.kind == K::Trident) e.put("DealtDamage", int8_t(p.dealt ? 1 : 0));
-            e.put("clone_facing", nbt::listOf(nbt::TagType::Double, {p.facing.x, p.facing.y, p.facing.z}));
+            e.put("clone_facing",
+                  nbt::listOf(nbt::TagType::Double, {p.facing.x, p.facing.y, p.facing.z}));
             e.put("clone_power", int8_t(p.power));
             e.put("clone_punch", int8_t(p.punch));
             e.put("clone_potion", int8_t(p.potion));
             e.put("clone_flame", int8_t(p.flame ? 1 : 0));
             e.put("clone_fromPlayer", int8_t(p.fromPlayer ? 1 : 0));
             if (p.shooter) e.put("clone_shooter", int64_t(p.shooter));
+            if (p.hitEffect) {
+                e.put("clone_hitEffect", int8_t(p.hitEffect));
+                e.put("clone_hitTicks", int32_t(p.hitTicks));
+            }
+            if (p.skeleton) e.put("clone_skeleton", int8_t{1});
         }
         list.emplace_back(std::move(e));
     }
@@ -1900,8 +2091,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         const nbt::Compound* e = t.get<nbt::Compound>();
         const std::string* id = e ? e->string("id") : nullptr;
         if (!id) continue;
-        if (*id == "minecraft:arrow" || *id == "minecraft:spectral_arrow" || *id == "minecraft:trident" ||
-            *id == "minecraft:tnt" || *id == "minecraft:falling_block") { // (M32.3)
+        if (*id == "minecraft:arrow" || *id == "minecraft:spectral_arrow" ||
+            *id == "minecraft:trident" || *id == "minecraft:tnt" ||
+            *id == "minecraft:falling_block") { // (M32.3)
             using K = Chunk::ParkedEntity::Kind;
             Chunk::ParkedEntity p;
             auto vec3 = [&](const char* name, glm::dvec3& out, double limit) {
@@ -1931,17 +2123,27 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 p.time = int32_t(std::clamp<int64_t>(e->integer("life").value_or(0), 0, 32767));
                 p.pickup = e->integer("pickup").value_or(1) != 0;
                 p.critical = e->integer("crit").value_or(0) != 0;
-                p.pierce = uint8_t(std::clamp<int64_t>(e->integer("PierceLevel").value_or(0), 0, 127));
+                p.pierce =
+                    uint8_t(std::clamp<int64_t>(e->integer("PierceLevel").value_or(0), 0, 127));
                 if (const nbt::Compound* item = e->compound("item")) p.stack = itemFromNbt(*item);
                 p.dealt = e->integer("DealtDamage").value_or(0) != 0;
-                p.facing = glm::length(p.vel) > 1e-6 ? glm::normalize(p.vel) : glm::dvec3(0.0, -1.0, 0.0);
+                p.facing =
+                    glm::length(p.vel) > 1e-6 ? glm::normalize(p.vel) : glm::dvec3(0.0, -1.0, 0.0);
                 vec3("clone_facing", p.facing, 1.0);
-                p.power = uint8_t(std::clamp<int64_t>(e->integer("clone_power").value_or(0), 0, 10));
-                p.punch = uint8_t(std::clamp<int64_t>(e->integer("clone_punch").value_or(0), 0, 10));
-                p.potion = uint8_t(std::clamp<int64_t>(e->integer("clone_potion").value_or(0), 0, 255));
+                p.power =
+                    uint8_t(std::clamp<int64_t>(e->integer("clone_power").value_or(0), 0, 10));
+                p.punch =
+                    uint8_t(std::clamp<int64_t>(e->integer("clone_punch").value_or(0), 0, 10));
+                p.potion =
+                    uint8_t(std::clamp<int64_t>(e->integer("clone_potion").value_or(0), 0, 255));
                 p.flame = e->integer("clone_flame").value_or(0) != 0;
                 p.fromPlayer = e->integer("clone_fromPlayer").value_or(p.pickup ? 1 : 0) != 0;
                 p.shooter = uint64_t(e->integer("clone_shooter").value_or(0));
+                p.hitEffect = uint8_t(std::clamp<int64_t>(e->integer("clone_hitEffect").value_or(0),
+                                                          0, int64_t(Effect::Count) - 1));
+                p.hitTicks = int32_t(
+                    std::clamp<int64_t>(e->integer("clone_hitTicks").value_or(0), 0, 1 << 20));
+                p.skeleton = e->integer("clone_skeleton").value_or(0) != 0;
                 if (p.kind == K::Trident && p.stack.empty()) continue;
             }
             chunk.parkedEntities().push_back(p);
@@ -1955,18 +2157,24 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     if (auto d = l->items[size_t(i)].get<double>()) pos[i] = *d;
             if (const nbt::List* l = e->list("Motion"); l && l->items.size() == 3)
                 for (int i = 0; i < 3; ++i)
-                    if (auto d = l->items[size_t(i)].get<double>()) vel[i] = std::isfinite(*d) ? std::clamp(*d, -10.0, 10.0) : 0.0;
+                    if (auto d = l->items[size_t(i)].get<double>())
+                        vel[i] = std::isfinite(*d) ? std::clamp(*d, -10.0, 10.0) : 0.0;
             if (!isValidMobPosition(pos)) continue;
-            const int16_t age = int16_t(std::clamp<int64_t>(e->integer("Age").value_or(0), -32768, 32767));
+            const int16_t age =
+                int16_t(std::clamp<int64_t>(e->integer("Age").value_or(0), -32768, 32767));
             if (*id == "minecraft:item") {
                 const nbt::Compound* item = e->compound("Item");
                 const ItemStack st = item ? itemFromNbt(*item) : ItemStack{};
                 if (st.empty()) continue;
                 chunk.droppedItems().push_back(
-                    {pos, vel, st, age, int16_t(std::clamp<int64_t>(e->integer("PickupDelay").value_or(0), 0, 32767))});
+                    {pos, vel, st, age,
+                     int16_t(
+                         std::clamp<int64_t>(e->integer("PickupDelay").value_or(0), 0, 32767))});
             } else {
-                const int value = int(std::clamp<int64_t>(e->integer("Value").value_or(0), 0, 32767));
-                const int count = int(std::clamp<int64_t>(e->integer("Count").value_or(1), 1, 1 << 20));
+                const int value =
+                    int(std::clamp<int64_t>(e->integer("Value").value_or(0), 0, 32767));
+                const int count =
+                    int(std::clamp<int64_t>(e->integer("Count").value_or(1), 1, 1 << 20));
                 if (value > 0) chunk.droppedOrbs().push_back({pos, vel, value, count, age});
             }
             chunk.savedDropsHash = chunk.dropsHash();
@@ -2009,18 +2217,23 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.vel[i] = std::isfinite(m.vel[i]) ? std::clamp(m.vel[i], -10.0, 10.0) : 0.0;
         m.prevPos = m.goal = m.pos;
         if (const nbt::List* r = e->list("Rotation"); r && r->items.size() == 2) {
-            if (auto v = r->items[0].get<float>()) m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = *v;
+            if (auto v = r->items[0].get<float>())
+                m.yaw = m.prevYaw = m.headYaw = m.prevHeadYaw = *v;
             if (auto v = r->items[1].get<float>()) m.pitch = m.prevPitch = *v;
         }
         m.health = static_cast<float>(e->real("Health").value_or(mobInfo(m.type).maxHealth));
-        m.health = std::isfinite(m.health) ? m.health : 0.0f; // (capped once the mob's own top health is known)
+        m.health = std::isfinite(m.health)
+                       ? m.health
+                       : 0.0f; // (capped once the mob's own top health is known)
         m.onGround = e->integer("OnGround").value_or(0) != 0;
-        if (const auto f = e->real("fall_distance").value_or(e->real("FallDistance").value_or(0.0)); std::isfinite(f))
+        if (const auto f = e->real("fall_distance").value_or(e->real("FallDistance").value_or(0.0));
+            std::isfinite(f))
             m.fallDistance = static_cast<float>(std::clamp(f, 0.0, 1.0e6));
         m.fireTicks = static_cast<int16_t>(e->integer("Fire").value_or(0));
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
         m.age = static_cast<int>(std::clamp<int64_t>(e->integer("Age").value_or(0), -24000, 24000));
-        m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
+        m.loveTicks =
+            static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
         if (isZombie(m.type)) { // (M32.2) baby zombies never grow up: any negative age
             if (e->integer("IsBaby").value_or(0) != 0) m.age = -24000;
             m.canBreakDoors = e->integer("CanBreakDoors").value_or(0) != 0;
@@ -2030,20 +2243,27 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         const std::string* aid = a->string("id");
                         const double base = a->real("base").value_or(0.0);
                         if (!aid || !std::isfinite(base)) continue;
-                        if (*aid == "minecraft:spawn_reinforcements") m.reinforcements = float(std::clamp(base, 0.0, 1.0));
-                        if (*aid == "minecraft:max_health") m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
+                        if (*aid == "minecraft:spawn_reinforcements")
+                            m.reinforcements = float(std::clamp(base, 0.0, 1.0));
+                        if (*aid == "minecraft:max_health")
+                            m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
                     }
         }
         if (m.type != MobType::Boat) // (a boat's wood came from its id)
-            m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
+            m.woolColour =
+                static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
         m.powered = m.type == MobType::Creeper && e->integer("powered").value_or(0) != 0;
         m.ignited = m.type == MobType::Creeper && e->integer("ignited").value_or(0) != 0;
         m.showBottom = e->integer("ShowBottom").value_or(1) != 0;
-        if (m.type == MobType::Shulker) m.peek = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Peek").value_or(0), 0, 100));
+        if (m.type == MobType::Shulker)
+            m.peek =
+                static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Peek").value_or(0), 0, 100));
         if (m.type == MobType::EnderDragon) {
-            m.phase = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("DragonPhase").value_or(0), 0, 10));
-            m.deathTime = static_cast<int16_t>(std::clamp<int64_t>(e->integer("DeathTime").value_or(0), 0, 199));
+            m.phase = static_cast<uint8_t>(
+                std::clamp<int64_t>(e->integer("DragonPhase").value_or(0), 0, 10));
+            m.deathTime = static_cast<int16_t>(
+                std::clamp<int64_t>(e->integer("DeathTime").value_or(0), 0, 199));
             m.lastHealth = m.health;
         }
         if (m.type == MobType::MagmaCube || m.type == MobType::Slime) {
@@ -2051,45 +2271,64 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.size = uint8_t(sz >= 3 ? 4 : sz + 1);
         }
         if (m.type == MobType::ZombifiedPiglin) {
-            m.angerTicks = static_cast<int16_t>(std::clamp<int64_t>(e->integer("AngerTime").value_or(0), 0, 30000));
+            m.angerTicks = static_cast<int16_t>(
+                std::clamp<int64_t>(e->integer("AngerTime").value_or(0), 0, 30000));
             m.angry = m.angerTicks > 0;
         }
-        m.eggTicks = static_cast<int>(std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
+        m.eggTicks = static_cast<int>(
+            std::clamp<int64_t>(e->integer("EggLayTime").value_or(6000), 0, 12000));
         if (m.type == MobType::ZombieVillager)
-            m.convertTicks = int16_t(std::clamp<int64_t>(e->integer("ConversionTime").value_or(-1), 0, 6000));
+            m.convertTicks =
+                int16_t(std::clamp<int64_t>(e->integer("ConversionTime").value_or(-1), 0, 6000));
         if (m.type == MobType::WanderingTrader)
-            m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
+            m.despawnDelay =
+                int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         if (m.type == MobType::TraderLlama) // (0: stays - one the player tamed)
-            m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(0), 0, 48000));
-        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute || m.type == MobType::Hoglin)
-            m.zombifyTicks = int16_t(std::clamp<int64_t>(e->integer("TimeInOverworld").value_or(0), 0, 300));
+            m.despawnDelay =
+                int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(0), 0, 48000));
+        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
+            m.type == MobType::Hoglin)
+            m.zombifyTicks =
+                int16_t(std::clamp<int64_t>(e->integer("TimeInOverworld").value_or(0), 0, 300));
         if (m.type == MobType::Endermite)
-            m.despawnDelay = 2400 - int(std::clamp<int64_t>(e->integer("Lifetime").value_or(0), 0, 2399));
+            m.despawnDelay =
+                2400 - int(std::clamp<int64_t>(e->integer("Lifetime").value_or(0), 0, 2399));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
-        m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
+        m.playerCreated =
+            m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
         if (isPet(m.type) || m.type == MobType::Ocelot) {
-            if (m.type == MobType::Ocelot) m.tamed = e->integer("Trusting").value_or(0) != 0;
-            else m.tamed = e->find("Owner") != nullptr;
+            if (m.type == MobType::Ocelot)
+                m.tamed = e->integer("Trusting").value_or(0) != 0;
+            else
+                m.tamed = e->find("Owner") != nullptr;
             m.sitting = m.tamed && e->integer("Sitting").value_or(0) != 0;
-            m.color2 = uint8_t(std::clamp<int64_t>(e->integer("CollarColor").value_or(14), 0, 15)); // (red by default)
+            m.color2 = uint8_t(std::clamp<int64_t>(e->integer("CollarColor").value_or(14), 0,
+                                                   15)); // (red by default)
             if (const std::string* v = e->string("variant"))
                 for (int k = 0; k < (m.type == MobType::Wolf ? 9 : 11); ++k)
-                    if (*v == std::string("minecraft:") + (m.type == MobType::Wolf ? kWolfVariants[k].name : kCatVariants[k].name))
+                    if (*v == std::string("minecraft:") + (m.type == MobType::Wolf
+                                                               ? kWolfVariants[k].name
+                                                               : kCatVariants[k].name))
                         m.woolColour = uint8_t(k);
-            if (m.type == MobType::Parrot) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
+            if (m.type == MobType::Parrot)
+                m.woolColour =
+                    uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
         }
         if (m.type == MobType::Turtle) {
             m.hasEgg = e->integer("HasEgg").value_or(0) != 0;
             if (const nbt::Tag* hp = e->find("home_pos"))
-                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3)
+                    m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
-        if (const nbt::Compound* eq = e->compound("equipment");
-            eq && m.type != MobType::Fox && m.type != MobType::Allay && m.type != MobType::CopperGolem)
+        if (const nbt::Compound* eq = e->compound("equipment"); eq && m.type != MobType::Fox &&
+                                                                m.type != MobType::Allay &&
+                                                                m.type != MobType::CopperGolem)
             if (const nbt::Compound* hand = eq->compound("mainhand"))
                 if (const std::string* handId = hand->string("id")) {
                     m.heldTrident = *handId == "minecraft:trident";
                     if (!m.heldTrident)
-                        if (const auto it = itemRegistry().find(*handId)) m.heldItem = uint16_t(*it);
+                        if (const auto it = itemRegistry().find(*handId))
+                            m.heldItem = uint16_t(*it);
                 }
         if (mobInfo(m.type).swims) {
             m.airTicks = int16_t(std::clamp<int64_t>(e->integer("Air").value_or(300), -20, 300));
@@ -2100,17 +2339,23 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.woolColour = uint8_t((v >> 16) & 15);
                 m.color2 = uint8_t((v >> 24) & 15);
             }
-            if (m.type == MobType::Pufferfish) m.size = uint8_t(std::clamp<int64_t>(e->integer("PuffState").value_or(0), 0, 2));
+            if (m.type == MobType::Pufferfish)
+                m.size = uint8_t(std::clamp<int64_t>(e->integer("PuffState").value_or(0), 0, 2));
         }
-        m.raidId = isRaider(m.type) ? int32_t(std::clamp<int64_t>(e->integer("RaidId").value_or(0), 0, 1 << 30)) : 0;
-        if (m.type == MobType::Villager || m.type == MobType::ZombieVillager || m.type == MobType::WanderingTrader) {
+        m.raidId = isRaider(m.type)
+                       ? int32_t(std::clamp<int64_t>(e->integer("RaidId").value_or(0), 0, 1 << 30))
+                       : 0;
+        if (m.type == MobType::Villager || m.type == MobType::ZombieVillager ||
+            m.type == MobType::WanderingTrader) {
             if (const nbt::Compound* data = e->compound("VillagerData")) {
                 if (const std::string* vt = data->string("type"))
                     m.villagerType = uint8_t(findVillagerType(*vt).value_or(VillagerType::Plains));
                 if (const std::string* p = data->string("profession"))
                     m.profession = uint8_t(findProfession(*p).value_or(Profession::None));
-                m.villagerLevel = uint8_t(std::clamp<int64_t>(data->integer("level").value_or(1), 1, 5));
-                m.poiSearch = int16_t(std::abs(int(std::floor(m.pos.x * 7.0 + m.pos.z * 13.0))) % 200); // (loaded villagers don't all search on one tick)
+                m.villagerLevel =
+                    uint8_t(std::clamp<int64_t>(data->integer("level").value_or(1), 1, 5));
+                m.poiSearch = int16_t(std::abs(int(std::floor(m.pos.x * 7.0 + m.pos.z * 13.0))) %
+                                      200); // (loaded villagers don't all search on one tick)
             }
             m.villagerXp = int(std::clamp<int64_t>(e->integer("Xp").value_or(0), 0, 1000000));
             if (const nbt::List* gl = e->list("Gossips")) // (M32.5: ours are all about the player)
@@ -2119,27 +2364,31 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         if (const std::string* type = g->string("Type"))
                             for (size_t k = 0; k < m.gossip.size(); ++k)
                                 if (*type == kGossips[k].id)
-                                    m.gossip[k] = int16_t(std::clamp<int64_t>(g->integer("Value").value_or(0), 0,
-                                                                              kGossips[k].max));
+                                    m.gossip[k] = int16_t(std::clamp<int64_t>(
+                                        g->integer("Value").value_or(0), 0, kGossips[k].max));
             if (const nbt::List* inv = e->list("Inventory")) {
-                static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
+                static constexpr const char* kFood[6] = {"bread",    "carrot", "potato",
+                                                         "beetroot", "wheat",  "wheat_seeds"};
                 for (const nbt::Tag& it : inv->items)
                     if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
                         const ItemStack st = itemFromNbt(*ic);
                         for (int i = 0; i < 6; ++i)
                             if (!st.empty() && itemRegistry().find(kFood[i]) == st.item)
-                                m.food[size_t(i)] = uint8_t(std::min(64, m.food[size_t(i)] + st.count));
+                                m.food[size_t(i)] =
+                                    uint8_t(std::min(64, m.food[size_t(i)] + st.count));
                     }
             }
             m.lastRestockDay = e->integer("LastRestock").value_or(-1);
-            m.restocksToday = uint8_t(std::clamp<int64_t>(e->integer("RestocksToday").value_or(0), 0, 2));
+            m.restocksToday =
+                uint8_t(std::clamp<int64_t>(e->integer("RestocksToday").value_or(0), 0, 2));
             if (const nbt::Compound* brain = e->compound("Brain"))
                 if (const nbt::Compound* mem = brain->compound("memories")) {
                     auto memory = [&](const char* key, glm::ivec3& out) {
                         const nbt::Compound* wrap = mem->compound(key);
                         const nbt::Compound* value = wrap ? wrap->compound("value") : nullptr;
                         const nbt::Tag* pos = value ? value->find("pos") : nullptr;
-                        if (const auto* a = pos ? pos->get<std::vector<int32_t>>() : nullptr; a && a->size() == 3)
+                        if (const auto* a = pos ? pos->get<std::vector<int32_t>>() : nullptr;
+                            a && a->size() == 3)
                             out = {(*a)[0], (*a)[1], (*a)[2]};
                     };
                     memory("minecraft:home", m.home);
@@ -2167,12 +2416,16 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         o.sell = s.item;
                         o.sellCount = s.count;
                         o.sellEnchant = s.enchantments[0];
-                        o.uses = uint8_t(std::clamp<int64_t>(r->integer("uses").value_or(0), 0, 255));
-                        o.maxUses = uint8_t(std::clamp<int64_t>(r->integer("maxUses").value_or(12), 1, 255));
+                        o.uses =
+                            uint8_t(std::clamp<int64_t>(r->integer("uses").value_or(0), 0, 255));
+                        o.maxUses = uint8_t(
+                            std::clamp<int64_t>(r->integer("maxUses").value_or(12), 1, 255));
                         o.xp = uint8_t(std::clamp<int64_t>(r->integer("xp").value_or(1), 0, 255));
                         o.priceMultiplier = float(r->real("priceMultiplier").value_or(0.05));
-                        o.specialPrice = int16_t(std::clamp<int64_t>(r->integer("specialPrice").value_or(0), -64, 64));
-                        o.demand = int8_t(std::clamp<int64_t>(r->integer("demand").value_or(0), 0, 100));
+                        o.specialPrice = int16_t(
+                            std::clamp<int64_t>(r->integer("specialPrice").value_or(0), -64, 64));
+                        o.demand =
+                            int8_t(std::clamp<int64_t>(r->integer("demand").value_or(0), 0, 100));
                         m.offers[m.offerCount++] = o;
                     }
             m.persistent = true;
@@ -2186,7 +2439,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.color2 = uint8_t(std::clamp<int64_t>((v >> 8) & 255, 0, 4));
             }
             if (isLlama(m.type)) {
-                m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 3));
+                m.woolColour =
+                    uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 3));
                 m.strength = uint8_t(std::clamp<int64_t>(e->integer("Strength").value_or(3), 1, 5));
             }
             if (isCamel(m.type)) m.sitting = e->integer("LastPoseTick").value_or(0) < 0;
@@ -2196,9 +2450,12 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         const std::string* aid = a->string("id");
                         const double base = a->real("base").value_or(0.0);
                         if (!aid || !std::isfinite(base)) continue;
-                        if (*aid == "minecraft:max_health") m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
-                        if (*aid == "minecraft:movement_speed") m.moveSpeed = float(std::clamp(base, 0.0, 1.0));
-                        if (*aid == "minecraft:jump_strength") m.jumpStrength = float(std::clamp(base, 0.0, 2.0));
+                        if (*aid == "minecraft:max_health")
+                            m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
+                        if (*aid == "minecraft:movement_speed")
+                            m.moveSpeed = float(std::clamp(base, 0.0, 1.0));
+                        if (*aid == "minecraft:jump_strength")
+                            m.jumpStrength = float(std::clamp(base, 0.0, 2.0));
                     }
             if (const nbt::Compound* eq = e->compound("equipment")) {
                 if (const nbt::Compound* sd = eq->compound("saddle"))
@@ -2206,7 +2463,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 if (const nbt::Compound* body = eq->compound("body"))
                     if (const std::string* bid = body->string("id")) {
                         for (int k = 1; k < int(bodyArmorItems(m.type).size()); ++k)
-                            if (*bid == std::string("minecraft:") + bodyArmorItems(m.type)[k]) m.horseArmor = uint8_t(k);
+                            if (*bid == std::string("minecraft:") + bodyArmorItems(m.type)[k])
+                                m.horseArmor = uint8_t(k);
                         for (int c = 0; c < 16; ++c)
                             if (*bid == std::string("minecraft:") + kDyeColours[c] + "_carpet" ||
                                 *bid == std::string("minecraft:") + kDyeColours[c] + "_harness")
@@ -2215,16 +2473,20 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             }
             if (canCarryChest(m.type)) m.hasChest = e->integer("ChestedHorse").value_or(0) != 0;
         }
-        if (m.type == MobType::Rabbit) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("RabbitType").value_or(0), 0, 5));
+        if (m.type == MobType::Rabbit)
+            m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("RabbitType").value_or(0), 0, 5));
         if (m.type == MobType::Allay) {
-            m.age = int(std::clamp<int64_t>(e->integer("DuplicationCooldown").value_or(0), 0, 6000));
+            m.age =
+                int(std::clamp<int64_t>(e->integer("DuplicationCooldown").value_or(0), 0, 6000));
             if (const nbt::Compound* eq = e->compound("equipment"))
-                if (const nbt::Compound* hand = eq->compound("mainhand")) m.mouthItem = itemFromNbt(*hand).item;
+                if (const nbt::Compound* hand = eq->compound("mainhand"))
+                    m.mouthItem = itemFromNbt(*hand).item;
             if (const nbt::List* inv = e->list("Inventory"))
                 for (const nbt::Tag& it : inv->items)
                     if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
                         const ItemStack st = itemFromNbt(*ic);
-                        if (!st.empty() && st.item == m.mouthItem) m.allayCount = uint8_t(std::min<int>(64, st.count));
+                        if (!st.empty() && st.item == m.mouthItem)
+                            m.allayCount = uint8_t(std::min<int>(64, st.count));
                     }
         }
         if (m.type == MobType::Fox) {
@@ -2234,7 +2496,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             const nbt::List* trusted = e->list("Trusted");
             m.tamed = trusted && !trusted->items.empty();
             if (const nbt::Compound* eq = e->compound("equipment"))
-                if (const nbt::Compound* hand = eq->compound("mainhand")) m.mouthItem = itemFromNbt(*hand).item;
+                if (const nbt::Compound* hand = eq->compound("mainhand"))
+                    m.mouthItem = itemFromNbt(*hand).item;
         }
         if (m.type == MobType::Panda) {
             auto gene = [&](const char* key) {
@@ -2251,16 +2514,21 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.horns = uint8_t((e->integer("HasLeftHorn").value_or(1) != 0 ? 1 : 0) |
                               (e->integer("HasRightHorn").value_or(1) != 0 ? 2 : 0));
             m.powered = e->integer("IsScreamingGoat").value_or(0) != 0;
-            m.chargeTicks = int16_t(600 + std::abs(int(m.pos.x * 31 + m.pos.z * 17)) % 5400); // (not saved by vanilla)
+            m.chargeTicks = int16_t(600 + std::abs(int(m.pos.x * 31 + m.pos.z * 17)) %
+                                              5400); // (not saved by vanilla)
         }
         if (m.type == MobType::Frog)
             if (const std::string* v = e->string("variant"))
                 for (int k = 0; k < 3; ++k)
-                    if (*v == "minecraft:" + std::string(kFrogVariants[k].name)) m.woolColour = uint8_t(k);
-        if (m.type == MobType::Axolotl) m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
-        if (m.type == MobType::Wither) m.spellTicks = int16_t(std::clamp<int64_t>(e->integer("Invul").value_or(0), 0, 220));
+                    if (*v == "minecraft:" + std::string(kFrogVariants[k].name))
+                        m.woolColour = uint8_t(k);
+        if (m.type == MobType::Axolotl)
+            m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 4));
+        if (m.type == MobType::Wither)
+            m.spellTicks = int16_t(std::clamp<int64_t>(e->integer("Invul").value_or(0), 0, 220));
         if (m.type == MobType::CopperGolem) {
-            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered", "oxidized"};
+            static constexpr const char* kWeather[4] = {"unaffected", "exposed", "weathered",
+                                                        "oxidized"};
             if (const std::string* ws = e->string("weather_state"))
                 for (int k = 0; k < 4; ++k)
                     if (*ws == kWeather[k]) m.woolColour = uint8_t(k);
@@ -2275,30 +2543,37 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (m.type == MobType::Bee) {
             m.nectar = e->integer("HasNectar").value_or(0) != 0;
             m.stung = e->integer("HasStung").value_or(0) != 0;
-            m.angerTicks = int16_t(std::clamp<int64_t>(e->integer("AngerTime").value_or(0), 0, 2000));
+            m.angerTicks =
+                int16_t(std::clamp<int64_t>(e->integer("AngerTime").value_or(0), 0, 2000));
             m.angry = m.angerTicks > 0;
             m.despawnDelay = m.stung ? 600 : 0;
             if (const nbt::Tag* hp = e->find("hive_pos"))
-                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3)
+                    m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
         if (m.type == MobType::Warden) {
             m.phase = uint8_t(std::clamp<int64_t>(e->integer("clone_phase").value_or(1), 0, 2));
-            m.phaseTicks = int16_t(std::clamp<int64_t>(e->integer("clone_phase_ticks").value_or(0), 0, 200));
-            m.angerTicks = int16_t(std::clamp<int64_t>(e->integer("clone_anger").value_or(0), 0, 150));
+            m.phaseTicks =
+                int16_t(std::clamp<int64_t>(e->integer("clone_phase_ticks").value_or(0), 0, 200));
+            m.angerTicks =
+                int16_t(std::clamp<int64_t>(e->integer("clone_anger").value_or(0), 0, 150));
         }
         if (m.type != MobType::Turtle && m.type != MobType::Bee && m.type != MobType::Villager)
             if (const nbt::Tag* hp = e->find("home_pos"))
-                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+                if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3)
+                    m.home = {(*a)[0], (*a)[1], (*a)[2]};
         if (m.type == MobType::Armadillo) {
             const std::string* st = e->string("state");
             m.sitting = st && *st != "idle";
-            m.eggTicks = int(std::clamp<int64_t>(e->integer("scute_time").value_or(6000), 1, 12000));
+            m.eggTicks =
+                int(std::clamp<int64_t>(e->integer("scute_time").value_or(6000), 1, 12000));
         }
         if (m.type == MobType::Wolf)
             if (const nbt::Compound* eq = e->compound("equipment"))
                 if (const nbt::Compound* body = eq->compound("body")) {
                     const ItemStack armor = itemFromNbt(*body);
-                    if (!armor.empty() && itemRegistry().item(armor.item).id == "minecraft:wolf_armor") {
+                    if (!armor.empty() &&
+                        itemRegistry().item(armor.item).id == "minecraft:wolf_armor") {
                         m.horseArmor = 1;
                         m.armorWear = int16_t(armor.damage);
                     }
@@ -2314,15 +2589,18 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (const nbt::Compound* eq = e->compound("equipment");
             eq && mobInfo(m.type).hostile && !isMount(m.type) && m.type != MobType::ArmorStand) {
             // (M32.2c) a monster's armor and enchanted/picked-up mainhand into its mob store
-            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet", "mainhand"};
+            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet",
+                                                          "mainhand"};
             const nbt::Compound* chances = e->compound("drop_chances");
             int epf = 0;
             for (int i = 0; i < 5; ++i)
                 if (const nbt::Compound* it = eq->compound(kGearSlots[i])) {
                     const ItemStack st = itemFromNbt(*it);
                     if (st.empty()) continue;
-                    // (a plain held item stays in heldItem, below: only gear that matters is stored)
-                    if (i == 4 && !isEnchanted(st) && !(chances && chances->real("mainhand").value_or(0.0) > 1.0))
+                    // (a plain held item stays in heldItem, below: only gear that matters is
+                    // stored)
+                    if (i == 4 && !isEnchanted(st) &&
+                        !(chances && chances->real("mainhand").value_or(0.0) > 1.0))
                         continue;
                     chunk.addMobStore(m.uuidHi)[size_t(i)] = st;
                     m.hasGear = true;
@@ -2335,42 +2613,50 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 }
             m.gearEpf = uint8_t(std::min(epf, 20));
         }
-        m.health = std::min(m.health, maxHealthOf(m)); // (after Owner/attributes: a tamed wolf keeps its 40)
-        if (m.hasChest && m.health > 0.0f) // (M26.2) the chest's stacks
+        m.health = std::min(m.health,
+                            maxHealthOf(m)); // (after Owner/attributes: a tamed wolf keeps its 40)
+        if (m.hasChest && m.health > 0.0f)   // (M26.2) the chest's stacks
             if (const nbt::List* items = e->list("Items")) {
                 ItemContents& slots = chunk.addMobStore(m.uuidHi);
                 const int base = m.type == MobType::Boat || m.type == MobType::Minecart ? 0 : 2;
                 for (const nbt::Tag& it : items->items)
                     if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
                         const int slot = int(ic->integer("Slot").value_or(-1)) - base;
-                        if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
+                        if (slot >= 0 && slot < chestSlots(m.type, m.strength))
+                            slots[size_t(slot)] = itemFromNbt(*ic);
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
         if (m.type == MobType::Minecart && m.decor == 2) {
             m.temper = int16_t(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 32000));
-            m.home = {int(std::lround(e->real("PushX").value_or(0.0))), 0, int(std::lround(e->real("PushZ").value_or(0.0)))};
+            m.home = {int(std::lround(e->real("PushX").value_or(0.0))), 0,
+                      int(std::lround(e->real("PushZ").value_or(0.0)))};
         }
         if (isStickRidden(m.type))
             if (const nbt::Compound* eqp = e->compound("equipment"))
                 m.saddled = eqp->compound("saddle") != nullptr;
-        m.nameId = readName(e->find("CustomName"));                     // (M29.3b)
+        m.nameId = readName(e->find("CustomName"));                                     // (M29.3b)
         if (const std::string* cmd = e->string("Command")) m.commandId = addName(*cmd); // (M29.7)
-        if (const std::string* txt = e->string("text"); txt && m.type == MobType::TextDisplay) m.commandId = addName(*txt);
+        if (const std::string* txt = e->string("text"); txt && m.type == MobType::TextDisplay)
+            m.commandId = addName(*txt);
         if (const nbt::Compound* bs = e->compound("block_state"))
             if (const std::string* n = bs->string("Name"))
-                if (const auto b = blockRegistry().findBlock(*n)) m.commandId = blockRegistry().defaultState(*b);
+                if (const auto b = blockRegistry().findBlock(*n))
+                    m.commandId = blockRegistry().defaultState(*b);
         if (const nbt::Compound* it = e->compound("item"); it && m.type != MobType::Minecart)
             if (const std::string* n = it->string("id"))
                 if (const auto i = itemRegistry().find(*n)) m.commandId = *i;
         if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
             size_t n = 0;
             for (const nbt::Tag& fxTag : fx->items)
-                if (const nbt::Compound* c = fxTag.get<nbt::Compound>(); c && c->string("id") && n < m.effects.size())
+                if (const nbt::Compound* c = fxTag.get<nbt::Compound>();
+                    c && c->string("id") && n < m.effects.size())
                     if (const auto kind = findEffect(*c->string("id")))
                         m.effects[n++] = {uint8_t(*kind),
-                                          uint8_t(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
-                                          int16_t(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 32767))};
+                                          uint8_t(std::clamp<int64_t>(
+                                              c->integer("amplifier").value_or(0), 0, 255)),
+                                          int16_t(std::clamp<int64_t>(
+                                              c->integer("duration").value_or(0), 0, 32767))};
         }
         if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
             if (const std::string* v = e->string("variant")) // (M29.1d; none: chosen by biome)
@@ -2379,7 +2665,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         m.woolColour = uint8_t(k);
                         m.color2 = 1;
                     }
-        if (m.type == MobType::SkeletonHorse) m.skeletonTrap = e->integer("SkeletonTrap").value_or(0) != 0;
+        if (m.type == MobType::SkeletonHorse)
+            m.skeletonTrap = e->integer("SkeletonTrap").value_or(0) != 0;
         if (const nbt::Tag* l = e->find("leash")) { // (M28.3c)
             if (l->get<nbt::Compound>()) {
                 m.leash = 1;
@@ -2392,7 +2679,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.health = 1.0f;
             m.persistent = true;
             if (const nbt::Tag* bp = e->find("block_pos"))
-                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3)
+                    m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
         if (m.type == MobType::ArmorStand) { // (M28.3b) its armor
             m.health = 1.0f;
@@ -2409,23 +2697,27 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             }
         }
         if (isHanging(m.type)) { // (M28.3a)
-            m.health = 1.0f; // (vanilla saves no health for them)
+            m.health = 1.0f;     // (vanilla saves no health for them)
             if (const nbt::Tag* bp = e->find("block_pos"))
-                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
+                if (const auto* a = bp->get<std::vector<int32_t>>(); a && a->size() == 3)
+                    m.home = {(*a)[0], (*a)[1], (*a)[2]};
             if (m.type == MobType::Painting) {
-                static constexpr uint8_t k3d[4] = {uint8_t(Direction::South), uint8_t(Direction::West),
-                                                   uint8_t(Direction::North), uint8_t(Direction::East)};
+                static constexpr uint8_t k3d[4] = {
+                    uint8_t(Direction::South), uint8_t(Direction::West), uint8_t(Direction::North),
+                    uint8_t(Direction::East)};
                 m.phase = k3d[std::clamp<int64_t>(e->integer("facing").value_or(0), 0, 3)];
                 const std::string* v = e->string("variant");
                 m.woolColour = uint8_t(v ? findPainting(*v).value_or(0) : 0);
             } else {
                 m.phase = uint8_t(std::clamp<int64_t>(e->integer("Facing").value_or(2), 0, 5));
                 m.node = uint8_t(std::clamp<int64_t>(e->integer("ItemRotation").value_or(0), 0, 7));
-                if (const nbt::Compound* item = e->compound("Item")) chunk.addMobStore(m.uuidHi)[0] = itemFromNbt(*item);
+                if (const nbt::Compound* item = e->compound("Item"))
+                    chunk.addMobStore(m.uuidHi)[0] = itemFromNbt(*item);
             }
             m.persistent = true;
         }
-        if (m.health > 0.0f || (m.type == MobType::EnderDragon && m.deathTime > 0)) chunk.mobs().push_back(m);
+        if (m.health > 0.0f || (m.type == MobType::EnderDragon && m.deathTime > 0))
+            chunk.mobs().push_back(m);
     }
 }
 

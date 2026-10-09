@@ -14,13 +14,15 @@ void DropKeeper::chunkLoaded(Chunk& c) {
     m_items.unpark(c, m_rng);
     m_orbs.unpark(c);
     unparkEntities(c);
+    c.savedInhabitedTicks = c.inhabitedTicks;
 }
 
 void DropKeeper::chunkUnloading(Chunk& c) {
     m_items.park(c); // (appended to whatever the pools couldn't take back, still parked here)
     m_orbs.park(c);
     parkEntities(nullptr, &c);
-    if (c.dropsHash() != c.savedDropsHash) c.markDirty(); // (M31.3: only when they changed)
+    if (c.dropsHash() != c.savedDropsHash || c.inhabitedChanged())
+        c.markDirty(); // (M31.3: only when they changed)
 }
 
 void DropKeeper::beforeSave(World& world) {
@@ -29,7 +31,8 @@ void DropKeeper::beforeSave(World& world) {
     m_orbs.parkAll(world, m_touched);
     parkEntities(&world, nullptr);
     world.forEachChunk([&](Chunk& c) {
-        if (c.dropsHash() != c.savedDropsHash) c.markDirty(); // (M31.3: only when they changed)
+        if (c.dropsHash() != c.savedDropsHash || c.inhabitedChanged())
+            c.markDirty(); // (M31.3: only when they changed)
     });
 }
 
@@ -37,6 +40,7 @@ void DropKeeper::afterSave(World& world) {
     // (every chunk whose drops changed was written; the others hold what is on disk)
     world.forEachChunk([&](Chunk& c) {
         c.savedDropsHash = c.dropsHash();
+        if (!c.dirty()) c.savedInhabitedTicks = c.inhabitedTicks; // (written: clearDirty ran)
     });
     for (const ChunkPos& p : m_touched)
         if (Chunk* c = world.chunk(p)) chunkLoaded(*c);
@@ -65,7 +69,9 @@ void DropKeeper::parkEntities(World* world, Chunk* only) {
         for (size_t i = 0; i < v.size();) {
             const Projectile& p = v[i];
             // (arrows and tridents only: other things in flight are lost, as before)
-            Chunk* c = p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident ? target(p.pos) : nullptr;
+            Chunk* c = p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident
+                           ? target(p.pos)
+                           : nullptr;
             if (!c) {
                 ++i;
                 continue;
@@ -89,6 +95,9 @@ void DropKeeper::parkEntities(World* world, Chunk* only) {
             e.dealt = p.dealt;
             e.spectral = p.spectral;
             e.flame = p.flame;
+            e.hitEffect = uint8_t(p.hitEffect.effect);
+            e.hitTicks = p.hitEffect.ticks;
+            e.skeleton = p.skeleton;
             c->parkedEntities().push_back(e);
             v[i] = v.back();
             v.pop_back();
@@ -162,9 +171,12 @@ void DropKeeper::unparkEntities(Chunk& c) {
             p.dealt = e.dealt;
             p.spectral = e.spectral;
             p.flame = e.flame;
+            p.hitEffect = {static_cast<world::Effect>(e.hitEffect), e.hitTicks};
+            p.skeleton = e.skeleton;
             m_projectiles->mutableItems().push_back(p);
             taken = true;
-        } else if (e.kind == K::Tnt && m_tnt && m_tnt->mutableItems().size() < size_t(PrimedTnt::kMax)) {
+        } else if (e.kind == K::Tnt && m_tnt &&
+                   m_tnt->mutableItems().size() < size_t(PrimedTnt::kMax)) {
             PrimedTntEntity t;
             t.pos = t.prevPos = e.pos;
             t.vel = e.vel;

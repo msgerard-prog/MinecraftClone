@@ -32,15 +32,18 @@ bool Mobs::golemGoal(Context& ctx, MobData& g, double& speed) {
     MobData* t = g.targetUuid ? mobByUuid(ctx.world, g.pos, g.targetUuid) : nullptr;
     if (t && (!golemTarget(*t) || glm::length(t->pos - g.pos) > 32.0)) t = nullptr;
     if (!t) g.targetUuid = 0;
-    if (!t && ctx.rng.nextInt(20) == 0 && !g.playerCreated && !g.angry && ctx.survival && !ctx.playerDead) {
-        // (M32.5; vanilla DefendVillageTargetGoal) a villager within 10 that thinks badly
+    if (!t && ctx.rng.nextInt(20) == 0 && !g.playerCreated && !g.angry && ctx.survival &&
+        !ctx.playerDead) {
+        // (M32.5; wiki: Iron Golem › Behavior) a villager within 10 that thinks badly
         // enough of the player (reputation -100 or worse) sets the golem on them.
-        const ChunkPos c{blockToChunk(int(std::floor(g.pos.x))), blockToChunk(int(std::floor(g.pos.z)))};
+        const ChunkPos c{blockToChunk(int(std::floor(g.pos.x))),
+                         blockToChunk(int(std::floor(g.pos.z)))};
         for (int dz = -1; dz <= 1 && !g.angry; ++dz)
             for (int dx = -1; dx <= 1 && !g.angry; ++dx)
                 if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
                     for (const MobData& v : ch->mobs())
-                        if (v.type == MobType::Villager && glm::dot(v.pos - g.pos, v.pos - g.pos) < 10.0 * 10.0 &&
+                        if (v.type == MobType::Villager &&
+                            glm::dot(v.pos - g.pos, v.pos - g.pos) < 10.0 * 10.0 &&
                             reputation(v) <= -100) {
                             g.angry = true;
                             g.angerTicks = 600;
@@ -137,7 +140,8 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
     auto iron = [&](int x, int y, int z) {
         return r.blockOf(world.getBlock({x, y, z})) == blocks::IronBlock;
     };
-    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin) return false; // (or a jack o'lantern)
+    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin)
+        return false; // (or a jack o'lantern)
     const int x = pumpkin.x, y = pumpkin.y, z = pumpkin.z;
     if (!iron(x, y - 1, z) || !iron(x, y - 2, z)) return false;
     for (const auto& [ax, az] : {std::pair{1, 0}, std::pair{0, 1}}) {
@@ -158,11 +162,13 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
 // › Creation).
 bool Mobs::buildSnowGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng) {
     const auto& r = blockRegistry();
-    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin) return false; // (or a jack o'lantern)
+    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin)
+        return false; // (or a jack o'lantern)
     const int x = pumpkin.x, y = pumpkin.y, z = pumpkin.z;
     auto snow = [&](int yy) { return r.blockOf(world.getBlock({x, yy, z})) == blocks::SnowBlock; };
     if (!snow(y - 1) || !snow(y - 2)) return false;
-    for (const BlockPos& b : {pumpkin, BlockPos{x, y - 1, z}, BlockPos{x, y - 2, z}}) world.updateBlock(b, 0);
+    for (const BlockPos& b : {pumpkin, BlockPos{x, y - 1, z}, BlockPos{x, y - 2, z}})
+        world.updateBlock(b, 0);
     MobData g = make(MobType::SnowGolem, {x + 0.5, double(y - 2), z + 0.5}, rng);
     g.persistent = true;
     add(world, g);
@@ -175,7 +181,8 @@ template <typename F> void forEachMobNear(World& world, const glm::dvec3& at, F&
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx)
             if (Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
-                for (MobData& o : c->mobs()) f(o);
+                for (MobData& o : c->mobs())
+                    f(o);
 }
 } // namespace
 
@@ -184,15 +191,17 @@ template <typename F> void forEachMobNear(World& world, const glm::dvec3& at, F&
 // walks in a cold biome (temperature below 0.8) it leaves snow; rain, water and hot biomes
 // (above 1.0) hurt it.
 void Mobs::snowGolemTick(Context& ctx, MobData& m) {
-    const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+    const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                        int(std::floor(m.pos.z))};
     const Chunk* c = ctx.world.chunk(feet.chunk());
     float temperature = 0.8f;
     if (c && c->biomes())
         temperature = biomeInfo(c->biomes()->at(blockToLocal(feet.x), feet.y, blockToLocal(feet.z),
                                                 ctx.world.height()))
                           .temperature;
-    const bool wet = fluidContact(ctx.world, box(m)).water ||
-                     (ctx.weather && rainingAt(ctx.world, *ctx.weather, {feet.x, feet.y + 1, feet.z}));
+    const bool wet =
+        fluidContact(ctx.world, box(m)).water ||
+        (ctx.weather && rainingAt(ctx.world, *ctx.weather, {feet.x, feet.y + 1, feet.z}));
     if ((temperature > 1.0f || wet) && m.hurtTime == 0 && ctx.rng.nextInt(20) == 0) {
         m.health -= 1.0f;
         m.hurtTime = 10;
@@ -208,7 +217,8 @@ void Mobs::snowGolemTick(Context& ctx, MobData& m) {
     MobData* best = nullptr;
     double bestD = 10.0;
     forEachMobNear(ctx.world, m.pos, [&](MobData& o) {
-        if (&o == &m || o.health <= 0.0f || !mobInfo(o.type).hostile || o.type == MobType::Creeper) return;
+        if (&o == &m || o.health <= 0.0f || !mobInfo(o.type).hostile || o.type == MobType::Creeper)
+            return;
         const double d = glm::length(o.pos - m.pos);
         if (d < bestD) {
             bestD = d;
@@ -219,8 +229,8 @@ void Mobs::snowGolemTick(Context& ctx, MobData& m) {
     const glm::dvec3 from = m.pos + glm::dvec3(0.0, 1.5, 0.0);
     glm::dvec3 d = best->pos + glm::dvec3(0.0, mobInfo(best->type).height * 0.5, 0.0) - from;
     d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2;
-    if (ctx.projectiles->shoot(ProjectileKind::Snowball, from + glm::normalize(d) * 0.6, d, 1.6, 12.0, false,
-                               false, ctx.rng, m.uuidHi))
+    if (ctx.projectiles->shoot(ProjectileKind::Snowball, from + glm::normalize(d) * 0.6, d, 1.6,
+                               12.0, false, false, ctx.rng, m.uuidHi))
         m.attackCooldown = 20;
     m.yaw = m.headYaw = float(std::atan2(-d.x, d.z) * 180.0 / 3.14159265358979);
 }

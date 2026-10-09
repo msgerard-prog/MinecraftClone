@@ -247,9 +247,10 @@ void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye,
         inventory.consumeSelected(1);
 }
 
-void throwExperienceBottle(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
-                           Projectiles& projectiles, Xoroshiro& rng) {
-    projectiles.shoot(ProjectileKind::ExperienceBottle, eye, look + glm::dvec3(0.0, 0.1, 0.0), 0.7, 1.0, true, false, rng);
+void throwExperienceBottle(Inventory& inventory, bool survival, const glm::dvec3& eye,
+                           const glm::dvec3& look, Projectiles& projectiles, Xoroshiro& rng) {
+    projectiles.shoot(ProjectileKind::ExperienceBottle, eye, look + glm::dvec3(0.0, 0.1, 0.0), 0.7,
+                      1.0, true, false, rng);
     if (survival) inventory.consumeSelected(1);
 }
 
@@ -263,7 +264,9 @@ void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const 
               Projectiles& projectiles, Xoroshiro& rng) {
     const std::string_view id = itemRegistry().item(inventory.selectedStack().item).id;
     if (projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng))
-        projectiles.last().eggVariant = id == "minecraft:brown_egg" ? 1 : id == "minecraft:blue_egg" ? 2 : 0;
+        projectiles.last().eggVariant = id == "minecraft:brown_egg"  ? 1
+                                        : id == "minecraft:blue_egg" ? 2
+                                                                     : 0;
     if (survival) inventory.consumeSelected(1);
 }
 
@@ -393,7 +396,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                               : info.amplifier,
                                       instant ? 1 : std::max(1, info.duration / 4));
                     if (info.effect2 != Effect::None) // (M29.2a: Turtle Master)
-                        vitals->addEffect(info.effect2, info.amplifier2, std::max(1, info.duration / 4));
+                        vitals->addEffect(info.effect2, info.amplifier2,
+                                          std::max(1, info.duration / 4));
                     c.radius -= 0.5f; // (each use takes some of it - wiki: 0.5 radius and 5 s)
                     c.ticks -= 100;
                 }
@@ -404,17 +408,21 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
         if (c.potion != 0 && c.ticks % 20 == 0) {
             const PotionInfo& info = potionInfo(static_cast<Potion>(c.potion));
             if (info.effect != Effect::None && !effectInfo(info.effect).instant) {
-                const ChunkPos c0{blockToChunk(int(std::floor(c.pos.x))), blockToChunk(int(std::floor(c.pos.z)))};
+                const ChunkPos c0{blockToChunk(int(std::floor(c.pos.x))),
+                                  blockToChunk(int(std::floor(c.pos.z)))};
                 for (int cz = -1; cz <= 1; ++cz)
                     for (int cx = -1; cx <= 1; ++cx)
                         if (Chunk* ch = world.chunk({c0.x + cx, c0.z + cz}))
                             for (MobData& m : ch->mobs()) {
                                 const double mx = m.pos.x - c.pos.x, mz = m.pos.z - c.pos.z;
-                                if (m.health <= 0.0f || mx * mx + mz * mz >= double(c.radius) * c.radius ||
+                                if (m.health <= 0.0f ||
+                                    mx * mx + mz * mz >= double(c.radius) * c.radius ||
                                     std::abs(m.pos.y - c.pos.y) > 1.5)
                                     continue;
-                                Mobs::addEffect(m, info.effect, info.amplifier, std::max(1, info.duration / 4));
-                                Mobs::addEffect(m, info.effect2, info.amplifier2, std::max(1, info.duration / 4));
+                                Mobs::addEffect(m, info.effect, info.amplifier,
+                                                std::max(1, info.duration / 4));
+                                Mobs::addEffect(m, info.effect2, info.amplifier2,
+                                                std::max(1, info.duration / 4));
                             }
             }
         }
@@ -582,11 +590,15 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
             }
             // (M29.5; wiki: Target) a projectile reaching a target block lights it by how near
             // the centre it hit: arrows and tridents for 20 ticks, the rest for 8.
-            if (block && target == Target::None && blockRegistry().blockOf(world.getBlock(block->block)) == blocks::Target &&
+            if (block && target == Target::None &&
+                blockRegistry().blockOf(world.getBlock(block->block)) == blocks::Target &&
                 m_targetHits.size() < m_targetHits.capacity()) {
-                const bool arrow = p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident;
-                m_targetHits.push_back({block->block, BlockUpdates::targetStrength(p.pos + dir * block->distance, block->face),
-                                        arrow ? 20 : 8});
+                const bool arrow =
+                    p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident;
+                m_targetHits.push_back(
+                    {block->block,
+                     BlockUpdates::targetStrength(p.pos + dir * block->distance, block->face),
+                     arrow ? 20 : 8});
             }
             const bool fireball =
                 p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;
@@ -600,7 +612,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 }
                 if (m_pearls.size() < m_pearls.capacity()) m_pearls.push_back(l);
                 // (M29.1c; wiki: Endermite) 1 in 20 thrown pearls leaves an endermite behind.
-                if (rng.nextInt(20) == 0) world.queueMob(Mobs::make(MobType::Endermite, l.pos, rng));
+                if (rng.nextInt(20) == 0)
+                    world.queueMob(Mobs::make(MobType::Endermite, l.pos, rng));
                 remove = true;
             } else if (p.kind == ProjectileKind::DragonFireball &&
                        (target != Target::None || block)) {
@@ -626,7 +639,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     at.y -= 1.0;
                 addCloud(at, 3.0f, 600, p.potion, 3.0f / 600.0f);
                 remove = true;
-            } else if (p.kind == ProjectileKind::ExperienceBottle && (target != Target::None || block)) {
+            } else if (p.kind == ProjectileKind::ExperienceBottle &&
+                       (target != Target::None || block)) {
                 const glm::dvec3 at = p.pos + dir * reach;
                 world.levelEvent(LevelEvent::Type::PotionSplash, at.x, at.y, at.z, 0x5AB0FF);
                 if (m_xpBottles.size() < m_xpBottles.capacity()) m_xpBottles.push_back(at);
@@ -687,7 +701,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 // Mobs: instant health/damage, and (M29.2c) lasting effects scaled like the
                 // player's; water hurts blazes, endermen and striders by 1.
                 if (info.effect != Effect::None && !effectInfo(info.effect).instant) {
-                    const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+                    const ChunkPos c0{blockToChunk(int(std::floor(at.x))),
+                                      blockToChunk(int(std::floor(at.z)))};
                     for (int dz = -1; dz <= 1; ++dz)
                         for (int dx = -1; dx <= 1; ++dx)
                             if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
@@ -916,9 +931,11 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                                       effectInfo(info.effect).instant
                                                           ? 1
                                                           : std::max(1, info.duration / 8));
-                            if (p.potion && potionInfo(static_cast<Potion>(p.potion)).effect2 != Effect::None) {
+                            if (p.potion &&
+                                potionInfo(static_cast<Potion>(p.potion)).effect2 != Effect::None) {
                                 const PotionInfo& info2 = potionInfo(static_cast<Potion>(p.potion));
-                                vitals->addEffect(info2.effect2, info2.amplifier2, std::max(1, info2.duration / 8));
+                                vitals->addEffect(info2.effect2, info2.amplifier2,
+                                                  std::max(1, info2.duration / 8));
                             }
                             if (p.spectral) vitals->addEffect(Effect::Glowing, 0, 200);
                             if (p.hitEffect.effect != Effect::None)
@@ -948,12 +965,15 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                     ? Mobs::dragonDamage(m, float(damage), p.pos + dir * reach)
                                     : Mobs::armorReduced(m, float(damage)); // (M32.3)
                             m.hurtTime = 10;
+                            m.lastHurtAmount = float(damage); // (M32 review: the hit-window rule)
                             // (M29.2c) a tipped arrow's lasting effect (an eighth as long), a
                             // spectral arrow's Glowing, a stray's/bogged's/parched's effect.
                             if (p.potion) {
                                 const PotionInfo& pi = potionInfo(static_cast<Potion>(p.potion));
-                                Mobs::addEffect(m, pi.effect, pi.amplifier, std::max(1, pi.duration / 8));
-                                Mobs::addEffect(m, pi.effect2, pi.amplifier2, std::max(1, pi.duration / 8));
+                                Mobs::addEffect(m, pi.effect, pi.amplifier,
+                                                std::max(1, pi.duration / 8));
+                                Mobs::addEffect(m, pi.effect2, pi.amplifier2,
+                                                std::max(1, pi.duration / 8));
                             }
                             if (p.spectral) Mobs::addEffect(m, Effect::Glowing, 0, 200);
                             Mobs::addEffect(m, p.hitEffect.effect, 0, p.hitEffect.ticks);
@@ -1001,7 +1021,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                            !p.fromPlayer) {
                     player.knockback(p.vel.x, p.vel.z, 0.3);
                 }
-                if (p.kind == ProjectileKind::Egg) m_chicks.push_back({p.pos + dir * reach, p.eggVariant});
+                if (p.kind == ProjectileKind::Egg)
+                    m_chicks.push_back({p.pos + dir * reach, p.eggVariant});
                 remove = !pierced;
             } else if (block) {
                 if (p.kind == ProjectileKind::Arrow ||
@@ -1013,7 +1034,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     p.life = 0;
                 } else {
                     if (p.kind == ProjectileKind::Egg)
-                        m_chicks.push_back({p.pos + dir * block->distance, p.eggVariant}); // (snowballs just break)
+                        m_chicks.push_back({p.pos + dir * block->distance,
+                                            p.eggVariant}); // (snowballs just break)
                     remove = true;
                 }
             } else {

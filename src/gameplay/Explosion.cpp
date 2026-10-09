@@ -114,6 +114,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                                                  ? Mobs::dragonDamage(m, dmg, centre)
                                                  : Mobs::armorReduced(m, dmg); // (M32.3)
                                  m.hurtTime = 10;
+                                 m.lastHurtAmount = dmg; // (M32 review)
                                  m.vel += push;
                              });
                     }
@@ -153,7 +154,8 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
         }
         if (reg.likeOf(reg.blockOf(s)) == blocks::Chest || reg.blockOf(s) == blocks::Barrel ||
             reg.blockOf(s) == blocks::ChiseledBookshelf ||
-            reg.likeOf(reg.blockOf(s)) == blocks::Shelf) // contents fall out (wiki: Chest; M29 review: shelves)
+            reg.likeOf(reg.blockOf(s)) ==
+                blocks::Shelf) // contents fall out (wiki: Chest; M29 review: shelves)
             if (const Chunk* ch = world.chunk(b.chunk()))
                 if (const ChestData* cd = ch->chest(blockToLocal(b.x), b.y, blockToLocal(b.z)))
                     for (const ItemStack& st : cd->items)
