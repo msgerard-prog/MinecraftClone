@@ -354,6 +354,8 @@ and GUI textures are made with their systems.
 
 ## Backlog (unscheduled)
 - F2 screenshot key (vanilla) for interactive play.
+- Explorer and buried treasure maps: locate structures from their grids and draw map markers
+  (26.3's camp maps, shipwreck treasure maps).
 
 ## Done (latest 10)
 - 2026-10-09 M32 (v1.3.0): play parity - spawn cycle, regional difficulty, zombies 2, monster gear, damage rules, saved projectiles, inventory shortcuts, gossip, mob rows.

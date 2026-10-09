@@ -178,6 +178,9 @@ private:
                            const std::array<Biome, 16>& columnBiome, GeneratedEntities& out) const;
     // overworld6 (M27.4b): ruined portals on their grid.
     void placeRuinedPortals(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
+    // overworld8 (M33.3e; 26.3 abandoned camps): our camp - a wool-stair tent over a straw bed, an
+    // unlit campfire with a chest buried under it, cushions, a barrel - in 16 biomes.
+    void placeCamps8(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.3b): ancient cities in the deep dark, on their grid.
     void placeAncientCities(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
 

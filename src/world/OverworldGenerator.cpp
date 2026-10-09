@@ -1356,6 +1356,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     if (m_version >= 7) placeFeatures7(blockArray.data(), out, cx, cz, topY, columnBiome); // (M29.8)
     if (m_version >= 8 && caveCells) placeSulfurCaves8(blockArray.data(), cx, cz, *biomes, topY); // (M33.2e)
     if (m_version >= 8) placeDappled8(blockArray.data(), cx, cz, topY, columnBiome);                // (M33.3b)
+    if (m_version >= 8) placeCamps8(blockArray.data(), cx, cz, entities);                            // (M33.3e)
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -1467,10 +1468,13 @@ void OverworldGenerator::generate(Chunk& out) const {
             sp.trial = true;
             continue;
         }
-        if (here == (e.chest ? blocks::Chest : blocks::Spawner)) { // (not overwritten since; any facing)
+        // (M33.3e: a camp's barrel holds loot too)
+        if (here == (e.chest ? blocks::Chest : blocks::Spawner) || (e.chest && here == blocks::Barrel)) {
             if (e.chest) {
                 Xoroshiro loot(chunkSeed(m_seed, cx, cz, 640 + uint64_t(i)));
-                fillChest(e.loot, loot, out.addChest(e.x, e.y, e.z).items);
+                ChestData& cd = out.addChest(e.x, e.y, e.z);
+                cd.barrel = here == blocks::Barrel;
+                fillChest(e.loot, loot, cd.items);
             } else {
                 out.addSpawner(e.x, e.y, e.z).mob = e.mob;
             }
@@ -3858,6 +3862,65 @@ void OverworldGenerator::placeRuinedPortals(BlockStateId* blocks, int32_t cx, in
                 const int lx = sx + 4 - cx * 16, lz = sz + 2 - cz * 16;
                 if (lx >= 0 && lx <= 15 && lz >= 0 && lz <= 15) chunk.set(lx, ground + 1, lz, gold);
             }
+        }
+}
+
+void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
+    const auto& reg = blockRegistry();
+    const Blocks& B = blockSet();
+    // The 16 biomes (the wiki's count; which ones is ours) and the tent's wool in each.
+    static constexpr std::pair<Biome, int> kCampBiomes[] = {
+        {Biome::Plains, 14},      {Biome::Forest, 13},         {Biome::BirchForest, 0},   {Biome::FlowerForest, 6},
+        {Biome::Taiga, 12},       {Biome::Savanna, 1},         {Biome::Swamp, 13},        {Biome::Jungle, 5},
+        {Biome::BambooJungle, 5}, {Biome::CherryGrove, 6},     {Biome::DappledForest, 1}, {Biome::PaleGarden, 8},
+        {Biome::WindsweptForest, 7}, {Biome::Meadow, 4},       {Biome::SnowyPlains, 3},   {Biome::DarkForest, 15}};
+    auto find = [&](const std::string& id) { return reg.defaultState(*reg.findBlock(id)); };
+    static const BlockStateId campfire = reg.set(reg.defaultState(blocks::Campfire), properties::lit, 1), // [true, false]
+                              strawFoot = find("straw_bed"), barrel = find("barrel"),
+                              cobweb = reg.defaultState(blocks::Cobweb);
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const ChunkPos start{cx + dx, cz + dz};
+            if (!isSpreadCandidate(m_seed, kCamps, start)) continue;
+            const int32_t ax = start.x * 16 + 4, az = start.z * 16 + 4;
+            const Column col = column(ax + 3, az + 3);
+            const Biome biome = biomeAt(col);
+            int wool = -1;
+            for (const auto& [b, w] : kCampBiomes)
+                if (b == biome) wool = w;
+            if (wool < 0) continue;
+            const int ground = surfaceY(ax + 3, az + 3);
+            if (ground <= kSeaLevel || ground >= kOverworldHeight.maxY() - 8) continue;
+            Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 860));
+            StructureBuilder sb{Buf{blocks}, cx * 16, cz * 16, ax, ground + 1, az, 7, 7, 0, &out};
+            for (int x = 0; x < 7; ++x) // (cleared above the ground, the ground made solid under it)
+                for (int z = 0; z < 7; ++z) {
+                    for (int y = 0; y < 4; ++y) sb.set(x, y, z, B.air);
+                    sb.foundation(x, z, B.dirt, 4);
+                }
+            // The tent: two rows of wool stairs leaning together over a straw bed, a slab ridge.
+            const std::string colour = kDyeColours[wool];
+            const BlockStateId stairs = find(colour + "_wool_stairs"), slab = find(colour + "_wool_slab");
+            for (int x = 0; x < 3; ++x) {
+                sb.set(x, 0, 0, reg.set(stairs, properties::facing, 1)); // (facing south: rising toward z 1)
+                sb.set(x, 0, 2, reg.set(stairs, properties::facing, 0));
+                sb.set(x, 1, 1, reg.set(slab, properties::slabType, 0)); // [top, bottom, double]
+            }
+            sb.set(0, 0, 1, reg.set(reg.set(strawFoot, properties::facing, 3), properties::bedPart, 1)); // (foot, facing east)
+            sb.set(1, 0, 1, reg.set(reg.set(strawFoot, properties::facing, 3), properties::bedPart, 0)); // (head)
+            // The fire ring with the secret chest buried under it, cushions round it, a barrel.
+            sb.set(4, 0, 4, campfire);
+            sb.chest(4, -3, 4, LootTable::CampSecret);
+            sb.mob(5, 0, 2, MobType::Cushion);
+            sb.mob(2, 0, 5, MobType::Cushion);
+            sb.set(6, 0, 0, barrel);
+            int lx, lz;
+            if (sb.toChunk(6, 0, lx, lz) && !out.full())
+                out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
+                                                 static_cast<int16_t>(ground + 1), true, MobType::Zombie,
+                                                 LootTable::CampCommon};
+            if (r.nextInt(2) == 0) sb.set(6, 0, 6, cobweb);
+            if (r.nextInt(3) == 0) sb.set(0, 0, 6, cobweb);
         }
 }
 

@@ -810,3 +810,39 @@ TEST_CASE("M33.3c (26.3): wool and concrete stairs and slabs, with their block's
     CHECK(r.block(*r.findBlock("gray_concrete_stairs")).settings.tool ==
           r.block(*r.findBlock("gray_concrete")).settings.tool);
 }
+
+#include "world/StructurePlacement.h"
+
+TEST_CASE("overworld8 (M33.3e; 26.3): abandoned camps - a wool tent, a straw bed, a fire with a buried chest, a barrel") {
+    const OverworldGenerator gen(42, 8);
+    std::optional<ChunkPos> camp;
+    for (int cz = -60; cz <= 60 && !camp; ++cz)
+        for (int cx = -60; cx <= 60 && !camp; ++cx) {
+            if (!isSpreadCandidate(42, kCamps, {cx, cz})) continue;
+            const auto col = gen.column(cx * 16 + 7, cz * 16 + 7);
+            const Biome b = gen.biomeAt(col);
+            if ((b == Biome::Plains || b == Biome::Forest || b == Biome::Taiga || b == Biome::Savanna) &&
+                gen.surfaceY(cx * 16 + 7, cz * 16 + 7) > 64)
+                camp = ChunkPos{cx, cz};
+        }
+    REQUIRE(camp);
+    MESSAGE("camp in chunk " << camp->x << ", " << camp->z << ", ground " << gen.surfaceY(camp->x * 16 + 7, camp->z * 16 + 7));
+    Chunk ch(*camp);
+    gen.generate(ch);
+    const auto& r = blockRegistry();
+    int straw = 0, fires = 0, wool = 0, slabs = 0;
+    for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                const BlockId b = r.blockOf(ch.get(x, y, z));
+                straw += isStrawBed(b);
+                fires += b == blocks::Campfire;
+                wool += r.block(b).id.ends_with("_wool_stairs");
+                slabs += r.block(b).id.ends_with("_wool_slab");
+            }
+    CHECK(straw == 2);
+    CHECK(fires == 1);
+    CHECK(wool == 6);
+    CHECK(slabs == 3);
+    CHECK(ch.chests().size() >= 2); // (the barrel and the buried chest)
+}

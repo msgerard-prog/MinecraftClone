@@ -71,6 +71,17 @@ constexpr LootPool kMine[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}};
 // (M33.2e; wiki: Music Disc - "Bounce" in sulfur cave mineshafts; our odds: 1 chest in 3)
 constexpr LootEntry kMineSulfur4[] = {{"music_disc_bounce", 1, 1, 1}, {"", 1, 1, 2}};
 constexpr LootPool kMineSulfur[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}, {1, 1, kMineSulfur4}};
+// (M33.3e; 26.3 abandoned camps - the wiki names the chests, not their odds: ours, a camper's
+// supplies and, buried, their savings; explorer maps are left out - not in ours yet)
+constexpr LootEntry kCamp1[] = {{"bread", 1, 3, 15},   {"apple", 1, 3, 10},  {"torch", 2, 8, 12},
+                                {"string", 1, 4, 10},  {"leather", 1, 3, 8}, {"stick", 2, 6, 10},
+                                {"wheat", 2, 5, 8},    {"coal", 1, 4, 8},    {"map", 1, 1, 4},
+                                {"cooked_beef", 1, 2, 6}, {"red_shrub", 1, 2, 4}, {"poplar_sapling", 1, 2, 4}};
+constexpr LootPool kCampCommon[] = {{3, 6, kCamp1}};
+constexpr LootEntry kCamp2[] = {{"emerald", 1, 4, 12}, {"gold_ingot", 1, 3, 10}, {"iron_ingot", 1, 4, 12},
+                                {"diamond", 1, 1, 2},  {"name_tag", 1, 1, 5},   {"golden_apple", 1, 1, 4},
+                                {"book", 1, 2, 6},     {"compass", 1, 1, 4},    {"music_disc_bounce", 1, 1, 1}};
+constexpr LootPool kCampSecret[] = {{2, 4, kCamp2}};
 
 // wiki: Stronghold › Loot (Java Edition).
 constexpr LootEntry kAltar1[] = {
@@ -338,6 +349,8 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::Igloo: return kIgloo;
     case LootTable::Mineshaft: return kMine;
     case LootTable::MineshaftSulfur: return kMineSulfur;
+    case LootTable::CampCommon: return kCampCommon;
+    case LootTable::CampSecret: return kCampSecret;
     case LootTable::StrongholdCorridor: return kAltar;
     case LootTable::StrongholdCrossing: return kStore;
     case LootTable::StrongholdLibrary: return kLibrary;
@@ -460,7 +473,8 @@ constexpr std::string_view kTableNames[] = {
     "chests/trial_chambers/reward", "spawners/trial_chamber/consumables", "chests/trial_chambers/supply",
     "archaeology/desert_pyramid", "archaeology/desert_well",    "archaeology/ocean_ruin_cold",
     "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare",
-    "chests/trial_chambers/reward_ominous", "chests/abandoned_mineshaft_sulfur_caves"}; // (ours: vanilla rolls the disc
+    "chests/trial_chambers/reward_ominous", "chests/abandoned_mineshaft_sulfur_caves",
+    "chests/abandoned_camp/common", "chests/abandoned_camp/secret"}; // (ours: names after the wiki's chest kinds) // (ours: vanilla rolls the disc
                                                                                        //  in its mineshaft table)
 static_assert(std::size(kTableNames) == size_t(LootTable::Count));
 } // namespace
