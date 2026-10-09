@@ -530,6 +530,8 @@ public:
         uint8_t priority = 0; // of the queue it waits in: 0 settling, 1 streaming, 2 edits
         bool settleWanted = false;  // fluid flowed here; relight when its turn comes
         uint32_t lastSettle = 0;    // LightManager frame of its last settling request
+        uint8_t inFlight = 0;       // (M31.1) jobs running that write its light
+        uint32_t incremental = 0;   // the incremental job writing it (0: none)
     } lightJob;
 
     // Light at local x/z, world y (above the world: full sky light).

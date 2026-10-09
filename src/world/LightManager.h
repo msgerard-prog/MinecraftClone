@@ -41,7 +41,9 @@ public:
 
     // Light jobs queued or running for streaming and edits (fluids settling in the
     // background are left out: flowing springs would keep it from ever reaching 0).
-    int pending() const { return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head) + m_inFlight; }
+    int pending() const {
+        return static_cast<int>(m_editQueue.size() + m_queue.size() - m_head + m_incWaiting.size()) + m_inFlight;
+    }
 
 private:
     struct Job {
@@ -51,7 +53,19 @@ private:
         ChunkLight before; // the chunk's light at submission (compared on the worker)
         ChunkLight output;
         uint32_t changed = 0; // bit per section whose light differs from `before`
+        // (M31.1) an incremental update of the 3x3 chunks around `pos` after `inc.edits`
+        bool incremental = false;
+        IncrementalLightInput inc;
+        IncrementalLightOutput incOut;
     };
+    // (M31.1) edits waiting for an incremental update (their chunks busy, or this frame's).
+    std::vector<BlockPos> m_incWaiting;
+    std::vector<BlockPos> m_incKeep;
+    std::vector<BlockPos> m_fullEdits; // edits whose chunks aren't all lit: the old 3x3 relight
+    std::vector<ChunkPos> m_retry; // full jobs held back while a chunk is being updated
+    enum class Incremental : uint8_t { Ready, Busy, Unlit };
+    Incremental incrementalState(ChunkPos centre) const;
+    void submitIncremental(ChunkPos centre, const BlockPos* edits, size_t count);
     enum Priority : uint8_t { kSettle = 0, kStream = 1, kEdit = 2 };
     void request(ChunkPos pos, Priority priority);
     bool neighbourhoodLoaded(ChunkPos pos) const;

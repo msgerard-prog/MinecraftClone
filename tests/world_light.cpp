@@ -361,3 +361,111 @@ TEST_CASE("a Nether-height world: blocks only in Y 0..255; light and mesh captur
     REQUIRE(captureSection(w, {0, 0, 0}, refs));
     CHECK(refs.blocks[4] == nullptr); // below Y 0
 }
+
+// M31.1: incremental light.
+#include "world/Random.h"
+
+TEST_CASE("M31.1: incremental light after edits matches a full recompute, cell for cell") {
+    World w;
+    const auto& r = blockRegistry();
+    const BlockStateId stone = r.defaultState(blocks::Stone);
+    // 5x5 chunks: a stone floor at y 60-63, a roofed room in the middle, a pillar of glass.
+    for (int cz = -2; cz <= 2; ++cz)
+        for (int cx = -2; cx <= 2; ++cx) {
+            Chunk& c = w.createChunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x)
+                    for (int y = 60; y <= 63; ++y) c.set(x, y, z, stone);
+        }
+    for (int x = 2; x <= 13; ++x)
+        for (int z = 2; z <= 13; ++z) w.setBlock({x, 70, z}, stone); // a roof over (2..13, 2..13)
+    auto lightAll = [&](int radius) {
+        for (int cz = -radius; cz <= radius; ++cz)
+            for (int cx = -radius; cx <= radius; ++cx) {
+                ChunkNeighbourhood n;
+                REQUIRE(ChunkNeighbourhood::capture(w, {cx, cz}, n));
+                w.chunk({cx, cz})->setLight(computeChunkLight(n));
+            }
+    };
+    lightAll(1); // the 3x3 around the centre (their neighbourhoods are all loaded)
+    Xoroshiro rng(7);
+    const BlockStateId kinds[] = {stone, 0, r.defaultState(blocks::Glowstone), r.defaultState(blocks::Torch),
+                                  r.defaultState(blocks::Glass), r.defaultState(blocks::Water)};
+    for (int step = 0; step < 60; ++step) {
+        const BlockPos p{int(rng.nextInt(16)), 61 + int(rng.nextInt(12)), int(rng.nextInt(16))};
+        w.setBlock(p, kinds[rng.nextInt(6)]);
+        IncrementalLightInput in;
+        REQUIRE(ChunkNeighbourhood::capture(w, {0, 0}, in.blocks));
+        for (int i = 0; i < 9; ++i) {
+            const Chunk* c = w.chunk({i % 3 - 1, i / 3 - 1});
+            for (int s = 0; s < c->sectionCount(); ++s) in.light[size_t(i)][size_t(s)] = c->light(s);
+        }
+        in.edits.push_back(p);
+        IncrementalLightOutput out;
+        updateLightIncremental(in, out);
+        for (int i = 0; i < 9; ++i) w.chunk({i % 3 - 1, i / 3 - 1})->setLight(out.light[size_t(i)]);
+        // The full recompute of the same 3x3 must agree everywhere.
+        for (int i = 0; i < 9; ++i) {
+            const ChunkPos cp{i % 3 - 1, i / 3 - 1};
+            ChunkNeighbourhood n;
+            REQUIRE(ChunkNeighbourhood::capture(w, cp, n));
+            const ChunkLight full = computeChunkLight(n);
+            const Chunk* c = w.chunk(cp);
+            int bad = 0;
+            for (int s = 0; s < c->sectionCount() && bad == 0; ++s)
+                for (int k = 0; k < 4096 && bad == 0; ++k)
+                    if (full[size_t(s)]->sky.get(k) != c->light(s)->sky.get(k) ||
+                        full[size_t(s)]->block.get(k) != c->light(s)->block.get(k)) {
+                        ++bad;
+                        MESSAGE("step " << step << " edit " << p.x << "," << p.y << "," << p.z << " chunk " << cp.x << ","
+                                        << cp.z << " section " << s << " cell " << k << " full sky/block "
+                                        << int(full[size_t(s)]->sky.get(k)) << "/" << int(full[size_t(s)]->block.get(k))
+                                        << " incremental " << int(c->light(s)->sky.get(k)) << "/"
+                                        << int(c->light(s)->block.get(k)));
+                    }
+            CHECK(bad == 0);
+        }
+    }
+}
+
+TEST_CASE("M31.1: LightManager corrects an edit incrementally once its 3x3 chunks are lit") {
+    World w;
+    for (int cz = -2; cz <= 2; ++cz)
+        for (int cx = -2; cx <= 2; ++cx) {
+            Chunk& c = w.createChunk({cx, cz});
+            for (int y = 60; y <= 64; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) c.set(x, y, z, S(blocks::Stone));
+        }
+    LightManager lm(w, 1);
+    LightRun run;
+    std::vector<ChunkPos> all;
+    w.forEachChunk([&](const Chunk& c) { all.push_back(c.pos()); });
+    run.step(lm, all, {}, {});
+    run.finish(lm);
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx) REQUIRE(w.chunk({cx, cz})->lit());
+    // A glowstone in a pit lights its neighbours (14) and across the chunk border (x = -1).
+    w.setBlock({0, 64, 5}, S(blocks::Glowstone));
+    run.step(lm, {}, {}, {{0, 64, 5}});
+    run.finish(lm);
+    REQUIRE(run.ready.size() == 1);
+    CHECK(w.chunk({0, 0})->blockLight(0, 65, 5) == 14);
+    CHECK(w.chunk({-1, 0})->blockLight(15, 65, 5) == 13);
+    // Taking it away puts out its light again.
+    run.ready.clear();
+    w.setBlock({0, 64, 5}, S(blocks::Stone));
+    run.step(lm, {}, {}, {{0, 64, 5}});
+    run.finish(lm);
+    REQUIRE(run.ready.size() == 1);
+    CHECK(w.chunk({0, 0})->blockLight(0, 65, 5) == 0);
+    CHECK(w.chunk({-1, 0})->blockLight(15, 65, 5) == 0);
+    // Matching a full recompute of the centre.
+    const ChunkLight full = lightOf(w);
+    for (int y = 60; y < 80; ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x) {
+                CHECK(sky(full, x, y, z) == w.chunk({0, 0})->skyLight(x, y, z));
+                CHECK(blk(full, x, y, z) == w.chunk({0, 0})->blockLight(x, y, z));
+            }
+}

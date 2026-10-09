@@ -235,4 +235,151 @@ ChunkLight computeChunkLight(const ChunkNeighbourhood& n) {
     return result;
 }
 
+void updateLightIncremental(const IncrementalLightInput& in, IncrementalLightOutput& out) {
+    const auto& reg = blockRegistry();
+    const HeightRange& h = in.blocks.height;
+    const int sections = h.sections();
+    const int ox = (in.blocks.center.x - 1) * 16, oz = (in.blocks.center.z - 1) * 16; // region corner
+    // Working copies of the sections written to, made on first write (worker thread).
+    static thread_local std::array<std::array<std::shared_ptr<SectionLight>, kMaxSections>, 9> copies;
+    for (auto& c : copies) c.fill(nullptr);
+    out.light = in.light;
+    out.changed.fill(0);
+
+    struct Cell {
+        int chunk = -1, section = 0, index = 0;
+    };
+    auto locate = [&](int x, int y, int z) -> Cell {
+        const int rx = x - ox, rz = z - oz;
+        if (rx < 0 || rx >= 48 || rz < 0 || rz >= 48 || !h.contains(y)) return {};
+        return {(rz >> 4) * 3 + (rx >> 4), h.sectionIndex(y), Section::index(rx & 15, blockToLocal(y), rz & 15)};
+    };
+    auto stateAt = [&](const Cell& c) -> BlockStateId {
+        const auto& sec = in.blocks.sections[size_t(c.chunk)][size_t(c.section)];
+        return sec ? sec->getIndex(c.index) : 0;
+    };
+    auto lightOf = [&](const Cell& c, bool sky) -> uint8_t {
+        const SectionLight* l = copies[size_t(c.chunk)][size_t(c.section)].get();
+        if (!l) l = in.light[size_t(c.chunk)][size_t(c.section)].get();
+        if (!l) return 0;
+        return sky ? l->sky.get(c.index) : l->block.get(c.index);
+    };
+    auto setLight = [&](const Cell& c, bool sky, uint8_t v) {
+        auto& copy = copies[size_t(c.chunk)][size_t(c.section)];
+        if (!copy) {
+            const auto& orig = in.light[size_t(c.chunk)][size_t(c.section)];
+            copy = orig ? std::make_shared<SectionLight>(*orig) : std::make_shared<SectionLight>();
+        }
+        (sky ? copy->sky : copy->block).set(c.index, v);
+    };
+    struct Entry {
+        int x, y, z;
+        uint8_t level;
+    };
+    static thread_local std::vector<Entry> decrease, increase;
+    static constexpr int kDirs[6][3] = {{-1, 0, 0}, {1, 0, 0}, {0, 0, -1}, {0, 0, 1}, {0, -1, 0}, {0, 1, 0}};
+    const int top = h.maxY();
+
+    auto channel = [&](bool sky) {
+        decrease.clear();
+        increase.clear();
+        // 1. At each edited block: take its light away (or pull the neighbours' in).
+        for (const BlockPos& p : in.edits) {
+            const Cell c = locate(p.x, p.y, p.z);
+            if (c.chunk < 0) continue;
+            const BlockStateId st = stateAt(c);
+            const int emission = sky ? 0 : reg.lightEmission(st);
+            const int level = lightOf(c, sky);
+            if (emission < level) {
+                setLight(c, sky, 0);
+                decrease.push_back({p.x, p.y, p.z, uint8_t(level)});
+            } else {
+                decrease.push_back({p.x, p.y, p.z, 0}); // (pull the neighbours' light in)
+            }
+            if (emission > 0) {
+                setLight(c, sky, uint8_t(emission));
+                increase.push_back({p.x, p.y, p.z, uint8_t(emission)});
+            }
+        }
+        // 2. Decrease: dimmer neighbours lit by a removed cell lose their light (and are
+        //    followed); brighter ones are sources to fill back from. Sky light 15 going
+        //    straight down came from above: it goes too.
+        for (size_t q = 0; q < decrease.size(); ++q) {
+            const Entry e = decrease[q];
+            for (int k = 0; k < 6; ++k) {
+                const int nx = e.x + kDirs[k][0], ny = e.y + kDirs[k][1], nz = e.z + kDirs[k][2];
+                if (sky && ny > top) { // open sky above the world: a source
+                    increase.push_back({nx, ny, nz, 15});
+                    continue;
+                }
+                const Cell n = locate(nx, ny, nz);
+                if (n.chunk < 0) continue;
+                const int nl = lightOf(n, sky);
+                if (nl == 0) continue;
+                const bool fromHere = e.level > 0 && (nl < e.level || (sky && k == 4 && e.level == 15 && nl == 15));
+                if (fromHere) {
+                    const int emission = sky ? 0 : reg.lightEmission(stateAt(n));
+                    setLight(n, sky, 0);
+                    decrease.push_back({nx, ny, nz, uint8_t(nl)});
+                    if (emission > 0) {
+                        setLight(n, sky, uint8_t(emission));
+                        increase.push_back({nx, ny, nz, uint8_t(emission)});
+                    }
+                } else {
+                    increase.push_back({nx, ny, nz, uint8_t(nl)});
+                }
+            }
+        }
+        // 3. Increase: spread from the sources, max(1, opacity) lost a step (sky light 15
+        //    straight down through clear blocks loses nothing).
+        for (size_t q = 0; q < increase.size(); ++q) {
+            const Entry e = increase[q];
+            // From what the cell holds now (a source may have been dimmed since it was
+            // queued); the open sky above the world is always 15.
+            int level = 15;
+            if (!(sky && e.y > top)) {
+                const Cell here = locate(e.x, e.y, e.z);
+                if (here.chunk < 0) continue;
+                level = lightOf(here, sky);
+            }
+            if (level <= 1) continue;
+            for (int k = 0; k < 6; ++k) {
+                const int nx = e.x + kDirs[k][0], ny = e.y + kDirs[k][1], nz = e.z + kDirs[k][2];
+                const Cell n = locate(nx, ny, nz);
+                if (n.chunk < 0) continue;
+                const int o = reg.lightOpacity(stateAt(n));
+                if (o >= 15) continue;
+                const int next = sky && k == 4 && level == 15 && o == 0 ? 15 : level - std::max(1, o);
+                if (next > lightOf(n, sky)) {
+                    setLight(n, sky, uint8_t(next));
+                    increase.push_back({nx, ny, nz, uint8_t(next)});
+                }
+            }
+        }
+    };
+    channel(false);
+    if (in.blocks.hasSkyLight) channel(true);
+
+    // 4. The changed sections, compacted (shared uniform instances where possible).
+    for (int ci = 0; ci < 9; ++ci)
+        for (int sct = 0; sct < sections; ++sct) {
+            auto& copy = copies[size_t(ci)][size_t(sct)];
+            if (!copy) continue;
+            copy->sky.compact();
+            copy->block.compact();
+            const auto& orig = in.light[size_t(ci)][size_t(sct)];
+            if (orig && *orig == *copy) {
+                copy.reset();
+                continue;
+            }
+            if (copy->block.isUniform() && copy->block.uniformValue() == 0 && copy->sky.isUniform() &&
+                (copy->sky.uniformValue() == 0 || copy->sky.uniformValue() == 15))
+                out.light[size_t(ci)][size_t(sct)] = sharedUniformLight(copy->sky.uniformValue());
+            else
+                out.light[size_t(ci)][size_t(sct)] = std::move(copy);
+            copy.reset();
+            out.changed[size_t(ci)] |= 1u << sct;
+        }
+}
+
 } // namespace mc::world

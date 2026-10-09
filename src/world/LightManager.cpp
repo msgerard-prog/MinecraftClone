@@ -13,6 +13,11 @@ LightManager::LightManager(World& world, int threads)
     m_settleQueue.reserve(1024);
     m_settleWanted.reserve(1024);
     m_pendingEdits.reserve(4096); // fires and decaying leaves edit continuously
+    m_incWaiting.reserve(4096);
+    m_incKeep.reserve(4096);
+    m_fullEdits.reserve(4096);
+    m_retry.reserve(256);
+    for (auto& j : m_free) j->inc.edits.reserve(256);
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
 }
@@ -26,6 +31,13 @@ LightManager::~LightManager() {
 void LightManager::run() {
     while (auto job = m_jobs.popWait()) {
         Job& j = **job;
+        if (j.incremental) { // (M31.1)
+            updateLightIncremental(j.inc, j.incOut);
+            j.inc.blocks = {};
+            j.inc.light = {};
+            m_done.push(std::move(*job));
+            continue;
+        }
         j.output = computeChunkLight(j.input);
         const int sections = j.input.height.sections();
         j.input = {}; // release the shared sections early
@@ -63,9 +75,42 @@ void LightManager::request(ChunkPos pos, Priority priority) {
     (priority == kEdit ? m_editQueue : priority == kStream ? m_queue : m_settleQueue).push_back(pos);
 }
 
+LightManager::Incremental LightManager::incrementalState(ChunkPos centre) const {
+    bool busy = false;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const Chunk* c = m_world.chunk({centre.x + dx, centre.z + dz});
+            if (!c || !c->lit()) return Incremental::Unlit;
+            busy = busy || c->lightJob.inFlight > 0; // (a queued full job computes from the newest blocks anyway)
+        }
+    return busy ? Incremental::Busy : Incremental::Ready;
+}
+
+void LightManager::submitIncremental(ChunkPos centre, const BlockPos* edits, size_t count) {
+    auto job = std::move(m_free.back());
+    m_free.pop_back();
+    job->incremental = true;
+    job->pos = centre;
+    job->version = m_nextVersion++;
+    ChunkNeighbourhood::capture(m_world, centre, job->inc.blocks);
+    for (int i = 0; i < 9; ++i) {
+        Chunk* c = m_world.chunk({centre.x + i % 3 - 1, centre.z + i / 3 - 1});
+        for (int s = 0; s < c->sectionCount(); ++s) job->inc.light[size_t(i)][size_t(s)] = c->light(s);
+        ++c->lightJob.inFlight;
+        c->lightJob.incremental = job->version;
+    }
+    job->inc.edits.assign(edits, edits + count);
+    m_jobs.push(std::move(job));
+    ++m_inFlight;
+}
+
 bool LightManager::submit(ChunkPos pos, std::vector<BlockPos>& editsReady) {
     Chunk* c = m_world.chunk(pos);
     if (!c || !c->lightJob.queued) return true; // unloaded (or a stale duplicate): drop
+    if (c->lightJob.inFlight > 0 && c->lightJob.incremental != 0) { // (M31.1) wait for the update
+        m_retry.push_back(pos);
+        return true;
+    }
     auto job = std::move(m_free.back());
     m_free.pop_back();
     if (!ChunkNeighbourhood::capture(m_world, pos, job->input)) {
@@ -86,7 +131,16 @@ bool LightManager::submit(ChunkPos pos, std::vector<BlockPos>& editsReady) {
         job->before[s] = c->light(s);
     job->pos = pos;
     job->version = m_nextVersion++;
-    c->lightJob = {job->version, false};
+    job->incremental = false;
+    {
+        const uint32_t lastSettle = c->lightJob.lastSettle;
+        const bool settleWanted = c->lightJob.settleWanted;
+        const uint8_t inFlight = c->lightJob.inFlight;
+        c->lightJob = {job->version, false};
+        c->lightJob.lastSettle = lastSettle;
+        c->lightJob.settleWanted = settleWanted;
+        c->lightJob.inFlight = uint8_t(inFlight + 1);
+    }
     m_jobs.push(std::move(job));
     ++m_inFlight;
     return true;
@@ -116,9 +170,34 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
                     request(q, kStream);
             }
     }
+    // (M31.1) Edits are corrected incrementally where the 3x3 chunks around them are lit;
+    // edits in busy chunks wait for their jobs; elsewhere (chunks still streaming in)
+    // the whole 3x3 is relit as before.
+    for (const BlockPos& b : edited) m_incWaiting.push_back(b);
+    m_incKeep.clear();
+    if (!m_incWaiting.empty()) {
+        std::stable_sort(m_incWaiting.begin(), m_incWaiting.end(),
+                         [](const BlockPos& a, const BlockPos& b) { return a.chunk().key() < b.chunk().key(); });
+        size_t i = 0;
+        while (i < m_incWaiting.size()) {
+            const ChunkPos centre = m_incWaiting[i].chunk();
+            size_t j = i;
+            while (j < m_incWaiting.size() && m_incWaiting[j].chunk() == centre) ++j;
+            const Incremental st = incrementalState(centre);
+            if (st == Incremental::Ready && !m_free.empty()) {
+                submitIncremental(centre, m_incWaiting.data() + i, j - i);
+            } else if (st == Incremental::Unlit) {
+                for (size_t k = i; k < j; ++k) m_fullEdits.push_back(m_incWaiting[k]);
+            } else {
+                for (size_t k = i; k < j; ++k) m_incKeep.push_back(m_incWaiting[k]);
+            }
+            i = j;
+        }
+        m_incWaiting.swap(m_incKeep);
+    }
     // An edit can change light up to 15 blocks away: relight the 3x3 chunks around
     // it - every chunk that is lit or has a light job (whose input is now stale).
-    for (const BlockPos& b : edited) {
+    for (const BlockPos& b : m_fullEdits) {
         const ChunkPos c = b.chunk();
         const Chunk* centre = m_world.chunk(c);
         if (!centre || (!centre->lit() && centre->lightJob.version == 0)) {
@@ -134,6 +213,7 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
             }
     }
 
+    m_fullEdits.clear();
     // Settling edits: re-meshed now; their chunks (3x3) relit in the background, each
     // at most every kSettleFrames frames (a later request waits for its slot, so the
     // final state always gets relit).
@@ -164,7 +244,31 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
     while (auto done = m_done.tryPop()) {
         auto job = std::move(*done);
         --m_inFlight;
+        if (job->incremental) { // (M31.1) the 3x3 chunks' corrected sections
+            for (int i = 0; i < 9; ++i) {
+                const ChunkPos cp{job->pos.x + i % 3 - 1, job->pos.z + i / 3 - 1};
+                Chunk* c = m_world.chunk(cp);
+                if (!c || c->lightJob.incremental != job->version) continue; // (reloaded since)
+                if (c->lightJob.inFlight > 0) --c->lightJob.inFlight;
+                c->lightJob.incremental = 0;
+                if (job->incOut.changed[size_t(i)] == 0) continue;
+                ChunkLight now;
+                for (int s = 0; s < c->sectionCount(); ++s) {
+                    now[size_t(s)] = (job->incOut.changed[size_t(i)] & (1u << s)) ? job->incOut.light[size_t(i)][size_t(s)]
+                                                                                 : c->light(s);
+                    if (job->incOut.changed[size_t(i)] & (1u << s))
+                        relitSections.push_back({cp.x, c->height().minSection() + s, cp.z});
+                }
+                c->setLight(std::move(now));
+            }
+            for (const BlockPos& b : job->inc.edits) editsReady.push_back(b);
+            job->inc.edits.clear();
+            job->incOut = {};
+            m_free.push_back(std::move(job));
+            continue;
+        }
         Chunk* chunk = m_world.chunk(job->pos);
+        if (chunk && chunk->lightJob.inFlight > 0) --chunk->lightJob.inFlight;
         if (chunk && chunk->lightJob.version == job->version) {
             const bool first = !chunk->lit();
             if (!first) {
@@ -206,6 +310,9 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
     while (st < m_settleQueue.size() && st < budget && !m_free.empty())
         submit(m_settleQueue[st++], editsReady);
     m_settleQueue.erase(m_settleQueue.begin(), m_settleQueue.begin() + static_cast<std::ptrdiff_t>(st));
+    // (M31.1) full jobs held back by an incremental update go first next frame.
+    for (const ChunkPos& p : m_retry) m_editQueue.push_back(p);
+    m_retry.clear();
 }
 
 } // namespace mc::world

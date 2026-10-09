@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 
@@ -10,6 +11,20 @@ namespace mc::world {
 // packed nibble array of 2048 bytes. Index order matches Section::index.
 class LightLayer {
 public:
+    LightLayer() = default;
+    LightLayer(LightLayer&&) noexcept = default;
+    LightLayer& operator=(LightLayer&&) noexcept = default;
+    // Copies (M31.1: incremental updates edit copies of shared sections).
+    LightLayer(const LightLayer& o) : m_uniform(o.m_uniform) {
+        if (o.m_data) {
+            m_data = std::make_unique<uint8_t[]>(2048);
+            std::copy(o.m_data.get(), o.m_data.get() + 2048, m_data.get());
+        }
+    }
+    LightLayer& operator=(const LightLayer& o) {
+        if (this != &o) *this = LightLayer(o);
+        return *this;
+    }
     uint8_t get(int i) const {
         return m_data ? static_cast<uint8_t>((m_data[i >> 1] >> ((i & 1) * 4)) & 15) : m_uniform;
     }

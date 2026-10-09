@@ -5,6 +5,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 namespace mc::world {
 
@@ -32,6 +33,25 @@ using ChunkLight = std::array<std::shared_ptr<const SectionLight>, kMaxSections>
 // - block light starts at each emitter's level (glowstone 15, torch 14).
 // GL-free and thread-safe (reads only the shared sections and the block registry).
 ChunkLight computeChunkLight(const ChunkNeighbourhood& n);
+
+// Incremental light (M31.1; vanilla LightEngine.checkBlock): after blocks of the centre
+// chunk changed, the light of the 3x3 chunks around it is corrected from where it was,
+// instead of computed again from scratch. At each edited block the light is taken away
+// and spread back from its new emission and its neighbours; taking light away follows it
+// out (a "decrease" queue: neighbours dimmer than it lose theirs, brighter ones become
+// sources) and the "increase" queue lights everything up again (sky light keeps going
+// straight down at 15 through clear blocks, as in computeChunkLight). Light never
+// reaches more than 15 blocks, so the 3x3 chunks hold every change. Worker thread.
+struct IncrementalLightInput {
+    ChunkNeighbourhood blocks;      // the 9 chunks' sections, after the edits
+    std::array<ChunkLight, 9> light; // their light before (consistent with the old blocks)
+    std::vector<BlockPos> edits;    // the edited blocks (in the centre chunk)
+};
+struct IncrementalLightOutput {
+    std::array<ChunkLight, 9> light;       // the new light (unchanged sections shared)
+    std::array<uint32_t, 9> changed{};     // bit per section whose light changed
+};
+void updateLightIncremental(const IncrementalLightInput& in, IncrementalLightOutput& out);
 
 // Shared immutable section light with no block light and uniform sky light 15 (open
 // sky) or 0 (dark); computeChunkLight returns these for such sections.
