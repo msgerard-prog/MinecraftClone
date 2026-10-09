@@ -734,6 +734,9 @@ std::vector<Recipe> build() {
                            "respawn_anchor"));
         r.push_back(shaped({"PPP", "SSS", "PPP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "chiseled_bookshelf"));
         r.push_back(shaped({"BSB", "B.B", "B.B"}, {{'B', item("bamboo")}, {'S', item("string")}}, "scaffolding", 6));
+        r.push_back(shaped({"III", "ICI", "RDR"},
+                           {{'I', item("iron_ingot")}, {'C', item("crafting_table")}, {'R', item("redstone")}, {'D', item("dropper")}},
+                           "crafter"));
         r.push_back(shaped({".A.", "ASA"}, {{'A', item("amethyst_shard")}, {'S', item("sculk_sensor")}},
                            "calibrated_sculk_sensor"));
         // (M29.3f; wiki: Bundle) string over leather; a dye colours it (ours: emptied)

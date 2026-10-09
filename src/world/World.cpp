@@ -121,7 +121,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
                      blockRegistry().likeOf(was) == blocks::ShulkerBox || (was == blocks::Spawner && b != blocks::Spawner) ||
                      (was == blocks::TrialSpawner && b != blocks::TrialSpawner) ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
-                     ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper)))
+                     ((was == blocks::Dispenser || was == blocks::Dropper) && b != blocks::Dispenser && b != blocks::Dropper) ||
+                     (was == blocks::Crafter && b != blocks::Crafter)))
         c->removeBlockEntity(x, p.y, z); // replaced
     if (blockRegistry().likeOf(b) == blocks::Furnace) { // (smokers and blast furnaces too: M23.5)
         c->addFurnace(x, p.y, z).kind = b == blocks::Smoker ? 1 : b == blocks::BlastFurnace ? 2 : 0;
@@ -147,8 +148,12 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     } else if (b == blocks::Hopper) { // (ticking: they move items, M21.3)
         c->addHopper(x, p.y, z);
         markTicking(c->pos());
-    } else if (b == blocks::Dispenser || b == blocks::Dropper) {
-        c->addDispenser(x, p.y, z).dropper = b == blocks::Dropper;
+    } else if (b == blocks::Dispenser || b == blocks::Dropper || b == blocks::Crafter) {
+        if (c->dispenser(x, p.y, z) == nullptr) { // (kept while its state changes)
+            DispenserData& d = c->addDispenser(x, p.y, z);
+            d.dropper = b == blocks::Dropper;
+            d.crafter = b == blocks::Crafter; // (M29.5)
+        }
     }
 }
 

@@ -470,6 +470,14 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
     if (blockOf(at(p)) == B::RespawnAnchor) return 15 * R().get(at(p), charges) / 4; // (M29.5: by charge)
+    if (blockOf(at(p)) == B::Crafter) { // (M29.5) how many of its 9 slots hold something
+        Chunk* cc = chunkAt(p);
+        const DispenserData* d = cc ? cc->dispenser(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        int n = 0;
+        if (d)
+            for (const ItemStack& st : d->items) n += !st.empty();
+        return n;
+    }
     if (blockOf(at(p)) == B::ChiseledBookshelf) { // (M29.5) the last slot put into or taken from, + 1
         Chunk* bc = chunkAt(p);
         const ChestData* d = bc ? bc->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
@@ -1603,8 +1611,10 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         break;
     }
     case B::Dispenser:
-    case B::Dropper: {
-        const bool on = bestNeighbourSignal(p) > 0 || bestNeighbourSignal(rel(p, Direction::Up)) > 0;
+    case B::Dropper:
+    case B::Crafter: { // (M29.5: crafters too - not powered from above: no quasi-connectivity)
+        const bool on = bestNeighbourSignal(p) > 0 ||
+                        (blockOf(s) != B::Crafter && bestNeighbourSignal(rel(p, Direction::Up)) > 0);
         if (on && !flag(s, triggered)) {
             setRaw(p, withFlag(s, triggered, true));
             schedule(p, blockOf(s), 4, 0); // (wiki: fires 4 game ticks later)
@@ -1975,6 +1985,7 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     }
     case B::Dispenser:
     case B::Dropper:
+    case B::Crafter: // (M29.5: gameplay crafts)
         if (m_dispensed.size() < m_dispensed.capacity()) m_dispensed.push_back(p);
         break;
     case B::Observer: // (a full update: observers watching this one see it too)
@@ -2704,6 +2715,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case B::ChiseledBookshelf: // (M29.5) its front toward the player
         return withHFacing(state, opposite(look));
+    case B::Crafter: { // (M29.5) its front toward the player; looking steeply, up or down with
+        // its top toward where the player looks (vanilla: orientation front_top)
+        static constexpr const char* kSide[6] = {"down", "up", "north", "south", "west", "east"};
+        const Direction f = pitch > 45.0f ? Direction::Up : pitch < -45.0f ? Direction::Down : opposite(look);
+        const std::string o = f == Direction::Up || f == Direction::Down
+                                  ? std::string(kSide[int(f)]) + "_" + kSide[int(look)]
+                                  : std::string(kSide[int(f)]) + "_up";
+        return r.with(state, "orientation", o).value_or(state);
+    }
     case B::Scaffolding: { // (M29.5) only within 6 of what holds it up
         const int d = scaffoldingDistance(world, at);
         if (d >= 7) return std::nullopt;

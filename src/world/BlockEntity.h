@@ -144,6 +144,7 @@ struct HopperData {
 struct DispenserData {
     std::array<ItemStack, 9> items{};
     bool dropper = false; // (saved as minecraft:dropper)
+    bool crafter = false; // (M29.5: its 3x3 grid, saved as minecraft:crafter)
 };
 
 // A chest's 27 slots (wiki: Chest › Block data: Items). A double chest is two chests.

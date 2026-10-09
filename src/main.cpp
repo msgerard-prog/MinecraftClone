@@ -1499,7 +1499,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         window.setCursorCaptured(false);
                     } else if ((block == mc::world::blocks::Hopper ||
                                 block == mc::world::blocks::Dispenser ||
-                                block == mc::world::blocks::Dropper) &&
+                                block == mc::world::blocks::Dropper || block == mc::world::blocks::Crafter) &&
                                openStoreAt(lastHit->block)) {
                         window.setCursorCaptured(false);
                     } else if (reg.likeOf(block) == mc::world::blocks::RedBed) { // (any colour)

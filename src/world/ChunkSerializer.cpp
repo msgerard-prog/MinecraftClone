@@ -874,7 +874,9 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     }
     for (const auto& d : chunk.dispensers) { // wiki: Dispenser, Dropper › Block data
         nbt::Compound e;
-        e.put("id", std::string(d.data.dropper ? "minecraft:dropper" : "minecraft:dispenser"));
+        e.put("id", std::string(d.data.crafter   ? "minecraft:crafter" // (M29.5)
+                                : d.data.dropper ? "minecraft:dropper"
+                                                 : "minecraft:dispenser"));
         e.put("x", int32_t{chunk.pos.x * 16 + d.x});
         e.put("y", int32_t{d.y});
         e.put("z", int32_t{chunk.pos.z * 16 + d.z});
@@ -1080,6 +1082,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:trapped_chest" && *id != "minecraft:chiseled_bookshelf" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
+                        *id != "minecraft:crafter" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" && *id != "minecraft:banner" &&
                         *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
                         *id != "minecraft:brushable_block" &&
@@ -1100,11 +1103,12 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 h.cooldown = static_cast<int>(std::clamp<int64_t>(e->integer("TransferCooldown").value_or(0), 0, 8));
                 continue;
             }
-            if (*id == "minecraft:dispenser" || *id == "minecraft:dropper") {
+            if (*id == "minecraft:dispenser" || *id == "minecraft:dropper" || *id == "minecraft:crafter") {
                 const BlockId b = blockRegistry().blockOf(chunk.get(x, y, z));
-                if (b != blocks::Dispenser && b != blocks::Dropper) continue;
+                if (b != blocks::Dispenser && b != blocks::Dropper && b != blocks::Crafter) continue;
                 DispenserData& d = chunk.addDispenser(x, y, z);
                 d.dropper = b == blocks::Dropper;
+                d.crafter = b == blocks::Crafter;
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)
                         if (const nbt::Compound* ic = it.get<nbt::Compound>())

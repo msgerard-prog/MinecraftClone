@@ -80,6 +80,8 @@ extern const Property charges;        // 0..4 (M29.5: respawn anchors)
 extern const Property bookSlots[6];   // slot_0_occupied..slot_5_occupied: true | false (M29.5)
 extern const Property scaffoldDistance; // "distance" 0..7 (M29.5: scaffolding)
 extern const Property bottom;           // true | false (M29.5: scaffolding)
+extern const Property crafting;         // true | false (M29.5: crafters)
+extern const Property orientation;      // the crafter's front and top: north_up, down_east... (vanilla order)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -595,6 +597,7 @@ enum : BlockId {
     RespawnAnchor,         // charges 0..4 of glowstone: a respawn point in the Nether
     ChiseledBookshelf,     // facing, slot_0..5_occupied: holds 6 books
     Scaffolding,           // bottom, distance 0..7 (from what holds it up), waterlogged
+    Crafter,               // crafting, orientation (front_top), triggered: crafts its 3x3 on a pulse
     Count
 };
 } // namespace blocks

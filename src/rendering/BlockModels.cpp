@@ -431,6 +431,22 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name == "crafter") {
+        // (M29.5) the crafting grid on top, the output face at its front ("north" texture),
+        // the back and sides; lit up while triggered. Up/down crafters show the grid toward
+        // the player (ours: the front texture on the face up or down).
+        const std::string o(registry.value(state, "orientation").value_or("north_up"));
+        const std::string trig = registry.value(state, "triggered") == "true" ? "_triggered" : "";
+        static constexpr const char* kSides[6] = {"down", "up", "north", "south", "west", "east"};
+        Direction front = Direction::North;
+        for (int k = 0; k < 6; ++k)
+            if (o.starts_with(kSides[k])) front = static_cast<Direction>(k);
+        BakedVariant v = cubeAll(sprite(("crafter_east" + trig).c_str()));
+        v.faces[int(Direction::Up)].sprite = sprite(("crafter_top" + trig).c_str());
+        v.faces[int(Direction::Down)].sprite = sprite("crafter_bottom");
+        v.faces[int(front)].sprite = sprite(("crafter_north" + trig).c_str());
+        v.faces[int(front) ^ 1].sprite = sprite(("crafter_south" + trig).c_str());
+        m = single(v);
     } else if (name == "scaffolding") { // (M29.5) an open frame (vanilla: a top, legs and side bars)
         BakedVariant v = cubeAll(sprite("scaffolding_side"));
         v.faces[int(Direction::Up)].sprite = sprite("scaffolding_top");

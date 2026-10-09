@@ -3,6 +3,7 @@
 #include "gameplay/Hoppers.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Mining.h"
+#include "gameplay/Recipes.h"
 #include "world/Blocks.h"
 
 namespace mc {
@@ -32,10 +33,33 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
     const auto& r = blockRegistry();
     const BlockStateId s = ctx.world.getBlock(p);
     const BlockId block = r.blockOf(s);
-    if (block != blocks::Dispenser && block != blocks::Dropper) return;
+    if (block != blocks::Dispenser && block != blocks::Dropper && block != blocks::Crafter) return;
     Chunk* c = ctx.world.chunk(p.chunk());
     DispenserData* d = c ? c->dispenser(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
     if (!d) return;
+    if (block == blocks::Crafter) { // (M29.5; wiki: Crafter) its grid crafted once, out of the front
+        const auto result = craft(d->items, 3);
+        if (!result) return; // (vanilla: a "fail" click)
+        for (ItemStack& st : d->items)
+            if (!st.empty() && --st.count == 0) st = {};
+        c->markDirty();
+        static constexpr const char* kFronts[6] = {"down", "up", "north", "south", "west", "east"};
+        const std::string o(r.value(s, "orientation").value_or("north_up"));
+        Direction facing = Direction::North;
+        for (int k = 0; k < 6; ++k)
+            if (o.starts_with(kFronts[k])) facing = static_cast<Direction>(k);
+        const glm::ivec3 n = normal(facing);
+        const BlockPos front{p.x + n.x, p.y + n.y, p.z + n.z};
+        ItemStack out = *result;
+        if (isContainer(ctx.world, front)) // into the container in front, what fits
+            for (; out.count > 0; --out.count) {
+                ItemStack one = out;
+                one.count = 1;
+                if (!insertOne(ctx.world, front, oppositeOf(facing), one)) break;
+            }
+        if (out.count > 0) spit(ctx, glm::dvec3(p.x + 0.5, p.y + 0.5, p.z + 0.5) + glm::dvec3(n) * 0.7, glm::dvec3(n), out);
+        return;
+    }
     // A random non-empty slot (wiki).
     int filled = 0;
     for (const ItemStack& st : d->items)

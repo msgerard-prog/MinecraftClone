@@ -117,6 +117,9 @@ const Property inverted{"inverted", {"true", "false"}};
 const Property charges{"charges", {"0", "1", "2", "3", "4"}};
 const Property scaffoldDistance{"distance", {"0", "1", "2", "3", "4", "5", "6", "7"}};
 const Property bottom{"bottom", {"true", "false"}};
+const Property crafting{"crafting", {"true", "false"}};
+const Property orientation{"orientation", {"down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
+                                           "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
                                {"slot_2_occupied", {"true", "false"}}, {"slot_3_occupied", {"true", "false"}},
                                {"slot_4_occupied", {"true", "false"}}, {"slot_5_occupied", {"true", "false"}}};
@@ -1452,6 +1455,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("scaffolding", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
                 {{&bottom, "false"}, {&scaffoldDistance, "7"}, {&waterlogged, "false"}}),
           blocks::Scaffolding);
+    // (M29.5; wiki: Crafter - 1.5 / 3.5, pickaxe)
+    check(r.add("crafter", {.hardness = 1.5f, .resistance = 3.5f, .tool = HarvestTool::Pickaxe},
+                {{&crafting, "false"}, {&orientation, "north_up"}, {&triggered, "false"}}),
+          blocks::Crafter);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

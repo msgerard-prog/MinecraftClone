@@ -2211,3 +2211,34 @@ TEST_CASE("Peaceful: monsters vanish (not shulkers), animals stay; mob hits do n
     CHECK_FALSE(s.vitals.attacked(5.0f, &from));
     CHECK(s.vitals.health() == 20.0f);
 }
+
+TEST_CASE("M29.5: a crafter crafts its grid once on a pulse and pushes the result into the chest in front") {
+    MobScene s;
+    s.mobs = Mobs();
+    BlockUpdates updates(s.world);
+    const auto& r = blockRegistry();
+    s.world.updateBlock({4, 64, 10}, *r.with(r.defaultState(blocks::Crafter), "orientation", "east_up"));
+    s.world.updateBlock({5, 64, 10}, r.defaultState(blocks::Chest));
+    DispenserData* d = s.world.chunk({0, 0})->dispenser(4, 64, 10);
+    REQUIRE(d);
+    CHECK(d->crafter);
+    d->items[4] = ItemStack{*itemRegistry().find("oak_log"), 2};
+    Projectiles proj;
+    PrimedTnt tnt;
+    std::vector<BlockPos> edits;
+    DispenseContext ctx{s.world, updates, s.items, proj, tnt, s.rng, edits};
+    int64_t time = 0;
+    updates.setTime(++time);
+    s.world.updateBlock({4, 64, 11}, r.defaultState(blocks::RedstoneBlock));
+    for (int i = 0; i < 6; ++i) {
+        updates.setTime(++time);
+        updates.tick();
+        for (const BlockPos& b : updates.dispensed()) dispense(ctx, b);
+        updates.dispensed().clear();
+    }
+    CHECK(d->items[4].count == 1); // one log used
+    const ChestData* chest = s.world.chunk({0, 0})->chest(5, 64, 10);
+    REQUIRE(chest);
+    CHECK(itemRegistry().item(chest->items[0].item).id == "minecraft:oak_planks");
+    CHECK(chest->items[0].count == 4);
+}
