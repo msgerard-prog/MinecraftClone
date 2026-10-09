@@ -64,7 +64,7 @@ TEST_CASE("advancements: JSON round trip in vanilla's layout") {
     const std::string json = a.toJson();
     CHECK(json.find("\"minecraft:story/mine_diamond\"") != std::string::npos);
     CHECK(json.find("\"done\": true") != std::string::npos);
-    CHECK(json.find("\"DataVersion\": 4671") != std::string::npos);
+    CHECK(json.find("\"DataVersion\": 5023") != std::string::npos); // (M34: 26.3)
     Advancements b;
     REQUIRE(b.fromJson(json));
     CHECK(b.doneCount() == a.doneCount());

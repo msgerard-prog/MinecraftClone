@@ -3,6 +3,8 @@
 #include "core/Log.h"
 #include "world/BlockRegistry.h"
 #include "world/Blocks.h"
+#include "world/ChunkSerializer.h"
+#include "world/WorldFiles.h"
 
 #include <charconv>
 #include <cstdio>
@@ -189,7 +191,7 @@ std::string Statistics::toJson() const {
         for (size_t t = 0; t < m_killedBy.size(); ++t)
             put(mobInfo(MobType(t)).id, m_killedBy[t]);
     });
-    out += "\n  },\n  \"DataVersion\": 4671\n}\n";
+    out += "\n  },\n  \"DataVersion\": " + std::to_string(kDataVersion) + "\n}\n";
     return out;
 }
 
@@ -228,7 +230,7 @@ std::filesystem::path Statistics::file(const std::filesystem::path& worldDir, ui
     char name[48];
     std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%012llx.json", unsigned(hi >> 32), unsigned(hi >> 16 & 0xFFFF),
                   unsigned(hi & 0xFFFF), unsigned(lo >> 48), static_cast<unsigned long long>(lo & 0xFFFFFFFFFFFFull));
-    return worldDir / "stats" / name;
+    return playersFolder(worldDir, "stats") / name; // (M34: 26.1 players/stats)
 }
 
 bool Statistics::save(const std::filesystem::path& path) const {

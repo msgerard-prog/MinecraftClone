@@ -7,15 +7,170 @@
 #include "core/Log.h"
 #include "core/Nbt.h"
 #include "world/ChunkSerializer.h"
+#include "world/WorldFiles.h"
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 
 namespace mc::world {
 
 using namespace mc::nbt;
+
+namespace {
+
+// Removes `name` from `c` and returns its value.
+std::optional<Tag> take(Compound& c, std::string_view name) {
+    for (auto it = c.entries.begin(); it != c.entries.end(); ++it)
+        if (it->name == name) {
+            Tag t = std::move(it->value);
+            c.entries.erase(it);
+            return t;
+        }
+    return std::nullopt;
+}
+
+// Moves `from` (if there) into `to` as `as`.
+void carry(Compound& from, std::string_view name, Compound& to, std::string_view as) {
+    if (auto t = take(from, name)) to.put(std::string(as), std::move(*t));
+}
+
+constexpr const char* kDifficultyNames[] = {"peaceful", "easy", "normal", "hard"};
+
+// The world clocks (26.1: data/minecraft/world_clocks.dat replaces level.dat's DayTime;
+// the wiki documents the clocks, not the file's fields - ours: {"minecraft:overworld":
+// {ticks}}; the End's clock isn't kept: our End has no day).
+constexpr const char* kOverworldClock = "minecraft:overworld";
+
+// The split (M34): level.dat's pre-26.1 tags -> the 26.1 files, 26.1 names. `data` keeps
+// what stays in level.dat. Returns false if a file couldn't be written.
+bool writeSplitFiles(const std::filesystem::path& dir, Compound& data) {
+    bool ok = true;
+    // Difficulty: a compound with the name as a string.
+    Compound settings;
+    if (auto d = take(data, "Difficulty"))
+        if (const auto* v = d->get<int8_t>())
+            settings.put("difficulty", std::string(kDifficultyNames[std::clamp<int>(*v, 0, 3)]));
+    carry(data, "hardcore", settings, "hardcore");
+    carry(data, "DifficultyLocked", settings, "locked");
+    data.put("difficulty_settings", std::move(settings));
+    // The player: players/data/<uuid>.dat, the player compound at its root.
+    if (auto p = take(data, "Player"))
+        if (const Compound* player = p->get<Compound>()) {
+            const Tag* uuid = player->find("UUID");
+            const auto* u = uuid ? uuid->get<std::vector<int32_t>>() : nullptr;
+            if (u && u->size() == 4) {
+                char name[48];
+                std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%04x%08x.dat", uint32_t((*u)[0]),
+                              uint32_t((*u)[1]) >> 16, uint32_t((*u)[1]) & 0xFFFF, uint32_t((*u)[2]) >> 16,
+                              uint32_t((*u)[2]) & 0xFFFF, uint32_t((*u)[3]));
+                data.put("singleplayer_uuid", *u);
+                ok = writeNbtFile(playersFolder(dir, "data") / name, *player) && ok;
+            } else {
+                data.put("Player", std::move(*p)); // (no UUID yet - tests: kept inline, as before 26.1)
+            }
+        }
+    Compound clocks, clock, weather, trader, fight, raids;
+    if (auto t = take(data, "DayTime")) clock.put("ticks", std::move(*t));
+    clocks.put(kOverworldClock, std::move(clock));
+    ok = writeSavedData(dataFolder(dir) / "world_clocks.dat", std::move(clocks)) && ok;
+    if (auto rules = take(data, "GameRules"))
+        if (const Compound* r = rules->get<Compound>()) ok = writeSavedData(dataFolder(dir) / "game_rules.dat", *r) && ok;
+    carry(data, "raining", weather, "raining");
+    carry(data, "thundering", weather, "thundering");
+    carry(data, "rainTime", weather, "rain_time");
+    carry(data, "thunderTime", weather, "thunder_time");
+    carry(data, "clearWeatherTime", weather, "clear_weather_time");
+    ok = writeSavedData(dataFolder(dir) / "weather.dat", std::move(weather)) && ok;
+    if (auto gen = take(data, "WorldGenSettings"))
+        if (const Compound* g = gen->get<Compound>()) ok = writeSavedData(dataFolder(dir) / "world_gen_settings.dat", *g) && ok;
+    carry(data, "WanderingTraderSpawnDelay", trader, "spawn_delay");
+    carry(data, "WanderingTraderSpawnChance", trader, "spawn_chance");
+    ok = writeSavedData(dataFolder(dir) / "wandering_trader.dat", std::move(trader)) && ok;
+    if (auto f = take(data, "DragonFight"))
+        if (const Compound* found = f->get<Compound>()) {
+            Compound copy = *found;
+            Compound* old = &copy;
+            carry(*old, "NeedsStateScanning", fight, "needs_state_scanning");
+            carry(*old, "DragonKilled", fight, "dragon_killed");
+            carry(*old, "PreviouslyKilled", fight, "previously_killed");
+            carry(*old, "Dragon", fight, "dragon_uuid");
+            carry(*old, "Gateways", fight, "gateways");
+            ok = writeSavedData(dimensionDataFolder(dir, Dimension::End) / "ender_dragon_fight.dat", std::move(fight)) && ok;
+        }
+    // Our raid (one at a time, M24.5) in the Overworld's raids.dat: vanilla's {Raids: [...],
+    // NextAvailableID, Tick} with our omen fields kept in the raid.
+    if (auto r = take(data, "Raid"))
+        if (const Compound* raid = r->get<Compound>()) {
+            if (const auto next = raid->integer("NextAvailableID")) raids.put("NextAvailableID", int32_t(*next));
+            raids.put("Tick", int32_t{0});
+            std::vector<Tag> list;
+            list.emplace_back(*raid);
+            raids.put("Raids", listOf(TagType::Compound, std::move(list)));
+            ok = writeSavedData(dimensionDataFolder(dir, Dimension::Overworld) / "raids.dat", std::move(raids)) && ok;
+        }
+    return ok;
+}
+
+// The reverse (M34): the 26.1 files read back into level.dat's pre-26.1 tags, so loading
+// reads one layout. Tags already in level.dat (a pre-26.1 world) are left as they are.
+void mergeSplitFiles(const std::filesystem::path& dir, Compound& data) {
+    if (const Compound* s = data.compound("difficulty_settings")) {
+        if (const std::string* d = s->string("difficulty"))
+            for (int i = 0; i < 4; ++i)
+                if (*d == kDifficultyNames[i]) data.put("Difficulty", int8_t(i));
+        if (const auto locked = s->integer("locked")) data.put("DifficultyLocked", int8_t(*locked));
+    }
+    if (const Tag* u = data.find("singleplayer_uuid"); u && !data.compound("Player"))
+        if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+            char name[48];
+            std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%04x%08x.dat", uint32_t((*a)[0]), uint32_t((*a)[1]) >> 16,
+                          uint32_t((*a)[1]) & 0xFFFF, uint32_t((*a)[2]) >> 16, uint32_t((*a)[2]) & 0xFFFF, uint32_t((*a)[3]));
+            if (auto p = readNbtFile(playersFolder(dir, "data") / name)) {
+                if (!p->find("UUID")) p->put("UUID", *a);
+                data.put("Player", std::move(*p));
+            }
+        }
+    auto absent = [&](std::string_view n) { return data.find(n) == nullptr; };
+    if (absent("DayTime"))
+        if (const auto clocks = readSavedData(dataFolder(dir) / "world_clocks.dat"))
+            if (const Compound* c = clocks->compound(kOverworldClock))
+                if (const auto t = c->integer("ticks")) data.put("DayTime", int64_t(*t));
+    if (absent("GameRules"))
+        if (auto rules = readSavedData(dataFolder(dir) / "game_rules.dat")) data.put("GameRules", std::move(*rules));
+    if (absent("rainTime"))
+        if (auto w = readSavedData(dataFolder(dir) / "weather.dat")) {
+            carry(*w, "raining", data, "raining");
+            carry(*w, "thundering", data, "thundering");
+            carry(*w, "rain_time", data, "rainTime");
+            carry(*w, "thunder_time", data, "thunderTime");
+            carry(*w, "clear_weather_time", data, "clearWeatherTime");
+        }
+    if (absent("WorldGenSettings"))
+        if (auto g = readSavedData(dataFolder(dir) / "world_gen_settings.dat")) data.put("WorldGenSettings", std::move(*g));
+    if (absent("WanderingTraderSpawnDelay"))
+        if (auto t = readSavedData(dataFolder(dir) / "wandering_trader.dat")) {
+            carry(*t, "spawn_delay", data, "WanderingTraderSpawnDelay");
+            carry(*t, "spawn_chance", data, "WanderingTraderSpawnChance");
+        }
+    if (absent("DragonFight"))
+        if (auto f = readSavedData(dimensionDataFolder(dir, Dimension::End) / "ender_dragon_fight.dat")) {
+            Compound old;
+            carry(*f, "dragon_killed", old, "DragonKilled");
+            carry(*f, "previously_killed", old, "PreviouslyKilled");
+            carry(*f, "dragon_uuid", old, "Dragon");
+            carry(*f, "gateways", old, "Gateways");
+            data.put("DragonFight", std::move(old));
+        }
+    if (absent("Raid"))
+        if (auto r = readSavedData(dimensionDataFolder(dir, Dimension::Overworld) / "raids.dat"))
+            if (const List* list = r->list("Raids"); list && !list->items.empty())
+                if (const Compound* raid = list->items[0].get<Compound>()) data.put("Raid", *raid);
+}
+
+} // namespace
 
 bool LevelData::save(const std::filesystem::path& dir) const {
     Compound data;
@@ -60,13 +215,13 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                                                      .count()));
     Compound version;
     version.put("Id", kDataVersion);
-    version.put("Name", std::string("1.21.11"));
+    version.put("Name", std::string("26.3")); // (M34)
     version.put("Series", std::string("main"));
     version.put("Snapshot", int8_t{0});
     data.put("Version", std::move(version));
     Compound gen;
     gen.put("seed", static_cast<int64_t>(seed));
-    gen.put("generate_features", int8_t{1});
+    gen.put("generate_structures", int8_t{1}); // (26.1: was generate_features)
     gen.put("bonus_chest", int8_t{0});
     // The three vanilla dimensions with vanilla's generators (vanilla generates its own
     // terrain for chunks we never saved; ours are kept as saved).
@@ -292,6 +447,13 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     ours.put("portals", listOf(TagType::Compound, std::move(portalTags)));
     data.put("MinecraftClone", std::move(ours));
 
+    // (M34; wiki: Java Edition 26.1 - level.dat keeps only the world's own settings; the
+    // rest moves to files of its own, renamed to snake_case.)
+    if (!writeSplitFiles(dir, data)) return false;
+    std::vector<int32_t> history = versionHistory; // (26.3: the data versions this file has had)
+    if (history.empty() || history.back() != kDataVersion) history.push_back(kDataVersion);
+    data.put("version_history", std::move(history));
+
     Compound root;
     root.put("Data", std::move(data));
     const auto bytes = gzipCompress(write(root));
@@ -339,8 +501,15 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         }
     }
     if (!root) return std::nullopt;
-    const Compound* data = root->compound("Data");
+    Compound merged = *root->compound("Data");
+    mergeSplitFiles(dir, merged); // (M34: the 26.1 files, back under their old names)
+    const Compound* data = &merged;
     LevelData l;
+    if (const Tag* h = data->find("version_history"))
+        if (const auto* a = h->get<std::vector<int32_t>>()) l.versionHistory = *a;
+    if (const auto v = data->integer("DataVersion")) {
+        if (l.versionHistory.empty() || l.versionHistory.back() != int32_t(*v)) l.versionHistory.push_back(int32_t(*v));
+    }
     if (auto s = data->string("LevelName")) l.name = *s;
     l.dayTime = data->integer("DayTime").value_or(0);
     l.difficulty = int(std::clamp<int64_t>(data->integer("Difficulty").value_or(2), 0, 3)); // (M28.1)

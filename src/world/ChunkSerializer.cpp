@@ -127,11 +127,13 @@ std::vector<int64_t> packHeightmap(const std::array<int, 256>& values, const Hei
     return data;
 }
 
-// "minecraft:oak_log[axis=x]" -> {Name: "minecraft:oak_log", Properties: {axis: "x"}}
+// "minecraft:oak_log[axis=x]" -> {id: "minecraft:oak_log", properties: {axis: "x"}} (26.3's
+// block state fields; Name/Properties before - M34. 26.3 also allows a bare id string for a
+// default state, which we read but don't write: our palette lists stay lists of compounds).
 nbt::Compound paletteEntry(const std::string& text) {
     nbt::Compound e;
     const size_t open = text.find('[');
-    e.put("Name", text.substr(0, open));
+    e.put("id", text.substr(0, open));
     if (open != std::string::npos) {
         nbt::Compound props;
         const std::string_view list(text.data() + open + 1, text.size() - open - 2);
@@ -145,16 +147,26 @@ nbt::Compound paletteEntry(const std::string& text) {
                 props.put(std::string(kv.substr(0, eq)), std::string(kv.substr(eq + 1)));
             start = end + 1;
         }
-        e.put("Properties", std::move(props));
+        e.put("properties", std::move(props));
     }
     return e;
 }
 
+// A block state's id and properties, under 26.3's names or the older ones.
+const std::string* stateId(const nbt::Compound& e) {
+    const std::string* id = e.string("id");
+    return id ? id : e.string("Name");
+}
+const nbt::Compound* stateProperties(const nbt::Compound& e) {
+    const nbt::Compound* p = e.compound("properties");
+    return p ? p : e.compound("Properties");
+}
+
 std::string paletteText(const nbt::Compound& e) {
-    const std::string* name = e.string("Name");
+    const std::string* name = stateId(e);
     if (!name) return {};
     std::string text = *name;
-    if (const nbt::Compound* props = e.compound("Properties"); props && !props->entries.empty()) {
+    if (const nbt::Compound* props = stateProperties(e); props && !props->entries.empty()) {
         text += '[';
         bool first = true;
         for (const auto& p : props->entries) {
@@ -1142,19 +1154,23 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
         for (const nbt::Tag& e : pal->items) {
             const nbt::Compound* entry = e.get<nbt::Compound>();
             std::optional<BlockStateId> st;
-            if (entry) {
+            if (const std::string* bare = e.get<std::string>()) { // (26.3: a default state by its id)
+                std::string_view id = *bare;
+                if (id.starts_with("minecraft:")) id.remove_prefix(10);
+                if (const auto block = reg.findBlock(id)) st = reg.defaultState(*block);
+            } else if (entry) {
                 std::string text = paletteText(*entry);
                 if (text.starts_with("minecraft:")) text.erase(0, 10);
                 if (upgradeLeaves && text.ends_with("_leaves[distance=7,persistent=false]"))
                     text.replace(text.size() - 6, 5, "true");
                 st = reg.parse(text);
                 if (!st) { // lenient: known block, unknown property or value
-                    const std::string* name = entry->string("Name");
+                    const std::string* name = stateId(*entry);
                     std::string_view id = name ? std::string_view(*name) : std::string_view();
                     if (id.starts_with("minecraft:")) id.remove_prefix(10);
                     if (const auto block = reg.findBlock(id)) {
                         st = reg.defaultState(*block);
-                        if (const nbt::Compound* props = entry->compound("Properties"))
+                        if (const nbt::Compound* props = stateProperties(*entry))
                             for (const auto& p : props->entries)
                                 if (const std::string* v = p.value.get<std::string>())
                                     st = reg.with(*st, p.name, *v).value_or(*st);
@@ -1614,7 +1630,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.commandId != 0) { // (M29.7: a command cart's command; M29.7e: what a display shows)
             if (m.type == MobType::BlockDisplay) {
                 nbt::Compound bs;
-                bs.put("Name",
+                bs.put("id",
                        std::string(blockRegistry()
                                        .block(blockRegistry().blockOf(BlockStateId(m.commandId)))
                                        .id));
@@ -2659,7 +2675,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (const std::string* txt = e->string("text"); txt && m.type == MobType::TextDisplay)
             m.commandId = addName(*txt);
         if (const nbt::Compound* bs = e->compound("block_state"))
-            if (const std::string* n = bs->string("Name"))
+            if (const std::string* n = stateId(*bs))
                 if (const auto b = blockRegistry().findBlock(*n))
                     m.commandId = blockRegistry().defaultState(*b);
         if (const nbt::Compound* it = e->compound("item"); it && m.type != MobType::Minecart)

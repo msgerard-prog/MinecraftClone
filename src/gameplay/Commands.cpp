@@ -676,7 +676,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             mob.strength = uint8_t(world::cartSlotsOf(cartKind));
             mob.hasChest = mob.strength > 0;
         }
-        // (M29.7e) displays: block_state:{Name:"..."}, item:{id:"..."}, text:"..." (spaces allowed)
+        // (M29.7e) displays: block_state:{id:"..."} (26.3; Name before), item:{id:"..."}, text:"..." (spaces allowed)
         if (a.size() >= 6 && (*type == world::MobType::BlockDisplay || *type == world::MobType::ItemDisplay ||
                               *type == world::MobType::TextDisplay)) {
             std::string all;
@@ -691,7 +691,8 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 return all.substr(q + 1, end - q - 1);
             };
             if (*type == world::MobType::BlockDisplay) {
-                const auto n = quoted("Name:");
+                auto n = quoted("Name:");
+                if (!n) n = quoted("id:"); // (M34: 26.3's name for it)
                 const auto b = n ? world::blockRegistry().parse(*n) : std::nullopt;
                 if (!b) return fail("Invalid block_state");
                 mob.commandId = *b;

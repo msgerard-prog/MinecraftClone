@@ -153,8 +153,8 @@ TEST_CASE("maps: centred on vanilla's grid, drawn from the terrain, saved as map
     const auto dir = std::filesystem::temp_directory_path() / "mc_maps_test";
     std::filesystem::remove_all(dir);
     REQUIRE(maps.save(dir));
-    CHECK(std::filesystem::exists(dir / "data" / "map_0.dat"));
-    CHECK(std::filesystem::exists(dir / "data" / "idcounts.dat"));
+    CHECK(std::filesystem::exists(dir / "data" / "minecraft" / "maps" / "0.dat")); // (M34: 26.1)
+    CHECK(std::filesystem::exists(dir / "data" / "minecraft" / "maps" / "last_id.dat")); // (M34: 26.1)
     Maps back;
     REQUIRE(back.load(dir));
     REQUIRE(back.get(a));

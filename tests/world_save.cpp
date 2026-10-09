@@ -8,6 +8,7 @@
 #include "world/FlatGenerator.h"
 #include "world/Potions.h"
 #include "world/RegionFile.h"
+#include "world/WorldFiles.h"
 
 #include <doctest/doctest.h>
 
@@ -112,9 +113,9 @@ TEST_CASE("chunk NBT uses vanilla palette entries and packing") {
     const auto& pal = bs->list("palette")->items;
     REQUIRE(pal.size() == 2); // log first (index 0 is the first block), then air
     const auto* log = pal[0].get<mc::nbt::Compound>();
-    CHECK(*log->string("Name") == "minecraft:oak_log");
-    CHECK(*log->compound("Properties")->string("axis") == "x");
-    CHECK(*pal[1].get<mc::nbt::Compound>()->string("Name") == "minecraft:air");
+    CHECK(*log->string("id") == "minecraft:oak_log"); // (M34: 26.3's id/properties)
+    CHECK(*log->compound("properties")->string("axis") == "x");
+    CHECK(*pal[1].get<mc::nbt::Compound>()->string("id") == "minecraft:air");
     // 2 entries -> 4 bits, 16 per long, 256 longs; cell 0 = palette index 0.
     REQUIRE(bs->longArray("data"));
     CHECK(bs->longArray("data")->size() == 256);
@@ -287,7 +288,12 @@ TEST_CASE("level.dat: hotbar states use the block_state item component; types as
     REQUIRE(data);
     CHECK(data->find("version")->type() == mc::nbt::TagType::Int);
     CHECK(data->integer("version") == 19133);
-    CHECK(data->find("DayTime")->type() == mc::nbt::TagType::Long);
+    CHECK(data->find("DayTime") == nullptr); // (M34: 26.1 keeps the time of day in world_clocks.dat)
+    CHECK(readLevelRoot(dir.path / "data" / "minecraft" / "world_clocks.dat")
+              .compound("data")
+              ->compound("minecraft:overworld")
+              ->find("ticks")
+              ->type() == mc::nbt::TagType::Long);
     const auto& item = *data->compound("Player")->list("Inventory")->items[0].get<mc::nbt::Compound>();
     CHECK(item.find("Slot")->type() == mc::nbt::TagType::Byte);
     CHECK(item.find("count")->type() == mc::nbt::TagType::Int);
@@ -762,10 +768,10 @@ TEST_CASE("1.21.11 chunk extras: heightmaps packed 9 bits x 7 per long, empty li
     REQUIRE(nbt.list("PostProcessing"));
     CHECK(nbt.list("PostProcessing")->items.size() == 24);
     CHECK(nbt.compound("structures"));
-    CHECK(nbt.integer("DataVersion") == 4671);
+    CHECK(nbt.integer("DataVersion") == 5023); // (M34: 26.3)
 }
 
-TEST_CASE("1.21.11 level.dat: spawn compound, version 1.21.11, game rules, dimensions; older fields still read") {
+TEST_CASE("level.dat: spawn compound, version 26.3, game rules, dimensions; older fields still read") {
     TempDir dir("mc_test_level_12111");
     LevelData l;
     l.spawn[0] = 12;
@@ -778,12 +784,13 @@ TEST_CASE("1.21.11 level.dat: spawn compound, version 1.21.11, game rules, dimen
     REQUIRE(root);
     const auto* data = root->compound("Data");
     REQUIRE(data);
-    CHECK(*data->compound("Version")->string("Name") == "1.21.11");
+    CHECK(*data->compound("Version")->string("Name") == "26.3"); // (M34)
     REQUIRE(data->compound("spawn"));
     CHECK(*data->compound("spawn")->string("dimension") == "minecraft:overworld");
     CHECK_FALSE(data->find("SpawnX"));
-    CHECK(*data->compound("GameRules")->string("minecraft:keep_inventory") == "false");
-    CHECK(data->compound("WorldGenSettings")->compound("dimensions")->compound("minecraft:the_nether"));
+    // (M34: 26.1 moved these to data/minecraft/game_rules.dat and world_gen_settings.dat)
+    CHECK(*readSavedData(dataFolder(dir.path) / "game_rules.dat")->string("minecraft:keep_inventory") == "false");
+    CHECK(readSavedData(dataFolder(dir.path) / "world_gen_settings.dat")->compound("dimensions")->compound("minecraft:the_nether"));
     const auto back = LevelData::load(dir.path);
     REQUIRE(back);
     CHECK(back->spawn[0] == 12);
@@ -1223,4 +1230,136 @@ TEST_CASE("M30 review: a chunk saved with drops and loaded back at once (queued 
     CHECK(back.droppedOrbs()[0].count == 2);
     CHECK(back.savedDropsHash == back.dropsHash());
     CHECK(back.savedDropsHash != 0);
+}
+
+TEST_CASE("M34: level.dat in 26.x's layout - the player, rules, weather and the rest in their own files") {
+    TempDir dir("mc_test_level_261");
+    LevelData l;
+    l.name = "Layout";
+    l.seed = 1234;
+    l.dayTime = 18000;
+    l.difficulty = 3;
+    l.raining = true;
+    l.rainTime = 777;
+    l.traderSpawnDelay = 1200;
+    l.dragonKilled = true;
+    l.playerUuidHi = 0x0123456789ABCDEFull;
+    l.playerUuidLo = 0x8EDCBA9876543210ull;
+    l.pos[1] = 99.5;
+    l.rules.set("minecraft:keep_inventory", "true");
+    REQUIRE(l.save(dir.path));
+    const auto root = readLevelRoot(dir.path / "level.dat");
+    const auto* data = root.compound("Data");
+    REQUIRE(data);
+    CHECK(data->integer("DataVersion") == kDataVersion);
+    CHECK(kDataVersion == 5023); // (26.3)
+    CHECK(data->compound("Player") == nullptr);
+    CHECK(data->find("singleplayer_uuid") != nullptr);
+    CHECK(*data->compound("difficulty_settings")->string("difficulty") == "hard");
+    for (const char* gone : {"GameRules", "WorldGenSettings", "DragonFight", "raining", "Difficulty", "WanderingTraderSpawnDelay"})
+        CHECK(data->find(gone) == nullptr);
+    CHECK(fs::exists(dir.path / "players" / "data" / "01234567-89ab-cdef-8edc-ba9876543210.dat"));
+    for (const char* file : {"game_rules.dat", "weather.dat", "world_clocks.dat", "world_gen_settings.dat", "wandering_trader.dat"})
+        CHECK(fs::exists(dir.path / "data" / "minecraft" / file));
+    CHECK(*readSavedData(dataFolder(dir.path) / "weather.dat")->integer("rain_time") == 777);
+    CHECK(*readSavedData(dataFolder(dir.path) / "world_gen_settings.dat")->integer("generate_structures") == 1);
+    CHECK(fs::exists(dir.path / "dimensions" / "minecraft" / "the_end" / "data" / "minecraft" / "ender_dragon_fight.dat"));
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back);
+    CHECK(back->dayTime == 18000);
+    CHECK(back->difficulty == 3);
+    CHECK(back->raining);
+    CHECK(back->rainTime == 777);
+    CHECK(back->traderSpawnDelay == 1200);
+    CHECK(back->dragonKilled);
+    CHECK(back->seed == 1234);
+    CHECK(back->pos[1] == 99.5);
+    CHECK(back->playerUuidLo == l.playerUuidLo);
+    CHECK(*back->rules.get("minecraft:keep_inventory") == "true");
+    REQUIRE(l.save(dir.path)); // (version_history: the versions the file has had)
+    CHECK(readLevelRoot(dir.path / "level.dat").compound("Data")->find("version_history") != nullptr);
+}
+
+TEST_CASE("M34: a world in the pre-26.1 layout moves into 26.1's and keeps its data") {
+    TempDir dir("mc_test_migrate");
+    // A 1.21.11-era world: level.dat with everything inline, region/ at the top, DIM-1, maps in data/.
+    mc::nbt::Compound data;
+    data.put("DataVersion", int32_t{4671});
+    data.put("LevelName", std::string("Old"));
+    data.put("DayTime", int64_t{6000});
+    data.put("Difficulty", int8_t{1});
+    data.put("rainTime", int32_t{55});
+    mc::nbt::Compound gen;
+    gen.put("seed", int64_t{77});
+    data.put("WorldGenSettings", gen);
+    mc::nbt::Compound player;
+    player.put("Pos", mc::nbt::listOf(mc::nbt::TagType::Double, {1.0, 80.0, 2.0}));
+    data.put("Player", player);
+    mc::nbt::Compound root;
+    root.put("Data", data);
+    REQUIRE(writeNbtFile(dir.path / "level.dat", root));
+    for (const char* sub : {"region", "entities", "DIM-1/region", "DIM1/region", "playerdata", "stats", "data"})
+        fs::create_directories(dir.path / sub);
+    std::ofstream(dir.path / "region" / "r.0.0.mca") << "x";
+    std::ofstream(dir.path / "DIM-1" / "region" / "r.0.0.mca") << "n";
+    std::ofstream(dir.path / "stats" / "a.json") << "{}";
+    mc::nbt::Compound map;
+    map.put("scale", int8_t{0});
+    REQUIRE(writeSavedData(dir.path / "data" / "map_3.dat", map));
+    const auto level = LevelData::load(dir.path);
+    REQUIRE(level);
+    CHECK(level->dayTime == 6000);
+    CHECK(level->difficulty == 1);
+    CHECK(level->rainTime == 55);
+    CHECK(level->seed == 77);
+    CHECK(level->pos[1] == 80.0);
+    REQUIRE(migrateLegacyLayout(dir.path));
+    CHECK(fs::exists(dir.path / "dimensions" / "minecraft" / "overworld" / "region" / "r.0.0.mca"));
+    CHECK(fs::exists(dir.path / "dimensions" / "minecraft" / "the_nether" / "region" / "r.0.0.mca"));
+    CHECK(fs::exists(dir.path / "dimensions" / "minecraft" / "the_end" / "region"));
+    CHECK(fs::exists(dir.path / "players" / "stats" / "a.json"));
+    CHECK(fs::exists(dir.path / "data" / "minecraft" / "maps" / "3.dat"));
+    CHECK_FALSE(fs::exists(dir.path / "region"));
+    CHECK_FALSE(fs::exists(dir.path / "DIM-1"));
+    CHECK(migrateLegacyLayout(dir.path)); // (nothing left to move)
+}
+
+TEST_CASE("M34: chunk palettes use 26.3's id/properties and still read Name/Properties and bare ids") {
+    Chunk c({0, 0});
+    c.set(1, 70, 1, *blockRegistry().parse("oak_log[axis=x]"));
+    const mc::nbt::Compound n = chunkToNbt(ChunkSnapshot::of(c));
+    bool newNames = false;
+    for (const mc::nbt::Tag& t : n.list("sections")->items) {
+        const mc::nbt::Compound* states = t.get<mc::nbt::Compound>()->compound("block_states");
+        if (!states) continue;
+        for (const mc::nbt::Tag& e : states->list("palette")->items) {
+            const mc::nbt::Compound* entry = e.get<mc::nbt::Compound>();
+            CHECK(entry->find("Name") == nullptr);
+            newNames = newNames || (entry->string("id") && *entry->string("id") == "minecraft:oak_log" &&
+                                    *entry->compound("properties")->string("axis") == "x");
+        }
+    }
+    CHECK(newNames);
+    // Older names and the compact form read back.
+    mc::nbt::Compound oldEntry, props;
+    oldEntry.put("Name", std::string("minecraft:oak_log"));
+    props.put("axis", std::string("z"));
+    oldEntry.put("Properties", props);
+    mc::nbt::Compound states;
+    states.put("palette", mc::nbt::listOf(mc::nbt::TagType::Compound, {oldEntry}));
+    mc::nbt::Compound section;
+    section.put("Y", int8_t{4});
+    section.put("block_states", states);
+    mc::nbt::Compound chunkTag = n;
+    chunkTag.put("sections", mc::nbt::listOf(mc::nbt::TagType::Compound, {section}));
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkTag, back));
+    CHECK(back.get(5, 64, 5) == *blockRegistry().parse("oak_log[axis=z]"));
+    mc::nbt::Compound bareStates;
+    bareStates.put("palette", mc::nbt::listOf(mc::nbt::TagType::String, {std::string("minecraft:stone")}));
+    section.put("block_states", bareStates);
+    chunkTag.put("sections", mc::nbt::listOf(mc::nbt::TagType::Compound, {section}));
+    Chunk bare({0, 0});
+    REQUIRE(chunkFromNbt(chunkTag, bare));
+    CHECK(bare.get(5, 64, 5) == S(blocks::Stone));
 }

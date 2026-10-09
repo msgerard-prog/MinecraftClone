@@ -218,7 +218,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   single `World`. Travelling (main.cpp) saves, unloads every chunk, swaps the
   generator (`OverworldGenerator`/`TerrainGenerator`, `NetherGenerator`,
   `EndGenerator` in `world/NetherGenerator.*`) and the `ChunkStorage` folder
-  (vanilla `DIM-1/`, `DIM1/`), sets `World::setHasSkyLight` (the light engine then
+  (26.1 layout: `dimensions/minecraft/<name>`, `world/WorldFiles`), sets `World::setHasSkyLight` (the light engine then
   keeps sky light 0) and `WorldRenderer::setDimension` (fog colour/range, no
   sun/moon/stars, ambient light uniform 8, End bright lightmap uniform 9), then waits
   for the destination's chunks and finds or builds the way in. `gameplay/Portals`
@@ -776,6 +776,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   overworld8 (M33.2e, new worlds): `caveBiome(col, 8)` adds `Biome::SulfurCaves`;
   `placeSulfurCaves8` lays the bands, spikes, pools and springs; mineshaft chests there use
   `LootTable::MineshaftSulfur`.
+- Save layout (M34, `world/WorldFiles`): 26.1's folders (`dimensionFolder`, `playersFolder`,
+  `dataFolder`, `mapsFolder`), vanilla's saved-data wrapper (`writeSavedData`/`readSavedData`)
+  and `migrateLegacyLayout`, which main runs on opening a world (after level.dat loads).
+  `LevelData` builds its tags as one compound and splits them into the 26.1 files on save
+  (`writeSplitFiles`), merging them back on load (`mergeSplitFiles`). DataVersion 5023.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

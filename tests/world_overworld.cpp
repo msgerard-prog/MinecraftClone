@@ -332,8 +332,8 @@ TEST_CASE("dimensions: ids, folders, void depth; far End chunks are empty (no in
     CHECK(findDimension("the_end") == Dimension::End);
     CHECK(findDimension("nether") == Dimension::Nether);
     CHECK_FALSE(findDimension("minecraft:aether"));
-    CHECK(dimensionInfo(Dimension::Nether).folder == "DIM-1");
-    CHECK(dimensionInfo(Dimension::End).folder == "DIM1");
+    CHECK(dimensionInfo(Dimension::Nether).folder == "dimensions/minecraft/the_nether"); // (M34: 26.1 layout)
+    CHECK(dimensionInfo(Dimension::End).folder == "dimensions/minecraft/the_end");
     CHECK(dimensionInfo(Dimension::End).voidY == -64.0);
     Chunk far({3125, 0}, kEndHeight); // x = 50000
     EndGenerator(42).generate(far);

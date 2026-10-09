@@ -75,6 +75,7 @@
 #include "world/FlatGenerator.h"
 #include "world/ItemExtras.h"
 #include "world/LevelData.h"
+#include "world/WorldFiles.h"
 #include "world/LightManager.h"
 #include "world/Maps.h"
 #include "world/NetherGenerator.h"
@@ -381,10 +382,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         }
         level = mc::world::LevelData::load(worldDir);
         // Chunks without settings would be mixed with another seed's terrain.
-        if (!level && std::filesystem::exists(worldDir / "region", ec)) {
+        if (!level && (std::filesystem::exists(worldDir / "region", ec) ||
+                       std::filesystem::exists(mc::world::dimensionFolder(worldDir, mc::world::Dimension::Overworld), ec))) {
             MC_LOG_ERROR("World \"%s\" has region files but no readable level.dat; not "
                          "opening it (restore level.dat or level.dat_old)",
                          worldName.c_str());
+            return 1;
+        }
+        // (M34) a world saved before 26.1's layout moves into it first, as vanilla does.
+        if (level && !mc::world::migrateLegacyLayout(worldDir)) {
+            MC_LOG_ERROR("World \"%s\" couldn't be moved to the 26.1 layout; not opening it", worldName.c_str());
             return 1;
         }
     }
@@ -402,10 +409,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         if (const auto d = mc::world::findDimension(level->dimension)) dimension = *d;
     if (!opts->dimension.empty() && !flatWorld)
         dimension = *mc::world::findDimension(opts->dimension);
-    // Each dimension saves in its own folder (vanilla: DIM-1 Nether, DIM1 End).
-    auto dimensionDir = [&](Dimension d) {
-        return worldDir / std::string(mc::world::dimensionInfo(d).folder);
-    };
+    // Each dimension saves in its own folder (26.1+: dimensions/minecraft/<name>; M34).
+    auto dimensionDir = [&](Dimension d) { return mc::world::dimensionFolder(worldDir, d); };
     // Worlds saved before kCloneFormat keep their old format number, so chunks not
     // saved since are still upgraded on later visits.
     const int32_t cloneFormat = level ? level->cloneFormat : mc::world::kCloneFormat;

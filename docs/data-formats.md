@@ -56,11 +56,43 @@ assets/data/minecraft/loot_table/blocks/<b>.json
 assets/data/minecraft/tags/block/<tag>.json      e.g. mineable/pickaxe
 ```
 
-## Save format (M7, ADR 0007 — accepted; Java Edition 1.21.11 since M13)
-Vanilla Java **Anvil** layout under `saves/<world>/` (git-ignored; `--world NAME`,
-default "New World" for interactive runs; `--no-save`):
+## Save format (M7, ADR 0007 — accepted; Java Edition 1.21.11 since M13, 26.3 since M34)
+Vanilla Java **Anvil** regions in 26.1's world layout under `saves/<world>/` (git-ignored;
+`--world NAME`, default "New World" for interactive runs; `--no-save`). M34 (DataVersion
+5023, `world/WorldFiles`): `LevelData::save` builds the tags below, then moves what 26.1
+took out of level.dat into its own files under 26.1's names; `load` reads them back
+(`mergeSplitFiles`), and a world in the older layout is moved on opening
+(`migrateLegacyLayout`: region/ entities/ poi/ -> dimensions/minecraft/overworld/, DIM-1 ->
+the_nether, DIM1 -> the_end, playerdata/stats/advancements -> players/, data/map_<id>.dat
+-> data/minecraft/maps/<id>.dat, idcounts.dat -> last_id.dat). Where the tags now live:
 ```
-level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, LevelName,
+level.dat                  Data { DataVersion 5023, version 19133, LevelName, Time, LastPlayed,
+                           GameType, allowCommands, initialized, spawn, difficulty_settings
+                           { difficulty "peaceful".."hard", hardcore, locked },
+                           singleplayer_uuid [I; 4], WasModded, ServerBrands, DataPacks,
+                           Version { Id 5023, Name "26.3", Series, Snapshot },
+                           version_history [I; data versions], MinecraftClone {...} }
+players/data/<uuid>.dat    the Player compound below, at the file's root
+data/minecraft/            saved-data files, each gzip NBT { data {...}, DataVersion }:
+  game_rules.dat           the GameRules compound below
+  weather.dat              raining, thundering, rain_time, thunder_time, clear_weather_time
+  world_clocks.dat         { "minecraft:overworld": { ticks: Long (was DayTime) } } (fields ours:
+                           the wiki doesn't document them)
+  world_gen_settings.dat   WorldGenSettings below (generate_structures, was generate_features)
+  wandering_trader.dat     spawn_delay, spawn_chance
+  maps/<id>.dat, maps/last_id.dat   maps (below)
+dimensions/minecraft/the_end/data/minecraft/ender_dragon_fight.dat   dragon_killed,
+                           previously_killed, needs_state_scanning, dragon_uuid, gateways
+dimensions/minecraft/overworld/data/minecraft/raids.dat   { Raids [ our raid ], NextAvailableID,
+                           Tick } (our raid's fields below, as the level.dat Raid tag was)
+dimensions/minecraft/<overworld|the_nether|the_end>/region, entities   chunks, as below
+players/stats/<uuid>.json, players/advancements/<uuid>.json   as below
+```
+Chunk palettes and other block states (falling blocks, carried blocks, displays) are
+`{ id, properties }` (26.3; `Name`/`Properties` and bare-id strings are still read).
+The tag list as it was in level.dat before the split (what `LevelData` builds):
+```
+level.dat                  gzip NBT: Data { DataVersion 5023, version 19133, LevelName,
                            DayTime, Time, LastPlayed, GameType, allowCommands, initialized,
                            spawn { dimension, pos [I; x,y,z], yaw, pitch } (1.21.9+; older
                            SpawnX/Y/Z still read), Difficulty (0-3, M28.1), DifficultyLocked, hardcore,
@@ -68,8 +100,8 @@ level.dat                  gzip NBT: Data { DataVersion 4671, version 19133, Lev
                            (M22.1), WasModded 1, ServerBrands, GameRules { 1.21.11
                            ids "minecraft:keep_inventory"... : string values; the 20 rules of
                            world/GameRules are read back, M28.1 }, DataPacks
-                           { Enabled ["vanilla"], Disabled [] }, Version { Id 4671, Name
-                           "1.21.11", Series, Snapshot }, WorldGenSettings { seed,
+                           { Enabled ["vanilla"], Disabled [] }, Version { Id 5023, Name
+                           "26.3", Series, Snapshot }, WorldGenSettings { seed,
                            generate_features, bonus_chest, dimensions { overworld, the_nether,
                            the_end: vanilla noise generators } },
                            Player { DataVersion, Pos, Motion, Rotation, Dimension, OnGround,
@@ -110,23 +142,23 @@ session.lock               held exclusively while the world is open (one instanc
                            (Items may carry minecraft:lodestone_tracker {target: {pos,
                            dimension}, tracked} - M28.2a; Player.LastDeathLocation
                            {dimension, pos} is kept too.)
-data/map_<id>.dat          (M28.2b) gzip NBT { data { scale, dimension, trackingPosition,
+data/minecraft/maps/<id>.dat   (M28.2b; M34 path) gzip NBT { data { scale, dimension, trackingPosition,
                            unlimitedTracking, locked, xCenter, zCenter, banners [], frames [],
                            colors byte[16384] (base x 4 + shade) }, DataVersion }; written
-                           when changed. data/idcounts.dat { data { map: last id } }. Filled
+                           when changed. maps/last_id.dat { data { map: last id } }. Filled
                            map items carry minecraft:map_id (and map_post_processing 0 lock /
                            1 scale until the next tick).
-stats/<uuid>.json          (M28.1d) the player's statistics, vanilla's JSON: { "stats": {
+players/stats/<uuid>.json  (M28.1d) the player's statistics, vanilla's JSON: { "stats": {
                            "minecraft:custom": { "minecraft:play_time": ticks, ...distances
                            in cm, damage in tenths }, "minecraft:mined" (blocks),
                            "minecraft:crafted" | "used" | "broken" | "picked_up" | "dropped"
                            (items), "minecraft:killed" | "killed_by" (mobs) }, "DataVersion"
-                           4671 }; zero counters and empty groups are left out
-advancements/<uuid>.json   (M28.5c) the player's advancements, vanilla's JSON: {
+                           5023 }; zero counters and empty groups are left out
+players/advancements/<uuid>.json   (M28.5c) the player's advancements, vanilla's JSON: {
                            "minecraft:story/mine_stone": { "criteria": { "requirement":
                            "2026-10-08 12:00:00 +0000" }, "done": true }, ..., "DataVersion":
-                           4671 }; only made ones are written (one criterion each, ours)
-DIM-1/region, DIM-1/entities   the Nether (M12), same layouts; DIM1/... the End
+                           5023 }; only made ones are written (one criterion each, ours)
+dimensions/minecraft/the_nether/..., the_end/...   the Nether and the End (M12), same layouts
 entities/r.<x>.<z>.mca     same region layout; per chunk { DataVersion, Position [I; x, z],
                            Entities [ mobs: { id, Pos, Motion, Rotation, Health,
                            OnGround, fall_distance (double, 1.21.5+; FallDistance still read),

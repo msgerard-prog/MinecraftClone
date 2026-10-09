@@ -13,7 +13,7 @@ enum class Dimension : uint8_t { Overworld, Nether, End, Count };
 
 struct DimensionInfo {
     std::string_view id;     // "minecraft:the_nether"
-    std::string_view folder; // save subfolder ("" overworld, "DIM-1", "DIM1"; vanilla layout)
+    std::string_view folder; // save subfolder (26.1+: "dimensions/minecraft/<name>"; M34)
     bool hasSkyLight;        // wiki: Dimension type › has_skylight
     float ambientLight;      // wiki: Dimension type › ambient_light (Nether 0.1)
     double coordinateScale;  // wiki: Dimension type › coordinate_scale (Nether 8)
@@ -24,9 +24,9 @@ struct DimensionInfo {
 
 inline const DimensionInfo& dimensionInfo(Dimension d) {
     static constexpr DimensionInfo kInfo[] = {
-        {"minecraft:overworld", "", true, 0.0f, 1.0, -128.0, kOverworldHeight, 384},
-        {"minecraft:the_nether", "DIM-1", false, 0.1f, 8.0, -64.0, kNetherHeight, 128},
-        {"minecraft:the_end", "DIM1", false, 0.0f, 1.0, -64.0, kEndHeight, 256},
+        {"minecraft:overworld", "dimensions/minecraft/overworld", true, 0.0f, 1.0, -128.0, kOverworldHeight, 384},
+        {"minecraft:the_nether", "dimensions/minecraft/the_nether", false, 0.1f, 8.0, -64.0, kNetherHeight, 128},
+        {"minecraft:the_end", "dimensions/minecraft/the_end", false, 0.0f, 1.0, -64.0, kEndHeight, 256},
     };
     return kInfo[static_cast<int>(d)];
 }

@@ -484,7 +484,8 @@ TEST_CASE("M29.7e: displays, giants, markers and spawner carts from /summon; dis
     bool block = false, cart = false;
     for (const nbt::Tag& t : n.list("Entities")->items) {
         const nbt::Compound* c = t.get<nbt::Compound>();
-        if (const nbt::Compound* b = c->compound("block_state")) block = block || *b->string("Name") == "minecraft:diamond_block";
+        if (const nbt::Compound* b = c->compound("block_state")) // (M34: 26.3's `id`)
+            block = block || (b->string("id") && *b->string("id") == "minecraft:diamond_block");
         if (const std::string* id = c->string("id")) cart = cart || *id == "minecraft:spawner_minecart";
     }
     CHECK(block);

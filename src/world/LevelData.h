@@ -12,6 +12,9 @@
 namespace mc::world {
 
 // level.dat (wiki: Java Edition level format): gzip-compressed NBT, root { Data {...} }.
+// Since M34 (26.1's layout) the player, game rules, weather, world clocks, world gen
+// settings, the wandering trader, the dragon fight and raids live in files of their own
+// (world/WorldFiles.h); save() splits them out and load() reads them back.
 // We write vanilla's key fields (DataVersion, LevelName, DayTime, Time, GameType,
 // WorldGenSettings.seed, Player {Pos, Rotation, abilities, Inventory}) plus our own
 // "MinecraftClone" compound for settings vanilla stores differently (generator kind).
@@ -127,6 +130,9 @@ struct LevelData {
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;
+    // (M34; 26.3) the data versions level.dat was saved with (its version_history list,
+    // plus the version it was read at); saving adds the current one.
+    std::vector<int32_t> versionHistory;
 
     // Writes level.dat_new, then keeps the previous level.dat as level.dat_old and
     // moves the new file into place (replacing it in one rename).

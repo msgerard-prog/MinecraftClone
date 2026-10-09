@@ -23,7 +23,7 @@ TEST_CASE("statistics: vanilla ids, JSON round trip, unknown ids skipped") {
     CHECK(json.find("\"minecraft:jump\": 12") != std::string::npos);
     CHECK(json.find("\"minecraft:stone\": 30") != std::string::npos);
     CHECK(json.find("\"minecraft:killed_by\"") != std::string::npos);
-    CHECK(json.find("\"DataVersion\": 4671") != std::string::npos);
+    CHECK(json.find("\"DataVersion\": 5023") != std::string::npos);
     CHECK(json.find("\"minecraft:broken\"") == std::string::npos); // (empty groups left out)
 
     Statistics back;

@@ -2,6 +2,8 @@
 #include "world/Advancements.h"
 
 #include "core/Log.h"
+#include "world/ChunkSerializer.h"
+#include "world/WorldFiles.h"
 
 #include <chrono>
 #include <cstdio>
@@ -590,7 +592,7 @@ Advancements::Granted Advancements::onEvent(AdvEvent e) {
 
 std::string Advancements::toJson() const {
     // Vanilla's layout: {"minecraft:<id>": {"criteria": {"<name>": "<time>"}, "done": true},
-    // "DataVersion": 4671}
+    // "DataVersion": <kDataVersion>}
     std::string out = "{";
     for (size_t i = 0; i < std::size(kAdvancements); ++i) {
         if (!m_done[i]) continue;
@@ -598,7 +600,7 @@ std::string Advancements::toJson() const {
                "\": {\n    \"criteria\": {\n      \"requirement\": \"" +
                (m_when[i].empty() ? now() : m_when[i]) + "\"\n    },\n    \"done\": true\n  },";
     }
-    out += "\n  \"DataVersion\": 4671\n}\n";
+    out += "\n  \"DataVersion\": " + std::to_string(kDataVersion) + "\n}\n";
     return out;
 }
 
@@ -636,7 +638,7 @@ std::filesystem::path Advancements::file(const std::filesystem::path& worldDir, 
     std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%012llx.json", unsigned(hi >> 32),
                   unsigned(hi >> 16 & 0xFFFF), unsigned(hi & 0xFFFF), unsigned(lo >> 48),
                   static_cast<unsigned long long>(lo & 0xFFFFFFFFFFFFull));
-    return worldDir / "advancements" / name;
+    return playersFolder(worldDir, "advancements") / name; // (M34: 26.1 players/advancements)
 }
 
 bool Advancements::save(const std::filesystem::path& path) const {

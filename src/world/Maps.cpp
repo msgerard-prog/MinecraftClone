@@ -5,6 +5,8 @@
 #include "core/Log.h"
 #include "core/Nbt.h"
 #include "world/Blocks.h"
+#include "world/ChunkSerializer.h"
+#include "world/WorldFiles.h"
 #include "world/Dimension.h"
 #include "world/World.h"
 
@@ -320,15 +322,8 @@ void Maps::update(const World& world, MapData& map, const glm::dvec3& player, in
 
 bool Maps::save(const std::filesystem::path& worldDir) {
     using namespace nbt;
-    std::error_code ec;
-    const auto dir = worldDir / "data";
-    std::filesystem::create_directories(dir, ec);
-    auto writeFile = [](const std::filesystem::path& p, const Compound& root) {
-        const auto bytes = gzipCompress(write(root));
-        std::ofstream f(p, std::ios::binary | std::ios::trunc);
-        f.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
-        return bool(f);
-    };
+    // (M34; wiki: Map item format - 26.1: data/minecraft/maps/<id>.dat and last_id.dat)
+    const auto dir = mapsFolder(worldDir);
     bool ok = true;
     for (const auto& [id, m] : m_maps) {
         if (const auto it = m_savedVersion.find(id);
@@ -345,28 +340,22 @@ bool Maps::save(const std::filesystem::path& worldDir) {
         data.put("banners", listOf(TagType::Compound, {}));
         data.put("frames", listOf(TagType::Compound, {}));
         data.put("colors", std::vector<int8_t>(m.colors.begin(), m.colors.end()));
-        Compound root;
-        root.put("data", std::move(data));
-        root.put("DataVersion", int32_t{4671});
-        if (writeFile(dir / ("map_" + std::to_string(id) + ".dat"), root))
+        if (writeSavedData(dir / (std::to_string(id) + ".dat"), std::move(data)))
             m_savedVersion[id] = m.version;
         else
             ok = false;
     }
-    if (m_next > 0) { // idcounts.dat: the last id handed out (1.21: data {map})
+    if (m_next > 0) { // last_id.dat: the last id handed out (data {map}, as idcounts.dat was)
         Compound counts;
         counts.put("map", int32_t(m_next - 1));
-        Compound root;
-        root.put("data", std::move(counts));
-        root.put("DataVersion", int32_t{4671});
-        ok = writeFile(dir / "idcounts.dat", root) && ok;
+        ok = writeSavedData(dir / "last_id.dat", std::move(counts)) && ok;
     }
     return ok;
 }
 
 bool Maps::load(const std::filesystem::path& worldDir) {
     using namespace nbt;
-    const auto dir = worldDir / "data";
+    const auto dir = mapsFolder(worldDir);
     std::error_code ec;
     if (!std::filesystem::exists(dir, ec)) return true;
     auto readFile = [](const std::filesystem::path& p) -> std::optional<Compound> {
@@ -379,13 +368,10 @@ bool Maps::load(const std::filesystem::path& worldDir) {
     };
     for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
         const std::string name = e.path().filename().string();
-        if (!name.starts_with("map_") || !name.ends_with(".dat")) continue;
-        int id = 0;
-        try {
-            id = std::stoi(name.substr(4, name.size() - 8));
-        } catch (...) {
-            continue;
-        }
+        if (!name.ends_with(".dat") || name == "last_id.dat") continue;
+        const std::string digits = name.substr(0, name.size() - 4); // ("<id>.dat")
+        if (digits.empty() || digits.find_first_not_of("0123456789") != std::string::npos || digits.size() > 9) continue;
+        const int id = std::stoi(digits);
         const auto root = readFile(e.path());
         const Compound* data = root ? root->compound("data") : nullptr;
         if (!data) {
@@ -408,7 +394,7 @@ bool Maps::load(const std::filesystem::path& worldDir) {
         m_savedVersion[id] = 0;
         m_next = std::max(m_next, id + 1);
     }
-    if (const auto counts = readFile(dir / "idcounts.dat"))
+    if (const auto counts = readFile(dir / "last_id.dat"))
         if (const Compound* d = counts->compound("data"))
             m_next = std::max(m_next, int(d->integer("map").value_or(-1)) + 1);
     return true;
