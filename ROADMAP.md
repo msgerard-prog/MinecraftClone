@@ -3,48 +3,15 @@
 Claude rewrites **Status** and **Next** every session and ticks steps as they land.
 Milestone details live here; design detail lives in `docs/`.
 
-## Status (2026-10-08)
-M28 done (reviews applied; v0.28.0): game rules, difficulty, adventure/spectator modes,
-statistics, compasses/lodestones/clocks, maps, books, item frames, paintings, armor stands,
-leads and caravans, banners and the loom, crossbows, tipped/spectral arrows, lingering
-potions, fireworks, the mace and Trial Omen, spears, candles/cake/1.21.5 plants/vines,
-disc 5, advancements. M1-M28 done: the first revision's milestones are complete. v1.0 is
-the user's call (see Waiting on the user).
+## Status (2026-10-09)
+M29 done (reviews applied; v0.29.0): every block, item, entity, effect and enchantment id of
+Java Edition 1.21.11 is in the game (pinned by tests/data/ids_1_21_11.txt), with overworld7
+and nether4 generating the new blocks. M1-M29 done: the first revision is complete, tagged
+v1.0 (user, 2026-10-08: "once everything is functional and not missing, tag v1.0").
 
 ## Next
-M29 - Completeness (user, 2026-10-08: "do those missing items ... once everything is
-functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data values
-(blocks, items, mobs, effects, enchantments) found these gaps:
-1. ✅ M29.1 - Mobs: a) husk, stray, bogged, parched; b) skeleton/zombie horses, camel husk
-   jockeys, zombie nautilus jockeys; c) bat, endermite, mooshroom, snow golem, piglin
-   brute, zoglin, illusioner; d) 1.21.5 cow/pig/chicken variants (blue/brown eggs);
-   e) spawn eggs for every mob; f) held items drawn.
-2. ✅ M29.2 - Effects, potions, enchantments (c: lasting effects on mobs, Glowing): absorption, saturation, health boost,
-   blindness, nausea, luck/unluck, wind charged, weaving, oozing, infested; turtle master,
-   slow falling, luck and the 1.21 potions; mending, frost walker, depth strider, soul
-   speed, sweeping edge, the curses.
-3. ✅ M29.3 - Items (b: names, anvil renaming, tooltips; the seeds, cocoa beans and powder
-   snow bucket come with their blocks in M29.4): bundles, spyglass, name tags, chainmail, stews and foods, carrot/fungus
-   on a stick, minecart variants, copper/netherite horse armor, nautilus armor, the six
-   missing discs, bottles o' enchanting, powder snow buckets.
-4. ✅ M29.4 - Blocks 1 (a: flowers, lily pads, jack o'lanterns, raw blocks; b: melons and
-   stems, cocoa, 16 beds, 37 flower pots; c: soul fire, glow lichen, powder snow and freezing,
-   bamboo shoots, coral wall fans): the missing flowers and pots, melons and stems, cocoa, lily pads,
-   jack o'lanterns, 16 bed colours, mushroom blocks, raw ore blocks, magma blocks, dried
-   kelp blocks, glow lichen, nether brick variants, soul fire, frosted ice, powder snow.
-5. ✅ M29.5 - Blocks 2 (dust now joins plates, detectors, targets, hooks; flush box faces lit
-   by their neighbour): target, tripwires, daylight detectors, lightning rods, crafter,
-   chiseled bookshelves, respawn anchors, scaffolding, trapped chests, calibrated sculk
-   sensors, bubble columns, coral wall fans.
-6. ✅ M29.6 - The Copper Age (1.21.9): shelves, copper bars/chains/lanterns/torches, copper
-   golem statues, chain -> iron_chain.
-7. ✅ M29.7 - Technical (structure blocks and jigsaws keep their states only - no structure
-   files): command blocks (and minecart), structure blocks/voids, jigsaws,
-   barriers, light blocks, player heads, petrified oak slabs, knowledge books.
-8. ✅ M29.8 - overworld7 and nether4 (new worlds; overworld6/nether3 frozen): generate what worldgen places (flowers, melons, cocoa,
-   lily pads, huge mushrooms, glow lichen, raw ore veins, magma, powder snow, fossils);
-   piglin brutes in bastions.
-Then reviews, v0.29.0, a pinned completeness test, and v1.0.
+After v1.0 (the user decides the order): polish the recorded deviations (docs/game-design.md),
+the deferred performance work below, and 26.x content if wanted.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -67,6 +34,13 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M29 perf review (fixed in the review: Frost Walker relights, bubble columns
+  generated in place, command chain loops, the jockey pass): lightning rods are found by
+  scanning the sections of 17x17 chunks per strike (a per-chunk rod list, as vanilla's POI);
+  shelves draw their items by looping over every chest of a chunk; hopper minecarts scan all
+  dropped items every 4 ticks; glowing mobs add a second draw each; repeating command blocks
+  and command minecarts allocate their result messages each run (`CommandResult::message`
+  strings, `format`) - an accepted exception to hard rule 1 while one is powered.
 - From the M28 perf review (bench: CPU p99 0.97 ms steady, ~1.7 ms streaming; GPU 0.16 ms):
   holding a filled map costs ~0.1-0.3 ms a tick (`Maps::update` looks the chunk up per
   pixel and walks each column from the top: cache the Chunk*, start from the last top Y);
@@ -203,6 +177,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M29 note:** new worlds use "overworld7" and "nether4" (pinned since v0.29.0). Try it:
+  `tools/run.sh --world "M29 test"`, find a jungle (melons, cocoa) or a swamp (lily pads);
+  `/give @s command_block`, place it and right-click it; `/give @s light` to see light
+  blocks; trap a tripwire. Unverifiable details kept as best guesses: the shelf's "rightmost
+  hotbar slots" wording (from the wiki), powder-snow movement factors (ours).
 - **M28 note:** (user, 2026-10-08) on Peaceful with natural_health_regeneration false,
   hunger doesn't refill - kept. Try it: `tools/run.sh --world "M28 test"`, Esc >
   Advancements, `/give @s mace`, `/give @s crossbow`, `/give @s firework_rocket 16` with
@@ -329,12 +308,14 @@ and GUI textures are made with their systems.
 | M26 | Mobs 3: wolves, cats, horses, llamas, foxes, bees, goats, frogs, axolotls, pandas, parrots, polar bears, allays, phantoms, silverfish, cave spiders, wither skeletons and the Wither, the warden, the breeze, 1.21.6-1.21.11 mobs (happy ghast, copper golem, nautilus...) | ✅ 2026-10-08 v0.26.0 (no leads, shoulders or statues; the warden moves to M27.3: see deviations) |
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | ✅ 2026-10-08 v0.27.0 (our own structure designs, cave biomes by column climate: see deviations) |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | ✅ 2026-10-08 v0.28.0 (67 advancements with simple triggers, our spear charge formula: see deviations) |
+| M29 | Completeness: every 1.21.11 block, item, entity, effect and enchantment; overworld7/nether4 | ✅ 2026-10-09 v0.29.0 (simplified technical blocks, chunk-local ore veins: see deviations) |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
 
 ## Backlog (unscheduled)
 - F2 screenshot key (vanilla) for interactive play.
 
 ## Done (latest 10)
+- 2026-10-09 M29 (v0.29.0) and v1.0: the remaining mobs, effects, enchantments, items and blocks, the Copper Age, technical blocks, overworld7 and nether4; a pinned completeness test.
 - 2026-10-08 M28 (v0.28.0): game rules, difficulty, game modes, statistics, navigation, maps, books, decorations, leads, banners, crossbows, arrows, lingering potions, fireworks, the mace, spears, the remaining blocks, advancements.
 - 2026-10-08 M27 (v0.27.0): overworld6 - the remaining biomes, creakings, lush and dripstone caves, the deep dark, sculk, the warden, ancient cities, geodes, ruined portals, mansions, trial chambers, archaeology, sniffers.
 - 2026-10-08 M26 (v0.26.0): pets, mounts, wildlife, bees, frogs, axolotls, cave spiders, silverfish, wither skeletons, phantoms, heads, the Wither, the breeze, allays, nautiluses, happy ghasts, copper golems.
