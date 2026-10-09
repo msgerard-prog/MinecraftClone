@@ -705,6 +705,25 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   block, soul blocks, Depth Strider/Soul Speed (`setBootEnchants`); main does Mending (orbs),
   Frost Walker (`blocks::FrostedIce`, melted by BlockUpdates scheduled ticks), sweep attacks,
   the curses; Thorns in Mobs' melee via `Context::thorns`.
+- Completeness (M29): the remaining 1.21.11 content, mostly through existing systems.
+  Blocks that act like another use `BlockSettings::like` (flowers like the poppy, beds
+  like the red bed, potted plants like the flower pot, copper bars/chains/lanterns like
+  the iron ones, shelves like the oak shelf...); scheduled ticks match on that base.
+  Stems, cocoa and bone meal in `world/Farming.cpp`; tripwire lines in
+  `world/Tripwire.cpp`; bubble columns in `world/Ocean.cpp`; targets, daylight
+  detectors, trapped chests, lightning rods (`lightningRodNear`), chiseled bookshelves,
+  scaffolding, shelves (`shelfRow`) and command block power in `BlockUpdates.cpp`.
+  Command blocks fire into `BlockUpdates::commandRuns()`; `gameplay/CommandBlocks` runs them
+  and their chains through `runCommand` with `CommandContext::origin` (relative
+  coordinates from the block); the Set Console Command screen is `ui/Menus`
+  (`MenuScreen::CommandBlock`). Crafters reuse the dispenser path (`Dispensers::dispense`
+  crafts). Powder snow: `Vitals::tickFreezing`, `Player::setPowderSnowWalker`, the frost
+  overlay (`ui::drawFrostOverlay`). Technical entities (`isTechnical`: markers,
+  interactions, displays, ominous item spawners) don't move or take damage; displays keep
+  what they show in `MobData::commandId`. M29 block models live in
+  `BlockModels::bakeLateModel` (MSVC limits the name chain's nesting); box faces flush
+  with a block side are lit from and culled by that neighbour (ChunkMesher). overworld7's
+  features: `OverworldGenerator::placeFeatures7`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

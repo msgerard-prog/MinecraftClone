@@ -368,3 +368,27 @@ entity `minecraft:sniffer`; blocks `sniffer_egg[hatch]`, `torchflower_crop[age 0
 block_entities `minecraft:sign` / `minecraft:hanging_sign`: `front_text` and
 `back_text` { `messages`: 4 strings (plain text; older JSON-quoted strings are
 unquoted on load), `color` (dye name), `has_glowing_text` }, `is_waxed`.
+
+## Completeness (M29)
+Every 1.21.11 block, item, entity, effect and enchantment id is registered
+(`tests/data/ids_1_21_11.txt`, checked by tests/world_completeness.cpp).
+- Renamed: `minecraft:chain` -> `minecraft:iron_chain` (1.21.9); saves and item ids naming
+  `chain` still load (`BlockRegistry::findBlock`, `ItemRegistry::find` aliases). `cave_air`
+  and `void_air` in palettes load as air.
+- New properties: `age` 0..2 (cocoa), `disarmed`, `inverted`, `charges` 0..4,
+  `slot_N_occupied`, `distance` 0..7 + `bottom` (scaffolding), `crafting`, `orientation`
+  (crafter, jigsaw), `drag`, `side_chain`, `copper_golem_pose`, `conditional`, `mode`
+  (structure block: save/load/corner/data; test block: start/log/fail/accept).
+- New block entities: `minecraft:trapped_chest`, `minecraft:chiseled_bookshelf` (Items
+  0-5, `last_interacted_slot`), `minecraft:shelf` (Items 0-2), `minecraft:crafter` (Items
+  0-8; no `disabled_slots`), `minecraft:command_block` (`Command`, `auto`, `powered`,
+  `SuccessCount`, `LastOutput`, `conditionMet`).
+- Entities: command block minecarts save `Command`; `block_display` `block_state:{Name}`,
+  `item_display`/`ominous_item_spawner` `item:{id,count}`, `text_display` `text` (plain);
+  `spawner_minecart`, `giant`, `mannequin`, `marker`, `interaction`.
+- level.dat Player `respawn.dimension` is now written as the respawn point's dimension
+  (a respawn anchor's: `minecraft:the_nether`); older worlds read as the Overworld.
+- Generator kinds: "overworld7" (M29.8, new worlds: flowers, melons, cocoa, lily pads,
+  powder snow, deep-ocean magma with pending ticks for bubble columns, glow lichen, ore
+  veins with raw blocks, fossils); "nether4" (piglin brutes in bastions). overworld6 and
+  nether3 are frozen for their worlds.
