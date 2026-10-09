@@ -63,6 +63,7 @@ fine until a system works.
 ## Known deviations from vanilla
 | Deviation | Why | Remove by |
 |---|---|---|
+| Controllers (v1.5.4, user request, ADR 0010): Bedrock's default Xbox layout through GLFW's gamepad API (vanilla Java has none); screen-button roles, dead zone and look speed are our assumptions; no rumble, button prompts or remapping | ADR 0010 | — |
 | Hotbar Numbers (v1.5.3, user request, ADR 0009): each hotbar slot shows its key 1-9 (an option, on by default; vanilla has no labels - OFF is vanilla) | ADR 0009 | — |
 | Legacy "terrain" generator (M3 placeholder: 2D heightmap, no caves/ores/trees/biomes) is kept for worlds created with it | Saved worlds keep their generator | — (legacy worlds) |
 | Overworld generator: vanilla's pipeline with our own climate/spline/cave constants (vanilla's noise settings and biome tables are game data we don't read, ADR 0004), so a seed gives different terrain than vanilla; bedrock/deepslate gradients use our positional hash | ADR 0004 | — |

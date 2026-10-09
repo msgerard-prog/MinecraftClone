@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/Gamepad.h"
+
 struct GLFWwindow;
 
 namespace mc {
@@ -97,8 +99,15 @@ public:
     void setCursorCaptured(bool captured);
     bool cursorCaptured() const { return m_captured; }
     // Mouse movement (pixels) since the previous pollEvents; zero when not captured.
+    // (A controller's right stick is added here, v1.5.4.)
     double mouseDx() const { return m_mouseDx; }
     double mouseDy() const { return m_mouseDy; }
+    // (v1.5.4; ADR 0010) a connected controller (Bedrock's layout, core/Gamepad.h): its
+    // buttons arrive as the same presses and held keys as keyboard and mouse; the left
+    // stick's analog movement is read here (0 when none or inside the dead zone).
+    bool gamepadConnected() const { return m_pad.connected; }
+    float padForward() const { return m_padInput.moveForward; }
+    float padStrafe() const { return m_padInput.moveStrafe; }
 
     GLFWwindow* handle() const { return m_window; }
 
@@ -120,6 +129,13 @@ private:
     char m_text[64] = {};
     int m_textLength = 0;
     int m_presses[static_cast<int>(Press::Count)] = {};
+    void pollGamepad();
+    GamepadState m_pad;
+    GamepadInput m_padInput;
+    GamepadMapper m_padMapper;
+    double m_padTime = 0.0;
+    bool m_padShift = false;  // a quick-move click (Y) holds shift for its frame
+    bool m_padEnabled = true; // off for hidden windows: screenshot/test runs stay reproducible
 };
 
 // Seconds since GLFW init (monotonic).

@@ -109,6 +109,9 @@ mc::PlayerInput readInput(const mc::Window& window) {
     if (!window.cursorCaptured()) return in;
     in.forward = float(window.keyDown(mc::Key::W)) - float(window.keyDown(mc::Key::S));
     in.strafe = float(window.keyDown(mc::Key::D)) - float(window.keyDown(mc::Key::A));
+    // (v1.5.4) a controller's left stick, analog (Bedrock); keys win when both are used
+    if (in.forward == 0.0f) in.forward = window.padForward();
+    if (in.strafe == 0.0f) in.strafe = window.padStrafe();
     in.jump = window.keyDown(mc::Key::Space);
     in.sneak = window.keyDown(mc::Key::LeftShift);
     in.sprint = window.keyDown(mc::Key::LeftControl);

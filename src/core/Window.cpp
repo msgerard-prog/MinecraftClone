@@ -4,6 +4,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
+
 namespace mc {
 
 namespace {
@@ -123,6 +125,7 @@ bool Window::create(int width, int height, const char* title, bool visible, bool
 
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!m_window) return false;
+    m_padEnabled = visible; // (a controller lying on the desk must not steer hidden runs)
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, this);
     glfwSetScrollCallback(m_window, onScroll);
@@ -144,17 +147,69 @@ void Window::pollEvents() {
     m_scrollAccum = 0.0;
     m_mouseDx = 0.0;
     m_mouseDy = 0.0;
-    if (!m_captured) return;
-    double x = 0.0;
-    double y = 0.0;
-    glfwGetCursorPos(m_window, &x, &y);
-    if (!m_skipNextDelta) {
-        m_mouseDx = x - m_lastX;
-        m_mouseDy = y - m_lastY;
+    if (m_captured) {
+        double x = 0.0;
+        double y = 0.0;
+        glfwGetCursorPos(m_window, &x, &y);
+        if (!m_skipNextDelta) {
+            m_mouseDx = x - m_lastX;
+            m_mouseDy = y - m_lastY;
+        }
+        m_skipNextDelta = false;
+        m_lastX = x;
+        m_lastY = y;
     }
-    m_skipNextDelta = false;
-    m_lastX = x;
-    m_lastY = y;
+    pollGamepad();
+}
+
+// (v1.5.4) the first connected controller with a standard (Xbox-style) mapping, turned into
+// presses, held keys, look and cursor movement through GamepadMapper.
+void Window::pollGamepad() {
+    const double now = glfwGetTime();
+    const double dt = m_padTime > 0.0 ? std::min(now - m_padTime, 0.1) : 0.0;
+    m_padTime = now;
+    GamepadState pad;
+    for (int j = GLFW_JOYSTICK_1; j <= GLFW_JOYSTICK_LAST && m_padEnabled; ++j) {
+        GLFWgamepadstate s;
+        if (!glfwJoystickIsGamepad(j) || !glfwGetGamepadState(j, &s)) continue;
+        pad.connected = true;
+        for (int a = 0; a < GamepadState::AxisCount; ++a) pad.axes[size_t(a)] = s.axes[a];
+        for (int b = 0; b < GamepadState::ButtonCount; ++b) pad.buttons[size_t(b)] = s.buttons[b];
+        break;
+    }
+    if (pad.connected != m_pad.connected)
+        MC_LOG_INFO("Controller %s", pad.connected ? "connected (Bedrock layout)" : "disconnected");
+    m_pad = pad;
+    int fw = 0, fh = 0;
+    glfwGetFramebufferSize(m_window, &fw, &fh);
+    m_padInput = m_padMapper.update(pad, m_captured, dt, fh);
+    const GamepadInput& in = m_padInput;
+    auto count = [&](Press p, bool on) {
+        if (on) ++m_presses[static_cast<int>(p)];
+    };
+    count(Press::Jump, in.jump);
+    count(Press::Inventory, in.inventory || in.crafting); // (X: the inventory's crafting grid)
+    count(Press::Drop, in.drop);
+    count(Press::Chat, in.chat);
+    count(Press::Perspective, in.perspective);
+    count(Press::Escape, in.escape);
+    count(Press::LeftMouse, in.leftClick || in.quickMove);
+    count(Press::RightMouse, in.rightClick);
+    m_padShift = in.quickMove;
+    m_scrollDelta += double(in.scroll) + in.screenScroll;
+    if (m_captured) {
+        m_mouseDx += in.lookDx;
+        m_mouseDy += in.lookDy;
+    } else if (in.cursorDx != 0.0 || in.cursorDy != 0.0) {
+        double x = 0.0, y = 0.0;
+        glfwGetCursorPos(m_window, &x, &y);
+        int ww = 0, wh = 0;
+        glfwGetWindowSize(m_window, &ww, &wh);
+        const double toWindow = fw > 0 ? double(ww) / double(fw) : 1.0; // (framebuffer -> window units)
+        x = std::clamp(x + in.cursorDx * toWindow, 0.0, double(std::max(ww - 1, 0)));
+        y = std::clamp(y + in.cursorDy * toWindow, 0.0, double(std::max(wh - 1, 0)));
+        glfwSetCursorPos(m_window, x, y);
+    }
 }
 
 void Window::swapBuffers() { glfwSwapBuffers(m_window); }
@@ -166,15 +221,21 @@ void Window::framebufferSize(int& width, int& height) const {
 }
 
 bool Window::keyDown(Key key) const {
+    switch (key) { // (v1.5.4) a controller's held buttons count as these keys
+    case Key::Space: if (m_padInput.jumpHeld) return true; break;
+    case Key::LeftShift: if (m_padInput.sneakHeld || m_padShift) return true; break;
+    case Key::LeftControl: if (m_padInput.sprintHeld) return true; break;
+    default: break;
+    }
     return glfwGetKey(m_window, kGlfwKeys[static_cast<int>(key)]) == GLFW_PRESS;
 }
 
 bool Window::leftMousePressed() const {
-    return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    return m_padInput.attackHeld || glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 }
 
 bool Window::rightMousePressed() const {
-    return glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    return m_padInput.useHeld || glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 }
 
 void Window::setVsync(bool on) { glfwSwapInterval(on ? 1 : 0); }

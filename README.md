@@ -105,3 +105,10 @@ inside it with flint and steel (iron ingot + flint), then stand in the portal (4
 survival). Twelve end portal frames around a 3x3 hole, each given an eye of ender
 (creative inventory), open an end portal; the End's exit portal brings you back.
 `--dimension nether|end` starts a run there.
+
+
+**Xbox-style controller** (Bedrock Edition's layout; plug it in before or while playing):
+left stick move (click: sprint), right stick look (click: fly down), A jump, B sneak, X crafting,
+Y inventory, LB/RB hotbar, LT use/place, RT attack/break, D-pad up view (F5), down drop,
+right chat, Menu pause. In menus and inventories: left stick moves the cursor, A click, X
+right-click (half a stack / one item), Y quick-move, B back, right stick scrolls.
