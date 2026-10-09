@@ -140,6 +140,10 @@ def survival_icons():
     out["hud/heart/half.png"] = icon(HEART, red, lambda x, y: x <= 4 or HEART[y][x] == "#")
     grey = {"#": (24, 24, 24, 255), "r": (60, 60, 60, 255), "h": (60, 60, 60, 255)}
     out["hud/heart/container.png"] = icon(HEART, grey)
+    # (M29.2a) Absorption's golden hearts (vanilla's sprite names)
+    gold = {"#": (40, 26, 4, 255), "r": (232, 178, 24, 255), "h": (255, 240, 150, 255)}
+    out["hud/heart/absorbing_full.png"] = icon(HEART, gold)
+    out["hud/heart/absorbing_half.png"] = icon(HEART, gold, lambda x, y: x <= 4 or HEART[y][x] == "#")
     meat = {"#": (40, 20, 8, 255), "m": (176, 96, 44, 255), "l": (230, 150, 90, 255), "b": (236, 228, 210, 255)}
     out["hud/food_full.png"] = icon(DRUMSTICK, meat)
     out["hud/food_half.png"] = icon(DRUMSTICK, meat, lambda x, y: x >= 4 or DRUMSTICK[y][x] == "#")

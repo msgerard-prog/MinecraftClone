@@ -39,6 +39,18 @@ enum class Effect : uint8_t {
     Darkness,            // (M27.3: shriekers, wardens) the world pulses dark around you
     Glowing,             // (M28.4b: spectral arrows) outlined through walls (ours: no outline yet)
     TrialOmen,           // (M28.4d) Bad Omen turned near a trial spawner: nearby trials are ominous
+    // M29.2a (wiki pages of each)
+    Nausea,       // the view wobbles
+    Blindness,    // fog closes in to 5 blocks; no sprinting
+    HealthBoost,  // +4 max health a level
+    Absorption,   // 4 extra (golden) health a level, taken first
+    Saturation,   // food +1 and saturation +2 a tick a level
+    Luck,         // better fishing (and loot) by a level
+    Unluck,       // worse
+    WindCharged,  // bursts like a wind charge on death
+    Weaving,      // spreads cobwebs on death; walks through them
+    Oozing,       // two slimes on death
+    Infested,     // when hurt, 1 in 10: silverfish come out
     Count
 };
 struct EffectInfo {
@@ -92,6 +104,15 @@ enum class Potion : uint8_t {
     LongWeakness,
     SlowFalling,
     LongSlowFalling,
+    // M29.2a (wiki: Potion): Turtle Master gives two effects; Luck can't be brewed.
+    TurtleMaster,
+    LongTurtleMaster,
+    StrongTurtleMaster,
+    Luck,
+    WindCharging,
+    Weaving,
+    Oozing,
+    Infestation,
     Count
 };
 struct PotionInfo {
@@ -99,6 +120,8 @@ struct PotionInfo {
     Effect effect;        // None: no effect (water, awkward...)
     uint8_t amplifier;    // 0 = level I
     int duration;         // ticks (instant effects: 1)
+    Effect effect2 = Effect::None; // (M29.2a) a second effect (Turtle Master's Resistance)
+    uint8_t amplifier2 = 0;
 };
 const PotionInfo& potionInfo(Potion p);
 std::optional<Potion> findPotion(std::string_view id); // with or without "minecraft:"

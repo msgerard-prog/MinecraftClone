@@ -359,6 +359,8 @@ bool BlockInteraction::tickDrinking(Inventory& inventory, Vitals& vitals, bool u
                 world::potionInfo(static_cast<world::Potion>(heldStack.potion));
             if (p.effect != world::Effect::None)
                 vitals.addEffect(p.effect, p.amplifier, p.duration);
+            if (p.effect2 != world::Effect::None) // (M29.2a: Turtle Master's Resistance)
+                vitals.addEffect(p.effect2, p.amplifier2, p.duration);
             if (survival) inventory.setSlot(inventory.selected(), {bottle, 1});
         }
     }
@@ -394,11 +396,20 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
         if (++m_eatTicks >= (held.id == "minecraft:dried_kelp" ? kEatTicks / 2 : kEatTicks)) {
             vitals.eat(held.food, held.saturation);
             m_ate = true;
-            if (held.id ==
-                "minecraft:golden_apple") // (wiki: Regeneration II for 5 s; no Absorption yet)
+            if (held.id == "minecraft:golden_apple") { // (wiki: Regeneration II 5 s, Absorption I 2 min)
                 vitals.addEffect(world::Effect::Regeneration, 1, 100);
+                vitals.addEffect(world::Effect::Absorption, 0, 2400);
+            }
+            if (held.id == "minecraft:enchanted_golden_apple") { // (M29.2a; wiki: Regeneration II 20 s,
+                // Absorption IV 2 min, Resistance and Fire Resistance 5 min)
+                vitals.addEffect(world::Effect::Regeneration, 1, 400);
+                vitals.addEffect(world::Effect::Absorption, 3, 2400);
+                vitals.addEffect(world::Effect::Resistance, 0, 6000);
+                vitals.addEffect(world::Effect::FireResistance, 0, 6000);
+            }
             if (held.id ==
-                "minecraft:pufferfish") { // (wiki: Hunger III 15 s, Poison II 60 s; no Nausea yet)
+                "minecraft:pufferfish") { // (wiki: Hunger III 15 s, Poison II 60 s, Nausea I 15 s)
+                vitals.addEffect(world::Effect::Nausea, 0, 300);
                 vitals.addEffect(world::Effect::Hunger, 2, 300);
                 vitals.addEffect(world::Effect::Poison, 1, 1200);
             }

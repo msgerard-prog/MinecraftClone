@@ -22,19 +22,33 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
                    kIconGrassTint);
 }
 
-void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air, int armor) {
+void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air, int armor,
+                float maxHealth, float absorption) {
     using gfx::HudIcon;
-    auto icon = [&](HudIcon i, float x, float y) {
-        batch.sprite(gfx::GuiTexture::Icons, x, y, 9, 9, static_cast<float>(int(i) * 9), 0, 9, 9);
+    auto icon = [&](HudIcon i, float x, float y, uint32_t c = gfx::rgba(255, 255, 255)) {
+        batch.sprite(gfx::GuiTexture::Icons, x, y, 9, 9, static_cast<float>(int(i) * 9), 0, 9, 9, c);
     };
     const float y = static_cast<float>(guiHeight - 39);
     const int hp = static_cast<int>(std::ceil(health));
-    for (int i = 0; i < 10; ++i) {
-        const float x = static_cast<float>(guiWidth / 2 - 91 + i * 8);
-        icon(HudIcon::HeartContainer, x, y);
-        if (hp >= 2 * i + 2) icon(HudIcon::HeartFull, x, y);
-        else if (hp == 2 * i + 1) icon(HudIcon::HeartHalf, x, y);
+    const int containers = std::max(10, int(std::ceil(maxHealth / 2.0f)));
+    const int golden = int(std::ceil(absorption));
+    const int slots = containers + (golden + 1) / 2;
+    const int rows = (slots + 9) / 10;
+    const float rowStep = std::max(3.0f, 10.0f - float(rows - 2)); // (vanilla packs rows closer as they grow)
+    for (int i = 0; i < slots; ++i) {
+        const float x = static_cast<float>(guiWidth / 2 - 91 + (i % 10) * 8);
+        const float hy = y - float(i / 10) * rowStep;
+        icon(HudIcon::HeartContainer, x, hy);
+        if (i < containers) {
+            if (hp >= 2 * i + 2) icon(HudIcon::HeartFull, x, hy);
+            else if (hp == 2 * i + 1) icon(HudIcon::HeartHalf, x, hy);
+        } else { // absorption: golden
+            const int g = 2 * (i - containers);
+            if (golden >= g + 2) icon(HudIcon::HeartGoldFull, x, hy);
+            else if (golden == g + 1) icon(HudIcon::HeartGoldHalf, x, hy);
+        }
     }
+    const float lift = float(rows - 1) * rowStep; // (the armor bar sits above every heart row)
     for (int i = 0; i < 10; ++i) {
         const float x = static_cast<float>(guiWidth / 2 + 91 - 9 - i * 8);
         icon(HudIcon::FoodEmpty, x, y);
@@ -45,7 +59,7 @@ void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int 
         for (int i = 0; i < 10; ++i) {
             const float x = static_cast<float>(guiWidth / 2 - 91 + i * 8);
             icon(armor >= 2 * i + 2 ? HudIcon::ArmorFull : armor == 2 * i + 1 ? HudIcon::ArmorHalf : HudIcon::ArmorEmpty,
-                 x, y - 10.0f);
+                 x, y - 10.0f - lift);
         }
     }
     if (air < 300) { // vanilla: full bubbles, then one bursting as it runs out

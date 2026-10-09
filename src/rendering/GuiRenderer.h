@@ -28,7 +28,8 @@ public:
     static constexpr const char* kHudIconPaths[] = {
         "hud/heart/full.png", "hud/heart/half.png", "hud/heart/container.png",
         "hud/food_full.png",  "hud/food_half.png",  "hud/food_empty.png", "hud/air.png", "hud/air_bursting.png",
-        "hud/armor_full.png", "hud/armor_half.png", "hud/armor_empty.png"};
+        "hud/armor_full.png", "hud/armor_half.png", "hud/armor_empty.png",
+        "hud/heart/absorbing_full.png", "hud/heart/absorbing_half.png"}; // (M29.2a)
     // Vanilla "auto" GUI scale: the largest whole scale that keeps 320x240 GUI pixels.
     static int guiScale(int width, int height);
     // The GUI Scale option (M22.5): 0 = auto, else that scale when it fits.

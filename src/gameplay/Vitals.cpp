@@ -44,12 +44,14 @@ void Vitals::addEffect(world::Effect type, int amplifier, int duration, double s
     if (world::effectInfo(type).instant) {
         const float k = static_cast<float>(scale);
         if (type == Effect::InstantHealth)
-            m_health = std::min(kMaxHealth, m_health + float(4 << amplifier) * k);
+            m_health = std::min(maxHealth(), m_health + float(4 << amplifier) * k);
         else if (!dead())
             m_health = std::max(
                 0.0f, m_health - protectionReduced(float(6 << amplifier) * k, Hit::Generic, false));
         return;
     }
+    // (M29.2a; wiki: Absorption) 4 golden health a level, refilled when it is given again.
+    if (type == Effect::Absorption) m_absorption = std::max(m_absorption, 4.0f * float(amplifier + 1));
     ActiveEffect* free = nullptr;
     for (ActiveEffect& e : m_effects) {
         if (e.type == type && e.duration > 0) {
@@ -69,8 +71,8 @@ void Vitals::tickEffects() {
         if (!dead()) {
             if (e.type == Effect::Regeneration) {
                 const int every = std::max(1, 50 >> e.amplifier);
-                if (e.duration % every == 0 && m_health < kMaxHealth)
-                    m_health = std::min(kMaxHealth, m_health + 1.0f);
+                if (e.duration % every == 0 && m_health < maxHealth())
+                    m_health = std::min(maxHealth(), m_health + 1.0f);
             } else if (e.type == Effect::Poison) {
                 const int every = std::max(1, 25 >> e.amplifier);
                 if (e.duration % every == 0 && m_health > 1.0f) m_health -= 1.0f; // (never kills)
@@ -82,10 +84,17 @@ void Vitals::tickEffects() {
             } else if (e.type ==
                        Effect::Hunger) { // (wiki: Hunger - 0.005 exhaustion a tick per level)
                 exhaust(0.005f * float(e.amplifier + 1));
+            } else if (e.type == Effect::Saturation) { // (M29.2a; wiki: food +1, saturation +2 a level a tick)
+                m_food = std::min(kMaxFood, m_food + e.amplifier + 1);
+                m_saturation = std::min(float(m_food), m_saturation + 2.0f * float(e.amplifier + 1));
             }
         }
-        if (--e.duration <= 0) e = {};
+        if (--e.duration <= 0) {
+            if (e.type == Effect::Absorption) m_absorption = 0.0f; // (its hearts go with it)
+            e = {};
+        }
     }
+    m_health = std::min(m_health, maxHealth()); // (Health Boost ending takes its hearts)
 }
 
 float Vitals::tickFire(bool inWater) {
@@ -108,6 +117,7 @@ float Vitals::tickFire(bool inWater) {
 
 void Vitals::reset(bool keepExperience) {
     m_effects = {};      // (death clears effects)
+    m_absorption = 0.0f;
     m_timeSinceRest = 0; // (and the time awake: phantoms - M26.4a)
     m_health = kMaxHealth;
     m_food = kMaxFood;
@@ -128,7 +138,7 @@ void Vitals::reset(bool keepExperience) {
 }
 
 void Vitals::setState(float health, int food, float saturation, float exhaustion) {
-    m_health = std::clamp(health, 0.0f, kMaxHealth);
+    m_health = std::clamp(health, 0.0f, maxHealth());
     m_food = std::clamp(food, 0, kMaxFood);
     m_saturation = std::clamp(saturation, 0.0f, float(m_food));
     m_exhaustion = std::clamp(exhaustion, 0.0f, 40.0f);
@@ -141,8 +151,13 @@ bool Vitals::damage(float amount, bool exhausts) {
         amount *= std::max(0.0f, 1.0f - 0.2f * float(res));
         if (amount <= 0.0f) return false;
     }
-    m_health = std::max(0.0f, m_health - amount);
+    // Absorption's golden health goes first (M29.2a; wiki: Absorption).
+    const float absorbed = std::min(m_absorption, amount);
+    m_absorption -= absorbed;
+    m_health = std::max(0.0f, m_health - (amount - absorbed));
     m_damageTaken += amount;
+    // (M29.2a; wiki: Infested) a hit lets silverfish out 1 time in 10: main rolls them.
+    if (effectLevel(world::Effect::Infested) > 0) ++m_infestedHits;
     m_invulnerable = 10;
     if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;
@@ -274,8 +289,8 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     // point every half second, saturation a point a second (with natural regeneration on).
     if (m_difficulty == 0 && m_naturalRegen && !dead()) {
         ++m_peacefulTicks;
-        if (m_peacefulTicks % 20 == 0 && m_health < kMaxHealth)
-            m_health = std::min(kMaxHealth, m_health + 1.0f);
+        if (m_peacefulTicks % 20 == 0 && m_health < maxHealth())
+            m_health = std::min(maxHealth(), m_health + 1.0f);
         if (m_peacefulTicks % 20 == 0 && m_saturation < float(kMaxFood))
             m_saturation = std::min(float(m_food), m_saturation + 1.0f);
         if (m_peacefulTicks % 10 == 0 && m_food < kMaxFood) ++m_food;
@@ -285,16 +300,16 @@ float Vitals::tick(double feetY, bool onGround, bool inWater, bool flying) {
     if (dead()) return hurt;
     if (!m_naturalRegen && m_food > 0) { // (M28.1: game rule - no healing from food)
         m_foodTimer = 0;
-    } else if (m_food >= kMaxFood && m_saturation > 0.0f && m_health < kMaxHealth) {
+    } else if (m_food >= kMaxFood && m_saturation > 0.0f && m_health < maxHealth()) {
         if (++m_foodTimer >= 10) { // fast: saturation-fuelled, every half second
             const float heal = std::min(m_saturation, 6.0f) / 6.0f;
-            m_health = std::min(kMaxHealth, m_health + heal);
+            m_health = std::min(maxHealth(), m_health + heal);
             exhaust(heal * 6.0f);
             m_foodTimer = 0;
         }
-    } else if (m_food >= 18 && m_health < kMaxHealth) {
+    } else if (m_food >= 18 && m_health < maxHealth()) {
         if (++m_foodTimer >= 80) {
-            m_health = std::min(kMaxHealth, m_health + 1.0f);
+            m_health = std::min(maxHealth(), m_health + 1.0f);
             exhaust(6.0f);
             m_foodTimer = 0;
         }

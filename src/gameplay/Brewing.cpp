@@ -38,6 +38,14 @@ constexpr Step kSteps[] = {
     {"pufferfish", P::Awkward, P::WaterBreathing}, // (M25 review: pufferfish now exist)
     {"pufferfish", P::Water, P::Mundane},
     {"phantom_membrane", P::Awkward, P::SlowFalling}, // (M26.4a)
+    // (M29.2a; wiki: Brewing) a turtle shell, a breeze rod, cobweb, a slime block, stone.
+    {"turtle_helmet", P::Awkward, P::TurtleMaster},
+    {"breeze_rod", P::Awkward, P::WindCharging},
+    {"cobweb", P::Awkward, P::Weaving},
+    {"slime_block", P::Awkward, P::Oozing},
+    {"stone", P::Awkward, P::Infestation},
+    {"redstone", P::TurtleMaster, P::LongTurtleMaster},
+    {"glowstone_dust", P::TurtleMaster, P::StrongTurtleMaster},
     // Corruption.
     {"fermented_spider_eye", P::Swiftness, P::Slowness},
     {"fermented_spider_eye", P::LongSwiftness, P::LongSlowness},

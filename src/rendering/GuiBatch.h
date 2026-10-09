@@ -25,6 +25,8 @@ enum class HudIcon : int {
     ArmorFull,
     ArmorHalf,
     ArmorEmpty,
+    HeartGoldFull, // (M29.2a: Absorption)
+    HeartGoldHalf,
     Count
 };
 

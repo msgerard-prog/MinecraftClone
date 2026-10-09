@@ -20,6 +20,11 @@ public:
     static constexpr int kMaxFood = 20;
 
     float health() const { return m_health; }
+    // (M29.2a) Health Boost: +4 a level; Absorption's golden health (taken first by damage).
+    float maxHealth() const { return kMaxHealth + 4.0f * float(effectLevel(world::Effect::HealthBoost)); }
+    float absorption() const { return m_absorption; }
+    void setAbsorption(float a) { m_absorption = std::max(0.0f, a); } // (loading: AbsorptionAmount)
+    int takeInfestedHits() { return std::exchange(m_infestedHits, 0); }
     // The fall damage factor of the block being landed on (hay bale 0.2), set each tick.
     void setLandingFactor(float f) { m_landingFactor = f; }
     // Difficulty (M28.1b; wiki: Difficulty): 0 peaceful, 1 easy, 2 normal, 3 hard. Hits
@@ -95,7 +100,7 @@ public:
                                              // (keep_inventory: the levels stay)
     void kill() { m_health = 0.0f; }         // /kill (ignores invulnerability)
     void setHealth(float h) {
-        m_health = h < 0.0f ? 0.0f : h > kMaxHealth ? kMaxHealth : h;
+        m_health = h < 0.0f ? 0.0f : h > maxHealth() ? maxHealth() : h;
     } // (totems, M24.5)
     // Forget the fall in progress (teleports, game-mode changes, respawn): the next
     // tick measures from where the player is now.
@@ -228,6 +233,8 @@ private:
     int m_peacefulTicks = 0;
     int m_wardenLevel = 0, m_wardenTicks = 0, m_wardenCooldown = 0; // (M27.3)
     float m_health = kMaxHealth;
+    float m_absorption = 0.0f; // (M29.2a)
+    int m_infestedHits = 0;
     int m_food = kMaxFood;
     float m_saturation = 5.0f;
     float m_exhaustion = 0.0f;

@@ -107,6 +107,8 @@ public:
     void setNightVision(bool on) { m_nightVision = on; }
     // Darkness (M27.3; wiki: Darkness): 0..1, the fog closes in and the sky light dims.
     void setDarkness(float amount) { m_darkness = amount; }
+    // (M29.2a; wiki: Blindness) 0..1: the fog closes to 5 blocks, the sky goes black.
+    void setBlindness(float amount) { m_blindness = amount; }
     // A lightning flash (vanilla skyFlashTime): full daylight for this frame.
     void setSkyFlash() { m_skyDarken = 0.0f; }
     // Sky, fog and light differ per dimension (wiki: Dimension type, Fog).
@@ -197,6 +199,7 @@ private:
     glm::vec3 m_waterFog{0.0f};
     bool m_nightVision = false;
     float m_darkness = 0.0f;
+    float m_blindness = 0.0f; // (M29.2a)
 };
 
 } // namespace mc::gfx

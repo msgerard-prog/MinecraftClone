@@ -36,6 +36,17 @@ constexpr EffectInfo kEffects[] = {
     {"minecraft:darkness", false, 0x292721},                // (M27.3)
     {"minecraft:glowing", false, 0x94A061},                 // (M28.4b)
     {"minecraft:trial_omen", false, 0x16A6A6},              // (M28.4d)
+    {"minecraft:nausea", false, 0x551D4A},                  // (M29.2a)
+    {"minecraft:blindness", false, 0x1F1F23},
+    {"minecraft:health_boost", false, 0xF87D23},
+    {"minecraft:absorption", false, 0x2552A5},
+    {"minecraft:saturation", false, 0xF82423},
+    {"minecraft:luck", false, 0x59C106},
+    {"minecraft:unluck", false, 0xC0A44D},
+    {"minecraft:wind_charged", false, 0xBDC9FF},
+    {"minecraft:weaving", false, 0x78695A},
+    {"minecraft:oozing", false, 0x99FFA3},
+    {"minecraft:infested", false, 0x8C9B8C},
 };
 static_assert(std::size(kEffects) == size_t(Effect::Count));
 
@@ -81,6 +92,16 @@ constexpr PotionInfo kPotions[] = {
     {"long_weakness", E::Weakness, 0, 4800},
     {"slow_falling", E::SlowFalling, 0, 1800},
     {"long_slow_falling", E::SlowFalling, 0, 4800},
+    // (M29.2a; wiki: Potion) Turtle Master: Slowness IV + Resistance III 20 s (long 40 s;
+    // strong: Slowness VI + Resistance IV 20 s); Luck 5 min; the 1.21 ones 3 min.
+    {"turtle_master", E::Slowness, 3, 400, E::Resistance, 2},
+    {"long_turtle_master", E::Slowness, 3, 800, E::Resistance, 2},
+    {"strong_turtle_master", E::Slowness, 5, 400, E::Resistance, 3},
+    {"luck", E::Luck, 0, 6000},
+    {"wind_charged", E::WindCharged, 0, 3600},
+    {"weaving", E::Weaving, 0, 3600},
+    {"oozing", E::Oozing, 0, 3600},
+    {"infested", E::Infested, 0, 3600},
 };
 static_assert(std::size(kPotions) == size_t(Potion::Count));
 

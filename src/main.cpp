@@ -534,6 +534,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         for (const auto& e : level->effects) // (kinds we don't have are dropped)
             if (const auto kind = mc::world::findEffect(e.id))
                 vitals.addEffect(*kind, e.amplifier, e.duration);
+        vitals.setHealth(level->health);         // (again: Health Boost may allow more - M29.2a)
+        vitals.setAbsorption(level->absorption); // (after the effects, which refill it)
     }
     mc::DragonFight dragonFight;              // (M20.2; end2 worlds)
     mc::WanderingTraderSpawner traderSpawner; // (M24.4)
@@ -853,6 +855,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         l.difficulty = difficulty;
         l.gameMode = gameMode;
         l.health = vitals.health();
+        l.absorption = vitals.absorption();
         l.food = vitals.food();
         l.saturation = vitals.saturation();
         l.exhaustion = vitals.exhaustion();
@@ -1849,7 +1852,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.setTimeSinceRest(0); // (M26.4a: rested - no phantoms)
                 }
             }
-            input.canSprint = !survival || vitals.canSprint(); // hunger ends a sprint too
+            input.canSprint = (!survival || vitals.canSprint()) && // hunger ends a sprint too
+                              vitals.effectLevel(mc::world::Effect::Blindness) == 0; // (and Blindness - M29.2a)
+            // (M29.2a; wiki: Infested) each hit 1 in 10: 1-2 silverfish come out of the player.
+            for (int hits = vitals.takeInfestedHits(); hits > 0; --hits)
+                if (gameRng.nextInt(10) == 0)
+                    for (int k = 0, n = 1 + int(gameRng.nextInt(2)); k < n; ++k)
+                        mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::Silverfish, player.position(), gameRng));
             const glm::dvec3 before = player.position();
             const bool wasOnGround = player.onGround();
             {
@@ -1906,9 +1915,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const mc::world::BlockStateId bs = world.getBlock(
                         {int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
                     if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::Cobweb) {
-                        // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall
+                        // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall;
+                        // (M29.2a) Weaving halves the slowdown.
                         const glm::dvec3 v = player.velocity();
-                        player.setVelocity({v.x * 0.25, v.y * 0.05, v.z * 0.25});
+                        const double k = vitals.effectLevel(mc::world::Effect::Weaving) > 0 ? 0.5 : 0.25;
+                        player.setVelocity({v.x * k, v.y * 0.05, v.z * k});
                         vitals.resetFall();
                         break;
                     }
@@ -2143,7 +2154,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             // A totem of undying in either hand saves the player once (wiki: Totem of
             // Undying): 1 health, effects cleared, Regeneration II 45 s, Fire Resistance
-            // 40 s (Absorption: not in the game yet).
+            // 40 s, Absorption II 5 s.
             if (!dead && vitals.dead()) {
                 static const mc::world::ItemId totem =
                     *mc::world::itemRegistry().find("totem_of_undying");
@@ -2157,12 +2168,36 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.clearEffects();
                     vitals.addEffect(mc::world::Effect::Regeneration, 1, 900);
                     vitals.addEffect(mc::world::Effect::FireResistance, 0, 800);
+                    vitals.addEffect(mc::world::Effect::Absorption, 1, 100);
                     const glm::dvec3 f = player.position();
                     world.levelEvent(mc::world::LevelEvent::Type::Crit, f.x, f.y + 1.0, f.z);
                 }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
                 stats.add(mc::world::Stat::Deaths);
+                // The 1.21 potions' effects on death (M29.2a; wiki: Wind Charged - a wind
+                // burst; Weaving - 2-3 cobwebs about; Oozing - two medium slimes).
+                if (vitals.effectLevel(mc::world::Effect::WindCharged) > 0)
+                    projectiles.shoot(mc::ProjectileKind::WindCharge, feet + glm::dvec3(0, 0.5, 0),
+                                      glm::dvec3(0, -1, 0), 0.5, 0.0, false, false, gameRng);
+                if (vitals.effectLevel(mc::world::Effect::Weaving) > 0)
+                    for (int k = 0, placed = 0; k < 12 && placed < 3; ++k) {
+                        const mc::world::BlockPos w{int(std::floor(feet.x)) + int(gameRng.nextInt(5)) - 2,
+                                                    int(std::floor(feet.y)) + int(gameRng.nextInt(2)),
+                                                    int(std::floor(feet.z)) + int(gameRng.nextInt(5)) - 2};
+                        if (world.getBlock(w) == 0) {
+                            world.updateBlock(w, mc::world::blockRegistry().defaultState(mc::world::blocks::Cobweb));
+                            frameEdits.push_back(w);
+                            ++placed;
+                        }
+                    }
+                if (vitals.effectLevel(mc::world::Effect::Oozing) > 0)
+                    for (int k = 0; k < 2; ++k) {
+                        mc::world::MobData slime = mc::Mobs::make(mc::world::MobType::Slime, feet, gameRng);
+                        slime.size = 2;
+                        slime.health = 4.0f;
+                        mc::Mobs::add(world, slime);
+                    }
                 lastDeath = {
                     {int(std::floor(feet.x)), int(std::floor(feet.y)), int(std::floor(feet.z))},
                     dimension};
@@ -2826,9 +2861,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             inventory.setSlot(inventory.selected(),
                                               mc::wearItem(rod, wear, gameRng));
                     } else {
-                        fishing.cast(
+                        fishing.cast( // (M29.2a: the Luck effect adds to Luck of the Sea, Unluck takes away)
                             eye, look, mc::world::enchantLevel(rod, mc::world::Enchantment::Lure),
-                            mc::world::enchantLevel(rod, mc::world::Enchantment::LuckOfTheSea),
+                            std::max(0, mc::world::enchantLevel(rod, mc::world::Enchantment::LuckOfTheSea) +
+                                            vitals.effectLevel(mc::world::Effect::Luck) -
+                                            vitals.effectLevel(mc::world::Effect::Unluck)),
                             gameRng);
                         playSound(mc::world::Sound::BowShoot, eye, 0.5f, 0.4f,
                                   true); // (the cast's whoosh)
@@ -4851,6 +4888,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         camera.yaw = player.yaw();
         audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
+        // Nausea (M29.2a; wiki: Nausea): the view sways and the field of view breathes
+        // (ours: a sway in place of vanilla's warping screen).
+        if (const int nauseaTicks = vitals.effectTicks(mc::world::Effect::Nausea); nauseaTicks > 0) {
+            const float k = std::min(1.0f, float(nauseaTicks) / 40.0f);
+            const double t = double(gameTime) + clock.alpha;
+            camera.yaw += float(std::sin(t * 0.11) * 4.0 * k);
+            camera.pitch += float(std::sin(t * 0.17) * 3.0 * k);
+            camera.fovDegrees += float(std::sin(t * 0.13) * 9.0 * k);
+        }
+        { // Blindness (M29.2a): eased in and out over its last second
+            const int blindTicks = vitals.effectTicks(mc::world::Effect::Blindness);
+            renderer.setBlindness(blindTicks > 0 ? std::min(1.0f, float(blindTicks) / 20.0f) : 0.0f);
+        }
         if (dimension == Dimension::Nether) { // fog of the Nether biome at the camera, eased in
             const mc::world::BlockPos cam{int(std::floor(camera.position.x)),
                                           int(std::floor(camera.position.y)),
@@ -5463,7 +5513,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
-                                   inventory.armorPoints());
+                                   inventory.armorPoints(), vitals.maxHealth(), vitals.absorption());
             const mc::world::MobData* steed =
                 ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
             if (steed && steed->saddled &&

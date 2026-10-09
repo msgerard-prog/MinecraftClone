@@ -156,6 +156,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     player.put("abilities", std::move(abilities));
     player.put("playerGameType", int32_t{gameMode});
     player.put("Health", health);
+    player.put("AbsorptionAmount", absorption);
     player.put("foodLevel", int32_t{food});
     player.put("foodSaturationLevel", saturation);
     player.put("foodExhaustionLevel", exhaustion);
@@ -464,6 +465,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
         l.gameMode = int(std::clamp<int64_t>(p->integer("playerGameType").value_or(data->integer("GameType").value_or(1)), 0, 3));
         l.survival = l.gameMode == 0 || l.gameMode == 2;
         if (auto h = p->real("Health")) l.health = static_cast<float>(*h);
+        if (auto a = p->real("AbsorptionAmount")) l.absorption = static_cast<float>(*a);
         l.food = static_cast<int>(p->integer("foodLevel").value_or(20));
         if (auto v = p->real("foodSaturationLevel")) l.saturation = static_cast<float>(*v);
         if (auto v = p->real("foodExhaustionLevel")) l.exhaustion = static_cast<float>(*v);

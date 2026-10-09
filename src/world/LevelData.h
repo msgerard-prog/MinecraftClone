@@ -57,6 +57,7 @@ struct LevelData {
     bool flying = false;
     bool survival = false; // GameType / playerGameType 0 (survival) or 1 (creative)
     float health = 20.0f;
+    float absorption = 0.0f; // (M29.2a) AbsorptionAmount
     int food = 20;
     float saturation = 5.0f, exhaustion = 0.0f;
     int foodTimer = 0; // regeneration / starvation clock (foodTickTimer)

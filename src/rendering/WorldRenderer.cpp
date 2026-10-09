@@ -392,10 +392,11 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
     // Under water the water's fog takes over, dimmed at night with the sky light.
     if (m_underwater) m_fogColor = m_waterFog * (1.0f - m_skyDarken / 15.0f);
     if (m_darkness > 0.0f) m_fogColor *= 1.0f - m_darkness; // (M27.3: Darkness)
+    if (m_blindness > 0.0f) m_fogColor *= 1.0f - m_blindness; // (M29.2a: Blindness)
     glClearColor(m_fogColor.r, m_fogColor.g, m_fogColor.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     const float aspect = float(framebufferWidth) / float(framebufferHeight);
-    if (!m_underwater) {
+    if (!m_underwater && m_blindness < 0.5f) { // (blind: no sky at all)
         if (m_dimension == world::Dimension::Overworld)
             m_sky.drawGradient(camera, aspect, m_skyColor, m_fogColor, m_sunrise, m_sunSide);
         else if (m_dimension == world::Dimension::End)
@@ -415,9 +416,13 @@ void WorldRenderer::drawFrame(const Camera& camera, int framebufferWidth, int fr
         fog.start = glm::mix(fog.start, 2.0f, m_darkness);
         fog.end = glm::mix(fog.end, 15.0f, m_darkness);
     }
+    if (m_blindness > 0.0f) { // (wiki: Blindness - fog from 0 to 5 blocks)
+        fog.start = glm::mix(fog.start, 0.0f, m_blindness);
+        fog.end = glm::mix(fog.end, 5.0f, m_blindness);
+    }
     glUniform2f(4, fog.start, fog.end);
     glUniform3fv(5, 1, glm::value_ptr(m_fogColor));
-    glUniform1f(7, std::max(m_skyDarken, 15.0f * m_darkness));
+    glUniform1f(7, std::max(m_skyDarken, 15.0f * std::max(m_darkness, m_blindness)));
     // Dimension light: the Nether's ambient light lifts darkness (0.1); the End's
     // lightmap is forced bright (wiki: Dimension type › ambient_light; Light).
     glUniform1f(8, m_nightVision ? 1.0f : world::dimensionInfo(m_dimension).ambientLight);

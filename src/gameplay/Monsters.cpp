@@ -204,6 +204,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             break;
         }
         if (m.attackCooldown > 0) break;
+        // (M29.2a; wiki: Illusioner) now and then it blinds its target for 20 s.
+        if (m.type == MobType::Illusioner && ctx.rng.nextInt(200) == 0 && ctx.survival)
+            ctx.vitals.addEffect(Effect::Blindness, 0, 400);
         if (++m.shootTicks >= 20) {
             m.shootTicks = 0;
             m.attackCooldown = m.type == MobType::Bogged ? 50 : m.type == MobType::Parched ? 70 : 40;

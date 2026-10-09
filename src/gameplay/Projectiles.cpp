@@ -384,6 +384,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                       instant ? std::max(0, int(info.amplifier) - 1)
                                               : info.amplifier,
                                       instant ? 1 : std::max(1, info.duration / 4));
+                    if (info.effect2 != Effect::None) // (M29.2a: Turtle Master)
+                        vitals->addEffect(info.effect2, info.amplifier2, std::max(1, info.duration / 4));
                     c.radius -= 0.5f; // (each use takes some of it - wiki: 0.5 radius and 5 s)
                     c.ticks -= 100;
                 }
@@ -624,6 +626,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         if (effectInfo(info.effect).instant ||
                             duration > 20) // (1 s or less: dropped)
                             vitals->addEffect(info.effect, info.amplifier, duration, sp);
+                        if (info.effect2 != Effect::None && duration > 20) // (M29.2a)
+                            vitals->addEffect(info.effect2, info.amplifier2, duration, sp);
                     }
                 }
                 // Weakness on zombie villagers (M24.3: the first half of curing them).
@@ -858,6 +862,10 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                                       effectInfo(info.effect).instant
                                                           ? 1
                                                           : std::max(1, info.duration / 8));
+                            if (p.potion && potionInfo(static_cast<Potion>(p.potion)).effect2 != Effect::None) {
+                                const PotionInfo& info2 = potionInfo(static_cast<Potion>(p.potion));
+                                vitals->addEffect(info2.effect2, info2.amplifier2, std::max(1, info2.duration / 8));
+                            }
                             if (p.spectral) vitals->addEffect(Effect::Glowing, 0, 200);
                             if (p.hitEffect.effect != Effect::None)
                                 vitals->addEffect(p.hitEffect.effect, 0, p.hitEffect.ticks);
