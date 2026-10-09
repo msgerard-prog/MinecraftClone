@@ -9,10 +9,21 @@ a ring-buffer work queue, cheap guards (path search cap, drops re-saved only whe
 Bench: steady CPU p99 ~0.24 ms, streaming ~1.1 ms, GPU 0.16 ms. M30 done (v1.1.0).
 
 ## Next
-M30 and M31 are done (user, 2026-10-09: "Do option 1 then 2"). What comes next is the
-user's call: more polish from docs/game-design.md, the remaining deferred performance items
-below (none is near the CPU p99 > 4 ms / GPU > 8 ms trigger), the in-game checks under
-Waiting on the user, or 26.x content.
+User (2026-10-09): "Improve play to get us close to vanilla as possible ... Then do the 26.x
+additions." M32 (play parity, by how much each changes play), then M33 (26.x content).
+M32 - Play parity:
+1. M32.1 - Natural spawning: vanilla's spawn cycle (per chunk, mob categories with caps
+   scaled by loaded chunks, packs, each mob's light/biome/block rules, despawn rules).
+2. M32.2 - Monsters: skeleton strafing and backing off, baby zombies and reinforcements,
+   zombie door breaking on Hard, spider jockeys, endermen teleporting from rain/sun/damage,
+   regional difficulty (armor, weapons, enchantments on spawn), mob item pickup.
+3. M32.3 - Damage rules: the stronger-hit-in-invulnerability rule, knockback resistance,
+   mob armor, the totem animation, saved projectiles, primed TNT and falling blocks.
+4. M32.4 - Inventory handling: drag-split, double-click collect, 1-9 swap, Ctrl+Q, F offhand
+   swap, vanilla shift-click order, offhand use.
+5. M32.5 - Villagers 2: gossip and reputation, gifts for heroes, level-up effects.
+6. M32.6 - Animals and the rest of the mob rows in docs/game-design.md that change play.
+M33 - The 26.x additions (from the wiki's version pages and data values).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
