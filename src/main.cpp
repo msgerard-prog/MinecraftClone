@@ -2340,7 +2340,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
                     // (M30.3; wiki: Suffocation) a head inside a block: 1 damage, paced by the hurt
                     // cooldown, ignoring armour.
-                    if (mc::headInWall(world, player.eyePosition(1.0), mc::Player::kWidth)) vitals.damage(1.0f, false);
+                    if (mc::headInWall(world, player.eyePosition(1.0), mc::Player::kWidth)) // (Protection helps: wiki)
+                        vitals.damage(vitals.protectionReduced(1.0f, mc::Vitals::Hit::Generic, false), false);
                     if (player.inLava()) {
                         vitals.attacked(
                             4.0f, nullptr,
@@ -4074,9 +4075,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const double reach = spearHeld  ? (survival ? mc::kSpearReach : 5.0)
                                      : survival ? 3.0
                                                 : 5.0; // wiki: entity interaction range
+                // (M30.2) how charged this attack is (Haste +10%, Mining Fatigue -10% a level);
+                // any swing at a mob or at nothing resets it. A spear's jab waits for a full
+                // charge (wiki: Spear - the click does nothing before).
+                const float charge = mc::attackCharge(
+                    attackTicker, mc::attackSpeedWith(mc::world::itemRegistry().item(inventory.selectedStack().item),
+                                                      vitals.effectLevel(mc::world::Effect::Haste),
+                                                      vitals.effectLevel(mc::world::Effect::MiningFatigue)));
+                const bool jabReady = !spearHeld || charge >= 1.0f;
                 // Lunge (wiki): not while riding, gliding, in water or below 7 hunger; 4
                 // exhaustion a level and 1 durability a use.
-                if (spearHeld && survival && ridingCart == 0 && !player.gliding() &&
+                if (jabReady && spearHeld && survival && ridingCart == 0 && !player.gliding() &&
                     !player.inWater() && vitals.food() >= 7)
                     if (const int lunge = mc::world::enchantLevel(inventory.selectedStack(),
                                                                   mc::world::Enchantment::Lunge);
@@ -4090,12 +4099,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         inventory.setSlot(inventory.selected(),
                                           mc::wearItem(inventory.selectedStack(), 1, gameRng));
                     }
-                // (M30.2) how charged this attack is; any swing at a mob or at nothing resets it.
-                const float charge = mc::attackCharge(
-                    attackTicker, mc::attackSpeed(mc::world::itemRegistry().item(inventory.selectedStack().item)));
                 const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
-                const bool atMob = mh && (!lastHit || mh->distance < lastHit->distance);
-                if (atMob || !lastHit) attackTicker = 0;
+                const bool atMob = jabReady && mh && (!lastHit || mh->distance < lastHit->distance);
+                if (jabReady && (atMob || !lastHit)) attackTicker = 0;
                 if (mh && atMob &&
                     !(spearHeld && survival &&
                       mh->distance < mc::kSpearMinReach)) { // (a spear can't jab that close)
@@ -4110,7 +4116,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A critical hit: falling, not on the ground, in water, flying, gliding,
                     // riding or slow falling - 150% of the base damage, before enchantments
                     // add theirs (wiki: Damage › Critical hit).
-                    const bool crit = charged && !player.onGround() && player.velocity().y < 0.0 &&
+                    // (M30 review; wiki: Critical hit) not climbing, blinded or levitating; spears never.
+                    const bool crit = charged && !spearHeld && !player.climbing() &&
+                                      vitals.effectLevel(mc::world::Effect::Blindness) == 0 &&
+                                      vitals.effectLevel(mc::world::Effect::Levitation) == 0 &&
+                                      !player.onGround() && player.velocity().y < 0.0 &&
                                       !player.inWater() && !player.flying() && !player.gliding() &&
                                       ridingCart == 0 && !player.sprinting() &&
                                       vitals.effectLevel(mc::world::Effect::SlowFalling) == 0;
@@ -4183,8 +4193,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A sweep (M29.2b; wiki: Sword › Sweep attack): a sword hit on the ground,
                     // not sprinting and not a critical, also hits the mobs within a block of the
                     // target for 1 (+ Sweeping Edge's L/(L+1) of the hit).
+                    // (M30 review; wiki: Sweep attack) only when hardly moving: this tick's
+                    // walk (x 0.6, vanilla walkDist) below the movement speed 0.1.
                     if (charged && held.tool == mc::world::ToolType::Sword && player.onGround() && !player.sprinting() &&
-                        !crit) {
+                        !crit && playerAnim.lastStep() * 0.6 < 0.1) {
                         const int se = mc::world::enchantLevel(stack, E::SweepingEdge);
                         const float sweep = 1.0f + dmg * float(se) / float(se + 1);
                         const mc::Aabb mb = mc::Mobs::box(m);
@@ -4197,7 +4209,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                         if (o.uuidHi != target && o.health > 0.0f && !mc::world::isHanging(o.type) &&
                                             o.type != mc::world::MobType::ArmorStand && o.type != mc::world::MobType::LeashKnot &&
                                             o.type != mc::world::MobType::Boat && o.type != mc::world::MobType::Minecart &&
-                                            !(mc::world::isPet(o.type) && o.tamed) && mc::Mobs::box(o).intersects(near))
+                                            !(mc::world::isPet(o.type) && o.tamed) && mc::Mobs::box(o).intersects(near) &&
+                                            glm::length(o.pos - player.position()) <= 3.0) // (within 3 of the player)
                                             mc::Mobs::attack(o, sweep, player.position());
                         world.levelEvent(mc::world::LevelEvent::Type::Crit, m.pos.x, m.pos.y + 1.0, m.pos.z);
                     }
@@ -4224,7 +4237,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (hit) {
                         // Knockback: farther per level - a charged hit while sprinting adds a level
                         // and ends the sprint (M30.2; wiki: Sprinting); Fire Aspect: alight 4 s per level.
-                        const bool sprintHit = charged && player.sprinting();
+                        const bool sprintHit = charged && player.sprinting() && !spearHeld;
                         if (sprintHit) {
                             player.stopSprinting();
                             const glm::dvec3 v = player.velocity();
@@ -5363,7 +5376,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (interaction.takeAte()) announce(adv.onEvent(mc::world::AdvEvent::Ate));
             for (const mc::world::ItemStack& p : droppedItems.pickedUp())
                 stats.addItem(mc::world::ItemStat::PickedUp, p.item, p.count);
-            if (const auto b = interaction.takeBroken()) stats.addMined(b);
+            if (const auto b = interaction.takeBroken()) {
+                stats.addMined(b);
+                attackTicker = 0; // (wiki: breaking a block resets the attack cooldown)
+            }
             if (const auto u = interaction.takeUsed()) {
                 stats.addItem(mc::world::ItemStat::Used, u);
                 // Planting (A Seedy Place / Planting the Past): a seed item placed its crop.
@@ -6275,7 +6291,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 mc::ui::drawAttackIndicator(
                     batch,
                     std::clamp((float(attackTicker) + float(clock.alpha) + 0.5f) *
-                                   mc::attackSpeed(mc::world::itemRegistry().item(inventory.selectedStack().item)) / 20.0f,
+                                   mc::attackSpeedWith(mc::world::itemRegistry().item(inventory.selectedStack().item),
+                                                       vitals.effectLevel(mc::world::Effect::Haste),
+                                                       vitals.effectLevel(mc::world::Effect::MiningFatigue)) /
+                                       20.0f,
                                0.0f, 1.0f),
                     guiW, guiH);
             if (survival)

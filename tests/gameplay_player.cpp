@@ -650,6 +650,16 @@ TEST_CASE("attack cooldown: speeds by item, the charge, and damage scaled by it 
     CHECK(speed("trident") == doctest::Approx(1.1f));
     CHECK(speed("mace") == doctest::Approx(0.6f));
     CHECK(speed("stick") == doctest::Approx(4.0f));
+    // Spears by tier (wiki: Spear) and Haste / Mining Fatigue at 10% a level.
+    CHECK(speed("wooden_spear") == doctest::Approx(1.54f));
+    CHECK(speed("stone_spear") == doctest::Approx(1.33f));
+    CHECK(speed("copper_spear") == doctest::Approx(1.18f));
+    CHECK(speed("iron_spear") == doctest::Approx(1.05f));
+    CHECK(speed("golden_spear") == doctest::Approx(1.05f));
+    CHECK(speed("diamond_spear") == doctest::Approx(0.95f));
+    CHECK(speed("netherite_spear") == doctest::Approx(0.87f));
+    CHECK(mc::attackSpeedWith(items.item(*items.find("diamond_sword")), 2, 0) == doctest::Approx(1.92f));
+    CHECK(mc::attackSpeedWith(items.item(*items.find("diamond_sword")), 0, 1) == doctest::Approx(1.44f));
     // A sword recharges in 12.5 ticks; a hand in 5.
     CHECK(mc::attackCharge(0, 1.6f) == doctest::Approx(0.04f));
     CHECK(mc::attackCharge(12, 1.6f) == doctest::Approx(1.0f));
@@ -674,7 +684,7 @@ TEST_CASE("attack indicator: a bar under the crosshair while recharging, nothing
 
 #include "gameplay/BlockCollision.h"
 
-TEST_CASE("M30.3: sprinting under water swims - lying flat, 0.6 high, at the wiki's 5.6 b/s - and surfacing ends it") {
+TEST_CASE("M30.3: sprinting under water swims - lying flat, 0.6 high, at the wiki's ~3.92 b/s - and surfacing ends it") {
     World w = floorWorld();
     const auto water = world::blockRegistry().defaultState(world::blocks::Water);
     for (int x = -8; x <= 8; ++x)
@@ -696,7 +706,7 @@ TEST_CASE("M30.3: sprinting under water swims - lying flat, 0.6 high, at the wik
     CHECK(p.swimming());
     CHECK(p.pose() == Player::Pose::Swimming);
     CHECK(p.box().max.y - p.box().min.y == doctest::Approx(0.6));
-    CHECK(speed * 20.0 == doctest::Approx(5.612).epsilon(0.05));
+    CHECK(speed * 20.0 == doctest::Approx(3.92).epsilon(0.05)); // (M30 review: 5.6 was the land sprint)
     // Letting go of forward ends the sprint and the swim.
     p.tick(w, {});
     p.tick(w, {});

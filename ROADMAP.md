@@ -52,6 +52,14 @@ revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
   piglins scan all dropped items for gold every tick (a gold-stack count, or every
   10 ticks); ghast fire relights 3x3 chunks per fire (the M15 block-light item);
   striders and blazes compute fluid contact twice a tick.
+- From the M30 perf review (bench: CPU p99 ~1.0 ms steady, ~1.5 ms streaming, GPU 0.16 ms -
+  no regression): item merging scans the whole pool per moving item (a per-tick cell hash
+  when drops pile up: ~3-5 ms at 2048 moving items); mob suffocation reads 4 cells a mob a
+  tick (look each cell up once, or check every few ticks); 8-direction paths and wide
+  footprints cost 2-8x per node (classify cells once per search, cap chase searches); a
+  chunk holding drops is re-saved on every autosave (mark it only when its drops changed).
+  Build note: the debug test PDB grows past MSVC's limit after many incremental links
+  (LNK1140) - delete `out/build/debug/**/*.pdb` when it happens.
 - From the M29 perf review (fixed in the review: Frost Walker relights, bubble columns
   generated in place, command chain loops, the jockey pass): lightning rods are found by
   scanning the sections of 17x17 chunks per strike (a per-chunk rod list, as vanilla's POI);

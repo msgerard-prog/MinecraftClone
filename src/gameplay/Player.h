@@ -36,9 +36,9 @@ public:
     static constexpr double kSneakEyeHeight = 1.27;
     // (M30.3; wiki: Player › Pose) swimming, crawling and gliding: 0.6 high, eyes at 0.4.
     static constexpr double kSwimHeight = 0.6, kSwimEyeHeight = 0.4;
-    // Sprint-swimming (wiki: Swimming - 5.612 b/s): drag 0.9 while sprinting in water;
-    // the acceleration is ours, tuned so the speed comes out at the wiki's.
-    static constexpr double kSprintWaterDrag = 0.9, kSwimSprintAccel = 0.02863;
+    // Sprinting in water (wiki: Swimming - sprint-swimming ~3.92 b/s): drag 0.9 instead of
+    // 0.8 with the usual 0.02 acceleration (0.0196 / 0.1 x 20).
+    static constexpr double kSprintWaterDrag = 0.9;
     static constexpr double kStepHeight = 0.6;
     // Movement constants (blocks per tick).
     static constexpr double kGravity = 0.08;
@@ -156,7 +156,7 @@ public:
     enum class Pose : uint8_t { Standing, Crouching, Swimming, Gliding };
     Pose pose() const { return m_pose; }
     bool swimming() const { return m_swimming; }
-    bool crawling() const { return m_pose == Pose::Swimming && !m_swimming; }
+    bool crawling() const { return m_pose == Pose::Swimming && !m_swimming && !m_inWater; } // (only out of water)
     static double heightOf(Pose p) {
         return p == Pose::Standing ? kHeight : p == Pose::Crouching ? kSneakHeight : kSwimHeight;
     }

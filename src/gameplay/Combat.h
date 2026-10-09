@@ -56,17 +56,21 @@ inline float attackSpeed(const world::ItemDef& d) {
                : d.tier == T::Stone || d.tier == T::Copper                    ? 2.0f
                : d.tier == T::Iron                                            ? 3.0f
                                                                               : 4.0f;
-    case world::ToolType::Spear:
-        return d.tier == T::Wood                                 ? 1.54f
-               : d.tier == T::Stone || d.tier == T::Copper       ? 1.33f
-               : d.tier == T::Iron                               ? 1.18f
-               : d.tier == T::Netherite                          ? 0.95f
-                                                                 : 1.05f;
+    case world::ToolType::Spear: // (wiki: Spear, Melee attack table)
+        return d.tier == T::Wood                         ? 1.54f
+               : d.tier == T::Stone                      ? 1.33f
+               : d.tier == T::Copper                     ? 1.18f
+               : d.tier == T::Iron || d.tier == T::Gold  ? 1.05f
+               : d.tier == T::Diamond                    ? 0.95f
+                                                         : 0.87f; // netherite
     default: break;
     }
     if (d.id == "minecraft:trident") return 1.1f;
     if (d.id == "minecraft:mace") return 0.6f;
     return 4.0f;
+}
+inline float attackSpeedWith(const world::ItemDef& d, int haste, int fatigue) {
+    return attackSpeed(d) * std::max(0.1f, (1.0f + 0.1f * float(haste)) * (1.0f - 0.1f * float(fatigue)));
 }
 // The charge after `ticksSince` ticks since the last swing or item switch (vanilla
 // getAttackStrengthScale(0.5)): (ticks + 0.5) / (20 / speed), at most 1.

@@ -240,7 +240,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         // Depth Strider (M29.2b; wiki): water slows a third less a level - drag and
         // acceleration move toward the ground's (half as much off the ground).
         const double strider = fluid.water ? double(m_depthStrider) / 3.0 * (m_onGround ? 1.0 : 0.5) : 0.0;
-        const double baseAccel = m_swimming && fluid.water ? kSwimSprintAccel : kSwimAccel;
+        const double baseAccel = kSwimAccel;
         const double swimAccel = baseAccel + (kWalkSpeed * m_walkMultiplier - baseAccel) * strider;
         // Swimming steers up and down with the look (vanilla Player.travel): toward the
         // look's height at 0.06 (0.085 diving), rising only while jumping or under water.

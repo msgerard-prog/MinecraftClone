@@ -31,6 +31,8 @@ public:
     // View bobbing (vanilla walkDist and bob): the walk phase and how hard it bobs (0..0.1).
     float walkPhase(float alpha) const { return m_prevWalk + (m_walk - m_prevWalk) * alpha; }
     float bobAmount(float alpha) const { return m_prevBob + (m_bob - m_prevBob) * alpha; }
+    // How far the feet moved across the ground this tick (sweep attacks - M30 review).
+    float lastStep() const { return m_lastStep; }
 
 private:
     float m_limb = 0.0f, m_prevLimb = 0.0f, m_limbAmount = 0.0f, m_prevLimbAmount = 0.0f;
@@ -41,6 +43,7 @@ private:
     float m_equip = 1.0f, m_prevEquip = 1.0f;
     world::ItemId m_held = 0;
     float m_walk = 0.0f, m_prevWalk = 0.0f, m_bob = 0.0f, m_prevBob = 0.0f;
+    float m_lastStep = 0.0f;
 };
 
 // Third person (M30.1; vanilla Camera.getMaxZoom): how far the camera can back away from
