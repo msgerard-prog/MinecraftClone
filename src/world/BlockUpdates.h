@@ -186,6 +186,9 @@ public:
     // state and the comparator's last slot. `isBook`: books, book and quills, written,
     // enchanted and knowledge books.
     static int bookshelfSlot(double u, double v);
+    // Scaffolding (M29.5; wiki: Scaffolding): 0 over a block that holds it, the scaffolding
+    // below's, or one more than scaffolding beside it; 7 means unsupported (it breaks).
+    static int scaffoldingDistance(const World& world, const BlockPos& p);
     static bool isBook(ItemId item);
     bool putBook(const BlockPos& p, int slot, const ItemStack& book);
     ItemStack takeBook(const BlockPos& p, int slot);

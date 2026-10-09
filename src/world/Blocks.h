@@ -78,6 +78,8 @@ extern const Property disarmed;       // true | false (M29.5: tripwire cut with 
 extern const Property inverted;       // true | false (M29.5: daylight detectors)
 extern const Property charges;        // 0..4 (M29.5: respawn anchors)
 extern const Property bookSlots[6];   // slot_0_occupied..slot_5_occupied: true | false (M29.5)
+extern const Property scaffoldDistance; // "distance" 0..7 (M29.5: scaffolding)
+extern const Property bottom;           // true | false (M29.5: scaffolding)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -592,6 +594,7 @@ enum : BlockId {
     CalibratedSculkSensor, // like the sculk sensor, hears twice as far (facing)
     RespawnAnchor,         // charges 0..4 of glowstone: a respawn point in the Nether
     ChiseledBookshelf,     // facing, slot_0..5_occupied: holds 6 books
+    Scaffolding,           // bottom, distance 0..7 (from what holds it up), waterlogged
     Count
 };
 } // namespace blocks

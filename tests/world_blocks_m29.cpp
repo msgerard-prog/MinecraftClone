@@ -349,3 +349,32 @@ TEST_CASE("M29.5: chiseled bookshelves - slots by where the front is clicked, bo
     CHECK(back.item == book.item);
     CHECK(r.value(w.getBlock({4, 64, 4}), "slot_2_occupied") == "false");
 }
+
+TEST_CASE("M29.5: scaffolding reaches 6 out from its support; the rest breaks when the support goes") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    int64_t t = 0;
+    u.setTime(t);
+    w.setBlock({2, 63, 4}, r.defaultState(blocks::Stone));
+    auto place = [&](BlockPos p) {
+        const auto s = BlockUpdates::placement(w, r.defaultState(blocks::Scaffolding), p, Direction::Up, 0, 0);
+        if (s) w.updateBlock(p, *s);
+        return s.has_value();
+    };
+    REQUIRE(place({2, 64, 4}));
+    CHECK(r.get(w.getBlock({2, 64, 4}), properties::scaffoldDistance) == 0);
+    for (int x = 3; x <= 8; ++x) REQUIRE(place({x, 64, 4}));
+    CHECK(r.get(w.getBlock({8, 64, 4}), properties::scaffoldDistance) == 6);
+    CHECK(r.value(w.getBlock({8, 64, 4}), "bottom") == "true");
+    CHECK_FALSE(place({9, 64, 4})); // 7 out: too far
+    w.updateBlock({2, 63, 4}, 0);    // the support goes
+    for (int i = 0; i < 20; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(w.getBlock({8, 64, 4}) == 0);
+    CHECK(w.getBlock({2, 64, 4}) == 0);
+}

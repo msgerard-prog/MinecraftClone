@@ -379,6 +379,16 @@ int BlockUpdates::targetStrength(const glm::dvec3& point, Direction side) {
     return std::max(1, int(std::ceil(15.0 * std::clamp((0.5 - d) / 0.5, 0.0, 1.0))));
 }
 
+int BlockUpdates::scaffoldingDistance(const World& world, const BlockPos& p) {
+    const BlockStateId below = world.getBlock(rel(p, Direction::Down));
+    int d = R().blockOf(below) == B::Scaffolding ? R().get(below, scaffoldDistance) : supports(below) ? 0 : 7;
+    for (const Direction side : kHorizontal) {
+        const BlockStateId n = world.getBlock(rel(p, side));
+        if (R().blockOf(n) == B::Scaffolding) d = std::min(d, R().get(n, scaffoldDistance) + 1);
+    }
+    return std::min(d, 7);
+}
+
 int BlockUpdates::bookshelfSlot(double u, double v) {
     const int column = u < 0.375 ? 0 : u < 0.6875 ? 1 : 2; // (vanilla: 6, 5 and 5 pixels wide)
     return (v >= 0.5 ? 0 : 3) + column;
@@ -1530,6 +1540,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         if (!plantableSoil(below) && bb != B::Sand && bb != B::RedSand && bb != B::Gravel) pop(p);
         break;
     }
+    case B::Scaffolding: // (M29.5) re-reads its support next tick
+        if (!hasTick(p, B::Scaffolding)) schedule(p, B::Scaffolding, 1, 0);
+        break;
     case B::SoulFire: { // (M29.4c) only on soul sand or soil
         const BlockId below = blockOf(at(rel(p, Direction::Down)));
         if (below != B::SoulSand && below != B::SoulSoil) set(p, 0);
@@ -1919,6 +1932,16 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::Target: // (M29.5) the hit wears off
         if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
         break;
+    case B::Scaffolding: { // (M29.5) unsupported: it breaks (vanilla: falls, then breaks)
+        const int d = scaffoldingDistance(m_world, p);
+        if (d >= 7) {
+            pop(p);
+            break;
+        }
+        const bool unsupportedBelow = d > 0 && blockOf(at(rel(p, Direction::Down))) != B::Scaffolding;
+        set(p, R().set(R().set(s, scaffoldDistance, d), bottom, unsupportedBelow ? 0 : 1));
+        break;
+    }
     case B::LightningRod: // (M29.5)
         if (flag(s, powered)) set(p, withFlag(s, powered, false));
         break;
@@ -2681,6 +2704,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case B::ChiseledBookshelf: // (M29.5) its front toward the player
         return withHFacing(state, opposite(look));
+    case B::Scaffolding: { // (M29.5) only within 6 of what holds it up
+        const int d = scaffoldingDistance(world, at);
+        if (d >= 7) return std::nullopt;
+        const bool unsupportedBelow = d > 0 && blockOf(world.getBlock(rel(at, Direction::Down))) != B::Scaffolding;
+        return r.set(r.set(state, scaffoldDistance, d), bottom, unsupportedBelow ? 0 : 1);
+    }
     case B::EndRod: // points out of the face it was put on (wiki: End Rod)
         return r.set(state, facing6, static_cast<int>(faceDir));
     case B::RedBed: {

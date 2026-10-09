@@ -232,6 +232,18 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
             return;
         }
     }
+    // Scaffolding put on scaffolding (M29.5; wiki: Scaffolding) goes up its column from the
+    // top, or out along the side clicked (vanilla stops at 7 from its support).
+    world::RayHit extended;
+    if (reg.blockOf(placeState) == world::blocks::Scaffolding &&
+        reg.blockOf(world.getBlock(hit->block)) == world::blocks::Scaffolding && hit->face != world::Direction::Down) {
+        extended = *hit;
+        for (int n = 0; n < (hit->face == world::Direction::Up ? 64 : 7) &&
+                        reg.blockOf(world.getBlock(world::neighbour(extended.block, hit->face))) == world::blocks::Scaffolding;
+             ++n)
+            extended.block = world::neighbour(extended.block, hit->face);
+        hit = &extended;
+    }
     {
         const world::BlockPos at = world::neighbour(hit->block, hit->face);
         if (!world.isInHeight(at.y)) return;

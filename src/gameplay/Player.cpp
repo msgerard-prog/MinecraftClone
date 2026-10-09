@@ -41,15 +41,19 @@ void Player::gatherBoxes(const world::World& world, const Aabb& region) {
     // Block shapes (doors, fences...); unloaded chunks count as solid: never move into
     // terrain that hasn't been generated yet (it would appear around the player).
     gatherBlockBoxes(world, region, m_boxes, true);
-    if (!m_powderWalker || m_sneaking) return;
+    if (m_sneaking) return;
+    // Scaffolding tops (M29.5) and, with leather boots, powder snow (M29.4c) are floors for
+    // feet above them.
     // Powder snow tops below the feet are floors for leather boots (M29.4c).
     const auto& reg = world::blockRegistry();
     for (int y = int(std::floor(region.min.y)); y <= int(std::floor(region.max.y)); ++y) {
         if (y + 1.0 > m_pos.y + 1e-7) continue; // only blocks the feet are above
         for (int z = int(std::floor(region.min.z)); z <= int(std::floor(region.max.z)); ++z)
             for (int x = int(std::floor(region.min.x)); x <= int(std::floor(region.max.x)); ++x)
-                if (reg.blockOf(world.getBlock({x, y, z})) == world::blocks::PowderSnow)
-                    m_boxes.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
+                if (const world::BlockId b = reg.blockOf(world.getBlock({x, y, z}));
+                    b == world::blocks::Scaffolding || (m_powderWalker && b == world::blocks::PowderSnow))
+                    m_boxes.push_back({{double(x), b == world::blocks::Scaffolding ? y + 0.875 : double(y), double(z)},
+                                       {x + 1.0, y + 1.0, z + 1.0}});
     }
 }
 
@@ -338,13 +342,14 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     const world::BlockPos feetCell{int(std::floor(m_pos.x)), int(std::floor(m_pos.y)),
                                    int(std::floor(m_pos.z))};
     const world::BlockId climbBlock = world::blockRegistry().blockOf(world.getBlock(feetCell));
+    const bool scaffold = climbBlock == world::blocks::Scaffolding; // (M29.5: sneak to go down)
     m_climbing = !m_flying && (climbBlock == world::blocks::Ladder ||
-                               climbBlock == world::blocks::Vine); // (M28.5a: vines too)
+                               climbBlock == world::blocks::Vine || scaffold); // (M28.5a: vines too)
     if (m_climbing) {
         m_velocity.x = std::clamp(m_velocity.x, -0.15, 0.15);
         m_velocity.z = std::clamp(m_velocity.z, -0.15, 0.15);
         m_velocity.y = std::max(m_velocity.y, -0.15);
-        if (m_sneaking && m_velocity.y < 0.0) m_velocity.y = 0.0;
+        if (m_sneaking && m_velocity.y < 0.0 && !scaffold) m_velocity.y = 0.0;
     }
 
     const glm::dvec3 before = m_velocity;

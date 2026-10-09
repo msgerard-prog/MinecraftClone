@@ -115,6 +115,8 @@ const Property age2{"age", {"0", "1", "2"}};
 const Property disarmed{"disarmed", {"true", "false"}};
 const Property inverted{"inverted", {"true", "false"}};
 const Property charges{"charges", {"0", "1", "2", "3", "4"}};
+const Property scaffoldDistance{"distance", {"0", "1", "2", "3", "4", "5", "6", "7"}};
+const Property bottom{"bottom", {"true", "false"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
                                {"slot_2_occupied", {"true", "false"}}, {"slot_3_occupied", {"true", "false"}},
                                {"slot_4_occupied", {"true", "false"}}, {"slot_5_occupied", {"true", "false"}}};
@@ -1446,6 +1448,10 @@ BlockRegistry buildVanillaBlocks() {
                 {{&facing, "north"}, {&bookSlots[0], "false"}, {&bookSlots[1], "false"}, {&bookSlots[2], "false"},
                  {&bookSlots[3], "false"}, {&bookSlots[4], "false"}, {&bookSlots[5], "false"}}),
           blocks::ChiseledBookshelf);
+    // (M29.5; wiki: Scaffolding - breaks at once; players stand on it and climb inside)
+    check(r.add("scaffolding", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                {{&bottom, "false"}, {&scaffoldDistance, "7"}, {&waterlogged, "false"}}),
+          blocks::Scaffolding);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

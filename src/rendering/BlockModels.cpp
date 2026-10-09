@@ -431,6 +431,11 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name == "scaffolding") { // (M29.5) an open frame (vanilla: a top, legs and side bars)
+        BakedVariant v = cubeAll(sprite("scaffolding_side"));
+        v.faces[int(Direction::Up)].sprite = sprite("scaffolding_top");
+        v.faces[int(Direction::Down)].sprite = sprite("scaffolding_bottom");
+        m = single(v);
     } else if (name == "respawn_anchor") { // (M29.5) sides glow by charge
         const std::string c(registry.value(state, "charges").value_or("0"));
         BakedVariant v = cubeAll(sprite(("respawn_anchor_side" + c).c_str()));
