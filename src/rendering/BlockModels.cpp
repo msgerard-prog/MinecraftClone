@@ -924,7 +924,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     const auto f = registry.value(state, "facing").value_or("north");
                     b.faces[int(Direction::Up)].rotation = f == "east" || f == "west" ? 1 : 0;
                 }
-            } else if (name == "red_bed") {
+            } else if (name.ends_with("_bed")) { // (M29.4b: every colour)
                 // A 9/16-tall slab (vanilla's bed model, simplified): blanket on top, the
                 // pillow on the head half; the item icon shows the side.
                 const bool head = registry.value(state, "part") == "head";
@@ -935,9 +935,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 b.to[0] = 16, b.to[1] = 9, b.to[2] = 16;
                 for (int d = 0; d < 6; ++d) {
                     auto& face = b.faces[d];
-                    face.sprite = d == int(Direction::Up) ? sprite(head ? "red_bed_head_top" : "red_bed_foot_top")
+                    face.sprite = d == int(Direction::Up) ? sprite((name + (head ? "_head_top" : "_foot_top")).c_str())
                                   : d == int(Direction::Down) ? sprite("oak_planks")
-                                                              : sprite("red_bed_side");
+                                                              : sprite((name + "_side").c_str());
                     face.uv[0] = 0, face.uv[1] = 0, face.uv[2] = 16, face.uv[3] = 16;
                 }
                 // The top turns with the bed so the pillow lies at the head's far end.

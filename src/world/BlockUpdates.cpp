@@ -1337,7 +1337,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         const bool foot = R().get(s, bedPart) == 1;
         const BlockPos other = rel(p, foot ? hFacing(s) : opposite(hFacing(s)));
         const BlockStateId o = at(other);
-        if (blockOf(o) != B::RedBed || hFacing(o) != hFacing(s) ||
+        if (R().blockOf(o) != R().blockOf(s) || hFacing(o) != hFacing(s) ||
             R().get(o, bedPart) == R().get(s, bedPart))
             set(p, 0); // (no drop: the half that was broken dropped the bed)
         break;

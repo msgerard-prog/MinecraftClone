@@ -1347,6 +1347,16 @@ BlockRegistry buildVanillaBlocks() {
                           .randomTicks = true, .tool = HarvestTool::Axe},
                 {{&facing, "north"}, {&age2, "0"}}),
           blocks::Cocoa);
+    {
+        BlockId next = blocks::WhiteBed;
+        for (const char* c : kDyeColours) {
+            if (std::string_view(c) == "red") continue;
+            check(r.add(std::string(c) + "_bed", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false,
+                                                  .layer = RenderLayer::Cutout, .like = blocks::RedBed},
+                        {{&facing, "north"}, {&occupied, "false"}, {&bedPart, "foot"}}),
+                  next++);
+        }
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

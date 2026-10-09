@@ -25,7 +25,7 @@ bool isPoi(BlockStateId s, Poi kind) {
     const BlockId b = R().blockOf(s);
     switch (kind) {
     case Poi::Bed:
-        return b == blocks::RedBed && R().get(s, properties::bedPart) == 0; // (the head half)
+        return R().likeOf(b) == blocks::RedBed && R().get(s, properties::bedPart) == 0; // (the head half)
     case Poi::JobSite:
         return isJobSite(b);
     case Poi::Bell:

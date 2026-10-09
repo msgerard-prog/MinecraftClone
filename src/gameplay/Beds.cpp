@@ -36,11 +36,11 @@ bool canSleepAt(int64_t dayTime, bool raining, bool thundering) {
 
 std::optional<BlockPos> bedHead(const World& world, const BlockPos& p) {
     const BlockStateId s = world.getBlock(p);
-    if (R().blockOf(s) != blocks::RedBed) return std::nullopt;
+    if (R().likeOf(R().blockOf(s)) != blocks::RedBed) return std::nullopt;
     if (R().get(s, properties::bedPart) == 0) return p;
     const glm::ivec3 f = facingVec(s);
     const BlockPos head{p.x + f.x, p.y, p.z + f.z};
-    if (R().blockOf(world.getBlock(head)) != blocks::RedBed) return std::nullopt;
+    if (R().likeOf(R().blockOf(world.getBlock(head))) != blocks::RedBed) return std::nullopt;
     return head;
 }
 
@@ -76,7 +76,7 @@ BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension 
 
 std::optional<glm::dvec3> bedStandSpot(const World& world, const BlockPos& head) {
     const BlockStateId s = world.getBlock(head);
-    if (R().blockOf(s) != blocks::RedBed) return std::nullopt;
+    if (R().likeOf(R().blockOf(s)) != blocks::RedBed) return std::nullopt;
     const glm::ivec3 f = facingVec(s);
     const BlockPos foot{head.x - f.x, head.y, head.z - f.z};
     auto fits = [&](int x, int y, int z) {
@@ -90,7 +90,7 @@ std::optional<glm::dvec3> bedStandSpot(const World& world, const BlockPos& head)
             for (int dz = -1; dz <= 1; ++dz)
                 for (int dx = -1; dx <= 1; ++dx) {
                     const int x = half.x + dx, y = half.y + dy, z = half.z + dz;
-                    if (R().blockOf(world.getBlock({x, y, z})) == blocks::RedBed) continue;
+                    if (R().likeOf(R().blockOf(world.getBlock({x, y, z}))) == blocks::RedBed) continue;
                     if (fits(x, y, z)) return glm::dvec3(x + 0.5, double(y), z + 0.5);
                 }
     // On the bed itself (vanilla also allows standing on top).

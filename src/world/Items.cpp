@@ -92,8 +92,9 @@ ItemRegistry buildItems() {
             continue; // (M26.4b: below - worn on the head, wall kinds from the standing ones)
         const bool sign =
             blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
+        const bool bed = blocks.likeOf(b) == blocks::RedBed; // (M29.4b; wiki: Bed - unstackable)
         r.mapBlock(b, r.add({.id = id,
-                             .maxStack = uint8_t(sign ? 16 : 64),
+                             .maxStack = uint8_t(bed ? 1 : sign ? 16 : 64),
                              .block = b})); // (signs stack to 16)
     }
     r.mapBlock(blocks::KelpPlant, *r.find("kelp")); // (M25.1)

@@ -549,6 +549,22 @@ enum : BlockId {
     AttachedPumpkinStem, // bent toward its fruit (facing)
     AttachedMelonStem,
     Cocoa,               // on a jungle log's side (facing: toward the log), age 0..2
+    // (M29.4b; wiki: Bed) the other 15 colours, in dye order without red; like the red bed
+    WhiteBed,
+    OrangeBed,
+    MagentaBed,
+    LightBlueBed,
+    YellowBed,
+    LimeBed,
+    PinkBed,
+    GrayBed,
+    LightGrayBed,
+    CyanBed,
+    PurpleBed,
+    BlueBed,
+    BrownBed,
+    GreenBed,
+    BlackBed,
     Count
 };
 } // namespace blocks

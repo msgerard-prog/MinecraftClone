@@ -70,12 +70,21 @@ def ender_chest(face):
     return img
 
 
-def bed(face):
-    """Red bed (our drawing): blanket on top, a white pillow at the head, wooden frame
+# (M29.4b) blanket colours of the 16 beds (vanilla's dye colours; red keeps its first shade)
+BED_COLOURS = {
+    "white": "#E9ECEC", "orange": "#F07613", "magenta": "#BD44B3", "light_blue": "#3AAFD9",
+    "yellow": "#F8C627", "lime": "#70B919", "pink": "#ED8DAC", "gray": "#3E4447",
+    "light_gray": "#8E8E86", "cyan": "#158991", "purple": "#792AAC", "blue": "#35399D",
+    "brown": "#724728", "green": "#546D1B", "red": "#B0242A", "black": "#141519",
+}
+
+
+def bed(face, colour="red"):
+    """A bed (our drawing): blanket on top, a white pillow at the head, wooden frame
     sides; ends show the frame."""
     rng = random.Random("bed_" + face)
     img = Img(16, 16, (0, 0, 0, 255))
-    red = ramp(hexc("#B0242A"), 5, spread=0.3)
+    red = ramp(hexc(BED_COLOURS[colour]), 5, spread=0.3)
     wood = ramp(hexc("#8A5A30"), 5, spread=0.3)
     white = ramp(hexc("#E8E8E0"), 5, spread=0.15)
     for y in range(16):
@@ -116,7 +125,8 @@ def main():
     for face in ("top", "side", "front"):
         (OUT / f"ender_chest_{face}.png").write_bytes(encode_png(ender_chest(face)))
     for face in ("head_top", "foot_top", "side", "end"):
-        (OUT / f"red_bed_{face}.png").write_bytes(encode_png(bed(face)))
+        for colour in BED_COLOURS:
+            (OUT / f"{colour}_bed_{face}.png").write_bytes(encode_png(bed(face, colour)))
     (OUT / "experience_orb.png").write_bytes(encode_png(experience_orb()))
     print("wrote chest, bed and orb textures")
 

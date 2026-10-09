@@ -1,6 +1,7 @@
 // Beds (wiki: Bed).
 #include "gameplay/Beds.h"
 #include "gameplay/Mobs.h"
+#include "gameplay/Recipes.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
@@ -101,4 +102,22 @@ TEST_CASE("beds: rain widens the sleeping window, thunderstorms allow sleep at a
     CHECK(canSleepAt(23990, true));
     CHECK_FALSE(canSleepAt(6000, true));
     CHECK(canSleepAt(6000, true, true)); // noon in a thunderstorm
+}
+
+TEST_CASE("M29.4b: beds of every colour pair, sleep, stack to 1 and craft from their wool or a dye") {
+    Scene s;
+    const auto placed = BlockUpdates::placement(s.world, S(blocks::BlueBed), {0, 64, 0}, Direction::Up, 0.0f, 0.0f);
+    REQUIRE(placed);
+    s.world.updateBlock({0, 64, 0}, *placed);
+    const BlockPos head{0, 64, 1};
+    CHECK(R().blockOf(s.world.getBlock(head)) == blocks::BlueBed);
+    CHECK(useBed(s.world, head, 18000, Dimension::Overworld) == BedUse::Sleep);
+    s.world.updateBlock(head, 0);
+    CHECK(s.world.getBlock({0, 64, 0}) == 0);
+    const ItemId white = *itemRegistry().find("white_bed");
+    CHECK(itemRegistry().item(white).maxStack == 1);
+    std::array<ItemStack, 9> g{};
+    g[0] = {white, 1};
+    g[1] = {*itemRegistry().find("lime_dye"), 1};
+    CHECK(itemRegistry().item(craft(g, 3)->item).id == "minecraft:lime_bed");
 }

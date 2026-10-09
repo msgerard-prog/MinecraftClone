@@ -1496,7 +1496,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 block == mc::world::blocks::Dropper) &&
                                openStoreAt(lastHit->block)) {
                         window.setCursorCaptured(false);
-                    } else if (block == mc::world::blocks::RedBed) {
+                    } else if (reg.likeOf(block) == mc::world::blocks::RedBed) { // (any colour)
                         pendingBedUse =
                             lastHit->block; // used in the next tick (simulation stays in ticks)
                     } else if (block == mc::world::blocks::Stonecutter ||

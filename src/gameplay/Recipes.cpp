@@ -168,6 +168,15 @@ std::vector<Recipe> build() {
                        "grindstone"));
     r.push_back(
         shaped({"WWW", "PPP"}, {{'W', item("red_wool")}, {'P', kPlanks}}, "red_bed")); // wiki: Bed
+    // (M29.4b; wiki: Bed) every colour from its wool, and any bed dyed (1.20+: any colour)
+    for (const char* c : kDyeColours) {
+        const std::string colour = c;
+        if (colour != "red")
+            r.push_back(shaped({"WWW", "PPP"}, {{'W', item(colour + "_wool")}, {'P', kPlanks}}, colour + "_bed"));
+        for (const char* other : kDyeColours)
+            if (std::string_view(other) != colour)
+                r.push_back(shapeless({item(std::string(other) + "_bed"), item(colour + "_dye")}, colour + "_bed"));
+    }
     // Tools (wiki: Pickaxe, Axe, Shovel, Hoe, Sword), per material.
     const std::pair<const char*, Ingredient> materials[] = {
         {"wooden", kPlanks},          {"stone", kStoneTool},
