@@ -242,7 +242,7 @@ void addCopperBlocks(BlockRegistry& r) {
 // A block's stairs, slab and wall (M23.1; shared by M33.2's 26.2 families): copies of its
 // hardness and tool, `base` naming the full block they're cut from.
 void addFamily(BlockRegistry& r, std::string_view prefixId, std::string_view baseId, bool stairs, bool slab,
-               bool wall) {
+               bool wall, bool baseTool = false) {
     using namespace properties;
     using HT = HarvestTool;
     const auto base = r.findBlock(baseId);
@@ -251,7 +251,7 @@ void addFamily(BlockRegistry& r, std::string_view prefixId, std::string_view bas
     const bool wood = baseId.ends_with("_planks") || bs.tool == HT::Axe; // (bamboo mosaic)
     BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
                      .randomTicks = bs.randomTicks, // (cut copper stairs oxidize too)
-                     .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe, .tier = bs.tier};
+                     .base = *base, .tool = baseTool ? bs.tool : wood ? HT::Axe : HT::Pickaxe, .tier = bs.tier};
     const std::string prefix(prefixId);
     if (stairs) {
         st.kind = BlockKind::Stairs;
@@ -261,8 +261,8 @@ void addFamily(BlockRegistry& r, std::string_view prefixId, std::string_view bas
         // Slabs: 2 / 6 for stone kinds (deepslate keeps its 3.5), wood 2 / 3 (wiki: Slab).
         BlockSettings ss = st;
         ss.kind = BlockKind::Slab;
-        ss.hardness = wood ? 2.0f : std::max(2.0f, bs.hardness);
-        ss.resistance = wood ? 3.0f : 6.0f;
+        ss.hardness = baseTool ? bs.hardness : wood ? 2.0f : std::max(2.0f, bs.hardness); // (wool/concrete keep theirs)
+        ss.resistance = baseTool ? bs.resistance : wood ? 3.0f : 6.0f;
         const BlockId id = r.add(prefix + "_slab", ss, {{&slabType, "bottom"}});
         // A double slab is a full block: it hides neighbours' faces and blocks light.
         const BlockStateId first = r.block(id).firstState;
@@ -1685,6 +1685,13 @@ BlockRegistry buildVanillaBlocks() {
                                           .like = blocks::Ladder};
         r.add("shelf_mushroom", shelfMushroom, {{&facing, "north"}});
         r.add("large_shelf_mushroom", shelfMushroom, {{&facing, "north"}});
+    }
+    // (M33.3c; wiki: Wool, Concrete - 26.3) stairs and slabs of each wool and concrete colour,
+    // as hard as their block and mined with its tool.
+    for (const char* colour : kDyeColours) {
+        const std::string c(colour);
+        addFamily(r, c + "_wool", c + "_wool", true, true, false, true);
+        addFamily(r, c + "_concrete", c + "_concrete", true, true, false, true);
     }
     // (M33.3a) the poplar shelf, like the oak one
     r.add("poplar_shelf", {.hardness = 2.0f, .resistance = 3.0f, .opaqueCube = false, .tool = HarvestTool::Axe,

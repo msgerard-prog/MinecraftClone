@@ -798,3 +798,15 @@ TEST_CASE("overworld8 (M33.3b; 26.3): the dappled forest - poplars in three colo
     CHECK(shelves > 0);
     CHECK(colours[0] + colours[1] + colours[2] > 100);
 }
+
+TEST_CASE("M33.3c (26.3): wool and concrete stairs and slabs, with their block's hardness and tool") {
+    const auto& r = blockRegistry();
+    for (const char* id : {"red_wool_stairs", "red_wool_slab", "black_concrete_stairs", "lime_concrete_slab"})
+        REQUIRE(r.findBlock(id).has_value());
+    const auto& wool = r.block(*r.findBlock("white_wool")).settings;
+    const auto& slab = r.block(*r.findBlock("white_wool_slab")).settings;
+    CHECK(slab.hardness == wool.hardness);
+    CHECK(slab.tool == wool.tool);
+    CHECK(r.block(*r.findBlock("gray_concrete_stairs")).settings.tool ==
+          r.block(*r.findBlock("gray_concrete")).settings.tool);
+}
