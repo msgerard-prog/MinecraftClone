@@ -10,8 +10,25 @@ and nether4 generating the new blocks. M1-M29 done: the first revision is comple
 v1.0 (user, 2026-10-08: "once everything is functional and not missing, tag v1.0").
 
 ## Next
-After v1.0 (the user decides the order): polish the recorded deviations (docs/game-design.md),
-the deferred performance work below, and 26.x content if wanted.
+User (2026-10-09): "Do option 1 then 2" - M30 (play feel), then M31 (performance).
+M30 - Play feel (the deviations noticed within minutes of playing):
+1. M30.1 - Player model and views: F5 cycles first person / third person back / front
+   (camera pulled back up to 4 blocks, stopped by blocks); the player drawn with our skin,
+   worn armor, held items, sneaking; first-person arm and held item with the swing.
+2. M30.2 - Combat (1.9+): attack cooldown from each item's attack speed, damage x
+   (0.2 + 0.8 x charge^2), crits and sweeps only when charged, sprint knockback; the
+   attack indicator under the crosshair.
+3. M30.3 - Poses: swimming (sprint under water, 0.6 box), crawling under 1-block gaps,
+   the gliding box; suffocation for the player and mobs.
+4. M30.4 - Dropped items and orbs: merging, saved as entities, death drops scattered.
+5. M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
+   doors), fences and walls as 1.5-high, trapdoors.
+6. M30.6 - Creative tabs and search; a basic recipe book.
+M31 - Performance:
+1. M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
+2. M31.2 - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
+   allocation while streaming).
+3. M31.3 - Then the cheapest wins from the review lists below, measured before and after.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
