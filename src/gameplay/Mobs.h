@@ -211,6 +211,13 @@ private:
     void ai(Context& ctx, world::MobData& m);
     void physics(const world::World& world, world::MobData& m, const glm::dvec3& wish, bool jump);
     void spawnHostiles(Context& ctx);
+    // (M32.1) vanilla's packs from one spot, and one monster at an exact spot (`kind`
+    // chosen on the first success when Count).
+    void spawnMonsterPacks(Context& ctx, int x, int y, int z);
+    bool spawnMonsterAt(Context& ctx, int x, int y, int z, world::MobType& kind, bool first);
+    int m_monsterCap = 70; // (scaled by the chunks around the player each tick)
+    void spawnCreatureAt(Context& ctx, int x, int z);
+    int m_creatureCap = 10;
     void tickSpawners(Context& ctx, world::Chunk& chunk); // M18.3
     // Nether mobs (M19.2, NetherMobs.cpp): ghasts, blazes and magma cubes move and
     // attack on their own (true: handled); zombified piglins' anger runs down.

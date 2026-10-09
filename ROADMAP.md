@@ -12,7 +12,7 @@ Bench: steady CPU p99 ~0.24 ms, streaming ~1.1 ms, GPU 0.16 ms. M30 done (v1.1.0
 User (2026-10-09): "Improve play to get us close to vanilla as possible ... Then do the 26.x
 additions." M32 (play parity, by how much each changes play), then M33 (26.x content).
 M32 - Play parity:
-1. M32.1 - Natural spawning: vanilla's spawn cycle (per chunk, mob categories with caps
+1. ✅ M32.1 (night bench: CPU p99 0.22 -> 1.5 ms from ticking a full vanilla cap of monsters; the cycle itself ~0.03 ms) - Natural spawning: vanilla's spawn cycle (per chunk, mob categories with caps
    scaled by loaded chunks, packs, each mob's light/biome/block rules, despawn rules).
 2. M32.2 - Monsters: skeleton strafing and backing off, baby zombies and reinforcements,
    zombie door breaking on Hard, spider jockeys, endermen teleporting from rain/sun/damage,

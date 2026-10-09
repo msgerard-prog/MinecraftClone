@@ -8,6 +8,7 @@
 #include "gameplay/Raids.h"
 
 #include "world/Blocks.h"
+#include "world/Weather.h"
 #include "world/Items.h"
 
 #include <algorithm>
@@ -224,7 +225,6 @@ void Mobs::spawnCreatures(Context& ctx) {
     // cats (wiki: Cat › Spawning): every 1200 ticks, up to 5 near a bell.
     if (++m_creatureTicks % 400 != 0) return;
     const glm::dvec3 p = ctx.player.position();
-    const auto& r = blockRegistry();
     if (m_creatureTicks % 1200 == 0 && m_cats < 5) {
         if (const auto bell = findBell(ctx.world, p, 48)) {
             const int x = bell->x + int(ctx.rng.nextInt(17)) - 8,
@@ -238,15 +238,31 @@ void Mobs::spawnCreatures(Context& ctx) {
                 }
         }
     }
-    if (m_creatures >= 10) return;
-    const int x = int(std::floor(p.x)) + int(ctx.rng.nextInt(97)) - 48,
-              z = int(std::floor(p.z)) + int(ctx.rng.nextInt(97)) - 48;
-    if (std::abs(x - p.x) < 24 && std::abs(z - p.z) < 24) return;
+    // (M32.1; vanilla's creature category: every 400 ticks each chunk within 8 tries once,
+    // the cap 10 scaled by those chunks as for monsters; animals stand on the surface)
+    const ChunkPos pc{blockToChunk(int(std::floor(p.x))), blockToChunk(int(std::floor(p.z)))};
+    int eligible = 0;
+    for (int dz = -8; dz <= 8; ++dz)
+        for (int dx = -8; dx <= 8; ++dx)
+            if (const Chunk* c = ctx.world.chunk({pc.x + dx, pc.z + dz}); c && c->lit()) ++eligible;
+    m_creatureCap = std::max(1, 10 * eligible / 289);
+    const int start = int(ctx.rng.nextInt(289));
+    for (int k = 0; k < 289 && m_creatures < m_creatureCap; ++k) {
+        const int i = (start + k) % 289;
+        const ChunkPos cp{pc.x + i % 17 - 8, pc.z + i / 17 - 8};
+        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)), z = cp.z * 16 + int(ctx.rng.nextInt(16));
+        const double dx = x + 0.5 - p.x, dz = z + 0.5 - p.z;
+        if (dx * dx + dz * dz < 24.0 * 24.0) continue;
+        spawnCreatureAt(ctx, x, z);
+    }
+}
+
+void Mobs::spawnCreatureAt(Context& ctx, int x, int z) {
+    const auto& r = blockRegistry();
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
     if (!c || !c->lit() || !c->biomes()) return;
-    int y = int(std::floor(p.y)) + 32;
-    while (y > int(std::floor(p.y)) - 32 && !solid(ctx.world, x, y - 1, z))
-        --y;
+    const int y = rainHeight(ctx.world, x, z); // (on top of the column)
+    if (!ctx.world.isInHeight(y) || !solid(ctx.world, x, y - 1, z)) return;
     const BlockId ground = r.blockOf(ctx.world.getBlock({x, y - 1, z}));
     if (solid(ctx.world, x, y, z) || c->skyLight(blockToLocal(x), y, blockToLocal(z)) < 9) return;
     const Biome biome = c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height());
@@ -280,6 +296,26 @@ void Mobs::spawnCreatures(Context& ctx) {
         return;
     MobType kind = MobType::Count;
     int group = 1, variant = 0;
+    // Farm animals (M32.1; wiki: Spawn - the grassy biomes' creature lists: sheep 12, pig 10,
+    // chicken 10, cow 8, groups of 4); wolves, ocelots and parrots below with their own odds.
+    const bool grassy = ground == blocks::GrassBlock &&
+                        (biome == Biome::Plains || biome == Biome::SunflowerPlains || biome == Biome::Meadow ||
+                         biome == Biome::Forest || biome == Biome::FlowerForest || biome == Biome::BirchForest ||
+                         biome == Biome::OldGrowthBirchForest || biome == Biome::DarkForest || biome == Biome::Taiga ||
+                         biome == Biome::OldGrowthPineTaiga || biome == Biome::OldGrowthSpruceTaiga ||
+                         biome == Biome::Jungle || biome == Biome::SparseJungle || biome == Biome::BambooJungle ||
+                         biome == Biome::Savanna || biome == Biome::SavannaPlateau || biome == Biome::WindsweptHills ||
+                         biome == Biome::WindsweptForest || biome == Biome::Swamp || biome == Biome::CherryGrove);
+    if (grassy && ctx.rng.nextInt(5) != 0) {
+        const uint32_t roll = ctx.rng.nextInt(40);
+        const MobType farm = roll < 12 ? MobType::Sheep : roll < 22 ? MobType::Pig : roll < 32 ? MobType::Chicken : MobType::Cow;
+        for (int i = 0; i < 4 && m_creatures < m_creatureCap; ++i) {
+            const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
+            if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
+            if (add(ctx.world, make(farm, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_creatures;
+        }
+        return;
+    }
     switch (biome) { // (wiki: Wolf › Variants - each biome's wolf)
     case Biome::Taiga:
         kind = MobType::Wolf, variant = 0;

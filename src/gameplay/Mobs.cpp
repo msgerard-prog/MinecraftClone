@@ -1761,126 +1761,148 @@ void Mobs::tickSpawners(Context& ctx, Chunk& chunk) {
 }
 
 void Mobs::spawnHostiles(Context& ctx) {
-    // One spawn attempt per tick near the player (wiki: Spawn): a dark spot (block
-    // light 0, sky light after night darkening at most a random 0..7) on a solid
-    // block with two free blocks above, 24+ blocks away, under the mob cap (70).
-    if (m_hostiles >= 70) return;
+    // Vanilla's spawn cycle (M32.1; wiki: Spawn › Java Edition, NaturalSpawner): every tick
+    // each chunk within 8 chunks of the player (loaded and lit) gets one try at a random spot
+    // between the bottom of the world and just above its surface; the monster cap 70 is scaled
+    // by those chunks (70 x chunks / 289), so caves and the surface fill alike.
     const glm::dvec3 p = ctx.player.position();
-    const int x = int(std::floor(p.x)) + static_cast<int>(ctx.rng.nextInt(129)) - 64;
-    const int z = int(std::floor(p.z)) + static_cast<int>(ctx.rng.nextInt(129)) - 64;
-    const int y = int(std::floor(p.y)) + static_cast<int>(ctx.rng.nextInt(65)) - 32;
+    const ChunkPos pc{blockToChunk(int(std::floor(p.x))), blockToChunk(int(std::floor(p.z)))};
+    int eligible = 0;
+    for (int dz = -8; dz <= 8; ++dz)
+        for (int dx = -8; dx <= 8; ++dx)
+            if (const Chunk* c = ctx.world.chunk({pc.x + dx, pc.z + dz}); c && c->lit()) ++eligible;
+    m_monsterCap = 70 * eligible / 289;
+    if (m_hostiles >= m_monsterCap) return;
+    const int minY = ctx.world.height().minY;
+    const int start = int(ctx.rng.nextInt(289)); // (no chunk always first)
+    for (int k = 0; k < 289 && m_hostiles < m_monsterCap; ++k) {
+        const int i = (start + k) % 289;
+        const ChunkPos cp{pc.x + i % 17 - 8, pc.z + i / 17 - 8};
+        const Chunk* c = ctx.world.chunk(cp);
+        if (!c || !c->lit()) continue;
+        const int x = cp.x * 16 + int(ctx.rng.nextInt(16)), z = cp.z * 16 + int(ctx.rng.nextInt(16));
+        const int top = rainHeight(ctx.world, x, z) + 1;
+        const int y = minY + int(ctx.rng.nextInt(uint32_t(std::max(1, top - minY + 1))));
+        spawnMonsterPacks(ctx, x, y, z);
+    }
+}
+
+void Mobs::spawnMonsterPacks(Context& ctx, int x0, int y, int z0) {
+    // Up to 3 packs from the spot (vanilla spawnCategoryForPosition): each wanders its own way
+    // (x and z move by random(6) - random(6) per member), up to 4 members, the kind chosen at
+    // the first spot that works; members need 24+ blocks to the player (and within 128).
     if (!ctx.world.isInHeight(y) || !ctx.world.isInHeight(y + 2)) return;
-    const double dx = x + 0.5 - p.x, dz = z + 0.5 - p.z, dy = y - p.y;
-    if (dx * dx + dy * dy + dz * dz < 24.0 * 24.0) return;
+    if (blockRegistry().collides(ctx.world.getBlock({x0, y, z0}))) return; // (vanilla: a solid start spot)
+    const glm::dvec3 p = ctx.player.position();
+    for (int pack = 0; pack < 3; ++pack) {
+        int x = x0, z = z0;
+        MobType kind = MobType::Count;
+        int spawned = 0, packMax = 4;
+        for (int member = 0; member < 4 && spawned < packMax && m_hostiles < m_monsterCap; ++member) {
+            x += int(ctx.rng.nextInt(6)) - int(ctx.rng.nextInt(6));
+            z += int(ctx.rng.nextInt(6)) - int(ctx.rng.nextInt(6));
+            const double dx = x + 0.5 - p.x, dy = y - p.y, dz = z + 0.5 - p.z;
+            const double d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < 24.0 * 24.0 || d2 > 128.0 * 128.0) continue;
+            if (spawnMonsterAt(ctx, x, y, z, kind, member == 0 || spawned == 0)) ++spawned;
+            if (kind == MobType::Slime || kind == MobType::Witch || kind == MobType::ZombieVillager) packMax = 1;
+        }
+    }
+}
+
+bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool first) {
     const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
-    if (!c || !c->lit()) return;
-    if (!canSpawnAt(ctx.world, x, y, z)) return;
+    if (!c || !c->lit()) return false;
+    if (!canSpawnAt(ctx.world, x, y, z)) return false;
+    const int lx = blockToLocal(x), lz = blockToLocal(z);
+    const Biome biome = c->biomes() ? c->biomes()->at(lx, y, lz, ctx.world.height()) : Biome::Plains;
     // No monsters spawn in mushroom fields (wiki: Mushroom Fields); spawners still work.
     // Nor in the deep dark (M27.3b; wiki: Deep Dark).
-    if (c->biomes() && (c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) ==
-                            Biome::MushroomFields ||
-                        c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height()) ==
-                            Biome::DeepDark))
-        return;
-    const int lx = blockToLocal(x), lz = blockToLocal(z);
-    // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
-    // below Y 40 at any light level, in groups of up to 4; in swamps between Y 51 and
-    // 69 where the light is at most a random 0..7 (night). The rest by the Overworld mix.
-    if (ctx.world.hasSkyLight() && ctx.rng.nextInt(3) == 0) {
+    if (biome == Biome::MushroomFields || biome == Biome::DeepDark) return false;
+    const bool end = !ctx.world.hasSkyLight();
+    // The kind, chosen once per pack (vanilla: the biome's monster list) - zombie 95,
+    // zombie villager 5, skeleton 100, creeper 100, spider 100, slime 100, enderman 10,
+    // witch 5 (wiki: Spawn); the End: endermen only.
+    if (kind == MobType::Count) {
+        const uint32_t roll = ctx.rng.nextInt(515);
+        kind = end          ? MobType::Enderman
+               : roll < 95  ? MobType::Zombie
+               : roll < 100 ? MobType::ZombieVillager
+               : roll < 200 ? MobType::Skeleton
+               : roll < 300 ? MobType::Creeper
+               : roll < 400 ? MobType::Spider
+               : roll < 500 ? MobType::Slime
+               : roll < 510 ? MobType::Enderman
+                            : MobType::Witch;
+    }
+    if (kind == MobType::Slime) {
+        // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)
+        // below Y 40 at any light level; in swamps between Y 51 and 69 where the light is at
+        // most a random 0..7 (night).
         const ChunkPos cp{blockToChunk(x), blockToChunk(z)};
         Xoroshiro sc(mixSeed(mixSeed(ctx.worldSeed ^ 0x3AD8025Full, static_cast<uint32_t>(cp.x)),
                              static_cast<uint32_t>(cp.z)));
         const bool slimeChunk = sc.nextInt(10) == 0 && y < 40;
         const int light = std::max<int>(c->blockLight(lx, y, lz),
                                         c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken));
-        const bool swamp = c->biomes() && y >= 51 && y <= 69 &&
-                           light <= static_cast<int>(ctx.rng.nextInt(8)) &&
-                           (c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::Swamp ||
-                            c->biomes()->at(lx, y, lz, ctx.world.height()) == Biome::MangroveSwamp);
-        if (slimeChunk || swamp) {
-            const int group = slimeChunk ? 1 + static_cast<int>(ctx.rng.nextInt(4)) : 1;
-            for (int g = 0; g < group && m_hostiles < 70; ++g) {
-                const int gx = x + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
-                const int gz = z + (g == 0 ? 0 : static_cast<int>(ctx.rng.nextInt(5)) - 2);
-                if (g > 0 && !canSpawnAt(ctx.world, gx, y, gz)) continue;
-                if (add(ctx.world, make(MobType::Slime, {gx + 0.5, double(y), gz + 0.5}, ctx.rng)))
-                    ++m_hostiles;
-            }
-            return;
+        const bool swamp = y >= 51 && y <= 69 && light <= static_cast<int>(ctx.rng.nextInt(8)) &&
+                           (biome == Biome::Swamp || biome == Biome::MangroveSwamp);
+        if (!slimeChunk || !ctx.world.hasSkyLight()) {
+            if (!swamp) return false;
+        }
+        return add(ctx.world, make(MobType::Slime, {x + 0.5, double(y), z + 0.5}, ctx.rng)) && (++m_hostiles, true);
+    }
+    // Monsters need darkness: block light 0, sky light (dimmed by the time of day - in a
+    // thunderstorm by at least 10, wiki: Weather) at most a random 0..7.
+    if (c->blockLight(lx, y, lz) > 0) return false;
+    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken)) : static_cast<int>(ctx.skyDarken);
+    if (c->skyLight(lx, y, lz) - darken > static_cast<int>(ctx.rng.nextInt(8))) return false;
+    if (kind == MobType::Enderman && solidAt(ctx.world, x, y + 2, z)) return false; // (3 tall)
+    MobData mob = make(kind, {x + 0.5, double(y), z + 0.5}, ctx.rng);
+    // Biome variants (M29.1a; wiki: Husk, Stray, Bogged, Parched): under the open sky 80% of
+    // desert zombies are husks and 80% of snowy skeletons strays; half the desert skeletons
+    // are parched and half the swamp skeletons bogged.
+    if (kind == MobType::Zombie || kind == MobType::Skeleton) {
+        const bool open = c->skyLight(lx, y, lz) >= 15;
+        const bool snowy = biome == Biome::SnowyPlains || biome == Biome::IceSpikes || biome == Biome::FrozenRiver ||
+                           biome == Biome::FrozenOcean || biome == Biome::DeepFrozenOcean;
+        const uint32_t v = ctx.rng.nextInt(10);
+        if (kind == MobType::Zombie && biome == Biome::Desert && open && v < 8) mob.type = MobType::Husk;
+        if (kind == MobType::Skeleton && snowy && open && v < 8) mob.type = MobType::Stray;
+        if (kind == MobType::Skeleton && biome == Biome::Desert && v < 5) mob.type = MobType::Parched;
+        if (kind == MobType::Skeleton && (biome == Biome::Swamp || biome == Biome::MangroveSwamp) && v < 5)
+            mob.type = MobType::Bogged;
+        if (mob.type != kind) mob.health = mobInfo(mob.type).maxHealth;
+        // Jockeys (M29.1b; wiki: Zombie Horse, Camel Husk): zombie horsemen with iron spears on
+        // plains, savannas and snowy plains (about 1 in 100 zombies); 1 in 10 husks rides a camel
+        // husk with a parched behind.
+        static const uint16_t ironSpear = uint16_t(*itemRegistry().find("iron_spear"));
+        const bool horsemen = biome == Biome::Plains || biome == Biome::SunflowerPlains || biome == Biome::Savanna ||
+                              biome == Biome::SavannaPlateau || biome == Biome::SnowyPlains;
+        if (mob.type == MobType::Zombie && horsemen && open && first && ctx.rng.nextInt(100) == 0) {
+            MobData horse = make(MobType::ZombieHorse, mob.pos, ctx.rng);
+            mob.vehicle = horse.uuidHi;
+            mob.heldItem = ironSpear;
+            add(ctx.world, horse);
+        }
+        if (mob.type == MobType::Husk && first && ctx.rng.nextInt(10) == 0) {
+            MobData camel = make(MobType::CamelHusk, mob.pos, ctx.rng);
+            MobData back = make(MobType::Parched, mob.pos, ctx.rng);
+            mob.vehicle = back.vehicle = camel.uuidHi;
+            mob.heldItem = ironSpear;
+            add(ctx.world, camel);
+            if (add(ctx.world, back)) ++m_hostiles;
         }
     }
-    if (c->blockLight(lx, y, lz) > 0) return;
-    // In a thunderstorm the spawner darkens the sky by at least 10 (wiki: Weather ›
-    // Thunderstorm): monsters spawn in the open at midday.
-    const int darken = ctx.thundering ? std::max(10, static_cast<int>(ctx.skyDarken))
-                                      : static_cast<int>(ctx.skyDarken);
-    const int sky = c->skyLight(lx, y, lz) - darken;
-    if (sky > static_cast<int>(ctx.rng.nextInt(8))) return;
-    // Which monster: vanilla's Overworld weights (wiki: Spawn › Java Edition) - zombie 95,
-    // skeleton 100, creeper 100, spider 100, enderman 10 - in a group of up to 4.
-    const uint32_t roll = ctx.rng.nextInt(410); // (+ witch 5, M24.4)
-    // The End (no sky, not the Nether): endermen only, in groups of 4 (wiki: The End biomes).
-    const bool end = !ctx.world.hasSkyLight();
-    const MobType kind = end          ? MobType::Enderman
-                         : roll < 95  ? MobType::Zombie
-                         : roll < 195 ? MobType::Skeleton
-                         : roll < 295 ? MobType::Creeper
-                         : roll < 395 ? MobType::Spider
-                         : roll < 405 ? MobType::Enderman
-                                      : MobType::Witch;
-    const int group = end ? 4 : 1 + static_cast<int>(ctx.rng.nextInt(4));
-    for (int i = 0; i < group && m_hostiles < 70; ++i) {
-        const int gx = x + static_cast<int>(ctx.rng.nextInt(5)) - 2,
-                  gz = z + static_cast<int>(ctx.rng.nextInt(5)) - 2;
-        if (!canSpawnAt(ctx.world, gx, y, gz)) continue;
-        if (kind == MobType::Enderman && solidAt(ctx.world, gx, y + 2, gz)) continue; // 3 tall
-        MobData mob = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
-        // 5% of zombies come as zombie villagers (wiki: Zombie Villager › Spawning).
-        if (kind == MobType::Zombie && ctx.rng.nextInt(20) == 0) mob.type = MobType::ZombieVillager;
-        // Biome variants (M29.1a; wiki: Husk, Stray, Bogged, Parched): under the open sky
-        // 80% of desert zombies are husks and 80% of snowy skeletons strays; half the
-        // desert skeletons are parched and half the swamp skeletons bogged.
-        if (c->biomes() && (kind == MobType::Zombie || kind == MobType::Skeleton) && mob.type == kind) {
-            const Biome b = c->biomes()->at(lx, y, lz, ctx.world.height());
-            const bool open = c->skyLight(lx, y, lz) >= 15;
-            const bool snowy = b == Biome::SnowyPlains || b == Biome::IceSpikes || b == Biome::FrozenRiver ||
-                               b == Biome::FrozenOcean || b == Biome::DeepFrozenOcean;
-            const uint32_t v = ctx.rng.nextInt(10);
-            if (kind == MobType::Zombie && b == Biome::Desert && open && v < 8) mob.type = MobType::Husk;
-            if (kind == MobType::Skeleton && snowy && open && v < 8) mob.type = MobType::Stray;
-            if (kind == MobType::Skeleton && b == Biome::Desert && v < 5) mob.type = MobType::Parched;
-            if (kind == MobType::Skeleton && (b == Biome::Swamp || b == Biome::MangroveSwamp) && v < 5)
-                mob.type = MobType::Bogged;
-            if (mob.type != kind) mob.health = mobInfo(mob.type).maxHealth;
-            // Jockeys (M29.1b; wiki: Zombie Horse, Camel Husk): zombie horsemen with iron
-            // spears on plains, savannas and snowy plains (about 1 in 100 zombies); 1 in 10
-            // husks rides a camel husk with a parched behind.
-            static const uint16_t ironSpear = uint16_t(*itemRegistry().find("iron_spear"));
-            const bool horsemen = b == Biome::Plains || b == Biome::SunflowerPlains || b == Biome::Savanna ||
-                                  b == Biome::SavannaPlateau || b == Biome::SnowyPlains;
-            if (mob.type == MobType::Zombie && horsemen && open && i == 0 && ctx.rng.nextInt(100) == 0) {
-                MobData horse = make(MobType::ZombieHorse, mob.pos, ctx.rng);
-                mob.vehicle = horse.uuidHi;
-                mob.heldItem = ironSpear;
-                add(ctx.world, horse);
-            }
-            if (mob.type == MobType::Husk && i == 0 && ctx.rng.nextInt(10) == 0) {
-                MobData camel = make(MobType::CamelHusk, mob.pos, ctx.rng);
-                MobData back = make(MobType::Parched, mob.pos, ctx.rng);
-                mob.vehicle = back.vehicle = camel.uuidHi;
-                mob.heldItem = ironSpear;
-                add(ctx.world, camel);
-                if (add(ctx.world, back)) ++m_hostiles;
-            }
-        }
-        // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
-        if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
-            MobData rider = make(MobType::Skeleton, mob.pos, ctx.rng);
-            rider.vehicle = mob.uuidHi;
-            if (add(ctx.world, rider)) ++m_hostiles;
-        }
-        if (add(ctx.world, mob)) ++m_hostiles;
+    // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
+    if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
+        MobData rider = make(MobType::Skeleton, mob.pos, ctx.rng);
+        rider.vehicle = mob.uuidHi;
+        if (add(ctx.world, rider)) ++m_hostiles;
     }
+    if (!add(ctx.world, mob)) return false;
+    ++m_hostiles;
+    return true;
 }
 
 bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty, Xoroshiro& rng) {

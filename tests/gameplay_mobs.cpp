@@ -30,6 +30,7 @@ struct MobScene {
     const Weather* weather = nullptr;
     bool mobDrops = true, mobGriefing = true; // (game rules, M28.1)
     int difficulty = 2;
+    bool naturalSpawning = true; // (M32.1: off where a test isn't about spawning - the dark scene fills up)
     MobScene() {
         for (int cz = -2; cz <= 2; ++cz)
             for (int cx = -2; cx <= 2; ++cx) {
@@ -53,6 +54,7 @@ struct MobScene {
             ctx.mobDrops = mobDrops;
             ctx.mobGriefing = mobGriefing;
             ctx.difficulty = difficulty;
+            ctx.naturalSpawning = naturalSpawning;
             mobs.tick(ctx);
         }
     }
@@ -250,6 +252,7 @@ TEST_CASE("a chunk unloaded and loaded again is ticked once") {
 
 TEST_CASE("idle mobs don't mark their chunk for saving; mobs beyond the simulation distance don't tick") {
     MobScene s;
+    s.naturalSpawning = false;
     Mobs::add(s.world, Mobs::make(MobType::Cow, {8.5, 64.0, 8.5}, s.rng));
     for (int i = 0; i < 40; ++i) s.tick(); // settle on the ground
     Chunk& c = *s.world.chunk({0, 0});
@@ -675,6 +678,7 @@ TEST_CASE("spider eyes drop only when the player killed the spider") {
 
 TEST_CASE("spawners: active within 16 blocks, spawn up to 4 of their mob nearby, then wait 200-799 ticks") {
     MobScene s;
+    s.naturalSpawning = false;
     s.mobs = Mobs();
     s.world.setBlock({0, 64, 10}, blockRegistry().defaultState(blocks::Spawner));
     Chunk& c = *s.world.chunk({0, 0});
@@ -697,6 +701,7 @@ TEST_CASE("spawners: active within 16 blocks, spawn up to 4 of their mob nearby,
 
     // Far from the player: no countdown.
     MobScene far;
+    far.naturalSpawning = false;
     far.mobs = Mobs();
     far.world.setBlock({0, 64, 30}, blockRegistry().defaultState(blocks::Spawner));
     far.world.chunk({0, 1})->spawner(0, 64, 14)->delay = 5;
@@ -996,6 +1001,7 @@ TEST_CASE("end crystals: one on each end2 pillar; any hit blows it up (power 6);
     CHECK(old.mobs().empty()); // (the M12 End has none)
 
     MobScene s;
+    s.naturalSpawning = false;
     s.mobs = Mobs();
     s.player.setPosition({-20.5, 64.0, 0.5});
     REQUIRE(Mobs::add(s.world, Mobs::make(MobType::EndCrystal, {4.5, 64.0, 4.5}, s.rng)));
@@ -2243,4 +2249,71 @@ TEST_CASE("M29.5: a crafter crafts its grid once on a pulse and pushes the resul
     REQUIRE(chest);
     CHECK(itemRegistry().item(chest->items[0].item).id == "minecraft:oak_planks");
     CHECK(chest->items[0].count == 4);
+}
+
+TEST_CASE("M32.1: vanilla's spawn cycle - the cap scales with the chunks around, 24+ blocks out, caves too") {
+    MobScene s; // 5x5 chunks: cap 70 x 25 / 289 = 6
+    // By day the surface (sections from y 16 up) is lit by the sky; a cave layer below it
+    // (stone 10, air 11..12, roof 13) is dark: monsters can only come up there.
+    for (int cz = -2; cz <= 2; ++cz)
+        for (int cx = -2; cx <= 2; ++cx) {
+            Chunk& c = *s.world.chunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) {
+                    c.set(x, 10, z, blockRegistry().defaultState(blocks::Stone));
+                    c.set(x, 13, z, blockRegistry().defaultState(blocks::Stone));
+                }
+            std::array<std::shared_ptr<const SectionLight>, kMaxSections> l;
+            auto bright = std::make_shared<SectionLight>();
+            bright->sky.fill(15);
+            auto dark = std::make_shared<SectionLight>();
+            for (int sct = 0; sct < kMaxSections; ++sct)
+                l[size_t(sct)] = kOverworldHeight.minY + sct * 16 >= 16 ? std::shared_ptr<const SectionLight>(bright)
+                                                                       : std::shared_ptr<const SectionLight>(dark);
+            c.setLight(l);
+        }
+    s.dayTime = 6000;
+    s.skyDarken = 0.0f;
+    std::vector<uint64_t> seen;
+    int monsters = 0, inCave = 0;
+    for (int t = 0; t < 400; ++t) {
+        s.tick();
+        for (MobData* m : s.all()) {
+            if (!mobInfo(m->type).hostile || std::find(seen.begin(), seen.end(), m->uuidHi) != seen.end()) continue;
+            seen.push_back(m->uuidHi); // (where it first appeared)
+            ++monsters;
+            inCave += m->pos.y < 20.0;
+            CHECK(glm::length(m->pos - s.player.position()) >= 23.5);
+        }
+    }
+    MESSAGE("monsters " << monsters << " in the cave " << inCave);
+    CHECK(monsters > 0);
+    CHECK(monsters <= 6 + 2); // (cap 6; a jockey's rider may come along)
+    CHECK(inCave == monsters);
+}
+
+TEST_CASE("M32.1: animals come back on grass every 400 ticks (vanilla's creature category)") {
+    MobScene s;
+    for (int cz = -2; cz <= 2; ++cz)
+        for (int cx = -2; cx <= 2; ++cx) {
+            Chunk& c = *s.world.chunk({cx, cz});
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x) c.set(x, 63, z, blockRegistry().defaultState(blocks::GrassBlock));
+            std::array<std::shared_ptr<const SectionLight>, kMaxSections> l;
+            auto bright = std::make_shared<SectionLight>();
+            bright->sky.fill(15);
+            l.fill(bright);
+            c.setLight(l);
+        }
+    s.dayTime = 6000;
+    s.skyDarken = 0.0f;
+    s.tick(401);
+    int farm = 0;
+    for (MobData* m : s.all())
+        if (m->type == MobType::Sheep || m->type == MobType::Pig || m->type == MobType::Chicken || m->type == MobType::Cow) {
+            ++farm;
+            CHECK(glm::length(glm::dvec2(m->pos.x - 0.5, m->pos.z - 0.5)) >= 20.0);
+        }
+    MESSAGE("farm animals " << farm);
+    CHECK(farm > 0);
 }
