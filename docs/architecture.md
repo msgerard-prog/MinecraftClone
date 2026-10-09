@@ -597,14 +597,14 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   meal, TNT); spectator is `Player::setSpectator` (always flying, `move` without
   collision), no clicks, pickups, inventory, hotbar or outline. Statistics (M28.1d,
   `world/Statistics`): fixed counter arrays sized from the registries, saved with the
-  level as `stats/<uuid>.json`; main counts times, movement by kind, deaths and screens
+  level as `players/stats/<uuid>.json`; main counts times, movement by kind, deaths and screens
   and drains small per-tick queues (`Vitals::takeDamageTaken`, `Mobs::playerKills`/
   `takeBred`, `ItemEntities::pickedUp`, `BlockInteraction::takeBroken/takeUsed/
   takeBrokenTool`, `ContainerScreen::crafted`/`takeTrades`); `ui/Menus` shows them
   (Game Menu > Statistics: General, Items, Mobs).
   Advancements (M28.5c, `world/Advancements`): a table of 67 vanilla advancements (id,
   title, description, tab, frame) each earned by items carried, a kill or an `AdvEvent`;
-  main loads/saves `advancements/<uuid>.json`, scans the inventory once a second
+  main loads/saves `players/advancements/<uuid>.json`, scans the inventory once a second
   (`onItem`), feeds kills, events from the same queues as statistics plus
   `BlockInteraction::takeAte`, `Mobs::takeCured`, `DragonFight::respawning` and its own
   hooks (bows, vaults, waxing, golems...), and announces each one (chat if the game rule
@@ -619,7 +619,7 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
 - Maps (M28.2b, `world/Maps`): `MapData` (centre, scale, dimension, lock, 128x128
   colour bytes, a version), `mapColorOf` (vanilla's 62 base colours assigned by block
   name), `Maps::update` (a sixteenth of the columns per tick within 128 blocks, shaded by
-  height or water depth); main holds `Maps` (saved as data/map_<id>.dat + idcounts.dat),
+  height or water depth); main holds `Maps` (saved as data/minecraft/maps/<id>.dat + last_id.dat),
   turns empty maps into filled ones (map id in `ItemStack::damage`), makes the new data
   for maps marked by `gameplay/Cartography` (`craftMap`, `cartography`: copy, zoom, lock;
   the mark is `ItemStack::state`, saved as map_post_processing) and draws the held map

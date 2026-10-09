@@ -634,11 +634,7 @@ bool Advancements::fromJson(std::string_view json) {
 
 std::filesystem::path Advancements::file(const std::filesystem::path& worldDir, uint64_t hi,
                                          uint64_t lo) {
-    char name[48];
-    std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%012llx.json", unsigned(hi >> 32),
-                  unsigned(hi >> 16 & 0xFFFF), unsigned(hi & 0xFFFF), unsigned(lo >> 48),
-                  static_cast<unsigned long long>(lo & 0xFFFFFFFFFFFFull));
-    return playersFolder(worldDir, "advancements") / name; // (M34: 26.1 players/advancements)
+    return playersFolder(worldDir, "advancements") / uuidFileName(hi, lo, ".json"); // (M34: 26.1 players/advancements)
 }
 
 bool Advancements::save(const std::filesystem::path& path) const {

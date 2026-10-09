@@ -4,15 +4,14 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-09)
-M33 done (reviews applied; v1.4.0): the 26.x additions - 26.1 golden dandelion and name tags,
-26.2 sulfur caves (sulfur/cinnabar, potent sulfur and geysers, spikes, sulfur cubes, "Bounce"),
-26.3 poplars, the dappled forest, shelf mushrooms, wool/concrete stairs and slabs, straw beds,
-cushions, abandoned camps and the behaviour changes; overworld8 is the default generator
-(pinned). Bench: steady CPU p99 0.25 ms, GPU 0.16 ms. M32 done (v1.3.0).
+M34 done (review applied; v1.5.0): saves follow Java 26.3 (the user's decision) - DataVersion
+5023, 26.1's world layout (dimensions/, players/, data/minecraft/ files split out of
+level.dat), 26.3's id/properties block states; older worlds move into it when opened.
+M33 done (v1.4.0): the 26.x additions; overworld8 the default generator.
 
 ## Next
-Nothing scheduled: the user's request (play parity, then the 26.x additions) is done. Open:
-the DataVersion question (Waiting on the user); 26.4 when it releases; the backlog below.
+Nothing scheduled: play parity, the 26.x additions and their save format are done. Open: the
+backlog below, 26.4 when it releases, the in-game checks under Waiting on the user.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -193,9 +192,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **M33 decision (DataVersion):** matching 26.3 would raise the saves' DataVersion above
-  1.21.11's 4671 - a save-format change. Until you say so, the 26.x content is added and
-  saves stay at 4671 (vanilla 1.21.11 then can't know the new blocks).
+- **M34 note:** (user, 2026-10-09: yes to 26.3's save format) worlds now save as 26.3
+  (DataVersion 5023, 26.1 layout); an older world is moved the first time it opens, after
+  which v1.4.0 and earlier (and vanilla 1.21.11) can't read it. In-game check, if you have
+  26.3: copy one of our worlds into `.minecraft/saves` - does it open with its time of day and
+  game rules (those files' insides are our best guess)?
 - **M33 note:** new worlds use "overworld8" (pinned since v1.4.0). Try it: `tools/run.sh
   --world "M33 test" --seed 42 --pos 584,110,-600` (a dappled forest; a camp near 967,-318);
   find a sulfur cave deep under a low, eroded area; `/give @s golden_dandelion` on a baby.
@@ -344,6 +345,7 @@ and GUI textures are made with their systems.
 | M30 | Play feel: player model and views, attack cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book | ✅ 2026-10-09 v1.1.0 (basic recipe book, flat held items: see deviations) |
 | M31 | Performance: incremental light, dense chunk grid, ring work queue, cheap guards | ✅ 2026-10-09 v1.2.0 |
 | M32 | Play parity: spawning, monsters, damage rules, inventory handling, villagers 2, mob rows | ✅ 2026-10-09 v1.3.0 (gossip about one player, no gossip sharing: see deviations) |
+| M34 | 26.3 save format: DataVersion 5023, 26.1 world layout, split level.dat, id/properties block states, migration of older worlds | ✅ 2026-10-09 v1.5.0 (world_clocks/game_rules/last_id insides ours: see ADR 0002) |
 | M33 | The 26.x additions: 26.1, 26.2 (sulfur caves, sulfur cubes), 26.3 (poplars, dappled forest, camps), overworld8 | ✅ 2026-10-09 v1.4.0 (our camp design, no explorer maps or fallen poplars: see deviations) |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | ✅ 2026-10-09 v1.0 (then polish: deviations, performance) |
 
@@ -353,6 +355,7 @@ and GUI textures are made with their systems.
   (26.3's camp maps, shipwreck treasure maps).
 
 ## Done (latest 10)
+- 2026-10-09 M34 (v1.5.0): 26.3 save format - DataVersion 5023, 26.1 layout, split level.dat, id/properties, older worlds migrated.
 - 2026-10-09 M33 (v1.4.0): the 26.x additions - golden dandelion, sulfur caves and cubes, potent sulfur, poplars, dappled forest, straw beds, cushions, camps; overworld8.
 - 2026-10-09 M32 (v1.3.0): play parity - spawn cycle, regional difficulty, zombies 2, monster gear, damage rules, saved projectiles, inventory shortcuts, gossip, mob rows.
 - 2026-10-09 M31 (v1.2.0): incremental light, dense chunk grid, ring work queue, path search cap, drops saved only when changed.

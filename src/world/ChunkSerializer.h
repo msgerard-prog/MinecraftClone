@@ -12,8 +12,6 @@ namespace mc::world {
 // Data version written into saves (wiki: Data version): Java 26.3 = 5023 (M34, the user's
 // choice 2026-10-09: saves follow the 26.x content; 1.21.11 was 4671, 26.1 4786).
 inline constexpr int32_t kDataVersion = 5023; // Java Edition 26.3 (ADR 0002)
-// The first data version with the 26.1 world layout (WorldFiles.h).
-inline constexpr int32_t kLayout261DataVersion = 4786;
 
 // A chunk's saveable state, shared read-only (copy-on-write sections), so the IO
 // thread can serialise it while the main thread keeps playing.

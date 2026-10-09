@@ -8,6 +8,7 @@
 #include "world/FlatGenerator.h"
 #include "world/Potions.h"
 #include "world/RegionFile.h"
+#include "world/Statistics.h"
 #include "world/WorldFiles.h"
 
 #include <doctest/doctest.h>
@@ -1362,4 +1363,116 @@ TEST_CASE("M34: chunk palettes use 26.3's id/properties and still read Name/Prop
     Chunk bare({0, 0});
     REQUIRE(chunkFromNbt(chunkTag, bare));
     CHECK(bare.get(5, 64, 5) == S(blocks::Stone));
+}
+
+TEST_CASE("M34 review: a lost player file loses only the player - the UUID, raid, dragon fight and seed stay") {
+    TempDir dir("mc_test_lost_player");
+    LevelData l;
+    l.seed = 4242;
+    l.playerUuidHi = 0x1111222233334444ull;
+    l.playerUuidLo = 0x5555666677778888ull;
+    l.pos[1] = 120.0;
+    l.traderSpawnDelay = 900;
+    l.raidActive = true;
+    l.raidCentre[0] = 10, l.raidCentre[1] = 64, l.raidCentre[2] = 20;
+    l.raidWave = 2, l.raidPendingTicks = 30, l.raidPendingLevel = 3, l.raidNextId = 7;
+    l.raidPendingCentre[0] = 5;
+    l.dragonKilled = l.dragonPreviouslyKilled = true;
+    l.dragonUuidHi = 9, l.dragonUuidLo = 10;
+    l.gateways = {3, 1, 4};
+    l.hasGateways = true;
+    REQUIRE(l.save(dir.path));
+    // Everything round-trips through raids.dat and ender_dragon_fight.dat...
+    const auto full = LevelData::load(dir.path);
+    REQUIRE(full);
+    CHECK(full->raidPendingTicks == 30);
+    CHECK(full->raidPendingLevel == 3);
+    CHECK(full->raidPendingCentre[0] == 5);
+    CHECK(full->raidNextId == 7);
+    CHECK(full->dragonUuidLo == 10);
+    CHECK(full->gateways == l.gateways);
+    // ...and the player's file name is the one stats and advancements use.
+    const fs::path playerFile = playersFolder(dir.path, "data") / uuidFileName(l.playerUuidHi, l.playerUuidLo, ".dat");
+    CHECK(fs::exists(playerFile));
+    CHECK(Statistics::file(dir.path, l.playerUuidHi, l.playerUuidLo).filename().string() ==
+          uuidFileName(l.playerUuidHi, l.playerUuidLo, ".json"));
+    fs::remove(playerFile);
+    fs::remove(fs::path(playerFile.string() + "_old"));
+    fs::remove(dataFolder(dir.path) / "world_gen_settings.dat");
+    fs::remove(dataFolder(dir.path) / "world_gen_settings.dat_old");
+    const auto back = LevelData::load(dir.path);
+    REQUIRE(back);
+    CHECK(back->pos[1] == 0.0); // (the player starts afresh)
+    CHECK(back->playerUuidHi == l.playerUuidHi);
+    CHECK(back->playerUuidLo == l.playerUuidLo);
+    CHECK(back->traderSpawnDelay == 900);
+    CHECK(back->raidActive);
+    CHECK(back->raidWave == 2);
+    CHECK(back->dragonKilled);
+    CHECK(back->hasGateways);
+    CHECK(back->seed == 4242); // (from level.dat's own copy)
+}
+
+TEST_CASE("M34 review: a damaged saved-data file falls back to its _old copy") {
+    TempDir dir("mc_test_old_copy");
+    mc::nbt::Compound a, b;
+    a.put("v", int32_t{1});
+    b.put("v", int32_t{2});
+    REQUIRE(writeSavedData(dir.path / "x.dat", a));
+    REQUIRE(writeSavedData(dir.path / "x.dat", b));
+    std::ofstream(dir.path / "x.dat", std::ios::trunc) << "broken";
+    const auto back = readSavedData(dir.path / "x.dat");
+    REQUIRE(back);
+    CHECK(back->integer("v") == 1);
+}
+
+TEST_CASE("M34 review: migration keeps the newer of two copies, saves the other, and a migrated world saves and loads") {
+    TempDir dir("mc_test_migrate2");
+    mc::nbt::Compound data;
+    data.put("DataVersion", int32_t{4671});
+    data.put("DayTime", int64_t{1234});
+    mc::nbt::Compound gen;
+    gen.put("seed", int64_t{99});
+    data.put("WorldGenSettings", gen);
+    mc::nbt::Compound root;
+    root.put("Data", data);
+    REQUIRE(writeNbtFile(dir.path / "level.dat", root));
+    const fs::path moved = dir.path / "dimensions" / "minecraft" / "overworld" / "region";
+    fs::create_directories(moved);
+    std::ofstream(moved / "r.0.0.mca") << "older";
+    fs::last_write_time(moved / "r.0.0.mca", fs::file_time_type::clock::now() - std::chrono::hours(1));
+    fs::create_directories(dir.path / "region");
+    std::ofstream(dir.path / "region" / "r.0.0.mca") << "newer";
+    REQUIRE(migrateLegacyLayout(dir.path));
+    std::ifstream kept(moved / "r.0.0.mca");
+    std::string text;
+    kept >> text;
+    CHECK(text == "newer");
+    CHECK(fs::exists(moved / "r.0.0.mca.conflict"));
+    CHECK_FALSE(fs::exists(dir.path / "region"));
+    // The first save after moving writes the 26.1 files; loading reads them.
+    auto level = LevelData::load(dir.path);
+    REQUIRE(level);
+    REQUIRE(level->save(dir.path));
+    CHECK(fs::exists(dataFolder(dir.path) / "world_clocks.dat"));
+    const auto again = LevelData::load(dir.path);
+    REQUIRE(again);
+    CHECK(again->dayTime == 1234);
+    CHECK(again->seed == 99);
+}
+
+TEST_CASE("M34 review: an enderman's carried block may be a bare id (26.3's short form)") {
+    using mc::nbt::Compound;
+    using mc::nbt::TagType;
+    Compound e;
+    e.put("id", std::string("minecraft:enderman"));
+    e.put("Pos", mc::nbt::listOf(TagType::Double, {1.0, 64.0, 1.0}));
+    e.put("Health", 40.0f);
+    e.put("carriedBlockState", std::string("minecraft:grass_block"));
+    Compound root;
+    root.put("Entities", mc::nbt::listOf(TagType::Compound, {e}));
+    Chunk c({0, 0});
+    entitiesFromNbt(root, c);
+    REQUIRE(c.mobs().size() == 1);
+    CHECK(blockRegistry().blockOf(c.mobs()[0].carried) == blocks::GrassBlock);
 }

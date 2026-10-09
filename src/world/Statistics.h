@@ -14,8 +14,8 @@
 namespace mc::world {
 
 // The player's statistics (M28.1d; wiki: Statistics). Vanilla keeps them per player in
-// saves/<world>/stats/<uuid>.json as {"stats": {"minecraft:custom": {"minecraft:jump":
-// 12, ...}, "minecraft:mined": {"minecraft:stone": 30}, ...}, "DataVersion": 4671}.
+// saves/<world>/players/stats/<uuid>.json as {"stats": {"minecraft:custom": {"minecraft:jump":
+// 12, ...}, "minecraft:mined": {"minecraft:stone": 30}, ...}, "DataVersion": 5023}.
 // Counters are plain arrays sized once from the registries: counting is an index, never
 // an allocation (hard rule 1).
 enum class Stat : uint8_t {
@@ -93,7 +93,7 @@ public:
 
     std::string toJson() const;
     bool fromJson(std::string_view json); // unknown ids are skipped
-    // saves/<world>/stats/<uuid>.json (uuid hyphenated, as vanilla).
+    // saves/<world>/players/stats/<uuid>.json (uuid hyphenated, as vanilla).
     static std::filesystem::path file(const std::filesystem::path& worldDir, uint64_t uuidHi, uint64_t uuidLo);
     bool save(const std::filesystem::path& path) const;
     static std::optional<Statistics> load(const std::filesystem::path& path);

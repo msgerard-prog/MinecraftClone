@@ -181,6 +181,20 @@ std::string paletteText(const nbt::Compound& e) {
     return text;
 }
 
+// A block state field written either way 26.3 allows: a compound {id, properties} (or the
+// older {Name, Properties}), or a bare id for the block's default state (M34 review).
+std::optional<BlockStateId> blockStateOf(const nbt::Tag* t) {
+    if (!t) return std::nullopt;
+    if (const std::string* bare = t->get<std::string>()) {
+        std::string_view id = *bare;
+        if (id.starts_with("minecraft:")) id.remove_prefix(10);
+        if (const auto b = blockRegistry().findBlock(id)) return blockRegistry().defaultState(*b);
+        return std::nullopt;
+    }
+    if (const nbt::Compound* c = t->get<nbt::Compound>()) return blockRegistry().parse(paletteText(*c));
+    return std::nullopt;
+}
+
 std::vector<int8_t> nibbles(const LightLayer& layer) {
     std::vector<int8_t> out(2048);
     for (int i = 0; i < 2048; ++i) {
@@ -2141,8 +2155,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 p.time = int32_t(std::clamp<int64_t>(e->integer("fuse").value_or(80), 0, 32767));
             } else if (*id == "minecraft:falling_block") {
                 p.kind = K::FallingBlock;
-                const nbt::Compound* bs = e->compound("BlockState");
-                const auto st = bs ? blockRegistry().parse(paletteText(*bs)) : std::nullopt;
+                const auto st = blockStateOf(e->find("BlockState"));
                 if (!st || *st == 0) continue;
                 p.state = *st;
                 p.time = int32_t(std::clamp<int64_t>(e->integer("Time").value_or(0), 0, 1 << 20));
@@ -2613,8 +2626,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         m.armorWear = int16_t(armor.damage);
                     }
                 }
-        if (const nbt::Compound* carried = e->compound("carriedBlockState"))
-            if (const auto s = blockRegistry().parse(paletteText(*carried))) m.carried = *s;
+        if (const auto s = blockStateOf(e->find("carriedBlockState"))) m.carried = *s;
         if (const nbt::Tag* u = e->find("UUID"))
             if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
@@ -2674,10 +2686,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (const std::string* cmd = e->string("Command")) m.commandId = addName(*cmd); // (M29.7)
         if (const std::string* txt = e->string("text"); txt && m.type == MobType::TextDisplay)
             m.commandId = addName(*txt);
-        if (const nbt::Compound* bs = e->compound("block_state"))
-            if (const std::string* n = stateId(*bs))
-                if (const auto b = blockRegistry().findBlock(*n))
-                    m.commandId = blockRegistry().defaultState(*b);
+        if (const auto st = blockStateOf(e->find("block_state"))) // (a display shows the block's default state)
+            m.commandId = blockRegistry().defaultState(blockRegistry().blockOf(*st));
         if (const nbt::Compound* it = e->compound("item"); it && m.type != MobType::Minecart)
             if (const std::string* n = it->string("id"))
                 if (const auto i = itemRegistry().find(*n)) m.commandId = *i;

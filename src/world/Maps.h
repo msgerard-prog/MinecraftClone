@@ -17,7 +17,7 @@ class World;
 // world centred on a grid cell of 128 << scale blocks; each pixel is a colour byte =
 // base colour x 4 + shade (vanilla's palette of 62 base colours, shades 180/220/255/135
 // of 255). Held maps draw the terrain around the player as they walk. Saved as vanilla's
-// data/map_<id>.dat and data/idcounts.dat.
+// data/minecraft/maps/<id>.dat and last_id.dat (26.1; M34).
 struct MapData {
     int32_t centerX = 0, centerZ = 0;
     uint8_t scale = 0;     // 0..4: 1, 2, 4, 8, 16 blocks a pixel
@@ -47,7 +47,7 @@ public:
     // Where (x, z) lands on the map, in pixels (may be outside 0..128).
     static glm::dvec2 pixelOf(const MapData& map, double x, double z);
 
-    // data/map_<id>.dat for each map changed since the last save, and data/idcounts.dat.
+    // maps/<id>.dat for each map changed since the last save, and maps/last_id.dat.
     bool save(const std::filesystem::path& worldDir);
     bool load(const std::filesystem::path& worldDir);
 

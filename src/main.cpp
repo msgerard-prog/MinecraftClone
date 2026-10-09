@@ -617,14 +617,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         playerUuidLo = (uuidRng.nextLong() & ~(3ull << 62)) | (2ull << 62);
     }
     mc::world::setPlayerUuid(playerUuidHi, playerUuidLo); // (written as pets' Owner)
-    // Statistics (M28.1d): saves/<world>/stats/<uuid>.json, as vanilla.
+    // Statistics (M28.1d): saves/<world>/players/stats/<uuid>.json, as vanilla.
     mc::world::Statistics stats;
     if (!worldDir.empty())
         if (auto s = mc::world::Statistics::load(
                 mc::world::Statistics::file(worldDir, playerUuidHi, playerUuidLo)))
             stats = std::move(*s);
     shared.menuState.stats = &stats;
-    // Advancements (M28.5c; wiki: Advancement): saves/<world>/advancements/<uuid>.json. Each
+    // Advancements (M28.5c; wiki: Advancement): saves/<world>/players/advancements/<uuid>.json. Each
     // one made is announced in the chat (if the game rule allows) and with a toast.
     mc::world::Advancements adv;
     if (!worldDir.empty())
@@ -633,7 +633,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             adv = std::move(*a);
     shared.menuState.adv = &adv;
     Dimension advDimension = dimension; // (entering another one is an advancement)
-    // Maps (M28.2b): data/map_<id>.dat; the held one's picture is uploaded when it changes.
+    // Maps (M28.2b): data/minecraft/maps/<id>.dat; the held one's picture is uploaded when it changes.
     mc::world::Maps maps;
     if (!worldDir.empty()) maps.load(worldDir);
     std::vector<uint8_t> mapRgba(128 * 128 * 4, 0);

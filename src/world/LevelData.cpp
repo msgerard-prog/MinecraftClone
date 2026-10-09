@@ -39,6 +39,11 @@ void carry(Compound& from, std::string_view name, Compound& to, std::string_view
 
 constexpr const char* kDifficultyNames[] = {"peaceful", "easy", "normal", "hard"};
 
+std::string playerFile(const std::vector<int32_t>& u) {
+    return uuidFileName(uint64_t(uint32_t(u[0])) << 32 | uint32_t(u[1]), uint64_t(uint32_t(u[2])) << 32 | uint32_t(u[3]),
+                        ".dat");
+}
+
 // The world clocks (26.1: data/minecraft/world_clocks.dat replaces level.dat's DayTime;
 // the wiki documents the clocks, not the file's fields - ours: {"minecraft:overworld":
 // {ticks}}; the End's clock isn't kept: our End has no day).
@@ -62,12 +67,8 @@ bool writeSplitFiles(const std::filesystem::path& dir, Compound& data) {
             const Tag* uuid = player->find("UUID");
             const auto* u = uuid ? uuid->get<std::vector<int32_t>>() : nullptr;
             if (u && u->size() == 4) {
-                char name[48];
-                std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%04x%08x.dat", uint32_t((*u)[0]),
-                              uint32_t((*u)[1]) >> 16, uint32_t((*u)[1]) & 0xFFFF, uint32_t((*u)[2]) >> 16,
-                              uint32_t((*u)[2]) & 0xFFFF, uint32_t((*u)[3]));
                 data.put("singleplayer_uuid", *u);
-                ok = writeNbtFile(playersFolder(dir, "data") / name, *player) && ok;
+                ok = writeNbtFile(playersFolder(dir, "data") / playerFile(*u), *player) && ok;
             } else {
                 data.put("Player", std::move(*p)); // (no UUID yet - tests: kept inline, as before 26.1)
             }
@@ -125,12 +126,11 @@ void mergeSplitFiles(const std::filesystem::path& dir, Compound& data) {
     }
     if (const Tag* u = data.find("singleplayer_uuid"); u && !data.compound("Player"))
         if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
-            char name[48];
-            std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%04x%08x.dat", uint32_t((*a)[0]), uint32_t((*a)[1]) >> 16,
-                          uint32_t((*a)[1]) & 0xFFFF, uint32_t((*a)[2]) >> 16, uint32_t((*a)[2]) & 0xFFFF, uint32_t((*a)[3]));
-            if (auto p = readNbtFile(playersFolder(dir, "data") / name)) {
+            if (auto p = readNbtFile(playersFolder(dir, "data") / playerFile(*a))) {
                 if (!p->find("UUID")) p->put("UUID", *a);
                 data.put("Player", std::move(*p));
+            } else {
+                MC_LOG_ERROR("The player's file %s can't be read; the player starts afresh", playerFile(*a).c_str());
             }
         }
     auto absent = [&](std::string_view n) { return data.find(n) == nullptr; };
@@ -433,6 +433,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     Compound ours;
     ours.put("generator", flat ? std::string("flat") : generator);
     ours.put("format", cloneFormat);
+    ours.put("seed", static_cast<int64_t>(seed)); // (M34 review: a copy kept with level.dat's backup)
     ours.put("nether_generator", netherGenerator);
     ours.put("end_generator", endGenerator);
     std::vector<Tag> portalTags;
@@ -534,6 +535,10 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.spawn[i] = (*a)[size_t(i)];
     if (const Compound* gen = data->compound("WorldGenSettings"))
         l.seed = static_cast<uint64_t>(gen->integer("seed").value_or(0));
+    else if (const Compound* ours = data->compound("MinecraftClone"); ours && ours->integer("seed")) {
+        MC_LOG_WARN("world_gen_settings.dat is missing; using the seed kept in level.dat");
+        l.seed = static_cast<uint64_t>(*ours->integer("seed"));
+    }
     if (const Compound* ours = data->compound("MinecraftClone")) {
         l.cloneFormat = static_cast<int32_t>(ours->integer("format").value_or(0)); // missing: before v0.17.1
         if (auto g = ours->string("generator")) {
@@ -549,6 +554,48 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                                          static_cast<int32_t>(c->integer("y").value_or(0)),
                                          static_cast<int32_t>(c->integer("z").value_or(0))});
     }
+    // World-level data (M34 review: read whether or not the player file could be read).
+    l.traderSpawnDelay = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnDelay").value_or(24000), 1, 24000));
+    l.traderSpawnChance = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnChance").value_or(25), 25, 75));
+    if (const Compound* raid = data->compound("Raid")) {
+        const Tag* centre = raid->find("Center");
+        if (const auto* c = centre ? centre->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3) {
+            l.raidActive = raid->integer("Active").value_or(1) != 0;
+            for (int i = 0; i < 3; ++i) l.raidCentre[i] = (*c)[size_t(i)];
+        }
+        const Tag* omen = raid->find("OmenCenter");
+        if (const auto* c = omen ? omen->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3)
+            for (int i = 0; i < 3; ++i) l.raidPendingCentre[i] = (*c)[size_t(i)];
+        l.raidId = int32_t(std::clamp<int64_t>(raid->integer("Id").value_or(0), 0, 1 << 30));
+        l.raidNextId = int32_t(std::clamp<int64_t>(raid->integer("NextAvailableID").value_or(1), 1, 1 << 30));
+        l.raidPendingTicks = int(std::clamp<int64_t>(raid->integer("OmenTicks").value_or(0), 0, 600));
+        l.raidPendingLevel = int(std::clamp<int64_t>(raid->integer("OmenLevel").value_or(1), 1, 5));
+        l.raidWave = int(std::clamp<int64_t>(raid->integer("Wave").value_or(0), 0, 7));
+        l.raidWaves = int(std::clamp<int64_t>(raid->integer("NumGroups").value_or(5), 1, 7));
+        l.raidLevel = int(std::clamp<int64_t>(raid->integer("BadOmenLevel").value_or(1), 1, 5));
+        l.raidTicks = int(std::clamp<int64_t>(raid->integer("TicksActive").value_or(0), 0, 48000));
+        l.raidCooldown = int(std::clamp<int64_t>(raid->integer("PreRaidTicks").value_or(300), 0, 300));
+        l.raidWaveHealth = std::max(0.0f, float(raid->real("TotalHealth").value_or(0.0)));
+    }
+    if (const Compound* f = data->compound("DragonFight")) {
+        l.dragonKilled = f->integer("DragonKilled").value_or(0) != 0;
+        l.dragonPreviouslyKilled = f->integer("PreviouslyKilled").value_or(0) != 0;
+        if (const Tag* u = f->find("Dragon"))
+            if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
+                l.dragonUuidHi = uint64_t(uint32_t((*a)[0])) << 32 | uint32_t((*a)[1]);
+                l.dragonUuidLo = uint64_t(uint32_t((*a)[2])) << 32 | uint32_t((*a)[3]);
+            }
+        if (const Tag* g = f->find("Gateways"))
+            if (const auto* a = g->get<std::vector<int32_t>>()) {
+                l.gateways = *a;
+                l.hasGateways = true;
+            }
+    }
+    if (const Tag* u = data->find("singleplayer_uuid")) // (M34 review: the player keeps their UUID even
+        if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) { //  without a player file)
+            l.playerUuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
+            l.playerUuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
+        }
     if (const Compound* p = data->compound("Player")) {
         if (const Tag* u = p->find("UUID"))
             if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
@@ -581,42 +628,6 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     l.effects.push_back({*c->string("id"),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
                                          static_cast<int>(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 1 << 30))});
-        l.traderSpawnDelay = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnDelay").value_or(24000), 1, 24000));
-        l.traderSpawnChance = int(std::clamp<int64_t>(data->integer("WanderingTraderSpawnChance").value_or(25), 25, 75));
-        if (const Compound* raid = data->compound("Raid")) {
-            const Tag* centre = raid->find("Center");
-            if (const auto* c = centre ? centre->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3) {
-                l.raidActive = raid->integer("Active").value_or(1) != 0;
-                for (int i = 0; i < 3; ++i) l.raidCentre[i] = (*c)[size_t(i)];
-            }
-            const Tag* omen = raid->find("OmenCenter");
-            if (const auto* c = omen ? omen->get<std::vector<int32_t>>() : nullptr; c && c->size() == 3)
-                for (int i = 0; i < 3; ++i) l.raidPendingCentre[i] = (*c)[size_t(i)];
-            l.raidId = int32_t(std::clamp<int64_t>(raid->integer("Id").value_or(0), 0, 1 << 30));
-            l.raidNextId = int32_t(std::clamp<int64_t>(raid->integer("NextAvailableID").value_or(1), 1, 1 << 30));
-            l.raidPendingTicks = int(std::clamp<int64_t>(raid->integer("OmenTicks").value_or(0), 0, 600));
-            l.raidPendingLevel = int(std::clamp<int64_t>(raid->integer("OmenLevel").value_or(1), 1, 5));
-            l.raidWave = int(std::clamp<int64_t>(raid->integer("Wave").value_or(0), 0, 7));
-            l.raidWaves = int(std::clamp<int64_t>(raid->integer("NumGroups").value_or(5), 1, 7));
-            l.raidLevel = int(std::clamp<int64_t>(raid->integer("BadOmenLevel").value_or(1), 1, 5));
-            l.raidTicks = int(std::clamp<int64_t>(raid->integer("TicksActive").value_or(0), 0, 48000));
-            l.raidCooldown = int(std::clamp<int64_t>(raid->integer("PreRaidTicks").value_or(300), 0, 300));
-            l.raidWaveHealth = std::max(0.0f, float(raid->real("TotalHealth").value_or(0.0)));
-        }
-        if (const Compound* f = data->compound("DragonFight")) {
-            l.dragonKilled = f->integer("DragonKilled").value_or(0) != 0;
-            l.dragonPreviouslyKilled = f->integer("PreviouslyKilled").value_or(0) != 0;
-            if (const Tag* u = f->find("Dragon"))
-                if (const auto* a = u->get<std::vector<int32_t>>(); a && a->size() == 4) {
-                    l.dragonUuidHi = uint64_t(uint32_t((*a)[0])) << 32 | uint32_t((*a)[1]);
-                    l.dragonUuidLo = uint64_t(uint32_t((*a)[2])) << 32 | uint32_t((*a)[3]);
-                }
-            if (const Tag* g = f->find("Gateways"))
-                if (const auto* a = g->get<std::vector<int32_t>>()) {
-                    l.gateways = *a;
-                    l.hasGateways = true;
-                }
-        }
         if (const Compound* d = p->compound("LastDeathLocation"))
             if (const Tag* pos = d->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {

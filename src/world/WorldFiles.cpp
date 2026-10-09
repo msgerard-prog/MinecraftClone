@@ -4,6 +4,7 @@
 #include "core/Log.h"
 #include "world/ChunkSerializer.h"
 
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -25,28 +26,57 @@ fs::path playersFolder(const fs::path& world, std::string_view kind) { return wo
 
 fs::path mapsFolder(const fs::path& world) { return dataFolder(world) / "maps"; }
 
+std::string uuidFileName(uint64_t hi, uint64_t lo, std::string_view extension) {
+    char name[40];
+    std::snprintf(name, sizeof(name), "%08x-%04x-%04x-%04x-%012llx", unsigned(hi >> 32), unsigned(hi >> 16 & 0xFFFF),
+                  unsigned(hi & 0xFFFF), unsigned(lo >> 48), static_cast<unsigned long long>(lo & 0xFFFFFFFFFFFFull));
+    return std::string(name) + std::string(extension);
+}
+
+namespace {
+fs::path withSuffix(fs::path p, const char* suffix) {
+    p += suffix;
+    return p;
+}
+} // namespace
+
 bool writeNbtFile(const fs::path& file, const nbt::Compound& root) {
     const auto bytes = gzipCompress(nbt::write(root));
     std::error_code ec;
     fs::create_directories(file.parent_path(), ec);
-    fs::path tmp = file;
-    tmp += "_new";
+    const fs::path tmp = withSuffix(file, "_new");
     {
         std::ofstream f(tmp, std::ios::binary);
         f.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
         f.close(); // (a failed flush - a full disk - shows up here)
         if (!f) return false;
     }
+    // (M34 review) the previous version stays as <name>_old, so a damaged file isn't the end
+    if (fs::exists(file, ec)) fs::copy_file(file, withSuffix(file, "_old"), fs::copy_options::overwrite_existing, ec);
+    ec.clear();
     fs::rename(tmp, file, ec); // (replaces the old file in one step)
     return !ec;
 }
 
-std::optional<nbt::Compound> readNbtFile(const fs::path& file) {
+namespace {
+std::optional<nbt::Compound> readOne(const fs::path& file) {
     std::ifstream f(file, std::ios::binary);
     if (!f) return std::nullopt;
     const std::vector<uint8_t> gz((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     const auto raw = gzipDecompress(gz);
     return raw ? nbt::read(*raw) : std::nullopt;
+}
+} // namespace
+
+std::optional<nbt::Compound> readNbtFile(const fs::path& file) {
+    if (auto c = readOne(file)) return c;
+    std::error_code ec;
+    if (auto c = readOne(withSuffix(file, "_old"))) {
+        if (fs::exists(file, ec)) MC_LOG_WARN("%s is unreadable; using its _old copy", file.string().c_str());
+        return c;
+    }
+    if (fs::exists(file, ec)) MC_LOG_ERROR("%s is unreadable", file.string().c_str());
+    return std::nullopt;
 }
 
 bool writeSavedData(const fs::path& file, nbt::Compound data) {
@@ -86,8 +116,21 @@ bool moveInto(const fs::path& from, const fs::path& to) {
         return false;
     }
     if (!fs::is_directory(from, ec) || !fs::is_directory(to, ec)) {
-        MC_LOG_WARN("Both %s and %s exist; keeping the second", from.string().c_str(), to.string().c_str());
-        return true;
+        // (M34 review) both exist - a world opened again by an older build after moving: the
+        // newer file wins, the other is kept beside it as <name>.conflict, never deleted.
+        const bool fromNewer = fs::last_write_time(from, ec) > fs::last_write_time(to, ec);
+        const fs::path loser = withSuffix(to, ".conflict");
+        fs::remove_all(loser, ec);
+        if (fromNewer) {
+            fs::rename(to, loser, ec);
+            if (!ec) fs::rename(from, to, ec);
+        } else {
+            fs::rename(from, loser, ec);
+        }
+        MC_LOG_WARN("Both %s and %s existed; kept the newer, the other is %s", from.string().c_str(),
+                    to.string().c_str(), loser.string().c_str());
+        if (ec) MC_LOG_ERROR("Can't settle %s: %s", to.string().c_str(), ec.message().c_str());
+        return !ec;
     }
     bool ok = true;
     for (const fs::path& p : entries(from)) ok = moveInto(p, to / p.filename()) && ok;

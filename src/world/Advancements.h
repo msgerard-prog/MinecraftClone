@@ -15,7 +15,7 @@ namespace mc::world {
 // Advancements (M28.5c; wiki: Advancement). Vanilla's ids, titles, descriptions, tabs and
 // frames; how each is earned is ours: an item in the inventory, a mob killed, a dimension
 // entered or an event main reports (vanilla's triggers are richer - see game-design.md).
-// Saved per player as vanilla's advancements/<uuid>.json.
+// Saved per player as vanilla's players/advancements/<uuid>.json.
 enum class AdvTab : uint8_t { Story, Nether, End, Adventure, Husbandry, Count };
 enum class AdvFrame : uint8_t { Task, Goal, Challenge };
 

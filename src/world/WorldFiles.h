@@ -4,7 +4,9 @@
 #include "world/Dimension.h"
 
 #include <filesystem>
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace mc::world {
@@ -25,8 +27,13 @@ std::filesystem::path dataFolder(const std::filesystem::path& world); // data/mi
 std::filesystem::path playersFolder(const std::filesystem::path& world, std::string_view kind); // data|stats|advancements
 std::filesystem::path mapsFolder(const std::filesystem::path& world);
 
+// A player's file name in players/data|stats|advancements: their UUID in its usual
+// 8-4-4-4-12 hex form plus `extension` (".dat", ".json").
+std::string uuidFileName(uint64_t hi, uint64_t lo, std::string_view extension);
+
 // Vanilla's saved-data files: gzip NBT, root {data: {...}, DataVersion}. Written to a
-// temporary file first and renamed into place. Reading returns the `data` compound.
+// temporary file first and renamed into place; the file it replaces is kept as
+// `<name>_old`, which reading falls back to (as level.dat_old). Reading returns `data`.
 bool writeSavedData(const std::filesystem::path& file, nbt::Compound data);
 std::optional<nbt::Compound> readSavedData(const std::filesystem::path& file);
 // Any gzip NBT file (players/data/<uuid>.dat holds the player itself at its root).
