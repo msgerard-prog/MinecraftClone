@@ -4,26 +4,15 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-09)
-M32 done (reviews applied; v1.3.0): play parity - vanilla's spawn cycle, regional difficulty,
-baby zombies, reinforcements, door breaking, monster gear and loot pickup, the hit window,
-knockback resistance, the totem animation, saved arrows/TNT/falling blocks, inventory
-shortcuts, villager gossip and hero gifts, and the M32.6 mob rows. Bench: night on Hard CPU
-p99 ~1.2 ms, GPU ~0.2-0.4 ms.
+M33 done (reviews applied; v1.4.0): the 26.x additions - 26.1 golden dandelion and name tags,
+26.2 sulfur caves (sulfur/cinnabar, potent sulfur and geysers, spikes, sulfur cubes, "Bounce"),
+26.3 poplars, the dappled forest, shelf mushrooms, wool/concrete stairs and slabs, straw beds,
+cushions, abandoned camps and the behaviour changes; overworld8 is the default generator
+(pinned). Bench: steady CPU p99 0.25 ms, GPU 0.16 ms. M32 done (v1.3.0).
 
 ## Next
-M33 - The 26.x additions (released versions only, from the wiki; 26.4 is still in
-development). Saves stay at DataVersion 4671 until the user decides (Waiting on the user).
-1. ✅ M33.1 - 26.1 "Tiny Takeover": golden dandelion (stops a baby growing: AgeLocked), the name
-   tag recipe, baby skeleton/zombie horses that don't grow up or panic.
-2. ✅ M33.2 - 26.2 "Chaos Cubed": cinnabar and sulfur families (stairs, slabs, walls, polished,
-   bricks, chiseled), potent sulfur (bubbles, nausea gas, geysers over magma), sulfur spikes,
-   the sulfur cube (absorbs a block, archetypes, bucket), beds bouncing 75%, disc "Bounce";
-   sulfur caves and springs in a new generator (overworld8, the default for new worlds).
-3. ✅ M33.3 - 26.3 "Wilderness Bound": the poplar wood set, the dappled forest (red shrubs,
-   shelf mushrooms), wool and concrete stairs/slabs, straw beds, cushions, abandoned camps and
-   explorer maps; behaviour changes (shield before tilling, stews from any two mushrooms,
-   endermen/shulkers not onto bedrock, sculk hears melting).
-Then reviews, v1.4.0.
+Nothing scheduled: the user's request (play parity, then the 26.x additions) is done. Open:
+the DataVersion question (Waiting on the user); 26.4 when it releases; the backlog below.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -207,6 +196,11 @@ and GUI textures are made with their systems.
 - **M33 decision (DataVersion):** matching 26.3 would raise the saves' DataVersion above
   1.21.11's 4671 - a save-format change. Until you say so, the 26.x content is added and
   saves stay at 4671 (vanilla 1.21.11 then can't know the new blocks).
+- **M33 note:** new worlds use "overworld8" (pinned since v1.4.0). Try it: `tools/run.sh
+  --world "M33 test" --seed 42 --pos 584,110,-600` (a dappled forest; a camp near 967,-318);
+  find a sulfur cave deep under a low, eroded area; `/give @s golden_dandelion` on a baby.
+  Kept as ours: the camp layout, the poplar canopy shape, sulfur cube archetype factors,
+  "sneak to till" with a shield.
 - **M32 checks (in-game):** how long a zombie takes to break a door on Hard (ours 12 s; the
   wiki "about 10 s"); trading's gossip per trade (`/data get entity @e[type=villager,limit=1,
   sort=nearest] Gossips` after one trade: ours 2, the wiki's table 4). Try it:
@@ -350,6 +344,7 @@ and GUI textures are made with their systems.
 | M30 | Play feel: player model and views, attack cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book | ✅ 2026-10-09 v1.1.0 (basic recipe book, flat held items: see deviations) |
 | M31 | Performance: incremental light, dense chunk grid, ring work queue, cheap guards | ✅ 2026-10-09 v1.2.0 |
 | M32 | Play parity: spawning, monsters, damage rules, inventory handling, villagers 2, mob rows | ✅ 2026-10-09 v1.3.0 (gossip about one player, no gossip sharing: see deviations) |
+| M33 | The 26.x additions: 26.1, 26.2 (sulfur caves, sulfur cubes), 26.3 (poplars, dappled forest, camps), overworld8 | ✅ 2026-10-09 v1.4.0 (our camp design, no explorer maps or fallen poplars: see deviations) |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | ✅ 2026-10-09 v1.0 (then polish: deviations, performance) |
 
 ## Backlog (unscheduled)
@@ -358,6 +353,7 @@ and GUI textures are made with their systems.
   (26.3's camp maps, shipwreck treasure maps).
 
 ## Done (latest 10)
+- 2026-10-09 M33 (v1.4.0): the 26.x additions - golden dandelion, sulfur caves and cubes, potent sulfur, poplars, dappled forest, straw beds, cushions, camps; overworld8.
 - 2026-10-09 M32 (v1.3.0): play parity - spawn cycle, regional difficulty, zombies 2, monster gear, damage rules, saved projectiles, inventory shortcuts, gossip, mob rows.
 - 2026-10-09 M31 (v1.2.0): incremental light, dense chunk grid, ring work queue, path search cap, drops saved only when changed.
 - 2026-10-09 M30 (v1.1.0): play feel - views and player model, combat cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book.
