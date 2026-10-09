@@ -543,8 +543,12 @@ TEST_CASE("a creeper's fuse goes back down when the player gets away") {
 TEST_CASE("skeletons shoot arrows at a survival player in range") {
     MonsterScene s;
     REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Skeleton, {8.5, 64.0, 0.5}, s.rng)));
-    s.run(120);
-    CHECK(s.vitals.health() < 20.0f);
+    float lowest = 20.0f; // (full food heals it back between shots)
+    for (int t = 0; t < 120; ++t) {
+        s.run(1);
+        lowest = std::min(lowest, s.vitals.health());
+    }
+    CHECK(lowest < 20.0f);
 }
 
 TEST_CASE("spiders climb walls, and stay calm in bright light until hit") {
@@ -2316,4 +2320,46 @@ TEST_CASE("M32.1: animals come back on grass every 400 ticks (vanilla's creature
         }
     MESSAGE("farm animals " << farm);
     CHECK(farm > 0);
+}
+
+TEST_CASE("M32.2: skeletons strafe around a player in range instead of standing still") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Skeleton, {10.5, 64.0, 0.5}, s.rng)));
+    s.run(40);
+    MobData* sk = s.all().at(0);
+    const glm::dvec3 a = sk->pos;
+    s.run(60);
+    sk = s.all().at(0);
+    const glm::dvec3 moved = sk->pos - a;
+    const double dist = glm::length(glm::dvec2(sk->pos.x - 0.5, sk->pos.z - 0.5));
+    MESSAGE("moved " << glm::length(moved) << " distance " << dist);
+    CHECK(glm::length(moved) > 1.0);
+    CHECK(dist < 15.5);
+    CHECK(dist > 2.0);
+}
+
+TEST_CASE("M32.2: an enderman under the midday sky teleports away") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    for (int cz = -2; cz <= 2; ++cz)
+        for (int cx = -2; cx <= 2; ++cx) {
+            std::array<std::shared_ptr<const SectionLight>, kMaxSections> l;
+            auto bright = std::make_shared<SectionLight>();
+            bright->sky.fill(15);
+            l.fill(bright);
+            s.world.chunk({cx, cz})->setLight(l);
+        }
+    s.dayTime = 6000;
+    s.skyDarken = 0.0f;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Enderman, {6.5, 64.0, 6.5}, s.rng)));
+    bool jumped = false;
+    glm::dvec3 last = s.all().at(0)->pos;
+    for (int t = 0; t < 300 && !jumped; ++t) {
+        s.run(1);
+        const glm::dvec3 now = s.all().at(0)->pos;
+        jumped = glm::length(now - last) > 3.0;
+        last = now;
+    }
+    CHECK(jumped);
 }

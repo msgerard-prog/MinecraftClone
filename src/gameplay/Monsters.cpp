@@ -24,14 +24,19 @@ using namespace world;
 
 namespace {
 
-// Line of sight from a mob's eyes to the player's (no block in between).
-bool sees(const World& w, const MobData& m, const Player& player) {
+bool sees(const World& w, const MobData& m, const Player& player) { return Mobs::seesPlayer(w, m, player); }
+
+} // namespace
+
+bool Mobs::seesPlayer(const World& w, const MobData& m, const Player& player) {
     const glm::dvec3 eye = m.pos + glm::dvec3(0.0, mobInfo(m.type).height * 0.85, 0.0);
     const glm::dvec3 target = player.eyePosition(1.0);
     const glm::dvec3 d = target - eye;
     const double len = glm::length(d);
     return len < 1e-6 || !raycastBlocks(w, eye, d / len, len);
 }
+
+namespace {
 
 bool solid(const World& w, int x, int y, int z) {
     return blockRegistry().collides(w.getBlock({x, y, z}));
@@ -439,6 +444,23 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
             }
             m.wantsTeleport = true;
         }
+        // Sunlight (M32.2; vanilla EnderMan.customServerAiStep): by day under the open sky it
+        // teleports now and then - the brighter, the likelier - and forgets its target.
+        {
+            const BlockPos head{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 2.5)), int(std::floor(m.pos.z))};
+            if (const Chunk* hc = ctx.world.chunk(head.chunk()); hc && hc->lit() && ctx.world.isInHeight(head.y)) {
+                const int sky = hc->skyLight(blockToLocal(head.x), head.y, blockToLocal(head.z));
+                const float bright = float(std::max(0, sky - int(ctx.skyDarken))) / 15.0f;
+                if (bright > 0.5f && sky >= 15 && ctx.rng.nextFloat() * 30.0f < (bright - 0.4f) * 2.0f) {
+                    m.angry = false;
+                    m.targeting = false;
+                    m.wantsTeleport = true;
+                }
+            }
+        }
+        // Hurt by something that isn't a creature (fire, lava, a cactus, a fall): it teleports
+        // away (vanilla: 9 times in 10).
+        if (m.hurtTime == 9 && !m.lastHurtByPlayer && ctx.rng.nextInt(10) != 0) m.wantsTeleport = true;
         if (m.wantsTeleport) {
             m.wantsTeleport = false;
             teleport(ctx.world, m, m.pos, ctx.rng);

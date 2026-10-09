@@ -441,6 +441,10 @@ struct MobData {
     // Hostiles 2 (M16.5; wiki: Creeper, Skeleton, Spider, Enderman).
     int16_t fuse = 0;           // creeper: swelling ticks (explodes at 30)
     int16_t shootTicks = 0;     // skeleton: drawing the bow
+    // (M32.2; vanilla RangedBowAttackGoal) how long it has seen its target, its strafing clock
+    // (-1: walking up) and which way it strafes. Not saved.
+    int16_t seeTime = 0, strafeTime = -1;
+    bool strafeClockwise = false, strafeBack = false;
     bool angry = false;         // enderman stared at / spider or enderman hit
     uint16_t carried = 0;       // enderman: the block state it holds (0 = none)
     bool wantsTeleport = false; // enderman: hit by an arrow / in water - teleport away

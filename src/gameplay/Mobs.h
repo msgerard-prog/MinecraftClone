@@ -216,6 +216,11 @@ private:
     void spawnMonsterPacks(Context& ctx, int x, int y, int z);
     bool spawnMonsterAt(Context& ctx, int x, int y, int z, world::MobType& kind, bool first);
     int m_monsterCap = 70; // (scaled by the chunks around the player each tick)
+public:
+    // Line of sight from a mob's eyes to the player's eyes (no block in between).
+    static bool seesPlayer(const world::World& w, const world::MobData& m, const Player& player);
+
+private:
     void spawnCreatureAt(Context& ctx, int x, int z);
     int m_creatureCap = 10;
     void tickSpawners(Context& ctx, world::Chunk& chunk); // M18.3

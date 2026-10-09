@@ -595,8 +595,18 @@ void Mobs::ai(Context& ctx, MobData& m) {
     } else if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
-        // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
-        if ((isSkeleton(m.type) || m.type == MobType::Illusioner) && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+        // Skeletons (M32.2; vanilla RangedBowAttackGoal): walk up until within 15 blocks having
+        // seen the player for a second, then stand and strafe (below).
+        if (isSkeleton(m.type) || m.type == MobType::Illusioner) {
+            const bool seen = seesPlayer(ctx.world, m, ctx.player);
+            m.seeTime = seen ? int16_t(std::max<int>(0, m.seeTime) + 1) : int16_t(std::min<int>(0, m.seeTime) - 1);
+            if (playerDist2 <= 15.0 * 15.0 && m.seeTime >= 20) {
+                m.goal = m.pos;
+                ++m.strafeTime;
+            } else {
+                m.strafeTime = -1;
+            }
+        }
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0)
             m.goal = m.pos; // (throws from where it stands)
         if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0)
@@ -788,6 +798,28 @@ void Mobs::ai(Context& ctx, MobData& m) {
         jump = climb ||
                (solidAt(ctx.world, ax, fy, az) && !solidAt(ctx.world, ax, fy + 1, az) &&
                 !solidAt(ctx.world, int(std::floor(m.pos.x)), fy + 2, int(std::floor(m.pos.z))));
+    }
+    // Strafing (M32.2; vanilla RangedBowAttackGoal): sideways at half speed, flipping either way
+    // 3 times in 10 each second; backing off inside a quarter of the range (15), coming in again
+    // beyond three quarters; facing the player throughout.
+    if (chase && (isSkeleton(m.type) || m.type == MobType::Illusioner) && m.strafeTime >= 0) {
+        if (m.strafeTime >= 20) {
+            if (ctx.rng.nextFloat() < 0.3f) m.strafeClockwise = !m.strafeClockwise;
+            if (ctx.rng.nextFloat() < 0.3f) m.strafeBack = !m.strafeBack;
+            m.strafeTime = 0;
+        }
+        if (playerDist2 > 15.0 * 15.0 * 0.75) m.strafeBack = false;
+        else if (playerDist2 < 15.0 * 15.0 * 0.25) m.strafeBack = true;
+        const glm::dvec2 f = glm::length(glm::dvec2(toPlayer.x, toPlayer.z)) > 1e-6
+                                 ? glm::normalize(glm::dvec2(toPlayer.x, toPlayer.z))
+                                 : glm::dvec2(0.0, 1.0);
+        const glm::dvec2 side(-f.y, f.x);
+        const glm::dvec2 w = f * (m.strafeBack ? -0.5 : 0.5) + side * (m.strafeClockwise ? 0.5 : -0.5);
+        // (only onto ground: no strafing off a ledge)
+        const glm::dvec3 ahead = m.pos + glm::dvec3(w.x, 0.0, w.y) * 2.0;
+        if (solidAt(ctx.world, int(std::floor(ahead.x)), int(std::floor(m.pos.y - 0.5)), int(std::floor(ahead.z))))
+            wish = glm::dvec3(w.x, 0.0, w.y) * speed;
+        m.yaw = approachAngle(m.yaw, yawTowards(m.pos, playerPos), 30.0f);
     }
     // Head: look at a near player (wiki: look-at-player goal, 6-8 blocks).
     if (playerDist2 < 8.0 * 8.0) {
