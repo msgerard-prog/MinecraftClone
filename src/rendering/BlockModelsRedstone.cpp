@@ -210,14 +210,19 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
     case B::WallTorch:
     case B::SoulWallTorch: { // upright against the wall (vanilla tilts it: known deviation)
         Builder b(atlas, out);
-        b.box(torchStick({7, 3, 12}, 10, block == B::WallTorch ? "torch" : "soul_torch"), {0, yTurns(hFacing(r, s))});
+        // (M29.6: the copper wall torch too) "<kind>_wall_torch" shows "<kind>_torch"
+        std::string tex(realName);
+        tex.erase(tex.rfind("wall_"), 5);
+        b.box(torchStick({7, 3, 12}, 10, tex.c_str()), {0, yTurns(hFacing(r, s))});
         return true;
     }
     case B::Lantern:
     case B::SoulLantern: {
         // A 6x7x6 body and a small cap (wiki: Lantern), one pixel lower when standing.
         Builder b(atlas, out);
-        const char* tex = block == B::Lantern ? "lantern" : "soul_lantern";
+        // (M29.6: copper lanterns - their own texture, waxed ones the same as unwaxed)
+        const std::string texName(realName.starts_with("waxed_") ? realName.substr(6) : realName);
+        const char* tex = texName.c_str();
         const int y0 = r.get(s, P::hanging) == 0 ? 1 : 0;
         // (our lantern art: the glowing body at texels 5..11 x 4..11, the cap above it)
         BoxSpec body = allFaces({5, y0, 5}, {11, y0 + 7, 11}, tex, {5, 4, 11, 11});
@@ -232,7 +237,9 @@ bool bakeRedstoneModel(const world::BlockRegistry& r, world::BlockStateId s, con
     case B::Chain: { // a thin bar along the axis showing the chain links
         Builder b(atlas, out);
         const int a = r.get(s, P::axis);
-        BoxSpec bar = allFaces({7, 0, 7}, {9, 16, 9}, "chain", {6, 0, 10, 16}); // (our chain art: columns 6..9)
+        // (our chain art: columns 6..9; M29.6: iron and copper chains by name, waxed as unwaxed)
+        const std::string texName(realName.starts_with("waxed_") ? realName.substr(6) : realName);
+        BoxSpec bar = allFaces({7, 0, 7}, {9, 16, 9}, texName.c_str(), {6, 0, 10, 16});
         bar.faces[int(Direction::Up)] = {nullptr};
         bar.faces[int(Direction::Down)] = {nullptr};
         b.box(bar, a == 0 ? Rot{1, 1} : a == 2 ? Rot{1, 0} : Rot{});

@@ -23,6 +23,7 @@ const TierInfo& tierInfo(ToolTier tier) {
 }
 
 std::optional<ItemId> ItemRegistry::find(std::string_view id) const {
+    if (id == "minecraft:chain" || id == "chain") return find("minecraft:iron_chain"); // (M29.6: renamed in 1.21.9)
     const bool bare = id.find(':') == std::string_view::npos;
     for (size_t i = 0; i < m_items.size(); ++i) {
         const std::string_view name = m_items[i].id;
@@ -73,7 +74,8 @@ ItemRegistry buildItems() {
             (b >= blocks::CoralWallFanFirst && b <= blocks::CoralWallFanLast) || // (M29.4c: from fans)
             b == blocks::BambooSapling ||                                         // (planted bamboo)
             b == blocks::PowderSnow ||                                            // (a bucket below)
-            b == blocks::Tripwire)                                                // (M29.5: string)
+            b == blocks::Tripwire ||                                              // (M29.5: string)
+            b == blocks::CopperWallTorch)                                         // (M29.6: copper torch)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -642,6 +644,7 @@ ItemRegistry buildItems() {
     }
     r.mapBlock(blocks::BambooSapling, *r.find("bamboo"));
     r.mapBlock(blocks::Tripwire, *r.find("string"));
+    r.mapBlock(blocks::CopperWallTorch, *r.find("copper_torch"));
     r.add({.id = "minecraft:enchanted_golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
            .texture = "item/enchanted_golden_apple"});
     // (M29.3c; wiki: Spyglass, Bottle o' Enchanting, Knowledge Book)

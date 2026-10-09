@@ -290,15 +290,15 @@ def _ladder(rng):
 reg("ladder", _ladder)
 
 
-def _bars(rng):
+def _bars(rng, pal=IRON):
     img = Img()
     for x in range(1, N, 4):
         for y in range(N):
-            img.set(x, y, IRON[3])
-            img.set(x + 1, y, IRON[1])
+            img.set(x, y, pal[3])
+            img.set(x + 1, y, pal[1])
     for y in (0, 15):
         for x in range(N):
-            img.set(x, y, IRON[2])
+            img.set(x, y, pal[2])
     return img
 
 
@@ -308,29 +308,30 @@ reg("iron_door_bottom", lambda r: M.door(r, IRON, "bottom", "panel"))
 reg("iron_trapdoor", lambda r: M.trapdoor(r, IRON, "grid"))
 
 
-def _chain(rng):
+def _chain(rng, pal=DARK_IRON):
     img = Img()
     for y in range(N):
         if y % 4 < 3:
-            img.set(7, y, DARK_IRON[3])
-            img.set(8, y, DARK_IRON[1])
+            img.set(7, y, pal[3])
+            img.set(8, y, pal[1])
         else:
-            img.set(6, y, DARK_IRON[2])
-            img.set(9, y, DARK_IRON[2])
+            img.set(6, y, pal[2])
+            img.set(9, y, pal[2])
     return img
 
 
 reg("chain", _chain)
+reg("iron_chain", _chain)  # (M29.6: 1.21.9 renamed the chain)
 
 
-def _lantern(rng, flame):
+def _lantern(rng, flame, metal=DARK_IRON):
     img = Img()
     for y in range(3, 12):
         for x in range(5, 11):
             edge = x in (5, 10) or y in (3, 11)
-            img.set(x, y, DARK_IRON[2] if edge else flame[3 if (x + y) % 2 else 4])
+            img.set(x, y, metal[2] if edge else flame[3 if (x + y) % 2 else 4])
     for x in range(6, 10):
-        img.set(x, 2, DARK_IRON[3])
+        img.set(x, 2, metal[3])
     return img
 
 
@@ -790,3 +791,14 @@ reg("campfire_log_lit", lambda r: _campfire_log_lit(r, FIRE))
 reg("soul_campfire_log_lit", lambda r: _campfire_log_lit(r, SOUL_FIRE))
 for s in range(10):
     reg(f"destroy_stage_{s}", lambda r, s=s: U.crack_stage(s))
+
+
+# --- The Copper Age (M29.6, 1.21.9; wiki: Copper Bars, Copper Chain, Copper Lantern,
+# Copper Torch): copper metal in its four oxidation colours; copper fire burns green.
+COPPER_STAGES = {"": "c87050", "exposed_": "a8806a", "weathered_": "6d9a72", "oxidized_": "4fa08a"}
+COPPER_FLAME = ramp(hexc("78e070"), spread=0.3)
+for _st, _hx in COPPER_STAGES.items():
+    reg(_st + "copper_bars", lambda r, h=_hx: _bars(r, ramp(hexc(h), spread=0.28)))
+    reg(_st + "copper_chain", lambda r, h=_hx: _chain(r, ramp(hexc(h), spread=0.28)))
+    reg(_st + "copper_lantern", lambda r, h=_hx: _lantern(r, COPPER_FLAME, ramp(hexc(h), spread=0.28)))
+reg("copper_torch", lambda r: _torch(r, COPPER_FLAME))

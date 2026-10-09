@@ -129,6 +129,7 @@ Push pushKind(BlockStateId s) {
     if (R().likeOf(b) == B::ShulkerBox || b == B::Campfire || b == B::SoulCampfire || kind == BlockKind::Sign ||
         kind == BlockKind::WallSign || kind == BlockKind::HangingSign || kind == BlockKind::WallHangingSign ||
         kind == BlockKind::Banner || kind == BlockKind::WallBanner || b == B::WallTorch || b == B::SoulTorch || b == B::SoulWallTorch || b == B::Lantern || b == B::SoulLantern ||
+        R().likeOf(b) == B::Lantern || R().likeOf(b) == B::WallTorch || R().likeOf(b) == B::Torch || // (M29.6: copper)
         b == B::Ladder || b == B::Bamboo || b == B::TurtleEgg ||
         (BlockUpdates::isOceanPlant(b) && !R().block(b).id.ends_with("_coral_block"))) // (M25 review: plants break off)
         return Push::Destroy;
@@ -2820,7 +2821,10 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Torch: // on a wall when clicked on its side, else standing (wiki: Torch)
     case B::SoulTorch:
         if (horizontal(faceDir) && solid(opposite(faceDir)))
-            return withHFacing(r.defaultState(blockOf(state) == B::Torch ? B::WallTorch : B::SoulWallTorch), faceDir);
+            return withHFacing(r.defaultState(r.blockOf(state) == B::CopperTorch ? B::CopperWallTorch // (M29.6)
+                                              : blockOf(state) == B::Torch     ? B::WallTorch
+                                                                               : B::SoulWallTorch),
+                               faceDir);
         if (solid(Direction::Down)) return state;
         return std::nullopt;
     case B::Bamboo: {

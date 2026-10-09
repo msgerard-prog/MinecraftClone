@@ -431,6 +431,10 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name == "copper_torch") { // (M29.6) the torch's stick with the copper flame
+        m = m_models[registry.defaultState(blocks::Torch)];
+        for (int b = 0; b < m.boxCount; ++b)
+            for (auto& f : m.boxes[b].faces) f.sprite = sprite("copper_torch");
     } else if (name == "bubble_column") { // (M29.5) only its water is drawn (the mesher's waterlogged cell)
         m = BakedModel{};
         m.visible = false;
@@ -721,11 +725,11 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     face.sprite = sprite("nether_bricks");
                     face.uv[0] = 6, face.uv[1] = 0, face.uv[2] = 10, face.uv[3] = 16;
                 }
-            } else if (name == "chorus_plant" || name == "iron_bars") {
+            } else if (name == "chorus_plant" || name == "iron_bars" || name.ends_with("copper_bars")) {
                 // A middle piece plus an arm to each connected side (vanilla multipart):
                 // the chorus plant a 8x8 core (vanilla 10x10 with fringes), iron bars a
                 // 2-wide post with 2-wide arms (vanilla: flat panes).
-                const bool bars = name == "iron_bars";
+                const bool bars = name != "chorus_plant"; // (M29.6: copper bars too)
                 const uint8_t lo = bars ? 7 : 4, hi = bars ? 9 : 12;
                 const uint16_t sp = sprite(name.c_str());
                 m.visible = true;

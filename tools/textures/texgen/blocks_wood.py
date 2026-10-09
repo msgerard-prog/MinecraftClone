@@ -6,7 +6,7 @@ Base colours are our own picks from a description of each wood.
 import random
 
 from . import materials as M
-from .core import Img, grey, hexc, ramp
+from .core import Img, grey, hexc, mix, ramp
 from .registry import add
 
 # Oak keeps the hand-tuned palettes from the first texture pass.
@@ -155,3 +155,23 @@ for name, s in STEMS.items():
     reg(f"{name}_door_top", lambda r, s=s: M.door(r, s["planks"], "top", "lattice"))
     reg(f"{name}_door_bottom", lambda r, s=s: M.door(r, s["planks"], "bottom", "lattice"))
     reg(f"{name}_trapdoor", lambda r, s=s: M.trapdoor(r, s["planks"], "lattice"))
+
+
+# --- Shelves (M29.5/M29.6, 1.21.9; wiki: Shelf) ----------------------------------------
+# A plank frame round a dark recessed band where its three items stand.
+def _shelf(rng, pal):
+    img = M.planks(rng, pal)
+    for y in range(3, 13):
+        for x in range(1, 15):
+            img.set(x, y, pal[0] if y in (3, 12) else mix(pal[0], (0, 0, 0, 255), 0.35))
+    for y in range(3, 13):
+        img.set(0, y, pal[1])
+        img.set(15, y, pal[1])
+    return img
+
+
+_SHELF_WOODS = {name: w["planks"] for name, w in WOODS.items()}
+_SHELF_WOODS.update({"bamboo": BAMBOO_YELLOW, "crimson": STEMS["crimson"]["planks"],
+                     "warped": STEMS["warped"]["planks"]})
+for name, pal in _SHELF_WOODS.items():
+    reg(f"{name}_shelf", lambda r, pal=pal: _shelf(r, pal))

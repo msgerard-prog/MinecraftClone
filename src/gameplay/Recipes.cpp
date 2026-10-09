@@ -592,7 +592,7 @@ std::vector<Recipe> build() {
             shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("torch")}}, "lantern"));
         r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', nugget}, {'T', item("soul_torch")}},
                            "soul_lantern"));
-        r.push_back(shaped({"N", "I", "N"}, {{'N', nugget}, {'I', item("iron_ingot")}}, "chain"));
+        r.push_back(shaped({"N", "I", "N"}, {{'N', nugget}, {'I', item("iron_ingot")}}, "iron_chain"));
         for (const char* soil : {"soul_sand", "soul_soil"}) {
             r.push_back(shaped({"C", "S", "X"}, {{'C', kCoal}, {'S', stick}, {'X', item(soil)}},
                                "soul_torch", 4));
@@ -734,6 +734,13 @@ std::vector<Recipe> build() {
                            "respawn_anchor"));
         r.push_back(shaped({"PPP", "SSS", "PPP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "chiseled_bookshelf"));
         r.push_back(shaped({"BSB", "B.B", "B.B"}, {{'B', item("bamboo")}, {'S', item("string")}}, "scaffolding", 6));
+        // (M29.6; wiki: each Copper Age block)
+        r.push_back(shaped({"CCC", "CCC"}, {{'C', item("copper_ingot")}}, "copper_bars", 16));
+        r.push_back(shaped({"N", "I", "N"}, {{'N', item("copper_nugget")}, {'I', item("copper_ingot")}}, "copper_chain"));
+        r.push_back(shaped({"N", "C", "S"}, {{'N', item("copper_nugget")}, {'C', item("coal")}, {'S', item("stick")}},
+                           "copper_torch", 4));
+        r.push_back(shaped({"NNN", "NTN", "NNN"}, {{'N', item("copper_nugget")}, {'T', item("copper_torch")}},
+                           "copper_lantern"));
         r.push_back(shaped({"III", "ICI", "RDR"},
                            {{'I', item("iron_ingot")}, {'C', item("crafting_table")}, {'R', item("redstone")}, {'D', item("dropper")}},
                            "crafter"));

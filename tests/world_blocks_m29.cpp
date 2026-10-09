@@ -418,3 +418,25 @@ TEST_CASE("M29.5: soul sand under water makes a bubble column up, magma one down
     for (int i = 0; i < 30; ++i) applyBubbleColumn(c, v);
     CHECK(v.y == doctest::Approx(-0.3));
 }
+
+TEST_CASE("M29.6: copper bars, chains, lanterns and torches; chain is iron_chain now") {
+    const auto& r = blockRegistry();
+    CHECK(r.findBlock("minecraft:chain") == std::optional<BlockId>(BlockId(blocks::Chain)));
+    CHECK(r.block(blocks::Chain).id == "minecraft:iron_chain");
+    CHECK(itemRegistry().find("chain") == itemRegistry().find("iron_chain"));
+    for (const char* id : {"copper_bars", "weathered_copper_chain", "waxed_oxidized_copper_lantern"}) {
+        INFO(id);
+        const auto b = r.findBlock(std::string("minecraft:") + id);
+        REQUIRE(b);
+        CHECK(BlockUpdates::isCopper(*b));
+    }
+    CHECK(r.likeOf(*r.findBlock("minecraft:exposed_copper_lantern")) == blocks::Lantern);
+    CHECK(r.lightEmission(r.defaultState(blocks::CopperTorch)) == 14);
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 64, 4}, r.defaultState(blocks::Stone));
+    const auto wall = BlockUpdates::placement(w, r.defaultState(blocks::CopperTorch), {5, 64, 4}, Direction::East, 0, 0);
+    REQUIRE(wall);
+    CHECK(r.blockOf(*wall) == blocks::CopperWallTorch);
+    CHECK(itemRegistry().blockItem(blocks::CopperWallTorch) == *itemRegistry().find("copper_torch"));
+}

@@ -926,7 +926,8 @@ BlockRegistry buildVanillaBlocks() {
                                  .layer = RenderLayer::Cutout, .tool = HarvestTool::Pickaxe},
                 {{&hanging, "false"}}),
           blocks::SoulLantern);
-    check(r.add("chain", {.hardness = 5.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+    // (M29.6: 1.21.9 renamed the chain "iron_chain"; saves naming "chain" still load - findBlock)
+    check(r.add("iron_chain", {.hardness = 5.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
                           .tool = HarvestTool::Pickaxe},
                 {{&axis, "y"}}),
           blocks::Chain);
@@ -1465,6 +1466,35 @@ BlockRegistry buildVanillaBlocks() {
                                   .layer = RenderLayer::Translucent, .water = true},
                 {{&drag, "true"}}),
           blocks::BubbleColumn);
+    // (M29.6; wiki: Copper Bars, Copper Chain, Copper Lantern, Copper Torch) the iron pieces'
+    // copper kinds: they age and take wax like copper blocks (BlockUpdates::tickCopper).
+    {
+        static constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
+        auto pieces = [&](const char* name, BlockId first, BlockId like, auto&& add) {
+            BlockId next = first;
+            for (const bool waxed : {false, true})
+                for (int i = 0; i < 4; ++i) {
+                    BlockSettings st = r.block(like).settings;
+                    st.like = like;
+                    st.randomTicks = !waxed && i < 3;
+                    st.tool = HarvestTool::Pickaxe;
+                    check(add(std::string(waxed ? "waxed_" : "") + kStages[i] + name, st), next++);
+                }
+        };
+        pieces("copper_bars", blocks::CopperBars, blocks::IronBars, [&](const std::string& id, const BlockSettings& st) {
+            return r.add(id, st, {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}});
+        });
+        pieces("copper_chain", blocks::CopperChain, blocks::Chain,
+               [&](const std::string& id, const BlockSettings& st) { return r.add(id, st, {{&axis, "y"}}); });
+        pieces("copper_lantern", blocks::CopperLantern, blocks::Lantern,
+               [&](const std::string& id, const BlockSettings& st) { return r.add(id, st, {{&hanging, "false"}}); });
+        BlockSettings torch = r.block(blocks::Torch).settings;
+        torch.like = blocks::Torch;
+        check(r.add("copper_torch", torch), blocks::CopperTorch);
+        BlockSettings wall = r.block(blocks::WallTorch).settings;
+        wall.like = blocks::WallTorch;
+        check(r.add("copper_wall_torch", wall, {{&facing, "north"}}), blocks::CopperWallTorch);
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

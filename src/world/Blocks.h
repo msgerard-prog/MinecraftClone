@@ -600,6 +600,15 @@ enum : BlockId {
     Scaffolding,           // bottom, distance 0..7 (from what holds it up), waterlogged
     Crafter,               // crafting, orientation (front_top), triggered: crafts its 3x3 on a pulse
     BubbleColumn,          // water over soul sand (up) or magma (drag: down)
+    // M29.6 - the Copper Age (1.21.9): each metal piece in 4 stages, then waxed, like the iron one
+    CopperBars,
+    CopperBarsLast = CopperBars + 7,
+    CopperChain,
+    CopperChainLast = CopperChain + 7,
+    CopperLantern,
+    CopperLanternLast = CopperLantern + 7,
+    CopperTorch,     // like the torch (light 14), green flame
+    CopperWallTorch, // like the wall torch
     Count
 };
 } // namespace blocks

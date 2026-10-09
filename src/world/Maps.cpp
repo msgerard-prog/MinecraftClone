@@ -161,7 +161,7 @@ uint8_t colourByName(std::string_view n) {
     if (n == "iron_block" || n == "iron_bars" || has(n, "iron_door") || has(n, "iron_trapdoor") ||
         n == "anvil" || has(n, "anvil") || n == "cauldron" || n == "hopper" ||
         n == "heavy_weighted_pressure_plate" || n == "brewing_stand" || n == "lantern" ||
-        n == "chain")
+        n == "chain" || n == "iron_chain")
         return Metal;
     if (has(n, "copper")) return Orange;
     if (has(n, "wool") || n == "cobweb") return Wool;
