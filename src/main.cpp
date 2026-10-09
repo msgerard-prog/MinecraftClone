@@ -1948,6 +1948,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 for (int dy = 0; dy <= 1; ++dy) {
                     const mc::world::BlockStateId bs = world.getBlock(
                         {int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
+                    // (M29.4a; wiki: Wither Rose) walking into one withers (not in creative)
+                    if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::WitherRose && survival && !dead)
+                        vitals.addEffect(mc::world::Effect::Wither, 0, 40);
                     if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::Cobweb) {
                         // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall;
                         // (M29.2a) Weaving halves the slowdown.
@@ -2899,6 +2902,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     inventory.setSlot(inventory.selected(), bag);
                     clicks.useClick = false;
                 }
+                // A lily pad goes on the water looked at (M29.4a; wiki: Lily Pad - on a still
+                // water source with air above).
+                if (!dead && mayBuild && clicks.useClick && heldId == "minecraft:lily_pad")
+                    if (const auto wet = mc::world::raycastBlocks(world, eye, look, survival ? 4.5 : 5.0,
+                                                                  mc::world::RayFluids::Sources);
+                        wet && world.getBlock(wet->block) == reg.defaultState(mc::world::blocks::Water) &&
+                        world.getBlock({wet->block.x, wet->block.y + 1, wet->block.z}) == 0) {
+                        const mc::world::BlockPos on{wet->block.x, wet->block.y + 1, wet->block.z};
+                        world.updateBlock(on, reg.defaultState(mc::world::blocks::LilyPad));
+                        frameEdits.push_back(on);
+                        if (survival) inventory.consumeSelected(1);
+                        clicks.useClick = false;
+                    }
                 // A spyglass held up (M29.3c; wiki: Spyglass): the view zooms to a tenth.
                 spyglassUp = !dead && heldId == "minecraft:spyglass" && clicks.use;
                 if (spyglassUp) clicks.useClick = false;
@@ -4632,8 +4648,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::world::blockSoundOf(mc::world::BlockStateId(e.data), BlockSound::Place),
                         centre, 1.0f, 1.0f, true);
                     // A carved pumpkin on a T of iron blocks makes an iron golem (M24.3).
-                    if (mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data)) ==
-                        mc::world::blocks::CarvedPumpkin)
+                    if (mc::world::blockRegistry().likeOf(mc::world::blockRegistry().blockOf(mc::world::BlockStateId(e.data))) ==
+                        mc::world::blocks::CarvedPumpkin) // (M29.4a: jack o'lanterns too)
                         if (mc::Mobs::buildIronGolem(
                                 world,
                                 {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},

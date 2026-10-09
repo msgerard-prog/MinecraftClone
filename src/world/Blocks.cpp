@@ -1310,6 +1310,30 @@ BlockRegistry buildVanillaBlocks() {
                                 .layer = RenderLayer::Translucent},
                 {{&age3, "0"}}),
           blocks::FrostedIce);
+    // (M29.4a; wiki: each flower - they behave like poppies)
+    BlockSettings flower = kPlant;
+    flower.like = blocks::Poppy;
+    check(r.add("allium", flower), blocks::Allium);
+    check(r.add("blue_orchid", flower), blocks::BlueOrchid);
+    check(r.add("red_tulip", flower), blocks::RedTulip);
+    check(r.add("orange_tulip", flower), blocks::OrangeTulip);
+    check(r.add("white_tulip", flower), blocks::WhiteTulip);
+    check(r.add("pink_tulip", flower), blocks::PinkTulip);
+    check(r.add("lily_of_the_valley", flower), blocks::LilyOfTheValley);
+    check(r.add("wither_rose", flower), blocks::WitherRose);
+    check(r.add("lily_pad", {.opaqueCube = false, .layer = RenderLayer::Cutout}), blocks::LilyPad); // (wiki: instant)
+    check(r.add("jack_o_lantern", {.hardness = 1.0f, .resistance = 1.0f, .lightEmission = 15, .tool = HarvestTool::Axe,
+                                   .like = blocks::CarvedPumpkin},
+                {{&facing, "north"}}),
+          blocks::JackOLantern);
+    check(r.add("raw_iron_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}), blocks::RawIronBlock);
+    check(r.add("raw_copper_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}),
+          blocks::RawCopperBlock);
+    check(r.add("raw_gold_block", {.hardness = 5.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}), blocks::RawGoldBlock);
+    check(r.add("chiseled_nether_bricks", {.hardness = 2.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}),
+          blocks::ChiseledNetherBricks);
+    check(r.add("cracked_nether_bricks", {.hardness = 2.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}),
+          blocks::CrackedNetherBricks);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

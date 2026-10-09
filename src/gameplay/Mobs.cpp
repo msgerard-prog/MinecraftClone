@@ -1809,6 +1809,11 @@ void Mobs::addEffect(MobData& mob, Effect effect, int amplifier, int ticks) {
 }
 
 void Mobs::tickMobEffects(Context& ctx, MobData& m) {
+    // (M29.4a) a wither rose withers what stands in it - not the undead
+    if (!isUndead(m.type) &&
+        blockRegistry().blockOf(ctx.world.getBlock({int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
+                                                    int(std::floor(m.pos.z))})) == blocks::WitherRose)
+        addEffect(m, Effect::Wither, 0, 40);
     // Lasting effects on mobs (M29.2c; wiki: each effect): poison down to 1, regeneration,
     // wither (may kill), levitation rising; speed/slowness and strength/weakness act where
     // the mob moves and hits.

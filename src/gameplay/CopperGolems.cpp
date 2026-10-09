@@ -43,7 +43,7 @@ bool isCopperChest(BlockId b) {
 
 bool Mobs::buildCopperGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng) {
     const auto& r = blockRegistry();
-    if (r.blockOf(world.getBlock(pumpkin)) != blocks::CarvedPumpkin) return false;
+    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin) return false; // (or a jack o'lantern)
     const BlockPos below{pumpkin.x, pumpkin.y - 1, pumpkin.z};
     bool waxed = false;
     const int stage = copperStage(r.blockOf(world.getBlock(below)), waxed);

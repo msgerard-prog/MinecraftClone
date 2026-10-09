@@ -102,7 +102,7 @@ Push pushKind(BlockStateId s) {
     if (b == B::CreakingHeart || b == B::SculkCatalyst || b == B::SculkSensor || b == B::SculkShrieker ||
         b == B::ReinforcedDeepslate)
         return Push::Block; // (vanilla: block entities; reinforced deepslate never moves)
-    if (b == B::SculkVein) return Push::Destroy;
+    if (b == B::SculkVein || R().likeOf(b) == B::Poppy || b == B::LilyPad) return Push::Destroy; // (M29.4a: flowers, pads)
     // (M27 review) suspicious blocks break - their loot can't travel - and so do pots and eggs
     if (isSuspicious(b) || b == B::DecoratedPot || b == B::SnifferEgg) return Push::Destroy;
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,
@@ -1068,6 +1068,16 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     }
     if (R().likeOf(blockOf(s)) == B::Candle || R().likeOf(blockOf(s)) == B::CandleCake) // (M28.5a)
         return R().collides(at(rel(p, Direction::Down)));
+    // (M29.4a; wiki: Lily Pad - on still water or ice; Wither Rose - also netherrack and soul
+    // sand / soil)
+    if (R().blockOf(s) == B::LilyPad) {
+        const BlockStateId below = at(rel(p, Direction::Down));
+        return below == R().defaultState(B::Water) || R().blockOf(below) == B::Ice || R().blockOf(below) == B::FrostedIce;
+    }
+    if (R().blockOf(s) == B::WitherRose) {
+        const BlockId below = R().blockOf(at(rel(p, Direction::Down)));
+        if (below == B::Netherrack || below == B::SoulSand || below == B::SoulSoil) return true;
+    }
     switch (blockOf(s)) {
     case B::Cake:
     case B::PinkPetals:
@@ -1230,7 +1240,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
                                       R().likeOf(b) == B::CandleCake || b == B::Cake || b == B::PinkPetals ||
                                       b == B::Wildflowers || b == B::LeafLitter || b == B::FireflyBush || b == B::Bush ||
                                       b == B::ShortDryGrass || b == B::TallDryGrass || b == B::CactusFlower ||
-                                      b == B::Vine) {
+                                      b == B::Vine || b == B::LilyPad || R().blockOf(s) == B::WitherRose) {
         if (!survives(p, s)) pop(p);
         --m_depth;
         return;

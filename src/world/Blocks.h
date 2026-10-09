@@ -525,6 +525,22 @@ enum : BlockId {
     CactusFlower,
     Vine,         // up, north, east, south, west
     FrostedIce,   // (M29.2b) age 0..3: Frost Walker's ice, melting back to water
+    // M29.4a (wiki pages of each)
+    Allium,
+    BlueOrchid,
+    RedTulip,
+    OrangeTulip,
+    WhiteTulip,
+    PinkTulip,
+    LilyOfTheValley,
+    WitherRose,   // withers what walks into it; grows on netherrack and soul sand too
+    LilyPad,      // on water: a thin pad to stand on
+    JackOLantern, // a carved pumpkin with a light (facing)
+    RawIronBlock,
+    RawCopperBlock,
+    RawGoldBlock,
+    ChiseledNetherBricks,
+    CrackedNetherBricks,
     Count
 };
 } // namespace blocks

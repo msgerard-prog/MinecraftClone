@@ -117,6 +117,7 @@ BlockShape compute(BlockStateId s) {
     // (M28.4d-M28.5a; wiki) the heavy core 8 wide, a cake 14 wide and 8 tall less its bites,
     // a candle cake with its candle, candles a small post (ours: grows with the count)
     case B::HeavyCore: return box(4, 0, 4, 12, 8, 12);
+    case B::LilyPad: return box(0, 0, 0, 16, 1, 16); // (M29.4a; wiki: 1.5/16 - ours 1/16)
     case B::Cake: return box(1 + 2 * r.get(s, bites), 0, 1, 15, 8, 15);
     case B::CandleCake: {
         BlockShape sh = box(1, 0, 1, 15, 8, 15);

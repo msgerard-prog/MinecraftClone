@@ -77,6 +77,9 @@ BlockId BlockRegistry::add(std::string_view id, const BlockSettings& settings,
 }
 
 std::optional<BlockId> BlockRegistry::findBlock(std::string_view id) const {
+    // Cave air and void air are air here (M29.4a; world/CLAUDE.md: air is state 0) - vanilla
+    // saves name them in palettes.
+    if (id == "minecraft:cave_air" || id == "minecraft:void_air" || id == "cave_air" || id == "void_air") return BlockId(0);
     for (size_t i = 0; i < m_blocks.size(); ++i) {
         const std::string_view name = m_blocks[i].id;
         // A query without a namespace means "minecraft:<id>".

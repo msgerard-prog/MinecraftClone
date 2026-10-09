@@ -404,7 +404,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
                 "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
-                "mangrove_propagule", "pale_oak_sapling"};
+                "mangrove_propagule", "pale_oak_sapling",
+                // (M29.4a) the rest of the flowers
+                "allium", "blue_orchid", "red_tulip", "orange_tulip", "white_tulip", "pink_tulip",
+                "lily_of_the_valley", "wither_rose"};
             if (name == "wheat" || name == "carrots" || name == "potatoes" || name == "beetroots" ||
                 name == "sweet_berry_bush") {
                 // Crops by age (vanilla: carrots/potatoes 8 ages on 4 textures - 0-1,
@@ -810,14 +813,19 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     if (registry.value(state, prop).value_or("true") == "false")
                         v.faces[int(d)].sprite = sprite("mushroom_block_inside");
                 m = single(v);
-            } else if (name == "carved_pumpkin") { // the face toward `facing`
+            } else if (name == "lily_pad") { // (M29.4a) a pad lying on the water, 1/16 thick (ours)
+                m.visible = true;
+                addBox(m, 0, 0, 0, 16, 1, 16, sprite("lily_pad"));
+                // vanilla tints it a fixed green (#208030); ours takes the biome's foliage
+                for (auto& f : m.boxes[m.boxCount - 1].faces) f.tint = Tint::Foliage;
+            } else if (name == "carved_pumpkin" || name == "jack_o_lantern") { // the face toward `facing`
                 const auto facing = registry.value(state, "facing").value_or("north");
                 BakedVariant v = cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y");
                 const Direction front = facing == "south" ? Direction::South
                                         : facing == "west" ? Direction::West
                                         : facing == "east" ? Direction::East
                                                            : Direction::North;
-                v.faces[int(front)].sprite = sprite("carved_pumpkin");
+                v.faces[int(front)].sprite = sprite(name.c_str()); // (M29.4a: or the lit face)
                 m = single(v);
             } else if (name == "pumpkin") { // vanilla: cube_column, the stem end on top and bottom
                 m = single(cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y"));

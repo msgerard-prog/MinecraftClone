@@ -56,6 +56,7 @@ BlockStateId BlockUpdates::fluidState(BlockId kind, int amount, bool falling) {
 bool BlockUpdates::breaksInFluid(BlockId b) {
     // Blocks a flowing fluid washes away, dropping them (wiki: Water - plants, torches,
     // redstone dust and components, snow...).
+    if (R().likeOf(b) == B::Poppy) return true; // (M29.4a: every small flower)
     switch (b) {
     case B::ShortGrass:
     case B::Fern:

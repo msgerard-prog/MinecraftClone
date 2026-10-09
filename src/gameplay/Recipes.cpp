@@ -639,6 +639,7 @@ std::vector<Recipe> build() {
             {"orange_tulip", "orange_dye"},
             {"pink_tulip", "pink_dye"},
             {"lily_of_the_valley", "white_dye"},
+            {"wither_rose", "black_dye"}, // (M29.4a)
             {"bone_meal", "white_dye"},
             {"lapis_lazuli", "blue_dye"}};
         for (const auto& [from, to] : kFrom)
@@ -705,6 +706,13 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},
                            "glistering_melon_slice"));
         r.push_back(shaped({"A", "C", "C"}, {{'A', item("amethyst_shard")}, {'C', item("copper_ingot")}}, "spyglass"));
+        // (M29.4a) raw ore blocks, the nether brick variants, the jack o'lantern
+        for (const char* raw : {"raw_iron", "raw_copper", "raw_gold"}) {
+            r.push_back(shaped({"###", "###", "###"}, {{'#', item(raw)}}, std::string(raw) + "_block"));
+            r.push_back(shapeless({item(std::string(raw) + "_block")}, raw, 9));
+        }
+        r.push_back(shaped({"#", "#"}, {{'#', item("nether_brick_slab")}}, "chiseled_nether_bricks"));
+        r.push_back(shapeless({item("carved_pumpkin"), item("torch")}, "jack_o_lantern"));
         // (M29.3f; wiki: Bundle) string over leather; a dye colours it (ours: emptied)
         r.push_back(shaped({"S", "L"}, {{'S', item("string")}, {'L', item("leather")}}, "bundle"));
         for (const char* c : kDyeColours)
@@ -970,6 +978,7 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (gear && n.starts_with("golden_")) return out("gold_nugget");
     if (gear && n.starts_with("copper_")) return out("copper_nugget");
     if (n == "basalt") return out("smooth_basalt");
+    if (n == "nether_bricks") return out("cracked_nether_bricks"); // (M29.4a)
     if (n == "sea_pickle") return out("lime_dye");
     return std::nullopt;
 }

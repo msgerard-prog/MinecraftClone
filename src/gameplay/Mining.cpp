@@ -81,7 +81,14 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::DeepslateCoalOre:
         return {T::Pickaxe, 0};
     case blocks::GoldBlock: // wiki: Block of Gold - iron pickaxe or better
+    case blocks::RawGoldBlock: // (M29.4a)
         return {T::Pickaxe, 2};
+    case blocks::RawIronBlock: // (M29.4a: stone pickaxe)
+    case blocks::RawCopperBlock:
+        return {T::Pickaxe, 1};
+    case blocks::ChiseledNetherBricks:
+    case blocks::CrackedNetherBricks:
+        return {T::Pickaxe, 0};
     case blocks::IronBlock: // wiki: Block of Iron - stone pickaxe or better
     case blocks::IronOre:
     case blocks::DeepslateIronOre:

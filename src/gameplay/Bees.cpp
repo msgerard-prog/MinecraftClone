@@ -25,7 +25,8 @@ namespace {
 
 bool isFlower(BlockId b) {
     return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower ||
-           b == blocks::AzureBluet || b == blocks::OxeyeDaisy || b == blocks::CherryLeaves;
+           b == blocks::AzureBluet || b == blocks::OxeyeDaisy || b == blocks::CherryLeaves ||
+           (blockRegistry().likeOf(b) == blocks::Poppy && b != blocks::WitherRose); // (M29.4a: not wither roses)
 }
 bool isHive(BlockId b) { return b == blocks::BeeNest || b == blocks::Beehive; }
 float yawTo(const glm::dvec3& from, const glm::dvec3& to) {

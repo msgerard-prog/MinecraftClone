@@ -46,7 +46,8 @@ bool Mobs::isFood(MobType type, ItemId item) {
     if (type == MobType::Bee && item != kNoItem) { // (M26.3b) flowers
         const BlockId b = itemRegistry().item(item).block;
         return b == blocks::Dandelion || b == blocks::Poppy || b == blocks::Cornflower ||
-               b == blocks::AzureBluet || b == blocks::OxeyeDaisy;
+               b == blocks::AzureBluet || b == blocks::OxeyeDaisy ||
+               (b != 0 && blockRegistry().likeOf(b) == blocks::Poppy && b != blocks::WitherRose); // (M29.4a)
     }
     switch (type) {
     case MobType::Cow:

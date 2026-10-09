@@ -120,7 +120,7 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
     auto iron = [&](int x, int y, int z) {
         return r.blockOf(world.getBlock({x, y, z})) == blocks::IronBlock;
     };
-    if (r.blockOf(world.getBlock(pumpkin)) != blocks::CarvedPumpkin) return false;
+    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin) return false; // (or a jack o'lantern)
     const int x = pumpkin.x, y = pumpkin.y, z = pumpkin.z;
     if (!iron(x, y - 1, z) || !iron(x, y - 2, z)) return false;
     for (const auto& [ax, az] : {std::pair{1, 0}, std::pair{0, 1}}) {
@@ -141,7 +141,7 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
 // › Creation).
 bool Mobs::buildSnowGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng) {
     const auto& r = blockRegistry();
-    if (r.blockOf(world.getBlock(pumpkin)) != blocks::CarvedPumpkin) return false;
+    if (r.likeOf(r.blockOf(world.getBlock(pumpkin))) != blocks::CarvedPumpkin) return false; // (or a jack o'lantern)
     const int x = pumpkin.x, y = pumpkin.y, z = pumpkin.z;
     auto snow = [&](int yy) { return r.blockOf(world.getBlock({x, yy, z})) == blocks::SnowBlock; };
     if (!snow(y - 1) || !snow(y - 2)) return false;
