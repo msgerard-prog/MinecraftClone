@@ -593,6 +593,22 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:copper_nugget", .texture = "item/copper_nugget"});
     // (M29.3b; wiki: Name Tag) renamed on an anvil, it names a mob (which then never despawns)
     r.add({.id = "minecraft:name_tag", .texture = "item/name_tag"});
+    // Foods (M29.3c; wiki: each food - hunger, saturation): soups and stews stack to 1 and
+    // leave the bowl; the enchanted golden apple is always edible.
+    r.add({.id = "minecraft:beetroot_soup", .maxStack = 1, .food = 6, .saturation = 7.2f, .texture = "item/beetroot_soup"});
+    r.add({.id = "minecraft:rabbit_stew", .maxStack = 1, .food = 10, .saturation = 12.0f, .texture = "item/rabbit_stew"});
+    r.add({.id = "minecraft:suspicious_stew", .maxStack = 1, .food = 6, .saturation = 7.2f, .alwaysEdible = true,
+           .texture = "item/suspicious_stew"});
+    r.add({.id = "minecraft:cookie", .food = 2, .saturation = 0.4f, .texture = "item/cookie"});
+    r.add({.id = "minecraft:pumpkin_pie", .food = 8, .saturation = 4.8f, .texture = "item/pumpkin_pie"});
+    r.add({.id = "minecraft:melon_slice", .food = 2, .saturation = 1.2f, .texture = "item/melon_slice"});
+    r.add({.id = "minecraft:glistering_melon_slice", .texture = "item/glistering_melon_slice"});
+    r.add({.id = "minecraft:enchanted_golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
+           .texture = "item/enchanted_golden_apple"});
+    // (M29.3c; wiki: Spyglass, Bottle o' Enchanting, Knowledge Book)
+    r.add({.id = "minecraft:spyglass", .maxStack = 1, .texture = "item/spyglass"});
+    r.add({.id = "minecraft:experience_bottle", .texture = "item/experience_bottle"});
+    r.add({.id = "minecraft:knowledge_book", .maxStack = 1, .texture = "item/knowledge_book"});
     for (int k = 5; k < 7; ++k)
         r.add({.id = std::string("minecraft:") + kHorseArmorItems[k], .maxStack = 1,
                .texture = std::string("item/") + kHorseArmorItems[k]});

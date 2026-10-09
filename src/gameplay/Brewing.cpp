@@ -40,6 +40,11 @@ constexpr Step kSteps[] = {
     {"phantom_membrane", P::Awkward, P::SlowFalling}, // (M26.4a)
     // (M29.2a; wiki: Brewing) a turtle shell, a breeze rod, cobweb, a slime block, stone.
     {"turtle_helmet", P::Awkward, P::TurtleMaster},
+    // (M29.3c; wiki: Brewing) glistering melon slices make healing, rabbit's feet leaping.
+    {"glistering_melon_slice", P::Awkward, P::Healing},
+    {"rabbit_foot", P::Awkward, P::Leaping},
+    {"glistering_melon_slice", P::Water, P::Mundane},
+    {"rabbit_foot", P::Water, P::Mundane},
     {"breeze_rod", P::Awkward, P::WindCharging},
     {"cobweb", P::Awkward, P::Weaving},
     {"slime_block", P::Awkward, P::Oozing},

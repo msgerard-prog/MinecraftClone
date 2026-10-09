@@ -77,6 +77,11 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         if (Mobs::add(ctx.world, Mobs::make(MobType(egg - 1), at, ctx.rng))) use();
         return;
     }
+    if (id == "minecraft:experience_bottle") { // (M29.3c)
+        if (ctx.projectiles.shoot(ProjectileKind::ExperienceBottle, mouth, shootDir(), 0.7, 6.0, false, false, ctx.rng))
+            use();
+        return;
+    }
     if (id == "minecraft:arrow") { // (wiki: speed 1.1, spread 6)
         if (ctx.projectiles.shoot(ProjectileKind::Arrow, mouth, shootDir(), 1.1, 6.0, false, false,
                                   ctx.rng))

@@ -3,6 +3,7 @@
 #include "gameplay/Cartography.h"
 #include "gameplay/Fireworks.h"
 
+#include "world/Potions.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
@@ -674,6 +675,35 @@ std::vector<Recipe> build() {
             {"gray_dye", "white_dye", "light_gray_dye"}};
         for (const auto& m : kMix)
             r.push_back(shapeless({item(m[0]), item(m[1])}, m[2], 2));
+    }
+    // Foods and tools of M29.3c (wiki: each item's page): bowls, soups and stews, pumpkin pie,
+    // glistering melon slices, the spyglass. Items not in the game yet are left out.
+    {
+        auto has = [](std::string_view n) { return itemRegistry().find(n).has_value(); };
+        r.push_back(shaped({"#.#", ".#."}, {{'#', kPlanks}}, "bowl", 4));
+        r.push_back(shapeless({item("brown_mushroom"), item("red_mushroom"), item("bowl")}, "mushroom_stew"));
+        r.push_back(shapeless({item("beetroot"), item("beetroot"), item("beetroot"), item("beetroot"), item("beetroot"),
+                               item("beetroot"), item("bowl")},
+                              "beetroot_soup"));
+        for (const char* mush : {"brown_mushroom", "red_mushroom"})
+            r.push_back(shapeless({item("cooked_rabbit"), item("carrot"), item("baked_potato"), item(mush), item("bowl")},
+                                  "rabbit_stew"));
+        // A suspicious stew remembers its flower (ItemStack::state = index + 1).
+        const auto flowers = stewFlowers();
+        for (size_t k = 0; k < flowers.size(); ++k) {
+            if (!has(flowers[k].flower)) continue;
+            Recipe s = shapeless({item("brown_mushroom"), item("red_mushroom"), item("bowl"), item(flowers[k].flower)},
+                                 "suspicious_stew");
+            s.result.state = BlockStateId(k + 1);
+            r.push_back(std::move(s));
+        }
+        r.push_back(shapeless({item("pumpkin"), item("sugar"), item("egg")}, "pumpkin_pie"));
+        r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},
+                           "glistering_melon_slice"));
+        r.push_back(shaped({"A", "C", "C"}, {{'A', item("amethyst_shard")}, {'C', item("copper_ingot")}}, "spyglass"));
+        if (has("cocoa_beans"))
+            r.push_back(shaped({"WCW"}, {{'W', item("wheat")}, {'C', item("cocoa_beans")}}, "cookie", 8));
+        if (has("melon")) r.push_back(shapeless({item("melon_slice")}, "melon_seeds"));
     }
     return r;
 }

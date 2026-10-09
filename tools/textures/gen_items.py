@@ -956,6 +956,54 @@ def name_tag():
     return s.render()
 
 
+def experience_bottle():
+    """A bottle o' enchanting (M29.3c): the squat bottle full of a glowing green-yellow."""
+    img = bottle(splash=True, filled=True)
+    body = {(x, y) for x in range(16) for y in range(16) if math.hypot(x - 7.5, y - 10) < 4.2}
+    rng = random.Random("xp")
+    for (x, y) in body:
+        if y >= 8:
+            g = rng.randint(0, 40)
+            img.set(x, y, (150 + g, 230, 60 + g // 2, 255))
+    return img
+
+
+def cookie():
+    pal = ramp(hexc("#C88A4A"), 5, spread=0.3)
+    s = Shape()
+    disc = {(x, y) for x in range(16) for y in range(16) if (x - 7.5) ** 2 + (y - 7.5) ** 2 < 30}
+    s.add(disc, pal)
+    s.add({(5, 6), (9, 5), (7, 9), (10, 9), (5, 10)} & disc, ramp(hexc("#4A2A16"), 5))
+    return s.render()
+
+
+def pumpkin_pie():
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(7, 13) if not (y == 7 and x in (2, 13))}, ramp(hexc("#D8A050"), 5))
+    s.add({(x, y) for x in range(3, 13) for y in range(6, 8)}, ramp(hexc("#E07A20"), 5))
+    s.add({(x, 12) for x in range(2, 14)}, ramp(hexc("#9A6A30"), 5))
+    return s.render()
+
+
+def melon_slice(glistering=False):
+    s = Shape()
+    rind = {(x, y) for x in range(16) for y in range(16) if (x - 8) ** 2 + (y - 3) ** 2 < 120 and y > 5 and (x - 8) ** 2 + (y - 3) ** 2 > 60}
+    flesh = {(x, y) for x in range(16) for y in range(16) if (x - 8) ** 2 + (y - 3) ** 2 <= 60 and y > 5}
+    s.add(rind, ramp(hexc("#4A8A2A"), 5))
+    s.add(flesh, ramp(hexc("#E0303A"), 5))
+    s.add({(6, 8), (9, 8), (8, 10), (7, 7)} & flesh, ramp(hexc("#2A1A10"), 5))
+    if glistering:
+        s.add({(x, y) for (x, y) in rind | flesh if (x * 3 + y) % 5 == 0}, ramp(hexc("#F2D040"), 5))
+    return s.render()
+
+
+def spyglass():
+    s = Shape()
+    s.add({(x, y) for x in range(3, 13) for y in range(16) if abs((x - 3) - (12 - y)) <= 1 and 2 < y < 14}, ramp(hexc("#D9804F"), 5))
+    s.add({(11, 2), (12, 2), (12, 3), (13, 3), (11, 3)}, ramp(hexc("#B070D0"), 5))
+    return s.render()
+
+
 def scale_hex(h, k):
     c = hexc(h)
     return "#%02X%02X%02X" % (int(c[0] * k), int(c[1] * k), int(c[2] * k))
@@ -1690,6 +1738,18 @@ def all_items():
         items[f"{mat}_nautilus_armor"] = nautilus_armor(base)
     items["copper_nugget"] = lump("copper_nugget", "#C8703C", "#F0A878", size=3.2)
     items["name_tag"] = name_tag()
+    # M29.3c foods and tools
+    items["beetroot_soup"] = bowl("#A01828")
+    items["rabbit_stew"] = bowl("#9A6A3A")
+    items["suspicious_stew"] = bowl("#B48A5A")
+    items["cookie"] = cookie()
+    items["pumpkin_pie"] = pumpkin_pie()
+    items["melon_slice"] = melon_slice()
+    items["glistering_melon_slice"] = melon_slice(glistering=True)
+    items["enchanted_golden_apple"] = apple("#F8D850")
+    items["spyglass"] = spyglass()
+    items["experience_bottle"] = experience_bottle()
+    items["knowledge_book"] = book(enchanted=True)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

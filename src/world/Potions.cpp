@@ -127,4 +127,17 @@ std::optional<Potion> findPotion(std::string_view id) {
 
 uint32_t potionColour(Potion p) { return effectInfo(potionInfo(p).effect).colour; }
 
+std::span<const StewFlower> stewFlowers() {
+    static constexpr StewFlower kFlowers[] = {
+        {"allium", Effect::FireResistance, 60},     {"azure_bluet", Effect::Blindness, 160},
+        {"blue_orchid", Effect::Saturation, 7},     {"dandelion", Effect::Saturation, 7},
+        {"cornflower", Effect::JumpBoost, 100},     {"lily_of_the_valley", Effect::Poison, 220},
+        {"oxeye_daisy", Effect::Regeneration, 140}, {"poppy", Effect::NightVision, 100},
+        {"red_tulip", Effect::Weakness, 140},       {"orange_tulip", Effect::Weakness, 140},
+        {"white_tulip", Effect::Weakness, 140},     {"pink_tulip", Effect::Weakness, 140},
+        {"wither_rose", Effect::Wither, 140},       {"torchflower", Effect::NightVision, 100},
+        {"open_eyeblossom", Effect::Blindness, 220}, {"closed_eyeblossom", Effect::Nausea, 140}};
+    return kFlowers;
+}
+
 } // namespace mc::world

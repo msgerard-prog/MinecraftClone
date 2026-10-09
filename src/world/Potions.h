@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string_view>
 
 namespace mc::world {
@@ -124,6 +125,14 @@ struct PotionInfo {
     uint8_t amplifier2 = 0;
 };
 const PotionInfo& potionInfo(Potion p);
+// Suspicious stew (M29.3c; wiki: Suspicious Stew): the flower that went in and the effect
+// it gives (our durations from the wiki's table); a stew's ItemStack::state is index + 1.
+struct StewFlower {
+    std::string_view flower; // "poppy"
+    Effect effect;
+    int ticks;
+};
+std::span<const StewFlower> stewFlowers();
 std::optional<Potion> findPotion(std::string_view id); // with or without "minecraft:"
 uint32_t potionColour(Potion p); // liquid colour (water blue for no effect)
 

@@ -100,3 +100,53 @@ TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water") {
     }
     CHECK(blockRegistry().blockOf(world.getBlock(p)) == blocks::Water);
 }
+
+// M29.3c: foods and tools.
+#include "gameplay/Inventory.h"
+#include "gameplay/Projectiles.h"
+#include "gameplay/Recipes.h"
+
+TEST_CASE("suspicious stew remembers its flower; bowls, pies, spyglasses craft; bottles o' enchanting break") {
+    const auto I = [](const char* n) { return ItemStack{*itemRegistry().find(n), 1}; };
+    std::array<ItemStack, 9> g{};
+    g[0] = I("brown_mushroom");
+    g[1] = I("red_mushroom");
+    g[2] = I("bowl");
+    g[3] = I("cornflower");
+    const auto stew = craft(g, 3);
+    REQUIRE(stew);
+    CHECK(itemRegistry().item(stew->item).id == "minecraft:suspicious_stew");
+    REQUIRE(stew->state > 0);
+    CHECK(stewFlowers()[stew->state - 1].effect == Effect::JumpBoost);
+    g = {};
+    g[0] = I("oak_planks");
+    g[2] = I("oak_planks");
+    g[4] = I("oak_planks");
+    const auto bowls = craft(g, 3);
+    REQUIRE(bowls);
+    CHECK(bowls->count == 4);
+    g = {};
+    g[0] = I("amethyst_shard");
+    g[3] = I("copper_ingot");
+    g[6] = I("copper_ingot");
+    CHECK(itemRegistry().item(craft(g, 3)->item).id == "minecraft:spyglass");
+
+    World world;
+    world.createChunk({0, 0});
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) world.setBlock({x, 63, z}, blockRegistry().defaultState(blocks::Stone));
+    Player player;
+    player.setPosition({8.5, 64.0, 8.5});
+    Inventory inv;
+    inv.setSlot(0, I("experience_bottle"));
+    Projectiles shots;
+    Xoroshiro rng{3};
+    throwExperienceBottle(inv, true, {8.5, 66.0, 8.5}, {0.0, -1.0, 0.0}, shots, rng);
+    bool broke = false;
+    for (int t = 0; t < 40 && !broke; ++t) {
+        shots.tick(world, player, nullptr, inv, true, rng);
+        broke = !shots.xpBottles().empty();
+    }
+    CHECK(broke);
+    CHECK(inv.slot(0).empty());
+}

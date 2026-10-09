@@ -305,6 +305,15 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
     if (s.state && !itemRegistry().item(s.item).block) { // (M28.2b) a map waiting to be zoomed out or locked
         if (itemRegistry().item(s.item).id == "minecraft:filled_map")
             components.put("minecraft:map_post_processing", int32_t(s.state == 1 ? 0 : 1)); // (vanilla: 0 lock, 1 scale)
+        if (itemRegistry().item(s.item).id == "minecraft:suspicious_stew" && s.state <= stewFlowers().size()) {
+            const StewFlower& f = stewFlowers()[size_t(s.state - 1)]; // (M29.3c) its effect
+            nbt::Compound fx;
+            fx.put("id", std::string(effectInfo(f.effect).id));
+            fx.put("duration", int32_t(f.ticks));
+            std::vector<nbt::Tag> list;
+            list.emplace_back(std::move(fx));
+            components.put("minecraft:suspicious_stew_effects", nbt::listOf(nbt::TagType::Compound, std::move(list)));
+        }
         if (itemRegistry().item(s.item).id == "minecraft:crossbow") { // (M28.4a) what it is loaded with
             std::vector<nbt::Tag> loaded;
             const int n = enchantLevel(s, Enchantment::Multishot) > 0 ? 3 : 1;
@@ -466,6 +475,15 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             f.explosions[0] = fireworkExplosionFromNbt(*ec);
             s.extra = addFireworks(f);
         }
+        if (def.id == "minecraft:suspicious_stew") // (M29.3c) the flower whose effect it is
+            if (const nbt::List* fx = comps->list("minecraft:suspicious_stew_effects"); fx && !fx->items.empty())
+                if (const nbt::Compound* fc = fx->items[0].get<nbt::Compound>(); fc && fc->string("id"))
+                    if (const auto e = findEffect(*fc->string("id")))
+                        for (size_t k = 0; k < stewFlowers().size(); ++k)
+                            if (stewFlowers()[k].effect == *e) {
+                                s.state = BlockStateId(k + 1);
+                                break;
+                            }
         if (def.id == "minecraft:filled_map") {
             s.damage = static_cast<uint16_t>(std::clamp<int64_t>(comps->integer("minecraft:map_id").value_or(0), 0, 65535));
             if (const auto pp = comps->integer("minecraft:map_post_processing")) s.state = *pp == 0 ? 1 : 2;

@@ -44,7 +44,8 @@ enum class ProjectileKind : uint8_t {
     WindCharge,      // (M26.4c: 1 damage, then a burst of wind - knockback, no block damage)
     Snowball,        // (M26.5b: knocks back; 3 damage to blazes)
     LingeringPotion, // (M28.4b: leaves a cloud of its effect)
-    Firework         // (M28.4c: rises and bursts; `stack` is the rocket)
+    Firework,        // (M28.4c: rises and bursts; `stack` is the rocket)
+    ExperienceBottle // (M29.3c: shatters into 3-11 experience)
 };
 
 // Where a thrown ender pearl came down: the player goes there (main).
@@ -106,6 +107,7 @@ public:
     Projectiles() {
         m_items.reserve(kMax);
         m_chicks.reserve(16);
+        m_xpBottles.reserve(16);
         m_eyeDrops.reserve(16);
         m_explosions.reserve(16);
         m_witherBlasts.reserve(16);
@@ -185,6 +187,13 @@ private:
     std::vector<world::BlockPos> m_channeled;
     bool m_thundering = false;
     std::vector<std::pair<glm::dvec3, uint8_t>> m_chicks; // reused (where, the egg's variant - M29.1d)
+    std::vector<glm::dvec3> m_xpBottles; // (M29.3c) bottles o' enchanting that broke this tick
+
+public:
+    // Where bottles o' enchanting broke this tick (M29.3c): main drops 3-11 experience there.
+    const std::vector<glm::dvec3>& xpBottles() const { return m_xpBottles; }
+
+private:
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
     std::vector<glm::dvec3> m_witherBlasts;
@@ -237,6 +246,9 @@ double releaseTrident(Inventory& inventory, int ticks, bool survival, bool wet,
 void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye,
                      const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 // Throwing the held snowball (M26.5b; wiki: Snowball - speed 1.5, stacks of 16).
+// A bottle o' enchanting thrown (M29.3c; wiki: like a splash potion, speed 0.7).
+void throwExperienceBottle(Inventory& inventory, bool survival, const glm::dvec3& eye,
+                           const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye,
                    const glm::dvec3& look, Projectiles& projectiles, world::Xoroshiro& rng);
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,

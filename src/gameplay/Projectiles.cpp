@@ -247,6 +247,12 @@ void throwWindCharge(Inventory& inventory, bool survival, const glm::dvec3& eye,
         inventory.consumeSelected(1);
 }
 
+void throwExperienceBottle(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
+                           Projectiles& projectiles, Xoroshiro& rng) {
+    projectiles.shoot(ProjectileKind::ExperienceBottle, eye, look + glm::dvec3(0.0, 0.1, 0.0), 0.7, 1.0, true, false, rng);
+    if (survival) inventory.consumeSelected(1);
+}
+
 void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye,
                    const glm::dvec3& look, Projectiles& projectiles, Xoroshiro& rng) {
     projectiles.shoot(ProjectileKind::Snowball, eye, look, 1.5, 1.0, true, false, rng);
@@ -350,6 +356,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                     Inventory& inventory, bool survival, Xoroshiro& rng) {
     Hits hits;
     m_chicks.clear();
+    m_xpBottles.clear();
     m_eyeDrops.clear();
     m_explosions.clear();
     m_witherBlasts.clear();
@@ -609,6 +616,11 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                      ++k)
                     at.y -= 1.0;
                 addCloud(at, 3.0f, 600, p.potion, 3.0f / 600.0f);
+                remove = true;
+            } else if (p.kind == ProjectileKind::ExperienceBottle && (target != Target::None || block)) {
+                const glm::dvec3 at = p.pos + dir * reach;
+                world.levelEvent(LevelEvent::Type::PotionSplash, at.x, at.y, at.z, 0x5AB0FF);
+                if (m_xpBottles.size() < m_xpBottles.capacity()) m_xpBottles.push_back(at);
                 remove = true;
             } else if (p.kind == ProjectileKind::SplashPotion &&
                        (target != Target::None || block)) {

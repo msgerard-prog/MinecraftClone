@@ -400,6 +400,11 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 vitals.addEffect(world::Effect::Regeneration, 1, 100);
                 vitals.addEffect(world::Effect::Absorption, 0, 2400);
             }
+            if (held.id == "minecraft:suspicious_stew") { // (M29.3c) the effect of its flower
+                const int k = int(inventory.selectedStack().state) - 1;
+                if (k >= 0 && k < int(world::stewFlowers().size()))
+                    vitals.addEffect(world::stewFlowers()[size_t(k)].effect, 0, world::stewFlowers()[size_t(k)].ticks);
+            }
             if (held.id == "minecraft:enchanted_golden_apple") { // (M29.2a; wiki: Regeneration II 20 s,
                 // Absorption IV 2 min, Resistance and Fire Resistance 5 min)
                 vitals.addEffect(world::Effect::Regeneration, 1, 400);

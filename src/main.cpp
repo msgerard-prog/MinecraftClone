@@ -1150,6 +1150,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         return true;
     };
     bool openBlockPending = opts->hasOpenBlock;
+    bool spyglassUp = false; // (M29.3c: looking through a spyglass)
     bool tradePending = opts->trade;
     bool bookPending = opts->book; // (M28.2c)
     int scriptedUses = opts->use;
@@ -2858,6 +2859,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwSnowball(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
+                // A spyglass held up (M29.3c; wiki: Spyglass): the view zooms to a tenth.
+                spyglassUp = !dead && heldId == "minecraft:spyglass" && clicks.use;
+                if (spyglassUp) clicks.useClick = false;
+                if (!dead && heldId == "minecraft:experience_bottle" && clicks.useClick) { // (M29.3c)
+                    mc::throwExperienceBottle(inventory, survival, eye, look, projectiles, gameRng);
+                    clicks.useClick = false;
+                }
                 if (!dead && (heldId == "minecraft:egg" || heldId == "minecraft:blue_egg" || heldId == "minecraft:brown_egg") &&
                     clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
@@ -4258,6 +4266,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos b = interaction.experienceAt();
                 orbs.drop({b.x + 0.5, b.y + 0.5, b.z + 0.5}, xp, gameRng);
             }
+            // Bottles o' enchanting that broke (M29.3c; wiki: 3-11 experience).
+            for (const glm::dvec3& at : projectiles.xpBottles())
+                orbs.drop(at, 3 + int(gameRng.nextInt(5)) + int(gameRng.nextInt(5)), gameRng);
             // Furnace output taken: its stored recipe uses become orbs at the player (vanilla).
             if (const int xp = mc::recipesExperience(container.takeRecipes(), gameRng); xp > 0)
                 orbs.drop(player.position() + glm::dvec3(0.0, 0.5, 0.0), xp, gameRng);
@@ -4982,7 +4993,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
         }
         mc::gfx::Camera camera;
-        camera.fovDegrees = shared.options.fov;
+        camera.fovDegrees = spyglassUp ? shared.options.fov * 0.1f : shared.options.fov;
         camera.position = player.eyePosition(clock.alpha);
         camera.yaw = player.yaw();
         audio.setListener(camera.position, camera.yaw);
@@ -5165,6 +5176,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             static const mc::world::ItemId snowItem = *mc::world::itemRegistry().find("snowball");
             static const mc::world::ItemId windItem =
                 *mc::world::itemRegistry().find("wind_charge");
+            static const mc::world::ItemId xpBottleItem = *mc::world::itemRegistry().find("experience_bottle");
             static const mc::world::ItemId rocketItem =
                 *mc::world::itemRegistry().find("firework_rocket");
             static const mc::world::ItemId skullItem =
@@ -5187,6 +5199,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                   pr.kind == mc::ProjectileKind::LlamaSpit
                                               ? snowItem
                                           : pr.kind == mc::ProjectileKind::WindCharge  ? windItem
+                                          : pr.kind == mc::ProjectileKind::ExperienceBottle ? xpBottleItem
                                           : pr.kind == mc::ProjectileKind::Firework    ? rocketItem
                                           : pr.kind == mc::ProjectileKind::WitherSkull ? skullItem
                                                                                        : fireItem,
