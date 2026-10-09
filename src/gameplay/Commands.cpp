@@ -381,11 +381,13 @@ CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) 
         return fail("Usage: /item replace entity @s <slot> with <item> [count]");
     std::string_view id = a[6];
     std::string error;
-    const auto parsed = parseStack(id, error);
+    // (M30.1) "air" empties the slot, as vanilla
+    const bool air = id == "air" || id == "minecraft:air";
+    const auto parsed = air ? std::optional<world::ItemStack>(world::ItemStack{}) : parseStack(id, error);
     if (!parsed) return fail(error);
     const auto it = std::optional<world::ItemId>(parsed->item);
-    int count = 1;
-    if (a.size() == 8) {
+    int count = air ? 0 : 1;
+    if (a.size() == 8 && !air) {
         const auto n = number<int64_t>(a[7]);
         if (!n || *n < 1 || *n > 99) return fail("Invalid count");
         count = int(std::min<int64_t>(*n, world::itemRegistry().item(*it).maxStack));

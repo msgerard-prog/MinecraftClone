@@ -37,6 +37,7 @@
 #include "gameplay/Particles.h"
 #include "gameplay/Patrols.h"
 #include "gameplay/Player.h"
+#include "gameplay/PlayerAnimation.h"
 #include "gameplay/Portals.h"
 #include "gameplay/PrimedTnt.h"
 #include "gameplay/Projectiles.h"
@@ -326,6 +327,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool openInventoryPending = opts->inventory;
     bool numberWasDown[mc::Inventory::kHotbar] = {};
     bool showDebug = opts->debugScreen;
+    // (M30.1) F5's view: 0 first person, 1 third person behind, 2 in front; the body's animation.
+    int perspective = opts->perspective;
+    mc::PlayerAnimation playerAnim;
+    glm::dvec3 animPrev(0.0);
+    bool animStarted = false;
     std::array<char, 64> typed{};
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
@@ -1453,6 +1459,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (auto p : {mc::Press::Backspace, mc::Press::Up, mc::Press::Down, mc::Press::Enter})
                 window.takePresses(p);
             if (window.takePresses(mc::Press::F3) > 0) showDebug = !showDebug;
+            if (window.takePresses(mc::Press::Perspective) > 0) perspective = (perspective + 1) % 3;
             if (window.cursorCaptured()) {
                 // T opens the chat, / opens it with the slash typed (vanilla).
                 if (window.takePresses(mc::Press::Command) > 0) {
@@ -2011,6 +2018,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (!arrival && ridingCart == 0)
                 player.tick(world, input);               // waiting for a destination: held in place
+            // (M30.1) the body's animation follows where the player went this tick.
+            if (!animStarted) animPrev = player.position(), animStarted = true;
+            playerAnim.tick(player.position(), animPrev, player.yaw(), player.onGround() || ridingCart != 0,
+                            inventory.selectedStack().item);
+            animPrev = player.position();
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
             // Magma blocks burn what stands on them (M29 review; wiki: Magma Block).
             if (survival && !dead && player.onGround() && ridingCart == 0) {
@@ -2455,6 +2467,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 scriptedUseAt = gameTime + 10;
             }
             if (gameMode == 3) clicks = {}; // spectators touch nothing (M28.1c)
+            // (M30.1) the arm swings on a click and keeps swinging while a block is mined.
+            if (clicks.attackClick || clicks.useClick || (clicks.attack && interaction.breakingBlock()))
+                playerAnim.startSwing();
             const bool mayBuild =
                 gameMode != 2; // adventure: no breaking, placing or block-changing items
             // (M28.3) a click on an item frame or an armor stand is for it, not for the held item
@@ -5438,6 +5453,30 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         camera.yaw = player.yaw();
         audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
+        const float animAlpha = float(clock.alpha);
+        // View bobbing (M30.1; vanilla GameRenderer.bobView): each step sways the view a
+        // little sideways and down, and nods it - first person, on the ground.
+        glm::vec2 handBob(0.0f);
+        if (shared.options.bobView && perspective == 0 && !player.flying()) {
+            const float walk = playerAnim.walkPhase(animAlpha) * 3.14159265f, bob = playerAnim.bobAmount(animAlpha);
+            handBob = {std::sin(walk) * bob * 0.5f, -std::abs(std::cos(walk) * bob)};
+            const glm::vec3 fwd = mc::world::lookVector(camera.yaw, camera.pitch);
+            const glm::vec3 rightAxis = glm::normalize(glm::cross(fwd, glm::vec3(0.0f, 1.0f, 0.0f)));
+            const glm::vec3 upAxis = glm::cross(rightAxis, fwd);
+            camera.position += glm::dvec3(rightAxis * handBob.x + upAxis * handBob.y);
+            camera.pitch += std::abs(std::cos(walk - 0.2f) * bob) * 5.0f;
+        }
+        // Third person (M30.1, F5): the camera backs away behind the player, or in front
+        // looking back, stopping short of blocks (vanilla Camera.getMaxZoom).
+        if (perspective != 0 && gameMode != 3) {
+            const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+            const glm::dvec3 back = perspective == 1 ? -look : look;
+            camera.position += back * mc::thirdPersonDistance(world, camera.position, back);
+            if (perspective == 2) {
+                camera.yaw += 180.0f;
+                camera.pitch = -camera.pitch;
+            }
+        }
         // Nausea (M29.2a; wiki: Nausea): the view sways and the field of view breathes
         // (ours: a sway in place of vanilla's warping screen).
         if (const int nauseaTicks = vitals.effectTicks(mc::world::Effect::Nausea); nauseaTicks > 0) {
@@ -5569,8 +5608,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
 
         // Targeted block: from the eye along the look direction (reach by game mode).
         static const mc::world::ItemId lightItem = mc::world::itemRegistry().find("light").value_or(0);
-        const auto hit = mc::world::raycastBlocks(
-            world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
+        const auto hit = mc::world::raycastBlocks( // (from the eye, whatever the view - M30.1)
+            world, player.eyePosition(clock.alpha), glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())),
             survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach, mc::world::RayFluids::Skip,
             lightItem != 0 && inventory.selectedStack().item == lightItem);
         // Dropped items and the breaking crack.
@@ -6031,6 +6070,35 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               static_cast<int>(interaction.breakProgress() * 10.0f));
         else
             entities.clearCrack();
+        // The player (M30.1): its model in third person (a mannequin wearing what it wears),
+        // else the first-person hand, drawn over the world after the outline.
+        const glm::dvec3 playerFeet = player.renderPosition(clock.alpha);
+        int playerSky = 15, playerBlk = 0;
+        {
+            const mc::world::BlockPos b{int(std::floor(playerFeet.x)), int(std::floor(playerFeet.y + 0.5)), int(std::floor(playerFeet.z))};
+            if (const auto* lc = world.chunk(b.chunk()); lc && lc->lit() && world.isInHeight(b.y)) {
+                playerSky = lc->skyLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+                playerBlk = lc->blockLight(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z));
+            }
+        }
+        const glm::vec3 playerLight = lightTable[size_t(playerSky * 16 + playerBlk)];
+        if (perspective != 0 && gameMode != 3 && !dead) {
+            static mc::world::MobData body; // (reused: no per-frame construction of the large struct)
+            body.type = mc::world::MobType::Mannequin;
+            body.limbSwing = playerAnim.limbSwing(animAlpha);
+            body.limbSwingAmount = playerAnim.limbAmount(animAlpha);
+            body.heldItem = inventory.selectedStack().item;
+            body.crouching = player.sneaking() && !player.flying();
+            body.swingProgress = playerAnim.swing(animAlpha);
+            body.vehicle = ridingCart != 0 ? 1 : 0;
+            body.sleeping = sleepTicks > 0;
+            for (int i = 0; i < 4; ++i)
+                body.worn[size_t(i)] = inventory.armor(i).empty()
+                                           ? 0
+                                           : mc::world::armorMaterial(mc::world::itemRegistry().item(inventory.armor(i).item).id);
+            entities.addMob(body, playerFeet, playerAnim.bodyYaw(animAlpha), player.yaw(), player.pitch(), playerLight,
+                            camera.position);
+        }
         entities.draw(camera, float(fbWidth) / float(fbHeight));
         lastHit = hit;
         {
@@ -6055,6 +6123,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                               : std::nullopt,
                          lo, hi);
         }
+        // The first-person hand (M30.1), then the crosshair over it (first person only).
+        if (perspective == 0 && gameMode != 3 && !dead && sleepTicks == 0) {
+            const glm::vec3 fwd = mc::world::lookVector(camera.yaw, camera.pitch);
+            const glm::vec3 rightAxis = glm::normalize(glm::cross(fwd, glm::vec3(0.0f, 1.0f, 0.0f)));
+            entities.addHand(inventory.selectedStack(), rightAxis, glm::cross(rightAxis, fwd), fwd,
+                             playerAnim.swing(animAlpha), playerAnim.equip(animAlpha), handBob, playerLight);
+            entities.drawHand(camera, float(fbWidth) / float(fbHeight));
+        }
+        if (perspective == 0) overlay.drawCrosshair(fbWidth, fbHeight);
 
         // HUD: inventory, chat, F3 - one batched GUI draw.
         {

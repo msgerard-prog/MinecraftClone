@@ -724,6 +724,15 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `BlockModels::bakeLateModel` (MSVC limits the name chain's nesting); box faces flush
   with a block side are lit from and culled by that neighbour (ChunkMesher). overworld7's
   features: `OverworldGenerator::placeFeatures7`.
+- The player's body (M30.1): `gameplay/PlayerAnimation` (ticked by main after the player:
+  limb swing, body yaw lagging the head by at most 50 degrees, the 6-tick arm swing, the
+  equip dip, view bobbing's walk phase) and `thirdPersonDistance` (8 corner rays, 4 blocks).
+  F5 (`Press::Perspective`, `--perspective`) picks the view; in third person main draws the
+  player as a `MobType::Mannequin` (the player model `kPlayer`: hanging arms `ArmA/ArmB`,
+  armour layers 15-18 from the skin's overlay regions, `MobData::crouching/swingProgress`),
+  in first person `EntityRenderer::addHand`/`drawHand` draw the held item or bare arm in a
+  pass of its own after the outline (depth cleared), then `OverlayRenderer::drawCrosshair`.
+  Block targeting always starts at the eye.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

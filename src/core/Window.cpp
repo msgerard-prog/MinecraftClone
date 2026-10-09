@@ -56,6 +56,7 @@ void onKey(GLFWwindow* handle, int key, int, int action, int) {
     case GLFW_KEY_SPACE: if (press) count(Press::Jump); break;
     case GLFW_KEY_ESCAPE: if (press) count(Press::Escape); break;
     case GLFW_KEY_F3: if (press) count(Press::F3); break;
+    case GLFW_KEY_F5: if (press) count(Press::Perspective); break;
     case GLFW_KEY_T: if (press) count(Press::Chat); break;
     case GLFW_KEY_SLASH: if (press) count(Press::Command); break;
     case GLFW_KEY_E: if (press) count(Press::Inventory); break;

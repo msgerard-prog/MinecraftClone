@@ -86,7 +86,13 @@ void OverlayRenderer::draw(const Camera& camera, int width, int height,
         glDrawArrays(GL_TRIANGLES, 0, m_outlineVertices);
         glDepthMask(GL_TRUE);
     }
+    glDisable(GL_BLEND);
+}
 
+void OverlayRenderer::drawCrosshair(int width, int height) {
+    m_shader.bind();
+    glBindVertexArray(m_vao);
+    glEnable(GL_BLEND);
     // Crosshair: inverts what's behind it (vanilla blends ONE_MINUS_DST_COLOR).
     // Vanilla "auto" GUI scale: the largest whole scale that still fits 320x240.
     const float scale = static_cast<float>(std::max(1, std::min(width / 320, height / 240)));

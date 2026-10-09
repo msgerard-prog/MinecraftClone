@@ -24,6 +24,8 @@ public:
     void draw(const Camera& camera, int framebufferWidth, int framebufferHeight,
               const std::optional<world::BlockPos>& target, const glm::vec3& boxMin = glm::vec3(0.0f),
               const glm::vec3& boxMax = glm::vec3(1.0f));
+    // The crosshair (M30.1: drawn after the first-person hand, only in first person).
+    void drawCrosshair(int framebufferWidth, int framebufferHeight);
 
 private:
     Shader m_shader;

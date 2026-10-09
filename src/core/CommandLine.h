@@ -36,6 +36,7 @@ struct LaunchOptions {
     float pitch = 0.0f;
     int64_t time = 0; // --time T: day time in ticks (0 sunrise, 6000 noon, 18000 midnight)
     bool debugScreen = false;          // --f3: start with the F3 debug screen open
+    int perspective = 0;               // --perspective 0|1|2: first person, third behind, third in front (F5; M30.1)
     bool inventory = false;            // --inventory: start with the creative inventory open
     bool trade = false;                // --trade: open the nearest employed villager's trades (screenshots)
     bool book = false;                 // --book TEXT: open the held book and type TEXT (screenshots, M28.2c)

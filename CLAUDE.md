@@ -27,7 +27,7 @@ Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60
 `--hidden`, `--menu title|worlds|create|options|pause|statistics|advancements|commandblock` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--difficulty peaceful|easy|normal|hard` (new worlds), `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
-runs default to "New World"), `--no-save`, `--generator overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld7 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--pos x,y,z`, `--look yaw,pitch` (vanilla
+runs default to "New World"), `--no-save`, `--generator overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld7 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--perspective 0|1|2` (F5's view), `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`
@@ -35,7 +35,7 @@ with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3
 Add new args in `core/CommandLine.*` + its test and list them here.
 Controls: title screen first (interactive runs without --world); click to capture mouse, Esc = Game Menu (pauses); WASD walk, space jump (double-tap: fly),
 shift sneak / fly down, ctrl sprint, left click break (or hit the mob in front), right click place, 1-9 / wheel
-select block, F3 debug screen, T chat, / command (/tp /time /give /gamemode /kill /setblock /fill /summon (with {Color:14b,Age:-24000,...}; lightning_bolt) /weather /data merge block (sign text) /effect give|clear /enchant /xp /gamerule /difficulty /item replace /seed /help),
+select block, F3 debug screen, F5 view (first/third person), T chat, / command (/tp /time /give /gamemode /kill /setblock /fill /summon (with {Color:14b,Age:-24000,...}; lightning_bolt) /weather /data merge block (sign text) /effect give|clear /enchant /xp /gamerule /difficulty /item replace /seed /help),
 E inventory (creative: item list; survival: 2x2 crafting), Q drop item, right-click animals
 with their food (breeding) or shears (sheep), right-click crafting
 table/furnace to use them (`--inventory` opens the inventory screen, `--open-block x,y,z` a chest's or a sign's editor, `--trade` the nearest employed villager's trades, `--book TEXT` the held book with TEXT typed, `--use N` N scripted right-clicks, `--mount` rides the nearest mount (+`--inventory`: its screen), for screenshots). `--demo-edit` scripts a few clicks. `--pos` and `--auto-fly` start flying.

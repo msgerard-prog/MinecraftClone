@@ -15,6 +15,7 @@ struct GameOptions {
     float masterVolume = 1.0f;   // 0..1 (soundCategory_master)
     bool clouds = true;          // renderClouds "true" (fancy) / "false"
     bool vsync = true;           // enableVsync
+    bool bobView = true;         // bobView: the camera and hand sway with each step (M30.1)
 
     // Missing or unreadable file: defaults. Unknown keys are ignored.
     bool load(const std::filesystem::path& file);

@@ -102,6 +102,15 @@ public:
     // Uploads and draws everything added this frame, then clears.
     void draw(const Camera& camera, float aspect);
 
+    // The first-person hand (M30.1; vanilla ItemInHandRenderer): the held item at the
+    // lower right of the view - or the bare right arm - swinging (`swing` 0..1), dipping
+    // while equipping (`equip` 1 = up) and bobbing (`bob` in view units). `right`, `up`,
+    // `forward`: the camera's axes. Drawn by drawHand over the finished world.
+    void addHand(const world::ItemStack& held, const glm::vec3& right, const glm::vec3& up, const glm::vec3& forward,
+                 float swing, float equip, const glm::vec2& bob, const glm::vec3& light);
+    // Clears the depth buffer and draws the hand (after the world, outline and entities).
+    void drawHand(const Camera& camera, float aspect);
+
 private:
     uint16_t itemSprite(const world::ItemStack& item) const; // (its icon, or a block item's face; 0: none)
     struct GlowRange { // (M29.2c) a glowing mob's vertices in m_mobs
@@ -140,6 +149,8 @@ private:
     uint32_t m_fontTexture = 0;    // sign text (font/ascii.png)
     FontMetrics m_font;
     std::vector<Vertex> m_text;    // reserved; drawn with the font texture
+    std::vector<Vertex> m_hand, m_handArm; // (M30.1) first-person item (atlas) and arm (mob atlas)
+    static constexpr int kHandQuads = 512;
     uint16_t m_particleSprites[size_t(ParticleSprite::Count)] = {};
     // (M28.3a) frame and painting sprites; painting tiles per variant, row by row from the top
     uint16_t m_frameSprite = 0, m_glowFrameSprite = 0, m_frameWood = 0, m_paintingBack = 0;

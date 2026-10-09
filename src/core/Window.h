@@ -26,6 +26,7 @@ enum class Press {
     Backspace,
     Up,
     Down,
+    Perspective, // F5 (M30.1)
     Count
 };
 

@@ -83,7 +83,7 @@ given `--world`.
 Left Shift to sneak, Left Ctrl to sprint. Double-tap Space to start/stop flying
 (creative); while flying, Space rises and Shift descends. Left click breaks the block
 under the crosshair, right click places the selected block; 1-9 or the mouse wheel
-select it in the hotbar. F3 toggles the debug screen. T opens chat, / opens it with a
+select it in the hotbar. F3 toggles the debug screen. F5 switches the view (first person, third person behind, in front). T opens chat, / opens it with a
 command: `/tp x y z` (`~` = relative), `/time set day|noon|night|midnight|<ticks>`,
 `/time add <n>[d|s|t]`, `/time query daytime|gametime|day`, `/give @s <block>`
 (into the selected slot), `/seed`, `/help`. Enter sends, Esc cancels, Up/Down recall. E opens the inventory: in creative, every item (click to pick up, click a hotbar slot to

@@ -18,6 +18,27 @@ constexpr std::array<MobPart, 6> kZombie = {{
     {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 16, 48, A::LegB},
 }};
 
+// The player and mannequins (M30.1; vanilla's player model, 4-wide arms): arms hang and
+// swing against the legs; worn armour as layers 15-18 drawn from the skin's overlay
+// regions, grown like vanilla's armour (1 px, leggings 0.5), tinted by material.
+constexpr std::array<MobPart, 15> kPlayer = {{
+    {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 0, 0, A::Head},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 16, A::None},
+    {{-8, 12, -2}, {-4, 24, 2}, {-5, 22, 0}, 40, 16, A::ArmA},
+    {{4, 12, -2}, {8, 24, 2}, {5, 22, 0}, 32, 48, A::ArmB},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 16, A::LegA},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 16, 48, A::LegB},
+    {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 32, 0, A::Head, 15, 1.0f},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 32, A::None, 16, 1.0f},
+    {{-8, 12, -2}, {-4, 24, 2}, {-5, 22, 0}, 40, 32, A::ArmA, 16, 1.0f},
+    {{4, 12, -2}, {8, 24, 2}, {5, 22, 0}, 40, 32, A::ArmB, 16, 1.0f},
+    {{-4, 12, -2}, {4, 15, 2}, {0, 24, 0}, 16, 32, A::None, 17, 0.5f},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 32, A::LegA, 17, 0.5f},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 32, A::LegB, 17, 0.5f},
+    {{-4, 0, -2}, {0, 4, 2}, {-2, 12, 0}, 0, 48, A::LegA, 18, 1.0f},
+    {{0, 0, -2}, {4, 4, 2}, {2, 12, 0}, 0, 48, A::LegB, 18, 1.0f},
+}};
+
 // Cow: long body, four legs, head with horns in front (+Z).
 constexpr std::array<MobPart, 8> kCow = {{
     {{-4, 16, 9}, {4, 24, 15}, {0, 20, 9}, 0, 0, A::Head},
@@ -825,7 +846,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Zoglin: return kHoglin;
     case world::MobType::Illusioner: return kIllager;
     case world::MobType::Giant:
-    case world::MobType::Mannequin: return kZombie; // (M29.7e: their own skins)
+    case world::MobType::Mannequin: return kPlayer; // (M29.7e; M30.1: the player's model)
     case world::MobType::Creeper: return kCreeper;
     case world::MobType::Spider: return kSpider;
     case world::MobType::Enderman: return kEnderman;

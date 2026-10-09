@@ -150,6 +150,7 @@ TEST_CASE("options.txt round-trips in vanilla's format") {
     o.masterVolume = 0.25f;
     o.clouds = false;
     o.vsync = false;
+    o.bobView = false;
     REQUIRE(o.save(file));
     GameOptions back;
     REQUIRE(back.load(file));
@@ -160,6 +161,7 @@ TEST_CASE("options.txt round-trips in vanilla's format") {
     CHECK(back.masterVolume == doctest::Approx(0.25f));
     CHECK_FALSE(back.clouds);
     CHECK_FALSE(back.vsync);
+    CHECK_FALSE(back.bobView); // (M30.1)
     std::filesystem::remove(file);
     GameOptions missing;
     CHECK_FALSE(missing.load(file)); // defaults stay

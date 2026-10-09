@@ -44,6 +44,7 @@ bool GameOptions::load(const std::filesystem::path& file) {
         else if (key == "soundCategory_master" && number(value, f)) masterVolume = std::clamp(f, 0.0f, 1.0f);
         else if (key == "renderClouds") clouds = value.find("false") == std::string_view::npos;
         else if (key == "enableVsync") vsync = value == "true";
+        else if (key == "bobView") bobView = value == "true";
     }
     return true;
 }
@@ -58,7 +59,8 @@ bool GameOptions::save(const std::filesystem::path& file) const {
         << "guiScale:" << guiScale << '\n'
         << "soundCategory_master:" << masterVolume << '\n'
         << "renderClouds:\"" << (clouds ? "true" : "false") << "\"\n"
-        << "enableVsync:" << (vsync ? "true" : "false") << '\n';
+        << "enableVsync:" << (vsync ? "true" : "false") << '\n'
+        << "bobView:" << (bobView ? "true" : "false") << '\n';
     return bool(out);
 }
 

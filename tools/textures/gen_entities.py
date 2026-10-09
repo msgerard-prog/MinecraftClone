@@ -83,6 +83,63 @@ def zombie(name="zombie", skin_c="#5A8C3C", shirt_c="#2E8C8C", pants_c="#4A3C8C"
     return img
 
 
+def player():
+    """The player (and mannequins, M30.1): our own skin - brown hair, blue eyes, a teal shirt
+    with short sleeves, indigo trousers, grey shoes - plus pale armour regions in the
+    overlay areas (helmet 32,0; chestplate 16,32 and sleeves 40,32; leggings 0,32; boots
+    0,48) that the renderer tints by each piece's material."""
+    rng = random.Random("player")
+    img = Img(64, 64, CLEAR)
+    skin = ramp(hexc("#C8946E"), 5, spread=0.18)
+    hair = ramp(hexc("#4A3020"), 5, spread=0.25)
+    shirt = ramp(hexc("#1E9C9C"), 5, spread=0.22)
+    pants = ramp(hexc("#3A3A8C"), 5, spread=0.22)
+    shoes = ramp(hexc("#5A5A5A"), 5, spread=0.2)
+    metal = ramp(hexc("#E6E6E6"), 5, spread=0.18)
+    head = box_faces(0, 0, 8, 8, 8)
+    for name, f in head.items():
+        paint(img, f, skin, rng, noise=0.2)
+    paint(img, head["top"], hair, rng)
+    paint(img, head["back"], hair, rng)
+    for name in ("front", "right", "left"):  # a fringe and the sides of the hair
+        x0, y0, w, h = head[name]
+        paint(img, (x0, y0, w, 2), hair, rng)
+        if name != "front":
+            paint(img, (x0, y0, w, 5), hair, rng)
+    fx, fy = head["front"][0], head["front"][1]
+    for x, c in ((1, (240, 240, 240, 255)), (2, (60, 90, 190, 255)), (5, (60, 90, 190, 255)), (6, (240, 240, 240, 255))):
+        img.set(fx + x, fy + 4, c)
+    for x in range(3, 5):
+        img.set(fx + x, fy + 5, skin[0])  # the nose's shadow
+    for x in range(2, 6):
+        img.set(fx + x, fy + 6, (120, 70, 50, 255))
+    for f in box_faces(16, 16, 8, 12, 4).values():
+        paint(img, f, shirt, rng)
+    for u, v in ((40, 16), (32, 48)):  # arms: short sleeves, skin below
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), skin, rng, noise=0.2)
+            if name not in ("top", "bottom"):
+                paint(img, (x0, y0, w, 4), shirt, rng)
+    for u, v in ((0, 16), (16, 48)):  # legs: trousers, shoes
+        for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
+            paint(img, (x0, y0, w, h), pants, rng)
+            if name not in ("top", "bottom"):
+                paint(img, (x0, y0 + h - 2, w, 2), shoes, rng)
+    # Armour (tinted by material when worn): plates with darker rims.
+    for (u, v, w, h, d) in ((32, 0, 8, 8, 8), (16, 32, 8, 12, 4), (40, 32, 4, 12, 4), (0, 32, 4, 12, 4),
+                            (0, 48, 4, 4, 4)):
+        for name, (x0, y0, fw, fh) in box_faces(u, v, w, h, d).items():
+            paint(img, (x0, y0, fw, fh), metal, rng, noise=0.25)
+            for x in range(fw):
+                img.set(x0 + x, y0 + fh - 1, metal[0])
+    # The helmet's visor: the face is left open.
+    hx, hy = 32 + 8, 0 + 8
+    for y in range(3, 8):
+        for x in range(1, 7):
+            img.set(hx + x, hy + y, CLEAR)
+    return img
+
+
 def cow(name="cow", spots="#5C3A22"):
     # (M29.1c: mooshrooms are red-spotted cows; brown ones are tinted when drawn)
     rng = random.Random(name)
@@ -1297,7 +1354,7 @@ def main():
               "piglin_brute": piglin_brute(),
               "zoglin": hoglin("zoglin", "#B08A84", "#9AA88A"),
               "illusioner": illusioner(),
-              "mannequin": zombie("mannequin", "#C8946E", "#3A8AC8", "#2A2A6A"),  # (M29.7e: a player's colours)
+              "mannequin": player(),  # (M29.7e; M30.1: the player's own skin)
               # M29.1b undead mounts in their own colours: bone, rotting green, sun-dried husk, drowned teal
               "skeleton_horse": pet("skeleton_horse", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#D8D4C8",
                                     extra=[((20, 15, 2, 10, 3), "#B8B4A8"), ((46, 0, 3, 10, 4), "#B8B4A8")], stripes=True),

@@ -12,7 +12,8 @@ v1.0 (user, 2026-10-08: "once everything is functional and not missing, tag v1.0
 ## Next
 User (2026-10-09): "Do option 1 then 2" - M30 (play feel), then M31 (performance).
 M30 - Play feel (the deviations noticed within minutes of playing):
-1. M30.1 - Player model and views: F5 cycles first person / third person back / front
+1. ✅ M30.1 - Player model and views (also fixed: mob heads turned away from their body
+   turned the wrong way; `bobView` option): F5 cycles first person / third person back / front
    (camera pulled back up to 4 blocks, stopped by blocks); the player drawn with our skin,
    worn armor, held items, sneaking; first-person arm and held item with the swing.
 2. M30.2 - Combat (1.9+): attack cooldown from each item's attack speed, damage x

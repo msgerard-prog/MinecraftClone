@@ -12,7 +12,8 @@ namespace mc::gfx {
 // facing +Z. Parts rotate about their pivot for animation.
 struct MobPart {
     // LegA/B swing opposite; Lift: raised by a shulker's Peek (up to 8 px).
-    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward, WingL, WingR, Lift, Tail };
+    // ArmA/B (M30.1): arms hanging down, swinging against the legs (the player, mannequins).
+    enum class Anim : uint8_t { None, Head, LegA, LegB, ArmForward, WingL, WingR, Lift, Tail, ArmA, ArmB };
     float from[3], to[3];
     float pivot[3];
     int u, v; // box-UV origin in the mob's 64x64 texture
@@ -30,7 +31,7 @@ struct MobPart {
     // chest), 12 a llama's carpet (tinted by its dye).
     // 13, 14 = a goat's left / right horn (shown while it has it - M26.3).
     // 15-18 = an armor stand's head, chest, legs, feet piece (shown when worn, tinted by
-    // its material - M28.3b).
+    // its material - M28.3b; M30.1: the player's armour, from its skin's overlay regions).
     uint8_t layer = 0;
     float inflate = 0.0f;
 };

@@ -119,6 +119,13 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             opts.mount = true;
         } else if (arg == "--f3") {
             opts.debugScreen = true;
+        } else if (arg == "--perspective") {
+            auto v = needValue();
+            if (!v) return std::nullopt;
+            if (!parseNumber(*v, opts.perspective) || opts.perspective < 0 || opts.perspective > 2) {
+                error = "--perspective needs 0, 1 or 2";
+                return std::nullopt;
+            }
         } else if (arg == "--command") {
             auto v = needValue();
             if (!v) return std::nullopt;

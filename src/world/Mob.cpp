@@ -184,7 +184,7 @@ const MobInfo& mobInfo(MobType t) {
         // (M29.7e; wiki: Giant - 100, 3.6 x 12, 0.5, 50, no AI; Mannequin - 20, 0.6 x 1.8; the
         // command entities have no health to speak of and float where they are)
         {"minecraft:giant", 100.0f, 3.6, 12.0, 0.5, 50.0f, false, false, false, 6.0f},
-        {"minecraft:mannequin", 20.0f, 0.6, 1.8, 0.0, 0.0f, false},
+        {"minecraft:mannequin", 20.0f, 0.6, 1.8, 0.0, 0.0f, false, false, false, 0.9375f}, // (the player's 15/16 model)
         {"minecraft:marker", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
         {"minecraft:interaction", 1.0f, 1.0, 1.0, 0.0, 0.0f, false, true, true},
         {"minecraft:block_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},

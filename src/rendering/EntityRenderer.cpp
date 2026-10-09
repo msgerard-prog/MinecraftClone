@@ -167,9 +167,12 @@ bool EntityRenderer::init(const TextureAtlas& atlas, const BlockModels& models, 
     }
     m_bolts.reserve(size_t(1024) * 6);
     m_crack.reserve(36);
+    m_hand.reserve(size_t(kHandQuads) * 6);
+    m_handArm.reserve(size_t(kHandQuads) * 6);
     glCreateVertexArrays(1, &m_vao);
     glCreateBuffers(1, &m_vbo);
-    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads + kMaxWeatherQuads + 1024 + 4096) * 6 * sizeof(Vertex), nullptr,
+    glNamedBufferStorage(m_vbo, GLsizeiptr(kMaxQuads + kMaxWeatherQuads + 1024 + 4096 + 2 * kHandQuads) * 6 * sizeof(Vertex),
+                         nullptr,
                          GL_DYNAMIC_STORAGE_BIT);
     glEnableVertexArrayAttrib(m_vao, 0);
     glVertexArrayAttribFormat(m_vao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, x));
@@ -630,12 +633,25 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     if (mob.sleeping) body = body * rotX(-90.0f * kDeg); // in bed: lying on its back, head toward the pillow
     const bool roosting = mob.type == world::MobType::Bat && mob.sitting; // (M29.1c: hanging upside down)
     if (roosting) body = body * rotZ(180.0f * kDeg);
-    const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
+    // (the head turns the same way as the body: vanilla yaw goes from +Z toward -X, so
+    // both use -yaw - M30.1 fix: heads turned away from their body looked the wrong way)
+    const glm::mat3 head = rotY(-(headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
     // (M29.1b) a jockey sits: legs forward and a little apart (vanilla's riding pose).
     const bool seated = mob.vehicle != 0;
     const glm::mat3 legA = seated ? rotX(-72.0f * kDeg) * rotY(-18.0f * kDeg) : rotX(swing),
                     legB = seated ? rotX(-72.0f * kDeg) * rotY(18.0f * kDeg) : rotX(-swing),
                     arm = rotX(-90.0f * kDeg + swing * 0.2f);
+    // (M30.1) hanging arms (the player's model; vanilla HumanoidModel): they swing against
+    // the legs; the right arm is held a little forward with an item, lifted by the attack
+    // swing, and both reach forward while riding.
+    const float attack = std::sin(std::clamp(mob.swingProgress, 0.0f, 1.0f) * 3.14159265f) * 1.6f;
+    const float holding = world::heldItemOf(mob) != 0 ? 0.31f : 0.0f;
+    const float ride = seated ? 0.63f : 0.0f;
+    const glm::mat3 armA = rotX(-swing / 1.4f * (seated ? 0.0f : 1.0f) - holding - attack - ride),
+                    armB = rotX(swing / 1.4f * (seated ? 0.0f : 1.0f) - ride);
+    // Crouching (vanilla: the body leans 0.5 rad forward; the legs step back).
+    const glm::mat3 crouch = rotX(0.5f);
+    const glm::vec3 hip(0.0f, 12.0f, 0.0f);
     const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
     const glm::mat3 wingL = rotZ(flap), wingR = rotZ(-flap);
     const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
@@ -772,18 +788,27 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                 : part.anim == MobPart::Anim::WingL      ? &wingL
                                 : part.anim == MobPart::Anim::WingR      ? &wingR
                                 : part.anim == MobPart::Anim::Tail       ? &tail
+                                : part.anim == MobPart::Anim::ArmA       ? &armA
+                                : part.anim == MobPart::Anim::ArmB       ? &armB
                                                                          : nullptr;
-        glm::vec3 corners[8];
-        for (int i = 0; i < 8; ++i) {
-            glm::vec3 c(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z);
+        const bool leg = part.anim == MobPart::Anim::LegA || part.anim == MobPart::Anim::LegB;
+        auto place = [&](glm::vec3 c) { // model pixels -> after animation and pose
             if (anim) c = *anim * (c - pivot) + pivot;
             if (part.anim == MobPart::Anim::Lift) c.y += float(mob.peek) * 0.08f;
-            corners[i] = base + body * c * (scale / 16.0f); // pixels -> blocks
+            if (mob.crouching) c = leg ? c - glm::vec3(0.0f, 0.0f, 3.0f) : crouch * (c - hip) + hip;
+            return c;
+        };
+        glm::vec3 corners[8];
+        for (int i = 0; i < 8; ++i) {
+            const glm::vec3 c(i & 1 ? mx.x : mn.x, i & 2 ? mx.y : mn.y, i & 4 ? mx.z : mn.z);
+            corners[i] = base + body * place(c) * (scale / 16.0f); // pixels -> blocks
         }
-        if (held != 0 && part.anim == MobPart::Anim::ArmForward && part.pivot[0] < 0.0f && !haveHand) {
+        if (held != 0 && part.layer == 0 &&
+            (part.anim == MobPart::Anim::ArmForward || part.anim == MobPart::Anim::ArmA) && part.pivot[0] < 0.0f &&
+            !haveHand) {
             const glm::vec3 tip((mn.x + mx.x) * 0.5f, mn.y, (mn.z + mx.z) * 0.5f); // the hand: the arm's end
-            hand = base + body * (*anim * (tip - pivot) + pivot) * (scale / 16.0f);
-            armOut = glm::normalize(body * (*anim * glm::vec3(0.0f, -1.0f, 0.0f)));
+            hand = base + body * place(tip) * (scale / 16.0f);
+            armOut = glm::normalize(body * (place(tip) - place(glm::vec3(tip.x, tip.y + 1.0f, tip.z))));
             haveHand = true;
         }
         const float uv[6][4] = {
@@ -921,6 +946,113 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     m_weather.clear();
     m_bolts.clear();
     m_text.clear();
+}
+
+void EntityRenderer::addHand(const world::ItemStack& held, const glm::vec3& right, const glm::vec3& up,
+                             const glm::vec3& forward, float swing, float equip, const glm::vec2& bob,
+                             const glm::vec3& light) {
+    constexpr float kPi = 3.14159265f;
+    auto rotX = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(1, 0, 0, 0, c, s, 0, -s, c);
+    };
+    auto rotY = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(c, 0, -s, 0, 1, 0, s, 0, c);
+    };
+    auto rotZ = [](float a) {
+        const float c = std::cos(a), s = std::sin(a);
+        return glm::mat3(c, s, 0, -s, c, 0, 0, 0, 1);
+    };
+    // View space: +x right, +y up, -z forward (vanilla's hand space).
+    auto toWorld = [&](const glm::vec3& v) { return right * v.x + up * v.y - forward * v.z; };
+    // The swing (vanilla: the hand sweeps left, up and in while turning down).
+    const float sq = std::sqrt(std::clamp(swing, 0.0f, 1.0f));
+    const glm::vec3 sweep(-0.4f * std::sin(sq * kPi), 0.2f * std::sin(sq * 2.0f * kPi), -0.2f * std::sin(swing * kPi));
+    const glm::mat3 swingRot = rotY(-std::sin(swing * swing * kPi) * 0.35f) * rotZ(std::sin(sq * kPi) * 0.35f) *
+                               rotX(-std::sin(sq * kPi) * 1.4f);
+    const float dip = (1.0f - std::clamp(equip, 0.0f, 1.0f)) * 0.6f;
+    if (held.empty()) {
+        // The bare right arm (vanilla renderPlayerArm): from the lower right corner, reaching
+        // up and in, drawn from the player's skin.
+        const glm::vec3 shoulder = glm::vec3(0.62f, -0.80f - dip, -0.50f) + sweep + glm::vec3(bob, 0.0f);
+        const glm::mat3 r = swingRot * rotZ(0.45f) * rotX(-0.95f);
+        const float vrow = float(gfx::mobTextureRow(world::MobType::Mannequin) * 64);
+        glm::vec3 corners[8];
+        for (int i = 0; i < 8; ++i) {
+            const glm::vec3 c(i & 1 ? 2.0f : -2.0f, i & 2 ? 12.0f : 0.0f, i & 4 ? 2.0f : -2.0f); // 4 x 12 x 4 px
+            corners[i] = toWorld(shoulder + r * (c / 16.0f));
+        }
+        static constexpr struct {
+            uint8_t c[4];
+            float shade;
+        } kArmFaces[6] = {{{6, 4, 5, 7}, 0.8f}, {{3, 1, 0, 2}, 0.8f}, {{2, 0, 4, 6}, 0.6f},
+                          {{7, 5, 1, 3}, 0.6f}, {{2, 6, 7, 3}, 1.0f}, {{4, 0, 1, 5}, 0.5f}};
+        const float u = 40.0f, v = 16.0f + vrow, w = 4.0f, h = 12.0f, d = 4.0f;
+        const float uv[6][4] = {{u + d, v + d, w, h},     {u + 2 * d + w, v + d, w, h}, {u, v + d, d, h},
+                                {u + d + w, v + d, d, h}, {u + d, v, w, d},             {u + d + w, v, w, d}};
+        for (int f = 0; f < 6; ++f) {
+            const glm::vec3 p[4] = {corners[kArmFaces[f].c[0]], corners[kArmFaces[f].c[1]], corners[kArmFaces[f].c[2]],
+                                    corners[kArmFaces[f].c[3]]};
+            // (the box's +Y end is the hand, so its "top" UV row maps to the hand's end)
+            quad(p, uv[f][0], uv[f][1] + uv[f][3], uv[f][0] + uv[f][2], uv[f][1],
+                 pack(glm::min(light * kArmFaces[f].shade, glm::vec3(1.0f))), m_handArm);
+        }
+        return;
+    }
+    // The item: built like a dropped item at the origin, then moved into the hand.
+    const size_t start = m_items.size();
+    addItem(held, glm::dvec3(0.0), 0.0f, 0.0f, light, glm::dvec3(0.0));
+    if (m_items.size() == start) return;
+    const world::ItemDef& def = world::itemRegistry().item(held.item);
+    const bool cube = def.block && !m_icons->sprite(held.item) && !(*m_models)[world::blockRegistry().defaultState(def.block)].cross;
+    // Blocks turn 45 degrees and grow to 0.4 (vanilla's block display); flat items stand
+    // turned toward the view, tilted like a held tool.
+    const glm::mat3 shape = cube ? rotY(0.785f) * glm::mat3(1.0f) : rotZ(-0.44f) * rotY(2.14f) * glm::mat3(0.85f);
+    const glm::vec3 centre(0.0f, cube ? 0.125f : 0.25f, 0.0f);
+    // (vanilla's hand point is (0.56, -0.52, -0.72); items sit 0.2 higher in it)
+    const glm::vec3 at = glm::vec3(0.56f, (cube ? -0.36f : -0.30f) - dip, -0.72f) + sweep + glm::vec3(bob, 0.0f);
+    for (size_t i = start; i < m_items.size() && m_hand.size() < m_hand.capacity(); ++i) {
+        Vertex v = m_items[i];
+        const glm::vec3 local = swingRot * (shape * (glm::vec3(v.x, v.y, v.z) - centre));
+        const glm::vec3 w = toWorld(at + local);
+        v.x = w.x;
+        v.y = w.y;
+        v.z = w.z;
+        m_hand.push_back(v);
+    }
+    m_items.resize(start); // (no allocation: shrinking)
+}
+
+void EntityRenderer::drawHand(const Camera& camera, float aspect) {
+    if (m_hand.empty() && m_handArm.empty()) return;
+    const size_t base = size_t(kMaxQuads + kMaxWeatherQuads + 1024 + 4096) * 6;
+    const size_t items = std::min(m_hand.size(), size_t(kHandQuads) * 6),
+                 arm = std::min(m_handArm.size(), size_t(kHandQuads) * 6);
+    if (items) glNamedBufferSubData(m_vbo, GLintptr(base * sizeof(Vertex)), GLsizeiptr(items * sizeof(Vertex)), m_hand.data());
+    if (arm)
+        glNamedBufferSubData(m_vbo, GLintptr((base + items) * sizeof(Vertex)), GLsizeiptr(arm * sizeof(Vertex)),
+                             m_handArm.data());
+    // Over everything already drawn: the hand never sinks into a wall in front of the eye.
+    glClear(GL_DEPTH_BUFFER_BIT);
+    m_shader.bind();
+    glBindVertexArray(m_vao);
+    const glm::mat4 vp = camera.viewProjectionAtOrigin(aspect);
+    glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(vp));
+    glUniform1f(1, 0.1f);
+    glDisable(GL_CULL_FACE);
+    if (items) {
+        glBindTextureUnit(0, m_atlasTexture);
+        glDrawArrays(GL_TRIANGLES, GLint(base), GLsizei(items));
+    }
+    if (arm) {
+        glBindTextureUnit(0, m_mobTexture);
+        glDrawArrays(GL_TRIANGLES, GLint(base + items), GLsizei(arm));
+        glBindTextureUnit(0, m_atlasTexture);
+    }
+    glEnable(GL_CULL_FACE);
+    m_hand.clear();
+    m_handArm.clear();
 }
 
 } // namespace mc::gfx
