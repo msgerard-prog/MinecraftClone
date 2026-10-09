@@ -230,6 +230,10 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
         o.bobView = !o.bobView;
         changed = true;
     }
+    if (m.button(o.hotbarNumbers ? "Hotbar Numbers: ON" : "Hotbar Numbers: OFF", r, y, 150.0f)) { // (ours)
+        o.hotbarNumbers = !o.hotbarNumbers;
+        changed = true;
+    }
     if (m.button("Done", cx - 100.0f, float(m.height()) - 28.0f, 200.0f) || m.input().escape) {
         st.screen = st.optionsBack;
         return MenuAction::OptionsClosed;

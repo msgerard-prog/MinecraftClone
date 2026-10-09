@@ -63,6 +63,7 @@ fine until a system works.
 ## Known deviations from vanilla
 | Deviation | Why | Remove by |
 |---|---|---|
+| Hotbar Numbers (v1.5.3, user request, ADR 0009): each hotbar slot shows its key 1-9 (an option, on by default; vanilla has no labels - OFF is vanilla) | ADR 0009 | — |
 | Legacy "terrain" generator (M3 placeholder: 2D heightmap, no caves/ores/trees/biomes) is kept for worlds created with it | Saved worlds keep their generator | — (legacy worlds) |
 | Overworld generator: vanilla's pipeline with our own climate/spline/cave constants (vanilla's noise settings and biome tables are game data we don't read, ADR 0004), so a seed gives different terrain than vanilla; bedrock/deepslate gradients use our positional hash | ADR 0004 | — |
 | 28 of ~56 overworld biomes in "overworld" (M8); "overworld2" (M18.2) adds jungle, sparse jungle, dark forest, flower forest, old growth spruce taiga, cherry grove, ice spikes, mushroom fields, wooded and eroded badlands by splitting our climate bands (vanilla's parameter table is game data) - still no cave biomes, bamboo jungle, mangrove swamp, deep lukewarm/cold/frozen oceans, sunflower plains, old growth pine/birch, windswept variants; jungle trees have no vines or cocoa, giant spruces are ordinary spruces, cherry trees don't branch and have no petals, eroded badlands have no hoodoos, mushroom fields have no mooshrooms, ice spikes are our own cones; biomes don't vary with height; biome tints per 4×4×4 cell without blending; swamp grass one colour (vanilla: noise #4C763C/#6A7039) | Subset first | Biome pass |

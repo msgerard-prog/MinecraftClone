@@ -17,6 +17,7 @@ merged runs sorted for different camera positions), new survival worlds start em
 v1.5.2 (user report): vanilla's "Loading terrain..." screen while a world opens (the world
 stays hidden and frozen until the chunks around the player are meshed), the menu background
 tiled at 32 GUI px like vanilla; menus checked at 854x480 to 5120x2160.
+v1.5.3 (user request): Hotbar Numbers option (key 1-9 in each slot; ADR 0009, on by default).
 No milestone is scheduled. Work comes from the user's play-testing reports: each issue gets
 a fix, a regression test and a commit (patch versions v1.5.x). Candidates if the user asks
 for more, by how much they bring the clone toward vanilla:

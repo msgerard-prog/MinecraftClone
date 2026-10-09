@@ -11,7 +11,7 @@
 namespace mc::ui {
 
 void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::ItemIcons& icons,
-                const gfx::BlockModels& models, int guiWidth, int guiHeight) {
+                const gfx::BlockModels& models, int guiWidth, int guiHeight, float numberScale) {
     const float left = static_cast<float>(guiWidth / 2 - 91);
     const float top = static_cast<float>(guiHeight - 22);
     batch.sprite(gfx::GuiTexture::Hotbar, left, top, 182, 22, 0, 0, 182, 22);
@@ -20,6 +20,12 @@ void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::Ite
     for (int i = 0; i < Inventory::kHotbar; ++i)
         icons.draw(batch, models, inventory.slot(i), left + 3 + static_cast<float>(i * 20), top + 3,
                    kIconGrassTint);
+    if (numberScale > 0.0f) // over the icons, so a block never hides its slot's number
+        for (int i = 0; i < Inventory::kHotbar; ++i) {
+            const char digit[2] = {char('1' + i), 0};
+            batch.text(digit, left + 3.0f + static_cast<float>(i * 20), top + 3.0f, gfx::rgba(224, 224, 224), true,
+                       numberScale);
+        }
 }
 
 void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air, int armor,

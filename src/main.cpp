@@ -6693,7 +6693,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                            guiW, guiH);
             }
             if (gameMode != 3)
-                mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
+            {
+                // Hotbar Numbers (ours): half-size digits where whole screen pixels allow
+                // (GUI scale 2+: (scale / 2) / scale), full size at GUI scale 1.
+                const int gs = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
+                const float numberScale = !shared.options.hotbarNumbers ? 0.0f
+                                          : gs >= 2                     ? float(gs / 2) / float(gs)
+                                                                        : 1.0f;
+                mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH, numberScale);
+            }
             { // The held map (M28.2b): ours is a panel at the bottom right (vanilla holds it
               // in first person), the player a white marker.
                 static const mc::world::ItemId filledMap =

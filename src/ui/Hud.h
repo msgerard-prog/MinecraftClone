@@ -18,8 +18,10 @@ inline constexpr uint32_t kIconGrassTint = gfx::rgba(0x7C, 0xBD, 0x6B);
 
 // The hotbar (wiki: Heads-up display): 182x22 bar centred at the bottom, the
 // selection frame around the selected slot, block icons 16x16 in each slot.
+// `numberScale` > 0 (v1.5.3, ours - the Hotbar Numbers option) labels each slot with its key
+// 1-9 in its top-left corner, text at that scale (half size where the GUI scale allows).
 void drawHotbar(gfx::GuiBatch& batch, const Inventory& inventory, const gfx::ItemIcons& icons,
-                const gfx::BlockModels& models, int guiWidth, int guiHeight);
+                const gfx::BlockModels& models, int guiWidth, int guiHeight, float numberScale = 0.0f);
 
 // Survival HUD (wiki: Heads-up display): 10 hearts above the hotbar's left half,
 // 10 hunger shanks on the right half (right to left). Values in halves (0..20).

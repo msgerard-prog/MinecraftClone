@@ -45,6 +45,7 @@ bool GameOptions::load(const std::filesystem::path& file) {
         else if (key == "renderClouds") clouds = value.find("false") == std::string_view::npos;
         else if (key == "enableVsync") vsync = value == "true";
         else if (key == "bobView") bobView = value == "true";
+        else if (key == "clone_hotbarNumbers") hotbarNumbers = value == "true";
     }
     return true;
 }
@@ -60,7 +61,8 @@ bool GameOptions::save(const std::filesystem::path& file) const {
         << "soundCategory_master:" << masterVolume << '\n'
         << "renderClouds:\"" << (clouds ? "true" : "false") << "\"\n"
         << "enableVsync:" << (vsync ? "true" : "false") << '\n'
-        << "bobView:" << (bobView ? "true" : "false") << '\n';
+        << "bobView:" << (bobView ? "true" : "false") << '\n'
+        << "clone_hotbarNumbers:" << (hotbarNumbers ? "true" : "false") << '\n';
     return bool(out);
 }
 

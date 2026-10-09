@@ -16,6 +16,10 @@ struct GameOptions {
     bool clouds = true;          // renderClouds "true" (fancy) / "false"
     bool vsync = true;           // enableVsync
     bool bobView = true;         // bobView: the camera and hand sway with each step (M30.1)
+    // (v1.5.3, the user's choice; ADR 0009) the key number 1-9 in each hotbar slot's corner.
+    // Ours: vanilla has no such option or label (OFF gives vanilla's look). Saved as
+    // "clone_hotbarNumbers" (an unknown key to vanilla, which ignores it).
+    bool hotbarNumbers = true;
 
     // Missing or unreadable file: defaults. Unknown keys are ignored.
     bool load(const std::filesystem::path& file);
