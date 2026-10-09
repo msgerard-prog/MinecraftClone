@@ -68,6 +68,9 @@ constexpr LootEntry kMine3[] = {{"rail", 4, 8, 20},
                                 {"detector_rail", 1, 4, 5},
                                 {"powered_rail", 1, 4, 5}};
 constexpr LootPool kMine[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}};
+// (M33.2e; wiki: Music Disc - "Bounce" in sulfur cave mineshafts; our odds: 1 chest in 3)
+constexpr LootEntry kMineSulfur4[] = {{"music_disc_bounce", 1, 1, 1}, {"", 1, 1, 2}};
+constexpr LootPool kMineSulfur[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}, {1, 1, kMineSulfur4}};
 
 // wiki: Stronghold › Loot (Java Edition).
 constexpr LootEntry kAltar1[] = {
@@ -334,6 +337,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::JunglePyramid: return kJungle;
     case LootTable::Igloo: return kIgloo;
     case LootTable::Mineshaft: return kMine;
+    case LootTable::MineshaftSulfur: return kMineSulfur;
     case LootTable::StrongholdCorridor: return kAltar;
     case LootTable::StrongholdCrossing: return kStore;
     case LootTable::StrongholdLibrary: return kLibrary;
@@ -456,7 +460,8 @@ constexpr std::string_view kTableNames[] = {
     "chests/trial_chambers/reward", "spawners/trial_chamber/consumables", "chests/trial_chambers/supply",
     "archaeology/desert_pyramid", "archaeology/desert_well",    "archaeology/ocean_ruin_cold",
     "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare",
-    "chests/trial_chambers/reward_ominous"};
+    "chests/trial_chambers/reward_ominous", "chests/abandoned_mineshaft_sulfur_caves"}; // (ours: vanilla rolls the disc
+                                                                                       //  in its mineshaft table)
 static_assert(std::size(kTableNames) == size_t(LootTable::Count));
 } // namespace
 

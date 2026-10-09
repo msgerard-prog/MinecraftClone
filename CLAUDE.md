@@ -27,7 +27,7 @@ Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60
 `--hidden`, `--menu title|worlds|create|options|pause|statistics|advancements|commandblock` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--difficulty peaceful|easy|normal|hard` (new worlds), `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
-runs default to "New World"), `--no-save`, `--generator overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld7 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--perspective 0|1|2` (F5's view), `--recipe-book` (open it on the inventory screens), `--pos x,y,z`, `--look yaw,pitch` (vanilla
+runs default to "New World"), `--no-save`, `--generator overworld8|overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld8 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--perspective 0|1|2` (F5's view), `--recipe-book` (open it on the inventory screens), `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).
 Each run logs "World meshed in …" and frame-time stats at exit; measure performance
 with `tools/run.sh release --hidden --no-vsync --screenshot out/p.png --frames 3000`

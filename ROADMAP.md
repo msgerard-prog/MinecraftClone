@@ -15,7 +15,7 @@ M33 - The 26.x additions (released versions only, from the wiki; 26.4 is still i
 development). Saves stay at DataVersion 4671 until the user decides (Waiting on the user).
 1. ✅ M33.1 - 26.1 "Tiny Takeover": golden dandelion (stops a baby growing: AgeLocked), the name
    tag recipe, baby skeleton/zombie horses that don't grow up or panic.
-2. M33.2 - 26.2 "Chaos Cubed": cinnabar and sulfur families (stairs, slabs, walls, polished,
+2. ✅ M33.2 - 26.2 "Chaos Cubed": cinnabar and sulfur families (stairs, slabs, walls, polished,
    bricks, chiseled), potent sulfur (bubbles, nausea gas, geysers over magma), sulfur spikes,
    the sulfur cube (absorbs a block, archetypes, bucket), beds bouncing 75%, disc "Bounce";
    sulfur caves and springs in a new generator (overworld8, the default for new worlds).

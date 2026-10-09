@@ -914,7 +914,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         for (int qz = 0; qz < 4; ++qz)
             for (int qx = 0; qx < 4; ++qx) {
                 const Column& col = columnCol[size_t(qz * 4 + qx)];
-                const Biome cave = caveBiome(col);
+                const Biome cave = caveBiome(col, m_version);
                 const bool deep = deepDark(col);
                 if (cave == Biome::Count && !deep) continue;
                 caveCells = true;
@@ -1340,6 +1340,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeArchaeology6(blockArray.data(), cx, cz, topY, columnBiome, entities); // (M27.5b)
     }
     if (m_version >= 7) placeFeatures7(blockArray.data(), out, cx, cz, topY, columnBiome); // (M29.8)
+    if (m_version >= 8 && caveCells) placeSulfurCaves8(blockArray.data(), cx, cz, *biomes, topY); // (M33.2e)
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -2526,9 +2527,15 @@ void OverworldGenerator::placeMineshafts(BlockStateId* blocks, int32_t cx, int32
                     if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && kOverworldHeight.contains(p.y0) &&
                         out.count < int(out.list.size())) {
                         chunk.set(lx, p.y0, lz, B.chest);
+                        // (M33.2e) in the sulfur caves its chest may hold "Bounce"
+                        LootTable table = LootTable::Mineshaft;
+                        if (m_version >= 8) {
+                            const Column col = column(x, z);
+                            if (caveBiome(col, m_version) == Biome::SulfurCaves && p.y0 < col.height - 14.0)
+                                table = LootTable::MineshaftSulfur;
+                        }
                         out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
-                                                         static_cast<int16_t>(p.y0), true, MobType::Zombie,
-                                                         LootTable::Mineshaft};
+                                                         static_cast<int16_t>(p.y0), true, MobType::Zombie, table};
                     }
                 }
             }
@@ -3499,9 +3506,13 @@ bool OverworldGenerator::deepDark(const Column& c) {
     return c.erosion < -0.38 && c.continentalness > 0.0;
 }
 
-Biome OverworldGenerator::caveBiome(const Column& c) {
+Biome OverworldGenerator::caveBiome(const Column& c, int version) {
     // (wiki: Lush Caves - very humid; Dripstone Caves - far inland; our thresholds)
     if (c.continentalness < -0.11) return Biome::Count; // (not under the sea)
+    // (M33.2e; wiki: Sulfur Caves - very low weirdness, high erosion, moderate
+    // continentalness; not under river valleys or high mountains)
+    if (version >= 8 && c.weirdness < -0.6 && c.erosion > 0.25 && c.continentalness < 0.55 && c.peaksValleys > -0.5)
+        return Biome::SulfurCaves;
     if (c.humidity > 0.55) return Biome::LushCaves;
     if (c.continentalness > 0.6) return Biome::DripstoneCaves;
     return Biome::Count;
@@ -4053,6 +4064,103 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
 } // namespace mc::world
 
 namespace mc::world {
+
+void OverworldGenerator::placeSulfurCaves8(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
+                                           const std::array<int, 256>& topY) const {
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 826));
+    r.nextLong();
+    auto find = [&](const char* id) { return reg.defaultState(*reg.findBlock(id)); };
+    static const BlockStateId sulfur = find("sulfur"), cinnabar = find("cinnabar"), potent = find("potent_sulfur"),
+                              spike = find("sulfur_spike"), magma = reg.defaultState(blocks::MagmaBlock);
+    // What the bands replace: the stones and their ores (the wiki: ores are rare there).
+    static const std::vector<uint8_t> replaceable = [&] {
+        std::vector<uint8_t> v(reg.stateCount(), 0);
+        for (BlockId b = 0; b < reg.blockCount(); ++b) {
+            std::string_view id = reg.block(b).id;
+            const bool stoneLike = id == "minecraft:stone" || id == "minecraft:deepslate" || id == "minecraft:granite" ||
+                                   id == "minecraft:diorite" || id == "minecraft:andesite" || id == "minecraft:tuff" ||
+                                   id.ends_with("_ore");
+            if (!stoneLike) continue;
+            for (uint32_t i = 0; i < reg.block(b).stateCount; ++i) v[size_t(reg.block(b).firstState + i)] = 1;
+        }
+        return v;
+    }();
+    const int32_t baseX = cx * 16, baseZ = cz * 16;
+    auto hash = [&](int32_t x, int32_t z) { return uint32_t(mixSeed(mixSeed(m_seed ^ 0x5017F0ull, uint32_t(x)), uint32_t(z))); };
+    bool any = false;
+    // The bands: 4 blocks thick, wobbling by up to 2 with the column; sulfur and cinnabar in
+    // turns, every fifth band left as the stone that was there.
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const int wobble = int(hash(baseX + x, baseZ + z) % 3);
+            const int top = topY[size_t(z * 16 + x)] - 10;
+            for (int y = kOverworldHeight.minY + 6; y < top; ++y) {
+                const BlockStateId s = chunk.get(x, y, z);
+                if (s >= replaceable.size() || !replaceable[size_t(s)]) continue;
+                if (biomes.at(x, y, z) != Biome::SulfurCaves) continue;
+                any = true;
+                const int band = (y + 64 + wobble) / 4;
+                if (band % 5 == 4) continue;
+                chunk.set(x, y, z, band % 2 == 0 ? sulfur : cinnabar);
+            }
+        }
+    if (!any) return;
+    // Spikes on sulfur floors and ceilings (like dripstone), and pools: a cave floor cell whose
+    // floor is walled in on all sides becomes water over potent sulfur, a third of them over a
+    // magma block (a geyser).
+    auto spikeColumn = [&](int x, int y0, int z, int dir, int n) {
+        int len = 0;
+        while (len < n && kOverworldHeight.contains(y0 + dir * len) && chunk.get(x, y0 + dir * len, z) == B.air &&
+               (len + 1 >= n || chunk.get(x, y0 + dir * (len + 1), z) == B.air))
+            ++len;
+        for (int i = 0; i < len; ++i) {
+            const int t = i == len - 1 ? 1 : i == len - 2 ? 2 : i == 0 ? 4 : 3;
+            chunk.set(x, y0 + dir * i, z,
+                      reg.set(reg.set(spike, properties::thickness, t), properties::verticalDirection, dir > 0 ? 0 : 1));
+        }
+    };
+    auto solid = [&](BlockStateId s) { return s != B.air && s != B.water && reg.opaqueCube(s); };
+    for (int z = 1; z < 15; ++z)
+        for (int x = 1; x < 15; ++x) {
+            const int top = std::min(topY[size_t(z * 16 + x)] - 10, kOverworldHeight.maxY() - 8);
+            for (int y = kOverworldHeight.minY + 8; y < top; ++y) {
+                if (chunk.get(x, y, z) != B.air || biomes.at(x, y, z) != Biome::SulfurCaves) continue;
+                const BlockStateId below = chunk.get(x, y - 1, z), above = chunk.get(x, y + 1, z);
+                const uint32_t roll = r.nextInt(1000);
+                if (below == sulfur && roll < 60) {
+                    spikeColumn(x, y, z, 1, 1 + int(r.nextInt(3)));
+                } else if (above == sulfur && roll < 120) {
+                    spikeColumn(x, y, z, -1, 1 + int(r.nextInt(4)));
+                } else if (solid(below) && roll >= 990 && solid(chunk.get(x + 1, y - 1, z)) &&
+                           solid(chunk.get(x - 1, y - 1, z)) && solid(chunk.get(x, y - 1, z + 1)) &&
+                           solid(chunk.get(x, y - 1, z - 1)) && solid(chunk.get(x, y - 2, z))) {
+                    chunk.set(x, y - 1, z, B.water);
+                    chunk.set(x, y - 2, z, potent);
+                    if (r.nextInt(3) == 0 && solid(chunk.get(x, y - 3, z))) chunk.set(x, y - 3, z, magma);
+                }
+            }
+        }
+    // A spring (wiki: Sulfur Springs): 1 chunk in 6 over the caves, in the chunk's middle -
+    // a rim of sulfur and cinnabar around a 2-deep well of water over potent sulfur on magma.
+    const int mid = 8 * 16 + 8, top = topY[size_t(mid)];
+    if (r.nextInt(6) == 0 && top > 62 && top < kOverworldHeight.maxY() - 4 && top - 24 > kOverworldHeight.minY &&
+        biomes.at(8, top - 24, 8) == Biome::SulfurCaves && solid(chunk.get(8, top, 8))) {
+        for (int dz = -2; dz <= 2; ++dz)
+            for (int dx = -2; dx <= 2; ++dx) {
+                if (std::abs(dx) == 2 && std::abs(dz) == 2) continue;
+                for (int dy = -3; dy <= 0; ++dy)
+                    chunk.set(8 + dx, top + dy, 8 + dz, (dx + dz + dy) % 2 == 0 ? sulfur : cinnabar);
+            }
+        chunk.set(8, top, 8, B.water);
+        chunk.set(8, top - 1, 8, B.water);
+        chunk.set(8, top - 2, 8, potent);
+        chunk.set(8, top - 3, 8, magma);
+        for (int dy = 1; dy <= 3; ++dy) chunk.set(8, top + dy, 8, B.air);
+    }
+}
 
 void OverworldGenerator::placeFeatures7(BlockStateId* blocks, Chunk& /*out*/, int32_t cx, int32_t cz,
                                         const std::array<int, 256>& topY, const std::array<Biome, 16>& biomes) const {

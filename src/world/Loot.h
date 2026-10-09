@@ -50,6 +50,7 @@ enum class LootTable : uint8_t {
     ArchaeologyTrailCommon,
     ArchaeologyTrailRare,
     TrialVaultOminous, // (M28.4d) an ominous vault opened with an ominous trial key
+    MineshaftSulfur, // (M33.2e; 26.2) a mineshaft chest in the sulfur caves: may hold "Bounce"
     Count
 };
 // Vanilla's loot table ids ("minecraft:chests/simple_dungeon", "minecraft:archaeology/

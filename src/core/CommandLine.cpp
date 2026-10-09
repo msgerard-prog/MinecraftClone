@@ -80,9 +80,9 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             auto v = needValue();
             if (!v) return std::nullopt;
             const std::string_view g(*v);
-            if (g != "overworld7" && g != "overworld6" && g != "overworld5" && g != "overworld4" && g != "overworld3" && g != "overworld2" && g != "overworld" &&
+            if (g != "overworld8" && g != "overworld7" && g != "overworld6" && g != "overworld5" && g != "overworld4" && g != "overworld3" && g != "overworld2" && g != "overworld" &&
                 g != "terrain") {
-                error = "--generator needs overworld7, overworld6, overworld5, overworld4, overworld3, overworld2, overworld or terrain";
+                error = "--generator needs overworld8, overworld7, overworld6, overworld5, overworld4, overworld3, overworld2, overworld or terrain";
                 return std::nullopt;
             }
             opts.generator = *v;

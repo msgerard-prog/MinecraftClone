@@ -569,7 +569,7 @@ TEST_CASE("M27 review regressions: grown pitcher plants keep to farmland; piston
 #include "world/NetherGenerator.h"
 
 TEST_CASE("overworld7 (M29.8): the M29 blocks generate; nether4 bastions keep piglin brutes") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 7); // (M33.2e: no longer the newest)
     CHECK(gen.kind() == "overworld7");
     const auto& r = blockRegistry();
     int lichen = 0, flowers = 0, cocoa = 0, pads = 0, melons = 0;
@@ -698,4 +698,49 @@ TEST_CASE("overworld7 and nether4 output is pinned (the new-world defaults as of
     MESSAGE("overworld7 " << nameHash(c, kOverworldHeight) << " nether4 " << nameHash(n, kNetherHeight));
     CHECK(nameHash(c, kOverworldHeight) == 14997860066032220082ull);
     CHECK(nameHash(n, kNetherHeight) == 882395333977743428ull);
+}
+
+TEST_CASE("overworld8 (M33.2e; 26.2): sulfur caves - sulfur and cinnabar bands, spikes, potent sulfur; pinned") {
+    const OverworldGenerator gen(42, 8);
+    CHECK(gen.kind() == "overworld8");
+    CHECK(OverworldGenerator::versionOf("overworld8") == 8);
+    std::optional<ChunkPos> at;
+    for (int ring = 0; ring <= 300 && !at; ring += 2)
+        for (int cz = -ring; cz <= ring && !at; cz += 2)
+            for (int cx = -ring; cx <= ring && !at; cx += 2) {
+                if (std::max(std::abs(cx), std::abs(cz)) != ring) continue;
+                if (OverworldGenerator::caveBiome(gen.column(cx * 16 + 8, cz * 16 + 8), 8) == Biome::SulfurCaves)
+                    at = ChunkPos{cx, cz};
+            }
+    REQUIRE(at);
+    MESSAGE("sulfur caves at chunk " << at->x << ", " << at->z);
+    const auto& r = blockRegistry();
+    const BlockId sulfur = *r.findBlock("sulfur"), cinnabar = *r.findBlock("cinnabar"),
+                  spike = *r.findBlock("sulfur_spike"), potent = *r.findBlock("potent_sulfur");
+    int s = 0, c = 0, spikes = 0, pots = 0;
+    uint64_t h = 1469598103934665603ull;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk ch({at->x + dx, at->z + dz});
+            gen.generate(ch);
+            for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = r.blockOf(ch.get(x, y, z));
+                        s += b == sulfur;
+                        c += b == cinnabar;
+                        spikes += b == spike;
+                        pots += b == potent;
+                        if (dx == 0 && dz == 0)
+                            for (const char chr : r.toString(ch.get(x, y, z))) {
+                                h ^= uint8_t(chr);
+                                h *= 1099511628211ull;
+                            }
+                    }
+        }
+    MESSAGE("sulfur " << s << ", cinnabar " << c << ", spikes " << spikes << ", potent " << pots << ", hash " << h);
+    CHECK(s > 500);
+    CHECK(c > 500);
+    CHECK(spikes > 0);
+    CHECK(h == 4374325674733634202ull); // (frozen once released: new worlds make overworld8)
 }

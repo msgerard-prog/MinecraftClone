@@ -39,7 +39,8 @@ public:
     // pale garden - giant spruces, two-block plants, bamboo, mud and moss).
     // 7 = "overworld7" (M29.8: the M29 blocks generated - flowers, melons, cocoa, lily
     // pads, powder snow, ocean magma, glow lichen, ore veins, fossils).
-    static constexpr int kNewest = 7;
+    // 8 = "overworld8" (M33.2e: 26.2's sulfur caves and springs).
+    static constexpr int kNewest = 8;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
     // The version of a generator kind ("overworld" 1 ... "overworld6" 6), 0 if unknown.
     static int versionOf(std::string_view kind) {
@@ -54,7 +55,8 @@ public:
     // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
     std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override {
-        return m_version >= 7   ? "overworld7"
+        return m_version >= 8   ? "overworld8"
+               : m_version == 7 ? "overworld7"
                : m_version == 6 ? "overworld6"
                : m_version == 5 ? "overworld5"
                : m_version == 4 ? "overworld4"
@@ -78,7 +80,7 @@ public:
     Biome baseBiome(const Column& c) const; // the M8 choice (overworld2 refines it)
     // overworld6 (M27.2c): the cave biome under a column (Count: none); (M27.3b) whether
     // its depths below y -16 are deep dark.
-    static Biome caveBiome(const Column& c);
+    static Biome caveBiome(const Column& c, int version = 6);
     static bool deepDark(const Column& c);
     // Highest solid y of the interpolated terrain (caves ignored) at a column.
     int surfaceY(int32_t x, int32_t z) const;
@@ -150,6 +152,11 @@ private:
                              const std::array<Biome, 16>& columnBiome) const;
     // overworld6 (M27.2c): the features of lush and dripstone caves on their cave floors
     // and ceilings, azalea trees above.
+    // overworld8 (M33.2e; wiki: Sulfur Caves): bands of sulfur and cinnabar in the stone of sulfur
+    // cave cells, sulfur spikes, potent sulfur pools (some over magma: geysers), and now and then
+    // a spring on the surface above them.
+    void placeSulfurCaves8(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
+                           const std::array<int, 256>& topY) const;
     void placeCaveBiomes6(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
                           const std::array<int, 256>& topY) const;
     // overworld6 (M27.4a): amethyst geodes from this chunk's and its neighbours' plans.

@@ -1815,7 +1815,8 @@ void Mobs::tick(Context& ctx) {
                 ai(ctx, m);
                 if (m.leash != 0) leashTick(ctx, m);               // (M28.3c)
                 if (m.type == MobType::Llama) caravanTick(ctx, m); // (M28.3c)
-                if (mobInfo(m.type).hostile) ++m_hostiles;
+                // (M33.2e: natural sulfur cubes count as monsters - wiki: Sulfur Cube)
+                if (mobInfo(m.type).hostile || (m.type == MobType::SulfurCube && !m.persistent)) ++m_hostiles;
                 m_bats += m.type == MobType::Bat;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
@@ -1837,8 +1838,8 @@ void Mobs::tick(Context& ctx) {
                 const double d2 = glm::dot(m.pos - playerPos, m.pos - playerPos);
                 // Water mobs too (wiki): squid as monsters, fish beyond 64 blocks; never
                 // fish from a bucket.
-                if ((mobInfo(m.type).hostile || mobInfo(m.type).swims) && !m.persistent &&
-                    !m.fromBucket) {
+                if ((mobInfo(m.type).hostile || mobInfo(m.type).swims || m.type == MobType::SulfurCube) &&
+                    !m.persistent && !m.fromBucket) {
                     if (d2 > (isFish(m.type) ? 64.0 * 64.0 : 128.0 * 128.0))
                         remove = true;
                     else if (d2 > 32.0 * 32.0 && ++m.noPlayerTicks > 600 &&
@@ -2088,6 +2089,12 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
                : roll < 500 ? MobType::Slime
                : roll < 510 ? MobType::Enderman
                             : MobType::Witch;
+    }
+    // (M33.2e; wiki: Sulfur Cube - in the sulfur caves, any light, groups of 2-4; ours: 2 packs in 5
+    // there are sulfur cubes, the rest the usual monsters)
+    if (biome == Biome::SulfurCaves && (kind == MobType::SulfurCube || (first && ctx.rng.nextInt(5) < 2))) {
+        kind = MobType::SulfurCube;
+        return add(ctx.world, make(MobType::SulfurCube, {x + 0.5, double(y), z + 0.5}, ctx.rng)) && (++m_hostiles, true);
     }
     if (kind == MobType::Slime) {
         // Slimes (wiki: Slime › Spawning): in 1 chunk of 10 ("slime chunks", ours by seed)

@@ -87,6 +87,7 @@ enum class Biome : uint8_t {
     LushCaves,
     DripstoneCaves,
     DeepDark, // (M27.3b) deep under the mountains: sculk, ancient cities, no monsters
+    SulfurCaves, // (M33.2e; 26.2, overworld8) sulfur and cinnabar, potent pools, sulfur cubes
     Count
 };
 

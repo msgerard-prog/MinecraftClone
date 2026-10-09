@@ -145,7 +145,7 @@ TEST_CASE("command line: --generator overworld6|overworld5|overworld4|overworld3
     REQUIRE(opts.has_value());
     CHECK(opts->generator == "terrain");
     std::array<const char*, 0> none = {};
-    CHECK(mc::parseCommandLine(none, error)->generator == "overworld7"); // the default
+    CHECK(mc::parseCommandLine(none, error)->generator == "overworld8"); // the default (M33.2e)
     std::array<const char*, 2> v2 = {"--generator", "overworld2"};
     CHECK(mc::parseCommandLine(v2, error)->generator == "overworld2");
     std::array<const char*, 2> old = {"--generator", "overworld"};
