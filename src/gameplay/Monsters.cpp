@@ -139,6 +139,8 @@ bool Mobs::teleport(World& world, MobData& m, const glm::dvec3& around, Xoroshir
             continue;
         const BlockId at = blockRegistry().blockOf(world.getBlock({x, y, z}));
         if (at == blocks::Water || at == blocks::Lava) continue;
+        // (M33.3f; 26.3) never onto bedrock
+        if (blockRegistry().blockOf(world.getBlock({x, y - 1, z})) == blocks::Bedrock) continue;
         world.levelEvent(LevelEvent::Type::Portal, m.pos.x, m.pos.y,
                          m.pos.z); // (purple sparks at both ends)
         m.pos = {x + 0.5, double(y), z + 0.5};
@@ -471,10 +473,9 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
                 }
             }
         }
-        // Hurt by something that isn't a creature (fire, lava, a cactus, a fall): it teleports
-        // away (vanilla: 9 times in 10).
-        if (m.hurtTime == 9 && !m.lastHurtByPlayer && ctx.rng.nextInt(10) != 0)
-            m.wantsTeleport = true;
+        // (M33.3f; 26.3: endermen no longer teleport from environmental damage - fire, lava, a
+        // cactus, a fall - nor while riding something)
+        if (m.vehicle != 0) m.wantsTeleport = false;
         if (m.wantsTeleport) {
             m.wantsTeleport = false;
             teleport(ctx.world, m, m.pos, ctx.rng);

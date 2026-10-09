@@ -238,7 +238,10 @@ constexpr T kTraderCommon[] = {
     sell(1, "brown_mushroom", 1, 4, 1), sell(1, "red_mushroom", 1, 4, 1),  sell(1, "lily_pad", 2, 5, 1)};
 constexpr T kTraderRare[] = {sell(5, "nautilus_shell", 1, 5, 1), sell(3, "packed_ice", 1, 6, 1),
                              sell(6, "blue_ice", 1, 6, 1),       sell(4, "slime_ball", 1, 5, 1),
-                             sell(6, "mangrove_propagule", 1, 6, 1), sell(5, "pale_oak_sapling", 1, 6, 1)};
+                             sell(6, "mangrove_propagule", 1, 6, 1), sell(5, "pale_oak_sapling", 1, 6, 1),
+                             // (M33.3f; 26.3) poplar logs and saplings, shelf mushrooms (prices ours)
+                             sell(1, "poplar_log", 8, 4, 1), sell(5, "poplar_sapling", 1, 6, 1),
+                             sell(1, "shelf_mushroom", 2, 6, 1)};
 constexpr T kTraderBuys[] = {buy("baked_potato", 4, 2, 1), buy("hay_block", 1, 2, 1), buy("fermented_spider_eye", 1, 2, 1),
                              buy("glass_bottle", 1, 2, 1)};
 

@@ -15,6 +15,8 @@
 //   them, take less damage rolled up, and shed a scute every 5-10 minutes.
 #include "gameplay/Mobs.h"
 
+#include "gameplay/FluidContact.h"
+
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Items.h"
@@ -540,7 +542,9 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
                          return isZombie(o.type) || isSkeleton(o.type) ||
                                 o.type == MobType::ZombifiedPiglin;
                      }) != nullptr;
-        if (scared) {
+        // (M33.3f; 26.3) not while in water or lava
+        const FluidContact wet = fluidContact(ctx.world, box(m));
+        if (scared && !wet.water && !wet.lava) {
             m.sitting = true;
             m.goalTicks = 80; // (stays rolled at least 4 s after the last scare)
         } else if (m.sitting && --m.goalTicks <= 0) {

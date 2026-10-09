@@ -235,14 +235,19 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
         break;
     case B::Snow:
         // Snow layers melt in block light above 11 (wiki: Snow), dropping nothing.
-        if (blockLightAt(p) > 11) set(p, 0);
+        if (blockLightAt(p) > 11) {
+            set(p, 0);
+            vibrate({p.x + 0.5, p.y + 0.5, p.z + 0.5}, false); // (M33.3f; 26.3: sculk hears it melt)
+        }
         break;
     case B::Ice:
         // Ice melts when the block light next to it is above 11 (wiki: Ice): ice lets
         // light through with 1 lost, so above 10 at the ice. Into water, or nothing in
         // the Nether.
-        if (blockLightAt(p) > 10)
+        if (blockLightAt(p) > 10) {
             set(p, m_world.isUltrawarm() ? BlockStateId{0} : R().defaultState(B::Water));
+            vibrate({p.x + 0.5, p.y + 0.5, p.z + 0.5}, false); // (M33.3f; 26.3)
+        }
         break;
     case B::OakSapling:
     case B::BirchSapling:

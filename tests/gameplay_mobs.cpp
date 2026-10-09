@@ -2992,3 +2992,19 @@ TEST_CASE("M33.3d (26.3): cushions are sat on and pop back into their item; stra
     CHECK(bed->count == 4);
     CHECK(isStrawBed(blockRegistry().blockOf(blockRegistry().defaultState(*blockRegistry().findBlock("straw_bed")))));
 }
+
+TEST_CASE("M33.3f (26.3): an enderman hurt by its surroundings stays put; armadillos don't roll up in water") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    s.player.setPosition({40.5, 64.0, 40.5});
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Enderman, {3.5, 64.0, 3.5}, s.rng)));
+    MobData* e = s.all().at(0);
+    for (int k = 0; k < 20; ++k) {
+        e = s.all().at(0);
+        e->health -= 0.1f; // (as fire would: not the player)
+        e->hurtTime = 10;
+        e->lastHurtByPlayer = false;
+        s.run(1);
+    }
+    CHECK(glm::length(s.all().at(0)->pos - glm::dvec3(3.5, 64.0, 3.5)) < 2.0);
+}

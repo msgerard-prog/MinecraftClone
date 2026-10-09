@@ -3864,6 +3864,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (def.tool == mc::world::ToolType::Hoe &&
+                           // (M33.3f; 26.3) a shield in the offhand rises first: sneak to till
+                           (player.sneaking() || mc::world::itemRegistry().item(inventory.offhand().item).id !=
+                                                     "minecraft:shield") &&
                            mc::world::BlockUpdates::till(world, lastHit->block, lastHit->face)) {
                     frameEdits.push_back(lastHit->block);
                     if (survival)

@@ -19,7 +19,7 @@ development). Saves stay at DataVersion 4671 until the user decides (Waiting on 
    bricks, chiseled), potent sulfur (bubbles, nausea gas, geysers over magma), sulfur spikes,
    the sulfur cube (absorbs a block, archetypes, bucket), beds bouncing 75%, disc "Bounce";
    sulfur caves and springs in a new generator (overworld8, the default for new worlds).
-3. M33.3 - 26.3 "Wilderness Bound": the poplar wood set, the dappled forest (red shrubs,
+3. ✅ M33.3 - 26.3 "Wilderness Bound": the poplar wood set, the dappled forest (red shrubs,
    shelf mushrooms), wool and concrete stairs/slabs, straw beds, cushions, abandoned camps and
    explorer maps; behaviour changes (shield before tilling, stews from any two mushrooms,
    endermen/shulkers not onto bedrock, sculk hears melting).
