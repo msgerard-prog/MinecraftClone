@@ -364,6 +364,10 @@ private:
     std::vector<world::MobData> m_births; // reused: babies born this tick
     std::vector<Aabb> m_boxes;            // reused collision boxes
     Pathfinder m_pathfinder;
+    // (M31.3) path searches this tick: at most kMaxSearches, the rest wait a tick or two (a
+    // herd of chasers spreads its searches; vanilla staggers them too).
+    int m_searches = 0;
+    static constexpr int kMaxSearches = 6;
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     std::vector<uint64_t> m_cartCommands;

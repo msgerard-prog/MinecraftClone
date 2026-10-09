@@ -695,7 +695,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
     const glm::ivec3 goalCell = Pathfinder::cellOf(m.goal, pathOpts.footprint);
     if (m.repathTicks > 0) --m.repathTicks;
     const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
-    if (goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished))) {
+    const bool wantsPath = goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished));
+    if (wantsPath && m_searches >= kMaxSearches) m.repathTicks = 1; // (next tick; no random draw: gameplay RNG unchanged)
+    if (wantsPath && m_searches < kMaxSearches) {
+        ++m_searches;
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
         m.pathLength =
             uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, pathOpts, chase ? 560 : 200,
@@ -1440,6 +1443,7 @@ void Mobs::die(Context& ctx, MobData& m) {
 }
 
 void Mobs::tick(Context& ctx) {
+    m_searches = 0;
     m_moves.clear();
     m_births.clear();
     if (m_playerAttacker != 0 && ++m_playerAttackerTicks > 100) m_playerAttacker = 0;

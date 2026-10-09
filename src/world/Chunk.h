@@ -84,6 +84,7 @@ public:
         m_droppedItems.clear();
         m_droppedOrbs.clear();
         savedDrops = 0;
+        savedDropsHash = 0;
         m_blockTicks.clear();
         m_tickSet.clear();
         m_tickSetValid = true;
@@ -450,6 +451,32 @@ public:
     // How many items and orbs its last save held: a chunk whose drops are gone since must
     // be saved again (or they would come back on loading).
     int savedDrops = 0;
+    // (M31.3) what its last save's drops were (item, count, position to 1/16; not their age):
+    // a chunk is only saved again for its drops when they changed.
+    uint64_t savedDropsHash = 0;
+    uint64_t dropsHash() const {
+        if (m_droppedItems.empty() && m_droppedOrbs.empty()) return 0;
+        uint64_t h = 1469598103934665603ull;
+        auto mix = [&](int64_t v) {
+            h ^= uint64_t(v);
+            h *= 1099511628211ull;
+        };
+        for (const DroppedItem& d : m_droppedItems) {
+            mix(d.stack.item);
+            mix(d.stack.count);
+            mix(int64_t(d.pos.x * 16.0));
+            mix(int64_t(d.pos.y * 16.0));
+            mix(int64_t(d.pos.z * 16.0));
+        }
+        for (const DroppedOrb& o : m_droppedOrbs) {
+            mix(o.value);
+            mix(o.count);
+            mix(int64_t(o.pos.x * 16.0));
+            mix(int64_t(o.pos.y * 16.0));
+            mix(int64_t(o.pos.z * 16.0));
+        }
+        return h | 1; // (never 0: 0 means "no drops")
+    }
     // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
     // UUID; they go with the mob when it changes chunks (Mobs) and are saved as its Items.
     struct MobStoreEntry {

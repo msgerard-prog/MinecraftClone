@@ -46,12 +46,14 @@ void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector
 bool headInWall(const world::World& world, const glm::dvec3& eye, double width) {
     const double h = width * 0.4;
     const auto& reg = world::blockRegistry();
-    for (int i = 0; i < 4; ++i) {
-        const world::BlockPos p{int(std::floor(eye.x + (i & 1 ? h : -h))), int(std::floor(eye.y)),
-                                int(std::floor(eye.z + (i & 2 ? h : -h)))};
-        const world::BlockStateId s = world.getBlock(p);
-        if (s != 0 && reg.opaqueCube(s) && reg.collides(s)) return true;
-    }
+    // The square's corners usually share one or two cells: each distinct one is read once (M31.3).
+    const int x0 = int(std::floor(eye.x - h)), x1 = int(std::floor(eye.x + h)), y = int(std::floor(eye.y));
+    const int z0 = int(std::floor(eye.z - h)), z1 = int(std::floor(eye.z + h));
+    for (int x = x0; x <= x1; ++x)
+        for (int z = z0; z <= z1; ++z) {
+            const world::BlockStateId s = world.getBlock({x, y, z});
+            if (s != 0 && reg.opaqueCube(s) && reg.collides(s)) return true;
+        }
     return false;
 }
 

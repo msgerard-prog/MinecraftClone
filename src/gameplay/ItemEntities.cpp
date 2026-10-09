@@ -48,7 +48,7 @@ void ItemEntities::scatter(const glm::dvec3& pos, const world::ItemStack& stack,
 
 int ItemEntities::park(world::Chunk& chunk) {
     auto& out = chunk.droppedItems();
-    out.clear();
+    const size_t before = out.size(); // (appends: drops still parked there stay)
     for (size_t i = 0; i < m_items.size();) {
         const ItemEntity& e = m_items[i];
         const world::ChunkPos at{world::blockToChunk(int(std::floor(e.pos.x))), world::blockToChunk(int(std::floor(e.pos.z)))};
@@ -60,7 +60,7 @@ int ItemEntities::park(world::Chunk& chunk) {
             ++i;
         }
     }
-    return int(out.size());
+    return int(out.size() - before);
 }
 
 int ItemEntities::unpark(world::Chunk& chunk, world::Xoroshiro& rng) {
@@ -101,9 +101,9 @@ void ItemEntities::mergeNear(size_t i) {
     for (size_t j = 0; j < m_items.size(); ++j) {
         if (j == i) continue;
         ItemEntity& o = m_items[j];
-        if (o.stack.count == 0 || o.stack.count >= max || !o.stack.sameKind(e.stack)) continue;
-        const glm::dvec3 d = o.pos - e.pos;
+        const glm::dvec3 d = o.pos - e.pos; // (the cheap test first - M31.3)
         if (std::abs(d.x) > 0.5 || std::abs(d.z) > 0.5 || std::abs(d.y) > 0.25) continue;
+        if (o.stack.count == 0 || o.stack.count >= max || !o.stack.sameKind(e.stack)) continue;
         // The bigger stack takes the smaller one (vanilla: the receiver keeps its place).
         ItemEntity& into = o.stack.count > e.stack.count ? o : e;
         ItemEntity& from = &into == &o ? e : o;

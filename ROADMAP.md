@@ -29,7 +29,7 @@ M31 - Performance:
 1. ✅ M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
 2. ✅ M31.2 (bench: steady CPU p99 0.37 -> 0.23 ms, streaming 1.51 -> 1.03 ms) - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
    allocation while streaming).
-3. M31.3 - Then the cheapest wins from the review lists below, measured before and after.
+3. ✅ M31.3 - Cheap guards from the review lists (measured: no change at normal loads - 30 chasers 0.017 -> 0.016 ms a tick, steady/streaming within noise): at most 6 path searches a tick, suffocation reads each cell once, item merging tests distance first, drops re-save a chunk only when they changed.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:

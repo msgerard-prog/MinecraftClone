@@ -110,7 +110,7 @@ int ExperienceOrbs::tick(const World& world, const Aabb& player, bool canCollect
 
 int ExperienceOrbs::park(Chunk& chunk) {
     auto& out = chunk.droppedOrbs();
-    out.clear();
+    const size_t before = out.size(); // (appends: drops still parked there stay)
     for (size_t i = 0; i < m_orbs.size();) {
         const ExperienceOrb& o = m_orbs[i];
         const ChunkPos at{blockToChunk(int(std::floor(o.pos.x))), blockToChunk(int(std::floor(o.pos.z)))};
@@ -122,7 +122,7 @@ int ExperienceOrbs::park(Chunk& chunk) {
             ++i;
         }
     }
-    return int(out.size());
+    return int(out.size() - before);
 }
 
 int ExperienceOrbs::unpark(Chunk& chunk) {

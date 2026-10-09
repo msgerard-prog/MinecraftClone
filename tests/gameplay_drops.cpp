@@ -140,15 +140,19 @@ TEST_CASE("M30 review: the drop keeper - unloading parks, saving keeps the pools
     CHECK(c0.droppedItems().empty());
     keeper.afterSave(w);
     CHECK(c0.savedDrops == 0);
-    // Unloading parks the chunk's drops and marks it dirty; loading takes them back.
+    // Unloading parks the chunk's drops - not re-saved while they are as last saved (M31.3)
+    // - and loading takes them back; once one moved, unloading saves the chunk again.
     Chunk& c1 = *w.chunk({1, 0});
     c1.clearDirty();
     keeper.chunkUnloading(c1);
-    CHECK(c1.dirty());
+    CHECK_FALSE(c1.dirty());
     CHECK(c1.droppedItems().size() == 1);
     CHECK(items.items().empty());
     keeper.chunkLoaded(c1);
-    CHECK(items.items().size() == 1);
+    REQUIRE(items.items().size() == 1);
+    items.mutableItems()[0].pos.x += 2.0;
+    keeper.chunkUnloading(c1);
+    CHECK(c1.dirty());
 }
 
 TEST_CASE("M30 review: a full pool leaves the rest parked instead of evicting another chunk's drops") {
