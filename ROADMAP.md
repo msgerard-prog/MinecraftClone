@@ -20,7 +20,7 @@ M32 - Play parity:
    regional difficulty (armor, weapons, enchantments on spawn), mob item pickup.
 3. ✅ M32.3 - Damage rules: the stronger-hit-in-invulnerability rule, knockback resistance,
    mob armor, the totem animation, saved projectiles, primed TNT and falling blocks.
-4. M32.4 - Inventory handling: drag-split, double-click collect, 1-9 swap, Ctrl+Q, F offhand
+4. ✅ M32.4 - Inventory handling: drag-split, double-click collect, 1-9 swap, Ctrl+Q, F offhand
    swap, vanilla shift-click order, offhand use.
 5. M32.5 - Villagers 2: gossip and reputation, gifts for heroes, level-up effects.
 6. M32.6 - Animals and the rest of the mob rows in docs/game-design.md that change play.

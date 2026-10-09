@@ -164,6 +164,25 @@ public:
     // grid's old contents don't fit back.
     bool placeRecipe(const Recipe& recipe, Inventory& inventory);
 
+    // Vanilla's inventory shortcuts (M32.4; wiki: Inventory › Controls). All take the cursor in
+    // GUI pixels and the same screen size as click().
+    // Dragging a carried stack over slots: beginDrag on a press (true: a drag started - the
+    // press is not a click), dragTo while held, endDrag on release (one slot: a plain click;
+    // more: left spreads the stack evenly, right puts one in each; the rest stays carried).
+    bool beginDrag(double mx, double my, Button button, int guiWidth, int guiHeight);
+    void dragTo(double mx, double my, int guiWidth, int guiHeight, Inventory& inventory);
+    void endDrag(int guiWidth, int guiHeight, Inventory& inventory, std::vector<world::ItemStack>& drops);
+    bool dragging() const { return m_dragCount > 0; }
+    // A double click with a carried stack gathers that item from every slot into it.
+    void collectAll(Inventory& inventory);
+    // 1-9 over a slot swap it with that hotbar slot; F (hotbar -1) with the offhand.
+    void swapWithHotbar(double mx, double my, int hotbar, int guiWidth, int guiHeight, Inventory& inventory);
+    // Q over a slot (nothing carried) drops one; Ctrl+Q the whole stack.
+    void dropFromSlot(double mx, double my, bool all, int guiWidth, int guiHeight, Inventory& inventory,
+                      std::vector<world::ItemStack>& drops);
+    // The slot under the cursor (its index in slots(), -1 none): main's double-click check.
+    int slotIndexAt(double mx, double my, int guiWidth, int guiHeight) const;
+
     void draw(gfx::GuiBatch& batch, const gfx::ItemIcons& icons, const gfx::BlockModels& models,
               const Inventory& inventory, int guiWidth, int guiHeight, double mx, double my) const;
 
@@ -193,9 +212,16 @@ private:
                     std::vector<world::ItemStack>& drops);
     int gridSize() const { return m_type == Type::Crafting ? 3 : 2; }
     world::ItemStack* stackAt(const Slot& s, Inventory& inventory);
+    void writeSlot(const Slot& slot, Inventory& inventory, world::ItemStack v);
+    bool plainSlot(const Slot& s) const;
+    const Slot* slotAt(double mx, double my, int guiWidth, int guiHeight) const;
+    std::array<int, 64> m_dragSlots{}; // (M32.4) slots() indices dragged over
+    int m_dragCount = 0;
+    Button m_dragButton = Button::Left;
     void updateResult();
     void takeResult(Inventory& inventory, bool shift);
     void moveToInventory(world::ItemStack& s, Inventory& inventory, int from, int to);
+    void moveToPlayer(world::ItemStack& s, Inventory& inventory);
 
     bool m_open = false;
     Type m_type = Type::Inventory;

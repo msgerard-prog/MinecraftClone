@@ -91,7 +91,7 @@ put it there, or hover and press 1-9); in survival, your inventory with a 2x2 cr
 grid. `/gamemode survival` switches to survival: blocks take time to break (tools help),
 drop items you pick up by walking over them, health and hunger matter, falls hurt.
 Right-click a crafting table for 3x3 recipes or a furnace to smelt (fuel below, input
-above). Q drops the held item; `/kill` respawns you.
+above). Q drops the held item (Ctrl+Q the whole stack), F swaps it with the offhand; in inventory screens drag a stack across slots to split it (right-drag: one each), double-click to gather a kind, press 1-9 or F over a slot to swap it with the hotbar or offhand, Q over a slot to drop from it; `/kill` respawns you.
 Cows graze in grassy biomes and zombies come out in the dark (they burn in daylight);
 left-click a mob to hit it. `/summon zombie|cow [x y z]` spawns one; F3 shows how
 many hostile mobs are around.

@@ -61,6 +61,7 @@ void onKey(GLFWwindow* handle, int key, int, int action, int) {
     case GLFW_KEY_SLASH: if (press) count(Press::Command); break;
     case GLFW_KEY_E: if (press) count(Press::Inventory); break;
     case GLFW_KEY_Q: if (press) count(Press::Drop); break;
+    case GLFW_KEY_F: if (press) count(Press::SwapHands); break;
     case GLFW_KEY_ENTER:
     case GLFW_KEY_KP_ENTER: if (press) count(Press::Enter); break;
     case GLFW_KEY_BACKSPACE: // repeats too; also in the text stream, in typing order

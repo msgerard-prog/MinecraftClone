@@ -27,6 +27,7 @@ enum class Press {
     Up,
     Down,
     Perspective, // F5 (M30.1)
+    SwapHands,   // F (M32.4): the held item and the offhand trade places
     Count
 };
 

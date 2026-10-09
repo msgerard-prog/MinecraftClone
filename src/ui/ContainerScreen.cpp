@@ -518,6 +518,27 @@ void ContainerScreen::moveToInventory(world::ItemStack& s, Inventory& inventory,
     if (s.count == 0) s = {};
 }
 
+void ContainerScreen::moveToPlayer(world::ItemStack& s, Inventory& inventory) {
+    // (M32.4; vanilla quickMoveStack into the player's slots, reversed) out of a container or
+    // a result slot: merging, then empty slots - the hotbar from its right end, then the
+    // main rows from the bottom right.
+    for (int pass = 0; pass < 2 && !s.empty(); ++pass)
+        for (int k = 0; k < Inventory::kSlots && !s.empty(); ++k) {
+            const int i = k < Inventory::kHotbar ? Inventory::kHotbar - 1 - k : Inventory::kSlots - 1 - (k - Inventory::kHotbar);
+            world::ItemStack t = inventory.slot(i);
+            if (pass == 0 && !t.empty() && t.sameKind(s) && t.count < maxStack(t)) {
+                const int n = std::min<int>(s.count, maxStack(t) - t.count);
+                t.count = uint8_t(t.count + n);
+                s.count = uint8_t(s.count - n);
+                inventory.setSlot(i, t);
+            } else if (pass == 1 && t.empty()) {
+                inventory.setSlot(i, s);
+                s = {};
+            }
+        }
+    if (s.count == 0) s = {};
+}
+
 void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
     if (m_type == Type::Trading) { // pay, one use of the trade, experience (shift: as many as fit)
         updateResult(); // (the price or the offers may have changed since: hero level, lost job)
@@ -530,9 +551,9 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
             if (shift) {
                 Inventory probe = inventory;
                 world::ItemStack test = made;
-                moveToInventory(test, probe, 0, Inventory::kSlots);
+                moveToPlayer(test, probe);
                 if (!test.empty()) break;
-                moveToInventory(made, inventory, 0, Inventory::kSlots);
+                moveToPlayer(made, inventory);
             } else {
                 if (!m_carried.empty() &&
                     (!m_carried.sameKind(made) || m_carried.count + made.count > maxStack(made)))
@@ -615,9 +636,9 @@ void ContainerScreen::takeResult(Inventory& inventory, bool shift) {
             // the ingredients: that would duplicate items).
             Inventory probe = inventory;
             world::ItemStack test = made;
-            moveToInventory(test, probe, 0, Inventory::kSlots);
+            moveToPlayer(test, probe);
             if (!test.empty()) break;
-            moveToInventory(made, inventory, 0, Inventory::kSlots);
+            moveToPlayer(made, inventory);
         } else {
             if (!m_carried.empty() &&
                 (!m_carried.sameKind(made) || m_carried.count + made.count > maxStack(made)))
@@ -651,6 +672,158 @@ void ContainerScreen::noteCrafted(const world::ItemStack& s) {
             return;
         }
     if (m_craftedCount < int(m_crafted.size())) m_crafted[size_t(m_craftedCount++)] = {s.item, s.count};
+}
+
+const ContainerScreen::Slot* ContainerScreen::slotAt(double mx, double my, int guiWidth, int guiHeight) const {
+    const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
+    const double px = mx - left, py = my - top;
+    for (const Slot& slot : slots())
+        if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17) return &slot;
+    return nullptr;
+}
+
+int ContainerScreen::slotIndexAt(double mx, double my, int guiWidth, int guiHeight) const {
+    const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
+    return s ? int(s - slots().data()) : -1;
+}
+
+void ContainerScreen::writeSlot(const Slot& slot, Inventory& inventory, world::ItemStack v) {
+    if (v.count == 0) v = {};
+    if (slot.kind == Slot::Kind::Inv)
+        inventory.setSlot(slot.index, v);
+    else if (slot.kind == Slot::Kind::Armor)
+        inventory.setArmor(slot.index, v);
+    else if (slot.kind == Slot::Kind::Offhand)
+        inventory.setOffhand(v);
+    else if (slot.kind == Slot::Kind::MountGear)
+        setGear(slot.index, v);
+    else if (world::ItemStack* t = stackAt(slot, inventory))
+        *t = v;
+    if (slot.kind == Slot::Kind::Grid) updateResult();
+}
+
+bool ContainerScreen::plainSlot(const Slot& s) const {
+    // The plain storage slots a drag or a gather may use (vanilla: slots that take any item):
+    // the inventory, chests, hoppers/dispensers/mount chests and the crafting grids.
+    using K = Slot::Kind;
+    return s.kind == K::Inv || s.kind == K::Chest || s.kind == K::Store ||
+           (s.kind == K::Grid && (m_type == Type::Inventory || m_type == Type::Crafting));
+}
+
+bool ContainerScreen::beginDrag(double mx, double my, Button button, int guiWidth, int guiHeight) {
+    m_dragCount = 0;
+    if (m_carried.empty()) return false;
+    const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
+    if (!s || !plainSlot(*s)) return false;
+    m_dragButton = button;
+    m_dragSlots[0] = int(s - slots().data());
+    m_dragCount = 1;
+    return true;
+}
+
+void ContainerScreen::dragTo(double mx, double my, int guiWidth, int guiHeight, Inventory& inventory) {
+    if (m_dragCount == 0) return;
+    const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
+    if (!s || !plainSlot(*s)) return;
+    const int idx = int(s - slots().data());
+    for (int i = 0; i < m_dragCount; ++i)
+        if (m_dragSlots[size_t(i)] == idx) return;
+    // (vanilla: only while the carried stack has more items than slots, and only slots it fits)
+    if (m_dragCount >= int(m_dragSlots.size()) || m_carried.count <= m_dragCount) return;
+    const world::ItemStack* t = stackAt(*s, inventory);
+    if (!t || (!t->empty() && (!t->sameKind(m_carried) || t->count >= maxStack(*t)))) return;
+    m_dragSlots[size_t(m_dragCount++)] = idx;
+}
+
+void ContainerScreen::endDrag(int guiWidth, int guiHeight, Inventory& inventory, std::vector<world::ItemStack>& drops) {
+    const int n = std::exchange(m_dragCount, 0);
+    if (n == 0) return;
+    const Slot& first = slots()[size_t(m_dragSlots[0])];
+    if (n == 1) { // a plain click on that slot
+        const double left = (guiWidth - kWidth) / 2, top = (guiHeight - height()) / 2;
+        clickSlots(left + first.x + 8, top + first.y + 8, m_dragButton, false, guiWidth, guiHeight, inventory, drops);
+        return;
+    }
+    // Left: floor(count / slots) each (vanilla quick craft); right: one each.
+    const int per = m_dragButton == Button::Left ? m_carried.count / n : 1;
+    for (int i = 0; i < n && !m_carried.empty(); ++i) {
+        const Slot& slot = slots()[size_t(m_dragSlots[size_t(i)])];
+        const world::ItemStack* cur = stackAt(slot, inventory);
+        if (!cur) continue;
+        world::ItemStack v = *cur;
+        if (!v.empty() && !v.sameKind(m_carried)) continue;
+        const int room = maxStack(m_carried) - (v.empty() ? 0 : v.count);
+        const int put = std::min({per, room, int(m_carried.count)});
+        if (put <= 0) continue;
+        if (v.empty()) {
+            v = m_carried;
+            v.count = 0;
+        }
+        v.count = uint8_t(v.count + put);
+        m_carried.count = uint8_t(m_carried.count - put);
+        writeSlot(slot, inventory, v);
+    }
+    if (m_carried.count == 0) m_carried = {};
+}
+
+void ContainerScreen::collectAll(Inventory& inventory) {
+    // Vanilla PICKUP_ALL: part stacks first, then full ones, until the carried stack is full.
+    if (m_carried.empty()) return;
+    const int max = maxStack(m_carried);
+    for (int pass = 0; pass < 2 && m_carried.count < max; ++pass)
+        for (const Slot& slot : slots()) {
+            if (m_carried.count >= max) break;
+            if (!plainSlot(slot)) continue;
+            const world::ItemStack* cur = stackAt(slot, inventory);
+            if (!cur || cur->empty() || !cur->sameKind(m_carried)) continue;
+            if (pass == 0 && cur->count >= max) continue;
+            world::ItemStack v = *cur;
+            const int n = std::min<int>(v.count, max - m_carried.count);
+            m_carried.count = uint8_t(m_carried.count + n);
+            v.count = uint8_t(v.count - n);
+            writeSlot(slot, inventory, v);
+        }
+}
+
+void ContainerScreen::swapWithHotbar(double mx, double my, int hotbar, int guiWidth, int guiHeight,
+                                     Inventory& inventory) {
+    if (!m_carried.empty()) return;
+    const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
+    if (!s || s->kind == Slot::Kind::Result || s->kind == Slot::Kind::FurnaceOut || s->kind == Slot::Kind::MountGear)
+        return;
+    world::ItemStack* cur = stackAt(*s, inventory);
+    if (!cur) return;
+    const world::ItemStack here = *cur;
+    const world::ItemStack other = hotbar < 0 ? inventory.offhand() : inventory.slot(hotbar);
+    if (s->kind == Slot::Kind::Armor) { // (only its own piece goes on; Curse of Binding holds)
+        if (!other.empty() && world::itemRegistry().item(other.item).armorSlot != s->index + 1) return;
+        if (!m_creative && !here.empty() && world::enchantLevel(here, world::Enchantment::BindingCurse) > 0) return;
+    }
+    if (!plainSlot(*s) && s->kind != Slot::Kind::Armor && s->kind != Slot::Kind::Offhand && !other.empty())
+        return; // (furnace and brewing slots: only taking out)
+    if (hotbar < 0)
+        inventory.setOffhand(here);
+    else
+        inventory.setSlot(hotbar, here);
+    writeSlot(*s, inventory, other);
+}
+
+void ContainerScreen::dropFromSlot(double mx, double my, bool all, int guiWidth, int guiHeight, Inventory& inventory,
+                                   std::vector<world::ItemStack>& drops) {
+    if (!m_carried.empty()) return;
+    const Slot* s = slotAt(mx, my, guiWidth, guiHeight);
+    if (!s || s->kind == Slot::Kind::Result || s->kind == Slot::Kind::MountGear) return;
+    if (s->kind == Slot::Kind::Armor && !m_creative) {
+        const world::ItemStack& worn = inventory.armor(s->index);
+        if (!worn.empty() && world::enchantLevel(worn, world::Enchantment::BindingCurse) > 0) return;
+    }
+    const world::ItemStack* cur = stackAt(*s, inventory);
+    if (!cur || cur->empty()) return;
+    world::ItemStack v = *cur, thrown = v;
+    thrown.count = all ? v.count : 1;
+    v.count = uint8_t(v.count - thrown.count);
+    drops.push_back(thrown);
+    writeSlot(*s, inventory, v);
 }
 
 void ContainerScreen::click(double mx, double my, Button button, bool shift, int guiWidth,
@@ -965,7 +1138,7 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
                         moveToInventory(v, inventory, 0, 9);
                 }
             } else {
-                moveToInventory(v, inventory, 0, Inventory::kSlots);
+                moveToPlayer(v, inventory);
             }
             store();
             return;

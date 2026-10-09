@@ -91,7 +91,7 @@ TEST_CASE("crafting table: shift-click crafts as many as fit; closing returns th
     CHECK(itemRegistry().item(f.screen.result().item).id == "minecraft:stick");
     f.left(invX(0), hotbarY()); // put the remaining 4 back
     f.left(sx(124), sy(35), true); // shift: craft once (each slot had 1)
-    CHECK(f.inv.slot(1).count == 4);
+    CHECK(f.inv.slot(8).count == 4); // (M32.4: vanilla fills the hotbar from its right end)
     f.screen.close(f.inv, f.drops);
     CHECK(f.drops.empty());
 }
@@ -148,9 +148,9 @@ TEST_CASE("chest screen: 3 rows (double: 6), shift-click moves stacks in and out
     f.left(112 + 8 + 8, hotY, true); // shift-click the hotbar stack into the chest
     CHECK(f.inv.slot(0).empty());
     CHECK(a.items[0].count == 20);
-    f.left(112 + 8 + 8, chestY0, true); // and back out
+    f.left(112 + 8 + 8, chestY0, true); // and back out (M32.4: into the rightmost hotbar slot, as vanilla)
     CHECK(a.items[0].empty());
-    CHECK(f.inv.slot(0).count == 20);
+    CHECK(f.inv.slot(8).count == 20);
     f.screen.close(f.inv, f.drops);
     f.screen.openChest(&a, &b);
     CHECK(f.screen.chestRows() == 6);
@@ -423,4 +423,46 @@ TEST_CASE("M30.6: the recipe book lists what can be made first and places a reci
     for (int i = 0; i < Inventory::kSlots; ++i)
         if (f.inv.slot(i).item == *itemRegistry().find("cobblestone")) cobble += f.inv.slot(i).count;
     CHECK(cobble == 8);
+}
+
+TEST_CASE("M32.4: dragging spreads a stack, a double click gathers it, number keys and Q work over slots") {
+    Fixture f;
+    ChestData a;
+    f.inv.setSlot(0, I("cobblestone", 10));
+    f.screen.openChest(&a, nullptr);
+    const double hotY = 66 + 144 + 8, chestY0 = 66 + 18 + 8;
+    auto chestX = [](int col) { return 112.0 + 8 + 8 + 18 * col; };
+    f.left(chestX(0), hotY); // pick up the 10
+    REQUIRE(f.screen.carried().count == 10);
+    // Left-drag over three chest slots: 3 each, 1 left on the cursor.
+    REQUIRE(f.screen.beginDrag(chestX(0), chestY0, ContainerScreen::Button::Left, 400, 300));
+    f.screen.dragTo(chestX(1), chestY0, 400, 300, f.inv);
+    f.screen.dragTo(chestX(2), chestY0, 400, 300, f.inv);
+    f.screen.endDrag(400, 300, f.inv, f.drops);
+    CHECK(a.items[0].count == 3);
+    CHECK(a.items[1].count == 3);
+    CHECK(a.items[2].count == 3);
+    CHECK(f.screen.carried().count == 1);
+    // Right-drag: one each.
+    REQUIRE(f.screen.beginDrag(chestX(3), chestY0, ContainerScreen::Button::Right, 400, 300));
+    f.screen.endDrag(400, 300, f.inv, f.drops); // (one slot: a plain right click)
+    CHECK(a.items[3].count == 1);
+    CHECK(f.screen.carried().empty());
+    // Pick one stack up and gather the rest of the kind: 3 + 3 + 3 + 1.
+    f.left(chestX(0), chestY0);
+    f.screen.collectAll(f.inv);
+    CHECK(f.screen.carried().count == 10);
+    f.left(chestX(5), chestY0); // put them down
+    // 3 over a chest slot: it swaps with hotbar slot 3.
+    f.inv.setSlot(3, I("dirt", 5));
+    f.screen.swapWithHotbar(chestX(5), chestY0, 3, 400, 300, f.inv);
+    CHECK(a.items[5].item == *itemRegistry().find("dirt"));
+    CHECK(f.inv.slot(3).count == 10);
+    // Q drops one; Ctrl+Q the rest.
+    f.screen.dropFromSlot(chestX(5), chestY0, false, 400, 300, f.inv, f.drops);
+    CHECK(a.items[5].count == 4);
+    f.screen.dropFromSlot(chestX(5), chestY0, true, 400, 300, f.inv, f.drops);
+    CHECK(a.items[5].empty());
+    REQUIRE(f.drops.size() == 2);
+    CHECK(f.drops[1].count == 4);
 }

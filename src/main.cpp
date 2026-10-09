@@ -805,7 +805,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
-    int totemTicks = 0; // (M32.3) the totem of undying's pop-up on screen
+    int totemTicks = 0;
+    int lastClickSlot = -1;       // (M32.4) double clicks in a container screen
+    double lastClickTime = -1.0;
+    std::array<bool, 9> screenNumDown{}; // (M32.4) number keys held over a container // (M32.3) the totem of undying's pop-up on screen
     uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID; boats, mounts)
     int mountJumpTicks = 0;  // (M26.2) jump held while riding: the jump bar, 0..10
     int hornCooldown = 0;    // (M26.3) ticks before a goat horn sounds again
@@ -1306,7 +1309,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // pressed meanwhile must not act after resuming)
             for (const mc::Press p : {mc::Press::Chat, mc::Press::Command, mc::Press::Inventory,
                                       mc::Press::F3, mc::Press::Up, mc::Press::Down,
-                                      mc::Press::Drop, mc::Press::Jump, mc::Press::RightMouse})
+                                      mc::Press::Drop, mc::Press::Jump, mc::Press::RightMouse, mc::Press::SwapHands})
                 window.takePresses(p);
         } else if (chat.isOpen()) {
             chat.type({typed.data(), size_t(typedCount)}); // backspaces included, in order
@@ -1327,7 +1330,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 attackArmed = false;
             }
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
-                           mc::Press::LeftMouse, mc::Press::RightMouse})
+                           mc::Press::LeftMouse, mc::Press::RightMouse, mc::Press::SwapHands})
                 window.takePresses(p); // typing, not game keys
         } else if (bookScreen.isOpen()) {
             // A book (M28.2c): typing goes to the page (or the title); Esc or Done keeps the
@@ -1365,7 +1368,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 attackArmed = false;
             }
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
-                           mc::Press::RightMouse, mc::Press::Up, mc::Press::Down})
+                           mc::Press::RightMouse, mc::Press::Up, mc::Press::Down, mc::Press::SwapHands})
                 window.takePresses(p);
         } else if (signEditor.isOpen()) {
             // Sign editing (M23.3c): typing goes to the active line; Done or Esc saves.
@@ -1391,7 +1394,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 attackArmed = false;
             }
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Inventory,
-                           mc::Press::RightMouse})
+                           mc::Press::RightMouse, mc::Press::SwapHands})
                 window.takePresses(p);
         } else if (container.isOpen()) {
             container.setPlayer(vitals.xpLevel(), !survival, vitals.enchantSeed());
@@ -1411,6 +1414,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             screenDrops.clear();
             // (M30.6) the recipe book first: its clicks never reach the container; while it is
             // open the container sits 77 px right (it centres itself on a wider screen).
+            const int gw = fw / scale + 2 * bookShift(), gh = fh / scale;
+            using CButton = mc::ui::ContainerScreen::Button;
             for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n) {
                 bool used = false;
                 if (recipeScreen()) {
@@ -1419,13 +1424,47 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const int r = recipeBook.click(mx, my, left, top, bookButton(), used);
                     if (r >= 0) container.placeRecipe(mc::craftingRecipes()[size_t(r)], inventory);
                 }
-                if (!used)
-                    container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale + 2 * bookShift(),
-                                    fh / scale, inventory, screenDrops);
+                if (used) continue;
+                // (M32.4) a double click with the stack just picked up gathers more of it; a
+                // press with a carried stack starts a drag (a plain click if it ends on one slot).
+                const double now = mc::timeSeconds();
+                const int under = container.slotIndexAt(mx, my, gw, gh);
+                if (!shift && under >= 0 && under == lastClickSlot && now - lastClickTime < 0.25 &&
+                    !container.carried().empty()) {
+                    container.collectAll(inventory);
+                    lastClickSlot = -1;
+                    continue;
+                }
+                lastClickSlot = under;
+                lastClickTime = now;
+                if (!shift && container.beginDrag(mx, my, CButton::Left, gw, gh)) continue;
+                container.click(mx, my, CButton::Left, shift, gw, gh, inventory, screenDrops);
             }
-            for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n)
-                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale + 2 * bookShift(),
-                                fh / scale, inventory, screenDrops);
+            for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n) {
+                if (!shift && container.beginDrag(mx, my, CButton::Right, gw, gh)) continue;
+                container.click(mx, my, CButton::Right, shift, gw, gh, inventory, screenDrops);
+            }
+            if (container.dragging()) {
+                if (window.leftMousePressed() || window.rightMousePressed())
+                    container.dragTo(mx, my, gw, gh, inventory);
+                else
+                    container.endDrag(gw, gh, inventory, screenDrops);
+            }
+            // (M32.4) 1-9 / F over a slot swap it with the hotbar / offhand; Q drops one from
+            // it, Ctrl+Q the stack.
+            for (int i = 0; i < mc::Inventory::kHotbar; ++i) {
+                const bool down = window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
+                if (down && !screenNumDown[size_t(i)] && container.type() != mc::ui::ContainerScreen::Type::Anvil)
+                    container.swapWithHotbar(mx, my, i, gw, gh, inventory);
+                screenNumDown[size_t(i)] = down;
+            }
+            if (window.takePresses(mc::Press::SwapHands) > 0 &&
+                container.type() != mc::ui::ContainerScreen::Type::Anvil)
+                container.swapWithHotbar(mx, my, -1, gw, gh, inventory);
+            for (int n = window.takePresses(mc::Press::Drop); n > 0; --n)
+                if (container.type() != mc::ui::ContainerScreen::Type::Anvil)
+                    container.dropFromSlot(mx, my, window.keyDown(mc::Key::LeftControl), gw, gh, inventory,
+                                           screenDrops);
             // Contents edited through the screen: the block entity's chunk needs saving.
             if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
                 container.type() == mc::ui::ContainerScreen::Type::Furnace ||
@@ -1445,7 +1484,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             pendingThrows.insert(pendingThrows.end(), screenDrops.begin(),
                                  screenDrops.end()); // next tick
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3, mc::Press::Backspace,
-                           mc::Press::Up, mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
+                           mc::Press::Up, mc::Press::Down, mc::Press::Enter, mc::Press::Drop,
+                           mc::Press::SwapHands})
                 window.takePresses(p);
         } else if (creative.isOpen()) {
             int fw = 0, fh = 0;
@@ -1480,7 +1520,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             for (auto p : {mc::Press::Chat, mc::Press::Command, mc::Press::F3,
                            mc::Press::RightMouse, mc::Press::Backspace, mc::Press::Up,
-                           mc::Press::Down, mc::Press::Enter, mc::Press::Drop})
+                           mc::Press::Down, mc::Press::Enter, mc::Press::Drop, mc::Press::SwapHands})
                 window.takePresses(p);
         } else {
             // Respawn at the bed or world spawn (game rule immediate_respawn: no death screen).
@@ -1659,6 +1699,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             window.takePresses(mc::Press::Jump);
             window.takePresses(mc::Press::RightMouse);
             window.takePresses(mc::Press::Drop);
+            window.takePresses(mc::Press::SwapHands);
         }
         player.turn(window.mouseDx(), window.mouseDy(), shared.options.sensitivity);
         if (!window.leftMousePressed()) attackArmed = true;
@@ -2499,18 +2540,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         chat.addMessage("Player died", 0xFFFFFFFFu, gameTime, gui.batch());
                 }
             }
-            // Q drops one of the held item (wiki: Controls).
+            // Q drops one of the held item, Ctrl+Q the whole stack (wiki: Controls; M32.4).
             if (window.cursorCaptured() && window.takePresses(mc::Press::Drop) > 0 &&
                 gameMode != 3 && // (spectators: none)
                 !inventory.selectedStack().empty()) {
                 mc::world::ItemStack one = inventory.selectedStack();
-                one.count = 1;
+                one.count = window.keyDown(mc::Key::LeftControl) ? one.count : uint8_t(1);
                 droppedItems.throwFrom(
                     player.eyePosition(1.0),
                     glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())), one, gameRng);
-                inventory.consumeSelected(1);
+                inventory.consumeSelected(one.count);
                 stats.add(mc::world::Stat::Drop);
                 stats.addItem(mc::world::ItemStat::Dropped, one.item);
+            }
+            // F swaps the held item and the offhand (wiki: Controls; M32.4).
+            if (window.takePresses(mc::Press::SwapHands) > 0 && window.cursorCaptured() && gameMode != 3) {
+                const mc::world::ItemStack held = inventory.selectedStack(), off = inventory.offhand();
+                inventory.setOffhand(held);
+                inventory.setSlot(inventory.selected(), off);
             }
             mc::InteractionInput clicks;
             clicks.attack = window.cursorCaptured() && attackArmed && window.leftMousePressed();
