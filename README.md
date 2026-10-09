@@ -19,7 +19,7 @@ From WSL:
 ```bash
 tools/build.sh            # debug build   (first build downloads deps, ~1 min)
 tools/test.sh             # build + run tests
-tools/run.sh              # build + launch
+tools/run.sh              # build + launch (release; `tools/run.sh debug` for the debug build)
 tools/screenshot.sh hello # render to out/screenshots/hello.png and exit
 ```
 From a Visual Studio Developer Command Prompt:

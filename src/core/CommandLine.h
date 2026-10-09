@@ -49,7 +49,7 @@ struct LaunchOptions {
     std::vector<std::string> commands; // --command CMD (repeatable): run as chat lines at start
     std::string world;                 // --world NAME: saves/<NAME> (created if missing)
     std::string worldTitle;            // a new world's LevelName (menus; default: the folder)
-    bool survival = false;             // new worlds start in survival (menus; default creative)
+    bool survival = false;             // new worlds start in survival (menus, --survival; default creative)
     int difficulty = 2;                // --difficulty peaceful|easy|normal|hard: new worlds (M28.1b)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit

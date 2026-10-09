@@ -218,6 +218,8 @@ std::optional<LaunchOptions> parseCommandLine(std::span<const char* const> args,
             }
         } else if (arg == "--flat") {
             opts.flat = true;
+        } else if (arg == "--survival") { // (v1.5.1) a new world in survival, as the menu's choice
+            opts.survival = true;
         } else if (arg == "--no-vsync") {
             opts.vsync = false;
         } else if (arg == "--hidden") {

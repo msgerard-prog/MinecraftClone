@@ -11,6 +11,9 @@ play parity (M32), the 26.1-26.3 additions (M33) and 26.3's save format (M34). T
 any issues." Bench: steady CPU p99 0.25 ms, GPU 0.16 ms.
 
 ## Next
+v1.5.1 (user report 2026-10-09): fixed the debug assert on creating a world (mesh queue
+merged runs sorted for different camera positions), new survival worlds start empty-handed,
+`tools/run.sh` runs the release build by default (debug streams ~10x slower), `--survival`.
 No milestone is scheduled. Work comes from the user's play-testing reports: each issue gets
 a fix, a regression test and a commit (patch versions v1.5.x). Candidates if the user asks
 for more, by how much they bring the clone toward vanilla:

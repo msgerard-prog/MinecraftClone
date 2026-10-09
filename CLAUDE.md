@@ -19,13 +19,13 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Build (debug / release) | `tools/build.sh` / `tools/build.sh release` |
 | All tests | `tools/test.sh` |
 | Some tests | `tools/test.sh debug -tc="*chunk*"` (doctest filters) |
-| Run the game | `tools/run.sh [release] [game args]` |
+| Run the game | `tools/run.sh [debug] [game args]` (release by default; debug is ~10x slower) |
 | Screenshot for a visual check | `tools/screenshot.sh <name> [game args]` → `out/screenshots/<name>.png`, then Read it (hidden runs are uncapped: add `--max-fps 30` when game ticks must pass) |
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
 `--hidden`, `--menu title|worlds|create|options|pause|statistics|advancements|commandblock` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
-`--flat`, `--difficulty peaceful|easy|normal|hard` (new worlds), `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
+`--flat`, `--survival`, `--difficulty peaceful|easy|normal|hard` (new worlds), `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
 runs default to "New World"), `--no-save`, `--generator overworld8|overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld8 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--perspective 0|1|2` (F5's view), `--recipe-book` (open it on the inventory screens), `--pos x,y,z`, `--look yaw,pitch` (vanilla
 degrees: yaw 0 = south/+Z, 90 = west; pitch +90 = straight down).

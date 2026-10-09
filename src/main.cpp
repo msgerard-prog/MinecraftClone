@@ -562,6 +562,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::world::GameRules rules = level ? level->rules : mc::world::GameRules{};
     int difficulty = level ? level->difficulty : opts->difficulty;
     int gameMode = level ? level->gameMode : (survival ? 0 : 1);
+    // (v1.5.1) a new survival world starts with nothing (wiki: Survival - the player spawns
+    // with an empty inventory); the starter hotbar is for creative only.
+    if (!level && survival)
+        for (int i = 0; i < mc::Inventory::kSlots; ++i) inventory.setSlot(i, {});
     mc::Vitals vitals;
     vitals.setVoidY(mc::world::dimensionInfo(dimension).voidY);
     if (level) {

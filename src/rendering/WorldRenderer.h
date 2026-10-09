@@ -191,6 +191,10 @@ private:
     std::vector<world::SectionPos> m_dirtyList; // sorted far -> near before dispatch
     bool m_dirtyUnsorted = false;
     size_t m_sortedDirty = 0;                      // m_dirtyList[0, n) is sorted
+    // The camera position the list is sorted for: both the sorted prefix and new entries
+    // are ordered by distance to it, so merging them stays valid while the camera moves; a
+    // full re-sort follows once the camera is 8+ blocks away from it.
+    glm::dvec3 m_sortCamera{0.0};
     std::vector<world::SectionPos> m_mergeScratch; // reused
     int m_inFlight = 0;
     int m_maxInFlight = 0;

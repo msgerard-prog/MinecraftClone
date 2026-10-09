@@ -1,5 +1,7 @@
 #include "rendering/WorldRenderer.h"
 
+#include "rendering/DirtyOrder.h"
+
 #include "world/Paintings.h"
 
 #include "core/Files.h"
@@ -296,24 +298,17 @@ void WorldRenderer::update(const world::World& world, const glm::dvec3& cameraPo
 
     // 2. Dispatch, nearest sections first (the list is sorted far -> near, so the
     //    nearest is at the back), within a time budget and the in-flight cap.
+    // The order is by distance to m_sortCamera (fixed between full sorts): sorting the new
+    // tail against the camera's current position would merge two runs ordered for different
+    // points - the debug STL's "sequence not ordered" assert, and a wrong order in release.
+    if (glm::dot(cameraPos - m_sortCamera, cameraPos - m_sortCamera) > 8.0 * 8.0) {
+        m_sortCamera = cameraPos;
+        m_sortedDirty = 0; // re-sort the whole list for the new position
+        m_dirtyUnsorted = !m_dirtyList.empty();
+    }
     if (m_dirtyUnsorted) {
-        // Far -> near (nearest at the back). Only the newly appended tail is sorted,
-        // then merged with the already-sorted prefix through a reused scratch buffer.
-        auto distance2 = [&](const world::SectionPos& p) {
-            const glm::dvec3 c(p.x * 16.0 + 8.0, p.y * 16.0 + 8.0, p.z * 16.0 + 8.0);
-            const glm::dvec3 d = c - cameraPos;
-            return glm::dot(d, d);
-        };
-        auto farFirst = [&](const world::SectionPos& a, const world::SectionPos& b) {
-            return distance2(a) > distance2(b);
-        };
-        const auto mid = m_dirtyList.begin() +
-                         static_cast<std::ptrdiff_t>(std::min(m_sortedDirty, m_dirtyList.size()));
-        std::sort(mid, m_dirtyList.end(), farFirst);
-        m_mergeScratch.resize(m_dirtyList.size());
-        std::merge(m_dirtyList.begin(), mid, mid, m_dirtyList.end(), m_mergeScratch.begin(),
-                   farFirst);
-        m_dirtyList.swap(m_mergeScratch);
+        // Far -> near (nearest at the back): the new tail sorted and merged in (DirtyOrder.h).
+        sortFarToNear(m_dirtyList, m_sortedDirty, m_sortCamera, m_mergeScratch);
         m_sortedDirty = m_dirtyList.size();
         m_dirtyUnsorted = false;
     }

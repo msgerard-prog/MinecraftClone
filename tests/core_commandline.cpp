@@ -60,6 +60,8 @@ TEST_CASE("command line: M3 options") {
     CHECK(opts->autoFly);
     CHECK(opts->flat);
     CHECK_FALSE(opts->vsync);
+    std::array<const char*, 1> survival = {"--survival"}; // (v1.5.1)
+    CHECK(mc::parseCommandLine(survival, error)->survival);
     std::array<const char*, 2> packs = {"--resourcepacks", "C:/packs"};
     CHECK(mc::parseCommandLine(packs, error)->resourcePacks == "C:/packs");
     for (const char* bad : {"0", "1", "33", "x"}) {

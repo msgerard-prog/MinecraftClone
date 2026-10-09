@@ -105,3 +105,25 @@ TEST_CASE("chunk loader shuts down cleanly with jobs in flight") {
     }
     CHECK(world.chunkCount() == 0); // nothing inserted after the loader is gone
 }
+
+#include "rendering/DirtyOrder.h"
+
+TEST_CASE("v1.5.1: the mesh queue stays ordered while the camera moves (debug STL: \"sequence not ordered\")") {
+    // Regression: the sorted prefix was ordered for an older camera position while the new
+    // tail was sorted for the current one, so std::merge got an unordered run (a debug
+    // assert on creating a world). Both runs are ordered for one camera now.
+    std::vector<mc::world::SectionPos> list, scratch;
+    for (int x = -6; x <= 6; ++x)
+        for (int z = -6; z <= 6; ++z) list.push_back({x, 4, z});
+    const glm::dvec3 camera(0.0, 70.0, 0.0);
+    mc::gfx::sortFarToNear(list, 0, camera, scratch);
+    const size_t sorted = list.size();
+    for (int x = 7; x <= 9; ++x) list.push_back({x, 4, 0}); // new sections while walking
+    mc::gfx::sortFarToNear(list, sorted, camera, scratch);
+    auto d2 = [&](const mc::world::SectionPos& p) {
+        const glm::dvec3 d = glm::dvec3(p.x * 16.0 + 8.0, p.y * 16.0 + 8.0, p.z * 16.0 + 8.0) - camera;
+        return glm::dot(d, d);
+    };
+    for (size_t i = 1; i < list.size(); ++i) CHECK(d2(list[i - 1]) >= d2(list[i])); // far -> near
+    CHECK(list.size() == 13 * 13 + 3);
+}
