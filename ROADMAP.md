@@ -12,19 +12,34 @@ disc 5, advancements. M1-M28 done: the first revision's milestones are complete.
 the user's call (see Waiting on the user).
 
 ## Next
-M28 - Progression & game (wiki pages of each feature):
-1. ✅ M28.1 - Game settings: a) game rules (/gamerule), b) difficulty (Peaceful..Hard:
-   damage, hunger, mob rules; /difficulty), c) adventure and spectator modes, d) statistics
-   (stats/<uuid>.json, the Statistics screen).
-2. ✅ M28.2 - Navigation and writing: a) compasses, lodestones, recovery compasses, clocks;
-   b) maps (empty, filled, drawn, zoom, cartography); c) books and quills, written books.
-3. ✅ M28.3 - Decorations: a) item frames, paintings; b) armor stands; c) leads (fences,
-   llama caravans); d) banners (patterns, the loom).
-4. ✅ M28.4 - Combat items: a) crossbows (multishot, piercing, quick charge), b) tipped and
-   spectral arrows, lingering potions, c) fireworks (rockets for elytra), d) the mace (heavy
-   core from ominous vaults; Trial Omen), e) spears.
-5. ✅ M28.5 - c) Advancements; a, b) the remaining blocks: candles, 1.21.5 plants (firefly bushes,
-   leaf litter, wildflowers, bushes, cactus flowers, dry grass), disc fragments and disc 5.
+M29 - Completeness (user, 2026-10-08: "do those missing items ... once everything is
+functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data values
+(blocks, items, mobs, effects, enchantments) found these gaps:
+1. M29.1 - Mobs: a) husk, stray, bogged, parched; b) skeleton/zombie horses, camel husk
+   jockeys, zombie nautilus jockeys; c) bat, endermite, mooshroom, snow golem, piglin
+   brute, zoglin, illusioner; d) 1.21.5 cow/pig/chicken variants (blue/brown eggs);
+   e) spawn eggs for every mob.
+2. M29.2 - Effects, potions, enchantments: absorption, saturation, health boost,
+   blindness, nausea, luck/unluck, wind charged, weaving, oozing, infested; turtle master,
+   slow falling, luck and the 1.21 potions; mending, frost walker, depth strider, soul
+   speed, sweeping edge, the curses.
+3. M29.3 - Items: bundles, spyglass, name tags, chainmail, stews and foods, carrot/fungus
+   on a stick, minecart variants, copper/netherite horse armor, nautilus armor, the six
+   missing discs, bottles o' enchanting, powder snow buckets.
+4. M29.4 - Blocks 1: the missing flowers and pots, melons and stems, cocoa, lily pads,
+   jack o'lanterns, 16 bed colours, mushroom blocks, raw ore blocks, magma blocks, dried
+   kelp blocks, glow lichen, nether brick variants, soul fire, frosted ice, powder snow.
+5. M29.5 - Blocks 2: target, tripwires, daylight detectors, lightning rods, crafter,
+   chiseled bookshelves, respawn anchors, scaffolding, trapped chests, calibrated sculk
+   sensors, bubble columns, coral wall fans.
+6. M29.6 - The Copper Age (1.21.9): shelves, copper bars/chains/lanterns/torches, copper
+   golem statues, chain -> iron_chain.
+7. M29.7 - Technical: command blocks (and minecart), structure blocks/voids, jigsaws,
+   barriers, light blocks, player heads, petrified oak slabs, knowledge books.
+8. M29.8 - overworld7: generate what worldgen places (flowers, melons, cocoa, lily pads,
+   huge mushrooms, glow lichen, raw ore veins, magma, powder snow, fossils, animal
+   variants).
+Then reviews, v0.29.0, a pinned completeness test, and v1.0.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -183,11 +198,8 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
-- **v1.0 decision:** M23-M28 are done. Still missing from 1.21.9-1.21.11 content: copper
-  armour, zombie nautiluses, camel husks, parched skeletons (docs/game-design.md). Tag v1.0
-  now, or add a small M29 for those first?
-- **M28 checks:** on Peaceful with `/gamerule natural_health_regeneration false`, does
-  hunger still refill (ours: no)? Try it: `tools/run.sh --world "M28 test"`, Esc >
+- **M28 note:** (user, 2026-10-08) on Peaceful with natural_health_regeneration false,
+  hunger doesn't refill - kept. Try it: `tools/run.sh --world "M28 test"`, Esc >
   Advancements, `/give @s mace`, `/give @s crossbow`, `/give @s firework_rocket 16` with
   an elytra.
 - **M27 note:** new worlds use "overworld6" (all of vanilla's biomes, cave biomes and the
