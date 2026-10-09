@@ -126,6 +126,7 @@ public:
     void strikeLightning(const BlockPos& p); // (also /summon lightning_bolt)
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
+    static bool jungleLog(BlockId b); // (M29.4b) what cocoa grows on
     static bool isLeaves(BlockId b);
     static bool sugarCaneCanStay(const World& world, const BlockPos& p);
     // M18.1: a cactus stands on cactus or sand with nothing solid (or lava) beside it;
@@ -329,6 +330,7 @@ private:
     bool nearWater(const BlockPos& p) const;
     void tickFarmland(const BlockPos& p, BlockStateId s);
     void tickCrop(const BlockPos& p, BlockStateId s);
+    void tickStem(const BlockPos& p, BlockStateId s); // (M29.4b) melon and pumpkin stems
     bool nextToFlammable(const BlockPos& p) const;
     void placeFire(const BlockPos& p, int age);
     void fireNeighbourChanged(const BlockPos& p);

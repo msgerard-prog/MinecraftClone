@@ -2,6 +2,7 @@
 // Meal, Tutorial:Crop farming). Part of BlockUpdates.
 #include "world/BlockUpdates.h"
 
+#include "world/Raycast.h"
 #include "world/Weather.h"
 
 #include "world/Blocks.h"
@@ -75,8 +76,11 @@ void BlockUpdates::tickFarmland(const BlockPos& p, BlockStateId s) {
         if (m != 7) setRaw(p, R().set(s, moisture, 7)); // hydrated at once
     } else if (m > 0) {
         setRaw(p, R().set(s, moisture, m - 1)); // dries a step per random tick
-    } else if (!isCrop(blockOf(at({p.x, p.y + 1, p.z})))) {
-        set(p, R().defaultState(B::Dirt)); // dry and bare: back to dirt
+    } else if (const BlockId on = blockOf(at({p.x, p.y + 1, p.z}));
+               !isCrop(on) && on != B::PumpkinStem && on != B::MelonStem && on != B::AttachedPumpkinStem &&
+               on != B::AttachedMelonStem && on != B::TorchflowerCrop && on != B::PitcherCrop) {
+        // dry and bare - vanilla's maintains_farmland tag: crops and stems keep it - back to dirt
+        set(p, R().defaultState(B::Dirt));
     }
 }
 
@@ -117,6 +121,41 @@ void BlockUpdates::tickCrop(const BlockPos& p, BlockStateId s) {
     setRaw(p, R().set(s, ageOf(crop), a + 1));
 }
 
+void BlockUpdates::tickStem(const BlockPos& p, BlockStateId s) {
+    // (M29.4b; wiki: Melon Seeds, Pumpkin Seeds) the crop's growth odds; at age 7 a tick
+    // that would grow picks a random side and puts the fruit there if it is free and
+    // stands on dirt, grass or farmland; the stem then bends toward it.
+    if (rawBrightness(p) < 9) return;
+    const BlockId stem = blockOf(s);
+    const float points = growthPoints(p, stem);
+    if (points <= 0.0f) return;
+    if (m_random.nextInt(uint32_t(std::floor(25.0f / points)) + 1) != 0) return;
+    const int a = R().get(s, age7);
+    if (a < 7) {
+        setRaw(p, R().set(s, age7, a + 1));
+        return;
+    }
+    static constexpr Direction kSides[4] = {Direction::North, Direction::East, Direction::South, Direction::West};
+    const Direction d = kSides[m_random.nextInt(4)];
+    const BlockPos q = neighbour(p, d);
+    const BlockId ground = blockOf(at({q.x, q.y - 1, q.z}));
+    if (at(q) != 0 || !(ground == B::Farmland || ground == B::Dirt || ground == B::GrassBlock || ground == B::CoarseDirt ||
+                        ground == B::Podzol || ground == B::Mud || ground == B::MossBlock || ground == B::RootedDirt))
+        return;
+    const bool melon = stem == B::MelonStem;
+    set(q, R().defaultState(melon ? B::Melon : B::Pumpkin));
+    const BlockStateId bent = R().defaultState(melon ? B::AttachedMelonStem : B::AttachedPumpkinStem);
+    set(p, R().set(bent, facing, int(d) - 2)); // facing: north, south, west, east = Direction 2..5
+}
+
+bool BlockUpdates::jungleLog(BlockId b) {
+    // vanilla's jungle_logs tag: the log, the wood and their stripped kinds
+    static const BlockId kOthers[3] = {*R().findBlock("minecraft:jungle_wood"),
+                                       *R().findBlock("minecraft:stripped_jungle_log"),
+                                       *R().findBlock("minecraft:stripped_jungle_wood")};
+    return b == B::JungleLog || b == kOthers[0] || b == kOthers[1] || b == kOthers[2];
+}
+
 int BlockUpdates::pickBerries(World& world, const BlockPos& p, Xoroshiro& rng) {
     const BlockStateId s = world.getBlock(p);
     if (const BlockId b = blockRegistry().blockOf(s); b == B::CaveVines || b == B::CaveVinesPlant) {
@@ -151,6 +190,17 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
         // Beetroots: 75% chance of +1 (the bone meal is used either way).
         const int add = b == B::Beetroots ? (m_random.nextFloat() < 0.75f ? 1 : 0) : 2 + static_cast<int>(m_random.nextInt(4));
         if (add > 0) set(p, R().set(s, ageOf(b), std::min(max, a + add)));
+        return true;
+    }
+    if (b == B::PumpkinStem || b == B::MelonStem) { // (M29.4b) 2-5 stages, like crops
+        const int a = R().get(s, age7);
+        if (a >= 7) return false;
+        set(p, R().set(s, age7, std::min(7, a + 2 + static_cast<int>(m_random.nextInt(4)))));
+        return true;
+    }
+    if (b == B::Cocoa) { // (M29.4b) a stage
+        if (R().get(s, age2) >= 2) return false;
+        set(p, R().set(s, age2, R().get(s, age2) + 1));
         return true;
     }
     if (b == B::SweetBerryBush) { // (M26.3) one stage

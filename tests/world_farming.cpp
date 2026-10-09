@@ -67,9 +67,14 @@ TEST_CASE("farmland: wet near water (4 blocks), dries out and turns to dirt when
     s.world.setBlock({8, 63, 8}, S(blocks::Water));
     s.put({11, 63, 8}, S(blocks::Farmland)); // 3 away
     s.put({8, 63, 2}, wetFarmland());        // 6 away, bare
+    s.put({2, 63, 2}, S(blocks::Farmland)); // dry, but a stem keeps it (M29.4b regression)
+    s.put({2, 64, 1}, S(blocks::Pumpkin));
+    s.put({2, 64, 2}, R().set(S(blocks::AttachedPumpkinStem), properties::facing, 0));
     s.tick(20000);
     CHECK(R().get(s.world.getBlock({11, 63, 8}), properties::moisture) == 7);
     CHECK(s.block({8, 63, 2}) == blocks::Dirt);
+    CHECK(s.block({2, 63, 2}) == blocks::Farmland);
+    CHECK(s.block({2, 64, 2}) == blocks::AttachedPumpkinStem);
 }
 
 TEST_CASE("growth points: wet farmland 4 + 8 wet neighbours x 0.75 = 10; halved by a diagonal twin") {
@@ -159,4 +164,48 @@ TEST_CASE("crop drops: ripe wheat gives wheat and 1-4 seeds, unripe a seed; carr
     REQUIRE(out.size() == 1);
     CHECK(out[0].count >= 2);
     CHECK(out[0].count <= 5);
+}
+
+TEST_CASE("M29.4b: a melon stem grows, sets a melon beside it and bends; picking the melon unbends it") {
+    Scene s;
+    for (int x = 4; x <= 6; ++x)
+        for (int z = 4; z <= 6; ++z)
+            s.world.setBlock({x, 63, z}, wetFarmland());
+    s.world.setBlock({7, 63, 7}, S(blocks::Water));
+    s.put({5, 64, 5}, S(blocks::MelonStem));
+    BlockPos fruit{};
+    for (int i = 0; i < 400 && fruit.y == 0; ++i) {
+        s.tick(500);
+        for (const BlockPos q : {BlockPos{4, 64, 5}, BlockPos{6, 64, 5}, BlockPos{5, 64, 4}, BlockPos{5, 64, 6}})
+            if (s.block(q) == blocks::Melon) fruit = q;
+    }
+    REQUIRE(fruit.y == 64);
+    CHECK(s.block({5, 64, 5}) == blocks::AttachedMelonStem);
+    s.put(fruit, 0); // harvested
+    CHECK(s.block({5, 64, 5}) == blocks::MelonStem);
+    CHECK(R().get(s.world.getBlock({5, 64, 5}), properties::age7) == 7);
+    // Seeds plant only on farmland; drops: a melon gives 3-7 slices.
+    Xoroshiro rng(5);
+    std::vector<ItemStack> out;
+    mc::blockDrops(S(blocks::Melon), {}, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].item == *itemRegistry().find("melon_slice"));
+    CHECK(out[0].count >= 3);
+    CHECK(out[0].count <= 7);
+}
+
+TEST_CASE("M29.4b: cocoa hangs from a jungle log, ripens and drops 3 beans; it falls with the log") {
+    Scene s;
+    s.put({5, 64, 5}, S(blocks::JungleLog));
+    // facing north (index 0): the log is north of the pod
+    s.put({5, 64, 6}, R().set(S(blocks::Cocoa), properties::facing, 0));
+    s.tick(30000);
+    CHECK(R().get(s.world.getBlock({5, 64, 6}), properties::age2) == 2);
+    Xoroshiro rng(5);
+    std::vector<ItemStack> out;
+    mc::blockDrops(s.world.getBlock({5, 64, 6}), {}, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].count == 3);
+    s.put({5, 64, 5}, 0);
+    CHECK(s.block({5, 64, 6}) == 0);
 }

@@ -623,8 +623,7 @@ std::vector<Recipe> build() {
                                    item("gravel"), item("gravel"), item("gravel"), item("gravel")},
                                   colour + "_concrete_powder", 8));
         }
-        // Dyes from flowers and minerals, and mixed (wiki: Dye). Black (ink sacs,
-        // wither roses) and brown (cocoa beans) wait for their sources.
+        // Dyes from flowers and minerals, and mixed (wiki: Dye).
         static constexpr std::pair<const char*, const char*> kFrom[] = {
             {"dandelion", "yellow_dye"},
             {"poppy", "red_dye"},
@@ -640,6 +639,7 @@ std::vector<Recipe> build() {
             {"pink_tulip", "pink_dye"},
             {"lily_of_the_valley", "white_dye"},
             {"wither_rose", "black_dye"}, // (M29.4a)
+            {"cocoa_beans", "brown_dye"}, // (M29.4b)
             {"bone_meal", "white_dye"},
             {"lapis_lazuli", "blue_dye"}};
         for (const auto& [from, to] : kFrom)
@@ -723,7 +723,10 @@ std::vector<Recipe> build() {
                            "warped_fungus_on_a_stick"));
         if (has("cocoa_beans"))
             r.push_back(shaped({"WCW"}, {{'W', item("wheat")}, {'C', item("cocoa_beans")}}, "cookie", 8));
-        if (has("melon")) r.push_back(shapeless({item("melon_slice")}, "melon_seeds"));
+        // (M29.4b; wiki: Melon, Melon Seeds, Pumpkin Seeds)
+        r.push_back(shapeless({item("melon_slice")}, "melon_seeds"));
+        r.push_back(shapeless({item("pumpkin")}, "pumpkin_seeds", 4));
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("melon_slice")}}, "melon"));
     }
     return r;
 }

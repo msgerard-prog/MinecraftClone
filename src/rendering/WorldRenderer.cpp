@@ -76,6 +76,8 @@ bool WorldRenderer::init(const std::string& resourcePacksDir) {
         palette[size_t(world::kSpruceFoliageSlot) * 3 + 1] = rgb(0x619961);
         for (int p = 0; p < 16; ++p)
             palette[size_t(world::kRedstoneSlot0 + p) * 3 + 1] = rgb(world::redstoneColor(p));
+        for (int a = 0; a < 8; ++a)
+            palette[size_t(world::kStemSlot0 + a) * 3 + 1] = rgb(world::stemColor(a));
         glCreateBuffers(1, &m_tintPalette);
         glNamedBufferStorage(m_tintPalette, GLsizeiptr(palette.size() * sizeof(glm::vec4)),
                              palette.data(), 0);

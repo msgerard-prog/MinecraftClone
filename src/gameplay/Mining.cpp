@@ -526,6 +526,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::Fern:
         case blocks::EnderChest:
         case blocks::SeaLantern:
+        case blocks::Melon: // (M29.4b)
             if (const ItemId it = itemRegistry().blockItem(blockRegistry().blockOf(state))) {
                 out.push_back({it, 1});
                 return;
@@ -560,6 +561,10 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
                 out[i].count = uint8_t(std::min(64, out[i].count * mult));
             break;
         }
+        case blocks::Melon: // (M29.4b; wiki: Melon) up to `level` more slices, at most 9
+            for (size_t i = before; i < out.size(); ++i)
+                out[i].count = uint8_t(std::min(9, out[i].count + int(rng.nextInt(uint32_t(fortune + 1)))));
+            break;
         case blocks::RedstoneOre: // redstone: up to `level` more (wiki: Fortune)
         case blocks::DeepslateRedstoneOre:
             for (size_t i = before; i < out.size(); ++i)
@@ -591,6 +596,26 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         std::string id = reg.block(b).id;
         id.erase(id.rfind("_cake"));
         if (const auto c = itemRegistry().find(id)) add(*c);
+        return;
+    }
+    // (M29.4b; wiki: Melon, Melon Seeds, Cocoa Beans) a melon drops 3-7 slices; a stem up
+    // to 3 seeds (each 1 in (age + 1) / 15; attached: as age 7); cocoa 3 beans when ripe.
+    if (b == blocks::Melon) {
+        add(*itemRegistry().find("melon_slice"), between(3, 7));
+        return;
+    }
+    if (b == blocks::PumpkinStem || b == blocks::MelonStem || b == blocks::AttachedPumpkinStem ||
+        b == blocks::AttachedMelonStem) {
+        const bool melon = b == blocks::MelonStem || b == blocks::AttachedMelonStem;
+        const int a = b == blocks::PumpkinStem || b == blocks::MelonStem ? reg.get(state, properties::age7) : 7;
+        int n = 0;
+        for (int i = 0; i < 3; ++i)
+            n += rng.nextFloat() < float(a + 1) / 15.0f;
+        if (n > 0) add(*itemRegistry().find(melon ? "melon_seeds" : "pumpkin_seeds"), n);
+        return;
+    }
+    if (b == blocks::Cocoa) {
+        add(*itemRegistry().find("cocoa_beans"), reg.get(state, properties::age2) >= 2 ? 3 : 1);
         return;
     }
     if (b == blocks::Cake || b == blocks::Vine || b == blocks::Bush || b == blocks::ShortDryGrass ||

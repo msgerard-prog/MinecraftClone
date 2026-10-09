@@ -1351,7 +1351,23 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Beetroots:
     case B::TorchflowerCrop: // (M27.5c)
     case B::PitcherCrop:
+    case B::PumpkinStem: // (M29.4b)
+    case B::MelonStem:
         if (blockOf(at(rel(p, Direction::Down))) != B::Farmland) pop(p); // lost its farmland
+        break;
+    case B::AttachedPumpkinStem: // (M29.4b) its fruit gone: a plain grown stem again
+    case B::AttachedMelonStem: {
+        if (blockOf(at(rel(p, Direction::Down))) != B::Farmland) {
+            pop(p);
+            break;
+        }
+        const bool melon = blockOf(s) == B::AttachedMelonStem;
+        if (blockOf(at(rel(p, hFacing(s)))) != (melon ? B::Melon : B::Pumpkin))
+            set(p, R().set(R().defaultState(melon ? B::MelonStem : B::PumpkinStem), age7, 7));
+        break;
+    }
+    case B::Cocoa: // (M29.4b) hangs from a jungle log
+        if (!jungleLog(blockOf(at(rel(p, hFacing(s)))))) pop(p);
         break;
     case B::Sand:
     case B::RedSand:
@@ -2510,6 +2526,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Beetroots: // planted on farmland only
     case B::TorchflowerCrop:
     case B::PitcherCrop:
+    case B::PumpkinStem: // (M29.4b: seeds)
+    case B::MelonStem:
         if (blockOf(world.getBlock(rel(at, Direction::Down))) != B::Farmland) return std::nullopt;
         return state;
     case B::RedstoneWire: {

@@ -133,6 +133,10 @@ inline constexpr uint8_t kBirchFoliageSlot = 254;
 inline constexpr uint8_t kSpruceFoliageSlot = 255;
 // Redstone dust colour per power level 0..15 (slots 238..253, "foliage" channel).
 inline constexpr uint8_t kRedstoneSlot0 = 238;
+// Melon and pumpkin stems by age 0..7 (M29.4b, slots 230..237, "foliage" channel):
+// vanilla tints them (age*32, 255-age*8, age*4), green to yellow; attached stems use age 7.
+inline constexpr uint8_t kStemSlot0 = 230;
+inline uint32_t stemColor(int age) { return uint32_t(age * 32) << 16 | uint32_t(255 - age * 8) << 8 | uint32_t(age * 4); }
 
 // Dust colour at a power level, 0xRRGGBB. The wiki only says it goes from dark red
 // at 0 to bright red at 15 (Redstone Dust › Appearance); this curve is our estimate

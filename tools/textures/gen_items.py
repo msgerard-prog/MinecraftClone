@@ -819,6 +819,26 @@ def beetroot_seeds():
     return s.render()
 
 
+def flat_seeds(colour, edge):
+    # (M29.4b) melon and pumpkin seeds: flat teardrops with a darker rim.
+    s = Shape()
+    for cx, cy in ((4, 4), (10, 5), (6, 10), (11, 11)):
+        body = {(cx, cy), (cx + 1, cy), (cx, cy + 1), (cx + 1, cy + 1), (cx + 1, cy + 2)}
+        s.add(body, ramp(hexc(colour), 5, spread=0.3))
+        s.add({(cx + 2, cy + 1), (cx + 2, cy + 2)}, ramp(hexc(edge), 5))
+    return s.render()
+
+
+def cocoa_beans():
+    # (M29.4b) three brown ovals with a pale seam.
+    s = Shape()
+    for cx, cy in ((5.5, 5), (10.5, 7), (6.5, 11)):
+        bean = {(x, y) for x in range(16) for y in range(16) if ((x - cx) / 2.6) ** 2 + ((y - cy) / 1.9) ** 2 < 1}
+        s.add(bean, ramp(hexc("#6A3A1E"), 5, spread=0.35))
+        s.add({(int(cx), int(cy)), (int(cx) + 1, int(cy))} & bean, ramp(hexc("#A06A40"), 5))
+    return s.render()
+
+
 def bread():
     pal = ramp(hexc("#C08840"), 5, spread=0.35)
     s = Shape()
@@ -1781,6 +1801,10 @@ def all_items():
     items["cookie"] = cookie()
     items["pumpkin_pie"] = pumpkin_pie()
     items["melon_slice"] = melon_slice()
+    items["melon_seeds"] = flat_seeds("#2E2418", "#14100A")  # (M29.4b)
+    items["pumpkin_seeds"] = flat_seeds("#E6DCA6", "#B0A070")
+    items["cocoa_beans"] = cocoa_beans()
+    items["powder_snow_bucket"] = bucket("#F2F6FA")
     items["glistering_melon_slice"] = melon_slice(glistering=True)
     items["enchanted_golden_apple"] = apple("#F8D850")
     items["spyglass"] = spyglass()

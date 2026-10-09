@@ -66,7 +66,9 @@ ItemRegistry buildItems() {
             b == blocks::BigDripleafStem || // (M27.2)
             b == blocks::TorchflowerCrop ||
             b == blocks::PitcherCrop || // (M27.5c: planted by seeds and pods)
-            b == blocks::FrostedIce)    // (M29.2b: only from Frost Walker)
+            b == blocks::FrostedIce ||  // (M29.2b: only from Frost Walker)
+            b == blocks::PumpkinStem || b == blocks::MelonStem || b == blocks::AttachedPumpkinStem ||
+            b == blocks::AttachedMelonStem || b == blocks::Cocoa) // (M29.4b: seeds and beans)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -614,6 +616,15 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:pumpkin_pie", .food = 8, .saturation = 4.8f, .texture = "item/pumpkin_pie"});
     r.add({.id = "minecraft:melon_slice", .food = 2, .saturation = 1.2f, .texture = "item/melon_slice"});
     r.add({.id = "minecraft:glistering_melon_slice", .texture = "item/glistering_melon_slice"});
+    // (M29.4b) seeds plant their stems on farmland; cocoa beans go on a jungle log's side
+    r.add({.id = "minecraft:melon_seeds", .block = blocks::MelonStem, .texture = "item/melon_seeds"});
+    r.add({.id = "minecraft:pumpkin_seeds", .block = blocks::PumpkinStem, .texture = "item/pumpkin_seeds"});
+    r.add({.id = "minecraft:cocoa_beans", .texture = "item/cocoa_beans"});
+    r.mapBlock(blocks::PumpkinStem, *r.find("pumpkin_seeds"));
+    r.mapBlock(blocks::AttachedPumpkinStem, *r.find("pumpkin_seeds"));
+    r.mapBlock(blocks::MelonStem, *r.find("melon_seeds"));
+    r.mapBlock(blocks::AttachedMelonStem, *r.find("melon_seeds"));
+    r.mapBlock(blocks::Cocoa, *r.find("cocoa_beans"));
     r.add({.id = "minecraft:enchanted_golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
            .texture = "item/enchanted_golden_apple"});
     // (M29.3c; wiki: Spyglass, Bottle o' Enchanting, Knowledge Book)

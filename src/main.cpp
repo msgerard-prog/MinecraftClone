@@ -2915,6 +2915,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (survival) inventory.consumeSelected(1);
                         clicks.useClick = false;
                     }
+                // Cocoa beans go on the side of a jungle log (M29.4b; wiki: Cocoa Beans), the pod
+                // facing back toward the log.
+                if (!dead && mayBuild && clicks.useClick && heldId == "minecraft:cocoa_beans")
+                    if (const auto log = mc::world::raycastBlocks(world, eye, look, survival ? 4.5 : 5.0);
+                        log && log->face != mc::world::Direction::Up && log->face != mc::world::Direction::Down &&
+                        mc::world::BlockUpdates::jungleLog(reg.blockOf(world.getBlock(log->block)))) {
+                        const mc::world::BlockPos on = mc::world::neighbour(log->block, log->face);
+                        if (world.getBlock(on) == 0) {
+                            const int towardLog = (int(log->face) ^ 1) - 2; // the opposite side: north, south, west, east
+                            world.updateBlock(on, reg.set(reg.defaultState(mc::world::blocks::Cocoa),
+                                                          mc::world::properties::facing, towardLog));
+                            frameEdits.push_back(on);
+                            if (survival) inventory.consumeSelected(1);
+                        }
+                        clicks.useClick = false;
+                    }
                 // A spyglass held up (M29.3c; wiki: Spyglass): the view zooms to a tenth.
                 spyglassUp = !dead && heldId == "minecraft:spyglass" && clicks.use;
                 if (spyglassUp) clicks.useClick = false;

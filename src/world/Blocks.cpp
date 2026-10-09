@@ -110,6 +110,7 @@ const Property ominous{"ominous", {"true", "false"}};
 const Property dusted{"dusted", {"0", "1", "2", "3"}};
 const Property age1{"age", {"0", "1"}};
 const Property age4{"age", {"0", "1", "2", "3", "4"}};
+const Property age2{"age", {"0", "1", "2"}};
 const Property candles{"candles", {"1", "2", "3", "4"}};
 const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
 const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
@@ -1334,6 +1335,18 @@ BlockRegistry buildVanillaBlocks() {
           blocks::ChiseledNetherBricks);
     check(r.add("cracked_nether_bricks", {.hardness = 2.0f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe}),
           blocks::CrackedNetherBricks);
+    // (M29.4b; wiki: Melon - hardness 1, axe; stems and cocoa: wiki: Melon Seeds, Cocoa Beans)
+    check(r.add("melon", {.hardness = 1.0f, .resistance = 1.0f, .tool = HarvestTool::Axe}), blocks::Melon);
+    BlockSettings stem = kPlant;
+    stem.randomTicks = true;
+    check(r.add("pumpkin_stem", stem, {{&age7, "0"}}), blocks::PumpkinStem);
+    check(r.add("melon_stem", stem, {{&age7, "0"}}), blocks::MelonStem);
+    check(r.add("attached_pumpkin_stem", kPlant, {{&facing, "north"}}), blocks::AttachedPumpkinStem);
+    check(r.add("attached_melon_stem", kPlant, {{&facing, "north"}}), blocks::AttachedMelonStem);
+    check(r.add("cocoa", {.hardness = 0.2f, .resistance = 3.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                          .randomTicks = true, .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&age2, "0"}}),
+          blocks::Cocoa);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

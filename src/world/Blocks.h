@@ -73,6 +73,7 @@ extern const Property ominous;        // true | false
 extern const Property dusted;         // 0..3 (M27.5: suspicious sand and gravel being brushed)
 extern const Property age1;           // "age": 0..1 (M27.5c: torchflower crops)
 extern const Property age4;           // "age": 0..4 (pitcher crops)
+extern const Property age2;           // "age": 0..2 (M29.4b: cocoa)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -541,6 +542,13 @@ enum : BlockId {
     RawGoldBlock,
     ChiseledNetherBricks,
     CrackedNetherBricks,
+    // M29.4b (wiki: Melon, Melon Seeds, Pumpkin Seeds, Cocoa Beans)
+    Melon,
+    PumpkinStem,         // age 0..7, then it grows a pumpkin beside it
+    MelonStem,
+    AttachedPumpkinStem, // bent toward its fruit (facing)
+    AttachedMelonStem,
+    Cocoa,               // on a jungle log's side (facing: toward the log), age 0..2
     Count
 };
 } // namespace blocks
