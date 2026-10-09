@@ -161,6 +161,10 @@ void BlockUpdates::runRandomTicks() {
 
 void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     const BlockId b = blockOf(s);
+    if (R().blockOf(s) == potentSulfur()) { // (M33.2b: generated ones start their cycle)
+        if (!hasTick(p, b)) schedule(p, b, 20, 0);
+        return;
+    }
     if (isCopper(R().blockOf(s))) { // (M23.4b: oxidation; the real block - doors map to oak)
         tickCopper(p, s);
         return;

@@ -44,6 +44,7 @@ struct LevelEvent {
         Firework,     // pos = where a rocket burst, data = its fireworks (ItemStack::extra; M28.4c)
         Totem,        // pos = the saved one's middle (M32.3: a totem of undying's burst)
         Happy,        // pos = feet, data = height x 100 (M32.5: green sparkles - a villager levelling up)
+        SulfurGas,    // pos = potent sulfur's corner, data = the water's depth (M33.2b: bubbles and haze)
     };
     Type type;
     double x, y, z;

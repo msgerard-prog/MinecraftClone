@@ -316,6 +316,21 @@ public:
         MobType type = MobType::Turtle; // (M26.3c: frogspawn hatches tadpoles)
     };
     std::vector<Hatch>& hatched() { return m_hatched; }
+    // Potent sulfur (M33.2b, Sulfur.cpp; wiki: Potent Sulfur): under 1-4 water sources with air
+    // above, its gas hangs on the surface (main: Nausea within 3 of `surface`); over a magma
+    // block it erupts as a geyser now and then, over lava all the time (main lifts what is in
+    // the column up to `top` for `ticks`). Main reads and clears both lists each tick.
+    struct SulfurGas {
+        BlockPos surface;
+    };
+    struct Geyser {
+        BlockPos base; // the potent sulfur
+        int top;       // the highest Y it throws things to (5 x the water's depth over the water)
+        int ticks;     // how long this eruption lasts
+    };
+    std::vector<SulfurGas>& sulfurGas() { return m_sulfurGas; }
+    std::vector<Geyser>& geysers() { return m_geysers; }
+    static BlockId potentSulfur();
     // Infested blocks broken this tick (M26.4a): main lets a silverfish out at each.
     std::vector<BlockPos>& silverfishOut() { return m_silverfish; }
     static bool isInfested(BlockId b) { return b >= blocks::InfestedStone && b <= blocks::InfestedDeepslate; }
@@ -491,6 +506,9 @@ private:
     std::vector<BlockPos> m_remesh;
     std::vector<BlockPos> m_settling;
     std::vector<Hatch> m_hatched; // (M25.3b)
+    std::vector<SulfurGas> m_sulfurGas; // (M33.2b)
+    std::vector<Geyser> m_geysers;
+    void tickPotentSulfur(const BlockPos& p, BlockStateId s);
     std::vector<BlockPos> m_silverfish; // (M26.4a)
     std::vector<Drop> m_drops;
     std::vector<FallStart> m_falling;

@@ -813,6 +813,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
     int totemTicks = 0;
+    std::vector<mc::world::BlockUpdates::Geyser> activeGeysers; // (M33.2b) erupting now
+    activeGeysers.reserve(64);
     int lastClickSlot = -1; // (M32.4) double clicks in a container screen
     double lastClickTime = -1.0;
     std::array<bool, 9> screenNumDown{}; // (M32.4) number keys held over a container // (M32.3) the
@@ -4804,6 +4806,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::Mobs::add(world, baby);
                 }
             blockUpdates.hatched().clear();
+            // Potent sulfur (M33.2b; wiki: Potent Sulfur): its gas gives Nausea for 4 s within 3 of
+            // the water's surface; a geyser lifts what stands in its column up to its top.
+            for (const auto& g : blockUpdates.sulfurGas()) {
+                const glm::dvec3 c(g.surface.x + 0.5, g.surface.y + 0.5, g.surface.z + 0.5);
+                if (!dead && glm::length(player.position() + glm::dvec3(0, 0.9, 0) - c) < 3.0)
+                    vitals.addEffect(mc::world::Effect::Nausea, 0, 80);
+            }
+            blockUpdates.sulfurGas().clear();
+            for (const auto& g : blockUpdates.geysers())
+                if (activeGeysers.size() < activeGeysers.capacity()) activeGeysers.push_back(g);
+            blockUpdates.geysers().clear();
+            for (auto& g : activeGeysers) {
+                const mc::Aabb column{glm::dvec3(g.base.x, g.base.y + 1, g.base.z),
+                                      glm::dvec3(g.base.x + 1, g.top, g.base.z + 1)};
+                if (!dead && player.box().intersects(column))
+                    player.setVelocity({player.velocity().x, std::max(player.velocity().y, 0.75), player.velocity().z});
+                if (mc::world::Chunk* gc = world.chunk({mc::world::blockToChunk(g.base.x), mc::world::blockToChunk(g.base.z)}))
+                    for (mc::world::MobData& m : gc->mobs())
+                        if (mc::Mobs::box(m).intersects(column)) m.vel.y = std::max(m.vel.y, 0.75);
+                --g.ticks;
+            }
+            std::erase_if(activeGeysers, [](const mc::world::BlockUpdates::Geyser& g) { return g.ticks <= 0; });
             // Shriekers (M27.3; wiki: Sculk Shrieker): one that can summon warns the player
             // (Darkness for 12 s) and the 4th warning calls a warden.
             for (const auto& sh : blockUpdates.shrieks()) {

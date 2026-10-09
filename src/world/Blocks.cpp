@@ -1676,7 +1676,9 @@ BlockRegistry buildVanillaBlocks() {
         addFamily(r, n + "_brick", n + "_bricks", true, true, true);
     }
     // Potent sulfur (1.5 / 6, any pickaxe): bubbles and gas under water, geysers over magma.
-    r.add("potent_sulfur", {.hardness = 1.5f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe});
+    // (`triggered`: erupting; random ticks start the cycle of generated ones)
+    r.add("potent_sulfur", {.hardness = 1.5f, .resistance = 6.0f, .randomTicks = true, .tool = HarvestTool::Pickaxe},
+          {{&triggered, "false"}});
     // Sulfur spikes grow, stack and fall like pointed dripstone (`like`).
     r.add("sulfur_spike",
           {.hardness = 1.5f, .resistance = 3.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,

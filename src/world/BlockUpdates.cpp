@@ -1341,6 +1341,8 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
 
 void BlockUpdates::neighbourChanged(const BlockPos& p) {
     if (!m_world.isInHeight(p.y)) return;
+    // (M33.2b) potent sulfur wakes when the water or magma around it changes
+    if (R().blockOf(at(p)) == potentSulfur() && !hasTick(p, potentSulfur())) schedule(p, potentSulfur(), 20, 0);
     if (m_depth > 2048) { // runaway update chain: stop (vanilla also caps its updates)
         static bool logged = false;
         if (!logged) MC_LOG_WARN("Block updates nested too deeply; some were skipped");
@@ -1930,6 +1932,10 @@ void BlockUpdates::tick() {
 }
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
+    if (R().blockOf(s) == potentSulfur()) { // (M33.2b, Sulfur.cpp)
+        tickPotentSulfur(p, s);
+        return;
+    }
     // Frosted ice (M29.2b; wiki: Frosted Ice): every 1-2 s, a third of the time - or always
     // with fewer than 4 frosted ice neighbours - it ages if its light is above 11 - age (so a
     // Frost Walker path lasts the night: M29 review). At age 3 it melts into water, and its

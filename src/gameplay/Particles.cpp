@@ -610,6 +610,34 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         case LevelEvent::Type::Crit:
             crit(at, rng);
             break;
+        case LevelEvent::Type::SulfurGas: { // (M33.2b; wiki: Potent Sulfur) a second's bubbles and haze
+            const int depth = int(e.data);
+            for (int i = 0; i < 3 * depth; ++i) {
+                Particle p;
+                p.pos = at + glm::dvec3(0.3 + rng.nextDouble() * 0.4, 1.0 + rng.nextDouble() * depth, 0.3 + rng.nextDouble() * 0.4);
+                p.vel = {0.0, 0.12, 0.0};
+                p.size = 0.06f;
+                p.sprite = ParticleSprite::Bubble;
+                p.friction = 1.0f;
+                p.physics = false;
+                p.lifetime = int16_t(std::max(2.0, (at.y + 1.0 + depth - p.pos.y) / 0.12));
+                add(p);
+            }
+            for (int i = 0; i < 6; ++i) {
+                Particle g;
+                g.pos = at + glm::dvec3(0.5 + centred(rng) * 2.5, 1.0 + depth + rng.nextDouble() * 0.6, 0.5 + centred(rng) * 2.5);
+                g.vel = {centred(rng) * 0.01, 0.005, centred(rng) * 0.01};
+                g.color = glm::vec3(0.82f, 0.9f, 0.6f);
+                g.size = 0.25f;
+                g.sprite = ParticleSprite::Generic0;
+                g.frames = 8;
+                g.physics = false;
+                g.friction = 0.96f;
+                g.lifetime = int16_t(30 + rng.nextInt(20));
+                add(g);
+            }
+            break;
+        }
         case LevelEvent::Type::Happy: // (M32.5; vanilla happy_villager) green sparkles about it
             for (int i = 0; i < 12; ++i) {
                 Particle p;

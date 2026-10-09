@@ -20,7 +20,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | All tests | `tools/test.sh` |
 | Some tests | `tools/test.sh debug -tc="*chunk*"` (doctest filters) |
 | Run the game | `tools/run.sh [release] [game args]` |
-| Screenshot for a visual check | `tools/screenshot.sh <name> [game args]` → `out/screenshots/<name>.png`, then Read it |
+| Screenshot for a visual check | `tools/screenshot.sh <name> [game args]` → `out/screenshots/<name>.png`, then Read it (hidden runs are uncapped: add `--max-fps 30` when game ticks must pass) |
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
