@@ -99,12 +99,15 @@ struct ItemStack {
     // Data in world/ItemExtras.h (M28.2): a lodestone compass's target, a book's pages;
     // 0 = none.
     uint32_t extra = 0;
+    // (M29.3b) a custom name (world/ItemExtras.h nameText; vanilla minecraft:custom_name);
+    // 0 = none.
+    uint32_t name = 0;
 
     bool empty() const { return item == kNoItem || count == 0; }
     bool sameKind(const ItemStack& o) const {
         return item == o.item && state == o.state && damage == o.damage && enchantments == o.enchantments &&
                repairCost == o.repairCost && potion == o.potion && contents == o.contents &&
-               trim == o.trim && extra == o.extra;
+               trim == o.trim && extra == o.extra && name == o.name;
     }
 };
 

@@ -397,6 +397,7 @@ struct MobData {
     bool skeletonTrap = false;   // (M29.1b) a skeleton trap horse (vanilla SkeletonTrap)
     uint16_t heldItem = 0;       // (M29.1b) its main-hand item other than a trident (ItemId; equipment.mainhand)
     int16_t zombifyTicks = 0;    // (M29.1c) a piglin or hoglin outside the Nether (vanilla TimeInOverworld)
+    uint32_t nameId = 0;         // (M29.3b) a name-tag name (world::nameText; vanilla CustomName)
     // (M29.2c) lasting effects on the mob (world::Effect ids; vanilla active_effects): up to 4.
     struct ActiveEffect {
         uint8_t type = 0, amplifier = 0;

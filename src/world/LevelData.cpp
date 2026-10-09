@@ -195,6 +195,7 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                            std::move(ench));
         }
         if (it.repairCost) components.put("minecraft:repair_cost", int32_t{it.repairCost});
+        if (!it.name.empty()) components.put("minecraft:custom_name", it.name); // (M29.3b)
         if (!it.potion.empty()) {
             Compound contents;
             contents.put("potion", "minecraft:" + it.potion);
@@ -484,6 +485,11 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                 saved.damage = static_cast<int>(comps->integer("minecraft:damage").value_or(0));
                 if (*id == "minecraft:filled_map") saved.damage = static_cast<int>(comps->integer("minecraft:map_id").value_or(0));
                 saved.repairCost = static_cast<int>(comps->integer("minecraft:repair_cost").value_or(0));
+                if (const std::string* nm = comps->string("minecraft:custom_name")) { // (M29.3b)
+                    std::string_view v = *nm;
+                    if (v.size() >= 2 && v.front() == '"' && v.back() == '"') v = v.substr(1, v.size() - 2);
+                    saved.name = std::string(v);
+                }
                 if (const Compound* pc = comps->compound("minecraft:potion_contents"))
                     if (const std::string* pid = pc->string("potion"))
                         saved.potion = pid->starts_with("minecraft:") ? pid->substr(10) : *pid;

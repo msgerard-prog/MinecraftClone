@@ -1,5 +1,7 @@
 #include "gameplay/Anvil.h"
 
+#include "world/ItemExtras.h"
+
 #include <algorithm>
 #include <string_view>
 
@@ -53,9 +55,23 @@ int multiplier(Enchantment e) {
 }
 } // namespace
 
-AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool creative) {
+AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool creative,
+                         std::optional<std::string_view> rename) {
     AnvilResult r;
-    if (left.empty() || right.empty()) return r;
+    if (left.empty()) return r;
+    // Renaming (M29.3b; wiki: Anvil › Renaming): 1 level more (with nothing in the right
+    // slot: 1 + the prior-work penalty; the penalty doesn't grow); a blank name clears it.
+    const uint32_t newName = rename ? addName(*rename) : left.name;
+    const bool renamed = rename && newName != left.name;
+    if (right.empty()) {
+        if (!renamed) return r;
+        r.out = left;
+        r.out.name = newName;
+        r.cost = 1 + left.repairCost;
+        r.materialUsed = 0;
+        r.tooExpensive = !creative && r.cost >= 40;
+        return r;
+    }
     const ItemDef& ld = itemRegistry().item(left.item);
     const bool book = itemRegistry().item(right.item).id == "minecraft:enchanted_book";
     // A plain book can't take enchantments on the anvil (vanilla: only enchanted books
@@ -111,6 +127,10 @@ AnvilResult anvilCombine(const ItemStack& left, const ItemStack& right, bool cre
     cost += left.repairCost + right.repairCost;
     out.repairCost =
         uint8_t(std::min(255, std::max<int>(left.repairCost, right.repairCost) * 2 + 1));
+    if (renamed) {
+        out.name = newName;
+        cost += 1;
+    }
     r.out = out;
     r.cost = cost;
     r.tooExpensive = !creative && cost >= 40;

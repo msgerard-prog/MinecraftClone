@@ -22,6 +22,10 @@ Table<BookContent>& books() {
     static Table<BookContent> t;
     return t;
 }
+Table<std::string>& names() {
+    static Table<std::string> t;
+    return t;
+}
 Table<BannerLayers>& banners() {
     static Table<BannerLayers> t;
     return t;
@@ -97,6 +101,23 @@ std::optional<Fireworks> fireworks(uint32_t id) {
     const std::lock_guard guard(t.lock);
     if (id == 0 || id % 4 != 0 || id / 4 > t.entries.size()) return std::nullopt;
     return t.entries[id / 4 - 1];
+}
+
+uint32_t addName(std::string_view text) {
+    if (text.empty()) return 0;
+    auto& t = names();
+    const std::lock_guard guard(t.lock);
+    for (size_t i = 0; i < t.entries.size(); ++i)
+        if (t.entries[i] == text) return uint32_t(i + 1);
+    t.entries.emplace_back(text.substr(0, 50)); // (vanilla: 50 characters at most)
+    return uint32_t(t.entries.size());
+}
+
+std::string_view nameText(uint32_t id) {
+    auto& t = names();
+    const std::lock_guard guard(t.lock);
+    if (id == 0 || id > t.entries.size()) return {};
+    return t.entries[id - 1]; // (deque entries never move)
 }
 
 } // namespace mc::world

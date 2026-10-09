@@ -711,6 +711,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             s.contents = it.contents;
             s.trim = it.trim;
             s.extra = it.extra;
+            s.name = mc::world::addName(it.name); // (M29.3b)
             if (it.itemState) s.state = it.itemState;
             // Our armor slots: 100 feet .. 103 head (vanilla's old numbers); 150 offhand.
             if (it.slot >= 100 && it.slot <= 103)
@@ -897,6 +898,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         std::string(mc::world::enchantmentInfo(mc::world::Enchantment(v >> 8)).id),
                         int(v & 0xFF));
             it.repairCost = s.repairCost;
+            it.name = std::string(mc::world::nameText(s.name)); // (M29.3b)
             if (s.potion)
                 it.potion =
                     std::string(mc::world::potionInfo(static_cast<mc::world::Potion>(s.potion)).id);
@@ -1348,6 +1350,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mx /= scale;
             my /= scale;
             const bool shift = window.keyDown(mc::Key::LeftShift);
+            if (container.type() == mc::ui::ContainerScreen::Type::Anvil) { // (M29.3b) the name field takes typing
+                container.typeAnvilName({typed.data(), size_t(typedCount)});
+                window.takePresses(mc::Press::Backspace);
+                window.takePresses(mc::Press::Inventory); // (E types an "e" here, as vanilla)
+            }
             screenDrops.clear();
             for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
                 container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale,
@@ -2737,6 +2744,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                     clicks.use = false;
                 }
+                // A named name tag on a mob names it (M29.3b; wiki: Name Tag): it keeps the
+                // name, shows it and no longer despawns. (Unnamed tags do nothing.)
+                if (!dead && clicks.useClick && heldId == "minecraft:name_tag" && inventory.selectedStack().name != 0)
+                    if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                        mh && (!lastHit || mh->distance < lastHit->distance)) {
+                        mc::world::MobData& target = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                        if (target.type != mc::world::MobType::EnderDragon && !mc::world::isHanging(target.type) &&
+                            target.nameId != inventory.selectedStack().name) {
+                            target.nameId = inventory.selectedStack().name;
+                            target.persistent = true;
+                            world.chunk(mh->chunk)->markDirty();
+                            if (survival) inventory.consumeSelected(1);
+                        }
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
                 // Spawn eggs (M29.1e; wiki: Spawn Egg): on a mob of its kind, a baby; on a
                 // spawner, the spawner's mob; else the mob stands on the clicked face.
                 if (const uint8_t eggOf = mc::world::itemRegistry().item(inventory.selectedStack().item).spawnEgg;
@@ -2767,6 +2790,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
                             const glm::dvec3 at(b.x + n.x + 0.5, b.y + n.y, b.z + n.z + 0.5);
                             mc::world::MobData mob = mc::Mobs::make(type, at, gameRng);
+                            if (inventory.selectedStack().name != 0) { // (a renamed egg names its mob)
+                                mob.nameId = inventory.selectedStack().name;
+                                mob.persistent = true;
+                            }
                             used = mc::Mobs::add(world, mob);
                         }
                     }
@@ -5472,6 +5499,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
                                 m.prevPitch + (m.pitch - m.prevPitch) * a,
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
+                // (M29.3b) a named mob's name floats over it, facing the camera, within 64.
+                if (m.nameId != 0 && glm::length(p - camera.position) < 64.0) {
+                    const float yawRad = glm::radians(camera.yaw);
+                    const glm::vec3 right(-std::cos(yawRad), 0.0f, -std::sin(yawRad));
+                    entities.addText(mc::world::nameText(m.nameId),
+                                     p + glm::dvec3(0.0, mc::world::mobInfo(m.type).height + 0.5, 0.0), right,
+                                     glm::vec3(0.0f, 1.0f, 0.0f), 0.025f, 0xFFFFFF, camera.position);
+                }
                 if (m.type == mc::world::MobType::EnderDragon && m.hasBeam && m.deathTime == 0)
                     entities.addBeam(m.beam, p + glm::dvec3(0.0, 0.75, 0.0), camera.position);
                 if ((m.type == mc::world::MobType::Guardian ||

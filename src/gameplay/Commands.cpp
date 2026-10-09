@@ -270,6 +270,13 @@ std::optional<world::ItemStack> parseStack(std::string_view id, std::string& err
         const auto potion = world::findPotion(rest);
         if (!potion) return failed(format("Unknown potion '%.*s'", int(rest.size()), rest.data()));
         stack.potion = static_cast<uint8_t>(*potion);
+    } else if (const size_t cn = id.find("[custom_name="); cn != std::string_view::npos) {
+        // name_tag[custom_name="Dinnerbone"] (M29.3b; vanilla's component, quotes optional)
+        std::string_view v = id.substr(cn + 13);
+        v = v.substr(0, v.rfind(']'));
+        while (!v.empty() && (v.front() == '"' || v.front() == '\'')) v.remove_prefix(1);
+        while (!v.empty() && (v.back() == '"' || v.back() == '\'')) v.remove_suffix(1);
+        stack.name = world::addName(v);
     } else if (const size_t en = id.find("[enchantments="); en != std::string_view::npos) {
         // diamond_sword[enchantments={sharpness:5,"minecraft:mending":1}] (M29.2b; vanilla's
         // component; the older {levels:{...}} wrapper is accepted too)

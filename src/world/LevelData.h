@@ -122,6 +122,7 @@ struct LevelData {
         uint16_t trim = 0;     // an armor trim (world/ArmorTrims.h, M23.6)
         uint32_t extra = 0;    // a lodestone target or book pages (world/ItemExtras.h, M28.2)
         uint16_t itemState = 0; // a non-block item's state: a map's post-processing, a loaded crossbow (M28.4a)
+        std::string name;       // (M29.3b) its custom name ("" = none)
     };
     std::vector<SavedItem> inventory;
     int selectedSlot = 0;

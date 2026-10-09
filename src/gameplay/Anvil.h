@@ -2,6 +2,9 @@
 
 #include "world/Enchantments.h"
 
+#include <optional>
+#include <string_view>
+
 namespace mc {
 
 // The anvil (M17.5; wiki: Anvil mechanics): repairing with the material (25% of the
@@ -17,8 +20,9 @@ struct AnvilResult {
     int materialUsed = 0; // units taken from the right slot (repairs); 1 otherwise
     bool tooExpensive = false;
 };
+// `rename`: the name typed in the anvil's field (M29.3b; none: keep the item's name).
 AnvilResult anvilCombine(const world::ItemStack& left, const world::ItemStack& right,
-                         bool creative);
+                         bool creative, std::optional<std::string_view> rename = std::nullopt);
 
 // The material that repairs an item (iron ingot for iron tools...), or 0.
 world::ItemId repairMaterial(world::ItemId item);

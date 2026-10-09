@@ -36,6 +36,10 @@ struct BookContent {
     bool operator==(const BookContent&) const = default;
 };
 uint32_t addBook(BookContent book);
+// Custom names (M29.3b; wiki: Anvil › Renaming, Name Tag): items' and mobs' names, shared
+// entries (1-based ids; equal names share one).
+uint32_t addName(std::string_view text);
+std::string_view nameText(uint32_t id); // ("" for 0 or unknown)
 std::optional<BookContent> bookContent(uint32_t id);
 
 // Fireworks (M28.4c; wiki: Firework Rocket, Firework Star; vanilla minecraft:fireworks /

@@ -946,6 +946,16 @@ def nautilus_armor(base):
     return s.render()
 
 
+def name_tag():
+    """A name tag (M29.3b): a pale tag with a string loop and a hole."""
+    s = Shape()
+    tag = {(x, y) for x in range(5, 14) for y in range(5, 12) if not (x == 5 and y in (5, 11))}
+    s.add(tag, ramp(hexc("#D8CCA8"), 5, spread=0.25))
+    s.add({(7, 8), (8, 8)}, ramp(hexc("#6A5A3A"), 5))
+    s.add({(2, 3), (3, 4), (4, 5), (3, 2), (4, 3)}, ramp(hexc("#E8E8E8"), 5))
+    return s.render()
+
+
 def scale_hex(h, k):
     c = hexc(h)
     return "#%02X%02X%02X" % (int(c[0] * k), int(c[1] * k), int(c[2] * k))
@@ -1679,6 +1689,7 @@ def all_items():
                       ("netherite", "#5A4E56")):
         items[f"{mat}_nautilus_armor"] = nautilus_armor(base)
     items["copper_nugget"] = lump("copper_nugget", "#C8703C", "#F0A878", size=3.2)
+    items["name_tag"] = name_tag()
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

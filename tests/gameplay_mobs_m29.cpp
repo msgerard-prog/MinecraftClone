@@ -352,3 +352,26 @@ TEST_CASE("nautilus armor goes on a tamed nautilus; mount armor cuts damage; gea
     REQUIRE(relic >= 0);
     CHECK(discInfo(relic).comparator == 14);
 }
+
+// M29.3b: names.
+#include "gameplay/Anvil.h"
+#include "world/ItemExtras.h"
+
+TEST_CASE("anvil renaming costs a level; names save on items and mobs") {
+    const ItemStack sword{*itemRegistry().find("iron_sword"), 1};
+    AnvilResult r = anvilCombine(sword, {}, false, std::string_view("Slicer"));
+    REQUIRE_FALSE(r.out.empty());
+    CHECK(r.cost == 1);
+    CHECK(nameText(r.out.name) == "Slicer");
+    CHECK(anvilCombine(sword, {}, false).out.empty()); // (nothing to do)
+    // Saved as minecraft:custom_name, read back.
+    MobScene s;
+    MobData pig = Mobs::make(MobType::Pig, {8.5, 64.0, 8.5}, s.rng);
+    pig.nameId = addName("Wilbur");
+    REQUIRE(Mobs::add(s.world, pig));
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0));
+    bool saved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const std::string* cn = t.get<nbt::Compound>()->string("CustomName")) saved = saved || *cn == "Wilbur";
+    CHECK(saved);
+}

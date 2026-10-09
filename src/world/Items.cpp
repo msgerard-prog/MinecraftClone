@@ -591,6 +591,8 @@ ItemRegistry buildItems() {
     // (M29.3a) copper nuggets (wiki: 9 make an ingot; copper gear smelts into one), the
     // copper and netherite horse armor and the nautilus armor (no durability: wiki).
     r.add({.id = "minecraft:copper_nugget", .texture = "item/copper_nugget"});
+    // (M29.3b; wiki: Name Tag) renamed on an anvil, it names a mob (which then never despawns)
+    r.add({.id = "minecraft:name_tag", .texture = "item/name_tag"});
     for (int k = 5; k < 7; ++k)
         r.add({.id = std::string("minecraft:") + kHorseArmorItems[k], .maxStack = 1,
                .texture = std::string("item/") + kHorseArmorItems[k]});

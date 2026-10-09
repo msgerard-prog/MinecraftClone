@@ -223,6 +223,23 @@ FireworkExplosion fireworkExplosionFromNbt(const nbt::Compound& c) {
     return e;
 }
 
+// A text component as saved (M29.3b): a plain string, {"text":...} or JSON text "\"...\"".
+uint32_t readName(const nbt::Tag* t) {
+    if (!t) return 0;
+    if (const std::string* str = t->get<std::string>()) {
+        std::string_view v = *str;
+        if (v.size() >= 2 && v.front() == '"' && v.back() == '"') v = v.substr(1, v.size() - 2);
+        if (const size_t k = v.find("\"text\":\""); k != std::string_view::npos) {
+            v = v.substr(k + 8);
+            v = v.substr(0, v.find('"'));
+        }
+        return addName(v);
+    }
+    if (const nbt::Compound* c = t->get<nbt::Compound>())
+        if (const std::string* text = c->string("text")) return addName(*text);
+    return 0;
+}
+
 nbt::Compound fireworksNbt(const Fireworks& f) {
     nbt::Compound c;
     c.put("flight_duration", int8_t(f.flight));
@@ -335,6 +352,7 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
                        std::move(ench));
     }
     if (s.repairCost) components.put("minecraft:repair_cost", int32_t{s.repairCost});
+    if (s.name) components.put("minecraft:custom_name", std::string(nameText(s.name))); // (M29.3b: a text component as a plain string)
     if (s.potion) { // 1.20.5+ potion_contents { potion: "minecraft:<id>" }
         nbt::Compound contents;
         contents.put("potion", "minecraft:" + std::string(potionInfo(static_cast<Potion>(s.potion)).id));
@@ -477,6 +495,7 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
                 }
             }
         s.repairCost = static_cast<uint8_t>(std::clamp<int64_t>(comps->integer("minecraft:repair_cost").value_or(0), 0, 255));
+        s.name = readName(comps->find("minecraft:custom_name")); // (M29.3b)
         if (const nbt::Compound* pc = comps->compound("minecraft:potion_contents"))
             if (const std::string* pid = pc->string("potion"))
                 if (const auto p = findPotion(*pid)) s.potion = static_cast<uint8_t>(*p);
@@ -1349,6 +1368,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
         // mount's Passengers); a skeleton trap horse.
         if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
+        if (m.nameId != 0) e.put("CustomName", std::string(nameText(m.nameId))); // (M29.3b)
         { // (M29.2c) lasting effects, as vanilla's active_effects
             std::vector<nbt::Tag> fx;
             for (const MobData::ActiveEffect& a : m.effects)
@@ -1977,6 +1997,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        m.nameId = readName(e->find("CustomName"));                     // (M29.3b)
         if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
             size_t n = 0;
             for (const nbt::Tag& fxTag : fx->items)

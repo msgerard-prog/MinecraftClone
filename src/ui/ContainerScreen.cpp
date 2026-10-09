@@ -12,6 +12,7 @@
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
 #include "ui/Hud.h"
+#include "world/ItemExtras.h"
 #include "world/Enchantments.h"
 #include "world/Trades.h"
 
@@ -77,7 +78,46 @@ void ContainerScreen::openEnchanting(int bookshelves, uint64_t seed) {
     m_seed = seed;
 }
 
-void ContainerScreen::openAnvil() { open(Type::Anvil); }
+namespace {
+// "minecraft:diamond_sword" -> "Diamond Sword" (tooltips, the anvil field's default; ours).
+void prettyItemName(world::ItemId item, char* out, size_t size) {
+    std::string_view id = world::itemRegistry().item(item).id;
+    if (id.starts_with("minecraft:")) id.remove_prefix(10);
+    size_t n = 0;
+    bool up = true;
+    for (const char c : id) {
+        if (n + 1 >= size) break;
+        out[n++] = c == '_' ? ' ' : up && c >= 'a' && c <= 'z' ? char(c - 32) : c;
+        up = c == '_';
+    }
+    out[n] = 0;
+}
+std::string prettyItemName(world::ItemId item) {
+    char buf[64];
+    prettyItemName(item, buf, sizeof(buf));
+    return buf;
+}
+} // namespace
+
+void ContainerScreen::openAnvil() {
+    open(Type::Anvil);
+    m_anvilName.clear();
+    m_anvilNameEdited = false;
+    m_anvilNamedItem = 0;
+}
+
+void ContainerScreen::typeAnvilName(std::string_view typed) {
+    if (typed.empty() || m_grid[0].empty()) return;
+    for (const char c : typed) {
+        if (c == '\b') {
+            if (!m_anvilName.empty()) m_anvilName.pop_back();
+        } else if (c >= 32 && c < 127 && m_anvilName.size() < 50) {
+            m_anvilName.push_back(c);
+        }
+    }
+    m_anvilNameEdited = true;
+    updateResult();
+}
 
 void ContainerScreen::openChest(world::ChestData* first, world::ChestData* second) {
     open(Type::Chest);
@@ -384,7 +424,18 @@ void ContainerScreen::updateResult() {
         return;
     }
     if (m_type == Type::Anvil) {
-        const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative);
+        // The field shows the item's name when a new item goes in (vanilla).
+        if (m_grid[0].item != m_anvilNamedItem) {
+            m_anvilNamedItem = m_grid[0].item;
+            m_anvilName = m_grid[0].empty() ? std::string()
+                                            : m_grid[0].name ? std::string(world::nameText(m_grid[0].name))
+                                                             : prettyItemName(m_grid[0].item);
+            m_anvilNameEdited = false;
+        }
+        // (an unnamed item keeps no name when the field still shows its own)
+        const bool renaming = m_anvilNameEdited && !(m_grid[0].name == 0 && m_anvilName == prettyItemName(m_grid[0].item));
+        const AnvilResult r = anvilCombine(m_grid[0], m_grid[1], m_creative,
+                                           renaming ? std::optional<std::string_view>(m_anvilName) : std::nullopt);
         m_result = r.out;
         m_anvilCost = r.cost;
         m_anvilMaterial = r.materialUsed;
@@ -1200,6 +1251,7 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
 
     Inventory& inv = const_cast<Inventory&>(inventory); // read-only use of stackAt
     const double px = mx - left, py = my - top;
+    const world::ItemStack* hovered = nullptr; // (M29.3b: for the tooltip)
     for (const Slot& slot : slots()) {
         const float x = left + slot.x, y = top + slot.y;
         if (m_type == Type::Mount && slot.kind != Slot::Kind::Inv &&
@@ -1216,8 +1268,49 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
         }
         const world::ItemStack* s = const_cast<ContainerScreen*>(this)->stackAt(slot, inv);
         if (s) icons.draw(b, models, *s, x, y, kIconGrassTint);
-        if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17)
+        if (px >= slot.x - 1 && py >= slot.y - 1 && px < slot.x + 17 && py < slot.y + 17) {
             b.fill(x, y, 16, 16, kHover);
+            if (s && !s->empty()) hovered = s;
+        }
+    }
+    // (M29.3b) the name field of the anvil: its text, a dark box
+    if (m_type == Type::Anvil) {
+        b.fill(left + 59, top + 20, 110, 16, gfx::argb(0xFF000000));
+        b.fill(left + 60, top + 21, 108, 14, gfx::argb(0xFF202020));
+        b.text(m_anvilName, left + 63, top + 24, gfx::argb(0xFFE0E0E0));
+    }
+    // A tooltip for the hovered item (vanilla): its name (custom names in italics there;
+    // ours in yellow), then its enchantments (curses red). Fixed buffers: no allocation.
+    if (hovered && m_carried.empty()) {
+        char lines[9][48];
+        uint32_t colours[9];
+        int n = 0;
+        if (hovered->name) {
+            const std::string_view nm = world::nameText(hovered->name);
+            std::snprintf(lines[0], sizeof(lines[0]), "%.*s", int(nm.size()), nm.data());
+            colours[0] = gfx::argb(0xFFFFFF55);
+        } else {
+            prettyItemName(hovered->item, lines[0], sizeof(lines[0]));
+            colours[0] = gfx::argb(0xFFFFFFFF);
+        }
+        n = 1;
+        static constexpr const char* kRoman[11] = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+        for (const uint16_t v : hovered->enchantments)
+            if (v && n < 9) {
+                const auto& info = world::enchantmentInfo(world::Enchantment(v >> 8));
+                std::snprintf(lines[n], sizeof(lines[n]), "%.*s%s%s", int(info.name.size()), info.name.data(),
+                              info.maxLevel > 1 ? " " : "", info.maxLevel > 1 ? kRoman[std::min(10, v & 0xFF)] : "");
+                colours[n] = info.name.starts_with("Curse") ? gfx::argb(0xFFFF5555) : gfx::argb(0xFFA8A8A8);
+                ++n;
+            }
+        int w = 0;
+        for (int i = 0; i < n; ++i) w = std::max(w, b.textWidth(lines[i]));
+        const float tx = static_cast<float>(mx) + 12, ty = static_cast<float>(my) - 12;
+        const float th = float(n) * 10.0f + 2.0f;
+        b.fill(tx - 3, ty - 3, static_cast<float>(w + 6), th + 2, gfx::argb(0xF0100010));
+        b.fill(tx - 2, ty - 2, static_cast<float>(w + 4), th, gfx::argb(0xFF2A0A5A));
+        b.fill(tx - 1, ty - 1, static_cast<float>(w + 2), th - 2, gfx::argb(0xF0100010));
+        for (int i = 0; i < n; ++i) b.text(lines[i], tx, ty + float(i) * 10.0f, colours[i]);
     }
     icons.draw(b, models, m_carried, static_cast<float>(mx) - 8, static_cast<float>(my) - 8,
                kIconGrassTint);

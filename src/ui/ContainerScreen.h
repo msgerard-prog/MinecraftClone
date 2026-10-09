@@ -62,6 +62,9 @@ public:
     // The enchanting table (M17.5): bookshelves around it and the player's seed.
     void openEnchanting(int bookshelves, uint64_t seed);
     void openAnvil();
+    // (M29.3b) the anvil's name field: typed characters ('\b' erases); 50 at most.
+    void typeAnvilName(std::string_view typed);
+    std::string_view anvilName() const { return m_anvilName; }
     // The player's levels and mode, set each frame (offers and anvil costs need them).
     void setPlayer(int levels, bool creative, uint64_t enchantSeed) {
         m_levels = levels;
@@ -215,6 +218,9 @@ private:
     uint64_t m_seed = 0;
     bool m_creative = false, m_enchanted = false, m_anvilUsed = false, m_anvilTooExpensive = false;
     int m_anvilMaterial = 1;
+    std::string m_anvilName;         // (M29.3b) what the name field shows
+    bool m_anvilNameEdited = false;  // typed since the item went in
+    world::ItemId m_anvilNamedItem = 0; // the left item the field was filled from
     int m_grindCost = 0;        // (taken by main)
     int m_stoneChoice = -1;     // the stonecutter's selected recipe
     world::ItemId m_stoneInput = 0; // the input the choice belongs to (a new kind clears it)
