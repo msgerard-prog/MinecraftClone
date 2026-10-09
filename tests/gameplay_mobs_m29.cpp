@@ -555,3 +555,32 @@ TEST_CASE("M30.3: a mob with its head in a block suffocates (1 a hurt cooldown)"
     CHECK(before - cow->health >= 2.0f);
     CHECK(before - cow->health <= 3.0f);
 }
+
+TEST_CASE("M30.5: a villager opens a wooden door on its way and shuts it behind it") {
+    MobScene s;
+    s.survival = false;
+    s.dayTime = 6000; // (day: it strolls)
+    const auto& r = blockRegistry();
+    for (int z = -32; z <= 47; ++z)
+        for (int y = 64; y <= 66; ++y) s.world.setBlock({10, y, z}, r.defaultState(blocks::Stone));
+    const BlockStateId door = *r.with(r.defaultState(blocks::OakDoor), "facing", "east"); // (across the way)
+    s.world.setBlock({10, 64, 8}, *r.with(door, "half", "lower"));
+    s.world.setBlock({10, 65, 8}, *r.with(door, "half", "upper"));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Villager, {7.5, 64.0, 8.5}, s.rng)));
+    bool opened = false, through = false;
+    for (int t = 0; t < 400 && !(through && r.get(s.world.getBlock({10, 64, 8}), properties::open) == 1); ++t) {
+        MobData* v = findType(s, MobType::Villager);
+        REQUIRE(v);
+        if (!through) {
+            v->goal = {13.5, 64.0, 8.5}; // (held: its own goals would wander off)
+            v->goalTicks = 0;
+        }
+        s.tick();
+        v = findType(s, MobType::Villager);
+        opened = opened || r.get(s.world.getBlock({10, 64, 8}), properties::open) == 0;
+        through = through || v->pos.x > 11.5;
+    }
+    CHECK(opened);
+    CHECK(through);
+    CHECK(r.get(s.world.getBlock({10, 64, 8}), properties::open) == 1); // (shut again)
+}

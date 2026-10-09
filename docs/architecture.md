@@ -805,8 +805,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `Mobs::interact` feeds and shears. Sheep wool is a model layer (`MobPart::layer`,
   inflated, tinted by dye colour) drawn from an extra texture row (`kSheepWoolRow`).
 - Pathfinding (M16.2, `gameplay/Pathfinder`): A* over standable cells (body fits,
-  solid below or water), 4 directions, step up 1 / drop 3, lava and fire blocked,
+  solid below or water), step up 1 / drop 3, lava and fire blocked,
   danger and water costs; preallocated nodes, heap and stamped hash; partial paths.
+  M30.5: `PathOptions` (height, footprint, openDoors), 8 directions (octile heuristic),
+  door/gate/trapdoor and low-block node rules (`cellFree`), no standing on fences
+  (`tallAt`); `Pathfinder::cellOf` anchors wide mobs; Mobs opens and shuts doors
+  (`MobData::doorOpened`).
   `Mobs` keeps one and stores each mob's path (32 cells) in `MobData`.
 - Falling blocks (M16): `BlockUpdates` schedules a 2-tick check when sand/gravel has
   a free block below and lists it in `fallingStarts()`; main hands it to

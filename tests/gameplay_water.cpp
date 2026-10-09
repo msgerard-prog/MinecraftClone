@@ -333,13 +333,12 @@ TEST_CASE("turtles fed seagrass carry eggs home and lay them in the sand; eggs h
     updates.setDayTime(21500); // (just before dawn: eggs crack)
     p.world.setBlock({2, 64, 12}, blockRegistry().set(blockRegistry().defaultState(blocks::TurtleEgg), properties::eggs, 2));
     updates.setRandomTicks({0, 0}, 1, 1000); // (not 4096: the random's low bits repeat every 4096 draws)
-    for (int t = 0; t < 400 && updates.hatched().empty(); ++t) {
+    bool three = false; // (the 3-egg clutch; the turtles' own may hatch too, before or after)
+    for (int t = 0; t < 400 && !three; ++t) {
         updates.setTime(t);
         updates.tick();
+        for (const auto& h : updates.hatched()) three = three || (h.pos == BlockPos{2, 64, 12} && h.count == 3);
     }
-    REQUIRE(!updates.hatched().empty());
-    bool three = false; // (the 3-egg clutch; the turtles' own may hatch too)
-    for (const auto& h : updates.hatched()) three = three || (h.pos == BlockPos{2, 64, 12} && h.count == 3);
     CHECK(three);
     // A baby about to grow up drops a scute.
     MobData baby = Mobs::make(MobType::Turtle, {12.5, 64.0, 2.5}, p.rng);

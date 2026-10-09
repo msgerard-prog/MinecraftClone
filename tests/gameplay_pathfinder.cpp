@@ -99,3 +99,80 @@ TEST_CASE("an unreachable goal gives a partial path to the nearest cell") {
     REQUIRE(r.n > 0);
     CHECK(r.cells[r.n - 1].x == 2); // right up against the wall
 }
+
+// M30.5: pathfinding 2.
+namespace {
+Result pathWith(Pathfinder& pf, const World& w, glm::ivec3 a, glm::ivec3 b, const PathOptions& o) {
+    Result r;
+    r.n = pf.find(w, a, b, o, 1024, r.cells.data(), 64);
+    return r;
+}
+} // namespace
+
+TEST_CASE("M30.5: paths cut diagonally across open ground, but never round a corner") {
+    World w = floorWorld();
+    Pathfinder pf;
+    const Result r = path(pf, w, {0, 64, 0}, {5, 64, 5});
+    REQUIRE(r.n > 0);
+    CHECK(r.cells[size_t(r.n - 1)] == glm::ivec3{5, 64, 5});
+    CHECK(r.n == 5); // five diagonal steps (4-way: ten)
+    // A pillar on the corner: the diagonal past it isn't taken.
+    w.setBlock({1, 64, 0}, S(blocks::Stone));
+    w.setBlock({1, 65, 0}, S(blocks::Stone));
+    const Result c = path(pf, w, {0, 64, 0}, {1, 64, 1});
+    REQUIRE(c.n > 0);
+    CHECK(c.n == 2); // (round by (0, 1))
+    CHECK(c.cells[0] == glm::ivec3{0, 64, 1});
+}
+
+TEST_CASE("M30.5: doors - open ones pass, closed wooden ones only for door openers, iron never") {
+    World w = floorWorld();
+    const auto& r = blockRegistry();
+    for (int z = -32; z <= 47; ++z) // a wall at x = 2 with a door at z = 0
+        for (int y = 64; y <= 66; ++y) w.setBlock({2, y, z}, S(blocks::Stone));
+    const BlockStateId lower = *r.with(r.defaultState(blocks::OakDoor), "half", "lower");
+    const BlockStateId upper = *r.with(r.defaultState(blocks::OakDoor), "half", "upper");
+    w.setBlock({2, 64, 0}, lower);
+    w.setBlock({2, 65, 0}, upper);
+    Pathfinder pf;
+    PathOptions walker, villager;
+    villager.openDoors = true;
+    CHECK(pathWith(pf, w, {0, 64, 0}, {4, 64, 0}, walker).cells[0] != glm::ivec3{4, 64, 0}); // (no way through)
+    Result v = pathWith(pf, w, {0, 64, 0}, {4, 64, 0}, villager);
+    REQUIRE(v.n > 0);
+    CHECK(v.cells[size_t(v.n - 1)] == glm::ivec3{4, 64, 0});
+    w.setBlock({2, 64, 0}, r.set(lower, properties::open, 0)); // opened
+    w.setBlock({2, 65, 0}, r.set(upper, properties::open, 0));
+    Result o = pathWith(pf, w, {0, 64, 0}, {4, 64, 0}, walker);
+    REQUIRE(o.n > 0);
+    CHECK(o.cells[size_t(o.n - 1)] == glm::ivec3{4, 64, 0});
+    w.setBlock({2, 64, 0}, *r.with(r.defaultState(blocks::IronDoor), "half", "lower"));
+    w.setBlock({2, 65, 0}, *r.with(r.defaultState(blocks::IronDoor), "half", "upper"));
+    v = pathWith(pf, w, {0, 64, 0}, {4, 64, 0}, villager);
+    CHECK((v.n == 0 || v.cells[size_t(v.n - 1)] != glm::ivec3{4, 64, 0}));
+}
+
+TEST_CASE("M30.5: fences are too high to step onto; carpets are walked over; wide mobs need room") {
+    World w = floorWorld();
+    for (int z = -32; z <= 47; ++z) w.setBlock({2, 64, z}, S(blocks::OakFence));
+    Pathfinder pf;
+    Result f = path(pf, w, {0, 64, 0}, {4, 64, 0});
+    CHECK((f.n == 0 || f.cells[size_t(f.n - 1)] != glm::ivec3{4, 64, 0}));
+    for (int z = -32; z <= 47; ++z) w.setBlock({2, 64, z}, S(*blockRegistry().findBlock("minecraft:white_carpet")));
+    f = path(pf, w, {0, 64, 0}, {4, 64, 0});
+    REQUIRE(f.n > 0);
+    CHECK(f.cells[size_t(f.n - 1)] == glm::ivec3{4, 64, 0});
+    // A 1-wide gap in a wall: a 1-wide mob passes, a 2-wide one (an iron golem) doesn't.
+    World g = floorWorld();
+    for (int z = -32; z <= 47; ++z)
+        if (z != 0)
+            for (int y = 64; y <= 66; ++y) g.setBlock({2, y, z}, S(blocks::Stone));
+    PathOptions narrow, wide;
+    wide.footprint = 2;
+    wide.height = 3;
+    Result n1 = pathWith(pf, g, {0, 64, 0}, {4, 64, 0}, narrow);
+    REQUIRE(n1.n > 0);
+    CHECK(n1.cells[size_t(n1.n - 1)] == glm::ivec3{4, 64, 0});
+    Result n2 = pathWith(pf, g, {0, 64, -1}, {4, 64, -1}, wide);
+    CHECK((n2.n == 0 || n2.cells[size_t(n2.n - 1)] != glm::ivec3{4, 64, -1}));
+}

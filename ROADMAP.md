@@ -22,7 +22,7 @@ M30 - Play feel (the deviations noticed within minutes of playing):
 3. ✅ M30.3 - Poses (the camera's eye height now eases, as vanilla - answers the M4 check): swimming (sprint under water, 0.6 box), crawling under 1-block gaps,
    the gliding box; suffocation for the player and mobs.
 4. ✅ M30.4 - Dropped items and orbs (they also stay behind when changing dimension): merging, saved as entities, death drops scattered.
-5. M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
+5. ✅ M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
    doors), fences and walls as 1.5-high, trapdoors.
 6. M30.6 - Creative tabs and search; a basic recipe book.
 M31 - Performance:

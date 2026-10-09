@@ -1,5 +1,6 @@
 #include "gameplay/Pathfinder.h"
 
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 
 #include <algorithm>
@@ -22,7 +23,8 @@ uint64_t pack(const glm::ivec3& p) {
 
 int heuristic(const glm::ivec3& a, const glm::ivec3& b) {
     const glm::ivec3 d = glm::abs(a - b);
-    return (d.x + d.z) * 10 + d.y * 5; // never more than the real cost (admissible)
+    // Octile distance (diagonals cost 14): never more than the real cost (admissible).
+    return std::max(d.x, d.z) * 10 + std::min(d.x, d.z) * 4 + d.y * 5;
 }
 
 } // namespace
@@ -47,21 +49,58 @@ BlockStateId Pathfinder::at(const World& world, int x, int y, int z) {
                    : blockRegistry().defaultState(blocks::Stone);
 }
 
-bool Pathfinder::passable(const World& world, const glm::ivec3& c, int height) {
+bool Pathfinder::cellFree(BlockStateId s, bool feet) const {
     const auto& reg = blockRegistry();
-    for (int i = 0; i < height; ++i) {
-        const BlockStateId s = at(world, c.x, c.y + i, c.z);
-        const BlockId b = reg.blockOf(s);
-        if (reg.collides(s) || b == blocks::Lava || isFire(b)) return false;
+    const BlockId b = reg.blockOf(s);
+    if (b == blocks::Lava || isFire(b)) return false;
+    if (!reg.collides(s)) return true;
+    const BlockId like = reg.likeOf(b);
+    // Doors (vanilla DOOR_OPEN / DOOR_WOOD_CLOSED / DOOR_IRON_CLOSED), gates and trapdoors.
+    if (like == blocks::OakDoor || b == blocks::IronDoor)
+        return reg.get(s, properties::open) == 0 || (like == blocks::OakDoor && m_opts.openDoors); // [true, false]
+    if ((like == blocks::OakFenceGate || like == blocks::OakTrapdoor || b == blocks::IronTrapdoor) &&
+        reg.get(s, properties::open) == 0)
+        return true;
+    // Low blocks a mob simply walks over (carpets, thin snow, lily pads...).
+    if (feet) {
+        const BlockShape& shape = collisionShape(s);
+        int top = 0;
+        for (int i = 0; i < shape.count; ++i) top = std::max<int>(top, shape.boxes[size_t(i)].to[1]);
+        return top <= 3; // (3/16 block)
     }
+    return false;
+}
+
+bool Pathfinder::passable(const World& world, const glm::ivec3& c) {
+    for (int dz = 0; dz < m_opts.footprint; ++dz)
+        for (int dx = 0; dx < m_opts.footprint; ++dx)
+            for (int i = 0; i < m_opts.height; ++i)
+                if (!cellFree(at(world, c.x + dx, c.y + i, c.z + dz), i == 0)) return false;
     return true;
 }
 
-bool Pathfinder::standable(const World& world, const glm::ivec3& c, int height) {
-    if (!world.isInHeight(c.y) || !passable(world, c, height)) return false;
+bool Pathfinder::tallAt(const World& world, const glm::ivec3& c) {
+    const BlockStateId s = at(world, c.x, c.y, c.z);
+    if (!blockRegistry().collides(s)) return false;
+    const BlockShape& shape = collisionShape(s);
+    for (int i = 0; i < shape.count; ++i)
+        if (shape.boxes[size_t(i)].to[1] > 16) return true; // (fences, walls, closed gates: 24/16)
+    return false;
+}
+
+bool Pathfinder::standable(const World& world, const glm::ivec3& c) {
+    if (!world.isInHeight(c.y) || !passable(world, c)) return false;
     const auto& reg = blockRegistry();
     if (reg.blockOf(at(world, c.x, c.y, c.z)) == blocks::Water) return true; // swimming
-    return reg.collides(at(world, c.x, c.y - 1, c.z));
+    // Something to stand on under the footprint, and no fence top to balance on.
+    bool floor = false;
+    for (int dz = 0; dz < m_opts.footprint; ++dz)
+        for (int dx = 0; dx < m_opts.footprint; ++dx) {
+            const glm::ivec3 below{c.x + dx, c.y - 1, c.z + dz};
+            if (tallAt(world, below)) return false;
+            floor = floor || reg.collides(at(world, below.x, below.y, below.z));
+        }
+    return floor;
 }
 
 int Pathfinder::danger(const World& world, const glm::ivec3& c) {
@@ -99,7 +138,9 @@ int Pathfinder::pop() {
 }
 
 int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ivec3& goal,
-                     int height, int maxNodes, glm::ivec3* out, int maxOut) {
+                     const PathOptions& opts, int maxNodes, glm::ivec3* out, int maxOut) {
+    m_opts = opts;
+    const int height = opts.height;
     maxNodes = std::min(maxNodes, kMaxNodes);
     ++m_search;
     m_nodes.clear();
@@ -132,6 +173,7 @@ int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ive
     int best = 0; // the node nearest to the goal (partial path)
     int bestH = heuristic(start, goal);
     static constexpr int kDirs[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+    static constexpr int kDiagonals[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
     while (!m_heap.empty()) {
         const int ni = pop();
         if (m_nodes[size_t(ni)].closed) continue; // (an older, costlier heap entry)
@@ -143,28 +185,43 @@ int Pathfinder::find(const World& world, const glm::ivec3& start, const glm::ive
             bestH = h;
         }
         if (n.pos == goal) break;
-        for (const auto& d : kDirs) {
+        bool flat[4] = {false, false, false, false}; // (each side walkable on the level: diagonals)
+        for (int k = 0; k < 4; ++k) {
+            const auto& d = kDirs[k];
             glm::ivec3 q{n.pos.x + d[0], n.pos.y, n.pos.z + d[1]};
-            if (passable(world, q, height)) {
+            if (passable(world, q)) {
                 // Walk on, or drop down to the first floor within kMaxDrop.
                 int drop = 0;
-                while (drop <= kMaxDrop && !standable(world, q, height)) {
+                while (drop <= kMaxDrop && !standable(world, q)) {
                     --q.y;
                     ++drop;
-                    if (!passable(world, q, height)) {
+                    if (!passable(world, q)) {
                         drop = kMaxDrop + 1;
                         break;
                     }
                 }
+                flat[k] = drop == 0;
                 if (drop > kMaxDrop || closedAt(q)) continue;
                 visit(q, n.g + 10 + drop * 2 + danger(world, q), ni);
-            } else {
-                // Step up 1: the cell above the wall, with headroom over the mob.
+            } else if (!tallAt(world, q)) {
+                // Step up 1: the cell above the wall (not a fence or wall), with headroom
+                // over the mob.
                 const glm::ivec3 up{q.x, q.y + 1, q.z};
-                if (!closedAt(up) && standable(world, up, height) &&
-                    passable(world, {n.pos.x, n.pos.y + height, n.pos.z}, 1))
+                const int saved = m_opts.height;
+                m_opts.height = 1;
+                const bool headroom = passable(world, {n.pos.x, n.pos.y + height, n.pos.z});
+                m_opts.height = saved;
+                if (!closedAt(up) && standable(world, up) && headroom)
                     visit(up, n.g + 15 + danger(world, up), ni);
             }
+        }
+        // Diagonals (M30.5; vanilla): on the level, both sides walkable - no corner cutting.
+        for (const auto& d : kDiagonals) {
+            const int sx = d[0] < 0 ? 2 : 3, sz = d[1] < 0 ? 0 : 1; // kDirs indices of the two sides
+            if (!flat[sx] || !flat[sz]) continue;
+            const glm::ivec3 q{n.pos.x + d[0], n.pos.y, n.pos.z + d[1]};
+            if (closedAt(q) || !standable(world, q)) continue;
+            visit(q, n.g + 14 + danger(world, q), ni);
         }
     }
     // Walk back from the best node; write the first maxOut steps (start excluded).

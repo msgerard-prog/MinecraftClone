@@ -210,6 +210,20 @@ bool Mobs::add(World& world, const MobData& mob) {
     return true;
 }
 
+// Opens or shuts a wooden door from its lower half, both halves together (M30.5).
+static void setMobDoor(World& world, const BlockPos& lower, bool open) {
+    const auto& reg = blockRegistry();
+    const BlockStateId ls = world.getBlock(lower);
+    if (reg.likeOf(reg.blockOf(ls)) != blocks::OakDoor || reg.get(ls, properties::doorHalf) != 1) return;
+    const BlockStateId now = reg.set(ls, properties::open, open ? 0 : 1);
+    if (now == ls) return;
+    world.updateBlock(lower, now);
+    const BlockPos up{lower.x, lower.y + 1, lower.z};
+    const BlockStateId us = world.getBlock(up);
+    if (reg.likeOf(reg.blockOf(us)) == blocks::OakDoor) world.updateBlock(up, reg.set(us, properties::open, open ? 0 : 1));
+    world.playSound(open ? Sound::DoorOpen : Sound::DoorClose, lower.x + 0.5, lower.y + 0.5, lower.z + 0.5);
+}
+
 void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool jump) {
     const FluidContact fluid = fluidContact(world, box(m));
     const bool inWater = fluid.water;
@@ -665,17 +679,22 @@ void Mobs::ai(Context& ctx, MobData& m) {
     // Path to the goal (M16.2): a new search only when the goal cell moved (or a chase
     // path ran out), at most every 4-10 ticks; longer waits after a partial path (+15)
     // and for far targets (+5 past 16 blocks, +10 past 32), as vanilla's melee goal.
-    const glm::ivec3 feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
-                          int(std::floor(m.pos.z))};
-    const glm::ivec3 goalCell{int(std::floor(m.goal.x)), int(std::floor(m.goal.y + 0.01)),
-                              int(std::floor(m.goal.z))};
+    // (M30.5) wide mobs path with their footprint (ceil of the width, at most 3 cells) from
+    // its corner; villagers, traders and piglins open wooden doors (vanilla).
+    PathOptions pathOpts;
+    pathOpts.height = int(std::ceil(info.height));
+    pathOpts.footprint = std::clamp(int(std::ceil(info.width - 1e-6)), 1, 3);
+    pathOpts.openDoors = m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
+                         m.type == MobType::Piglin || m.type == MobType::PiglinBrute;
+    const double cellCentre = double(pathOpts.footprint) * 0.5;
+    const glm::ivec3 feet = Pathfinder::cellOf(m.pos, pathOpts.footprint);
+    const glm::ivec3 goalCell = Pathfinder::cellOf(m.goal, pathOpts.footprint);
     if (m.repathTicks > 0) --m.repathTicks;
     const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
     if (goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished))) {
-        const int heightCells = int(std::ceil(info.height));
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).
         m.pathLength =
-            uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, heightCells, chase ? 560 : 200,
+            uint8_t(m_pathfinder.find(ctx.world, feet, goalCell, pathOpts, chase ? 560 : 200,
                                       m.path.data(), MobData::kMaxPath));
         m.pathIndex = 0;
         m.pathRequest = goalCell;
@@ -686,14 +705,14 @@ void Mobs::ai(Context& ctx, MobData& m) {
         if (!chase && partial && m.pathLength > 0 && m.panicTicks == 0) {
             // A stroll target it can't reach: stop where the path ends.
             const glm::ivec3 end = m.path[size_t(m.pathLength - 1)];
-            m.goal = {end.x + 0.5, double(end.y), end.z + 0.5};
+            m.goal = {end.x + cellCentre, double(end.y), end.z + cellCentre};
             m.pathRequest = end;
         }
     }
     // The next cell of the path (skipping the ones reached), else the goal itself.
     while (m.pathIndex < m.pathLength) {
         const glm::ivec3 c = m.path[m.pathIndex];
-        const double dx = c.x + 0.5 - m.pos.x, dz = c.z + 0.5 - m.pos.z;
+        const double dx = c.x + cellCentre - m.pos.x, dz = c.z + cellCentre - m.pos.z;
         if (dx * dx + dz * dz < 0.35 * 0.35 && std::abs(double(c.y) - m.pos.y) < 1.1)
             ++m.pathIndex;
         else
@@ -703,9 +722,32 @@ void Mobs::ai(Context& ctx, MobData& m) {
     bool climb = false;
     if (m.pathIndex < m.pathLength) {
         const glm::ivec3 c = m.path[m.pathIndex];
-        steer = {c.x + 0.5, double(c.y), c.z + 0.5};
-        const double cdx = c.x + 0.5 - m.pos.x, cdz = c.z + 0.5 - m.pos.z;
+        steer = {c.x + cellCentre, double(c.y), c.z + cellCentre};
+        const double cdx = c.x + cellCentre - m.pos.x, cdz = c.z + cellCentre - m.pos.z;
         climb = c.y > feet.y && cdx * cdx + cdz * cdz < 1.5 * 1.5; // a step up just ahead: jump
+        // (M30.5; vanilla InteractWithDoor) a closed wooden door in the next cell opens; it
+        // is shut again about a second after the mob is through.
+        if (pathOpts.openDoors && m.doorOpened.y == INT32_MIN) {
+            const auto& reg = blockRegistry();
+            const BlockPos dp{c.x, c.y, c.z};
+            const BlockStateId ds = ctx.world.getBlock(dp);
+            if (reg.likeOf(reg.blockOf(ds)) == blocks::OakDoor && reg.get(ds, properties::open) == 1 &&
+                cdx * cdx + cdz * cdz < 2.0 * 2.0) {
+                const bool upper = reg.get(ds, properties::doorHalf) == 0;
+                const BlockPos lower = upper ? BlockPos{dp.x, dp.y - 1, dp.z} : dp;
+                setMobDoor(ctx.world, lower, true);
+                m.doorOpened = {lower.x, lower.y, lower.z};
+                m.doorTicks = 0;
+            }
+        }
+    }
+    if (m.doorOpened.y != INT32_MIN) {
+        const glm::dvec3 door(m.doorOpened.x + 0.5, m.doorOpened.y, m.doorOpened.z + 0.5);
+        const double gone = glm::length(glm::dvec2(door.x - m.pos.x, door.z - m.pos.z));
+        if ((gone > 1.5 && ++m.doorTicks > 20) || m.doorTicks > 200) {
+            setMobDoor(ctx.world, {m.doorOpened.x, m.doorOpened.y, m.doorOpened.z}, false);
+            m.doorOpened.y = INT32_MIN;
+        }
     }
 
     // Steer towards it; jump when a block is in the way.
