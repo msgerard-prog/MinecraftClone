@@ -1390,6 +1390,9 @@ BlockRegistry buildVanillaBlocks() {
                             {{&facing, "north"}, {&waterlogged, "true"}}),
                       next++);
     }
+    // (M29.5; wiki: Target - 0.5, hoe)
+    check(r.add("target", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Hoe}, {{&power, "0"}}),
+          blocks::Target);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

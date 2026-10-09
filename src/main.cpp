@@ -4417,6 +4417,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             // Bottles o' enchanting that broke (M29.3c; wiki: 3-11 experience).
             for (const glm::dvec3& at : projectiles.xpBottles())
                 orbs.drop(at, 3 + int(gameRng.nextInt(5)) + int(gameRng.nextInt(5)), gameRng);
+            for (const auto& hit : projectiles.targetHits()) // (M29.5: target blocks)
+                blockUpdates.hitTarget(hit.block, hit.strength, hit.ticks);
             // Furnace output taken: its stored recipe uses become orbs at the player (vanilla).
             if (const int xp = mc::recipesExperience(container.takeRecipes(), gameRng); xp > 0)
                 orbs.drop(player.position() + glm::dvec3(0.0, 0.5, 0.0), xp, gameRng);

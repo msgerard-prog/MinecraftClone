@@ -108,6 +108,7 @@ public:
         m_items.reserve(kMax);
         m_chicks.reserve(16);
         m_xpBottles.reserve(16);
+        m_targetHits.reserve(16);
         m_eyeDrops.reserve(16);
         m_explosions.reserve(16);
         m_witherBlasts.reserve(16);
@@ -188,6 +189,15 @@ private:
     bool m_thundering = false;
     std::vector<std::pair<glm::dvec3, uint8_t>> m_chicks; // reused (where, the egg's variant - M29.1d)
     std::vector<glm::dvec3> m_xpBottles; // (M29.3c) bottles o' enchanting that broke this tick
+public:
+    struct TargetHit { // (M29.5) a target block hit this tick
+        world::BlockPos block;
+        int strength, ticks;
+    };
+    const std::vector<TargetHit>& targetHits() const { return m_targetHits; }
+
+private:
+    std::vector<TargetHit> m_targetHits;
 
 public:
     // Where bottles o' enchanting broke this tick (M29.3c): main drops 3-11 experience there.

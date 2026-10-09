@@ -271,6 +271,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return flag(s, powered) ? 15 : 0;
     case B::RedstoneBlock:
         return 15;
+    case B::Target: // (M29.5) on every side, while hit
+        return R().get(s, power);
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -326,6 +328,21 @@ void BlockUpdates::jukeboxChanged(const BlockPos& p) {
     for (const Direction d : {Direction::West, Direction::East, Direction::Down, Direction::Up, Direction::North,
                               Direction::South})
         notifyNeighbours(rel(p, d)); // (strong power: what conducts it tells its neighbours)
+}
+
+void BlockUpdates::hitTarget(const BlockPos& p, int strength, int ticks) {
+    const BlockStateId s = at(p);
+    if (blockOf(s) != B::Target || hasTick(p, B::Target)) return;
+    set(p, R().set(s, power, std::clamp(strength, 1, 15)));
+    schedule(p, B::Target, ticks, 0);
+}
+
+int BlockUpdates::targetStrength(const glm::dvec3& point, Direction side) {
+    auto off = [](double v) { return std::abs(v - std::floor(v) - 0.5); };
+    const bool x = side == Direction::West || side == Direction::East, y = side == Direction::Up || side == Direction::Down;
+    const bool z = !x && !y;
+    const double d = std::max({x ? 0.0 : off(point.x), y ? 0.0 : off(point.y), z ? 0.0 : off(point.z)});
+    return std::max(1, int(std::ceil(15.0 * std::clamp((0.5 - d) / 0.5, 0.0, 1.0))));
 }
 
 int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
@@ -1770,6 +1787,9 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     }
     case B::RedstoneLamp:
         if (flag(s, lit) && bestNeighbourSignal(p) == 0) set(p, withFlag(s, lit, false));
+        break;
+    case B::Target: // (M29.5) the hit wears off
+        if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
         break;
     case B::StoneButton:
     case B::OakButton:

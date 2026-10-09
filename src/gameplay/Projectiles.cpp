@@ -357,6 +357,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
     Hits hits;
     m_chicks.clear();
     m_xpBottles.clear();
+    m_targetHits.clear();
     m_eyeDrops.clear();
     m_explosions.clear();
     m_witherBlasts.clear();
@@ -578,6 +579,14 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     reach = t;
                     target = Target::Player;
                 }
+            }
+            // (M29.5; wiki: Target) a projectile reaching a target block lights it by how near
+            // the centre it hit: arrows and tridents for 20 ticks, the rest for 8.
+            if (block && target == Target::None && blockRegistry().blockOf(world.getBlock(block->block)) == blocks::Target &&
+                m_targetHits.size() < m_targetHits.capacity()) {
+                const bool arrow = p.kind == ProjectileKind::Arrow || p.kind == ProjectileKind::Trident;
+                m_targetHits.push_back({block->block, BlockUpdates::targetStrength(p.pos + dir * block->distance, block->face),
+                                        arrow ? 20 : 8});
             }
             const bool fireball =
                 p.kind == ProjectileKind::GhastFireball || p.kind == ProjectileKind::BlazeFireball;

@@ -863,6 +863,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 else addBox(m, 0, 4, 0, 8, 4, 16, sp);
                 for (int d = 0; d < 6; ++d)
                     m.boxes[0].faces[d].present = d == int(Direction::Up) || d == int(Direction::Down);
+            } else if (name == "target") { // (M29.5) cube_column
+                m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
             } else if (name == "melon") { // vanilla: cube_column
                 m = single(cubeColumn(sprite("melon_side"), sprite("melon_top"), "y"));
             } else if (name.ends_with("_stem") && (name.starts_with("melon") || name.starts_with("pumpkin") ||

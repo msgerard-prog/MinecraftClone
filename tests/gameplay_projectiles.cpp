@@ -2,6 +2,7 @@
 #include "gameplay/Explosion.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Projectiles.h"
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 
 #include <doctest/doctest.h>
@@ -244,4 +245,33 @@ TEST_CASE("eyes of ender fly 12 blocks toward a far stronghold and up; near one,
     throwEye(near.inventory, false, {0.5, 65.6, 0.5}, {5, 0}, near.projectiles);
     near.tick(40);
     CHECK(near.projectiles.items()[0].pos.y < 65.6); // over the stronghold: it sinks
+}
+
+TEST_CASE("M29.5: an arrow in a target's centre gives 15 for 20 ticks; off-centre less") {
+    Scene s;
+    s.world.setBlock({0, 65, 6}, S(blocks::Target));
+    s.projectiles.shoot(ProjectileKind::Arrow, {0.5, 65.5, 0.5}, {0, 0, 1}, 2.0, 0.0, true, false, s.rng);
+    std::optional<Projectiles::TargetHit> hit;
+    for (int i = 0; i < 10 && !hit; ++i) {
+        s.projectiles.tick(s.world, s.player, &s.vitals, s.inventory, true, s.rng);
+        if (!s.projectiles.targetHits().empty()) hit = s.projectiles.targetHits()[0];
+    }
+    REQUIRE(hit);
+    CHECK(hit->block == BlockPos{0, 65, 6});
+    CHECK(hit->strength >= 10); // (gravity pulls it about 0.1 below the centre)
+    CHECK(hit->ticks == 20);
+    CHECK(BlockUpdates::targetStrength({0.5, 65.5, 6.0}, Direction::North) == 15);
+    CHECK(BlockUpdates::targetStrength({0.95, 65.5, 6.0}, Direction::North) == 2);
+    // The block keeps the power until its tick.
+    BlockUpdates u(s.world);
+    s.world.setListener(&u);
+    int64_t t = 0;
+    u.setTime(t);
+    u.hitTarget(hit->block, hit->strength, hit->ticks);
+    CHECK(blockRegistry().get(s.world.getBlock({0, 65, 6}), properties::power) == hit->strength);
+    for (int i = 0; i < 21; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(blockRegistry().get(s.world.getBlock({0, 65, 6}), properties::power) == 0);
 }

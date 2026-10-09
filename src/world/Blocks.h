@@ -577,6 +577,8 @@ enum : BlockId {
     BambooSapling, // what a planted bamboo shoot is until it grows
     CoralWallFanFirst, // the 10 wall fans: kCoralKinds alive then dead each (facing: out of the wall)
     CoralWallFanLast = CoralWallFanFirst + 9,
+    // M29.5 (wiki pages of each)
+    Target, // power 0..15 while hit by a projectile
     Count
 };
 } // namespace blocks

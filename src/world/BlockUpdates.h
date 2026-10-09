@@ -167,6 +167,12 @@ public:
     // something is on it, checked every 20 ticks (weighted: 10); weighted plates give
     // min(15, n) (gold) or ceil(min(n, 150) / 10) (iron).
     void pressPlate(const BlockPos& p, bool item, bool minecart = false); // (detector rails: minecarts only)
+    // A projectile hit a target block (M29.5; wiki: Target): `strength` 1..15 for `ticks`
+    // (arrows 20, others 8); a target still lit from a hit ignores new ones.
+    void hitTarget(const BlockPos& p, int strength, int ticks);
+    // The target's strength for a hit at `point` on `face`: 15 at the face's centre, less
+    // toward its edge, at least 1.
+    static int targetStrength(const glm::dvec3& point, Direction side);
     // TNT (M21.1b; wiki: TNT): redstone power, fire, flint and steel light it - the
     // block goes and gameplay spawns primed TNT where primedTnt() lists.
     void primeTnt(const BlockPos& p);

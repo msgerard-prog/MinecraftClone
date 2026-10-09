@@ -723,6 +723,7 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"#", "#"}, {{'#', item("nether_brick_slab")}}, "chiseled_nether_bricks"));
         r.push_back(shapeless({item("carved_pumpkin"), item("torch")}, "jack_o_lantern"));
         r.push_back(shaped({"B.B", ".B."}, {{'B', item("brick")}}, "flower_pot")); // (M29.4b)
+        r.push_back(shaped({".R.", "RHR", ".R."}, {{'R', item("redstone")}, {'H', item("hay_block")}}, "target")); // (M29.5)
         // (M29.3f; wiki: Bundle) string over leather; a dye colours it (ours: emptied)
         r.push_back(shaped({"S", "L"}, {{'S', item("string")}, {'L', item("leather")}}, "bundle"));
         for (const char* c : kDyeColours)
