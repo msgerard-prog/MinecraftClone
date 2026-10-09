@@ -516,3 +516,27 @@ TEST_CASE("M29 review: a hopper cart crossing a chunk border keeps the item it p
         CHECK(c->pos.x > 16.0); // (it crossed)
     }
 }
+
+TEST_CASE("M29 review: a fully oxidized copper golem soon turns into a statue, dropping what it carried") {
+    MobScene s;
+    s.survival = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::CopperGolem, {8.5, 64.0, 8.5}, s.rng)));
+    MobData* g = findType(s, MobType::CopperGolem);
+    REQUIRE(g);
+    g->woolColour = 3; // (oxidized)
+    g->mouthItem = *itemRegistry().find("apple");
+    g->allayCount = 2;
+    int ticks = 0;
+    while (findType(s, MobType::CopperGolem) && ticks < 1500) {
+        s.tick();
+        ++ticks;
+    }
+    MESSAGE("statue after " << ticks << " ticks");
+    CHECK(findType(s, MobType::CopperGolem) == nullptr);
+    CHECK(ticks < 1500);
+    CHECK(blockRegistry().block(blockRegistry().blockOf(s.world.getBlock({8, 64, 8}))).id ==
+          "minecraft:oxidized_copper_golem_statue");
+    int apples = 0;
+    for (const auto& it : s.items.items()) apples += it.stack.item == *itemRegistry().find("apple") ? it.stack.count : 0;
+    CHECK(apples == 2);
+}

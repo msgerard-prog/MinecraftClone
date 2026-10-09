@@ -95,16 +95,27 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
     if (m.woolColour >= 3 && !m.sheared) { // fully oxidized: frozen
         m.goal = m.pos;
         m.vel.x = m.vel.z = 0.0;
-        // (M29.6; wiki: Copper Golem Statue) after 5-10 minutes frozen it is a statue block
-        if (m.eggTicks <= 0) m.eggTicks = 6000 + int(ctx.rng.nextInt(6000));
-        if (--m.eggTicks == 0) {
+        // (M29.6; wiki: Copper Golem Statue) a fully oxidized golem becomes a statue block with
+        // a 0.58% chance a tick (~8.6 s on average - M29 review), where its cell is free, dropping
+        // what it carried.
+        if (ctx.rng.nextFloat() < 0.0058f) {
             const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
-            if (BlockUpdates::replaceable(ctx.world.getBlock(at))) {
+            const BlockStateId here = ctx.world.getBlock(at);
+            if (here == 0 || (BlockUpdates::replaceable(here) && blockRegistry().blockOf(here) != blocks::Water)) {
+                if (m.mouthItem != kNoItem) {
+                    ctx.items.spawn(m.pos + glm::dvec3(0.0, 0.5, 0.0),
+                                    {m.mouthItem, uint8_t(std::max<int>(1, m.allayCount))}, ctx.rng);
+                    m.mouthItem = kNoItem;
+                    m.allayCount = 0;
+                }
                 static constexpr const char* kFacing[4] = {"south", "west", "north", "east"}; // (vanilla yaw quarters)
                 const int q = int(std::floor(std::fmod(std::fmod(m.yaw, 360.0f) + 360.0f, 360.0f) / 90.0f + 0.5f)) & 3;
                 const BlockStateId st = blockRegistry().defaultState(*blockRegistry().findBlock("minecraft:oxidized_copper_golem_statue"));
                 ctx.world.updateBlock(at, blockRegistry().with(st, "facing", kFacing[q]).value_or(st));
-                m.vanish = true;
+                m.vanish = true; // (gone next tick, no drops: not a death)
+                m.health = 0.0f;
+                m.deathTime = 19;
+                m.lastHurtByPlayer = false;
             }
         }
         return true;

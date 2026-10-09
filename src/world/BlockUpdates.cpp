@@ -520,6 +520,14 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
         const ChestData* d = bc ? bc->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
         return d ? d->lastSlot + 1 : 0;
     }
+    if (blockOf(at(p)) == B::Shelf) { // (M29 review; wiki: Shelf) left 1 + middle 2 + right 4
+        Chunk* sc = chunkAt(p);
+        const ChestData* d = sc ? sc->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        if (!d) return 0;
+        return (d->items[0].empty() ? 0 : 1) + (d->items[1].empty() ? 0 : 2) + (d->items[2].empty() ? 0 : 4);
+    }
+    if (const BlockId gb = R().blockOf(at(p)); gb >= B::CopperGolemStatue && gb <= B::CopperGolemStatueLast)
+        return R().get(at(p), golemPose) + 1; // (wiki: Copper Golem Statue - its pose, 1-4)
     if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
         struct DiscSignal {
             std::string_view name;
@@ -1106,6 +1114,8 @@ BlockId BlockUpdates::infestedOf(BlockId b) {
 void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
     // An infested block that broke lets its silverfish out (M26.4a; wiki: Infested Block).
     if (isInfested(blockOf(old)) && !isInfested(blockOf(now)) && m_silverfish.size() < 256) m_silverfish.push_back(p);
+    // (M29 review; wiki: Tripwire) wire broken without shears trips its hooks once.
+    if (blockOf(old) == B::Tripwire && blockOf(now) != B::Tripwire) tripwireRemoved(p, old);
     // (M29.5) a daylight detector reads the sky once a second (vanilla: game time % 20)
     if (blockOf(now) == B::DaylightDetector && blockOf(old) != B::DaylightDetector && !hasTick(p, B::DaylightDetector))
         schedule(p, B::DaylightDetector, 1, 0);
@@ -2109,6 +2119,9 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
             set(p, withFlag(s, powered, true));
             schedule(p, B::Observer, 2, 0); // a 2-tick pulse (wiki: Observer)
         }
+        break;
+    case B::TripwireHook: // (M29 review) the end of a cut wire's pulse
+        tripwireHookUpdate(p);
         break;
     case B::Tripwire: { // (M29.5) still something in it? stay powered; else let go
         bool still = false;

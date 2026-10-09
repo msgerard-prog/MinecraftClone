@@ -2560,8 +2560,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
                 // Shelves (M29.6; wiki: Shelf): a click on the front swaps the held stack with the
-                // one in that third of the shelf; on a powered row, the row's 3 x 3 stacks swap
-                // with the hotbar's 9.
+                // one in that third of the shelf; on a powered row, the row's stacks swap with the
+                // rightmost hotbar slots (3, 6 or all 9).
                 if (!used && like == mc::world::blocks::Shelf &&
                     lastHit->face == static_cast<mc::world::Direction>(creg.get(cs, mc::world::properties::facing) + 2)) {
                     const glm::dvec3 hp = player.eyePosition(1.0) +
@@ -2584,8 +2584,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         for (int k = 0; k < n; ++k)
                             if (mc::world::ChestData* sd = shelfAt(row[size_t(k)]))
                                 for (int j = 0; j < 3; ++j) {
-                                    const mc::world::ItemStack held = inventory.slot(k * 3 + j);
-                                    inventory.setSlot(k * 3 + j, sd->items[size_t(j)]);
+                                    // (the rightmost 3 or 6 hotbar slots, all 9 for three - wiki)
+                                    const int hs = 9 - 3 * n + k * 3 + j;
+                                    const mc::world::ItemStack held = inventory.slot(hs);
+                                    inventory.setSlot(hs, sd->items[size_t(j)]);
                                     sd->items[size_t(j)] = held;
                                 }
                     } else if (mc::world::ChestData* sd = shelfAt(at)) {

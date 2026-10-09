@@ -173,10 +173,25 @@ TEST_CASE("M29.5: two hooks with tripwire between attach; something in the wire 
         u.tick();
     }
     CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "false");
-    // Cutting the line detaches the hooks.
+    // Cutting the line (without shears) trips the hooks for 10 ticks, then they detach
+    // (M29 review; wiki: Tripwire).
     w.updateBlock({5, 64, 4}, 0);
+    CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "true");
+    CHECK(r.value(w.getBlock({7, 64, 4}), "powered") == "true");
+    for (int i = 0; i < 12; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "false");
     CHECK(r.value(w.getBlock({3, 64, 4}), "attached") == "false");
     CHECK(r.value(w.getBlock({4, 64, 4}), "attached") == "false");
+    // Mended, then cut with shears (disarmed first, as BlockInteraction does): no pulse.
+    place(blocks::Tripwire, {5, 64, 4}, Direction::Up);
+    REQUIRE(r.value(w.getBlock({3, 64, 4}), "attached") == "true");
+    w.setBlock({5, 64, 4}, r.set(w.getBlock({5, 64, 4}), properties::disarmed, 0));
+    w.updateBlock({5, 64, 4}, 0);
+    CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "false");
+    CHECK(r.value(w.getBlock({3, 64, 4}), "attached") == "false");
 }
 
 TEST_CASE("M29.5: a daylight detector reads the sky - full at noon, none at night; inverted the other way") {
@@ -560,4 +575,19 @@ TEST_CASE("M29 review: eyes in a bubble column don't lose air; in plain water th
     w.setBlock({5, 64, 4}, r.defaultState(blocks::BubbleColumn));
     CHECK(eyesUnderWater(w, {4.5, 64.5, 4.5}));
     CHECK_FALSE(eyesUnderWater(w, {5.5, 64.5, 4.5}));
+}
+
+TEST_CASE("M29 review: comparators read shelves (left 1, middle 2, right 4) and statue poses (1-4)") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    w.setBlock({4, 64, 4}, r.defaultState(blocks::Shelf));
+    CHECK(u.containerSignal({4, 64, 4}) == 0);
+    w.chunk({0, 0})->chest(4, 64, 4)->items[0] = {*itemRegistry().find("apple"), 1};
+    w.chunk({0, 0})->chest(4, 64, 4)->items[2] = {*itemRegistry().find("apple"), 1};
+    CHECK(u.containerSignal({4, 64, 4}) == 5);
+    w.setBlock({6, 64, 4}, *r.with(r.defaultState(blocks::CopperGolemStatue), "copper_golem_pose", "running"));
+    CHECK(u.containerSignal({6, 64, 4}) == 3);
 }

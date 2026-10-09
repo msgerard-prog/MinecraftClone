@@ -42,14 +42,19 @@ BlockStateId BlockUpdates::tripwireConnected(const World& world, const BlockPos&
     return wire;
 }
 
-void BlockUpdates::tripwireHookUpdate(const BlockPos& p) {
+void BlockUpdates::tripwireHookUpdate(const BlockPos& p, const BlockPos* gap, bool gapPowered) {
     const BlockStateId s = at(p);
     if (blockOf(s) != B::TripwireHook) return;
     const Direction f = hookFacing(s);
     int length = 0;
     bool pressed = false;
     for (int i = 1; i <= kMaxLine; ++i) {
-        const BlockStateId q = at(rel(p, f, i));
+        const BlockPos qp = rel(p, f, i);
+        if (gap && qp == *gap) { // (the piece being cut: vanilla counts it as powered wire)
+            pressed = pressed || gapPowered;
+            continue;
+        }
+        const BlockStateId q = at(qp);
         if (blockOf(q) == B::TripwireHook) {
             if (hookFacing(q) == opposite(f)) length = i;
             break;
@@ -59,6 +64,8 @@ void BlockUpdates::tripwireHookUpdate(const BlockPos& p) {
     }
     const bool attachedNow = length > 1;
     const bool poweredNow = attachedNow && pressed;
+    // A cut wire's pulse holds until the hook's own tick (10 ticks).
+    if (!gap && !poweredNow && flag(s, powered) && hasTick(p, B::TripwireHook)) return;
     // The wire between knows whether it is part of a working line (its model sits lower).
     for (int i = 1; i <= (attachedNow ? length - 1 : kMaxLine); ++i) {
         const BlockPos q = rel(p, f, i);
@@ -73,8 +80,28 @@ void BlockUpdates::tripwireHookUpdate(const BlockPos& p) {
             m_world.playSound(Sound::Click, hook.x + 0.5, hook.y + 0.5, hook.z + 0.5, 0.4f, poweredNow ? 1.0f : 0.8f);
         set(hook, now);
     };
+    if (gap && poweredNow) // (the pulse ends on the hooks' tick, when the gap is gone;
+                           // scheduled first, so the updates apply() sets off keep it)
+        for (const BlockPos& h : {p, rel(p, f, length)})
+            if (!hasTick(h, B::TripwireHook)) schedule(h, B::TripwireHook, 10, 0);
     apply(p);
     if (attachedNow) apply(rel(p, f, length));
+}
+
+void BlockUpdates::tripwireRemoved(const BlockPos& wire, BlockStateId old) {
+    // Vanilla: a removed piece updates its hooks as if it were powered, unless shears
+    // disarmed it first - so cutting a line with anything else sets the trap off.
+    const bool pulse = !flag(old, disarmed);
+    for (const Direction d : {Direction::North, Direction::West}) // (each line once, from one end)
+        for (int i = 1; i <= kMaxLine; ++i) {
+            const BlockPos q = rel(wire, d, i);
+            const BlockId b = blockOf(at(q));
+            if (b == B::TripwireHook) {
+                if (hookFacing(at(q)) == opposite(d)) tripwireHookUpdate(q, &wire, pulse);
+                break;
+            }
+            if (b != B::Tripwire) break;
+        }
 }
 
 void BlockUpdates::tripwireChanged(const BlockPos& wire) {

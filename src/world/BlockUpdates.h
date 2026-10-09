@@ -323,6 +323,9 @@ public:
     // or 0 if a silverfish can't burrow into it.
     static BlockId infestedOf(BlockId b);
 
+    // What a comparator reads from a block (fullness, discs, shelves...); -1: nothing.
+    int containerSignal(const BlockPos& p) const;
+
 private:
     void runRandomTicks();
     void runWeatherTicks();
@@ -376,8 +379,10 @@ private:
     void fillBubbleColumn(const BlockPos& base);
     void tickBubbleColumn(const BlockPos& p, BlockStateId s);
     // Tripwire (M29.5, Tripwire.cpp): a hook re-reads its line; a piece of wire tells its hooks.
-    void tripwireHookUpdate(const BlockPos& p);
+    // `gap`: a piece just removed, still counted as wire (powered if `gapPowered`).
+    void tripwireHookUpdate(const BlockPos& p, const BlockPos* gap = nullptr, bool gapPowered = false);
     void tripwireChanged(const BlockPos& wire);
+    void tripwireRemoved(const BlockPos& wire, BlockStateId old);
     bool nextToFlammable(const BlockPos& p) const;
     void placeFire(const BlockPos& p, int age);
     void fireNeighbourChanged(const BlockPos& p);
@@ -516,7 +521,6 @@ private:
     // Comparators and observers (M21.2).
     int weakAt(const BlockPos& q, Direction toward) const;   // weak() with block entities
     int strongAt(const BlockPos& q, Direction toward) const; // strong() likewise
-    int containerSignal(const BlockPos& p) const;            // -1: not a container
     int comparatorTarget(const BlockPos& p, BlockStateId s) const;
     void comparatorChanged(const BlockPos& p, BlockStateId s);
     void watchComparators();

@@ -502,6 +502,10 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 world.levelEvent(world::LevelEvent::Type::BlockBreak, hit->block.x, hit->block.y,
                                  hit->block.z, state);
                 m_broken = world::blockRegistry().blockOf(state);
+                // Shears disarm tripwire before it goes, so the hooks don't fire (wiki:
+                // Tripwire; set quietly, as vanilla's flag-4 update - M29 review).
+                if (m_broken == world::blocks::Tripwire && held.id == "minecraft:shears")
+                    world.setBlock(hit->block, world::blockRegistry().set(state, world::properties::disarmed, 0));
                 world.updateBlock(hit->block, world::leftAfterBreaking(state)); // (its water stays)
                 changed.push_back(hit->block);
                 vitals.exhaust(0.005f); // wiki: Hunger - breaking a block
