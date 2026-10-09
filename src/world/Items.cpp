@@ -596,6 +596,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:copper_nugget", .texture = "item/copper_nugget"});
     // (M29.3b; wiki: Name Tag) renamed on an anvil, it names a mob (which then never despawns)
     r.add({.id = "minecraft:name_tag", .texture = "item/name_tag"});
+    // (M29.3f; wiki: Bundle - unstackable, in 16 dyed colours too)
+    r.add({.id = "minecraft:bundle", .maxStack = 1, .texture = "item/bundle"});
+    for (const char* c : kDyeColours)
+        r.add({.id = std::string("minecraft:") + c + "_bundle", .maxStack = 1, .texture = std::string("item/") + c + "_bundle"});
     // (M29.3d; wiki: Carrot on a Stick - 25 uses, Warped Fungus on a Stick - 100)
     r.add({.id = "minecraft:carrot_on_a_stick", .maxStack = 1, .durability = 25, .texture = "item/carrot_on_a_stick"});
     r.add({.id = "minecraft:warped_fungus_on_a_stick", .maxStack = 1, .durability = 100,

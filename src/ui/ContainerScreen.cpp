@@ -1,5 +1,6 @@
 #include "ui/ContainerScreen.h"
 
+#include "gameplay/Bundles.h"
 #include "gameplay/Brewing.h"
 #include "gameplay/Cartography.h"
 
@@ -777,6 +778,27 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         if (slot.kind == Slot::Kind::Result) {
             takeResult(inventory, shift);
             return;
+        }
+        // Bundles (M29.3f; wiki: Bundle): a right-click with a bundle on an item takes it in;
+        // with an item on a bundle puts it in; with nothing on a bundle takes the last out.
+        if (button == Button::Right && !shift &&
+            (slot.kind == Slot::Kind::Inv || slot.kind == Slot::Kind::Chest || slot.kind == Slot::Kind::Offhand)) {
+            if (!m_carried.empty() && isBundle(m_carried.item) && !v.empty() && !isBundle(v.item)) {
+                v.count = uint8_t(v.count - addToBundle(m_carried, v));
+                store();
+                return;
+            }
+            if (!v.empty() && isBundle(v.item)) {
+                if (m_carried.empty()) {
+                    m_carried = takeFromBundle(v);
+                } else {
+                    const int n = addToBundle(v, m_carried);
+                    m_carried.count = uint8_t(m_carried.count - n);
+                    if (m_carried.count == 0) m_carried = {};
+                }
+                store();
+                return;
+            }
         }
         if (shift && !v.empty()) {
             if (slot.kind == Slot::Kind::Inv) {

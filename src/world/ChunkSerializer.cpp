@@ -377,7 +377,13 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
             components.put("minecraft:trim", std::move(trim));
         }
     }
-    if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker boxes)
+    const std::string_view sid = itemRegistry().item(s.item).id;
+    if (s.contents && (sid == "minecraft:bundle" || sid.ends_with("_bundle"))) { // (M29.3f) bundle_contents: [{...}]
+        std::vector<nbt::Tag> list;
+        for (const ItemStack& b : itemContents(s.contents))
+            if (!b.empty()) list.emplace_back(itemNbt(b, -1));
+        components.put("minecraft:bundle_contents", nbt::listOf(nbt::TagType::Compound, std::move(list)));
+    } else if (s.contents) { // 1.20.5+ minecraft:container: [{slot: int, item: {...}}] (shulker boxes)
         const ItemContents slots = itemContents(s.contents);
         std::vector<nbt::Tag> list;
         for (int i = 0; i < int(slots.size()); ++i) {
@@ -523,6 +529,14 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             const auto p = pattern ? findTrimPattern(*pattern) : std::nullopt;
             const auto m = material ? findTrimMaterial(*material) : std::nullopt;
             if (p && m) s.trim = static_cast<uint16_t>(*p << 8 | *m);
+        }
+        if (const nbt::List* bundle = comps->list("minecraft:bundle_contents")) { // (M29.3f)
+            ItemContents slots{};
+            size_t n = 0;
+            for (const nbt::Tag& t : bundle->items)
+                if (const nbt::Compound* inner = t.get<nbt::Compound>(); inner && n < slots.size())
+                    slots[n++] = itemFromNbt(*inner);
+            s.contents = addItemContents(slots);
         }
         if (const nbt::List* box = comps->list("minecraft:container")) {
             ItemContents slots{};

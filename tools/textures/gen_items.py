@@ -1017,6 +1017,16 @@ def spyglass():
     return s.render()
 
 
+def bundle(base="#9A6A3C"):
+    """A bundle (M29.3f): a drawstring sack of leather (dyed ones in their colour)."""
+    s = Shape()
+    sack = {(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 5.6) ** 2 + ((y - 9.5) / 5.0) ** 2 < 1 and y > 5}
+    s.add(sack, ramp(hexc(base), 5, spread=0.3))
+    s.add({(x, 5) for x in range(5, 11)} | {(6, 4), (9, 4)}, ramp(hexc(scale_hex(base, 0.6)), 5))
+    s.add({(7, 3), (8, 3), (7, 2)}, ramp(hexc("#E8E0D0"), 5))
+    return s.render()
+
+
 def scale_hex(h, k):
     c = hexc(h)
     return "#%02X%02X%02X" % (int(c[0] * k), int(c[1] * k), int(c[2] * k))
@@ -1761,6 +1771,9 @@ def all_items():
         items[f"{mat}_nautilus_armor"] = nautilus_armor(base)
     items["copper_nugget"] = lump("copper_nugget", "#C8703C", "#F0A878", size=3.2)
     items["name_tag"] = name_tag()
+    items["bundle"] = bundle()  # (M29.3f)
+    for dye, colour in DYES:
+        items[f"{dye}_bundle"] = bundle(colour)
     # M29.3c foods and tools
     items["beetroot_soup"] = bowl("#A01828")
     items["rabbit_stew"] = bowl("#9A6A3A")

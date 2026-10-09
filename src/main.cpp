@@ -7,6 +7,7 @@
 #include "core/Options.h"
 #include "core/Version.h"
 #include "core/Window.h"
+#include "gameplay/Bundles.h"
 #include "gameplay/Beacons.h"
 #include "gameplay/Beds.h"
 #include "gameplay/BlockInteraction.h"
@@ -2888,6 +2889,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                         clicks.useClick = false;
                     }
+                // A bundle used in the hand (M29.3f; wiki: Bundle) throws its items out, last first.
+                if (!dead && clicks.useClick && (heldId == "minecraft:bundle" || heldId.ends_with("_bundle")) &&
+                    inventory.selectedStack().contents != 0) {
+                    mc::world::ItemStack bag = inventory.selectedStack();
+                    for (mc::world::ItemStack out = mc::takeFromBundle(bag); !out.empty(); out = mc::takeFromBundle(bag))
+                        droppedItems.throwFrom(eye, look, out, gameRng);
+                    bag.contents = 0;
+                    inventory.setSlot(inventory.selected(), bag);
+                    clicks.useClick = false;
+                }
                 // A spyglass held up (M29.3c; wiki: Spyglass): the view zooms to a tenth.
                 spyglassUp = !dead && heldId == "minecraft:spyglass" && clicks.use;
                 if (spyglassUp) clicks.useClick = false;

@@ -120,6 +120,14 @@ void ItemIcons::draw(GuiBatch& batch, const BlockModels& models, const world::It
         batch.fill(x + 2, y + 13, 13, 2, rgba(0, 0, 0));
         batch.fill(x + 2, y + 13, w, 1, rgba(uint8_t(r * 255), uint8_t(g * 255), 0));
     }
+    // A bundle's fill (M29.3f; vanilla: a blue bar, full red-violet... ours: blue): its weight / 64.
+    if (stack.contents != 0 && (def.id == "minecraft:bundle" || def.id.ends_with("_bundle"))) {
+        int weight = 0;
+        for (const world::ItemStack& s : world::itemContents(stack.contents))
+            if (!s.empty()) weight += s.count * 64 / std::max<int>(1, world::itemRegistry().item(s.item).maxStack);
+        batch.fill(x + 2, y + 13, 13, 2, rgba(0, 0, 0));
+        batch.fill(x + 2, y + 13, std::round(13.0f * std::min(1.0f, float(weight) / 64.0f)), 1, rgba(102, 102, 255));
+    }
     if (stack.count > 1) {
         char text[8];
         std::snprintf(text, sizeof(text), "%d", stack.count);

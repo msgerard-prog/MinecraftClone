@@ -150,3 +150,28 @@ TEST_CASE("suspicious stew remembers its flower; bowls, pies, spyglasses craft; 
     CHECK(broke);
     CHECK(inv.slot(0).empty());
 }
+
+#include "gameplay/Bundles.h"
+#include "world/ChunkSerializer.h"
+
+TEST_CASE("bundles weigh up to 64: 64 of a stacker, 4 ender pearls count 16, one sword fills it (M29.3f)") {
+    const auto I = [](const char* n, int c) { return ItemStack{*itemRegistry().find(n), uint8_t(c)}; };
+    ItemStack bag = I("bundle", 1);
+    CHECK(addToBundle(bag, I("dirt", 40)) == 40);
+    CHECK(bundleWeight(bag) == 40);
+    CHECK(addToBundle(bag, I("ender_pearl", 16)) == 6); // (4 each: 24 left of room)
+    CHECK(bundleWeight(bag) == 64);
+    CHECK(addToBundle(bag, I("dirt", 1)) == 0);
+    const ItemStack out = takeFromBundle(bag);
+    CHECK(itemRegistry().item(out.item).id == "minecraft:ender_pearl");
+    CHECK(out.count == 6);
+    ItemStack sword = I("bundle", 1);
+    CHECK(addToBundle(sword, I("iron_sword", 1)) == 1);
+    CHECK(bundleWeight(sword) == 64);
+    // Saved as bundle_contents.
+    const nbt::Compound n = itemToNbt(bag, -1);
+    const nbt::Compound* comps = n.compound("components");
+    REQUIRE(comps);
+    CHECK(comps->list("minecraft:bundle_contents") != nullptr);
+    CHECK(bundleWeight(itemFromNbtPublic(n)) == 40);
+}

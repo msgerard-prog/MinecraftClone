@@ -705,6 +705,10 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},
                            "glistering_melon_slice"));
         r.push_back(shaped({"A", "C", "C"}, {{'A', item("amethyst_shard")}, {'C', item("copper_ingot")}}, "spyglass"));
+        // (M29.3f; wiki: Bundle) string over leather; a dye colours it (ours: emptied)
+        r.push_back(shaped({"S", "L"}, {{'S', item("string")}, {'L', item("leather")}}, "bundle"));
+        for (const char* c : kDyeColours)
+            r.push_back(shapeless({item(std::string(c) + "_dye"), item("bundle")}, std::string(c) + "_bundle"));
         // (M29.3d) a fishing rod with a carrot / warped fungus diagonally below it
         r.push_back(shaped({"R.", ".C"}, {{'R', item("fishing_rod")}, {'C', item("carrot")}}, "carrot_on_a_stick"));
         r.push_back(shaped({"R.", ".F"}, {{'R', item("fishing_rod")}, {'F', item("warped_fungus")}},
