@@ -309,7 +309,7 @@ and GUI textures are made with their systems.
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | ✅ 2026-10-08 v0.27.0 (our own structure designs, cave biomes by column climate: see deviations) |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | ✅ 2026-10-08 v0.28.0 (67 advancements with simple triggers, our spear charge formula: see deviations) |
 | M29 | Completeness: every 1.21.11 block, item, entity, effect and enchantment; overworld7/nether4 | ✅ 2026-10-09 v0.29.0 (simplified technical blocks, chunk-local ore veins: see deviations) |
-| v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | Then polish: deviations, performance |
+| v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | ✅ 2026-10-09 v1.0 (then polish: deviations, performance) |
 
 ## Backlog (unscheduled)
 - F2 screenshot key (vanilla) for interactive play.
