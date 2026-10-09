@@ -670,6 +670,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         }
         if (!world::isValidMobPosition(p)) return fail("Invalid position for summon");
         world::MobData mob = Mobs::make(*type, p, *ctx.rng);
+        int gearSet = 0; // (M32.2c: Armor:N on a zombie or skeleton)
         if (cartKind != 0) {
             mob.decor = uint8_t(cartKind);
             mob.strength = uint8_t(world::cartSlotsOf(cartKind));
@@ -769,6 +770,10 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.saddled = v != 0.0;
                 else if (key == "Armor" && *type == world::MobType::Horse)
                     mob.horseArmor = uint8_t(std::clamp(int(v), 0, 4));
+                // (M32.2c) our shorthand for zombies and skeletons: a full set, 1 leather,
+                // 2 gold, 3 chainmail, 4 iron, 5 diamond, 6 netherite.
+                else if (key == "Armor" && (world::isZombie(*type) || world::isSkeleton(*type)))
+                    gearSet = std::clamp(int(v), 0, 6);
                 else if (key == "Decor" && (world::isLlama(*type) ||
                                             *type == world::MobType::HappyGhast)) // (harness too)
                     mob.decor = uint8_t(std::clamp(int(v), 0, 16));
@@ -789,6 +794,16 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             }
         }
         if (!Mobs::add(*ctx.world, mob)) return fail("That position is not loaded");
+        if (gearSet > 0)
+            if (world::Chunk* gc = ctx.world->chunk({world::blockToChunk(int(std::floor(mob.pos.x))),
+                                                     world::blockToChunk(int(std::floor(mob.pos.z)))}))
+                if (!gc->mobs().empty()) {
+                    static constexpr const char* kSets[6] = {"leather", "golden", "chainmail", "iron", "diamond", "netherite"};
+                    static constexpr const char* kPieces[4] = {"helmet", "chestplate", "leggings", "boots"};
+                    for (int k = 0; k < 4; ++k)
+                        if (const auto it = world::itemRegistry().find(std::string(kSets[gearSet - 1]) + "_" + kPieces[k]))
+                            Mobs::setGear(*ctx.world, gc->mobs().back(), k, {*it, 1});
+                }
         return {true, format("Summoned new %.*s", int(id.size()), id.data())};
     }
     if (a[0] == "xp" || a[0] == "experience") {

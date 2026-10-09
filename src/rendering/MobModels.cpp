@@ -8,14 +8,24 @@ namespace {
 
 using A = MobPart::Anim;
 
-// Humanoid (zombie): the skin layout's boxes; arms reach forward.
-constexpr std::array<MobPart, 6> kZombie = {{
+// Humanoid (zombie): the skin layout's boxes; arms reach forward. (M32.2c) Armour it was
+// born with or picked up as layers 15-18 from the skin's overlay areas, as the player's.
+constexpr std::array<MobPart, 15> kZombie = {{
     {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 0, 0, A::Head},
     {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 16, A::None},
     {{-8, 12, -2}, {-4, 24, 2}, {-6, 22, 0}, 40, 16, A::ArmForward},
     {{4, 12, -2}, {8, 24, 2}, {6, 22, 0}, 32, 48, A::ArmForward},
     {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 16, A::LegA},
     {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 16, 48, A::LegB},
+    {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 32, 0, A::Head, 15, 1.0f},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 32, A::None, 16, 1.0f},
+    {{-8, 12, -2}, {-4, 24, 2}, {-6, 22, 0}, 40, 32, A::ArmForward, 16, 1.0f},
+    {{4, 12, -2}, {8, 24, 2}, {6, 22, 0}, 40, 32, A::ArmForward, 16, 1.0f},
+    {{-4, 12, -2}, {4, 15, 2}, {0, 24, 0}, 16, 32, A::None, 17, 0.5f},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 32, A::LegA, 17, 0.5f},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 32, A::LegB, 17, 0.5f},
+    {{-4, 0, -2}, {0, 4, 2}, {-2, 12, 0}, 0, 48, A::LegA, 18, 1.0f},
+    {{0, 0, -2}, {4, 4, 2}, {2, 12, 0}, 0, 48, A::LegB, 18, 1.0f},
 }};
 
 // The player and mannequins (M30.1; vanilla's player model, 4-wide arms): arms hang and
@@ -91,13 +101,23 @@ constexpr std::array<MobPart, 8> kChicken = {{
 }};
 
 // Skeleton: the humanoid shape with thin 2x12x2 limbs; arms forward (holding a bow).
-constexpr std::array<MobPart, 6> kSkeleton = {{
+// (M32.2c) its armour is player-sized around the thin limbs (vanilla's armour layer).
+constexpr std::array<MobPart, 15> kSkeleton = {{
     {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 0, 0, A::Head},
     {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 16, A::None},
     {{-6, 12, -1}, {-4, 24, 1}, {-5, 22, 0}, 40, 16, A::ArmForward},
     {{4, 12, -1}, {6, 24, 1}, {5, 22, 0}, 40, 16, A::ArmForward},
     {{-3, 0, -1}, {-1, 12, 1}, {-2, 12, 0}, 0, 16, A::LegA},
     {{1, 0, -1}, {3, 12, 1}, {2, 12, 0}, 0, 16, A::LegB},
+    {{-4, 24, -4}, {4, 32, 4}, {0, 24, 0}, 32, 0, A::Head, 15, 1.0f},
+    {{-4, 12, -2}, {4, 24, 2}, {0, 24, 0}, 16, 32, A::None, 16, 1.0f},
+    {{-7, 12, -2}, {-3, 24, 2}, {-5, 22, 0}, 40, 32, A::ArmForward, 16, 1.0f},
+    {{3, 12, -2}, {7, 24, 2}, {5, 22, 0}, 40, 32, A::ArmForward, 16, 1.0f},
+    {{-4, 12, -2}, {4, 15, 2}, {0, 24, 0}, 16, 32, A::None, 17, 0.5f},
+    {{-4, 0, -2}, {0, 12, 2}, {-2, 12, 0}, 0, 32, A::LegA, 17, 0.5f},
+    {{0, 0, -2}, {4, 12, 2}, {2, 12, 0}, 0, 32, A::LegB, 17, 0.5f},
+    {{-4, 0, -2}, {0, 4, 2}, {-2, 12, 0}, 0, 48, A::LegA, 18, 1.0f},
+    {{0, 0, -2}, {4, 4, 2}, {2, 12, 0}, 0, 48, A::LegB, 18, 1.0f},
 }};
 
 // Creeper: head on a tall body, four short legs.

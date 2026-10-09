@@ -65,6 +65,8 @@ public:
     static constexpr int kDefaultSimulationDistance = 12;
     // (M32.2; vanilla BreakDoorGoal) ticks a zombie beats on a door before it breaks.
     static constexpr int kDoorBreakTicks = 240;
+    // (M32.2c) a mob effect with this many ticks never wears off (vanilla's infinite -1).
+    static constexpr int kInfiniteEffect = 32767;
     void setSimulationDistance(int chunks) { m_simulationDistance = chunks; }
     int simulationDistance() const { return m_simulationDistance; }
 
@@ -371,7 +373,21 @@ private:
     // difficulty `crd`: baby (5%; 5% of babies on a chicken), door breaking, reinforcement
     // chance, leader; and on Hard the reinforcements a hurt one calls.
     void zombieReinforcements(Context& ctx, world::MobData& m);
+    // (M32.2c, MobGear.cpp) equipped monsters: picking up dropped items, their drops on death.
+    void gearPickup(Context& ctx, world::MobData& m);
+    void dropGear(Context& ctx, world::MobData& m);
 public:
+    // (M32.2c, MobGear.cpp) spawn equipment by the clamped regional difficulty `crd` (vanilla
+    // populateDefaultEquipmentSlots + enchantments + CanPickUpLoot): zombies and skeletons.
+    void rollSpawnGear(Context& ctx, world::MobData& mob, double crd);
+    // Puts `stack` in gear slot `slot` (0-3 head..feet, 4 mainhand) and refreshes the mirrors.
+    static void setGear(world::World& world, world::MobData& m, int slot, const world::ItemStack& stack);
+    static void refreshGear(world::World& world, world::MobData& m);
+    // Its armor points (natural - zombies 2 - plus what it wears) and toughness.
+    static int armorPoints(const world::MobData& m);
+    static float armorToughness(const world::MobData& m);
+    // The melee bonus of what it holds (the weapon's damage over a fist, Sharpness).
+    static float weaponBonus(const world::World& world, const world::MobData& m);
     void zombieSpawnRolls(Context& ctx, world::MobData& mob, double crd);
     // The clamped regional difficulty at a block (its chunk's inhabited time).
     static double clampedDifficultyAt(const Context& ctx, double x, double z);

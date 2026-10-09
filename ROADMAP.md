@@ -14,8 +14,8 @@ additions." M32 (play parity, by how much each changes play), then M33 (26.x con
 M32 - Play parity:
 1. ✅ M32.1 (night bench: CPU p99 0.22 -> 1.5 ms from ticking a full vanilla cap of monsters; the cycle itself ~0.03 ms) - Natural spawning: vanilla's spawn cycle (per chunk, mob categories with caps
    scaled by loaded chunks, packs, each mob's light/biome/block rules, despawn rules).
-2. M32.2 (a: strafing, endermen; b: regional difficulty, baby zombies, chicken jockeys,
-   reinforcements, door breaking) - Monsters: skeleton strafing and backing off, baby zombies and reinforcements,
+2. ✅ M32.2 (a: strafing, endermen; b: regional difficulty, baby zombies, chicken jockeys,
+   reinforcements, door breaking; c: spawn gear, mob armor, loot pickup, Hard spider effects) - Monsters: skeleton strafing and backing off, baby zombies and reinforcements,
    zombie door breaking on Hard, spider jockeys, endermen teleporting from rain/sun/damage,
    regional difficulty (armor, weapons, enchantments on spawn), mob item pickup.
 3. M32.3 - Damage rules: the stronger-hit-in-invulnerability rule, knockback resistance,

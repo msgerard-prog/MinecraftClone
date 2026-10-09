@@ -1420,7 +1420,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("Invulnerable", int8_t{0});
         e.put("AbsorptionAmount", 0.0f);
         // 1.21.5+ `equipment` (was HandItems/ArmorItems) is left out when nothing is worn.
-        e.put("CanPickUpLoot", int8_t{0});
+        e.put("CanPickUpLoot", int8_t(m.canPickUpLoot ? 1 : 0)); // (M32.2c)
         e.put("LeftHanded", int8_t{0});
         if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
             e.put("variant", std::string("minecraft:temperate")); // 1.21.5+ farm animal variants
@@ -1677,7 +1677,24 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 eq.put("body", itemNbt(armor, -1));
             }
         }
-        if (!mouthMob && (m.heldTrident || m.heldItem != 0)) { // (1.21.5+ equipment.mainhand)
+        // (M32.2c) a monster's gear from its mob store, with vanilla's drop_chances (2.0: a
+        // picked-up stack that always drops).
+        const ItemContents* gear = nullptr;
+        if (m.hasGear)
+            for (const auto& st : chunk.mobStores)
+                if (st.uuidHi == m.uuidHi) gear = &st.slots;
+        if (gear) {
+            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet", "mainhand"};
+            nbt::Compound chances;
+            for (int i = 0; i < 5; ++i)
+                if (!(*gear)[size_t(i)].empty()) {
+                    eq.put(kGearSlots[i], itemNbt((*gear)[size_t(i)], -1));
+                    if ((m.gearKept >> i & 1) != 0) chances.put(kGearSlots[i], 2.0f);
+                }
+            if (!chances.entries.empty()) e.put("drop_chances", std::move(chances));
+        }
+        if (!mouthMob && !(gear && !(*gear)[4].empty()) &&
+            (m.heldTrident || m.heldItem != 0)) { // (1.21.5+ equipment.mainhand)
             nbt::Compound hand;
             hand.put("id", m.heldTrident ? std::string("minecraft:trident")
                                          : std::string(itemRegistry().item(m.heldItem).id));
@@ -2181,6 +2198,31 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.uuidHi = (uint64_t(uint32_t((*a)[0])) << 32) | uint32_t((*a)[1]);
                 m.uuidLo = (uint64_t(uint32_t((*a)[2])) << 32) | uint32_t((*a)[3]);
             }
+        m.canPickUpLoot = e->integer("CanPickUpLoot").value_or(0) != 0; // (M32.2c)
+        if (const nbt::Compound* eq = e->compound("equipment");
+            eq && mobInfo(m.type).hostile && !isMount(m.type) && m.type != MobType::ArmorStand) {
+            // (M32.2c) a monster's armor and enchanted/picked-up mainhand into its mob store
+            static constexpr const char* kGearSlots[5] = {"head", "chest", "legs", "feet", "mainhand"};
+            const nbt::Compound* chances = e->compound("drop_chances");
+            int epf = 0;
+            for (int i = 0; i < 5; ++i)
+                if (const nbt::Compound* it = eq->compound(kGearSlots[i])) {
+                    const ItemStack st = itemFromNbt(*it);
+                    if (st.empty()) continue;
+                    // (a plain held item stays in heldItem, below: only gear that matters is stored)
+                    if (i == 4 && !isEnchanted(st) && !(chances && chances->real("mainhand").value_or(0.0) > 1.0))
+                        continue;
+                    chunk.addMobStore(m.uuidHi)[size_t(i)] = st;
+                    m.hasGear = true;
+                    if (i < 4) {
+                        m.worn[size_t(i)] = armorMaterial(itemRegistry().item(st.item).id);
+                        epf += enchantLevel(st, Enchantment::Protection);
+                    }
+                    if (chances && chances->real(kGearSlots[i]).value_or(0.0) > 1.0)
+                        m.gearKept = uint8_t(m.gearKept | 1 << i);
+                }
+            m.gearEpf = uint8_t(std::min(epf, 20));
+        }
         m.health = std::min(m.health, maxHealthOf(m)); // (after Owner/attributes: a tamed wolf keeps its 40)
         if (m.hasChest && m.health > 0.0f) // (M26.2) the chest's stacks
             if (const nbt::List* items = e->list("Items")) {

@@ -53,8 +53,29 @@ def paint(img, region, pal, rng, noise=0.35):
             img.set(x0 + x, y0 + y, pal[i])
 
 
+def armour_regions(img, name):
+    """(M32.2c) Pale armour plates in the skin's overlay areas (helmet 32,0; chestplate 16,32
+    and sleeves 40,32; leggings 0,32; boots 0,48), as on the player skin: the renderer tints
+    them by the material of what a zombie or skeleton wears. Own random stream, so the rest
+    of the skin is unchanged."""
+    rng = random.Random(name + "_armour")
+    metal = ramp(hexc("#E6E6E6"), 5, spread=0.18)
+    for (u, v, w, h, d) in ((32, 0, 8, 8, 8), (16, 32, 8, 12, 4), (40, 32, 4, 12, 4), (0, 32, 4, 12, 4),
+                            (0, 48, 4, 4, 4)):
+        for fname, (x0, y0, fw, fh) in box_faces(u, v, w, h, d).items():
+            paint(img, (x0, y0, fw, fh), metal, rng, noise=0.25)
+            for x in range(fw):
+                img.set(x0 + x, y0 + fh - 1, metal[0])
+    hx, hy = 32 + 8, 0 + 8  # the helmet's visor: the face is left open
+    for y in range(3, 8):
+        for x in range(1, 7):
+            img.set(hx + x, hy + y, CLEAR)
+    return img
+
+
 def zombie(name="zombie", skin_c="#5A8C3C", shirt_c="#2E8C8C", pants_c="#4A3C8C"):
     # (M29.1a: husks are the same in desert colours)
+    name_ = name
     rng = random.Random(name)
     img = Img(64, 64, CLEAR)
     skin = ramp(hexc(skin_c), 5, spread=0.25)
@@ -80,7 +101,7 @@ def zombie(name="zombie", skin_c="#5A8C3C", shirt_c="#2E8C8C", pants_c="#4A3C8C"
             paint(img, (x0, y0, w, h), pants, rng)
             if name not in ("top", "bottom"):
                 paint(img, (x0, y0 + h - 2, w, 2), ramp(hexc("#3A3A3A"), 5), rng)
-    return img
+    return armour_regions(img, name_)
 
 
 def player():
@@ -292,7 +313,7 @@ def skeleton(name="skeleton", colour="#C8C8C0"):
     for u, v in ((40, 16), (0, 16)):
         for f in box_faces(u, v, 2, 12, 2).values():
             paint(img, f, bone, rng)
-    return img
+    return armour_regions(img, name)
 
 
 def creeper():
@@ -1024,7 +1045,7 @@ def drowned():
     for u, v in ((0, 16), (16, 48)):
         for name, (x0, y0, w, h) in box_faces(u, v, 4, 12, 4).items():
             paint(img, (x0, y0, w, h), pants, rng)
-    return img
+    return armour_regions(img, "drowned")
 
 
 def boxed(name, boxes, eyes=None, shell=None):

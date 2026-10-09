@@ -2368,6 +2368,7 @@ TEST_CASE("M32.2: an enderman under the midday sky teleports away") {
 }
 
 #include "world/RegionalDifficulty.h"
+#include "world/Enchantments.h"
 
 TEST_CASE("M32.2: regional difficulty follows the wiki's formula") {
     // A new world on Normal: (0.75 + 0 + 0 + 0) x 2 = 1.5 -> clamped 0.
@@ -2519,4 +2520,127 @@ TEST_CASE("M32.2: zombies spawned at the highest regional difficulty roll babies
     CHECK(leaders < 260);
     CHECK(breakers > 440); // 10% + the leaders (~14.5%)
     CHECK(breakers < 720);
+}
+
+TEST_CASE("M32.2c: zombies and skeletons spawn with armor, enchantments and loot pickup by regional difficulty") {
+    MonsterScene s;
+    s.difficulty = 3;
+    Xoroshiro rng(9);
+    Mobs::Context ctx{s.world, s.player, s.vitals, true, false, s.dayTime, s.skyDarken, rng, s.items};
+    ctx.difficulty = 3;
+    int armored = 0, enchanted = 0, pickers = 0, none = 0;
+    for (int i = 0; i < 2000; ++i) {
+        MobData sk = Mobs::make(MobType::Skeleton, {3.5, 64.0, 3.5}, rng);
+        s.mobs.rollSpawnGear(ctx, sk, 1.0);
+        pickers += sk.canPickUpLoot;
+        bool any = false;
+        for (uint8_t w : sk.worn) any = any || w != 0;
+        armored += any;
+        if (sk.hasGear) {
+            const ItemContents* st = s.world.chunk({0, 0})->mobStore(sk.uuidHi);
+            REQUIRE(st);
+            for (int k = 0; k < 5; ++k) enchanted += isEnchanted((*st)[size_t(k)]);
+            s.world.chunk({0, 0})->removeMobStore(sk.uuidHi);
+        }
+        MobData z = Mobs::make(MobType::Zombie, {3.5, 64.0, 3.5}, rng);
+        s.mobs.rollSpawnGear(ctx, z, 0.0); // (no regional difficulty: nothing)
+        none += !z.hasGear && !z.canPickUpLoot;
+        if (z.hasGear) s.world.chunk({0, 0})->removeMobStore(z.uuidHi);
+    }
+    MESSAGE(armored << " armored, " << enchanted << " enchanted pieces, " << pickers << " pickers of 2000");
+    CHECK(armored > 220); // 15%
+    CHECK(armored < 380);
+    CHECK(enchanted > 300); // (bows 25%, armor 50% a piece)
+    CHECK(pickers > 1000);  // 55%
+    CHECK(pickers < 1200);
+    CHECK(none > 1850); // (only Hard's 5% weapons)
+}
+
+TEST_CASE("M32.2c: a monster's armor softens hits (vanilla's formula; zombies have 2 natural points)") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {3.5, 64.0, 3.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {5.5, 64.0, 3.5}, s.rng)));
+    MobData* bare = s.all().at(0);
+    MobData* plated = s.all().at(1);
+    Mobs::setGear(s.world, *plated, 1, {*itemRegistry().find("diamond_chestplate"), 1});
+    Mobs::setGear(s.world, *plated, 0, {*itemRegistry().find("diamond_helmet"), 1});
+    CHECK(Mobs::armorPoints(*bare) == 2);
+    CHECK(Mobs::armorPoints(*plated) == 13);
+    CHECK(plated->worn[1] == 5);
+    Mobs::attack(*bare, 10.0f, s.player.position());
+    Mobs::attack(*plated, 10.0f, s.player.position());
+    // 2 points: 10 x (1 - max(0.4, 2 - 10/2)/25) = 9.84; 13 points, toughness 4: 10 x (1 - (13 - 10/3)/25) = 6.13.
+    CHECK(20.0f - bare->health == doctest::Approx(9.84f).epsilon(0.01));
+    CHECK(20.0f - plated->health == doctest::Approx(6.133f).epsilon(0.01));
+}
+
+TEST_CASE("M32.2c: a zombie that can pick up loot takes a sword, hits harder with it and always drops it") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData z = Mobs::make(MobType::Zombie, {3.5, 64.0, 0.5}, s.rng);
+    z.canPickUpLoot = true;
+    REQUIRE(Mobs::add(s.world, z));
+    const ItemId sword = *itemRegistry().find("iron_sword");
+    s.items.spawn({3.5, 64.2, 0.5}, {sword, 1}, s.rng, 0);
+    s.survival = false; // (no fight yet)
+    s.run(5);
+    MobData* m = s.all().at(0);
+    CHECK(m->heldItem == sword);
+    CHECK(m->persistent);
+    CHECK(s.items.items().empty());
+    CHECK(Mobs::weaponBonus(s.world, *m) == doctest::Approx(5.0f)); // (iron sword 6 over a fist)
+    // Saved and loaded, it still holds the picked-up sword (drop chance 2.0).
+    Chunk& c = *s.world.chunk({0, 0});
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].hasGear);
+    CHECK(back.mobs()[0].gearKept == 16);
+    CHECK(back.mobs()[0].heldItem == sword);
+    REQUIRE(back.mobStore(back.mobs()[0].uuidHi));
+    // Killed by anything, it drops the sword.
+    m->health = 0.0f;
+    m->lastHurtByPlayer = false;
+    s.run(2);
+    bool dropped = false;
+    for (const ItemEntity& e : s.items.items()) dropped = dropped || e.stack.item == sword;
+    CHECK(dropped);
+    CHECK(c.mobStore(m->uuidHi) == nullptr);
+}
+
+TEST_CASE("M32.2c: armor and enchantments survive saving") {
+    Chunk c({0, 0});
+    Xoroshiro rng(3);
+    MobData sk = Mobs::make(MobType::Skeleton, {3.5, 64.0, 3.5}, rng);
+    ItemStack helmet{*itemRegistry().find("iron_helmet"), 1};
+    setEnchantment(helmet, Enchantment::Protection, 3);
+    ItemStack bow{*itemRegistry().find("bow"), 1};
+    setEnchantment(bow, Enchantment::Power, 2);
+    c.addMobStore(sk.uuidHi)[0] = helmet;
+    c.addMobStore(sk.uuidHi)[4] = bow;
+    sk.hasGear = true;
+    sk.canPickUpLoot = true;
+    c.mobs().push_back(sk);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    const MobData& m = back.mobs()[0];
+    CHECK(m.canPickUpLoot);
+    CHECK(m.worn[0] == 3);
+    CHECK(m.gearEpf == 3);
+    const ItemContents* st = back.mobStore(m.uuidHi);
+    REQUIRE(st);
+    CHECK(enchantLevel((*st)[4], Enchantment::Power) == 2);
+}
+
+TEST_CASE("M32.2c: an endless mob effect doesn't wear off") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData sp = Mobs::make(MobType::Spider, {3.5, 64.0, 3.5}, s.rng);
+    Mobs::addEffect(sp, Effect::Speed, 0, Mobs::kInfiniteEffect);
+    REQUIRE(Mobs::add(s.world, sp));
+    s.run(40);
+    CHECK(s.all().at(0)->effectLevel(uint8_t(Effect::Speed)) == 1);
+    CHECK(s.all().at(0)->effects[0].ticks == Mobs::kInfiniteEffect);
 }

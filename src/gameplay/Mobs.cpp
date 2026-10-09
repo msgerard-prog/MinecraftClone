@@ -887,7 +887,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
                                    ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
             // (golems: 7.5 + 0-14 and a throw upward)
             // (M29.2c; wiki: Strength +3, Weakness -4 a level)
-            const float hit = std::max(0.0f, info.attackDamage +
+            const float hit = std::max(0.0f, info.attackDamage + (isZombie(m.type) ? weaponBonus(ctx.world, m) : 0.0f) +
                                                  (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f) +
                                                  3.0f * float(m.effectLevel(uint8_t(Effect::Strength))) -
                                                  4.0f * float(m.effectLevel(uint8_t(Effect::Weakness))));
@@ -915,6 +915,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     if (info.hostile) monsterTick(ctx, m, chase, playerDist2);
     if (m.callReinforcements) zombieReinforcements(ctx, m);
+    if (m.canPickUpLoot) gearPickup(ctx, m);
     if (isLlama(m.type)) llamaTick(ctx, m);
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
@@ -1008,6 +1009,14 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         const float cut = std::clamp(std::max(points / 5.0f, points - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
         damage *= 1.0f - cut / 25.0f;
     }
+    // (M32.2c) a monster's armor - natural and worn - by the same formula, then Protection
+    // (4% a level, at most 80%).
+    if (const int points = armorPoints(m); points > 0 && !isMount(m.type)) {
+        const float p = float(points), toughness = armorToughness(m);
+        const float cut = std::clamp(std::max(p / 5.0f, p - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
+        damage *= 1.0f - cut / 25.0f;
+    }
+    if (m.gearEpf > 0) damage *= 1.0f - float(std::min<int>(m.gearEpf, 20)) / 25.0f;
     m.health -= damage;
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock
@@ -1094,6 +1103,7 @@ void Mobs::die(Context& ctx, MobData& m) {
         if (m.hasChest) dropMountGear(ctx, m); // (M26.2: its chest's stacks)
         return;
     }
+    if (m.hasGear || isSkeleton(m.type)) dropGear(ctx, m); // (M32.2c)
     if (isMount(m.type)) dropMountGear(ctx, m);             // (M26.2)
     if (m.type == MobType::Fox && m.mouthItem != kNoItem) { // (M26.3) what it carried
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), {m.mouthItem, 1}, ctx.rng);
@@ -1710,6 +1720,7 @@ void Mobs::tick(Context& ctx) {
                 m.fireTicks > 0 || m.deathTime > 0)
                 chunk.markDirty();
             if (remove) {
+                if (m.hasGear) chunk.removeMobStore(m.uuidHi); // (M32.2c: despawned with its gear)
                 mobs[i] = mobs.back();
                 mobs.pop_back();
             } else {
@@ -1721,7 +1732,7 @@ void Mobs::tick(Context& ctx) {
         if (Chunk* c = ctx.world.chunk(mv.to)) {
             c->mobs().push_back(mv.mob);
             // A mount's or chest boat's chest goes with it (M26.2).
-            if (mv.mob.hasChest)
+            if (mv.mob.hasChest || mv.mob.hasGear) // (M32.2c: a monster's gear too)
                 if (Chunk* from = ctx.world.chunk(mv.from))
                     if (ItemContents* slots = from->mobStore(mv.mob.uuidHi)) {
                         c->addMobStore(mv.mob.uuidHi) = *slots;
@@ -1971,6 +1982,15 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
         }
     }
     if (isZombie(mob.type)) zombieSpawnRolls(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
+    if (isSkeleton(mob.type)) rollSpawnGear(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
+    // (M32.2c; vanilla Spider.finalizeSpawn) on Hard, 10% x the clamped regional difficulty
+    // of spiders carry an endless Speed, Strength, Regeneration or Invisibility.
+    if (isSpider(kind) && ctx.difficulty >= 3 &&
+        ctx.rng.nextFloat() < float(0.1 * clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z))) {
+        static constexpr Effect kSpiderEffects[4] = {Effect::Speed, Effect::Strength, Effect::Regeneration,
+                                                     Effect::Invisibility};
+        addEffect(mob, kSpiderEffects[ctx.rng.nextInt(4)], 0, kInfiniteEffect);
+    }
     // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
     if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
         MobData rider = make(MobType::Skeleton, mob.pos, ctx.rng);
@@ -1999,6 +2019,7 @@ void Mobs::zombieSpawnRolls(Context& ctx, MobData& mob, double crd) {
             add(ctx.world, chicken);
         }
     }
+    rollSpawnGear(ctx, mob, crd); // (M32.2c: CanPickUpLoot, armor, weapons, enchantments)
     // Door breakers: 10% at the highest clamped regional difficulty (they act on Hard only).
     mob.canBreakDoors = mob.type != MobType::Drowned && ctx.rng.nextFloat() < float(crd * 0.1);
     // The reinforcement chance: a random 0..0.1; leaders (5% at the highest difficulty) get
@@ -2102,7 +2123,7 @@ void Mobs::tickMobEffects(Context& ctx, MobData& m) {
         } else if (type == Effect::FireResistance) {
             m.fireTicks = 0;
         }
-        --e.ticks;
+        if (e.ticks < kInfiniteEffect) --e.ticks; // (M32.2c: a Hard spider's lasts)
     }
     (void)ctx;
 }

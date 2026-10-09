@@ -409,7 +409,7 @@ struct MobData {
     bool powered = false; // creeper struck by lightning: a charged creeper (twice the blast)
     int16_t ambientTime = 0; // ambient sound clock (not saved; vanilla ambientSoundTime)
     bool showBottom = true; // end crystals: drawn on a bedrock base (ShowBottom)
-    std::array<uint8_t, 4> worn{}; // (M28.3b) an armor stand's armor materials, head..feet (armorMaterial; 0 none)
+    std::array<uint8_t, 4> worn{}; // (M28.3b) an armor stand's (M32.2c: a monster's) armor materials, head..feet (armorMaterial; 0 none)
     uint8_t leash = 0;             // (M28.3c) on a lead: 0 no, 1 held by the player, 2 tied to the fence at `leashPos`
     glm::ivec3 leashPos{0};
     uint64_t caravanHead = 0;      // (M28.3c) a llama following another in a caravan (its UUID high half)
@@ -509,6 +509,14 @@ struct MobData {
     float reinforcements = 0.0f;
     glm::ivec3 doorBreaking{0, INT32_MIN, 0};
     int16_t doorBreakTicks = 0;
+    // Monster gear (M32.2c; wiki: Zombie, Skeleton › Spawning equipment): the stacks live in
+    // its chunk's mob store (slots 0-3 head..feet, 4 the mainhand; saved as `equipment`),
+    // `worn`/`heldItem` mirror them for drawing; `gearEpf` is its armor's Protection
+    // levels; `gearKept` bit per slot holding a picked-up stack (always dropped).
+    bool hasGear = false;
+    bool canPickUpLoot = false; // (saved as CanPickUpLoot)
+    uint8_t gearEpf = 0;
+    uint8_t gearKept = 0;
     float swingProgress = 0.0f;
     int16_t poiSearch = 0;    // ticks to the next look for a bed / job site
     uint8_t restocksToday = 0; // (M24.2) two restocks a day at the job site
