@@ -1,5 +1,6 @@
 #include "gameplay/Mobs.h"
 
+#include "world/Rotation.h"
 #include "world/Trades.h"
 
 #include "gameplay/BlockCollision.h"
@@ -83,7 +84,7 @@ Aabb Mobs::box(const MobData& m) {
     if (m.type == MobType::MagmaCube || m.type == MobType::Slime)
         s = m.size / 4.0; // (info is the large one)
     // (a sitting camel is 0.945 tall - wiki: Camel)
-    const double h = m.type == MobType::Camel && m.sitting ? 0.945 : info.height;
+    const double h = isCamel(m.type) && m.sitting ? 0.945 : info.height;
     return Aabb::fromFeet(m.pos, info.width * s, h * s);
 }
 
@@ -286,7 +287,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         return d;
     };
     // Mounts step up whole blocks (wiki: Horse - step height 1; Camel 1.5).
-    const double step = m.type == MobType::Camel ? 1.5 : isMount(m.type) ? 1.0 : kStep;
+    const double step = isCamel(m.type) ? 1.5 : isMount(m.type) ? 1.0 : kStep;
     gather(start.expandedTowards(m.vel).expandedTowards({0, step, 0}));
     glm::dvec3 moved = slide(start, m.vel);
     const bool blockedH = moved.x != m.vel.x || moved.z != m.vel.z;
@@ -436,6 +437,35 @@ void Mobs::ai(Context& ctx, MobData& m) {
         toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y + toPlayer.z * toPlayer.z;
     double speed = info.speed * 0.5; // blocks per tick at speed modifier 1 (our estimate)
     bool chase = false;
+    // (M29.1b) a mount carrying a monster goes where its rider wants (set by ridePass).
+    const bool jockey = m.jockeyChase;
+    m.jockeyChase = false;
+    // A skeleton trap springs when a player comes within 10 blocks: a bolt that doesn't
+    // burn or hurt, then four skeleton horsemen - tamed horses, skeletons with bows.
+    if (m.skeletonTrap && !ctx.playerDead && playerDist2 < 10.0 * 10.0) {
+        m.skeletonTrap = false;
+        if (m_trapBolts.size() < m_trapBolts.capacity()) m_trapBolts.push_back(m.pos);
+        static const uint16_t bow = uint16_t(*itemRegistry().find("bow"));
+        for (int k = 0; k < 4; ++k) {
+            MobData h = k == 0 ? m : make(MobType::SkeletonHorse, m.pos, ctx.rng);
+            if (k > 0) {
+                h.pos += glm::dvec3(ctx.rng.nextDouble() * 2.0 - 1.0, 0.0, ctx.rng.nextDouble() * 2.0 - 1.0);
+            }
+            h.tamed = true;
+            MobData rider = make(MobType::Skeleton, h.pos, ctx.rng);
+            rider.vehicle = h.uuidHi;
+            rider.heldItem = bow;
+            rider.persistent = true;
+            if (k == 0) {
+                m.tamed = true;
+            } else {
+                ctx.world.queueMob(h);
+            }
+            ctx.world.queueMob(rider);
+        }
+    }
+    if (m.mobRidden) speed = (m.moveSpeed > 0.0f ? m.moveSpeed : info.speed) * 0.5; // (its own pace)
+    m.mobRidden = false;
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
     // creepers and spiders within 16; endermen only when angered (64).
@@ -466,7 +496,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const auto block = raycastBlocks(ctx.world, eye, (target - eye) / dist, dist);
         m.targeting = !block;
     }
-    if (m.targeting) {
+    if (jockey) {
+        chase = true; // (the goal was set by its rider)
+    } else if (m.targeting) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
@@ -667,7 +699,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
     // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
-    const bool undead = burnsInDaylight(m.type);
+    // (M29.1b: armor shades a zombie horse or nautilus)
+    const bool undead = burnsInDaylight(m.type) && m.horseArmor == 0;
     if (undead || m.fireTicks > 0 || m.type == MobType::Husk) {
         const BlockPos head{int(std::floor(m.pos.x)),
                             int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
@@ -763,7 +796,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.angry = true; // (M26.3: they fight back - wiki: Polar Bear, Panda)
         m.angerTicks = 400;
         m.targeting = true;
-    } else if (m.type == MobType::Nautilus && !m.tamed) { // (M26.5a: neutral - it bites back)
+    } else if (isNautilus(m.type) && !m.tamed) { // (M26.5a: neutral - it bites back)
         m.angry = true;
         m.angerTicks = 400;
     } else if (isLlama(m.type)) { // llamas spit back (wiki: Llama)
@@ -1083,6 +1116,16 @@ void Mobs::die(Context& ctx, MobData& m) {
             if (m.allayCount > 0) ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
         }
         break;
+    case MobType::SkeletonHorse: // (M29.1b; wiki) bones 0-2
+        drop("bone", 0, 2);
+        break;
+    case MobType::ZombieHorse: // rotten flesh 2-3; camel husks 2-3; zombie nautiluses 0-3
+    case MobType::CamelHusk:
+        drop("rotten_flesh", 2, 3);
+        break;
+    case MobType::ZombieNautilus:
+        drop("rotten_flesh", 0, 3);
+        break;
     case MobType::Nautilus: // (M26.5a; wiki: a nautilus shell 5%, +1% a Looting level)
         if (ctx.rng.nextInt(100) < 5u + m.looting) drop("nautilus_shell", 1, 1);
         break;
@@ -1236,6 +1279,7 @@ void Mobs::tick(Context& ctx) {
     m_angerAlertCount = 0;
     m_bossHealth = -1.0f;
     m_dragonDeaths.clear();
+    m_trapBolts.clear();
     const glm::dvec3 playerPos = ctx.player.position();
     const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))),
                                blockToChunk(int(std::floor(playerPos.z)))};
@@ -1433,6 +1477,7 @@ void Mobs::tick(Context& ctx) {
     for (const MobData& q : ctx.world.queuedMobs())
         add(ctx.world, q);
     ctx.world.queuedMobs().clear();
+    ridePass(ctx);
     ctx.world.vibrations().clear(); // (M27.3c: heard by the wardens this pass)
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
@@ -1621,9 +1666,80 @@ void Mobs::spawnHostiles(Context& ctx) {
             if (kind == MobType::Skeleton && (b == Biome::Swamp || b == Biome::MangroveSwamp) && v < 5)
                 mob.type = MobType::Bogged;
             if (mob.type != kind) mob.health = mobInfo(mob.type).maxHealth;
+            // Jockeys (M29.1b; wiki: Zombie Horse, Camel Husk): zombie horsemen with iron
+            // spears on plains, savannas and snowy plains (about 1 in 100 zombies); 1 in 10
+            // husks rides a camel husk with a parched behind.
+            static const uint16_t ironSpear = uint16_t(*itemRegistry().find("iron_spear"));
+            const bool horsemen = b == Biome::Plains || b == Biome::SunflowerPlains || b == Biome::Savanna ||
+                                  b == Biome::SavannaPlateau || b == Biome::SnowyPlains;
+            if (mob.type == MobType::Zombie && horsemen && open && i == 0 && ctx.rng.nextInt(100) == 0) {
+                MobData horse = make(MobType::ZombieHorse, mob.pos, ctx.rng);
+                mob.vehicle = horse.uuidHi;
+                mob.heldItem = ironSpear;
+                add(ctx.world, horse);
+            }
+            if (mob.type == MobType::Husk && i == 0 && ctx.rng.nextInt(10) == 0) {
+                MobData camel = make(MobType::CamelHusk, mob.pos, ctx.rng);
+                MobData back = make(MobType::Parched, mob.pos, ctx.rng);
+                mob.vehicle = back.vehicle = camel.uuidHi;
+                mob.heldItem = ironSpear;
+                add(ctx.world, camel);
+                if (add(ctx.world, back)) ++m_hostiles;
+            }
+        }
+        // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
+        if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
+            MobData rider = make(MobType::Skeleton, mob.pos, ctx.rng);
+            rider.vehicle = mob.uuidHi;
+            if (add(ctx.world, rider)) ++m_hostiles;
         }
         if (add(ctx.world, mob)) ++m_hostiles;
     }
+}
+
+bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty, Xoroshiro& rng) {
+    const uint32_t odds = difficulty <= 0 ? 0u : difficulty == 1 ? 10u : difficulty == 2 ? 25u : 45u; // per 1000
+    if (rng.nextInt(1000) >= odds) return false;
+    MobData h = make(MobType::SkeletonHorse, at, rng);
+    h.skeletonTrap = true;
+    h.persistent = true;
+    return add(world, h);
+}
+
+void Mobs::ridePass(Context& ctx) {
+    // Jockeys (M29.1b; wiki: Jockey): a rider sits on its mount's seat (two on a camel: the
+    // second behind), the mount carries it and walks to the rider's goal while the rider
+    // chases; a dead or missing mount drops its rider.
+    const glm::dvec3 p = ctx.player.position();
+    const ChunkPos pc{blockToChunk(int(std::floor(p.x))), blockToChunk(int(std::floor(p.z)))};
+    ctx.world.forEachTickingChunk([&](Chunk& chunk) {
+        if (std::abs(chunk.pos().x - pc.x) > m_simulationDistance ||
+            std::abs(chunk.pos().z - pc.z) > m_simulationDistance)
+            return;
+        for (MobData& r : chunk.mobs()) {
+            if (r.vehicle == 0 || r.health <= 0.0f) continue;
+            MobData* v = mobByUuid(ctx.world, r.pos, r.vehicle);
+            if (!v || v->health <= 0.0f || v->ridden) {
+                r.vehicle = 0;
+                continue;
+            }
+            v->mobRidden = true;
+            if (r.targeting) {
+                v->jockeyChase = true;
+                v->goal = r.goal;
+            }
+            const double back = isCamel(v->type) && r.type == MobType::Parched ? -0.5 : 0.0;
+            const glm::dvec3 f(forwardFlat(v->yaw));
+            const glm::dvec3 seat(f.x * back, seatHeight(*v), f.z * back);
+            const glm::dvec3 prevF(forwardFlat(v->prevYaw));
+            r.pos = v->pos + seat;
+            r.prevPos = v->prevPos + glm::dvec3(prevF.x * back, seat.y, prevF.z * back);
+            r.vel = glm::dvec3(0.0);
+            r.onGround = true;
+            r.yaw = v->yaw;
+            r.prevYaw = v->prevYaw;
+        }
+    });
 }
 
 std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye,

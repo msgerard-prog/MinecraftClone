@@ -93,10 +93,13 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
         m.age = 0;
         return true;
     }
-    if (m.type == MobType::Nautilus) { // (M26.5a) breeding like animals; provoked, it bites back
+    if (isNautilus(m.type)) { // (M26.5a; M29.1b zombie ones) breeding like animals; provoked, it bites back
         animalUpkeep(ctx, m);
         if (double unused = 0.0; fluid.water && animalGoal(ctx, m, unused)) m.goalTicks = 0;
         if (m.angry && --m.angerTicks <= 0) m.angry = false;
+        // (M29.1b) carrying a drowned: it swims where its rider wants (set by ridePass).
+        if (m.jockeyChase) m.goalTicks = 0;
+        m.jockeyChase = m.mobRidden = false;
         if (m.angry && !m.tamed && ctx.survival && !ctx.playerDead && playerDist2 < 16.0 * 16.0) {
             m.goal = playerPos + glm::dvec3(0.0, 0.5, 0.0);
             m.goalTicks = 0;
@@ -367,6 +370,13 @@ void Mobs::spawnWater(Context& ctx) {
             static_cast<int>(ctx.rng.nextInt(8))) {
         MobData d = make(MobType::Drowned, {x + 0.5, double(y), z + 0.5}, ctx.rng);
         d.heldTrident = ctx.rng.nextInt(16) == 0;
+        // (M29.1b; wiki: Zombie Nautilus) outside rivers half the trident holders ride a
+        // zombie nautilus (in warm oceans its coral kind - ours: one look).
+        if (d.heldTrident && !river && !frozenRiver && ctx.rng.nextInt(2) == 0) {
+            MobData n = make(MobType::ZombieNautilus, d.pos, ctx.rng);
+            d.vehicle = n.uuidHi;
+            add(ctx.world, n);
+        }
         if (add(ctx.world, d)) ++m_hostiles;
         return;
     }

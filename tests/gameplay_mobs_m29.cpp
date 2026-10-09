@@ -134,3 +134,78 @@ TEST_CASE("a husk's hit starves; a stray's arrow slows") {
     }
     CHECK(t.vitals.effectLevel(Effect::Slowness) > 0);
 }
+
+// M29.1b: undead mounts and jockeys (wiki: Jockey, Skeleton Horse, Zombie Horse, Camel Husk,
+// Zombie Nautilus).
+TEST_CASE("jockeys: a rider sits on its mount and falls off when the mount dies") {
+    MobScene s;
+    s.survival = false;
+    MobData spider = Mobs::make(MobType::Spider, {8.5, 64.0, 8.5}, s.rng);
+    MobData rider = Mobs::make(MobType::Skeleton, {8.5, 64.0, 8.5}, s.rng);
+    rider.vehicle = spider.uuidHi;
+    REQUIRE(Mobs::add(s.world, spider));
+    REQUIRE(Mobs::add(s.world, rider));
+    s.tick(5);
+    MobData* sp = findType(s, MobType::Spider);
+    MobData* sk = findType(s, MobType::Skeleton);
+    REQUIRE((sp && sk));
+    CHECK(sk->pos.y == doctest::Approx(sp->pos.y + Mobs::seatHeight(*sp)));
+    CHECK(sk->pos.x == doctest::Approx(sp->pos.x));
+    CHECK(sp->mobRidden);
+    sp->health = 0.0f;
+    sp->deathTime = 19;
+    s.tick(2);
+    CHECK(findType(s, MobType::Skeleton)->vehicle == 0);
+}
+
+TEST_CASE("a skeleton trap springs into four skeleton horsemen near the player") {
+    MobScene s;
+    MobData trap = Mobs::make(MobType::SkeletonHorse, {5.5, 64.0, 0.5}, s.rng);
+    trap.skeletonTrap = true;
+    REQUIRE(Mobs::add(s.world, trap));
+    s.tick(2);
+    int horses = 0, skeletons = 0, tamed = 0, riders = 0;
+    for (MobData* m : s.all()) {
+        horses += m->type == MobType::SkeletonHorse;
+        tamed += m->type == MobType::SkeletonHorse && m->tamed;
+        skeletons += m->type == MobType::Skeleton;
+        riders += m->type == MobType::Skeleton && m->vehicle != 0;
+    }
+    CHECK(horses == 4);
+    CHECK(tamed == 4);
+    CHECK(skeletons == 4);
+    CHECK(riders == 4);
+    // Bolts: 1% Easy .. 4.5% Hard of storms' strikes, none on Peaceful.
+    World w;
+    w.createChunk({0, 0});
+    Xoroshiro rng{3};
+    int traps = 0;
+    for (int i = 0; i < 2000; ++i) traps += Mobs::spawnSkeletonTrap(w, {8.5, 64.0, 8.5}, 2, rng) ? 1 : 0;
+    CHECK(traps > 20);
+    CHECK(traps < 90);
+    CHECK_FALSE(Mobs::spawnSkeletonTrap(w, {8.5, 64.0, 8.5}, 0, rng));
+}
+
+TEST_CASE("undead mounts: no breeding; zombie horses eat red mushrooms; stats") {
+    MobScene s;
+    MobData a = Mobs::make(MobType::ZombieHorse, {0, 64, 0}, s.rng);
+    MobData b = Mobs::make(MobType::ZombieHorse, {0, 64, 0}, s.rng);
+    CHECK(isUndeadMount(b.type)); // (never mate: Mounts.cpp canMate)
+    CHECK(a.maxHealth == 25.0f);
+    CHECK(Mobs::make(MobType::SkeletonHorse, {0, 64, 0}, s.rng).maxHealth == 15.0f);
+    a.health = 10.0f;
+    ItemEntities items;
+    CHECK(Mobs::interact(a, *itemRegistry().find("red_mushroom"), s.rng, items) == Mobs::Use::Fed);
+    CHECK(a.health == doctest::Approx(13.0f));
+    MobData sk = Mobs::make(MobType::SkeletonHorse, {0, 64, 0}, s.rng);
+    sk.health = 5.0f;
+    CHECK(Mobs::interact(sk, *itemRegistry().find("wheat"), s.rng, items) != Mobs::Use::Fed);
+    CHECK(isUndead(MobType::CamelHusk));
+    CHECK(burnsInDaylight(MobType::ZombieHorse));
+    CHECK_FALSE(burnsInDaylight(MobType::SkeletonHorse));
+    MobData n = Mobs::make(MobType::ZombieNautilus, {0, 64, 0}, s.rng);
+    int fed = 0;
+    for (int i = 0; i < 30 && !n.tamed; ++i, ++fed)
+        Mobs::interact(n, *itemRegistry().find("pufferfish"), s.rng, items);
+    CHECK(n.tamed);
+}

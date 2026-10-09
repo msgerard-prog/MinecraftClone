@@ -411,8 +411,8 @@ def mob_sounds(name, rng):
         chirp = lambda f: mul(tone(0.08, f, f * 1.4, "sine"), env(int(0.08 * RATE), 0.003, 0.03))
         trill = lambda f: add(chirp(f), at(chirp(f * 1.1), 0.1, 0.3), at(chirp(f * 0.9), 0.2, 0.3))
         return [trill(r(2200, 3000)) for _ in range(3)], [chirp(3400) for _ in range(2)], trill(1800)
-    if name in ("horse", "mule"):  # a whinny: a falling, wavering neigh, snorts when hurt (ours)
-        f = 900 if name == "horse" else 700
+    if name in ("horse", "mule", "skeleton_horse", "zombie_horse"):  # a whinny: a falling, wavering neigh, snorts when hurt (ours)
+        f = {"horse": 900, "mule": 700, "skeleton_horse": 1100, "zombie_horse": 560}[name]  # (M29.1b: undead ones hollow / low)
         neigh = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(700, 2400), vibrato=0.12, vib_rate=14, breath=0.3)
         snort = lambda: mul(bandpass(noise(int(0.25 * RATE), rng), 400, 2500), env(int(0.25 * RATE), 0.01, 0.08))
         return ([neigh(r(0.7, 1.0), f * r(0.95, 1.1), f * 0.45) for _ in range(3)],
@@ -427,7 +427,7 @@ def mob_sounds(name, rng):
         hum = lambda d, f0, f1: voice(rng, d, f0, f1, wave="triangle", formant=(400, 1800), vibrato=0.05, vib_rate=7, breath=0.2)
         return ([hum(r(0.4, 0.7), r(260, 320), r(220, 260)) for _ in range(3)],
                 [hum(0.25, 480, 360) for _ in range(2)], hum(0.9, 380, 140))
-    if name == "camel":  # deep grumbles (ours)
+    if name in ("camel", "camel_husk"):  # deep grumbles (ours; M29.1b the husk too)
         grumble = lambda d, f0, f1: voice(rng, d, f0, f1, wave="saw", formant=(250, 1000), vibrato=0.2, vib_rate=18, breath=0.5)
         return ([grumble(r(0.6, 0.9), r(90, 120), r(70, 85)) for _ in range(3)],
                 [grumble(0.3, 160, 120) for _ in range(2)], grumble(1.1, 130, 50))
@@ -502,7 +502,7 @@ def mob_sounds(name, rng):
         hum = lambda f: mul(add(tone(0.25, f, f * 1.25, "sine"), at(tone(0.2, f * 1.5, f * 1.6, "sine"), 0.08, 0.25)),
                             env(int(0.25 * RATE), 0.02, 0.08))
         return [hum(r(700, 900)) for _ in range(3)], [hum(1100) for _ in range(2)], hum(500)
-    if name == "nautilus":  # bubbly clicks (ours)
+    if name in ("nautilus", "zombie_nautilus"):  # bubbly clicks (ours; M29.1b the zombie one too)
         click = lambda f: [x * 3 for x in resonator(mul(noise(800, rng), env(800, 0.0005, 0.004)), f, 10)]
         bubbles = lambda: add(*[at(click(r(400, 900)), k * 0.09, 0.5) for k in range(4)])
         return [bubbles() for _ in range(3)], [click(1200) for _ in range(2)], bubbles()
@@ -532,7 +532,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
         "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
         "allay", "nautilus", "happy_ghast", "copper_golem", "creaking", "warden", "sniffer",
-        "husk", "stray", "bogged", "parched"]
+        "husk", "stray", "bogged", "parched", "skeleton_horse", "zombie_horse", "camel_husk",
+        "zombie_nautilus"]
 
 
 # --- Everything else ----------------------------------------------------------------

@@ -1346,6 +1346,10 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("leash", std::vector<int32_t>{m.leashPos.x, m.leashPos.y, m.leashPos.z});
         }
         if (m.type == MobType::LeashKnot) e.put("block_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
+        // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
+        // mount's Passengers); a skeleton trap horse.
+        if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
+        if (m.type == MobType::SkeletonHorse) e.put("SkeletonTrap", int8_t(m.skeletonTrap ? 1 : 0));
         if (m.type == MobType::ArmorStand) { // (M28.3b; wiki: Armor Stand › Entity data)
             nbt::Compound eq;
             static constexpr const char* kSlots[4] = {"head", "chest", "legs", "feet"};
@@ -1417,7 +1421,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                     e.put("Variant", int32_t(m.woolColour % 4));
                     e.put("Strength", int32_t(m.strength));
                 }
-                if (m.type == MobType::Camel) e.put("LastPoseTick", int64_t(m.sitting ? -1 : 0)); // (sitting: negative)
+                if (isCamel(m.type)) e.put("LastPoseTick", int64_t(m.sitting ? -1 : 0)); // (sitting: negative)
                 // Its own stats as attribute bases (1.21: attributes [{id, base}]).
                 std::vector<nbt::Tag> attrs;
                 auto attr = [&](const char* id, double base) {
@@ -1522,9 +1526,10 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             }
             e.put("equipment", std::move(eq));
         }
-        if (m.heldTrident) { // (1.21.5+ equipment.mainhand)
+        if (m.heldTrident || m.heldItem != 0) { // (1.21.5+ equipment.mainhand)
             nbt::Compound eq, hand;
-            hand.put("id", std::string("minecraft:trident"));
+            hand.put("id", m.heldTrident ? std::string("minecraft:trident")
+                                         : std::string(itemRegistry().item(m.heldItem).id));
             hand.put("count", int32_t{1});
             eq.put("mainhand", std::move(hand));
             e.put("equipment", std::move(eq));
@@ -1720,7 +1725,11 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         }
         if (const nbt::Compound* eq = e->compound("equipment"))
             if (const nbt::Compound* hand = eq->compound("mainhand"))
-                m.heldTrident = hand->string("id") && *hand->string("id") == "minecraft:trident";
+                if (const std::string* handId = hand->string("id")) {
+                    m.heldTrident = *handId == "minecraft:trident";
+                    if (!m.heldTrident)
+                        if (const auto it = itemRegistry().find(*handId)) m.heldItem = uint16_t(*it);
+                }
         if (mobInfo(m.type).swims) {
             m.airTicks = int16_t(std::clamp<int64_t>(e->integer("Air").value_or(300), -20, 300));
             m.fromBucket = e->integer("FromBucket").value_or(0) != 0;
@@ -1811,7 +1820,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.woolColour = uint8_t(std::clamp<int64_t>(e->integer("Variant").value_or(0), 0, 3));
                 m.strength = uint8_t(std::clamp<int64_t>(e->integer("Strength").value_or(3), 1, 5));
             }
-            if (m.type == MobType::Camel) m.sitting = e->integer("LastPoseTick").value_or(0) < 0;
+            if (isCamel(m.type)) m.sitting = e->integer("LastPoseTick").value_or(0) < 0;
             if (const nbt::List* attrs = e->list("attributes"))
                 for (const nbt::Tag& at : attrs->items)
                     if (const nbt::Compound* a = at.get<nbt::Compound>()) {
@@ -1943,6 +1952,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                         if (slot >= 0 && slot < chestSlots(m.type, m.strength)) slots[size_t(slot)] = itemFromNbt(*ic);
                     }
             }
+        m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        if (m.type == MobType::SkeletonHorse) m.skeletonTrap = e->integer("SkeletonTrap").value_or(0) != 0;
         if (const nbt::Tag* l = e->find("leash")) { // (M28.3c)
             if (l->get<nbt::Compound>()) {
                 m.leash = 1;

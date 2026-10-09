@@ -623,14 +623,18 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
     if (mob.sleeping) body = body * rotX(-90.0f * kDeg); // in bed: lying on its back, head toward the pillow
     const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
-    const glm::mat3 legA = rotX(swing), legB = rotX(-swing), arm = rotX(-90.0f * kDeg + swing * 0.2f);
+    // (M29.1b) a jockey sits: legs forward and a little apart (vanilla's riding pose).
+    const bool seated = mob.vehicle != 0;
+    const glm::mat3 legA = seated ? rotX(-72.0f * kDeg) * rotY(-18.0f * kDeg) : rotX(swing),
+                    legB = seated ? rotX(-72.0f * kDeg) * rotY(18.0f * kDeg) : rotX(-swing),
+                    arm = rotX(-90.0f * kDeg + swing * 0.2f);
     const float flap = std::sin(mob.limbSwing) * 0.6f; // (dragon wings)
     const glm::mat3 wingL = rotZ(flap), wingR = rotZ(-flap);
     const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
     if (mob.sitting && mob.type != world::MobType::Villager) // (a sitting pet sinks onto its haunches; a camel lies down)
-        base.y -= mob.type == world::MobType::Camel ? 1.0f : 0.25f;
+        base.y -= world::isCamel(mob.type) ? 1.0f : 0.25f;
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
         base.x += 0.05f * std::sin(float(mob.convertTicks) * 2.5f);
     const float vrow = float(gfx::mobTextureRow(mob.type) * 64);

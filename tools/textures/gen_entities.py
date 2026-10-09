@@ -1260,6 +1260,16 @@ def main():
               "camel": pet("camel", [(0, 0, 4, 18, 4), (16, 0, 5, 12, 5), (36, 0, 6, 6, 8), (48, 14, 2, 2, 1),
                                      (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#C8A060",
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
+              # M29.1b undead mounts in their own colours: bone, rotting green, sun-dried husk, drowned teal
+              "skeleton_horse": pet("skeleton_horse", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#D8D4C8",
+                                    extra=[((20, 15, 2, 10, 3), "#B8B4A8"), ((46, 0, 3, 10, 4), "#B8B4A8")], stripes=True),
+              "zombie_horse": pet("zombie_horse", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#4E7A44",
+                                  extra=[((20, 15, 2, 10, 3), "#2E4A28"), ((46, 0, 3, 10, 4), "#2E4A28")]),
+              "camel_husk": pet("camel_husk", [(0, 0, 4, 18, 4), (16, 0, 5, 12, 5), (36, 0, 6, 6, 8), (48, 14, 2, 2, 1),
+                                               (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#8E8060",
+                                extra=[((16, 17, 8, 5, 8), "#6E6044"), ((0, 22, 2, 8, 2), "#4A402C")]),
+              "zombie_nautilus": pet("zombie_nautilus", [(32, 0, 6, 5, 4), (0, 16, 1, 1, 5)], (32, 0, 6, 5, 4), None,
+                                     base="#5E8A7E", extra=[((0, 0, 8, 8, 8), "#8EA898")], stripes=True),
               "mount_gear": mount_gear(),
               "bee": bee(),
               # M26.4a monsters

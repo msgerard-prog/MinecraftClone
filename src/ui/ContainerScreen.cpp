@@ -272,10 +272,10 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
         const auto& items = world::itemRegistry();
         m_gearScratch = {};
         if (s.index == 0) {
-            if (!world::isHorseKind(t) && t != MobType::Camel && t != MobType::Nautilus) return nullptr; // (llamas take no saddle)
+            if (!world::isHorseKind(t) && !world::isCamel(t) && !world::isNautilus(t)) return nullptr; // (llamas take no saddle)
             if (m_mount->saddled) m_gearScratch = {*items.find("saddle"), 1};
         } else {
-            if (t != MobType::Horse && !world::isLlama(t)) return nullptr;
+            if (t != MobType::Horse && t != MobType::ZombieHorse && !world::isLlama(t)) return nullptr;
             if (m_mount->horseArmor > 0) m_gearScratch = {*items.find(world::kHorseArmorItems[m_mount->horseArmor]), 1};
             if (m_mount->decor > 0)
                 m_gearScratch = {*items.find(std::string(world::kDyeColours[m_mount->decor - 1]) + "_carpet"), 1};
@@ -296,7 +296,7 @@ bool ContainerScreen::gearFits(int slot, const world::ItemStack& s) const {
     if (!m_mount || s.empty()) return s.empty();
     const std::string_view id = world::itemRegistry().item(s.item).id;
     if (slot == 0) return id == "minecraft:saddle";
-    if (m_mount->type == world::MobType::Horse)
+    if (m_mount->type == world::MobType::Horse || m_mount->type == world::MobType::ZombieHorse)
         for (int k = 1; k < 5; ++k)
             if (id == std::string("minecraft:") + world::kHorseArmorItems[k]) return true;
     if (world::isLlama(m_mount->type))
@@ -973,6 +973,10 @@ void ContainerScreen::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
                                          : m_mount->type == world::MobType::Donkey        ? "Donkey"
                                          : m_mount->type == world::MobType::Mule          ? "Mule"
                                          : m_mount->type == world::MobType::Camel         ? "Camel"
+                                         : m_mount->type == world::MobType::CamelHusk     ? "Camel Husk"
+                                         : m_mount->type == world::MobType::SkeletonHorse ? "Skeleton Horse"
+                                         : m_mount->type == world::MobType::ZombieHorse   ? "Zombie Horse"
+                                         : m_mount->type == world::MobType::ZombieNautilus ? "Zombie Nautilus"
                                          : m_mount->type == world::MobType::TraderLlama   ? "Trader Llama"
                                                                                           : "Llama")
         : m_type == Type::Beacon      ? "Beacon"

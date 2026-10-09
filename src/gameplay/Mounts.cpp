@@ -53,6 +53,10 @@ constexpr MountFood kHorseFood[] = {
 constexpr MountFood kLlamaFood[] = {{"wheat", 2.0f, 200, 3, false},
                                     {"hay_block", 10.0f, 1800, 6, true}};
 constexpr MountFood kCamelFood[] = {{"cactus", 2.0f, 200, 0, true}};
+// (M29.1b; wiki: Zombie Horse - red mushrooms heal 3 and add 3 temper; Camel Husk - rabbit's
+// feet tempt and heal it.)
+constexpr MountFood kZombieHorseFood[] = {{"red_mushroom", 3.0f, 0, 3, false}};
+constexpr MountFood kCamelHuskFood[] = {{"rabbit_foot", 2.0f, 0, 0, false}};
 
 const MountFood* mountFood(MobType t, std::string_view id) {
     auto find = [&](const auto& table) -> const MountFood* {
@@ -60,6 +64,9 @@ const MountFood* mountFood(MobType t, std::string_view id) {
             if (id.size() > 10 && id.substr(10) == f.id) return &f;
         return nullptr;
     };
+    if (t == MobType::SkeletonHorse) return nullptr;
+    if (t == MobType::ZombieHorse) return find(kZombieHorseFood);
+    if (t == MobType::CamelHusk) return find(kCamelHuskFood);
     if (isHorseKind(t)) return find(kHorseFood);
     if (isLlama(t)) return find(kLlamaFood);
     if (t == MobType::Camel) return find(kCamelFood);
@@ -95,14 +102,25 @@ float approachAngle(float from, float to, float maxStep) { // (as in Mobs.cpp)
 bool Mobs::isMountFood(MobType type, ItemId item) {
     if (item == kNoItem) return false;
     const MountFood* f = mountFood(type, itemRegistry().item(item).id);
+    if (type == MobType::CamelHusk) return f != nullptr; // (rabbit's feet tempt it)
     return f && f->love && type != MobType::Mule; // (what tempts them: their breeding food)
 }
 
 void Mobs::initMount(MobData& m, Xoroshiro& rng) {
     // Spawn stats (wiki: Horse › Statistics): health 15 + 0-7 + 0-8; speed and jump
     // strength from three averaged rolls.
-    if (m.type == MobType::Camel || m.type == MobType::Nautilus || m.type == MobType::HappyGhast)
+    if (isCamel(m.type) || isNautilus(m.type) || m.type == MobType::HappyGhast)
         return; // (fixed stats)
+    if (m.type == MobType::SkeletonHorse || m.type == MobType::ZombieHorse) {
+        // (M29.1b; wiki) skeleton horses: 15 health, speed 0.2, jump 0.4-1.0; zombie horses
+        // (1.21.11): 25 health, 9.2-12.3 blocks/s, jump 0.5-0.7.
+        const bool zombie = m.type == MobType::ZombieHorse;
+        m.maxHealth = zombie ? 25.0f : 15.0f;
+        m.health = m.maxHealth;
+        m.moveSpeed = zombie ? float((9.2 + 3.1 * tri(rng)) / 43.17) : 0.2f;
+        m.jumpStrength = float(zombie ? 0.5 + 0.2 * tri(rng) : 0.4 + 0.6 * tri(rng));
+        return;
+    }
     m.maxHealth = 15.0f + float(rng.nextInt(8) + rng.nextInt(9));
     m.health = m.maxHealth;
     if (m.type == MobType::Horse) {
@@ -163,6 +181,7 @@ void Mobs::mountOffspring(const MobData& a, const MobData& b, MobData& baby, Xor
 
 bool Mobs::canMate(const MobData& a, const MobData& b) {
     if (a.type == MobType::Mule || b.type == MobType::Mule) return false; // (mules never breed)
+    if (isUndeadMount(a.type) || isUndeadMount(b.type)) return false;     // (nor the undead, M29.1b)
     if (a.type == b.type) return true;
     return (a.type == MobType::Horse && b.type == MobType::Donkey) ||
            (a.type == MobType::Donkey && b.type == MobType::Horse) ||
@@ -170,9 +189,10 @@ bool Mobs::canMate(const MobData& a, const MobData& b) {
 }
 
 Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
+    if (m.mobRidden) return Use::None; // (M29.1b: a monster sits on it)
     const std::string_view id = held != kNoItem ? itemRegistry().item(held).id : std::string_view{};
     if (m.type == MobType::HappyGhast) return happyGhastInteract(m, held, rng, items); // (M26.5b)
-    if (m.type == MobType::Nautilus) { // (M26.5a; wiki: Nautilus)
+    if (isNautilus(m.type)) { // (M26.5a; wiki: Nautilus; M29.1b: zombie ones too, no breeding)
         const bool puffer = id == "minecraft:pufferfish" || id == "minecraft:pufferfish_bucket";
         const bool fish = puffer || id == "minecraft:cod" || id == "minecraft:salmon" ||
                           id == "minecraft:tropical_fish" || id == "minecraft:cod_bucket" ||
@@ -195,7 +215,7 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
                 m.age = std::min(0, m.age + 2400);
                 return Use::Fed;
             }
-            if (m.age == 0 && m.loveTicks == 0) {
+            if (m.age == 0 && m.loveTicks == 0 && m.type == MobType::Nautilus) {
                 m.loveTicks = 600;
                 return Use::Fed;
             }
@@ -215,7 +235,7 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
         m.ridden = true;
         return Use::Ride;
     }
-    const bool tame = m.tamed || m.type == MobType::Camel; // (camels need no taming)
+    const bool tame = m.tamed || isCamel(m.type); // (camels and camel husks need no taming)
     const glm::dvec3 at = m.pos + glm::dvec3(0.0, 1.0, 0.0);
     // Shears take off its body armor or carpet, then its saddle (1.21.6).
     if (id == "minecraft:shears" && tame) {
@@ -260,12 +280,12 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
     if (m.isBaby()) return Use::None;
     if (tame) { // gear (it uses up the item: Fed)
         if (id == "minecraft:saddle" && !m.saddled &&
-            (isHorseKind(m.type) || m.type == MobType::Camel)) {
+            (isHorseKind(m.type) || isCamel(m.type))) {
             m.saddled = true;
             return Use::Fed;
         }
         for (int k = 1; k < 5; ++k)
-            if (m.type == MobType::Horse && m.horseArmor == 0 &&
+            if ((m.type == MobType::Horse || m.type == MobType::ZombieHorse) && m.horseArmor == 0 &&
                 id == std::string("minecraft:") + kHorseArmorItems[k]) {
                 m.horseArmor = uint8_t(k);
                 return Use::Fed;
@@ -299,9 +319,13 @@ double Mobs::seatHeight(const MobData& m) {
     case MobType::Minecart:
         return 0.3;
     case MobType::Camel:
+    case MobType::CamelHusk:
         return 1.75;
     case MobType::Nautilus:
+    case MobType::ZombieNautilus:
         return 0.55;
+    case MobType::Spider: // (M29.1b: spider jockeys)
+        return 0.6;
     case MobType::HappyGhast:
         return 4.0; // (on its back)
     case MobType::Llama:
@@ -332,7 +356,7 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
         physics(ctx.world, m, wish, false);
         return true;
     }
-    if (!m.tamed && m.type != MobType::Camel) {
+    if (!m.tamed && !isCamel(m.type)) {
         // Being tamed: it fidgets and turns about, then keeps the rider or throws them.
         m.yaw += (ctx.rng.nextFloat() - 0.5f) * 30.0f;
         m.headYaw = m.yaw;
@@ -354,7 +378,7 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
         }
         return true;
     }
-    if (m.type == MobType::Nautilus && m.saddled) {
+    if (isNautilus(m.type) && m.saddled) {
         // Ridden under water (M26.5a; wiki: Nautilus): forward swims where the rider looks
         // (6.5 blocks/s), jump dashes up to 12 blocks (every 2 s).
         m.yaw = m.headYaw;
@@ -371,7 +395,7 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
         physics(ctx.world, m, wish, false);
         return true;
     }
-    const bool steered = m.saddled && (isHorseKind(m.type) || m.type == MobType::Camel);
+    const bool steered = m.saddled && (isHorseKind(m.type) || isCamel(m.type));
     if (!steered) { // (an unsaddled horse or a llama only carries the rider: it stands)
         m.yaw = approachAngle(m.yaw, m.headYaw, 5.0f);
         physics(ctx.world, m, glm::dvec3(0.0), false);
@@ -384,13 +408,13 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
     const double side = m.paddleTurn * 0.5;
     // A player's walk speed 0.1 is 4.317 blocks/s: 2.1585 blocks a tick per point.
     double speed = attrSpeed(m) * 2.1585;
-    if (m.type == MobType::Camel && m.paddleForward == 2)
+    if (isCamel(m.type) && m.paddleForward == 2)
         speed *= 2.11; // (sprinting: 8.2 blocks/s)
     glm::dvec3 wish =
         (glm::dvec3(forwardFlat(m.yaw)) * forward + glm::dvec3(rightFlat(m.yaw)) * side) * speed;
     if (m.riderJump > 0 && m.onGround) {
         const double power = m.riderJump / 100.0;
-        if (m.type == MobType::Camel) {
+        if (isCamel(m.type)) {
             if (m.dashCooldown == 0) { // a dash: forward and a little up (up to ~12 blocks)
                 const glm::dvec3 f(forwardFlat(m.yaw));
                 m.vel += f * (2.5 * power);
@@ -412,7 +436,7 @@ bool Mobs::mountTick(Context& ctx, MobData& m) {
 
 bool Mobs::mountGoal(Context& ctx, MobData& m, double& speed) {
     // Camels sit down now and then and rest (vanilla: about every 2 minutes or more).
-    if (m.type == MobType::Camel) {
+    if (isCamel(m.type)) {
         if (m.sitting) {
             m.goal = m.pos;
             m.vel.x = m.vel.z = 0.0;

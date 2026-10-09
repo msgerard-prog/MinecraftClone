@@ -163,6 +163,12 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:stray", 20.0f, 0.6, 1.99, 0.25, 2.0f, true},
         {"minecraft:bogged", 16.0f, 0.6, 1.99, 0.25, 2.0f, true},
         {"minecraft:parched", 16.0f, 0.6, 1.99, 0.25, 2.0f, true},
+        // wiki: Skeleton Horse - 15, 1.4 x 1.6, 0.2; Zombie Horse - 25, 0.25 (1.21.11);
+        // Camel Husk - 32, 1.7 x 2.375, 0.09; Zombie Nautilus - 15, 0.875 x 0.95, swims.
+        {"minecraft:skeleton_horse", 15.0f, 1.3965, 1.6, 0.2, 0.0f, false},
+        {"minecraft:zombie_horse", 25.0f, 1.3965, 1.6, 0.25, 0.0f, false},
+        {"minecraft:camel_husk", 32.0f, 1.7, 2.375, 0.09, 0.0f, false},
+        {"minecraft:zombie_nautilus", 15.0f, 0.875, 0.95, 0.3, 3.0f, false, false, false, 1.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

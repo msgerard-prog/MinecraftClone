@@ -843,10 +843,13 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Ravager: return kRavager;
     case world::MobType::Horse:
     case world::MobType::Donkey:
-    case world::MobType::Mule: return kHorse;
+    case world::MobType::Mule:
+    case world::MobType::SkeletonHorse:
+    case world::MobType::ZombieHorse: return kHorse;
     case world::MobType::Llama:
     case world::MobType::TraderLlama: return kLlama;
-    case world::MobType::Camel: return kCamel;
+    case world::MobType::Camel:
+    case world::MobType::CamelHusk: return kCamel;
     case world::MobType::Rabbit: return kRabbit;
     case world::MobType::Fox: return kFox;
     case world::MobType::PolarBear: return kPolarBear;
@@ -864,7 +867,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Wither: return kWither;
     case world::MobType::Breeze: return kBreeze;
     case world::MobType::Allay: return kAllay;
-    case world::MobType::Nautilus: return kNautilus;
+    case world::MobType::Nautilus:
+    case world::MobType::ZombieNautilus: return kNautilus;
     case world::MobType::HappyGhast: return kHappyGhast;
     case world::MobType::CopperGolem: return kCopperGolem;
     case world::MobType::Creaking: return kCreaking;

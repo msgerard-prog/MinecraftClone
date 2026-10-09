@@ -71,6 +71,7 @@ public:
         m_births.reserve(64); // (babies and spawner mobs)
         m_scratchEdits.reserve(4096);
         m_dragonDeaths.reserve(4);
+        m_trapBolts.reserve(4);
     }
 
     void tick(Context& ctx);
@@ -85,6 +86,13 @@ public:
     world::MobType bossType() const { return m_bossType; }
     // Where dragons finished dying this tick (the fight ends there: main).
     const std::vector<glm::dvec3>& dragonDeaths() const { return m_dragonDeaths; }
+    // (M29.1b; wiki: Skeleton Horse › Skeleton trap) a storm's bolt may leave a trap horse:
+    // 1% / 2.5% / 4.5% of natural bolts on Easy / Normal / Hard (ours, the wiki's ranges'
+    // middles). A sprung trap is a harmless bolt (listed for main to draw) and four
+    // skeleton horsemen with bows.
+    static bool spawnSkeletonTrap(world::World& world, const glm::dvec3& at, int difficulty,
+                                  world::Xoroshiro& rng);
+    const std::vector<glm::dvec3>& trapBolts() const { return m_trapBolts; }
     // A minecart item used on a rail (M21.4): a cart on it. False if not a rail.
     static bool placeMinecart(world::World& world, const world::BlockPos& rail,
                               world::Xoroshiro& rng);
@@ -252,6 +260,8 @@ private:
     void leashTick(Context& ctx, world::MobData& m);
     void caravanTick(Context& ctx, world::MobData& m);
     void knotTick(Context& ctx, world::MobData& k);
+    // (M29.1b) puts each jockey on its mount and lets the mount follow its rider's target.
+    void ridePass(Context& ctx);
     // Armor stands (ArmorStands.cpp, M28.3b).
     void armorStandTick(Context& ctx, world::MobData& m);
     void dropArmorStand(Context& ctx, world::MobData& m);
@@ -356,6 +366,7 @@ private:
     world::MobType m_bossType = world::MobType::EnderDragon;
     std::vector<glm::dvec3>
         m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)
+    std::vector<glm::dvec3> m_trapBolts; // (M29.1b) skeleton traps sprung this tick
     // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
     std::array<glm::dvec3, 8> m_angerAlerts{};
     int m_angerAlertCount = 0;

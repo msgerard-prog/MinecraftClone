@@ -1436,7 +1436,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // (M26.2) on a tamed mount or in a chest boat: its screen
                     const mc::world::MobData* ride = ridingCart ? findCart() : nullptr;
                     if (ride && ((mc::world::isMount(ride->type) &&
-                                  (ride->tamed || ride->type == mc::world::MobType::Camel)) ||
+                                  (ride->tamed || mc::world::isCamel(ride->type))) ||
                                  (ride->type == mc::world::MobType::Boat && ride->hasChest)))
                         openMountScreen(ride->uuidHi);
                     else if (gameMode == 3)
@@ -1965,7 +1965,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (cart->type == mc::world::MobType::HappyGhast && input.jump)
                         cart->paddleTurn = 2; // (M26.5b: up)
                     if (cart->type ==
-                        mc::world::MobType::Nautilus) // (its rider keeps their breath)
+                        mc::world::MobType::Nautilus || cart->type == mc::world::MobType::ZombieNautilus) // (its rider keeps their breath)
                         vitals.addEffect(mc::world::Effect::BreathOfTheNautilus, 0, 40);
                     if (input.jump) {
                         mountJumpTicks = std::min(mountJumpTicks + 1, 10);
@@ -3066,7 +3066,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     const auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     if ((mc::world::isMount(mob.type) &&
-                         (mob.tamed || mob.type == mc::world::MobType::Camel) && !mob.isBaby()) ||
+                         (mob.tamed || mc::world::isCamel(mob.type)) && !mob.isBaby()) ||
                         (mob.type == mc::world::MobType::Boat && mob.hasChest)) {
                         openMountScreen(mob.uuidHi);
                         clicks.useClick = false;
@@ -3762,8 +3762,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                               true); // (heard everywhere)
                     skyFlash = 2;
                 };
-                for (const auto& b : blockUpdates.lightning())
+                for (const auto& b : blockUpdates.lightning()) {
                     strike(b);
+                    // (M29.1b) a storm's bolt may leave a skeleton trap horse.
+                    mc::Mobs::spawnSkeletonTrap(world, glm::dvec3(b.x + 0.5, b.y, b.z + 0.5), difficulty, gameRng);
+                }
+                for (const glm::dvec3& t : mobs.trapBolts()) { // (a sprung trap: a harmless bolt)
+                    if (bolts.size() < bolts.capacity()) bolts.push_back({t, uint32_t(gameRng.nextLong()), 8});
+                    playSound(mc::world::Sound::Thunder, t, 1.0f, 1.0f, true);
+                    skyFlash = 2;
+                }
                 for (const auto& b : commandBolts) {
                     blockUpdates.strikeLightning(b); // (its fire)
                     strike(b);
@@ -5408,8 +5416,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             const mc::world::MobData* steed =
                 ridingCart ? findCart() : nullptr; // (M26.2: the jump bar)
             if (steed && steed->saddled &&
-                (mc::world::isHorseKind(steed->type) || steed->type == mc::world::MobType::Camel ||
-                 steed->type == mc::world::MobType::Nautilus))
+                (mc::world::isHorseKind(steed->type) || mc::world::isCamel(steed->type) ||
+                 mc::world::isNautilus(steed->type)))
                 mc::ui::drawJumpBar(batch, float(mountJumpTicks) / 10.0f, guiW, guiH);
             else if (survival)
                 mc::ui::drawExperience(batch, vitals.xpLevel(), vitals.xpProgress(), guiW, guiH);

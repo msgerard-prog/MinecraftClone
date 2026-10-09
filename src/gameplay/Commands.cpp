@@ -621,6 +621,8 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 // diamond), Decor:1-16 (a carpet's dye + 1) for their equipment.
                 else if (key == "Tame" && world::isMount(*type))
                     mob.tamed = v != 0.0;
+                else if (key == "SkeletonTrap" && *type == world::MobType::SkeletonHorse) // (M29.1b)
+                    mob.skeletonTrap = v != 0.0;
                 else if (key == "Variant" && *type == world::MobType::Horse) {
                     mob.woolColour = uint8_t(std::clamp(int(v) & 255, 0, 6));
                     mob.color2 = uint8_t(std::clamp(int(v) >> 8, 0, 4));

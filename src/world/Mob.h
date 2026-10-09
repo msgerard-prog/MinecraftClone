@@ -111,6 +111,12 @@ enum class MobType : uint8_t {
     Stray,
     Bogged,
     Parched,
+    // Undead mounts (M29.1b; wiki: Skeleton Horse, Zombie Horse, Camel Husk, Zombie
+    // Nautilus): ridden by monsters as jockeys; none of them breed.
+    SkeletonHorse,
+    ZombieHorse,
+    CamelHusk,
+    ZombieNautilus,
     Count
 };
 
@@ -165,9 +171,22 @@ inline constexpr uint32_t kParrotColours[5] = {0xD02A20, 0x2850D8, 0x50C830, 0x3
 // Mounts (M26.2; wiki: Horse, Donkey, Mule, Llama, Camel): ridden by the player.
 inline bool isMount(MobType t) {
     return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule || t == MobType::Llama ||
-           t == MobType::TraderLlama || t == MobType::Camel || t == MobType::Nautilus || t == MobType::HappyGhast;
+           t == MobType::TraderLlama || t == MobType::Camel || t == MobType::Nautilus || t == MobType::HappyGhast ||
+           t == MobType::SkeletonHorse || t == MobType::ZombieHorse || t == MobType::CamelHusk ||
+           t == MobType::ZombieNautilus;
 }
-inline bool isHorseKind(MobType t) { return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule; }
+// Horses for riding, jumping and taming (M29.1b: the undead ones too).
+inline bool isHorseKind(MobType t) {
+    return t == MobType::Horse || t == MobType::Donkey || t == MobType::Mule || t == MobType::SkeletonHorse ||
+           t == MobType::ZombieHorse;
+}
+inline bool isCamel(MobType t) { return t == MobType::Camel || t == MobType::CamelHusk; }
+inline bool isNautilus(MobType t) { return t == MobType::Nautilus || t == MobType::ZombieNautilus; }
+// The undead mounts never breed (wiki).
+inline bool isUndeadMount(MobType t) {
+    return t == MobType::SkeletonHorse || t == MobType::ZombieHorse || t == MobType::CamelHusk ||
+           t == MobType::ZombieNautilus;
+}
 inline bool isLlama(MobType t) { return t == MobType::Llama || t == MobType::TraderLlama; }
 // Takes a chest (donkeys, mules, llamas; chest boats are boats with `hasChest`).
 inline bool canCarryChest(MobType t) { return t == MobType::Donkey || t == MobType::Mule || isLlama(t); }
@@ -230,7 +249,8 @@ inline bool isSkeleton(MobType t) {
 }
 // Undead that burn under the open sky by day (wiki: Undead) - husks and parched don't.
 inline bool burnsInDaylight(MobType t) {
-    return (isZombie(t) || isSkeleton(t)) && t != MobType::Husk && t != MobType::Parched;
+    return ((isZombie(t) || isSkeleton(t)) && t != MobType::Husk && t != MobType::Parched) ||
+           t == MobType::ZombieHorse || t == MobType::ZombieNautilus; // (unless armored)
 }
 // The undead (wiki: Undead): Smite hits them harder, the Wither leaves them alone.
 // Hostile mobs that vanish on Peaceful (wiki: Difficulty; the ender dragon, shulkers
@@ -265,7 +285,7 @@ inline bool isLeashable(MobType t) {
     }
 }
 inline bool isUndead(MobType t) {
-    return isZombie(t) || isSkeleton(t) || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
+    return isZombie(t) || isSkeleton(t) || isUndeadMount(t) || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
            t == MobType::Phantom || t == MobType::Wither;
 }
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.
@@ -342,6 +362,14 @@ struct MobData {
     uint8_t leash = 0;             // (M28.3c) on a lead: 0 no, 1 held by the player, 2 tied to the fence at `leashPos`
     glm::ivec3 leashPos{0};
     uint64_t caravanHead = 0;      // (M28.3c) a llama following another in a caravan (its UUID high half)
+    // Jockeys (M29.1b): the mob this one rides (its UUID high half; saved as our
+    // clone:Vehicle - vanilla nests Passengers); a mount whose rider chases moves to the
+    // rider's goal (`jockeyChase`, refreshed each tick by Mobs::tick's riding pass).
+    uint64_t vehicle = 0;
+    bool jockeyChase = false;
+    bool mobRidden = false; // (a monster sits on it: the player can't get on)
+    bool skeletonTrap = false;   // (M29.1b) a skeleton trap horse (vanilla SkeletonTrap)
+    uint16_t heldItem = 0;       // (M29.1b) its main-hand item other than a trident (ItemId; equipment.mainhand)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love
