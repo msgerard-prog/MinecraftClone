@@ -1829,6 +1829,7 @@ def all_items():
     items["melon_slice"] = melon_slice()
     items["melon_seeds"] = flat_seeds("#2E2418", "#14100A")  # (M29.4b)
     items["barrier"] = barrier_icon()  # (M29.7)
+    items["debug_stick"] = items["stick"] if "stick" in items else barrier_icon()
     items["light"] = light_icon()
     items["structure_void"] = void_icon()
     items["pumpkin_seeds"] = flat_seeds("#E6DCA6", "#B0A070")

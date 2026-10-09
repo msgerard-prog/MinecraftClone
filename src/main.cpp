@@ -2881,6 +2881,37 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::throwEye(inventory, survival, eye, *s, projectiles);
                         clicks.useClick = false;
                     }
+                // The debug stick (M29.7; wiki: Debug Stick, creative): left-click picks the next of
+                // the block's properties, right-click steps its value (sneaking: back).
+                if (!dead && gameMode == 1 && heldId == "minecraft:debug_stick" && lastHit &&
+                    (clicks.useClick || clicks.attackClick)) {
+                    const mc::world::BlockStateId ds = world.getBlock(lastHit->block);
+                    const auto& props = reg.block(reg.blockOf(ds)).properties;
+                    static std::vector<uint8_t> chosen(reg.blockCount(), 0); // (per block, as vanilla's item remembers)
+                    uint8_t& pick = chosen[reg.blockOf(ds)];
+                    char msg[96];
+                    if (props.empty()) {
+                        std::snprintf(msg, sizeof(msg), "%s has no properties", reg.block(reg.blockOf(ds)).id.c_str());
+                    } else if (clicks.attackClick) {
+                        pick = uint8_t((pick + 1) % props.size());
+                        const auto v = reg.value(ds, props[pick]->name);
+                        std::snprintf(msg, sizeof(msg), "selected \"%.*s\" (%.*s)", int(props[pick]->name.size()),
+                                      props[pick]->name.data(), int(v ? v->size() : 0), v ? v->data() : "");
+                    } else {
+                        const mc::world::Property& pr = *props[pick % props.size()];
+                        const int n = int(pr.values.size());
+                        const int cur = reg.get(ds, pr);
+                        const mc::world::BlockStateId next =
+                            reg.set(ds, pr, (cur + (player.sneaking() ? n - 1 : 1)) % n);
+                        world.setBlock(lastHit->block, next); // (no updates, as vanilla's stick)
+                        frameEdits.push_back(lastHit->block);
+                        const auto v = reg.value(next, pr.name);
+                        std::snprintf(msg, sizeof(msg), "\"%.*s\" to %.*s", int(pr.name.size()), pr.name.data(),
+                                      int(v ? v->size() : 0), v ? v->data() : "");
+                    }
+                    chat.addMessage(msg, 0xFFFFFFFFu, gameTime, gui.batch());
+                    clicks.useClick = clicks.attackClick = clicks.attack = false;
+                }
                 if (!dead && (clicks.useClick || clicks.attackClick) && lastHit &&
                     reg.blockOf(world.getBlock(lastHit->block)) == mc::world::blocks::DragonEgg) {
                     // The egg teleports away when clicked (wiki: Dragon Egg).

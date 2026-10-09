@@ -637,6 +637,7 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:melon_seeds", .block = blocks::MelonStem, .texture = "item/melon_seeds"});
     r.add({.id = "minecraft:pumpkin_seeds", .block = blocks::PumpkinStem, .texture = "item/pumpkin_seeds"});
     r.add({.id = "minecraft:cocoa_beans", .texture = "item/cocoa_beans"});
+    r.add({.id = "minecraft:debug_stick", .maxStack = 1, .texture = "item/debug_stick"}); // (M29.7)
     r.mapBlock(blocks::PumpkinStem, *r.find("pumpkin_seeds"));
     r.mapBlock(blocks::AttachedPumpkinStem, *r.find("pumpkin_seeds"));
     r.mapBlock(blocks::MelonStem, *r.find("melon_seeds"));
