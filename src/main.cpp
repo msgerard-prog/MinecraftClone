@@ -398,14 +398,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // The Overworld's generator: saved worlds keep theirs (pinned outputs never change).
     const std::string generatorKind = level ? level->generator : opts->generator;
     // The Nether's generator (M19): new worlds get the newest; old ones keep theirs.
-    const std::string netherKind = level ? level->netherGenerator : std::string("nether3");
+    const std::string netherKind = level ? level->netherGenerator : std::string("nether4");
     const std::string endKind = level ? level->endGenerator : std::string("end2"); // (M20)
     if (endKind != "end" && endKind != "end2") {
         MC_LOG_ERROR("World \"%s\" uses End generator \"%s\", which this build doesn't have",
                      worldName.c_str(), endKind.c_str());
         return 1;
     }
-    if (netherKind != "nether" && netherKind != "nether2" && netherKind != "nether3") {
+    if (netherKind != "nether" && netherKind != "nether2" && netherKind != "nether3" && netherKind != "nether4") {
         MC_LOG_ERROR("World \"%s\" uses Nether generator \"%s\", which this build doesn't have",
                      worldName.c_str(), netherKind.c_str());
         return 1;
@@ -419,10 +419,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     }
     auto makeGenerator = [&](Dimension d) -> std::unique_ptr<mc::world::ChunkGenerator> {
         if (d == Dimension::Nether)
-            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether" ? 1
-                                                                      : netherKind == "nether2"
-                                                                          ? 2
-                                                                          : 3);
+            return std::make_unique<mc::world::NetherGenerator>(seed, netherKind == "nether"    ? 1
+                                                                      : netherKind == "nether2" ? 2
+                                                                      : netherKind == "nether3" ? 3
+                                                                                                : 4);
         if (d == Dimension::End)
             return std::make_unique<mc::world::EndGenerator>(seed, endKind == "end" ? 1 : 2);
         if (generatorKind == "terrain") return std::make_unique<mc::world::TerrainGenerator>(seed);

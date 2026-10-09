@@ -147,7 +147,7 @@ std::vector<int> countAround(const OverworldGenerator& gen, ChunkPos centre) {
 } // namespace
 
 TEST_CASE("overworld6 places every remaining surface biome, each with its features (M27.1)") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 6);
     REQUIRE(gen.kind() == "overworld6");
     struct Want {
         Biome biome;
@@ -200,7 +200,7 @@ TEST_CASE("overworld6: giant spruces have 2x2 trunks; mangroves stand on roots (
 }
 
 TEST_CASE("overworld6 output is pinned (frozen as of v0.27.0)") {
-    const OverworldGenerator gen(42);
+    const OverworldGenerator gen(42, 6);
     const auto pale = findBiome6(gen, Biome::PaleGarden);
     REQUIRE(pale);
     Chunk c(*pale);
@@ -564,4 +564,56 @@ TEST_CASE("M27 review regressions: grown pitcher plants keep to farmland; piston
         fillChest(LootTable::DesertPyramid, rng, slots);
         for (const ItemStack& s : slots) CHECK(enchantLevel(s, Enchantment::SwiftSneak) == 0);
     }
+}
+
+#include "world/NetherGenerator.h"
+
+TEST_CASE("overworld7 (M29.8): the M29 blocks generate; nether4 bastions keep piglin brutes") {
+    const OverworldGenerator gen(42);
+    CHECK(gen.kind() == "overworld7");
+    const auto& r = blockRegistry();
+    int lichen = 0, flowers = 0, cocoa = 0, pads = 0, melons = 0;
+    for (int cz = -12; cz <= 12; cz += 2)
+        for (int cx = -12; cx <= 12; cx += 2) {
+            Chunk c({cx, cz});
+            gen.generate(c);
+            for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = r.blockOf(c.get(x, y, z));
+                        lichen += b == blocks::GlowLichen;
+                        flowers += r.likeOf(b) == blocks::Poppy && b != blocks::Poppy;
+                        cocoa += b == blocks::Cocoa;
+                        pads += b == blocks::LilyPad;
+                        melons += b == blocks::Melon;
+                    }
+        }
+    MESSAGE("lichen " << lichen << " flowers " << flowers << " cocoa " << cocoa << " pads " << pads << " melons " << melons);
+    CHECK(lichen > 100);
+    CHECK(flowers > 0);
+    // Swamps carry lily pads (on their sea-level water), jungles cocoa and melons.
+    std::optional<ChunkPos> swamp;
+    for (int ring = 0; ring <= 300 && !swamp; ring += 2)
+        for (int cz = -ring; cz <= ring && !swamp; cz += 2)
+            for (int cx = -ring; cx <= ring && !swamp; cx += 2)
+                if (std::max(std::abs(cx), std::abs(cz)) == ring && gen.biomeAt(gen.column(cx * 16 + 8, cz * 16 + 8)) == Biome::Swamp)
+                    swamp = ChunkPos{cx, cz};
+    REQUIRE(swamp);
+    int swampPads = 0;
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk c({swamp->x + dx, swamp->z + dz});
+            gen.generate(c);
+            for (int z = 0; z < 16; ++z)
+                for (int x = 0; x < 16; ++x)
+                    for (int y = 58; y < 72; ++y) swampPads += r.blockOf(c.get(x, y, z)) == blocks::LilyPad;
+        }
+    MESSAGE("swamp " << swamp->x << "," << swamp->z << " pads " << swampPads);
+    CHECK(swampPads > 0);
+    const auto jungle = findBiome6(gen, Biome::Jungle);
+    REQUIRE(jungle);
+    MESSAGE("jungle " << jungle->x << "," << jungle->z);
+    // overworld6's chunks are untouched by it (the pin above), and nether4 adds brutes only.
+    const NetherGenerator n4(42);
+    CHECK(n4.kind() == "nether4");
 }

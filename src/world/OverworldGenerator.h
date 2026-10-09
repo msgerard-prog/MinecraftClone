@@ -37,7 +37,9 @@ public:
     // "overworld6" (M27.1: the remaining surface biomes - sunflower plains, old growth
     // birch/pine, savanna plateau, the windswept kinds, bamboo jungle, mangrove swamp,
     // pale garden - giant spruces, two-block plants, bamboo, mud and moss).
-    static constexpr int kNewest = 6;
+    // 7 = "overworld7" (M29.8: the M29 blocks generated - flowers, melons, cocoa, lily
+    // pads, powder snow, ocean magma, glow lichen, ore veins, fossils).
+    static constexpr int kNewest = 7;
     explicit OverworldGenerator(uint64_t seed, int version = kNewest);
     // The version of a generator kind ("overworld" 1 ... "overworld6" 6), 0 if unknown.
     static int versionOf(std::string_view kind) {
@@ -52,7 +54,8 @@ public:
     // The nearest stronghold's staircase chunk corner (x, z), overworld2 only.
     std::optional<glm::ivec2> nearestStronghold(double x, double z) const override;
     std::string_view kind() const override {
-        return m_version >= 6   ? "overworld6"
+        return m_version >= 7   ? "overworld7"
+               : m_version == 6 ? "overworld6"
                : m_version == 5 ? "overworld5"
                : m_version == 4 ? "overworld4"
                : m_version == 3 ? "overworld3"
@@ -156,6 +159,10 @@ private:
     // overworld6 (M27.4d): trial chambers underground, on their grid.
     void placeTrialChambers(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const;
     // overworld6 (M27.5b): trail ruins (buried, full of suspicious gravel) and desert wells.
+    // overworld7 (M29.8): the M29 blocks in the world - flowers, melons, lily pads, cocoa,
+    // powder snow, ocean magma (bubbling), glow lichen, ore veins with raw blocks, fossils.
+    void placeFeatures7(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                        const std::array<Biome, 16>& biomes) const;
     void placeArchaeology6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                            const std::array<Biome, 16>& columnBiome, GeneratedEntities& out) const;
     // overworld6 (M27.4b): ruined portals on their grid.

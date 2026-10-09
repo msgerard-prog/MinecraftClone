@@ -252,6 +252,18 @@ void NetherGenerator::placeNetherStructures(BlockStateId* blocks, Chunk& out, Ch
                         m.persistent = true;
                         out.mobs().push_back(m);
                     }
+                    // nether4 (M29.8; wiki: Piglin Brute - bastion guards, never respawned):
+                    // two brutes on the keep's floor (drawn after the others: their mobs stay).
+                    for (int i = 0; i < 2 && m_version >= 4; ++i) {
+                        MobData b;
+                        b.type = MobType::PiglinBrute;
+                        b.uuidHi = (mr.nextLong() & ~0xF000ull) | 0x4000ull;
+                        b.uuidLo = (mr.nextLong() & ~(3ull << 62)) | (2ull << 62);
+                        b.pos = b.prevPos = b.goal = glm::dvec3(baseX + 6.5 + i * 3, y0 + 1, baseZ + 8.5);
+                        b.health = mobInfo(b.type).maxHealth;
+                        b.persistent = true;
+                        out.mobs().push_back(b);
+                    }
                 }
                 continue;
             }

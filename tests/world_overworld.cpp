@@ -289,14 +289,14 @@ TEST_CASE("nether and end output are pinned (seed 42)") {
     NetherGenerator(42, 2).generate(n2); // "nether2" (M19, frozen at v0.19.0; pinned in M23.6)
     CHECK(chunkHash(n2) == 6092863011108455525ull);
     Chunk n3({3, -5}, kNetherHeight);
-    NetherGenerator(42).generate(n3); // "nether3" (M23.6, new worlds)
+    NetherGenerator(42, 3).generate(n3); // "nether3" (M23.6; frozen as of v0.23.0)
     CHECK(chunkHash(n3) == 16372624135412048177ull); // (pinned while M23 builds nether3)
 }
 
 TEST_CASE("nether3: nether2 plus ancient debris, never touching air (M23.6)") {
     using namespace mc::world;
     const auto& r = blockRegistry();
-    const NetherGenerator gen(42), old(42, 2);
+    const NetherGenerator gen(42, 3), old(42, 2);
     CHECK(gen.kind() == "nether3");
     int debris = 0, exposed = 0, otherDiffs = 0;
     for (int cz = 0; cz < 6; ++cz)

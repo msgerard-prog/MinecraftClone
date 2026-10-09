@@ -51,7 +51,7 @@ struct LaunchOptions {
     int difficulty = 2;                // --difficulty peaceful|easy|normal|hard: new worlds (M28.1b)
     bool noSave = false;               // --no-save: don't load or save a world
     bool printVersion = false;         // --version: print the build and exit
-    std::string generator = "overworld6"; // --generator overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain (new worlds; newest default)
+    std::string generator = "overworld7"; // --generator overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain (new worlds; newest default)
     std::string dimension;               // --dimension overworld|nether|end (start there)
 };
 

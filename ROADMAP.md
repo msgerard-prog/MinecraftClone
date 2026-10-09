@@ -41,7 +41,7 @@ functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data
 7. ✅ M29.7 - Technical (structure blocks and jigsaws keep their states only - no structure
    files): command blocks (and minecart), structure blocks/voids, jigsaws,
    barriers, light blocks, player heads, petrified oak slabs, knowledge books.
-8. M29.8 - overworld7 and nether4: generate what worldgen places (flowers, melons, cocoa,
+8. ✅ M29.8 - overworld7 and nether4 (new worlds; overworld6/nether3 frozen): generate what worldgen places (flowers, melons, cocoa,
    lily pads, huge mushrooms, glow lichen, raw ore veins, magma, powder snow, fossils);
    piglin brutes in bastions.
 Then reviews, v0.29.0, a pinned completeness test, and v1.0.

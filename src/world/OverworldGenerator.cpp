@@ -1339,6 +1339,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeTrialChambers(blockArray.data(), cx, cz, entities);         // (M27.4d)
         placeArchaeology6(blockArray.data(), cx, cz, topY, columnBiome, entities); // (M27.5b)
     }
+    if (m_version >= 7) placeFeatures7(blockArray.data(), out, cx, cz, topY, columnBiome); // (M29.8)
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -4047,6 +4048,173 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
     for (const auto& [px, pz] : {std::pair{1, 1}, std::pair{3, 1}, std::pair{1, 3}, std::pair{3, 3}})
         for (int y = 1; y <= 2; ++y) sb.set(px, y, pz, B.sandstone);
     sb.fill(1, 3, 1, 3, 3, 3, B.sandstone);
+}
+
+} // namespace mc::world
+
+namespace mc::world {
+
+void OverworldGenerator::placeFeatures7(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz,
+                                        const std::array<int, 256>& topY, const std::array<Biome, 16>& biomes) const {
+    // Overworld 7 (M29.8; wiki: each block's Natural generation - our densities): what the
+    // blocks M29 added grow into the world.
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    auto S = [&](BlockId b) { return reg.defaultState(b); };
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 800));
+    r.nextLong();
+    const BlockStateId water = S(blocks::Water), stone = S(blocks::Stone), deepslate = S(blocks::Deepslate),
+                       granite = S(blocks::Granite), tuff = S(blocks::Tuff);
+    auto biomeAt = [&](int x, int z) { return biomes[size_t((z / 4) * 4 + x / 4)]; };
+    // 1. Surface: flowers, melons, lily pads, powder snow, ocean-floor magma.
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const float roll = r.nextFloat();
+            const uint32_t pick = r.nextInt(1u << 16);
+            const int ty = topY[size_t(z * 16 + x)];
+            const Biome biome = biomeAt(x, z);
+            if (!kOverworldHeight.contains(ty + 2)) continue;
+            const BlockStateId ground = chunk.get(x, ty, z), above = chunk.get(x, ty + 1, z);
+            // Lily pads on swamp water (wiki: Lily Pad - swamps and mangrove swamps).
+            if ((biome == Biome::Swamp || biome == Biome::MangroveSwamp) && roll < 0.08f && above == water) {
+                int wy = ty + 1; // (its water's surface, a few blocks up at most)
+                while (wy < ty + 6 && chunk.get(x, wy + 1, z) == water) ++wy;
+                if (chunk.get(x, wy, z) == water && chunk.get(x, wy + 1, z) == B.air) {
+                    chunk.set(x, wy + 1, z, S(blocks::LilyPad));
+                    continue;
+                }
+            }
+            // Magma on deep ocean floors (wiki: Magma Block - ocean floors), bubbling.
+            if ((biome == Biome::DeepOcean || biome == Biome::DeepLukewarmOcean || biome == Biome::DeepColdOcean ||
+                 biome == Biome::DeepFrozenOcean) &&
+                roll < 0.004f && above == water && reg.collides(ground)) {
+                chunk.set(x, ty, z, S(blocks::MagmaBlock));
+                out.blockTicks().push_back({int8_t(x), int8_t(z), int16_t(ty), 0, blocks::MagmaBlock, 20,
+                                            uint64_t(out.blockTicks().size())});
+                out.ticksRelative = true;
+                continue;
+            }
+            // Powder snow traps in groves and snowy slopes (wiki: Powder Snow).
+            if ((biome == Biome::Grove || biome == Biome::SnowySlopes) && roll < 0.03f &&
+                (reg.blockOf(ground) == blocks::SnowBlock || ground == B.grass || ground == stone)) {
+                chunk.set(x, ty, z, S(blocks::PowderSnow));
+                if (pick & 1) chunk.set(x, ty - 1, z, S(blocks::PowderSnow));
+                if (above != B.air && !reg.collides(above)) chunk.set(x, ty + 1, z, B.air); // (no snow layer on it)
+                continue;
+            }
+            const bool open = above == B.air || above == B.shortGrass;
+            if (!open || ground != B.grass) continue;
+            // Melons in jungles (wiki: Melon - jungles, sparse and bamboo jungles).
+            if ((biome == Biome::Jungle || biome == Biome::SparseJungle || biome == Biome::BambooJungle) && roll < 0.004f) {
+                chunk.set(x, ty + 1, z, S(blocks::Melon));
+                continue;
+            }
+            // The flowers of M29.4a, by biome (wiki: each flower's Natural generation).
+            BlockId flower = 0;
+            switch (biome) {
+            case Biome::Plains:
+            case Biome::SunflowerPlains:
+                if (roll < 0.004f) flower = BlockId(blocks::RedTulip + int(pick % 4));
+                break;
+            case Biome::FlowerForest: {
+                static constexpr BlockId kFlowers[7] = {blocks::Allium,      blocks::RedTulip,   blocks::OrangeTulip,
+                                                        blocks::WhiteTulip,  blocks::PinkTulip,  blocks::LilyOfTheValley,
+                                                        blocks::BlueOrchid};
+                if (roll < 0.05f) flower = kFlowers[pick % 6];
+                break;
+            }
+            case Biome::Forest:
+            case Biome::BirchForest:
+            case Biome::OldGrowthBirchForest:
+                if (roll < 0.004f) flower = blocks::LilyOfTheValley;
+                break;
+            case Biome::Meadow:
+                if (roll < 0.01f) flower = blocks::Allium;
+                break;
+            case Biome::Swamp:
+                if (roll < 0.015f) flower = blocks::BlueOrchid;
+                break;
+            default:
+                break;
+            }
+            if (flower) chunk.set(x, ty + 1, z, S(flower));
+        }
+    // 2. Cocoa on jungle trunks (wiki: Cocoa Beans - jungle trees), facing the trunk.
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            const Biome biome = biomeAt(x, z);
+            if (biome != Biome::Jungle && biome != Biome::SparseJungle && biome != Biome::BambooJungle) continue;
+            const int ty = topY[size_t(z * 16 + x)];
+            for (int y = ty + 1; y < ty + 12 && kOverworldHeight.contains(y); ++y) {
+                if (reg.blockOf(chunk.get(x, y, z)) != blocks::JungleLog) continue;
+                static constexpr int kSide[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}}; // north, south, west, east
+                for (int s = 0; s < 4; ++s) {
+                    const int nx = x + kSide[s][0], nz = z + kSide[s][1];
+                    if (nx < 0 || nx > 15 || nz < 0 || nz > 15 || chunk.get(nx, y, nz) != B.air || r.nextInt(30) != 0) continue;
+                    const int towardLog = s ^ 1; // (the pod's facing points back at the trunk)
+                    chunk.set(nx, y, nz, reg.set(reg.set(S(blocks::Cocoa), properties::facing, towardLog), properties::age2,
+                                                 int(r.nextInt(3))));
+                }
+            }
+        }
+    // 3. Glow lichen on cave walls and ceilings (wiki: Glow Lichen - caves, 200 tries here).
+    for (int i = 0; i < 200; ++i) {
+        const int x = int(r.nextInt(16)), z = int(r.nextInt(16));
+        const int ty = topY[size_t(z * 16 + x)];
+        const int lo = kOverworldHeight.minY + 8;
+        if (ty - 8 <= lo) continue;
+        const int y = lo + int(r.nextInt(uint32_t(ty - 8 - lo)));
+        if (chunk.get(x, y, z) != B.air) continue;
+        static constexpr int kFaces[5][3] = {{0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+        static constexpr int kDir[5] = {1, 2, 3, 4, 5}; // up, north, south, west, east (Direction)
+        for (int f = 0; f < 5; ++f) {
+            const int nx = x + kFaces[f][0], ny = y + kFaces[f][1], nz = z + kFaces[f][2];
+            if (nx < 0 || nx > 15 || nz < 0 || nz > 15) continue;
+            const BlockStateId n = chunk.get(nx, ny, nz);
+            if (n != stone && n != deepslate && n != tuff && n != granite) continue;
+            chunk.set(x, y, z, reg.set(S(blocks::GlowLichen), properties::facing6, kDir[f]));
+            break;
+        }
+    }
+    // 4. Ore veins (wiki: Ore Vein - copper with granite at 0..50, iron with tuff at -60..-8,
+    // a few raw ore blocks in them): 1 chunk in 16, a winding ribbon inside the chunk.
+    if (r.nextInt(16) == 0) {
+        const bool copper = r.nextInt(2) == 0;
+        int x = 2 + int(r.nextInt(12)), z = 2 + int(r.nextInt(12));
+        int y = copper ? int(r.nextInt(50)) : -60 + int(r.nextInt(52));
+        for (int k = 0; k < 60; ++k) {
+            const BlockStateId cur = chunk.get(x, y, z);
+            if (cur == stone || cur == deepslate || cur == granite || cur == tuff) {
+                const float v = r.nextFloat();
+                const bool deep = cur == deepslate || y < 0;
+                const BlockStateId ore = copper ? S(deep ? blocks::DeepslateCopperOre : blocks::CopperOre)
+                                                : S(deep ? blocks::DeepslateIronOre : blocks::IronOre);
+                chunk.set(x, y, z, v < 0.04f ? S(copper ? blocks::RawCopperBlock : blocks::RawIronBlock)
+                                   : v < 0.35f ? ore
+                                               : (copper ? granite : tuff));
+            }
+            x = std::clamp(x + int(r.nextInt(3)) - 1, 0, 15);
+            z = std::clamp(z + int(r.nextInt(3)) - 1, 0, 15);
+            y += int(r.nextInt(3)) - 1;
+        }
+    }
+    // 5. Fossils under deserts and swamps (wiki: Fossil - 1 in 64 chunks, 15-24 under the
+    // surface): a spine of bone blocks with three pairs of ribs.
+    if (r.nextInt(64) == 0) {
+        const Biome biome = biomeAt(8, 8);
+        if (biome == Biome::Desert || biome == Biome::Swamp || biome == Biome::MangroveSwamp) {
+            const int y = topY[size_t(8 * 16 + 8)] - 15 - int(r.nextInt(10));
+            const BlockStateId bone = reg.set(S(blocks::BoneBlock), properties::axis, 0); // (along x)
+            const BlockStateId upright = S(blocks::BoneBlock);
+            for (int x = 4; x <= 11; ++x) chunk.set(x, y, 8, bone);
+            for (int x = 5; x <= 10; x += 2)
+                for (int d = 1; d <= 2; ++d) {
+                    chunk.set(x, y - 1, 8 - d, upright);
+                    chunk.set(x, y - 1, 8 + d, upright);
+                }
+        }
+    }
 }
 
 } // namespace mc::world

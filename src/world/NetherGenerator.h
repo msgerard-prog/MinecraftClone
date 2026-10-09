@@ -20,15 +20,15 @@ public:
     static constexpr int kFloor = 0, kRoof = 127;
 
     // 1 = "nether" (M12: nether wastes only), 2 = "nether2" (M19: five biomes),
-    // 3 = "nether3" (M23.6: ancient debris).
-    static constexpr int kNewest = 3;
+    // 3 = "nether3" (M23.6: ancient debris), 4 = "nether4" (M29.8: piglin brutes in bastions).
+    static constexpr int kNewest = 4;
     explicit NetherGenerator(uint64_t seed, int version = kNewest);
 
     void generate(Chunk& chunk) const override;
     // A free spot near the origin on solid ground above the lava sea.
     glm::dvec3 findSpawn() const override;
     std::string_view kind() const override {
-        return m_version >= 3 ? "nether3" : m_version == 2 ? "nether2" : "nether";
+        return m_version >= 4 ? "nether4" : m_version == 3 ? "nether3" : m_version == 2 ? "nether2" : "nether";
     }
     int version() const { return m_version; }
     uint64_t seed() const override { return m_seed; }
