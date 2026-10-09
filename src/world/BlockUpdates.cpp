@@ -78,8 +78,7 @@ bool signalSource(BlockId b) {
            // (M29.5) plates, detector rails, sensors, daylight detectors, targets, hooks
            b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
            b == B::HeavyWeightedPressurePlate || b == B::DetectorRail || b == B::SculkSensor ||
-           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook || b == B::TrappedChest ||
-           b == B::LightningRod;
+           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook || b == B::LightningRod;
 }
 
 // Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
@@ -134,6 +133,8 @@ Push pushKind(BlockStateId s) {
         (BlockUpdates::isOceanPlant(b) && !R().block(b).id.ends_with("_coral_block"))) // (M25 review: plants break off)
         return Push::Destroy;
     if (b == B::Jukebox || b == B::Beacon || b == B::Conduit || b == B::Grindstone) return Push::Block;
+    // (M29 review) block entities with contents stay put: their slots can't travel
+    if (b == B::ChiseledBookshelf || b == B::Shelf || b == B::Crafter || b == B::DaylightDetector) return Push::Block;
     if (R().block(b).id.ends_with("_glazed_terracotta")) return Push::PushOnly;
     switch (b) {
     case B::RedstoneWire:
@@ -237,6 +238,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_silverfish.reserve(256); // (M26.4a: a mined vein)
     m_hatched.reserve(64);
     m_shrieks.reserve(16);
+    m_openChests.reserve(16);
     m_changed.reserve(4096);
     m_settling.reserve(4096);
     m_remesh.reserve(4096);
@@ -451,18 +453,25 @@ ItemStack BlockUpdates::takeBook(const BlockPos& p, int slot) {
 }
 
 void BlockUpdates::setChestOpen(const BlockPos& p, bool opened) {
+    if (!opened) { // one viewer looks into one chest at a time: closing releases every half
+        // listed, even one that was broken meanwhile (M29 review)
+        std::array<BlockPos, 16> was{};
+        const size_t n = std::min<size_t>(m_openChests.size(), was.size());
+        std::copy_n(m_openChests.begin(), n, was.begin());
+        m_openChests.clear(); // (before the updates, so the neighbours see no power)
+        for (size_t i = 0; i < n; ++i) {
+            notifyNeighbours(was[i]);
+            notifyNeighbours(rel(was[i], Direction::Down));
+        }
+        return;
+    }
     std::array<BlockPos, 2> halves{p, p};
     int n = 1;
     if (const auto other = chestPartner(m_world, p)) halves[size_t(n++)] = *other;
     for (int i = 0; i < n; ++i) {
         const BlockPos& h = halves[size_t(i)];
-        const auto it = std::find(m_openChests.begin(), m_openChests.end(), h);
-        if (opened == (it != m_openChests.end())) continue;
-        if (opened) {
-            if (m_openChests.size() < 16) m_openChests.push_back(h);
-        } else {
-            m_openChests.erase(it);
-        }
+        if (std::find(m_openChests.begin(), m_openChests.end(), h) != m_openChests.end()) continue;
+        if (m_openChests.size() < 16) m_openChests.push_back(h);
         notifyNeighbours(h);
         notifyNeighbours(rel(h, Direction::Down)); // (strong power through the block below)
     }
@@ -2147,7 +2156,7 @@ BlockStateId BlockUpdates::wireShape(const BlockPos& p, BlockStateId s) const {
                 nb == B::RedstoneWire ||
                 (nb == B::Repeater   ? (hFacing(ns) == d || hFacing(ns) == opposite(d))
                  : nb == B::Observer ? facing6Of(ns) == d // (M29.5) its back, the output, toward the dust
-                                     : signalSource(nb));
+                                     : signalSource(nb) || R().blockOf(ns) == B::TrappedChest); // (raw: it is like a chest)
             if (connects ||
                 (!conductor(ns) && blockOf(at(rel(n, Direction::Down))) == B::RedstoneWire))
                 side = kSide;

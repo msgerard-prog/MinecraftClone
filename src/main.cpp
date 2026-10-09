@@ -634,6 +634,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool bedRespawnPending = false; // respawned at the bed: check it once its chunks load
     mc::Explosion bedExplosion;     // beds in the Nether and the End
     std::optional<mc::world::BlockPos> pendingBedUse;
+    struct PendingCommandEdit { // (M29.7: the command block screen's Done)
+        mc::world::BlockPos pos;
+        uint64_t cart = 0;
+        std::string command;
+        int mode = 0;
+        bool conditional = false, always = false;
+    };
+    std::optional<PendingCommandEdit> pendingCommandEdit;
     mc::Mobs mobs;
     mc::world::Xoroshiro gameRng(seed ^ 0x5EEDull);
     std::vector<mc::BlockInteraction::Drop> drops;
@@ -1784,6 +1792,43 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             blockUpdates.setTime(gameTime);
             blockUpdates.setCreative(!survival);
+            // The command block screen's edit (M29.7; in the tick, M29 review): a cart's command,
+            // or the block's mode, condition, command and Always Active.
+            if (pendingCommandEdit) {
+                const PendingCommandEdit ce = std::move(*pendingCommandEdit);
+                pendingCommandEdit.reset();
+                const auto& reg = mc::world::blockRegistry();
+                if (ce.cart != 0) {
+                    if (mc::world::MobData* cart = mc::Mobs::mobByUuid(world, player.position(), ce.cart))
+                        cart->commandId = mc::world::addName(ce.command);
+                } else if (const mc::world::BlockStateId old = world.getBlock(ce.pos);
+                           reg.blockOf(old) == mc::world::blocks::CommandBlock ||
+                           reg.blockOf(old) == mc::world::blocks::ChainCommandBlock ||
+                           reg.blockOf(old) == mc::world::blocks::RepeatingCommandBlock) {
+                    const mc::world::BlockId kind = ce.mode == 1   ? mc::world::blocks::ChainCommandBlock
+                                                    : ce.mode == 2 ? mc::world::blocks::RepeatingCommandBlock
+                                                                   : mc::world::blocks::CommandBlock;
+                    mc::world::BlockStateId cmdState =
+                        reg.set(reg.defaultState(kind), mc::world::properties::facing6, reg.get(old, mc::world::properties::facing6));
+                    cmdState = reg.set(cmdState, mc::world::properties::conditional, ce.conditional ? 0 : 1);
+                    if (cmdState != old) world.updateBlock(ce.pos, cmdState);
+                    mc::world::Chunk* cc = world.chunk(ce.pos.chunk());
+                    if (mc::world::CommandBlockData* d =
+                            cc ? cc->commandBlock(mc::world::blockToLocal(ce.pos.x), ce.pos.y, mc::world::blockToLocal(ce.pos.z))
+                               : nullptr) {
+                        const bool wasAlways = d->autoActive;
+                        d->command = ce.command;
+                        d->autoActive = ce.always;
+                        cc->markDirty();
+                        // Always Active: an impulse block fires once; a repeating one starts
+                        // whenever it is active (also one that was powered as an impulse block).
+                        if ((d->autoActive && !wasAlways) ||
+                            (kind == mc::world::blocks::RepeatingCommandBlock && (d->autoActive || d->powered)))
+                            blockUpdates.armCommandBlock(ce.pos);
+                    }
+                    frameEdits.push_back(ce.pos);
+                }
+            }
             // A bed used this frame (M17.4): sleep, set the respawn point, or explode.
             if (pendingBedUse && !dead) {
                 const mc::world::BlockPos bedPos = *pendingBedUse;
@@ -6244,42 +6289,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.setCursorCaptured(true);
                 attackArmed = false;      // (the click on the button mustn't break a block)
                 last = mc::timeSeconds(); // (no catching up on the paused time)
-            } else if (action == mc::ui::MenuAction::CommandBlockDone && commandEditingCart != 0) {
-                if (mc::world::MobData* cart = mc::Mobs::mobByUuid(world, player.position(), commandEditingCart))
-                    cart->commandId = mc::world::addName(shared.menuState.command);
-                commandEditingCart = 0;
-                shared.menuState.screen = mc::ui::MenuScreen::None;
-                window.setCursorCaptured(true);
-                attackArmed = false;
-                last = mc::timeSeconds();
-            } else if (action == mc::ui::MenuAction::CommandBlockDone) { // (M29.7) set the block up
+            } else if (action == mc::ui::MenuAction::CommandBlockDone) { // (M29.7) applied in the next tick
                 const auto& ms = shared.menuState;
-                const auto& reg = mc::world::blockRegistry();
-                const mc::world::BlockStateId old = world.getBlock(commandEditing);
-                const mc::world::BlockId kind = ms.commandMode == 1   ? mc::world::blocks::ChainCommandBlock
-                                                : ms.commandMode == 2 ? mc::world::blocks::RepeatingCommandBlock
-                                                                      : mc::world::blocks::CommandBlock;
-                if (reg.blockOf(old) == mc::world::blocks::CommandBlock || reg.blockOf(old) == mc::world::blocks::ChainCommandBlock ||
-                    reg.blockOf(old) == mc::world::blocks::RepeatingCommandBlock) {
-                    mc::world::BlockStateId cmdState = reg.set(reg.defaultState(kind), mc::world::properties::facing6,
-                                                               reg.get(old, mc::world::properties::facing6));
-                    cmdState = reg.set(cmdState, mc::world::properties::conditional, ms.commandConditional ? 0 : 1);
-                    if (cmdState != old) world.updateBlock(commandEditing, cmdState);
-                    mc::world::Chunk* cc = world.chunk(commandEditing.chunk());
-                    if (mc::world::CommandBlockData* d =
-                            cc ? cc->commandBlock(mc::world::blockToLocal(commandEditing.x), commandEditing.y,
-                                                  mc::world::blockToLocal(commandEditing.z))
-                               : nullptr) {
-                        const bool wasAlways = d->autoActive;
-                        d->command = ms.command;
-                        d->autoActive = ms.commandAlways;
-                        cc->markDirty();
-                        // Always Active: an impulse block fires once, a repeating one starts.
-                        if (d->autoActive && (!wasAlways || kind == mc::world::blocks::RepeatingCommandBlock))
-                            blockUpdates.armCommandBlock(commandEditing);
-                    }
-                    frameEdits.push_back(commandEditing);
-                }
+                pendingCommandEdit = PendingCommandEdit{commandEditing, commandEditingCart, ms.command, ms.commandMode,
+                                                        ms.commandConditional, ms.commandAlways};
+                commandEditingCart = 0;
                 shared.menuState.screen = mc::ui::MenuScreen::None;
                 window.setCursorCaptured(true);
                 attackArmed = false;

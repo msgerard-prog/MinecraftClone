@@ -275,3 +275,29 @@ TEST_CASE("M29.5: an arrow in a target's centre gives 15 for 20 ticks; off-centr
     }
     CHECK(blockRegistry().get(s.world.getBlock({0, 65, 6}), properties::power) == 0);
 }
+
+TEST_CASE("M29 review: a blast drops what chiseled bookshelves and shelves hold") {
+    Scene s;
+    s.world.setBlock({0, 64, 0}, S(blocks::ChiseledBookshelf));
+    s.world.setBlock({1, 64, 0}, S(blocks::Shelf + 3));
+    const uint16_t book = uint16_t(*itemRegistry().find("book"));
+    const uint16_t apple = uint16_t(*itemRegistry().find("apple"));
+    REQUIRE(s.world.chunk({0, 0})->chest(0, 64, 0));
+    REQUIRE(s.world.chunk({0, 0})->chest(1, 64, 0));
+    s.world.chunk({0, 0})->chest(0, 64, 0)->items[4] = {book, 1};
+    s.world.chunk({0, 0})->chest(1, 64, 0)->items[1] = {apple, 5};
+    Explosion e;
+    std::vector<BlockPos> changed;
+    ExplosionTargets t;
+    t.dropAll = true;
+    e.explode(s.world, {0.5, 64.5, 0.5}, 4.0f, s.rng, s.items, changed, t);
+    REQUIRE(s.world.getBlock({0, 64, 0}) == 0);
+    REQUIRE(s.world.getBlock({1, 64, 0}) == 0);
+    int books = 0, apples = 0;
+    for (const auto& it : s.items.items()) {
+        books += it.stack.item == book ? it.stack.count : 0;
+        apples += it.stack.item == apple ? it.stack.count : 0;
+    }
+    CHECK(books == 1);
+    CHECK(apples == 5);
+}

@@ -152,3 +152,23 @@ TEST_CASE("an allay carries no more than one stack of its item: one sword at a t
     CHECK(most == 1);
     for (const auto& it : m.items.items()) CHECK(it.stack.count <= 1);
 }
+
+TEST_CASE("M29 review: a fox's or copper golem's mouth item is saved once and doesn't come back after it is used") {
+    Xoroshiro rng{5};
+    for (const MobType t : {MobType::Fox, MobType::CopperGolem}) {
+        Chunk c({0, 0});
+        MobData f = Mobs::make(t, {1.5, 65.0, 1.5}, rng);
+        f.mouthItem = *itemRegistry().find("sweet_berries");
+        c.mobs().push_back(f);
+        Chunk back({0, 0});
+        entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+        REQUIRE(back.mobs().size() == 1);
+        CHECK(back.mobs()[0].mouthItem == f.mouthItem);
+        CHECK(back.mobs()[0].heldItem == 0);
+        back.mobs()[0].mouthItem = kNoItem; // (eaten / delivered)
+        Chunk again({0, 0});
+        entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(back, 0)), again);
+        REQUIRE(again.mobs().size() == 1);
+        CHECK(again.mobs()[0].mouthItem == kNoItem);
+    }
+}

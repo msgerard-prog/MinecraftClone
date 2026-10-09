@@ -3,6 +3,7 @@
 #include "world/NetherGenerator.h"
 
 #include "world/Blocks.h"
+#include "world/Items.h"
 #include "world/Loot.h"
 #include "world/Random.h"
 #include "world/StructurePlacement.h"
@@ -261,6 +262,7 @@ void NetherGenerator::placeNetherStructures(BlockStateId* blocks, Chunk& out, Ch
                         b.uuidLo = (mr.nextLong() & ~(3ull << 62)) | (2ull << 62);
                         b.pos = b.prevPos = b.goal = glm::dvec3(baseX + 6.5 + i * 3, y0 + 1, baseZ + 8.5);
                         b.health = mobInfo(b.type).maxHealth;
+                        b.heldItem = uint16_t(*itemRegistry().find("golden_axe")); // (M29 review: armed)
                         b.persistent = true;
                         out.mobs().push_back(b);
                     }

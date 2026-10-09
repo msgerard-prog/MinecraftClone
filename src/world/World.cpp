@@ -136,8 +136,10 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         markTicking(c->pos());
     } else if (chestNow || b == blocks::Barrel || blockRegistry().likeOf(b) == blocks::ShulkerBox ||
                b == blocks::ChiseledBookshelf || blockRegistry().likeOf(b) == blocks::Shelf) {
-        if (c->chest(x, p.y, z) == nullptr) {
-            ChestData& d = c->addChest(x, p.y, z);
+        // The kind is set every time: a chest replaced by a trapped chest keeps its slots but
+        // must save as minecraft:trapped_chest (M29 review).
+        {
+            ChestData& d = c->chest(x, p.y, z) ? *c->chest(x, p.y, z) : c->addChest(x, p.y, z);
             d.barrel = b == blocks::Barrel;
             d.shulker = blockRegistry().likeOf(b) == blocks::ShulkerBox;
             d.trapped = b == blocks::TrappedChest;      // (M29.5)
@@ -157,8 +159,8 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         c->addHopper(x, p.y, z);
         markTicking(c->pos());
     } else if (b == blocks::Dispenser || b == blocks::Dropper || b == blocks::Crafter) {
-        if (c->dispenser(x, p.y, z) == nullptr) { // (kept while its state changes)
-            DispenserData& d = c->addDispenser(x, p.y, z);
+        { // (kept while its state changes; the kind follows the block, M29 review)
+            DispenserData& d = c->dispenser(x, p.y, z) ? *c->dispenser(x, p.y, z) : c->addDispenser(x, p.y, z);
             d.dropper = b == blocks::Dropper;
             d.crafter = b == blocks::Crafter; // (M29.5)
         }

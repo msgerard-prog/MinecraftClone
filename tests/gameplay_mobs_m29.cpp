@@ -490,3 +490,29 @@ TEST_CASE("M29.7e: displays, giants, markers and spawner carts from /summon; dis
     CHECK(block);
     CHECK(cart);
 }
+
+TEST_CASE("M29 review: a hopper cart crossing a chunk border keeps the item it picked up that tick") {
+    const auto& r = blockRegistry();
+    const uint16_t diamond = uint16_t(*itemRegistry().find("diamond"));
+    for (int offset = 0; offset < 4; ++offset) { // (one of these picks up on the crossing tick)
+        MobScene s;
+        s.survival = false;
+        for (int x = 2; x < 34; ++x) s.world.setBlock({x, 64, 8}, *r.with(r.defaultState(blocks::Rail), "shape", "east_west"));
+        REQUIRE(Mobs::placeMinecart(s.world, {12, 64, 8}, s.rng, 3));
+        MobData* c = findType(s, MobType::Minecart);
+        REQUIRE(c);
+        c->age = offset;
+        c->vel = {0.4, 0.0, 0.0};
+        for (int x = 13; x < 33; ++x) s.items.spawn({x + 0.5, 64.2, 8.5}, {diamond, 1}, s.rng);
+        s.tick(30);
+        int total = 0;
+        for (const auto& it : s.items.items()) total += it.stack.item == diamond ? it.stack.count : 0;
+        c = findType(s, MobType::Minecart);
+        REQUIRE(c);
+        for (int cx = -2; cx <= 2; ++cx)
+            if (const ItemContents* slots = s.world.chunk({cx, 0})->mobStore(c->uuidHi))
+                for (const ItemStack& st : *slots) total += st.item == diamond ? st.count : 0;
+        CHECK(total == 20);
+        CHECK(c->pos.x > 16.0); // (it crossed)
+    }
+}

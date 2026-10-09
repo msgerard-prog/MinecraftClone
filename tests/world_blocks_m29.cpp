@@ -499,3 +499,55 @@ TEST_CASE("M29.7: technical blocks - barriers block, light blocks shine, player 
     CHECK(r.block(blocks::PetrifiedOakSlab).settings.tool == HarvestTool::Pickaxe);
     CHECK(itemRegistry().item(*itemRegistry().find("barrier")).texture == "item/barrier");
 }
+
+TEST_CASE("M29 review: pistons don't move chiseled bookshelves, shelves or crafters (their slots stay)") {
+    const auto& r = blockRegistry();
+    for (const BlockId b : {BlockId(blocks::ChiseledBookshelf), BlockId(blocks::Shelf + 2), BlockId(blocks::Crafter)}) {
+        World w;
+        w.createChunk({0, 0});
+        BlockUpdates u(w);
+        w.setListener(&u);
+        w.updateBlock({8, 64, 8}, r.set(r.defaultState(blocks::Piston), properties::facing6, 5)); // (east)
+        w.updateBlock({9, 64, 8}, r.defaultState(b));
+        w.updateBlock({8, 64, 9}, r.defaultState(blocks::RedstoneBlock));
+        for (int t = 1; t < 6; ++t) {
+            u.setTime(t);
+            u.tick();
+        }
+        CHECK(r.blockOf(w.getBlock({9, 64, 8})) == b);
+    }
+}
+
+TEST_CASE("M29 review: a trapped chest broken while open stops powering; dust connects to trapped chests; replaced dispensers save as droppers") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    for (int x = 2; x <= 8; ++x)
+        for (int z = 2; z <= 8; ++z) w.setBlock({x, 63, z}, r.defaultState(blocks::Stone));
+    w.updateBlock({4, 64, 4}, r.defaultState(blocks::TrappedChest));
+    w.updateBlock({5, 64, 4}, r.defaultState(blocks::TrappedChest));
+    u.setChestOpen({4, 64, 4}, true);
+    w.updateBlock({5, 64, 4}, 0); // (blown up while looked into)
+    u.setChestOpen({4, 64, 4}, false);
+    w.updateBlock({5, 64, 5}, r.defaultState(blocks::RedstoneLamp));
+    w.updateBlock({5, 64, 4}, r.defaultState(blocks::TrappedChest)); // a new one there is unpowered
+    int64_t t = 0;
+    for (int i = 0; i < 6; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.value(w.getBlock({5, 64, 5}), "lit") == "false");
+    // Dust beside a trapped chest points at it.
+    w.updateBlock({4, 64, 6}, r.defaultState(blocks::TrappedChest));
+    w.updateBlock({5, 64, 6}, r.defaultState(blocks::RedstoneWire));
+    CHECK(r.value(w.getBlock({5, 64, 6}), "west") != "none");
+    // A dispenser turned into a dropper (or a chest into a trapped chest) changes its kind.
+    w.setBlock({7, 64, 7}, r.defaultState(blocks::Dispenser));
+    w.setBlock({7, 64, 7}, r.defaultState(blocks::Dropper));
+    CHECK(w.chunk({0, 0})->dispenser(7, 64, 7)->dropper);
+    w.setBlock({8, 64, 8}, r.defaultState(blocks::Chest));
+    w.setBlock({8, 64, 8}, r.defaultState(blocks::TrappedChest));
+    CHECK(w.chunk({0, 0})->chest(8, 64, 8)->trapped);
+}

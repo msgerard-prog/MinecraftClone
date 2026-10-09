@@ -1659,10 +1659,11 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.allayCount > 0 && m.mouthItem != kNoItem) inv.emplace_back(itemNbt({m.mouthItem, m.allayCount}, -1));
             e.put("Inventory", nbt::listOf(nbt::TagType::Compound, std::move(inv)));
         }
-        if (((m.type == MobType::Fox || m.type == MobType::Allay || m.type == MobType::CopperGolem) &&
-             m.mouthItem != kNoItem) ||
-            (m.type == MobType::Wolf && m.horseArmor > 0)) {
-            nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's armor)
+        // Foxes, allays and copper golems keep their mainhand in mouthItem, never heldItem: one
+        // field per mob, or a reload would copy the item into both (M29 review).
+        const bool mouthMob = m.type == MobType::Fox || m.type == MobType::Allay || m.type == MobType::CopperGolem;
+        nbt::Compound eq; // (1.21.5+ equipment: a fox's mouth item, an allay's liked item, a wolf's armor, held items)
+        if ((mouthMob && m.mouthItem != kNoItem) || (m.type == MobType::Wolf && m.horseArmor > 0)) {
             if (m.type == MobType::Fox || m.type == MobType::Allay) eq.put("mainhand", itemNbt({m.mouthItem, 1}, -1));
             if (m.type == MobType::CopperGolem) // (what it carries between chests)
                 eq.put("mainhand", itemNbt({m.mouthItem, uint8_t(std::max<int>(1, m.allayCount))}, -1));
@@ -1671,16 +1672,15 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 armor.damage = uint16_t(std::clamp<int>(m.armorWear, 0, 63));
                 eq.put("body", itemNbt(armor, -1));
             }
-            e.put("equipment", std::move(eq));
         }
-        if (m.heldTrident || m.heldItem != 0) { // (1.21.5+ equipment.mainhand)
-            nbt::Compound eq, hand;
+        if (!mouthMob && (m.heldTrident || m.heldItem != 0)) { // (1.21.5+ equipment.mainhand)
+            nbt::Compound hand;
             hand.put("id", m.heldTrident ? std::string("minecraft:trident")
                                          : std::string(itemRegistry().item(m.heldItem).id));
             hand.put("count", int32_t{1});
             eq.put("mainhand", std::move(hand));
-            e.put("equipment", std::move(eq));
         }
+        if (!eq.entries.empty()) e.put("equipment", std::move(eq));
         if (mobInfo(m.type).swims) { // (M25.2; wiki: Fish, Tropical Fish › Entity data)
             e.put("Air", int16_t(m.airTicks));
             if (isFish(m.type) || m.type == MobType::Axolotl || m.type == MobType::Tadpole)
@@ -1882,7 +1882,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (const nbt::Tag* hp = e->find("home_pos"))
                 if (const auto* a = hp->get<std::vector<int32_t>>(); a && a->size() == 3) m.home = {(*a)[0], (*a)[1], (*a)[2]};
         }
-        if (const nbt::Compound* eq = e->compound("equipment"))
+        if (const nbt::Compound* eq = e->compound("equipment");
+            eq && m.type != MobType::Fox && m.type != MobType::Allay && m.type != MobType::CopperGolem)
             if (const nbt::Compound* hand = eq->compound("mainhand"))
                 if (const std::string* handId = hand->string("id")) {
                     m.heldTrident = *handId == "minecraft:trident";

@@ -141,7 +141,9 @@ void Mobs::cartKindTick(Context& ctx, MobData& m, BlockStateId rail, const Block
     // container below its rail. An activator rail powered under it switches it off.
     const bool activator = rail != 0 && r.blockOf(rail) == blocks::ActivatorRail && r.get(rail, properties::powered) == 0;
     if (m.decor == 3 && !activator && (m.age = m.age + 1) % 4 == 0) {
-        Chunk* c = ctx.world.chunk(BlockPos{int(std::floor(m.pos.x)), 0, int(std::floor(m.pos.z))}.chunk());
+        // The store is in the chunk that holds the cart this tick: where it was at the start
+        // of the tick (it moves into a new chunk, store and all, after the pass - M29 review).
+        Chunk* c = ctx.world.chunk(BlockPos{int(std::floor(m.prevPos.x)), 0, int(std::floor(m.prevPos.z))}.chunk());
         ItemContents* slots = c ? c->mobStore(m.uuidHi) : nullptr;
         if (!slots && c) slots = &c->addMobStore(m.uuidHi); // (a cart loaded empty)
         if (slots) {

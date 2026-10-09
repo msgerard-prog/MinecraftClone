@@ -635,7 +635,67 @@ TEST_CASE("overworld7 (M29.8): the M29 blocks generate; nether4 bastions keep pi
     const auto jungle = findBiome6(gen, Biome::Jungle);
     REQUIRE(jungle);
     MESSAGE("jungle " << jungle->x << "," << jungle->z);
-    // overworld6's chunks are untouched by it (the pin above), and nether4 adds brutes only.
+    int jungleCocoa = 0, jungleMelons = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            Chunk c({jungle->x + dx, jungle->z + dz});
+            gen.generate(c);
+            for (int y = 50; y < 160; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        jungleCocoa += r.blockOf(c.get(x, y, z)) == blocks::Cocoa;
+                        jungleMelons += r.blockOf(c.get(x, y, z)) == blocks::Melon;
+                    }
+        }
+    MESSAGE("jungle cocoa " << jungleCocoa << " melons " << jungleMelons);
+    CHECK(jungleCocoa > 0);
+    CHECK(jungleMelons > 0);
+    // overworld6's chunks are untouched by it (the pin above), and nether4 adds brutes only:
+    // two armed brutes in every bastion's start chunk.
     const NetherGenerator n4(42);
     CHECK(n4.kind() == "nether4");
+    std::optional<ChunkPos> bastion;
+    for (int z = -60; z <= 60 && !bastion; ++z)
+        for (int x = -60; x <= 60 && !bastion; ++x)
+            if (n4.complexAt({x, z}) == NetherGenerator::Complex::Bastion) bastion = ChunkPos{x, z};
+    REQUIRE(bastion);
+    int brutes = 0;
+    for (int dz = -2; dz <= 2; ++dz)
+        for (int dx = -2; dx <= 2; ++dx) {
+            Chunk c({bastion->x + dx, bastion->z + dz}, kNetherHeight);
+            n4.generate(c);
+            for (const MobData& m : c.mobs())
+                if (m.type == MobType::PiglinBrute) {
+                    ++brutes;
+                    CHECK(m.heldItem == *itemRegistry().find("golden_axe"));
+                }
+        }
+    CHECK(brutes == 2);
+}
+
+namespace {
+uint64_t nameHash(const Chunk& c, const HeightRange& height) { // (by state name: ids may move)
+    uint64_t h = 1469598103934665603ull;
+    for (int y = height.minY; y <= height.maxY(); ++y)
+        for (int z = 0; z < 16; ++z)
+            for (int x = 0; x < 16; ++x)
+                for (const char ch : R().toString(c.get(x, y, z))) {
+                    h ^= uint8_t(ch);
+                    h *= 1099511628211ull;
+                }
+    return h;
+}
+} // namespace
+
+TEST_CASE("overworld7 and nether4 output is pinned (the new-world defaults as of v0.29.0)") {
+    const OverworldGenerator gen(42, 7);
+    const auto jungle = findBiome6(gen, Biome::Jungle);
+    REQUIRE(jungle);
+    Chunk c(*jungle);
+    gen.generate(c);
+    Chunk n({3, -5}, kNetherHeight);
+    NetherGenerator(42, 4).generate(n);
+    MESSAGE("overworld7 " << nameHash(c, kOverworldHeight) << " nether4 " << nameHash(n, kNetherHeight));
+    CHECK(nameHash(c, kOverworldHeight) == 14997860066032220082ull);
+    CHECK(nameHash(n, kNetherHeight) == 882395333977743428ull);
 }

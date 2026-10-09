@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <string>
 
 namespace mc {
 
@@ -22,19 +23,26 @@ bool execute(World& world, const BlockPos& p, CommandContext& ctx) {
     Chunk* c = nullptr;
     CommandBlockData* d = dataAt(world, p, &c);
     if (!d) return false;
-    bool ok = false;
-    if (!d->command.empty()) {
-        const glm::dvec3 centre(p.x + 0.5, p.y + 0.5, p.z + 0.5);
-        const glm::dvec3* before = ctx.origin;
-        ctx.origin = &centre;
-        const CommandResult r = runCommand(d->command, ctx);
-        ctx.origin = before;
-        ok = r.ok;
-        if (d->lastOutput != r.message) d->lastOutput = r.message; // (no copy when it repeats)
+    if (d->command.empty()) {
+        d->successCount = 0;
+        c->markDirty();
+        return false;
     }
-    d->successCount = ok ? 1 : 0;
+    const glm::dvec3 centre(p.x + 0.5, p.y + 0.5, p.z + 0.5);
+    const glm::dvec3* before = ctx.origin;
+    ctx.origin = &centre;
+    // The command may edit this very chunk (/setblock on itself or a neighbour), which moves
+    // or frees its block entities: run a copy and look the block up again afterwards (M29 review).
+    static thread_local std::string command;
+    command = d->command;
+    const CommandResult r = runCommand(command, ctx);
+    ctx.origin = before;
+    d = dataAt(world, p, &c);
+    if (!d) return r.ok; // (it replaced itself)
+    if (d->lastOutput != r.message) d->lastOutput = r.message; // (no copy when it repeats)
+    d->successCount = r.ok ? 1 : 0;
     c->markDirty();
-    return ok;
+    return r.ok;
 }
 
 } // namespace

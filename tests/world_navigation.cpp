@@ -382,3 +382,29 @@ TEST_CASE("M29 review: a ring of chain command blocks stops instead of running t
     CHECK(dayTime <= 10); // (each block once, not 65536 times)
     CHECK(dayTime >= 5);
 }
+
+TEST_CASE("M29 review: a command block that edits its own chunk's command blocks keeps the right data") {
+    Player player;
+    Inventory inv;
+    int64_t dayTime = 0;
+    World w;
+    w.createChunk({0, 0});
+    const auto& r = blockRegistry();
+    CommandContext ctx{player, inv, dayTime, 0, 42};
+    ctx.world = &w;
+    // Two neighbours: the first replaces itself with stone (its block entity is erased and
+    // the vector shifts), the second places new command blocks (the vector may grow).
+    w.setBlock({1, 64, 1}, r.defaultState(blocks::CommandBlock));
+    w.setBlock({8, 64, 8}, r.defaultState(blocks::CommandBlock));
+    w.chunk({0, 0})->commandBlock(1, 64, 1)->command = "setblock ~ ~ ~ stone";
+    w.chunk({0, 0})->commandBlock(8, 64, 8)->command = "fill ~1 ~ ~ ~6 ~ ~ command_block";
+    std::vector<BlockPos> runs{{1, 64, 1}, {8, 64, 8}};
+    runCommandBlocks(w, runs, ctx);
+    CHECK(r.blockOf(w.getBlock({1, 64, 1})) == blocks::Stone);
+    CHECK(w.chunk({0, 0})->commandBlock(1, 64, 1) == nullptr);
+    const CommandBlockData* d = w.chunk({0, 0})->commandBlock(8, 64, 8);
+    REQUIRE(d);
+    CHECK(d->successCount == 1);
+    CHECK(d->command == "fill ~1 ~ ~ ~6 ~ ~ command_block");
+    CHECK(w.chunk({0, 0})->commandBlock(9, 64, 8)->successCount == 0);
+}
