@@ -148,6 +148,7 @@ public:
               bool survival, world::Xoroshiro& rng);
 
     const std::vector<Projectile>& items() const { return m_items; }
+    std::vector<Projectile>& mutableItems() { return m_items; } // (M32.3: DropKeeper parks arrows)
     // Eyes of ender that came down this tick (the caller drops an eye item there).
     const std::vector<glm::dvec3>& eyeDrops() const { return m_eyeDrops; }
     // Ghast fireballs that hit this tick (the caller explodes them, power 1, with fire)

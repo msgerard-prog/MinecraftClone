@@ -86,7 +86,7 @@ void ItemEntities::parkAll(world::World& world, std::vector<world::ChunkPos>& to
             ++i;
             continue;
         }
-        if (c->droppedItems().empty() && c->droppedOrbs().empty()) touched.push_back(at);
+        if (!c->holdsParked()) touched.push_back(at);
         c->droppedItems().push_back({e.pos, e.vel, e.stack, int16_t(std::min(e.age, 32767)),
                                      int16_t(std::min(e.pickupDelay, 32767))});
         m_items[i] = m_items.back();

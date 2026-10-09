@@ -69,6 +69,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.inhabitedTicks = snap.inhabitedTicks;
             chunk.droppedItems() = snap.droppedItems; // (M30.4 review: drops come back too)
             chunk.droppedOrbs() = snap.droppedOrbs;
+            chunk.parkedEntities() = snap.parkedEntities;
             chunk.savedDropsHash = chunk.dropsHash();
             chunk.blockTicks() = snap.blockTicks; // delays (see ChunkSnapshot::of)
             chunk.ticksRelative = !snap.blockTicks.empty();

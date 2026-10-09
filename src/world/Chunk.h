@@ -83,6 +83,7 @@ public:
         m_mobs.clear();
         m_droppedItems.clear();
         m_droppedOrbs.clear();
+        m_parked.clear();
         savedDropsHash = 0;
         inhabitedTicks = 0;
         m_blockTicks.clear();
@@ -444,6 +445,26 @@ public:
         int value = 0, count = 1;
         int16_t age = 0;
     };
+    // (M32.3) arrows, tridents, primed TNT and falling blocks between loads (saved as vanilla's
+    // minecraft:arrow / spectral_arrow / trident / tnt / falling_block); gameplay/DropKeeper
+    // parks and unparks them like the drops.
+    struct ParkedEntity {
+        enum class Kind : uint8_t { Arrow, Trident, Tnt, FallingBlock };
+        Kind kind = Kind::Arrow;
+        glm::dvec3 pos{0.0}, vel{0.0}, facing{0.0, -1.0, 0.0};
+        ItemStack stack;  // an arrow's ammunition (tipped...), a trident itself
+        int32_t time = 0; // an arrow's life, TNT's fuse, a falling block's time
+        BlockStateId state = 0; // a falling block
+        double startY = 0.0;    // (where a falling stalactite started)
+        uint64_t shooter = 0;
+        uint8_t potion = 0, pierce = 0, power = 0, punch = 0;
+        bool stuck = false, pickup = true, critical = false, fromPlayer = false, dealt = false, spectral = false,
+             flame = false;
+    };
+    std::vector<ParkedEntity>& parkedEntities() { return m_parked; }
+    const std::vector<ParkedEntity>& parkedEntities() const { return m_parked; }
+    // Anything parked here (drops or entities): a save's touched list (DropKeeper).
+    bool holdsParked() const { return !m_droppedItems.empty() || !m_droppedOrbs.empty() || !m_parked.empty(); }
     std::vector<DroppedItem>& droppedItems() { return m_droppedItems; }
     const std::vector<DroppedItem>& droppedItems() const { return m_droppedItems; }
     std::vector<DroppedOrb>& droppedOrbs() { return m_droppedOrbs; }
@@ -453,7 +474,7 @@ public:
     // drops still age and despawn across visits, as vanilla saves their Age).
     uint64_t savedDropsHash = 0;
     uint64_t dropsHash() const {
-        if (m_droppedItems.empty() && m_droppedOrbs.empty()) return 0;
+        if (!holdsParked()) return 0;
         // Order-independent (a sum of each drop's own mix): parking reorders them.
         auto mixAll = [](std::initializer_list<int64_t> vs) {
             uint64_t h = 1469598103934665603ull;
@@ -474,6 +495,9 @@ public:
         for (const DroppedOrb& o : m_droppedOrbs)
             sum += mixAll({-1, o.value, o.count, int64_t(o.pos.x * 16.0), int64_t(o.pos.y * 16.0),
                            int64_t(o.pos.z * 16.0), o.age >> 10});
+        for (const ParkedEntity& p : m_parked)
+            sum += mixAll({-2, int64_t(p.kind), p.stack.item, p.state, int64_t(p.pos.x * 16.0), int64_t(p.pos.y * 16.0),
+                           int64_t(p.pos.z * 16.0), p.time >> 10});
         return sum | 1; // (never 0: 0 means "no drops")
     }
     // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
@@ -593,6 +617,7 @@ private:
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
     std::vector<DroppedItem> m_droppedItems;
+    std::vector<ParkedEntity> m_parked;
     std::vector<DroppedOrb> m_droppedOrbs;
     std::vector<MobStoreEntry> m_mobStores;
     std::vector<BlockTick> m_blockTicks;

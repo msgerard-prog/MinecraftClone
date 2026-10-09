@@ -48,6 +48,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.inhabitedTicks = chunk.inhabitedTicks;
     s.droppedItems = chunk.droppedItems();
     s.droppedOrbs = chunk.droppedOrbs();
+    s.parkedEntities = chunk.parkedEntities();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
         for (auto& t : s.blockTicks)
@@ -1829,6 +1830,46 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         e.put("Health", int16_t{5});
         list.emplace_back(std::move(e));
     }
+    // (M32.3) arrows, tridents, primed TNT and falling blocks (wiki: Entity format › Projectiles,
+    // Primed TNT, Falling Block).
+    for (const Chunk::ParkedEntity& p : chunk.parkedEntities) {
+        using K = Chunk::ParkedEntity::Kind;
+        nbt::Compound e;
+        e.put("id", std::string(p.kind == K::Tnt            ? "minecraft:tnt"
+                                : p.kind == K::FallingBlock ? "minecraft:falling_block"
+                                : p.kind == K::Trident      ? "minecraft:trident"
+                                : p.spectral                ? "minecraft:spectral_arrow"
+                                                            : "minecraft:arrow"));
+        e.put("Pos", nbt::listOf(nbt::TagType::Double, {p.pos.x, p.pos.y, p.pos.z}));
+        e.put("Motion", nbt::listOf(nbt::TagType::Double, {p.vel.x, p.vel.y, p.vel.z}));
+        if (p.kind == K::Tnt) {
+            e.put("fuse", int16_t(std::clamp(p.time, 0, 32767)));
+            e.put("explosion_power", 4.0f);
+            e.put("block_state", paletteEntry("minecraft:tnt"));
+        } else if (p.kind == K::FallingBlock) {
+            e.put("BlockState", paletteEntry(blockRegistry().toString(p.state)));
+            e.put("Time", int32_t(p.time));
+            e.put("DropItem", int8_t{1});
+            e.put("clone_startY", p.startY); // (our tag: how far a stalactite fell)
+        } else {
+            e.put("inGround", int8_t(p.stuck ? 1 : 0));
+            e.put("life", int16_t(std::clamp(p.time, 0, 32767)));
+            e.put("pickup", int8_t(p.pickup ? (p.fromPlayer ? 1 : 0) : 0)); // (0 no, 1 yes)
+            e.put("crit", int8_t(p.critical ? 1 : 0));
+            e.put("PierceLevel", int8_t(p.pierce));
+            e.put("damage", 2.0 + 0.5 * p.power + (p.power ? 0.5 : 0.0)); // (vanilla base 2 + Power)
+            if (!p.stack.empty()) e.put("item", itemNbt(p.stack, -1));
+            if (p.kind == K::Trident) e.put("DealtDamage", int8_t(p.dealt ? 1 : 0));
+            e.put("clone_facing", nbt::listOf(nbt::TagType::Double, {p.facing.x, p.facing.y, p.facing.z}));
+            e.put("clone_power", int8_t(p.power));
+            e.put("clone_punch", int8_t(p.punch));
+            e.put("clone_potion", int8_t(p.potion));
+            e.put("clone_flame", int8_t(p.flame ? 1 : 0));
+            e.put("clone_fromPlayer", int8_t(p.fromPlayer ? 1 : 0));
+            if (p.shooter) e.put("clone_shooter", int64_t(p.shooter));
+        }
+        list.emplace_back(std::move(e));
+    }
     root.put("Entities", nbt::listOf(nbt::TagType::Compound, std::move(list)));
     return root;
 }
@@ -1838,6 +1879,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
     chunk.mobStores().clear();
     chunk.droppedItems().clear();
     chunk.droppedOrbs().clear();
+    chunk.parkedEntities().clear();
     chunk.savedDropsHash = 0;
     const nbt::List* list = root.list("Entities");
     if (!list) return;
@@ -1845,6 +1887,54 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         const nbt::Compound* e = t.get<nbt::Compound>();
         const std::string* id = e ? e->string("id") : nullptr;
         if (!id) continue;
+        if (*id == "minecraft:arrow" || *id == "minecraft:spectral_arrow" || *id == "minecraft:trident" ||
+            *id == "minecraft:tnt" || *id == "minecraft:falling_block") { // (M32.3)
+            using K = Chunk::ParkedEntity::Kind;
+            Chunk::ParkedEntity p;
+            auto vec3 = [&](const char* name, glm::dvec3& out, double limit) {
+                if (const nbt::List* l = e->list(name); l && l->items.size() == 3)
+                    for (int i = 0; i < 3; ++i)
+                        if (auto d = l->items[size_t(i)].get<double>(); d && std::isfinite(*d))
+                            out[i] = std::clamp(*d, -limit, limit);
+            };
+            vec3("Pos", p.pos, 3.0e7);
+            vec3("Motion", p.vel, 10.0);
+            if (!isValidMobPosition(p.pos)) continue;
+            if (*id == "minecraft:tnt") {
+                p.kind = K::Tnt;
+                p.time = int32_t(std::clamp<int64_t>(e->integer("fuse").value_or(80), 0, 32767));
+            } else if (*id == "minecraft:falling_block") {
+                p.kind = K::FallingBlock;
+                const nbt::Compound* bs = e->compound("BlockState");
+                const auto st = bs ? blockRegistry().parse(paletteText(*bs)) : std::nullopt;
+                if (!st || *st == 0) continue;
+                p.state = *st;
+                p.time = int32_t(std::clamp<int64_t>(e->integer("Time").value_or(0), 0, 1 << 20));
+                p.startY = e->real("clone_startY").value_or(p.pos.y);
+            } else {
+                p.kind = *id == "minecraft:trident" ? K::Trident : K::Arrow;
+                p.spectral = *id == "minecraft:spectral_arrow";
+                p.stuck = e->integer("inGround").value_or(0) != 0;
+                p.time = int32_t(std::clamp<int64_t>(e->integer("life").value_or(0), 0, 32767));
+                p.pickup = e->integer("pickup").value_or(1) != 0;
+                p.critical = e->integer("crit").value_or(0) != 0;
+                p.pierce = uint8_t(std::clamp<int64_t>(e->integer("PierceLevel").value_or(0), 0, 127));
+                if (const nbt::Compound* item = e->compound("item")) p.stack = itemFromNbt(*item);
+                p.dealt = e->integer("DealtDamage").value_or(0) != 0;
+                p.facing = glm::length(p.vel) > 1e-6 ? glm::normalize(p.vel) : glm::dvec3(0.0, -1.0, 0.0);
+                vec3("clone_facing", p.facing, 1.0);
+                p.power = uint8_t(std::clamp<int64_t>(e->integer("clone_power").value_or(0), 0, 10));
+                p.punch = uint8_t(std::clamp<int64_t>(e->integer("clone_punch").value_or(0), 0, 10));
+                p.potion = uint8_t(std::clamp<int64_t>(e->integer("clone_potion").value_or(0), 0, 255));
+                p.flame = e->integer("clone_flame").value_or(0) != 0;
+                p.fromPlayer = e->integer("clone_fromPlayer").value_or(p.pickup ? 1 : 0) != 0;
+                p.shooter = uint64_t(e->integer("clone_shooter").value_or(0));
+                if (p.kind == K::Trident && p.stack.empty()) continue;
+            }
+            chunk.parkedEntities().push_back(p);
+            chunk.savedDropsHash = chunk.dropsHash();
+            continue;
+        }
         if (*id == "minecraft:item" || *id == "minecraft:experience_orb") { // (M30.4)
             glm::dvec3 pos(0.0), vel(0.0);
             if (const nbt::List* l = e->list("Pos"); l && l->items.size() == 3)

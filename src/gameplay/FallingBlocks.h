@@ -42,6 +42,7 @@ public:
               std::vector<world::BlockPos>& changed);
 
     const std::vector<FallingBlock>& blocks() const { return m_blocks; }
+    std::vector<FallingBlock>& mutableBlocks() { return m_blocks; } // (M32.3: DropKeeper)
     void clear() { m_blocks.clear(); }
     // Falling stalactites that landed this tick (M27.2; wiki: Pointed Dripstone): whoever
     // stands where one lands takes `damage`. Main applies them and clears the list.

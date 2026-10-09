@@ -834,6 +834,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
     // Dropped items and orbs go with their chunk (M30.4; gameplay/DropKeeper).
     mc::DropKeeper dropKeeper(droppedItems, orbs, seed ^ 0xD20Bull);
+    dropKeeper.track(&projectiles, &primedTnt, &fallingBlocks); // (M32.3)
     world.setChunkListener(&dropKeeper);
     if (flatWorld) // (the fixed world's chunks were all loaded above, before the keeper)
         world.forEachChunk([&](mc::world::Chunk& c) { dropKeeper.chunkLoaded(c); });

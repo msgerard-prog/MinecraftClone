@@ -397,3 +397,10 @@ Every 1.21.11 block, item, entity, effect and enchantment id is registered
 Saved in `entities/` with the chunk's mobs, as vanilla: `minecraft:item` (Pos, Motion, Item,
 Age, PickupDelay, Health 5) and `minecraft:experience_orb` (Pos, Motion, Value, Count, Age,
 Health 5). Unknown fields are ignored on loading.
+M32.3 adds `minecraft:arrow`/`spectral_arrow`/`trident` (Pos, Motion, inGround, life, pickup,
+crit, PierceLevel, damage, item, DealtDamage; our `clone_facing`, `clone_power`, `clone_punch`,
+`clone_potion`, `clone_flame`, `clone_fromPlayer`, `clone_shooter`), `minecraft:tnt` (fuse,
+explosion_power, block_state) and `minecraft:falling_block` (BlockState, Time, DropItem; our
+`clone_startY`) - parked in `Chunk::parkedEntities` by gameplay/DropKeeper like the drops.
+Monsters (M32.2) save `equipment` head..feet/mainhand with `drop_chances` (2.0: picked up),
+`CanPickUpLoot`, zombies `IsBaby`, `CanBreakDoors` and the `spawn_reinforcements` attribute.

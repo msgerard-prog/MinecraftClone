@@ -151,7 +151,7 @@ void ExperienceOrbs::parkAll(World& world, std::vector<ChunkPos>& touched) {
             ++i;
             continue;
         }
-        if (c->droppedItems().empty() && c->droppedOrbs().empty()) touched.push_back(at);
+        if (!c->holdsParked()) touched.push_back(at);
         c->droppedOrbs().push_back({o.pos, o.vel, o.value, o.count, int16_t(std::min(o.age, 32767))});
         m_orbs[i] = m_orbs.back();
         m_orbs.pop_back();

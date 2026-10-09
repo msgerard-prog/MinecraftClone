@@ -18,7 +18,7 @@ M32 - Play parity:
    reinforcements, door breaking; c: spawn gear, mob armor, loot pickup, Hard spider effects) - Monsters: skeleton strafing and backing off, baby zombies and reinforcements,
    zombie door breaking on Hard, spider jockeys, endermen teleporting from rain/sun/damage,
    regional difficulty (armor, weapons, enchantments on spawn), mob item pickup.
-3. M32.3 - Damage rules: the stronger-hit-in-invulnerability rule, knockback resistance,
+3. ✅ M32.3 - Damage rules: the stronger-hit-in-invulnerability rule, knockback resistance,
    mob armor, the totem animation, saved projectiles, primed TNT and falling blocks.
 4. M32.4 - Inventory handling: drag-split, double-click collect, 1-9 swap, Ctrl+Q, F offhand
    swap, vanilla shift-click order, offhand use.

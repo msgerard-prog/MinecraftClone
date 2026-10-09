@@ -182,3 +182,69 @@ TEST_CASE("M31 review: the drops hash ignores parking order but sees age steps a
     b.droppedItems()[0].stack.enchantments[0] = 0x0105; // (an enchanted sword instead)
     CHECK(a.dropsHash() != b.dropsHash());
 }
+
+#include "gameplay/FallingBlocks.h"
+#include "gameplay/PrimedTnt.h"
+#include "gameplay/Projectiles.h"
+
+TEST_CASE("M32.3: stuck arrows, tridents, primed TNT and falling blocks are saved with their chunk") {
+    World w = floor();
+    ItemEntities items;
+    ExperienceOrbs orbs;
+    Projectiles projectiles;
+    PrimedTnt tnt;
+    FallingBlocks falling;
+    DropKeeper keeper(items, orbs, 9);
+    keeper.track(&projectiles, &tnt, &falling);
+    Xoroshiro rng(5);
+    Projectile arrow;
+    arrow.kind = ProjectileKind::Arrow;
+    arrow.pos = {4.5, 64.2, 4.5};
+    arrow.facing = {0.0, -0.6, 0.8};
+    arrow.stuck = true;
+    arrow.fromPlayer = true;
+    arrow.life = 300;
+    arrow.power = 3;
+    arrow.stack = I("arrow", 1);
+    projectiles.mutableItems().push_back(arrow);
+    Projectile trident = arrow;
+    trident.kind = ProjectileKind::Trident;
+    trident.stack = I("trident", 1);
+    trident.stack.damage = 17;
+    trident.dealt = true;
+    projectiles.mutableItems().push_back(trident);
+    tnt.prime({6, 64, 6}, 50, rng);
+    falling.spawn({8, 70, 8}, blockRegistry().defaultState(blocks::Sand));
+    Chunk& c = *w.chunk({0, 0});
+    c.clearDirty();
+    keeper.chunkUnloading(c);
+    CHECK(c.dirty());
+    CHECK(projectiles.items().empty());
+    CHECK(tnt.items().empty());
+    CHECK(falling.blocks().empty());
+    REQUIRE(c.parkedEntities().size() == 4);
+    // Through the entities file and back.
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.parkedEntities().size() == 4);
+    CHECK(back.savedDropsHash == back.dropsHash());
+    keeper.chunkLoaded(back);
+    CHECK(back.parkedEntities().empty());
+    REQUIRE(projectiles.items().size() == 2);
+    REQUIRE(tnt.items().size() == 1);
+    REQUIRE(falling.blocks().size() == 1);
+    CHECK(tnt.items()[0].fuse == 50);
+    CHECK(falling.blocks()[0].state == blockRegistry().defaultState(blocks::Sand));
+    for (const Projectile& p : projectiles.items()) {
+        CHECK(p.stuck);
+        CHECK(p.fromPlayer);
+        CHECK(p.life == 300);
+        CHECK(p.facing.z == doctest::Approx(0.8));
+        if (p.kind == ProjectileKind::Trident) {
+            CHECK(p.stack.damage == 17);
+            CHECK(p.dealt);
+        } else {
+            CHECK(p.power == 3);
+        }
+    }
+}

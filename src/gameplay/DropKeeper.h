@@ -19,6 +19,12 @@ public:
     DropKeeper(ItemEntities& items, ExperienceOrbs& orbs, uint64_t seed) : m_items(items), m_orbs(orbs), m_rng(seed) {
         m_touched.reserve(256);
     }
+    // (M32.3) arrows and tridents, primed TNT and falling blocks go with their chunk too.
+    void track(class Projectiles* projectiles, class PrimedTnt* tnt, class FallingBlocks* falling) {
+        m_projectiles = projectiles;
+        m_tnt = tnt;
+        m_falling = falling;
+    }
     void chunkLoaded(world::Chunk& c) override;
     void chunkUnloading(world::Chunk& c) override;
     void beforeSave(world::World& world);
@@ -27,6 +33,12 @@ public:
 private:
     ItemEntities& m_items;
     ExperienceOrbs& m_orbs;
+    class Projectiles* m_projectiles = nullptr;
+    class PrimedTnt* m_tnt = nullptr;
+    class FallingBlocks* m_falling = nullptr;
+    // Parks the tracked entities standing in `c` (all = any loaded chunk: saving); unparks.
+    void parkEntities(world::World* world, world::Chunk* only);
+    void unparkEntities(world::Chunk& c);
     world::Xoroshiro m_rng; // (its own stream: saving doesn't shift gameplay's)
     std::vector<world::ChunkPos> m_touched;
 };

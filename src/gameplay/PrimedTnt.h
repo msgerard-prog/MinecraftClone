@@ -36,6 +36,7 @@ public:
     void push(const glm::dvec3& centre, float power);
 
     const std::vector<PrimedTntEntity>& items() const { return m_items; }
+    std::vector<PrimedTntEntity>& mutableItems() { return m_items; } // (M32.3: DropKeeper)
     const std::vector<glm::dvec3>& explosions() const { return m_explode; }
     void clear() { m_items.clear(); }
 
