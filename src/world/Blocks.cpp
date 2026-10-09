@@ -1693,6 +1693,11 @@ BlockRegistry buildVanillaBlocks() {
         addFamily(r, c + "_wool", c + "_wool", true, true, false, true);
         addFamily(r, c + "_concrete", c + "_concrete", true, true, false, true);
     }
+    // (M33.3d; wiki: Straw Bed - 26.3) a bed for one night: no respawn point, gone after use;
+    // hoes break it fastest. Ours has a bed's two halves (the wiki doesn't give its size).
+    r.add("straw_bed", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                        .tool = HarvestTool::Hoe, .like = blocks::RedBed},
+          {{&facing, "north"}, {&occupied, "false"}, {&bedPart, "foot"}});
     // (M33.3a) the poplar shelf, like the oak one
     r.add("poplar_shelf", {.hardness = 2.0f, .resistance = 3.0f, .opaqueCube = false, .tool = HarvestTool::Axe,
                            .like = blocks::Shelf},
@@ -1748,6 +1753,11 @@ BlockId pottedFor(BlockId plant) {
     for (BlockId b = blocks::PottedFirst; b <= blocks::PottedLast; ++b)
         if (plantInPot(b) == plant) return b;
     return 0;
+}
+
+bool isStrawBed(BlockId b) {
+    static const BlockId straw = blockRegistry().findBlock("straw_bed").value_or(0);
+    return b != 0 && b == straw;
 }
 
 } // namespace mc::world

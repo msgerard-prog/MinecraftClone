@@ -293,7 +293,7 @@ TEST_CASE("spawn eggs: one for every mob (not decorations, vehicles or illusione
         const bool none = isHanging(type) || type == MobType::ArmorStand || type == MobType::LeashKnot ||
                           type == MobType::Boat || type == MobType::Minecart || type == MobType::EndCrystal ||
                           type == MobType::Illusioner || type == MobType::Giant || type == MobType::Mannequin ||
-                          isTechnical(type);
+                          type == MobType::Cushion || isTechnical(type); // (M33.3d: placed from its item)
         CHECK(id.has_value() == !none);
         if (id) {
             ++eggs;

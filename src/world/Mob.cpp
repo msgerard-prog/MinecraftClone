@@ -194,6 +194,7 @@ const MobInfo& mobInfo(MobType t) {
         // (M33.2c; wiki: Sulfur Cube - 8 (small 4), 0.98 x 0.98 (small 0.49), 0.4 (small 0.3);
         // drawn from the size-1 cube model at twice its size)
         {"minecraft:sulfur_cube", 8.0f, 0.98, 0.98, 0.4, 0.0f, false, false, false, 2.0f},
+        {"minecraft:cushion", 1.0f, 0.75, 0.25, 0.0, 0.0f, false}, // (M33.3d; ours: 12 x 4 pixels)
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

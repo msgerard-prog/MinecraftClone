@@ -430,6 +430,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
         armorStandTick(ctx, m);
         return;
     }
+    if (m.type == MobType::Cushion) { // (M33.3d) it only falls
+        physics(ctx.world, m, glm::dvec3(0.0), false);
+        return;
+    }
     if (m.type == MobType::LeashKnot) { // (M28.3c, Leads.cpp)
         knotTick(ctx, m);
         return;
@@ -1195,6 +1199,12 @@ void Mobs::die(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::ArmorStand) { // (M28.3b) itself and what it wore, gone at once
         dropArmorStand(ctx, m);
+        m.deathTime = 19;
+        return;
+    }
+    if (m.type == MobType::Cushion) { // (M33.3d) back as its item, gone at once
+        if (const auto item = itemRegistry().find(std::string(kDyeColours[m.woolColour % 16]) + "_cushion"))
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.2, 0), {*item, 1}, ctx.rng);
         m.deathTime = 19;
         return;
     }

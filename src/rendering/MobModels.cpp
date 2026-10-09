@@ -225,6 +225,11 @@ constexpr std::array<MobPart, 3> kStrider = {{
     {{2, 0, -2}, {6, 14, 2}, {4, 14, 0}, 0, 32, A::LegB},
 }};
 
+// Cushion (M33.3d; 26.3): a soft 12x4x12 pad, wool tinted by its dye (layer 1).
+constexpr std::array<MobPart, 1> kCushion = {{
+    {{-6, 0, -6}, {6, 4, 6}, {0, 0, 0}, 16, 40, A::None, 1, 0.0f}, // (its pad in the wool sheet)
+}};
+
 // Armor stand (M28.3b): a base plate, two leg sticks, a hip bar, a pole, a shoulder bar
 // and a neck; the armor it wears as layers 15-18 (vanilla: a player-shaped stand).
 constexpr std::array<MobPart, 10> kArmorStand = {{
@@ -883,6 +888,7 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Minecart: return kMinecart;
     case world::MobType::Slime: return kMagmaCube; // (the same cube, its own skin)
     case world::MobType::SulfurCube: return kMagmaCube; // (M33.2c: the same cube, its own skin)
+    case world::MobType::Cushion: return kCushion; // (M33.3d)
     case world::MobType::Villager:
     case world::MobType::ZombieVillager: return kVillager; // (its own skin)
     case world::MobType::IronGolem: return kIronGolem;

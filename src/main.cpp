@@ -664,6 +664,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         lastDeath = {{level->lastDeath[0], level->lastDeath[1], level->lastDeath[2]},
                      Dimension(std::clamp(level->lastDeathDimension, 0, 2))};
     int sleepTicks = 0;
+    bool sleepStraw = false; // (M33.3d) asleep in a straw bed
     mc::world::BlockPos sleepBed{};
     bool bedRespawnPending = false; // respawned at the bed: check it once its chunks load
     mc::Explosion bedExplosion;     // beds in the Nether and the End
@@ -833,7 +834,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if ((m.type == mc::world::MobType::Minecart ||
+                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Cushion ||
                              m.type == mc::world::MobType::Boat || mc::world::isMount(m.type) ||
                              mc::world::isStickRidden(m.type)) &&
                             m.uuidHi == ridingCart)
@@ -1974,8 +1975,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::BlockPos bedPos = *pendingBedUse;
                 pendingBedUse.reset();
                 const glm::dvec3 feetNow = player.position();
-                switch (mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow,
-                                   weather.raining, weather.raining && weather.thundering)) {
+                // (M33.3d; wiki: Straw Bed) one night only, and no respawn point
+                const bool straw = mc::world::isStrawBed(mc::world::blockRegistry().blockOf(world.getBlock(bedPos)));
+                auto use = mc::useBed(world, bedPos, dayTime, dimension, !survival, &feetNow, weather.raining,
+                                      weather.raining && weather.thundering);
+                if (straw && use == mc::BedUse::Sleep) {
+                    sleepBed = *mc::bedHead(world, bedPos);
+                    sleepTicks = 1;
+                    sleepStraw = true;
+                    stats.add(mc::world::Stat::SleepInBed);
+                    announce(adv.onEvent(mc::world::AdvEvent::Slept));
+                    use = mc::BedUse::NotABed; // (handled)
+                } else if (straw && use == mc::BedUse::NotNight) {
+                    chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime, gui.batch());
+                    use = mc::BedUse::NotABed;
+                } else if (straw && use == mc::BedUse::Explodes) { // (outside the Overworld it just falls apart)
+                    const mc::world::BlockPos head = *mc::bedHead(world, bedPos);
+                    world.updateBlock(head, 0);
+                    frameEdits.push_back(head);
+                    use = mc::BedUse::NotABed;
+                }
+                switch (use) {
                 case mc::BedUse::Sleep:
                     bedSpawn = *mc::bedHead(world, bedPos);
                     spawnDim = Dimension::Overworld;
@@ -2088,6 +2108,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     if (stillBed)
                         if (const auto spot = mc::bedStandSpot(world, sleepBed))
                             player.setPosition(*spot);
+                    if (sleepStraw && stillBed) { // (M33.3d) a straw bed is used up, slept in or not
+                        world.updateBlock(sleepBed, 0);
+                        frameEdits.push_back(sleepBed);
+                    }
+                    sleepStraw = false;
                     sleepTicks = 0;
                     vitals.setTimeSinceRest(0); // (M26.4a: rested - no phantoms)
                 }
@@ -3301,6 +3326,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         clicks.useClick = false;
                         clicks.use = false;
                     }
+                // (M33.3d; wiki: Cushion) a cushion item sets one down on the face clicked.
+                if (const std::string_view heldName =
+                        mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                    !dead && clicks.useClick && lastHit && mayBuild && heldName.ends_with("_cushion")) {
+                    int dye = 0;
+                    for (int k = 0; k < 16; ++k)
+                        if (heldName == "minecraft:" + std::string(mc::world::kDyeColours[k]) + "_cushion") dye = k;
+                    const mc::world::BlockPos b = lastHit->block;
+                    const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
+                    mc::world::MobData cushion = mc::Mobs::make(mc::world::MobType::Cushion,
+                                                                {b.x + n.x + 0.5, double(b.y + n.y), b.z + n.z + 0.5}, gameRng);
+                    cushion.woolColour = uint8_t(dye);
+                    cushion.persistent = true;
+                    cushion.yaw = cushion.prevYaw = player.yaw();
+                    if (mc::Mobs::add(world, cushion) && survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
                 // (M33.2c; wiki: Bucket of Sulfur Cube) a carried cube comes out on the clicked face,
                 // with its block, and never despawns; the empty bucket stays.
                 if (static const mc::world::ItemId cubeBucket =
@@ -4010,6 +4053,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed) ||
                      world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
                          mc::world::MobType::Allay ||
+                     world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                         mc::world::MobType::Cushion || // (M33.3d: sat on with an empty hand)
                      mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
                      mc::world::isStickRidden(
                          world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {

@@ -646,6 +646,8 @@ enum : BlockId {
 };
 } // namespace blocks
 inline bool isSuspicious(BlockId b) { return b == blocks::SuspiciousSand || b == blocks::SuspiciousGravel; }
+// (M33.3d; 26.3) the straw bed (registered late: by name once).
+bool isStrawBed(BlockId b);
 // Amethyst buds and clusters, smallest to grown (M27.4a), in enum order.
 inline bool isAmethystBud(BlockId b) { return b >= blocks::SmallAmethystBud && b <= blocks::AmethystCluster; }
 // Two-block plants (M27.1), in enum order.

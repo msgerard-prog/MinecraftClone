@@ -733,6 +733,9 @@ std::vector<Recipe> build() {
                 r.push_back(std::move(s));
             }
         }
+        r.push_back(shaped({"HHH"}, {{'H', item("hay_block")}}, "straw_bed", 4)); // (M33.3d; wiki: Straw Bed)
+        for (const char* colour : kDyeColours) // (M33.3d; wiki: Cushion - from its wool slab)
+            r.push_back(shapeless({item(std::string(colour) + "_wool_slab")}, std::string(colour) + "_cushion"));
         r.push_back(shapeless({item("pumpkin"), item("sugar"), item("egg")}, "pumpkin_pie"));
         r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},
                            "glistering_melon_slice"));

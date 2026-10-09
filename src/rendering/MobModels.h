@@ -147,6 +147,7 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/zombie.png",
         "assets/minecraft/textures/entity/clone/zombie.png",
         "assets/minecraft/textures/entity/clone/sulfur_cube.png", // (M33.2c)
+        "assets/minecraft/textures/entity/clone/sheep_wool.png",  // (M33.3d: cushions, tinted by dye)
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",

@@ -2965,3 +2965,30 @@ TEST_CASE("M33.2c: a sulfur cube with TNT lit by flint and steel blows up after 
     s.run(20);
     CHECK(s.all().empty());
 }
+
+TEST_CASE("M33.3d (26.3): cushions are sat on and pop back into their item; straw beds craft four") {
+    const auto& it = itemRegistry();
+    REQUIRE(it.find("lime_cushion").has_value());
+    CHECK(it.item(*it.find("lime_cushion")).maxStack == 16);
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData c = Mobs::make(MobType::Cushion, {3.5, 64.0, 3.5}, s.rng);
+    c.woolColour = 5; // lime
+    c.persistent = true;
+    REQUIRE(Mobs::add(s.world, c));
+    CHECK(Mobs::interact(*s.all().at(0), kNoItem, s.rng, s.items) == Mobs::Use::Ride);
+    CHECK(Mobs::seatHeight(*s.all().at(0)) > 0.0);
+    Mobs::attack(*s.all().at(0), 1.0f, s.player.position());
+    s.run(2);
+    CHECK(s.all().empty());
+    bool dropped = false;
+    for (const ItemEntity& e : s.items.items()) dropped = dropped || e.stack.item == *it.find("lime_cushion");
+    CHECK(dropped);
+    std::array<ItemStack, 9> grid{};
+    grid[0] = grid[1] = grid[2] = {*it.find("hay_block"), 1};
+    const auto bed = craft(grid, 3);
+    REQUIRE(bed);
+    CHECK(bed->item == *it.find("straw_bed"));
+    CHECK(bed->count == 4);
+    CHECK(isStrawBed(blockRegistry().blockOf(blockRegistry().defaultState(*blockRegistry().findBlock("straw_bed")))));
+}

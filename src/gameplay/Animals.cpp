@@ -106,6 +106,7 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     // (M32.6; wiki: Creeper) flint and steel or a fire charge lights a creeper's fuse.
     static const ItemId flint = itemOr0("flint_and_steel"), fireCharge = itemOr0("fire_charge");
     if (m.type == MobType::SulfurCube) return sulfurCubeInteract(m, held, rng, items); // (M33.2c)
+    if (m.type == MobType::Cushion) return Use::Ride; // (M33.3d: sat on, whatever the hand holds)
     if (m.type == MobType::Creeper && held != kNoItem && (held == flint || held == fireCharge) && !m.ignited) {
         m.ignited = true;
         return Use::Ignited;

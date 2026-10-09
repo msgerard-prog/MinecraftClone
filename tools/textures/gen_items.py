@@ -550,6 +550,20 @@ def quartz():
     return s.render()
 
 
+def cushion(colour):
+    img = Img(16, 16, CLEAR)
+    pal = ramp(hexc(colour), 5, spread=0.25)
+    for y in range(5, 13):
+        for x in range(2, 14):
+            corner = (x in (2, 13)) and (y in (5, 12))
+            if corner:
+                continue
+            img.set(x, y, pal[1] if y >= 11 or x == 13 else pal[3] if y <= 6 else pal[2])
+    for x in (7, 8):  # the button in the middle
+        img.set(x, 8, pal[0])
+    return img
+
+
 def bucket(fill=None):
     # An iron pail seen from the side, with a handle; optionally full of something.
     iron = ramp(hexc("#B4B4BC"), 5, spread=0.4)
@@ -1597,6 +1611,9 @@ def all_items():
     items["bucket"] = bucket()
     items["water_bucket"] = bucket("#3C6EE6")
     items["sulfur_cube_bucket"] = bucket("#E8D460")  # (M33.2c; 26.2)
+    # (M33.3d; 26.3) cushions: a soft square pad in each dye colour
+    for name, colour in DYES:
+        items[f"{name}_cushion"] = cushion(colour)
     items["lava_bucket"] = bucket("#E8661A")
     items["milk_bucket"] = bucket("#F4F4F0")
     # Farm animals and their food (M16.3).
@@ -1638,7 +1655,7 @@ def all_items():
     import re
     mob_cpp = (Path(__file__).resolve().parents[2] / "src/world/Mob.cpp").read_text()
     no_egg = {"end_crystal", "minecart", "boat", "item_frame", "glow_item_frame", "painting", "armor_stand",
-              "leash_knot", "illusioner"}
+              "leash_knot", "illusioner", "cushion"}
     for mob in re.findall(r'\{"minecraft:([a-z_]+)", [0-9.]+f,', mob_cpp):
         if mob not in no_egg:
             base, spots = skin_colours(mob)

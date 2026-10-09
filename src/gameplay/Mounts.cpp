@@ -325,6 +325,8 @@ double Mobs::seatHeight(const MobData& m) {
     // Where the rider's feet go above the mount's (our estimates of vanilla's
     // passenger attachment points).
     switch (m.type) {
+    case MobType::Cushion:
+        return 0.15; // (M33.3d: sat on)
     case MobType::Boat:
         return 0.15;
     case MobType::Minecart:

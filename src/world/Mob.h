@@ -141,6 +141,8 @@ enum class MobType : uint8_t {
     // M33.2c - 26.2 (wiki: Sulfur Cube): a passive jelly cube of the sulfur caves; small ones
     // are its young (`age` < 0); it can take in a block (`absorbed`) and act like it.
     SulfurCube,
+    // M33.3d - 26.3 (wiki: Cushion): a placed cushion to sit on, its dye in `woolColour`.
+    Cushion,
     Count
 };
 

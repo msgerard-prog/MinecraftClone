@@ -664,6 +664,10 @@ ItemRegistry buildItems() {
     for (int k = 1; k < 6; ++k)
         r.add({.id = std::string("minecraft:") + kNautilusArmorItems[k], .maxStack = 1,
                .texture = std::string("item/") + kNautilusArmorItems[k]});
+    // (M33.3d; wiki: Cushion - 26.3) one per dye colour, stacking to 16, placed as an entity.
+    for (const char* colour : kDyeColours)
+        r.add({.id = "minecraft:" + std::string(colour) + "_cushion", .maxStack = 16,
+               .texture = "item/" + std::string(colour) + "_cushion"});
     // (M33.2c; wiki: Bucket of Sulfur Cube - 26.2) a large sulfur cube carried in a bucket.
     r.add({.id = "minecraft:sulfur_cube_bucket", .maxStack = 1, .texture = "item/sulfur_cube_bucket"});
     // Spawn eggs (M29.1e; wiki: Spawn Egg): one per mob, except the entities that aren't
@@ -673,6 +677,7 @@ ItemRegistry buildItems() {
         if (type == MobType::EndCrystal || type == MobType::Minecart || type == MobType::Boat ||
             type == MobType::ItemFrame || type == MobType::GlowItemFrame || type == MobType::Painting ||
             type == MobType::ArmorStand || type == MobType::LeashKnot || type == MobType::Illusioner ||
+            type == MobType::Cushion || // (M33.3d: placed from its own item)
             type == MobType::Giant || type == MobType::Mannequin || isTechnical(type)) // (M29.7e: commands only)
             continue;
         const std::string name = std::string(mobInfo(type).id.substr(10)) + "_spawn_egg";

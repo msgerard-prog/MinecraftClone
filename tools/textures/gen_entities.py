@@ -246,6 +246,11 @@ def sheep_wool():
         if name in ("top", "bottom"):
             continue
         paint(img, (x0, y0, w, 6), wool, rng, noise=0.5)  # only the upper legs (the box is 6 tall)
+    # (M33.3d) a cushion's 12x4x12 pad, tinted by its dye like wool (own stream: the sheep's
+    # regions stay as they were)
+    crng = random.Random("cushion")
+    for f in box_faces(16, 40, 12, 4, 12).values():
+        paint(img, f, wool, crng, noise=0.3)
     return img
 
 
