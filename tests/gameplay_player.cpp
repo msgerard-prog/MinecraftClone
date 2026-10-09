@@ -625,3 +625,41 @@ TEST_CASE("ladders: walking into one climbs at 0.2 a tick; sneaking holds on (wi
     p.tick(w, {});
     CHECK(before - p.position().y <= 0.31);
 }
+
+// M30.2: the attack cooldown.
+#include "rendering/GuiBatch.h"
+#include "ui/Hud.h"
+
+TEST_CASE("attack cooldown: speeds by item, the charge, and damage scaled by it (wiki: Attack cooldown)") {
+    const auto& items = mc::world::itemRegistry();
+    auto speed = [&](const char* id) { return mc::attackSpeed(items.item(*items.find(id))); };
+    CHECK(speed("diamond_sword") == doctest::Approx(1.6f));
+    CHECK(speed("wooden_axe") == doctest::Approx(0.8f));
+    CHECK(speed("iron_axe") == doctest::Approx(0.9f));
+    CHECK(speed("netherite_axe") == doctest::Approx(1.0f));
+    CHECK(speed("stone_pickaxe") == doctest::Approx(1.2f));
+    CHECK(speed("iron_hoe") == doctest::Approx(3.0f));
+    CHECK(speed("trident") == doctest::Approx(1.1f));
+    CHECK(speed("mace") == doctest::Approx(0.6f));
+    CHECK(speed("stick") == doctest::Approx(4.0f));
+    // A sword recharges in 12.5 ticks; a hand in 5.
+    CHECK(mc::attackCharge(0, 1.6f) == doctest::Approx(0.04f));
+    CHECK(mc::attackCharge(12, 1.6f) == doctest::Approx(1.0f));
+    CHECK(mc::attackCharge(4, 4.0f) == doctest::Approx(0.9f));
+    mc::MeleeHit h;
+    h.itemDamage = 7.0f; // a diamond sword
+    h.sharpness = 1;     // +1
+    CHECK(mc::meleeDamage(h) == doctest::Approx(8.0f));
+    h.charge = 0.5f; // 7 x (0.2 + 0.8 x 0.25) + 1 x 0.5
+    CHECK(mc::meleeDamage(h) == doctest::Approx(3.3f));
+    h.charge = 0.0f;
+    CHECK(mc::meleeDamage(h) == doctest::Approx(1.4f));
+}
+
+TEST_CASE("attack indicator: a bar under the crosshair while recharging, nothing when full") {
+    mc::gfx::GuiBatch b;
+    mc::ui::drawAttackIndicator(b, 1.0f, 320, 240);
+    CHECK(b.vertices().empty());
+    mc::ui::drawAttackIndicator(b, 0.5f, 320, 240);
+    CHECK_FALSE(b.vertices().empty());
+}

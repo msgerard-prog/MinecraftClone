@@ -29,6 +29,9 @@ void drawExperience(gfx::GuiBatch& batch, int level, float progress, int guiWidt
 // The jump bar in its place while riding a steerable mount (M26.2; wiki: Horse ›
 // Riding): how far the held jump has charged, 0..1.
 void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight);
+// The attack indicator under the crosshair (M30.2; vanilla's "Crosshair" mode): a 16x4
+// bar filling as the attack recharges, shown only while it isn't full.
+void drawAttackIndicator(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight);
 // (M29.2a) maxHealth over 20 adds heart rows above (Health Boost); absorption is drawn as
 // golden hearts after them.
 void drawVitals(gfx::GuiBatch& batch, float health, int food, int guiWidth, int guiHeight, int air = 300,

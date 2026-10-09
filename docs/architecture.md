@@ -733,6 +733,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   in first person `EntityRenderer::addHand`/`drawHand` draw the held item or bare arm in a
   pass of its own after the outline (depth cleared), then `OverlayRenderer::drawCrosshair`.
   Block targeting always starts at the eye.
+  Combat (M30.2): `attackSpeed`/`attackCharge`/`MeleeHit::charge` (`gameplay/Combat.h`); main
+  counts `attackTicker` (reset by swings at a mob or the air and by switching items) and draws
+  `ui::drawAttackIndicator`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

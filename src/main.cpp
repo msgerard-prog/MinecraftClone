@@ -332,6 +332,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::PlayerAnimation playerAnim;
     glm::dvec3 animPrev(0.0);
     bool animStarted = false;
+    // (M30.2) ticks since the last swing or item switch: the attack's charge (wiki: Attack cooldown).
+    int attackTicker = 1000;
+    mc::world::ItemId attackItem = 0;
     std::array<char, 64> typed{};
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
@@ -2023,6 +2026,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             playerAnim.tick(player.position(), animPrev, player.yaw(), player.onGround() || ridingCart != 0,
                             inventory.selectedStack().item);
             animPrev = player.position();
+            ++attackTicker;
+            if (inventory.selectedStack().item != attackItem) { // switching items resets the charge
+                attackItem = inventory.selectedStack().item;
+                attackTicker = 0;
+            }
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
             // Magma blocks burn what stands on them (M29 review; wiki: Magma Block).
             if (survival && !dead && player.onGround() && ridingCart == 0) {
@@ -4035,13 +4043,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         inventory.setSlot(inventory.selected(),
                                           mc::wearItem(inventory.selectedStack(), 1, gameRng));
                     }
-                if (const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
-                    mh && (!lastHit || mh->distance < lastHit->distance) &&
+                // (M30.2) how charged this attack is; any swing at a mob or at nothing resets it.
+                const float charge = mc::attackCharge(
+                    attackTicker, mc::attackSpeed(mc::world::itemRegistry().item(inventory.selectedStack().item)));
+                const auto mh = mc::Mobs::raycast(world, eye, look, reach, ridingCart);
+                const bool atMob = mh && (!lastHit || mh->distance < lastHit->distance);
+                if (atMob || !lastHit) attackTicker = 0;
+                if (mh && atMob &&
                     !(spearHeld && survival &&
                       mh->distance < mc::kSpearMinReach)) { // (a spear can't jab that close)
                     auto& m = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const auto& stack = inventory.selectedStack();
                     const auto& held = mc::world::itemRegistry().item(stack.item);
+                    const bool charged = charge > mc::kFullCharge;
                     // Weapon enchantments (wiki): Sharpness +0.5 per level +0.5, Smite and
                     // Bane of Arthropods +2.5 per level against their mobs.
                     using E = mc::world::Enchantment;
@@ -4049,7 +4063,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A critical hit: falling, not on the ground, in water, flying, gliding,
                     // riding or slow falling - 150% of the base damage, before enchantments
                     // add theirs (wiki: Damage › Critical hit).
-                    const bool crit = !player.onGround() && player.velocity().y < 0.0 &&
+                    const bool crit = charged && !player.onGround() && player.velocity().y < 0.0 &&
                                       !player.inWater() && !player.flying() && !player.gliding() &&
                                       ridingCart == 0 && !player.sprinting() &&
                                       vitals.effectLevel(mc::world::Effect::SlowFalling) == 0;
@@ -4058,6 +4072,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mhit.strength = vitals.effectLevel(mc::world::Effect::Strength);
                     mhit.weakness = vitals.effectLevel(mc::world::Effect::Weakness);
                     mhit.critical = crit;
+                    mhit.charge = charge;
                     mhit.sharpness = mc::world::enchantLevel(stack, E::Sharpness);
                     mhit.smite = mc::world::enchantLevel(stack, E::Smite);
                     mhit.bane = mc::world::enchantLevel(stack, E::BaneOfArthropods);
@@ -4121,7 +4136,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     // A sweep (M29.2b; wiki: Sword › Sweep attack): a sword hit on the ground,
                     // not sprinting and not a critical, also hits the mobs within a block of the
                     // target for 1 (+ Sweeping Edge's L/(L+1) of the hit).
-                    if (held.tool == mc::world::ToolType::Sword && player.onGround() && !player.sprinting() && !crit) {
+                    if (charged && held.tool == mc::world::ToolType::Sword && player.onGround() && !player.sprinting() &&
+                        !crit) {
                         const int se = mc::world::enchantLevel(stack, E::SweepingEdge);
                         const float sweep = 1.0f + dmg * float(se) / float(se + 1);
                         const mc::Aabb mb = mc::Mobs::box(m);
@@ -4159,8 +4175,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                         }
                     }
                     if (hit) {
-                        // Knockback: farther per level; Fire Aspect: alight 4 s per level.
-                        if (const int kb = mc::world::enchantLevel(stack, E::Knockback)) {
+                        // Knockback: farther per level - a charged hit while sprinting adds a level
+                        // and ends the sprint (M30.2; wiki: Sprinting); Fire Aspect: alight 4 s per level.
+                        const bool sprintHit = charged && player.sprinting();
+                        if (sprintHit) {
+                            player.stopSprinting();
+                            const glm::dvec3 v = player.velocity();
+                            player.setVelocity({v.x * 0.6, v.y, v.z * 0.6});
+                        }
+                        if (const int kb = mc::world::enchantLevel(stack, E::Knockback) + (sprintHit ? 1 : 0)) {
                             glm::dvec2 d(m.pos.x - player.position().x,
                                          m.pos.z - player.position().z);
                             if (glm::length(d) > 1e-6) d = glm::normalize(d) * (0.5 * kb);
@@ -6199,6 +6222,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
+            if (perspective == 0 && gameMode != 3 && !dead) // (M30.2) the attack's charge
+                mc::ui::drawAttackIndicator(
+                    batch,
+                    std::clamp((float(attackTicker) + float(clock.alpha) + 0.5f) *
+                                   mc::attackSpeed(mc::world::itemRegistry().item(inventory.selectedStack().item)) / 20.0f,
+                               0.0f, 1.0f),
+                    guiW, guiH);
             if (survival)
                 mc::ui::drawVitals(batch, vitals.health(), vitals.food(), guiW, guiH, vitals.air(),
                                    inventory.armorPoints(), vitals.maxHealth(), vitals.absorption());

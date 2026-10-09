@@ -143,6 +143,8 @@ public:
     bool inWater() const { return m_inWater; }   // touching water (last tick)
     bool inLava() const { return m_inLava; }
     bool sprinting() const { return m_sprinting; }
+    // A charged sprinting hit ends the sprint (M30.2); held keys start it again next tick.
+    void stopSprinting() { m_sprinting = false; }
     bool sneaking() const { return m_sneaking; }
     double eyeHeight() const { return m_sneaking ? kSneakEyeHeight : kEyeHeight; }
     Aabb box() const { return Aabb::fromFeet(m_pos, kWidth, m_sneaking ? kSneakHeight : kHeight); }

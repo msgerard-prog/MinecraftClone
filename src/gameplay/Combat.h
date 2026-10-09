@@ -13,6 +13,9 @@ namespace mc {
 // 0.5 x level + 0.5, Smite / Bane 2.5 x level against their mobs.
 struct MeleeHit {
     float itemDamage = 1.0f; // hand: 1
+    // (M30.2) how charged the attack is, 0..1 (see attackCharge): the base damage is scaled
+    // by 0.2 + 0.8 x charge^2, enchantment damage by the charge (wiki: Damage).
+    float charge = 1.0f;
     int strength = 0, weakness = 0;
     bool critical = false;
     int sharpness = 0, smite = 0, bane = 0;
@@ -24,13 +27,54 @@ inline float meleeDamage(const MeleeHit& h) {
     float d = h.itemDamage + 3.0f * float(h.strength);
     d -= 4.0f * float(h.weakness);
     if (d < 0.0f) d = 0.0f;
+    const float c = std::clamp(h.charge, 0.0f, 1.0f);
+    d *= 0.2f + 0.8f * c * c;
     if (h.critical) d *= 1.5f;
-    if (h.sharpness > 0) d += 0.5f * float(h.sharpness) + 0.5f;
-    if (h.undead) d += 2.5f * float(h.smite);
-    if (h.arthropod) d += 2.5f * float(h.bane);
-    if (h.aquatic) d += 2.5f * float(h.impaling);
-    return d;
+    float e = 0.0f;
+    if (h.sharpness > 0) e += 0.5f * float(h.sharpness) + 0.5f;
+    if (h.undead) e += 2.5f * float(h.smite);
+    if (h.arthropod) e += 2.5f * float(h.bane);
+    if (h.aquatic) e += 2.5f * float(h.impaling);
+    return d + e * c;
 }
+
+// Attack cooldown (M30.2; wiki: Attack cooldown, each weapon's page): attacks per second
+// by item - a hand or any non-weapon 4, swords 1.6, axes 0.8 (wood, stone, copper) / 0.9
+// (iron) / 1.0, pickaxes 1.2, shovels 1.0, hoes 1 (wood, gold) / 2 (stone, copper) / 3
+// (iron) / 4, the trident 1.1, the mace 0.6; spears (1.21.11) by tier, our reading of the
+// wiki (wood 1.54, stone and copper 1.33, iron 1.18, gold and diamond 1.05, netherite 0.95).
+inline float attackSpeed(const world::ItemDef& d) {
+    using T = world::ToolTier;
+    switch (d.tool) {
+    case world::ToolType::Sword: return 1.6f;
+    case world::ToolType::Axe:
+        return d.tier == T::Wood || d.tier == T::Stone || d.tier == T::Copper ? 0.8f : d.tier == T::Iron ? 0.9f : 1.0f;
+    case world::ToolType::Pickaxe: return 1.2f;
+    case world::ToolType::Shovel: return 1.0f;
+    case world::ToolType::Hoe:
+        return d.tier == T::Wood || d.tier == T::Gold                         ? 1.0f
+               : d.tier == T::Stone || d.tier == T::Copper                    ? 2.0f
+               : d.tier == T::Iron                                            ? 3.0f
+                                                                              : 4.0f;
+    case world::ToolType::Spear:
+        return d.tier == T::Wood                                 ? 1.54f
+               : d.tier == T::Stone || d.tier == T::Copper       ? 1.33f
+               : d.tier == T::Iron                               ? 1.18f
+               : d.tier == T::Netherite                          ? 0.95f
+                                                                 : 1.05f;
+    default: break;
+    }
+    if (d.id == "minecraft:trident") return 1.1f;
+    if (d.id == "minecraft:mace") return 0.6f;
+    return 4.0f;
+}
+// The charge after `ticksSince` ticks since the last swing or item switch (vanilla
+// getAttackStrengthScale(0.5)): (ticks + 0.5) / (20 / speed), at most 1.
+inline float attackCharge(int ticksSince, float speed) {
+    return std::clamp((float(ticksSince) + 0.5f) * speed / 20.0f, 0.0f, 1.0f);
+}
+// A charged attack (above 0.9) is needed for critical hits, sweeps and sprint knockback.
+inline constexpr float kFullCharge = 0.9f;
 
 // The mace's smash attack (M28.4d; wiki: Mace): a hit while falling more than 1.5 blocks
 // adds 4 damage per block for the first 3 blocks, 2 per block for the next 5, then 1 per

@@ -96,6 +96,14 @@ void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight
     if (charge > 0.0f) batch.fill(x + 1, y + 1, 180.0f * std::min(1.0f, charge), 3, gfx::rgba(120, 170, 255));
 }
 
+void drawAttackIndicator(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight) {
+    if (charge >= 1.0f) return;
+    // (the crosshair is 15x15 centred; the bar sits just under it)
+    const float x = std::floor(float(guiWidth - 16) / 2.0f), y = std::floor(float(guiHeight - 15) / 2.0f) + 17.0f;
+    batch.fill(x, y, 16, 4, gfx::rgba(40, 40, 40, 160));
+    batch.fill(x, y, std::min(16.0f, std::floor(17.0f * std::clamp(charge, 0.0f, 1.0f))), 4, gfx::rgba(230, 230, 230, 220));
+}
+
 void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiHeight) {
     if (frozen <= 0.0f) return;
     const float w = float(guiWidth), h = float(guiHeight);
