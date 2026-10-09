@@ -193,6 +193,16 @@ void Mobs::cartKindTick(Context& ctx, MobData& m, BlockStateId rail, const Block
             c->markDirty();
         }
     }
+    // A spawner cart (M29.7e; wiki: Minecart with Monster Spawner): its spawner works as the
+    // block - pigs here (a spawner without data) every 10-40 s while a player is within 16.
+    if (m.decor == 6 && glm::length(ctx.player.position() - m.pos) <= 16.0) {
+        if (m.temper <= 0) m.temper = int16_t(200 + ctx.rng.nextInt(600));
+        if (--m.temper == 0 && m_births.size() < m_births.capacity()) {
+            const glm::dvec3 at = m.pos + glm::dvec3(double(ctx.rng.nextInt(5)) - 2.0, 0.0, double(ctx.rng.nextInt(5)) - 2.0);
+            if (!blockRegistry().collides(ctx.world.getBlock({int(std::floor(at.x)), int(std::floor(at.y)), int(std::floor(at.z))})))
+                m_births.push_back(make(MobType::Pig, at, ctx.rng));
+        }
+    }
     // A command block cart (M29.7): on a powered activator rail it runs its command every 4 ticks.
     if (m.decor == 5 && rail != 0 && r.blockOf(rail) == blocks::ActivatorRail && r.get(rail, properties::powered) == 0 &&
         m.commandId != 0 && (m.age = m.age + 1) % 4 == 0 && m_cartCommands.size() < m_cartCommands.capacity())

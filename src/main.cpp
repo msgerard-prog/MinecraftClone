@@ -5851,7 +5851,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (const auto& m : c.mobs()) {
                 const glm::dvec3 p = glm::mix(m.prevPos, m.pos, clock.alpha);
                 const auto& info = mc::world::mobInfo(m.type);
-                const double maxDist = 64.0 * (info.width * 2.0 + info.height) / 3.0;
+                const double maxDist = mc::world::isTechnical(m.type) ? 64.0 // (M29.7e: displays, no hitbox)
+                                                                      : 64.0 * (info.width * 2.0 + info.height) / 3.0;
                 const glm::dvec3 rel = p - camera.position;
                 if (glm::dot(rel, rel) > maxDist * maxDist) continue;
                 if (m.leash != 0 &&
@@ -5865,6 +5866,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 }
                 if (m.type == mc::world::MobType::LeashKnot) {
                     entities.addKnot(p, camera.position);
+                    continue;
+                }
+                if (mc::world::isTechnical(m.type)) { // (M29.7e) only displays show anything
+                    const glm::vec3 full = lightTable[15 * 16 + 15];
+                    if (m.type == mc::world::MobType::BlockDisplay && m.commandId != 0)
+                        entities.addBlock(mc::world::BlockStateId(m.commandId), p, full, camera.position);
+                    else if (m.type == mc::world::MobType::ItemDisplay && m.commandId != 0)
+                        entities.addItem({mc::world::ItemId(m.commandId), 1}, p, 0.0f, 0.0f, full, camera.position);
+                    else if (m.type == mc::world::MobType::TextDisplay && m.commandId != 0) {
+                        const float yawRad = glm::radians(camera.yaw); // (vanilla's default: it faces the camera)
+                        entities.addText(mc::world::nameText(m.commandId), p, glm::vec3(-std::cos(yawRad), 0.0f, -std::sin(yawRad)),
+                                         glm::vec3(0.0f, 1.0f, 0.0f), 0.025f, 0xFFFFFF, camera.position);
+                    }
                     continue;
                 }
                 if (mc::world::isHanging(
@@ -5915,7 +5929,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
                 // (M29.3e) the block a minecart kind carries, three quarters size, in the cart
                 if (m.type == mc::world::MobType::Minecart && m.decor != 0) {
-                    static const mc::world::BlockStateId cartBlocks[6] = {
+                    static const mc::world::BlockStateId cartBlocks[7] = {
                         0,
                         mc::world::blockRegistry().defaultState(mc::world::blocks::Chest),
                         mc::world::blockRegistry().defaultState(mc::world::blocks::Furnace),
@@ -5923,8 +5937,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mc::world::blockRegistry().defaultState(mc::world::blocks::Tnt),
                         mc::world::blockRegistry().findBlock("minecraft:command_block")
                             ? mc::world::blockRegistry().defaultState(*mc::world::blockRegistry().findBlock("minecraft:command_block"))
-                            : mc::world::blockRegistry().defaultState(mc::world::blocks::Furnace)};
-                    entities.addBlock(cartBlocks[m.decor % 6], p + glm::dvec3(0.0, 0.2, 0.0),
+                            : mc::world::blockRegistry().defaultState(mc::world::blocks::Furnace),
+                        mc::world::blockRegistry().defaultState(mc::world::blocks::Spawner)};
+                    entities.addBlock(cartBlocks[m.decor % 7], p + glm::dvec3(0.0, 0.2, 0.0),
                                       lightTable[size_t(sky * 16 + blk)], camera.position, 0.75f);
                 }
                 // (M29.3b) a named mob's name floats over it, facing the camera, within 64.

@@ -113,6 +113,14 @@ void Mobs::tickTrialSpawner(Context& ctx, Chunk& chunk, const BlockPos& p, Spawn
                         m.health > 0.0f && m.home == glm::ivec3(p.x, p.y, p.z) && m.type == s.mob;
     for (const MobData& m : m_births)
         alive += m.home == glm::ivec3(p.x, p.y, p.z);
+    // (M29.7e; wiki: Ominous Item Spawner) an ominous trial now and then drops arrows on the
+    // player from 3 blocks above (ours: 1 in 160 ticks; vanilla also potions and fire charges).
+    if (ominousNow && near && s.spawned > 0 && ctx.rng.nextInt(160) == 0 && m_births.size() < m_births.capacity()) {
+        MobData o = make(MobType::OminousItemSpawner, ctx.player.position() + glm::dvec3(0.0, 3.0, 0.0), ctx.rng);
+        o.commandId = *itemRegistry().find("arrow");
+        o.eggTicks = 60;
+        m_births.push_back(o);
+    }
     if (s.spawned < s.total) {
         if (alive < 2 && --s.delay <= 0) { // (wiki: 2 at a time for one player)
             for (int tries = 0; tries < 8; ++tries) {

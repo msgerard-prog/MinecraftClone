@@ -824,6 +824,8 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::PiglinBrute: return kZombifiedPiglin;
     case world::MobType::Zoglin: return kHoglin;
     case world::MobType::Illusioner: return kIllager;
+    case world::MobType::Giant:
+    case world::MobType::Mannequin: return kZombie; // (M29.7e: their own skins)
     case world::MobType::Creeper: return kCreeper;
     case world::MobType::Spider: return kSpider;
     case world::MobType::Enderman: return kEnderman;

@@ -670,7 +670,8 @@ ItemRegistry buildItems() {
         const MobType type = MobType(t);
         if (type == MobType::EndCrystal || type == MobType::Minecart || type == MobType::Boat ||
             type == MobType::ItemFrame || type == MobType::GlowItemFrame || type == MobType::Painting ||
-            type == MobType::ArmorStand || type == MobType::LeashKnot || type == MobType::Illusioner)
+            type == MobType::ArmorStand || type == MobType::LeashKnot || type == MobType::Illusioner ||
+            type == MobType::Giant || type == MobType::Mannequin || isTechnical(type)) // (M29.7e: commands only)
             continue;
         const std::string name = std::string(mobInfo(type).id.substr(10)) + "_spawn_egg";
         r.add({.id = "minecraft:" + name, .texture = "item/" + name, .spawnEgg = uint8_t(t + 1)});

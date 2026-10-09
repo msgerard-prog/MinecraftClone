@@ -637,7 +637,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         // /summon <entity> [x y z] [{Tag:value,...}] (wiki: Commands/summon). Tags (no
         // spaces): Color, Sheared, Age, Size (magma cubes), Health - a small subset of the
         // entity's data.
-        if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5 && a.size() != 6))
+        if (!ctx.world || !ctx.rng || (a.size() != 2 && a.size() != 5 && a.size() < 6))
             return fail("Usage: /summon <entity> [x y z] [{tags}]");
         std::string_view id = a[1];
         if (id.starts_with("minecraft:")) id.remove_prefix(10);
@@ -646,7 +646,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             if (world::mobInfo(static_cast<world::MobType>(k)).id.substr(10) == id)
                 type = static_cast<world::MobType>(k);
         int cartKind = 0; // (M29.3e: chest_minecart... are minecarts here)
-        for (int k = 1; k < 6 && !type; ++k)
+        for (int k = 1; k < 7 && !type; ++k) // (M29.7e: spawner minecarts too)
             if (id == world::kCartKinds[k]) {
                 type = world::MobType::Minecart;
                 cartKind = k;
@@ -666,7 +666,36 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
             mob.strength = uint8_t(world::cartSlotsOf(cartKind));
             mob.hasChest = mob.strength > 0;
         }
-        if (a.size() == 6) {
+        // (M29.7e) displays: block_state:{Name:"..."}, item:{id:"..."}, text:"..." (spaces allowed)
+        if (a.size() >= 6 && (*type == world::MobType::BlockDisplay || *type == world::MobType::ItemDisplay ||
+                              *type == world::MobType::TextDisplay)) {
+            std::string all;
+            for (size_t k = 5; k < a.size(); ++k) all += std::string(a[k]) + (k + 1 < a.size() ? " " : "");
+            auto quoted = [&](std::string_view key) -> std::optional<std::string> {
+                const size_t at = all.find(key);
+                if (at == std::string::npos) return std::nullopt;
+                size_t q = all.find_first_of("\"'", at + key.size());
+                if (q == std::string::npos) return std::nullopt;
+                const size_t end = all.find(all[q], q + 1);
+                if (end == std::string::npos) return std::nullopt;
+                return all.substr(q + 1, end - q - 1);
+            };
+            if (*type == world::MobType::BlockDisplay) {
+                const auto n = quoted("Name:");
+                const auto b = n ? world::blockRegistry().parse(*n) : std::nullopt;
+                if (!b) return fail("Invalid block_state");
+                mob.commandId = *b;
+            } else if (*type == world::MobType::ItemDisplay) {
+                const auto n = quoted("id:");
+                const auto it = n ? world::itemRegistry().find(*n) : std::nullopt;
+                if (!it) return fail("Invalid item");
+                mob.commandId = *it;
+            } else {
+                mob.commandId = world::addName(quoted("text:").value_or(""));
+            }
+        } else if (a.size() > 6) {
+            return fail("Usage: /summon <entity> [x y z] [{tags}]");
+        } else if (a.size() == 6) {
             std::string_view tags = a[5];
             if (tags.size() < 2 || tags.front() != '{' || tags.back() != '}')
                 return fail("Invalid data tag");

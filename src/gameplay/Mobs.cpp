@@ -137,6 +137,8 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
         m.persistent = true;
         m.home = {int(std::floor(pos.x)), int(std::floor(pos.y)), int(std::floor(pos.z))};
     }
+    if (isTechnical(type) || type == MobType::Giant || type == MobType::Mannequin)
+        m.persistent = true; // (M29.7e: command entities stay)
     if (type == MobType::Villager) {
         m.persistent = true;                    // (villagers never despawn)
         m.poiSearch = int16_t(rng.nextInt(40)); // (look around soon after appearing)
@@ -367,6 +369,25 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
     if (isHanging(m.type)) { // (M28.3a, Hanging.cpp)
         hangingTick(ctx, m);
+        return;
+    }
+    if (m.type == MobType::Giant || m.type == MobType::Mannequin) { // (M29.7e) no AI: they only fall
+        physics(ctx.world, m, glm::dvec3(0.0), false);
+        return;
+    }
+    if (isTechnical(m.type)) { // (M29.7e) where they were put
+        m.vel = glm::dvec3(0.0);
+        // The ominous item spawner (wiki: Ominous Item Spawner): its item comes out after a
+        // while - an arrow shot down, anything else dropped.
+        if (m.type == MobType::OminousItemSpawner && --m.eggTicks <= 0) {
+            const ItemId item = ItemId(m.commandId);
+            if (item == *itemRegistry().find("arrow") && ctx.projectiles)
+                ctx.projectiles->shoot(ProjectileKind::Arrow, m.pos, {0.0, -1.0, 0.0}, 1.0, 0.0, false, false, ctx.rng);
+            else if (item != 0)
+                ctx.items.spawn(m.pos, {item, 1}, ctx.rng);
+            m.vanish = true;
+            m.health = 0.0f;
+        }
         return;
     }
     if (m.type == MobType::ArmorStand) { // (M28.3b, ArmorStands.cpp)
@@ -817,6 +838,7 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
+    if (isTechnical(m.type)) return;                // (M29.7e: nothing to hurt)
     if (m.type == MobType::Wither && m.spellTicks > 0)
         return; // (M26.4b: charging, it can't be hurt)
     if (m.type == MobType::Creaking && m.home.y != kNoPoint)
@@ -935,7 +957,7 @@ void Mobs::die(Context& ctx, MobData& m) {
     }
     if (m.type == MobType::Minecart) { // broken: the cart item, gone at once (its kind's - M29.3e)
         m.deathTime = 19;
-        if (const auto cart = itemRegistry().find(kCartKinds[m.decor % 6]))
+        if (const auto cart = itemRegistry().find(kCartKinds[m.decor == 6 ? 0 : m.decor % 7]))
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
         if (m.hasChest) dropMountGear(ctx, m); // (a chest or hopper cart's stacks)
         return;
@@ -1888,6 +1910,7 @@ std::optional<Mobs::MobHit> Mobs::raycast(World& world, const glm::dvec3& eye,
             for (size_t i = 0; i < c->mobs().size(); ++i) {
                 const MobData& m = c->mobs()[i];
                 if (m.health <= 0.0f || (skipUuidHi && m.uuidHi == skipUuidHi)) continue;
+                if (isTechnical(m.type) && m.type != MobType::Interaction) continue; // (M29.7e: no box)
                 // The dragon's head reaches out of its body box: rayed as its own box.
                 for (int part = 0; part < (m.type == MobType::EnderDragon ? 2 : 1); ++part) {
                     const Aabb b = part == 0 ? box(m)

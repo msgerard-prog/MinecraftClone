@@ -1,6 +1,7 @@
 // Mobs of M29 (completeness; wiki pages of each mob).
 #include "gameplay/Inventory.h"
 #include "gameplay/Projectiles.h"
+#include "gameplay/Commands.h"
 #include "gameplay/Mobs.h"
 #include "world/Weather.h"
 #include "world/BlockUpdates.h"
@@ -291,7 +292,8 @@ TEST_CASE("spawn eggs: one for every mob (not decorations, vehicles or illusione
         const auto id = itemRegistry().find(std::string(mobInfo(type).id.substr(10)) + "_spawn_egg");
         const bool none = isHanging(type) || type == MobType::ArmorStand || type == MobType::LeashKnot ||
                           type == MobType::Boat || type == MobType::Minecart || type == MobType::EndCrystal ||
-                          type == MobType::Illusioner;
+                          type == MobType::Illusioner || type == MobType::Giant || type == MobType::Mannequin ||
+                          isTechnical(type);
         CHECK(id.has_value() == !none);
         if (id) {
             ++eggs;
@@ -456,4 +458,35 @@ TEST_CASE("M29.7: a command block minecart on a powered activator rail reports i
     for (const nbt::Tag& t : n.list("Entities")->items)
         if (const std::string* cmd = t.get<nbt::Compound>()->string("Command")) saved = saved || *cmd == "say hi";
     CHECK(saved);
+}
+
+TEST_CASE("M29.7e: displays, giants, markers and spawner carts from /summon; displays keep what they show") {
+    MobScene s;
+    s.survival = false;
+    int64_t dayTime = 0;
+    Inventory inv;
+    CommandContext ctx{s.player, inv, dayTime, 0, 42};
+    ctx.world = &s.world;
+    ctx.rng = &s.rng;
+    CHECK(runCommand("/summon block_display 4 65 4 {block_state:{Name:\"minecraft:diamond_block\"}}", ctx).ok);
+    CHECK(runCommand("/summon text_display 5 65 4 {text:\"Hello world\"}", ctx).ok);
+    CHECK(runCommand("/summon giant 8 64 8", ctx).ok);
+    CHECK(runCommand("/summon marker 6 65 4", ctx).ok);
+    CHECK(runCommand("/summon spawner_minecart 10 64 10", ctx).ok);
+    const MobData* bd = findType(s, MobType::BlockDisplay);
+    REQUIRE(bd);
+    CHECK(blockRegistry().blockOf(BlockStateId(bd->commandId)) == blocks::DiamondBlock);
+    CHECK(nameText(findType(s, MobType::TextDisplay)->commandId) == "Hello world");
+    s.tick(20); // they stay put; the marker can't be hit
+    CHECK(findType(s, MobType::BlockDisplay)->pos.y == doctest::Approx(65.0));
+    CHECK_FALSE(Mobs::raycast(s.world, {6.0, 65.0, 2.0}, {0.0, 0.0, 1.0}, 4.0));
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0));
+    bool block = false, cart = false;
+    for (const nbt::Tag& t : n.list("Entities")->items) {
+        const nbt::Compound* c = t.get<nbt::Compound>();
+        if (const nbt::Compound* b = c->compound("block_state")) block = block || *b->string("Name") == "minecraft:diamond_block";
+        if (const std::string* id = c->string("id")) cart = cart || *id == "minecraft:spawner_minecart";
+    }
+    CHECK(block);
+    CHECK(cart);
 }

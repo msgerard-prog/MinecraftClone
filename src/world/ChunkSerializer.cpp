@@ -1398,7 +1398,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
         e.put("id", m.type == MobType::Boat       ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
-                    : m.type == MobType::Minecart ? std::string("minecraft:") + kCartKinds[m.decor % 6] // (M29.3e)
+                    : m.type == MobType::Minecart ? std::string("minecraft:") + kCartKinds[m.decor % 7] // (M29.3e)
                                                   : std::string(mobInfo(m.type).id)); // (boats: per wood)
         if (m.type == MobType::Minecart && m.decor == 2) { // (M29.3e; wiki: furnace cart Fuel, PushX/PushZ)
             e.put("Fuel", int16_t(m.temper));
@@ -1462,7 +1462,20 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("equipment", std::move(eq));
         }
         if (m.nameId != 0) e.put("CustomName", std::string(nameText(m.nameId))); // (M29.3b)
-        if (m.commandId != 0) e.put("Command", std::string(nameText(m.commandId))); // (M29.7)
+        if (m.commandId != 0) { // (M29.7: a command cart's command; M29.7e: what a display shows)
+            if (m.type == MobType::BlockDisplay) {
+                nbt::Compound bs;
+                bs.put("Name", std::string(blockRegistry().block(blockRegistry().blockOf(BlockStateId(m.commandId))).id));
+                e.put("block_state", std::move(bs));
+            } else if (m.type == MobType::ItemDisplay || m.type == MobType::OminousItemSpawner) {
+                nbt::Compound it;
+                it.put("id", std::string(itemRegistry().item(ItemId(m.commandId)).id));
+                it.put("count", int32_t{1});
+                e.put("item", std::move(it));
+            } else {
+                e.put(m.type == MobType::TextDisplay ? "text" : "Command", std::string(nameText(m.commandId)));
+            }
+        }
         { // (M29.2c) lasting effects, as vanilla's active_effects
             std::vector<nbt::Tag> fx;
             for (const MobData::ActiveEffect& a : m.effects)
@@ -1779,7 +1792,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.type = static_cast<MobType>(k);
                 known = true;
             }
-        for (int k = 1; k < 6 && !known; ++k) // (M29.3e: every minecart kind is one type here)
+        for (int k = 1; k < 7 && !known; ++k) // (M29.3e: every minecart kind is one type here)
             if (std::string("minecraft:") + kCartKinds[k] == *id) {
                 m.type = MobType::Minecart;
                 m.decor = uint8_t(k);
@@ -2108,6 +2121,13 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.saddled = eqp->compound("saddle") != nullptr;
         m.nameId = readName(e->find("CustomName"));                     // (M29.3b)
         if (const std::string* cmd = e->string("Command")) m.commandId = addName(*cmd); // (M29.7)
+        if (const std::string* txt = e->string("text"); txt && m.type == MobType::TextDisplay) m.commandId = addName(*txt);
+        if (const nbt::Compound* bs = e->compound("block_state"))
+            if (const std::string* n = bs->string("Name"))
+                if (const auto b = blockRegistry().findBlock(*n)) m.commandId = blockRegistry().defaultState(*b);
+        if (const nbt::Compound* it = e->compound("item"); it && m.type != MobType::Minecart)
+            if (const std::string* n = it->string("id"))
+                if (const auto i = itemRegistry().find(*n)) m.commandId = *i;
         if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
             size_t n = 0;
             for (const nbt::Tag& fxTag : fx->items)

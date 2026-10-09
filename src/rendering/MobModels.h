@@ -137,6 +137,14 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/piglin_brute.png",
         "assets/minecraft/textures/entity/clone/zoglin.png",
         "assets/minecraft/textures/entity/clone/illusioner.png",
+        "assets/minecraft/textures/entity/clone/zombie.png", // (M29.7e: the giant is a big zombie)
+        "assets/minecraft/textures/entity/clone/mannequin.png",
+        "assets/minecraft/textures/entity/clone/zombie.png", // (the command entities are never drawn
+        "assets/minecraft/textures/entity/clone/zombie.png", //  with a skin)
+        "assets/minecraft/textures/entity/clone/zombie.png",
+        "assets/minecraft/textures/entity/clone/zombie.png",
+        "assets/minecraft/textures/entity/clone/zombie.png",
+        "assets/minecraft/textures/entity/clone/zombie.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",

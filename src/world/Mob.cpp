@@ -181,6 +181,16 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:piglin_brute", 50.0f, 0.6, 1.95, 0.35, 13.0f, true},
         {"minecraft:zoglin", 40.0f, 1.3965, 1.4, 0.25, 6.0f, true},
         {"minecraft:illusioner", 32.0f, 0.6, 1.95, 0.5, 0.0f, true},
+        // (M29.7e; wiki: Giant - 100, 3.6 x 12, 0.5, 50, no AI; Mannequin - 20, 0.6 x 1.8; the
+        // command entities have no health to speak of and float where they are)
+        {"minecraft:giant", 100.0f, 3.6, 12.0, 0.5, 50.0f, false, false, false, 6.0f},
+        {"minecraft:mannequin", 20.0f, 0.6, 1.8, 0.0, 0.0f, false},
+        {"minecraft:marker", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
+        {"minecraft:interaction", 1.0f, 1.0, 1.0, 0.0, 0.0f, false, true, true},
+        {"minecraft:block_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
+        {"minecraft:item_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
+        {"minecraft:text_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
+        {"minecraft:ominous_item_spawner", 1.0f, 0.25, 0.25, 0.0, 0.0f, false, true, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

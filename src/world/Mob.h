@@ -126,6 +126,15 @@ enum class MobType : uint8_t {
     PiglinBrute, // bastion guard with a golden axe, always hostile
     Zoglin,      // a hoglin zombified outside the Nether
     Illusioner,  // a bow-shooting illager (not natural: commands only, as vanilla)
+    // M29.7e - the last of 1.21.11's entities (wiki pages of each; commands only)
+    Giant,              // a zombie six times as big, without AI
+    Mannequin,          // (1.21.9) a player-shaped figure
+    Marker,             // invisible, for commands
+    Interaction,        // an invisible hit box for commands
+    BlockDisplay,       // shows a block (its state in `commandId`)
+    ItemDisplay,        // shows an item (its id in `commandId`)
+    TextDisplay,        // shows text (world::nameText(`commandId`))
+    OminousItemSpawner, // (ominous trials) drops its item after a while (`commandId`)
     Count
 };
 
@@ -142,6 +151,9 @@ struct MobInfo {
     float modelScale = 1.0f; // drawn this much larger than its model (ghast 4.5)
     bool swims = false;      // lives in water (M25.2): swims in 3D there, flops and suffocates on land
 };
+// Command-only entities with no body to hit or move (M29.7e): they stay where summoned.
+inline bool isTechnical(MobType t) { return t >= MobType::Marker && t <= MobType::OminousItemSpawner; }
+
 // Boat woods (M25.2b; wiki: Boat): the item and entity names, and a colour for our
 // tinted model.
 struct BoatWood {
@@ -242,8 +254,10 @@ inline int chestSlots(MobType t, int strength) { // (minecarts: `strength` holds
 }
 // Minecart kinds (M29.3e; wiki: each minecart), kept in MobData::decor: their item and
 // entity ids.
-inline constexpr const char* kCartKinds[6] = {"minecart",        "chest_minecart", "furnace_minecart",
-                                              "hopper_minecart", "tnt_minecart",   "command_block_minecart"};
+// (M29.7e: the spawner minecart, 6, is an entity only - no item; it drops a minecart)
+inline constexpr const char* kCartKinds[7] = {"minecart",        "chest_minecart", "furnace_minecart",
+                                              "hopper_minecart", "tnt_minecart",   "command_block_minecart",
+                                              "spawner_minecart"};
 inline int cartSlotsOf(int kind) { return kind == 1 ? 27 : kind == 3 ? 5 : 0; }
 
 // Wildlife (M26.3; wiki: Rabbit, Fox, Panda, Goat, Armadillo).

@@ -1297,6 +1297,7 @@ def main():
               "piglin_brute": piglin_brute(),
               "zoglin": hoglin("zoglin", "#B08A84", "#9AA88A"),
               "illusioner": illusioner(),
+              "mannequin": zombie("mannequin", "#C8946E", "#3A8AC8", "#2A2A6A"),  # (M29.7e: a player's colours)
               # M29.1b undead mounts in their own colours: bone, rotting green, sun-dried husk, drowned teal
               "skeleton_horse": pet("skeleton_horse", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#D8D4C8",
                                     extra=[((20, 15, 2, 10, 3), "#B8B4A8"), ((46, 0, 3, 10, 4), "#B8B4A8")], stripes=True),
