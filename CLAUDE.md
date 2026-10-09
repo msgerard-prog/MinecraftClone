@@ -24,7 +24,7 @@ feature, parity rules), `docs/data-formats.md` (registries, JSON, save format),
 | Format | `tools/format.sh [files]` (the hook does edited files automatically) |
 
 Game args: `--screenshot <png>`, `--frames N` (frames before capture, default 60),
-`--hidden`, `--menu title|worlds|create|options|pause|statistics|advancements|commandblock` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
+`--hidden`, `--menu title|worlds|create|options|pause|statistics|advancements|commandblock|loading` (screenshot a menu), `--mute` (hidden/screenshot runs are silent; `--sound` forces audio on), `--no-vsync`, `--max-fps N`, `--auto-fly`, `--demo-edit`, `--resourcepacks DIR`, `--render-distance N`,
 `--flat`, `--survival`, `--difficulty peaceful|easy|normal|hard` (new worlds), `--size WxH`, `--seed N`, `--time T` (day ticks: 0 sunrise, 6000 noon, 18000 midnight), `--f3`, `--command CMD`
 (repeatable chat line, e.g. "/time set night"), `--world NAME` (saves/NAME; interactive
 runs default to "New World"), `--no-save`, `--generator overworld8|overworld7|overworld6|overworld5|overworld4|overworld3|overworld2|overworld|terrain` (new worlds; overworld8 default), `--dimension overworld|nether|end` (start there), `--version` (print the build, exit), `--perspective 0|1|2` (F5's view), `--recipe-book` (open it on the inventory screens), `--pos x,y,z`, `--look yaw,pitch` (vanilla

@@ -74,6 +74,11 @@ struct MenuState {
 MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite,
                     const char* version);
 
+// (v1.5.2; vanilla's level loading screen) the dirt background with "Loading terrain..."
+// and how much of the spawn area is ready, while a world loads. Call between Menu::begin
+// and the GUI draw; it takes no input.
+void drawLoadingScreen(Menu& menu, uint16_t dirtSprite, int percent);
+
 // Our splash texts (vanilla shows a random yellow line on the title screen).
 const char* splashText(uint32_t random);
 

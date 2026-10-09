@@ -302,6 +302,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     const bool screenshotMode = !opts->screenshotPath.empty();
     sessionEnd = SessionEnd::Quit;
     renderer.clearWorld(); // (the previous world's meshes)
+    { // (v1.5.2) the load screen at once: opening a world (level.dat, the generator, stronghold
+      // rings) takes a moment, and the last menu frame would otherwise stay up meanwhile.
+        int fw = 0, fh = 0;
+        window.framebufferSize(fw, fh);
+        if (fw > 0 && fh > 0) {
+            const int scale = mc::gfx::GuiRenderer::guiScale(fw, fh);
+            renderer.clearScreen(fw, fh);
+            shared.menu.begin(shared.gui.batch(), fw / scale, fh / scale, mc::ui::MenuInput{});
+            mc::ui::drawLoadingScreen(shared.menu, shared.dirtSprite, 0);
+            shared.gui.draw(fw, fh);
+            window.swapBuffers();
+        }
+    }
     mc::ui::Chat chat;
     mc::ui::SignEditor signEditor; // (M23.3c)
     bool signClick = false, signDone = false;
@@ -1021,6 +1034,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::FrameStats workStats; // CPU time per frame before the swap (excludes vsync/cap)
     const double startTime = last;
     bool meshed = false;
+    // (v1.5.2; vanilla's level loading screen) the world stays hidden and frozen behind
+    // "Loading terrain..." until the chunks around the player have their meshes, so it never
+    // appears half-built (holes, caves seen through missing ground) or lets the player fall.
+    bool loadingTerrain = true;
+    int loadingPercent = 0;
     int fps = 0, fpsFrames = 0;
     std::vector<std::string> stateNames(mc::world::blockRegistry().stateCount()); // F3 names
     double fpsStart = startTime;
@@ -1759,7 +1777,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         // Skips the first frame after meshing: it includes one-off driver warm-up
         // (first multi-draw), which is not a steady-state cost.
         if (frame > 1) frameStats.add((now - last) * 1000.0);
-        clock.advance(paused ? 0.0 : now - last);
+        if (loadingTerrain) {
+            const int r = std::min(3, std::max(1, opts->renderDistance));
+            const auto here = mc::world::BlockPos{int(std::floor(player.position().x)), 0,
+                                                  int(std::floor(player.position().z))};
+            const auto p = renderer.areaProgress({mc::world::blockToChunk(here.x), mc::world::blockToChunk(here.z)}, r);
+            loadingPercent = p.totalChunks > 0 ? p.meshedChunks * 100 / p.totalChunks - (p.sectionsPending ? 1 : 0) : 100;
+            // (60 s at most: a spawn somewhere that never meshes still opens)
+            if ((p.meshedChunks == p.totalChunks && !p.sectionsPending) || now - startTime > 60.0) {
+                loadingTerrain = false;
+                MC_LOG_INFO("Terrain ready in %.0f ms", (now - startTime) * 1000.0);
+            }
+        }
+        clock.advance(paused || loadingTerrain ? 0.0 : now - last);
         last = now;
         for (int i = 0; i < clock.ticksDue; ++i) {
             // Changing dimension (M12): save, unload everything, switch the generator and
@@ -6907,7 +6937,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             gui.draw(fbWidth, fbHeight);
         }
 
-        if (paused) { // the Game Menu over the world
+        if (loadingTerrain) { // (v1.5.2) over everything until the spawn area is ready
+            const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
+            shared.menu.begin(gui.batch(), fbWidth / scale, fbHeight / scale, mc::ui::MenuInput{});
+            mc::ui::drawLoadingScreen(shared.menu, shared.dirtSprite, loadingPercent);
+            gui.draw(fbWidth, fbHeight);
+        } else if (paused) { // the Game Menu over the world
             const auto action = drawMenuFrame(shared, fbWidth, fbHeight, false);
             if (action == mc::ui::MenuAction::Resume) {
                 shared.menuState.screen = mc::ui::MenuScreen::None;
@@ -7135,7 +7170,15 @@ int main(int argc, char** argv) {
             window.pollEvents();
             int fbWidth = 0, fbHeight = 0;
             window.framebufferSize(fbWidth, fbHeight);
-            drawMenuFrame(shared, fbWidth, fbHeight, true);
+            if (opts->menu == "loading") { // (v1.5.2) the load screen, at 42% for screenshots
+                const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
+                shared.renderer.clearScreen(fbWidth, fbHeight);
+                shared.menu.begin(shared.gui.batch(), fbWidth / scale, fbHeight / scale, mc::ui::MenuInput{});
+                mc::ui::drawLoadingScreen(shared.menu, shared.dirtSprite, 42);
+                shared.gui.draw(fbWidth, fbHeight);
+            } else {
+                drawMenuFrame(shared, fbWidth, fbHeight, true);
+            }
             if (screenshotMode && f + 1 >= opts->screenshotFrames)
                 return mc::gfx::saveScreenshot(opts->screenshotPath.c_str(), fbWidth, fbHeight) ? 0
                                                                                                 : 1;

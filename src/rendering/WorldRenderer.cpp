@@ -266,6 +266,21 @@ void WorldRenderer::onBlocksChanged(const std::vector<world::BlockPos>& changed)
     }
 }
 
+WorldRenderer::AreaProgress WorldRenderer::areaProgress(world::ChunkPos centre, int r) const {
+    AreaProgress p;
+    for (int dz = -r; dz <= r; ++dz)
+        for (int dx = -r; dx <= r; ++dx) {
+            ++p.totalChunks;
+            p.meshedChunks += m_meshTracker.isMeshed({centre.x + dx, centre.z + dz}) ? 1 : 0;
+        }
+    for (const auto& [pos, st] : m_states)
+        if ((st.dirty || st.inFlight > 0) && std::abs(pos.x - centre.x) <= r && std::abs(pos.z - centre.z) <= r) {
+            p.sectionsPending = true;
+            break;
+        }
+    return p;
+}
+
 void WorldRenderer::markDirty(world::SectionPos pos) {
     SectionState& st = m_states[pos];
     if (st.dirty) return;

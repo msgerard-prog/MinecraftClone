@@ -65,6 +65,14 @@ public:
 
     // Sections waiting to be meshed or uploaded (queued + in flight).
     int pendingMeshes() const { return m_inFlight + static_cast<int>(m_dirtyList.size()); }
+    // (v1.5.2: the load screen) how many of the (2r+1)^2 chunks around `centre` have their
+    // meshes, and whether any section among them still waits for one. Walks the section
+    // states: only called while the load screen shows.
+    struct AreaProgress {
+        int meshedChunks = 0, totalChunks = 0;
+        bool sectionsPending = false;
+    };
+    AreaProgress areaProgress(world::ChunkPos centre, int r) const;
 
     // Clears to the sky colour and draws the world from `camera`.
     void drawFrame(const Camera& camera, int framebufferWidth, int framebufferHeight);

@@ -105,9 +105,11 @@ void Menu::text(std::string_view s, float x, float y, uint32_t color, bool centr
 }
 
 void Menu::tiledBackground(uint16_t sprite, uint32_t tint) {
-    for (int y = 0; y < m_h; y += 16)
-        for (int x = 0; x < m_w; x += 16)
-            m_batch->atlasSprite(sprite, float(x), float(y), tint);
+    // (v1.5.2) vanilla tiles its menu background 32 GUI pixels to a tile (2 per texel), so
+    // it scales with the GUI like everything else - at 16 it read as fine noise on 5K.
+    for (int y = 0; y < m_h; y += 32)
+        for (int x = 0; x < m_w; x += 32)
+            m_batch->atlasSpriteCentred(sprite, float(x) + 16.0f, float(y) + 16.0f, 16.0f, 16.0f, tint);
 }
 
 void Menu::dim() { m_batch->fill(0, 0, float(m_w), float(m_h), rgba(16, 16, 16, 160)); }

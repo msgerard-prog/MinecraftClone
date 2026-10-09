@@ -14,6 +14,9 @@ any issues." Bench: steady CPU p99 0.25 ms, GPU 0.16 ms.
 v1.5.1 (user report 2026-10-09): fixed the debug assert on creating a world (mesh queue
 merged runs sorted for different camera positions), new survival worlds start empty-handed,
 `tools/run.sh` runs the release build by default (debug streams ~10x slower), `--survival`.
+v1.5.2 (user report): vanilla's "Loading terrain..." screen while a world opens (the world
+stays hidden and frozen until the chunks around the player are meshed), the menu background
+tiled at 32 GUI px like vanilla; menus checked at 854x480 to 5120x2160.
 No milestone is scheduled. Work comes from the user's play-testing reports: each issue gets
 a fix, a regression test and a commit (patch versions v1.5.x). Candidates if the user asks
 for more, by how much they bring the clone toward vanilla:

@@ -429,6 +429,19 @@ MenuAction advancementsScreen(Menu& m, MenuState& st) {
 
 } // namespace
 
+void drawLoadingScreen(Menu& m, uint16_t dirt, int percent) {
+    m.tiledBackground(dirt);
+    const float cx = float(m.width()) / 2.0f, cy = float(m.height()) / 2.0f;
+    m.text("Loading terrain...", cx, cy - 20.0f, argb(0xFFFFFFFF), true);
+    char line[32];
+    std::snprintf(line, sizeof(line), "%d%%", std::clamp(percent, 0, 100));
+    m.text(line, cx, cy - 4.0f, argb(0xFFA0A0A0), true);
+    // A bar under it (ours; vanilla's spawn-area screen shows a grid of chunk statuses).
+    const float w = 100.0f, x = cx - w / 2.0f, y = cy + 10.0f;
+    m.batch().fill(x - 1.0f, y - 1.0f, w + 2.0f, 4.0f, gfx::rgba(0, 0, 0, 255));
+    m.batch().fill(x, y, w * float(std::clamp(percent, 0, 100)) / 100.0f, 2.0f, gfx::rgba(128, 255, 128, 255));
+}
+
 MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t dirtSprite,
                     const char* version) {
     switch (state.screen) {

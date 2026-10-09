@@ -190,6 +190,8 @@ TEST_CASE("command line: --mute") {
     CHECK(mc::parseCommandLine(advMenu, error)->menu == "advancements");
     std::array<const char*, 2> cmdMenu = {"--menu", "commandblock"}; // (M29.7)
     CHECK(mc::parseCommandLine(cmdMenu, error)->menu == "commandblock");
+    std::array<const char*, 2> loadMenu = {"--menu", "loading"}; // (v1.5.2)
+    CHECK(mc::parseCommandLine(loadMenu, error)->menu == "loading");
     std::array<const char*, 2> bad = {"--menu", "nope"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }
