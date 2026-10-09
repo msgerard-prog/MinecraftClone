@@ -1,6 +1,7 @@
 #include "world/Blocks.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <string>
 #include <tuple>
@@ -1357,6 +1358,15 @@ BlockRegistry buildVanillaBlocks() {
                   next++);
         }
     }
+    // (M29.4b; wiki: Flower Pot - breaks at once, a 6x6x6 box)
+    check(r.add("flower_pot", {.opaqueCube = false, .layer = RenderLayer::Cutout}), blocks::FlowerPot);
+    for (int i = 0; i < 37; ++i) {
+        const std::string plant = kPottedPlants[i];
+        const bool bush = plant == "azalea" || plant == "flowering_azalea";
+        check(r.add("potted_" + plant + (bush ? "_bush" : ""),
+                    {.opaqueCube = false, .layer = RenderLayer::Cutout, .like = blocks::FlowerPot}),
+              BlockId(blocks::PottedFirst + i));
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
@@ -1466,6 +1476,23 @@ BlockRegistry buildVanillaBlocks() {
 const BlockRegistry& blockRegistry() {
     static const BlockRegistry registry = buildVanillaBlocks();
     return registry;
+}
+
+BlockId plantInPot(BlockId potted) {
+    static const auto plants = [] {
+        std::array<BlockId, 37> out{};
+        for (int i = 0; i < 37; ++i)
+            out[size_t(i)] = blockRegistry().findBlock(std::string("minecraft:") + kPottedPlants[i]).value_or(0);
+        return out;
+    }();
+    return isPotted(potted) ? plants[size_t(potted - blocks::PottedFirst)] : BlockId{0};
+}
+
+BlockId pottedFor(BlockId plant) {
+    if (plant == 0) return 0;
+    for (BlockId b = blocks::PottedFirst; b <= blocks::PottedLast; ++b)
+        if (plantInPot(b) == plant) return b;
+    return 0;
 }
 
 } // namespace mc::world

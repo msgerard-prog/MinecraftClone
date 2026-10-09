@@ -68,7 +68,8 @@ ItemRegistry buildItems() {
             b == blocks::PitcherCrop || // (M27.5c: planted by seeds and pods)
             b == blocks::FrostedIce ||  // (M29.2b: only from Frost Walker)
             b == blocks::PumpkinStem || b == blocks::MelonStem || b == blocks::AttachedPumpkinStem ||
-            b == blocks::AttachedMelonStem || b == blocks::Cocoa) // (M29.4b: seeds and beans)
+            b == blocks::AttachedMelonStem || b == blocks::Cocoa || // (M29.4b: seeds and beans)
+            isPotted(b))                                          // (filled by hand)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.

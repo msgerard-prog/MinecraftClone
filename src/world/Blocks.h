@@ -565,6 +565,11 @@ enum : BlockId {
     BrownBed,
     GreenBed,
     BlackBed,
+    // (M29.4b; wiki: Flower Pot) the pot and a potted block per plant (kPottedPlants order),
+    // all like the empty pot
+    FlowerPot,
+    PottedFirst,
+    PottedLast = PottedFirst + 36,
     Count
 };
 } // namespace blocks
@@ -589,6 +594,23 @@ inline constexpr const char* kDyeColours[16] = {"white", "orange", "magenta", "l
 
 // Coral kinds (M25.1; wiki: Coral): blocks, plants and fans of each, alive and dead.
 inline constexpr const char* kCoralKinds[5] = {"tube", "brain", "bubble", "fire", "horn"};
+
+// What goes in a flower pot (M29.4b; wiki: Flower Pot), in the potted blocks' order: the
+// block is "potted_<name>" (the azaleas are "potted_<name>_bush").
+inline constexpr const char* kPottedPlants[37] = {
+    "torchflower",    "oak_sapling",     "spruce_sapling",  "birch_sapling",      "jungle_sapling",
+    "acacia_sapling", "cherry_sapling",  "dark_oak_sapling", "pale_oak_sapling",  "mangrove_propagule",
+    "fern",           "dandelion",       "poppy",           "blue_orchid",        "allium",
+    "azure_bluet",    "red_tulip",       "orange_tulip",    "white_tulip",        "pink_tulip",
+    "oxeye_daisy",    "cornflower",      "lily_of_the_valley", "wither_rose",     "red_mushroom",
+    "brown_mushroom", "dead_bush",       "cactus",          "bamboo",             "crimson_fungus",
+    "warped_fungus",  "crimson_roots",   "warped_roots",    "azalea",             "flowering_azalea",
+    "open_eyeblossom", "closed_eyeblossom"};
+static_assert(blocks::PottedLast - blocks::PottedFirst + 1 == 37);
+inline bool isPotted(BlockId b) { return b >= blocks::PottedFirst && b <= blocks::PottedLast; }
+// The plant in a potted block / the potted block for a plant (none: 0).
+BlockId plantInPot(BlockId potted);
+BlockId pottedFor(BlockId plant);
 
 // The global registry, built on first use (thread-safe) and immutable afterwards.
 const BlockRegistry& blockRegistry();

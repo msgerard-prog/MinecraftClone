@@ -103,6 +103,10 @@ Push pushKind(BlockStateId s) {
         b == B::ReinforcedDeepslate)
         return Push::Block; // (vanilla: block entities; reinforced deepslate never moves)
     if (b == B::SculkVein || R().likeOf(b) == B::Poppy || b == B::LilyPad) return Push::Destroy; // (M29.4a: flowers, pads)
+    // (M29.4b) beds of every colour, pots, stems and cocoa break
+    if (R().likeOf(b) == B::RedBed || R().likeOf(b) == B::FlowerPot || b == B::PumpkinStem || b == B::MelonStem ||
+        b == B::AttachedPumpkinStem || b == B::AttachedMelonStem || b == B::Cocoa)
+        return Push::Destroy;
     // (M27 review) suspicious blocks break - their loot can't travel - and so do pots and eggs
     if (isSuspicious(b) || b == B::DecoratedPot || b == B::SnifferEgg) return Push::Destroy;
     // M23 blocks (wiki: Piston › Limitations): shulker boxes, signs, campfires, torches,

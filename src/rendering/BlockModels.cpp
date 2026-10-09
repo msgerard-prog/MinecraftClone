@@ -818,6 +818,29 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 addBox(m, 0, 0, 0, 16, 1, 16, sprite("lily_pad"));
                 // vanilla tints it a fixed green (#208030); ours takes the biome's foliage
                 for (auto& f : m.boxes[m.boxCount - 1].faces) f.tint = Tint::Foliage;
+            } else if (name == "flower_pot" || name.starts_with("potted_")) {
+                // (M29.4b; wiki: Flower Pot) a 6x6x6 pot, soil on top when planted; the plant
+                // is its own cross (vanilla lifts it 4 pixels; ours stands in the pot), cacti
+                // and bamboo a thin column, azaleas a small bush.
+                m.visible = true;
+                addBox(m, 5, 0, 5, 11, 6, 11, sprite("flower_pot"));
+                const BlockId plant = plantInPot(registry.blockOf(state));
+                if (plant) m.boxes[0].faces[int(Direction::Up)].sprite = sprite("dirt");
+                const std::string plantName = plant ? registry.block(plant).id.substr(10) : std::string();
+                if (plantName == "cactus") {
+                    addBox(m, 6, 6, 6, 10, 16, 10, sprite("cactus_side"));
+                    m.boxes[1].faces[int(Direction::Up)].sprite = sprite("cactus_top");
+                } else if (plantName == "bamboo") {
+                    addBox(m, 7, 6, 7, 9, 16, 9, sprite("bamboo_stalk"));
+                } else if (plantName == "azalea" || plantName == "flowering_azalea") {
+                    addBox(m, 4, 6, 4, 12, 14, 12, sprite((plantName + "_side").c_str()));
+                    m.boxes[1].faces[int(Direction::Up)].sprite = sprite((plantName + "_top").c_str());
+                } else if (plantName == "crimson_roots" || plantName == "warped_roots") {
+                    m.cross = true, m.crossSprite = sprite((plantName + "_pot").c_str());
+                } else if (plant) {
+                    const BakedModel& pm = m_models[registry.defaultState(plant)];
+                    m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
+                }
             } else if (name == "melon") { // vanilla: cube_column
                 m = single(cubeColumn(sprite("melon_side"), sprite("melon_top"), "y"));
             } else if (name.ends_with("_stem") && (name.starts_with("melon") || name.starts_with("pumpkin") ||

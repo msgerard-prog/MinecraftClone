@@ -2411,6 +2411,24 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.eat(2, 0.4f);
                     used = true;
                 }
+                // Flower pots (M29.4b; wiki: Flower Pot): a plant goes into an empty pot; a
+                // planted pot gives its plant back (into the inventory, else dropped).
+                if (!used && mayBuild && like == mc::world::blocks::FlowerPot) {
+                    const auto& items = mc::world::itemRegistry();
+                    if (cb == mc::world::blocks::FlowerPot) {
+                        const mc::world::BlockId potted = mc::world::pottedFor(items.item(inventory.selectedStack().item).block);
+                        if (potted) {
+                            world.updateBlock(at, creg.defaultState(potted));
+                            if (survival) inventory.consumeSelected(1);
+                            used = true;
+                        }
+                    } else if (const mc::world::ItemId plant = items.blockItem(mc::world::plantInPot(cb))) {
+                        if (inventory.add({plant, 1}) > 0)
+                            droppedItems.spawn({at.x + 0.5, at.y + 0.6, at.z + 0.5}, {plant, 1}, gameRng);
+                        world.updateBlock(at, creg.defaultState(mc::world::blocks::FlowerPot));
+                        used = true;
+                    }
+                }
                 if (used) {
                     frameEdits.push_back(at);
                     clicks.useClick = false;

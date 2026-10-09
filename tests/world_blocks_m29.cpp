@@ -1,4 +1,5 @@
 // Blocks of M29 (completeness; wiki pages of each block).
+#include "gameplay/Mining.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Recipes.h"
 #include "world/BlockUpdates.h"
@@ -43,4 +44,23 @@ TEST_CASE("M29.4a: flowers behave like poppies; lily pads need water; cave air i
     Xoroshiro rng{1};
     CHECK(Mobs::buildSnowGolem(w, {8, 66, 8}, rng));
     CHECK(r.lightEmission(r.defaultState(blocks::JackOLantern)) == 15);
+}
+
+TEST_CASE("M29.4b: flower pots hold 37 plants; a potted plant drops the pot and the plant") {
+    const auto& r = blockRegistry();
+    CHECK(pottedFor(blocks::Poppy) == *r.findBlock("minecraft:potted_poppy"));
+    CHECK(plantInPot(*r.findBlock("minecraft:potted_flowering_azalea_bush")) == blocks::FloweringAzalea);
+    CHECK(pottedFor(blocks::Stone) == 0);
+    for (BlockId b = blocks::PottedFirst; b <= blocks::PottedLast; ++b) {
+        INFO(r.block(b).id);
+        CHECK(plantInPot(b) != 0);
+        CHECK(r.likeOf(b) == blocks::FlowerPot);
+    }
+    CHECK_FALSE(itemRegistry().find("potted_cactus"));
+    Xoroshiro rng{1};
+    std::vector<ItemStack> out;
+    blockDrops(r.defaultState(pottedFor(blocks::Cactus)), {}, rng, out);
+    REQUIRE(out.size() == 2);
+    CHECK(itemRegistry().item(out[0].item).id == "minecraft:flower_pot");
+    CHECK(itemRegistry().item(out[1].item).id == "minecraft:cactus");
 }

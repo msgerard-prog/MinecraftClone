@@ -600,6 +600,11 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     }
     // (M29.4b; wiki: Melon, Melon Seeds, Cocoa Beans) a melon drops 3-7 slices; a stem up
     // to 3 seeds (each 1 in (age + 1) / 15; attached: as age 7); cocoa 3 beans when ripe.
+    if (isPotted(b)) { // (M29.4b) the pot and its plant
+        add(*itemRegistry().find("flower_pot"));
+        if (const ItemId plant = itemRegistry().blockItem(plantInPot(b))) add(plant);
+        return;
+    }
     if (b == blocks::Melon) {
         add(*itemRegistry().find("melon_slice"), between(3, 7));
         return;
