@@ -384,6 +384,17 @@ struct MobData {
     bool skeletonTrap = false;   // (M29.1b) a skeleton trap horse (vanilla SkeletonTrap)
     uint16_t heldItem = 0;       // (M29.1b) its main-hand item other than a trident (ItemId; equipment.mainhand)
     int16_t zombifyTicks = 0;    // (M29.1c) a piglin or hoglin outside the Nether (vanilla TimeInOverworld)
+    // (M29.2c) lasting effects on the mob (world::Effect ids; vanilla active_effects): up to 4.
+    struct ActiveEffect {
+        uint8_t type = 0, amplifier = 0;
+        int16_t ticks = 0;
+    };
+    std::array<ActiveEffect, 4> effects{};
+    int effectLevel(uint8_t effect) const { // (0: none, else amplifier + 1)
+        for (const ActiveEffect& e : effects)
+            if (e.type == effect && e.ticks > 0) return e.amplifier + 1;
+        return 0;
+    }
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love

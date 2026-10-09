@@ -302,3 +302,28 @@ TEST_CASE("spawn eggs: one for every mob (not decorations, vehicles or illusione
     }
     CHECK(eggs >= 85);
 }
+
+// M29.2c: lasting effects on mobs.
+TEST_CASE("mob effects: poison wears down (not the undead), speed, saved as active_effects") {
+    MobScene s;
+    s.survival = false;
+    MobData cow = Mobs::make(MobType::Cow, {8.5, 64.0, 8.5}, s.rng);
+    Mobs::addEffect(cow, Effect::Poison, 0, 200);
+    Mobs::addEffect(cow, Effect::Glowing, 0, 200);
+    MobData zombie = Mobs::make(MobType::Zombie, {-8.5, 64.0, 8.5}, s.rng);
+    Mobs::addEffect(zombie, Effect::Poison, 0, 200); // (undead: no effect)
+    CHECK(zombie.effectLevel(uint8_t(Effect::Poison)) == 0);
+    REQUIRE(Mobs::add(s.world, cow));
+    REQUIRE(Mobs::add(s.world, zombie));
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0));
+    bool saved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const nbt::List* fx = t.get<nbt::Compound>()->list("active_effects")) saved = saved || fx->items.size() == 2;
+    CHECK(saved);
+    s.tick(100);
+    MobData* c = findType(s, MobType::Cow);
+    REQUIRE(c);
+    CHECK(c->health < 10.0f);
+    CHECK(c->health >= 1.0f);
+    CHECK(c->effectLevel(uint8_t(Effect::Glowing)) == 1);
+}

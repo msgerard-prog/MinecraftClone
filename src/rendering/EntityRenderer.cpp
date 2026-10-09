@@ -1,5 +1,6 @@
 #include "rendering/EntityRenderer.h"
 
+#include "world/Potions.h"
 #include "world/Banners.h"
 #include "world/Paintings.h"
 
@@ -672,6 +673,10 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         scale *= 1.0f + f * 0.2f;
         if ((mob.fuse / 3) % 2 == 1) flash = glm::vec3(0.6f * f);
     }
+    // (M29.2c) Invisibility hides the mob; Glowing marks its quads for the outline pass.
+    if (mob.effectLevel(uint8_t(world::Effect::Invisibility)) > 0) return;
+    const size_t firstVertex = m_mobs.size();
+    const bool glowingMob = mob.effectLevel(uint8_t(world::Effect::Glowing)) > 0;
     const bool chestBoat = mob.type == world::MobType::Boat && mob.hasChest;
     // (M29.1f) what it holds in its right hand: where the hand is and which way the arm points.
     const world::ItemId held = world::heldItemOf(mob);
@@ -805,6 +810,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             quad(front, u0, v0, u0 + m_cell, v0 + m_cell, pack(light), m_items);
             quad(back, u0 + m_cell, v0, u0, v0 + m_cell, pack(light), m_items);
         }
+    if (glowingMob && m_glowCount < int(m_glow.size()))
+        m_glow[size_t(m_glowCount++)] = {uint32_t(firstVertex), uint32_t(m_mobs.size() - firstVertex)};
 }
 
 void EntityRenderer::setCrack(const world::BlockPos& block, int stage) {
@@ -857,6 +864,20 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         glUniform1f(1, 0.1f);
         glBindTextureUnit(0, m_mobTexture);
         glDrawArrays(GL_TRIANGLES, GLint(items + crack), GLsizei(mobs));
+        if (m_glowCount > 0) { // (M29.2c) Glowing: a pale silhouette seen through walls
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glUniform4f(2, 1.0f, 1.0f, 1.0f, 0.35f);
+            for (int g = 0; g < m_glowCount; ++g) {
+                const GlowRange& r = m_glow[size_t(g)];
+                if (r.first + r.count <= mobs)
+                    glDrawArrays(GL_TRIANGLES, GLint(items + crack + r.first), GLsizei(r.count));
+            }
+            glUniform4f(2, 0.0f, 0.0f, 0.0f, 0.0f);
+            glDisable(GL_BLEND);
+            glEnable(GL_DEPTH_TEST);
+        }
         glBindTextureUnit(0, m_atlasTexture);
     }
     if (crack) { // vanilla crumbling: multiply the block underneath
@@ -894,6 +915,7 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     glEnable(GL_CULL_FACE);
     m_items.clear();
     m_mobs.clear();
+    m_glowCount = 0;
     m_weather.clear();
     m_bolts.clear();
     m_text.clear();

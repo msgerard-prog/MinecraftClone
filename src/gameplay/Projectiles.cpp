@@ -392,6 +392,24 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                 c.cooldown = 20;
             }
         }
+        // (M29.2c) its lasting effect reaches the mobs standing in it too, once a second.
+        if (c.potion != 0 && c.ticks % 20 == 0) {
+            const PotionInfo& info = potionInfo(static_cast<Potion>(c.potion));
+            if (info.effect != Effect::None && !effectInfo(info.effect).instant) {
+                const ChunkPos c0{blockToChunk(int(std::floor(c.pos.x))), blockToChunk(int(std::floor(c.pos.z)))};
+                for (int cz = -1; cz <= 1; ++cz)
+                    for (int cx = -1; cx <= 1; ++cx)
+                        if (Chunk* ch = world.chunk({c0.x + cx, c0.z + cz}))
+                            for (MobData& m : ch->mobs()) {
+                                const double mx = m.pos.x - c.pos.x, mz = m.pos.z - c.pos.z;
+                                if (m.health <= 0.0f || mx * mx + mz * mz >= double(c.radius) * c.radius ||
+                                    std::abs(m.pos.y - c.pos.y) > 1.5)
+                                    continue;
+                                Mobs::addEffect(m, info.effect, info.amplifier, std::max(1, info.duration / 4));
+                                Mobs::addEffect(m, info.effect2, info.amplifier2, std::max(1, info.duration / 4));
+                            }
+            }
+        }
         c.radius -= c.shrink;
         if (--c.ticks <= 0 || c.radius < 0.5f) {
             m_clouds[i] = m_clouds.back();
@@ -645,8 +663,23 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                                 m.weaknessTicks, int(info.duration * sm)));
                                     }
                 }
-                // Mobs: instant health/damage (other effects reach only the player, our
-                // simplification); water hurts blazes, endermen and striders by 1.
+                // Mobs: instant health/damage, and (M29.2c) lasting effects scaled like the
+                // player's; water hurts blazes, endermen and striders by 1.
+                if (info.effect != Effect::None && !effectInfo(info.effect).instant) {
+                    const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+                    for (int dz = -1; dz <= 1; ++dz)
+                        for (int dx = -1; dx <= 1; ++dx)
+                            if (Chunk* ch = world.chunk({c0.x + dx, c0.z + dz}))
+                                for (MobData& m : ch->mobs()) {
+                                    const double sm = scaleFor(Mobs::box(m), &m == direct);
+                                    if (sm <= 0.0 || m.health <= 0.0f) continue;
+                                    const int duration = int(info.duration * sm + 0.5);
+                                    if (duration <= 20) continue;
+                                    Mobs::addEffect(m, info.effect, info.amplifier, duration);
+                                    if (info.effect2 != Effect::None)
+                                        Mobs::addEffect(m, info.effect2, info.amplifier2, duration);
+                                }
+                }
                 if (info.effect == Effect::InstantHealth || info.effect == Effect::InstantDamage ||
                     water) {
                     const ChunkPos c0{blockToChunk(int(std::floor(at.x))),
@@ -894,6 +927,15 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                     ? Mobs::dragonDamage(m, float(damage), p.pos + dir * reach)
                                     : float(damage);
                             m.hurtTime = 10;
+                            // (M29.2c) a tipped arrow's lasting effect (an eighth as long), a
+                            // spectral arrow's Glowing, a stray's/bogged's/parched's effect.
+                            if (p.potion) {
+                                const PotionInfo& pi = potionInfo(static_cast<Potion>(p.potion));
+                                Mobs::addEffect(m, pi.effect, pi.amplifier, std::max(1, pi.duration / 8));
+                                Mobs::addEffect(m, pi.effect2, pi.amplifier2, std::max(1, pi.duration / 8));
+                            }
+                            if (p.spectral) Mobs::addEffect(m, Effect::Glowing, 0, 200);
+                            Mobs::addEffect(m, p.hitEffect.effect, 0, p.hitEffect.ticks);
                             const glm::dvec2 h(p.vel.x, p.vel.z);
                             if (glm::length(h) > 1e-6)
                                 m.vel += glm::dvec3(h.x, 0, h.y) / glm::length(h) *

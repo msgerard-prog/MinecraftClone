@@ -149,6 +149,9 @@ public:
                                   world::MobData& baby, world::Xoroshiro& rng);
     // The player hits a mob for `damage` (knockback away from the player).
     static void attack(world::MobData& mob, float damage, const glm::dvec3& from);
+    // (M29.2c) a lasting effect on a mob (the dragon, crystals and decorations take none;
+    // undead shrug off poison and regeneration, wither skeletons and the Wither withering).
+    static void addEffect(world::MobData& mob, world::Effect effect, int amplifier, int ticks);
 
     int hostileCount() const { return m_hostiles; }
     static Aabb box(const world::MobData& m);
@@ -267,6 +270,7 @@ private:
     void knotTick(Context& ctx, world::MobData& k);
     // (M29.1b) puts each jockey on its mount and lets the mount follow its rider's target.
     void ridePass(Context& ctx);
+    void tickMobEffects(Context& ctx, world::MobData& m); // (M29.2c)
     // Armor stands (ArmorStands.cpp, M28.3b).
     void armorStandTick(Context& ctx, world::MobData& m);
     void dropArmorStand(Context& ctx, world::MobData& m);

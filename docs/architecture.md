@@ -698,6 +698,13 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `farmVariant(Biome)`, chosen in `animalUpkeep`, eggs by variant (`Projectile::eggVariant`).
   Spawn eggs (M29.1e): `ItemDef::spawnEgg`; textures from each skin (gen_items.py).
   Held items (M29.1f): `world::heldItemOf`, drawn by `EntityRenderer::addMob` at the hand.
+  Effects (M29.2): Vitals gains max health/absorption/saturation and the new effects; mobs keep
+  4 `MobData::effects` (`Mobs::addEffect`, `tickMobEffects`; splash, lingering, tipped and
+  spectral arrows apply them; saved as active_effects); `EntityRenderer` hides invisible mobs
+  and redraws glowing ones flat through walls. Enchantments (M29.2b): Player slipperiness by
+  block, soul blocks, Depth Strider/Soul Speed (`setBootEnchants`); main does Mending (orbs),
+  Frost Walker (`blocks::FrostedIce`, melted by BlockUpdates scheduled ticks), sweep attacks,
+  the curses; Thorns in Mobs' melee via `Context::thorns`.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
@@ -848,7 +855,7 @@ Fixed bindings (add new ones here):
 | uniform location (clouds) | 0-3 | `uViewProj`, `uOffset`, `uColor`, `uFade` |
 | uniform location (gui) | 0 | `uGuiSize` (framebuffer / GUI scale) |
 | texture units (gui) | 0–6 | white, font, hotbar, selection, block atlas, HUD icons strip, held map (= `GuiTexture`) |
-| uniform location (entity) | 0, 1 | `uViewProj`, `uAlphaCutoff` (dropped items, crack overlay) |
+| uniform location (entity) | 0, 1, 2 | `uViewProj`, `uAlphaCutoff` (dropped items, crack overlay), `uFlat` (M29.2c: Glowing silhouettes) |
 
 Passes (M3.2): **opaque** (with alpha-test cutout for torches and glass), then **translucent** (`BakedModel::translucent`: water...)
 with alpha blending, no depth writes, no back-face culling (water seen from below),

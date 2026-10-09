@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <array>
 #include <vector>
 
 namespace mc::gfx {
@@ -103,6 +104,11 @@ public:
 
 private:
     uint16_t itemSprite(const world::ItemStack& item) const; // (its icon, or a block item's face; 0: none)
+    struct GlowRange { // (M29.2c) a glowing mob's vertices in m_mobs
+        uint32_t first, count;
+    };
+    std::array<GlowRange, 64> m_glow{};
+    int m_glowCount = 0;
     struct Vertex {
         float x, y, z;
         float u, v; // atlas texels

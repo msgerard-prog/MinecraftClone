@@ -658,6 +658,8 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.tamed = v != 0.0;
                 else if (key == "SkeletonTrap" && *type == world::MobType::SkeletonHorse) // (M29.1b)
                     mob.skeletonTrap = v != 0.0;
+                else if (key == "Glowing" && v != 0.0) // (M29.2c: ours, a very long Glowing effect)
+                    Mobs::addEffect(mob, world::Effect::Glowing, 0, 32767);
                 else if (key == "FarmVariant" && (*type == world::MobType::Cow || *type == world::MobType::Pig ||
                                                   *type == world::MobType::Chicken)) { // (M29.1d, ours: 0-2)
                     mob.woolColour = uint8_t(std::clamp(int(v), 0, 2));

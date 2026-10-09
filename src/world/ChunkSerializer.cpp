@@ -1349,6 +1349,18 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
         // mount's Passengers); a skeleton trap horse.
         if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
+        { // (M29.2c) lasting effects, as vanilla's active_effects
+            std::vector<nbt::Tag> fx;
+            for (const MobData::ActiveEffect& a : m.effects)
+                if (a.ticks > 0) {
+                    nbt::Compound c;
+                    c.put("id", std::string(effectInfo(Effect(a.type)).id));
+                    c.put("amplifier", int8_t(a.amplifier));
+                    c.put("duration", int32_t(a.ticks));
+                    fx.emplace_back(std::move(c));
+                }
+            if (!fx.empty()) e.put("active_effects", nbt::listOf(nbt::TagType::Compound, std::move(fx)));
+        }
         // (M29.1d; 1.21.5) a farm animal's variant, once chosen
         if ((m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken) && m.color2 != 0)
             e.put("variant", std::string("minecraft:") + kFarmVariants[m.woolColour % 3]);
@@ -1964,6 +1976,15 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
+            size_t n = 0;
+            for (const nbt::Tag& fxTag : fx->items)
+                if (const nbt::Compound* c = fxTag.get<nbt::Compound>(); c && c->string("id") && n < m.effects.size())
+                    if (const auto kind = findEffect(*c->string("id")))
+                        m.effects[n++] = {uint8_t(*kind),
+                                          uint8_t(std::clamp<int64_t>(c->integer("amplifier").value_or(0), 0, 255)),
+                                          int16_t(std::clamp<int64_t>(c->integer("duration").value_or(0), 0, 32767))};
+        }
         if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
             if (const std::string* v = e->string("variant")) // (M29.1d; none: chosen by biome)
                 for (int k = 0; k < 3; ++k)

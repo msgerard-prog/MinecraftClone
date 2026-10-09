@@ -495,6 +495,9 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
     if (m.mobRidden) speed = (m.moveSpeed > 0.0f ? m.moveSpeed : info.speed) * 0.5; // (its own pace)
+    // (M29.2c; wiki: Speed, Slowness) +20% / -15% a level, as the player's
+    speed *= std::max(0.0, (1.0 + 0.2 * m.effectLevel(uint8_t(Effect::Speed))) *
+                               (1.0 - 0.15 * m.effectLevel(uint8_t(Effect::Slowness))));
     m.mobRidden = false;
 
     // Follow range (wiki): zombies notice the player within 35 blocks, skeletons,
@@ -704,8 +707,11 @@ void Mobs::ai(Context& ctx, MobData& m) {
             box(m).intersects(Aabb{ctx.player.box().min - glm::dvec3(0.8, 0, 0.8),
                                    ctx.player.box().max + glm::dvec3(0.8, 0, 0.8)})) {
             // (golems: 7.5 + 0-14 and a throw upward)
-            const float hit = info.attackDamage +
-                              (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
+            // (M29.2c; wiki: Strength +3, Weakness -4 a level)
+            const float hit = std::max(0.0f, info.attackDamage +
+                                                 (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f) +
+                                                 3.0f * float(m.effectLevel(uint8_t(Effect::Strength))) -
+                                                 4.0f * float(m.effectLevel(uint8_t(Effect::Weakness))));
             if (ctx.vitals.attacked(hit, &m.pos)) {
                 setPlayerAttacker(m.uuidHi); // (tamed wolves go for it - M26.1)
                 // Thorns (M29.2b; wiki): 15% a level (added up over the armor, ours) to hit
@@ -1448,6 +1454,7 @@ void Mobs::tick(Context& ctx) {
                                                  uint32_t(mobInfo(m.type).height * 100.0f) << 16);
                 }
             } else {
+                tickMobEffects(ctx, m); // (M29.2c)
                 ai(ctx, m);
                 if (m.leash != 0) leashTick(ctx, m);               // (M28.3c)
                 if (m.type == MobType::Llama) caravanTick(ctx, m); // (M28.3c)
@@ -1755,6 +1762,50 @@ bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty,
     h.skeletonTrap = true;
     h.persistent = true;
     return add(world, h);
+}
+
+void Mobs::addEffect(MobData& mob, Effect effect, int amplifier, int ticks) {
+    if (mob.type == MobType::EnderDragon || mob.type == MobType::EndCrystal || isHanging(mob.type) ||
+        mob.type == MobType::ArmorStand || mob.type == MobType::LeashKnot || mob.type == MobType::Boat ||
+        mob.type == MobType::Minecart || effect == Effect::None || effectInfo(effect).instant)
+        return;
+    if (isUndead(mob.type) && (effect == Effect::Poison || effect == Effect::Regeneration)) return;
+    if ((mob.type == MobType::WitherSkeleton || mob.type == MobType::Wither) && effect == Effect::Wither) return;
+    MobData::ActiveEffect* free = nullptr;
+    for (MobData::ActiveEffect& e : mob.effects) {
+        if (e.type == uint8_t(effect) && e.ticks > 0) {
+            if (amplifier > e.amplifier || (amplifier == e.amplifier && ticks > e.ticks))
+                e = {uint8_t(effect), uint8_t(amplifier), int16_t(std::min(ticks, 32767))};
+            return;
+        }
+        if (!free && e.ticks <= 0) free = &e;
+    }
+    if (free) *free = {uint8_t(effect), uint8_t(amplifier), int16_t(std::min(ticks, 32767))};
+}
+
+void Mobs::tickMobEffects(Context& ctx, MobData& m) {
+    // Lasting effects on mobs (M29.2c; wiki: each effect): poison down to 1, regeneration,
+    // wither (may kill), levitation rising; speed/slowness and strength/weakness act where
+    // the mob moves and hits.
+    for (MobData::ActiveEffect& e : m.effects) {
+        if (e.ticks <= 0) continue;
+        const auto type = Effect(e.type);
+        if (type == Effect::Poison && e.ticks % std::max(1, 25 >> e.amplifier) == 0 && m.health > 1.0f) {
+            m.health -= 1.0f;
+            m.hurtTime = 10;
+        } else if (type == Effect::Wither && e.ticks % std::max(1, 40 >> e.amplifier) == 0) {
+            m.health -= 1.0f;
+            m.hurtTime = 10;
+        } else if (type == Effect::Regeneration && e.ticks % std::max(1, 50 >> e.amplifier) == 0) {
+            m.health = std::min(maxHealthOf(m), m.health + 1.0f);
+        } else if (type == Effect::Levitation) {
+            m.vel.y += (0.05 * double(e.amplifier + 1) - m.vel.y) * 0.2;
+        } else if (type == Effect::FireResistance) {
+            m.fireTicks = 0;
+        }
+        --e.ticks;
+    }
+    (void)ctx;
 }
 
 void Mobs::ridePass(Context& ctx) {
