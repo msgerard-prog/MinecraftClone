@@ -387,3 +387,40 @@ TEST_CASE("trading: a price raised while the screen is open (Hero of the Village
     CHECK(f.screen.grid(0).count == 17); // (before the fix: 17 - 24 wrapped to 249)
     CHECK(v.offers[0].uses == 0);
 }
+
+#include "ui/RecipeBook.h"
+
+TEST_CASE("M30.6: the recipe book lists what can be made first and places a recipe's ingredients in the grid") {
+    Fixture f;
+    f.inv.setSlot(0, I("oak_planks", 4));
+    f.inv.setSlot(1, I("cobblestone", 8));
+    f.screen.open(ContainerScreen::Type::Crafting);
+    RecipeBook book;
+    book.refresh(3, f.inv, f.screen.craftingGrid());
+    REQUIRE_FALSE(book.list().empty());
+    CHECK(book.list()[0].craftable);
+    // A furnace needs 8 cobblestone in a ring; a crafting table 4 planks in a square.
+    const auto& all = craftingRecipes();
+    int furnace = -1, table = -1, chest = -1;
+    for (int i = 0; i < int(all.size()); ++i) {
+        const std::string& id = itemRegistry().item(all[size_t(i)].result.item).id;
+        if (id == "minecraft:furnace" && furnace < 0) furnace = i;
+        if (id == "minecraft:crafting_table" && table < 0) table = i;
+        if (id == "minecraft:chest" && chest < 0) chest = i;
+    }
+    REQUIRE(furnace >= 0);
+    REQUIRE(table >= 0);
+    REQUIRE(chest >= 0);
+    CHECK(RecipeBook::canCraft(all[size_t(furnace)], f.inv, f.screen.craftingGrid()));
+    CHECK_FALSE(RecipeBook::canCraft(all[size_t(chest)], f.inv, f.screen.craftingGrid())); // (8 planks)
+    REQUIRE(f.screen.placeRecipe(all[size_t(furnace)], f.inv));
+    CHECK(itemRegistry().item(f.screen.result().item).id == "minecraft:furnace");
+    CHECK(f.inv.slot(1).empty()); // (all 8 cobblestone went in)
+    // Placing another recipe returns the grid first.
+    REQUIRE(f.screen.placeRecipe(all[size_t(table)], f.inv));
+    CHECK(itemRegistry().item(f.screen.result().item).id == "minecraft:crafting_table");
+    int cobble = 0;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        if (f.inv.slot(i).item == *itemRegistry().find("cobblestone")) cobble += f.inv.slot(i).count;
+    CHECK(cobble == 8);
+}

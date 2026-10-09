@@ -58,6 +58,7 @@
 #include "ui/Chat.h"
 #include "ui/ContainerScreen.h"
 #include "ui/CreativeInventory.h"
+#include "ui/RecipeBook.h"
 #include "ui/Hud.h"
 #include "ui/Menus.h"
 #include "ui/SignEditor.h"
@@ -310,6 +311,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     itemIcons.build(renderer.atlas());
     mc::ui::CreativeInventory creative;
     mc::ui::ContainerScreen container; // survival inventory, crafting table, furnace
+    mc::ui::RecipeBook recipeBook;     // (M30.6) on the inventory and crafting table screens
+    recipeBook.setOpen(opts->recipeBook);
+    // Where the book's button sits on each screen (vanilla) and the container's x shift.
+    auto recipeScreen = [&]() {
+        return container.type() == mc::ui::ContainerScreen::Type::Inventory ||
+               container.type() == mc::ui::ContainerScreen::Type::Crafting;
+    };
+    auto bookButton = [&]() {
+        return container.type() == mc::ui::ContainerScreen::Type::Inventory ? glm::vec2(104.0f, 61.0f)
+                                                                           : glm::vec2(5.0f, 34.0f);
+    };
+    auto bookShift = [&]() { return recipeScreen() && recipeBook.isOpen() ? mc::ui::RecipeBook::kShift : 0; };
     mc::world::BlockPos containerBlock{};
     mc::world::BlockPos commandEditing{}; // (M29.7) the command block whose screen is open
     uint64_t commandEditingCart = 0;       // (or the command block minecart's)
@@ -1414,11 +1427,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.takePresses(mc::Press::Inventory); // (E types an "e" here, as vanilla)
             }
             screenDrops.clear();
-            for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
-                container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale,
-                                fh / scale, inventory, screenDrops);
+            // (M30.6) the recipe book first: its clicks never reach the container; while it is
+            // open the container sits 77 px right (it centres itself on a wider screen).
+            for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n) {
+                bool used = false;
+                if (recipeScreen()) {
+                    const float left = float((fw / scale - mc::ui::ContainerScreen::kWidth) / 2 + bookShift());
+                    const float top = float((fh / scale - container.height()) / 2);
+                    const int r = recipeBook.click(mx, my, left, top, bookButton(), used);
+                    if (r >= 0) container.placeRecipe(mc::craftingRecipes()[size_t(r)], inventory);
+                }
+                if (!used)
+                    container.click(mx, my, mc::ui::ContainerScreen::Button::Left, shift, fw / scale + 2 * bookShift(),
+                                    fh / scale, inventory, screenDrops);
+            }
             for (int n = window.takePresses(mc::Press::RightMouse); n > 0; --n)
-                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale,
+                container.click(mx, my, mc::ui::ContainerScreen::Button::Right, shift, fw / scale + 2 * bookShift(),
                                 fh / scale, inventory, screenDrops);
             // Contents edited through the screen: the block entity's chunk needs saving.
             if (container.type() == mc::ui::ContainerScreen::Type::Chest ||
@@ -6358,9 +6382,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
                  container.type() == mc::ui::ContainerScreen::Type::Dispenser))
                 pointStore();
+            if (container.isOpen() && recipeScreen()) // (M30.6) what the inventory can make now
+                recipeBook.refresh(container.craftingGridSize(), inventory, container.craftingGrid());
             if (container.isOpen())
                 container.draw(
-                    batch, itemIcons, renderer.models(), inventory, guiW, guiH,
+                    batch, itemIcons, renderer.models(), inventory, guiW + 2 * bookShift(), guiH,
                     [&] {
                         double x = 0, y = 0;
                         window.cursorPos(x, y);
@@ -6371,6 +6397,13 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         window.cursorPos(x, y);
                         return y / scale;
                     }());
+            if (container.isOpen() && recipeScreen()) {
+                double bmx = 0, bmy = 0;
+                window.cursorPos(bmx, bmy);
+                recipeBook.draw(batch, itemIcons, renderer.models(),
+                                float((guiW - mc::ui::ContainerScreen::kWidth) / 2 + bookShift()),
+                                float((guiH - container.height()) / 2), bookButton(), bmx / scale, bmy / scale);
+            }
             if (creative.isOpen()) {
                 double mx = 0, my = 0;
                 window.cursorPos(mx, my);

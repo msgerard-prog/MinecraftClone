@@ -223,10 +223,11 @@ TEST_CASE("command line: --use N") {
 
 TEST_CASE("command line: --perspective 0|1|2 (M30.1)") {
     std::string error;
-    std::array<const char*, 2> back = {"--perspective", "1"};
+    std::array<const char*, 3> back = {"--perspective", "1", "--recipe-book"};
     const auto opts = mc::parseCommandLine(back, error);
     REQUIRE(opts.has_value());
     CHECK(opts->perspective == 1);
+    CHECK(opts->recipeBook);
     std::array<const char*, 2> bad = {"--perspective", "3"};
     CHECK_FALSE(mc::parseCommandLine(bad, error).has_value());
 }

@@ -364,6 +364,55 @@ void ContainerScreen::setGear(int slot, const world::ItemStack& s) {
         if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") m_mount->decor = uint8_t(c + 1);
 }
 
+bool ContainerScreen::placeRecipe(const Recipe& r, Inventory& inventory) {
+    if (m_type != Type::Inventory && m_type != Type::Crafting) return false;
+    const int size = gridSize();
+    // The grid's items go back to the inventory first (vanilla clears the grid).
+    for (int i = 0; i < size * size; ++i) {
+        world::ItemStack& g = m_grid[size_t(i)];
+        if (g.empty()) continue;
+        const int left = inventory.add(g);
+        g.count = uint8_t(left);
+        if (left > 0) return false; // (no room: leave it be)
+        g = {};
+    }
+    // Each ingredient from the first inventory slot that matches, in its grid place: shaped
+    // recipes from the top-left corner, shapeless ones in order (vanilla).
+    auto take = [&](const Ingredient& in) -> world::ItemStack {
+        for (int s = 0; s < Inventory::kSlots; ++s) {
+            const world::ItemStack st = inventory.slot(s);
+            if (!in.matches(st)) continue;
+            world::ItemStack one = st;
+            one.count = 1;
+            world::ItemStack rest = st;
+            rest.count = uint8_t(st.count - 1);
+            inventory.setSlot(s, rest.count > 0 ? rest : world::ItemStack{});
+            return one;
+        }
+        return {};
+    };
+    bool complete = true;
+    if (r.width > 0) {
+        for (int y = 0; y < r.height; ++y)
+            for (int x = 0; x < r.width; ++x) {
+                const Ingredient& in = r.pattern[size_t(y * r.width + x)];
+                if (in.kind == Ingredient::Kind::Empty) continue;
+                m_grid[size_t(y * size + x)] = take(in);
+                complete = complete && !m_grid[size_t(y * size + x)].empty();
+            }
+    } else {
+        int at = 0;
+        for (const Ingredient& in : r.pattern) {
+            if (in.kind == Ingredient::Kind::Empty || at >= size * size) continue;
+            m_grid[size_t(at)] = take(in);
+            complete = complete && !m_grid[size_t(at)].empty();
+            ++at;
+        }
+    }
+    updateResult();
+    return complete;
+}
+
 void ContainerScreen::updateResult() {
     if (m_type == Type::Furnace || m_type == Type::Chest || m_type == Type::Enchanting ||
         m_type == Type::Brewing || m_type == Type::Hopper || m_type == Type::Dispenser)

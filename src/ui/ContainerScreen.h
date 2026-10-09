@@ -2,6 +2,7 @@
 
 #include "gameplay/Furnace.h"
 #include "gameplay/Inventory.h"
+#include "gameplay/Recipes.h"
 #include "rendering/BlockModels.h"
 #include "rendering/GuiBatch.h"
 #include "rendering/ItemIcons.h"
@@ -156,6 +157,12 @@ public:
     }
     const world::ItemStack& result() const { return m_result; }
     const world::ItemStack& grid(int i) const { return m_grid[size_t(i)]; }
+    std::span<const world::ItemStack> craftingGrid() const { return {m_grid.data(), size_t(gridSize() * gridSize())}; }
+    int craftingGridSize() const { return gridSize(); }
+    // The recipe book (M30.6): puts one set of `recipe`'s ingredients from the inventory
+    // into the grid (what was there goes back first). False if something is missing or the
+    // grid's old contents don't fit back.
+    bool placeRecipe(const Recipe& recipe, Inventory& inventory);
 
     void draw(gfx::GuiBatch& batch, const gfx::ItemIcons& icons, const gfx::BlockModels& models,
               const Inventory& inventory, int guiWidth, int guiHeight, double mx, double my) const;

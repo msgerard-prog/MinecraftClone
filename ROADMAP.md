@@ -24,7 +24,7 @@ M30 - Play feel (the deviations noticed within minutes of playing):
 4. ✅ M30.4 - Dropped items and orbs (they also stay behind when changing dimension): merging, saved as entities, death drops scattered.
 5. ✅ M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
    doors), fences and walls as 1.5-high, trapdoors.
-6. M30.6 - Creative tabs and search; a basic recipe book.
+6. ✅ M30.6 - Creative tabs and search; a basic recipe book.
 M31 - Performance:
 1. M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
 2. M31.2 - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no

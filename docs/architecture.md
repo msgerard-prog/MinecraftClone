@@ -817,7 +817,9 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `gameplay/FallingBlocks` (pooled entities: gravity, drag, landing through
   `World::updateBlock` or dropping as an item), drawn by `EntityRenderer::addBlock`.
 - Screens (ui): `ContainerScreen` (survival inventory 2x2, crafting table 3x3,
-  furnace) next to `CreativeInventory`; `EntityRenderer` (rendering) draws dropped
+  furnace) next to `CreativeInventory` (M30.6: `Tab`s by `tabOf`, the Search tab's query);
+  `RecipeBook` (M30.6) beside the inventory and crafting screens (`refresh`, `canCraft`,
+  `ContainerScreen::placeRecipe`; main widens the container's GUI width to shift it); `EntityRenderer` (rendering) draws dropped
   items and the breaking crack from per-frame data main builds.
 - `FlatGenerator`: superflat from vanilla's preset string (default Classic Flat:
   bedrock, 2×dirt, grass at Y −64..−61). Output hash pinned in `tests/world_flat.cpp`.
