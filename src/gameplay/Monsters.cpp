@@ -189,10 +189,14 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         }
         break;
     }
-    case MobType::Skeleton: {
+    case MobType::Skeleton:
+    case MobType::Stray:
+    case MobType::Bogged:
+    case MobType::Parched: {
         // Draws for 20 ticks while it sees the player within 15 blocks, then shoots
         // (speed 1.6, spread 6) and waits 40 more: one arrow every 3 s on Normal (wiki:
-        // Skeleton).
+        // Skeleton). (M29.1a) Bogged shoot every 3.5 s, parched every 4.5 s; strays' arrows
+        // slow for 30 s, bogged ones poison for 4 s, parched ones weaken for 30 s.
         if (!chase || playerDist2 > 15.0 * 15.0 || !ctx.projectiles ||
             !sees(ctx.world, m, ctx.player)) {
             m.shootTicks = 0;
@@ -201,15 +205,20 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         if (m.attackCooldown > 0) break;
         if (++m.shootTicks >= 20) {
             m.shootTicks = 0;
-            m.attackCooldown = 40;
+            m.attackCooldown = m.type == MobType::Bogged ? 50 : m.type == MobType::Parched ? 70 : 40;
             const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
             glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // aim above for the drop
             // (Starts just outside its own box: vanilla's arrows ignore their shooter.)
             const glm::dvec3 start = from + glm::normalize(d) * (info.width * 0.5 + 0.2);
             if (ctx.projectiles->shoot(ProjectileKind::Arrow, start, d, 1.6, 6.0, false, false,
-                                       ctx.rng, m.uuidHi))
-                ctx.projectiles->last().skeleton = true;
+                                       ctx.rng, m.uuidHi)) {
+                Projectile& a = ctx.projectiles->last();
+                a.skeleton = true;
+                if (m.type == MobType::Stray) a.hitEffect = {Effect::Slowness, 600};
+                if (m.type == MobType::Bogged) a.hitEffect = {Effect::Poison, 80};
+                if (m.type == MobType::Parched) a.hitEffect = {Effect::Weakness, 600};
+            }
             ctx.world.playSound(Sound::BowShoot, m.pos.x, m.pos.y + 1.5, m.pos.z);
         }
         break;

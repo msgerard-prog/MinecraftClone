@@ -157,6 +157,12 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:armor_stand", 1.0f, 0.5, 1.975, 0.0, 0.0f, false},
         // wiki: Leash Knot - 0.375 x 0.5 on its fence post
         {"minecraft:leash_knot", 1.0f, 0.375, 0.5, 0.0, 0.0f, false},
+        // wiki: Husk - 20 health, 0.6 x 1.95, 0.23, 3 + Hunger; Stray - 20, 0.6 x 1.99, 0.25;
+        // Bogged - 16; Parched - 16 (both skeleton-sized).
+        {"minecraft:husk", 20.0f, 0.6, 1.95, 0.23, 3.0f, true},
+        {"minecraft:stray", 20.0f, 0.6, 1.99, 0.25, 2.0f, true},
+        {"minecraft:bogged", 16.0f, 0.6, 1.99, 0.25, 2.0f, true},
+        {"minecraft:parched", 16.0f, 0.6, 1.99, 0.25, 2.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

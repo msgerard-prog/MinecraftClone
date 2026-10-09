@@ -537,7 +537,7 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
         if (!scared && !ctx.playerDead && pd < 7.0 && ctx.player.sprinting()) scared = true;
         if (!scared && ctx.rng.nextInt(10) == 0)
             scared = nearestMob(ctx.world, m, 7.0, [](const MobData& o) {
-                         return isZombie(o.type) || o.type == MobType::Skeleton ||
+                         return isZombie(o.type) || isSkeleton(o.type) ||
                                 o.type == MobType::ZombifiedPiglin;
                      }) != nullptr;
         if (scared) {

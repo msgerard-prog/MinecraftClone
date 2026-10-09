@@ -105,6 +105,12 @@ enum class MobType : uint8_t {
     // (M28.3c; wiki: Lead) a lead tied to the fence at `home`; mobs tied there have
     // `leash` 2 and `leashPos` = that fence.
     LeashKnot,
+    // Variants (M29.1a; wiki: Husk, Stray, Bogged, Parched): a desert zombie that doesn't
+    // burn and starves what it hits; skeletons whose arrows slow, poison or weaken.
+    Husk,
+    Stray,
+    Bogged,
+    Parched,
     Count
 };
 
@@ -215,7 +221,17 @@ float maxHealthOf(const MobData& m);
 // Spiders and cave spiders share their behaviour (climbing, neutral in the light, leaps).
 inline bool isSpider(MobType t) { return t == MobType::Spider || t == MobType::CaveSpider; }
 // Zombies and zombie villagers share their behaviour (targets, burning, drops).
-inline bool isZombie(MobType t) { return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned; }
+inline bool isZombie(MobType t) {
+    return t == MobType::Zombie || t == MobType::ZombieVillager || t == MobType::Drowned || t == MobType::Husk;
+}
+// Bow skeletons (M29.1a): the skeleton and its variants share its AI.
+inline bool isSkeleton(MobType t) {
+    return t == MobType::Skeleton || t == MobType::Stray || t == MobType::Bogged || t == MobType::Parched;
+}
+// Undead that burn under the open sky by day (wiki: Undead) - husks and parched don't.
+inline bool burnsInDaylight(MobType t) {
+    return (isZombie(t) || isSkeleton(t)) && t != MobType::Husk && t != MobType::Parched;
+}
 // The undead (wiki: Undead): Smite hits them harder, the Wither leaves them alone.
 // Hostile mobs that vanish on Peaceful (wiki: Difficulty; the ender dragon, shulkers
 // and hoglins stay).
@@ -249,7 +265,7 @@ inline bool isLeashable(MobType t) {
     }
 }
 inline bool isUndead(MobType t) {
-    return isZombie(t) || t == MobType::Skeleton || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
+    return isZombie(t) || isSkeleton(t) || t == MobType::WitherSkeleton || t == MobType::ZombifiedPiglin ||
            t == MobType::Phantom || t == MobType::Wither;
 }
 // Raid mobs (M24.5): they go after villagers, iron golems and wandering traders too.

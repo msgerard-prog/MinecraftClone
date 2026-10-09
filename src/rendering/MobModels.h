@@ -122,6 +122,10 @@ inline const char* mobTexturePath(int row) {
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/armor_stand.png",
         "assets/minecraft/textures/entity/clone/projectiles.png", // (leash knots: drawn from the atlas)
+        "assets/minecraft/textures/entity/clone/husk.png",
+        "assets/minecraft/textures/entity/clone/stray.png",
+        "assets/minecraft/textures/entity/clone/bogged.png",
+        "assets/minecraft/textures/entity/clone/parched.png",
         "assets/minecraft/textures/entity/clone/sheep_wool.png",
         "assets/minecraft/textures/entity/clone/projectiles.png",
         "assets/minecraft/textures/entity/clone/villager_apron.png",

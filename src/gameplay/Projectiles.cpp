@@ -662,9 +662,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                             continue;
                                         amount = 1.0f;
                                     } else {
-                                        const bool undead = isZombie(m.type) ||
-                                                            m.type == MobType::Skeleton ||
-                                                            m.type == MobType::ZombifiedPiglin;
+                                        const bool undead = isUndead(m.type);
                                         harm = (info.effect == Effect::InstantDamage) != undead;
                                         amount =
                                             float((harm ? 6 : 4) << info.amplifier) * float(sm);
@@ -857,6 +855,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                                           ? 1
                                                           : std::max(1, info.duration / 8));
                             if (p.spectral) vitals->addEffect(Effect::Glowing, 0, 200);
+                            if (p.hitEffect.effect != Effect::None)
+                                vitals->addEffect(p.hitEffect.effect, 0, p.hitEffect.ticks);
                         }
                     } else {
                         MobData& m = world.chunk(mob.chunk)->mobs()[size_t(mob.index)];

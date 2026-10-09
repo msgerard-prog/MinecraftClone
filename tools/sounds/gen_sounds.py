@@ -217,7 +217,7 @@ def voice(rng, seconds, f0, f1, wave="saw", formant=(300, 2200), vibrato=0.0, vi
 def mob_sounds(name, rng):
     """(say variants, hurt variants, death) for a mob; None where vanilla has none."""
     r = rng.uniform
-    if name == "zombie":
+    if name in ("zombie", "husk"):  # (M29.1a: husks rasp like zombies)
         say = [voice(rng, r(0.7, 1.0), r(80, 100), r(65, 80), formant=(150, 900), vibrato=0.05, breath=0.4)
                for _ in range(3)]
         hurt = [voice(rng, 0.35, r(130, 150), 100, formant=(200, 1200), breath=0.4) for _ in range(2)]
@@ -249,7 +249,7 @@ def mob_sounds(name, rng):
             return out
         say = [cluck() for _ in range(3)]
         return say, [voice(rng, 0.2, 900, 700, wave="square", formant=(700, 3500))], None
-    if name in ("skeleton", "wither_skeleton"):
+    if name in ("skeleton", "wither_skeleton", "stray", "bogged", "parched"):
         def rattle(n, total):
             out = silence(total)
             for _ in range(n):
@@ -531,7 +531,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "horse", "donkey", "mule", "llama", "trader_llama", "camel",
         "rabbit", "fox", "polar_bear", "panda", "goat", "armadillo", "bee",
         "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
-        "allay", "nautilus", "happy_ghast", "copper_golem", "creaking", "warden", "sniffer"]
+        "allay", "nautilus", "happy_ghast", "copper_golem", "creaking", "warden", "sniffer",
+        "husk", "stray", "bogged", "parched"]
 
 
 # --- Everything else ----------------------------------------------------------------

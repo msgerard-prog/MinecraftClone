@@ -470,7 +470,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
-        if (m.type == MobType::Skeleton && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+        if (isSkeleton(m.type) && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0)
             m.goal = m.pos; // (throws from where it stands)
         if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0)
@@ -655,6 +655,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
                 if (m.type == MobType::CaveSpider && ctx.difficulty >= 2)
                     ctx.vitals.addEffect(Effect::Poison, 0, ctx.difficulty == 3 ? 300 : 140);
                 if (m.type == MobType::WitherSkeleton) ctx.vitals.addEffect(Effect::Wither, 0, 200);
+                // (M29.1a; wiki: Husk) a husk's hit starves: Hunger for 7 s (Normal).
+                if (m.type == MobType::Husk) ctx.vitals.addEffect(Effect::Hunger, 0, 140);
             }
             m.attackCooldown = 20;
         }
@@ -665,8 +667,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
     // Water or rain on it puts any burning mob out (wiki: Fire, Rain).
-    const bool undead = isZombie(m.type) || m.type == MobType::Skeleton;
-    if (undead || m.fireTicks > 0) {
+    const bool undead = burnsInDaylight(m.type);
+    if (undead || m.fireTicks > 0 || m.type == MobType::Husk) {
         const BlockPos head{int(std::floor(m.pos.x)),
                             int(std::floor(m.pos.y + mobInfo(m.type).height * 0.85)),
                             int(std::floor(m.pos.z))};
@@ -680,13 +682,14 @@ void Mobs::ai(Context& ctx, MobData& m) {
             c && (blockRegistry().blockOf(hs) == blocks::Water || blockRegistry().waterlogged(hs));
         // A zombie under water turns into a drowned: 30 s submerged, then 15 s of
         // shaking (wiki: Zombie › Drowned conversion; ours counts 45 s in one go).
-        if (m.type == MobType::Zombie) { // (babies too; it keeps the zombie's persistence - review)
+        // A husk does the same and becomes a zombie (wiki: Husk).
+        if (m.type == MobType::Zombie || m.type == MobType::Husk) { // (babies too; it keeps the zombie's persistence - review)
             if (!wet)
                 m.airTicks = 300;
             else if (--m.airTicks <= -600) {
-                m.type = MobType::Drowned;
+                m.type = m.type == MobType::Husk ? MobType::Zombie : MobType::Drowned;
                 m.airTicks = 300;
-                m.health = mobInfo(MobType::Drowned).maxHealth;
+                m.health = mobInfo(m.type).maxHealth;
             }
         }
         if (!wet && ctx.weather && ctx.weather->raining &&
@@ -945,6 +948,7 @@ void Mobs::die(Context& ctx, MobData& m) {
         break;
     case MobType::Zombie:
     case MobType::ZombieVillager:
+    case MobType::Husk: // wiki: Husk - rotten flesh 0-2
         drop("rotten_flesh", 0, 2);
         break;
     case MobType::Drowned: // wiki: Drowned - rotten flesh 0-2, a copper ingot 11%, its trident 8.5%
@@ -1111,8 +1115,18 @@ void Mobs::die(Context& ctx, MobData& m) {
         drop(burning ? "cooked_porkchop" : "porkchop", 1, 3);
         break;              // wiki: Pig
     case MobType::Skeleton: // wiki: Skeleton - bones 0-2, arrows 0-2
+    case MobType::Stray:    // (M29.1a) and its variants, plus 0-1 of their tipped arrow
+    case MobType::Bogged:   // (killed by the player)
+    case MobType::Parched:
         drop("bone", 0, 2);
         drop("arrow", 0, 2);
+        if (m.type != MobType::Skeleton && m.lastHurtByPlayer && ctx.rng.nextInt(2) == 0) {
+            ItemStack tipped{*items.find("tipped_arrow"), 1};
+            tipped.potion = uint8_t(m.type == MobType::Stray    ? Potion::Slowness
+                                    : m.type == MobType::Bogged ? Potion::Poison
+                                                                : Potion::Weakness);
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), tipped, ctx.rng);
+        }
         break;
     case MobType::Creeper: // wiki: Creeper - gunpowder 0-2; killed by a skeleton's arrow, a music
                            // disc
@@ -1592,6 +1606,22 @@ void Mobs::spawnHostiles(Context& ctx) {
         MobData mob = make(kind, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
         // 5% of zombies come as zombie villagers (wiki: Zombie Villager › Spawning).
         if (kind == MobType::Zombie && ctx.rng.nextInt(20) == 0) mob.type = MobType::ZombieVillager;
+        // Biome variants (M29.1a; wiki: Husk, Stray, Bogged, Parched): under the open sky
+        // 80% of desert zombies are husks and 80% of snowy skeletons strays; half the
+        // desert skeletons are parched and half the swamp skeletons bogged.
+        if (c->biomes() && (kind == MobType::Zombie || kind == MobType::Skeleton) && mob.type == kind) {
+            const Biome b = c->biomes()->at(lx, y, lz, ctx.world.height());
+            const bool open = c->skyLight(lx, y, lz) >= 15;
+            const bool snowy = b == Biome::SnowyPlains || b == Biome::IceSpikes || b == Biome::FrozenRiver ||
+                               b == Biome::FrozenOcean || b == Biome::DeepFrozenOcean;
+            const uint32_t v = ctx.rng.nextInt(10);
+            if (kind == MobType::Zombie && b == Biome::Desert && open && v < 8) mob.type = MobType::Husk;
+            if (kind == MobType::Skeleton && snowy && open && v < 8) mob.type = MobType::Stray;
+            if (kind == MobType::Skeleton && b == Biome::Desert && v < 5) mob.type = MobType::Parched;
+            if (kind == MobType::Skeleton && (b == Biome::Swamp || b == Biome::MangroveSwamp) && v < 5)
+                mob.type = MobType::Bogged;
+            if (mob.type != kind) mob.health = mobInfo(mob.type).maxHealth;
+        }
         if (add(ctx.world, mob)) ++m_hostiles;
     }
 }

@@ -796,6 +796,10 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Pig: return kPig;
     case world::MobType::Chicken: return kChicken;
     case world::MobType::Skeleton: return kSkeleton;
+    case world::MobType::Stray:
+    case world::MobType::Bogged:
+    case world::MobType::Parched: return kSkeleton; // (M29.1a: their own skins)
+    case world::MobType::Husk: return kZombie;
     case world::MobType::Creeper: return kCreeper;
     case world::MobType::Spider: return kSpider;
     case world::MobType::Enderman: return kEnderman;

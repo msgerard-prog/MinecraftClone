@@ -71,6 +71,11 @@ struct Projectile {
     uint64_t owner =
         0; // the mob it can't hit (high UUID half): its shooter, or the last one it pierced
     uint64_t shooter = 0; // who shot it (kept when Piercing moves `owner` on)
+    // (M29.1a) a stray's, bogged's or parched's arrow: its effect and ticks on the player hit
+    struct HitEffect {
+        world::Effect effect = world::Effect::None;
+        int ticks = 0;
+    } hitEffect;
     bool critical = false;
     bool skeleton =
         false; // shot by a skeleton (creepers it kills drop a music disc; pillagers' bolts don't)

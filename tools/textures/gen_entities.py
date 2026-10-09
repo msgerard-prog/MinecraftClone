@@ -53,12 +53,13 @@ def paint(img, region, pal, rng, noise=0.35):
             img.set(x0 + x, y0 + y, pal[i])
 
 
-def zombie():
-    rng = random.Random("zombie")
+def zombie(name="zombie", skin_c="#5A8C3C", shirt_c="#2E8C8C", pants_c="#4A3C8C"):
+    # (M29.1a: husks are the same in desert colours)
+    rng = random.Random(name)
     img = Img(64, 64, CLEAR)
-    skin = ramp(hexc("#5A8C3C"), 5, spread=0.25)
-    shirt = ramp(hexc("#2E8C8C"), 5, spread=0.25)
-    pants = ramp(hexc("#4A3C8C"), 5, spread=0.25)
+    skin = ramp(hexc(skin_c), 5, spread=0.25)
+    shirt = ramp(hexc(shirt_c), 5, spread=0.25)
+    pants = ramp(hexc(pants_c), 5, spread=0.25)
     for name, f in box_faces(0, 0, 8, 8, 8).items():
         paint(img, f, skin, rng)
     # Face: dark eye sockets, a mouth.
@@ -1264,6 +1265,11 @@ def main():
               # M26.4a monsters
               "cave_spider": spider("cave_spider", "#1E3A44"),
               "wither_skeleton": skeleton("wither_skeleton", "#3A3A3C"),
+              # M29.1a variants: a sun-dried husk, a frosty stray, a mossy bogged, a sandy parched
+              "husk": zombie("husk", "#A89A6A", "#8A7448", "#5E5236"),
+              "stray": skeleton("stray", "#B4C4CA"),
+              "bogged": skeleton("bogged", "#8E9C6A"),
+              "parched": skeleton("parched", "#D6BE8E"),
               "silverfish": pet("silverfish", [(0, 0, 4, 3, 8), (24, 0, 3, 2, 2), (24, 4, 2, 2, 3)], (24, 0, 3, 2, 2), None,
                                 base="#9A9AA0", stripes=True),
               "happy_ghast": pet("happy_ghast", [(0, 0, 16, 16, 16), (0, 32, 2, 9, 2)], (0, 0, 16, 16, 16), None,
