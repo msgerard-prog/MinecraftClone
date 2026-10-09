@@ -172,6 +172,9 @@ public:
     // A projectile hit a target block (M29.5; wiki: Target): `strength` 1..15 for `ticks`
     // (arrows 20, others 8); a target still lit from a hit ignores new ones.
     void hitTarget(const BlockPos& p, int strength, int ticks);
+    // A trapped chest's screen opened or closed (M29.5; wiki: Trapped Chest): while open
+    // it (and its other half) gives power 1 per viewer - ours: the player - strongly down.
+    void setChestOpen(const BlockPos& p, bool opened);
     // (M29.5; wiki: Daylight Detector) its power from the sky light at `p` and the sun.
     int daylightPower(const BlockPos& p, bool invertedMode) const;
     // The target's strength for a hit at `point` on `face`: 15 at the face's centre, less
@@ -469,6 +472,7 @@ private:
         int count;    // entities on it during that tick
     };
     std::vector<Plate> m_plates;
+    std::vector<BlockPos> m_openChests; // (M29.5) trapped chests being looked into
     std::vector<BlockPos> m_tntPrimed;
     std::vector<BlockPos> m_dispensed;
     std::vector<Moving> m_moving;

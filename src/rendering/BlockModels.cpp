@@ -1040,7 +1040,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 // The top turns with the bed so the pillow lies at the head's far end.
                 const auto f = registry.value(state, "facing").value_or("north");
                 b.faces[int(Direction::Up)].rotation = f == "east" ? 1 : f == "south" ? 2 : f == "west" ? 3 : 0;
-            } else if (name == "chest" || name == "ender_chest" || name.ends_with("copper_chest")) {
+            } else if (name == "chest" || name == "trapped_chest" || name == "ender_chest" || name.ends_with("copper_chest")) {
                 // A 14/16 box (vanilla's chest model), front toward `facing`; the halves
                 // of a double chest reach across to their partner (type left: the
                 // partner is counter-clockwise of facing, right: clockwise).

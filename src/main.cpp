@@ -1158,6 +1158,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     int64_t scriptedUseAt = (level ? level->gameTime : 0) + 5;
     bool mountPending = opts->mount;
     std::optional<mc::world::BlockPos> openBarrel; // the barrel drawn open (its screen is up)
+    std::optional<mc::world::BlockPos> openTrapped; // (M29.5) the trapped chest giving power
     glm::vec3 netherFog(0x33 / 255.0f, 0x08 / 255.0f, 0x08 / 255.0f); // (eased toward the biome's)
     // The rain/snow columns around the camera (ground, kind, light), refilled once a
     // tick or when the camera's block changes - not every frame.
@@ -4688,6 +4689,18 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     world.setBlock(containerBlock, reg.with(st, "open", "true").value_or(st));
                     frameEdits.push_back(containerBlock);
                     openBarrel = containerBlock;
+                }
+            }
+            { // A trapped chest powers while its screen is up (M29.5).
+                const bool viewing = container.isOpen() && container.type() == mc::ui::ContainerScreen::Type::Chest &&
+                                     reg.blockOf(world.getBlock(containerBlock)) == mc::world::blocks::TrappedChest;
+                if (openTrapped && (!viewing || *openTrapped != containerBlock)) {
+                    blockUpdates.setChestOpen(*openTrapped, false);
+                    openTrapped.reset();
+                }
+                if (viewing && !openTrapped) {
+                    blockUpdates.setChestOpen(containerBlock, true);
+                    openTrapped = containerBlock;
                 }
             }
             renderer.tick();

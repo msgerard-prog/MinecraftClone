@@ -212,3 +212,35 @@ TEST_CASE("M29.5: a daylight detector reads the sky - full at noon, none at nigh
     CHECK(r.value(w.getBlock({4, 64, 5}), "north") == "side");
     CHECK(r.value(w.getBlock({4, 64, 6}), "lit") == "true");
 }
+
+TEST_CASE("M29.5: trapped chests pair only with trapped chests and power a lamp while open") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    for (int x = 2; x <= 8; ++x)
+        for (int z = 2; z <= 8; ++z) w.setBlock({x, 63, z}, r.defaultState(blocks::Stone));
+    auto place = [&](BlockId b, BlockPos p) {
+        const auto s = BlockUpdates::placement(w, r.defaultState(b), p, Direction::Up, 0, 0); // looking south
+        REQUIRE(s);
+        w.updateBlock(p, *s);
+    };
+    place(blocks::TrappedChest, {4, 64, 4});
+    place(blocks::TrappedChest, {5, 64, 4});
+    CHECK(BlockUpdates::chestPartner(w, {4, 64, 4}) == std::optional<BlockPos>(BlockPos{5, 64, 4}));
+    place(blocks::Chest, {3, 64, 4}); // a plain chest beside stays single
+    CHECK_FALSE(BlockUpdates::chestPartner(w, {3, 64, 4}));
+    CHECK(w.chunk({0, 0})->chest(4, 64, 4) != nullptr); // (it holds items like a chest)
+    w.updateBlock({4, 64, 5}, r.defaultState(blocks::RedstoneLamp));
+    CHECK(r.value(w.getBlock({4, 64, 5}), "lit") == "false");
+    u.setChestOpen({5, 64, 4}, true); // opening either half powers both
+    CHECK(r.value(w.getBlock({4, 64, 5}), "lit") == "true");
+    u.setChestOpen({5, 64, 4}, false);
+    int64_t t = 0;
+    for (int i = 0; i < 6; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.value(w.getBlock({4, 64, 5}), "lit") == "false");
+}

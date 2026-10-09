@@ -584,6 +584,7 @@ enum : BlockId {
     Tripwire,     // string between two hooks (attached, disarmed, east..west, powered)
     TripwireHook, // on a wall, facing out (attached, powered)
     DaylightDetector, // inverted, power 0..15 from the sky
+    TrappedChest,     // like the chest; powers while open
     Count
 };
 } // namespace blocks

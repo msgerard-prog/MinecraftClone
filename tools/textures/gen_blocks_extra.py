@@ -33,13 +33,16 @@ def planks(rng, img, pal, lid_line=None):
             img.set(x, lid_line, hexc("#3A2410"))
 
 
-def chest(face):
+def chest(face, trapped=False):
     rng = random.Random("chest_" + face)
     img = Img(16, 16, (0, 0, 0, 255))
     pal = ramp(hexc("#A26A2E"), 5, spread=0.3)
     planks(rng, img, pal, lid_line=None if face == "top" else 5)
-    if face == "front":  # the latch
-        iron = ramp(hexc("#C8C8C8"), 5, spread=0.3)
+    if trapped and face != "top":  # (M29.5) a trapped chest: a red line under the lid
+        for x in range(16):
+            img.set(x, 6, hexc("#9A2018"))
+    if face == "front":  # the latch (red on a trapped chest)
+        iron = ramp(hexc("#C83030" if trapped else "#C8C8C8"), 5, spread=0.3)
         for y in range(4, 8):
             for x in range(7, 9):
                 img.set(x, y, iron[2] if y < 7 else iron[1])
@@ -122,6 +125,7 @@ def experience_orb():
 def main():
     for face in ("top", "side", "front"):
         (OUT / f"chest_{face}.png").write_bytes(encode_png(chest(face)))
+        (OUT / f"trapped_chest_{face}.png").write_bytes(encode_png(chest(face, trapped=True)))
     for face in ("top", "side", "front"):
         (OUT / f"ender_chest_{face}.png").write_bytes(encode_png(ender_chest(face)))
     for face in ("head_top", "foot_top", "side", "end"):

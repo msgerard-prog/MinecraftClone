@@ -68,6 +68,9 @@ int wireSide(BlockStateId s, Direction d) { return R().get(s, wireProp(d)); }
 bool isPiston(BlockId b) { return b == B::Piston || b == B::StickyPiston; }
 bool isButton(BlockId b) { return b == B::StoneButton || b == B::OakButton; }
 bool isTorch(BlockId b) { return b == B::RedstoneTorch || b == B::RedstoneWallTorch; }
+// Two chests that can be one double chest: both plain or both trapped (M29.5).
+bool pairableChests(BlockId a, BlockId b) { return a == b && (a == B::Chest || a == B::TrappedChest); }
+
 // Blocks that give power themselves (vanilla isSignalSource).
 bool signalSource(BlockId b) {
     return b == B::RedstoneWire || isTorch(b) || b == B::Repeater || b == B::Lever || isButton(b) ||
@@ -75,7 +78,7 @@ bool signalSource(BlockId b) {
            // (M29.5) plates, detector rails, sensors, daylight detectors, targets, hooks
            b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
            b == B::HeavyWeightedPressurePlate || b == B::DetectorRail || b == B::SculkSensor ||
-           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook;
+           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook || b == B::TrappedChest;
 }
 
 // Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
@@ -371,8 +374,28 @@ int BlockUpdates::targetStrength(const glm::dvec3& point, Direction side) {
     return std::max(1, int(std::ceil(15.0 * std::clamp((0.5 - d) / 0.5, 0.0, 1.0))));
 }
 
+void BlockUpdates::setChestOpen(const BlockPos& p, bool opened) {
+    std::array<BlockPos, 2> halves{p, p};
+    int n = 1;
+    if (const auto other = chestPartner(m_world, p)) halves[size_t(n++)] = *other;
+    for (int i = 0; i < n; ++i) {
+        const BlockPos& h = halves[size_t(i)];
+        const auto it = std::find(m_openChests.begin(), m_openChests.end(), h);
+        if (opened == (it != m_openChests.end())) continue;
+        if (opened) {
+            if (m_openChests.size() < 16) m_openChests.push_back(h);
+        } else {
+            m_openChests.erase(it);
+        }
+        notifyNeighbours(h);
+        notifyNeighbours(rel(h, Direction::Down)); // (strong power through the block below)
+    }
+}
+
 int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
     const BlockStateId s = at(q);
+    if (R().blockOf(s) == B::TrappedChest) // (M29.5) one viewer: power 1
+        return std::find(m_openChests.begin(), m_openChests.end(), q) != m_openChests.end() ? 1 : 0;
     if (blockOf(s) == B::Jukebox) return jukeboxPower(q);
     if (blockOf(s) != B::Comparator) return weak(s, toward);
     // Out of its front only, at the strength it keeps (wiki: Redstone Comparator).
@@ -383,6 +406,7 @@ int BlockUpdates::weakAt(const BlockPos& q, Direction toward) const {
 }
 
 int BlockUpdates::strongAt(const BlockPos& q, Direction toward) const {
+    if (R().blockOf(at(q)) == B::TrappedChest) return toward == Direction::Down ? weakAt(q, toward) : 0; // (M29.5)
     if (blockOf(at(q)) == B::Jukebox) return jukeboxPower(q);
     const BlockStateId s = at(q);
     return blockOf(s) == B::Comparator ? weakAt(q, toward) : strong(s, toward);
@@ -545,12 +569,13 @@ Direction BlockUpdates::chestClockwise(Direction f) {
 
 std::optional<BlockPos> BlockUpdates::chestPartner(const World& world, const BlockPos& p) {
     const BlockStateId s = world.getBlock(p);
-    if (R().blockOf(s) != B::Chest) return std::nullopt; // (copper chests stay single: M26.5b)
+    // (copper chests stay single: M26.5b; trapped chests pair with trapped chests: M29.5)
+    if (R().blockOf(s) != B::Chest && R().blockOf(s) != B::TrappedChest) return std::nullopt;
     const int t = R().get(s, chestType);
     if (t == 0) return std::nullopt;
     const Direction cw = chestClockwise(hFacing(s));
     const BlockPos q = rel(p, t == 2 ? cw : opposite(cw));
-    if (R().blockOf(world.getBlock(q)) != B::Chest) return std::nullopt;
+    if (R().blockOf(world.getBlock(q)) != R().blockOf(s)) return std::nullopt;
     return q;
 }
 
@@ -1402,7 +1427,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         for (const auto& [side, myType] : {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) {
             const BlockPos q = rel(p, side);
             const BlockStateId n = at(q);
-            if (R().blockOf(n) == B::Chest && R().blockOf(s) == B::Chest && hFacing(n) == f) {
+            if (pairableChests(R().blockOf(n), R().blockOf(s)) && hFacing(n) == f) {
                 const auto back = partnerOf(n, q);
                 if (back && *back == p) want = myType;
             }
@@ -2640,7 +2665,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         for (const auto& [side, myType] :
              {std::pair{cw, 2}, std::pair{opposite(cw), 1}}) { // right, left
             const BlockStateId n = world.getBlock(rel(at, side));
-            if (R().blockOf(n) == B::Chest && R().blockOf(state) == B::Chest && r.get(n, chestType) == 0 &&
+            if (pairableChests(R().blockOf(n), R().blockOf(state)) && r.get(n, chestType) == 0 &&
                 hFacing(n) == opposite(look))
                 return r.set(s, chestType, myType);
         }

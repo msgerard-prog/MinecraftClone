@@ -1407,6 +1407,11 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("daylight_detector", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .tool = HarvestTool::Axe},
                 {{&inverted, "false"}, {&power, "0"}}),
           blocks::DaylightDetector);
+    // (M29.5; wiki: Trapped Chest - a chest that gives power while open)
+    check(r.add("trapped_chest", {.hardness = 2.5f, .resistance = 2.5f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                  .tool = HarvestTool::Axe, .like = blocks::Chest},
+                {{&facing, "north"}, {&chestType, "single"}}),
+          blocks::TrappedChest);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
