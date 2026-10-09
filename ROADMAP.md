@@ -19,11 +19,12 @@ functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data
    jockeys, zombie nautilus jockeys; c) bat, endermite, mooshroom, snow golem, piglin
    brute, zoglin, illusioner; d) 1.21.5 cow/pig/chicken variants (blue/brown eggs);
    e) spawn eggs for every mob; f) held items drawn.
-2. M29.2 - Effects, potions, enchantments: absorption, saturation, health boost,
+2. ✅ M29.2 - Effects, potions, enchantments (c: lasting effects on mobs, Glowing): absorption, saturation, health boost,
    blindness, nausea, luck/unluck, wind charged, weaving, oozing, infested; turtle master,
    slow falling, luck and the 1.21 potions; mending, frost walker, depth strider, soul
    speed, sweeping edge, the curses.
-3. M29.3 - Items: bundles, spyglass, name tags, chainmail, stews and foods, carrot/fungus
+3. ✅ M29.3 - Items (b: names, anvil renaming, tooltips; the seeds, cocoa beans and powder
+   snow bucket come with their blocks in M29.4): bundles, spyglass, name tags, chainmail, stews and foods, carrot/fungus
    on a stick, minecart variants, copper/netherite horse armor, nautilus armor, the six
    missing discs, bottles o' enchanting, powder snow buckets.
 4. M29.4 - Blocks 1: the missing flowers and pots, melons and stems, cocoa, lily pads,
