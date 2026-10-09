@@ -4,6 +4,7 @@
 
 #include "core/Log.h"
 #include "world/Blocks.h"
+#include "world/DayTime.h"
 #include "world/ItemContainers.h"
 #include "world/ItemExtras.h"
 #include "world/Rotation.h"
@@ -70,7 +71,11 @@ bool isTorch(BlockId b) { return b == B::RedstoneTorch || b == B::RedstoneWallTo
 // Blocks that give power themselves (vanilla isSignalSource).
 bool signalSource(BlockId b) {
     return b == B::RedstoneWire || isTorch(b) || b == B::Repeater || b == B::Lever || isButton(b) ||
-           b == B::RedstoneBlock || b == B::Comparator;
+           b == B::RedstoneBlock || b == B::Comparator ||
+           // (M29.5) plates, detector rails, sensors, daylight detectors, targets, hooks
+           b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
+           b == B::HeavyWeightedPressurePlate || b == B::DetectorRail || b == B::SculkSensor ||
+           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook;
 }
 
 // Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
@@ -277,6 +282,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return R().get(s, power);
     case B::TripwireHook: // (M29.5) while its line is tripped
         return flag(s, powered) ? 15 : 0;
+    case B::DaylightDetector: // (M29.5) every side
+        return R().get(s, power);
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -334,6 +341,19 @@ void BlockUpdates::jukeboxChanged(const BlockPos& p) {
     for (const Direction d : {Direction::West, Direction::East, Direction::Down, Direction::Up, Direction::North,
                               Direction::South})
         notifyNeighbours(rel(p, d)); // (strong power: what conducts it tells its neighbours)
+}
+
+int BlockUpdates::daylightPower(const BlockPos& p, bool invertedMode) const {
+    // Vanilla: sky light minus the sky darkening; inverted 15 - that; else scaled by the
+    // cosine of the sun's angle pulled 20% toward noon, rounded.
+    const Chunk* c = chunkAt(p);
+    if (!c || !c->lit() || !m_world.isInHeight(p.y)) return 0;
+    int sky = c->skyLight(blockToLocal(p.x), p.y, blockToLocal(p.z)) - m_skyDarken;
+    if (invertedMode) return std::clamp(15 - sky, 0, 15);
+    if (sky <= 0) return 0;
+    double angle = celestialAngle(m_dayTime) * 2.0 * std::numbers::pi;
+    angle += ((angle < std::numbers::pi ? 0.0 : 2.0 * std::numbers::pi) - angle) * 0.2;
+    return std::clamp(int(std::lround(sky * std::cos(angle))), 0, 15);
 }
 
 void BlockUpdates::hitTarget(const BlockPos& p, int strength, int ticks) {
@@ -957,6 +977,9 @@ BlockId BlockUpdates::infestedOf(BlockId b) {
 void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
     // An infested block that broke lets its silverfish out (M26.4a; wiki: Infested Block).
     if (isInfested(blockOf(old)) && !isInfested(blockOf(now)) && m_silverfish.size() < 256) m_silverfish.push_back(p);
+    // (M29.5) a daylight detector reads the sky once a second (vanilla: game time % 20)
+    if (blockOf(now) == B::DaylightDetector && blockOf(old) != B::DaylightDetector && !hasTick(p, B::DaylightDetector))
+        schedule(p, B::DaylightDetector, 1, 0);
     // (M29.4c; wiki: Soul Fire) fire on soul sand or soul soil burns as soul fire.
     if (blockOf(now) == B::Fire) {
         const BlockId below = blockOf(at(rel(p, Direction::Down)));
@@ -1819,6 +1842,14 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::Target: // (M29.5) the hit wears off
         if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
         break;
+    case B::DaylightDetector: { // (M29.5)
+        if (m_world.hasSkyLight()) {
+            const int want = daylightPower(p, flag(s, inverted));
+            if (want != R().get(s, power)) set(p, R().set(s, power, want));
+        }
+        schedule(p, B::DaylightDetector, 20, 0);
+        break;
+    }
     case B::StoneButton:
     case B::OakButton:
         if (flag(s, powered)) set(p, withFlag(s, powered, false));
@@ -1913,8 +1944,9 @@ BlockStateId BlockUpdates::wireShape(const BlockPos& p, BlockStateId s) const {
             const BlockId nb = blockOf(ns);
             const bool connects =
                 nb == B::RedstoneWire ||
-                (nb == B::Repeater ? (hFacing(ns) == d || hFacing(ns) == opposite(d))
-                                   : signalSource(nb));
+                (nb == B::Repeater   ? (hFacing(ns) == d || hFacing(ns) == opposite(d))
+                 : nb == B::Observer ? facing6Of(ns) == d // (M29.5) its back, the output, toward the dust
+                                     : signalSource(nb));
             if (connects ||
                 (!conductor(ns) && blockOf(at(rel(n, Direction::Down))) == B::RedstoneWire))
                 side = kSide;
@@ -2237,6 +2269,12 @@ bool BlockUpdates::use(const BlockPos& p) {
         setRaw(p, R().set(s, note, (R().get(s, note) + 1) % 25));
         playNote(p);
         return true;
+    case B::DaylightDetector: { // (M29.5) inverted and back
+        const BlockStateId now = withFlag(s, inverted, !flag(s, inverted));
+        set(p, m_world.hasSkyLight() ? R().set(now, power, daylightPower(p, flag(now, inverted))) : now);
+        m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 0.3f, 1.0f);
+        return true;
+    }
     case B::Lever:
         // Vanilla: pitch 0.6 switching on, 0.5 off.
         m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, flag(s, powered) ? 0.5f / 0.6f : 1.0f);

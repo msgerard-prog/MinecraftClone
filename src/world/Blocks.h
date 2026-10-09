@@ -75,6 +75,7 @@ extern const Property age1;           // "age": 0..1 (M27.5c: torchflower crops)
 extern const Property age4;           // "age": 0..4 (pitcher crops)
 extern const Property age2;           // "age": 0..2 (M29.4b: cocoa)
 extern const Property disarmed;       // true | false (M29.5: tripwire cut with shears)
+extern const Property inverted;       // true | false (M29.5: daylight detectors)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -582,6 +583,7 @@ enum : BlockId {
     Target, // power 0..15 while hit by a projectile
     Tripwire,     // string between two hooks (attached, disarmed, east..west, powered)
     TripwireHook, // on a wall, facing out (attached, powered)
+    DaylightDetector, // inverted, power 0..15 from the sky
     Count
 };
 } // namespace blocks

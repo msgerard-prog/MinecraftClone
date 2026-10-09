@@ -113,6 +113,7 @@ const Property age1{"age", {"0", "1"}};
 const Property age4{"age", {"0", "1", "2", "3", "4"}};
 const Property age2{"age", {"0", "1", "2"}};
 const Property disarmed{"disarmed", {"true", "false"}};
+const Property inverted{"inverted", {"true", "false"}};
 const Property candles{"candles", {"1", "2", "3", "4"}};
 const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
 const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
@@ -1402,6 +1403,10 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("tripwire_hook", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
                 {{&attached, "false"}, {&facing, "north"}, {&powered, "false"}}),
           blocks::TripwireHook);
+    // (M29.5; wiki: Daylight Detector - 0.2, axe, a 6/16 slab)
+    check(r.add("daylight_detector", {.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false, .tool = HarvestTool::Axe},
+                {{&inverted, "false"}, {&power, "0"}}),
+          blocks::DaylightDetector);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

@@ -371,6 +371,12 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
         else if (fc == "south") addBox(m, 7, 2, 0, 9, 12, 2, sp), addBox(m, 7, 6, 2, 9, 8, 6, ring);
         else if (fc == "west") addBox(m, 14, 2, 7, 16, 12, 9, sp), addBox(m, 10, 6, 7, 14, 8, 9, ring);
         else addBox(m, 0, 2, 7, 2, 12, 9, sp), addBox(m, 2, 6, 7, 6, 8, 9, ring);
+    } else if (name == "daylight_detector") { // (M29.5) a 6/16 slab, glass on top
+        m.visible = true;
+        addBox(m, 0, 0, 0, 16, 6, 16, sprite("daylight_detector_side"));
+        m.boxes[0].faces[int(Direction::Up)].sprite =
+            sprite(registry.value(state, "inverted") == "true" ? "daylight_detector_inverted_top" : "daylight_detector_top");
+        m.boxes[0].faces[int(Direction::Up)].uv[1] = 0, m.boxes[0].faces[int(Direction::Up)].uv[3] = 16;
     } else if (name == "target") { // (M29.5) cube_column
         m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
     } else if (name == "melon") { // vanilla: cube_column

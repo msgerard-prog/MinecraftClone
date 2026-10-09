@@ -173,3 +173,42 @@ TEST_CASE("M29.5: two hooks with tripwire between attach; something in the wire 
     CHECK(r.value(w.getBlock({3, 64, 4}), "attached") == "false");
     CHECK(r.value(w.getBlock({4, 64, 4}), "attached") == "false");
 }
+
+TEST_CASE("M29.5: a daylight detector reads the sky - full at noon, none at night; inverted the other way") {
+    const auto& r = blockRegistry();
+    World w;
+    Chunk& c = w.createChunk({0, 0});
+    auto l = std::make_shared<SectionLight>();
+    l->sky.fill(15);
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+    light.fill(l);
+    c.setLight(light);
+    BlockUpdates u(w);
+    w.setListener(&u);
+    u.setDayTime(6000); // noon
+    u.setSkyDarken(0);
+    CHECK(u.daylightPower({4, 64, 4}, false) == 15);
+    CHECK(u.daylightPower({4, 64, 4}, true) == 0);
+    u.setDayTime(18000); // midnight: the sky is 11 levels darker
+    u.setSkyDarken(11);
+    CHECK(u.daylightPower({4, 64, 4}, false) == 0);
+    CHECK(u.daylightPower({4, 64, 4}, true) == 11);
+    // Placed, it updates on its own tick; using it inverts it.
+    int64_t t = 0;
+    u.setTime(t);
+    w.updateBlock({4, 64, 4}, r.defaultState(blocks::DaylightDetector));
+    for (int i = 0; i < 3; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.get(w.getBlock({4, 64, 4}), properties::power) == 0);
+    CHECK(u.use({4, 64, 4}));
+    CHECK(r.get(w.getBlock({4, 64, 4}), properties::power) == 11);
+    // Dust joins it (regression: dust ignored detectors, plates, targets) and lights a lamp.
+    for (int x = 3; x <= 6; ++x)
+        for (int z = 3; z <= 7; ++z) w.setBlock({x, 63, z}, r.defaultState(blocks::Stone));
+    w.updateBlock({4, 64, 5}, r.defaultState(blocks::RedstoneWire));
+    w.updateBlock({4, 64, 6}, r.defaultState(blocks::RedstoneLamp));
+    CHECK(r.value(w.getBlock({4, 64, 5}), "north") == "side");
+    CHECK(r.value(w.getBlock({4, 64, 6}), "lit") == "true");
+}

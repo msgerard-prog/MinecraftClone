@@ -172,6 +172,8 @@ public:
     // A projectile hit a target block (M29.5; wiki: Target): `strength` 1..15 for `ticks`
     // (arrows 20, others 8); a target still lit from a hit ignores new ones.
     void hitTarget(const BlockPos& p, int strength, int ticks);
+    // (M29.5; wiki: Daylight Detector) its power from the sky light at `p` and the sun.
+    int daylightPower(const BlockPos& p, bool invertedMode) const;
     // The target's strength for a hit at `point` on `face`: 15 at the face's centre, less
     // toward its edge, at least 1.
     static int targetStrength(const glm::dvec3& point, Direction side);

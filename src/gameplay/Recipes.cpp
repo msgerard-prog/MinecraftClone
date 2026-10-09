@@ -94,6 +94,8 @@ std::vector<Recipe> build() {
                {{'I', item("iron_ingot")}, {'F', item("furnace")}, {'S', item("smooth_stone")}},
                "blast_furnace"));
     r.push_back(shaped({"PSP", "P.P", "PSP"}, {{'P', kPlanks}, {'S', kWoodenSlab}}, "barrel"));
+    r.push_back(shaped({"GGG", "QQQ", "SSS"}, {{'G', item("glass")}, {'Q', item("quartz")}, {'S', kWoodenSlab}},
+                       "daylight_detector")); // (M29.5)
     r.push_back(
         shaped({"S.S", "S.S", "SSS"}, {{'S', kWoodenSlab}}, "composter")); // wiki: Composter
     r.push_back(
