@@ -632,6 +632,8 @@ enum : BlockId {
     PetrifiedOakSlab,      // an oak slab that is stone to tools
     TestBlock,             // mode (start, log, fail, accept) - 1.21.5 game tests
     TestInstanceBlock,
+    // M33.1 - 26.1 "Tiny Takeover" (wiki: Golden Dandelion)
+    GoldenDandelion,
     Count
 };
 } // namespace blocks

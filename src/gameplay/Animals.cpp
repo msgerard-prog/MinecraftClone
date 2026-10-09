@@ -96,6 +96,13 @@ bool Mobs::isFood(MobType type, ItemId item) {
 
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
+    // (M33.1; wiki: Golden Dandelion, 26.1) used on a baby it stops it growing up; used again,
+    // it grows on. One is used up each time.
+    static const ItemId golden = itemRegistry().blockItem(blocks::GoldenDandelion);
+    if (held != kNoItem && held == golden && m.isBaby() && !isHanging(m.type) && m.type != MobType::ArmorStand) {
+        m.ageLocked = !m.ageLocked;
+        return Use::Fed;
+    }
     // (M32.6; wiki: Creeper) flint and steel or a fire charge lights a creeper's fuse.
     static const ItemId flint = itemOr0("flint_and_steel"), fireCharge = itemOr0("fire_charge");
     if (m.type == MobType::Creeper && held != kNoItem && (held == flint || held == fireCharge) && !m.ignited) {
@@ -206,7 +213,7 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
     }
     if (!isFood(m.type, held)) return Use::None;
     if (m.isBaby()) { // feeding a baby speeds its growth by 10% of the time left
-        m.age += -m.age / 10;
+        if (!m.ageLocked) m.age += -m.age / 10;
         return Use::Fed;
     }
     if (m.age == 0 && m.loveTicks == 0) {
@@ -261,8 +268,10 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
         static const ItemId scute = itemId("turtle_scute");
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {scute, 1}, ctx.rng);
     }
-    if (m.age < 0)
-        ++m.age; // babies grow up in 20 minutes
+    // Babies grow up in 20 minutes - not while a golden dandelion holds them, nor baby
+    // skeleton and zombie horses (M33.1; 26.1).
+    if (m.age < 0 && !m.ageLocked && m.type != MobType::SkeletonHorse && m.type != MobType::ZombieHorse)
+        ++m.age;
     else if (m.age > 0)
         --m.age; // breeding cooldown (5 minutes)
     if (m.loveTicks > 0) --m.loveTicks;

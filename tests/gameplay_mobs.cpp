@@ -2827,3 +2827,53 @@ TEST_CASE("M32.6: a zombie forgets a player out of sight for 3 s; a hit wolf's p
     for (MobData* m : w.all()) angry += m->angry;
     CHECK(angry == 2);
 }
+
+#include "gameplay/Recipes.h"
+
+TEST_CASE("M33.1 (26.1): a golden dandelion stops a baby growing up and lets it grow on; name tags craft") {
+    const auto& it = itemRegistry();
+    const ItemId golden = it.blockItem(blocks::GoldenDandelion);
+    REQUIRE(golden != kNoItem);
+    // Its recipe: a dandelion in eight gold nuggets.
+    std::array<ItemStack, 9> grid{};
+    for (auto& g : grid) g = {*it.find("gold_nugget"), 1};
+    grid[4] = {*it.find("dandelion"), 1};
+    const auto made = craft(grid, 3);
+    REQUIRE(made);
+    CHECK(made->item == golden);
+    std::array<ItemStack, 4> small{ItemStack{*it.find("paper"), 1}, ItemStack{*it.find("copper_nugget"), 1}, {}, {}};
+    const auto tag = craft(small, 2);
+    REQUIRE(tag);
+    CHECK(tag->item == *it.find("name_tag"));
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData calf = Mobs::make(MobType::Cow, {3.5, 64.0, 3.5}, s.rng);
+    calf.age = -24000;
+    REQUIRE(Mobs::add(s.world, calf));
+    MobData* c = s.all().at(0);
+    CHECK(Mobs::interact(*c, golden, s.rng, s.items) == Mobs::Use::Fed);
+    CHECK(c->ageLocked);
+    s.run(40);
+    CHECK(c->age == -24000);
+    // Saved with it.
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].ageLocked);
+    CHECK(Mobs::interact(*c, golden, s.rng, s.items) == Mobs::Use::Fed);
+    s.run(40);
+    CHECK(c->age > -24000);
+    // An adult takes no notice; baby skeleton horses never grow, hit horses of the dead don't flee.
+    MobData adult = Mobs::make(MobType::Cow, {6.5, 64.0, 6.5}, s.rng);
+    CHECK(Mobs::interact(adult, golden, s.rng, s.items) == Mobs::Use::None);
+    MobData sh = Mobs::make(MobType::SkeletonHorse, {9.5, 64.0, 9.5}, s.rng);
+    sh.age = -24000;
+    REQUIRE(Mobs::add(s.world, sh));
+    s.run(20);
+    for (MobData* m : s.all())
+        if (m->type == MobType::SkeletonHorse) {
+            CHECK(m->age == -24000);
+            Mobs::attack(*m, 1.0f, s.player.position());
+            CHECK(m->panicTicks == 0);
+        }
+}

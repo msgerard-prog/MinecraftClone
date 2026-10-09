@@ -359,6 +359,12 @@ std::vector<Recipe> build() {
     r.push_back(shaped({"###", "#C#", "###"}, {{'#', item("gold_nugget")}, {'C', item("carrot")}},
                        "golden_carrot"));
     r.push_back(shaped({"##", "##"}, {{'#', item("glowstone_dust")}}, "glowstone"));
+    // 26.1 (M33.1; wiki: Golden Dandelion - a dandelion in gold nuggets; Name Tag - paper and
+    // any nugget).
+    r.push_back(shaped({"###", "#D#", "###"}, {{'#', item("gold_nugget")}, {'D', item("dandelion")}},
+                       "golden_dandelion"));
+    for (const char* nugget : {"iron_nugget", "gold_nugget", "copper_nugget"})
+        r.push_back(shapeless({item("paper"), item(nugget)}, "name_tag"));
     // The End (wiki: End Stone Bricks, Purpur Block, Iron Bars).
     r.push_back(shaped({"##", "##"}, {{'#', item("end_stone")}}, "end_stone_bricks", 4));
     r.push_back(shaped({"##", "##"}, {{'#', item("popped_chorus_fruit")}}, "purpur_block", 4));

@@ -697,7 +697,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             const auto ends = [&](std::string_view s) { return name.ends_with(s); };
             if (bakeLateModel(registry, state, name, atlas, m)) break; // (M29)
             static constexpr std::string_view kPlants[] = {
-                "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
+                "short_grass", "fern", "dandelion", "golden_dandelion", "poppy", "cornflower", "azure_bluet",
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
                 "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",

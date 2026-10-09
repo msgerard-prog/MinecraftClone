@@ -1553,6 +1553,11 @@ BlockRegistry buildVanillaBlocks() {
     }
     check(r.add("test_block", technical, {{&testMode, "start"}}), blocks::TestBlock);
     check(r.add("test_instance_block", technical), blocks::TestInstanceBlock);
+    { // (M33.1; wiki: Golden Dandelion - a flower like the others)
+        BlockSettings golden = kPlant;
+        golden.like = blocks::Poppy;
+        check(r.add("golden_dandelion", golden), blocks::GoldenDandelion);
+    }
     for (int lv = 0; lv < 16; ++lv) // (the light block shines at its level)
         r.setStateEmission(r.set(r.defaultState(blocks::Light), level, lv), uint8_t(lv));
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole

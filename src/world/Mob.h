@@ -515,6 +515,7 @@ struct MobData {
     int16_t daylightWait = 0;   // (M32 review) enderman: ticks before the next daylight teleport
     bool climbing = false;      // spider: against a wall last tick
     bool isBaby() const { return age < 0; }
+    bool ageLocked = false; // (M33.1; 26.1) a golden dandelion stopped it growing up (AgeLocked)
     // AI
     glm::dvec3 goal{0.0}; // wander / chase target
     int goalTicks = 0;    // time spent on the current goal

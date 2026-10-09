@@ -13,7 +13,7 @@ p99 ~1.2 ms, GPU ~0.2-0.4 ms.
 ## Next
 M33 - The 26.x additions (released versions only, from the wiki; 26.4 is still in
 development). Saves stay at DataVersion 4671 until the user decides (Waiting on the user).
-1. M33.1 - 26.1 "Tiny Takeover": golden dandelion (stops a baby growing: AgeLocked), the name
+1. ✅ M33.1 - 26.1 "Tiny Takeover": golden dandelion (stops a baby growing: AgeLocked), the name
    tag recipe, baby skeleton/zombie horses that don't grow up or panic.
 2. M33.2 - 26.2 "Chaos Cubed": cinnabar and sulfur families (stairs, slabs, walls, polished,
    bricks, chiseled), potent sulfur (bubbles, nausea gas, geysers over magma), sulfur spikes,

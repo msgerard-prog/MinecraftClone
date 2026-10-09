@@ -70,7 +70,7 @@ bool Mobs::waterAi(Context& ctx, MobData& m) {
     const double playerDist2 = glm::dot(toPlayer, toPlayer);
     // A tadpole grows into a frog in 20 minutes (M26.3c; wiki: Tadpole): warm where it
     // grows up in a warm biome, cold in a cold one, else temperate.
-    if (m.type == MobType::Tadpole && m.age < 0 && ++m.age >= 0) {
+    if (m.type == MobType::Tadpole && m.age < 0 && !m.ageLocked && ++m.age >= 0) {
         const Chunk* c = ctx.world.chunk(feetCell.chunk());
         const Biome b = c && c->biomes()
                             ? c->biomes()->at(blockToLocal(feetCell.x), feetCell.y,

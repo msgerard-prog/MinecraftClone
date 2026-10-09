@@ -1096,8 +1096,8 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     } else if (isLlama(m.type)) { // llamas spit back (wiki: Llama)
         m.angry = true;
         m.angerTicks = 200;
-    } else if (!mobInfo(m.type).hostile) {
-        m.panicTicks = 100; // passive mobs flee (wiki: Cow)
+    } else if (!mobInfo(m.type).hostile && m.type != MobType::SkeletonHorse && m.type != MobType::ZombieHorse) {
+        m.panicTicks = 100; // passive mobs flee (wiki: Cow; 26.1: not skeleton or zombie horses)
     }
     if (m.type == MobType::Piglin)
         m.admireTicks = 0; // a hit takes the ingot back (wiki: Bartering)

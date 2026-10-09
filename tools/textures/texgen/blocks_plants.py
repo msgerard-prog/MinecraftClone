@@ -36,6 +36,7 @@ FLOWERS = {
     "torchflower": (ramp(hexc("f08a2a"), spread=0.3), hexc("f8d070"), "flame"),
     "closed_eyeblossom": (ramp(hexc("6a6a6e")), hexc("3a3a3e"), "tulip"),
     "open_eyeblossom": (ramp(hexc("e8e8ec"), spread=0.15), hexc("f07820"), "eye"),
+    "golden_dandelion": (ramp(hexc("ffd84a"), spread=0.35), hexc("b87a08"), "round"),  # (26.1)
 }
 for name, (petal, center, shape) in FLOWERS.items():
     stem_pal = ramp(hexc("3a4a3a")) if name == "wither_rose" else STEM
