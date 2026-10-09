@@ -76,8 +76,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Jobs hold `shared_ptr`s to the neighbourhood's sections; sections are
   copy-on-write (`Chunk::mutableSection` copies a section a worker still holds), so
   the main thread keeps editing while jobs run. Each chunk has a version; stale
-  results are dropped. An edit relights the 3x3 chunks around it; sections whose
-  light changed are reported for re-meshing. Three queues: edits, streaming, then
+  results are dropped. An edit whose 3x3 chunks are lit is corrected incrementally (M31.1:
+  `updateLightIncremental`, one job over the 9 chunks; edits wait while one of them has a
+  job running - `Chunk::LightJobState::inFlight`, full jobs wait for an incremental one in
+  `m_retry`, a chunk's `epoch` ignores jobs from an earlier load); otherwise it relights the
+  3x3 chunks from scratch. Sections whose light changed are reported for re-meshing. Three queues: edits, streaming, then
   settling - fluid flow (`BlockUpdates::settling`) is re-meshed at once and relit
   only when nothing streams, so springs in new chunks don't starve their light.
   Scheduled block and fluid ticks run only within the simulation distance (vanilla

@@ -469,3 +469,101 @@ TEST_CASE("M31.1: LightManager corrects an edit incrementally once its 3x3 chunk
                 CHECK(blk(full, x, y, z) == w.chunk({0, 0})->blockLight(x, y, z));
             }
 }
+
+TEST_CASE("M31 review: incremental light - several edits a job, the world's bottom and top, no sky light") {
+    const auto& r = blockRegistry();
+    const BlockStateId stone = r.defaultState(blocks::Stone);
+    const BlockStateId kinds[] = {stone, 0, r.defaultState(blocks::Glowstone), r.defaultState(blocks::Torch),
+                                  r.defaultState(blocks::Glass), r.defaultState(blocks::Water)};
+    for (const bool sky : {true, false}) {
+        World w;
+        w.setHasSkyLight(sky);
+        if (!sky) w.setHeight(kNetherHeight);
+        const int lo = w.height().minY, hi = w.height().maxY();
+        for (int cz = -2; cz <= 2; ++cz)
+            for (int cx = -2; cx <= 2; ++cx) {
+                Chunk& c = w.createChunk({cx, cz});
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x)
+                        for (int y = lo; y <= lo + 12; ++y) c.set(x, y, z, stone); // solid bottom sections
+            }
+        for (int x = 2; x <= 13; ++x)
+            for (int z = 2; z <= 13; ++z) w.setBlock({x, hi - 2, z}, stone); // a roof near the top
+        for (int cz = -1; cz <= 1; ++cz)
+            for (int cx = -1; cx <= 1; ++cx) {
+                ChunkNeighbourhood n;
+                REQUIRE(ChunkNeighbourhood::capture(w, {cx, cz}, n));
+                w.chunk({cx, cz})->setLight(computeChunkLight(n));
+            }
+        Xoroshiro rng(sky ? 11 : 12);
+        for (int step = 0; step < 40; ++step) {
+            IncrementalLightInput in;
+            const int edits = 1 + int(rng.nextInt(4));
+            const bool top = rng.nextInt(2) == 0;
+            const BlockPos base{int(rng.nextInt(14)), top ? hi - 4 + int(rng.nextInt(5)) : lo + int(rng.nextInt(16)),
+                                int(rng.nextInt(14))};
+            for (int e = 0; e < edits; ++e) { // (clustered: neighbours edited together)
+                const BlockPos p{base.x + e % 2, std::clamp(base.y + e / 2, lo, hi), base.z + (e / 2) % 2};
+                w.setBlock(p, kinds[rng.nextInt(6)]);
+                in.edits.push_back(p);
+            }
+            REQUIRE(ChunkNeighbourhood::capture(w, {0, 0}, in.blocks));
+            for (int i = 0; i < 9; ++i) {
+                const Chunk* c = w.chunk({i % 3 - 1, i / 3 - 1});
+                for (int s = 0; s < c->sectionCount(); ++s) in.light[size_t(i)][size_t(s)] = c->light(s);
+            }
+            IncrementalLightOutput out;
+            updateLightIncremental(in, out);
+            for (int i = 0; i < 9; ++i) w.chunk({i % 3 - 1, i / 3 - 1})->setLight(out.light[size_t(i)]);
+            for (int i = 0; i < 9; ++i) {
+                const ChunkPos cp{i % 3 - 1, i / 3 - 1};
+                ChunkNeighbourhood n;
+                REQUIRE(ChunkNeighbourhood::capture(w, cp, n));
+                const ChunkLight full = computeChunkLight(n);
+                const Chunk* c = w.chunk(cp);
+                int bad = 0;
+                for (int s = 0; s < c->sectionCount() && bad == 0; ++s)
+                    for (int k = 0; k < 4096 && bad == 0; ++k)
+                        if (full[size_t(s)]->sky.get(k) != c->light(s)->sky.get(k) ||
+                            full[size_t(s)]->block.get(k) != c->light(s)->block.get(k)) {
+                            ++bad;
+                            MESSAGE("sky " << sky << " step " << step << " chunk " << cp.x << "," << cp.z << " section " << s
+                                           << " cell " << k);
+                        }
+                CHECK(bad == 0);
+            }
+        }
+    }
+}
+
+TEST_CASE("M31 review: an edit comes back within a few updates while a long streaming queue runs") {
+    World w;
+    for (int cz = -6; cz <= 6; ++cz)
+        for (int cx = -6; cx <= 6; ++cx) {
+            Chunk& c = w.createChunk({cx, cz});
+            for (int y = 60; y <= 64; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) c.set(x, y, z, S(blocks::Stone));
+        }
+    LightManager lm(w, 1);
+    LightRun run;
+    // Light the middle 5x5 first, then stream the rest in while editing the middle.
+    std::vector<ChunkPos> middle, rest;
+    w.forEachChunk([&](const Chunk& c) {
+        (std::abs(c.pos().x) <= 2 && std::abs(c.pos().z) <= 2 ? middle : rest).push_back(c.pos());
+    });
+    run.step(lm, middle, {}, {});
+    run.finish(lm);
+    REQUIRE(w.chunk({0, 0})->lit());
+    REQUIRE(w.chunk({1, 1})->lit());
+    run.ready.clear();
+    run.step(lm, rest, {}, {}); // (a long streaming queue)
+    w.setBlock({8, 64, 8}, 0);
+    run.step(lm, {}, {}, {{8, 64, 8}});
+    for (int i = 0; i < 50 && run.ready.empty(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        run.step(lm, {}, {}, {});
+    }
+    CHECK(run.ready.size() == 1);
+    CHECK(w.chunk({0, 0})->skyLight(8, 64, 8) == 15);
+}

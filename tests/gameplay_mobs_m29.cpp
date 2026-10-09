@@ -632,3 +632,14 @@ TEST_CASE("M30 review: a villager staying just past its door still shuts it (the
     CHECK(opened);
     CHECK(shutAgain);
 }
+
+TEST_CASE("M31 review: a wide mob suffocates when its middle is in a block, even with its corners free") {
+    MobScene s;
+    s.survival = false;
+    MobData g = Mobs::make(MobType::IronGolem, {8.5, 64.0, 8.5}, s.rng); // 1.4 wide, 2.7 tall
+    REQUIRE(Mobs::add(s.world, g));
+    s.world.setBlock({8, 66, 8}, blockRegistry().defaultState(blocks::Stone)); // (its eyes' block, corners in 7/9)
+    const float before = findType(s, MobType::IronGolem)->health;
+    s.tick(15);
+    CHECK(findType(s, MobType::IronGolem)->health < before);
+}

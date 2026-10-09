@@ -83,7 +83,6 @@ public:
         m_mobs.clear();
         m_droppedItems.clear();
         m_droppedOrbs.clear();
-        savedDrops = 0;
         savedDropsHash = 0;
         m_blockTicks.clear();
         m_tickSet.clear();
@@ -448,34 +447,33 @@ public:
     const std::vector<DroppedItem>& droppedItems() const { return m_droppedItems; }
     std::vector<DroppedOrb>& droppedOrbs() { return m_droppedOrbs; }
     const std::vector<DroppedOrb>& droppedOrbs() const { return m_droppedOrbs; }
-    // How many items and orbs its last save held: a chunk whose drops are gone since must
-    // be saved again (or they would come back on loading).
-    int savedDrops = 0;
-    // (M31.3) what its last save's drops were (item, count, position to 1/16; not their age):
-    // a chunk is only saved again for its drops when they changed.
+    // (M31.3) what its last save's drops were: a chunk is only saved again for its drops when
+    // they changed - stacks, places to 1/16 block, their age in steps of 1024 ticks (so resting
+    // drops still age and despawn across visits, as vanilla saves their Age).
     uint64_t savedDropsHash = 0;
     uint64_t dropsHash() const {
         if (m_droppedItems.empty() && m_droppedOrbs.empty()) return 0;
-        uint64_t h = 1469598103934665603ull;
-        auto mix = [&](int64_t v) {
-            h ^= uint64_t(v);
-            h *= 1099511628211ull;
+        // Order-independent (a sum of each drop's own mix): parking reorders them.
+        auto mixAll = [](std::initializer_list<int64_t> vs) {
+            uint64_t h = 1469598103934665603ull;
+            for (int64_t v : vs) {
+                h ^= uint64_t(v);
+                h *= 1099511628211ull;
+            }
+            return h;
         };
+        uint64_t sum = 0;
         for (const DroppedItem& d : m_droppedItems) {
-            mix(d.stack.item);
-            mix(d.stack.count);
-            mix(int64_t(d.pos.x * 16.0));
-            mix(int64_t(d.pos.y * 16.0));
-            mix(int64_t(d.pos.z * 16.0));
+            const ItemStack& st = d.stack;
+            uint64_t e = 0;
+            for (uint16_t en : st.enchantments) e = e * 31 + en;
+            sum += mixAll({st.item, st.count, st.damage, st.state, int64_t(e), st.potion, st.contents, st.trim, st.extra,
+                           int64_t(d.pos.x * 16.0), int64_t(d.pos.y * 16.0), int64_t(d.pos.z * 16.0), d.age >> 10});
         }
-        for (const DroppedOrb& o : m_droppedOrbs) {
-            mix(o.value);
-            mix(o.count);
-            mix(int64_t(o.pos.x * 16.0));
-            mix(int64_t(o.pos.y * 16.0));
-            mix(int64_t(o.pos.z * 16.0));
-        }
-        return h | 1; // (never 0: 0 means "no drops")
+        for (const DroppedOrb& o : m_droppedOrbs)
+            sum += mixAll({-1, o.value, o.count, int64_t(o.pos.x * 16.0), int64_t(o.pos.y * 16.0),
+                           int64_t(o.pos.z * 16.0), o.age >> 10});
+        return sum | 1; // (never 0: 0 means "no drops")
     }
     // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
     // UUID; they go with the mob when it changes chunks (Mobs) and are saved as its Items.
@@ -559,6 +557,7 @@ public:
         uint32_t lastSettle = 0;    // LightManager frame of its last settling request
         uint8_t inFlight = 0;       // (M31.1) jobs running that write its light
         uint32_t incremental = 0;   // the incremental job writing it (0: none)
+        uint32_t epoch = 0;         // the job version when it was loaded: older jobs are another load's
     } lightJob;
 
     // Light at local x/z, world y (above the world: full sky light).

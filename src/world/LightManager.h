@@ -13,8 +13,10 @@
 namespace mc::world {
 
 // Keeps chunk light up to date on worker threads (GL-free; the renderer only reacts).
-// A chunk is lit once it and its 8 neighbours are loaded; a block edit relights the
-// 3x3 chunks around it. Light jobs read shared, immutable sections, so the main
+// A chunk is lit once it and its 8 neighbours are loaded. A block edit whose 3x3 chunks
+// are lit is corrected incrementally (M31.1: one job over the 9 chunks; it waits while any
+// of them has a job running, and full jobs wait for it); elsewhere the edit relights the
+// 3x3 chunks from scratch. Light jobs read shared, immutable sections, so the main
 // thread can keep editing while they run.
 //
 // Edited blocks are handed back once the light around them is current (the edited

@@ -27,7 +27,6 @@ void DropKeeper::beforeSave(World& world) {
 void DropKeeper::afterSave(World& world) {
     // (every chunk whose drops changed was written; the others hold what is on disk)
     world.forEachChunk([&](Chunk& c) {
-        c.savedDrops = int(c.droppedItems().size() + c.droppedOrbs().size());
         c.savedDropsHash = c.dropsHash();
     });
     for (const ChunkPos& p : m_touched)

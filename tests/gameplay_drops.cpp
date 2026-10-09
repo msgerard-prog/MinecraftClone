@@ -86,7 +86,7 @@ TEST_CASE("dropped items and orbs park in their chunk, save with it as vanilla e
     CHECK(back.droppedItems()[0].stack.count == 3);
     REQUIRE(back.droppedOrbs().size() == 1);
     CHECK(back.droppedOrbs()[0].value == 7);
-    CHECK(back.savedDrops == 2);
+    CHECK(back.savedDropsHash == back.dropsHash());
     CHECK(items.unpark(back, rng) == 1);
     CHECK(orbs.unpark(back) == 1);
     CHECK(items.items().size() == 2);
@@ -129,7 +129,7 @@ TEST_CASE("M30 review: the drop keeper - unloading parks, saving keeps the pools
     w.chunk({1, 0})->clearDirty();
     keeper.afterSave(w);
     CHECK(items.items().size() == 2);
-    CHECK(c0.savedDrops == 1);
+    CHECK(c0.savedDropsHash != 0);
     CHECK(c0.droppedItems().empty());
     // The diamond is picked up; the next save rewrites the chunk without it.
     items.mutableItems().erase(std::remove_if(items.mutableItems().begin(), items.mutableItems().end(),
@@ -139,7 +139,7 @@ TEST_CASE("M30 review: the drop keeper - unloading parks, saving keeps the pools
     CHECK(c0.dirty());
     CHECK(c0.droppedItems().empty());
     keeper.afterSave(w);
-    CHECK(c0.savedDrops == 0);
+    CHECK(c0.savedDropsHash == 0);
     // Unloading parks the chunk's drops - not re-saved while they are as last saved (M31.3)
     // - and loading takes them back; once one moved, unloading saves the chunk again.
     Chunk& c1 = *w.chunk({1, 0});
@@ -166,4 +166,19 @@ TEST_CASE("M30 review: a full pool leaves the rest parked instead of evicting an
     int sticks = 0;
     for (const ItemEntity& e : items.items()) sticks += e.stack.item == *itemRegistry().find("stick");
     CHECK(sticks == ItemEntities::kMax);
+}
+
+TEST_CASE("M31 review: the drops hash ignores parking order but sees age steps and item components") {
+    Chunk a({0, 0}), b({0, 0});
+    const Chunk::DroppedItem x{{1.5, 64.0, 1.5}, {}, I("diamond_sword", 1), 100, 0};
+    const Chunk::DroppedItem y{{2.5, 64.0, 1.5}, {}, I("stick", 3), 100, 0};
+    const Chunk::DroppedItem z{{3.5, 64.0, 1.5}, {}, I("dirt", 9), 100, 0};
+    a.droppedItems() = {x, y, z};
+    b.droppedItems() = {x, z, y};
+    CHECK(a.dropsHash() == b.dropsHash());
+    b.droppedItems()[0].age = 100 + 1024; // (a step older: saved again)
+    CHECK(a.dropsHash() != b.dropsHash());
+    b.droppedItems() = {x, y, z};
+    b.droppedItems()[0].stack.enchantments[0] = 0x0105; // (an enchanted sword instead)
+    CHECK(a.dropsHash() != b.dropsHash());
 }

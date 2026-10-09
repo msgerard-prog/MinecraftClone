@@ -1807,7 +1807,6 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
     chunk.mobStores().clear();
     chunk.droppedItems().clear();
     chunk.droppedOrbs().clear();
-    chunk.savedDrops = 0;
     chunk.savedDropsHash = 0;
     const nbt::List* list = root.list("Entities");
     if (!list) return;
@@ -1836,7 +1835,6 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 const int count = int(std::clamp<int64_t>(e->integer("Count").value_or(1), 1, 1 << 20));
                 if (value > 0) chunk.droppedOrbs().push_back({pos, vel, value, count, age});
             }
-            ++chunk.savedDrops;
             chunk.savedDropsHash = chunk.dropsHash();
             continue;
         }

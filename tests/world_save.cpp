@@ -1221,5 +1221,6 @@ TEST_CASE("M30 review: a chunk saved with drops and loaded back at once (queued 
     CHECK(back.droppedItems()[0].stack.count == 2);
     REQUIRE(back.droppedOrbs().size() == 1);
     CHECK(back.droppedOrbs()[0].count == 2);
-    CHECK(back.savedDrops == 2);
+    CHECK(back.savedDropsHash == back.dropsHash());
+    CHECK(back.savedDropsHash != 0);
 }

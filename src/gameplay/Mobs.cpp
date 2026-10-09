@@ -696,7 +696,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.repathTicks > 0) --m.repathTicks;
     const bool moved = goalCell != m.pathRequest, finished = m.pathIndex >= m.pathLength;
     const bool wantsPath = goalCell != feet && m.repathTicks == 0 && (moved || (chase && finished));
-    if (wantsPath && m_searches >= kMaxSearches) m.repathTicks = 1; // (next tick; no random draw: gameplay RNG unchanged)
+    if (wantsPath && m_searches >= kMaxSearches) m.repathTicks = 1; // (next tick; deterministic, though the
+                                                                  // shared RNG then runs in another order)
     if (wantsPath && m_searches < kMaxSearches) {
         ++m_searches;
         // Search budget: vanilla visits up to follow range x 16 nodes (zombie 35).

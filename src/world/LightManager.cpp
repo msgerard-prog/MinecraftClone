@@ -17,7 +17,7 @@ LightManager::LightManager(World& world, int threads)
     m_incKeep.reserve(4096);
     m_fullEdits.reserve(4096);
     m_retry.reserve(256);
-    for (auto& j : m_free) j->inc.edits.reserve(256);
+    for (auto& j : m_free) j->inc.edits.reserve(4096); // (a TNT frame's edits fit)
     for (int i = 0; i < threads; ++i)
         m_threads.emplace_back([this] { run(); });
 }
@@ -161,6 +161,8 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
     }
     // A new chunk may complete its own neighbourhood or a neighbour's: request
     // exactly the chunks whose 3x3 is now complete (so nothing waits in the queue).
+    for (const ChunkPos& p : loaded) // (M31 review) jobs submitted before this load aren't its
+        if (Chunk* c = m_world.chunk(p)) c->lightJob.epoch = m_nextVersion;
     for (const ChunkPos& p : loaded) {
         for (int dz = -1; dz <= 1; ++dz)
             for (int dx = -1; dx <= 1; ++dx) {
@@ -170,50 +172,6 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
                     request(q, kStream);
             }
     }
-    // (M31.1) Edits are corrected incrementally where the 3x3 chunks around them are lit;
-    // edits in busy chunks wait for their jobs; elsewhere (chunks still streaming in)
-    // the whole 3x3 is relit as before.
-    for (const BlockPos& b : edited) m_incWaiting.push_back(b);
-    m_incKeep.clear();
-    if (!m_incWaiting.empty()) {
-        std::stable_sort(m_incWaiting.begin(), m_incWaiting.end(),
-                         [](const BlockPos& a, const BlockPos& b) { return a.chunk().key() < b.chunk().key(); });
-        size_t i = 0;
-        while (i < m_incWaiting.size()) {
-            const ChunkPos centre = m_incWaiting[i].chunk();
-            size_t j = i;
-            while (j < m_incWaiting.size() && m_incWaiting[j].chunk() == centre) ++j;
-            const Incremental st = incrementalState(centre);
-            if (st == Incremental::Ready && !m_free.empty()) {
-                submitIncremental(centre, m_incWaiting.data() + i, j - i);
-            } else if (st == Incremental::Unlit) {
-                for (size_t k = i; k < j; ++k) m_fullEdits.push_back(m_incWaiting[k]);
-            } else {
-                for (size_t k = i; k < j; ++k) m_incKeep.push_back(m_incWaiting[k]);
-            }
-            i = j;
-        }
-        m_incWaiting.swap(m_incKeep);
-    }
-    // An edit can change light up to 15 blocks away: relight the 3x3 chunks around
-    // it - every chunk that is lit or has a light job (whose input is now stale).
-    for (const BlockPos& b : m_fullEdits) {
-        const ChunkPos c = b.chunk();
-        const Chunk* centre = m_world.chunk(c);
-        if (!centre || (!centre->lit() && centre->lightJob.version == 0)) {
-            editsReady.push_back(b); // not lit yet: nothing to wait for
-        } else {
-            m_pendingEdits.push_back(b);
-        }
-        for (int dz = -1; dz <= 1; ++dz)
-            for (int dx = -1; dx <= 1; ++dx) {
-                const ChunkPos q{c.x + dx, c.z + dz};
-                const Chunk* ch = m_world.chunk(q);
-                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, kEdit);
-            }
-    }
-
-    m_fullEdits.clear();
     // Settling edits: re-meshed now; their chunks (3x3) relit in the background, each
     // at most every kSettleFrames frames (a later request waits for its slot, so the
     // final state always gets relit).
@@ -268,7 +226,7 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
             continue;
         }
         Chunk* chunk = m_world.chunk(job->pos);
-        if (chunk && chunk->lightJob.inFlight > 0) --chunk->lightJob.inFlight;
+        if (chunk && chunk->lightJob.inFlight > 0 && job->version >= chunk->lightJob.epoch) --chunk->lightJob.inFlight;
         if (chunk && chunk->lightJob.version == job->version) {
             const bool first = !chunk->lit();
             if (!first) {
@@ -292,6 +250,52 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
         m_free.push_back(std::move(job));
     }
 
+    // (M31 review) After installing finished jobs and before streaming takes the free ones:
+    // edits get the jobs first and see chunks whose jobs just ended as idle.
+    // (M31.1) Edits are corrected incrementally where the 3x3 chunks around them are lit;
+    // edits in busy chunks wait for their jobs; elsewhere (chunks still streaming in)
+    // the whole 3x3 is relit as before.
+    for (const BlockPos& b : edited) m_incWaiting.push_back(b);
+    m_incKeep.clear();
+    if (!m_incWaiting.empty()) {
+        std::sort(m_incWaiting.begin(), m_incWaiting.end(), // (grouping only: no order to keep, no buffer)
+                         [](const BlockPos& a, const BlockPos& b) { return a.chunk().key() < b.chunk().key(); });
+        size_t i = 0;
+        while (i < m_incWaiting.size()) {
+            const ChunkPos centre = m_incWaiting[i].chunk();
+            size_t j = i;
+            while (j < m_incWaiting.size() && m_incWaiting[j].chunk() == centre) ++j;
+            const Incremental st = incrementalState(centre);
+            if (st == Incremental::Ready && !m_free.empty()) {
+                submitIncremental(centre, m_incWaiting.data() + i, j - i);
+            } else if (st == Incremental::Unlit) {
+                for (size_t k = i; k < j; ++k) m_fullEdits.push_back(m_incWaiting[k]);
+            } else {
+                for (size_t k = i; k < j; ++k) m_incKeep.push_back(m_incWaiting[k]);
+            }
+            i = j;
+        }
+        m_incWaiting.swap(m_incKeep);
+    }
+    // An edit can change light up to 15 blocks away: relight the 3x3 chunks around
+    // it - every chunk that is lit or has a light job (whose input is now stale).
+    for (const BlockPos& b : m_fullEdits) {
+        const ChunkPos c = b.chunk();
+        const Chunk* centre = m_world.chunk(c);
+        if (!centre || (!centre->lit() && centre->lightJob.version == 0)) {
+            editsReady.push_back(b); // not lit yet: nothing to wait for
+        } else {
+            m_pendingEdits.push_back(b);
+        }
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx) {
+                const ChunkPos q{c.x + dx, c.z + dz};
+                const Chunk* ch = m_world.chunk(q);
+                if (ch && (ch->lit() || ch->lightJob.version != 0)) request(q, kEdit);
+            }
+    }
+
+    m_fullEdits.clear();
     // Submit: edits first, then streaming, up to the in-flight cap.
     size_t e = 0;
     while (e < m_editQueue.size() && !m_free.empty())
@@ -311,7 +315,11 @@ void LightManager::update(const std::vector<ChunkPos>& loaded, const std::vector
         submit(m_settleQueue[st++], editsReady);
     m_settleQueue.erase(m_settleQueue.begin(), m_settleQueue.begin() + static_cast<std::ptrdiff_t>(st));
     // (M31.1) full jobs held back by an incremental update go first next frame.
-    for (const ChunkPos& p : m_retry) m_editQueue.push_back(p);
+    for (const ChunkPos& p : m_retry) { // (back to the queue it came from)
+        const Chunk* c = m_world.chunk(p);
+        const uint8_t prio = c ? c->lightJob.priority : uint8_t(kEdit);
+        (prio == kEdit ? m_editQueue : prio == kStream ? m_queue : m_settleQueue).push_back(p);
+    }
     m_retry.clear();
 }
 
