@@ -462,6 +462,19 @@ void Particles::animate(World& world, const BlockPos& b, Xoroshiro& rng) {
             add(p);
         }
         break;
+    case blocks::BubbleColumn: { // (M29.5; wiki: Bubble Column) bubbles rise, or are pulled down
+        const bool down = blockRegistry().get(world.getBlock(b), properties::drag) == 0;
+        Particle p;
+        p.pos = {b.x + 0.2 + rng.nextDouble() * 0.6, b.y + rng.nextDouble(), b.z + 0.2 + rng.nextDouble() * 0.6};
+        p.vel = {0.0, down ? -0.08 : 0.12, 0.0};
+        p.size = 0.06f;
+        p.sprite = ParticleSprite::Bubble;
+        p.gravity = 0.0f;
+        p.friction = 1.0f;
+        p.lifetime = 12;
+        add(p);
+        break;
+    }
     case blocks::NetherPortal:
         if (rng.nextInt(100) == 0) world.playSound(Sound::PortalAmbient, c.x, c.y, c.z);
         for (int i = 0; i < 4; ++i)

@@ -204,6 +204,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     // 0.02, jump rises 0.04 a tick, sneak sinks, drag 0.8 in water / 0.5 in lava,
     // gravity 0.02, pushed by the current; a wall bump while moving hops out at 0.3).
     const FluidContact fluid = fluidContact(world, box());
+    if (!m_flying) applyBubbleColumn(fluid, m_velocity); // (M29.5)
     m_inWater = fluid.water;
     m_inLava = fluid.lava;
     // A shallow layer (up to 0.4 deep: vanilla's fluid jump threshold) still lets a

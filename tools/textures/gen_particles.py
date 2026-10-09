@@ -121,6 +121,18 @@ NOTE = from_rows([
     "........"], {"w": (255, 255, 255, 255), "g": (210, 210, 210, 255)})
 
 
+# (M29.5) an air bubble: a light ring with a glint
+BUBBLE = from_rows([
+    "........",
+    "..www...",
+    ".wg..w..",
+    ".w...w..",
+    ".w...w..",
+    "..www...",
+    "........",
+    "........"], {"w": (220, 235, 255, 255), "g": (255, 255, 255, 255)})
+
+
 def splash(i):
     """Droplets flying apart: frame 0 tight, 3 spread."""
     img = Img(8, 8, CLEAR)
@@ -136,7 +148,8 @@ def splash(i):
 def main():
     out = {f"particle_generic_{i}": generic(i) for i in range(8)}
     out.update({"particle_flame": FLAME, "particle_lava": LAVA, "particle_crit": CRIT,
-                "particle_effect": EFFECT, "particle_drip": DRIP, "particle_note": NOTE})
+                "particle_effect": EFFECT, "particle_drip": DRIP, "particle_note": NOTE,
+                "particle_bubble": BUBBLE})
     out.update({f"particle_splash_{i}": splash(i) for i in range(4)})
     for name, small in out.items():
         (OUT / f"{name}.png").write_bytes(encode_png(scaled(small)))

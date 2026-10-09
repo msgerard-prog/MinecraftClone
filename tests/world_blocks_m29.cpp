@@ -1,6 +1,7 @@
 // Blocks of M29 (completeness; wiki pages of each block).
 #include "gameplay/Beds.h"
 #include "gameplay/Buckets.h"
+#include "gameplay/FluidContact.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Vitals.h"
 #include "gameplay/Mobs.h"
@@ -377,4 +378,43 @@ TEST_CASE("M29.5: scaffolding reaches 6 out from its support; the rest breaks wh
     }
     CHECK(w.getBlock({8, 64, 4}) == 0);
     CHECK(w.getBlock({2, 64, 4}) == 0);
+}
+
+TEST_CASE("M29.5: soul sand under water makes a bubble column up, magma one down; it goes with its base") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    int64_t t = 0;
+    auto run = [&](int n) {
+        for (int i = 0; i < n; ++i) {
+            u.setTime(++t);
+            u.tick();
+        }
+    };
+    for (int y = 64; y <= 66; ++y) w.setBlock({4, y, 4}, r.defaultState(blocks::Water));
+    w.updateBlock({4, 63, 4}, r.defaultState(blocks::SoulSand));
+    run(25);
+    for (int y = 64; y <= 66; ++y) {
+        CHECK(r.blockOf(w.getBlock({4, y, 4})) == blocks::BubbleColumn);
+        CHECK(r.value(w.getBlock({4, y, 4}), "drag") == "false");
+    }
+    CHECK(r.waterlogged(w.getBlock({4, 65, 4}))); // (a water source to everything else)
+    w.updateBlock({4, 63, 4}, r.defaultState(blocks::MagmaBlock));
+    run(40);
+    CHECK(r.value(w.getBlock({4, 66, 4}), "drag") == "true");
+    w.updateBlock({4, 63, 4}, r.defaultState(blocks::Stone));
+    run(40);
+    CHECK(w.getBlock({4, 66, 4}) == r.defaultState(blocks::Water));
+    // The push: up inside, harder at the top; down at most 0.3 inside.
+    FluidContact c;
+    c.bubble = 1;
+    glm::dvec3 v{0.0};
+    for (int i = 0; i < 30; ++i) applyBubbleColumn(c, v);
+    CHECK(v.y == doctest::Approx(0.7));
+    c.bubble = -1;
+    v = {};
+    for (int i = 0; i < 30; ++i) applyBubbleColumn(c, v);
+    CHECK(v.y == doctest::Approx(-0.3));
 }

@@ -256,8 +256,9 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
         const bool oceanPlant = world::BlockUpdates::isOceanPlant(placeBlock) &&
                                 reg.kind(placeBlock) == world::BlockKind::Plain &&
                                 !reg.block(placeBlock).id.ends_with("_coral_block");
-        const bool waterSource = reg.blockOf(existing) == world::blocks::Water &&
-                                 reg.get(existing, world::properties::level) == 0;
+        const bool waterSource = (reg.blockOf(existing) == world::blocks::Water &&
+                                  reg.get(existing, world::properties::level) == 0) ||
+                                 reg.blockOf(existing) == world::blocks::BubbleColumn; // (M29.5)
         if (reg.waterlogged(reg.defaultState(placeBlock)) &&
             reg.get(placeState, world::properties::waterlogged) < 0 && !waterSource)
             return; // (kelp and seagrass need water)
@@ -268,8 +269,8 @@ void BlockInteraction::place(world::World& world, const Player& player, const wo
                                  reg.blockOf(below) == world::blocks::KelpPlant);
             if (!onKelp && !reg.collides(below)) return; // (they stand on a block)
         }
-        if (existing != 0 && !(oceanPlant && reg.blockOf(existing) == world::blocks::Water) &&
-            (reg.blockOf(existing) != world::blocks::Water || !reg.collides(placeState)))
+        const bool watery = reg.blockOf(existing) == world::blocks::Water || reg.blockOf(existing) == world::blocks::BubbleColumn;
+        if (existing != 0 && !(oceanPlant && watery) && (!watery || !reg.collides(placeState)))
             return;
         const Aabb blockBox{{at.x, at.y, at.z}, {at.x + 1.0, at.y + 1.0, at.z + 1.0}};
         if (reg.collides(placeState) && player.box().intersects(blockBox))

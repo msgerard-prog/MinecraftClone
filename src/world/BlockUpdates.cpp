@@ -978,7 +978,7 @@ bool BlockUpdates::replaceable(BlockStateId s) {
     // Blocks others replace when placed into them (wiki: Replaceable): air, fluids,
     // fire, short grass, ferns, dead bushes, a single snow layer. Not flowers or torches.
     const BlockId b = blockOf(s);
-    return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass ||
+    return s == 0 || b == B::Water || b == B::Lava || b == B::Fire || b == B::ShortGrass || b == B::BubbleColumn ||
            b == B::Fern || b == B::DeadBush || b == B::TallGrass || b == B::LargeFern ||
            (b == B::Snow && R().get(s, layers) == 0);
 }
@@ -1551,6 +1551,17 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Scaffolding: // (M29.5) re-reads its support next tick
         if (!hasTick(p, B::Scaffolding)) schedule(p, B::Scaffolding, 1, 0);
         break;
+    case B::BubbleColumn: // (M29.5; vanilla: 5 ticks)
+        if (!hasTick(p, B::BubbleColumn)) schedule(p, B::BubbleColumn, 5, 0);
+        break;
+    case B::SoulSand: // (M29.5) water over it becomes a bubble column 20 ticks later
+    case B::MagmaBlock: {
+        const BlockStateId a = at(rel(p, Direction::Up));
+        if (((blockOf(a) == B::Water && R().get(a, level) == 0) || blockOf(a) == B::BubbleColumn) &&
+            !hasTick(p, blockOf(s)))
+            schedule(p, blockOf(s), 20, 0);
+        break;
+    }
     case B::SoulFire: { // (M29.4c) only on soul sand or soil
         const BlockId below = blockOf(at(rel(p, Direction::Down)));
         if (below != B::SoulSand && below != B::SoulSoil) set(p, 0);
@@ -1941,6 +1952,13 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         break;
     case B::Target: // (M29.5) the hit wears off
         if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
+        break;
+    case B::BubbleColumn: // (M29.5)
+        tickBubbleColumn(p, s);
+        break;
+    case B::SoulSand:
+    case B::MagmaBlock:
+        fillBubbleColumn(p);
         break;
     case B::Scaffolding: { // (M29.5) unsupported: it breaks (vanilla: falls, then breaks)
         const int d = scaffoldingDistance(m_world, p);

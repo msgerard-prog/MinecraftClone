@@ -431,6 +431,9 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name == "bubble_column") { // (M29.5) only its water is drawn (the mesher's waterlogged cell)
+        m = BakedModel{};
+        m.visible = false;
     } else if (name == "crafter") {
         // (M29.5) the crafting grid on top, the output face at its front ("north" texture),
         // the back and sides; lit up while triggered. Up/down crafters show the grid toward

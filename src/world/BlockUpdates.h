@@ -361,6 +361,10 @@ private:
     void tickFarmland(const BlockPos& p, BlockStateId s);
     void tickCrop(const BlockPos& p, BlockStateId s);
     void tickStem(const BlockPos& p, BlockStateId s); // (M29.4b) melon and pumpkin stems
+    // Bubble columns (M29.5, Ocean.cpp): soul sand / magma fill the water sources above;
+    // a column cell checks what is under it (and grows into a water source above).
+    void fillBubbleColumn(const BlockPos& base);
+    void tickBubbleColumn(const BlockPos& p, BlockStateId s);
     // Tripwire (M29.5, Tripwire.cpp): a hook re-reads its line; a piece of wire tells its hooks.
     void tripwireHookUpdate(const BlockPos& p);
     void tripwireChanged(const BlockPos& wire);

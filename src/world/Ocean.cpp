@@ -133,6 +133,34 @@ bool BlockUpdates::tickOcean(const BlockPos& p, BlockStateId s) {
     return true;
 }
 
+void BlockUpdates::fillBubbleColumn(const BlockPos& base) {
+    // (wiki: Bubble Column) every water source straight above, up to the first other block.
+    const BlockId b = R().blockOf(at(base));
+    if (b != B::SoulSand && b != B::MagmaBlock) return;
+    const BlockStateId column = R().set(R().defaultState(B::BubbleColumn), drag, b == B::MagmaBlock ? 0 : 1);
+    for (BlockPos q = rel(base, Direction::Up); m_world.isInHeight(q.y); q = rel(q, Direction::Up)) {
+        const BlockStateId s = at(q);
+        const bool source = R().blockOf(s) == B::Water && R().get(s, level) == 0;
+        if (!source && R().blockOf(s) != B::BubbleColumn) break;
+        if (s != column) set(q, column);
+    }
+}
+
+void BlockUpdates::tickBubbleColumn(const BlockPos& p, BlockStateId s) {
+    const BlockStateId below = at(rel(p, Direction::Down));
+    const BlockId bb = R().blockOf(below);
+    if (bb != B::BubbleColumn && bb != B::SoulSand && bb != B::MagmaBlock) { // its base is gone: water again
+        set(p, R().defaultState(B::Water));
+        return;
+    }
+    const int want = bb == B::BubbleColumn ? R().get(below, drag) : bb == B::MagmaBlock ? 0 : 1;
+    if (R().get(s, drag) != want) set(p, R().set(s, drag, want));
+    // A water source put on top joins the column.
+    const BlockPos up = rel(p, Direction::Up);
+    if (const BlockStateId a = at(up); R().blockOf(a) == B::Water && R().get(a, level) == 0)
+        set(up, R().set(R().defaultState(B::BubbleColumn), drag, want));
+}
+
 void BlockUpdates::growKelp(const BlockPos& p, BlockStateId s) {
     // A kelp tip grows a block on 14% of its random ticks into the water above, until
     // its age reaches 25; the old tip becomes a stem (wiki: Kelp).

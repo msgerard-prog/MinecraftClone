@@ -38,6 +38,10 @@ FluidContact fluidContact(const World& world, const Aabb& box) {
                 const BlockStateId s = world.getBlock({x, y, z});
                 const BlockId kind = fluidIn(s);
                 if (isFire(kind)) c.fire = true, c.soulFire = c.soulFire || kind == blocks::SoulFire;
+                if (reg.blockOf(s) == blocks::BubbleColumn) {
+                    c.bubble = reg.get(s, properties::drag) == 0 ? -1 : 1;
+                    c.bubbleSurface = c.bubbleSurface || world.getBlock({x, y + 1, z}) == 0;
+                }
                 if (kind != blocks::Water && kind != blocks::Lava) continue;
                 const double h = fluidIn(world.getBlock({x, y + 1, z})) == kind
                                      ? 1.0
@@ -63,6 +67,11 @@ FluidContact fluidContact(const World& world, const Aabb& box) {
     const double len = glm::length(c.flow);
     c.flow = len > 1e-6 ? c.flow / len : glm::dvec3(0.0);
     return c;
+}
+
+void applyBubbleColumn(const FluidContact& c, glm::dvec3& velocity) {
+    if (c.bubble > 0) velocity.y = std::min(c.bubbleSurface ? 1.8 : 0.7, velocity.y + (c.bubbleSurface ? 0.1 : 0.06));
+    if (c.bubble < 0) velocity.y = std::max(c.bubbleSurface ? -0.9 : -0.3, velocity.y - 0.03);
 }
 
 bool pointInFluid(const World& world, const glm::dvec3& p, BlockId block) {

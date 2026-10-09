@@ -19,10 +19,11 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
         const auto hit = raycastBlocks(world, eye, look, reach, RayFluids::Sources);
         if (!hit) return std::nullopt;
         const BlockId b = reg.blockOf(world.getBlock(hit->block));
-        if (b != blocks::Water && b != blocks::Lava && b != blocks::PowderSnow) return std::nullopt;
+        if (b != blocks::Water && b != blocks::Lava && b != blocks::PowderSnow && b != blocks::BubbleColumn)
+            return std::nullopt;
         world.updateBlock(hit->block, 0);
         changed.push_back(hit->block);
-        return BucketResult{*items.find(b == blocks::Water       ? "water_bucket"
+        return BucketResult{*items.find(b == blocks::Water || b == blocks::BubbleColumn ? "water_bucket"
                                         : b == blocks::PowderSnow ? "powder_snow_bucket" // (M29.4c)
                                                                   : "lava_bucket")};
     }

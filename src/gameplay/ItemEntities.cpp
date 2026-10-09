@@ -96,6 +96,7 @@ int ItemEntities::tick(const world::World& world, const Aabb& player, bool canPi
                 // ...and drift with the current (M14).
                 const FluidContact fluid = fluidContact(world, Aabb::fromFeet(e.pos, 0.25, 0.25));
                 e.vel += fluid.flow * 0.014;
+                applyBubbleColumn(fluid, e.vel); // (M29.5)
             } else {
                 e.vel.y -= 0.04; // gravity
             }

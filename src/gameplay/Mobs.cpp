@@ -212,6 +212,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     const FluidContact fluid = fluidContact(world, box(m));
     const bool inWater = fluid.water;
     m.vel += fluid.flow * 0.014; // carried by currents (vanilla pushes mobs too)
+    applyBubbleColumn(fluid, m.vel); // (M29.5)
     const bool fireproof = mobInfo(m.type).fireImmune; // Nether mobs (wiki)
     if (fireproof) m.fireTicks = 0;
     if (fluid.fire && !fireproof) { // wiki: Fire - 1 a tick (hurt cooldown), 8 s alight
