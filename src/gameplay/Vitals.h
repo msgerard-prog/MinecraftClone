@@ -69,6 +69,11 @@ public:
     // from (null: no direction, the shield can't help). Returns true if it hurt.
     enum class Hit : uint8_t { Generic, Fire, Explosion, Projectile, Freeze };
     bool attacked(float amount, const glm::dvec3* from = nullptr, Hit kind = Hit::Generic);
+    // Standing on a magma block (wiki: Magma Block): 1 fire damage (hurt cooldown, Fire
+    // Resistance), unless sneaking or wearing Frost Walker boots. True if it hurt.
+    bool hotFloor(bool sneaking, bool frostWalker) {
+        return !sneaking && !frostWalker && attacked(1.0f, nullptr, Hit::Fire);
+    }
     // Protection enchantments worn (levels summed over the pieces): each hit adds up
     // "enchantment protection" - Protection 1 per level, Fire/Blast/Projectile
     // Protection 2 for their kind, Feather Falling 3 for falls - capped at 20, and

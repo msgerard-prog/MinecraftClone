@@ -10,7 +10,7 @@
 namespace mc::world {
 
 std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin,
-                                    const glm::dvec3& direction, double maxDistance, RayFluids fluids) {
+                                    const glm::dvec3& direction, double maxDistance, RayFluids fluids, bool targetLight) {
     const double len = glm::length(direction);
     if (len == 0.0) return std::nullopt;
     const glm::dvec3 d = direction / len;
@@ -52,6 +52,7 @@ std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin
             if (fluids == RayFluids::Skip || !source) continue;
         }
         if (b == blocks::BubbleColumn && fluids == RayFluids::Skip) continue; // (M29.5: a water source)
+        if (b == blocks::Light && !targetLight) continue; // (M29 review: invisible unless held)
         // Shaped blocks (slabs, stairs, doors...: M23.1) are hit only on their boxes
         // (vanilla's outline shapes; boxes taller than the cell count up to its top).
         if (reg.collides(state)) {

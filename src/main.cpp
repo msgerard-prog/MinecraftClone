@@ -1865,6 +1865,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     frameEdits.push_back(head);
                     mc::ExplosionTargets t;
                     t.tnt = &primedTnt;
+                    t.fire = true; // (wiki: Bed - the blast starts fires)
                     if (survival) {
                         t.player = &player;
                         t.vitals = &vitals;
@@ -2011,6 +2012,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!arrival && ridingCart == 0)
                 player.tick(world, input);               // waiting for a destination: held in place
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
+            // Magma blocks burn what stands on them (M29 review; wiki: Magma Block).
+            if (survival && !dead && player.onGround() && ridingCart == 0) {
+                const glm::dvec3 f = player.position();
+                const mc::world::BlockPos below{int(std::floor(f.x)), int(std::floor(f.y - 0.2)), int(std::floor(f.z))};
+                if (mc::world::blockRegistry().blockOf(world.getBlock(below)) == mc::world::blocks::MagmaBlock)
+                    vitals.hotFloor(player.sneaking(),
+                                    mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::FrostWalker) > 0);
+            }
             // Frost Walker (M29.2b; wiki): on the ground, still water sources within 2 + level
             // blocks under the player's level freeze into frosted ice (with air above).
             if (const int frost = mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::FrostWalker);
@@ -2620,6 +2629,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         world.updateBlock(at, 0);
                         mc::ExplosionTargets t;
                         t.tnt = &primedTnt;
+                        t.fire = true;
                         if (survival) {
                             t.player = &player;
                             t.vitals = &vitals;
@@ -5558,9 +5568,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         renderer.drawFrame(camera, fbWidth, fbHeight);
 
         // Targeted block: from the eye along the look direction (reach by game mode).
+        static const mc::world::ItemId lightItem = mc::world::itemRegistry().find("light").value_or(0);
         const auto hit = mc::world::raycastBlocks(
             world, camera.position, glm::dvec3(mc::world::lookVector(camera.yaw, camera.pitch)),
-            survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach);
+            survival ? mc::world::kSurvivalReach : mc::world::kCreativeReach, mc::world::RayFluids::Skip,
+            lightItem != 0 && inventory.selectedStack().item == lightItem);
         // Dropped items and the breaking crack.
         // Light colours for all 16x16 sky/block levels this frame (night changes them).
         std::array<glm::vec3, 256> lightTable;

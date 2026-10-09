@@ -26,10 +26,11 @@ enum class RayFluids { Skip, Sources };
 
 // First targetable block along a ray (voxel walk, Amanatides & Woo 1987). Like
 // vanilla's default block raycast it skips air and fluids. The block the origin is
-// inside is ignored. `direction` need not be normalised.
+// inside is ignored. `direction` need not be normalised. Light blocks are passed through
+// unless `targetLight` (vanilla: they have an outline only while a light item is held).
 std::optional<RayHit> raycastBlocks(const World& world, const glm::dvec3& origin,
                                     const glm::dvec3& direction, double maxDistance,
-                                    RayFluids fluids = RayFluids::Skip);
+                                    RayFluids fluids = RayFluids::Skip, bool targetLight = false);
 
 // The block position next to `pos` across `face` (where a placed block goes).
 constexpr BlockPos neighbour(const BlockPos& pos, Direction face) {

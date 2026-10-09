@@ -614,7 +614,9 @@ std::optional<BlockPos> BlockUpdates::lightningRodNear(const BlockPos& p) const 
                             if (R().likeOf(R().blockOf(sec.get(x, y, z))) != B::LightningRod) continue;
                             const BlockPos q{cx * 16 + x, h.minY + i * 16 + y, cz * 16 + z};
                             if (rainHeight(m_world, q.x, q.z) != q.y + 1) continue; // (the top of its column)
-                            const long long dx = q.x - p.x, dz = q.z - p.z, d = dx * dx + dz * dz;
+                            // (within a sphere of 128 around the strike - M29 review; wiki)
+                            const long long dx = q.x - p.x, dy = q.y + 1 - p.y, dz = q.z - p.z,
+                                            d = dx * dx + dy * dy + dz * dz;
                             if (d > 128LL * 128 || (best && d >= bestD)) continue;
                             best = BlockPos{q.x, q.y + 1, q.z};
                             bestD = d;
@@ -626,18 +628,19 @@ std::optional<BlockPos> BlockUpdates::lightningRodNear(const BlockPos& p) const 
 
 void BlockUpdates::strikeLightning(const BlockPos& p) {
     if (m_lightning.size() < m_lightning.capacity()) m_lightning.push_back(p);
-    // (M29.5; wiki: Lightning Rod) a bolt on a rod powers it for 8 ticks, takes it back to
-    // bare copper and lights no fire.
+    // (M29.5; wiki: Lightning Rod) a bolt on a rod powers it for 8 ticks and takes it back to
+    // bare copper; it still tries to set fire around the air above it, as anywhere.
     if (const BlockPos below{p.x, p.y - 1, p.z}; R().likeOf(R().blockOf(at(below))) == B::LightningRod) {
         const BlockStateId fresh = freshCopper(at(below));
         set(below, R().set(fresh, powered, 0)); // (powered: true)
         schedule(below, B::LightningRod, 8, 0);
-        return;
     }
     // Fire where it lands and up to 4 more within a block (Normal difficulty; wiki:
     // Lightning › Fire), where fire could stay.
     auto ignite = [&](const BlockPos& q) {
-        if (m_world.isInHeight(q.y) && at(q) == 0 && fireCanStay(m_world, q)) set(q, fireState(0));
+        // (fire never stands on a rod's tip: its top isn't a full face)
+        const bool onRod = R().likeOf(R().blockOf(at({q.x, q.y - 1, q.z}))) == B::LightningRod;
+        if (m_world.isInHeight(q.y) && at(q) == 0 && !onRod && fireCanStay(m_world, q)) set(q, fireState(0));
     };
     ignite(p);
     for (int i = 0; i < 4; ++i)

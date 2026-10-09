@@ -140,7 +140,8 @@ void BlockUpdates::tickStem(const BlockPos& p, BlockStateId s) {
     const BlockPos q = neighbour(p, d);
     const BlockId ground = blockOf(at({q.x, q.y - 1, q.z}));
     if (at(q) != 0 || !(ground == B::Farmland || ground == B::Dirt || ground == B::GrassBlock || ground == B::CoarseDirt ||
-                        ground == B::Podzol || ground == B::Mud || ground == B::MossBlock || ground == B::RootedDirt))
+                        ground == B::Podzol || ground == B::Mud || ground == B::MossBlock || ground == B::RootedDirt ||
+                        ground == B::Mycelium || ground == B::PaleMossBlock)) // (wiki: Stem - any dirt)
         return;
     const bool melon = stem == B::MelonStem;
     set(q, R().defaultState(melon ? B::Melon : B::Pumpkin));

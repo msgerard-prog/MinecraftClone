@@ -33,6 +33,9 @@ struct ExplosionTargets {
     // broken blocks drop nothing.
     bool breakBlocks = true;
     bool blockDrops = true;
+    // Beds and respawn anchors blowing up, ghast fireballs: a third of the cleared cells
+    // over solid ground catch fire (vanilla Explosion.createFire - M29 review).
+    bool fire = false;
 };
 
 class Explosion {

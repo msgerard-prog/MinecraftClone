@@ -10,6 +10,7 @@
 #include "world/Blocks.h"
 #include "world/LevelData.h"
 #include "world/Potions.h"
+#include "world/Raycast.h"
 #include "world/World.h"
 
 #include <doctest/doctest.h>
@@ -287,7 +288,7 @@ TEST_CASE("M29.5: lightning goes to a rod on top within 128 blocks, powers it 8 
     CHECK(r.blockOf(w.getBlock({5, 64, 5})) == blocks::LightningRod); // back to bare copper
     CHECK(r.value(w.getBlock({5, 64, 5}), "powered") == "true");
     CHECK(r.value(w.getBlock({5, 62, 5}), "lit") == "true"); // (strong power through the stone)
-    CHECK(w.getBlock({5, 65, 5}) == 0);                        // no fire
+    CHECK(w.getBlock({5, 65, 5}) == 0);                        // no fire on its tip
     for (int i = 0; i < 9; ++i) {
         u.setTime(++t);
         u.tick();
@@ -590,4 +591,18 @@ TEST_CASE("M29 review: comparators read shelves (left 1, middle 2, right 4) and 
     CHECK(u.containerSignal({4, 64, 4}) == 5);
     w.setBlock({6, 64, 4}, *r.with(r.defaultState(blocks::CopperGolemStatue), "copper_golem_pose", "running"));
     CHECK(u.containerSignal({6, 64, 4}) == 3);
+}
+
+TEST_CASE("M29 review: rays pass through light blocks unless a light item is held") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({5, 64, 4}, r.defaultState(blocks::Light));
+    w.setBlock({8, 64, 4}, r.defaultState(blocks::Stone));
+    const auto pass = raycastBlocks(w, {2.5, 64.5, 4.5}, {1.0, 0.0, 0.0}, 10.0);
+    REQUIRE(pass);
+    CHECK(pass->block == BlockPos{8, 64, 4});
+    const auto held = raycastBlocks(w, {2.5, 64.5, 4.5}, {1.0, 0.0, 0.0}, 10.0, RayFluids::Skip, true);
+    REQUIRE(held);
+    CHECK(held->block == BlockPos{5, 64, 4});
 }

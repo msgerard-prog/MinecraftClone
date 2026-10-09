@@ -301,3 +301,22 @@ TEST_CASE("M29 review: a blast drops what chiseled bookshelves and shelves hold"
     CHECK(books == 1);
     CHECK(apples == 5);
 }
+
+TEST_CASE("M29 review: a fiery blast (beds, respawn anchors) lights some cleared cells over solid ground") {
+    Scene s, plain;
+    Explosion e;
+    std::vector<BlockPos> changed;
+    ExplosionTargets t;
+    t.fire = true;
+    e.explode(s.world, {0.5, 64.5, 0.5}, 5.0f, s.rng, s.items, changed, t);
+    e.explode(plain.world, {0.5, 64.5, 0.5}, 5.0f, plain.rng, plain.items, changed, {});
+    int fires = 0, plainFires = 0;
+    for (int x = -6; x <= 6; ++x)
+        for (int y = 56; y <= 70; ++y)
+            for (int z = -6; z <= 6; ++z) {
+                fires += blockRegistry().blockOf(s.world.getBlock({x, y, z})) == blocks::Fire;
+                plainFires += blockRegistry().blockOf(plain.world.getBlock({x, y, z})) == blocks::Fire;
+            }
+    CHECK(fires > 0);
+    CHECK(plainFires == 0);
+}

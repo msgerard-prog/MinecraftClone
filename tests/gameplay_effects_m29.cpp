@@ -215,3 +215,14 @@ TEST_CASE("M29 review: a chainmail helmet gives 2 armor; azure bluet stew blinds
     for (const auto& f : world::stewFlowers())
         if (f.flower == "azure_bluet") CHECK(f.ticks == 220);
 }
+
+TEST_CASE("M29 review: magma blocks burn 1 a hit, not while sneaking, with Frost Walker or Fire Resistance") {
+    Vitals v;
+    CHECK(v.hotFloor(false, false));
+    CHECK(v.health() == doctest::Approx(19.0f));
+    for (int i = 0; i < 10; ++i) v.tick(64.0, true, false, false); // (the hurt cooldown)
+    CHECK_FALSE(v.hotFloor(true, false));
+    CHECK_FALSE(v.hotFloor(false, true));
+    v.addEffect(world::Effect::FireResistance, 0, 100);
+    CHECK_FALSE(v.hotFloor(false, false));
+}

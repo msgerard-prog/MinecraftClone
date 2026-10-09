@@ -178,6 +178,13 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
         changed.push_back(b);
         ++destroyed;
     }
+    if (targets.fire)
+        for (const BlockPos& b : m_hits)
+            if (rng.nextInt(3) == 0 && world.getBlock(b) == 0 &&
+                reg.opaqueCube(world.getBlock({b.x, b.y - 1, b.z}))) {
+                world.updateBlock(b, reg.defaultState(blocks::Fire));
+                changed.push_back(b);
+            }
     return destroyed;
 }
 
