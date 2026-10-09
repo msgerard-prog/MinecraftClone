@@ -614,6 +614,12 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         for (int k = 0; k < static_cast<int>(world::MobType::Count); ++k)
             if (world::mobInfo(static_cast<world::MobType>(k)).id.substr(10) == id)
                 type = static_cast<world::MobType>(k);
+        int cartKind = 0; // (M29.3e: chest_minecart... are minecarts here)
+        for (int k = 1; k < 6 && !type; ++k)
+            if (id == world::kCartKinds[k]) {
+                type = world::MobType::Minecart;
+                cartKind = k;
+            }
         if (!type) return fail(format("Unknown entity '%.*s'", int(id.size()), id.data()));
         glm::dvec3 p = ctx.player.position();
         if (a.size() >= 5) {
@@ -624,6 +630,11 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         }
         if (!world::isValidMobPosition(p)) return fail("Invalid position for summon");
         world::MobData mob = Mobs::make(*type, p, *ctx.rng);
+        if (cartKind != 0) {
+            mob.decor = uint8_t(cartKind);
+            mob.strength = uint8_t(world::cartSlotsOf(cartKind));
+            mob.hasChest = mob.strength > 0;
+        }
         if (a.size() == 6) {
             std::string_view tags = a[5];
             if (tags.size() < 2 || tags.front() != '{' || tags.back() != '}')

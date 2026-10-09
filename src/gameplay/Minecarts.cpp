@@ -7,6 +7,7 @@
 #include "gameplay/Mobs.h"
 
 #include "gameplay/BlockCollision.h"
+#include "gameplay/Hoppers.h"
 #include "world/Blocks.h"
 #include "world/Rails.h"
 
@@ -26,10 +27,14 @@ glm::dvec2 exitPoint(Direction d) { // from the cell centre to the middle of tha
 
 } // namespace
 
-bool Mobs::placeMinecart(World& world, const BlockPos& rail, Xoroshiro& rng) {
+bool Mobs::placeMinecart(World& world, const BlockPos& rail, Xoroshiro& rng, int kind) {
     if (!isRail(blockRegistry().blockOf(world.getBlock(rail)))) return false;
     MobData m = make(MobType::Minecart, {rail.x + 0.5, rail.y + 0.0625, rail.z + 0.5}, rng);
     m.persistent = true;
+    m.decor = uint8_t(kind);
+    m.strength = uint8_t(cartSlotsOf(kind));
+    m.hasChest = m.strength > 0; // (its slots live in the chunk's mob store, as a chest boat's)
+    if (m.hasChest) world.chunk(rail.chunk())->addMobStore(m.uuidHi);
     return add(world, m);
 }
 
@@ -113,6 +118,101 @@ void Mobs::minecartTick(Context& ctx, MobData& m) {
     if (m.vel.x * m.vel.x + m.vel.z * m.vel.z > 1e-6)
         m.yaw = float(std::atan2(-m.vel.x, m.vel.z) * 180.0 / std::numbers::pi);
     m.headYaw = m.yaw;
+    cartKindTick(ctx, m, isRail(rail) ? rs : BlockStateId{0}, cell);
+}
+
+void Mobs::cartKindTick(Context& ctx, MobData& m, BlockStateId rail, const BlockPos& cell) {
+    const auto& r = blockRegistry();
+    // A furnace cart (wiki: Minecart with Furnace): while it has fuel (`temper`, 3600 ticks
+    // a coal) it pushes itself along its push direction (`home` x/z) at up to 0.2 a tick.
+    if (m.decor == 2 && m.temper > 0) {
+        --m.temper;
+        const glm::dvec3 push(m.home.x, 0.0, m.home.z);
+        if (glm::dot(push, push) > 0.0) {
+            m.vel += glm::normalize(push) * 0.02;
+            const double h = std::sqrt(m.vel.x * m.vel.x + m.vel.z * m.vel.z);
+            if (h > 0.2) m.vel *= glm::dvec3(0.2 / h, 1.0, 0.2 / h);
+        }
+        if (ctx.rng.nextInt(4) == 0)
+            ctx.world.levelEvent(LevelEvent::Type::Extinguish, m.pos.x, m.pos.y + 1.0, m.pos.z); // (its smoke)
+    }
+    // A hopper cart (wiki: Minecart with Hopper): every 4 ticks it picks up a dropped item
+    // over it, else one from the container above its rail, and gives one to a hopper or
+    // container below its rail. An activator rail powered under it switches it off.
+    const bool activator = rail != 0 && r.blockOf(rail) == blocks::ActivatorRail && r.get(rail, properties::powered) == 0;
+    if (m.decor == 3 && !activator && (m.age = m.age + 1) % 4 == 0) {
+        Chunk* c = ctx.world.chunk(BlockPos{int(std::floor(m.pos.x)), 0, int(std::floor(m.pos.z))}.chunk());
+        ItemContents* slots = c ? c->mobStore(m.uuidHi) : nullptr;
+        if (!slots && c) slots = &c->addMobStore(m.uuidHi); // (a cart loaded empty)
+        if (slots) {
+            auto put = [&](const ItemStack& one) {
+                for (int i = 0; i < 5; ++i) {
+                    ItemStack& s = (*slots)[size_t(i)];
+                    if (s.empty()) {
+                        s = one;
+                        return true;
+                    }
+                    if (s.sameKind(one) && s.count < itemRegistry().item(s.item).maxStack) {
+                        ++s.count;
+                        return true;
+                    }
+                }
+                return false;
+            };
+            bool took = false;
+            for (const ItemEntity& it : ctx.items.items())
+                if (!took && std::abs(it.pos.x - m.pos.x) < 1.0 && std::abs(it.pos.z - m.pos.z) < 1.0 &&
+                    it.pos.y >= m.pos.y - 0.5 && it.pos.y < m.pos.y + 1.5) {
+                    ItemStack one = it.stack;
+                    one.count = 1;
+                    if (put(one)) {
+                        ctx.items.takeOne(&it);
+                        took = true;
+                    }
+                    break;
+                }
+            if (!took) {
+                ItemStack one;
+                const BlockPos above{cell.x, cell.y + 1, cell.z};
+                ItemStack* from = nullptr;
+                if (isContainer(ctx.world, above) && extractOne(ctx.world, above, Direction::Down, one, &from) && !put(one) && from)
+                    ++from->count; // (no room: back where it came from)
+            }
+            const BlockPos below{cell.x, cell.y - 1, cell.z};
+            if (isContainer(ctx.world, below))
+                for (int i = 0; i < 5; ++i) {
+                    ItemStack& s = (*slots)[size_t(i)];
+                    if (s.empty()) continue;
+                    ItemStack one = s;
+                    one.count = 1;
+                    if (insertOne(ctx.world, below, Direction::Up, one)) {
+                        if (--s.count == 0) s = {};
+                        break;
+                    }
+                }
+            c->markDirty();
+        }
+    }
+    // A TNT cart (wiki: Minecart with TNT): a powered activator rail lights it; 4 s later
+    // (`fuse` counts up to 80) it explodes with power 4.
+    if (m.decor == 4) {
+        if (rail != 0 && r.blockOf(rail) == blocks::ActivatorRail && r.get(rail, properties::powered) == 0 && m.fuse == 0)
+            m.fuse = 1;
+        if (m.fuse > 0 && ++m.fuse >= 80) {
+            m_scratchEdits.clear();
+            std::vector<BlockPos>& changed = ctx.edits ? *ctx.edits : m_scratchEdits;
+            ExplosionTargets t;
+            t.tnt = ctx.tnt;
+            t.breakBlocks = ctx.mobGriefing;
+            if (ctx.survival && !ctx.playerDead) {
+                t.player = &ctx.player;
+                t.vitals = &ctx.vitals;
+            }
+            m.health = 0.0f;
+            m.deathTime = 19; // (gone, no item: it blew up)
+            m_explosion.explode(ctx.world, m.pos + glm::dvec3(0.0, 0.5, 0.0), 4.0f, ctx.rng, ctx.items, changed, t);
+        }
+    }
 }
 
 } // namespace mc

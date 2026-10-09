@@ -932,10 +932,11 @@ void Mobs::die(Context& ctx, MobData& m) {
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), armor, ctx.rng);
         m.horseArmor = 0;
     }
-    if (m.type == MobType::Minecart) { // broken: the cart item, gone at once
+    if (m.type == MobType::Minecart) { // broken: the cart item, gone at once (its kind's - M29.3e)
         m.deathTime = 19;
-        if (const auto cart = itemRegistry().find("minecart"))
+        if (const auto cart = itemRegistry().find(kCartKinds[m.decor % 6]))
             ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {*cart, 1}, ctx.rng);
+        if (m.hasChest) dropMountGear(ctx, m); // (a chest or hopper cart's stacks)
         return;
     }
     if (m.type == MobType::EndCrystal) {

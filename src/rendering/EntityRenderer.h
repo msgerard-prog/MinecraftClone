@@ -65,7 +65,7 @@ public:
     void addKnot(const glm::dvec3& pos, const glm::dvec3& cameraPos);
     // A falling block (M16) at `pos` (bottom centre): a full-size cube of its model.
     void addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
-                  const glm::dvec3& cameraPos);
+                  const glm::dvec3& cameraPos, float scale = 1.0f); // (M29.3e: a cart's block at 0.75)
     // An experience orb (M17.5): a glowing camera-facing quad, bigger for big orbs.
     void addOrb(const glm::dvec3& pos, int value, float time, const glm::dvec3& cameraPos);
     // An end crystal's healing beam (M20.2) from `from` to `to`: two crossed glowing

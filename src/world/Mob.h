@@ -233,9 +233,18 @@ inline std::span<const char* const> bodyArmorItems(MobType t) {
 }
 // Chest slots a mount (or chest boat) carries: donkeys and mules 15, llamas 3 per
 // strength, chest boats 27 (wiki).
-inline int chestSlots(MobType t, int strength) {
-    return t == MobType::Boat ? 27 : isLlama(t) ? 3 * std::clamp(strength, 1, 5) : canCarryChest(t) ? 15 : 0;
+inline int chestSlots(MobType t, int strength) { // (minecarts: `strength` holds their slots - M29.3e)
+    return t == MobType::Boat       ? 27
+           : t == MobType::Minecart ? std::clamp(strength, 0, 27)
+           : isLlama(t)             ? 3 * std::clamp(strength, 1, 5)
+           : canCarryChest(t)       ? 15
+                                    : 0;
 }
+// Minecart kinds (M29.3e; wiki: each minecart), kept in MobData::decor: their item and
+// entity ids.
+inline constexpr const char* kCartKinds[6] = {"minecart",        "chest_minecart", "furnace_minecart",
+                                              "hopper_minecart", "tnt_minecart",   "command_block_minecart"};
+inline int cartSlotsOf(int kind) { return kind == 1 ? 27 : kind == 3 ? 5 : 0; }
 
 // Wildlife (M26.3; wiki: Rabbit, Fox, Panda, Goat, Armadillo).
 inline constexpr NamedColour kRabbitKinds[6] = {{"brown", 0x8A6A4A},        {"white", 0xF2F2F2}, {"black", 0x2E2A2A},

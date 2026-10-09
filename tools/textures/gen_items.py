@@ -1317,10 +1317,15 @@ def fire_charge():
     return img
 
 
-def minecart_item():
-    # A grey open box seen from the side with two wheels.
+def minecart_item(cargo=None):
+    # A grey open box seen from the side with two wheels (M29.3e: a block showing in it).
     rng = random.Random("minecart")
     img = Img(16, 16, CLEAR)
+    if cargo:
+        pal = ramp(hexc(cargo), 5, spread=0.3)
+        for y in range(1, 6):
+            for x in range(3, 13):
+                img.set(x, y, pal[1 if y == 1 or x in (3, 12) else 3])
     iron = ramp(hexc("#7C7C84"), 5, spread=0.3)
     for y in range(5, 11):
         for x in range(1, 15):
@@ -1692,6 +1697,9 @@ def all_items():
     items["end_crystal"] = end_crystal_item()
     items["elytra"] = elytra_item()
     items["minecart"] = minecart_item()
+    for cart, cargo in (("chest_minecart", "#A87A3A"), ("furnace_minecart", "#6E6E6E"), ("hopper_minecart", "#4A4A50"),
+                        ("tnt_minecart", "#D83A2A"), ("command_block_minecart", "#C8885A")):  # (M29.3e)
+        items[cart] = minecart_item(cargo)
     items["slime_ball"] = lump("slime_ball", "#6CC060", "#B8F0A8", size=4.8)
     items["shulker_shell"] = lump("shulker_shell", "#946894", "#C8A0C8", size=5.8)
     items["popped_chorus_fruit"] = lump("popped_chorus_fruit", "#A882B4", "#EEDDF4", size=5.2)

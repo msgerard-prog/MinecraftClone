@@ -401,17 +401,18 @@ void EntityRenderer::addPainting(int variant, const glm::dvec3& centre, int faci
 }
 
 void EntityRenderer::addBlock(world::BlockStateId state, const glm::dvec3& pos, const glm::vec3& light,
-                              const glm::dvec3& cameraPos) {
+                              const glm::dvec3& cameraPos, float scale) {
     const BakedModel& m = (*m_models)[state];
-    if (!m.visible || m.cross || m.boxCount) return; // (only cube blocks fall)
+    if (!m.visible || m.cross || (m.boxCount && scale == 1.0f)) return; // (only cube blocks fall)
     uint16_t sprites[6];
     uint32_t tints[6];
-    for (int f = 0; f < 6; ++f) {
-        sprites[f] = m.variants[0].faces[f].sprite;
+    for (int f = 0; f < 6; ++f) { // (a box model - a chest in a cart: its first box's faces)
+        sprites[f] = m.boxCount ? m.boxes[0].faces[f].sprite : m.variants[0].faces[f].sprite;
         tints[f] = 0xFFFFFFu;
     }
     const glm::vec3 base(pos - cameraPos);
-    cube(base + glm::vec3(-0.5f, 0.0f, -0.5f), base + glm::vec3(0.5f, 1.0f, 0.5f), sprites, light, tints, m_items, true);
+    const float h = 0.5f * scale;
+    cube(base + glm::vec3(-h, 0.0f, -h), base + glm::vec3(h, scale, h), sprites, light, tints, m_items, true);
 }
 
 void EntityRenderer::addOrb(const glm::dvec3& pos, int value, float time, const glm::dvec3& cameraPos) {

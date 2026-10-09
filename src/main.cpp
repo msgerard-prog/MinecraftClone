@@ -2689,9 +2689,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::DragonFight::teleportEgg(world, lastHit->block, gameRng, frameEdits);
                     clicks.useClick = clicks.attackClick = clicks.attack = false;
                 }
-                if (!dead && heldId == "minecraft:minecart" && clicks.useClick &&
-                    lastHit) { // (M21.4)
-                    if (mc::Mobs::placeMinecart(world, lastHit->block, gameRng) && survival)
+                int cartKind = -1; // (M29.3e: which minecart item - kCartKinds)
+                for (int k = 0; k < 6; ++k)
+                    if (heldId.size() > 10 && heldId.substr(10) == mc::world::kCartKinds[k]) cartKind = k;
+                if (!dead && cartKind >= 0 && clicks.useClick && lastHit) { // (M21.4)
+                    if (mc::Mobs::placeMinecart(world, lastHit->block, gameRng, cartKind) && survival)
                         inventory.consumeSelected(1);
                     if (mc::world::isRail(reg.blockOf(world.getBlock(lastHit->block))))
                         clicks.useClick = false;
@@ -3220,6 +3222,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         mob.tradingTicks = 5;
                         container.openTrading(&mob);
                         window.setCursorCaptured(false);
+                        clicks.useClick = false;
+                        clicks.use = false;
+                    }
+                }
+            }
+            // Minecart kinds (M29.3e): a chest or hopper cart opens on a right-click; a furnace
+            // cart takes coal or charcoal (+3600 ticks of fuel, pushing away from the player).
+            if (!dead && clicks.useClick) {
+                const glm::dvec3 eye = player.eyePosition(1.0);
+                const glm::dvec3 look(mc::world::lookVector(player.yaw(), player.pitch()));
+                if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                    mh && (!lastHit || mh->distance < lastHit->distance)) {
+                    auto& cart = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                    if (cart.type == mc::world::MobType::Minecart && cart.decor != 0) {
+                        if (cart.hasChest) {
+                            openMountScreen(cart.uuidHi);
+                        } else if (const std::string_view fuelId = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
+                                   cart.decor == 2 && (fuelId == "minecraft:coal" || fuelId == "minecraft:charcoal")) {
+                            cart.temper = int16_t(std::min(32000, cart.temper + 3600));
+                            const glm::dvec3 away = cart.pos - player.position();
+                            cart.home = std::abs(away.x) > std::abs(away.z) ? glm::ivec3(away.x > 0 ? 1 : -1, 0, 0)
+                                                                            : glm::ivec3(0, 0, away.z > 0 ? 1 : -1);
+                            if (survival) inventory.consumeSelected(1);
+                            world.chunk(mh->chunk)->markDirty();
+                        }
                         clicks.useClick = false;
                         clicks.use = false;
                     }
@@ -5540,6 +5567,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
                                 m.prevPitch + (m.pitch - m.prevPitch) * a,
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
+                // (M29.3e) the block a minecart kind carries, three quarters size, in the cart
+                if (m.type == mc::world::MobType::Minecart && m.decor != 0) {
+                    static const mc::world::BlockStateId cartBlocks[6] = {
+                        0,
+                        mc::world::blockRegistry().defaultState(mc::world::blocks::Chest),
+                        mc::world::blockRegistry().defaultState(mc::world::blocks::Furnace),
+                        mc::world::blockRegistry().defaultState(mc::world::blocks::Hopper),
+                        mc::world::blockRegistry().defaultState(mc::world::blocks::Tnt),
+                        mc::world::blockRegistry().findBlock("minecraft:command_block")
+                            ? mc::world::blockRegistry().defaultState(*mc::world::blockRegistry().findBlock("minecraft:command_block"))
+                            : mc::world::blockRegistry().defaultState(mc::world::blocks::Furnace)};
+                    entities.addBlock(cartBlocks[m.decor % 6], p + glm::dvec3(0.0, 0.2, 0.0),
+                                      lightTable[size_t(sky * 16 + blk)], camera.position, 0.75f);
+                }
                 // (M29.3b) a named mob's name floats over it, facing the camera, within 64.
                 if (m.nameId != 0 && glm::length(p - camera.position) < 64.0) {
                     const float yawRad = glm::radians(camera.yaw);

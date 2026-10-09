@@ -401,3 +401,36 @@ TEST_CASE("pigs take saddles and walk where a rider with a carrot on a stick loo
         if (const nbt::Compound* eq = t.get<nbt::Compound>()->compound("equipment")) saddleSaved = saddleSaved || eq->compound("saddle");
     CHECK(saddleSaved);
 }
+
+TEST_CASE("minecart kinds: furnace carts push themselves, hopper carts pick up items, saved by kind (M29.3e)") {
+    MobScene s;
+    s.survival = false;
+    const auto& r = blockRegistry();
+    for (int z = -8; z < 24; ++z) s.world.setBlock({4, 64, z}, r.defaultState(blocks::Rail)); // (north-south)
+    REQUIRE(Mobs::placeMinecart(s.world, {4, 64, 2}, s.rng, 2));
+    MobData* f = findType(s, MobType::Minecart);
+    REQUIRE(f);
+    f->temper = 400;
+    f->home = {0, 0, 1};
+    const double z0 = f->pos.z;
+    s.tick(40);
+    f = findType(s, MobType::Minecart);
+    CHECK(f->pos.z - z0 > 2.0);
+    // A hopper cart standing still takes a dropped stack over it into its 5 slots.
+    MobScene h;
+    h.survival = false;
+    h.world.setBlock({8, 64, 8}, r.defaultState(blocks::Rail));
+    REQUIRE(Mobs::placeMinecart(h.world, {8, 64, 8}, h.rng, 3));
+    h.items.spawn({8.5, 64.6, 8.5}, {*itemRegistry().find("diamond"), 2}, h.rng);
+    h.tick(30);
+    MobData* hc = findType(h, MobType::Minecart);
+    REQUIRE(hc);
+    const ItemContents* slots = h.world.chunk({0, 0})->mobStore(hc->uuidHi);
+    REQUIRE(slots);
+    CHECK((*slots)[0].count >= 1);
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*h.world.chunk({0, 0}), 0));
+    bool saved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const std::string* id = t.get<nbt::Compound>()->string("id")) saved = saved || *id == "minecraft:hopper_minecart";
+    CHECK(saved);
+}

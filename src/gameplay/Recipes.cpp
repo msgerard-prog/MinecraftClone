@@ -415,6 +415,10 @@ std::vector<Recipe> build() {
                        "dropper"));
     r.push_back(
         shaped({"I.I", "III"}, {{'I', item("iron_ingot")}}, "minecart")); // (wiki: Minecart)
+    // (M29.3e) the block over a minecart (vanilla: shapeless)
+    for (const auto& [block, cart] : {std::pair{"chest", "chest_minecart"}, std::pair{"furnace", "furnace_minecart"},
+                                      std::pair{"hopper", "hopper_minecart"}, std::pair{"tnt", "tnt_minecart"}})
+        r.push_back(shapeless({item(block), item("minecart")}, cart));
     // (wiki: Slime Block - 9 slime balls, and back; Sticky Piston - a slime ball over a piston)
     r.push_back(shaped({"###", "###", "###"}, {{'#', item("slime_ball")}}, "slime_block"));
     r.push_back(shapeless({item("slime_block")}, "slime_ball", 9));

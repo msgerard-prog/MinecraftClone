@@ -1335,8 +1335,14 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // Dying mobs are not saved - except the dragon, whose 10 s death ends the fight.
         if (m.health <= 0.0f && m.type != MobType::EnderDragon) continue;
         nbt::Compound e;
-        e.put("id", m.type == MobType::Boat ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
-                                            : std::string(mobInfo(m.type).id)); // (boats: per wood)
+        e.put("id", m.type == MobType::Boat       ? (m.hasChest ? chestBoatId(m.woolColour) : boatId(m.woolColour))
+                    : m.type == MobType::Minecart ? std::string("minecraft:") + kCartKinds[m.decor % 6] // (M29.3e)
+                                                  : std::string(mobInfo(m.type).id)); // (boats: per wood)
+        if (m.type == MobType::Minecart && m.decor == 2) { // (M29.3e; wiki: furnace cart Fuel, PushX/PushZ)
+            e.put("Fuel", int16_t(m.temper));
+            e.put("PushX", double(m.home.x));
+            e.put("PushZ", double(m.home.z));
+        }
         e.put("Pos", nbt::listOf(nbt::TagType::Double, {m.pos.x, m.pos.y, m.pos.z}));
         e.put("Motion", nbt::listOf(nbt::TagType::Double, {m.vel.x, m.vel.y, m.vel.z}));
         e.put("Rotation", nbt::listOf(nbt::TagType::Float, {m.yaw, m.pitch}));
@@ -1473,8 +1479,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("HasEgg", int8_t(m.hasEgg ? 1 : 0));
             e.put("home_pos", std::vector<int32_t>{m.home.x, m.home.y, m.home.z});
         }
-        if (isMount(m.type) || (m.type == MobType::Boat && m.hasChest)) { // (M26.2; wiki: Horse, Llama, Camel › Entity data)
-            if (m.type != MobType::Boat) {
+        if (isMount(m.type) || ((m.type == MobType::Boat || m.type == MobType::Minecart) && m.hasChest)) { // (M26.2; wiki: Horse, Llama, Camel › Entity data)
+            if (m.type != MobType::Boat && m.type != MobType::Minecart) {
                 e.put("Tame", int8_t(m.tamed ? 1 : 0));
                 e.put("Temper", int32_t(m.temper));
                 if (m.tamed)
@@ -1516,7 +1522,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (canCarryChest(m.type)) e.put("ChestedHorse", int8_t(m.hasChest ? 1 : 0));
             if (m.hasChest) { // Items: the chest's stacks (horses number them from 2: 0 and 1 were saddle and armor)
                 std::vector<nbt::Tag> items;
-                const int base = m.type == MobType::Boat ? 0 : 2;
+                const int base = m.type == MobType::Boat || m.type == MobType::Minecart ? 0 : 2;
                 for (const auto& st : chunk.mobStores)
                     if (st.uuidHi == m.uuidHi)
                         for (int i = 0; i < chestSlots(m.type, m.strength); ++i)
@@ -1708,6 +1714,14 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         for (int k = 0; k < static_cast<int>(MobType::Count); ++k)
             if (mobInfo(static_cast<MobType>(k)).id == *id) {
                 m.type = static_cast<MobType>(k);
+                known = true;
+            }
+        for (int k = 1; k < 6 && !known; ++k) // (M29.3e: every minecart kind is one type here)
+            if (std::string("minecraft:") + kCartKinds[k] == *id) {
+                m.type = MobType::Minecart;
+                m.decor = uint8_t(k);
+                m.strength = uint8_t(cartSlotsOf(k));
+                m.hasChest = m.strength > 0;
                 known = true;
             }
         for (int w = 0; w < 10 && !known; ++w) // (M25.2b: every wood's boat is one type here)
@@ -2014,7 +2028,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         if (m.hasChest && m.health > 0.0f) // (M26.2) the chest's stacks
             if (const nbt::List* items = e->list("Items")) {
                 ItemContents& slots = chunk.addMobStore(m.uuidHi);
-                const int base = m.type == MobType::Boat ? 0 : 2;
+                const int base = m.type == MobType::Boat || m.type == MobType::Minecart ? 0 : 2;
                 for (const nbt::Tag& it : items->items)
                     if (const nbt::Compound* ic = it.get<nbt::Compound>()) {
                         const int slot = int(ic->integer("Slot").value_or(-1)) - base;
@@ -2022,6 +2036,10 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        if (m.type == MobType::Minecart && m.decor == 2) {
+            m.temper = int16_t(std::clamp<int64_t>(e->integer("Fuel").value_or(0), 0, 32000));
+            m.home = {int(std::lround(e->real("PushX").value_or(0.0))), 0, int(std::lround(e->real("PushZ").value_or(0.0)))};
+        }
         if (isStickRidden(m.type))
             if (const nbt::Compound* eqp = e->compound("equipment"))
                 m.saddled = eqp->compound("saddle") != nullptr;

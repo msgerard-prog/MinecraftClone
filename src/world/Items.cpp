@@ -575,6 +575,9 @@ ItemRegistry buildItems() {
            .armor = 2});
     r.add({.id = "minecraft:shulker_shell", .texture = "item/shulker_shell"});
     r.add({.id = "minecraft:minecart", .maxStack = 1, .texture = "item/minecart"}); // (M21.4)
+    for (int k = 1; k < 6; ++k) // (M29.3e; wiki: each minecart - unstackable)
+        r.add({.id = std::string("minecraft:") + kCartKinds[k], .maxStack = 1,
+               .texture = std::string("item/") + kCartKinds[k]});
     r.add({.id = "minecraft:slime_ball", .texture = "item/slime_ball"});            // (M21.5)
     r.add({.id = "minecraft:glowstone_dust", .texture = "item/glowstone_dust"});
     // Crops' items (pick block, drops of an immature crop).

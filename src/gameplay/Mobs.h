@@ -95,8 +95,9 @@ public:
                                   world::Xoroshiro& rng);
     const std::vector<glm::dvec3>& trapBolts() const { return m_trapBolts; }
     // A minecart item used on a rail (M21.4): a cart on it. False if not a rail.
+    // (M29.3e) `kind`: world::kCartKinds - chest, furnace, hopper, TNT, command block carts.
     static bool placeMinecart(world::World& world, const world::BlockPos& rail,
-                              world::Xoroshiro& rng);
+                              world::Xoroshiro& rng, int kind = 0);
     // An end crystal item used on the top of obsidian or bedrock (wiki: End Crystal):
     // needs two free blocks above and no entity there. False: nothing placed.
     static bool placeEndCrystal(world::World& world, const world::BlockPos& on,
@@ -271,6 +272,8 @@ private:
     // (M29.1b) puts each jockey on its mount and lets the mount follow its rider's target.
     void ridePass(Context& ctx);
     void tickMobEffects(Context& ctx, world::MobData& m); // (M29.2c)
+    // (M29.3e, Minecarts.cpp) furnace, hopper and TNT carts' own work after the move.
+    void cartKindTick(Context& ctx, world::MobData& m, world::BlockStateId rail, const world::BlockPos& cell);
     // Armor stands (ArmorStands.cpp, M28.3b).
     void armorStandTick(Context& ctx, world::MobData& m);
     void dropArmorStand(Context& ctx, world::MobData& m);
