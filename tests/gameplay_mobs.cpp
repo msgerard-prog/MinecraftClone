@@ -546,10 +546,12 @@ TEST_CASE("skeletons shoot arrows at a survival player in range") {
 
 TEST_CASE("spiders climb walls, and stay calm in bright light until hit") {
     MonsterScene s;
-    for (int z = -8; z <= 8; ++z) // a 3-high wall between spider and player
+    // A 3-high wall between spider and player, too long to walk round (M30.5: paths go
+    // round short walls now).
+    for (int z = -40; z <= 40; ++z)
         for (int y = 64; y <= 66; ++y)
             s.world.setBlock({4, y, z}, blockRegistry().defaultState(blocks::Stone));
-    for (int z = -8; z <= 8; ++z)
+    for (int z = -40; z <= 40; ++z)
         s.world.setBlock({3, 67, z}, blockRegistry().defaultState(blocks::Stone)); // ledge... (above player side)
     s.player.setPosition({0.5, 64.0, 0.5});
     MobData sp = Mobs::make(MobType::Spider, {6.5, 64.0, 0.5}, s.rng);

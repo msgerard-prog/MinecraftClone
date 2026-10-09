@@ -756,8 +756,11 @@ void Mobs::ai(Context& ctx, MobData& m) {
     const bool last = m.pathIndex + 1 >= m.pathLength;
     const glm::dvec2 d(steer.x - m.pos.x, steer.z - m.pos.z);
     const double dl = glm::length(d);
+    // (stopping short of the target only where the path reaches it: at the end of a partial
+    // path a chaser keeps pushing on - spiders up the wall - M30.5)
+    const bool reaches = m.pathLength > 0 && m.path[size_t(m.pathLength - 1)] == m.pathRequest;
     const double stopAt =
-        chase && last ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
+        chase && last && reaches ? info.width * 0.5 + 0.5 : (m.pathIndex < m.pathLength ? 0.1 : 0.5);
     if (dl > stopAt) {
         wish = glm::dvec3(d.x / dl, 0, d.y / dl) * speed;
         m.yaw = approachAngle(m.yaw, yawTowards(m.pos, steer), 10.0f);
