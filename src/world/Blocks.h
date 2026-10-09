@@ -76,6 +76,7 @@ extern const Property age4;           // "age": 0..4 (pitcher crops)
 extern const Property age2;           // "age": 0..2 (M29.4b: cocoa)
 extern const Property disarmed;       // true | false (M29.5: tripwire cut with shears)
 extern const Property inverted;       // true | false (M29.5: daylight detectors)
+extern const Property charges;        // 0..4 (M29.5: respawn anchors)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -588,6 +589,7 @@ enum : BlockId {
     LightningRod,     // then its 3 aged and 4 waxed kinds, like it (facing, powered, waterlogged)
     LightningRodLast = LightningRod + 7,
     CalibratedSculkSensor, // like the sculk sensor, hears twice as far (facing)
+    RespawnAnchor,         // charges 0..4 of glowstone: a respawn point in the Nether
     Count
 };
 } // namespace blocks

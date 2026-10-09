@@ -401,6 +401,12 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
         m.boxes[0].faces[int(back)].sprite = sprite("calibrated_sculk_sensor_input_side");
         m.cross = true;
         m.crossSprite = sprite("calibrated_sculk_sensor_amethyst");
+    } else if (name == "respawn_anchor") { // (M29.5) sides glow by charge
+        const std::string c(registry.value(state, "charges").value_or("0"));
+        BakedVariant v = cubeAll(sprite(("respawn_anchor_side" + c).c_str()));
+        v.faces[int(Direction::Up)].sprite = sprite(c == "0" ? "respawn_anchor_top_off" : "respawn_anchor_top");
+        v.faces[int(Direction::Down)].sprite = sprite("respawn_anchor_bottom");
+        m = single(v);
     } else if (name == "target") { // (M29.5) cube_column
         m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
     } else if (name == "melon") { // vanilla: cube_column

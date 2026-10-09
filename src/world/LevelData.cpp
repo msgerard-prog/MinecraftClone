@@ -111,7 +111,9 @@ bool LevelData::save(const std::filesystem::path& dir) const {
     if (hasRespawn) { // 1.21.5+: respawn {pos, dimension, yaw, pitch, forced} (wiki: Player.dat)
         Compound r;
         r.put("pos", std::vector<int32_t>{respawn[0], respawn[1], respawn[2]});
-        r.put("dimension", std::string("minecraft:overworld"));
+        r.put("dimension", std::string(respawnDimension == 1 ? "minecraft:the_nether"
+                                       : respawnDimension == 2 ? "minecraft:the_end"
+                                                               : "minecraft:overworld"));
         r.put("yaw", 0.0f);
         r.put("pitch", 0.0f);
         r.put("forced", int8_t{0});
@@ -455,6 +457,10 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     for (int i = 0; i < 3; ++i)
                         l.lastDeath[i] = (*a)[size_t(i)];
                 }
+        if (const Compound* r = p->compound("respawn")) {
+            const std::string* dim = r->string("dimension"); // (M29.5)
+            l.respawnDimension = !dim ? 0 : *dim == "minecraft:the_nether" ? 1 : *dim == "minecraft:the_end" ? 2 : 0;
+        }
         if (const Compound* r = p->compound("respawn"))
             if (const Tag* pos = r->find("pos"))
                 if (const auto* a = pos->get<std::vector<int32_t>>(); a && a->size() == 3) {

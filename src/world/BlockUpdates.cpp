@@ -421,6 +421,7 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // Fullness 0..15: 0 when empty, else floor(1 + (sum of count / max stack) / slots x 14)
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
+    if (blockOf(at(p)) == B::RespawnAnchor) return 15 * R().get(at(p), charges) / 4; // (M29.5: by charge)
     if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
         struct DiscSignal {
             std::string_view name;

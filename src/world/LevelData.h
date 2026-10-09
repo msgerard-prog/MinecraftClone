@@ -104,6 +104,7 @@ struct LevelData {
     bool hasLastDeath = false;
     int32_t lastDeath[3] = {0, 0, 0};
     int lastDeathDimension = 0; // world::Dimension
+    int respawnDimension = 0;   // (M29.5) world::Dimension of `respawn`: a respawn anchor's is the Nether
     // Inventory slots 0..35 (0..8 hotbar), the ender chest 200..226 (vanilla EnderItems,
     // M23.6), worn armor 100 (feet)..103 (head) and the
     // offhand 150 - saved as 1.21.5+'s `equipment` compound. `id` is the item id; `state` the full block

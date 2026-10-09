@@ -1,4 +1,5 @@
 // Blocks of M29 (completeness; wiki pages of each block).
+#include "gameplay/Beds.h"
 #include "gameplay/Buckets.h"
 #include "gameplay/Mining.h"
 #include "gameplay/Vitals.h"
@@ -6,10 +7,13 @@
 #include "gameplay/Recipes.h"
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
+#include "world/LevelData.h"
 #include "world/Potions.h"
 #include "world/World.h"
 
 #include <doctest/doctest.h>
+
+#include <filesystem>
 
 using namespace mc;
 using namespace mc::world;
@@ -291,4 +295,36 @@ TEST_CASE("M29.5: a calibrated sculk sensor hears vibrations 16 blocks away; a p
     CHECK(r.value(w.getBlock({2, 64, 4}), "sculk_sensor_phase") == "inactive");
     CHECK(r.value(w.getBlock({3, 64, 4}), "sculk_sensor_phase") == "active");
     CHECK(r.get(w.getBlock({3, 64, 4}), properties::power) > 0);
+}
+
+TEST_CASE("M29.5: respawn anchors - light and comparator by charge, a stand spot only while charged") {
+    const auto& r = blockRegistry();
+    const BlockStateId empty = r.defaultState(blocks::RespawnAnchor);
+    const BlockStateId full = r.set(empty, properties::charges, 4);
+    CHECK(r.lightEmission(empty) == 0);
+    CHECK(r.lightEmission(r.set(empty, properties::charges, 1)) == 3);
+    CHECK(r.lightEmission(full) == 15);
+    World w;
+    w.createChunk({0, 0});
+    for (int x = 2; x <= 6; ++x)
+        for (int z = 2; z <= 6; ++z) w.setBlock({x, 63, z}, r.defaultState(blocks::Netherrack));
+    w.setBlock({4, 64, 4}, empty);
+    CHECK_FALSE(anchorStandSpot(w, {4, 64, 4}));
+    w.setBlock({4, 64, 4}, full);
+    const auto spot = anchorStandSpot(w, {4, 64, 4});
+    REQUIRE(spot);
+    CHECK(spot->y == doctest::Approx(64.0));
+    // The respawn point keeps its dimension in level.dat (vanilla respawn.dimension).
+    LevelData l;
+    l.hasRespawn = true;
+    l.respawn[0] = 4, l.respawn[1] = 64, l.respawn[2] = 4;
+    l.respawnDimension = 1;
+    const auto dir = std::filesystem::temp_directory_path() / "mc_test_anchor";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    REQUIRE(l.save(dir));
+    const auto back = LevelData::load(dir);
+    REQUIRE(back);
+    std::filesystem::remove_all(dir);
+    CHECK(back->respawnDimension == 1);
 }

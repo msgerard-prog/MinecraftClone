@@ -619,6 +619,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     std::optional<mc::world::BlockPos> bedSpawn;
     if (level && level->hasRespawn)
         bedSpawn = mc::world::BlockPos{level->respawn[0], level->respawn[1], level->respawn[2]};
+    // (M29.5) the respawn point's dimension: the Overworld for beds, the Nether for anchors
+    Dimension spawnDim = level ? Dimension(std::clamp(level->respawnDimension, 0, 2)) : Dimension::Overworld;
     // Where the player last died (M28.2a: recovery compasses).
     std::optional<std::pair<mc::world::BlockPos, Dimension>> lastDeath;
     if (level && level->hasLastDeath)
@@ -884,6 +886,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         }
         if (bedSpawn)
             l.respawn[0] = bedSpawn->x, l.respawn[1] = bedSpawn->y, l.respawn[2] = bedSpawn->z;
+        l.respawnDimension = int(spawnDim);
         l.fire = vitals.fireTicks();
         auto saveSlot = [&](int slot, const mc::world::ItemStack& s) {
             if (s.empty()) return;
@@ -1418,10 +1421,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (dead && (rules.immediateRespawn || window.takePresses(mc::Press::Enter) > 0)) {
                 dead = false;
                 vitals.reset(rules.keepInventory);
-                if (bedSpawn && dimension == Dimension::Overworld) {
+                if (bedSpawn && dimension == spawnDim) {
                     player.setPosition({bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
                     player.setVelocity(glm::dvec3(0.0));
                     bedRespawnPending = true; // checked once its chunks are loaded
+                } else if (bedSpawn) { // (M29.5) an anchor in the Nether, a bed in the Overworld
+                    pendingTravel = Travel{spawnDim, Travel::Via::Respawn, {}};
                 } else if (dimension != Dimension::Overworld) {
                     pendingTravel = Travel{Dimension::Overworld,
                                            Travel::Via::Respawn,
@@ -1703,7 +1708,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         player.setPosition(mc::portals::endPlatform(world, frameEdits));
                         player.setRotation(
                             90.0f, 0.0f);  // facing west, toward the island (wiki: End Platform)
-                    } else if (bedSpawn) { // back from the Nether/End to the bed (wiki: Bed)
+                    } else if (bedSpawn && dimension == spawnDim) { // back to the bed (or anchor - M29.5)
                         player.setPosition(
                             {bedSpawn->x + 0.5, bedSpawn->y + 1.0, bedSpawn->z + 0.5});
                         bedRespawnPending = true;
@@ -1724,16 +1729,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         loaded = world.chunk({bc.x + dx, bc.z + dz}) != nullptr;
                 if (loaded) {
                     bedRespawnPending = false;
-                    if (const auto spot = mc::bedStandSpot(world, *bedSpawn)) {
+                    const bool anchor = spawnDim == Dimension::Nether;
+                    if (const auto spot = anchor ? mc::anchorStandSpot(world, *bedSpawn) : mc::bedStandSpot(world, *bedSpawn)) {
                         player.setPosition(*spot);
+                        if (anchor) { // (M29.5; wiki: Respawn Anchor) each respawn uses a charge
+                            const auto as = world.getBlock(*bedSpawn);
+                            const auto& areg = mc::world::blockRegistry();
+                            world.updateBlock(*bedSpawn, areg.set(as, mc::world::properties::charges,
+                                                                  areg.get(as, mc::world::properties::charges) - 1));
+                            frameEdits.push_back(*bedSpawn);
+                        }
                     } else { // gone or blocked: the world spawn (wiki: Bed)
                         chat.addMessage(
                             "You have no home bed or charged respawn anchor, or it was obstructed",
                             0xFFFFFFFFu, gameTime, gui.batch());
                         bedSpawn.reset();
-                        spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
-                        player.setPosition(spawn);
-                        spawnPending = !flatWorld;
+                        if (dimension != Dimension::Overworld) { // (M29.5: a spent anchor) the world spawn is home
+                            pendingTravel = Travel{Dimension::Overworld, Travel::Via::Respawn, {}};
+                        } else {
+                            spawn = glm::dvec3(worldSpawn[0] + 0.5, worldSpawn[1], worldSpawn[2] + 0.5);
+                            player.setPosition(spawn);
+                            spawnPending = !flatWorld;
+                        }
                     }
                     vitals.resetFall();
                 } else {
@@ -1751,6 +1768,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                    weather.raining, weather.raining && weather.thundering)) {
                 case mc::BedUse::Sleep:
                     bedSpawn = *mc::bedHead(world, bedPos);
+                    spawnDim = Dimension::Overworld;
                     sleepBed = *bedSpawn;
                     sleepTicks = 1;
                     stats.add(mc::world::Stat::SleepInBed);
@@ -1759,6 +1777,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     break;
                 case mc::BedUse::NotNight:
                     bedSpawn = *mc::bedHead(world, bedPos);
+                    spawnDim = Dimension::Overworld;
                     chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
                     chat.addMessage("You can sleep only at night", 0xFFFFFFFFu, gameTime,
                                     gui.batch());
@@ -2443,6 +2462,36 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     vitals.eat(2, 0.4f);
                     used = true;
+                }
+                // Respawn anchors (M29.5; wiki: Respawn Anchor): glowstone charges one (up to 4);
+                // used charged, it sets the respawn point in the Nether and explodes anywhere else.
+                if (!used && cb == mc::world::blocks::RespawnAnchor) {
+                    const int charge = creg.get(cs, mc::world::properties::charges);
+                    if (heldName == "minecraft:glowstone" && charge < 4) {
+                        if (mayBuild) {
+                            world.updateBlock(at, creg.set(cs, mc::world::properties::charges, charge + 1));
+                            if (survival) inventory.consumeSelected(1);
+                            playSound(mc::world::Sound::Click, {at.x + 0.5, at.y + 0.5, at.z + 0.5}, 1.0f, 1.0f, true);
+                            used = true;
+                        }
+                    } else if (charge > 0 && dimension == Dimension::Nether) {
+                        if (bedSpawn != at || spawnDim != Dimension::Nether)
+                            chat.addMessage("Respawn point set", 0xFFFFFFFFu, gameTime, gui.batch());
+                        bedSpawn = at;
+                        spawnDim = Dimension::Nether;
+                        used = true;
+                    } else if (charge > 0) { // power 5 with fire, like a bed in the Nether
+                        world.updateBlock(at, 0);
+                        mc::ExplosionTargets t;
+                        t.tnt = &primedTnt;
+                        if (survival) {
+                            t.player = &player;
+                            t.vitals = &vitals;
+                        }
+                        bedExplosion.explode(world, {at.x + 0.5, at.y + 0.5, at.z + 0.5}, 5.0f, gameRng, droppedItems,
+                                             frameEdits, t);
+                        used = true;
+                    }
                 }
                 // Flower pots (M29.4b; wiki: Flower Pot): a plant goes into an empty pot; a
                 // planted pot gives its plant back (into the inventory, else dropped).

@@ -114,6 +114,7 @@ const Property age4{"age", {"0", "1", "2", "3", "4"}};
 const Property age2{"age", {"0", "1", "2"}};
 const Property disarmed{"disarmed", {"true", "false"}};
 const Property inverted{"inverted", {"true", "false"}};
+const Property charges{"charges", {"0", "1", "2", "3", "4"}};
 const Property candles{"candles", {"1", "2", "3", "4"}};
 const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
 const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
@@ -1433,6 +1434,10 @@ BlockRegistry buildVanillaBlocks() {
                                             .like = blocks::SculkSensor},
                 {{&facing, "north"}, {&sculkPhase, "inactive"}, {&power, "0"}, {&waterlogged, "false"}}),
           blocks::CalibratedSculkSensor);
+    // (M29.5; wiki: Respawn Anchor - 50 / 1200, diamond pickaxe; light 0, 3, 7, 11, 15)
+    check(r.add("respawn_anchor", {.hardness = 50.0f, .resistance = 1200.0f, .tool = HarvestTool::Pickaxe, .tier = 3},
+                {{&charges, "0"}}),
+          blocks::RespawnAnchor);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
@@ -1440,6 +1445,8 @@ BlockRegistry buildVanillaBlocks() {
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::SeaPickle).firstState + i);
         r.setStateEmission(s, r.get(s, waterlogged) == 0 ? uint8_t(6 + 3 * r.get(s, pickles)) : 0);
     }
+    for (int c = 0; c <= 4; ++c) // (M29.5: respawn anchors by charge)
+        r.setStateEmission(r.set(r.defaultState(blocks::RespawnAnchor), charges, c), uint8_t(std::max(0, c * 4 - 1)));
     for (uint32_t i = 0; i < r.block(blocks::CaveVines).stateCount; ++i) { // (glow berries light 14)
         const BlockStateId s = static_cast<BlockStateId>(r.block(blocks::CaveVines).firstState + i);
         r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);

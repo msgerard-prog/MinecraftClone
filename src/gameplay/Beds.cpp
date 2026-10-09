@@ -74,6 +74,22 @@ BedUse useBed(const World& world, const BlockPos& p, int64_t dayTime, Dimension 
     return BedUse::Sleep;
 }
 
+std::optional<glm::dvec3> anchorStandSpot(const World& world, const BlockPos& anchor) {
+    const BlockStateId s = world.getBlock(anchor);
+    if (R().blockOf(s) != blocks::RespawnAnchor || R().get(s, properties::charges) == 0) return std::nullopt;
+    auto fits = [&](int x, int y, int z) {
+        return R().collides(world.getBlock({x, y - 1, z})) && !R().collides(world.getBlock({x, y, z})) &&
+               !R().collides(world.getBlock({x, y + 1, z})) && R().blockOf(world.getBlock({x, y, z})) != blocks::Lava;
+    };
+    for (const int dy : {0, -1, 1})
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if ((dx || dz) && fits(anchor.x + dx, anchor.y + dy, anchor.z + dz))
+                    return glm::dvec3(anchor.x + dx + 0.5, double(anchor.y + dy), anchor.z + dz + 0.5);
+    if (fits(anchor.x, anchor.y + 1, anchor.z)) return glm::dvec3(anchor.x + 0.5, anchor.y + 1.0, anchor.z + 0.5);
+    return std::nullopt;
+}
+
 std::optional<glm::dvec3> bedStandSpot(const World& world, const BlockPos& head) {
     const BlockStateId s = world.getBlock(head);
     if (R().likeOf(R().blockOf(s)) != blocks::RedBed) return std::nullopt;

@@ -40,6 +40,9 @@ std::optional<world::BlockPos> bedHead(const world::World& world, const world::B
 // Where to stand up / respawn next to the bed: a spot around either half with solid
 // ground and 2 free blocks (wiki: Bed › Respawn); nothing if it is gone or blocked.
 std::optional<glm::dvec3> bedStandSpot(const world::World& world, const world::BlockPos& head);
+// (M29.5; wiki: Respawn Anchor) a free spot next to (or on) a charged anchor, nullopt if it is
+// gone, empty or walled in.
+std::optional<glm::dvec3> anchorStandSpot(const world::World& world, const world::BlockPos& anchor);
 
 // The night skipped by sleeping: the next morning (day time a multiple of 24000).
 inline int64_t morningAfter(int64_t dayTime) { return dayTime + (24000 - dayTime % 24000); }
