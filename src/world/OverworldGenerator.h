@@ -170,6 +170,10 @@ private:
     // powder snow, ocean magma (bubbling), glow lichen, ore veins with raw blocks, fossils.
     void placeFeatures7(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                         const std::array<Biome, 16>& biomes) const;
+    // overworld8 (M33.3b; wiki: Dappled Forest): red shrubs, brown mushrooms and leaf litter on
+    // its floor, shelf mushrooms on the poplars' trunks.
+    void placeDappled8(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                       const std::array<Biome, 16>& biomes) const;
     void placeArchaeology6(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
                            const std::array<Biome, 16>& columnBiome, GeneratedEntities& out) const;
     // overworld6 (M27.4b): ruined portals on their grid.

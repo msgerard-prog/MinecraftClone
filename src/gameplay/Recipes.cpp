@@ -712,21 +712,26 @@ std::vector<Recipe> build() {
     {
         auto has = [](std::string_view n) { return itemRegistry().find(n).has_value(); };
         r.push_back(shaped({"#.#", ".#."}, {{'#', kPlanks}}, "bowl", 4));
-        r.push_back(shapeless({item("brown_mushroom"), item("red_mushroom"), item("bowl")}, "mushroom_stew"));
+        // 26.3 (M33.3b; wiki: Mushroom Stew, Suspicious Stew): any two mushrooms - brown, red, shelf.
+        static constexpr std::pair<const char*, const char*> kPairs[] = {
+            {"brown_mushroom", "red_mushroom"},   {"brown_mushroom", "brown_mushroom"}, {"red_mushroom", "red_mushroom"},
+            {"shelf_mushroom", "shelf_mushroom"}, {"brown_mushroom", "shelf_mushroom"}, {"red_mushroom", "shelf_mushroom"}};
+        for (const auto& [m1, m2] : kPairs) r.push_back(shapeless({item(m1), item(m2), item("bowl")}, "mushroom_stew"));
         r.push_back(shapeless({item("beetroot"), item("beetroot"), item("beetroot"), item("beetroot"), item("beetroot"),
                                item("beetroot"), item("bowl")},
                               "beetroot_soup"));
-        for (const char* mush : {"brown_mushroom", "red_mushroom"})
+        for (const char* mush : {"brown_mushroom", "red_mushroom", "shelf_mushroom"}) // (M33.3b: shelf mushrooms too)
             r.push_back(shapeless({item("cooked_rabbit"), item("carrot"), item("baked_potato"), item(mush), item("bowl")},
                                   "rabbit_stew"));
         // A suspicious stew remembers its flower (ItemStack::state = index + 1).
         const auto flowers = stewFlowers();
         for (size_t k = 0; k < flowers.size(); ++k) {
             if (!has(flowers[k].flower)) continue;
-            Recipe s = shapeless({item("brown_mushroom"), item("red_mushroom"), item("bowl"), item(flowers[k].flower)},
-                                 "suspicious_stew");
-            s.result.state = BlockStateId(k + 1);
-            r.push_back(std::move(s));
+            for (const auto& [m1, m2] : kPairs) {
+                Recipe s = shapeless({item(m1), item(m2), item("bowl"), item(flowers[k].flower)}, "suspicious_stew");
+                s.result.state = BlockStateId(k + 1);
+                r.push_back(std::move(s));
+            }
         }
         r.push_back(shapeless({item("pumpkin"), item("sugar"), item("egg")}, "pumpkin_pie"));
         r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},

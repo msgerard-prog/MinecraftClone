@@ -309,7 +309,8 @@ void Mobs::spawnCreatureAt(Context& ctx, int x, int z) {
          biome == Biome::OldGrowthSpruceTaiga || biome == Biome::Jungle ||
          biome == Biome::SparseJungle || biome == Biome::BambooJungle || biome == Biome::Savanna ||
          biome == Biome::SavannaPlateau || biome == Biome::WindsweptHills ||
-         biome == Biome::WindsweptForest || biome == Biome::Swamp || biome == Biome::CherryGrove);
+         biome == Biome::WindsweptForest || biome == Biome::Swamp || biome == Biome::CherryGrove ||
+                         biome == Biome::DappledForest); // (M33.3b)
     if (grassy && ctx.rng.nextInt(5) != 0) {
         const uint32_t roll = ctx.rng.nextInt(40);
         const MobType farm = roll < 12   ? MobType::Sheep

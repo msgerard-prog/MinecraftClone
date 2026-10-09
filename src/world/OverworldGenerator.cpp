@@ -98,9 +98,9 @@ struct Blocks {
         redstoneTorch, bedFoot, bedHead;
     // Leaves by wood (oak, birch, spruce, acacia, jungle, dark oak, cherry, mangrove,
     // pale oak) and distance 1..7 (index d-1).
-    BlockStateId leaves[9][7];
+    BlockStateId leaves[12][7]; // (rows 9-11: red, orange and yellow poplar leaves - M33.3b)
     // overworld6 (M27.1)
-    BlockStateId mangroveLog, paleOakLog, mud, mangroveRoots, muddyRoots, paleMoss, paleMossCarpet, hangingMoss,
+    BlockStateId mangroveLog, paleOakLog, poplarLog, mud, mangroveRoots, muddyRoots, paleMoss, paleMossCarpet, hangingMoss,
         hangingMossTip, mossBlock, bamboo, bambooSmall, bambooLarge;
     BlockStateId tallLower[6], tallUpper[6]; // sunflower, lilac, rose bush, peony, tall grass, large fern
     struct Ore {
@@ -198,14 +198,17 @@ const Blocks& blockSet() {
         x.brownCap = r.with(S(blocks::BrownMushroomBlock), "down", "false").value_or(0);
         x.redCap = r.with(S(blocks::RedMushroomBlock), "down", "false").value_or(0);
         x.stem = r.with(r.with(S(blocks::MushroomStem), "down", "false").value_or(0), "up", "false").value_or(0);
-        const BlockStateId leafDefaults[9] = {x.oakLeaves,         x.birchLeaves,           x.spruceLeaves,
-                                              x.acaciaLeaves,      S(blocks::JungleLeaves), S(blocks::DarkOakLeaves),
-                                              S(blocks::CherryLeaves), S(blocks::MangroveLeaves), S(blocks::PaleOakLeaves)};
-        for (int k = 0; k < 9; ++k)
+        const BlockStateId leafDefaults[12] = {x.oakLeaves,         x.birchLeaves,           x.spruceLeaves,
+                                               x.acaciaLeaves,      S(blocks::JungleLeaves), S(blocks::DarkOakLeaves),
+                                               S(blocks::CherryLeaves), S(blocks::MangroveLeaves), S(blocks::PaleOakLeaves),
+                                               S(blocks::RedPoplarLeaves), S(blocks::OrangePoplarLeaves),
+                                               S(blocks::YellowPoplarLeaves)};
+        for (int k = 0; k < 12; ++k)
             for (int d = 1; d <= 7; ++d)
                 x.leaves[k][d - 1] = r.with(leafDefaults[k], "distance", std::to_string(d)).value_or(leafDefaults[k]);
         x.mangroveLog = S(blocks::MangroveLog);
         x.paleOakLog = S(blocks::PaleOakLog);
+        x.poplarLog = S(blocks::PoplarLog);
         x.mud = S(blocks::Mud);
         x.mangroveRoots = S(blocks::MangroveRoots);
         x.muddyRoots = S(blocks::MuddyMangroveRoots);
@@ -457,6 +460,7 @@ Biome OverworldGenerator::biomeAt(const Column& c) const {
     case Biome::OldGrowthSpruceTaiga: return W > 0.0 ? Biome::OldGrowthPineTaiga : v2;
     case Biome::Jungle: return hum == 4 && W > 0.0 ? Biome::BambooJungle : v2;
     case Biome::DarkForest: return W > 0.0 ? Biome::PaleGarden : v2;
+    case Biome::Forest: return m_version >= 8 && W > 0.0 ? Biome::DappledForest : v2; // (M33.3b: 26.3)
     case Biome::Swamp: return temp >= 3 ? Biome::MangroveSwamp : v2;
     case Biome::Savanna: return c.height > 95.0 ? Biome::SavannaPlateau : v2;
     case Biome::WindsweptHills:
@@ -513,6 +517,7 @@ namespace {
 struct TreeShape {
     // TreeKind's values, then features planned like trees (they reach across chunks).
     enum Kind { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove, MegaSpruce,
+                Poplar, // (M33.3b)
                 BrownMushroom = 100, RedMushroom, IceSpike } kind;
 };
 
@@ -538,6 +543,7 @@ int woodOf(TreeShape::Kind k) {
     case TreeShape::Mangrove: return 7;
     case TreeShape::PaleOak: return 8;
     case TreeShape::MegaSpruce: return 2;
+    case TreeShape::Poplar: return 11; // (yellow; each tree picks its colour where it is placed)
     default: return static_cast<int>(k);
     }
 }
@@ -578,6 +584,7 @@ double treeDensity(Biome b) {
     case Biome::BambooJungle: return 5.0;
     case Biome::MangroveSwamp: return 6.0;
     case Biome::PaleGarden: return 9.0;
+    case Biome::DappledForest: return 8.0; // (M33.3b; our density)
     default: return 0.0;
     }
 }
@@ -624,6 +631,7 @@ TreeShape::Kind treeKind(Biome b, Xoroshiro& rng, int version) {
     case Biome::MangroveSwamp: return TreeShape::Mangrove;
     case Biome::PaleGarden: return rng.nextFloat() < 0.9f ? TreeShape::PaleOak : TreeShape::DarkOak;
     case Biome::CherryGrove: return TreeShape::Cherry;
+    case Biome::DappledForest: return rng.nextFloat() < 0.92f ? TreeShape::Poplar : TreeShape::Spruce; // (M33.3b; wiki: rarely spruce)
     case Biome::MushroomFields: return rng.nextFloat() < 0.5f ? TreeShape::BrownMushroom : TreeShape::RedMushroom;
     case Biome::IceSpikes: return TreeShape::IceSpike;
     default: return TreeShape::Oak;
@@ -779,12 +787,16 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
         case TreeShape::MegaSpruce: log = B.spruceLog; break;
         case TreeShape::Mangrove: log = B.mangroveLog; break;
         case TreeShape::PaleOak: log = B.paleOakLog; break;
+        case TreeShape::Poplar: log = B.poplarLog; break;
         default: break;
         }
         // Writes into this chunk only; logs replace air/leaves/plants, leaves only air.
         // Generated leaves carry their distance to the trunk (vanilla: 1..6, so they
         // never decay).
-        const int wood = woodOf(kind);
+        // (M33.3b) a poplar's leaves turn red, orange or yellow, by where it stands
+        const int wood = kind == TreeShape::Poplar
+                             ? 9 + int(uint32_t(mixSeed(mixSeed(m_seed ^ 0x9091A5ull, uint32_t(wx)), uint32_t(wz))) % 3)
+                             : woodOf(kind);
         auto put = [&](int32_t x, int32_t y, int32_t z, int distance) {
             const bool isLog = distance == 0;
             const BlockStateId s = isLog ? log : B.leaves[wood][distance - 1];
@@ -796,7 +808,9 @@ void OverworldGenerator::placeTrees(BlockStateId* blocks, ChunkPos pos, int32_t 
                                        curBlock == blocks::SpruceLeaves || curBlock == blocks::AcaciaLeaves ||
                                        curBlock == blocks::JungleLeaves || curBlock == blocks::DarkOakLeaves ||
                                        curBlock == blocks::CherryLeaves || curBlock == blocks::MangroveLeaves ||
-                                       curBlock == blocks::PaleOakLeaves || cur == B.shortGrass || cur == B.fern ||
+                                       curBlock == blocks::PaleOakLeaves || curBlock == blocks::RedPoplarLeaves ||
+                                       curBlock == blocks::OrangePoplarLeaves || curBlock == blocks::YellowPoplarLeaves ||
+                                       cur == B.shortGrass || cur == B.fern ||
                                        (kind == TreeShape::Mangrove && cur == B.water)))) { // (mangroves stand in water)
                 chunk.set(lx, y, lz, s);
             }
@@ -1341,6 +1355,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     }
     if (m_version >= 7) placeFeatures7(blockArray.data(), out, cx, cz, topY, columnBiome); // (M29.8)
     if (m_version >= 8 && caveCells) placeSulfurCaves8(blockArray.data(), cx, cz, *biomes, topY); // (M33.2e)
+    if (m_version >= 8) placeDappled8(blockArray.data(), cx, cz, topY, columnBiome);                // (M33.3b)
 
     if (m_version >= 2) {
         placeStructures(blockArray.data(), cx, cz, entities);
@@ -4064,6 +4079,50 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
 } // namespace mc::world
 
 namespace mc::world {
+
+void OverworldGenerator::placeDappled8(BlockStateId* blocks, int32_t cx, int32_t cz, const std::array<int, 256>& topY,
+                                       const std::array<Biome, 16>& biomes) const {
+    bool any = false;
+    for (const Biome b : biomes) any = any || b == Biome::DappledForest;
+    if (!any) return;
+    const Blocks& B = blockSet();
+    const auto& reg = blockRegistry();
+    Buf chunk{blocks};
+    Xoroshiro r(chunkSeed(m_seed, cx, cz, 833));
+    r.nextLong();
+    static const BlockStateId shrub = reg.defaultState(*reg.findBlock("red_shrub")),
+                              shelf = reg.defaultState(*reg.findBlock("shelf_mushroom")),
+                              bigShelf = reg.defaultState(*reg.findBlock("large_shelf_mushroom")),
+                              litter = reg.defaultState(blocks::LeafLitter),
+                              brown = reg.defaultState(blocks::BrownMushroom), poplarLog = reg.defaultState(blocks::PoplarLog);
+    for (int z = 0; z < 16; ++z)
+        for (int x = 0; x < 16; ++x) {
+            if (biomes[size_t((z >> 2) * 4 + (x >> 2))] != Biome::DappledForest) continue;
+            const int top = topY[size_t(z * 16 + x)];
+            if (top >= kOverworldHeight.maxY() - 14) continue;
+            // The floor: a red shrub 1 in 16, leaf litter 1 in 20, a brown mushroom 1 in 60.
+            const uint32_t roll = r.nextInt(240);
+            if (chunk.get(x, top, z) == B.grass && chunk.get(x, top + 1, z) == B.air) {
+                if (roll < 15) chunk.set(x, top + 1, z, shrub);
+                else if (roll < 27)
+                    chunk.set(x, top + 1, z,
+                              reg.set(reg.set(litter, properties::segmentAmount, int(r.nextInt(4))), properties::facing,
+                                      int(r.nextInt(4))));
+                else if (roll < 31) chunk.set(x, top + 1, z, brown);
+            }
+            // Shelf mushrooms on a poplar's trunk: 1 face in 25 that looks onto air, a third large.
+            for (int y = top + 2; y < top + 12; ++y) {
+                if (chunk.get(x, y, z) != poplarLog) continue;
+                static constexpr int kDx[4] = {0, 0, -1, 1}, kDz[4] = {-1, 1, 0, 0}; // north south west east
+                for (int f = 0; f < 4; ++f) {
+                    const int nx = x + kDx[f], nz = z + kDz[f];
+                    if (nx < 0 || nx > 15 || nz < 0 || nz > 15 || chunk.get(nx, y, nz) != B.air) continue;
+                    if (r.nextInt(25) != 0) continue;
+                    chunk.set(nx, y, nz, reg.set(r.nextInt(3) == 0 ? bigShelf : shelf, properties::facing, f));
+                }
+            }
+        }
+}
 
 void OverworldGenerator::placeSulfurCaves8(BlockStateId* blocks, int32_t cx, int32_t cz, const ChunkBiomes& biomes,
                                            const std::array<int, 256>& topY) const {

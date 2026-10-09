@@ -1,6 +1,7 @@
 #include "gameplay/Mining.h"
 
 #include "world/BlockUpdates.h"
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 
@@ -592,6 +593,10 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     // only with shears (not collected yet).
     if (reg.likeOf(b) == blocks::Candle) {
         add(itemRegistry().blockItem(b), reg.get(state, properties::candles) + 1);
+        return;
+    }
+    if (b != 0 && b == shelfMushroomBlock(true)) { // (M33.3b; wiki: Shelf Mushroom - a large one drops 2)
+        add(itemRegistry().blockItem(shelfMushroomBlock(false)), 2);
         return;
     }
     if (reg.likeOf(b) == blocks::CandleCake) {

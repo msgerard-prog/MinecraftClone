@@ -107,6 +107,27 @@ reg("red_mushroom", lambda r: P.mushroom(r, RED_CAP, MUSH_STEM, spots=hexc("f4f0
 reg("brown_mushroom_block", lambda r: P.mushroom_block(r, BROWN_CAP))
 reg("red_mushroom_block", lambda r: P.mushroom_block(r, RED_CAP, hexc("f4f0e8")))
 reg("mushroom_stem", lambda r: M.speckle(M.mottled(r, MUSH_STEM, 2, 3), r, [MUSH_STEM[1]], 10))
+
+
+# (M33.3b; 26.3) the dappled forest's plants: a low red shrub, and the shelf mushroom's cap
+def _red_shrub(rng):
+    img = Img()
+    red = ramp(hexc("b8321e"), spread=0.3)
+    for y in range(5, 16):
+        half = 7 if y > 8 else 4 + (y - 5)
+        for x in range(8 - half, 8 + half):
+            if rng.random() < 0.82:
+                img.set(x, y, red[rng.randrange(5)])
+    for x in (6, 7, 8, 9):
+        img.set(x, 15, hexc("5a3a22"))
+    return img
+
+
+SHELF_CAP = ramp(hexc("c88a4a"), spread=0.25)
+reg("red_shrub", _red_shrub)
+reg("shelf_mushroom_top", lambda r: M.speckle(M.mottled(r, SHELF_CAP, 1, 3), r, [hexc("f0d8a8")], 14))
+reg("shelf_mushroom_side", lambda r: M.speckle(M.mottled(r, ramp(hexc("8a5a2e"), spread=0.2), 1, 3), r,
+                                                [hexc("e8d0a0")], 6))
 reg("mushroom_block_inside", lambda r: M.speckle(M.mottled(r, ramp(hexc("d4b890")), 2, 3), r,
                                                  [hexc("b89a70")], 8))
 

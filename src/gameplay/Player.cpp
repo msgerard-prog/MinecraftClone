@@ -1,4 +1,5 @@
 #include "gameplay/Player.h"
+#include "world/BlockShapes.h"
 
 #include "gameplay/BlockCollision.h"
 #include "gameplay/FluidContact.h"
@@ -145,8 +146,10 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
                                     int(std::floor(m_pos.z))};
         // (M33.2d; wiki: Bed - 26.2) a bed bounces back three quarters of the fall (was two
         // thirds) unless sneaking; the landing still counts (half damage: main).
+        // (M33.3b) shelf mushrooms bounce like beds (wiki: Shelf Mushroom)
         if (const world::BlockId ub = world::blockRegistry().blockOf(world.getBlock(under));
-            world::blockRegistry().likeOf(ub) == world::blocks::RedBed && delta.y < -0.1 && !m_sneaking)
+            (world::blockRegistry().likeOf(ub) == world::blocks::RedBed || world::isShelfMushroom(ub)) &&
+            delta.y < -0.1 && !m_sneaking)
             m_velocity.y = -delta.y * 0.75;
         if (world::blockRegistry().blockOf(world.getBlock(under)) == world::blocks::SlimeBlock) {
             m_bounced = true; // (no fall damage, sneaking or not - wiki: Slime Block)

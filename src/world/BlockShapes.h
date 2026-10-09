@@ -18,6 +18,9 @@ struct BlockShape {
     std::array<ShapeBox, 5> boxes{};
 };
 const BlockShape& collisionShape(BlockStateId state);
+// (M33.3b; 26.3) the shelf mushrooms (registered late: looked up by name once).
+BlockId shelfMushroomBlock(bool large);
+inline bool isShelfMushroom(BlockId b) { return b != 0 && (b == shelfMushroomBlock(false) || b == shelfMushroomBlock(true)); }
 // The stair step boxes for a state (M23.1; also its model): the half slab, then the
 // raised part on its facing side (a quarter for outer corners, three for inner).
 BlockShape stairShapeOf(BlockStateId state);

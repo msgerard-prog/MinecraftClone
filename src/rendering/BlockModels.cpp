@@ -318,6 +318,16 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
             const BakedModel& pm = m_models[registry.defaultState(plant)];
             m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
         }
+    } else if (name == "shelf_mushroom" || name == "large_shelf_mushroom") {
+        // (M33.3b) a shelf sticking out of the wall behind it (its facing points out)
+        m.visible = true;
+        const int d = name == "large_shelf_mushroom" ? 10 : 6;
+        const int wall = registry.get(state, properties::facing) ^ 1; // (north <-> south, west <-> east)
+        if (wall == 0) addBox(m, 0, 6, 0, 16, 9, d, sprite("shelf_mushroom_side"));
+        else if (wall == 1) addBox(m, 0, 6, 16 - d, 16, 9, 16, sprite("shelf_mushroom_side"));
+        else if (wall == 2) addBox(m, 0, 6, 0, d, 9, 16, sprite("shelf_mushroom_side"));
+        else addBox(m, 16 - d, 6, 0, 16, 9, 16, sprite("shelf_mushroom_side"));
+        m.boxes[m.boxCount - 1].faces[int(Direction::Up)].sprite = sprite("shelf_mushroom_top");
     } else if (name == "soul_fire") { // (M29.4c) as fire: a cross of its animated texture
         m.visible = true;
         m.cross = true;
@@ -702,7 +712,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
                 "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
-                "mangrove_propagule", "pale_oak_sapling", "poplar_sapling",
+                "mangrove_propagule", "pale_oak_sapling", "poplar_sapling", "red_shrub",
                 // (M29.4a) the rest of the flowers
                 "allium", "blue_orchid", "red_tulip", "orange_tulip", "white_tulip", "pink_tulip",
                 "lily_of_the_valley", "wither_rose"};

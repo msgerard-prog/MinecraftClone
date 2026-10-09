@@ -78,6 +78,7 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:dripstone_caves", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
     {"minecraft:deep_dark", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
     {"minecraft:sulfur_caves", 0.8f, 0xABA64F, 0xABA64F, 0x34BF89, 0x8CB831}, // (M33.2e; wiki: Sulfur Caves)
+    {"minecraft:dappled_forest", 0.7f, 0x9CB04C, 0xC89A3A, 0x3F76E4}, // (M33.3b; colours ours: an autumn tone)
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 

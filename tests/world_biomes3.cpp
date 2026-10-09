@@ -765,3 +765,36 @@ TEST_CASE("M33.3a (26.3): a poplar is a tall slim trunk in a narrow column of le
     CHECK(blockRegistry().findBlock("stripped_poplar_wood").has_value());
     CHECK(itemRegistry().find("poplar_chest_boat").has_value());
 }
+
+TEST_CASE("overworld8 (M33.3b; 26.3): the dappled forest - poplars in three colours, red shrubs, shelf mushrooms") {
+    const OverworldGenerator gen(42, 8);
+    const auto at = findBiome6(gen, Biome::DappledForest);
+    REQUIRE(at);
+    MESSAGE("dappled forest at chunk " << at->x << ", " << at->z);
+    const auto& r = blockRegistry();
+    const BlockId shrub = *r.findBlock("red_shrub"), shelf = *r.findBlock("shelf_mushroom"),
+                  bigShelf = *r.findBlock("large_shelf_mushroom");
+    int logs = 0, shrubs = 0, shelves = 0, colours[3] = {};
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx) {
+            Chunk ch({at->x + dx, at->z + dz});
+            gen.generate(ch);
+            for (int y = 40; y <= 200; ++y)
+                for (int z = 0; z < 16; ++z)
+                    for (int x = 0; x < 16; ++x) {
+                        const BlockId b = r.blockOf(ch.get(x, y, z));
+                        logs += b == blocks::PoplarLog;
+                        shrubs += b == shrub;
+                        shelves += b == shelf || b == bigShelf;
+                        colours[0] += b == blocks::RedPoplarLeaves;
+                        colours[1] += b == blocks::OrangePoplarLeaves;
+                        colours[2] += b == blocks::YellowPoplarLeaves;
+                    }
+        }
+    MESSAGE("poplar logs " << logs << ", shrubs " << shrubs << ", shelves " << shelves << ", leaves " << colours[0] << "/"
+                           << colours[1] << "/" << colours[2]);
+    CHECK(logs > 20);
+    CHECK(shrubs > 5);
+    CHECK(shelves > 0);
+    CHECK(colours[0] + colours[1] + colours[2] > 100);
+}

@@ -2426,7 +2426,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                         int(std::floor(feet.z))};
                         const mc::world::BlockId ub = reg.blockOf(world.getBlock(under));
                         vitals.setLandingFactor(ub == mc::world::blocks::HayBlock                ? 0.2f
-                                                : reg.likeOf(ub) == mc::world::blocks::RedBed ? 0.5f // (wiki: Bed)
+                                                : reg.likeOf(ub) == mc::world::blocks::RedBed ||
+                                                          mc::world::isShelfMushroom(ub)
+                                                      ? 0.5f // (wiki: Bed, Shelf Mushroom)
                                                                                                   : 1.0f);
                         const mc::world::BlockStateId us =
                             world.getBlock(under); // (M27.2b: onto a point)

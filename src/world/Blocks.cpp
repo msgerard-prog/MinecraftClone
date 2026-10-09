@@ -1673,6 +1673,19 @@ BlockRegistry buildVanillaBlocks() {
             r.setStateEmission(s, like == blocks::Candle ? uint8_t(3 * (r.get(s, candles) + 1)) : 3);
         }
     }
+    // (M33.3b; wiki: Red Shrub, Shelf Mushroom - 26.3) the dappled forest's plants: the red shrub
+    // is a bush (it spreads with bone meal); shelf mushrooms grow out of a log's side like a
+    // ladder hangs (placed on a side, held by the block behind) - bouncy to land on.
+    {
+        BlockSettings shrub = kPlant;
+        shrub.like = blocks::Bush;
+        r.add("red_shrub", shrub);
+        const BlockSettings shelfMushroom{.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false,
+                                          .layer = RenderLayer::Cutout, .tool = HarvestTool::Axe,
+                                          .like = blocks::Ladder};
+        r.add("shelf_mushroom", shelfMushroom, {{&facing, "north"}});
+        r.add("large_shelf_mushroom", shelfMushroom, {{&facing, "north"}});
+    }
     // (M33.3a) the poplar shelf, like the oak one
     r.add("poplar_shelf", {.hardness = 2.0f, .resistance = 3.0f, .opaqueCube = false, .tool = HarvestTool::Axe,
                            .like = blocks::Shelf},
