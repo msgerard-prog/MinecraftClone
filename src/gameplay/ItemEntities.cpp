@@ -64,15 +64,34 @@ int ItemEntities::park(world::Chunk& chunk) {
 }
 
 int ItemEntities::unpark(world::Chunk& chunk, world::Xoroshiro& rng) {
-    int n = 0;
-    for (const world::Chunk::DroppedItem& d : chunk.droppedItems())
+    auto& parked = chunk.droppedItems();
+    size_t n = 0;
+    for (; n < parked.size() && m_items.size() < size_t(kMax); ++n) {
+        const world::Chunk::DroppedItem& d = parked[n];
         if (ItemEntity* e = spawn(d.pos, d.stack, rng, d.pickupDelay)) {
             e->vel = d.vel;
             e->age = d.age;
-            ++n;
         }
-    chunk.droppedItems().clear();
-    return n;
+    }
+    parked.erase(parked.begin(), parked.begin() + std::ptrdiff_t(n));
+    return int(n);
+}
+
+void ItemEntities::parkAll(world::World& world, std::vector<world::ChunkPos>& touched) {
+    for (size_t i = 0; i < m_items.size();) {
+        const ItemEntity& e = m_items[i];
+        const world::ChunkPos at{world::blockToChunk(int(std::floor(e.pos.x))), world::blockToChunk(int(std::floor(e.pos.z)))};
+        world::Chunk* c = e.stack.empty() ? nullptr : world.chunk(at);
+        if (!c) {
+            ++i;
+            continue;
+        }
+        if (c->droppedItems().empty() && c->droppedOrbs().empty()) touched.push_back(at);
+        c->droppedItems().push_back({e.pos, e.vel, e.stack, int16_t(std::min(e.age, 32767)),
+                                     int16_t(std::min(e.pickupDelay, 32767))});
+        m_items[i] = m_items.back();
+        m_items.pop_back();
+    }
 }
 
 void ItemEntities::mergeNear(size_t i) {
@@ -100,7 +119,7 @@ void ItemEntities::mergeNear(size_t i) {
 void ItemEntities::move(const world::World& world, ItemEntity& e) {
     const Aabb box = Aabb::fromFeet(e.pos, kSize, kSize);
     const Aabb region = box.expandedTowards(e.vel);
-    gatherBlockBoxes(world, region, m_boxes);
+    gatherBlockBoxes(world, region, m_boxes, /*unloadedSolid=*/true); // (never into unloaded chunks: unsaved)
     glm::dvec3 d = e.vel;
     Aabb b = box;
     for (int axis : {1, 0, 2}) { // y first, like vanilla

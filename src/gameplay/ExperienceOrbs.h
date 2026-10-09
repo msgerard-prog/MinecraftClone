@@ -34,7 +34,8 @@ public:
     void clear() { m_orbs.clear(); }
     // Saving (M30.4): orbs inside `chunk` into its droppedOrbs() and back. Return how many.
     int park(world::Chunk& chunk);
-    int unpark(world::Chunk& chunk);
+    int unpark(world::Chunk& chunk); // (what doesn't fit stays parked)
+    void parkAll(world::World& world, std::vector<world::ChunkPos>& touched);
 
 private:
     std::vector<ExperienceOrb> m_orbs;

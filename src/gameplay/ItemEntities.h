@@ -51,7 +51,11 @@ public:
     // Saving (M30.4): moves the stacks inside `chunk` into its droppedItems() (park) and
     // back into the pool (unpark). Returns how many moved.
     int park(world::Chunk& chunk);
+    // Takes back what fits in the pool; the rest stays parked in the chunk (never evicting
+    // another chunk's drops - M30 review).
     int unpark(world::Chunk& chunk, world::Xoroshiro& rng);
+    // Saving: every stack into its (loaded) chunk in one pass; `touched` lists those chunks.
+    void parkAll(world::World& world, std::vector<world::ChunkPos>& touched);
 
     // One tick: physics, pickup into `inventory` if `player` (box) is near and
     // `canPickUp`, despawn. Returns how many stacks were picked up (for a sound later).

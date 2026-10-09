@@ -29,8 +29,13 @@ void ExperienceOrbs::drop(const glm::dvec3& pos, int points, Xoroshiro& rng) {
                 merged = true;
             }
         if (merged) continue;
-        if (m_orbs.size() >= size_t(kMax)) { // full: merge into the youngest orb
-            if (!m_orbs.empty()) m_orbs.back().value += v;
+        if (m_orbs.size() >= size_t(kMax)) { // full: add the points to a single orb (not one
+            // counting several: that would multiply them - M30 review)
+            for (auto it = m_orbs.rbegin(); it != m_orbs.rend(); ++it)
+                if (it->count == 1) {
+                    it->value += v;
+                    break;
+                }
             continue;
         }
         ExperienceOrb o;
@@ -121,9 +126,10 @@ int ExperienceOrbs::park(Chunk& chunk) {
 }
 
 int ExperienceOrbs::unpark(Chunk& chunk) {
-    int n = 0;
-    for (const Chunk::DroppedOrb& d : chunk.droppedOrbs()) {
-        if (m_orbs.size() >= size_t(kMax)) break;
+    auto& parked = chunk.droppedOrbs();
+    size_t n = 0;
+    for (; n < parked.size() && m_orbs.size() < size_t(kMax); ++n) {
+        const Chunk::DroppedOrb& d = parked[n];
         ExperienceOrb o;
         o.pos = o.prevPos = d.pos;
         o.vel = d.vel;
@@ -131,10 +137,25 @@ int ExperienceOrbs::unpark(Chunk& chunk) {
         o.count = d.count;
         o.age = d.age;
         m_orbs.push_back(o);
-        ++n;
     }
-    chunk.droppedOrbs().clear();
-    return n;
+    parked.erase(parked.begin(), parked.begin() + std::ptrdiff_t(n));
+    return int(n);
+}
+
+void ExperienceOrbs::parkAll(World& world, std::vector<ChunkPos>& touched) {
+    for (size_t i = 0; i < m_orbs.size();) {
+        const ExperienceOrb& o = m_orbs[i];
+        const ChunkPos at{blockToChunk(int(std::floor(o.pos.x))), blockToChunk(int(std::floor(o.pos.z)))};
+        Chunk* c = o.count > 0 ? world.chunk(at) : nullptr;
+        if (!c) {
+            ++i;
+            continue;
+        }
+        if (c->droppedItems().empty() && c->droppedOrbs().empty()) touched.push_back(at);
+        c->droppedOrbs().push_back({o.pos, o.vel, o.value, o.count, int16_t(std::min(o.age, 32767))});
+        m_orbs[i] = m_orbs.back();
+        m_orbs.pop_back();
+    }
 }
 
 } // namespace mc

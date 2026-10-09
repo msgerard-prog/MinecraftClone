@@ -37,6 +37,7 @@
 #include "gameplay/Particles.h"
 #include "gameplay/Patrols.h"
 #include "gameplay/BlockCollision.h"
+#include "gameplay/DropKeeper.h"
 #include "gameplay/Player.h"
 #include "gameplay/PlayerAnimation.h"
 #include "gameplay/Portals.h"
@@ -830,43 +831,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     bool spawnPending = !level && !opts->hasPos && !opts->autoFly && !flatWorld &&
                         dimension == Dimension::Overworld;
     // Saving: dirty chunks to the IO thread, level.dat written here (small).
-    // Dropped items and orbs go with their chunk (M30.4): parked in it while it is away or
-    // being saved, back in the pools when it loads. A chunk that held drops at its last save
-    // is saved again once they are gone (or they would come back).
-    struct DropKeeper final : mc::world::ChunkLifecycleListener {
-        mc::ItemEntities& items;
-        mc::ExperienceOrbs& xp;
-        mc::world::Xoroshiro& rng;
-        DropKeeper(mc::ItemEntities& i, mc::ExperienceOrbs& o, mc::world::Xoroshiro& r) : items(i), xp(o), rng(r) {}
-        void chunkLoaded(mc::world::Chunk& c) override {
-            items.unpark(c, rng);
-            xp.unpark(c);
-        }
-        void chunkUnloading(mc::world::Chunk& c) override {
-            const int drops = items.park(c) + xp.park(c);
-            if (drops > 0 || c.savedDrops > 0) c.markDirty();
-        }
-    };
-    mc::world::Xoroshiro dropRng(seed ^ 0xD20Bull); // (its own stream: saving doesn't shift gameplay's)
-    DropKeeper dropKeeper(droppedItems, orbs, dropRng);
+    // Dropped items and orbs go with their chunk (M30.4; gameplay/DropKeeper).
+    mc::DropKeeper dropKeeper(droppedItems, orbs, seed ^ 0xD20Bull);
     world.setChunkListener(&dropKeeper);
     if (flatWorld) // (the fixed world's chunks were all loaded above, before the keeper)
         world.forEachChunk([&](mc::world::Chunk& c) { dropKeeper.chunkLoaded(c); });
     auto saveWorld = [&](bool wait) {
         if (!storage) return;
         int chunks = 0;
+        dropKeeper.beforeSave(world);
         world.forEachChunk([&](mc::world::Chunk& c) {
-            const int drops = droppedItems.park(c) + orbs.park(c);
-            if (drops > 0 || c.savedDrops > 0) c.markDirty();
-            if (c.dirty()) {
-                storage->save(mc::world::ChunkSnapshot::of(c, gameTime));
-                c.clearDirty();
-                c.savedDrops = drops;
-                ++chunks;
-            }
-            droppedItems.unpark(c, dropRng);
-            orbs.unpark(c);
+            if (!c.dirty()) return;
+            storage->save(mc::world::ChunkSnapshot::of(c, gameTime));
+            c.clearDirty();
+            ++chunks;
         });
+        dropKeeper.afterSave(world);
         mc::world::LevelData l;
         l.name = level ? level->name : (opts->worldTitle.empty() ? worldName : opts->worldTitle);
         l.seed = seed;

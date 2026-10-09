@@ -107,3 +107,59 @@ TEST_CASE("death drops scatter all around (vanilla dropAll)") {
     CHECK(east);
     CHECK(west);
 }
+
+#include "gameplay/DropKeeper.h"
+
+TEST_CASE("M30 review: the drop keeper - unloading parks, saving keeps the pools, emptied chunks save again") {
+    World w = floor();
+    ItemEntities items;
+    ExperienceOrbs orbs;
+    DropKeeper keeper(items, orbs, 9);
+    Xoroshiro rng(5);
+    items.spawn({4.5, 64.0, 4.5}, I("diamond", 1), rng);
+    items.spawn({20.5, 64.0, 4.5}, I("emerald", 1), rng); // chunk (1, 0)
+    Chunk& c0 = *w.chunk({0, 0});
+    c0.clearDirty();
+    // Saving: everything parks, the chunks with drops are dirty, then the pools are whole again.
+    keeper.beforeSave(w);
+    CHECK(items.items().empty());
+    CHECK(c0.dirty());
+    CHECK(c0.droppedItems().size() == 1);
+    c0.clearDirty();
+    w.chunk({1, 0})->clearDirty();
+    keeper.afterSave(w);
+    CHECK(items.items().size() == 2);
+    CHECK(c0.savedDrops == 1);
+    CHECK(c0.droppedItems().empty());
+    // The diamond is picked up; the next save rewrites the chunk without it.
+    items.mutableItems().erase(std::remove_if(items.mutableItems().begin(), items.mutableItems().end(),
+                                              [](const ItemEntity& e) { return e.stack.item == *itemRegistry().find("diamond"); }),
+                               items.mutableItems().end());
+    keeper.beforeSave(w);
+    CHECK(c0.dirty());
+    CHECK(c0.droppedItems().empty());
+    keeper.afterSave(w);
+    CHECK(c0.savedDrops == 0);
+    // Unloading parks the chunk's drops and marks it dirty; loading takes them back.
+    Chunk& c1 = *w.chunk({1, 0});
+    c1.clearDirty();
+    keeper.chunkUnloading(c1);
+    CHECK(c1.dirty());
+    CHECK(c1.droppedItems().size() == 1);
+    CHECK(items.items().empty());
+    keeper.chunkLoaded(c1);
+    CHECK(items.items().size() == 1);
+}
+
+TEST_CASE("M30 review: a full pool leaves the rest parked instead of evicting another chunk's drops") {
+    ItemEntities items;
+    Xoroshiro rng(6);
+    for (int k = 0; k < ItemEntities::kMax; ++k) items.spawn({100.5, 64.0, 100.5}, I("stick", 1), rng);
+    Chunk c({0, 0});
+    c.droppedItems().push_back({{4.5, 64.0, 4.5}, {0.0, 0.0, 0.0}, I("diamond", 1), 0, 0});
+    CHECK(items.unpark(c, rng) == 0);
+    CHECK(c.droppedItems().size() == 1);
+    int sticks = 0;
+    for (const ItemEntity& e : items.items()) sticks += e.stack.item == *itemRegistry().find("stick");
+    CHECK(sticks == ItemEntities::kMax);
+}
