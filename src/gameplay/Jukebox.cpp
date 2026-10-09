@@ -23,7 +23,8 @@ constexpr DiscInfo kDiscs[] = {
     // (Music Box) 11, 1:13; Tears 10, 2:55; Lava Chicken 9, 2:15.
     {"music_disc_relic", 14, 218 * 20},   {"music_disc_precipice", 13, 299 * 20},
     {"music_disc_creator", 12, 176 * 20}, {"music_disc_creator_music_box", 11, 73 * 20},
-    {"music_disc_tears", 10, 175 * 20},   {"music_disc_lava_chicken", 9, 135 * 20}};
+    {"music_disc_tears", 10, 175 * 20},   {"music_disc_lava_chicken", 9, 135 * 20},
+    {"music_disc_bounce", 8, 150 * 20}}; // (M33.2d; 26.2: its length is our guess)
 
 uint32_t hash(uint32_t a, uint32_t b, uint32_t c) {
     uint32_t h =

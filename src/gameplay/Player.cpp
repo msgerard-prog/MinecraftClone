@@ -143,6 +143,11 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
     if (m_onGround && delta.y < 0.0 && !m_flying) {
         const world::BlockPos under{int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.01)),
                                     int(std::floor(m_pos.z))};
+        // (M33.2d; wiki: Bed - 26.2) a bed bounces back three quarters of the fall (was two
+        // thirds) unless sneaking; the landing still counts (half damage: main).
+        if (const world::BlockId ub = world::blockRegistry().blockOf(world.getBlock(under));
+            world::blockRegistry().likeOf(ub) == world::blocks::RedBed && delta.y < -0.1 && !m_sneaking)
+            m_velocity.y = -delta.y * 0.75;
         if (world::blockRegistry().blockOf(world.getBlock(under)) == world::blocks::SlimeBlock) {
             m_bounced = true; // (no fall damage, sneaking or not - wiki: Slime Block)
             if (delta.y < -0.1 && !m_sneaking) {

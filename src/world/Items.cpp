@@ -204,7 +204,7 @@ ItemRegistry buildItems() {
     // from note-block sounds (gameplay/Jukebox), not recordings.
     for (const char* name : {"13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward",
                              "11", "wait", "pigstep", "otherside", "5", "relic", "precipice", "creator",
-                             "creator_music_box", "tears", "lava_chicken"}) // (M29.3a: the rest)
+                             "creator_music_box", "tears", "lava_chicken", "bounce"}) // (M29.3a; M33.2d: 26.2's "Bounce")
         r.add({.id = std::string("minecraft:music_disc_") + name,
                .maxStack = 1,
                .texture = std::string("item/music_disc_") + name});

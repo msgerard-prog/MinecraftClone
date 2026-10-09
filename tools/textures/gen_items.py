@@ -1546,7 +1546,8 @@ DISC_LABELS = {"13": "#E8D040", "cat": "#60D040", "blocks": "#E05030", "chirp": 
                "11": "#606060", "wait": "#40A0E0", "pigstep": "#C06030", "otherside": "#40A8C0",
                "5": "#3A6A8A",  # (M28.5b)
                "relic": "#3A8A7A", "precipice": "#A86A3A", "creator": "#E8A040", "creator_music_box": "#F0C870",
-               "tears": "#90B8E8", "lava_chicken": "#E86A2A"}  # (M29.3a)
+               "tears": "#90B8E8", "lava_chicken": "#E86A2A",  # (M29.3a)
+               "bounce": "#D8C040"}  # (M33.2d)
 
 
 def all_items():

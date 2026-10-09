@@ -538,7 +538,7 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
             {"mall", 6},   {"mellohi", 7},    {"stal", 8},     {"strad", 9},     {"ward", 10},
             {"11", 11},    {"wait", 12},      {"pigstep", 13}, {"otherside", 14}, {"5", 15}, // (M28.5b)
             {"relic", 14}, {"precipice", 13}, {"creator", 12}, {"creator_music_box", 11}, {"tears", 10},
-            {"lava_chicken", 9}}; // (M29.3a)
+            {"lava_chicken", 9}, {"bounce", 8}}; // (M29.3a; M33.2d: 26.2's "Bounce" - wiki: 8)
         Chunk* jc = chunkAt(p);
         const JukeboxData* jd = jc ? jc->jukebox(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
         if (!jd || jd->record.empty()) return 0;

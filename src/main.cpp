@@ -2424,10 +2424,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         const mc::world::BlockPos under{int(std::floor(feet.x)),
                                                         int(std::floor(feet.y - 0.2)),
                                                         int(std::floor(feet.z))};
-                        vitals.setLandingFactor(reg.blockOf(world.getBlock(under)) ==
-                                                        mc::world::blocks::HayBlock
-                                                    ? 0.2f
-                                                    : 1.0f);
+                        const mc::world::BlockId ub = reg.blockOf(world.getBlock(under));
+                        vitals.setLandingFactor(ub == mc::world::blocks::HayBlock                ? 0.2f
+                                                : reg.likeOf(ub) == mc::world::blocks::RedBed ? 0.5f // (wiki: Bed)
+                                                                                                  : 1.0f);
                         const mc::world::BlockStateId us =
                             world.getBlock(under); // (M27.2b: onto a point)
                         vitals.setStalagmite(

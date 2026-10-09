@@ -722,3 +722,22 @@ TEST_CASE("M30.3: a head inside an opaque block suffocates; glass and air don't"
     CHECK_FALSE(mc::headInWall(w, {4.5, kFloorY + 2.62, 0.5}, Player::kWidth));
     CHECK_FALSE(mc::headInWall(w, {8.5, kFloorY + 2.62, 0.5}, Player::kWidth));
 }
+
+TEST_CASE("M33.2d (26.2): a bed bounces a falling player back three quarters as fast") {
+    World w = floorWorld();
+    w.setBlock({0, kFloorY + 1, 0}, world::blockRegistry().defaultState(world::blocks::RedBed));
+    Player p;
+    p.setCreative(false);
+    p.setPosition({0.5, kFloorY + 10.0, 0.5});
+    double lastFall = 0.0;
+    bool up = false;
+    for (int i = 0; i < 60 && !up; ++i) {
+        lastFall = p.velocity().y;
+        p.tick(w, {});
+        up = p.velocity().y > 0.0;
+    }
+    REQUIRE(up);
+    MESSAGE("fell at " << lastFall << ", back up at " << p.velocity().y);
+    CHECK(p.velocity().y > 0.3);
+    CHECK(p.velocity().y < -lastFall * 0.8);
+}
