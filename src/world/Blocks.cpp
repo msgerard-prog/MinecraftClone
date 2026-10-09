@@ -1427,6 +1427,12 @@ BlockRegistry buildVanillaBlocks() {
                       next++);
             }
     }
+    // (M29.5; wiki: Calibrated Sculk Sensor - like a sensor, range 16)
+    check(r.add("calibrated_sculk_sensor", {.hardness = 1.5f, .resistance = 1.5f, .lightEmission = 1, .opaqueCube = false,
+                                            .layer = RenderLayer::Cutout, .tool = HarvestTool::Hoe,
+                                            .like = blocks::SculkSensor},
+                {{&facing, "north"}, {&sculkPhase, "inactive"}, {&power, "0"}, {&waterlogged, "false"}}),
+          blocks::CalibratedSculkSensor);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

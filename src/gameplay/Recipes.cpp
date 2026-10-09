@@ -730,6 +730,8 @@ std::vector<Recipe> build() {
                            "tripwire_hook", 2));
         r.push_back(shapeless({item("chest"), item("tripwire_hook")}, "trapped_chest"));
         r.push_back(shaped({"C", "C", "C"}, {{'C', item("copper_ingot")}}, "lightning_rod"));
+        r.push_back(shaped({".A.", "ASA"}, {{'A', item("amethyst_shard")}, {'S', item("sculk_sensor")}},
+                           "calibrated_sculk_sensor"));
         // (M29.3f; wiki: Bundle) string over leather; a dye colours it (ours: emptied)
         r.push_back(shaped({"S", "L"}, {{'S', item("string")}, {'L', item("leather")}}, "bundle"));
         for (const char* c : kDyeColours)

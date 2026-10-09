@@ -2379,6 +2379,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     // Slabs and stairs go in the top half when put against a block's underside or
     // the upper half of its side (wiki: Slab, Stairs).
     const bool upper = faceDir == Direction::Down || (horizontal(faceDir) && hitY > 0.5);
+    // (M29.5) a calibrated sculk sensor faces the player (its input side away from them)
+    if (r.blockOf(state) == B::CalibratedSculkSensor) return withHFacing(state, opposite(look));
     // (M29.4c; wiki: Coral Fan) put on a block's side, a fan is a wall fan
     if (horizontal(faceDir) && r.block(blockOf(state)).id.ends_with("_coral_fan")) {
         if (!solid(opposite(faceDir))) return std::nullopt;

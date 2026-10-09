@@ -587,6 +587,7 @@ enum : BlockId {
     TrappedChest,     // like the chest; powers while open
     LightningRod,     // then its 3 aged and 4 waxed kinds, like it (facing, powered, waterlogged)
     LightningRodLast = LightningRod + 7,
+    CalibratedSculkSensor, // like the sculk sensor, hears twice as far (facing)
     Count
 };
 } // namespace blocks

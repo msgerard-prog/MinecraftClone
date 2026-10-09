@@ -61,20 +61,25 @@ void BlockUpdates::vibrate(const glm::dvec3& at, bool byPlayer) {
         forEachNear(m_world, at, 16, B::SculkShrieker, [&](const BlockPos& q, BlockStateId) {
             if (nShriekers < int(shriekers.size())) shriekers[size_t(nShriekers++)] = q;
         });
-    forEachNear(m_world, at, 8, B::SculkSensor, [&](const BlockPos& p, BlockStateId s) {
+    // (M29.5; wiki: Calibrated Sculk Sensor) calibrated sensors hear within 16 (ours: every
+    // vibration - we don't give vibrations frequencies to filter by).
+    auto hear = [&](const BlockPos& p, BlockStateId s) {
         if (R().get(s, sculkPhase) != 0) return; // (active or resting)
+        const double range = R().blockOf(s) == B::CalibratedSculkSensor ? 16.0 : 8.0;
         const glm::dvec3 c(p.x + 0.5, p.y + 0.5, p.z + 0.5);
         const double d = glm::length(at - c);
-        if (d > 8.0) return;
+        if (d > range) return;
         // Power by distance (wiki: Sculk Sensor - 15 close, weaker to 1 at 8 blocks).
-        const int strength = std::clamp(15 - int(std::floor(d * 14.0 / 8.0)), 1, 15);
+        const int strength = std::clamp(15 - int(std::floor(d * 14.0 / range)), 1, 15);
         set(p, R().set(R().set(s, sculkPhase, 1), power, strength));
         schedule(p, B::SculkSensor, 30, 0);
         for (int k = 0; k < nShriekers; ++k) {
             const BlockPos& q = shriekers[size_t(k)];
             if (glm::length(glm::dvec3(q.x + 0.5, q.y + 0.5, q.z + 0.5) - c) <= 8.5) shriek(q);
         }
-    });
+    };
+    forEachNear(m_world, at, 8, B::SculkSensor, hear);
+    forEachNear(m_world, at, 16, B::CalibratedSculkSensor, hear);
 }
 
 void BlockUpdates::shriek(const BlockPos& p) {
@@ -87,6 +92,7 @@ void BlockUpdates::shriek(const BlockPos& p) {
 
 bool BlockUpdates::tickSculk(const BlockPos& p, BlockStateId s) {
     switch (R().blockOf(s)) {
+    case B::CalibratedSculkSensor: // (M29.5)
     case B::SculkSensor: // active -> cooldown (10 ticks) -> inactive
         if (R().get(s, sculkPhase) == 1) {
             set(p, R().set(R().set(s, sculkPhase, 2), power, 0));

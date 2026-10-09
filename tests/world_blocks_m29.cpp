@@ -277,3 +277,18 @@ TEST_CASE("M29.5: lightning goes to a rod on top within 128 blocks, powers it 8 
     w.setBlock({5, 66, 5}, r.defaultState(blocks::Stone));
     CHECK_FALSE(u.lightningRodNear({-10, 70, 12}));
 }
+
+TEST_CASE("M29.5: a calibrated sculk sensor hears vibrations 16 blocks away; a plain one only 8") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    w.createChunk({1, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    w.updateBlock({2, 64, 4}, r.defaultState(blocks::SculkSensor));
+    w.updateBlock({3, 64, 4}, r.defaultState(blocks::CalibratedSculkSensor));
+    u.vibrate({15.5, 64.5, 4.5}, false); // 12-13 blocks away
+    CHECK(r.value(w.getBlock({2, 64, 4}), "sculk_sensor_phase") == "inactive");
+    CHECK(r.value(w.getBlock({3, 64, 4}), "sculk_sensor_phase") == "active");
+    CHECK(r.get(w.getBlock({3, 64, 4}), properties::power) > 0);
+}

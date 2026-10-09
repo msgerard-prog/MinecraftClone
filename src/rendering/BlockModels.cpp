@@ -390,6 +390,17 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
         else if (f == "south") addBox(m, 7, 7, 0, 9, 9, 12, sp), addBox(m, 6, 6, 12, 10, 10, 16, sp);
         else if (f == "west") addBox(m, 4, 7, 7, 16, 9, 9, sp), addBox(m, 0, 6, 6, 4, 10, 10, sp);
         else addBox(m, 0, 7, 7, 12, 9, 9, sp), addBox(m, 12, 6, 6, 16, 10, 10, sp);
+    } else if (name == "calibrated_sculk_sensor") { // (M29.5) a sensor base, amethyst on top
+        m.visible = true;
+        addBox(m, 0, 0, 0, 16, 8, 16, sprite("sculk_sensor_side"));
+        m.boxes[0].faces[int(Direction::Up)].sprite = sprite("calibrated_sculk_sensor_top");
+        m.boxes[0].faces[int(Direction::Down)].sprite = sprite("sculk_sensor_bottom");
+        const auto f = registry.value(state, "facing").value_or("north"); // the input side is its back
+        const Direction back = f == "north" ? Direction::South : f == "south" ? Direction::North
+                               : f == "west" ? Direction::East : Direction::West;
+        m.boxes[0].faces[int(back)].sprite = sprite("calibrated_sculk_sensor_input_side");
+        m.cross = true;
+        m.crossSprite = sprite("calibrated_sculk_sensor_amethyst");
     } else if (name == "target") { // (M29.5) cube_column
         m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
     } else if (name == "melon") { // vanilla: cube_column
