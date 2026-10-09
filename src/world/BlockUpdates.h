@@ -180,6 +180,15 @@ public:
     // A trapped chest's screen opened or closed (M29.5; wiki: Trapped Chest): while open
     // it (and its other half) gives power 1 per viewer - ours: the player - strongly down.
     void setChestOpen(const BlockPos& p, bool opened);
+    // Chiseled bookshelves (M29.5; wiki: Chiseled Bookshelf): 6 book slots, 3 across and 2
+    // high on the front. `bookshelfSlot`: the slot a click at (u, v) on the front hits - u
+    // 0..1 left to right as seen, v 0..1 bottom to top. A put/take sets the slot's block
+    // state and the comparator's last slot. `isBook`: books, book and quills, written,
+    // enchanted and knowledge books.
+    static int bookshelfSlot(double u, double v);
+    static bool isBook(ItemId item);
+    bool putBook(const BlockPos& p, int slot, const ItemStack& book);
+    ItemStack takeBook(const BlockPos& p, int slot);
     // (M29.5; wiki: Daylight Detector) its power from the sky light at `p` and the sun.
     int daylightPower(const BlockPos& p, bool invertedMode) const;
     // The target's strength for a hit at `point` on `face`: 15 at the face's centre, less

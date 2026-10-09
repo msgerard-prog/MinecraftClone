@@ -2463,6 +2463,31 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.eat(2, 0.4f);
                     used = true;
                 }
+                // Chiseled bookshelves (M29.5; wiki: Chiseled Bookshelf): a click on the front picks
+                // one of its 6 slots - a book goes in, or the book there comes out.
+                if (!used && cb == mc::world::blocks::ChiseledBookshelf &&
+                    lastHit->face == static_cast<mc::world::Direction>(creg.get(cs, mc::world::properties::facing) + 2)) {
+                    const glm::dvec3 hp = player.eyePosition(1.0) +
+                                          glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())) * lastHit->distance -
+                                          glm::dvec3(at.x, at.y, at.z);
+                    const mc::world::Direction f = lastHit->face;
+                    const double u = f == mc::world::Direction::North   ? 1.0 - hp.x
+                                     : f == mc::world::Direction::South ? hp.x
+                                     : f == mc::world::Direction::West  ? hp.z
+                                                                        : 1.0 - hp.z;
+                    const int slot = mc::world::BlockUpdates::bookshelfSlot(u, hp.y);
+                    if (creg.get(cs, mc::world::properties::bookSlots[slot]) == 1) { // empty
+                        if (mc::world::BlockUpdates::isBook(inventory.selectedStack().item) &&
+                            blockUpdates.putBook(at, slot, inventory.selectedStack())) {
+                            if (survival) inventory.consumeSelected(1);
+                            used = true;
+                        }
+                    } else if (const mc::world::ItemStack book = blockUpdates.takeBook(at, slot); !book.empty()) {
+                        if (inventory.add(book) > 0)
+                            droppedItems.spawn({at.x + 0.5, at.y + 0.6, at.z + 0.5}, book, gameRng);
+                        used = true;
+                    }
+                }
                 // Respawn anchors (M29.5; wiki: Respawn Anchor): glowstone charges one (up to 4);
                 // used charged, it sets the respawn point in the Nether and explodes anywhere else.
                 if (!used && cb == mc::world::blocks::RespawnAnchor) {

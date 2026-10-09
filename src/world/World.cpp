@@ -117,6 +117,7 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     const bool chestNow = blockRegistry().likeOf(b) == blocks::Chest;
     if (was != b && (blockRegistry().likeOf(was) == blocks::Furnace ||
                      (blockRegistry().likeOf(was) == blocks::Chest && !chestNow) || was == blocks::Barrel ||
+                     (was == blocks::ChiseledBookshelf && b != blocks::ChiseledBookshelf) ||
                      blockRegistry().likeOf(was) == blocks::ShulkerBox || (was == blocks::Spawner && b != blocks::Spawner) ||
                      (was == blocks::TrialSpawner && b != blocks::TrialSpawner) ||
                      was == blocks::BrewingStand || was == blocks::Comparator || was == blocks::Hopper ||
@@ -125,11 +126,14 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
     if (blockRegistry().likeOf(b) == blocks::Furnace) { // (smokers and blast furnaces too: M23.5)
         c->addFurnace(x, p.y, z).kind = b == blocks::Smoker ? 1 : b == blocks::BlastFurnace ? 2 : 0;
         markTicking(c->pos());
-    } else if (chestNow || b == blocks::Barrel || blockRegistry().likeOf(b) == blocks::ShulkerBox) {
+    } else if (chestNow || b == blocks::Barrel || blockRegistry().likeOf(b) == blocks::ShulkerBox ||
+               b == blocks::ChiseledBookshelf) {
         if (c->chest(x, p.y, z) == nullptr) {
             ChestData& d = c->addChest(x, p.y, z);
             d.barrel = b == blocks::Barrel;
             d.shulker = blockRegistry().likeOf(b) == blocks::ShulkerBox;
+            d.trapped = b == blocks::TrappedChest;      // (M29.5)
+            d.bookshelf = b == blocks::ChiseledBookshelf;
         }
     } else if (b == blocks::Spawner || b == blocks::TrialSpawner) {
         c->addSpawner(x, p.y, z).trial = b == blocks::TrialSpawner; // (M27.4d: kept through state changes)

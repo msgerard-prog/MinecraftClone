@@ -152,6 +152,9 @@ struct ChestData {
     bool barrel = false; // (M23.5: a barrel's contents, saved as minecraft:barrel)
     bool shulker = false; // (M23.6: a shulker box's, saved as minecraft:shulker_box)
     bool ender = false;   // (M23.6: the player's ender chest slots, saved in level.dat)
+    bool trapped = false;   // (M29.5: saved as minecraft:trapped_chest)
+    bool bookshelf = false; // (M29.5: a chiseled bookshelf's 6 books, saved as minecraft:chiseled_bookshelf)
+    int8_t lastSlot = -1;   // (the bookshelf's last_interacted_slot: its comparator signal - 1)
 };
 
 } // namespace mc::world

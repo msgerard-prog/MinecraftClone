@@ -213,7 +213,17 @@ BOOKS = [hexc("8a2a20"), hexc("2a4a8a"), hexc("2a6a3a"), hexc("6a4a2a"), hexc("8
 reg("bookshelf", lambda r: U.books(r, OAK, BOOKS))
 reg("chiseled_bookshelf_top", lambda r: U.framed(M.planks(r, OAK), OAK))
 reg("chiseled_bookshelf_side", lambda r: M.planks(r, OAK))
-reg("chiseled_bookshelf_empty", lambda r: U.window_grid(U.framed(M.planks(r, OAK), OAK), OAK, 1, 1, 14, 7, 5))
+def _empty_shelves(rng):
+    # (M29.5) the shelves' dark back wall shows where there are no books (vanilla: opaque)
+    img = U.window_grid(U.framed(M.planks(rng, OAK), OAK), OAK, 1, 1, 14, 7, 5)
+    for y in range(16):
+        for x in range(16):
+            if img.get(x, y)[3] == 0:
+                img.set(x, y, OAK[0] if (x + y * 3) % 7 else (40, 26, 14, 255))
+    return img
+
+
+reg("chiseled_bookshelf_empty", _empty_shelves)
 reg("chiseled_bookshelf_occupied", lambda r: U.books(r, OAK, BOOKS))
 reg("lectern_top", lambda r: U.framed(M.planks(r, OAK), OAK))
 reg("lectern_sides", lambda r: U.framed(M.planks(r, OAK), OAK))

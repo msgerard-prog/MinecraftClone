@@ -379,6 +379,44 @@ int BlockUpdates::targetStrength(const glm::dvec3& point, Direction side) {
     return std::max(1, int(std::ceil(15.0 * std::clamp((0.5 - d) / 0.5, 0.0, 1.0))));
 }
 
+int BlockUpdates::bookshelfSlot(double u, double v) {
+    const int column = u < 0.375 ? 0 : u < 0.6875 ? 1 : 2; // (vanilla: 6, 5 and 5 pixels wide)
+    return (v >= 0.5 ? 0 : 3) + column;
+}
+
+bool BlockUpdates::isBook(ItemId item) {
+    const std::string_view id = itemRegistry().item(item).id;
+    return id == "minecraft:book" || id == "minecraft:writable_book" || id == "minecraft:written_book" ||
+           id == "minecraft:enchanted_book" || id == "minecraft:knowledge_book";
+}
+
+bool BlockUpdates::putBook(const BlockPos& p, int slot, const ItemStack& book) {
+    Chunk* c = chunkAt(p);
+    ChestData* d = c ? c->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+    const BlockStateId s = at(p);
+    if (!d || !d->bookshelf || slot < 0 || slot > 5 || !d->items[size_t(slot)].empty() || !isBook(book.item)) return false;
+    d->items[size_t(slot)] = book;
+    d->items[size_t(slot)].count = 1;
+    d->lastSlot = int8_t(slot);
+    c->markDirty();
+    set(p, R().set(s, bookSlots[slot], 0));
+    m_world.playSound(Sound::WoodClick, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 1.0f); // (vanilla: insert_book)
+    return true;
+}
+
+ItemStack BlockUpdates::takeBook(const BlockPos& p, int slot) {
+    Chunk* c = chunkAt(p);
+    ChestData* d = c ? c->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+    if (!d || !d->bookshelf || slot < 0 || slot > 5 || d->items[size_t(slot)].empty()) return {};
+    const ItemStack out = d->items[size_t(slot)];
+    d->items[size_t(slot)] = {};
+    d->lastSlot = int8_t(slot);
+    c->markDirty();
+    set(p, R().set(at(p), bookSlots[slot], 1));
+    m_world.playSound(Sound::WoodClick, p.x + 0.5, p.y + 0.5, p.z + 0.5, 1.0f, 0.8f); // (vanilla: pickup_book)
+    return out;
+}
+
 void BlockUpdates::setChestOpen(const BlockPos& p, bool opened) {
     std::array<BlockPos, 2> halves{p, p};
     int n = 1;
@@ -422,6 +460,11 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
     if (blockOf(at(p)) == B::RespawnAnchor) return 15 * R().get(at(p), charges) / 4; // (M29.5: by charge)
+    if (blockOf(at(p)) == B::ChiseledBookshelf) { // (M29.5) the last slot put into or taken from, + 1
+        Chunk* bc = chunkAt(p);
+        const ChestData* d = bc ? bc->chest(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        return d ? d->lastSlot + 1 : 0;
+    }
     if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
         struct DiscSignal {
             std::string_view name;
@@ -2636,6 +2679,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::HeavyWeightedPressurePlate:
         if (!solid(Direction::Down)) return std::nullopt;
         return state;
+    case B::ChiseledBookshelf: // (M29.5) its front toward the player
+        return withHFacing(state, opposite(look));
     case B::EndRod: // points out of the face it was put on (wiki: End Rod)
         return r.set(state, facing6, static_cast<int>(faceDir));
     case B::RedBed: {

@@ -401,6 +401,36 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
         m.boxes[0].faces[int(back)].sprite = sprite("calibrated_sculk_sensor_input_side");
         m.cross = true;
         m.crossSprite = sprite("calibrated_sculk_sensor_amethyst");
+    } else if (name == "chiseled_bookshelf") {
+        // (M29.5) the block without its front, and the front as 6 slot quads (3 across - 6, 5
+        // and 5 pixels - by 2 high), each showing books or an empty shelf.
+        m.visible = true;
+        addBox(m, 0, 0, 0, 16, 16, 16, sprite("chiseled_bookshelf_side"));
+        m.boxes[0].faces[int(Direction::Up)].sprite = m.boxes[0].faces[int(Direction::Down)].sprite =
+            sprite("chiseled_bookshelf_top");
+        const auto fc = registry.value(state, "facing").value_or("north");
+        const Direction front = fc == "north" ? Direction::North : fc == "south" ? Direction::South
+                                : fc == "west" ? Direction::West : Direction::East;
+        m.boxes[0].faces[int(front)].present = false;
+        static constexpr int kU[4] = {0, 6, 11, 16};
+        for (int slot = 0; slot < 6; ++slot) {
+            const int col = slot % 3, row = slot / 3; // row 0 on top
+            const int u0 = kU[col], u1 = kU[col + 1], y0 = row == 0 ? 8 : 0, y1 = y0 + 8;
+            const bool full = registry.value(state, ("slot_" + std::to_string(slot) + "_occupied").c_str()) == "true";
+            const uint16_t sp = sprite(full ? "chiseled_bookshelf_occupied" : "chiseled_bookshelf_empty");
+            // the viewer's left is u = 0: +x seen from the north, -z from the west...
+            if (front == Direction::North) addBox(m, 16 - u1, y0, 0, 16 - u0, y1, 0, sp);
+            else if (front == Direction::South) addBox(m, u0, y0, 16, u1, y1, 16, sp);
+            else if (front == Direction::West) addBox(m, 0, y0, u0, 0, y1, u1, sp);
+            else addBox(m, 16, y0, 16 - u1, 16, y1, 16 - u0, sp);
+            BakedBox& b = m.boxes[m.boxCount - 1];
+            for (int d = 0; d < 6; ++d) {
+                b.faces[d].present = d == int(front);
+                b.faces[d].uv[0] = uint8_t(u0), b.faces[d].uv[2] = uint8_t(u1);
+                // (our empty texture draws one row of shelves, in its top half: both rows use it)
+                b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
+            }
+        }
     } else if (name == "respawn_anchor") { // (M29.5) sides glow by charge
         const std::string c(registry.value(state, "charges").value_or("0"));
         BakedVariant v = cubeAll(sprite(("respawn_anchor_side" + c).c_str()));

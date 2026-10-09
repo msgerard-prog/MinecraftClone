@@ -77,7 +77,7 @@ bool isContainer(const World& world, const BlockPos& p) {
     return ((b == blocks::Composter || b == blocks::Jukebox) && g_updates) ||
            b == blocks::ShulkerBox || b == blocks::Chest || b == blocks::Barrel ||
            b == blocks::Hopper || b == blocks::Dispenser || b == blocks::Dropper ||
-           b == blocks::Furnace || b == blocks::BrewingStand;
+           b == blocks::Furnace || b == blocks::BrewingStand || (b == blocks::ChiseledBookshelf && g_updates);
 }
 
 bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack& one) {
@@ -99,6 +99,10 @@ bool insertOne(World& world, const BlockPos& p, Direction from, const ItemStack&
             c->markDirty();
             ok = true;
         }
+        break;
+    case blocks::ChiseledBookshelf: // (M29.5) books into the first free slot
+        if (g_updates)
+            for (int i = 0; i < 6 && !ok; ++i) ok = g_updates->putBook(p, i, one);
         break;
     case blocks::Composter: // only from above, while it takes compost (wiki: Composter)
         ok = g_updates && from == Direction::Up && g_updates->compost(p, one.item);
@@ -189,6 +193,13 @@ bool extractOne(World& world, const BlockPos& p, Direction from, ItemStack& out,
             c->markDirty();
             ok = true;
         }
+        break;
+    case blocks::ChiseledBookshelf: // (M29.5) the first book
+        if (g_updates)
+            for (int i = 0; i < 6 && !ok; ++i) {
+                out = g_updates->takeBook(p, i);
+                ok = !out.empty();
+            }
         break;
     case blocks::Composter: // its bone meal, only out of the bottom
         if (g_updates && from == Direction::Down) {

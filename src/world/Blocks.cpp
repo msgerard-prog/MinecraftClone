@@ -115,6 +115,9 @@ const Property age2{"age", {"0", "1", "2"}};
 const Property disarmed{"disarmed", {"true", "false"}};
 const Property inverted{"inverted", {"true", "false"}};
 const Property charges{"charges", {"0", "1", "2", "3", "4"}};
+const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
+                               {"slot_2_occupied", {"true", "false"}}, {"slot_3_occupied", {"true", "false"}},
+                               {"slot_4_occupied", {"true", "false"}}, {"slot_5_occupied", {"true", "false"}}};
 const Property candles{"candles", {"1", "2", "3", "4"}};
 const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
 const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
@@ -1438,6 +1441,11 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("respawn_anchor", {.hardness = 50.0f, .resistance = 1200.0f, .tool = HarvestTool::Pickaxe, .tier = 3},
                 {{&charges, "0"}}),
           blocks::RespawnAnchor);
+    // (M29.5; wiki: Chiseled Bookshelf - 1.5, axe)
+    check(r.add("chiseled_bookshelf", {.hardness = 1.5f, .resistance = 1.5f, .tool = HarvestTool::Axe},
+                {{&facing, "north"}, {&bookSlots[0], "false"}, {&bookSlots[1], "false"}, {&bookSlots[2], "false"},
+                 {&bookSlots[3], "false"}, {&bookSlots[4], "false"}, {&bookSlots[5], "false"}}),
+          blocks::ChiseledBookshelf);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

@@ -248,12 +248,26 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                     if (model.boxCount == 0) continue; // (campfires: a cross over boxes)
                 }
                 if (model.boxCount > 0) {
-                    // Non-cube model: box faces, lit by the block's own cell, no AO.
+                    // Non-cube model: box faces, lit by the block's own cell, no AO - except a
+                    // face flush with the block's side (vanilla: lit from the cell it faces,
+                    // and hidden against an opaque one; M29.5).
                     for (int b = 0; b < model.boxCount; ++b) {
                         const BakedBox& box = model.boxes[b];
                         for (int f = 0; f < world::kDirectionCount; ++f) {
                             const BakedBox::Face& face = box.faces[f];
                             if (!face.present) continue;
+                            const auto dir = static_cast<Direction>(f);
+                            const bool flush = dir == Direction::Down    ? box.from[1] == 0
+                                               : dir == Direction::Up    ? box.to[1] == 16
+                                               : dir == Direction::North ? box.from[2] == 0
+                                               : dir == Direction::South ? box.to[2] == 16
+                                               : dir == Direction::West  ? box.from[0] == 0
+                                                                         : box.to[0] == 16;
+                            int li = i;
+                            if (flush) {
+                                li = i + kNeighbour[f];
+                                if (registry.opaqueCube(blocks[li])) continue;
+                            }
                             VertexAttribs v[4];
                             for (int c = 0; c < 4; ++c) {
                                 const glm::ivec3& k = kCorners[f][c];
@@ -266,8 +280,8 @@ void meshSection(const world::BlockStateId* blocks, const uint8_t* sky, const ui
                                 v[c].u = kCornerU[uvc] ? face.uv[2] : face.uv[0];
                                 v[c].v = kCornerV[uvc] ? face.uv[3] : face.uv[1];
                                 v[c].tint = face.tint;
-                                v[c].sky4 = sky[i] * 4u;
-                                v[c].block4 = bl[i] * 4u;
+                                v[c].sky4 = sky[li] * 4u;
+                                v[c].block4 = bl[li] * 4u;
                                 v[c].biome = biome;
                             }
                             emitQuad(dst, v, false);

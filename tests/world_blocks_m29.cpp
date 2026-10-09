@@ -328,3 +328,24 @@ TEST_CASE("M29.5: respawn anchors - light and comparator by charge, a stand spot
     std::filesystem::remove_all(dir);
     CHECK(back->respawnDimension == 1);
 }
+
+TEST_CASE("M29.5: chiseled bookshelves - slots by where the front is clicked, books in and out, comparator") {
+    const auto& r = blockRegistry();
+    CHECK(BlockUpdates::bookshelfSlot(0.1, 0.9) == 0); // top left
+    CHECK(BlockUpdates::bookshelfSlot(0.5, 0.9) == 1);
+    CHECK(BlockUpdates::bookshelfSlot(0.9, 0.1) == 5); // bottom right
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    w.updateBlock({4, 64, 4}, r.defaultState(blocks::ChiseledBookshelf));
+    const ItemStack book{*itemRegistry().find("enchanted_book"), 1};
+    CHECK_FALSE(u.putBook({4, 64, 4}, 2, {*itemRegistry().find("stick"), 1}));
+    CHECK(u.putBook({4, 64, 4}, 2, book));
+    CHECK(r.value(w.getBlock({4, 64, 4}), "slot_2_occupied") == "true");
+    CHECK(w.chunk({0, 0})->chest(4, 64, 4)->lastSlot == 2); // (a comparator reads last slot + 1)
+    CHECK_FALSE(u.putBook({4, 64, 4}, 2, book)); // (taken)
+    const ItemStack back = u.takeBook({4, 64, 4}, 2);
+    CHECK(back.item == book.item);
+    CHECK(r.value(w.getBlock({4, 64, 4}), "slot_2_occupied") == "false");
+}
