@@ -983,7 +983,18 @@ bool Mobs::placeEndCrystal(World& world, const BlockPos& on, Xoroshiro& rng) {
 }
 
 void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
-    if (m.hurtTime > 0 || m.deathTime > 0) return; // 10 ticks of invulnerability
+    // (M32.3; vanilla LivingEntity.hurt) for 10 ticks after a hit only a stronger one
+    // counts, by the difference - without a new hurt flash or anger.
+    if (m.deathTime > 0) return;
+    const bool cooling = m.hurtTime > 0;
+    if (cooling) {
+        if (damage <= m.lastHurtAmount) return;
+        const float full = damage;
+        damage -= m.lastHurtAmount;
+        m.lastHurtAmount = full;
+    } else {
+        m.lastHurtAmount = damage;
+    }
     if (isTechnical(m.type)) return;                // (M29.7e: nothing to hurt)
     if (m.type == MobType::Wither && m.spellTicks > 0)
         return; // (M26.4b: charging, it can't be hurt)
@@ -1011,13 +1022,9 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     }
     // (M32.2c) a monster's armor - natural and worn - by the same formula, then Protection
     // (4% a level, at most 80%).
-    if (const int points = armorPoints(m); points > 0 && !isMount(m.type)) {
-        const float p = float(points), toughness = armorToughness(m);
-        const float cut = std::clamp(std::max(p / 5.0f, p - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
-        damage *= 1.0f - cut / 25.0f;
-    }
-    if (m.gearEpf > 0) damage *= 1.0f - float(std::min<int>(m.gearEpf, 20)) / 25.0f;
+    damage = armorReduced(m, damage);
     m.health -= damage;
+    if (cooling) return; // (the rest happened with the first hit)
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock
     m.lastHurtByPlayer = true; // (Mobs::attack: the player's hits)
@@ -1064,11 +1071,42 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     }
     const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
     const double l = glm::length(d);
-    if (l > 1e-6) { // wiki: Knockback - 0.4 away; lifted only when on the ground
-        m.vel.x = m.vel.x / 2.0 + d.x / l * 0.4;
-        m.vel.z = m.vel.z / 2.0 + d.y / l * 0.4;
-        if (m.onGround) m.vel.y = std::min(0.4, m.vel.y / 2.0 + 0.4);
+    // wiki: Knockback - 0.4 away, less by the mob's knockback resistance (M32.3); lifted
+    // only when on the ground.
+    const double strength = 0.4 * (1.0 - knockbackResistance(m));
+    if (l > 1e-6 && strength > 0.0) {
+        m.vel.x = m.vel.x / 2.0 + d.x / l * strength;
+        m.vel.z = m.vel.z / 2.0 + d.y / l * strength;
+        if (m.onGround) m.vel.y = std::min(0.4, m.vel.y / 2.0 + strength);
     }
+}
+
+float Mobs::armorReduced(const MobData& m, float damage) {
+    if (isMount(m.type)) return damage; // (their body armor: Mobs::attack)
+    if (const int points = armorPoints(m); points > 0) {
+        const float p = float(points), toughness = armorToughness(m);
+        const float cut = std::clamp(std::max(p / 5.0f, p - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
+        damage *= 1.0f - cut / 25.0f;
+    }
+    if (m.gearEpf > 0) damage *= 1.0f - float(std::min<int>(m.gearEpf, 20)) / 25.0f;
+    return damage;
+}
+
+double Mobs::knockbackResistance(const MobData& m) {
+    // (M32.3; wiki: each mob's Attributes, Netherite armor) the knockback_resistance base -
+    // iron golems, wardens, shulkers 1, ravagers 0.75, hoglins and zoglins 0.6, zombies a
+    // random 0-0.05 they were born with (ours from the UUID) - plus 0.1 a netherite piece.
+    double r = 0.0;
+    switch (m.type) {
+    case MobType::IronGolem: case MobType::Warden: case MobType::Shulker: r = 1.0; break;
+    case MobType::Ravager: r = 0.75; break;
+    case MobType::Hoglin: case MobType::Zoglin: r = 0.6; break;
+    default:
+        if (isZombie(m.type)) r = double(m.uuidHi % 51) / 1000.0;
+        break;
+    }
+    for (uint8_t w : m.worn) r += w == 6 && m.type != MobType::ArmorStand ? 0.1 : 0.0;
+    return std::min(r, 1.0);
 }
 
 void Mobs::die(Context& ctx, MobData& m) {

@@ -118,6 +118,19 @@ void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiH
     }
 }
 
+void drawItemActivation(gfx::GuiBatch& batch, uint16_t sprite, float progress, int guiWidth, int guiHeight) {
+    if (sprite == 0 || progress <= 0.0f || progress >= 1.0f) return;
+    // Vanilla's curve: f3 = 10.25 f^5 - 24.95 f^4 + 25.5 f^3 - 13.8 f^2 + 4.4 f, size 50 + 175
+    // sin(f3 pi) (ours in half GUI pixels), turned 900 |sin(f3 pi)| degrees about the
+    // vertical axis.
+    const float f = progress, f2 = f * f, f3 = f2 * f;
+    const float curve = 10.25f * f3 * f2 - 24.95f * f2 * f2 + 25.5f * f3 - 13.8f * f2 + 4.4f * f;
+    const float s = std::sin(curve * 3.14159265f);
+    const float size = (50.0f + 175.0f * s) * 0.25f;
+    const float turn = 900.0f * std::abs(s) * 3.14159265f / 180.0f;
+    batch.atlasSpriteCentred(sprite, float(guiWidth) * 0.5f, float(guiHeight) * 0.5f, size * std::cos(turn), size);
+}
+
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight) {
     batch.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0x80700000));
     const std::string_view title = "You died!";

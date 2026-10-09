@@ -70,12 +70,15 @@ public:
     // Knockback from a hit (wiki: Knockback): pushed away from the attacker.
     void knockback(double dx, double dz, double strength = 0.4) {
         const double len = std::sqrt(dx * dx + dz * dz);
-        if (len < 1e-6) return;
+        strength *= 1.0 - m_knockbackResistance; // (M32.3)
+        if (len < 1e-6 || strength <= 0.0) return;
         m_velocity.x = m_velocity.x / 2.0 + dx / len * strength;
         m_velocity.z = m_velocity.z / 2.0 + dz / len * strength;
         if (m_onGround)
             m_velocity.y = std::min(0.4, m_velocity.y / 2.0 + strength); // wiki: Knockback
     }
+    // (M32.3; wiki: Netherite Armor) 0.1 of each knockback shrugged off per netherite piece.
+    void setKnockbackResistance(double r) { m_knockbackResistance = r; }
     // A push (explosions): added to the velocity.
     void push(const glm::dvec3& v) { m_velocity += v; }
     void setRotation(float yawDeg, float pitchDeg);
@@ -176,6 +179,7 @@ private:
 
     glm::dvec3 m_prevPos{0.0};
     glm::dvec3 m_pos{0.0};
+    double m_knockbackResistance = 0.0;
     glm::dvec3 m_velocity{0.0};
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;

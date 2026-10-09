@@ -160,7 +160,18 @@ void Vitals::setState(float health, int food, float saturation, float exhaustion
 }
 
 bool Vitals::damage(float amount, bool exhausts) {
-    if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
+    if (amount <= 0.0f || dead()) return false;
+    float apply = amount;
+    if (m_invulnerable > 0) { // (M32.3) only a stronger hit, by the difference
+        if (amount <= m_lastHurt) return false;
+        apply = amount - m_lastHurt;
+    }
+    m_lastHurt = amount;
+    return hurtNow(apply, exhausts);
+}
+
+bool Vitals::hurtNow(float amount, bool exhausts) {
+    if (amount <= 0.0f || dead()) return false;
     // Resistance: 20% less per level, all of it from level 5 (wiki: Resistance).
     if (const int res = effectLevel(world::Effect::Resistance); res > 0) {
         amount *= std::max(0.0f, 1.0f - 0.2f * float(res));
@@ -173,7 +184,7 @@ bool Vitals::damage(float amount, bool exhausts) {
     m_damageTaken += amount;
     // (M29.2a; wiki: Infested) a hit lets silverfish out 1 time in 10: main rolls them.
     if (effectLevel(world::Effect::Infested) > 0) ++m_infestedHits;
-    m_invulnerable = 10;
+    if (m_invulnerable == 0) m_invulnerable = 10; // (a stronger hit in the window doesn't restart it)
     if (exhausts) exhaust(0.1f); // wiki: taking damage
     return true;
 }
@@ -212,7 +223,8 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     // difficulty (wiki: Difficulty; vanilla's damage types "when caused by a living
     // non-player" and "always" for explosions). Lava, fire blocks, cactus... don't.
     if (from || kind == Hit::Explosion) amount = scaledDamage(amount, m_difficulty);
-    if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
+    if (amount <= 0.0f || dead()) return false;
+    if (m_invulnerable > 0 && amount <= m_lastHurt) return false; // (M32.3: see damage)
     if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
     if (kind == Hit::Fire && !m_fireDamage) return false; // (M28.1: game rule)
     if (kind == Hit::Freeze && !m_freezeDamage) return false; // (M29.4c: freeze_damage)
@@ -225,8 +237,10 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
         }
     }
     if (m_armorPoints > 0) m_armorWear += std::max(1, int(amount / 4.0f));
-    return damage(
-        protectionReduced(armorReduced(amount, m_armorPoints, m_armorToughness), kind, false));
+    // (M32.3) within the window the difference to the last hit goes through armor
+    const float apply = m_invulnerable > 0 ? amount - m_lastHurt : amount;
+    m_lastHurt = amount;
+    return hurtNow(protectionReduced(armorReduced(apply, m_armorPoints, m_armorToughness), kind, false), true);
 }
 
 void Vitals::addExperience(int points) {

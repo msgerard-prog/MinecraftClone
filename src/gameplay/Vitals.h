@@ -59,7 +59,8 @@ public:
 
     // Exhaustion from actions (wiki: Hunger › Exhaustion level increase).
     void exhaust(float amount) { m_exhaustion += amount; }
-    // Hurts unless invulnerable (10 ticks after a hit). Returns true if it applied.
+    // Hurts; for 10 ticks after a hit only a stronger one counts, by the difference (M32.3;
+    // vanilla LivingEntity.hurt: invulnerableTime > 10). Returns true if it applied.
     // `exhausts`: false for falls and the void (wiki: they cause no exhaustion).
     bool damage(float amount, bool exhausts = true);
     // An attack (mobs, arrows, explosions, lava, fire blocks): a raised shield blocks
@@ -252,6 +253,8 @@ private:
     float m_exhaustion = 0.0f;
     int m_foodTimer = 0;    // regeneration / starvation clock
     int m_invulnerable = 0; // ticks left after a hit
+    float m_lastHurt = 0.0f; // (M32.3) that hit's damage (before armor)
+    bool hurtNow(float amount, bool exhausts);
     int m_air = kMaxAir;
     int m_fire = 0;        // burning ticks left
     int m_fireContact = 0; // ticks spent in fire blocks (catches fire at 20)

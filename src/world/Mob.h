@@ -513,6 +513,7 @@ struct MobData {
     // its chunk's mob store (slots 0-3 head..feet, 4 the mainhand; saved as `equipment`),
     // `worn`/`heldItem` mirror them for drawing; `gearEpf` is its armor's Protection
     // levels; `gearKept` bit per slot holding a picked-up stack (always dropped).
+    float lastHurtAmount = 0.0f; // (M32.3) the last hit's damage: in its hurt time only a stronger one counts
     bool hasGear = false;
     bool canPickUpLoot = false; // (saved as CanPickUpLoot)
     uint8_t gearEpf = 0;

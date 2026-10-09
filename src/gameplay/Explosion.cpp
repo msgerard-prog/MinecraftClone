@@ -112,7 +112,7 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                              [&](float dmg, const glm::dvec3& push) {
                                  m.health -= m.type == MobType::EnderDragon
                                                  ? Mobs::dragonDamage(m, dmg, centre)
-                                                 : dmg;
+                                                 : Mobs::armorReduced(m, dmg); // (M32.3)
                                  m.hurtTime = 10;
                                  m.vel += push;
                              });

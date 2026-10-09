@@ -609,6 +609,23 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         case LevelEvent::Type::Crit:
             crit(at, rng);
             break;
+        case LevelEvent::Type::Totem: // (M32.3; vanilla TotemParticle) green and yellow sparks
+            for (int i = 0; i < 80; ++i) {
+                Particle p;
+                p.pos = at;
+                p.vel = glm::dvec3(centred(rng), centred(rng) * 0.6 + 0.3, centred(rng)) * 1.4;
+                const float r = rng.nextFloat();
+                p.color = rng.nextInt(4) == 0 ? glm::vec3(0.6f + r * 0.2f, 0.6f + r * 0.3f, r * 0.2f)
+                                              : glm::vec3(0.1f + r * 0.2f, 0.4f + r * 0.3f, r * 0.2f);
+                p.size = 0.08f;
+                p.sprite = ParticleSprite::Effect;
+                p.fullBright = true;
+                p.gravity = 0.012f;
+                p.friction = 0.82f + rng.nextFloat() * 0.1f;
+                p.lifetime = int16_t(60 + rng.nextInt(12));
+                add(p);
+            }
+            break;
         case LevelEvent::Type::BlockPlace:
             break; // (a sound only)
         case LevelEvent::Type::Extinguish:

@@ -176,3 +176,23 @@ TEST_CASE("jump boost takes one block per level off a fall") {
     CHECK(fall(a, 6.0) == 3.0f);
     CHECK(fall(b, 6.0) == 1.0f);
 }
+
+TEST_CASE("M32.3: within 10 ticks of a hit only a stronger one counts, by the difference") {
+    Vitals v;
+    REQUIRE(v.damage(4.0f));
+    CHECK(v.health() == doctest::Approx(16.0f));
+    CHECK_FALSE(v.damage(3.0f)); // weaker: nothing
+    CHECK_FALSE(v.damage(4.0f)); // equal: nothing
+    CHECK(v.damage(6.0f));       // stronger: 6 - 4
+    CHECK(v.health() == doctest::Approx(14.0f));
+    for (int i = 0; i < 10; ++i) v.tick(64.0, true, false, false);
+    const float before = v.health(); // (it may have healed a little)
+    CHECK(v.damage(3.0f));           // the window is over: the whole hit
+    CHECK(v.health() == doctest::Approx(before - 3.0f));
+    // An attack (armor applies to the difference) the same way.
+    Vitals a;
+    REQUIRE(a.attacked(5.0f));
+    CHECK_FALSE(a.attacked(2.0f));
+    CHECK(a.attacked(7.0f));
+    CHECK(a.health() == doctest::Approx(13.0f));
+}

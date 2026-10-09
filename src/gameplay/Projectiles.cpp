@@ -946,7 +946,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                             m.health -=
                                 m.type == MobType::EnderDragon
                                     ? Mobs::dragonDamage(m, float(damage), p.pos + dir * reach)
-                                    : float(damage);
+                                    : Mobs::armorReduced(m, float(damage)); // (M32.3)
                             m.hurtTime = 10;
                             // (M29.2c) a tipped arrow's lasting effect (an eighth as long), a
                             // spectral arrow's Glowing, a stray's/bogged's/parched's effect.

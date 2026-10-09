@@ -82,6 +82,16 @@ void GuiBatch::atlasSprite(uint16_t sprite, float x, float y, uint32_t color) {
     this->sprite(GuiTexture::Atlas, x, y, 16, 16, u0, v0, cell, cell, color);
 }
 
+void GuiBatch::atlasSpriteCentred(uint16_t sprite, float cx, float cy, float halfW, float halfH, uint32_t color) {
+    const float cell = static_cast<float>(m_atlas.cellSize);
+    const float u0 = static_cast<float>(sprite % m_atlas.columns) * cell;
+    const float v0 = static_cast<float>(sprite / m_atlas.columns) * cell;
+    // Corners: top-left, bottom-left, bottom-right, top-right.
+    const float px[4][2] = {{cx - halfW, cy - halfH}, {cx - halfW, cy + halfH}, {cx + halfW, cy + halfH}, {cx + halfW, cy - halfH}};
+    const float uv[4][2] = {{u0, v0}, {u0, v0 + cell}, {u0 + cell, v0 + cell}, {u0 + cell, v0}};
+    quad(px, uv, color, GuiTexture::Atlas);
+}
+
 void GuiBatch::blockIcon(const BakedModel& model, float x, float y, uint32_t grassTint) {
     if (!model.visible) return;
     const float cell = static_cast<float>(m_atlas.cellSize);

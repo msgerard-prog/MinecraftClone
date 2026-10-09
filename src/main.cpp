@@ -805,6 +805,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // Just arrived (or loaded, maybe standing in one): step out of the portal first.
     bool portalCooldown = level.has_value();
     int pearlCooldown = 0;
+    int totemTicks = 0; // (M32.3) the totem of undying's pop-up on screen
     uint64_t ridingCart = 0; // (M21.4: the minecart the player sits in, by UUID; boats, mounts)
     int mountJumpTicks = 0;  // (M26.2) jump held while riding: the jump bar, 0..10
     int hornCooldown = 0;    // (M26.3) ticks before a goat horn sounds again
@@ -2419,7 +2420,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.addEffect(mc::world::Effect::FireResistance, 0, 800);
                     vitals.addEffect(mc::world::Effect::Absorption, 1, 100);
                     const glm::dvec3 f = player.position();
-                    world.levelEvent(mc::world::LevelEvent::Type::Crit, f.x, f.y + 1.0, f.z);
+                    world.levelEvent(mc::world::LevelEvent::Type::Totem, f.x, f.y + 1.0, f.z);
+                    totemTicks = 40; // (M32.3: the totem pops up on screen)
                 }
             }
             if (!dead && vitals.dead()) { // drop everything where we died (unless keep_inventory)
@@ -2844,6 +2846,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 shieldTicks = !dead && clicks.use && shieldInHand ? shieldTicks + 1 : 0;
                 const glm::dvec3 facing(mc::world::forwardFlat(player.yaw()));
                 vitals.setArmor(inventory.armorPoints(), inventory.armorToughness());
+                {
+                    int netherite = 0; // (M32.3: knockback resistance)
+                    for (int piece = 0; piece < 4; ++piece)
+                        netherite += !inventory.armor(piece).empty() &&
+                                     mc::world::itemRegistry().item(inventory.armor(piece).item).id.starts_with(
+                                         "minecraft:netherite_");
+                    player.setKnockbackResistance(0.1 * netherite);
+                }
                 {
                     using E = mc::world::Enchantment;
                     int prot[5] = {};
@@ -5416,6 +5426,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 --b.ticks;
             std::erase_if(bolts, [](const Bolt& b) { return b.ticks <= 0; });
             ++gameTime;
+            if (totemTicks > 0) --totemTicks;
             if (pearlCooldown > 0) --pearlCooldown;
             if (hornCooldown > 0) --hornCooldown;
             if (windCooldown > 0) --windCooldown;
@@ -6253,6 +6264,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 itemIcons.setDials(dials);
             }
             mc::ui::drawFrostOverlay(batch, vitals.frozen(), guiW, guiH); // (M29.4c: powder snow)
+            if (totemTicks > 0) {
+                static const mc::world::ItemId totemItem = *mc::world::itemRegistry().find("totem_of_undying");
+                mc::ui::drawItemActivation(batch, itemIcons.sprite(totemItem),
+                                           (40.0f - float(totemTicks) + float(clock.alpha)) / 40.0f, guiW, guiH);
+            }
             if (gameMode != 3)
                 mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             { // The held map (M28.2b): ours is a panel at the bottom right (vanilla holds it

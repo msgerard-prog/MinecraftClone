@@ -2644,3 +2644,25 @@ TEST_CASE("M32.2c: an endless mob effect doesn't wear off") {
     CHECK(s.all().at(0)->effectLevel(uint8_t(Effect::Speed)) == 1);
     CHECK(s.all().at(0)->effects[0].ticks == Mobs::kInfiniteEffect);
 }
+
+TEST_CASE("M32.3: a mob in its hurt time takes only a stronger hit's difference; knockback resistance") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {3.5, 64.0, 3.5}, s.rng)));
+    MobData* cow = s.all().at(0);
+    Mobs::attack(*cow, 3.0f, {0.5, 64.0, 3.5});
+    Mobs::attack(*cow, 2.0f, {0.5, 64.0, 3.5});
+    CHECK(cow->health == doctest::Approx(7.0f));
+    Mobs::attack(*cow, 5.0f, {0.5, 64.0, 3.5});
+    CHECK(cow->health == doctest::Approx(5.0f));
+    // An iron golem doesn't budge; a ravager takes a quarter of the push.
+    MobData golem = Mobs::make(MobType::IronGolem, {6.5, 64.0, 6.5}, s.rng);
+    golem.onGround = true;
+    Mobs::attack(golem, 1.0f, {3.5, 64.0, 6.5});
+    CHECK(golem.vel.x == doctest::Approx(0.0));
+    CHECK(golem.vel.y == doctest::Approx(0.0));
+    MobData ravager = Mobs::make(MobType::Ravager, {6.5, 64.0, 6.5}, s.rng);
+    Mobs::attack(ravager, 1.0f, {3.5, 64.0, 6.5});
+    CHECK(ravager.vel.x == doctest::Approx(0.1));
+    CHECK(Mobs::knockbackResistance(Mobs::make(MobType::Zombie, {0, 64, 0}, s.rng)) <= 0.05);
+}

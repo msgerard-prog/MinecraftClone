@@ -46,6 +46,10 @@ void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);
 // Freezing in powder snow (M29.4c; vanilla: the powder_snow_outline vignette, faded in
 // with the frozen fraction 0..1): frosty bands closing in from the edges.
 void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiHeight);
+// (M32.3; vanilla GameRenderer item activation) a used totem of undying pops up in the middle
+// of the screen over 40 ticks - growing, spinning about its upright axis, then gone.
+// `progress` 0..1 over those ticks; `sprite` the item's atlas sprite.
+void drawItemActivation(gfx::GuiBatch& batch, uint16_t sprite, float progress, int guiWidth, int guiHeight);
 
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {

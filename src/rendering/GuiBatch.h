@@ -92,6 +92,10 @@ public:
     void blockIcon(const BakedModel& model, float x, float y, uint32_t grassTint);
     // An atlas sprite (item textures) drawn flat at 16x16.
     void atlasSprite(uint16_t sprite, float x, float y, uint32_t color = rgba(255, 255, 255));
+    // (M32.3) an atlas sprite centred at (cx, cy), halfW x halfH (a negative halfW mirrors it,
+    // as a sprite turned past edge-on).
+    void atlasSpriteCentred(uint16_t sprite, float cx, float cy, float halfW, float halfH,
+                            uint32_t color = rgba(255, 255, 255));
 
 private:
     void quad(const float (&px)[4][2], const float (&uv)[4][2], uint32_t color, GuiTexture tex);

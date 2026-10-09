@@ -388,6 +388,11 @@ public:
     static float armorToughness(const world::MobData& m);
     // The melee bonus of what it holds (the weapon's damage over a fist, Sharpness).
     static float weaponBonus(const world::World& world, const world::MobData& m);
+    // (M32.3) how much of a knockback it shrugs off, 0..1.
+    static double knockbackResistance(const world::MobData& m);
+    // (M32.2c/M32.3) damage after its armor (vanilla's formula) and Protection: melee,
+    // arrows and explosions.
+    static float armorReduced(const world::MobData& m, float damage);
     void zombieSpawnRolls(Context& ctx, world::MobData& mob, double crd);
     // The clamped regional difficulty at a block (its chunk's inhabited time).
     static double clampedDifficultyAt(const Context& ctx, double x, double z);

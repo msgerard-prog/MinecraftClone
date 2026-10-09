@@ -42,6 +42,7 @@ struct LevelEvent {
         Portal,       // pos = where an entity teleported (portal/ender particles)
         Note,         // pos = above a note block, data = the note 0..24 (its colour)
         Firework,     // pos = where a rocket burst, data = its fireworks (ItemStack::extra; M28.4c)
+        Totem,        // pos = the saved one's middle (M32.3: a totem of undying's burst)
     };
     Type type;
     double x, y, z;
