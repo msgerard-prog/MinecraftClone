@@ -897,6 +897,19 @@ def fishing_rod():
     return img
 
 
+def bait_stick(bait, leaf):
+    """A carrot / warped fungus on a stick (M29.3d): the rod with its bait hanging from the line."""
+    wood = ramp(hexc("#8A6236"), 5, spread=0.3)
+    s = Shape()
+    s.add({(x, 15 - x) for x in range(1, 14)} | {(x + 1, 15 - x) for x in range(1, 13)}, wood)
+    s.add({(13, 9), (14, 10), (13, 10), (14, 11), (13, 11), (14, 12)}, ramp(hexc(bait), 5))
+    s.add({(14, 8), (13, 8)}, ramp(hexc(leaf), 5))
+    img = s.render()
+    for y in range(2, 8):
+        img.set(14, y, (230, 230, 230, 255))
+    return img
+
+
 def boat_item(colour, raft=False):
     """A boat seen from the side (M25.2b): a hull with a darker rim; a raft is flat."""
     pal = ramp(hexc(colour), 5, spread=0.35)
@@ -1717,6 +1730,8 @@ def all_items():
             img.set(x, y, hexc(colour))
         items[f"{mob}_bucket"] = img
     items["fishing_rod"] = fishing_rod()
+    items["carrot_on_a_stick"] = bait_stick("#F08A20", "#4AA02A")  # (M29.3d)
+    items["warped_fungus_on_a_stick"] = bait_stick("#2AA89A", "#E05A2A")
     items["trident"] = trident()  # (M25.3)
     items["turtle_scute"] = lump("turtle_scute", "#4E9A3A", "#7EC060", size=5.0)  # (M25.3b)
     items["turtle_helmet"] = armor("helmet", "#4E9A3A")

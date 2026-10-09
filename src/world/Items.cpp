@@ -593,6 +593,10 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:copper_nugget", .texture = "item/copper_nugget"});
     // (M29.3b; wiki: Name Tag) renamed on an anvil, it names a mob (which then never despawns)
     r.add({.id = "minecraft:name_tag", .texture = "item/name_tag"});
+    // (M29.3d; wiki: Carrot on a Stick - 25 uses, Warped Fungus on a Stick - 100)
+    r.add({.id = "minecraft:carrot_on_a_stick", .maxStack = 1, .durability = 25, .texture = "item/carrot_on_a_stick"});
+    r.add({.id = "minecraft:warped_fungus_on_a_stick", .maxStack = 1, .durability = 100,
+           .texture = "item/warped_fungus_on_a_stick"});
     // Foods (M29.3c; wiki: each food - hunger, saturation): soups and stews stack to 1 and
     // leave the bowl; the enchanted golden apple is always edible.
     r.add({.id = "minecraft:beetroot_soup", .maxStack = 1, .food = 6, .saturation = 7.2f, .texture = "item/beetroot_soup"});

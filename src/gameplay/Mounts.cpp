@@ -337,6 +337,10 @@ double Mobs::seatHeight(const MobData& m) {
         return 0.55;
     case MobType::Spider: // (M29.1b: spider jockeys)
         return 0.6;
+    case MobType::Pig: // (M29.3d)
+        return 0.6;
+    case MobType::Strider:
+        return 1.1;
     case MobType::HappyGhast:
         return 4.0; // (on its back)
     case MobType::Llama:

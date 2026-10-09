@@ -375,3 +375,29 @@ TEST_CASE("anvil renaming costs a level; names save on items and mobs") {
         if (const std::string* cn = t.get<nbt::Compound>()->string("CustomName")) saved = saved || *cn == "Wilbur";
     CHECK(saved);
 }
+
+TEST_CASE("pigs take saddles and walk where a rider with a carrot on a stick looks (M29.3d)") {
+    MobScene s;
+    s.survival = false;
+    ItemEntities items;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Pig, {8.5, 64.0, 8.5}, s.rng)));
+    MobData* pig = findType(s, MobType::Pig);
+    CHECK(Mobs::interact(*pig, *itemRegistry().find("saddle"), s.rng, items) == Mobs::Use::Fed);
+    CHECK(pig->saddled);
+    CHECK(Mobs::interact(*pig, kNoItem, s.rng, items) == Mobs::Use::Ride);
+    CHECK(pig->ridden);
+    const glm::dvec3 start = pig->pos;
+    for (int i = 0; i < 40; ++i) {
+        pig = findType(s, MobType::Pig);
+        pig->headYaw = 0.0f; // (looking south, +Z)
+        pig->paddleForward = 1;
+        s.tick();
+    }
+    pig = findType(s, MobType::Pig);
+    CHECK(pig->pos.z - start.z > 2.0);
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk(BlockPos{int(pig->pos.x), 64, int(pig->pos.z)}.chunk()), 0));
+    bool saddleSaved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const nbt::Compound* eq = t.get<nbt::Compound>()->compound("equipment")) saddleSaved = saddleSaved || eq->compound("saddle");
+    CHECK(saddleSaved);
+}

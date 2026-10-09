@@ -91,6 +91,24 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
         return Use::Sheared;
     }
     static const ItemId shears = itemId("shears");
+    // Pigs and striders (M29.3d; wiki: Pig, Strider): a saddle goes on an adult; a saddled one
+    // is ridden (steered with a carrot / warped fungus on a stick); shears take the saddle.
+    if (isStickRidden(m.type) && !m.isBaby()) {
+        static const ItemId saddle = itemId("saddle");
+        if (held == saddle && !m.saddled) {
+            m.saddled = true;
+            return Use::Fed;
+        }
+        if (held == shears && m.saddled) {
+            items.spawn(m.pos + glm::dvec3(0, 0.6, 0), {saddle, 1}, rng);
+            m.saddled = false;
+            return Use::Sheared;
+        }
+        if (m.saddled && !m.ridden && !isFood(m.type, held)) {
+            m.ridden = true;
+            return Use::Ride;
+        }
+    }
     // (M29.1c; wiki: Mooshroom) shears turn a mooshroom into a cow and 5 mushrooms of its
     // colour; a bowl gets mushroom stew. (Buckets milk it like a cow: main.)
     if (m.type == MobType::Mooshroom && !m.isBaby()) {

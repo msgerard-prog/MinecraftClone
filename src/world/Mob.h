@@ -190,6 +190,8 @@ inline bool isHorseKind(MobType t) {
            t == MobType::ZombieHorse;
 }
 inline bool isCamel(MobType t) { return t == MobType::Camel || t == MobType::CamelHusk; }
+// (M29.3d) saddled and steered with a carrot / warped fungus on a stick.
+inline bool isStickRidden(MobType t) { return t == MobType::Pig || t == MobType::Strider; }
 // What a mob holds in its main hand for drawing (M29.1f): its saved item, a drowned's
 // trident, else its kind's usual weapon (skeletons bows, pillagers crossbows...). 0: none.
 uint16_t heldItemOf(const struct MobData& m);

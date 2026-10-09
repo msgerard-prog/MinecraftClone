@@ -1386,6 +1386,13 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
         // mount's Passengers); a skeleton trap horse.
         if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
+        if (isStickRidden(m.type) && m.saddled) { // (M29.3d; 1.21.5+ equipment.saddle)
+            nbt::Compound eq, sd;
+            sd.put("id", std::string("minecraft:saddle"));
+            sd.put("count", int32_t{1});
+            eq.put("saddle", std::move(sd));
+            e.put("equipment", std::move(eq));
+        }
         if (m.nameId != 0) e.put("CustomName", std::string(nameText(m.nameId))); // (M29.3b)
         { // (M29.2c) lasting effects, as vanilla's active_effects
             std::vector<nbt::Tag> fx;
@@ -2015,6 +2022,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        if (isStickRidden(m.type))
+            if (const nbt::Compound* eqp = e->compound("equipment"))
+                m.saddled = eqp->compound("saddle") != nullptr;
         m.nameId = readName(e->find("CustomName"));                     // (M29.3b)
         if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
             size_t n = 0;

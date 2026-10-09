@@ -681,7 +681,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.strength = uint8_t(std::clamp(int(v), 1, 5));
                 else if (key == "ChestedHorse" && world::canCarryChest(*type))
                     mob.hasChest = v != 0.0;
-                else if (key == "Saddle" && world::isMount(*type))
+                else if (key == "Saddle" && (world::isMount(*type) || world::isStickRidden(*type)))
                     mob.saddled = v != 0.0;
                 else if (key == "Armor" && *type == world::MobType::Horse)
                     mob.horseArmor = uint8_t(std::clamp(int(v), 0, 4));

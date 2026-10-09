@@ -701,6 +701,10 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"###", "#M#", "###"}, {{'#', item("gold_nugget")}, {'M', item("melon_slice")}},
                            "glistering_melon_slice"));
         r.push_back(shaped({"A", "C", "C"}, {{'A', item("amethyst_shard")}, {'C', item("copper_ingot")}}, "spyglass"));
+        // (M29.3d) a fishing rod with a carrot / warped fungus diagonally below it
+        r.push_back(shaped({"R.", ".C"}, {{'R', item("fishing_rod")}, {'C', item("carrot")}}, "carrot_on_a_stick"));
+        r.push_back(shaped({"R.", ".F"}, {{'R', item("fishing_rod")}, {'F', item("warped_fungus")}},
+                           "warped_fungus_on_a_stick"));
         if (has("cocoa_beans"))
             r.push_back(shaped({"WCW"}, {{'W', item("wheat")}, {'C', item("cocoa_beans")}}, "cookie", 8));
         if (has("melon")) r.push_back(shapeless({item("melon_slice")}, "melon_seeds"));

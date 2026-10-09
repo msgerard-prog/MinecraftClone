@@ -385,6 +385,19 @@ void Mobs::ai(Context& ctx, MobData& m) {
         return;
     }
     if (isMount(m.type) && mountTick(ctx, m)) return; // (ridden: Mounts.cpp, M26.2)
+    if (isStickRidden(m.type) && m.ridden) {
+        // (M29.3d; wiki: Carrot on a Stick, Warped Fungus on a Stick) ridden, it walks where
+        // the rider looks while they hold its stick (paddleForward set by main); a boost
+        // (spellTicks) speeds it up for a while.
+        m.yaw = approachAngle(m.yaw, m.headYaw, 20.0f);
+        const double boost = m.spellTicks > 0 ? 1.0 + 1.15 * std::sin(double(m.spellTicks) * 0.0224) : 1.0;
+        if (m.spellTicks > 0) --m.spellTicks;
+        const glm::dvec3 f(forwardFlat(m.yaw));
+        const double pace = mobInfo(m.type).speed * (m.type == MobType::Pig ? 0.9 : 0.55) * boost;
+        physics(ctx.world, m, m.paddleForward > 0 ? f * pace : glm::dvec3(0.0), false);
+        m.paddleForward = 0;
+        return;
+    }
     if (m.type == MobType::EnderDragon) {
         dragonAi(ctx, m);
         if (m.phaseTicks > 30000) m.phaseTicks = 30000;

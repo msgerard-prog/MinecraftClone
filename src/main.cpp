@@ -778,8 +778,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int dx = -1; dx <= 1; ++dx)
                 if (mc::world::Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
                     for (auto& m : c->mobs())
-                        if ((m.type == mc::world::MobType::Minecart ||
-                             m.type == mc::world::MobType::Boat || mc::world::isMount(m.type)) &&
+                        if ((m.type == mc::world::MobType::Minecart || m.type == mc::world::MobType::Boat ||
+                             mc::world::isMount(m.type) || mc::world::isStickRidden(m.type)) &&
                             m.uuidHi == ridingCart)
                             return &m;
         return nullptr;
@@ -2017,6 +2017,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         cart->riderJump = int8_t(mountJumpTicks * 10);
                         mountJumpTicks = 0;
                     }
+                } else if (mc::world::isStickRidden(cart->type)) {
+                    // A pig or strider (M29.3d) goes where the rider looks only while they
+                    // hold its stick - a carrot / warped fungus on a stick; using the stick
+                    // boosts it (the stick wears: carrot 7, fungus 1).
+                    static const mc::world::ItemId carrotStick = *mc::world::itemRegistry().find("carrot_on_a_stick"),
+                                                   fungusStick = *mc::world::itemRegistry().find("warped_fungus_on_a_stick");
+                    const mc::world::ItemId stick = cart->type == mc::world::MobType::Pig ? carrotStick : fungusStick;
+                    const bool holding = inventory.selectedStack().item == stick;
+                    cart->headYaw = player.yaw();
+                    cart->paddleForward = int8_t(holding ? 1 : 0);
                 } else if (cart->type == mc::world::MobType::Boat) {
                     // Paddling (M25.2b): W/S forward/back, A/D turn (Boats.cpp applies it).
                     cart->paddleForward = int8_t(input.forward > 0.0f   ? 1
@@ -2859,6 +2869,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwSnowball(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
+                // Riding a pig or strider (M29.3d), its stick used: a boost (7-42 s), wearing the
+                // stick (carrot 7, fungus 1).
+                if (!dead && clicks.useClick && ridingCart != 0 &&
+                    (heldId == "minecraft:carrot_on_a_stick" || heldId == "minecraft:warped_fungus_on_a_stick"))
+                    if (mc::world::MobData* steed = findCart(); steed && mc::world::isStickRidden(steed->type)) {
+                        const bool carrot = heldId == "minecraft:carrot_on_a_stick";
+                        if (carrot == (steed->type == mc::world::MobType::Pig) && steed->spellTicks == 0) {
+                            steed->spellTicks = int16_t(140 + gameRng.nextInt(701));
+                            if (survival) { // (worn out, it is a fishing rod again - wiki)
+                                const mc::world::ItemStack worn = mc::wearItem(inventory.selectedStack(), carrot ? 7 : 1, gameRng);
+                                inventory.setSlot(inventory.selected(),
+                                                  worn.empty() ? mc::world::ItemStack{*mc::world::itemRegistry().find("fishing_rod"), 1}
+                                                               : worn);
+                            }
+                        }
+                        clicks.useClick = false;
+                    }
                 // A spyglass held up (M29.3c; wiki: Spyglass): the view zooms to a tenth.
                 spyglassUp = !dead && heldId == "minecraft:spyglass" && clicks.use;
                 if (spyglassUp) clicks.useClick = false;
@@ -3314,7 +3341,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                       world.chunk(mh->chunk)->mobs()[size_t(mh->index)].tamed) ||
                      world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
                          mc::world::MobType::Allay ||
-                     mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {
+                     mc::world::isMount(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type) ||
+                     mc::world::isStickRidden(world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type))) {
                     auto& mob = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     const mc::world::ItemStack held = inventory.selectedStack();
                     const bool wasTamed = mob.tamed;
@@ -4962,7 +4990,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             double bestD = 10.0 * 10.0;
             world.forEachChunk([&](mc::world::Chunk& c) {
                 for (auto& mob : c.mobs())
-                    if (mc::world::isMount(mob.type) && !mob.isBaby()) {
+                    if ((mc::world::isMount(mob.type) || (mc::world::isStickRidden(mob.type) && mob.saddled)) && !mob.isBaby()) {
                         const double d =
                             glm::dot(mob.pos - player.position(), mob.pos - player.position());
                         if (d < bestD) bestD = d, best = &mob;

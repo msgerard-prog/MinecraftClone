@@ -156,7 +156,7 @@ TEST_CASE("/summon takes a few of vanilla's data tags: Color, Sheared, Age, Heal
     CHECK(m.woolColour == 14);
     CHECK(m.age == -24000);
     CHECK(m.sheared);
-    CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Saddle:1b}", c.ctx).ok); // unknown tag
+    CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Bogus:1b}", c.ctx).ok); // unknown tag (pigs take Saddle since M29.3d)
     CHECK_FALSE(runCommand("/summon pig 10 70 -4 {Age:x}", c.ctx).ok);
 }
 
