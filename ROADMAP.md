@@ -15,10 +15,10 @@ the user's call (see Waiting on the user).
 M29 - Completeness (user, 2026-10-08: "do those missing items ... once everything is
 functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data values
 (blocks, items, mobs, effects, enchantments) found these gaps:
-1. M29.1 - Mobs: a) husk, stray, bogged, parched; b) skeleton/zombie horses, camel husk
+1. ✅ M29.1 - Mobs: a) husk, stray, bogged, parched; b) skeleton/zombie horses, camel husk
    jockeys, zombie nautilus jockeys; c) bat, endermite, mooshroom, snow golem, piglin
    brute, zoglin, illusioner; d) 1.21.5 cow/pig/chicken variants (blue/brown eggs);
-   e) spawn eggs for every mob.
+   e) spawn eggs for every mob; f) held items drawn.
 2. M29.2 - Effects, potions, enchantments: absorption, saturation, health boost,
    blindness, nausea, luck/unluck, wind charged, weaving, oozing, infested; turtle master,
    slow falling, luck and the 1.21 potions; mending, frost walker, depth strider, soul
@@ -36,9 +36,9 @@ functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data
    golem statues, chain -> iron_chain.
 7. M29.7 - Technical: command blocks (and minecart), structure blocks/voids, jigsaws,
    barriers, light blocks, player heads, petrified oak slabs, knowledge books.
-8. M29.8 - overworld7: generate what worldgen places (flowers, melons, cocoa, lily pads,
-   huge mushrooms, glow lichen, raw ore veins, magma, powder snow, fossils, animal
-   variants).
+8. M29.8 - overworld7 and nether4: generate what worldgen places (flowers, melons, cocoa,
+   lily pads, huge mushrooms, glow lichen, raw ore veins, magma, powder snow, fossils);
+   piglin brutes in bastions.
 Then reviews, v0.29.0, a pinned completeness test, and v1.0.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

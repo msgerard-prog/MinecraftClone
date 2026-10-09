@@ -686,6 +686,18 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   flowers (grown by full cacti), vines (faces; climbable; grow down). Stacking and candle
   cakes in `BlockInteraction::place`, lighting and eating in main, support in
   `BlockUpdates::survives`, fireflies and candle flames in `Particles::animate`.
+- The roster (M29.1): husks/strays/bogged/parched share the zombie and skeleton code
+  (`isZombie`, `isSkeleton`, `burnsInDaylight`; effect arrows via `Projectile::hitEffect`);
+  undead mounts join the mount code through `isHorseKind`/`isCamel`/`isNautilus` and never
+  breed (`isUndeadMount`). Jockeys: a rider's `MobData::vehicle` (mount UUID), placed on the
+  seat each tick by `Mobs::ridePass`, which sets the mount's `jockeyChase`/goal and
+  `mobRidden`; skeleton traps (`spawnSkeletonTrap` from main's storm bolts, `trapBolts()`).
+  `gameplay/Bats.cpp` (fluttering, roosting, `spawnBats`), snow golems in Golems.cpp
+  (`buildSnowGolem`, `snowGolemTick`), mooshrooms in Animals.cpp (`Use::Stew`), Overworld
+  zombification (`zombifyTicks`), endermites from pearls. Farm animal variants (M29.1d):
+  `farmVariant(Biome)`, chosen in `animalUpkeep`, eggs by variant (`Projectile::eggVariant`).
+  Spawn eggs (M29.1e): `ItemDef::spawnEgg`; textures from each skin (gen_items.py).
+  Held items (M29.1f): `world::heldItemOf`, drawn by `EntityRenderer::addMob` at the hand.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),
