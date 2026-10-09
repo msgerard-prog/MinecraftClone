@@ -31,7 +31,7 @@ int heuristic(const glm::ivec3& a, const glm::ivec3& b) {
 
 Pathfinder::Pathfinder() {
     m_nodes.reserve(kMaxNodes + 8);
-    m_heap.reserve(kMaxNodes * 5 + 8); // + re-pushes of improved nodes
+    m_heap.reserve(kMaxNodes * 9 + 8); // 8 neighbours a node + re-pushes (M30.5: diagonals)
     m_keys.assign(kHashSlots, 0);
     m_index.assign(kHashSlots, -1);
     m_stamp.assign(kHashSlots, 0);

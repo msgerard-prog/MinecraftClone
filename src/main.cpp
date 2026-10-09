@@ -6362,7 +6362,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 (container.type() == mc::ui::ContainerScreen::Type::Hopper ||
                  container.type() == mc::ui::ContainerScreen::Type::Dispenser))
                 pointStore();
-            if (container.isOpen() && recipeScreen()) // (M30.6) what the inventory can make now
+            if (container.isOpen() && recipeScreen() && recipeBook.isOpen()) // (M30.6) what can be made now
                 recipeBook.refresh(container.craftingGridSize(), inventory, container.craftingGrid());
             if (container.isOpen())
                 container.draw(

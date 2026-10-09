@@ -236,3 +236,14 @@ TEST_CASE("M30.6: creative tabs group items as vanilla; the Search tab filters b
     inv.type("\b\b\b\b");
     CHECK(inv.query() == "oak");
 }
+
+TEST_CASE("M30 review: the Search tab keeps its scroll while nothing is typed") {
+    CreativeInventory inv;
+    inv.build(visibleModels());
+    inv.open();
+    inv.selectTab(CreativeInventory::Tab::Search);
+    inv.scroll(-3.0);
+    REQUIRE(inv.scrollRow() == 3);
+    inv.type(""); // (main calls it every frame)
+    CHECK(inv.scrollRow() == 3);
+}

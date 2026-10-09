@@ -127,7 +127,7 @@ void CreativeInventory::selectTab(Tab t) {
 }
 
 void CreativeInventory::type(std::string_view text) {
-    if (m_tab != Tab::Search) return;
+    if (m_tab != Tab::Search || text.empty()) return; // (called every frame: nothing typed, nothing to do)
     for (char c : text)
         if (c == '\b') {
             if (!m_query.empty()) m_query.pop_back();
@@ -188,6 +188,7 @@ void CreativeInventory::build(const gfx::BlockModels& models) {
         m_items.push_back({static_cast<world::ItemId>(i), 1});
         m_names.push_back(std::move(name));
     }
+    m_query.reserve(64); // (typing doesn't allocate)
     // (M30.6) the tabs and search names
     for (auto& t : m_tabItems) t.clear();
     m_searchNames.clear();
@@ -335,7 +336,8 @@ void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
         const float bx = left + 81, by = top + 4;
         b.fill(bx, by, 89, 12, kEdge);
         b.fill(bx + 1, by + 1, 87, 10, gfx::rgba(0, 0, 0));
-        b.text(m_query + "_", bx + 3, by + 2, gfx::argb(0xFFFFFFFF), false);
+        b.text(m_query, bx + 3, by + 2, gfx::argb(0xFFFFFFFF), false);
+        b.text("_", bx + 3 + float(b.textWidth(m_query)), by + 2, gfx::argb(0xFFFFFFFF), false);
     }
 
     const Hit hover = hitTest(mx, my, guiWidth, guiHeight);
@@ -367,7 +369,8 @@ void CreativeInventory::draw(gfx::GuiBatch& b, const gfx::ItemIcons& icons,
 
     // Tooltip for the hovered grid item or tab, then the carried item on the cursor.
     if ((hover.kind == Hit::Grid || hover.kind == Hit::TabButton) && m_carried.empty()) {
-        const std::string name = hover.kind == Hit::Grid ? m_names[size_t(hover.index)] : tabName(Tab(hover.index));
+        const std::string_view name = hover.kind == Hit::Grid ? std::string_view(m_names[size_t(hover.index)])
+                                                              : std::string_view(tabName(Tab(hover.index)));
         const float tx = static_cast<float>(mx) + 12, ty = static_cast<float>(my) - 12;
         const int w = b.textWidth(name);
         b.fill(tx - 3, ty - 3, static_cast<float>(w + 6), 14, gfx::argb(0xF0100010));

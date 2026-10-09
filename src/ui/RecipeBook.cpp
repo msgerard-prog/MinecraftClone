@@ -53,17 +53,17 @@ void RecipeBook::refresh(int gridSize, const Inventory& inventory, std::span<con
     if (m_list.capacity() < all.size()) m_list.reserve(all.size()); // (once)
     m_gridSize = gridSize;
     m_list.clear();
-    for (int i = 0; i < int(all.size()); ++i) {
-        const Recipe& r = all[size_t(i)];
-        const bool fits = r.width > 0 ? r.width <= gridSize && r.height <= gridSize
-                                      : int(r.pattern.size()) <= gridSize * gridSize;
-        if (!fits) continue;
-        const bool craftable = canCraft(r, inventory, grid);
-        if (m_craftableOnly && !craftable) continue;
-        m_list.push_back({i, craftable});
-    }
-    // Craftable recipes first (vanilla sorts them ahead); stable keeps the book's order.
-    std::stable_partition(m_list.begin(), m_list.end(), [](const Entry& e) { return e.craftable; });
+    // Craftable recipes first (vanilla sorts them ahead), each part in the book's order:
+    // two passes, no temporary buffer (M30 review: stable_partition allocated per frame).
+    for (int pass = 0; pass < (m_craftableOnly ? 1 : 2); ++pass)
+        for (int i = 0; i < int(all.size()); ++i) {
+            const Recipe& r = all[size_t(i)];
+            const bool fits = r.width > 0 ? r.width <= gridSize && r.height <= gridSize
+                                          : int(r.pattern.size()) <= gridSize * gridSize;
+            if (!fits) continue;
+            const bool craftable = canCraft(r, inventory, grid);
+            if (craftable == (pass == 0)) m_list.push_back({i, craftable});
+        }
     m_page = std::clamp(m_page, 0, pages() - 1);
 }
 
