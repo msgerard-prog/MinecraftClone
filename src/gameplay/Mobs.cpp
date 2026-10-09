@@ -252,7 +252,10 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (m.hurtTime == 0 && m.deathTime == 0 && !isHanging(m.type) && !isTechnical(m.type) &&
         m.type != MobType::Boat && m.type != MobType::Minecart && m.type != MobType::EndCrystal &&
         m.type != MobType::LeashKnot && m.type != MobType::ArmorStand && m.type != MobType::Shulker &&
-        headInWall(world, m.pos + glm::dvec3(0.0, mobInfo(m.type).height * 0.85, 0.0), mobInfo(m.type).width)) {
+        [&] { // (its own size: babies, small slimes, sitting camels - M30 review)
+            const Aabb bb = box(m);
+            return headInWall(world, {m.pos.x, bb.min.y + (bb.max.y - bb.min.y) * 0.85, m.pos.z}, bb.max.x - bb.min.x);
+        }()) {
         m.health -= 1.0f;
         m.hurtTime = 10;
     }
@@ -685,7 +688,8 @@ void Mobs::ai(Context& ctx, MobData& m) {
     pathOpts.height = int(std::ceil(info.height));
     pathOpts.footprint = std::clamp(int(std::ceil(info.width - 1e-6)), 1, 3);
     pathOpts.openDoors = m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
-                         m.type == MobType::Piglin || m.type == MobType::PiglinBrute;
+                         m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
+                         (m.type == MobType::Vindicator && m.raidId != 0); // (wiki: raid vindicators)
     const double cellCentre = double(pathOpts.footprint) * 0.5;
     const glm::ivec3 feet = Pathfinder::cellOf(m.pos, pathOpts.footprint);
     const glm::ivec3 goalCell = Pathfinder::cellOf(m.goal, pathOpts.footprint);
@@ -744,9 +748,19 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (m.doorOpened.y != INT32_MIN) {
         const glm::dvec3 door(m.doorOpened.x + 0.5, m.doorOpened.y, m.doorOpened.z + 0.5);
         const double gone = glm::length(glm::dvec2(door.x - m.pos.x, door.z - m.pos.z));
-        if ((gone > 1.5 && ++m.doorTicks > 20) || m.doorTicks > 200) {
-            setMobDoor(ctx.world, {m.doorOpened.x, m.doorOpened.y, m.doorOpened.z}, false);
-            m.doorOpened.y = INT32_MIN;
+        ++m.doorTicks; // (every tick: the 10 s fallback must fire even beside the door - M30 review)
+        if ((gone > 1.5 && m.doorTicks > 20) || m.doorTicks > 200) {
+            // Not on top of someone in the doorway (vanilla waits for them).
+            const Aabb cell{glm::dvec3(m.doorOpened.x, m.doorOpened.y, m.doorOpened.z),
+                            glm::dvec3(m.doorOpened.x + 1, m.doorOpened.y + 2, m.doorOpened.z + 1)};
+            bool blocked = false;
+            if (const Chunk* dc = ctx.world.chunk({blockToChunk(m.doorOpened.x), blockToChunk(m.doorOpened.z)}))
+                for (const MobData& o : dc->mobs())
+                    if (&o != &m && o.health > 0.0f && box(o).intersects(cell)) blocked = true;
+            if (!blocked || m.doorTicks > 400) {
+                setMobDoor(ctx.world, {m.doorOpened.x, m.doorOpened.y, m.doorOpened.z}, false);
+                m.doorOpened.y = INT32_MIN;
+            }
         }
     }
 
@@ -971,6 +985,10 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
 }
 
 void Mobs::die(Context& ctx, MobData& m) {
+    if (m.doorOpened.y != INT32_MIN) { // (M30 review) a door it opened is shut behind it
+        setMobDoor(ctx.world, {m.doorOpened.x, m.doorOpened.y, m.doorOpened.z}, false);
+        m.doorOpened.y = INT32_MIN;
+    }
     if (m.leash != 0) { // (M28.3c) its lead drops
         if (const auto lead = itemRegistry().find("lead"))
             ctx.items.spawn(m.pos, {*lead, 1}, ctx.rng);

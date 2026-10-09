@@ -584,3 +584,51 @@ TEST_CASE("M30.5: a villager opens a wooden door on its way and shuts it behind 
     CHECK(through);
     CHECK(r.get(s.world.getBlock({10, 64, 8}), properties::open) == 1); // (shut again)
 }
+
+TEST_CASE("M30 review: small slimes and baby animals fit under a 1-block ceiling without suffocating") {
+    MobScene s;
+    s.survival = false;
+    for (int z = 4; z <= 12; ++z)
+        for (int x = 4; x <= 12; ++x) s.world.setBlock({x, 65, z}, blockRegistry().defaultState(blocks::Stone));
+    MobData slime = Mobs::make(MobType::Slime, {8.5, 64.0, 8.5}, s.rng);
+    slime.size = 1;
+    slime.health = 1.0f;
+    REQUIRE(Mobs::add(s.world, slime));
+    MobData calf = Mobs::make(MobType::Cow, {6.5, 64.0, 6.5}, s.rng);
+    calf.age = -24000;
+    REQUIRE(Mobs::add(s.world, calf));
+    const float calfHealth = calf.health;
+    s.tick(30);
+    const MobData* sl = findType(s, MobType::Slime);
+    REQUIRE(sl);
+    CHECK(sl->health == doctest::Approx(1.0f));
+    const MobData* c = findType(s, MobType::Cow);
+    REQUIRE(c);
+    CHECK(c->health == doctest::Approx(calfHealth));
+}
+
+TEST_CASE("M30 review: a villager staying just past its door still shuts it (the 10 s fallback)") {
+    MobScene s;
+    s.survival = false;
+    s.dayTime = 6000;
+    const auto& r = blockRegistry();
+    for (int z = -32; z <= 47; ++z)
+        for (int y = 64; y <= 66; ++y) s.world.setBlock({10, y, z}, r.defaultState(blocks::Stone));
+    const BlockStateId door = *r.with(r.defaultState(blocks::OakDoor), "facing", "east");
+    s.world.setBlock({10, 64, 8}, *r.with(door, "half", "lower"));
+    s.world.setBlock({10, 65, 8}, *r.with(door, "half", "upper"));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Villager, {8.5, 64.0, 8.5}, s.rng)));
+    bool opened = false, shutAgain = false; // (its own schedule may take it back through later)
+    for (int t = 0; t < 400 && !shutAgain; ++t) {
+        MobData* v = findType(s, MobType::Villager);
+        REQUIRE(v);
+        v->goal = {11.6, 64.0, 8.5}; // (stays 1.1 from the door)
+        v->goalTicks = 0;
+        s.tick();
+        const bool open = r.get(s.world.getBlock({10, 64, 8}), properties::open) == 0;
+        shutAgain = opened && !open;
+        opened = opened || open;
+    }
+    CHECK(opened);
+    CHECK(shutAgain);
+}
