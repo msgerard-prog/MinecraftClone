@@ -339,6 +339,7 @@ private:
     // Villagers (M24, Villagers.cpp): the daily schedule (home, work, the bell; true if
     // it chose the goal) and running from zombies.
     bool villagerGoal(Context& ctx, world::MobData& m, double& speed);
+    void villagerSocial(Context& ctx, world::MobData& m); // (M32.5: gossip decay, hero gifts)
     void villagerFear(Context& ctx, world::MobData& m);
     void villagerUpkeep(Context& ctx, world::MobData& v); // (M24.3) food, bread, sharing
     // Zombies hunting villagers, zombie villagers' cure (M24.3, Villagers.cpp).

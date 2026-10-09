@@ -492,6 +492,10 @@ struct MobData {
     uint8_t villagerType = 0; // world::VillagerType
     uint8_t villagerLevel = 1; // 1 novice .. 5 master
     int villagerXp = 0;
+    // (M32.5) gossip about the player by world::Gossip kind (saved as Gossips), and the time
+    // to its next gift to a Hero of the Village.
+    std::array<int16_t, 5> gossip{};
+    int16_t giftTicks = 0;
     glm::ivec3 home{0, kNoPoint, 0}, jobSite{0, kNoPoint, 0}, meetingPoint{0, kNoPoint, 0};
     bool sleeping = false;    // in its bed at night (drawn lying down)
     // Drawing only, not saved (M30.1: the player drawn as a mannequin): crouching, and the

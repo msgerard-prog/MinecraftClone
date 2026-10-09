@@ -1730,6 +1730,19 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             data.put("level", int32_t(m.villagerLevel));
             e.put("VillagerData", std::move(data));
             e.put("Xp", int32_t(m.villagerXp));
+            { // (M32.5; wiki: Villager › Entity data) Gossips about the player
+                std::vector<nbt::Tag> gossips;
+                for (size_t k = 0; k < m.gossip.size(); ++k)
+                    if (m.gossip[k] > 0) {
+                        nbt::Compound g;
+                        g.put("Type", std::string(kGossips[k].id));
+                        g.put("Value", int32_t(m.gossip[k]));
+                        g.put("Target", std::vector<int32_t>{int32_t(g_playerUuidHi >> 32), int32_t(g_playerUuidHi),
+                                                             int32_t(g_playerUuidLo >> 32), int32_t(g_playerUuidLo)});
+                        gossips.emplace_back(std::move(g));
+                    }
+                if (!gossips.empty()) e.put("Gossips", nbt::listOf(nbt::TagType::Compound, std::move(gossips)));
+            }
             { // its food (M24.3) as vanilla's Inventory: up to 8 stacks
                 static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
                 std::vector<nbt::Tag> inv;
@@ -2099,6 +2112,14 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.poiSearch = int16_t(std::abs(int(std::floor(m.pos.x * 7.0 + m.pos.z * 13.0))) % 200); // (loaded villagers don't all search on one tick)
             }
             m.villagerXp = int(std::clamp<int64_t>(e->integer("Xp").value_or(0), 0, 1000000));
+            if (const nbt::List* gl = e->list("Gossips")) // (M32.5: ours are all about the player)
+                for (const nbt::Tag& gt : gl->items)
+                    if (const nbt::Compound* g = gt.get<nbt::Compound>())
+                        if (const std::string* type = g->string("Type"))
+                            for (size_t k = 0; k < m.gossip.size(); ++k)
+                                if (*type == kGossips[k].id)
+                                    m.gossip[k] = int16_t(std::clamp<int64_t>(g->integer("Value").value_or(0), 0,
+                                                                              kGossips[k].max));
             if (const nbt::List* inv = e->list("Inventory")) {
                 static constexpr const char* kFood[6] = {"bread", "carrot", "potato", "beetroot", "wheat", "wheat_seeds"};
                 for (const nbt::Tag& it : inv->items)

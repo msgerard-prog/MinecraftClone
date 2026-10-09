@@ -1444,6 +1444,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 if (!shift && container.beginDrag(mx, my, CButton::Right, gw, gh)) continue;
                 container.click(mx, my, CButton::Right, shift, gw, gh, inventory, screenDrops);
             }
+            if (container.takeLevelUp()) // (M32.5) Regeneration for 10 s and sparkles (vanilla)
+                if (mc::world::MobData* lv = container.trader()) {
+                    mc::Mobs::addEffect(*lv, mc::world::Effect::Regeneration, 0, 200);
+                    world.levelEvent(mc::world::LevelEvent::Type::Happy, lv->pos.x, lv->pos.y, lv->pos.z, 195);
+                }
             if (container.dragging()) {
                 if (window.leftMousePressed() || window.rightMousePressed())
                     container.dragTo(mx, my, gw, gh, inventory);

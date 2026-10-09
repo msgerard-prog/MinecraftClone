@@ -1025,6 +1025,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     damage = armorReduced(m, damage);
     m.health -= damage;
     if (cooling) return; // (the rest happened with the first hit)
+    if (m.type == MobType::Villager) addGossip(m, Gossip::MinorNegative, 25); // (M32.5: it remembers)
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock
     m.lastHurtByPlayer = true; // (Mobs::attack: the player's hits)
@@ -1142,6 +1143,16 @@ void Mobs::die(Context& ctx, MobData& m) {
         return;
     }
     if (m.hasGear || isSkeleton(m.type)) dropGear(ctx, m); // (M32.2c)
+    if (m.type == MobType::Villager && m.lastHurtByPlayer) { // (M32.5) the village remembers
+        const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))), blockToChunk(int(std::floor(m.pos.z)))};
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (Chunk* ch = ctx.world.chunk({c0.x + dx, c0.z + dz}))
+                    for (MobData& o : ch->mobs())
+                        if (&o != &m && o.type == MobType::Villager && o.health > 0.0f &&
+                            glm::dot(o.pos - m.pos, o.pos - m.pos) < 16.0 * 16.0)
+                            addGossip(o, Gossip::MajorNegative, 25);
+    }
     if (isMount(m.type)) dropMountGear(ctx, m);             // (M26.2)
     if (m.type == MobType::Fox && m.mouthItem != kNoItem) { // (M26.3) what it carried
         ctx.items.spawn(m.pos + glm::dvec3(0, 0.4, 0), {m.mouthItem, 1}, ctx.rng);

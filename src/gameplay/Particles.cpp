@@ -609,6 +609,22 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
         case LevelEvent::Type::Crit:
             crit(at, rng);
             break;
+        case LevelEvent::Type::Happy: // (M32.5; vanilla happy_villager) green sparkles about it
+            for (int i = 0; i < 12; ++i) {
+                Particle p;
+                const double h = double(e.data) / 100.0;
+                p.pos = at + glm::dvec3(centred(rng) * 0.6, 0.5 + rng.nextDouble() * h, centred(rng) * 0.6);
+                p.vel = glm::dvec3(0.0, 0.02, 0.0);
+                p.color = glm::vec3(0.3f, 0.95f, 0.3f);
+                p.size = 0.06f;
+                p.sprite = ParticleSprite::Effect;
+                p.fullBright = true;
+                p.physics = false;
+                p.friction = 0.9f;
+                p.lifetime = int16_t(20 + rng.nextInt(10));
+                add(p);
+            }
+            break;
         case LevelEvent::Type::Totem: // (M32.3; vanilla TotemParticle) green and yellow sparks
             for (int i = 0; i < 80; ++i) {
                 Particle p;

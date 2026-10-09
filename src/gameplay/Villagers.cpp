@@ -126,8 +126,71 @@ bool stillThere(const World& world, const glm::ivec3& p, Poi kind) {
 // work at the job site (nitwits and the unemployed wander), 9000-11000 gather at the
 // bell, 11000-12000 wander, 12000-24000 sleep in its bed. Babies play instead of
 // working. Returns true when it chose the goal (or sleeps).
+namespace {
+
+// (M32.5; wiki: Hero of the Village › Gifts) what each profession throws to a hero - one of
+// these at random; babies throw a poppy; unemployed villagers and nitwits nothing.
+std::string_view heroGift(const MobData& v, Xoroshiro& rng) {
+    if (v.isBaby()) return "poppy";
+    static constexpr std::string_view kArmorer[4] = {"chainmail_helmet", "chainmail_chestplate", "chainmail_leggings",
+                                                     "chainmail_boots"};
+    static constexpr std::string_view kButcher[5] = {"cooked_rabbit", "cooked_chicken", "cooked_porkchop",
+                                                     "cooked_beef", "cooked_mutton"};
+    static constexpr std::string_view kCleric[2] = {"redstone", "lapis_lazuli"};
+    static constexpr std::string_view kFarmer[3] = {"bread", "pumpkin_pie", "cookie"};
+    static constexpr std::string_view kFisherman[2] = {"cod", "salmon"};
+    static constexpr std::string_view kToolsmith[4] = {"stone_pickaxe", "stone_axe", "stone_hoe", "stone_shovel"};
+    static constexpr std::string_view kWeaponsmith[3] = {"stone_axe", "golden_axe", "iron_axe"};
+    static constexpr std::string_view kWool[16] = {"white_wool", "orange_wool", "magenta_wool", "light_blue_wool",
+                                                   "yellow_wool", "lime_wool", "pink_wool", "gray_wool",
+                                                   "light_gray_wool", "cyan_wool", "purple_wool", "blue_wool",
+                                                   "brown_wool", "green_wool", "red_wool", "black_wool"};
+    auto pick = [&](auto& list) { return list[rng.nextInt(uint32_t(std::size(list)))]; };
+    switch (static_cast<Profession>(v.profession)) {
+    case Profession::Armorer: return pick(kArmorer);
+    case Profession::Butcher: return pick(kButcher);
+    case Profession::Cartographer: return "map";
+    case Profession::Cleric: return pick(kCleric);
+    case Profession::Farmer: return pick(kFarmer);
+    case Profession::Fisherman: return pick(kFisherman);
+    case Profession::Fletcher: return "arrow";
+    case Profession::Leatherworker: return "leather";
+    case Profession::Librarian: return "book";
+    case Profession::Mason: return "clay_ball";
+    case Profession::Shepherd: return pick(kWool);
+    case Profession::Toolsmith: return pick(kToolsmith);
+    case Profession::Weaponsmith: return pick(kWeaponsmith);
+    default: return {};
+    }
+}
+
+} // namespace
+
+void Mobs::villagerSocial(Context& ctx, MobData& m) {
+    // (M32.5) gossip fades a little each day (vanilla: every 24000 ticks).
+    if (ctx.dayTime % 24000 == int64_t(m.uuidHi % 24000)) decayGossip(m);
+    // A Hero of the Village within 5 blocks gets a gift now and then (vanilla GiveGiftToHero:
+    // 600-6600 ticks apart).
+    if (m.giftTicks > 0) --m.giftTicks;
+    if (m.giftTicks > 0 || ctx.playerDead || ctx.raidCentre || m.sleeping ||
+        ctx.vitals.effectLevel(Effect::HeroOfTheVillage) == 0)
+        return;
+    const glm::dvec3 to = ctx.player.position() - m.pos;
+    if (glm::dot(to, to) > 5.0 * 5.0) return;
+    m.giftTicks = int16_t(600 + ctx.rng.nextInt(6001));
+    const std::string_view gift = heroGift(m, ctx.rng);
+    if (gift.empty()) return;
+    const auto id = itemRegistry().find(gift);
+    if (!id) return;
+    if (ItemEntity* e = ctx.items.spawn(m.pos + glm::dvec3(0.0, 1.3, 0.0), {*id, 1}, ctx.rng)) {
+        const double l = std::max(1e-6, glm::length(to));
+        e->vel = to / l * 0.3 + glm::dvec3(0.0, 0.15, 0.0); // (tossed at the player)
+    }
+}
+
 bool Mobs::villagerGoal(Context& ctx, MobData& m, double& speed) {
     World& world = ctx.world;
+    villagerSocial(ctx, m);
     // Points it remembers vanish with their blocks.
     if (hasPoint(m.home) && !stillThere(world, m.home, Poi::Bed)) m.home = {0, kNoPoint, 0};
     if (hasPoint(m.meetingPoint) && !stillThere(world, m.meetingPoint, Poi::Bell))
@@ -438,9 +501,10 @@ void Mobs::zombieVillagerTick(MobData& m) {
     m.targeting = false;
     m.targetUuid = 0;
     m.fireTicks = 0;
-    for (int i = 0; i < m.offerCount; ++i)
-        m.offers[size_t(i)].specialPrice =
-            int16_t(-std::max(1, int(std::floor(m.offers[size_t(i)].priceMultiplier * 125.0f))));
+    // (M32.5) as gossip now: major positive 20 and minor positive 25 - 125 reputation, the
+    // minor part fading a point a day.
+    addGossip(m, Gossip::MajorPositive, 20);
+    addGossip(m, Gossip::MinorPositive, 25);
 }
 
 // A villager picks up food lying near it; farmers bake 3 wheat into bread; one with

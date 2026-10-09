@@ -126,6 +126,9 @@ public:
         if (m_type == Type::Trading) updateResult(); // (the prices changed)
     }
     int takeTradeExperience() { return std::exchange(m_tradeXp, 0); }
+    // (M32.5) the villager levelled up from a trade: main gives it its Regeneration and sparkles.
+    bool takeLevelUp() { return std::exchange(m_levelUp, false); }
+    world::MobData* trader() const { return m_trader; }
     // Statistics (M28.1d): what was crafted (crafting grid, smithing, furnace outputs
     // taken) and trades made since the last call.
     std::span<const world::ItemStack> crafted() const { return {m_crafted.data(), size_t(m_craftedCount)}; }
@@ -245,6 +248,7 @@ private:
     std::array<world::ChestData*, 2> m_chests{};
     std::array<world::ItemStack, 9> m_grid{};
     world::ItemStack m_result;
+    bool m_levelUp = false;
     world::ItemStack m_carried;
     world::FurnaceData m_takenRecipes; // (only its recipesUsed)
     int m_bookshelves = 0, m_levels = 0, m_levelsSpent = 0, m_anvilCost = 0;

@@ -323,16 +323,19 @@ void addLevelTrades(MobData& v, Xoroshiro& rng) {
     }
 }
 
-int offerPrice(const TradeOffer& o, int heroLevel) {
+int offerPrice(const TradeOffer& o, int heroLevel, int reputation) {
     const int base = o.buyACount;
+    const int gossip = int(std::floor(float(reputation) * o.priceMultiplier)); // (M32.5)
     const int demandBonus = std::max(0, int(float(base) * o.priceMultiplier * float(o.demand)));
     const int maxStack = std::max<int>(1, itemRegistry().item(o.buyA).maxStack);
     const int hero =
         heroLevel > 0 ? std::max(1, int(std::floor(float(base) * (0.3f + 0.0625f * float(heroLevel - 1))))) : 0;
-    return std::clamp(base + demandBonus + o.specialPrice - hero, 1, maxStack);
+    return std::clamp(base + demandBonus + o.specialPrice - hero - gossip, 1, maxStack);
 }
 
-ItemStack offerBuyA(const TradeOffer& o, int heroLevel) { return {o.buyA, uint8_t(offerPrice(o, heroLevel))}; }
+ItemStack offerBuyA(const TradeOffer& o, int heroLevel, int reputation) {
+    return {o.buyA, uint8_t(offerPrice(o, heroLevel, reputation))};
+}
 ItemStack offerBuyB(const TradeOffer& o) {
     return o.buyB ? ItemStack{o.buyB, o.buyBCount} : ItemStack{};
 }
@@ -347,6 +350,7 @@ bool useOffer(MobData& v, int i, Xoroshiro& rng) {
     TradeOffer& o = v.offers[size_t(i)];
     if (o.uses < 255) ++o.uses;
     if (v.type != MobType::Villager) return false; // (wandering traders have no levels)
+    addGossip(v, Gossip::Trading, 2);               // (M32.5: vanilla's trade gossip)
     v.villagerXp += o.xp;
     const int level = villagerLevelFor(v.villagerXp);
     if (level <= v.villagerLevel) return false;
@@ -361,6 +365,23 @@ void restock(MobData& v) {
         o.demand = int8_t(std::clamp(int(o.demand) + o.uses - (o.maxUses - o.uses), 0, 100));
         o.uses = 0;
     }
+}
+
+void addGossip(MobData& v, Gossip kind, int amount) {
+    const GossipInfo& g = kGossips[size_t(kind)];
+    int16_t& value = v.gossip[size_t(kind)];
+    value = int16_t(std::clamp(int(value) + amount, 0, g.max));
+}
+
+int reputation(const MobData& v) {
+    int r = 0;
+    for (size_t k = 0; k < v.gossip.size(); ++k) r += int(v.gossip[k]) * kGossips[k].weight;
+    return r;
+}
+
+void decayGossip(MobData& v) {
+    for (size_t k = 0; k < v.gossip.size(); ++k)
+        v.gossip[k] = int16_t(std::max(0, int(v.gossip[k]) - kGossips[k].decay));
 }
 
 } // namespace mc::world

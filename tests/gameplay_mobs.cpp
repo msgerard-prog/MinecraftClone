@@ -5,6 +5,7 @@
 #include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Villagers.h"
+#include "world/Trades.h"
 #include "world/ChunkSerializer.h"
 #include "world/OverworldGenerator.h"
 #include "world/Potions.h"
@@ -1727,7 +1728,9 @@ TEST_CASE("zombies hunt villagers and infect them; weakness and a golden apple c
     for (MobData* m : s.all())
         if (m->type == MobType::Villager) {
             cured = true;
-            CHECK(m->offers[0].specialPrice == -6); // grateful: 0.05 x 125 reputation off
+            CHECK(reputation(*m) == 125); // grateful (M32.5: as gossip): 0.05 x 125 off
+            CHECK(offerPrice(m->offers[0]) == 10); // (the reputation-free price)
+            CHECK(offerPrice(m->offers[0], 0, reputation(*m)) == 4);
         }
     CHECK(cured);
 }
@@ -2665,4 +2668,77 @@ TEST_CASE("M32.3: a mob in its hurt time takes only a stronger hit's difference;
     Mobs::attack(ravager, 1.0f, {3.5, 64.0, 6.5});
     CHECK(ravager.vel.x == doctest::Approx(0.1));
     CHECK(Mobs::knockbackResistance(Mobs::make(MobType::Zombie, {0, 64, 0}, s.rng)) <= 0.05);
+}
+
+TEST_CASE("M32.5: gossip - hits and kills lower reputation and prices, trades and decay, a golem turns on the player") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData v = Mobs::make(MobType::Villager, {3.5, 64.0, 3.5}, s.rng);
+    v.profession = uint8_t(Profession::Farmer);
+    TradeOffer o;
+    o.buyA = *itemRegistry().find("emerald");
+    o.buyACount = 10;
+    o.sell = *itemRegistry().find("bread");
+    o.sellCount = 1;
+    o.maxUses = 12;
+    o.xp = 2;
+    v.offers[v.offerCount++] = o;
+    REQUIRE(Mobs::add(s.world, v));
+    MobData* vill = s.all().at(0);
+    for (int i = 0; i < 4; ++i) { // four hits, each after its hurt time
+        Mobs::attack(*vill, 0.5f, s.player.position());
+        vill->hurtTime = 0;
+    }
+    CHECK(vill->gossip[size_t(Gossip::MinorNegative)] == 100);
+    CHECK(reputation(*vill) == -100);
+    CHECK(offerPrice(vill->offers[0], 0, reputation(*vill)) == 15); // +floor(100 x 0.05)
+    // A golem nearby turns on the player.
+    MobData g = Mobs::make(MobType::IronGolem, {6.5, 64.0, 6.5}, s.rng);
+    REQUIRE(Mobs::add(s.world, g));
+    for (int t = 0; t < 60; ++t) {
+        s.run(1);
+        if (s.all().size() < 2) break;
+    }
+    bool angry = false;
+    for (MobData* m : s.all())
+        if (m->type == MobType::IronGolem) angry = m->angry;
+    CHECK(angry);
+    // Trading adds 2 a trade (up to 25); a day's decay takes 20 minor negative and 2 trading.
+    vill = nullptr;
+    for (MobData* m : s.all())
+        if (m->type == MobType::Villager) vill = m;
+    REQUIRE(vill);
+    Xoroshiro rng(1);
+    useOffer(*vill, 0, rng);
+    CHECK(vill->gossip[size_t(Gossip::Trading)] == 2);
+    decayGossip(*vill);
+    CHECK(vill->gossip[size_t(Gossip::MinorNegative)] == 80);
+    CHECK(vill->gossip[size_t(Gossip::Trading)] == 0);
+    // Saved and loaded.
+    Chunk& c = *s.world.chunk({0, 0});
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    bool found = false;
+    for (const MobData& m : back.mobs())
+        if (m.type == MobType::Villager) {
+            found = true;
+            CHECK(m.gossip[size_t(Gossip::MinorNegative)] == 80);
+        }
+    CHECK(found);
+}
+
+TEST_CASE("M32.5: a villager tosses a gift to a Hero of the Village nearby") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    s.survival = false;
+    s.dayTime = 6000;
+    MobData v = Mobs::make(MobType::Villager, {2.5, 64.0, 0.5}, s.rng);
+    v.profession = uint8_t(Profession::Librarian);
+    REQUIRE(Mobs::add(s.world, v));
+    s.vitals.addEffect(Effect::HeroOfTheVillage, 0, 48000);
+    s.run(3);
+    bool book = false;
+    for (const ItemEntity& e : s.items.items()) book = book || e.stack.item == *itemRegistry().find("book");
+    CHECK(book);
+    CHECK(s.all().at(0)->giftTicks >= 590);
 }

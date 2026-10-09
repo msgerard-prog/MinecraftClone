@@ -1,6 +1,8 @@
 // Iron golems (M24.3; wiki: Iron Golem). Part of Mobs.
 #include "gameplay/Mobs.h"
 
+#include "world/Trades.h"
+
 #include "gameplay/FluidContact.h"
 #include "gameplay/Projectiles.h"
 #include "world/Biome.h"
@@ -30,6 +32,21 @@ bool Mobs::golemGoal(Context& ctx, MobData& g, double& speed) {
     MobData* t = g.targetUuid ? mobByUuid(ctx.world, g.pos, g.targetUuid) : nullptr;
     if (t && (!golemTarget(*t) || glm::length(t->pos - g.pos) > 32.0)) t = nullptr;
     if (!t) g.targetUuid = 0;
+    if (!t && ctx.rng.nextInt(20) == 0 && !g.playerCreated && !g.angry && ctx.survival && !ctx.playerDead) {
+        // (M32.5; vanilla DefendVillageTargetGoal) a villager within 10 that thinks badly
+        // enough of the player (reputation -100 or worse) sets the golem on them.
+        const ChunkPos c{blockToChunk(int(std::floor(g.pos.x))), blockToChunk(int(std::floor(g.pos.z)))};
+        for (int dz = -1; dz <= 1 && !g.angry; ++dz)
+            for (int dx = -1; dx <= 1 && !g.angry; ++dx)
+                if (const Chunk* ch = ctx.world.chunk({c.x + dx, c.z + dz}))
+                    for (const MobData& v : ch->mobs())
+                        if (v.type == MobType::Villager && glm::dot(v.pos - g.pos, v.pos - g.pos) < 10.0 * 10.0 &&
+                            reputation(v) <= -100) {
+                            g.angry = true;
+                            g.angerTicks = 600;
+                            break;
+                        }
+    }
     if (!t && ctx.rng.nextInt(20) == 0) {
         double best = 16.0 * 16.0;
         const ChunkPos c{blockToChunk(int(std::floor(g.pos.x))),

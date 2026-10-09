@@ -64,6 +64,20 @@ struct TradeOffer {
 };
 inline constexpr int kMaxOffers = 10;
 
+// Gossip (M32.5; wiki: Villager › Gossiping): what a villager remembers about the player,
+// one value per kind: hits (minor negative), killing a villager it saw (major negative),
+// curing it (major and minor positive), trading. Reputation = the values x their weights.
+enum class Gossip : uint8_t { MajorNegative, MinorNegative, MinorPositive, MajorPositive, Trading, Count };
+struct GossipInfo {
+    const char* id; // vanilla's Type
+    int weight, max, decay; // decay: lost each day
+};
+inline constexpr GossipInfo kGossips[5] = {{"major_negative", -5, 100, 10},
+                                           {"minor_negative", -1, 200, 20},
+                                           {"minor_positive", 1, 200, 1},
+                                           {"major_positive", 5, 100, 0},
+                                           {"trading", 1, 25, 2}};
+
 // A point a villager remembers (home bed, job site, meeting bell); y = kNoPoint: none.
 inline constexpr int kNoPoint = -1000000;
 
