@@ -622,6 +622,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     glm::mat3 body = rotY(-bodyYaw * kDeg);
     if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
     if (mob.sleeping) body = body * rotX(-90.0f * kDeg); // in bed: lying on its back, head toward the pillow
+    const bool roosting = mob.type == world::MobType::Bat && mob.sitting; // (M29.1c: hanging upside down)
+    if (roosting) body = body * rotZ(180.0f * kDeg);
     const glm::mat3 head = rotY((headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
     // (M29.1b) a jockey sits: legs forward and a little apart (vanilla's riding pose).
     const bool seated = mob.vehicle != 0;
@@ -633,7 +635,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const glm::mat3 tail = rotY(std::sin(mob.limbSwing * 0.8f) * 0.45f); // (fish tails wag side to side)
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
-    if (mob.sitting && mob.type != world::MobType::Villager) // (a sitting pet sinks onto its haunches; a camel lies down)
+    if (roosting) base.y += float(world::mobInfo(mob.type).height);
+    else if (mob.sitting && mob.type != world::MobType::Villager) // (a sitting pet sinks onto its haunches; a camel lies down)
         base.y -= world::isCamel(mob.type) ? 1.0f : 0.25f;
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)
         base.x += 0.05f * std::sin(float(mob.convertTicks) * 2.5f);
@@ -688,6 +691,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                                                              : part.layer >= 9 && part.layer <= 12 ? float(kMountGearRow * 64)
                                                                                : vrow);
         glm::vec3 partTint = tint;
+        if (mob.type == world::MobType::Mooshroom && mob.woolColour == 1) // (M29.1c) a brown mooshroom
+            partTint *= glm::vec3(0.78f, 0.58f, 0.46f);
         if (part.layer == 3) { // the profession's colour (M24.1)
             const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;

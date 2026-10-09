@@ -50,6 +50,7 @@ bool Mobs::isFood(MobType type, ItemId item) {
     }
     switch (type) {
     case MobType::Cow:
+    case MobType::Mooshroom: // (M29.1c)
     case MobType::Sheep:
         return item == wheat;
     case MobType::Pig:
@@ -90,6 +91,24 @@ Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& 
         return Use::Sheared;
     }
     static const ItemId shears = itemId("shears");
+    // (M29.1c; wiki: Mooshroom) shears turn a mooshroom into a cow and 5 mushrooms of its
+    // colour; a bowl gets mushroom stew. (Buckets milk it like a cow: main.)
+    if (m.type == MobType::Mooshroom && !m.isBaby()) {
+        if (held == shears) {
+            m.type = MobType::Cow;
+            items.spawn(m.pos + glm::dvec3(0, 1, 0),
+                        {itemId(m.woolColour == 1 ? "brown_mushroom" : "red_mushroom"), 5}, rng);
+            m.woolColour = 0;
+            return Use::Sheared;
+        }
+        if (held == itemId("bowl")) return Use::Stew;
+    }
+    // (M29.1c; wiki: Snow Golem) shears take its pumpkin off.
+    if (m.type == MobType::SnowGolem && held == shears && !m.sheared) {
+        m.sheared = true;
+        items.spawn(m.pos + glm::dvec3(0, 1.6, 0), {itemRegistry().blockItem(blocks::CarvedPumpkin), 1}, rng);
+        return Use::Sheared;
+    }
     if (held == shears && m.type == MobType::Sheep && !m.sheared && !m.isBaby()) {
         // Shearing drops 1-3 wool of its colour (wiki: Sheep › Shearing).
         m.sheared = true;

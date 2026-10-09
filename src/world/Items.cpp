@@ -230,6 +230,11 @@ ItemRegistry buildItems() {
         r.mapBlock(c, *r.find("cauldron")); // (filled cauldrons pick and drop as the cauldron)
     // Food (wiki: Food - apple restores 4 hunger, 2.4 saturation).
     r.add({.id = "minecraft:apple", .food = 4, .saturation = 2.4f, .texture = "item/apple"});
+    // (M29.1c; wiki: Bowl, Mushroom Stew - 6 hunger, 7.2 saturation, stacks to 1, the bowl
+    // comes back)
+    r.add({.id = "minecraft:bowl", .texture = "item/bowl"});
+    r.add({.id = "minecraft:mushroom_stew", .maxStack = 1, .food = 6, .saturation = 7.2f,
+           .texture = "item/mushroom_stew"});
     // (M24.3; wiki: Golden Apple - 4 hunger, 9.6 saturation, always edible)
     r.add({.id = "minecraft:golden_apple",
            .food = 4,

@@ -411,6 +411,9 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 vitals.removeEffect(world::Effect::Poison);
                 inventory.consumeSelected(1);
                 inventory.add({*items.find("glass_bottle"), 1});
+            } else if (held.id.ends_with("_stew") || held.id == "minecraft:beetroot_soup") {
+                // (M29.1c; wiki: Bowl) stews and soups leave their bowl in the hand
+                inventory.setSlot(inventory.selected(), {*items.find("bowl"), 1});
             } else {
                 inventory.consumeSelected(1);
             }

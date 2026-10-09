@@ -222,7 +222,7 @@ def mob_sounds(name, rng):
                for _ in range(3)]
         hurt = [voice(rng, 0.35, r(130, 150), 100, formant=(200, 1200), breath=0.4) for _ in range(2)]
         return say, hurt, voice(rng, 1.1, 110, 50, formant=(150, 900), breath=0.5)
-    if name == "cow":
+    if name in ("cow", "mooshroom"):  # (M29.1c: mooshrooms moo alike)
         say = [voice(rng, r(0.9, 1.2), r(115, 130), r(95, 105), formant=(200, 1100), vibrato=0.02, breath=0.05,
                      attack=0.12) for _ in range(3)]
         hurt = [voice(rng, 0.4, 160, 120, formant=(250, 1300), breath=0.1) for _ in range(2)]
@@ -290,7 +290,7 @@ def mob_sounds(name, rng):
             wet = mul(bandpass(noise(int(d * RATE), rng), 400, 2500), env(int(d * RATE), 0.005, d / 6))
             return add([t * 2 for t in thud], wet)
         return None, [squish(0.25) for _ in range(2)], squish(0.4)
-    if name == "piglin":
+    if name in ("piglin", "piglin_brute"):  # (M29.1c: brutes grunt alike)
         say = [voice(rng, r(0.3, 0.5), r(180, 220), r(140, 170), wave="square", formant=(250, 1800), breath=0.35,
                      attack=0.02) for _ in range(3)]
         return say, [voice(rng, 0.3, 260, 200, wave="square", formant=(300, 2000), breath=0.3)], \
@@ -300,7 +300,7 @@ def mob_sounds(name, rng):
                      breath=0.45) for _ in range(3)]
         return say, [voice(rng, 0.35, 170, 130, wave="square", formant=(200, 1400), breath=0.4)], \
             voice(rng, 1.0, 140, 60, wave="square", formant=(150, 1200), breath=0.5)
-    if name == "hoglin":
+    if name in ("hoglin", "zoglin"):  # (M29.1c: zoglins snort alike)
         say = [voice(rng, r(0.4, 0.6), r(90, 110), r(70, 85), wave="saw", formant=(120, 900), breath=0.5)
                for _ in range(3)]
         return say, [voice(rng, 0.3, 140, 100, formant=(150, 1100), breath=0.5)], \
@@ -351,8 +351,8 @@ def mob_sounds(name, rng):
                for _ in range(3)]
         hurt = [voice(rng, 0.3, r(190, 210), 140, wave="saw", formant=(400, 2200), breath=0.3) for _ in range(2)]
         return say, hurt, voice(rng, 0.8, 170, 70, wave="saw", formant=(350, 2000), breath=0.4)
-    if name in ("vindicator", "evoker"):  # grumbles, the evoker higher (ours)
-        f = 125 if name == "vindicator" else 165
+    if name in ("vindicator", "evoker", "illusioner"):  # grumbles, the evoker higher (ours)
+        f = {"vindicator": 125, "evoker": 165, "illusioner": 190}[name]
         say = [voice(rng, r(0.35, 0.55), f * r(0.95, 1.05), f * 0.85, wave="saw", formant=(380, 2200), breath=0.3)
                for _ in range(3)]
         hurt = [voice(rng, 0.3, f * 1.5, f * 1.1, wave="saw", formant=(400, 2200), breath=0.3) for _ in range(2)]
@@ -467,7 +467,14 @@ def mob_sounds(name, rng):
         chirp = lambda f: mul(tone(0.12, f, f * 1.2, "sine"), env(int(0.12 * RATE), 0.005, 0.04))
         return ([add(chirp(r(900, 1100)), at(chirp(r(1000, 1200)), 0.15, 0.3)) for _ in range(3)],
                 [chirp(1400) for _ in range(2)], chirp(700))
-    if name == "silverfish":  # skitter and squeak (ours)
+    if name == "bat":  # (M29.1c) high chirps; hurt squeaks (ours)
+        chirp = lambda f: mul(tone(0.05, f, f * 1.4, "sine"), env(int(0.05 * RATE), 0.002, 0.02))
+        chirps = lambda: add(*[at(chirp(r(3500, 4500)), k * 0.08, 0.35) for k in range(3)])
+        return [chirps() for _ in range(3)], [chirp(3000) for _ in range(2)], chirp(2400)
+    if name == "snow_golem":  # (M29.1c) no voice: crunches of snow when hurt (ours)
+        crunch = lambda d: mul(bandpass(noise(int(d * RATE), rng), 1500, 6000), env(int(d * RATE), 0.005, d / 3))
+        return None, [crunch(0.2) for _ in range(2)], crunch(0.5)
+    if name in ("silverfish", "endermite"):  # skitter and squeak (ours; M29.1c endermites too)
         squeak = lambda f: mul(tone(0.06, f, f * 1.2, "square"), env(int(0.06 * RATE), 0.002, 0.02))
         skitter = lambda: add(*[at(squeak(r(2500, 3200)), k * 0.07, 0.4) for k in range(4)])
         return [skitter() for _ in range(3)], [squeak(2200) for _ in range(2)], squeak(1600)
@@ -533,7 +540,7 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
         "allay", "nautilus", "happy_ghast", "copper_golem", "creaking", "warden", "sniffer",
         "husk", "stray", "bogged", "parched", "skeleton_horse", "zombie_horse", "camel_husk",
-        "zombie_nautilus"]
+        "zombie_nautilus", "bat", "endermite", "mooshroom", "snow_golem", "piglin_brute", "zoglin", "illusioner"]
 
 
 # --- Everything else ----------------------------------------------------------------

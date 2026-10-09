@@ -561,6 +561,8 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     l.gatewayBlock = block->block;
                 }
                 if (m_pearls.size() < m_pearls.capacity()) m_pearls.push_back(l);
+                // (M29.1c; wiki: Endermite) 1 in 20 thrown pearls leaves an endermite behind.
+                if (rng.nextInt(20) == 0) world.queueMob(Mobs::make(MobType::Endermite, l.pos, rng));
                 remove = true;
             } else if (p.kind == ProjectileKind::DragonFireball &&
                        (target != Target::None || block)) {

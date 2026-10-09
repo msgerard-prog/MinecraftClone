@@ -83,10 +83,11 @@ def zombie(name="zombie", skin_c="#5A8C3C", shirt_c="#2E8C8C", pants_c="#4A3C8C"
     return img
 
 
-def cow():
-    rng = random.Random("cow")
+def cow(name="cow", spots="#5C3A22"):
+    # (M29.1c: mooshrooms are red-spotted cows; brown ones are tinted when drawn)
+    rng = random.Random(name)
     img = Img(64, 64, CLEAR)
-    brown = ramp(hexc("#5C3A22"), 5, spread=0.25)
+    brown = ramp(hexc(spots), 5, spread=0.25)
     white = ramp(hexc("#E8E4DA"), 5, spread=0.15)
     pink = ramp(hexc("#D89A9A"), 5, spread=0.2)
     horn = ramp(hexc("#C8C0B0"), 5, spread=0.2)
@@ -418,13 +419,14 @@ def piglin():
     return img
 
 
-def hoglin():
+def hoglin(name="hoglin", hide_c="#A8644C", mane_c="#D8B060"):
     # A bristly brown-pink boar with pale tusks (drawn at half size, scaled 2x). Head
     # 7x6x9 @ (0,0), tusk 1x3x1 @ (40,0), body 8x7x12 @ (0,16), leg 3x6x3 @ (0,40).
-    rng = random.Random("hoglin")
+    # (M29.1c: zoglins are rotting grey-green ones.)
+    rng = random.Random(name)
     img = Img(64, 64, CLEAR)
-    hide = ramp(hexc("#A8644C"), 5, spread=0.35)
-    mane = ramp(hexc("#D8B060"), 5, spread=0.3)
+    hide = ramp(hexc(hide_c), 5, spread=0.35)
+    mane = ramp(hexc(mane_c), 5, spread=0.3)
     for f in box_faces(0, 0, 7, 6, 9).values():
         paint(img, f, hide, rng, noise=0.5)
     face(img, box_faces(0, 0, 7, 6, 9)["front"], ((1, 1), (5, 1)), (20, 14, 10, 255),
@@ -437,6 +439,29 @@ def hoglin():
             paint(img, (x0 + 3, y0, 2, h), mane, rng)
     for f in box_faces(0, 40, 3, 6, 3).values():
         paint(img, f, hide, rng, noise=0.5)
+    return img
+
+
+def piglin_brute():
+    """Piglin brute (M29.1c): the piglin in black leather with a gold-studded belt."""
+    img = piglin()
+    rng = random.Random("piglin_brute")
+    leather = ramp(hexc("#2A2622"), 5, spread=0.3)
+    for f in box_faces(16, 16, 8, 12, 4).values():
+        paint(img, f, leather, rng)
+    gold = ramp(hexc("#E8B830"), 5, spread=0.3)
+    x0, y0, w, h = box_faces(16, 16, 8, 12, 4)["front"]
+    paint(img, (x0, y0 + 7, w, 1), gold, rng)
+    return img
+
+
+def illusioner():
+    """Illusioner (M29.1c): the pillager's build in a deep blue coat."""
+    img = pillager()
+    rng = random.Random("illusioner")
+    cloth = ramp(hexc("#24407A"), 5, spread=0.25)
+    for f in box_faces(16, 20, 8, 12, 6).values():
+        paint(img, f, cloth, rng)
     return img
 
 
@@ -1260,6 +1285,18 @@ def main():
               "camel": pet("camel", [(0, 0, 4, 18, 4), (16, 0, 5, 12, 5), (36, 0, 6, 6, 8), (48, 14, 2, 2, 1),
                                      (0, 34, 12, 10, 20)], (36, 0, 6, 6, 8), None, base="#C8A060",
                            extra=[((16, 17, 8, 5, 8), "#B08A50"), ((0, 22, 2, 8, 2), "#6A5030")]),
+              # M29.1c the rest of the roster
+              "bat": pet("bat", [(0, 0, 4, 4, 4), (16, 0, 4, 6, 2), (0, 8, 8, 6, 1)], (0, 0, 4, 4, 4), None,
+                         base="#4A3A30", extra=[((0, 8, 8, 6, 1), "#2E2420")]),
+              "endermite": pet("endermite", [(0, 0, 4, 3, 8), (24, 0, 3, 2, 2), (24, 4, 2, 2, 3)], (24, 0, 3, 2, 2),
+                               None, base="#3A2A4A", stripes=True),
+              "mooshroom": cow("mooshroom", "#B0201A"),
+              "snow_golem": pet("snow_golem", [(0, 16, 10, 10, 10), (0, 36, 12, 12, 12), (32, 0, 6, 1, 1)],
+                                (0, 0, 8, 8, 8), None, base="#F2F6FA",
+                                extra=[((0, 0, 8, 8, 8), "#E07A1A"), ((32, 0, 6, 1, 1), "#5A3A1E")]),
+              "piglin_brute": piglin_brute(),
+              "zoglin": hoglin("zoglin", "#B08A84", "#9AA88A"),
+              "illusioner": illusioner(),
               # M29.1b undead mounts in their own colours: bone, rotting green, sun-dried husk, drowned teal
               "skeleton_horse": pet("skeleton_horse", HORSE_BOXES, (16, 0, 5, 5, 10), None, base="#D8D4C8",
                                     extra=[((20, 15, 2, 10, 3), "#B8B4A8"), ((46, 0, 3, 10, 4), "#B8B4A8")], stripes=True),

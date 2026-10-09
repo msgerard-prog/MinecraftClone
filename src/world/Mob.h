@@ -117,6 +117,14 @@ enum class MobType : uint8_t {
     ZombieHorse,
     CamelHusk,
     ZombieNautilus,
+    // The rest of vanilla's roster (M29.1c; wiki pages of each).
+    Bat,         // roosts upside down on ceilings (`sitting`)
+    Endermite,   // sometimes left by a thrown ender pearl; gone after 2 minutes
+    Mooshroom,   // red (woolColour 0) or brown (1); sheared into a cow and mushrooms
+    SnowGolem,   // built of snow; throws snowballs at monsters; `sheared`: no pumpkin
+    PiglinBrute, // bastion guard with a golden axe, always hostile
+    Zoglin,      // a hoglin zombified outside the Nether
+    Illusioner,  // a bow-shooting illager (not natural: commands only, as vanilla)
     Count
 };
 
@@ -370,6 +378,7 @@ struct MobData {
     bool mobRidden = false; // (a monster sits on it: the player can't get on)
     bool skeletonTrap = false;   // (M29.1b) a skeleton trap horse (vanilla SkeletonTrap)
     uint16_t heldItem = 0;       // (M29.1b) its main-hand item other than a trident (ItemId; equipment.mainhand)
+    int16_t zombifyTicks = 0;    // (M29.1c) a piglin or hoglin outside the Nether (vanilla TimeInOverworld)
     int eggTicks = 6000;    // chicken: ticks until the next egg
     int eatTicks = 0;       // sheep: eating-grass animation (40)
     int16_t breedTicks = 0; // time spent next to a partner in love

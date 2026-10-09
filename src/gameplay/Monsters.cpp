@@ -190,6 +190,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         break;
     }
     case MobType::Skeleton:
+    case MobType::Illusioner: // (M29.1c: a bow like a skeleton's)
     case MobType::Stray:
     case MobType::Bogged:
     case MobType::Parched: {

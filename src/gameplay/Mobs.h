@@ -128,7 +128,8 @@ public:
     // puts an adult in love mode (or speeds a baby's growth by 10%), shears shear a
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
     // (Sat: a pet sat down or stood up - M26.1; Ride: the player got on a mount - M26.2)
-    enum class Use { None, Fed, Sheared, Sat, Ride };
+    // (M29.1c) Stew: a bowl came back filled (main swaps the held bowl for mushroom stew).
+    enum class Use { None, Fed, Sheared, Sat, Ride, Stew };
     static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng,
                         ItemEntities& items);
     // A pet's top health (tamed wolves: 40 - M26.1).
@@ -237,6 +238,9 @@ private:
     bool witherAi(Context& ctx, world::MobData& m);
     // Allays (Allays.cpp, M26.5a).
     bool allayAi(Context& ctx, world::MobData& m);
+    bool batAi(Context& ctx, world::MobData& m); // (M29.1c, Bats.cpp)
+    void snowGolemTick(Context& ctx, world::MobData& m); // (M29.1c, Golems.cpp)
+    void spawnBats(Context& ctx);
     static Use allayInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng,
                              ItemEntities& items);
     // Happy ghasts and copper golems (HappyGhasts.cpp, CopperGolems.cpp, M26.5b).
@@ -321,6 +325,8 @@ public:
     // A carved pumpkin on a T of iron blocks: an iron golem (false: not a golem shape).
     static bool buildIronGolem(world::World& world, const world::BlockPos& pumpkin,
                                world::Xoroshiro& rng);
+    // (M29.1c) a carved pumpkin on two snow blocks: a snow golem.
+    static bool buildSnowGolem(world::World& world, const world::BlockPos& pumpkin, world::Xoroshiro& rng);
 
 private:
     void die(Context& ctx, world::MobData& m);
@@ -349,6 +355,7 @@ private:
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
     int m_hostiles = 0;
+    int m_bats = 0; // (M29.1c: the ambient cap, 15)
     int m_fish = 0, m_squid = 0, m_glowSquid = 0,
         m_axolotls = 0; // (M25.2: water mob caps; M26.3c axolotls)
     int m_felines = 0,

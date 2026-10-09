@@ -1390,6 +1390,10 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         if (m.type == MobType::ZombifiedPiglin) e.put("AngerTime", int32_t(m.angry ? m.angerTicks : 0));
         if (m.type == MobType::ZombieVillager) e.put("ConversionTime", int32_t(m.convertTicks > 0 ? m.convertTicks : -1));
         if (m.type == MobType::WanderingTrader || m.type == MobType::TraderLlama) e.put("DespawnDelay", int32_t(m.despawnDelay));
+        // (M29.1c; wiki: Entity format) vanilla TimeInOverworld; an endermite's Lifetime
+        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute || m.type == MobType::Hoglin)
+            e.put("TimeInOverworld", int32_t(m.zombifyTicks));
+        if (m.type == MobType::Endermite) e.put("Lifetime", int32_t(2400 - m.despawnDelay));
         if (m.type == MobType::IronGolem) e.put("PlayerCreated", int8_t(m.playerCreated ? 1 : 0));
         if (isPet(m.type) || m.type == MobType::Ocelot) { // (M26.1; wiki: Wolf, Cat, Parrot › Entity data)
             if (m.type == MobType::Ocelot) e.put("Trusting", int8_t(m.tamed ? 1 : 0));
@@ -1705,6 +1709,10 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(48000), 1, 48000));
         if (m.type == MobType::TraderLlama) // (0: stays - one the player tamed)
             m.despawnDelay = int(std::clamp<int64_t>(e->integer("DespawnDelay").value_or(0), 0, 48000));
+        if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute || m.type == MobType::Hoglin)
+            m.zombifyTicks = int16_t(std::clamp<int64_t>(e->integer("TimeInOverworld").value_or(0), 0, 300));
+        if (m.type == MobType::Endermite)
+            m.despawnDelay = 2400 - int(std::clamp<int64_t>(e->integer("Lifetime").value_or(0), 0, 2399));
         m.captain = m.type == MobType::Pillager && e->integer("PatrolLeader").value_or(0) != 0;
         m.playerCreated = m.type == MobType::IronGolem && e->integer("PlayerCreated").value_or(0) != 0;
         if (isPet(m.type) || m.type == MobType::Ocelot) {

@@ -169,6 +169,16 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:zombie_horse", 25.0f, 1.3965, 1.6, 0.25, 0.0f, false},
         {"minecraft:camel_husk", 32.0f, 1.7, 2.375, 0.09, 0.0f, false},
         {"minecraft:zombie_nautilus", 15.0f, 0.875, 0.95, 0.3, 3.0f, false, false, false, 1.0f, true},
+        // wiki: Bat - 6, 0.5 x 0.9, flies; Endermite - 8, 0.4 x 0.3, 0.25, 2; Mooshroom - as a
+        // cow; Snow Golem - 4, 0.7 x 1.9, 0.2; Piglin Brute - 50, 0.6 x 1.95, 0.35, 13 (golden
+        // axe, Normal); Zoglin - 40, 1.3965 x 1.4, 0.25, 6; Illusioner - 32, 0.6 x 1.95, 0.5.
+        {"minecraft:bat", 6.0f, 0.5, 0.9, 0.1, 0.0f, false, false, true},
+        {"minecraft:endermite", 8.0f, 0.4, 0.3, 0.25, 2.0f, true},
+        {"minecraft:mooshroom", 10.0f, 0.9, 1.4, 0.2, 0.0f, false},
+        {"minecraft:snow_golem", 4.0f, 0.7, 1.9, 0.2, 0.0f, false},
+        {"minecraft:piglin_brute", 50.0f, 0.6, 1.95, 0.35, 13.0f, true},
+        {"minecraft:zoglin", 40.0f, 1.3965, 1.4, 0.25, 6.0f, true},
+        {"minecraft:illusioner", 32.0f, 0.6, 1.95, 0.5, 0.0f, true},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];

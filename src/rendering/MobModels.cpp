@@ -709,6 +709,23 @@ constexpr std::array<MobPart, 6> kAllay = {{
     {{-0.5f, 2, -9}, {0.5f, 7, -1}, {0, 5, -1}, 0, 10, A::WingL},
     {{-0.5f, 2, -9}, {0.5f, 7, -1}, {0, 5, -1}, 0, 10, A::WingR},
 }};
+// Bat (M29.1c): a small head and body, two wings that beat. Head 4x4x4 @ (0,0), body 4x6x2
+// @ (16,0), wing 8x6x1 @ (0,8).
+constexpr std::array<MobPart, 4> kBat = {{
+    {{-2, 10, -2}, {2, 14, 2}, {0, 10, 0}, 0, 0, A::Head},
+    {{-2, 4, -1}, {2, 10, 1}, {0, 7, 0}, 16, 0, A::None},
+    {{-10, 4, -0.5f}, {-2, 10, 0.5f}, {-2, 7, 0}, 0, 8, A::WingL},
+    {{2, 4, -0.5f}, {10, 10, 0.5f}, {2, 7, 0}, 0, 8, A::WingR},
+}};
+// Snow golem (M29.1c): two snowballs, a pumpkin head, stick arms. Head 8x8x8 @ (0,0),
+// upper 10x10x10 @ (0,16), lower 12x12x12 @ (0,36), arm 6x1x1 @ (32,0).
+constexpr std::array<MobPart, 5> kSnowGolem = {{
+    {{-4, 20, -4}, {4, 28, 4}, {0, 20, 0}, 0, 0, A::Head},
+    {{-5, 11, -5}, {5, 21, 5}, {0, 16, 0}, 0, 16, A::None},
+    {{-6, 0, -6}, {6, 12, 6}, {0, 6, 0}, 0, 36, A::None},
+    {{-11, 17, -0.5f}, {-5, 18, 0.5f}, {-5, 17.5f, 0}, 32, 0, A::None},
+    {{5, 17, -0.5f}, {11, 18, 0.5f}, {5, 17.5f, 0}, 32, 0, A::None},
+}};
 // Nautilus (M26.5a): a coiled shell, a body peeking out, tentacles. Shell 8x8x8 @ (0,0),
 // body 6x5x4 @ (32,0), tentacle 1x1x5 @ (0,16).
 constexpr std::array<MobPart, 6> kNautilus = {{
@@ -800,6 +817,13 @@ std::span<const MobPart> mobModel(world::MobType type) {
     case world::MobType::Bogged:
     case world::MobType::Parched: return kSkeleton; // (M29.1a: their own skins)
     case world::MobType::Husk: return kZombie;
+    case world::MobType::Bat: return kBat;
+    case world::MobType::Endermite: return kSilverfish; // (the silverfish's build, its own skin)
+    case world::MobType::Mooshroom: return kCow;
+    case world::MobType::SnowGolem: return kSnowGolem;
+    case world::MobType::PiglinBrute: return kZombifiedPiglin;
+    case world::MobType::Zoglin: return kHoglin;
+    case world::MobType::Illusioner: return kIllager;
     case world::MobType::Creeper: return kCreeper;
     case world::MobType::Spider: return kSpider;
     case world::MobType::Enderman: return kEnderman;

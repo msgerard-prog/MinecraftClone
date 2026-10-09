@@ -250,6 +250,16 @@ void Mobs::spawnCreatures(Context& ctx) {
     const BlockId ground = r.blockOf(ctx.world.getBlock({x, y - 1, z}));
     if (solid(ctx.world, x, y, z) || c->skyLight(blockToLocal(x), y, blockToLocal(z)) < 9) return;
     const Biome biome = c->biomes()->at(blockToLocal(x), y, blockToLocal(z), ctx.world.height());
+    // Mooshrooms (M29.1c; wiki: Mooshroom): mushroom fields' mycelium, groups of 4-8.
+    if (biome == Biome::MushroomFields && ground == blocks::Mycelium) {
+        const int n = 4 + int(ctx.rng.nextInt(5));
+        for (int i = 0; i < n && m_creatures < 10; ++i) {
+            const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
+            if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz)) continue;
+            if (add(ctx.world, make(MobType::Mooshroom, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_creatures;
+        }
+        return;
+    }
     // Horses, donkeys, llamas and camels (M26.2, Mounts.cpp): grass, or a desert's sand.
     if ((ground == blocks::GrassBlock || (biome == Biome::Desert && ground == blocks::Sand)) &&
         (biome == Biome::Plains || biome == Biome::Savanna || biome == Biome::WindsweptHills ||

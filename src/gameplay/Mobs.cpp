@@ -112,6 +112,11 @@ MobData Mobs::make(MobType type, const glm::dvec3& pos, Xoroshiro& rng) {
     if (type == MobType::Chicken)
         m.eggTicks = 6000 + static_cast<int>(rng.nextInt(6000)); // wiki: 5-10 min
     if (type == MobType::IronGolem) m.persistent = true;
+    // (M29.1c) brutes carry golden axes, illusioners bows; endermites last 2 minutes;
+    // mooshrooms are red (1 in 1000 brown when born... ours: brown only from lightning).
+    if (type == MobType::PiglinBrute) m.heldItem = uint16_t(*itemRegistry().find("golden_axe"));
+    if (type == MobType::Illusioner) m.heldItem = uint16_t(*itemRegistry().find("bow"));
+    if (type == MobType::Endermite) m.despawnDelay = 2400;
     if (type ==
         MobType::TropicalFish) { // (wiki: Tropical Fish - 2 shapes x 6 patterns x 16 x 16 colours)
         m.size = uint8_t(rng.nextInt(12));
@@ -168,6 +173,10 @@ bool Mobs::strikeLightning(World& world, const glm::dvec3& at) {
                     m.sleeping = false; // (out of its bed, not trading any more)
                     m.tradingTicks = 0;
                     m.persistent = true;
+                    continue;
+                }
+                if (m.type == MobType::Mooshroom) { // (M29.1c; wiki) red <-> brown
+                    m.woolColour = m.woolColour == 1 ? 0 : 1;
                     continue;
                 }
                 if (m.type == MobType::Pig) { // (vanilla: a new entity in its place)
@@ -336,6 +345,25 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
 }
 
 void Mobs::ai(Context& ctx, MobData& m) {
+    // Outside the Nether piglins, brutes and hoglins shake for 15 s and turn into
+    // zombified piglins and zoglins (M29.1c; wiki: Piglin, Hoglin › Zombification).
+    if (m.type == MobType::Piglin || m.type == MobType::PiglinBrute || m.type == MobType::Hoglin) {
+        if (ctx.world.isUltrawarm()) {
+            m.zombifyTicks = 0;
+        } else if (++m.zombifyTicks > 300) {
+            m.type = m.type == MobType::Hoglin ? MobType::Zoglin : MobType::ZombifiedPiglin;
+            m.health = mobInfo(m.type).maxHealth;
+            m.zombifyTicks = 0;
+            m.admireTicks = 0;
+        }
+    }
+    // An endermite crumbles away after its 2 minutes unless it was made to stay (wiki).
+    if (m.type == MobType::Endermite && !m.persistent && m.despawnDelay > 0 && --m.despawnDelay == 0) {
+        m.health = 0.0f;
+        m.deathTime = 19; // (gone, no drops)
+        m.lastHurtByPlayer = false;
+        return;
+    }
     if (isHanging(m.type)) { // (M28.3a, Hanging.cpp)
         hangingTick(ctx, m);
         return;
@@ -406,11 +434,13 @@ void Mobs::ai(Context& ctx, MobData& m) {
     if (phantomAi(ctx, m)) return;    // (M26.4a, Phantoms.cpp)
     if (witherAi(ctx, m)) return;     // (M26.4b, Wither.cpp)
     if (allayAi(ctx, m)) return;      // (M26.5a, Allays.cpp)
+    if (batAi(ctx, m)) return;        // (M29.1c, Bats.cpp)
     if (happyGhastAi(ctx, m)) return; // (M26.5b, HappyGhasts.cpp)
     if (creakingTick(ctx, m)) return; // (M27.1c, Creakings.cpp: frozen or crumbling)
     if (wardenTick(ctx, m)) return;   // (M27.3c, Wardens.cpp: emerging, digging, booming)
     if (snifferTick(ctx, m)) return;  // (M27.5c, Sniffers.cpp: digging)
     const MobInfo& info = mobInfo(m.type);
+    if (m.type == MobType::SnowGolem) snowGolemTick(ctx, m); // (M29.1c; then it strolls)
     if (!info.hostile) animalUpkeep(ctx, m);
     if (m.type == MobType::ZombieVillager) {
         zombieVillagerTick(m);
@@ -502,7 +532,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         chase = true; // wiki: Zombie - follow range 35
         m.goal = playerPos;
         // Skeletons hold their ground within 10 blocks to shoot (wiki: Skeleton).
-        if (isSkeleton(m.type) && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
+        if ((isSkeleton(m.type) || m.type == MobType::Illusioner) && playerDist2 < 10.0 * 10.0) m.goal = m.pos;
         if (m.type == MobType::Witch && playerDist2 < 7.0 * 7.0)
             m.goal = m.pos; // (throws from where it stands)
         if (m.type == MobType::Pillager && playerDist2 < 8.0 * 8.0)
@@ -1116,6 +1146,19 @@ void Mobs::die(Context& ctx, MobData& m) {
             if (m.allayCount > 0) ctx.items.spawn(m.pos, {m.mouthItem, m.allayCount}, ctx.rng);
         }
         break;
+    case MobType::PiglinBrute: // (M29.1c; wiki) its golden axe 8.5% (killed by the player)
+        if (m.lastHurtByPlayer && ctx.rng.nextInt(1000) < 85) drop("golden_axe", 1, 1);
+        break;
+    case MobType::Zoglin: // (wiki) rotten flesh 1-3
+        drop("rotten_flesh", 1, 3);
+        break;
+    case MobType::SnowGolem: // (wiki) snowballs 0-15
+        drop("snowball", 0, 15);
+        break;
+    case MobType::Mooshroom: // (as a cow)
+        drop(burning ? "cooked_beef" : "beef", 1, 3);
+        drop("leather", 0, 2);
+        break;
     case MobType::SkeletonHorse: // (M29.1b; wiki) bones 0-2
         drop("bone", 0, 2);
         break;
@@ -1271,6 +1314,7 @@ void Mobs::tick(Context& ctx) {
     m_births.clear();
     if (m_playerAttacker != 0 && ++m_playerAttackerTicks > 100) m_playerAttacker = 0;
     m_hostiles = 0;
+    m_bats = 0;
     m_fish = m_squid = m_glowSquid = m_axolotls = 0;
     m_felinesLastTick = m_felines;
     m_felines = 0;
@@ -1404,12 +1448,14 @@ void Mobs::tick(Context& ctx) {
                 if (m.leash != 0) leashTick(ctx, m);               // (M28.3c)
                 if (m.type == MobType::Llama) caravanTick(ctx, m); // (M28.3c)
                 if (mobInfo(m.type).hostile) ++m_hostiles;
+                m_bats += m.type == MobType::Bat;
                 m_fish += isFish(m.type);
                 m_squid += m.type == MobType::Squid || m.type == MobType::Dolphin;
                 m_creatures +=
                     (m.type == MobType::Wolf || m.type == MobType::Ocelot ||
                      m.type == MobType::Parrot ||
-                     (isMount(m.type) && m.type != MobType::TraderLlama) || isWildlife(m.type)) &&
+                     (isMount(m.type) && m.type != MobType::TraderLlama) || isWildlife(m.type) ||
+                     m.type == MobType::Mooshroom) &&
                     !m.tamed;
                 m_cats += m.type == MobType::Cat;
                 m_glowSquid += m.type == MobType::GlowSquid;
@@ -1507,6 +1553,7 @@ void Mobs::tick(Context& ctx) {
         else if (ctx.difficulty > 0)
             spawnHostiles(ctx);                       // (Peaceful: no monsters)
         if (ctx.world.hasSkyLight()) spawnWater(ctx); // (M25.2: the Overworld's water)
+        if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnBats(ctx); // (M29.1c)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnCreatures(ctx); // (M26.1)
         if (ctx.world.hasSkyLight() && !ctx.world.isUltrawarm()) spawnPhantoms(ctx);  // (M26.4a)
     }

@@ -1,6 +1,11 @@
 // Iron golems (M24.3; wiki: Iron Golem). Part of Mobs.
 #include "gameplay/Mobs.h"
 
+#include "gameplay/FluidContact.h"
+#include "gameplay/Projectiles.h"
+#include "world/Biome.h"
+#include "world/Weather.h"
+
 #include "world/Blocks.h"
 
 #include <cmath>
@@ -130,6 +135,77 @@ bool Mobs::buildIronGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng)
         return true;
     }
     return false;
+}
+
+// Two snow blocks with a carved pumpkin on top make a snow golem (M29.1c; wiki: Snow Golem
+// › Creation).
+bool Mobs::buildSnowGolem(World& world, const BlockPos& pumpkin, Xoroshiro& rng) {
+    const auto& r = blockRegistry();
+    if (r.blockOf(world.getBlock(pumpkin)) != blocks::CarvedPumpkin) return false;
+    const int x = pumpkin.x, y = pumpkin.y, z = pumpkin.z;
+    auto snow = [&](int yy) { return r.blockOf(world.getBlock({x, yy, z})) == blocks::SnowBlock; };
+    if (!snow(y - 1) || !snow(y - 2)) return false;
+    for (const BlockPos& b : {pumpkin, BlockPos{x, y - 1, z}, BlockPos{x, y - 2, z}}) world.updateBlock(b, 0);
+    MobData g = make(MobType::SnowGolem, {x + 0.5, double(y - 2), z + 0.5}, rng);
+    g.persistent = true;
+    add(world, g);
+    return true;
+}
+
+namespace {
+template <typename F> void forEachMobNear(World& world, const glm::dvec3& at, F&& f) {
+    const ChunkPos c0{blockToChunk(int(std::floor(at.x))), blockToChunk(int(std::floor(at.z)))};
+    for (int dz = -1; dz <= 1; ++dz)
+        for (int dx = -1; dx <= 1; ++dx)
+            if (Chunk* c = world.chunk({c0.x + dx, c0.z + dz}))
+                for (MobData& o : c->mobs()) f(o);
+}
+} // namespace
+
+// A snow golem (M29.1c; wiki: Snow Golem): every second it throws a snowball at the nearest
+// monster it sees within 10 blocks (3 damage to blazes, a push for the rest); where it
+// walks in a cold biome (temperature below 0.8) it leaves snow; rain, water and hot biomes
+// (above 1.0) hurt it.
+void Mobs::snowGolemTick(Context& ctx, MobData& m) {
+    const BlockPos feet{int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)), int(std::floor(m.pos.z))};
+    const Chunk* c = ctx.world.chunk(feet.chunk());
+    float temperature = 0.8f;
+    if (c && c->biomes())
+        temperature = biomeInfo(c->biomes()->at(blockToLocal(feet.x), feet.y, blockToLocal(feet.z),
+                                                ctx.world.height()))
+                          .temperature;
+    const bool wet = fluidContact(ctx.world, box(m)).water ||
+                     (ctx.weather && rainingAt(ctx.world, *ctx.weather, {feet.x, feet.y + 1, feet.z}));
+    if ((temperature > 1.0f || wet) && m.hurtTime == 0 && ctx.rng.nextInt(20) == 0) {
+        m.health -= 1.0f;
+        m.hurtTime = 10;
+    }
+    if (temperature < 0.8f && m.onGround && ctx.world.getBlock(feet) == 0 &&
+        blockRegistry().opaqueCube(ctx.world.getBlock({feet.x, feet.y - 1, feet.z})))
+        ctx.world.updateBlock(feet, blockRegistry().defaultState(blocks::Snow));
+    if (m.attackCooldown > 0) {
+        --m.attackCooldown;
+        return;
+    }
+    if (!ctx.projectiles || ctx.rng.nextInt(5) != 0) return; // (looks about 4 times a second)
+    MobData* best = nullptr;
+    double bestD = 10.0;
+    forEachMobNear(ctx.world, m.pos, [&](MobData& o) {
+        if (&o == &m || o.health <= 0.0f || !mobInfo(o.type).hostile || o.type == MobType::Creeper) return;
+        const double d = glm::length(o.pos - m.pos);
+        if (d < bestD) {
+            bestD = d;
+            best = &o;
+        }
+    });
+    if (!best) return;
+    const glm::dvec3 from = m.pos + glm::dvec3(0.0, 1.5, 0.0);
+    glm::dvec3 d = best->pos + glm::dvec3(0.0, mobInfo(best->type).height * 0.5, 0.0) - from;
+    d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2;
+    if (ctx.projectiles->shoot(ProjectileKind::Snowball, from + glm::normalize(d) * 0.6, d, 1.6, 12.0, false,
+                               false, ctx.rng, m.uuidHi))
+        m.attackCooldown = 20;
+    m.yaw = m.headYaw = float(std::atan2(-d.x, d.z) * 180.0 / 3.14159265358979);
 }
 
 } // namespace mc

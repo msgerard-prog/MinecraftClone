@@ -3195,6 +3195,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                         if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
                             inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        if (use == mc::Mobs::Use::Stew) { // (M29.1c) a bowl filled at a mooshroom
+                            const mc::world::ItemStack stew{*mc::world::itemRegistry().find("mushroom_stew"), 1};
+                            if (survival && held.count == 1) {
+                                inventory.setSlot(inventory.selected(), stew);
+                            } else {
+                                if (survival) inventory.consumeSelected(1);
+                                if (inventory.add(stew) > 0) droppedItems.spawn(player.position(), stew, gameRng);
+                            }
+                        }
                         clicks.useClick = false;
                         clicks.use = false;
                     }
@@ -3328,7 +3337,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             (world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
                                  mc::world::MobType::Cow ||
                              world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
-                                 mc::world::MobType::Goat)) // (M26.3: goats give milk too)
+                                 mc::world::MobType::Goat || // (M26.3: goats give milk too)
+                             world.chunk(mh->chunk)->mobs()[size_t(mh->index)].type ==
+                                 mc::world::MobType::Mooshroom)) // (M29.1c)
                             result =
                                 mc::BucketResult{*mc::world::itemRegistry().find("milk_bucket")};
                     // A water bucket scoops up a fish in front (M25.2): a bucket of that fish.
@@ -4377,7 +4388,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
                                 gameRng))
                             announce(adv.onEvent(mc::world::AdvEvent::SummonedIronGolem));
-                        else // (M26.5b: on copper, a copper golem)
+                        else if (!mc::Mobs::buildSnowGolem( // (M29.1c: on two snow blocks)
+                                     world, {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},
+                                     gameRng)) // (M26.5b: on copper, a copper golem)
                             mc::Mobs::buildCopperGolem(
                                 world,
                                 {int(std::floor(e.x)), int(std::floor(e.y)), int(std::floor(e.z))},

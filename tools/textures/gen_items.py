@@ -196,6 +196,17 @@ def apple(base="#D02A1C"):
     return s.render()
 
 
+def bowl(filled=None):
+    """A wooden bowl from the side (M29.1c); with a filling (stews) heaped in it."""
+    wood = ramp(hexc("#8A5E30"), 5, spread=0.35)
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(8, 13) if (x - 7.5) ** 2 / 36 + (y - 7.5) ** 2 / 25 < 1}, wood)
+    if filled:
+        s.add({(x, y) for x in range(3, 13) for y in range(6, 9) if (x - 7.5) ** 2 / 25 + (y - 8.5) ** 2 / 6 < 1},
+              ramp(hexc(filled), 5, spread=0.3))
+    return s.render()
+
+
 def saddle():
     """A brown leather saddle from the side (M26.2): seat, raised back, stirrup strap."""
     pal = ramp(hexc("#8A4E26"), 5, spread=0.35)
@@ -1338,6 +1349,8 @@ def all_items():
     items["redstone"] = redstone()
     items["flint"] = flint()
     items["apple"] = apple()
+    items["bowl"] = bowl()  # (M29.1c)
+    items["mushroom_stew"] = bowl("#B07A50")
     items["beef"] = meat("beef", "#C8323A", "#F0D0C8")
     items["cooked_beef"] = meat("cooked_beef", "#6A3A22", "#B07040", marbled=False)
     items["rotten_flesh"] = meat("rotten_flesh", "#8A6A3A", "#5A8A3A")

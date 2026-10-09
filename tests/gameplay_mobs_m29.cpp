@@ -209,3 +209,49 @@ TEST_CASE("undead mounts: no breeding; zombie horses eat red mushrooms; stats") 
         Mobs::interact(n, *itemRegistry().find("pufferfish"), s.rng, items);
     CHECK(n.tamed);
 }
+
+// M29.1c: the rest of the roster.
+TEST_CASE("piglins and hoglins zombify after 15 s outside the Nether") {
+    MobScene s;
+    s.survival = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Piglin, {8.5, 64.0, 8.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Hoglin, {-8.5, 64.0, 8.5}, s.rng)));
+    s.tick(290);
+    CHECK(findType(s, MobType::Piglin) != nullptr);
+    s.tick(20);
+    CHECK(findType(s, MobType::Piglin) == nullptr);
+    CHECK(findType(s, MobType::ZombifiedPiglin) != nullptr);
+    CHECK(findType(s, MobType::Zoglin) != nullptr);
+}
+
+TEST_CASE("endermites crumble after 2 minutes; bats fly and don't fall") {
+    MobScene s;
+    s.survival = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Endermite, {8.5, 64.0, 8.5}, s.rng)));
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Bat, {-8.5, 70.0, 8.5}, s.rng)));
+    s.tick(100);
+    MobData* bat = findType(s, MobType::Bat);
+    REQUIRE(bat);
+    CHECK(bat->pos.y > 64.5); // (airborne)
+    s.tick(2310);
+    CHECK(findType(s, MobType::Endermite) == nullptr);
+}
+
+TEST_CASE("snow golems are built of snow; mooshrooms give stew and shear into cows") {
+    MobScene s;
+    s.world.setBlock({4, 64, 4}, blockRegistry().defaultState(blocks::SnowBlock));
+    s.world.setBlock({4, 65, 4}, blockRegistry().defaultState(blocks::SnowBlock));
+    s.world.setBlock({4, 66, 4}, blockRegistry().defaultState(blocks::CarvedPumpkin));
+    CHECK(Mobs::buildSnowGolem(s.world, {4, 66, 4}, s.rng));
+    CHECK(findType(s, MobType::SnowGolem) != nullptr);
+    CHECK(s.world.getBlock({4, 65, 4}) == 0);
+
+    MobData moo = Mobs::make(MobType::Mooshroom, {0, 64, 0}, s.rng);
+    ItemEntities items;
+    CHECK(Mobs::interact(moo, *itemRegistry().find("bowl"), s.rng, items) == Mobs::Use::Stew);
+    CHECK(Mobs::interact(moo, *itemRegistry().find("shears"), s.rng, items) == Mobs::Use::Sheared);
+    CHECK(moo.type == MobType::Cow);
+    REQUIRE(items.items().size() == 1);
+    CHECK(items.items()[0].stack.count == 5);
+    CHECK(itemRegistry().item(items.items()[0].stack.item).id == "minecraft:red_mushroom");
+}
