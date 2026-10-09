@@ -63,6 +63,8 @@ public:
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs
     // (vanilla's simulation distance option; 12 on the default Fancy preset, 6 on Fast).
     static constexpr int kDefaultSimulationDistance = 12;
+    // (M32.2; vanilla BreakDoorGoal) ticks a zombie beats on a door before it breaks.
+    static constexpr int kDoorBreakTicks = 240;
     void setSimulationDistance(int chunks) { m_simulationDistance = chunks; }
     int simulationDistance() const { return m_simulationDistance; }
 
@@ -365,6 +367,15 @@ private:
     // moving (creeper fuse, skeleton bow, spider leap, enderman stare/teleport/blocks).
     bool mayTarget(Context& ctx, const world::MobData& m) const;
     void monsterTick(Context& ctx, world::MobData& m, bool chase, double playerDist2);
+    // (M32.2; wiki: Zombie, Regional difficulty) a new zombie's rolls by the clamped regional
+    // difficulty `crd`: baby (5%; 5% of babies on a chicken), door breaking, reinforcement
+    // chance, leader; and on Hard the reinforcements a hurt one calls.
+    void zombieReinforcements(Context& ctx, world::MobData& m);
+public:
+    void zombieSpawnRolls(Context& ctx, world::MobData& mob, double crd);
+    // The clamped regional difficulty at a block (its chunk's inhabited time).
+    static double clampedDifficultyAt(const Context& ctx, double x, double z);
+private:
     bool teleport(world::World& world, world::MobData& m, const glm::dvec3& around,
                   world::Xoroshiro& rng);
 

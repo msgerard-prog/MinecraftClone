@@ -13,6 +13,7 @@
 #include "world/Coords.h"
 #include "world/Items.h"
 #include "world/Raycast.h"
+#include "world/RegionalDifficulty.h"
 #include "world/Weather.h"
 
 #include <algorithm>
@@ -556,6 +557,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
     }
     if (m.mobRidden) speed = (m.moveSpeed > 0.0f ? m.moveSpeed : info.speed) * 0.5; // (its own pace)
+    if (m.isBaby() && isZombie(m.type)) speed *= 1.5; // (M32.2; wiki: Zombie - babies are 50% faster)
     // (M29.2c; wiki: Speed, Slowness) +20% / -15% a level, as the player's
     speed *= std::max(0.0, (1.0 + 0.2 * m.effectLevel(uint8_t(Effect::Speed))) *
                                (1.0 - 0.15 * m.effectLevel(uint8_t(Effect::Slowness))));
@@ -700,6 +702,11 @@ void Mobs::ai(Context& ctx, MobData& m) {
     pathOpts.openDoors = m.type == MobType::Villager || m.type == MobType::WanderingTrader ||
                          m.type == MobType::Piglin || m.type == MobType::PiglinBrute ||
                          (m.type == MobType::Vindicator && m.raidId != 0); // (wiki: raid vindicators)
+    // (M32.2; wiki: Zombie) on Hard, zombies born with the ability (not drowned) path through
+    // wooden doors - and break them instead of opening them.
+    const bool breaksDoors =
+        m.canBreakDoors && ctx.difficulty >= 3 && isZombie(m.type) && m.type != MobType::Drowned && !m.isBaby();
+    pathOpts.openDoors = pathOpts.openDoors || breaksDoors;
     const double cellCentre = double(pathOpts.footprint) * 0.5;
     const glm::ivec3 feet = Pathfinder::cellOf(m.pos, pathOpts.footprint);
     const glm::ivec3 goalCell = Pathfinder::cellOf(m.goal, pathOpts.footprint);
@@ -745,17 +752,50 @@ void Mobs::ai(Context& ctx, MobData& m) {
         climb = c.y > feet.y && cdx * cdx + cdz * cdz < 1.5 * 1.5; // a step up just ahead: jump
         // (M30.5; vanilla InteractWithDoor) a closed wooden door in the next cell opens; it
         // is shut again about a second after the mob is through.
-        if (pathOpts.openDoors && m.doorOpened.y == INT32_MIN) {
+        if (pathOpts.openDoors && m.doorOpened.y == INT32_MIN && m.doorBreaking.y == INT32_MIN) {
             const auto& reg = blockRegistry();
             const BlockPos dp{c.x, c.y, c.z};
             const BlockStateId ds = ctx.world.getBlock(dp);
+            // (a breaker starts within 1.5 blocks - vanilla DoorInteractGoal)
             if (reg.likeOf(reg.blockOf(ds)) == blocks::OakDoor && reg.get(ds, properties::open) == 1 &&
-                cdx * cdx + cdz * cdz < 2.0 * 2.0) {
+                cdx * cdx + cdz * cdz < (breaksDoors ? 1.5 * 1.5 : 2.0 * 2.0)) {
                 const bool upper = reg.get(ds, properties::doorHalf) == 0;
                 const BlockPos lower = upper ? BlockPos{dp.x, dp.y - 1, dp.z} : dp;
-                setMobDoor(ctx.world, lower, true);
-                m.doorOpened = {lower.x, lower.y, lower.z};
-                m.doorTicks = 0;
+                if (breaksDoors) {
+                    m.doorBreaking = {lower.x, lower.y, lower.z};
+                    m.doorBreakTicks = 0;
+                } else {
+                    setMobDoor(ctx.world, lower, true);
+                    m.doorOpened = {lower.x, lower.y, lower.z};
+                    m.doorTicks = 0;
+                }
+            }
+        }
+    }
+    // (M32.2; vanilla BreakDoorGoal) beating on the door, a bang 1 tick in 20, for 240
+    // ticks (12 s), then it is gone - no drop. It gives up when the door opens or goes,
+    // when it is more than 2 blocks away or the difficulty drops below Hard.
+    if (m.doorBreaking.y != INT32_MIN) {
+        const auto& reg = blockRegistry();
+        const BlockPos lower{m.doorBreaking.x, m.doorBreaking.y, m.doorBreaking.z};
+        const BlockStateId ds = ctx.world.getBlock(lower);
+        const double ddx = lower.x + 0.5 - m.pos.x, ddz = lower.z + 0.5 - m.pos.z;
+        if (!breaksDoors || reg.likeOf(reg.blockOf(ds)) != blocks::OakDoor || reg.get(ds, properties::open) == 0 ||
+            ddx * ddx + ddz * ddz > 2.0 * 2.0) {
+            m.doorBreaking.y = INT32_MIN;
+        } else {
+            if (ctx.rng.nextInt(20) == 0) ctx.world.levelEvent(LevelEvent::Type::BlockHit, lower.x, lower.y, lower.z, ds);
+            if (++m.doorBreakTicks >= kDoorBreakTicks) {
+                ctx.world.levelEvent(LevelEvent::Type::BlockBreak, lower.x, lower.y, lower.z, ds);
+                ctx.world.updateBlock(lower, 0);
+                const BlockPos upper{lower.x, lower.y + 1, lower.z}; // (block updates take it too; made sure)
+                if (reg.likeOf(reg.blockOf(ctx.world.getBlock(upper))) == blocks::OakDoor) ctx.world.updateBlock(upper, 0);
+                if (ctx.edits) {
+                    ctx.edits->push_back(lower);
+                    ctx.edits->push_back({lower.x, lower.y + 1, lower.z});
+                }
+                m.doorBreaking.y = INT32_MIN;
+                m.repathTicks = 0;
             }
         }
     }
@@ -874,6 +914,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
     }
 
     if (info.hostile) monsterTick(ctx, m, chase, playerDist2);
+    if (m.callReinforcements) zombieReinforcements(ctx, m);
     if (isLlama(m.type)) llamaTick(ctx, m);
 
     // Undead burn in daylight under open sky (wiki: Zombie, Skeleton): 1 damage a second.
@@ -971,6 +1012,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock
     m.lastHurtByPlayer = true; // (Mobs::attack: the player's hits)
+    if (isZombie(m.type) && m.reinforcements > 0.0f) m.callReinforcements = true; // (M32.2)
     m.lastHurtBySkeleton = false;
     if (m.type == MobType::Wolf && !m.tamed) { // a wild wolf turns on the player (wiki: Wolf)
         m.angry = true;
@@ -1135,7 +1177,8 @@ void Mobs::die(Context& ctx, MobData& m) {
     };
     if (m.lastHurtByPlayer && m_killCount < int(m_kills.size()))
         m_kills[size_t(m_killCount++)] = m.type; // (statistics)
-    if (m.isBaby()) return;                      // babies drop nothing (wiki: Breeding)
+    // Babies drop nothing (wiki: Breeding) - but baby zombies drop their loot (M32.2).
+    if (m.isBaby() && !isZombie(m.type)) return;
     // Game rule mob_drops off: no loot and no experience (what it wore or carried still falls).
     if (!ctx.mobDrops) return;
     // Killed by a charged creeper's blast: its head (M26.4b; wiki: Head - zombies,
@@ -1163,6 +1206,7 @@ void Mobs::die(Context& ctx, MobData& m) {
             : m.type == MobType::Blaze || m.type == MobType::Evoker || m.type == MobType::Breeze
                 ? 10
             : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
+            : m.isBaby() && isZombie(m.type)                           ? 12 // (M32.2: 5 x 2.5)
             : mobInfo(m.type).hostile                                  ? 5
                                       : 1 + static_cast<int>(ctx.rng.nextInt(3));
         // (M27.3) a sculk catalyst nearby takes it and blooms sculk instead
@@ -1926,6 +1970,7 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
             if (add(ctx.world, back)) ++m_hostiles;
         }
     }
+    if (isZombie(mob.type)) zombieSpawnRolls(ctx, mob, clampedDifficultyAt(ctx, mob.pos.x, mob.pos.z));
     // Spider jockeys (wiki: Spider Jockey): 1 in 100 spiders carries a skeleton.
     if (kind == MobType::Spider && ctx.rng.nextInt(100) == 0) {
         MobData rider = make(MobType::Skeleton, mob.pos, ctx.rng);
@@ -1935,6 +1980,71 @@ bool Mobs::spawnMonsterAt(Context& ctx, int x, int y, int z, MobType& kind, bool
     if (!add(ctx.world, mob)) return false;
     ++m_hostiles;
     return true;
+}
+
+double Mobs::clampedDifficultyAt(const Context& ctx, double x, double z) {
+    const Chunk* c = ctx.world.chunk({blockToChunk(int(std::floor(x))), blockToChunk(int(std::floor(z)))});
+    return clampedRegionalDifficulty(regionalDifficulty(ctx.difficulty, ctx.dayTime, c ? c->inhabitedTicks : 0,
+                                                        moonBrightness(ctx.dayTime)));
+}
+
+void Mobs::zombieSpawnRolls(Context& ctx, MobData& mob, double crd) {
+    // Vanilla Zombie.finalizeSpawn: 5% are babies (they never grow up); 5% of those ride a
+    // chicken (a chicken jockey). Drowned can be babies but don't ride.
+    if (ctx.rng.nextFloat() < 0.05f) {
+        mob.age = -24000;
+        if (mob.type != MobType::Drowned && mob.vehicle == 0 && ctx.rng.nextFloat() < 0.05f) {
+            MobData chicken = make(MobType::Chicken, mob.pos, ctx.rng);
+            mob.vehicle = chicken.uuidHi;
+            add(ctx.world, chicken);
+        }
+    }
+    // Door breakers: 10% at the highest clamped regional difficulty (they act on Hard only).
+    mob.canBreakDoors = mob.type != MobType::Drowned && ctx.rng.nextFloat() < float(crd * 0.1);
+    // The reinforcement chance: a random 0..0.1; leaders (5% at the highest difficulty) get
+    // 0.5..0.75 more, 2-5x the health and always break doors.
+    mob.reinforcements = float(ctx.rng.nextDouble() * 0.1);
+    if (ctx.rng.nextFloat() < float(crd * 0.05)) {
+        mob.reinforcements += float(ctx.rng.nextDouble() * 0.25 + 0.5);
+        mob.maxHealth = mobInfo(mob.type).maxHealth * float(2.0 + ctx.rng.nextDouble() * 3.0);
+        mob.health = mob.maxHealth;
+        mob.canBreakDoors = mob.type != MobType::Drowned;
+    }
+}
+
+void Mobs::zombieReinforcements(Context& ctx, MobData& m) {
+    // Vanilla Zombie.hurt: on Hard, a zombie hurt by the player calls another zombie with its
+    // reinforcement chance - 50 tries at 7-40 blocks out each way, a dark spot a zombie can
+    // stand in with no player within 7. Both then have 0.05 less chance from then on.
+    m.callReinforcements = false;
+    if (ctx.difficulty < 3 || !ctx.naturalSpawning || m.health <= 0.0f || ctx.playerDead) return;
+    if (ctx.rng.nextFloat() >= m.reinforcements) return;
+    const glm::dvec3 player = ctx.player.position();
+    const int bx = int(std::floor(m.pos.x)), by = int(std::floor(m.pos.y)), bz = int(std::floor(m.pos.z));
+    auto offset = [&] { // (vanilla: nextInt(7, 40) x nextInt(-1, 1))
+        return (7 + int(ctx.rng.nextInt(34))) * (int(ctx.rng.nextInt(3)) - 1);
+    };
+    for (int tries = 0; tries < 50; ++tries) {
+        const int x = bx + offset(), y = by + offset(), z = bz + offset();
+        if (!ctx.world.isInHeight(y) || !canSpawnAt(ctx.world, x, y, z)) continue;
+        const Chunk* c = ctx.world.chunk({blockToChunk(x), blockToChunk(z)});
+        if (!c || !c->lit()) continue;
+        const int lx = blockToLocal(x), lz = blockToLocal(z);
+        if (c->blockLight(lx, y, lz) > 0 ||
+            c->skyLight(lx, y, lz) - static_cast<int>(ctx.skyDarken) > static_cast<int>(ctx.rng.nextInt(8)))
+            continue;
+        const glm::dvec3 at{x + 0.5, double(y), z + 0.5};
+        if (glm::dot(at - player, at - player) < 7.0 * 7.0) continue;
+        MobData z2 = make(MobType::Zombie, at, ctx.rng); // (vanilla: a plain zombie, whoever called)
+        zombieSpawnRolls(ctx, z2, clampedDifficultyAt(ctx, at.x, at.z));
+        z2.targeting = true; // (it comes for the player)
+        z2.goal = player;
+        z2.reinforcements = std::max(0.0f, z2.reinforcements - 0.05f);
+        m.reinforcements = std::max(0.0f, m.reinforcements - 0.05f);
+        ctx.world.queueMob(z2); // (added after the mob pass)
+        ++m_hostiles;
+        return;
+    }
 }
 
 bool Mobs::spawnSkeletonTrap(World& world, const glm::dvec3& at, int difficulty, Xoroshiro& rng) {

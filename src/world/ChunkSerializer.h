@@ -42,6 +42,7 @@ struct ChunkSnapshot {
     std::vector<Chunk::DroppedOrb> droppedOrbs;
     std::vector<Chunk::BlockTick> blockTicks;  // times relative to gameTime when saved
     int64_t gameTime = 0; // written as LastUpdate
+    int64_t inhabitedTicks = 0; // (M32.2) InhabitedTime
 
     static ChunkSnapshot of(const Chunk& chunk, int64_t gameTime = 0);
 };

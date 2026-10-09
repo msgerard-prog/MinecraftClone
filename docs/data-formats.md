@@ -167,7 +167,7 @@ x, y, z, OutputSignal (Int 0-15) } (M21.2); spawners: { id "minecraft:mob_spawne
 SpawnData { entity { id } }, MinSpawnDelay 200, MaxSpawnDelay 800, SpawnCount 4,
 MaxNearbyEntities 6, RequiredPlayerRange 16, SpawnRange 4 } (M18.3; the fixed values are
 written for vanilla, ours are constant). Not written:
-dropped items, structure starts, POI; `InhabitedTime` is 0. Our root tag `clone_format`
+dropped items, structure starts, POI; `InhabitedTime` is counted since M32.2 (ticks with the player within 8 chunks; regional difficulty). Zombies save `IsBaby`, `CanBreakDoors` and the `minecraft:spawn_reinforcements` (and a leader's `max_health`) attribute. Our root tag `clone_format`
 (Int, kCloneFormat = 1) marks chunks we wrote since v0.17.1: in a world whose level.dat
 `format` is 0, a chunk without it gets leaves stored as distance=7, persistent=false (placed
 before v0.15.0, when placing didn't set persistent) loaded as persistent; generated and grown

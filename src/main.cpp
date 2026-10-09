@@ -5399,6 +5399,17 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (const auto t = interaction.takeBrokenTool())
                 stats.addItem(mc::world::ItemStat::Broken, t);
             if (rules.advanceTime) ++dayTime; // the daylight cycle advances one tick per tick
+            // (M32.2; vanilla InhabitedTime) chunks within 8 of the player count the ticks a
+            // player spent near them - regional difficulty grows there over 50 hours.
+            if (!dead) {
+                const glm::dvec3 ip = player.position();
+                const int icx = mc::world::blockToChunk(int(std::floor(ip.x)));
+                const int icz = mc::world::blockToChunk(int(std::floor(ip.z)));
+                for (int dz = -8; dz <= 8; ++dz)
+                    for (int dx = -8; dx <= 8; ++dx)
+                        if (mc::world::Chunk* ic = world.chunk({icx + dx, icz + dz}))
+                            if (++ic->inhabitedTicks % 1200 == 0) ic->markDirty();
+            }
             if (rules.advanceWeather) weather.tick(gameRng);
             if (skyFlash > 0) --skyFlash;
             for (Bolt& b : bolts)

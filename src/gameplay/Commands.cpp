@@ -731,6 +731,10 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.sheared = v != 0.0;
                 else if (key == "Age" && !world::mobInfo(*type).hostile)
                     mob.age = std::clamp(int(v), -24000, 6000);
+                else if (key == "IsBaby" && world::isZombie(*type)) // (M32.2)
+                    mob.age = v != 0.0 ? -24000 : 0;
+                else if (key == "CanBreakDoors" && world::isZombie(*type))
+                    mob.canBreakDoors = v != 0.0;
                 else if (key == "Size" &&
                          (*type == world::MobType::MagmaCube ||
                           *type == world::MobType::Slime)) { // vanilla: 0 small, 1 medium, 3 big

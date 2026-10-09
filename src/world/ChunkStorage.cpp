@@ -66,6 +66,7 @@ bool ChunkStorage::load(Chunk& chunk) {
             chunk.dispensers() = snap.dispensers;
             chunk.mobs() = snap.mobs;
             chunk.mobStores() = snap.mobStores;
+            chunk.inhabitedTicks = snap.inhabitedTicks;
             chunk.droppedItems() = snap.droppedItems; // (M30.4 review: drops come back too)
             chunk.droppedOrbs() = snap.droppedOrbs;
             chunk.savedDropsHash = chunk.dropsHash();

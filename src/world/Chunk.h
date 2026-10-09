@@ -84,6 +84,7 @@ public:
         m_droppedItems.clear();
         m_droppedOrbs.clear();
         savedDropsHash = 0;
+        inhabitedTicks = 0;
         m_blockTicks.clear();
         m_tickSet.clear();
         m_tickSetValid = true;
@@ -547,6 +548,9 @@ public:
 
     // World bookkeeping: listed in World's ticking chunks (main thread only).
     bool inTickingList = false;
+
+    // Ticks players have spent nearby (M32.2; vanilla InhabitedTime): regional difficulty.
+    int64_t inhabitedTicks = 0;
 
     // LightManager bookkeeping (main thread only).
     struct LightJobState {

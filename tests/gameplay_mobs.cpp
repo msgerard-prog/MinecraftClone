@@ -508,6 +508,8 @@ struct MonsterScene : MobScene {
             player.tick(world, {});
             Mobs::Context ctx{world, player, vitals, survival, false, dayTime, skyDarken, rng, items,
                               false, held, &edits, &projectiles};
+            ctx.difficulty = difficulty;
+            ctx.naturalSpawning = naturalSpawning;
             mobs.tick(ctx);
             projectiles.tick(world, player, &vitals, inventory, survival, rng);
             vitals.tick(player.position().y, true, false, false);
@@ -519,6 +521,7 @@ struct MonsterScene : MobScene {
 
 TEST_CASE("a creeper next to a survival player swells for 30 ticks and explodes") {
     MonsterScene s;
+    s.naturalSpawning = false; // (M32.2: only the creeper it placed)
     REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Creeper, {2.5, 64.0, 0.5}, s.rng)));
     s.run(60);
     int creepers = 0;
@@ -2362,4 +2365,158 @@ TEST_CASE("M32.2: an enderman under the midday sky teleports away") {
         last = now;
     }
     CHECK(jumped);
+}
+
+#include "world/RegionalDifficulty.h"
+
+TEST_CASE("M32.2: regional difficulty follows the wiki's formula") {
+    // A new world on Normal: (0.75 + 0 + 0 + 0) x 2 = 1.5 -> clamped 0.
+    CHECK(regionalDifficulty(2, 0, 0, 1.0f) == doctest::Approx(1.5));
+    CHECK(clampedRegionalDifficulty(1.5) == 0.0);
+    // Peaceful is 0; Hard at the start 2.25 -> 0.125.
+    CHECK(regionalDifficulty(0, 9000000, 9000000, 1.0f) == 0.0);
+    CHECK(clampedRegionalDifficulty(regionalDifficulty(3, 0, 0, 1.0f)) == doctest::Approx(0.125));
+    // Maxed out on Hard: (0.75 + 0.25 + 1 + 0.25) x 3 = 6.75 -> 1; Normal: chunk x0.75 -> 4.
+    CHECK(regionalDifficulty(3, 6000000, 3600000, 1.0f) == doctest::Approx(6.75));
+    CHECK(regionalDifficulty(2, 6000000, 3600000, 1.0f) == doctest::Approx(4.0));
+    CHECK(clampedRegionalDifficulty(6.75) == 1.0);
+    // The moon's share is capped by the age factor (none before day 3); a new moon adds none.
+    CHECK(regionalDifficulty(3, 72000 + 288000, 0, 1.0f) == doctest::Approx((0.75 + 0.05 + 0.05) * 3));
+    CHECK(moonBrightness(4 * 24000 + 100) == 0.0f);
+    CHECK(moonBrightness(0) == 1.0f);
+}
+
+TEST_CASE("M32.2: a chunk's inhabited time and zombie traits survive saving") {
+    Chunk c({0, 0});
+    c.inhabitedTicks = 123456;
+    Xoroshiro rng(3);
+    MobData z = Mobs::make(MobType::Husk, {3.5, 64.0, 3.5}, rng);
+    z.age = -24000;
+    z.canBreakDoors = true;
+    z.reinforcements = 0.42f;
+    z.maxHealth = 55.0f;
+    z.health = 50.0f;
+    c.mobs().push_back(z);
+    Chunk back({0, 0});
+    REQUIRE(chunkFromNbt(chunkToNbt(ChunkSnapshot::of(c, 0)), back));
+    CHECK(back.inhabitedTicks == 123456);
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(c, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    const MobData& m = back.mobs()[0];
+    CHECK(m.isBaby());
+    CHECK(m.canBreakDoors);
+    CHECK(m.reinforcements == doctest::Approx(0.42f));
+    CHECK(m.health == doctest::Approx(50.0f));
+}
+
+TEST_CASE("M32.2: baby zombies run 50% faster than adults") {
+    auto distance = [](bool baby) {
+        MonsterScene s;
+        s.naturalSpawning = false;
+        s.survival = true;
+        MobData z = Mobs::make(MobType::Zombie, {20.5, 64.0, 0.5}, s.rng);
+        if (baby) z.age = -24000;
+        REQUIRE(Mobs::add(s.world, z));
+        s.run(30); // (it notices and gets going)
+        const double x0 = s.all().at(0)->pos.x;
+        s.run(20);
+        return x0 - s.all().at(0)->pos.x;
+    };
+    const double adult = distance(false), baby = distance(true);
+    MESSAGE("adult " << adult << " baby " << baby);
+    CHECK(baby > adult * 1.3);
+}
+
+namespace {
+// A stone wall across x = 6 with a closed oak door at z = 0, a zombie behind it.
+void doorScene(MonsterScene& s, bool breaker) {
+    const auto& r = blockRegistry();
+    for (int z = -32; z <= 47; ++z)
+        for (int y = 64; y <= 66; ++y) s.world.setBlock({6, y, z}, r.defaultState(blocks::Stone));
+    const BlockStateId door = *r.with(r.defaultState(blocks::OakDoor), "facing", "east");
+    s.world.setBlock({6, 64, 0}, *r.with(door, "half", "lower"));
+    s.world.setBlock({6, 65, 0}, *r.with(door, "half", "upper"));
+    MobData z = Mobs::make(MobType::Zombie, {9.5, 64.0, 0.5}, s.rng);
+    z.canBreakDoors = breaker;
+    REQUIRE(Mobs::add(s.world, z));
+}
+} // namespace
+
+TEST_CASE("M32.2: on Hard a door-breaking zombie breaks a wooden door in 12 s; on Normal it can't") {
+    for (int difficulty : {3, 2}) {
+        MonsterScene s;
+        s.naturalSpawning = false;
+        s.difficulty = difficulty;
+        s.player.setCreative(true); // (no fighting: the zombie only wants in)
+        doorScene(s, true);
+        int brokenAt = -1;
+        for (int t = 0; t < 400 && brokenAt < 0; ++t) {
+            MobData* z = s.all().at(0);
+            z->targeting = true;
+            z->goal = {0.5, 64.0, 0.5};
+            z->goalTicks = 0;
+            s.run(1);
+            if (blockRegistry().blockOf(s.world.getBlock({6, 64, 0})) != blocks::OakDoor) brokenAt = t;
+        }
+        MESSAGE("difficulty " << difficulty << " broken at " << brokenAt);
+        if (difficulty == 3) {
+            CHECK(brokenAt >= Mobs::kDoorBreakTicks);
+            CHECK(s.world.getBlock({6, 65, 0}) == 0); // (both halves, no drop)
+            CHECK(s.items.items().empty());
+        } else {
+            CHECK(brokenAt == -1);
+        }
+    }
+}
+
+TEST_CASE("M32.2: on Hard a zombie hit by the player may call a reinforcement") {
+    MonsterScene s;
+    s.difficulty = 3;
+    MobData z = Mobs::make(MobType::Zombie, {3.5, 64.0, 0.5}, s.rng);
+    z.reinforcements = 1.0f; // (always)
+    REQUIRE(Mobs::add(s.world, z));
+    Mobs::attack(*s.all().at(0), 1.0f, s.player.position());
+    s.run(1);
+    MobData* caller = nullptr;
+    for (MobData* m : s.all())
+        if (m->reinforcements > 0.9f && m->reinforcements < 1.0f) caller = m;
+    REQUIRE(caller); // its chance went down by 0.05: a zombie came
+    CHECK(caller->reinforcements == doctest::Approx(0.95f));
+    // Normal: never.
+    MonsterScene n;
+    REQUIRE(Mobs::add(n.world, z));
+    Mobs::attack(*n.all().at(0), 1.0f, n.player.position());
+    n.run(1);
+    CHECK(n.all().at(0)->reinforcements == 1.0f);
+}
+
+TEST_CASE("M32.2: zombies spawned at the highest regional difficulty roll babies, breakers and leaders") {
+    MonsterScene s;
+    s.difficulty = 3;
+    s.dayTime = 6000000 + 18000;
+    s.world.chunk({0, 0})->inhabitedTicks = 3600000;
+    Xoroshiro rng(5);
+    Mobs::Context ctx{s.world, s.player, s.vitals, true, false, s.dayTime, s.skyDarken, rng, s.items};
+    ctx.difficulty = 3;
+    REQUIRE(Mobs::clampedDifficultyAt(ctx, 3.0, 3.0) == 1.0);
+    CHECK(Mobs::clampedDifficultyAt(ctx, 40.0, 3.0) < 1.0); // (another chunk: never inhabited)
+    int babies = 0, breakers = 0, leaders = 0;
+    for (int i = 0; i < 4000; ++i) {
+        MobData z = Mobs::make(MobType::Zombie, {3.5, 64.0, 3.5}, rng);
+        s.mobs.zombieSpawnRolls(ctx, z, 1.0);
+        babies += z.isBaby();
+        breakers += z.canBreakDoors;
+        leaders += z.maxHealth > 0.0f;
+        if (z.maxHealth > 0.0f) {
+            CHECK(z.maxHealth >= 40.0f);
+            CHECK(z.reinforcements >= 0.5f);
+        }
+    }
+    MESSAGE(babies << " babies, " << breakers << " breakers, " << leaders << " leaders of 4000");
+    CHECK(babies > 140); // 5%
+    CHECK(babies < 260);
+    CHECK(leaders > 140); // 5%
+    CHECK(leaders < 260);
+    CHECK(breakers > 440); // 10% + the leaders (~14.5%)
+    CHECK(breakers < 720);
 }

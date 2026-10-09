@@ -501,6 +501,14 @@ struct MobData {
     // (M30.5) a door this mob opened on its path, closed again once it is through.
     glm::ivec3 doorOpened{0, INT32_MIN, 0};
     int16_t doorTicks = 0;
+    // Zombies (M32.2; wiki: Zombie): door breaking on Hard (saved as CanBreakDoors), the
+    // chance a hit calls reinforcements on Hard (vanilla's spawn_reinforcements attribute,
+    // saved as it), a pending call (from `Mobs::attack`) and the door being broken.
+    bool canBreakDoors = false;
+    bool callReinforcements = false;
+    float reinforcements = 0.0f;
+    glm::ivec3 doorBreaking{0, INT32_MIN, 0};
+    int16_t doorBreakTicks = 0;
     float swingProgress = 0.0f;
     int16_t poiSearch = 0;    // ticks to the next look for a bed / job site
     uint8_t restocksToday = 0; // (M24.2) two restocks a day at the job site

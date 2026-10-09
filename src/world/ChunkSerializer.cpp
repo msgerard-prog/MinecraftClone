@@ -45,6 +45,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.dispensers = chunk.dispensers();
     s.mobs = chunk.mobs();
     s.mobStores = chunk.mobStores();
+    s.inhabitedTicks = chunk.inhabitedTicks;
     s.droppedItems = chunk.droppedItems();
     s.droppedOrbs = chunk.droppedOrbs();
     s.blockTicks = chunk.blockTicks();
@@ -605,7 +606,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
     root.put("yPos", int32_t{chunk.height.minSection()});
     root.put("Status", std::string("minecraft:full")); // 1.21.11 (renamed "status" only in 26.4)
     root.put("LastUpdate", chunk.gameTime); // game tick of this save
-    root.put("InhabitedTime", int64_t{0});
+    root.put("InhabitedTime", chunk.inhabitedTicks); // (M32.2: regional difficulty)
     root.put("clone_format", kCloneFormat); // our tag (vanilla ignores it): see kCloneFormat
     bool lit = true;
     for (int s = 0; s < chunk.height.sections(); ++s)
@@ -1008,6 +1009,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
     const bool upgradeLeaves = legacyWorld && !root.integer("clone_format");
     if (root.integer("xPos") != chunk.pos().x || root.integer("zPos") != chunk.pos().z)
         return false;
+    chunk.inhabitedTicks = std::max<int64_t>(0, root.integer("InhabitedTime").value_or(0));
     const nbt::List* sections = root.list("sections");
     if (!sections) return false;
     std::vector<BlockStateId> states(Section::kVolume);
@@ -1760,11 +1762,23 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                 e.put("Offers", std::move(offers));
             }
         }
-        if (m.type == MobType::Zombie) {
-            e.put("IsBaby", int8_t{0});
-            e.put("CanBreakDoors", int8_t{0});
-            e.put("DrownedConversionTime", int32_t{-1});
-            e.put("InWaterTime", int32_t{-1});
+        if (isZombie(m.type)) { // (M32.2: babies, door breakers, reinforcement chance, leaders)
+            e.put("IsBaby", int8_t(m.isBaby() ? 1 : 0));
+            e.put("CanBreakDoors", int8_t(m.canBreakDoors ? 1 : 0));
+            if (m.type == MobType::Zombie) {
+                e.put("DrownedConversionTime", int32_t{-1});
+                e.put("InWaterTime", int32_t{-1});
+            }
+            std::vector<nbt::Tag> attrs;
+            auto attr = [&](const char* id, double base) {
+                nbt::Compound a;
+                a.put("id", std::string(id));
+                a.put("base", base);
+                attrs.emplace_back(std::move(a));
+            };
+            attr("minecraft:spawn_reinforcements", m.reinforcements);
+            if (m.maxHealth > 0.0f) attr("minecraft:max_health", m.maxHealth);
+            e.put("attributes", nbt::listOf(nbt::TagType::Compound, std::move(attrs)));
         }
         e.put("Fire", static_cast<int16_t>(m.fireTicks > 0 ? m.fireTicks : -20)); // -20: not burning (wiki)
         e.put("HurtTime", static_cast<int16_t>(m.hurtTime));
@@ -1887,6 +1901,19 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.persistent = e->integer("PersistenceRequired").value_or(0) != 0;
         m.age = static_cast<int>(std::clamp<int64_t>(e->integer("Age").value_or(0), -24000, 24000));
         m.loveTicks = static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
+        if (isZombie(m.type)) { // (M32.2) baby zombies never grow up: any negative age
+            if (e->integer("IsBaby").value_or(0) != 0) m.age = -24000;
+            m.canBreakDoors = e->integer("CanBreakDoors").value_or(0) != 0;
+            if (const nbt::List* attrs = e->list("attributes"))
+                for (const nbt::Tag& at : attrs->items)
+                    if (const nbt::Compound* a = at.get<nbt::Compound>()) {
+                        const std::string* aid = a->string("id");
+                        const double base = a->real("base").value_or(0.0);
+                        if (!aid || !std::isfinite(base)) continue;
+                        if (*aid == "minecraft:spawn_reinforcements") m.reinforcements = float(std::clamp(base, 0.0, 1.0));
+                        if (*aid == "minecraft:max_health") m.maxHealth = float(std::clamp(base, 1.0, 1024.0));
+                    }
+        }
         if (m.type != MobType::Boat) // (a boat's wood came from its id)
             m.woolColour = static_cast<uint8_t>(std::clamp<int64_t>(e->integer("Color").value_or(0), 0, 15));
         m.sheared = e->integer("Sheared").value_or(0) != 0;
