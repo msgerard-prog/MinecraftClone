@@ -157,9 +157,10 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         // Starts swelling within 3 blocks of its target and keeps going while the
         // target stays within 7 and in sight; otherwise it calms down. Explodes after
         // 30 ticks of swelling, with power 3 (wiki: Creeper).
-        const bool swelling = chase && playerDist2 <= 7.0 * 7.0 &&
-                              (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
-                              sees(ctx.world, m, ctx.player);
+        // (M32.6) one lit with flint and steel swells to the end whatever the player does.
+        const bool swelling = m.ignited || (chase && playerDist2 <= 7.0 * 7.0 &&
+                                            (playerDist2 < 3.0 * 3.0 || m.fuse > 0) &&
+                                            sees(ctx.world, m, ctx.player));
         if (swelling && m.fuse == 0) // the hiss (vanilla: pitch 0.5)
             ctx.world.playSound(Sound::Fuse, m.pos.x, m.pos.y + 1.0, m.pos.z, 1.0f, 0.5f);
         if (swelling)

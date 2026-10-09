@@ -440,6 +440,7 @@ struct MobData {
     int16_t breedTicks = 0; // time spent next to a partner in love
     // Hostiles 2 (M16.5; wiki: Creeper, Skeleton, Spider, Enderman).
     int16_t fuse = 0;           // creeper: swelling ticks (explodes at 30)
+    bool ignited = false;       // (M32.6) creeper lit with flint and steel: swells to the end
     int16_t shootTicks = 0;     // skeleton: drawing the bow
     // (M32.2; vanilla RangedBowAttackGoal) how long it has seen its target, its strafing clock
     // (-1: walking up) and which way it strafes. Not saved.
@@ -456,6 +457,7 @@ struct MobData {
     int panicTicks = 0;
     bool targeting = false; // a hostile chasing the player (seen it)
     uint8_t sightCheck = 0; // ticks since the last line-of-sight check
+    uint8_t unseenTicks = 0; // (M32.6) how long its target has been out of sight
     int attackCooldown = 0;
     // Path (M16.2): block cells (feet) to walk through, from the pathfinder; not saved.
     static constexpr int kMaxPath = 32;

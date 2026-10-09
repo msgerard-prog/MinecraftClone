@@ -425,6 +425,14 @@ void BlockInteraction::tickSurvival(world::World& world, const Player& player,
                 vitals.addEffect(world::Effect::Resistance, 0, 6000);
                 vitals.addEffect(world::Effect::FireResistance, 0, 6000);
             }
+            // (M32.6; wiki: Spider Eye, Raw Chicken, Rotten Flesh, Poisonous Potato) foods that
+            // may sicken: Poison 5 s always / 60%, Hunger 30 s 30% / 80%.
+            if (held.id == "minecraft:spider_eye") vitals.addEffect(world::Effect::Poison, 0, 100);
+            if (held.id == "minecraft:poisonous_potato" && rng.nextFloat() < 0.6f)
+                vitals.addEffect(world::Effect::Poison, 0, 100);
+            if (held.id == "minecraft:chicken" && rng.nextFloat() < 0.3f) vitals.addEffect(world::Effect::Hunger, 0, 600);
+            if (held.id == "minecraft:rotten_flesh" && rng.nextFloat() < 0.8f)
+                vitals.addEffect(world::Effect::Hunger, 0, 600);
             if (held.id ==
                 "minecraft:pufferfish") { // (wiki: Hunger III 15 s, Poison II 60 s, Nausea I 15 s)
                 vitals.addEffect(world::Effect::Nausea, 0, 300);

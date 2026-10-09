@@ -23,7 +23,7 @@ M32 - Play parity:
 4. ✅ M32.4 - Inventory handling: drag-split, double-click collect, 1-9 swap, Ctrl+Q, F offhand
    swap, vanilla shift-click order, offhand use.
 5. ✅ M32.5 - Villagers 2: gossip and reputation, gifts for heroes, level-up effects.
-6. M32.6 - Animals and the rest of the mob rows in docs/game-design.md that change play.
+6. ✅ M32.6 - Animals and the rest of the mob rows in docs/game-design.md that change play.
 M33 - The 26.x additions (from the wiki's version pages and data values).
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;

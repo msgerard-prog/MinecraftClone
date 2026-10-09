@@ -309,10 +309,16 @@ void Mobs::spawnCreatureAt(Context& ctx, int x, int z) {
     if (grassy && ctx.rng.nextInt(5) != 0) {
         const uint32_t roll = ctx.rng.nextInt(40);
         const MobType farm = roll < 12 ? MobType::Sheep : roll < 22 ? MobType::Pig : roll < 32 ? MobType::Chicken : MobType::Cow;
-        for (int i = 0; i < 4 && m_creatures < m_creatureCap; ++i) {
+        for (int i = 0, placed = 0; i < 4 && m_creatures < m_creatureCap; ++i) {
             const int gx = x + int(ctx.rng.nextInt(5)) - 2, gz = z + int(ctx.rng.nextInt(5)) - 2;
             if (!solid(ctx.world, gx, y - 1, gz) || solid(ctx.world, gx, y, gz) || solid(ctx.world, gx, y + 1, gz)) continue;
-            if (add(ctx.world, make(farm, {gx + 0.5, double(y), gz + 0.5}, ctx.rng))) ++m_creatures;
+            MobData a = make(farm, {gx + 0.5, double(y), gz + 0.5}, ctx.rng);
+            // (M32.6; vanilla AgeableMob.finalizeSpawn) after the first of a group, 5% are young.
+            if (placed > 0 && ctx.rng.nextFloat() < 0.05f) a.age = -24000;
+            if (add(ctx.world, a)) {
+                ++m_creatures;
+                ++placed;
+            }
         }
         return;
     }

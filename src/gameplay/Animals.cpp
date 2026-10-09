@@ -14,12 +14,31 @@ using namespace world;
 namespace {
 
 ItemId itemId(const char* name) { return *itemRegistry().find(name); }
+ItemId itemOr0(const char* name) { return itemRegistry().find(name).value_or(kNoItem); }
+
+
 
 } // namespace
 
+// (M32.6; wiki: Sheep › Breeding) a lamb's wool: what crafting the parents' two dyes together
+// makes (white + black gray, white + gray light gray, red + yellow orange, red + white pink,
+// blue + white light blue, red + blue purple, blue + green cyan, green + white lime, purple +
+// pink magenta), else one parent's colour at random. Colours: vanilla's dye order.
+uint8_t Mobs::lambColour(uint8_t a, uint8_t b, Xoroshiro& rng) {
+    enum : uint8_t { White, Orange, Magenta, LightBlue, Yellow, Lime, Pink, Gray, LightGray, Cyan, Purple, Blue,
+                     Brown, Green, Red, Black };
+    static constexpr uint8_t kMix[9][3] = {{White, Black, Gray},     {White, Gray, LightGray}, {Red, Yellow, Orange},
+                                           {Red, White, Pink},       {Blue, White, LightBlue}, {Red, Blue, Purple},
+                                           {Blue, Green, Cyan},      {Green, White, Lime},     {Purple, Pink, Magenta}};
+    if (a == b) return a;
+    for (const auto& mix : kMix)
+        if ((a == mix[0] && b == mix[1]) || (a == mix[1] && b == mix[0])) return mix[2];
+    return rng.nextInt(2) ? a : b;
+}
+
 bool Mobs::isFood(MobType type, ItemId item) {
-    // Breeding foods (wiki: Breeding): wheat for cows and sheep, carrots for pigs,
-    // seeds for chickens (others not added yet).
+    // Breeding foods (wiki: Breeding): wheat for cows and sheep, carrots, potatoes and
+    // beetroots for pigs, any seeds for chickens.
     static const ItemId wheat = itemId("wheat"), carrot = itemId("carrot"),
                         seeds = itemId("wheat_seeds");
     static const ItemId warpedFungus = itemRegistry().blockItem(blocks::WarpedFungus);
@@ -54,10 +73,18 @@ bool Mobs::isFood(MobType type, ItemId item) {
     case MobType::Mooshroom: // (M29.1c)
     case MobType::Sheep:
         return item == wheat;
-    case MobType::Pig:
-        return item == carrot;
-    case MobType::Chicken:
-        return item == seeds;
+    case MobType::Pig: { // (M32.6; wiki: Pig - carrots, potatoes, beetroots)
+        static const ItemId potato = itemOr0("potato"), beetroot = itemOr0("beetroot");
+        return item != kNoItem && (item == carrot || item == potato || item == beetroot);
+    }
+    case MobType::Chicken: { // (M32.6; wiki: Chicken - any seeds)
+        static const ItemId kSeeds[6] = {seeds, itemOr0("melon_seeds"), itemOr0("pumpkin_seeds"),
+                                         itemOr0("beetroot_seeds"), itemOr0("torchflower_seeds"), itemOr0("pitcher_pod")};
+        if (item == kNoItem) return false;
+        for (ItemId k : kSeeds)
+            if (k != kNoItem && item == k) return true;
+        return false;
+    }
     case MobType::Strider:
         return item == warpedFungus; // (wiki: Strider)
     case MobType::Turtle:
@@ -69,6 +96,12 @@ bool Mobs::isFood(MobType type, ItemId item) {
 
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
+    // (M32.6; wiki: Creeper) flint and steel or a fire charge lights a creeper's fuse.
+    static const ItemId flint = itemOr0("flint_and_steel"), fireCharge = itemOr0("fire_charge");
+    if (m.type == MobType::Creeper && held != kNoItem && (held == flint || held == fireCharge) && !m.ignited) {
+        m.ignited = true;
+        return Use::Ignited;
+    }
     if (isMount(m.type))
         return mountInteract(m, held, rng, items); // (M26.2: feeding, gear, getting on)
     if (m.type == MobType::Allay) return allayInteract(m, held, rng, items);             // (M26.5a)
@@ -333,8 +366,8 @@ bool Mobs::animalGoal(Context& ctx, MobData& m, double& speed) {
                     baby.tamed = m.tamed && partner->tamed; // (M26.1: pets' young are pets)
                     baby.woolColour = m.woolColour;
                     baby.color2 = m.color2;
-                    if (m.type == MobType::Sheep) // a lamb takes a parent's colour (mixing: later)
-                        baby.woolColour = ctx.rng.nextInt(2) ? m.woolColour : partner->woolColour;
+                    if (m.type == MobType::Sheep) // (M32.6) the parents' dyes mixed, else one's
+                        baby.woolColour = lambColour(m.woolColour, partner->woolColour, ctx.rng);
                     if (isMount(m.type))
                         mountOffspring(m, *partner, baby, ctx.rng); // (stats, mules - M26.2)
                     wildlifeOffspring(m, *partner, baby, ctx.rng);  // (genes, trust - M26.3)

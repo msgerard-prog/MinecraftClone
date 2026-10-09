@@ -3874,6 +3874,12 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                         if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
                             inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        if (survival && use == mc::Mobs::Use::Ignited) { // (M32.6) a lit creeper
+                            if (mc::world::itemRegistry().item(held.item).id == "minecraft:fire_charge")
+                                inventory.consumeSelected(1);
+                            else
+                                inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        }
                         if (use == mc::Mobs::Use::Stew) { // (M29.1c) a bowl filled at a mooshroom
                             const mc::world::ItemStack stew{*mc::world::itemRegistry().find("mushroom_stew"), 1};
                             if (survival && held.count == 1) {

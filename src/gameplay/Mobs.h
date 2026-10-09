@@ -139,7 +139,7 @@ public:
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
     // (Sat: a pet sat down or stood up - M26.1; Ride: the player got on a mount - M26.2)
     // (M29.1c) Stew: a bowl came back filled (main swaps the held bowl for mushroom stew).
-    enum class Use { None, Fed, Sheared, Sat, Ride, Stew };
+    enum class Use { None, Fed, Sheared, Sat, Ride, Stew, Ignited };
     static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng,
                         ItemEntities& items);
     // A pet's top health (tamed wolves: 40 - M26.1).
@@ -147,6 +147,7 @@ public:
     // The mob that last hurt the player (tamed wolves go for it).
     uint64_t playerAttacker() const { return m_playerAttacker; }
     static bool isFood(world::MobType type, world::ItemId item); // breeding / tempting food
+    static uint8_t lambColour(uint8_t a, uint8_t b, world::Xoroshiro& rng); // (M32.6) mixed dyes
     // Mounts (Mounts.cpp, M26.2): where the rider's feet sit above the mount (boats and
     // minecarts too), and the gear a dead mount leaves (saddle, armor, carpet, its chest).
     static double seatHeight(const world::MobData& m);
@@ -437,7 +438,11 @@ private:
         m_dragonDeaths; // (counted in the tick's mob pass, for strider spawning)
     std::vector<glm::dvec3> m_trapBolts; // (M29.1b) skeleton traps sprung this tick
     // Zombified piglins hit this tick (gathered in the mob pass; their herd joins in).
-    std::array<glm::dvec3, 8> m_angerAlerts{};
+    struct AngerAlert { // (M32.6: by kind - piglins call piglins, bees bees, wolves their pack)
+        glm::dvec3 pos{0.0};
+        world::MobType type = world::MobType::Zombie;
+    };
+    std::array<AngerAlert, 8> m_angerAlerts{};
     int m_angerAlertCount = 0;
     int m_simulationDistance = kDefaultSimulationDistance;
 };

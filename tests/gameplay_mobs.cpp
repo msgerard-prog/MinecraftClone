@@ -2742,3 +2742,58 @@ TEST_CASE("M32.5: a villager tosses a gift to a Hero of the Village nearby") {
     CHECK(book);
     CHECK(s.all().at(0)->giftTicks >= 590);
 }
+
+TEST_CASE("M32.6: breeding foods, lamb dye mixing, a creeper lit with flint and steel") {
+    const auto& it = itemRegistry();
+    CHECK(Mobs::isFood(MobType::Pig, *it.find("potato")));
+    CHECK(Mobs::isFood(MobType::Pig, *it.find("beetroot")));
+    CHECK(Mobs::isFood(MobType::Chicken, *it.find("melon_seeds")));
+    CHECK_FALSE(Mobs::isFood(MobType::Cow, *it.find("potato")));
+    Xoroshiro rng(2);
+    CHECK(Mobs::lambColour(0, 15, rng) == 7);  // white + black: gray
+    CHECK(Mobs::lambColour(14, 4, rng) == 1);  // red + yellow: orange
+    CHECK(Mobs::lambColour(11, 13, rng) == 9); // blue + green: cyan
+    const uint8_t odd = Mobs::lambColour(1, 12, rng); // orange + brown: one of them
+    CHECK((odd == 1 || odd == 12));
+    MonsterScene s;
+    s.naturalSpawning = false;
+    s.survival = false; // (it doesn't care: it is lit)
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Creeper, {12.5, 64.0, 0.5}, s.rng)));
+    CHECK(Mobs::interact(*s.all().at(0), *it.find("flint_and_steel"), s.rng, s.items) == Mobs::Use::Ignited);
+    bool gone = false;
+    for (int t = 0; t < 60 && !gone; ++t) {
+        s.run(1);
+        gone = s.all().empty();
+    }
+    CHECK(gone);
+}
+
+TEST_CASE("M32.6: a zombie forgets a player out of sight for 3 s; a hit wolf's pack joins in") {
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Zombie, {10.5, 64.0, 0.5}, s.rng)));
+    s.run(25);
+    REQUIRE(s.all().at(0)->targeting);
+    // A box closes around the zombie: it can't see the player any more.
+    MobData* z = s.all().at(0);
+    const int zx = int(std::floor(z->pos.x)), zz = int(std::floor(z->pos.z));
+    for (int y = 64; y <= 66; ++y)
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx)
+                if (dx != 0 || dz != 0 || y == 66) s.world.setBlock({zx + dx, y, zz + dz}, blockRegistry().defaultState(blocks::Stone));
+    s.world.setBlock({zx, 64, zz}, 0);
+    s.world.setBlock({zx, 65, zz}, 0);
+    s.player.setPosition({0.5, 64.0, 0.5});
+    s.run(90);
+    CHECK_FALSE(s.all().at(0)->targeting);
+    // Wolves.
+    MonsterScene w;
+    w.naturalSpawning = false;
+    REQUIRE(Mobs::add(w.world, Mobs::make(MobType::Wolf, {6.5, 64.0, 6.5}, w.rng)));
+    REQUIRE(Mobs::add(w.world, Mobs::make(MobType::Wolf, {9.5, 64.0, 6.5}, w.rng)));
+    Mobs::attack(*w.all().at(0), 1.0f, w.player.position());
+    w.run(2);
+    int angry = 0;
+    for (MobData* m : w.all()) angry += m->angry;
+    CHECK(angry == 2);
+}

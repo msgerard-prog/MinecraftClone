@@ -591,6 +591,18 @@ void Mobs::ai(Context& ctx, MobData& m) {
         const double dist = glm::length(target - eye);
         const auto block = raycastBlocks(ctx.world, eye, (target - eye) / dist, dist);
         m.targeting = !block;
+        m.unseenTicks = 0;
+    } else if (m.targeting && ++m.sightCheck >= 10 && m.type != MobType::Vex && m.type != MobType::Enderman &&
+               m.type != MobType::Warden) {
+        // (M32.6; vanilla TargetGoal unseenMemoryTicks) a target out of sight for 3 s is
+        // forgotten (checked twice a second); it has to be seen again.
+        m.sightCheck = 0;
+        if (seesPlayer(ctx.world, m, ctx.player)) {
+            m.unseenTicks = 0;
+        } else if ((m.unseenTicks = uint8_t(std::min(255, m.unseenTicks + 10))) >= 60) {
+            m.targeting = false;
+            m.unseenTicks = 0;
+        }
     }
     if (jockey) {
         chase = true; // (the goal was set by its rider)
@@ -1035,6 +1047,7 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
         m.angry = true;
         m.angerTicks = 600;
         m.targeting = true;
+        m.angerAlert = true; // (M32.6: and its pack with it)
     } else if (m.type == MobType::IronGolem) { // golems don't flee: they fight back (wiki), unless
                                                // player-built
         if (!m.playerCreated) {
@@ -1282,6 +1295,13 @@ void Mobs::die(Context& ctx, MobData& m) {
     case MobType::ZombieVillager:
     case MobType::Husk: // wiki: Husk - rotten flesh 0-2
         drop("rotten_flesh", 0, 2);
+        // (M32.6; wiki: Zombie › Drops) killed by the player: 2.5% (+1% a Looting level) an
+        // iron ingot, a carrot or a potato.
+        if (m.lastHurtByPlayer && ctx.rng.nextFloat() < 0.025f + 0.01f * float(m.looting)) {
+            static constexpr const char* kRare[3] = {"iron_ingot", "carrot", "potato"};
+            if (const auto rare = items.find(kRare[ctx.rng.nextInt(3)]))
+                ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {*rare, 1}, ctx.rng);
+        }
         break;
     case MobType::Drowned: // wiki: Drowned - rotten flesh 0-2, a copper ingot 11%, its trident 8.5%
         drop("rotten_flesh", 0, 2);
@@ -1668,7 +1688,7 @@ void Mobs::tick(Context& ctx) {
             if (m.angerAlert) { // (also from one killed by the hit)
                 m.angerAlert = false;
                 if (m_angerAlertCount < int(m_angerAlerts.size()))
-                    m_angerAlerts[size_t(m_angerAlertCount++)] = m.pos;
+                    m_angerAlerts[size_t(m_angerAlertCount++)] = {m.pos, m.type};
             }
             if (m.type == MobType::EnderDragon ||
                 m.type == MobType::Wither) { // (M26.4b: the Wither's bar too)
@@ -1803,19 +1823,27 @@ void Mobs::tick(Context& ctx) {
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
     for (int a = 0; a < m_angerAlertCount; ++a) {
-        const glm::dvec3 hit = m_angerAlerts[size_t(a)];
+        const glm::dvec3 hit = m_angerAlerts[size_t(a)].pos;
+        const MobType kind = m_angerAlerts[size_t(a)].type;
         const ChunkPos hc{blockToChunk(int(std::floor(hit.x))),
                           blockToChunk(int(std::floor(hit.z)))};
         for (int dz = -3; dz <= 3; ++dz)
             for (int dx = -3; dx <= 3; ++dx)
                 if (Chunk* c = ctx.world.chunk({hc.x + dx, hc.z + dz}))
                     for (MobData& o : c->mobs())
-                        if (o.type == MobType::ZombifiedPiglin &&
+                        if (o.type == MobType::ZombifiedPiglin && kind == MobType::ZombifiedPiglin &&
                             std::abs(o.pos.x - hit.x) < 33.5 && std::abs(o.pos.z - hit.z) < 33.5 &&
                             std::abs(o.pos.y - hit.y) < 11.0) {
                             o.angry = true;
                             o.angerTicks = static_cast<int16_t>(400 + ctx.rng.nextInt(701));
-                        } else if (o.type == MobType::Bee && !o.stung &&
+                        } else if (o.type == MobType::Wolf && kind == MobType::Wolf && !o.tamed &&
+                                   std::abs(o.pos.x - hit.x) < 16.5 && std::abs(o.pos.z - hit.z) < 16.5 &&
+                                   std::abs(o.pos.y - hit.y) < 10.0) {
+                            // (M32.6; vanilla HurtByTargetGoal.setAlertOthers) the pack joins in
+                            o.angry = true;
+                            o.angerTicks = 600;
+                            o.targeting = true;
+                        } else if (o.type == MobType::Bee && kind == MobType::Bee && !o.stung &&
                                    glm::length(o.pos - hit) < 20.0) {
                             o.angry = true; // (bees within 20 blocks - our reading of the wiki's
                                             // "nearby")
