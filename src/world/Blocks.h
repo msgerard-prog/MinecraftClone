@@ -634,6 +634,14 @@ enum : BlockId {
     TestInstanceBlock,
     // M33.1 - 26.1 "Tiny Takeover" (wiki: Golden Dandelion)
     GoldenDandelion,
+    // M33.3a - 26.3 "Wilderness Bound" (wiki: Poplar): the poplar's own blocks (its wood set
+    // follows the other woods' lists); leaves in three autumn colours.
+    PoplarLog,
+    PoplarPlanks,
+    RedPoplarLeaves,
+    OrangePoplarLeaves,
+    YellowPoplarLeaves,
+    PoplarSapling,
     Count
 };
 } // namespace blocks

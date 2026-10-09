@@ -145,7 +145,8 @@ namespace {
 void addWoodBlocks(BlockRegistry& r) {
     using namespace properties;
     const BlockSettings st{.hardness = 2.0f, .resistance = 2.0f, .tool = HarvestTool::Axe};
-    for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "mangrove", "pale_oak"}) {
+    for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "mangrove", "pale_oak",
+                          "poplar"}) {
         const std::string wood(w);
         r.add(wood + "_wood", st, {{&axis, "y"}});
         r.add("stripped_" + wood + "_log", st, {{&axis, "y"}});
@@ -380,6 +381,7 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"warped", "warped_planks", true, true, false},
         {"mangrove", "mangrove_planks", true, true, false},
         {"pale_oak", "pale_oak_planks", true, true, false},
+        {"poplar", "poplar_planks", true, true, false}, // (M33.3a)
         {"bamboo", "bamboo_planks", true, true, false},
         {"bamboo_mosaic", "bamboo_mosaic", true, true, false},
         {"cut_copper", "cut_copper", true, true, false},
@@ -417,7 +419,7 @@ void addCorals(BlockRegistry& r) {
 void addWoodSets(BlockRegistry& r) {
     using namespace properties;
     static constexpr const char* kWoods[] = {"spruce", "birch",   "jungle",   "acacia", "dark_oak", "cherry",
-                                             "crimson", "warped", "mangrove", "bamboo", "pale_oak"};
+                                             "crimson", "warped", "mangrove", "bamboo", "pale_oak", "poplar"};
     auto copy = [&](BlockId oak, const std::string& id, HarvestTool tool = HarvestTool::Axe) {
         BlockSettings st = r.block(oak).settings;
         st.like = oak;
@@ -448,7 +450,7 @@ void addWoodSets(BlockRegistry& r) {
     // Signs (M23.3c; wiki: Sign, Hanging Sign - 1.0 hardness, no collision): standing
     // (16 rotations) and wall signs, hanging and wall hanging signs, for every wood.
     for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry", "crimson", "warped",
-                          "mangrove", "bamboo", "pale_oak"}) {
+                          "mangrove", "bamboo", "pale_oak", "poplar"}) {
         const std::string wood(w);
         const BlockId planks = *r.findBlock(wood + "_planks");
         BlockSettings st{.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false, .collision = false,
@@ -1565,6 +1567,13 @@ BlockRegistry buildVanillaBlocks() {
         golden.like = blocks::Poppy;
         check(r.add("golden_dandelion", golden), blocks::GoldenDandelion);
     }
+    // (M33.3a; wiki: Poplar - 26.3) as the other woods
+    check(r.add("poplar_log", logS, {{&axis, "y"}}), blocks::PoplarLog);
+    check(r.add("poplar_planks", planksS), blocks::PoplarPlanks);
+    check(r.add("red_poplar_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::RedPoplarLeaves);
+    check(r.add("orange_poplar_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::OrangePoplarLeaves);
+    check(r.add("yellow_poplar_leaves", kLeaves, {{&distance, "7"}, {&persistent, "false"}}), blocks::YellowPoplarLeaves);
+    check(r.add("poplar_sapling", sapling, {{&stage, "0"}}), blocks::PoplarSapling);
     for (int lv = 0; lv < 16; ++lv) // (the light block shines at its level)
         r.setStateEmission(r.set(r.defaultState(blocks::Light), level, lv), uint8_t(lv));
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
@@ -1664,6 +1673,10 @@ BlockRegistry buildVanillaBlocks() {
             r.setStateEmission(s, like == blocks::Candle ? uint8_t(3 * (r.get(s, candles) + 1)) : 3);
         }
     }
+    // (M33.3a) the poplar shelf, like the oak one
+    r.add("poplar_shelf", {.hardness = 2.0f, .resistance = 3.0f, .opaqueCube = false, .tool = HarvestTool::Axe,
+                           .like = blocks::Shelf},
+          {{&facing, "north"}, {&powered, "false"}, {&sideChain, "unconnected"}, {&waterlogged, "false"}});
     // 26.2 "Chaos Cubed" (M33.2; wiki: Sulfur, Cinnabar, Potent Sulfur, Sulfur Spike), registered
     // last so earlier state ids stay put: two stones of the sulfur caves - sulfur 2 / 6, cinnabar
     // 2.5 / 6, a stone pickaxe - each polished, as bricks and chiseled, with stairs, slabs and walls.

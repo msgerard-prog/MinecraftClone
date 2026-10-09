@@ -776,7 +776,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 6) { // a boat's wood (M25.2b)
-            const uint32_t c = world::kBoatWoods[mob.woolColour % 10].colour;
+            const uint32_t c = world::kBoatWoods[mob.woolColour % world::kBoatWoodCount].colour;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 4 || part.layer == 5) { // a tropical fish's colours (M25.2)

@@ -168,17 +168,18 @@ struct BoatWood {
     const char* name; // "oak" (item "oak_boat"; bamboo makes "bamboo_raft")
     uint32_t colour;  // 0xRRGGBB, the planks' look
 };
-inline constexpr BoatWood kBoatWoods[10] = {
+inline constexpr int kBoatWoodCount = 11;
+inline constexpr BoatWood kBoatWoods[kBoatWoodCount] = {
     {"oak", 0xB8945F},      {"spruce", 0x7A5A34},   {"birch", 0xD7C185},    {"jungle", 0xB88764},
     {"acacia", 0xBA6337},   {"dark_oak", 0x4F3218}, {"mangrove", 0x773636}, {"cherry", 0xE7B7AE},
-    {"pale_oak", 0xE5DACD}, {"bamboo", 0xC9B758}};
+    {"pale_oak", 0xE5DACD}, {"bamboo", 0xC9B758},   {"poplar", 0xD8B48A}}; // (M33.3a: 26.3)
 inline std::string boatId(int wood) { // entity and item id
-    return std::string("minecraft:") + kBoatWoods[wood % 10].name +
-           (wood % 10 == 9 ? "_raft" : "_boat");
+    return std::string("minecraft:") + kBoatWoods[wood % kBoatWoodCount].name +
+           (wood % kBoatWoodCount == 9 ? "_raft" : "_boat");
 }
 inline std::string chestBoatId(int wood) { // (M26.2) a boat with a chest
-    return std::string("minecraft:") + kBoatWoods[wood % 10].name +
-           (wood % 10 == 9 ? "_chest_raft" : "_chest_boat");
+    return std::string("minecraft:") + kBoatWoods[wood % kBoatWoodCount].name +
+           (wood % kBoatWoodCount == 9 ? "_chest_raft" : "_chest_boat");
 }
 
 // Pets (M26.1): what tames them and what they look like (wiki: Wolf, Cat, Parrot).

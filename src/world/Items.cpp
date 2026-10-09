@@ -312,11 +312,11 @@ ItemRegistry buildItems() {
            .durability = 250,
            .attackDamage = 9.0f,
            .texture = "item/trident"});
-    for (int w = 0; w < 10; ++w) { // boats (M25.2b; wiki: Boat - stack to 1)
+    for (int w = 0; w < kBoatWoodCount; ++w) { // boats (M25.2b; wiki: Boat - stack to 1)
         const std::string id = boatId(w);
         r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
     }
-    for (int w = 0; w < 10; ++w) { // chest boats (M26.2)
+    for (int w = 0; w < kBoatWoodCount; ++w) { // chest boats (M26.2)
         const std::string id = chestBoatId(w);
         r.add({.id = id, .maxStack = 1, .texture = "item/" + id.substr(10)});
     }

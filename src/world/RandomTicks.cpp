@@ -52,6 +52,8 @@ TreeBlocks treeOf(BlockId sapling) {
         return {TreeKind::Mangrove, B::MangroveLog, B::MangroveLeaves};
     case B::CherrySapling:
         return {TreeKind::Cherry, B::CherryLog, B::CherryLeaves};
+    case B::PoplarSapling: // (M33.3a; ours: grown poplars turn yellow)
+        return {TreeKind::Poplar, B::PoplarLog, B::YellowPoplarLeaves};
     default:
         return {TreeKind::Oak, B::OakLog, B::OakLeaves};
     }
@@ -60,7 +62,7 @@ TreeBlocks treeOf(BlockId sapling) {
 bool isSapling(BlockId b) {
     return b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling ||
            b == B::AcaciaSapling || b == B::JungleSapling || b == B::DarkOakSapling ||
-           b == B::CherrySapling || b == B::PaleOakSapling || b == B::MangrovePropagule;
+           b == B::CherrySapling || b == B::PaleOakSapling || b == B::MangrovePropagule || b == B::PoplarSapling;
 }
 
 // Blocks a growing tree's logs may replace (vanilla: air, leaves, plants, saplings).

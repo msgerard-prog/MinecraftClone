@@ -3524,7 +3524,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             water ? hit->block : mc::world::neighbour(hit->block, hit->face);
                         int wood = 0;
                         bool chest = false; // (M26.2: a chest boat)
-                        for (int w = 0; w < 10; ++w) {
+                        for (int w = 0; w < mc::world::kBoatWoodCount; ++w) {
                             if (mc::world::boatId(w) == heldId) wood = w;
                             if (mc::world::chestBoatId(w) == heldId) wood = w, chest = true;
                         }

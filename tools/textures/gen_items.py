@@ -1803,7 +1803,7 @@ def all_items():
     items["turtle_helmet"] = armor("helmet", "#4E9A3A")
     BOAT_WOODS = (("oak", "#B8945F"), ("spruce", "#7A5A34"), ("birch", "#D7C185"), ("jungle", "#B88764"),
                          ("acacia", "#BA6337"), ("dark_oak", "#4F3218"), ("mangrove", "#773636"),
-                         ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD"))
+                         ("cherry", "#E7B7AE"), ("pale_oak", "#E5DACD"), ("poplar", "#D8B48A"))
     for wood, colour in BOAT_WOODS:
         items[f"{wood}_boat"] = boat_item(colour)
     items["bamboo_raft"] = boat_item("#C9B758", raft=True)

@@ -48,12 +48,16 @@ WOODS = {
                      end=ramp(hexc("ddd2cc"), spread=0.15), stripped=ramp(hexc("ddd3cf"), spread=0.14),
                      leaf=ramp(hexc("8a948a"), spread=0.25), sapling="round", door="grid",
                      trapdoor="grid"),
+    # (M33.3a; 26.3) poplar: pale golden planks, grey-white bark with dark marks
+    "poplar": dict(planks=ramp(hexc("d8b48a"), spread=0.16), bark=ramp(hexc("9a948a"), spread=0.2),
+                   end=ramp(hexc("d4b088")), stripped=ramp(hexc("dcbc94"), spread=0.15),
+                   leaf=ramp(hexc("e8b830"), spread=0.3), sapling="tall", door="grid", trapdoor="grid"),
 }
 LEAF_GREY = [grey(70), grey(100), grey(130), grey(160), grey(196)]
 SAPLING_LEAF = {
     "oak": ramp(hexc("4f8a2c")), "spruce": ramp(hexc("3d6b3d")), "birch": ramp(hexc("6c9a40")),
     "jungle": ramp(hexc("3f8a1e")), "acacia": ramp(hexc("6b8a22")), "dark_oak": ramp(hexc("33621c")),
-    "cherry": ramp(hexc("eaa3c4")), "pale_oak": ramp(hexc("8a948a")),
+    "cherry": ramp(hexc("eaa3c4")), "pale_oak": ramp(hexc("8a948a")), "poplar": ramp(hexc("e8b830")),
 }
 BIRCH_MARK = [hexc("2a2622"), hexc("5a544c")]
 
@@ -77,6 +81,11 @@ for wood, w in WOODS.items():
     reg(f"{wood}_door_top", lambda r, w=w: M.door(r, w["planks"], "top", w["door"]))
     reg(f"{wood}_door_bottom", lambda r, w=w: M.door(r, w["planks"], "bottom", w["door"]))
     reg(f"{wood}_trapdoor", lambda r, w=w: M.trapdoor(r, w["planks"], w["trapdoor"]))
+
+
+# (M33.3a) poplar leaves in three autumn colours
+for _colour, _hex in (("red", "c8402a"), ("orange", "e07a24"), ("yellow", "e8b830")):
+    reg(f"{_colour}_poplar_leaves", lambda r, h=_hex: M.leaves(r, ramp(hexc(h), spread=0.3)))
 
 
 # --- Mangrove specials ---------------------------------------------------------------

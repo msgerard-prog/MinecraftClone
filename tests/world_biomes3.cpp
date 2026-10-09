@@ -744,3 +744,24 @@ TEST_CASE("overworld8 (M33.2e; 26.2): sulfur caves - sulfur and cinnabar bands, 
     CHECK(spikes > 0);
     CHECK(h == 4374325674733634202ull); // (frozen once released: new worlds make overworld8)
 }
+
+#include "world/TreeFeature.h"
+
+TEST_CASE("M33.3a (26.3): a poplar is a tall slim trunk in a narrow column of leaves") {
+    Xoroshiro rng(7);
+    const int height = treeHeight(TreeKind::Poplar, rng);
+    CHECK(height >= 7);
+    CHECK(height <= 10);
+    int logs = 0, leaves = 0, widest = 0;
+    treeShape(TreeKind::Poplar, 0, 64, 0, height, rng, [&](int32_t x, int32_t, int32_t z, int d) {
+        if (d == 0) ++logs;
+        else ++leaves;
+        widest = std::max({widest, std::abs(x), std::abs(z)});
+    });
+    CHECK(logs == height);
+    CHECK(leaves > 20);
+    CHECK(widest <= 2);
+    CHECK(blockRegistry().findBlock("poplar_hanging_sign").has_value());
+    CHECK(blockRegistry().findBlock("stripped_poplar_wood").has_value());
+    CHECK(itemRegistry().find("poplar_chest_boat").has_value());
+}

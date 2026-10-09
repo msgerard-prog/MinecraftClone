@@ -63,7 +63,7 @@ std::vector<Recipe> build() {
     // Every log, wood and stripped variant makes 4 planks; 4 logs make 3 wood (wiki:
     // Planks, Wood; M23.3b adds wood, stripped logs, mangrove, pale oak, the stems).
     for (std::string_view w : {"oak", "birch", "spruce", "acacia", "jungle", "dark_oak", "cherry",
-                               "mangrove", "pale_oak", "crimson", "warped"}) {
+                               "mangrove", "pale_oak", "poplar", "crimson", "warped"}) {
         const std::string wood(w);
         const bool nether = wood == "crimson" || wood == "warped";
         const std::string log = nether ? "_stem" : "_log", bark = nether ? "_hyphae" : "_wood";
@@ -374,7 +374,7 @@ std::vector<Recipe> build() {
     {
         // (each wood's planks make its own set: M23.3)
         for (const char* w : {"oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "cherry",
-                              "crimson", "warped", "mangrove", "bamboo", "pale_oak"}) {
+                              "crimson", "warped", "mangrove", "bamboo", "pale_oak", "poplar"}) {
             const std::string wood(w);
             const Ingredient planks = item(wood + "_planks");
             r.push_back(shaped({"##", "##", "##"}, {{'#', planks}}, wood + "_door", 3));
@@ -758,6 +758,7 @@ std::vector<Recipe> build() {
                                                                         : "stripped_" + w + "_log";
             if (has(log)) r.push_back(shaped({"LLL", "...", "LLL"}, {{'L', item(log)}}, w + "_shelf", 6));
         }
+        r.push_back(shaped({"LLL", "...", "LLL"}, {{'L', item("stripped_poplar_log")}}, "poplar_shelf", 6)); // (M33.3a)
         r.push_back(shaped({"N", "I", "N"}, {{'N', item("copper_nugget")}, {'I', item("copper_ingot")}}, "copper_chain"));
         r.push_back(shaped({"N", "C", "S"}, {{'N', item("copper_nugget")}, {'C', item("coal")}, {'S', item("stick")}},
                            "copper_torch", 4));

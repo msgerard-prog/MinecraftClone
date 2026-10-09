@@ -2198,7 +2198,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                 m.hasChest = m.strength > 0;
                 known = true;
             }
-        for (int w = 0; w < 10 && !known; ++w) // (M25.2b: every wood's boat is one type here)
+        for (int w = 0; w < kBoatWoodCount && !known; ++w) // (M25.2b: every wood's boat is one type here)
             if (boatId(w) == *id || chestBoatId(w) == *id) {
                 m.type = MobType::Boat;
                 m.woolColour = uint8_t(w);

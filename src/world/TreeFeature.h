@@ -15,7 +15,8 @@ namespace mc::world {
 // 2x2) and cherry. 2x2 trunks occupy (x..x+1, z..z+1) from the given corner.
 // MegaSpruce (M27.1): the giant 2x2 spruce of old growth taigas (also from four spruce
 // saplings in vanilla).
-enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove, MegaSpruce };
+enum class TreeKind : uint8_t { Oak, Birch, Spruce, Acacia, Jungle, MegaJungle, DarkOak, Cherry, PaleOak, Mangrove, MegaSpruce,
+                                Poplar };
 inline bool twoByTwo(TreeKind k) {
     return k == TreeKind::MegaJungle || k == TreeKind::DarkOak || k == TreeKind::PaleOak || k == TreeKind::MegaSpruce;
 }
@@ -36,6 +37,7 @@ inline int treeHeight(TreeKind kind, Xoroshiro& rng) {
     case TreeKind::PaleOak: return 6 + static_cast<int>(rng.nextInt(3)); // (M23.3b: like dark oak)
     case TreeKind::Mangrove: return 5 + static_cast<int>(rng.nextInt(4));
     case TreeKind::MegaSpruce: return 13 + static_cast<int>(rng.nextInt(15)); // (wiki: Spruce - giant ones 13-30ish)
+    case TreeKind::Poplar: return 7 + static_cast<int>(rng.nextInt(4)); // (M33.3a: our reading of 26.3's tall poplars)
     }
     return 4;
 }
@@ -134,6 +136,18 @@ void treeShape(TreeKind kind, int32_t wx, int32_t y0, int32_t wz, int height, Xo
         disc(wx, top - 1, wz, 3, false, 0.3f);
         disc(wx, top, wz, 3, false, 0.2f);
         disc(wx, top + 1, wz, 2, false, 0.1f);
+    } else if (kind == TreeKind::Poplar) {
+        // (M33.3a; 26.3) a tall, slim trunk wrapped in a narrow column of leaves from a third of
+        // the way up to a point over the top - fuller in the middle.
+        for (int i = 0; i < height; ++i)
+            log(wx, y0 + i, wz);
+        const int32_t top = y0 + height - 1;
+        for (int32_t y = y0 + height / 3; y <= top + 1; ++y) {
+            const int fromTop = top + 1 - y;
+            const int r = fromTop <= 1 ? 1 : (y - y0 > height / 2 && fromTop > 2) ? 2 : 1;
+            disc(wx, y, wz, r, false, r == 2 ? 0.45f : 0.1f);
+        }
+        leaf(wx, top + 2, wz);
     } else if (kind == TreeKind::Cherry) {
         // A straight trunk under a broad, rounded pink crown (vanilla's cherry trees
         // branch; ours keeps one trunk).

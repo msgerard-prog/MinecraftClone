@@ -702,7 +702,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 "brown_mushroom", "red_mushroom", "jungle_sapling", "dark_oak_sapling", "cherry_sapling",
                 "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "nether_sprouts",
                 "weeping_vines", "weeping_vines_plant", "twisting_vines", "twisting_vines_plant",
-                "mangrove_propagule", "pale_oak_sapling",
+                "mangrove_propagule", "pale_oak_sapling", "poplar_sapling",
                 // (M29.4a) the rest of the flowers
                 "allium", "blue_orchid", "red_tulip", "orange_tulip", "white_tulip", "pink_tulip",
                 "lily_of_the_valley", "wither_rose"};
@@ -1533,7 +1533,8 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             } else if (ends("_leaves")) {
                 BakedVariant v = cubeAll(sprite(name.c_str()));
                 for (auto& f : v.faces) // cherry leaves are pink in their texture: no biome tint
-                    f.tint = name == "cherry_leaves" || name == "pale_oak_leaves" || name == "azalea_leaves" ||
+                    f.tint = name == "cherry_leaves" || name == "pale_oak_leaves" || name.ends_with("poplar_leaves") ||
+                             name == "azalea_leaves" ||
                                      name == "flowering_azalea_leaves"
                                  ? Tint::None
                                  : Tint::Foliage;
