@@ -946,7 +946,13 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                         const bool perchedDragon =
                             (m.type == MobType::EnderDragon && (m.phase == 5 || m.phase == 6)) ||
                             (m.type == MobType::Shulker && m.peek == 0); // (closed shells too)
-                        if (m.type == MobType::Breeze) {
+                        if (m.type == MobType::SulfurCube && m.absorbed != 0) {
+                            // (M33.2c) a block-filled sulfur cube takes no arrow damage: it's pushed
+                            const glm::dvec2 h(p.vel.x, p.vel.z);
+                            if (glm::length(h) > 1e-6)
+                                m.vel += glm::dvec3(h.x, 0.0, h.y) / glm::length(h) * (0.4 + 0.6 * p.punch) +
+                                         glm::dvec3(0.0, 0.2, 0.0);
+                        } else if (m.type == MobType::Breeze) {
                             // (M26.4c) arrows glance off a breeze (wiki: it deflects projectiles)
                         } else if (m.type == MobType::Wither &&
                                    (m.health < mobInfo(m.type).maxHealth * 0.5f ||

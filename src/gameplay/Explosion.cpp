@@ -108,6 +108,13 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                             m.deathTime = 19;
                             continue;
                         }
+                        if (m.type == MobType::SulfurCube && m.absorbed != 0) { // (M33.2c) unhurt, but primed
+                            if (m.fuse == 0 && Mobs::sulfurArchetype(m.absorbed) &&
+                                Mobs::sulfurArchetype(m.absorbed)->kind == Mobs::SulfurKind::Explosive &&
+                                glm::length(m.pos - centre) < 2.0 * power)
+                                m.fuse = int16_t(15 + (int(m.pos.x * 7.0 + m.pos.z * 13.0) & 31) % 30); // (15-44)
+                            continue;
+                        }
                         hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85,
                              [&](float dmg, const glm::dvec3& push) {
                                  m.health -= m.type == MobType::EnderDragon

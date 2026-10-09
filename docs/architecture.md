@@ -767,6 +767,12 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   `world/Trades` `addGossip`/`reputation`/`decayGossip` (`MobData::gossip`), prices,
   `Mobs::villagerSocial` (decay, hero gifts), golems defending (`golemGoal`). Level events
   `Totem` and `Happy` (particles); `ui::drawItemActivation`.
+- 26.x content (M33): the golden dandelion (`MobData::ageLocked`), 26.2's sulfur/cinnabar
+  families (registered last through `addFamily`), potent sulfur (`world/Sulfur.cpp`: a
+  scheduled cycle, `BlockUpdates::sulfurGas()/geysers()` for main, `LevelEvent::SulfurGas`
+  particles) and the sulfur cube (`gameplay/SulfurCubes.cpp`: `sulfurArchetype`,
+  `sulfurCubeAi`, `sulfurCubeInteract`; `MobData::absorbed`; drawn in EntityRenderer's
+  blended jelly pass, the block by `addBlock` inside).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

@@ -668,6 +668,18 @@ def slime():
     return img
 
 
+def sulfur_cube():
+    # (M33.2c; 26.2) a pale yellow jelly cube, speckled, with small dark eyes. Body 8x8x8 @ (0,0).
+    rng = random.Random("sulfur_cube")
+    img = Img(64, 64, CLEAR)
+    yellow = ramp(hexc("#E8D460"), 5, spread=0.3)
+    for f in box_faces(0, 0, 8, 8, 8).values():
+        paint(img, f, yellow, rng, noise=0.45)
+    face(img, box_faces(0, 0, 8, 8, 8)["front"], ((2, 3), (5, 3)), (70, 60, 20, 255),
+         (((3, 5), (110, 90, 30, 255)), ((4, 5), (110, 90, 30, 255))))
+    return img
+
+
 def projectiles():
     # The arrow seen from the side, 16 x 5 at (0, 0), tip at +x: fletching, shaft, head.
     img = Img(64, 64, CLEAR)
@@ -1315,7 +1327,7 @@ def main():
               "hoglin": hoglin(), "strider": strider(),
               "end_crystal": end_crystal(), "ender_dragon": ender_dragon(),
               "shulker": shulker(), "minecart": minecart(),
-              "slime": slime(), "villager": villager(), "villager_apron": villager_apron(),
+              "slime": slime(), "sulfur_cube": sulfur_cube(), "villager": villager(), "villager_apron": villager_apron(),
               "zombie_villager": zombie_villager(), "iron_golem": iron_golem(),
               "witch": witch(), "wandering_trader": wandering_trader(),
               "pillager": pillager(), "vindicator": vindicator(), "evoker": evoker(), "vex": vex(),

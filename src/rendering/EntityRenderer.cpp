@@ -845,6 +845,11 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         }
     if (glowingMob && m_glowCount < int(m_glow.size()))
         m_glow[size_t(m_glowCount++)] = {uint32_t(firstVertex), uint32_t(m_mobs.size() - firstVertex)};
+    if (mob.type == world::MobType::SulfurCube && m_jellyCount < int(m_jelly.size())) {
+        for (size_t v = firstVertex; v < m_mobs.size(); ++v) // (60% opaque jelly)
+            m_mobs[v].color = (m_mobs[v].color & 0x00FFFFFFu) | (153u << 24);
+        m_jelly[size_t(m_jellyCount++)] = {uint32_t(firstVertex), uint32_t(m_mobs.size() - firstVertex)};
+    }
 }
 
 void EntityRenderer::setCrack(const world::BlockPos& block, int stage) {
@@ -896,7 +901,16 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     if (mobs) {
         glUniform1f(1, 0.1f);
         glBindTextureUnit(0, m_mobTexture);
-        glDrawArrays(GL_TRIANGLES, GLint(items + crack), GLsizei(mobs));
+        { // the solid mobs: the runs between the jelly ranges (recorded in order)
+            size_t from = 0;
+            for (int j = 0; j < m_jellyCount; ++j) {
+                const GlowRange& r = m_jelly[size_t(j)];
+                if (r.first > from && r.first <= mobs)
+                    glDrawArrays(GL_TRIANGLES, GLint(items + crack + from), GLsizei(r.first - from));
+                from = std::min<size_t>(mobs, r.first + r.count);
+            }
+            if (from < mobs) glDrawArrays(GL_TRIANGLES, GLint(items + crack + from), GLsizei(mobs - from));
+        }
         if (m_glowCount > 0) { // (M29.2c) Glowing: a pale silhouette seen through walls
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_BLEND);
@@ -921,6 +935,20 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
         glDrawArrays(GL_TRIANGLES, GLint(items), GLsizei(crack));
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
+    }
+    if (mobs && m_jellyCount > 0) { // (M33.2c) see-through jelly last: blended, no depth writes
+        glUniform1f(1, 0.01f);
+        glBindTextureUnit(0, m_mobTexture);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        for (int j = 0; j < m_jellyCount; ++j) {
+            const GlowRange& r = m_jelly[size_t(j)];
+            if (r.first + r.count <= mobs) glDrawArrays(GL_TRIANGLES, GLint(items + crack + r.first), GLsizei(r.count));
+        }
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        glBindTextureUnit(0, m_atlasTexture);
     }
     if (text) { // sign text: cut out of the font sheet (M23.3c)
         glUniform1f(1, 0.5f);
@@ -949,6 +977,7 @@ void EntityRenderer::draw(const Camera& camera, float aspect) {
     m_items.clear();
     m_mobs.clear();
     m_glowCount = 0;
+    m_jellyCount = 0;
     m_weather.clear();
     m_bolts.clear();
     m_text.clear();

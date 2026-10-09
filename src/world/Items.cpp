@@ -664,6 +664,8 @@ ItemRegistry buildItems() {
     for (int k = 1; k < 6; ++k)
         r.add({.id = std::string("minecraft:") + kNautilusArmorItems[k], .maxStack = 1,
                .texture = std::string("item/") + kNautilusArmorItems[k]});
+    // (M33.2c; wiki: Bucket of Sulfur Cube - 26.2) a large sulfur cube carried in a bucket.
+    r.add({.id = "minecraft:sulfur_cube_bucket", .maxStack = 1, .texture = "item/sulfur_cube_bucket"});
     // Spawn eggs (M29.1e; wiki: Spawn Egg): one per mob, except the entities that aren't
     // mobs and the illusioner (none in vanilla either). Registered last: older ids stay.
     for (int t = 0; t < int(MobType::Count); ++t) {

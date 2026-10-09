@@ -133,11 +133,13 @@ std::vector<SoundInfo> buildTable() {
     static constexpr int kSays[] = {3, 3, 3, 3, 3, 3, 0, 2, 3, 3, 2, 0, 3, 3, 3, 2, 0, 2, 2, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3,
                                     0, 0, 0, 0, 3, 3, 0, 3, 3, 2, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 0, 3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0,
                                     3, 3, 3, 3, 3, 3, 3, 3,
-                                    3, 3, 3, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0};
+                                    3, 3, 3, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0,
+                                    0}; // (M33.2c: sulfur cubes don't call out)
     static constexpr int kHurts[] = {2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                                      2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0,
                                      2, 1, 1, 1, 2, 2, 2, 2,
-                                     2, 2, 2, 2, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0};
+                                     2, 2, 2, 2, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0,
+                                     2};
     static constexpr bool kDeath[] = {true, false, false, true, false, true, true, true, true, true, true,
                                       true, true, true, true, true, false, true, true, false, true, true, true, true, true, true, true, true, true, true, true,
                                       true, true, true, true, true, true, false, true, true, true, true, true, true, true, true, true,
@@ -145,7 +147,8 @@ std::vector<SoundInfo> buildTable() {
                                       true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
                                       false, false, false, false, false, true, true, true, true,
                                       true, true, true, true, true, true, false, true, true, true, true,
-                                      false, false, false, false, false, false, false, false}; // (M29.7e: silent)
+                                      false, false, false, false, false, false, false, false, // (M29.7e: silent)
+                                      true};
     static_assert(std::size(kSays) == size_t(MobType::Count) && std::size(kHurts) == size_t(MobType::Count) &&
                   std::size(kDeath) == size_t(MobType::Count));
     for (int i = 0; i < int(MobType::Count); ++i) {

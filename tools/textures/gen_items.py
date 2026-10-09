@@ -1595,6 +1595,7 @@ def all_items():
     items["honeycomb"] = lump("honeycomb", "#E8A824", "#F8D860", size=5)  # (M23.4b: waxes copper)
     items["bucket"] = bucket()
     items["water_bucket"] = bucket("#3C6EE6")
+    items["sulfur_cube_bucket"] = bucket("#E8D460")  # (M33.2c; 26.2)
     items["lava_bucket"] = bucket("#E8661A")
     items["milk_bucket"] = bucket("#F4F4F0")
     # Farm animals and their food (M16.3).

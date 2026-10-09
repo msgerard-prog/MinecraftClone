@@ -139,7 +139,19 @@ public:
     // sheep (1-3 wool). Returns what happened so the caller uses up / wears the item.
     // (Sat: a pet sat down or stood up - M26.1; Ride: the player got on a mount - M26.2)
     // (M29.1c) Stew: a bowl came back filled (main swaps the held bowl for mushroom stew).
-    enum class Use { None, Fed, Sheared, Sat, Ride, Stew, Ignited };
+    enum class Use { None, Fed, Sheared, Sat, Ride, Stew, Ignited, Bucket };
+    // (M33.2c; wiki: Sulfur Cube › Archetypes) what a sulfur cube's block makes of it.
+    enum class SulfurKind : uint8_t {
+        Bouncy, Regular, SlowBouncy, FastFlat, Light, FastSliding, SlowSliding, HighResistance, Sticky, SlowFlat,
+        Explosive, Hot
+    };
+    struct SulfurArchetype {
+        SulfurKind kind;
+        double speed, bounce, friction, drag;
+    };
+    // The archetype of a block a sulfur cube can take in (by its item), else null.
+    static const SulfurArchetype* sulfurArchetype(world::ItemId item);
+    static Use sulfurCubeInteract(world::MobData& m, world::ItemId held, world::Xoroshiro& rng, ItemEntities& items);
     static Use interact(world::MobData& mob, world::ItemId held, world::Xoroshiro& rng,
                         ItemEntities& items);
     // A pet's top health (tamed wolves: 40 - M26.1).
@@ -232,6 +244,7 @@ private:
     // Nether mobs (M19.2, NetherMobs.cpp): ghasts, blazes and magma cubes move and
     // attack on their own (true: handled); zombified piglins' anger runs down.
     bool netherAi(Context& ctx, world::MobData& m);
+    bool sulfurCubeAi(Context& ctx, world::MobData& m); // (M33.2c, SulfurCubes.cpp)
     bool waterAi(Context& ctx, world::MobData& m);  // fish and squid (WaterMobs.cpp, M25.2)
     void boatTick(Context& ctx, world::MobData& m); // (Boats.cpp, M25.2b)
     // Pets (Pets.cpp, M26.1).

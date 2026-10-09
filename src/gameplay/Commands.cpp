@@ -719,6 +719,13 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 if (colon == std::string_view::npos) return fail("Invalid data tag");
                 const std::string_view key = pair.substr(0, colon);
                 std::string value(pair.substr(colon + 1));
+                if (key == "Block" && *type == world::MobType::SulfurCube) { // (M33.2c: our shorthand)
+                    std::erase(value, '"');
+                    const auto it = world::itemRegistry().find(value);
+                    if (!it || !Mobs::sulfurArchetype(*it)) return fail("A sulfur cube can't take that block");
+                    mob.absorbed = uint16_t(*it);
+                    continue;
+                }
                 if (!value.empty() &&
                     (value.back() == 'b' || value.back() == 's' || value.back() == 'f'))
                     value.pop_back(); // NBT type suffixes

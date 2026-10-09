@@ -3299,6 +3299,22 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         clicks.useClick = false;
                         clicks.use = false;
                     }
+                // (M33.2c; wiki: Bucket of Sulfur Cube) a carried cube comes out on the clicked face,
+                // with its block, and never despawns; the empty bucket stays.
+                if (static const mc::world::ItemId cubeBucket =
+                        *mc::world::itemRegistry().find("sulfur_cube_bucket");
+                    !dead && clicks.useClick && lastHit && mayBuild && inventory.selectedStack().item == cubeBucket) {
+                    const mc::world::BlockPos b = lastHit->block;
+                    const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
+                    mc::world::MobData cube = mc::Mobs::make(mc::world::MobType::SulfurCube,
+                                                             {b.x + n.x + 0.5, double(b.y + n.y), b.z + n.z + 0.5}, gameRng);
+                    cube.absorbed = uint16_t(inventory.selectedStack().state);
+                    cube.persistent = true;
+                    if (mc::Mobs::add(world, cube) && survival)
+                        inventory.setSlot(inventory.selected(), {*mc::world::itemRegistry().find("bucket"), 1});
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
                 // Spawn eggs (M29.1e; wiki: Spawn Egg): on a mob of its kind, a baby; on a
                 // spawner, the spawner's mob; else the mob stands on the clicked face.
                 if (const uint8_t eggOf =
@@ -4016,6 +4032,21 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         }
                         if (survival && use == mc::Mobs::Use::Sheared) // shears wear 1 per sheep
                             inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                        if (use == mc::Mobs::Use::Bucket) { // (M33.2c) a large sulfur cube into a bucket
+                            mc::world::ItemStack full{*mc::world::itemRegistry().find("sulfur_cube_bucket"), 1};
+                            full.state = mc::world::BlockStateId(mob.absorbed); // (its block's item)
+                            if (survival && held.count == 1) {
+                                inventory.setSlot(inventory.selected(), full);
+                            } else {
+                                if (survival) inventory.consumeSelected(1);
+                                if (inventory.add(full) > 0) droppedItems.spawn(player.position(), full, gameRng);
+                            }
+                            mob.health = 0.0f;
+                            mob.deathTime = 19;
+                            mob.vanish = true; // (gone, not dead: no young, no drops)
+                            mob.absorbed = 0;
+                            mob.ownBlast = true;
+                        }
                         if (survival && use == mc::Mobs::Use::Ignited) { // (M32.6) a lit creeper
                             if (mc::world::itemRegistry().item(held.item).id ==
                                 "minecraft:fire_charge")
@@ -6415,6 +6446,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 m.prevHeadYaw + (m.headYaw - m.prevHeadYaw) * a,
                                 m.prevPitch + (m.pitch - m.prevPitch) * a,
                                 lightTable[size_t(sky * 16 + blk)], camera.position);
+                // (M33.2c) a sulfur cube's block, floating inside its jelly at about half size
+                if (m.type == mc::world::MobType::SulfurCube && m.absorbed != 0)
+                    if (const mc::world::BlockId ab = mc::world::itemRegistry().item(m.absorbed).block; ab != 0)
+                        entities.addBlock(mc::world::blockRegistry().defaultState(ab), p + glm::dvec3(0.0, 0.24, 0.0),
+                                          lightTable[size_t(sky * 16 + blk)], camera.position, 0.5f);
                 // (M29.3e) the block a minecart kind carries, three quarters size, in the cart
                 if (m.type == mc::world::MobType::Minecart && m.decor != 0) {
                     static const mc::world::BlockStateId cartBlocks[7] = {

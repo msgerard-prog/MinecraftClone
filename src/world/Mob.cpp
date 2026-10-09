@@ -191,6 +191,9 @@ const MobInfo& mobInfo(MobType t) {
         {"minecraft:item_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
         {"minecraft:text_display", 1.0f, 0.0, 0.0, 0.0, 0.0f, false, true, true},
         {"minecraft:ominous_item_spawner", 1.0f, 0.25, 0.25, 0.0, 0.0f, false, true, true},
+        // (M33.2c; wiki: Sulfur Cube - 8 (small 4), 0.98 x 0.98 (small 0.49), 0.4 (small 0.3);
+        // drawn from the size-1 cube model at twice its size)
+        {"minecraft:sulfur_cube", 8.0f, 0.98, 0.98, 0.4, 0.0f, false, false, false, 2.0f},
     };
     static_assert(std::size(kInfo) == size_t(MobType::Count));
     return kInfo[static_cast<int>(t)];
@@ -198,6 +201,7 @@ const MobInfo& mobInfo(MobType t) {
 
 float maxHealthOf(const MobData& m) {
     if (m.maxHealth > 0.0f) return m.maxHealth;
+    if (m.type == MobType::SulfurCube && m.isBaby()) return 4.0f; // (M33.2c: small ones)
     if (m.type == MobType::Wolf && m.tamed) return 40.0f; // (wiki: Wolf - 40 once tamed)
     return mobInfo(m.type).maxHealth;
 }

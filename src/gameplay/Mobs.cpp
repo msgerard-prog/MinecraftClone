@@ -352,7 +352,8 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fallDistance = 0.0f;
     } else if (moved.y < 0.0) {
         if (m.type != MobType::Chicken && m.type != MobType::MagmaCube &&
-            m.type != MobType::Slime && m.type != MobType::Breeze && !mobInfo(m.type).flies &&
+            m.type != MobType::Slime && m.type != MobType::SulfurCube && m.type != MobType::Breeze &&
+            !mobInfo(m.type).flies &&
             !vehicle) // (breezes: no fall damage - M26.4c)
             m.fallDistance -=
                 static_cast<float>(moved.y); // (chickens, magma cubes, fliers: no fall damage)
@@ -499,6 +500,7 @@ void Mobs::ai(Context& ctx, MobData& m) {
         }
         return;
     }
+    if (m.type == MobType::SulfurCube && sulfurCubeAi(ctx, m)) return; // (M33.2c)
     if (netherAi(ctx, m)) return;     // ghasts, blazes, magma cubes (NetherMobs.cpp)
     if (waterAi(ctx, m)) return;      // fish and squid (WaterMobs.cpp)
     if (beeAi(ctx, m)) return;        // (M26.3b, Bees.cpp)
@@ -1026,6 +1028,16 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     // (M32.3; wiki: Damage › Immunity) for 10 ticks after a hit only a stronger one
     // counts, by the difference - without a new hurt flash or anger.
     if (m.deathTime > 0) return;
+    // (M33.2c; wiki: Sulfur Cube) with a block inside a hit doesn't hurt it: it is launched
+    // away from the hitter, the harder the hit the farther.
+    if (m.type == MobType::SulfurCube && m.absorbed != 0) {
+        const glm::dvec2 d(m.pos.x - from.x, m.pos.z - from.z);
+        const double l = std::max(1e-6, glm::length(d));
+        const double f = 0.3 + 0.08 * double(damage);
+        m.vel += glm::dvec3(d.x / l * f, 0.25 + 0.04 * double(damage), d.y / l * f);
+        m.lastHurtByPlayer = true;
+        return;
+    }
     const bool cooling = m.hurtTime > 0;
     if (cooling) {
         if (damage <= m.lastHurtAmount) return;
@@ -1200,6 +1212,21 @@ void Mobs::die(Context& ctx, MobData& m) {
         return;
     }
     if (m.hasGear || isSkeleton(m.type)) dropGear(ctx, m);   // (M32.2c)
+    if (m.type == MobType::SulfurCube && !m.ownBlast) { // (M33.2c; wiki: Sulfur Cube)
+        if (m.absorbed != 0) { // its block falls out
+            ctx.items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {m.absorbed, 1}, ctx.rng);
+            m.absorbed = 0;
+        }
+        if (!m.isBaby()) // a large one leaves two small ones
+            for (int k = 0; k < 2 && m_births.size() < m_births.capacity(); ++k) {
+                MobData small = make(MobType::SulfurCube,
+                                     m.pos + glm::dvec3(k == 0 ? -0.25 : 0.25, 0.1, ctx.rng.nextDouble() * 0.5 - 0.25),
+                                     ctx.rng);
+                small.age = -24000;
+                small.health = 4.0f;
+                m_births.push_back(small);
+            }
+    }
     if (m.type == MobType::Villager && m.lastHurtByPlayer) { // (M32.5) the village remembers
         const ChunkPos c0{blockToChunk(int(std::floor(m.pos.x))),
                           blockToChunk(int(std::floor(m.pos.z)))};
@@ -1324,6 +1351,7 @@ void Mobs::die(Context& ctx, MobData& m) {
                 ? 10
             : m.type == MobType::MagmaCube || m.type == MobType::Slime ? int(m.size)
             : m.isBaby() && isZombie(m.type)                           ? 12 // (M32.2: 5 x 2.5)
+            : m.type == MobType::SulfurCube ? (m.isBaby() ? 0 : 1 + int(ctx.rng.nextInt(2))) // (M33.2c: large 1-2)
             : mobInfo(m.type).hostile                                  ? 5
                                       : 1 + static_cast<int>(ctx.rng.nextInt(3));
         // (M27.3) a sculk catalyst nearby takes it and blooms sculk instead

@@ -138,6 +138,9 @@ enum class MobType : uint8_t {
     ItemDisplay,        // shows an item (its id in `commandId`)
     TextDisplay,        // shows text (world::nameText(`commandId`))
     OminousItemSpawner, // (ominous trials) drops its item after a while (`commandId`)
+    // M33.2c - 26.2 (wiki: Sulfur Cube): a passive jelly cube of the sulfur caves; small ones
+    // are its young (`age` < 0); it can take in a block (`absorbed`) and act like it.
+    SulfurCube,
     Count
 };
 
@@ -516,6 +519,8 @@ struct MobData {
     bool climbing = false;      // spider: against a wall last tick
     bool isBaby() const { return age < 0; }
     bool ageLocked = false; // (M33.1; 26.1) a golden dandelion stopped it growing up (AgeLocked)
+    uint16_t absorbed = 0;  // (M33.2c) a sulfur cube's block, as its item (0: none)
+    bool ownBlast = false;  // (M33.2c) a sulfur cube killed by its own TNT: no young
     // AI
     glm::dvec3 goal{0.0}; // wander / chase target
     int goalTicks = 0;    // time spent on the current goal

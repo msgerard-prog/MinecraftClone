@@ -283,8 +283,8 @@ def mob_sounds(name, rng):
             return x
         return [breathe() for _ in range(2)], [voice(rng, 0.3, 300, 200, formant=(200, 2000), breath=0.6)], \
             voice(rng, 0.8, 250, 80, formant=(150, 2000), breath=0.7)
-    if name in ("magma_cube", "slime"):
-        low = 70 if name == "magma_cube" else 110
+    if name in ("magma_cube", "slime", "sulfur_cube"):  # (M33.2c: the sulfur cube a little higher)
+        low = 70 if name == "magma_cube" else 160 if name == "sulfur_cube" else 110
         def squish(d):
             thud = mul(tone(d, low * 1.6, low, "sine"), env(int(d * RATE), 0.003, d / 4))
             wet = mul(bandpass(noise(int(d * RATE), rng), 400, 2500), env(int(d * RATE), 0.005, d / 6))
@@ -540,7 +540,8 @@ MOBS = ["zombie", "cow", "pig", "sheep", "chicken", "skeleton", "creeper", "spid
         "frog", "tadpole", "axolotl", "cave_spider", "silverfish", "wither_skeleton", "phantom", "wither", "breeze",
         "allay", "nautilus", "happy_ghast", "copper_golem", "creaking", "warden", "sniffer",
         "husk", "stray", "bogged", "parched", "skeleton_horse", "zombie_horse", "camel_husk",
-        "zombie_nautilus", "bat", "endermite", "mooshroom", "snow_golem", "piglin_brute", "zoglin", "illusioner"]
+        "zombie_nautilus", "bat", "endermite", "mooshroom", "snow_golem", "piglin_brute", "zoglin", "illusioner",
+        "sulfur_cube"]
 
 
 # --- Everything else ----------------------------------------------------------------

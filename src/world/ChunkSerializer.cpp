@@ -1556,6 +1556,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("ForcedAge", int32_t{0});
             e.put("InLove", int32_t(m.loveTicks));
             if (m.ageLocked) e.put("AgeLocked", int8_t{1}); // (M33.1; 26.1: a golden dandelion's)
+            if (m.type == MobType::SulfurCube && m.absorbed != 0) // (M33.2c: its block, our tag)
+                e.put("clone_block", std::string(itemRegistry().item(m.absorbed).id));
         }
         if (m.type == MobType::Sheep) {
             e.put("Color", int8_t(m.woolColour));
@@ -2236,6 +2238,9 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
         m.loveTicks =
             static_cast<int>(std::clamp<int64_t>(e->integer("InLove").value_or(0), 0, 600));
         m.ageLocked = e->integer("AgeLocked").value_or(0) != 0; // (M33.1; 26.1)
+        if (m.type == MobType::SulfurCube)
+            if (const std::string* blockId = e->string("clone_block"))
+                if (const auto it = itemRegistry().find(*blockId)) m.absorbed = uint16_t(*it);
         if (isZombie(m.type)) { // (M32.2) baby zombies never grow up: any negative age
             if (e->integer("IsBaby").value_or(0) != 0) m.age = -24000;
             m.canBreakDoors = e->integer("CanBreakDoors").value_or(0) != 0;

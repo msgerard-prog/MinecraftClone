@@ -118,6 +118,10 @@ private:
     };
     std::array<GlowRange, 64> m_glow{};
     int m_glowCount = 0;
+    // (M33.2c) see-through mobs (sulfur cubes' jelly): drawn blended after everything else,
+    // so the block inside shows.
+    std::array<GlowRange, 128> m_jelly{};
+    int m_jellyCount = 0;
     struct Vertex {
         float x, y, z;
         float u, v; // atlas texels

@@ -2904,3 +2904,64 @@ TEST_CASE("M33.2 (26.2): sulfur and cinnabar families, potent sulfur and spikes;
     REQUIRE(st);
     CHECK(st->item == *it.find("sulfur_brick_stairs"));
 }
+
+TEST_CASE("M33.2c (26.2): the sulfur cube takes in blocks, acts like them, shrugs off hits and splits in two") {
+    const auto& it = itemRegistry();
+    auto arch = [&](const char* id) { return Mobs::sulfurArchetype(*it.find(id)); };
+    REQUIRE(arch("oak_planks"));
+    CHECK(arch("oak_planks")->kind == Mobs::SulfurKind::Bouncy);
+    CHECK(arch("white_wool")->kind == Mobs::SulfurKind::Light);
+    CHECK(arch("tnt")->kind == Mobs::SulfurKind::Explosive);
+    CHECK(arch("magma_block")->kind == Mobs::SulfurKind::Hot);
+    CHECK(arch("iron_ore")->kind == Mobs::SulfurKind::SlowBouncy);
+    CHECK(arch("sand") == nullptr);
+    CHECK(arch("oak_slab") == nullptr);
+    CHECK(arch("redstone_block") == nullptr);
+    MonsterScene s;
+    s.naturalSpawning = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::SulfurCube, {3.5, 64.0, 3.5}, s.rng)));
+    MobData* c = s.all().at(0);
+    CHECK(c->health == 8.0f);
+    CHECK(Mobs::interact(*c, *it.find("oak_planks"), s.rng, s.items) == Mobs::Use::Fed);
+    CHECK(c->absorbed == *it.find("oak_planks"));
+    // A hit launches it, unhurt.
+    Mobs::attack(*c, 6.0f, {0.5, 64.0, 3.5});
+    CHECK(c->health == 8.0f);
+    CHECK(c->vel.x > 0.5);
+    // Shears take the block back out (it drops).
+    CHECK(Mobs::interact(*c, *it.find("shears"), s.rng, s.items) == Mobs::Use::Sheared);
+    CHECK(c->absorbed == 0);
+    CHECK(s.items.items().size() == 1);
+    CHECK(Mobs::interact(*c, *it.find("bucket"), s.rng, s.items) == Mobs::Use::Bucket);
+    // Without a block it can be hurt; a large one dies into two small ones.
+    c->health = 0.5f;
+    Mobs::attack(*c, 1.0f, {0.5, 64.0, 3.5});
+    s.run(25);
+    int small = 0;
+    for (MobData* m : s.all()) small += m->type == MobType::SulfurCube && m->isBaby();
+    CHECK(small == 2);
+    // A small one grows into a large one; Mobs::box halves it meanwhile.
+    for (MobData* m : s.all())
+        if (m->type == MobType::SulfurCube) {
+            CHECK(Mobs::box(*m).max.x - Mobs::box(*m).min.x == doctest::Approx(0.49));
+            m->age = -2;
+        }
+    s.run(3);
+    for (MobData* m : s.all())
+        if (m->type == MobType::SulfurCube) CHECK_FALSE(m->isBaby());
+}
+
+TEST_CASE("M33.2c: a sulfur cube with TNT lit by flint and steel blows up after 6 s, leaving no young") {
+    const auto& it = itemRegistry();
+    MonsterScene s;
+    s.naturalSpawning = false;
+    s.player.setPosition({30.5, 64.0, 30.5});
+    MobData c = Mobs::make(MobType::SulfurCube, {3.5, 64.0, 3.5}, s.rng);
+    c.absorbed = uint16_t(*it.find("tnt"));
+    REQUIRE(Mobs::add(s.world, c));
+    CHECK(Mobs::interact(*s.all().at(0), *it.find("flint_and_steel"), s.rng, s.items) == Mobs::Use::Ignited);
+    s.run(110);
+    CHECK(s.all().size() == 1);
+    s.run(20);
+    CHECK(s.all().empty());
+}
