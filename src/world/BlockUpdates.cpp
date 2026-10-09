@@ -1919,10 +1919,10 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         const int light = c ? c->blockLight(blockToLocal(p.x), p.y, blockToLocal(p.z)) : 0;
         if (m_random.nextInt(3) == 0 || light > 11) {
             if (iceAge >= 3) {
-                m_world.updateBlock(p, R().defaultState(B::Water));
+                set(p, R().defaultState(B::Water)); // (recorded: re-meshed - M29 review)
                 return;
             }
-            m_world.updateBlock(p, R().set(s, age3, iceAge + 1));
+            set(p, R().set(s, age3, iceAge + 1));
         }
         schedule(p, B::FrostedIce, 20 + int(m_random.nextInt(20)), 0);
         return;

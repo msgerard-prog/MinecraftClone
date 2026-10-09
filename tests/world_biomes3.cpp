@@ -610,6 +610,28 @@ TEST_CASE("overworld7 (M29.8): the M29 blocks generate; nether4 bastions keep pi
         }
     MESSAGE("swamp " << swamp->x << "," << swamp->z << " pads " << swampPads);
     CHECK(swampPads > 0);
+    // Deep-ocean magma comes with its bubble column already generated (M29 perf review).
+    int magma = 0, columns = 0;
+    for (int ring = 0; ring <= 200 && magma < 3; ring += 2)
+        for (int cz = -ring; cz <= ring && magma < 3; cz += 2)
+            for (int cx = -ring; cx <= ring && magma < 3; cx += 2) {
+                if (std::max(std::abs(cx), std::abs(cz)) != ring ||
+                    gen.biomeAt(gen.column(cx * 16 + 8, cz * 16 + 8)) != Biome::DeepOcean)
+                    continue;
+                Chunk c({cx, cz});
+                gen.generate(c);
+                for (int y = kOverworldHeight.minY; y < 60; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x)
+                            if (r.blockOf(c.get(x, y, z)) == blocks::MagmaBlock &&
+                                r.blockOf(c.get(x, y + 1, z)) != blocks::Stone) {
+                                ++magma;
+                                columns += r.blockOf(c.get(x, y + 1, z)) == blocks::BubbleColumn;
+                            }
+            }
+    MESSAGE("magma " << magma << " columns " << columns);
+    CHECK(magma > 0);
+    CHECK(columns == magma);
     const auto jungle = findBiome6(gen, Biome::Jungle);
     REQUIRE(jungle);
     MESSAGE("jungle " << jungle->x << "," << jungle->z);

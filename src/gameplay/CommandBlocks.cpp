@@ -3,6 +3,9 @@
 #include "world/Blocks.h"
 #include "world/Direction.h"
 
+#include <algorithm>
+#include <array>
+
 namespace mc {
 
 using namespace world;
@@ -27,7 +30,7 @@ bool execute(World& world, const BlockPos& p, CommandContext& ctx) {
         const CommandResult r = runCommand(d->command, ctx);
         ctx.origin = before;
         ok = r.ok;
-        d->lastOutput = r.message;
+        if (d->lastOutput != r.message) d->lastOutput = r.message; // (no copy when it repeats)
     }
     d->successCount = ok ? 1 : 0;
     c->markDirty();
@@ -52,11 +55,18 @@ void runCommandBlocks(World& world, std::vector<BlockPos>& runs, CommandContext&
         }
         bool last = execute(world, start, ctx);
         BlockPos p = start;
+        // A loop of chain blocks would run to the cap every tick (M29 review): stop when the
+        // walk comes back to one of the last 64 blocks it passed.
+        std::array<BlockPos, 64> recent{};
+        int seen = 0;
         for (int n = 0; n < maxChain; ++n) { // the chain blocks its front points into
             const auto f = normal(static_cast<Direction>(reg.get(world.getBlock(p), properties::facing6)));
             p = {p.x + f.x, p.y + f.y, p.z + f.z};
             const BlockStateId s = world.getBlock(p);
             if (reg.blockOf(s) != blocks::ChainCommandBlock || p == start) break;
+            if (std::find(recent.begin(), recent.begin() + std::min(seen, 64), p) != recent.begin() + std::min(seen, 64))
+                break;
+            recent[size_t(seen++ % 64)] = p;
             Chunk* c = nullptr;
             CommandBlockData* d = dataAt(world, p, &c);
             if (!d) break;

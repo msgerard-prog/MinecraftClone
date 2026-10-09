@@ -1982,7 +1982,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         if (world.getBlock(w) != water || world.getBlock({w.x, w.y + 1, w.z}) != 0) continue;
                         world.updateBlock(w, reg.defaultState(mc::world::blocks::FrostedIce));
                         blockUpdates.schedule(w, mc::world::blocks::FrostedIce, 20 + int(gameRng.nextInt(20)), 0);
-                        frameEdits.push_back(w);
+                        frameRemesh.push_back(w); // (water and frosted ice light alike: no relight - M29 review)
                     }
             }
             // Soul Speed wears the boots now and then on soul blocks (wiki: 4% a tick, ours 1 in 25).

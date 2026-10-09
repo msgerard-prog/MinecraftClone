@@ -94,11 +94,15 @@ TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water") {
     const BlockPos p{4, 64, 4};
     world.setBlock(p, blockRegistry().defaultState(blocks::FrostedIce));
     updates.schedule(p, blocks::FrostedIce, 1, 0);
+    bool recorded = false; // (M29 review regression: its changes reach the renderer)
     for (int t = 0; t < 2000 && blockRegistry().blockOf(world.getBlock(p)) == blocks::FrostedIce; ++t) {
         updates.setTime(t);
         updates.tick();
+        for (const BlockPos& c : updates.remeshOnly()) recorded = recorded || c == p; // (no light change)
+        updates.remeshOnly().clear();
     }
     CHECK(blockRegistry().blockOf(world.getBlock(p)) == blocks::Water);
+    CHECK(recorded);
 }
 
 // M29.3c: foods and tools.

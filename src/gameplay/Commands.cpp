@@ -22,8 +22,15 @@ namespace mc {
 
 namespace {
 
-std::vector<std::string_view> split(std::string_view s) {
-    std::vector<std::string_view> out;
+// Words of a command line, into a reused buffer (M29 review: repeating command blocks run
+// a command every tick - hard rule 1). Valid until the next call on this thread.
+const std::vector<std::string_view>& split(std::string_view s) {
+    static thread_local std::vector<std::string_view> out = [] {
+        std::vector<std::string_view> v;
+        v.reserve(64);
+        return v;
+    }();
+    out.clear();
     size_t i = 0;
     while (i < s.size()) {
         while (i < s.size() && s[i] == ' ')
@@ -411,7 +418,7 @@ CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) 
 
 CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (!line.empty() && line.front() == '/') line.remove_prefix(1);
-    const auto a = split(line);
+    const auto& a = split(line);
     if (a.empty()) return fail("");
     if (a[0] == "tp" || a[0] == "teleport") return teleport(a, ctx);
     if (a[0] == "time") return time(a, ctx);

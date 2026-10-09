@@ -4054,7 +4054,7 @@ void OverworldGenerator::placeArchaeology6(BlockStateId* blocks, int32_t cx, int
 
 namespace mc::world {
 
-void OverworldGenerator::placeFeatures7(BlockStateId* blocks, Chunk& out, int32_t cx, int32_t cz,
+void OverworldGenerator::placeFeatures7(BlockStateId* blocks, Chunk& /*out*/, int32_t cx, int32_t cz,
                                         const std::array<int, 256>& topY, const std::array<Biome, 16>& biomes) const {
     // Overworld 7 (M29.8; wiki: each block's Natural generation - our densities): what the
     // blocks M29 added grow into the world.
@@ -4090,9 +4090,10 @@ void OverworldGenerator::placeFeatures7(BlockStateId* blocks, Chunk& out, int32_
                  biome == Biome::DeepFrozenOcean) &&
                 roll < 0.004f && above == water && reg.collides(ground)) {
                 chunk.set(x, ty, z, S(blocks::MagmaBlock));
-                out.blockTicks().push_back({int8_t(x), int8_t(z), int16_t(ty), 0, blocks::MagmaBlock, 20,
-                                            uint64_t(out.blockTicks().size())});
-                out.ticksRelative = true;
+                // its bubble column, generated with it (no block updates when the chunk loads -
+                // M29 perf review): the water sources above, pulling down
+                const BlockStateId column = reg.set(S(blocks::BubbleColumn), properties::drag, 0);
+                for (int y = ty + 1; chunk.get(x, y, z) == water; ++y) chunk.set(x, y, z, column);
                 continue;
             }
             // Powder snow traps in groves and snowy slopes (wiki: Powder Snow).

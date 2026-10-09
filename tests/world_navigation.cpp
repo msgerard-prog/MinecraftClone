@@ -354,3 +354,31 @@ TEST_CASE("M29.7: a pulse runs an impulse command block (~ from the block), then
     }
     CHECK(w.getBlock({4, 66, 4}) == 0);
 }
+
+TEST_CASE("M29 review: a ring of chain command blocks stops instead of running to the cap") {
+    Player player;
+    Inventory inv;
+    int64_t dayTime = 0;
+    World w;
+    w.createChunk({0, 0});
+    const auto& r = blockRegistry();
+    CommandContext ctx{player, inv, dayTime, 0, 42};
+    ctx.world = &w;
+    // An impulse block at (2,64,2) facing east into a ring: (3,2) east, (4,2) south,
+    // (4,3) west, (3,3) north - back to (3,2).
+    w.setBlock({2, 64, 2}, *r.with(r.defaultState(blocks::CommandBlock), "facing", "east"));
+    const std::pair<BlockPos, const char*> ring[] = {
+        {{3, 64, 2}, "east"}, {{4, 64, 2}, "south"}, {{4, 64, 3}, "west"}, {{3, 64, 3}, "north"}};
+    for (const auto& [p, f] : ring) {
+        w.setBlock(p, *r.with(r.defaultState(blocks::ChainCommandBlock), "facing", f));
+        CommandBlockData* d = w.chunk({0, 0})->commandBlock(p.x, p.y, p.z);
+        REQUIRE(d);
+        d->autoActive = true;
+        d->command = "time add 1";
+    }
+    w.chunk({0, 0})->commandBlock(2, 64, 2)->command = "time add 1";
+    std::vector<BlockPos> runs{{2, 64, 2}};
+    runCommandBlocks(w, runs, ctx);
+    CHECK(dayTime <= 10); // (each block once, not 65536 times)
+    CHECK(dayTime >= 5);
+}

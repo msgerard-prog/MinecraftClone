@@ -1385,6 +1385,7 @@ void Mobs::tick(Context& ctx) {
     const glm::dvec3 playerPos = ctx.player.position();
     const ChunkPos playerChunk{blockToChunk(int(std::floor(playerPos.x))),
                                blockToChunk(int(std::floor(playerPos.z)))};
+    int riders = 0; // (M29 review: the jockey pass only runs when something rides)
     ctx.world.forEachTickingChunk([&](Chunk& chunk) {
         // Only chunks within the simulation distance tick their mobs (vanilla: entity-
         // ticking chunks); farther mobs keep their state.
@@ -1396,6 +1397,7 @@ void Mobs::tick(Context& ctx) {
         auto& mobs = chunk.mobs();
         for (size_t i = 0; i < mobs.size();) {
             MobData& m = mobs[i];
+            riders += m.vehicle != 0;
             m.prevPos = m.pos;
             m.prevYaw = m.yaw;
             m.prevHeadYaw = m.headYaw;
@@ -1582,7 +1584,8 @@ void Mobs::tick(Context& ctx) {
     for (const MobData& q : ctx.world.queuedMobs())
         add(ctx.world, q);
     ctx.world.queuedMobs().clear();
-    ridePass(ctx);
+    for (const MobData& b : m_births) riders += b.vehicle != 0; // (jockeys spawned this tick)
+    if (riders > 0) ridePass(ctx);
     ctx.world.vibrations().clear(); // (M27.3c: heard by the wardens this pass)
     // A hit zombified piglin angers the others around it (wiki: Zombified Piglin -
     // within about 33 blocks across and 11 up/down; 20-55 s of anger).
