@@ -73,7 +73,11 @@ public:
         m_scratchEdits.reserve(4096);
         m_dragonDeaths.reserve(4);
         m_trapBolts.reserve(4);
+        m_cartCommands.reserve(16);
     }
+    // (M29.7; wiki: Minecart with Command Block) command carts on a powered activator rail
+    // this tick (every 4 ticks each): main runs their commands from where they are.
+    std::vector<uint64_t>& cartCommands() { return m_cartCommands; }
 
     void tick(Context& ctx);
 
@@ -362,6 +366,7 @@ private:
     Pathfinder m_pathfinder;
     Explosion m_explosion;
     std::vector<world::BlockPos> m_scratchEdits; // (explosions without an edit list)
+    std::vector<uint64_t> m_cartCommands;
     int m_hostiles = 0;
     int m_bats = 0; // (M29.1c: the ambient cap, 15)
     int m_fish = 0, m_squid = 0, m_glowSquid = 0,

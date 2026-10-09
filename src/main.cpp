@@ -310,6 +310,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::ui::ContainerScreen container; // survival inventory, crafting table, furnace
     mc::world::BlockPos containerBlock{};
     mc::world::BlockPos commandEditing{}; // (M29.7) the command block whose screen is open
+    uint64_t commandEditingCart = 0;       // (or the command block minecart's)
     std::optional<mc::world::BlockPos> chestSecond; // a double chest's second half
     std::vector<mc::world::ItemStack> screenDrops;
     screenDrops.reserve(16);
@@ -1550,6 +1551,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                             mc::world::properties::conditional) == 0;
                             ms.screen = mc::ui::MenuScreen::CommandBlock;
                             commandEditing = lastHit->block;
+                            commandEditingCart = 0;
                             window.setCursorCaptured(false);
                         }
                     } else if (reg.likeOf(block) == mc::world::blocks::Chest ||
@@ -3479,7 +3481,16 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mh && (!lastHit || mh->distance < lastHit->distance)) {
                     auto& cart = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
                     if (cart.type == mc::world::MobType::Minecart && cart.decor != 0) {
-                        if (cart.hasChest) {
+                        if (cart.decor == 5 && gameMode == 1) { // (M29.7) a command cart's command
+                            auto& ms = shared.menuState;
+                            ms.command = std::string(mc::world::nameText(cart.commandId));
+                            ms.commandOutput.clear();
+                            ms.commandMode = 0;
+                            ms.commandConditional = ms.commandAlways = false;
+                            ms.screen = mc::ui::MenuScreen::CommandBlock;
+                            commandEditingCart = cart.uuidHi;
+                            window.setCursorCaptured(false);
+                        } else if (cart.hasChest) {
                             openMountScreen(cart.uuidHi);
                         } else if (const std::string_view fuelId = mc::world::itemRegistry().item(inventory.selectedStack().item).id;
                                    cart.decor == 2 && (fuelId == "minecraft:coal" || fuelId == "minecraft:charcoal")) {
@@ -4657,6 +4668,19 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 playSound(mc::world::Sound::OrbPickup, player.position(), 1.0f, 1.0f, false);
             }
             mobs.tick(mobCtx);
+            for (const uint64_t cartUuid : mobs.cartCommands()) // (M29.7) command block minecarts
+                if (const mc::world::MobData* cart = mc::Mobs::mobByUuid(world, player.position(), cartUuid)) {
+                    mc::CommandContext ctx{player,   inventory,   dayTime,  gameTime,
+                                           seed,     &survival,   &vitals,  &world,
+                                           &gameRng, &frameEdits, &weather, &commandBolts};
+                    ctx.rules = &rules;
+                    ctx.difficulty = &difficulty;
+                    ctx.gameMode = &gameMode;
+                    const glm::dvec3 from = cart->pos;
+                    ctx.origin = &from;
+                    mc::runCommand(mc::world::nameText(cart->commandId), ctx);
+                }
+            mobs.cartCommands().clear();
             mc::tickHoppers(world, droppedItems); // (M21.3)
             if (ridingCart !=
                 0) { // the rider goes with the cart (an activator rail throws them out)
@@ -6168,6 +6192,14 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.setCursorCaptured(true);
                 attackArmed = false;      // (the click on the button mustn't break a block)
                 last = mc::timeSeconds(); // (no catching up on the paused time)
+            } else if (action == mc::ui::MenuAction::CommandBlockDone && commandEditingCart != 0) {
+                if (mc::world::MobData* cart = mc::Mobs::mobByUuid(world, player.position(), commandEditingCart))
+                    cart->commandId = mc::world::addName(shared.menuState.command);
+                commandEditingCart = 0;
+                shared.menuState.screen = mc::ui::MenuScreen::None;
+                window.setCursorCaptured(true);
+                attackArmed = false;
+                last = mc::timeSeconds();
             } else if (action == mc::ui::MenuAction::CommandBlockDone) { // (M29.7) set the block up
                 const auto& ms = shared.menuState;
                 const auto& reg = mc::world::blockRegistry();

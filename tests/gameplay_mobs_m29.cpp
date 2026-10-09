@@ -434,3 +434,26 @@ TEST_CASE("minecart kinds: furnace carts push themselves, hopper carts pick up i
         if (const std::string* id = t.get<nbt::Compound>()->string("id")) saved = saved || *id == "minecraft:hopper_minecart";
     CHECK(saved);
 }
+
+TEST_CASE("M29.7: a command block minecart on a powered activator rail reports its command every 4 ticks") {
+    MobScene s;
+    s.survival = false;
+    const auto& r = blockRegistry();
+    s.world.setBlock({8, 64, 8}, *r.with(r.defaultState(blocks::ActivatorRail), "powered", "true"));
+    REQUIRE(Mobs::placeMinecart(s.world, {8, 64, 8}, s.rng, 5));
+    MobData* c = findType(s, MobType::Minecart);
+    REQUIRE(c);
+    c->commandId = addName("say hi");
+    int fired = 0;
+    for (int i = 0; i < 12; ++i) {
+        s.tick(1);
+        fired += int(s.mobs.cartCommands().size());
+        s.mobs.cartCommands().clear();
+    }
+    CHECK(fired == 3);
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0));
+    bool saved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const std::string* cmd = t.get<nbt::Compound>()->string("Command")) saved = saved || *cmd == "say hi";
+    CHECK(saved);
+}

@@ -193,6 +193,10 @@ void Mobs::cartKindTick(Context& ctx, MobData& m, BlockStateId rail, const Block
             c->markDirty();
         }
     }
+    // A command block cart (M29.7): on a powered activator rail it runs its command every 4 ticks.
+    if (m.decor == 5 && rail != 0 && r.blockOf(rail) == blocks::ActivatorRail && r.get(rail, properties::powered) == 0 &&
+        m.commandId != 0 && (m.age = m.age + 1) % 4 == 0 && m_cartCommands.size() < m_cartCommands.capacity())
+        m_cartCommands.push_back(m.uuidHi);
     // A TNT cart (wiki: Minecart with TNT): a powered activator rail lights it; 4 s later
     // (`fuse` counts up to 80) it explodes with power 4.
     if (m.decor == 4) {

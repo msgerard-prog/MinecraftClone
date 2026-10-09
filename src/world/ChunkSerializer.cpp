@@ -1462,6 +1462,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             e.put("equipment", std::move(eq));
         }
         if (m.nameId != 0) e.put("CustomName", std::string(nameText(m.nameId))); // (M29.3b)
+        if (m.commandId != 0) e.put("Command", std::string(nameText(m.commandId))); // (M29.7)
         { // (M29.2c) lasting effects, as vanilla's active_effects
             std::vector<nbt::Tag> fx;
             for (const MobData::ActiveEffect& a : m.effects)
@@ -2106,6 +2107,7 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
             if (const nbt::Compound* eqp = e->compound("equipment"))
                 m.saddled = eqp->compound("saddle") != nullptr;
         m.nameId = readName(e->find("CustomName"));                     // (M29.3b)
+        if (const std::string* cmd = e->string("Command")) m.commandId = addName(*cmd); // (M29.7)
         if (const nbt::List* fx = e->list("active_effects")) { // (M29.2c)
             size_t n = 0;
             for (const nbt::Tag& fxTag : fx->items)

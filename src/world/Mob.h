@@ -409,6 +409,7 @@ struct MobData {
     uint16_t heldItem = 0;       // (M29.1b) its main-hand item other than a trident (ItemId; equipment.mainhand)
     int16_t zombifyTicks = 0;    // (M29.1c) a piglin or hoglin outside the Nether (vanilla TimeInOverworld)
     uint32_t nameId = 0;         // (M29.3b) a name-tag name (world::nameText; vanilla CustomName)
+    uint32_t commandId = 0;      // (M29.7) a command block minecart's command (world::nameText; vanilla Command)
     // (M29.2c) lasting effects on the mob (world::Effect ids; vanilla active_effects): up to 4.
     struct ActiveEffect {
         uint8_t type = 0, amplifier = 0;
