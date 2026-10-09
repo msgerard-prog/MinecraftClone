@@ -4,10 +4,10 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-09)
-M29 done (reviews applied; v0.29.0): every block, item, entity, effect and enchantment id of
-Java Edition 1.21.11 is in the game (pinned by tests/data/ids_1_21_11.txt), with overworld7
-and nether4 generating the new blocks. M1-M29 done: the first revision is complete, tagged
-v1.0 (user, 2026-10-08: "once everything is functional and not missing, tag v1.0").
+M30 done (reviews applied; v1.1.0): F5 views and the player model, the first-person hand,
+the 1.9 attack cooldown, swimming/crawling/suffocation, dropped items and orbs that merge and
+save, pathfinding with diagonals, footprints and doors, creative tabs and search, a recipe
+book. M31 (performance) has started: incremental light (M31.1) is in.
 
 ## Next
 User (2026-10-09): "Do option 1 then 2" - M30 (play feel), then M31 (performance).
@@ -26,7 +26,7 @@ M30 - Play feel (the deviations noticed within minutes of playing):
    doors), fences and walls as 1.5-high, trapdoors.
 6. ✅ M30.6 - Creative tabs and search; a basic recipe book.
 M31 - Performance:
-1. M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
+1. ✅ M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
 2. M31.2 - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
    allocation while streaming).
 3. M31.3 - Then the cheapest wins from the review lists below, measured before and after.
@@ -203,6 +203,11 @@ adding a block now means registering it and its model, not drawing. Items, entit
 and GUI textures are made with their systems.
 
 ## Waiting on the user
+- **M30 note:** try `tools/run.sh --world "M30 test"`: F5 (three views), swing a sword and
+  watch the bar under the crosshair, sprint under water to swim, crawl under a trapdoor, die
+  and reload (your drops wait where you fell), E in creative (tabs, Search), E in survival
+  with the green book. In-game checks: does a wandering trader open doors in Java, and where
+  exactly does the creative inventory put the Operator Utilities tab?
 - **M29 note:** new worlds use "overworld7" and "nether4" (pinned since v0.29.0). Try it:
   `tools/run.sh --world "M29 test"`, find a jungle (melons, cocoa) or a swamp (lily pads);
   `/give @s command_block`, place it and right-click it; `/give @s light` to see light
@@ -334,12 +339,14 @@ and GUI textures are made with their systems.
 | M27 | World 3: the remaining biomes, lush and dripstone caves, the deep dark and ancient cities, woodland mansions, ruined portals, trial chambers, trail ruins, geodes, archaeology | ✅ 2026-10-08 v0.27.0 (our own structure designs, cave biomes by column climate: see deviations) |
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | ✅ 2026-10-08 v0.28.0 (67 advancements with simple triggers, our spear charge formula: see deviations) |
 | M29 | Completeness: every 1.21.11 block, item, entity, effect and enchantment; overworld7/nether4 | ✅ 2026-10-09 v0.29.0 (simplified technical blocks, chunk-local ore veins: see deviations) |
+| M30 | Play feel: player model and views, attack cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book | ✅ 2026-10-09 v1.1.0 (basic recipe book, flat held items: see deviations) |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | ✅ 2026-10-09 v1.0 (then polish: deviations, performance) |
 
 ## Backlog (unscheduled)
 - F2 screenshot key (vanilla) for interactive play.
 
 ## Done (latest 10)
+- 2026-10-09 M30 (v1.1.0): play feel - views and player model, combat cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book.
 - 2026-10-09 M29 (v0.29.0) and v1.0: the remaining mobs, effects, enchantments, items and blocks, the Copper Age, technical blocks, overworld7 and nether4; a pinned completeness test.
 - 2026-10-08 M28 (v0.28.0): game rules, difficulty, game modes, statistics, navigation, maps, books, decorations, leads, banners, crossbows, arrows, lingering potions, fireworks, the mace, spears, the remaining blocks, advancements.
 - 2026-10-08 M27 (v0.27.0): overworld6 - the remaining biomes, creakings, lush and dripstone caves, the deep dark, sculk, the warden, ancient cities, geodes, ruined portals, mansions, trial chambers, archaeology, sniffers.

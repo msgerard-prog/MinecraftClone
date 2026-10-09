@@ -57,7 +57,8 @@ The first build downloads dependencies into `out/deps` (≈1 min). Build output 
 
 ## Versions
 `project(... VERSION x.y.z)` in CMakeLists.txt: before 1.0 the minor number is the last
-finished milestone (0.12 = M12). At each milestone end bump it, commit, then tag
+finished milestone (0.12 = M12); after 1.0 it counts milestones since (1.1 = M30, 1.2 = M31).
+At each milestone end bump it, commit, then tag
 `vX.Y.Z` (annotated) and push the tag. Each build embeds `git describe` (BuildInfo.h):
 the log, F3, `--version` and the exe's Windows version resource show it.
 
