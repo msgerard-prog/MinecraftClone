@@ -56,11 +56,11 @@ struct MobScene {
             mobs.tick(ctx);
         }
     }
-    std::vector<MobData*> all() {
+    std::vector<MobData*> all() { // (ambient bats - M29.1c, spawning in the dark below - left out)
         std::vector<MobData*> out;
         world.forEachChunk([&](Chunk& c) {
             for (auto& m : c.mobs())
-                out.push_back(&m);
+                if (m.type != MobType::Bat) out.push_back(&m);
         });
         return out;
     }
@@ -377,6 +377,7 @@ TEST_CASE("two fed cows in love make a calf that grows up; both wait 5 minutes")
     s.tick(200);
     int babies = 0, adults = 0;
     for (MobData* m : s.all()) {
+        if (m->type != MobType::Cow) continue; // (night: monsters may spawn meanwhile)
         if (m->isBaby()) ++babies;
         else {
             ++adults;
@@ -1041,7 +1042,8 @@ TEST_CASE("ender dragon: head hits count in full, others a quarter + 1; crystals
     MobData* dragon = nullptr;
     MobData* crystal = nullptr;
     for (MobData* m : s.all())
-        (m->type == MobType::EnderDragon ? dragon : crystal) = m;
+        if (m->type == MobType::EnderDragon || m->type == MobType::EndCrystal)
+            (m->type == MobType::EnderDragon ? dragon : crystal) = m;
     REQUIRE(dragon);
     REQUIRE(crystal);
     CHECK(dragon->hasBeam);
