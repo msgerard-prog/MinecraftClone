@@ -596,8 +596,44 @@ bool BlockUpdates::rainingNear(const BlockPos& p) const {
            rainingAt(m_world, *m_weather, rel(p, Direction::South));
 }
 
+std::optional<BlockPos> BlockUpdates::lightningRodNear(const BlockPos& p) const {
+    std::optional<BlockPos> best;
+    long long bestD = 0;
+    const HeightRange& h = m_world.height();
+    for (int cz = blockToChunk(p.z - 128); cz <= blockToChunk(p.z + 128); ++cz)
+        for (int cx = blockToChunk(p.x - 128); cx <= blockToChunk(p.x + 128); ++cx) {
+            const Chunk* c = m_world.chunk({cx, cz});
+            if (!c) continue;
+            for (int i = 0; i < c->sectionCount(); ++i) {
+                const Section& sec = c->section(i);
+                if (sec.allPaletteStates([](BlockStateId s) { return R().likeOf(R().blockOf(s)) != B::LightningRod; }))
+                    continue;
+                for (int y = 0; y < 16; ++y)
+                    for (int z = 0; z < 16; ++z)
+                        for (int x = 0; x < 16; ++x) {
+                            if (R().likeOf(R().blockOf(sec.get(x, y, z))) != B::LightningRod) continue;
+                            const BlockPos q{cx * 16 + x, h.minY + i * 16 + y, cz * 16 + z};
+                            if (rainHeight(m_world, q.x, q.z) != q.y + 1) continue; // (the top of its column)
+                            const long long dx = q.x - p.x, dz = q.z - p.z, d = dx * dx + dz * dz;
+                            if (d > 128LL * 128 || (best && d >= bestD)) continue;
+                            best = BlockPos{q.x, q.y + 1, q.z};
+                            bestD = d;
+                        }
+            }
+        }
+    return best;
+}
+
 void BlockUpdates::strikeLightning(const BlockPos& p) {
     if (m_lightning.size() < m_lightning.capacity()) m_lightning.push_back(p);
+    // (M29.5; wiki: Lightning Rod) a bolt on a rod powers it for 8 ticks, takes it back to
+    // bare copper and lights no fire.
+    if (const BlockPos below{p.x, p.y - 1, p.z}; R().likeOf(R().blockOf(at(below))) == B::LightningRod) {
+        const BlockStateId fresh = freshCopper(at(below));
+        set(below, R().set(fresh, powered, 0)); // (powered: true)
+        schedule(below, B::LightningRod, 8, 0);
+        return;
+    }
     // Fire where it lands and up to 4 more within a block (Normal difficulty; wiki:
     // Lightning › Fire), where fire could stay.
     auto ignite = [&](const BlockPos& q) {
@@ -622,7 +658,7 @@ void BlockUpdates::runWeatherTicks() {
             if (storm && m_random.nextInt(100000) == 0) {
                 const int32_t x = cx * 16 + int(m_random.nextInt(16)), z = cz * 16 + int(m_random.nextInt(16));
                 const BlockPos top{x, rainHeight(m_world, x, z), z};
-                if (rainFallsOn(m_world, *m_weather, top)) strikeLightning(top);
+                if (rainFallsOn(m_world, *m_weather, top)) strikeLightning(lightningRodNear(top).value_or(top));
             }
             // Vanilla: random_tick_speed tries of 1 in 48 (1 in 16 a tick at the default 3).
             bool picked = false;

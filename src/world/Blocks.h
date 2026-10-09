@@ -585,6 +585,8 @@ enum : BlockId {
     TripwireHook, // on a wall, facing out (attached, powered)
     DaylightDetector, // inverted, power 0..15 from the sky
     TrappedChest,     // like the chest; powers while open
+    LightningRod,     // then its 3 aged and 4 waxed kinds, like it (facing, powered, waterlogged)
+    LightningRodLast = LightningRod + 7,
     Count
 };
 } // namespace blocks

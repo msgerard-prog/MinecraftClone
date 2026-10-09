@@ -435,18 +435,21 @@ reg("target_side", lambda r: _target(r, False))
 COPPER = ramp(hexc("c87050"), spread=0.28)
 
 
-def _rod(rng, on):
+def _rod(rng, on, pal=COPPER):
     img = Img()
     for y in range(3, 16):
-        img.set(7, y, COPPER[3] if not on else (250, 250, 220, 255))
-        img.set(8, y, COPPER[1] if not on else (200, 220, 255, 255))
+        img.set(7, y, pal[3] if not on else (250, 250, 220, 255))
+        img.set(8, y, pal[1] if not on else (200, 220, 255, 255))
     for x in range(6, 10):
-        img.set(x, 2, COPPER[4])
+        img.set(x, 2, pal[4])
     return img
 
 
 reg("lightning_rod", lambda r: _rod(r, False))
 reg("lightning_rod_on", lambda r: _rod(r, True))
+# (M29.5) the aged rods of 1.21.9, in the copper stages' colours
+for _stage, _hex in (("exposed", "a8806a"), ("weathered", "6d9a72"), ("oxidized", "4fa08a")):
+    reg(_stage + "_lightning_rod", lambda r, h=_hex: _rod(r, False, ramp(hexc(h), spread=0.28)))
 
 
 def _daylight(rng, inverted):

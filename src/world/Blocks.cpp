@@ -1412,6 +1412,21 @@ BlockRegistry buildVanillaBlocks() {
                                   .tool = HarvestTool::Axe, .like = blocks::Chest},
                 {{&facing, "north"}, {&chestType, "single"}}),
           blocks::TrappedChest);
+    // (M29.5; wiki: Lightning Rod - 3 / 6, stone pickaxe; ages like copper since 1.21.9)
+    {
+        static constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
+        BlockId next = blocks::LightningRod;
+        for (const bool waxed : {false, true})
+            for (int i = 0; i < 4; ++i) {
+                BlockSettings rod{.hardness = 3.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                  .tool = HarvestTool::Pickaxe, .tier = 1};
+                rod.randomTicks = !waxed && i < 3;
+                if (next != blocks::LightningRod) rod.like = blocks::LightningRod;
+                check(r.add(std::string(waxed ? "waxed_" : "") + kStages[i] + "lightning_rod", rod,
+                            {{&facing6, "up"}, {&powered, "false"}, {&waterlogged, "false"}}),
+                      next++);
+            }
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

@@ -244,3 +244,36 @@ TEST_CASE("M29.5: trapped chests pair only with trapped chests and power a lamp 
     }
     CHECK(r.value(w.getBlock({4, 64, 5}), "lit") == "false");
 }
+
+TEST_CASE("M29.5: lightning goes to a rod on top within 128 blocks, powers it 8 ticks and cleans its copper") {
+    const auto& r = blockRegistry();
+    World w;
+    for (int cz = -1; cz <= 1; ++cz)
+        for (int cx = -1; cx <= 1; ++cx) w.createChunk({cx, cz});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    w.setBlock({5, 63, 5}, r.defaultState(blocks::Stone));
+    const BlockId weathered = *r.findBlock("minecraft:weathered_lightning_rod");
+    CHECK(r.likeOf(weathered) == blocks::LightningRod);
+    CHECK(BlockUpdates::isCopper(weathered));
+    w.setBlock({5, 64, 5}, r.defaultState(weathered));
+    const auto aim = u.lightningRodNear({-10, 70, 12});
+    REQUIRE(aim);
+    CHECK(*aim == BlockPos{5, 65, 5});
+    int64_t t = 0;
+    u.setTime(t);
+    w.updateBlock({5, 62, 5}, r.defaultState(blocks::RedstoneLamp)); // under the stone it stands on
+    u.strikeLightning(*aim);
+    CHECK(r.blockOf(w.getBlock({5, 64, 5})) == blocks::LightningRod); // back to bare copper
+    CHECK(r.value(w.getBlock({5, 64, 5}), "powered") == "true");
+    CHECK(r.value(w.getBlock({5, 62, 5}), "lit") == "true"); // (strong power through the stone)
+    CHECK(w.getBlock({5, 65, 5}) == 0);                        // no fire
+    for (int i = 0; i < 9; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.value(w.getBlock({5, 64, 5}), "powered") == "false");
+    // Covered by a block, it is not the top of its column: no redirect.
+    w.setBlock({5, 66, 5}, r.defaultState(blocks::Stone));
+    CHECK_FALSE(u.lightningRodNear({-10, 70, 12}));
+}

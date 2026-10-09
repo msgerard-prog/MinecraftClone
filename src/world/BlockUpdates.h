@@ -124,6 +124,11 @@ public:
     void setWeather(const Weather* weather) { m_weather = weather; }
     const std::vector<BlockPos>& lightning() const { return m_lightning; }
     void strikeLightning(const BlockPos& p); // (also /summon lightning_bolt)
+    // (M29.5; wiki: Lightning Rod) a natural bolt aimed at `p` goes to the nearest lightning
+    // rod within 128 blocks that is the top of its column: the cell above its tip.
+    std::optional<BlockPos> lightningRodNear(const BlockPos& p) const;
+    // (M29.5) the same state on its unaffected copper stage (unwaxed copper; else unchanged)
+    static BlockStateId freshCopper(BlockStateId s);
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool jungleLog(BlockId b); // (M29.4b) what cocoa grows on

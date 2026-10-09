@@ -377,6 +377,19 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
         m.boxes[0].faces[int(Direction::Up)].sprite =
             sprite(registry.value(state, "inverted") == "true" ? "daylight_detector_inverted_top" : "daylight_detector_top");
         m.boxes[0].faces[int(Direction::Up)].uv[1] = 0, m.boxes[0].faces[int(Direction::Up)].uv[3] = 16;
+    } else if (name.ends_with("lightning_rod")) {
+        // (M29.5) a 2x2 rod with a 4x4 tip pointing out of its face (vanilla: the same shape);
+        // struck, it shows the bright "on" texture.
+        m.visible = true;
+        const std::string tex = registry.value(state, "powered") == "true" ? "lightning_rod_on" : name;
+        const uint16_t sp = sprite(tex.c_str());
+        const auto f = registry.value(state, "facing").value_or("up");
+        if (f == "up") addBox(m, 7, 0, 7, 9, 12, 9, sp), addBox(m, 6, 12, 6, 10, 16, 10, sp);
+        else if (f == "down") addBox(m, 7, 4, 7, 9, 16, 9, sp), addBox(m, 6, 0, 6, 10, 4, 10, sp);
+        else if (f == "north") addBox(m, 7, 7, 4, 9, 9, 16, sp), addBox(m, 6, 6, 0, 10, 10, 4, sp);
+        else if (f == "south") addBox(m, 7, 7, 0, 9, 9, 12, sp), addBox(m, 6, 6, 12, 10, 10, 16, sp);
+        else if (f == "west") addBox(m, 4, 7, 7, 16, 9, 9, sp), addBox(m, 0, 6, 6, 4, 10, 10, sp);
+        else addBox(m, 0, 7, 7, 12, 9, 9, sp), addBox(m, 12, 6, 6, 16, 10, 10, sp);
     } else if (name == "target") { // (M29.5) cube_column
         m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
     } else if (name == "melon") { // vanilla: cube_column

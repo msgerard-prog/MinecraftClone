@@ -78,7 +78,8 @@ bool signalSource(BlockId b) {
            // (M29.5) plates, detector rails, sensors, daylight detectors, targets, hooks
            b == B::OakPressurePlate || b == B::StonePressurePlate || b == B::LightWeightedPressurePlate ||
            b == B::HeavyWeightedPressurePlate || b == B::DetectorRail || b == B::SculkSensor ||
-           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook || b == B::TrappedChest;
+           b == B::DaylightDetector || b == B::Target || b == B::TripwireHook || b == B::TrappedChest ||
+           b == B::LightningRod;
 }
 
 // Blocks that dust, torches, repeaters, levers and buttons can stand on or hang from:
@@ -287,6 +288,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return flag(s, powered) ? 15 : 0;
     case B::DaylightDetector: // (M29.5) every side
         return R().get(s, power);
+    case B::LightningRod: // (M29.5) struck: 8 ticks
+        return flag(s, powered) ? 15 : 0;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -320,6 +323,8 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
         return toward == Direction::Down ? weak(s, toward) : 0;
     case B::TripwireHook: // (M29.5) strongly the block it hangs on
         return flag(s, powered) && toward == opposite(hFacing(s)) ? 15 : 0;
+    case B::LightningRod: // (M29.5) strongly the block it stands on
+        return flag(s, powered) && toward == opposite(facing6Of(s)) ? 15 : 0;
     case B::OakPressurePlate: // plates power the block under them strongly (wiki)
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -1086,6 +1091,9 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
         break;
     case B::TripwireHook: // (M29.5) the wall it hangs on passes the power on
         notifyNeighbours(rel(p, opposite(hFacing(s))));
+        break;
+    case B::LightningRod:
+        notifyNeighbours(rel(p, opposite(facing6Of(s))));
         break;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
@@ -1866,6 +1874,9 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
         break;
     case B::Target: // (M29.5) the hit wears off
         if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
+        break;
+    case B::LightningRod: // (M29.5)
+        if (flag(s, powered)) set(p, withFlag(s, powered, false));
         break;
     case B::DaylightDetector: { // (M29.5)
         if (m_world.hasSkyLight()) {
@@ -2746,6 +2757,8 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));
+    case B::LightningRod: // (M29.5) points out of the face it was put on, like an end rod
+        return r.set(state, facing6, static_cast<int>(faceDir));
     case B::TripwireHook: // (M29.5) only on a block's side, facing out of it
         if (!horizontal(faceDir) || !solid(opposite(faceDir))) return std::nullopt;
         return withHFacing(state, faceDir);

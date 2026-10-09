@@ -35,8 +35,8 @@ const std::vector<CopperInfo>& copperTable() {
         };
         for (size_t b = 0; b < t.size(); ++b) {
             std::string id = r.block(BlockId(b)).id.substr(10);
-            if (id.find("copper") == std::string::npos || id.find("ore") != std::string::npos ||
-                id.find("raw_") != std::string::npos)
+            if ((id.find("copper") == std::string::npos && !id.ends_with("lightning_rod")) || // (M29.5: rods age)
+                id.find("ore") != std::string::npos || id.find("raw_") != std::string::npos)
                 continue;
             CopperInfo& c = t[b];
             c.waxed = id.starts_with("waxed_");
@@ -71,6 +71,19 @@ const CopperInfo& copperInfo(BlockId b) {
 }
 
 // The same state on another block of the family (property values copied by name).
+BlockStateId transfer(BlockStateId from, BlockId to);
+
+} // namespace
+
+BlockStateId BlockUpdates::freshCopper(BlockStateId s) {
+    BlockId b = R().blockOf(s);
+    if (copperInfo(b).waxed) return s;
+    while (copperInfo(b).stage > 0 && copperInfo(b).previous) b = copperInfo(b).previous;
+    return b == R().blockOf(s) ? s : transfer(s, b);
+}
+
+namespace {
+
 BlockStateId transfer(BlockStateId from, BlockId to) {
     const auto& r = R();
     BlockStateId s = r.defaultState(to);
