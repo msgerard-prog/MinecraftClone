@@ -431,6 +431,24 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name.ends_with("copper_golem_statue")) {
+        // (M29.6) a copper golem in its stage's copper (vanilla: the golem's model in a pose):
+        // legs, body and head; sitting it is 4 pixels lower, with arms up for "star"; its
+        // nose shows which way it faces.
+        const std::string stage = name.substr(0, name.size() - std::string("copper_golem_statue").size());
+        const uint16_t sp = sprite(stage.empty() ? "copper_block" : (stage + "copper").c_str());
+        const std::string pose(registry.value(state, "copper_golem_pose").value_or("standing"));
+        const int dy = pose == "sitting" ? -4 : 0;
+        m.visible = true;
+        if (dy == 0) addBox(m, 5, 0, 7, 7, 4, 9, sp), addBox(m, 9, 0, 7, 11, 4, 9, sp);
+        addBox(m, 4, 4 + dy, 5, 12, 10 + dy, 11, sp);  // body
+        addBox(m, 3, 10 + dy, 4, 13, 16 + dy, 12, sp); // head
+        if (pose == "star") addBox(m, 1, 9, 7, 3, 15, 9, sp), addBox(m, 13, 9, 7, 15, 15, 9, sp);
+        const auto fc = registry.value(state, "facing").value_or("north");
+        if (fc == "north") addBox(m, 7, 11 + dy, 2, 9, 14 + dy, 4, sp);
+        else if (fc == "south") addBox(m, 7, 11 + dy, 12, 9, 14 + dy, 14, sp);
+        else if (fc == "west") addBox(m, 1, 11 + dy, 7, 3, 14 + dy, 9, sp);
+        else addBox(m, 13, 11 + dy, 7, 15, 14 + dy, 9, sp);
     } else if (name.ends_with("_shelf")) { // (M29.6) the shelf on its front, planks round it
         const std::string wood = name.substr(0, name.size() - 6);
         BakedVariant v = cubeAll(sprite((wood + "_planks").c_str()));

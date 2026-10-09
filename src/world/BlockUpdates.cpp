@@ -2431,6 +2431,10 @@ bool BlockUpdates::use(const BlockPos& p) {
         setRaw(p, R().set(s, note, (R().get(s, note) + 1) % 25));
         playNote(p);
         return true;
+    case B::CopperGolemStatue: // (M29.6) the next pose
+        setRaw(p, R().set(s, golemPose, (R().get(s, golemPose) + 1) % 4));
+        m_world.playSound(Sound::Click, p.x + 0.5, p.y + 0.5, p.z + 0.5, 0.5f, 1.2f);
+        return true;
     case B::DaylightDetector: { // (M29.5) inverted and back
         const BlockStateId now = withFlag(s, inverted, !flag(s, inverted));
         set(p, m_world.hasSkyLight() ? R().set(now, power, daylightPower(p, flag(now, inverted))) : now);
@@ -2763,6 +2767,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         return state;
     case B::ChiseledBookshelf: // (M29.5) its front toward the player
     case B::Shelf:             // (M29.6)
+    case B::CopperGolemStatue:
         return withHFacing(state, opposite(look));
     case B::Crafter: { // (M29.5) its front toward the player; looking steeply, up or down with
         // its top toward where the player looks (vanilla: orientation front_top)

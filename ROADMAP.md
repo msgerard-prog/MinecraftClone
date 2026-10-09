@@ -36,7 +36,7 @@ functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data
    by their neighbour): target, tripwires, daylight detectors, lightning rods, crafter,
    chiseled bookshelves, respawn anchors, scaffolding, trapped chests, calibrated sculk
    sensors, bubble columns, coral wall fans.
-6. M29.6 - The Copper Age (1.21.9): shelves, copper bars/chains/lanterns/torches, copper
+6. ✅ M29.6 - The Copper Age (1.21.9): shelves, copper bars/chains/lanterns/torches, copper
    golem statues, chain -> iron_chain.
 7. M29.7 - Technical: command blocks (and minecart), structure blocks/voids, jigsaws,
    barriers, light blocks, player heads, petrified oak slabs, knowledge books.

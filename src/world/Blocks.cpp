@@ -120,6 +120,7 @@ const Property bottom{"bottom", {"true", "false"}};
 const Property crafting{"crafting", {"true", "false"}};
 const Property drag{"drag", {"true", "false"}};
 const Property sideChain{"side_chain", {"unconnected", "right", "center", "left"}};
+const Property golemPose{"copper_golem_pose", {"standing", "sitting", "running", "star"}};
 const Property orientation{"orientation", {"down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
                                            "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
@@ -1503,6 +1504,21 @@ BlockRegistry buildVanillaBlocks() {
         check(r.add(std::string(kShelfWoods[i]) + "_shelf", shelf,
                     {{&facing, "north"}, {&powered, "false"}, {&sideChain, "unconnected"}, {&waterlogged, "false"}}),
               BlockId(blocks::Shelf + i));
+    }
+    // (M29.6; wiki: Copper Golem Statue - 3 / 6, pickaxe) a copper golem turned to copper
+    {
+        static constexpr const char* kStages[4] = {"", "exposed_", "weathered_", "oxidized_"};
+        BlockId next = blocks::CopperGolemStatue;
+        for (const bool waxed : {false, true})
+            for (int i = 0; i < 4; ++i) {
+                BlockSettings st{.hardness = 3.0f, .resistance = 6.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+                                 .tool = HarvestTool::Pickaxe};
+                st.randomTicks = !waxed && i < 3;
+                if (next != blocks::CopperGolemStatue) st.like = blocks::CopperGolemStatue;
+                check(r.add(std::string(waxed ? "waxed_" : "") + kStages[i] + "copper_golem_statue", st,
+                            {{&golemPose, "standing"}, {&facing, "north"}, {&waterlogged, "false"}}),
+                      next++);
+            }
     }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).

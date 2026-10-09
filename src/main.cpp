@@ -3393,6 +3393,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                     clicks.use = false;
                 } else if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
+                           mc::world::blockRegistry().blockOf(world.getBlock(lastHit->block)) ==
+                               mc::world::blocks::CopperGolemStatue) {
+                    // (M29.6; wiki: Copper Golem Statue) a bare statue scraped with an axe wakes
+                    // up as a copper golem (aged or waxed ones are scraped like copper first).
+                    world.updateBlock(lastHit->block, 0);
+                    mc::Mobs::add(world, mc::Mobs::make(mc::world::MobType::CopperGolem,
+                                                        {lastHit->block.x + 0.5, double(lastHit->block.y),
+                                                         lastHit->block.z + 0.5},
+                                                        gameRng));
+                    frameEdits.push_back(lastHit->block);
+                    if (survival) inventory.setSlot(inventory.selected(), mc::wearItem(held, 1, gameRng));
+                    clicks.useClick = false;
+                    clicks.use = false;
+                } else if (def.tool == mc::world::ToolType::Axe && !player.sneaking() &&
                            mc::world::BlockUpdates::strip(world, lastHit->block)) { // (M23.3b)
                     frameEdits.push_back(lastHit->block);
                     if (survival)

@@ -461,3 +461,17 @@ TEST_CASE("M29.6: shelves hold 3 stacks; powered ones side by side make a row of
     CHECK(row[0] == BlockPos{3, 64, 4}); // the viewer's left end
     CHECK(r.value(w.getBlock({3, 64, 4}), "side_chain") != "unconnected");
 }
+
+TEST_CASE("M29.6: copper golem statues age like copper and change pose when used") {
+    const auto& r = blockRegistry();
+    const BlockId exposed = *r.findBlock("minecraft:exposed_copper_golem_statue");
+    CHECK(BlockUpdates::isCopper(exposed));
+    CHECK(r.likeOf(exposed) == blocks::CopperGolemStatue);
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    w.updateBlock({4, 64, 4}, r.defaultState(blocks::CopperGolemStatue));
+    CHECK(u.use({4, 64, 4}));
+    CHECK(r.value(w.getBlock({4, 64, 4}), "copper_golem_pose") == "sitting");
+}

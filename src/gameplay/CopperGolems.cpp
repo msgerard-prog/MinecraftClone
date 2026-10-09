@@ -9,6 +9,7 @@
 // off. Fully oxidized it freezes (vanilla: it becomes a statue block).
 #include "gameplay/Mobs.h"
 
+#include "world/BlockUpdates.h"
 #include "world/Blocks.h"
 #include "world/Items.h"
 
@@ -94,6 +95,18 @@ bool Mobs::copperGolemGoal(Context& ctx, MobData& m, double& speed) {
     if (m.woolColour >= 3 && !m.sheared) { // fully oxidized: frozen
         m.goal = m.pos;
         m.vel.x = m.vel.z = 0.0;
+        // (M29.6; wiki: Copper Golem Statue) after 5-10 minutes frozen it is a statue block
+        if (m.eggTicks <= 0) m.eggTicks = 6000 + int(ctx.rng.nextInt(6000));
+        if (--m.eggTicks == 0) {
+            const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+            if (BlockUpdates::replaceable(ctx.world.getBlock(at))) {
+                static constexpr const char* kFacing[4] = {"south", "west", "north", "east"}; // (vanilla yaw quarters)
+                const int q = int(std::floor(std::fmod(std::fmod(m.yaw, 360.0f) + 360.0f, 360.0f) / 90.0f + 0.5f)) & 3;
+                const BlockStateId st = blockRegistry().defaultState(*blockRegistry().findBlock("minecraft:oxidized_copper_golem_statue"));
+                ctx.world.updateBlock(at, blockRegistry().with(st, "facing", kFacing[q]).value_or(st));
+                m.vanish = true;
+            }
+        }
         return true;
     }
     speed *= 1.2;

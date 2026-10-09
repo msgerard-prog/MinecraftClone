@@ -84,6 +84,7 @@ extern const Property crafting;         // true | false (M29.5: crafters)
 extern const Property orientation;      // the crafter's front and top: north_up, down_east... (vanilla order)
 extern const Property drag;             // true | false (M29.5: bubble columns pulling down)
 extern const Property sideChain;        // unconnected | right | center | left (M29.6: powered shelves in a row)
+extern const Property golemPose;        // standing | sitting | running | star (M29.6: copper golem statues)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -612,6 +613,8 @@ enum : BlockId {
     CopperWallTorch, // like the wall torch
     Shelf,           // oak, then the other 11 woods (kShelfWoods) like it: facing, powered, side_chain
     ShelfLast = Shelf + 11,
+    CopperGolemStatue, // 4 stages, then waxed (copper_golem_pose, facing, waterlogged)
+    CopperGolemStatueLast = CopperGolemStatue + 7,
     Count
 };
 } // namespace blocks
