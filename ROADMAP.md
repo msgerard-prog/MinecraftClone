@@ -4,32 +4,15 @@ Claude rewrites **Status** and **Next** every session and ticks steps as they la
 Milestone details live here; design detail lives in `docs/`.
 
 ## Status (2026-10-09)
-M30 done (reviews applied; v1.1.0): F5 views and the player model, the first-person hand,
-the 1.9 attack cooldown, swimming/crawling/suffocation, dropped items and orbs that merge and
-save, pathfinding with diagonals, footprints and doors, creative tabs and search, a recipe
-book. M31 (performance) has started: incremental light (M31.1) is in.
+M31 done (review applied; v1.2.0): incremental light for edits, chunks in a dense ring grid,
+a ring-buffer work queue, cheap guards (path search cap, drops re-saved only when changed).
+Bench: steady CPU p99 ~0.24 ms, streaming ~1.1 ms, GPU 0.16 ms. M30 done (v1.1.0).
 
 ## Next
-User (2026-10-09): "Do option 1 then 2" - M30 (play feel), then M31 (performance).
-M30 - Play feel (the deviations noticed within minutes of playing):
-1. ✅ M30.1 - Player model and views (also fixed: mob heads turned away from their body
-   turned the wrong way; `bobView` option): F5 cycles first person / third person back / front
-   (camera pulled back up to 4 blocks, stopped by blocks); the player drawn with our skin,
-   worn armor, held items, sneaking; first-person arm and held item with the swing.
-2. ✅ M30.2 - Combat (1.9+): attack cooldown from each item's attack speed, damage x
-   (0.2 + 0.8 x charge^2), crits and sweeps only when charged, sprint knockback; the
-   attack indicator under the crosshair.
-3. ✅ M30.3 - Poses (the camera's eye height now eases, as vanilla - answers the M4 check): swimming (sprint under water, 0.6 box), crawling under 1-block gaps,
-   the gliding box; suffocation for the player and mobs.
-4. ✅ M30.4 - Dropped items and orbs (they also stay behind when changing dimension): merging, saved as entities, death drops scattered.
-5. ✅ M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
-   doors), fences and walls as 1.5-high, trapdoors.
-6. ✅ M30.6 - Creative tabs and search; a basic recipe book.
-M31 - Performance:
-1. ✅ M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
-2. ✅ M31.2 (bench: steady CPU p99 0.37 -> 0.23 ms, streaming 1.51 -> 1.03 ms) - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
-   allocation while streaming).
-3. ✅ M31.3 - Cheap guards from the review lists (measured: no change at normal loads - 30 chasers 0.017 -> 0.016 ms a tick, steady/streaming within noise): at most 6 path searches a tick, suffocation reads each cell once (and now every cell a wide mob's head square covers, as vanilla's isInWall), item merging tests distance first, drops re-save a chunk only when they changed.
+M30 and M31 are done (user, 2026-10-09: "Do option 1 then 2"). What comes next is the
+user's call: more polish from docs/game-design.md, the remaining deferred performance items
+below (none is near the CPU p99 > 4 ms / GPU > 8 ms trigger), the in-game checks under
+Waiting on the user, or 26.x content.
 
 Deferred performance work (from the M2 perf review) — not needed at current numbers;
 revisit if CPU work p99 > 4 ms or GPU > 8 ms on the target hardware:
@@ -340,12 +323,14 @@ and GUI textures are made with their systems.
 | M28 | Progression & game: difficulty settings, adventure/spectator modes, advancements, statistics, game rules, maps/compass/clock, books, leads (llama caravans), item frames, paintings, armor stands, banners, fireworks, crossbows, mace, spears, lingering potions, tipped arrows | ✅ 2026-10-08 v0.28.0 (67 advancements with simple triggers, our spear charge formula: see deviations) |
 | M29 | Completeness: every 1.21.11 block, item, entity, effect and enchantment; overworld7/nether4 | ✅ 2026-10-09 v0.29.0 (simplified technical blocks, chunk-local ore veins: see deviations) |
 | M30 | Play feel: player model and views, attack cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book | ✅ 2026-10-09 v1.1.0 (basic recipe book, flat held items: see deviations) |
+| M31 | Performance: incremental light, dense chunk grid, ring work queue, cheap guards | ✅ 2026-10-09 v1.2.0 |
 | v1.0 | Tag the codebase (git tag v1.0) - only when the first revision is complete | ✅ 2026-10-09 v1.0 (then polish: deviations, performance) |
 
 ## Backlog (unscheduled)
 - F2 screenshot key (vanilla) for interactive play.
 
 ## Done (latest 10)
+- 2026-10-09 M31 (v1.2.0): incremental light, dense chunk grid, ring work queue, path search cap, drops saved only when changed.
 - 2026-10-09 M30 (v1.1.0): play feel - views and player model, combat cooldown, poses, saved drops, pathfinding 2, creative tabs, recipe book.
 - 2026-10-09 M29 (v0.29.0) and v1.0: the remaining mobs, effects, enchantments, items and blocks, the Copper Age, technical blocks, overworld7 and nether4; a pinned completeness test.
 - 2026-10-08 M28 (v0.28.0): game rules, difficulty, game modes, statistics, navigation, maps, books, decorations, leads, banners, crossbows, arrows, lingering potions, fireworks, the mace, spears, the remaining blocks, advancements.
