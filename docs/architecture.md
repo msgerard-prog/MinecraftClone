@@ -110,8 +110,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   15 straight down through opacity-0 blocks, then BFS with loss max(1, opacity);
   block light BFS from emitters. Opacity per state (`lightOpacity`: opaque 15,
   water 1, else 0); emission per state (`lightEmission`). Full recompute per chunk,
-  not incremental. `World` = map of `ChunkPos` → `Chunk`;
-  unloaded chunks read as air.
+  not incremental (M31.1: edits whose 3x3 chunks are lit are corrected incrementally,
+  `updateLightIncremental`, as jobs on the light workers). `World` = a dense 128x128 ring
+  grid of chunks by x/z mod 128 with an overflow map for clashes (M31.2); unloaded chunks
+  read as air. `core/WorkQueue` is a ring buffer that grows only when full.
 - Generators (`world/ChunkGenerator`): `OverworldGenerator` (M8, kind "overworld",
   default for new worlds) - climate columns -> spline-shaped density on 4×8×4 cells,
   trilinear interpolation, cheese/spaghetti/noodle caves, biome per 4×4 column,

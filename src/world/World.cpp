@@ -5,17 +5,35 @@
 
 namespace mc::world {
 
+std::unique_ptr<Chunk>& World::place(std::unique_ptr<Chunk> chunk) {
+    const ChunkPos pos = chunk->pos();
+    auto& slot = m_grid[size_t(slotOf(pos))];
+    if (slot && slot->pos() == pos) { // (replacing the chunk there)
+        slot = std::move(chunk);
+        return slot;
+    }
+    if (const auto it = m_overflow.find(pos); it != m_overflow.end()) {
+        it->second = std::move(chunk);
+        return it->second;
+    }
+    ++m_count;
+    if (!slot) {
+        slot = std::move(chunk);
+        return slot;
+    }
+    auto& o = m_overflow[pos];
+    o = std::move(chunk);
+    return o;
+}
+
 Chunk& World::createChunk(ChunkPos pos) {
     ++m_chunkEpoch;
-    auto& slot = m_chunks[pos];
-    slot = std::make_unique<Chunk>(pos, m_height);
-    return *slot;
+    return *place(std::make_unique<Chunk>(pos, m_height));
 }
 
 Chunk& World::insertChunk(std::unique_ptr<Chunk> chunk) {
     ++m_chunkEpoch;
-    auto& slot = m_chunks[chunk->pos()];
-    slot = std::move(chunk);
+    auto& slot = place(std::move(chunk));
     slot->inTickingList = false;
     if (!slot->furnaces().empty() || !slot->mobs().empty() || !slot->blockTicks().empty() || !slot->spawners().empty() ||
         !slot->brewingStands().empty() || !slot->comparators().empty() || !slot->hoppers().empty() ||
@@ -33,10 +51,24 @@ void World::markTicking(ChunkPos pos) {
 }
 
 std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
-    const auto it = m_chunks.find(pos);
-    if (it == m_chunks.end()) return nullptr;
-    std::unique_ptr<Chunk> chunk = std::move(it->second);
-    m_chunks.erase(it);
+    std::unique_ptr<Chunk> chunk;
+    auto& slot = m_grid[size_t(slotOf(pos))];
+    if (slot && slot->pos() == pos) {
+        chunk = std::move(slot);
+        // An overflow chunk of this slot takes its place (the overflow stays small).
+        for (auto it = m_overflow.begin(); it != m_overflow.end(); ++it)
+            if (slotOf(it->first) == slotOf(pos)) {
+                slot = std::move(it->second);
+                m_overflow.erase(it);
+                break;
+            }
+    } else if (const auto it = m_overflow.find(pos); it != m_overflow.end()) {
+        chunk = std::move(it->second);
+        m_overflow.erase(it);
+    } else {
+        return nullptr;
+    }
+    --m_count;
     ++m_chunkEpoch;
     if (chunk->inTickingList) { // a chunk loaded here again must not be listed twice
         std::erase(m_ticking, pos);
@@ -46,14 +78,14 @@ std::unique_ptr<Chunk> World::removeChunk(ChunkPos pos) {
 }
 
 Chunk* World::chunk(ChunkPos pos) {
-    const auto it = m_chunks.find(pos);
-    return it == m_chunks.end() ? nullptr : it->second.get();
+    const auto& slot = m_grid[size_t(slotOf(pos))];
+    if (slot && slot->pos() == pos) return slot.get();
+    if (m_overflow.empty()) return nullptr;
+    const auto it = m_overflow.find(pos);
+    return it == m_overflow.end() ? nullptr : it->second.get();
 }
 
-const Chunk* World::chunk(ChunkPos pos) const {
-    const auto it = m_chunks.find(pos);
-    return it == m_chunks.end() ? nullptr : it->second.get();
-}
+const Chunk* World::chunk(ChunkPos pos) const { return const_cast<World*>(this)->chunk(pos); }
 
 BlockStateId World::getBlock(const BlockPos& p) const {
     const Chunk* c = chunk(p.chunk());

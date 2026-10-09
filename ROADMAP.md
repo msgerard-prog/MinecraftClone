@@ -27,7 +27,7 @@ M30 - Play feel (the deviations noticed within minutes of playing):
 6. ✅ M30.6 - Creative tabs and search; a basic recipe book.
 M31 - Performance:
 1. ✅ M31.1 - Incremental light (vanilla's increase/decrease queues) instead of the 3x3 relight.
-2. M31.2 - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
+2. ✅ M31.2 (bench: steady CPU p99 0.37 -> 0.23 ms, streaming 1.51 -> 1.03 ms) - Dense ring-indexed chunk/section grid and a ring-buffer work queue (no
    allocation while streaming).
 3. M31.3 - Then the cheapest wins from the review lists below, measured before and after.
 

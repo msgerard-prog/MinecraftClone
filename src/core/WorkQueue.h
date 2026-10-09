@@ -1,7 +1,8 @@
 #pragma once
 
 #include <condition_variable>
-#include <deque>
+#include <algorithm>
+#include <vector>
 #include <mutex>
 #include <optional>
 
@@ -49,9 +50,35 @@ public:
     }
 
 private:
+    // A ring buffer that only grows when full (M31.2: std::deque allocated blocks as items
+    // came and went; after warm-up this allocates nothing).
+    struct Ring {
+        std::vector<std::optional<T>> slots;
+        size_t head = 0, count = 0;
+        bool empty() const { return count == 0; }
+        void push_back(T item) {
+            if (count == slots.size()) {
+                std::vector<std::optional<T>> bigger(std::max<size_t>(16, slots.size() * 2));
+                for (size_t i = 0; i < count; ++i) bigger[i] = std::move(slots[(head + i) % slots.size()]);
+                slots = std::move(bigger);
+                head = 0;
+            }
+            slots[(head + count) % slots.size()] = std::move(item);
+            ++count;
+        }
+        T& front() { return *slots[head]; }
+        void pop_front() {
+            slots[head].reset();
+            head = (head + 1) % slots.size();
+            --count;
+        }
+        void clear() {
+            while (count > 0) pop_front();
+        }
+    };
     std::mutex m_mutex;
     std::condition_variable m_ready;
-    std::deque<T> m_items;
+    Ring m_items;
     bool m_closed = false;
 };
 

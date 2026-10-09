@@ -51,7 +51,7 @@ struct LevelEvent {
 // All loaded chunks. Only the main thread mutates it (see docs/architecture.md).
 class World {
 public:
-    World() {
+    World() : m_grid(size_t(kGrid) * kGrid) {
         m_ticking.reserve(4096);
         m_events.reserve(1024);
         m_sounds.reserve(512);
@@ -96,7 +96,7 @@ public:
     std::unique_ptr<Chunk> removeChunk(ChunkPos pos);
     Chunk* chunk(ChunkPos pos);
     const Chunk* chunk(ChunkPos pos) const;
-    size_t chunkCount() const { return m_chunks.size(); }
+    size_t chunkCount() const { return m_count; }
 
     // World coordinates. Unloaded chunks read as air; writes to them are ignored.
     BlockStateId getBlock(const BlockPos& p) const;
@@ -156,11 +156,15 @@ public:
     }
 
     template <typename Fn> void forEachChunk(Fn&& fn) {
-        for (auto& [key, c] : m_chunks)
+        for (auto& c : m_grid)
+            if (c) fn(*c);
+        for (auto& [key, c] : m_overflow)
             fn(*c);
     }
     template <typename Fn> void forEachChunk(Fn&& fn) const {
-        for (const auto& [key, c] : m_chunks)
+        for (const auto& c : m_grid)
+            if (c) fn(static_cast<const Chunk&>(*c));
+        for (const auto& [key, c] : m_overflow)
             fn(static_cast<const Chunk&>(*c));
     }
 
@@ -169,7 +173,15 @@ private:
     std::vector<MobData> m_newMobs;
     std::vector<Vibration> m_vibrations;
     std::vector<SoundEvent> m_sounds;
-    std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
+    // Loaded chunks (M31.2; vanilla's ViewArea idea): a dense 128 x 128 ring grid by chunk x and
+    // z (mod 128), so streaming chunks in and out allocates nothing; two chunks that share a
+    // slot (only far apart: tests, or a render distance past 60) go to the overflow map.
+    static constexpr int kGrid = 128;
+    static int slotOf(ChunkPos p) { return (p.z & (kGrid - 1)) * kGrid + (p.x & (kGrid - 1)); }
+    std::vector<std::unique_ptr<Chunk>> m_grid;
+    std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_overflow;
+    size_t m_count = 0;
+    std::unique_ptr<Chunk>& place(std::unique_ptr<Chunk> chunk); // (into the grid or the overflow)
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
     ChunkLifecycleListener* m_chunkListener = nullptr;
