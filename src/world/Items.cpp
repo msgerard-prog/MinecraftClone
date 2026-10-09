@@ -65,7 +65,8 @@ ItemRegistry buildItems() {
             b == blocks::CaveVines || b == blocks::CaveVinesPlant ||
             b == blocks::BigDripleafStem || // (M27.2)
             b == blocks::TorchflowerCrop ||
-            b == blocks::PitcherCrop) // (M27.5c: planted by seeds and pods)
+            b == blocks::PitcherCrop || // (M27.5c: planted by seeds and pods)
+            b == blocks::FrostedIce)    // (M29.2b: only from Frost Walker)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.

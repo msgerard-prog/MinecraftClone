@@ -524,6 +524,7 @@ enum : BlockId {
     TallDryGrass,
     CactusFlower,
     Vine,         // up, north, east, south, west
+    FrostedIce,   // (M29.2b) age 0..3: Frost Walker's ice, melting back to water
     Count
 };
 } // namespace blocks
@@ -555,7 +556,11 @@ const BlockRegistry& blockRegistry();
 // What stays when a block is broken or blown up: its water if it was waterlogged
 // (M25.1, wiki: Waterlogging), else air.
 inline BlockStateId leftAfterBreaking(BlockStateId s) {
-    return blockRegistry().waterlogged(s) ? blockRegistry().defaultState(blocks::Water) : BlockStateId{0};
+    // (M29.2b; wiki: Ice) broken ice and frosted ice turn back into water.
+    const BlockId b = blockRegistry().blockOf(s);
+    return blockRegistry().waterlogged(s) || b == blocks::Ice || b == blocks::FrostedIce
+               ? blockRegistry().defaultState(blocks::Water)
+               : BlockStateId{0};
 }
 
 } // namespace mc::world

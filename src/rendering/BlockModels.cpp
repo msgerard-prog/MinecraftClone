@@ -1371,6 +1371,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite((name + "_top").c_str());
                 v.faces[int(Direction::Down)].sprite = sprite((name + "_top").c_str());
                 m = single(v);
+            } else if (name == "frosted_ice") { // (M29.2b) its crack stage by age
+                m = single(cubeAll(sprite(("frosted_ice_" + std::string(registry.value(state, "age").value_or("0"))).c_str())));
+                m.translucent = true;
+                m.cullSame = true;
             } else {
                 m = single(cubeAll(sprite(name.c_str())));
                 if (name == "ice") {

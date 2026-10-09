@@ -91,6 +91,15 @@ public:
     // 0.05 blocks a tick per level instead of falling (wiki: Levitation, ~0.9 b/s).
     // Dolphin's Grace (M25.3b): water keeps 0.96 of the speed a tick instead of 0.8.
     void setDolphinsGrace(bool on) { m_dolphinsGrace = on; }
+    // (M29.2b) the worn boots' Depth Strider and Soul Speed levels.
+    void setBootEnchants(int depthStrider, int soulSpeed) {
+        m_depthStrider = std::min(depthStrider, 3);
+        m_soulSpeed = soulSpeed;
+    }
+    // (M29.2b) slipperiness of the block underfoot (wiki: Ice, Slime Block - vanilla's
+    // block friction: ice 0.98, blue ice 0.989, slime 0.8, else 0.6).
+    static double slipperinessOf(world::BlockId b);
+    bool onSoulBlock() const { return m_onSoul; } // (soul sand/soil underfoot: Soul Speed wears the boots)
     // Swift Sneak (M27.3; wiki): sneaking speed 0.3 + 0.15 a level of the leggings'.
     void setSwiftSneak(int level) { m_sneakFactor = std::min(1.0, kSneakFactor + 0.15 * level); }
     void setEffects(int speed, int slowness, int jumpBoost, bool slowFalling, int levitation = 0) {
@@ -161,6 +170,8 @@ private:
     int m_jumpDelay = 0;
     double m_flyMultiplier = 1.0;
     bool m_dolphinsGrace = false;
+    int m_depthStrider = 0, m_soulSpeed = 0; // (M29.2b)
+    bool m_onSoul = false;
     double m_walkMultiplier = 1.0;
     int m_jumpBoost = 0;
     bool m_slowFalling = false;

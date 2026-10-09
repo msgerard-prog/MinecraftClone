@@ -1617,6 +1617,22 @@ void BlockUpdates::tick() {
 }
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
+    // Frosted ice (M29.2b; wiki: Frosted Ice): every 1-2 s a third of the time (always in
+    // bright light) it ages; at age 3 it melts into water.
+    if (blockOf(s) == B::FrostedIce) {
+        const int iceAge = R().get(s, age3);
+        const Chunk* c = m_world.chunk(p.chunk());
+        const int light = c ? c->blockLight(blockToLocal(p.x), p.y, blockToLocal(p.z)) : 0;
+        if (m_random.nextInt(3) == 0 || light > 11) {
+            if (iceAge >= 3) {
+                m_world.updateBlock(p, R().defaultState(B::Water));
+                return;
+            }
+            m_world.updateBlock(p, R().set(s, age3, iceAge + 1));
+        }
+        schedule(p, B::FrostedIce, 20 + int(m_random.nextInt(20)), 0);
+        return;
+    }
     if (tickOcean(p, s)) return; // (M25.1: coral drying out)
     if (tickDripleaf(p, s)) return; // (M27.2: tipping)
     if (tickSculk(p, s)) return;    // (M27.3: sensors resting, shriekers falling quiet)

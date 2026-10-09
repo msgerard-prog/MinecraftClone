@@ -1305,6 +1305,11 @@ BlockRegistry buildVanillaBlocks() {
     check(r.add("vine", vine, {{&fireEast, "false"}, {&fireNorth, "false"}, {&fireSouth, "false"}, {&fireUp, "false"},
                                {&fireWest, "false"}}),
           blocks::Vine);
+    // (M29.2b; wiki: Frosted Ice) like ice, breaks to nothing; melts on scheduled ticks.
+    check(r.add("frosted_ice", {.hardness = 0.5f, .resistance = 0.5f, .lightOpacity = 1, .opaqueCube = false,
+                                .layer = RenderLayer::Translucent},
+                {{&age3, "0"}}),
+          blocks::FrostedIce);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

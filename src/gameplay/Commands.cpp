@@ -1,5 +1,6 @@
 #include "gameplay/Commands.h"
 
+#include "world/Enchantments.h"
 #include "world/ItemExtras.h"
 
 #include "world/Potions.h"
@@ -269,6 +270,27 @@ std::optional<world::ItemStack> parseStack(std::string_view id, std::string& err
         const auto potion = world::findPotion(rest);
         if (!potion) return failed(format("Unknown potion '%.*s'", int(rest.size()), rest.data()));
         stack.potion = static_cast<uint8_t>(*potion);
+    } else if (const size_t en = id.find("[enchantments="); en != std::string_view::npos) {
+        // diamond_sword[enchantments={sharpness:5,"minecraft:mending":1}] (M29.2b; vanilla's
+        // component; the older {levels:{...}} wrapper is accepted too)
+        std::string_view rest = id.substr(en + 14);
+        if (const size_t lv = rest.find("levels:{"); lv != std::string_view::npos) rest = rest.substr(lv + 8);
+        if (!rest.empty() && rest.front() == '{') rest.remove_prefix(1);
+        rest = rest.substr(0, rest.find('}'));
+        while (!rest.empty()) {
+            const size_t comma = rest.find(',');
+            std::string_view pair = rest.substr(0, comma);
+            const size_t colon = pair.rfind(':');
+            if (colon == std::string_view::npos) return failed("Invalid enchantments");
+            std::string_view key = pair.substr(0, colon);
+            if (!key.empty() && key.front() == '"') key = key.substr(1, key.size() - 2);
+            const auto e = world::findEnchantment(key);
+            const auto level = number<int64_t>(pair.substr(colon + 1));
+            if (!e || !level) return failed(format("Unknown enchantment '%.*s'", int(key.size()), key.data()));
+            world::setEnchantment(stack, *e, int(std::clamp<int64_t>(*level, 1, 255)));
+            if (comma == std::string_view::npos) break;
+            rest.remove_prefix(comma + 1);
+        }
     } else if (name.size() != id.size()) { // a block state
         const auto state = world::blockRegistry().parse(id);
         if (!state) return failed(format("Unknown item '%.*s'", int(id.size()), id.data()));
@@ -356,6 +378,19 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "tp" || a[0] == "teleport") return teleport(a, ctx);
     if (a[0] == "time") return time(a, ctx);
     if (a[0] == "give") return give(a, ctx);
+    if (a[0] == "enchant") { // /enchant @s <enchantment> [level] (M29.2b; wiki: Commands/enchant)
+        if (a.size() < 3 || a.size() > 4 || (a[1] != "@s" && a[1] != "@p")) return fail("Usage: /enchant @s <enchantment> [level]");
+        const auto e = world::findEnchantment(a[2]);
+        if (!e) return fail(format("Unknown enchantment '%.*s'", int(a[2].size()), a[2].data()));
+        const int level = a.size() == 4 ? int(number<int64_t>(a[3]).value_or(0)) : 1;
+        if (level < 1 || level > world::enchantmentInfo(*e).maxLevel) return fail("Invalid level");
+        world::ItemStack held = ctx.inventory.selectedStack();
+        if (held.empty() || !world::canEnchant(held.item, *e)) return fail("Player can't accept that enchantment");
+        world::setEnchantment(held, *e, level);
+        ctx.inventory.setSlot(ctx.inventory.selected(), held);
+        return {true, format("Applied enchantment %.*s to Player's item", int(world::enchantmentInfo(*e).name.size()),
+                         world::enchantmentInfo(*e).name.data())};
+    }
     if (a[0] == "item") return item(a, ctx);
     if (a[0] == "gamemode") {
         // /gamemode survival|creative|adventure|spectator (wiki: Commands/gamemode; the
@@ -726,7 +761,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     }
     if (a[0] == "seed") return {true, format("Seed: [%lld]", static_cast<long long>(ctx.seed))};
     if (a[0] == "help")
-        return {true, "/data /difficulty /effect /fill /gamemode /gamerule /give /help /item /kill "
+        return {true, "/data /difficulty /effect /enchant /fill /gamemode /gamerule /give /help /item /kill "
                       "/seed /setblock /summon /teleport /time /tp /weather /xp"};
     return fail(format("Unknown command: %.*s", int(a[0].size()), a[0].data()));
 }

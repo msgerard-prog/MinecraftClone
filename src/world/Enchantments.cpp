@@ -55,6 +55,16 @@ constexpr EnchantmentInfo kInfo[] = {
     {"minecraft:wind_burst", "Wind Burst", 3, 0, 15, 9, 50, 50, EnchantTarget::Mace, 0},
     // (M28.4e; ours: III, weight 5, costs like Quick Charge)
     {"minecraft:lunge", "Lunge", 3, 5, 12, 20, 38, 50, EnchantTarget::Spear, 0},
+    // (M29.2b; wiki: Depth Strider III weight 2, 10 L to +15; Frost Walker II, Mending I, Soul
+    // Speed III, the curses - treasures, weight 0 here (never from the table); Sweeping Edge
+    // III weight 2, 5 + 9 (L - 1) to +15. Depth Strider and Frost Walker exclude each other.)
+    {"minecraft:depth_strider", "Depth Strider", 3, 2, 10, 10, 15, 45, EnchantTarget::Feet, 6},
+    {"minecraft:frost_walker", "Frost Walker", 2, 0, 10, 10, 15, 35, EnchantTarget::Feet, 6},
+    {"minecraft:mending", "Mending", 1, 0, 25, 0, 50, 75, EnchantTarget::Durable, 0},
+    {"minecraft:soul_speed", "Soul Speed", 3, 0, 10, 10, 15, 45, EnchantTarget::Feet, 0},
+    {"minecraft:sweeping_edge", "Sweeping Edge", 3, 2, 5, 9, 15, 38, EnchantTarget::Sword, 0},
+    {"minecraft:binding_curse", "Curse of Binding", 1, 0, 25, 0, 25, 50, EnchantTarget::Wearable, 0},
+    {"minecraft:vanishing_curse", "Curse of Vanishing", 1, 0, 25, 0, 25, 50, EnchantTarget::Durable, 0},
 };
 static_assert(std::size(kInfo) == size_t(Enchantment::Count));
 
@@ -117,6 +127,7 @@ bool canEnchant(ItemId item, Enchantment e) {
     case EnchantTarget::Crossbow: return d.id == "minecraft:crossbow";
     case EnchantTarget::Mace: return d.id == "minecraft:mace";
     case EnchantTarget::Spear: return d.tool == ToolType::Spear;
+    case EnchantTarget::Wearable: return d.armorSlot != 0 || d.id == "minecraft:elytra" || d.id.ends_with("_head") || d.id.ends_with("_skull") || d.id == "minecraft:carved_pumpkin";
     }
     return false;
 }

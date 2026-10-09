@@ -1876,6 +1876,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 player.setDolphinsGrace(vitals.effectLevel(E::DolphinsGrace) > 0); // (M25.3b)
                 player.setSwiftSneak(mc::world::enchantLevel(
                     inventory.armor(2), mc::world::Enchantment::SwiftSneak)); // (M27.3)
+                player.setBootEnchants(mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::DepthStrider),
+                                       mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::SoulSpeed));
                 // A turtle shell worn above water gives 10 s of Water Breathing, which then
                 // runs down under water (wiki: Turtle Shell).
                 static const mc::world::ItemId turtleHelmet =
@@ -1907,6 +1909,29 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (!arrival && ridingCart == 0)
                 player.tick(world, input);               // waiting for a destination: held in place
             if (player.takeBounce()) vitals.resetFall(); // (slime blocks: no fall damage, M21.5)
+            // Frost Walker (M29.2b; wiki): on the ground, still water sources within 2 + level
+            // blocks under the player's level freeze into frosted ice (with air above).
+            if (const int frost = mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::FrostWalker);
+                frost > 0 && player.onGround() && !dead && ridingCart == 0) {
+                const auto& reg = mc::world::blockRegistry();
+                const int r = 2 + frost;
+                const glm::dvec3 f = player.position();
+                const int fy = int(std::floor(f.y)) - 1;
+                const mc::world::BlockStateId water = reg.defaultState(mc::world::blocks::Water);
+                for (int dz = -r; dz <= r; ++dz)
+                    for (int dx = -r; dx <= r; ++dx) {
+                        if (dx * dx + dz * dz > r * r) continue;
+                        const mc::world::BlockPos w{int(std::floor(f.x)) + dx, fy, int(std::floor(f.z)) + dz};
+                        if (world.getBlock(w) != water || world.getBlock({w.x, w.y + 1, w.z}) != 0) continue;
+                        world.updateBlock(w, reg.defaultState(mc::world::blocks::FrostedIce));
+                        blockUpdates.schedule(w, mc::world::blocks::FrostedIce, 20 + int(gameRng.nextInt(20)), 0);
+                        frameEdits.push_back(w);
+                    }
+            }
+            // Soul Speed wears the boots now and then on soul blocks (wiki: 4% a tick, ours 1 in 25).
+            if (survival && player.onSoulBlock() && gameRng.nextInt(25) == 0 &&
+                mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::SoulSpeed) > 0)
+                inventory.setArmor(3, mc::wearItem(inventory.armor(3), 1, gameRng));
             if (ridingCart == 0 && !player.flying()) {
                 // A sweet berry bush (M26.3; wiki) slows whoever walks through it and pricks
                 // them (1 damage) while they move, once it has grown past its first stage.
@@ -2224,17 +2249,23 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     for (const auto& d : screenDrops)
                         droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), d, gameRng);
                     dead = true;
+                    // (M29.2b; wiki: Curse of Vanishing) cursed items are gone, not dropped.
+                    const auto keepOnDeath = [](const mc::world::ItemStack& it) {
+                        return mc::world::enchantLevel(it, mc::world::Enchantment::VanishingCurse) > 0
+                                   ? mc::world::ItemStack{}
+                                   : it;
+                    };
                     for (int s = 0; s < mc::Inventory::kSlots; ++s) {
-                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.slot(s), gameRng,
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), keepOnDeath(inventory.slot(s)), gameRng,
                                            40);
                         inventory.setSlot(s, {});
                     }
                     for (int piece = 0; piece < 4; ++piece) { // worn armor and the offhand too
-                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.armor(piece),
+                        droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), keepOnDeath(inventory.armor(piece)),
                                            gameRng, 40);
                         inventory.setArmor(piece, {});
                     }
-                    droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), inventory.offhand(), gameRng,
+                    droppedItems.spawn(feet + glm::dvec3(0, 0.5, 0), keepOnDeath(inventory.offhand()), gameRng,
                                        40);
                     inventory.setOffhand({});
                     orbs.drop(feet + glm::dvec3(0, 0.5, 0), vitals.deathExperience(),
@@ -3633,6 +3664,26 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                     m.looting = static_cast<uint8_t>(mc::world::enchantLevel(stack, E::Looting));
                     mc::Mobs::attack(m, dmg, player.position());
+                    // A sweep (M29.2b; wiki: Sword › Sweep attack): a sword hit on the ground,
+                    // not sprinting and not a critical, also hits the mobs within a block of the
+                    // target for 1 (+ Sweeping Edge's L/(L+1) of the hit).
+                    if (held.tool == mc::world::ToolType::Sword && player.onGround() && !player.sprinting() && !crit) {
+                        const int se = mc::world::enchantLevel(stack, E::SweepingEdge);
+                        const float sweep = 1.0f + dmg * float(se) / float(se + 1);
+                        const mc::Aabb mb = mc::Mobs::box(m);
+                        const mc::Aabb near{mb.min - glm::dvec3(1.0, 0.25, 1.0), mb.max + glm::dvec3(1.0, 0.25, 1.0)};
+                        const uint64_t target = m.uuidHi;
+                        for (int dz = -1; dz <= 1; ++dz)
+                            for (int dx = -1; dx <= 1; ++dx)
+                                if (mc::world::Chunk* sc = world.chunk({mh->chunk.x + dx, mh->chunk.z + dz}))
+                                    for (mc::world::MobData& o : sc->mobs())
+                                        if (o.uuidHi != target && o.health > 0.0f && !mc::world::isHanging(o.type) &&
+                                            o.type != mc::world::MobType::ArmorStand && o.type != mc::world::MobType::LeashKnot &&
+                                            o.type != mc::world::MobType::Boat && o.type != mc::world::MobType::Minecart &&
+                                            !(mc::world::isPet(o.type) && o.tamed) && mc::Mobs::box(o).intersects(near))
+                                            mc::Mobs::attack(o, sweep, player.position());
+                        world.levelEvent(mc::world::LevelEvent::Type::Crit, m.pos.x, m.pos.y + 1.0, m.pos.z);
+                    }
                     stats.add(mc::world::Stat::DamageDealt, std::lround(dmg * 10.0f));
                     if (dmg >= 100.0f && stack.item == *mc::world::itemRegistry().find(
                                                            "mace")) // (Over-Overkill: 50 hearts)
@@ -3755,6 +3806,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             mobCtx.mobGriefing = rules.mobGriefing;
             mobCtx.spawnPhantoms = rules.spawnPhantoms;
             mobCtx.difficulty = difficulty;
+            mobCtx.thorns = 0;
+            for (int piece = 0; piece < 4; ++piece)
+                mobCtx.thorns += mc::world::enchantLevel(inventory.armor(piece), mc::world::Enchantment::Thorns);
             mobCtx.worldSeed = seed;
             mobCtx.weather = overworld ? &weather : nullptr;
             mobCtx.thundering = overworld && weather.raining && weather.thunder > 0.9f;
@@ -4233,7 +4287,25 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     }
                 }
             }
-            if (const int xp = orbs.tick(world, player.box(), !dead); xp > 0) {
+            if (int xp = orbs.tick(world, player.box(), !dead); xp > 0) {
+                // Mending (M29.2b; wiki): the orb repairs a damaged Mending item worn or held
+                // first - 2 durability a point - and only what's left counts as experience.
+                const auto mendable = [&](const mc::world::ItemStack& s) {
+                    return !s.empty() && s.damage > 0 && mc::world::itemRegistry().item(s.item).durability > 0 &&
+                           mc::world::enchantLevel(s, mc::world::Enchantment::Mending) > 0;
+                };
+                for (int slot = -6; slot < 0 && xp > 0; ++slot) { // armor x4, offhand, main hand
+                    mc::world::ItemStack s = slot < -2 ? inventory.armor(slot + 6)
+                                             : slot == -2 ? inventory.offhand()
+                                                          : inventory.selectedStack();
+                    if (!mendable(s)) continue;
+                    const int fix = std::min(int(s.damage), xp * 2);
+                    s.damage = uint16_t(s.damage - fix);
+                    xp -= (fix + 1) / 2;
+                    if (slot < -2) inventory.setArmor(slot + 6, s);
+                    else if (slot == -2) inventory.setOffhand(s);
+                    else inventory.setSlot(inventory.selected(), s);
+                }
                 vitals.addExperience(xp);
                 playSound(mc::world::Sound::OrbPickup, player.position(), 1.0f, 1.0f, false);
             }

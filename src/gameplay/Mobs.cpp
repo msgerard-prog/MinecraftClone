@@ -708,6 +708,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
                               (m.type == MobType::IronGolem ? float(ctx.rng.nextInt(15)) : 0.0f);
             if (ctx.vitals.attacked(hit, &m.pos)) {
                 setPlayerAttacker(m.uuidHi); // (tamed wolves go for it - M26.1)
+                // Thorns (M29.2b; wiki): 15% a level (added up over the armor, ours) to hit
+                // back for 1-4.
+                if (ctx.thorns > 0 && int(ctx.rng.nextInt(100)) < 15 * ctx.thorns)
+                    attack(m, float(1 + ctx.rng.nextInt(4)), ctx.player.position());
                 ctx.player.knockback(toPlayer.x, toPlayer.z);
                 if (m.type == MobType::IronGolem)
                     ctx.player.setVelocity(ctx.player.velocity() + glm::dvec3(0.0, 0.4, 0.0));

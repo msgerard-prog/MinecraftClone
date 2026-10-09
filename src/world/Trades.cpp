@@ -210,7 +210,10 @@ uint16_t randomEnchantment(ItemId item, Xoroshiro& rng, bool book) {
     int n = 0;
     for (int e = 1; e < int(Enchantment::Count); ++e) {
         const auto kind = static_cast<Enchantment>(e);
-        if (kind == Enchantment::Thorns || kind == Enchantment::SwiftSneak) continue; // (no effect yet; a treasure)
+        // (wiki: Librarian - every enchantment but Swift Sneak, Soul Speed and Wind Burst)
+        if (kind == Enchantment::SwiftSneak || kind == Enchantment::SoulSpeed || kind == Enchantment::WindBurst)
+            continue;
+        if (!book && enchantmentInfo(kind).weight == 0) continue; // (gear: table enchantments only)
         if (book || canEnchant(item, kind)) choices[n++] = kind;
     }
     if (n == 0) return 0;

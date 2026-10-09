@@ -106,6 +106,7 @@ HarvestInfo harvestInfo(BlockId b) {
                 0}; // wiki: Monster Spawner - any pickaxe for its experience; never drops itself
     case blocks::Ice:
     case blocks::PackedIce:
+    case blocks::FrostedIce: // (M29.2b)
     case blocks::Piston: // wiki: Piston - pickaxe is fastest, any tool drops it
     case blocks::StickyPiston:
     case blocks::PistonHead:
@@ -783,6 +784,7 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::Glass:
     case blocks::Ice:
     case blocks::PackedIce:
+    case blocks::FrostedIce:
     case blocks::PistonHead: // the base drops the piston
     case blocks::Fire:
         return;

@@ -1,6 +1,8 @@
 // Chat commands (wiki: Commands/teleport, Commands/time, Commands/give).
 #include "gameplay/Commands.h"
 #include "world/Blocks.h"
+#include "world/Enchantments.h"
+#include "world/Items.h"
 
 #include <doctest/doctest.h>
 
@@ -183,4 +185,22 @@ TEST_CASE("/effect gives and clears status effects (M24.5: Bad Omen for raids)")
     CHECK_FALSE(runCommand("/effect give @s flying", c.ctx).ok);
     CHECK(runCommand("/effect clear @s", c.ctx).ok);
     CHECK(v.effectLevel(mc::world::Effect::BadOmen) == 0);
+}
+
+TEST_CASE("/enchant and the enchantments component (M29.2b)") {
+    Ctx c;
+    CHECK(runCommand("/give @s diamond_boots[enchantments={frost_walker:2,\"minecraft:mending\":1}]", c.ctx).ok);
+    int slot = -1;
+    for (int i = 0; i < Inventory::kSlots; ++i)
+        if (!c.hotbar.slot(i).empty() && world::itemRegistry().item(c.hotbar.slot(i).item).id == "minecraft:diamond_boots")
+            slot = i;
+    REQUIRE(slot >= 0);
+    CHECK(world::enchantLevel(c.hotbar.slot(slot), world::Enchantment::FrostWalker) == 2);
+    CHECK(world::enchantLevel(c.hotbar.slot(slot), world::Enchantment::Mending) == 1);
+    c.hotbar.setSlot(0, {*world::itemRegistry().find("iron_sword"), 1});
+    c.hotbar.select(0);
+    CHECK(runCommand("/enchant @s sweeping_edge 3", c.ctx).ok);
+    CHECK(world::enchantLevel(c.hotbar.selectedStack(), world::Enchantment::SweepingEdge) == 3);
+    CHECK_FALSE(runCommand("/enchant @s depth_strider", c.ctx).ok); // (not on a sword)
+    CHECK_FALSE(runCommand("/enchant @s sharpness 9", c.ctx).ok);
 }

@@ -47,6 +47,14 @@ enum class Enchantment : uint8_t {
     Breach,       // (M28.4d) maces: armor protects 15% less a level
     WindBurst,    // (M28.4d) maces: a smash launches the player up (treasure)
     Lunge,        // (M28.4e) spears: a jab throws the player forward
+    // M29.2b (wiki pages of each)
+    DepthStrider,   // boots: a third less water slowdown a level
+    FrostWalker,    // boots: freezes water underfoot (treasure)
+    Mending,        // any: experience repairs it (treasure)
+    SoulSpeed,      // boots: faster on soul sand and soil (treasure)
+    SweepingEdge,   // swords: sweep attacks do more
+    BindingCurse,   // wearables: can't be taken off (treasure)
+    VanishingCurse, // any: gone when its holder dies (treasure)
     Count
 };
 // Random enchantments (loot enchant_randomly, fishing treasure) draw from the ones before
@@ -55,7 +63,7 @@ enum class Enchantment : uint8_t {
 inline constexpr uint32_t kRandomEnchantments = uint32_t(Enchantment::Channeling);
 
 // What an enchantment fits on.
-enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow, Mace, Spear };
+enum class EnchantTarget : uint8_t { Armor, Head, Feet, Sword, Digger, Durable, Bow, FishingRod, Trident, Legs, Crossbow, Mace, Spear, Wearable };
 
 struct EnchantmentInfo {
     std::string_view id; // "minecraft:sharpness"

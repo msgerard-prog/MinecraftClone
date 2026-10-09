@@ -208,7 +208,11 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         if (input.sneak && fluid.water) m_velocity.y -= kSwimUp;
         const glm::dvec3 fwd(world::forwardFlat(m_yaw));
         const glm::dvec3 rgt(world::rightFlat(m_yaw));
-        m_velocity += (fwd * in.y + rgt * in.x) * kSwimAccel;
+        // Depth Strider (M29.2b; wiki): water slows a third less a level - drag and
+        // acceleration move toward the ground's (half as much off the ground).
+        const double strider = fluid.water ? double(m_depthStrider) / 3.0 * (m_onGround ? 1.0 : 0.5) : 0.0;
+        const double swimAccel = kSwimAccel + (kWalkSpeed * m_walkMultiplier - kSwimAccel) * strider;
+        m_velocity += (fwd * in.y + rgt * in.x) * swimAccel;
         if (fluid.water) m_velocity += fluid.flow * kWaterPush;
         const glm::dvec3 wanted = m_velocity;
         move(world, m_velocity);
@@ -217,8 +221,10 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         // "horizontal speed -50%, vertical -20%").
         if (fluid.water && m_dolphinsGrace)
             m_velocity *= glm::dvec3(0.96, kWaterDrag, 0.96); // (Dolphin's Grace)
-        else if (fluid.water)
-            m_velocity *= kWaterDrag;
+        else if (fluid.water) {
+            const double drag = kWaterDrag + (0.546 - kWaterDrag) * strider;
+            m_velocity *= glm::dvec3(drag, kWaterDrag, drag);
+        }
         else
             m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
         m_velocity.y -= kFluidGravity;
@@ -273,15 +279,22 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         return;
     }
 
+    // The block underfoot (M29.2b): its slipperiness (ice slides) and speed (soul sand slows
+    // to 0.4 unless the boots have Soul Speed, which speeds it up instead - wiki).
+    const world::BlockId under = world::blockRegistry().blockOf(
+        world.getBlock({int(std::floor(m_pos.x)), int(std::floor(m_pos.y - 0.5)), int(std::floor(m_pos.z))}));
+    const double groundSlip = m_onGround && !m_flying ? slipperinessOf(under) : kGroundSlipperiness;
+    m_onSoul = m_onGround && !m_flying && (under == world::blocks::SoulSand || under == world::blocks::SoulSoil);
     double accel;
     if (m_flying) {
         accel = kFlySpeed * (m_sprinting ? 2.0 : 1.0) * m_flyMultiplier;
         if (input.jump) m_velocity.y += kFlyVertical;
         if (input.sneak) m_velocity.y -= kFlyVertical;
     } else if (m_onGround) {
-        const double slip = kGroundSlipperiness;
+        const double slip = groundSlip;
         accel = kWalkSpeed * m_walkMultiplier * (m_sprinting ? kSprintFactor : 1.0) *
                 std::pow(0.6 / slip, 3.0);
+        if (m_onSoul && m_soulSpeed > 0) accel *= 1.0 + 0.105 * double(m_soulSpeed); // (ours: +10.5% a level)
     } else {
         accel = kAirAccel * (m_sprinting ? kSprintFactor : 1.0);
     }
@@ -340,7 +353,7 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
 
     // After moving: gravity and drag, then friction (MCPK: Horizontal/Vertical Movement Formulas).
     const double friction =
-        m_onGround && !m_flying ? kGroundSlipperiness * kAirFriction : kAirFriction;
+        m_onGround && !m_flying ? groundSlip * kAirFriction : kAirFriction;
     if (m_flying) {
         m_velocity.y *= kFlyVerticalDamping;
         if (m_onGround) m_flying = false; // landing ends creative flight
@@ -355,6 +368,21 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
     if (onHoney) { // (its speed factor: vanilla scales the motion after moving)
         m_velocity.x *= 0.4;
         m_velocity.z *= 0.4;
+    }
+    if (m_onSoul && under == world::blocks::SoulSand && m_soulSpeed == 0) { // (speed factor 0.4)
+        m_velocity.x *= 0.4;
+        m_velocity.z *= 0.4;
+    }
+}
+
+double Player::slipperinessOf(world::BlockId b) {
+    using namespace world;
+    switch (b) {
+    case blocks::Ice: case blocks::PackedIce: return 0.98;
+    case blocks::BlueIce: return 0.989;
+    case blocks::SlimeBlock: return 0.8;
+    case blocks::FrostedIce: return 0.98;
+    default: return kGroundSlipperiness;
     }
 }
 

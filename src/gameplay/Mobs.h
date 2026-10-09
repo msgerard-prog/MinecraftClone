@@ -57,6 +57,7 @@ public:
         // (0 peaceful .. 3 hard).
         bool mobDrops = true, mobGriefing = true, spawnPhantoms = true;
         int difficulty = 2;
+        int thorns = 0; // (M29.2b) the Thorns levels of the player's armor, added up
     };
 
     // Chunks farther than this (Chebyshev, in chunks) from the player don't tick mobs

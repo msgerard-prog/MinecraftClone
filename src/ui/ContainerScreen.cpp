@@ -12,6 +12,7 @@
 #include "gameplay/Smithing.h"
 #include "gameplay/Stonecutter.h"
 #include "ui/Hud.h"
+#include "world/Enchantments.h"
 #include "world/Trades.h"
 
 #include <algorithm>
@@ -701,6 +702,10 @@ void ContainerScreen::clickSlots(double mx, double my, Button button, bool shift
         if (px < slot.x - 1 || py < slot.y - 1 || px >= slot.x + 17 || py >= slot.y + 17) continue;
         world::ItemStack* s = stackAt(slot, inventory);
         if (!s) return;
+        // Curse of Binding (M29.2b; wiki): worn, it can't be taken off outside creative.
+        if (slot.kind == Slot::Kind::Armor && !m_creative && !s->empty() &&
+            world::enchantLevel(*s, world::Enchantment::BindingCurse) > 0)
+            return;
         world::ItemStack v = *s; // edit a copy, write back (inventory slots via setSlot)
         auto store = [&] {
             if (v.count == 0) v = {};

@@ -55,3 +55,48 @@ TEST_CASE("turtle master: brewed from a turtle shell, two effects; the 1.21 poti
     CHECK(findPotion("minecraft:luck") == Potion::Luck);
     CHECK(findEffect("minecraft:wind_charged") == Effect::WindCharged);
 }
+
+// M29.2b: enchantments and what they need (wiki: Frosted Ice, Ice, Mending...).
+#include "gameplay/Player.h"
+#include "world/BlockUpdates.h"
+#include "world/Blocks.h"
+#include "world/Enchantments.h"
+#include "world/World.h"
+
+TEST_CASE("the M29.2b enchantments fit their items; treasures never come from the table") {
+    const auto& items = itemRegistry();
+    CHECK(canEnchant(*items.find("diamond_boots"), Enchantment::DepthStrider));
+    CHECK(canEnchant(*items.find("diamond_boots"), Enchantment::FrostWalker));
+    CHECK(canEnchant(*items.find("iron_sword"), Enchantment::SweepingEdge));
+    CHECK(canEnchant(*items.find("iron_pickaxe"), Enchantment::Mending));
+    CHECK(canEnchant(*items.find("iron_helmet"), Enchantment::BindingCurse));
+    CHECK_FALSE(canEnchant(*items.find("iron_sword"), Enchantment::BindingCurse));
+    CHECK(enchantmentInfo(Enchantment::Mending).weight == 0);
+    CHECK(findEnchantment("minecraft:vanishing_curse") == Enchantment::VanishingCurse);
+}
+
+TEST_CASE("ice and frosted ice leave water when broken; ice is slippery") {
+    const auto& r = blockRegistry();
+    CHECK(leftAfterBreaking(r.defaultState(blocks::Ice)) == r.defaultState(blocks::Water));
+    CHECK(leftAfterBreaking(r.defaultState(blocks::FrostedIce)) == r.defaultState(blocks::Water));
+    CHECK(leftAfterBreaking(r.defaultState(blocks::Stone)) == 0);
+    CHECK(Player::slipperinessOf(blocks::Ice) == doctest::Approx(0.98));
+    CHECK(Player::slipperinessOf(blocks::BlueIce) == doctest::Approx(0.989));
+    CHECK(Player::slipperinessOf(blocks::Stone) == doctest::Approx(0.6));
+    CHECK_FALSE(itemRegistry().find("frosted_ice").has_value()); // (no item, as vanilla)
+}
+
+TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water") {
+    World world;
+    world.createChunk({0, 0});
+    BlockUpdates updates(world);
+    world.setListener(&updates);
+    const BlockPos p{4, 64, 4};
+    world.setBlock(p, blockRegistry().defaultState(blocks::FrostedIce));
+    updates.schedule(p, blocks::FrostedIce, 1, 0);
+    for (int t = 0; t < 2000 && blockRegistry().blockOf(world.getBlock(p)) == blocks::FrostedIce; ++t) {
+        updates.setTime(t);
+        updates.tick();
+    }
+    CHECK(blockRegistry().blockOf(world.getBlock(p)) == blocks::Water);
+}
