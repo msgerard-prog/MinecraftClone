@@ -42,9 +42,16 @@ public:
     // Returns the new item (nullptr for an empty stack).
     ItemEntity* spawn(const glm::dvec3& pos, const world::ItemStack& stack, world::Xoroshiro& rng,
                       int pickupDelay = 10);
-    // Thrown by the player along `look` (Q / death): faster, longer pickup delay.
+    // Thrown by the player along `look` (Q): faster, longer pickup delay.
     void throwFrom(const glm::dvec3& eye, const glm::dvec3& look, const world::ItemStack& stack,
                    world::Xoroshiro& rng);
+    // Dropped all around (M30.4; vanilla dropAll on death: a random direction, up to 0.5
+    // blocks a tick out and 0.2 up).
+    void scatter(const glm::dvec3& pos, const world::ItemStack& stack, world::Xoroshiro& rng);
+    // Saving (M30.4): moves the stacks inside `chunk` into its droppedItems() (park) and
+    // back into the pool (unpark). Returns how many moved.
+    int park(world::Chunk& chunk);
+    int unpark(world::Chunk& chunk, world::Xoroshiro& rng);
 
     // One tick: physics, pickup into `inventory` if `player` (box) is near and
     // `canPickUp`, despawn. Returns how many stacks were picked up (for a sound later).
@@ -90,6 +97,9 @@ public:
     }
 
 private:
+    // Merging (M30.4; vanilla ItemEntity.mergeWithNeighbours): stacks of the same item within
+    // half a block join up to the stack size, the fuller one taking the other in.
+    void mergeNear(size_t i);
     std::array<world::ItemStack, 16> m_picked{};
     int m_pickedCount = 0;
     void move(const world::World& world, ItemEntity& e);

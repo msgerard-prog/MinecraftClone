@@ -81,6 +81,9 @@ public:
         m_commandBlocks.clear();
         m_brushables.clear();
         m_mobs.clear();
+        m_droppedItems.clear();
+        m_droppedOrbs.clear();
+        savedDrops = 0;
         m_blockTicks.clear();
         m_tickSet.clear();
         m_tickSetValid = true;
@@ -427,6 +430,26 @@ public:
     // saved in the world's entities/ region files).
     std::vector<MobData>& mobs() { return m_mobs; }
     const std::vector<MobData>& mobs() const { return m_mobs; }
+    // Dropped items and experience orbs parked here while the chunk is unloaded or being
+    // saved (M30.4; vanilla saves them with the entities as minecraft:item and
+    // minecraft:experience_orb). While loaded they live in gameplay's pools.
+    struct DroppedItem {
+        glm::dvec3 pos{0.0}, vel{0.0};
+        ItemStack stack;
+        int16_t age = 0, pickupDelay = 0;
+    };
+    struct DroppedOrb {
+        glm::dvec3 pos{0.0}, vel{0.0};
+        int value = 0, count = 1;
+        int16_t age = 0;
+    };
+    std::vector<DroppedItem>& droppedItems() { return m_droppedItems; }
+    const std::vector<DroppedItem>& droppedItems() const { return m_droppedItems; }
+    std::vector<DroppedOrb>& droppedOrbs() { return m_droppedOrbs; }
+    const std::vector<DroppedOrb>& droppedOrbs() const { return m_droppedOrbs; }
+    // How many items and orbs its last save held: a chunk whose drops are gone since must
+    // be saved again (or they would come back on loading).
+    int savedDrops = 0;
     // The chests mobs carry (M26.2: donkeys, mules, llamas, chest boats), by the mob's
     // UUID; they go with the mob when it changes chunks (Mobs) and are saved as its Items.
     struct MobStoreEntry {
@@ -537,6 +560,8 @@ private:
     std::vector<BeehiveEntry> m_beehives;
     std::vector<BrewingEntry> m_brewing;
     std::vector<MobData> m_mobs;
+    std::vector<DroppedItem> m_droppedItems;
+    std::vector<DroppedOrb> m_droppedOrbs;
     std::vector<MobStoreEntry> m_mobStores;
     std::vector<BlockTick> m_blockTicks;
     TickSet m_tickSet; // keys of m_blockTicks (valid unless edited in bulk)

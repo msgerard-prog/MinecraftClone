@@ -86,6 +86,8 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
         m_requested.erase(std::find(m_requested.begin(), m_requested.end(), p));
         if (wanted(p.x - center.x, p.z - center.z, m_renderDistance)) {
             m_world.insertChunk(std::move(*chunk));
+            if (auto* l = m_world.chunkListener())
+                if (Chunk* c = m_world.chunk(p)) l->chunkLoaded(*c);
             loaded.push_back(p);
         } else {
             m_recycled.push(std::move(*chunk));
@@ -105,6 +107,8 @@ void ChunkLoader::update(ChunkPos center, std::vector<ChunkPos>& loaded,
                 m_far.push_back(c.pos());
         });
         for (const ChunkPos& p : m_far) {
+            if (auto* l = m_world.chunkListener())
+                if (Chunk* c = m_world.chunk(p)) l->chunkUnloading(*c);
             if (auto chunk = m_world.removeChunk(p)) {
                 if (m_storage && chunk->dirty()) m_storage->save(ChunkSnapshot::of(*chunk, m_gameTime));
                 m_recycled.push(std::move(chunk));

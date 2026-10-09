@@ -16,6 +16,7 @@ namespace mc {
 struct ExperienceOrb {
     glm::dvec3 pos{0.0}, prevPos{0.0}, vel{0.0};
     int value = 0;
+    int count = 1; // (M30.4; vanilla 1.17+) orbs of the same value merged into one
     int age = 0;
 };
 
@@ -31,6 +32,9 @@ public:
 
     const std::vector<ExperienceOrb>& orbs() const { return m_orbs; }
     void clear() { m_orbs.clear(); }
+    // Saving (M30.4): orbs inside `chunk` into its droppedOrbs() and back. Return how many.
+    int park(world::Chunk& chunk);
+    int unpark(world::Chunk& chunk);
 
 private:
     std::vector<ExperienceOrb> m_orbs;

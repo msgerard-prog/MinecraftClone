@@ -19,6 +19,16 @@ void ExperienceOrbs::drop(const glm::dvec3& pos, int points, Xoroshiro& rng) {
                 break;
             }
         points -= v;
+        // (M30.4; vanilla tryMergeToExisting) an orb of the same value within half a block
+        // takes it as one more in its count.
+        bool merged = false;
+        for (ExperienceOrb& o : m_orbs)
+            if (!merged && o.value == v && o.count > 0 && std::abs(o.pos.x - pos.x) <= 0.5 &&
+                std::abs(o.pos.y - pos.y) <= 0.5 && std::abs(o.pos.z - pos.z) <= 0.5) {
+                ++o.count;
+                merged = true;
+            }
+        if (merged) continue;
         if (m_orbs.size() >= size_t(kMax)) { // full: merge into the youngest orb
             if (!m_orbs.empty()) m_orbs.back().value += v;
             continue;
@@ -63,13 +73,25 @@ int ExperienceOrbs::tick(const World& world, const Aabb& player, bool canCollect
         }
         o.pos = next;
         o.vel *= 0.98;
-        bool remove = o.age >= 6000 || o.pos.y < world.height().minY - 64;
+        // Merging (M30.4; vanilla 1.17+ ExperienceOrb.scanForMerges, once a second): orbs of
+        // the same value within half a block become one with a count.
+        if ((o.age + int(i)) % 20 == 0)
+            for (size_t j = 0; j < m_orbs.size(); ++j) {
+                ExperienceOrb& n = m_orbs[j];
+                if (j == i || n.count == 0 || n.value != o.value) continue;
+                const glm::dvec3 gap = n.pos - o.pos;
+                if (std::abs(gap.x) > 0.5 || std::abs(gap.y) > 0.5 || std::abs(gap.z) > 0.5) continue;
+                o.count += n.count;
+                o.age = std::min(o.age, n.age);
+                n.count = 0; // (removed in its own turn)
+            }
+        bool remove = o.age >= 6000 || o.pos.y < world.height().minY - 64 || o.count <= 0;
         if (!remove && canCollect && m_pickupDelay == 0 &&
             Aabb{player.min - glm::dvec3(0.25), player.max + glm::dvec3(0.25)}.intersects(
                 Aabb::fromFeet(o.pos, 0.5, 0.5))) {
             collected += o.value;
             m_pickupDelay = 2; // one orb every 2 ticks (wiki)
-            remove = true;
+            remove = --o.count <= 0;
         }
         if (remove) {
             m_orbs[i] = m_orbs.back();
@@ -79,6 +101,40 @@ int ExperienceOrbs::tick(const World& world, const Aabb& player, bool canCollect
         }
     }
     return collected;
+}
+
+int ExperienceOrbs::park(Chunk& chunk) {
+    auto& out = chunk.droppedOrbs();
+    out.clear();
+    for (size_t i = 0; i < m_orbs.size();) {
+        const ExperienceOrb& o = m_orbs[i];
+        const ChunkPos at{blockToChunk(int(std::floor(o.pos.x))), blockToChunk(int(std::floor(o.pos.z)))};
+        if (at == chunk.pos() && o.count > 0) {
+            out.push_back({o.pos, o.vel, o.value, o.count, int16_t(std::min(o.age, 32767))});
+            m_orbs[i] = m_orbs.back();
+            m_orbs.pop_back();
+        } else {
+            ++i;
+        }
+    }
+    return int(out.size());
+}
+
+int ExperienceOrbs::unpark(Chunk& chunk) {
+    int n = 0;
+    for (const Chunk::DroppedOrb& d : chunk.droppedOrbs()) {
+        if (m_orbs.size() >= size_t(kMax)) break;
+        ExperienceOrb o;
+        o.pos = o.prevPos = d.pos;
+        o.vel = d.vel;
+        o.value = d.value;
+        o.count = d.count;
+        o.age = d.age;
+        m_orbs.push_back(o);
+        ++n;
+    }
+    chunk.droppedOrbs().clear();
+    return n;
 }
 
 } // namespace mc

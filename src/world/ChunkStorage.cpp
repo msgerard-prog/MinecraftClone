@@ -171,8 +171,10 @@ void ChunkStorage::run() {
             RegionFile* r = region(pos, /*create=*/true);
             ok = r && r->write(RegionFile::index(pos.x, pos.z), bytes, now);
             // Entities file: written when there are mobs, or to clear an old one.
-            RegionFile* er = region(pos, /*create=*/!snap.mobs.empty(), /*entities=*/true);
-            if (er && (!snap.mobs.empty() || er->has(RegionFile::index(pos.x, pos.z)))) {
+            // (M30.4: dropped items and orbs are entities too)
+            const bool anyEntities = !snap.mobs.empty() || !snap.droppedItems.empty() || !snap.droppedOrbs.empty();
+            RegionFile* er = region(pos, /*create=*/anyEntities, /*entities=*/true);
+            if (er && (anyEntities || er->has(RegionFile::index(pos.x, pos.z)))) {
                 const auto ebytes = nbt::write(entitiesToNbt(snap));
                 ok = ok && er->write(RegionFile::index(pos.x, pos.z), ebytes, now);
             }

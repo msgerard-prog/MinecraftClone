@@ -392,3 +392,8 @@ Every 1.21.11 block, item, entity, effect and enchantment id is registered
   powder snow, deep-ocean magma with pending ticks for bubble columns, glow lichen, ore
   veins with raw blocks, fossils); "nether4" (piglin brutes in bastions). overworld6 and
   nether3 are frozen for their worlds.
+
+## Dropped items and orbs (M30.4)
+Saved in `entities/` with the chunk's mobs, as vanilla: `minecraft:item` (Pos, Motion, Item,
+Age, PickupDelay, Health 5) and `minecraft:experience_orb` (Pos, Motion, Value, Count, Age,
+Health 5). Unknown fields are ignored on loading.

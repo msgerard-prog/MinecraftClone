@@ -740,6 +740,11 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   chosen each tick by vanilla's rules (`fits`, then crouch, then lie flat); `swimming()` steers
   by the look; main eases the camera's eye height and draws `MobData::lyingFlat`.
   Suffocation: `headInWall` (gameplay/BlockCollision) for the player (main) and mobs (physics).
+  Drops (M30.4): `ItemEntities`/`ExperienceOrbs` merge (`mergeNear`, orb `count`) and
+  `park`/`unpark` with a chunk's `droppedItems()/droppedOrbs()` (saved in entities/ as
+  minecraft:item / experience_orb; `Chunk::savedDrops` makes emptied chunks save again).
+  `World::setChunkListener` (`ChunkLifecycleListener`, called by `ChunkLoader`) lets main's
+  `DropKeeper` park them on unload and take them back on load; `saveWorld` parks around saves.
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

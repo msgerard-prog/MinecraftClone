@@ -17,6 +17,15 @@ public:
     virtual void onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) = 0;
 };
 
+// Told when a chunk joins or leaves the world (M30.4): gameplay keeps its pooled entities
+// (dropped items, orbs) and parks them in the chunk while it is away.
+class ChunkLifecycleListener {
+public:
+    virtual ~ChunkLifecycleListener() = default;
+    virtual void chunkLoaded(class Chunk& chunk) = 0;
+    virtual void chunkUnloading(class Chunk& chunk) = 0; // (before it is saved)
+};
+
 // Something the player sees or hears happen (M22.3; vanilla's level events and
 // particles sent to clients): gameplay code reports them, main turns them into
 // particles (and sounds, M22.4) and clears the list each tick.
@@ -101,6 +110,8 @@ public:
         if (m_listener) m_listener->onBlockChanged(p, old, state);
     }
     void setListener(BlockUpdateListener* listener) { m_listener = listener; }
+    void setChunkListener(ChunkLifecycleListener* listener) { m_chunkListener = listener; }
+    ChunkLifecycleListener* chunkListener() const { return m_chunkListener; }
     // Neighbour updates for a change already made with setBlock (/fill).
     void notifyChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
         if (m_listener) m_listener->onBlockChanged(p, old, now);
@@ -161,6 +172,7 @@ private:
     std::unordered_map<ChunkPos, std::unique_ptr<Chunk>> m_chunks;
     std::vector<ChunkPos> m_ticking;
     BlockUpdateListener* m_listener = nullptr;
+    ChunkLifecycleListener* m_chunkListener = nullptr;
     bool m_hasSkyLight = true;
     bool m_ultrawarm = false;
     HeightRange m_height = kOverworldHeight;

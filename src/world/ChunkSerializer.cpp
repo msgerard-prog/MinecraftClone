@@ -45,6 +45,8 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.dispensers = chunk.dispensers();
     s.mobs = chunk.mobs();
     s.mobStores = chunk.mobStores();
+    s.droppedItems = chunk.droppedItems();
+    s.droppedOrbs = chunk.droppedOrbs();
     s.blockTicks = chunk.blockTicks();
     if (!chunk.ticksRelative) // saved as delays (vanilla "t")
         for (auto& t : s.blockTicks)
@@ -1772,6 +1774,30 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                                            int32_t(m.uuidLo)});
         list.emplace_back(std::move(e));
     }
+    // Dropped items and orbs (M30.4; wiki: Item (entity), Experience Orb › Entity data).
+    for (const Chunk::DroppedItem& d : chunk.droppedItems) {
+        if (d.stack.empty()) continue;
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:item"));
+        e.put("Pos", nbt::listOf(nbt::TagType::Double, {d.pos.x, d.pos.y, d.pos.z}));
+        e.put("Motion", nbt::listOf(nbt::TagType::Double, {d.vel.x, d.vel.y, d.vel.z}));
+        e.put("Item", itemNbt(d.stack, -1));
+        e.put("Age", d.age);
+        e.put("PickupDelay", d.pickupDelay);
+        e.put("Health", int16_t{5});
+        list.emplace_back(std::move(e));
+    }
+    for (const Chunk::DroppedOrb& o : chunk.droppedOrbs) {
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:experience_orb"));
+        e.put("Pos", nbt::listOf(nbt::TagType::Double, {o.pos.x, o.pos.y, o.pos.z}));
+        e.put("Motion", nbt::listOf(nbt::TagType::Double, {o.vel.x, o.vel.y, o.vel.z}));
+        e.put("Value", int16_t(std::min(o.value, 32767)));
+        e.put("Count", int32_t(o.count));
+        e.put("Age", o.age);
+        e.put("Health", int16_t{5});
+        list.emplace_back(std::move(e));
+    }
     root.put("Entities", nbt::listOf(nbt::TagType::Compound, std::move(list)));
     return root;
 }
@@ -1779,12 +1805,39 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
 void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
     chunk.mobs().clear();
     chunk.mobStores().clear();
+    chunk.droppedItems().clear();
+    chunk.droppedOrbs().clear();
+    chunk.savedDrops = 0;
     const nbt::List* list = root.list("Entities");
     if (!list) return;
     for (const nbt::Tag& t : list->items) {
         const nbt::Compound* e = t.get<nbt::Compound>();
         const std::string* id = e ? e->string("id") : nullptr;
         if (!id) continue;
+        if (*id == "minecraft:item" || *id == "minecraft:experience_orb") { // (M30.4)
+            glm::dvec3 pos(0.0), vel(0.0);
+            if (const nbt::List* l = e->list("Pos"); l && l->items.size() == 3)
+                for (int i = 0; i < 3; ++i)
+                    if (auto d = l->items[size_t(i)].get<double>()) pos[i] = *d;
+            if (const nbt::List* l = e->list("Motion"); l && l->items.size() == 3)
+                for (int i = 0; i < 3; ++i)
+                    if (auto d = l->items[size_t(i)].get<double>()) vel[i] = std::isfinite(*d) ? std::clamp(*d, -10.0, 10.0) : 0.0;
+            if (!isValidMobPosition(pos)) continue;
+            const int16_t age = int16_t(std::clamp<int64_t>(e->integer("Age").value_or(0), -32768, 32767));
+            if (*id == "minecraft:item") {
+                const nbt::Compound* item = e->compound("Item");
+                const ItemStack st = item ? itemFromNbt(*item) : ItemStack{};
+                if (st.empty()) continue;
+                chunk.droppedItems().push_back(
+                    {pos, vel, st, age, int16_t(std::clamp<int64_t>(e->integer("PickupDelay").value_or(0), 0, 32767))});
+            } else {
+                const int value = int(std::clamp<int64_t>(e->integer("Value").value_or(0), 0, 32767));
+                const int count = int(std::clamp<int64_t>(e->integer("Count").value_or(1), 1, 1 << 20));
+                if (value > 0) chunk.droppedOrbs().push_back({pos, vel, value, count, age});
+            }
+            ++chunk.savedDrops;
+            continue;
+        }
         MobData m;
         bool known = false;
         for (int k = 0; k < static_cast<int>(MobType::Count); ++k)
