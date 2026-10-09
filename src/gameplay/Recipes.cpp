@@ -595,6 +595,8 @@ std::vector<Recipe> build() {
         r.push_back(shapeless({item("iron_ingot")}, "iron_nugget", 9));
         r.push_back(shaped({"###", "###", "###"}, {{'#', nugget}}, "iron_ingot"));
         r.push_back(shapeless({item("gold_ingot")}, "gold_nugget", 9));
+        r.push_back(shapeless({item("copper_ingot")}, "copper_nugget", 9)); // (M29.3a)
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("copper_nugget")}}, "copper_ingot"));
         r.push_back(shaped({"###", "###", "###"}, {{'#', item("gold_nugget")}}, "gold_ingot"));
         for (const char* c : kDyeColours) {
             const std::string colour(c);
@@ -916,6 +918,17 @@ std::optional<ItemStack> smeltByName(std::string_view n) {
     if (n == "wet_sponge") return out("sponge");    // (M25.5)
     if (n == "redstone_ore" || n == "deepslate_redstone_ore") return out("redstone");
     if (n == "lapis_ore" || n == "deepslate_lapis_ore") return out("lapis_lazuli");
+    // (M29.3a; wiki: Smelting) worn-out gear melts down to a nugget: iron and chainmail,
+    // golden, copper tools, weapons, armor and horse armor.
+    const bool gear = n.ends_with("_sword") || n.ends_with("_pickaxe") || n.ends_with("_axe") || n.ends_with("_shovel") ||
+                      n.ends_with("_hoe") || n.ends_with("_spear") || n.ends_with("_helmet") || n.ends_with("_chestplate") ||
+                      n.ends_with("_leggings") || n.ends_with("_boots") || n.ends_with("_horse_armor") ||
+                      n.ends_with("_nautilus_armor");
+    if (gear && (n.starts_with("iron_") || n.starts_with("chainmail_"))) return out("iron_nugget");
+    if (gear && n.starts_with("golden_")) return out("gold_nugget");
+    if (gear && n.starts_with("copper_")) return out("copper_nugget");
+    if (n == "basalt") return out("smooth_basalt");
+    if (n == "sea_pickle") return out("lime_dye");
     return std::nullopt;
 }
 

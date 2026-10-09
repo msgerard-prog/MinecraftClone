@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <span>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -213,9 +214,21 @@ inline constexpr NamedColour kLlamaVariants[4] = {{"creamy", 0xD8C8A0}, {"white"
                                                   {"gray", 0x8A8682}};
 // Horse armor (wiki: Horse Armor - leather 3, iron 5, golden 7, diamond 11 armor points),
 // indexed by MobData::horseArmor (0: none).
-inline constexpr const char* kHorseArmorItems[5] = {"", "leather_horse_armor", "iron_horse_armor",
-                                                    "golden_horse_armor", "diamond_horse_armor"};
-inline constexpr int kHorseArmorPoints[5] = {0, 3, 5, 7, 11};
+inline constexpr const char* kHorseArmorItems[7] = {"", "leather_horse_armor", "iron_horse_armor",
+                                                    "golden_horse_armor", "diamond_horse_armor",
+                                                    "copper_horse_armor", "netherite_horse_armor"}; // (M29.3a)
+inline constexpr int kHorseArmorPoints[7] = {0, 3, 5, 7, 11, 4, 19}; // (M29.3a: copper 4, netherite 19)
+// Nautilus armor (M29.3a; wiki: Nautilus Armor - copper 4, iron 5, golden 7, diamond 11 (+2
+// toughness), netherite 19 (+3)): a nautilus's or zombie nautilus's `horseArmor`.
+inline constexpr const char* kNautilusArmorItems[6] = {"", "copper_nautilus_armor", "iron_nautilus_armor",
+                                                       "golden_nautilus_armor", "diamond_nautilus_armor",
+                                                       "netherite_nautilus_armor"};
+inline constexpr int kNautilusArmorPoints[6] = {0, 4, 5, 7, 11, 19};
+// The body armor items a mount takes (index = MobData::horseArmor).
+inline std::span<const char* const> bodyArmorItems(MobType t) {
+    if (t == MobType::Nautilus || t == MobType::ZombieNautilus) return kNautilusArmorItems;
+    return kHorseArmorItems;
+}
 // Chest slots a mount (or chest boat) carries: donkeys and mules 15, llamas 3 per
 // strength, chest boats 27 (wiki).
 inline int chestSlots(MobType t, int strength) {

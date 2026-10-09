@@ -186,8 +186,9 @@ ItemRegistry buildItems() {
         r.add({.id = std::string("minecraft:") + name, .texture = std::string("item/") + name});
     // Music discs (M23.6; wiki: Music Disc - stack to 1). Ours play tunes the game makes
     // from note-block sounds (gameplay/Jukebox), not recordings.
-    for (const char* name : {"13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal",
-                             "strad", "ward", "11", "wait", "pigstep", "otherside", "5"})
+    for (const char* name : {"13", "cat", "blocks", "chirp", "far", "mall", "mellohi", "stal", "strad", "ward",
+                             "11", "wait", "pigstep", "otherside", "5", "relic", "precipice", "creator",
+                             "creator_music_box", "tears", "lava_chicken"}) // (M29.3a: the rest)
         r.add({.id = std::string("minecraft:music_disc_") + name,
                .maxStack = 1,
                .texture = std::string("item/music_disc_") + name});
@@ -358,7 +359,7 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:tadpole_bucket", .maxStack = 1, .texture = "item/tadpole_bucket"});
     // Mount gear (M26.2; wiki: Saddle, Horse Armor - unstackable).
     r.add({.id = "minecraft:saddle", .maxStack = 1, .texture = "item/saddle"});
-    for (int k = 1; k < 5; ++k)
+    for (int k = 1; k < 5; ++k) // (the first four; copper and netherite come last - M29.3a)
         r.add({.id = std::string("minecraft:") + kHorseArmorItems[k],
                .maxStack = 1,
                .texture = std::string("item/") + kHorseArmorItems[k]});
@@ -458,6 +459,8 @@ ItemRegistry buildItems() {
          {3, 8, 6, 3},
          {407, 592, 555, 481},
          3.0f}, // (M23.6; +0.1 knockback resistance, not modelled)
+        // (M29.3a; wiki: Chainmail Armor - 1, 5, 4, 1; iron's durability; not craftable)
+        {"chainmail", {1, 5, 4, 1}, {165, 240, 225, 195}, 0.0f},
     };
     static constexpr const char* kPieces[4] = {"helmet", "chestplate", "leggings", "boots"};
     for (const auto& a : kArmor)
@@ -585,6 +588,15 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::PitcherCrop, *r.find("pitcher_pod"));
     r.mapBlock(blocks::CaveVinesPlant, *r.find("glow_berries"));
     r.mapBlock(blocks::BigDripleafStem, *r.find("big_dripleaf"));
+    // (M29.3a) copper nuggets (wiki: 9 make an ingot; copper gear smelts into one), the
+    // copper and netherite horse armor and the nautilus armor (no durability: wiki).
+    r.add({.id = "minecraft:copper_nugget", .texture = "item/copper_nugget"});
+    for (int k = 5; k < 7; ++k)
+        r.add({.id = std::string("minecraft:") + kHorseArmorItems[k], .maxStack = 1,
+               .texture = std::string("item/") + kHorseArmorItems[k]});
+    for (int k = 1; k < 6; ++k)
+        r.add({.id = std::string("minecraft:") + kNautilusArmorItems[k], .maxStack = 1,
+               .texture = std::string("item/") + kNautilusArmorItems[k]});
     // Spawn eggs (M29.1e; wiki: Spawn Egg): one per mob, except the entities that aren't
     // mobs and the illusioner (none in vanilla either). Registered last: older ids stay.
     for (int t = 0; t < int(MobType::Count); ++t) {

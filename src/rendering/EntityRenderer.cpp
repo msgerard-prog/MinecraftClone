@@ -737,8 +737,8 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer == 10) { // horse armor's material (M26.2): leather, iron, gold, diamond
-            static constexpr uint32_t kArmor[5] = {0xFFFFFF, 0xA0643A, 0xDADADA, 0xF4D040, 0x5CE0D8};
-            const uint32_t c = kArmor[mob.horseArmor % 5];
+            static constexpr uint32_t kArmor[7] = {0xFFFFFF, 0xA0643A, 0xDADADA, 0xF4D040, 0x5CE0D8, 0xD9804F, 0x5A4E56};
+            const uint32_t c = kArmor[mob.horseArmor % 7];
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
         }
         if (part.layer >= 15 && part.layer <= 18) { // an armor stand's armor (M28.3b), by material

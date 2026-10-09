@@ -816,6 +816,17 @@ void Mobs::attack(MobData& m, float damage, const glm::dvec3& from) {
     if (m.type == MobType::Shulker && m.peek == 0) damage *= 0.2f; // (armour 20 while closed)
     if (m.type == MobType::Armadillo && m.sitting)
         damage = std::max(0.0f, damage - 1.0f) * 0.5f; // (M26.3: rolled up)
+    // A mount's body armor (M29.3a; wiki: Armor - vanilla's formula: armor points cut
+    // max(points / 5, points - damage / (2 + toughness / 4)) x 4%, up to 80%).
+    if (m.horseArmor > 0 && isMount(m.type)) {
+        const bool nautilus = isNautilus(m.type);
+        const float points = float(nautilus ? kNautilusArmorPoints[m.horseArmor % 6] : kHorseArmorPoints[m.horseArmor % 7]);
+        const float toughness = m.horseArmor == (nautilus ? 4 : 6) ? (nautilus ? 2.0f : 3.0f)
+                                : nautilus && m.horseArmor == 5 ? 3.0f
+                                                                : 0.0f;
+        const float cut = std::clamp(std::max(points / 5.0f, points - damage / (2.0f + toughness / 4.0f)), 0.0f, 20.0f);
+        damage *= 1.0f - cut / 25.0f;
+    }
     m.health -= damage;
     m.hurtTime = 10;
     m.noPlayerTicks = 0;       // damage resets the despawn clock

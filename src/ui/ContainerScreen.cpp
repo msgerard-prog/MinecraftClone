@@ -276,8 +276,9 @@ world::ItemStack* ContainerScreen::stackAt(const Slot& s, Inventory& inventory) 
             if (!world::isHorseKind(t) && !world::isCamel(t) && !world::isNautilus(t)) return nullptr; // (llamas take no saddle)
             if (m_mount->saddled) m_gearScratch = {*items.find("saddle"), 1};
         } else {
-            if (t != MobType::Horse && t != MobType::ZombieHorse && !world::isLlama(t)) return nullptr;
-            if (m_mount->horseArmor > 0) m_gearScratch = {*items.find(world::kHorseArmorItems[m_mount->horseArmor]), 1};
+            if (t != MobType::Horse && t != MobType::ZombieHorse && !world::isLlama(t) && !world::isNautilus(t)) return nullptr;
+            if (m_mount->horseArmor > 0)
+                m_gearScratch = {*items.find(world::bodyArmorItems(t)[m_mount->horseArmor]), 1};
             if (m_mount->decor > 0)
                 m_gearScratch = {*items.find(std::string(world::kDyeColours[m_mount->decor - 1]) + "_carpet"), 1};
         }
@@ -297,9 +298,10 @@ bool ContainerScreen::gearFits(int slot, const world::ItemStack& s) const {
     if (!m_mount || s.empty()) return s.empty();
     const std::string_view id = world::itemRegistry().item(s.item).id;
     if (slot == 0) return id == "minecraft:saddle";
-    if (m_mount->type == world::MobType::Horse || m_mount->type == world::MobType::ZombieHorse)
-        for (int k = 1; k < 5; ++k)
-            if (id == std::string("minecraft:") + world::kHorseArmorItems[k]) return true;
+    if (m_mount->type == world::MobType::Horse || m_mount->type == world::MobType::ZombieHorse ||
+        world::isNautilus(m_mount->type))
+        for (int k = 1; k < int(world::bodyArmorItems(m_mount->type).size()); ++k)
+            if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k]) return true;
     if (world::isLlama(m_mount->type))
         for (int c = 0; c < 16; ++c)
             if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") return true;
@@ -315,8 +317,8 @@ void ContainerScreen::setGear(int slot, const world::ItemStack& s) {
     }
     m_mount->horseArmor = 0;
     m_mount->decor = 0;
-    for (int k = 1; k < 5 && !s.empty(); ++k)
-        if (id == std::string("minecraft:") + world::kHorseArmorItems[k]) m_mount->horseArmor = uint8_t(k);
+    for (int k = 1; k < int(world::bodyArmorItems(m_mount->type).size()) && !s.empty(); ++k)
+        if (id == std::string("minecraft:") + world::bodyArmorItems(m_mount->type)[k]) m_mount->horseArmor = uint8_t(k);
     for (int c = 0; c < 16 && !s.empty(); ++c)
         if (id == std::string("minecraft:") + world::kDyeColours[c] + "_carpet") m_mount->decor = uint8_t(c + 1);
 }

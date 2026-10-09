@@ -933,7 +933,22 @@ def bone_meal():
 
 
 ARMOR = {"leather": "#8A5530", "copper": "#D9804F", "golden": "#F2CF3C", "iron": "#D6D6D6", "diamond": "#45DCCB",
-         "netherite": "#5A4E56"}
+         "netherite": "#5A4E56", "chainmail": "#8A8A92"}  # (M29.3a: chainmail)
+
+
+def nautilus_armor(base):
+    """Nautilus armor (M29.3a): a curved, ribbed shell plate with a strap."""
+    pal = ramp(hexc(base), 5, spread=0.4)
+    s = Shape()
+    s.add({(x, y) for x in range(2, 14) for y in range(3, 12) if (x - 8) ** 2 / 36 + (y - 9) ** 2 / 30 < 1 and y < 11}, pal)
+    s.add({(x, 6) for x in range(3, 13)} | {(x, 9) for x in range(3, 13)}, ramp(hexc(scale_hex(base, 0.7)), 5))
+    s.add({(x, 12) for x in range(4, 12)} | {(4, 11), (11, 11)}, ramp(hexc("#5A3A22"), 5))
+    return s.render()
+
+
+def scale_hex(h, k):
+    c = hexc(h)
+    return "#%02X%02X%02X" % (int(c[0] * k), int(c[1] * k), int(c[2] * k))
 
 
 def armor(piece, base):
@@ -1397,7 +1412,9 @@ def music_disc(label):
 DISC_LABELS = {"13": "#E8D040", "cat": "#60D040", "blocks": "#E05030", "chirp": "#C03028", "far": "#90E060",
                "mall": "#8060D0", "mellohi": "#E0A0E0", "stal": "#303030", "strad": "#F0F0F0", "ward": "#208040",
                "11": "#606060", "wait": "#40A0E0", "pigstep": "#C06030", "otherside": "#40A8C0",
-               "5": "#3A6A8A"}  # (M28.5b)
+               "5": "#3A6A8A",  # (M28.5b)
+               "relic": "#3A8A7A", "precipice": "#A86A3A", "creator": "#E8A040", "creator_music_box": "#F0C870",
+               "tears": "#90B8E8", "lava_chicken": "#E86A2A"}  # (M29.3a)
 
 
 def all_items():
@@ -1655,8 +1672,13 @@ def all_items():
         items[f"{wood}_chest_boat"] = chest_boat_item(colour)
     items["bamboo_chest_raft"] = chest_boat_item("#C9B758", raft=True)
     items["saddle"] = saddle()
-    for mat, base in (("leather", "#9A5A30"), ("iron", "#C8CCD0"), ("golden", "#F0C83C"), ("diamond", "#4ADCD0")):
+    for mat, base in (("leather", "#9A5A30"), ("iron", "#C8CCD0"), ("golden", "#F0C83C"), ("diamond", "#4ADCD0"),
+                      ("copper", "#D9804F"), ("netherite", "#5A4E56")):  # (M29.3a: copper, netherite)
         items[f"{mat}_horse_armor"] = horse_armor(base)
+    for mat, base in (("copper", "#D9804F"), ("iron", "#C8CCD0"), ("golden", "#F0C83C"), ("diamond", "#4ADCD0"),
+                      ("netherite", "#5A4E56")):
+        items[f"{mat}_nautilus_armor"] = nautilus_armor(base)
+    items["copper_nugget"] = lump("copper_nugget", "#C8703C", "#F0A878", size=3.2)
     items["netherite_ingot"] = ingot("#4A4048")
     items["netherite_scrap"] = lump("netherite_scrap", "#5E4A44", "#8A6E62", size=5.2)
     items["netherite_upgrade_smithing_template"] = smithing_template("#7A5A50")

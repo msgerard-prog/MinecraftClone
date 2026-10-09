@@ -18,7 +18,12 @@ constexpr DiscInfo kDiscs[] = {
     {"music_disc_strad", 9, 188 * 20},    {"music_disc_ward", 10, 251 * 20},
     {"music_disc_11", 11, 71 * 20},       {"music_disc_wait", 12, 237 * 20},
     {"music_disc_pigstep", 13, 148 * 20}, {"music_disc_otherside", 14, 195 * 20},
-    {"music_disc_5", 15, 178 * 20}}; // (M28.5b; wiki: Music Disc - "5" gives 15, 2:58)
+    {"music_disc_5", 15, 178 * 20}, // (M28.5b; wiki: Music Disc - "5" gives 15, 2:58)
+    // (M29.3a; wiki: Music Disc) Relic 14, 3:38; Precipice 13, 4:59; Creator 12, 2:56; Creator
+    // (Music Box) 11, 1:13; Tears 10, 2:55; Lava Chicken 9, 2:15.
+    {"music_disc_relic", 14, 218 * 20},   {"music_disc_precipice", 13, 299 * 20},
+    {"music_disc_creator", 12, 176 * 20}, {"music_disc_creator_music_box", 11, 73 * 20},
+    {"music_disc_tears", 10, 175 * 20},   {"music_disc_lava_chicken", 9, 135 * 20}};
 
 uint32_t hash(uint32_t a, uint32_t b, uint32_t c) {
     uint32_t h =

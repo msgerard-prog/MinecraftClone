@@ -222,6 +222,17 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
             return Use::None;
         }
         if (m.isBaby()) return Use::None;
+        // (M29.3a; wiki: Nautilus Armor) armor goes on a tamed adult; shears take it off first.
+        if (id == "minecraft:shears" && m.horseArmor > 0) {
+            dropNamed(items, m.pos + glm::dvec3(0.0, 0.5, 0.0), kNautilusArmorItems[m.horseArmor % 6], rng);
+            m.horseArmor = 0;
+            return Use::Sheared;
+        }
+        for (int k = 1; k < 6; ++k)
+            if (m.horseArmor == 0 && id == std::string("minecraft:") + kNautilusArmorItems[k]) {
+                m.horseArmor = uint8_t(k);
+                return Use::Fed;
+            }
         if (id == "minecraft:shears" && m.saddled) {
             dropNamed(items, m.pos + glm::dvec3(0.0, 0.5, 0.0), "saddle", rng);
             m.saddled = false;
@@ -240,7 +251,7 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
     // Shears take off its body armor or carpet, then its saddle (1.21.6).
     if (id == "minecraft:shears" && tame) {
         if (m.horseArmor > 0) {
-            dropNamed(items, at, kHorseArmorItems[m.horseArmor], rng);
+            dropNamed(items, at, bodyArmorItems(m.type)[m.horseArmor], rng);
             m.horseArmor = 0;
             return Use::Sheared;
         }
@@ -284,9 +295,9 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
             m.saddled = true;
             return Use::Fed;
         }
-        for (int k = 1; k < 5; ++k)
-            if ((m.type == MobType::Horse || m.type == MobType::ZombieHorse) && m.horseArmor == 0 &&
-                id == std::string("minecraft:") + kHorseArmorItems[k]) {
+        for (int k = 1; k < int(bodyArmorItems(m.type).size()); ++k)
+            if ((m.type == MobType::Horse || m.type == MobType::ZombieHorse || isNautilus(m.type)) && m.horseArmor == 0 &&
+                id == std::string("minecraft:") + bodyArmorItems(m.type)[k]) {
                 m.horseArmor = uint8_t(k);
                 return Use::Fed;
             }
@@ -509,8 +520,8 @@ void Mobs::llamaTick(Context& ctx, MobData& m) {
 void Mobs::dropMountGear(Context& ctx, MobData& m) {
     const glm::dvec3 at = m.pos + glm::dvec3(0.0, 0.5, 0.0);
     if (m.saddled) dropNamed(ctx.items, at, "saddle", ctx.rng);
-    if (m.horseArmor > 0 && m.horseArmor < 5)
-        dropNamed(ctx.items, at, kHorseArmorItems[m.horseArmor], ctx.rng);
+    if (m.horseArmor > 0 && m.horseArmor < bodyArmorItems(m.type).size())
+        dropNamed(ctx.items, at, bodyArmorItems(m.type)[m.horseArmor], ctx.rng);
     if (m.decor > 0 && m.decor <= 16)
         dropNamed(ctx.items, at,
                   std::string(kDyeColours[m.decor - 1]) +

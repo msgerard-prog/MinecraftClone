@@ -345,15 +345,22 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
     if (blockOf(at(p)) == B::Jukebox) { // the disc's number (wiki: Music Disc; M23.6)
-        static constexpr std::string_view kDiscs[] = {"13",   "cat",  "blocks", "chirp", "far", "mall",    "mellohi",
-                                                      "stal", "strad", "ward",  "11",    "wait", "pigstep", "otherside",
-                                                      "5"}; // (M28.5b)
+        struct DiscSignal {
+            std::string_view name;
+            int signal;
+        };
+        static constexpr DiscSignal kDiscs[] = {
+            {"13", 1},     {"cat", 2},        {"blocks", 3},   {"chirp", 4},     {"far", 5},
+            {"mall", 6},   {"mellohi", 7},    {"stal", 8},     {"strad", 9},     {"ward", 10},
+            {"11", 11},    {"wait", 12},      {"pigstep", 13}, {"otherside", 14}, {"5", 15}, // (M28.5b)
+            {"relic", 14}, {"precipice", 13}, {"creator", 12}, {"creator_music_box", 11}, {"tears", 10},
+            {"lava_chicken", 9}}; // (M29.3a)
         Chunk* jc = chunkAt(p);
         const JukeboxData* jd = jc ? jc->jukebox(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
         if (!jd || jd->record.empty()) return 0;
         const std::string_view id = itemRegistry().item(jd->record.item).id;
-        for (int i = 0; i < int(std::size(kDiscs)); ++i)
-            if (id.size() > 21 && id.substr(21) == kDiscs[i]) return i + 1; // ("minecraft:music_disc_")
+        for (const DiscSignal& d : kDiscs)
+            if (id.size() > 21 && id.substr(21) == d.name) return d.signal; // ("minecraft:music_disc_")
         return 0;
     }
     const BlockId b = R().likeOf(blockOf(at(p))); // (smokers and blast furnaces count as furnaces)

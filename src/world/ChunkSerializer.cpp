@@ -1462,7 +1462,8 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
                     eq.put(slot, std::move(c));
                 };
                 if (m.saddled) piece("saddle", "saddle");
-                if (m.horseArmor > 0 && m.horseArmor < 5) piece("body", kHorseArmorItems[m.horseArmor]);
+                if (m.horseArmor > 0 && m.horseArmor < bodyArmorItems(m.type).size())
+                    piece("body", bodyArmorItems(m.type)[m.horseArmor]);
                 if (m.decor > 0 && m.decor <= 16)
                     piece("body", std::string(kDyeColours[m.decor - 1]) + (m.type == MobType::HappyGhast ? "_harness" : "_carpet"));
                 if (!eq.entries.empty()) e.put("equipment", std::move(eq));
@@ -1859,8 +1860,8 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     m.saddled = sd->string("id") && *sd->string("id") == "minecraft:saddle";
                 if (const nbt::Compound* body = eq->compound("body"))
                     if (const std::string* bid = body->string("id")) {
-                        for (int k = 1; k < 5; ++k)
-                            if (*bid == std::string("minecraft:") + kHorseArmorItems[k]) m.horseArmor = uint8_t(k);
+                        for (int k = 1; k < int(bodyArmorItems(m.type).size()); ++k)
+                            if (*bid == std::string("minecraft:") + bodyArmorItems(m.type)[k]) m.horseArmor = uint8_t(k);
                         for (int c = 0; c < 16; ++c)
                             if (*bid == std::string("minecraft:") + kDyeColours[c] + "_carpet" ||
                                 *bid == std::string("minecraft:") + kDyeColours[c] + "_harness")

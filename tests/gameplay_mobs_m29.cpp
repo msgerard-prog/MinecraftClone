@@ -327,3 +327,28 @@ TEST_CASE("mob effects: poison wears down (not the undead), speed, saved as acti
     CHECK(c->health >= 1.0f);
     CHECK(c->effectLevel(uint8_t(Effect::Glowing)) == 1);
 }
+
+// M29.3a: gear items.
+#include "gameplay/Jukebox.h"
+#include "gameplay/Recipes.h"
+
+TEST_CASE("nautilus armor goes on a tamed nautilus; mount armor cuts damage; gear melts to nuggets; new discs") {
+    MobScene s;
+    ItemEntities items;
+    MobData n = Mobs::make(MobType::Nautilus, {0, 64, 0}, s.rng);
+    n.tamed = true;
+    CHECK(Mobs::interact(n, *itemRegistry().find("diamond_nautilus_armor"), s.rng, items) == Mobs::Use::Fed);
+    CHECK(n.horseArmor == 4);
+    MobData h = Mobs::make(MobType::Horse, {0, 64, 0}, s.rng);
+    h.tamed = true;
+    CHECK(Mobs::interact(h, *itemRegistry().find("netherite_horse_armor"), s.rng, items) == Mobs::Use::Fed);
+    const float before = h.health;
+    Mobs::attack(h, 10.0f, {0, 64, 5});
+    CHECK(before - h.health < 10.0f * 0.4f); // (19 points: about 76% off)
+    CHECK(itemRegistry().item(smelt({*itemRegistry().find("chainmail_helmet"), 1})->item).id == "minecraft:iron_nugget");
+    CHECK(itemRegistry().item(smelt({*itemRegistry().find("copper_sword"), 1})->item).id == "minecraft:copper_nugget");
+    CHECK(itemRegistry().item(*itemRegistry().find("chainmail_chestplate")).armor == 5);
+    const int relic = discIndex(*itemRegistry().find("music_disc_relic"));
+    REQUIRE(relic >= 0);
+    CHECK(discInfo(relic).comparator == 14);
+}
