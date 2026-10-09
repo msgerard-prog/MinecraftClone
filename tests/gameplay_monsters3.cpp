@@ -119,7 +119,11 @@ TEST_CASE("cave spiders poison, wither skeletons wither; Wither hurts every 2 s 
     CHECK(withered);
     Vitals v;
     v.addEffect(Effect::Wither, 0, 2000);
-    for (int t = 0; t < 2000 && !v.dead(); ++t) v.tickEffects();
+    v.setState(20.0f, 10, 0.0f, 0.0f); // (no quick regeneration)
+    for (int t = 0; t < 2000 && !v.dead(); ++t) {
+        v.tickEffects();
+        v.tick(64.0, true, false, false); // (the hurt cooldown runs down)
+    }
     CHECK(v.dead()); // (unlike Poison, Wither kills)
 }
 

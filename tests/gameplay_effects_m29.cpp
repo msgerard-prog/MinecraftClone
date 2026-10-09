@@ -62,6 +62,9 @@ TEST_CASE("turtle master: brewed from a turtle shell, two effects; the 1.21 poti
 #include "world/Blocks.h"
 #include "world/Enchantments.h"
 #include "world/World.h"
+#include "world/Light.h"
+
+#include <memory>
 
 TEST_CASE("the M29.2b enchantments fit their items; treasures never come from the table") {
     const auto& items = itemRegistry();
@@ -86,9 +89,14 @@ TEST_CASE("ice and frosted ice leave water when broken; ice is slippery") {
     CHECK_FALSE(itemRegistry().find("frosted_ice").has_value()); // (no item, as vanilla)
 }
 
-TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water") {
+TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water - only in light above 11 - age") {
     World world;
-    world.createChunk({0, 0});
+    Chunk& chunk = world.createChunk({0, 0});
+    auto bright = std::make_shared<SectionLight>();
+    bright->sky.fill(15);
+    std::array<std::shared_ptr<const SectionLight>, kMaxSections> light;
+    light.fill(bright);
+    chunk.setLight(light);
     BlockUpdates updates(world);
     world.setListener(&updates);
     const BlockPos p{4, 64, 4};
@@ -103,6 +111,15 @@ TEST_CASE("frosted ice ages on its scheduled ticks and melts back into water") {
     }
     CHECK(blockRegistry().blockOf(world.getBlock(p)) == blocks::Water);
     CHECK(recorded);
+    // At night (sky light dimmed by 11) it stays frozen (M29 review: Frost Walker paths last).
+    world.setBlock(p, blockRegistry().defaultState(blocks::FrostedIce));
+    updates.schedule(p, blocks::FrostedIce, 1, 0);
+    updates.setSkyDarken(11);
+    for (int t = 2000; t < 4000; ++t) {
+        updates.setTime(t);
+        updates.tick();
+    }
+    CHECK(world.getBlock(p) == blockRegistry().defaultState(blocks::FrostedIce));
 }
 
 // M29.3c: foods and tools.
@@ -178,4 +195,23 @@ TEST_CASE("bundles weigh up to 64: 64 of a stacker, 4 ender pearls count 16, one
     REQUIRE(comps);
     CHECK(comps->list("minecraft:bundle_contents") != nullptr);
     CHECK(bundleWeight(itemFromNbtPublic(n)) == 40);
+}
+
+TEST_CASE("M29 review: standing in a wither rose costs 1 health every half second, not every tick") {
+    Vitals v;
+    v.setState(20.0f, 10, 0.0f, 0.0f); // (no quick regeneration)
+    const float start = v.health();
+    for (int t = 0; t < 40; ++t) { // 2 s in the rose: re-applied every tick, as main does
+        v.addEffect(world::Effect::Wither, 0, 40);
+        v.tickEffects();
+        v.tick(64.0, true, false, false);
+    }
+    CHECK(start - v.health() >= 3.0f); // (4 hits at 1 a half second)
+    CHECK(start - v.health() <= 5.0f);
+}
+
+TEST_CASE("M29 review: a chainmail helmet gives 2 armor; azure bluet stew blinds for 11 s") {
+    CHECK(itemRegistry().item(*itemRegistry().find("chainmail_helmet")).armor == 2);
+    for (const auto& f : world::stewFlowers())
+        if (f.flower == "azure_bluet") CHECK(f.ticks == 220);
 }

@@ -28,5 +28,8 @@ FluidContact fluidContact(const world::World& world, const Aabb& box);
 
 // True if the point is under a fluid surface of `block` (eyes in water...).
 bool pointInFluid(const world::World& world, const glm::dvec3& p, world::BlockId block);
+// Whether eyes at `eye` lose air: in water, but not in a bubble column, whose bubbles refill
+// the air as above water (wiki: Bubble Column).
+bool eyesUnderWater(const world::World& world, const glm::dvec3& eye);
 
 } // namespace mc

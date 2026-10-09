@@ -478,8 +478,8 @@ ItemRegistry buildItems() {
          {3, 8, 6, 3},
          {407, 592, 555, 481},
          3.0f}, // (M23.6; +0.1 knockback resistance, not modelled)
-        // (M29.3a; wiki: Chainmail Armor - 1, 5, 4, 1; iron's durability; not craftable)
-        {"chainmail", {1, 5, 4, 1}, {165, 240, 225, 195}, 0.0f},
+        // (M29.3a; wiki: Chainmail Armor - 2, 5, 4, 1; iron's durability; not craftable)
+        {"chainmail", {2, 5, 4, 1}, {165, 240, 225, 195}, 0.0f},
     };
     static constexpr const char* kPieces[4] = {"helmet", "chestplate", "leggings", "boots"};
     for (const auto& a : kArmor)

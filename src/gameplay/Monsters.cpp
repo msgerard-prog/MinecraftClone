@@ -210,6 +210,7 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
         if (++m.shootTicks >= 20) {
             m.shootTicks = 0;
             m.attackCooldown = m.type == MobType::Bogged ? 50 : m.type == MobType::Parched ? 70 : 40;
+            if (ctx.difficulty == 3) m.attackCooldown -= 20; // (wiki: a second faster on Hard)
             const glm::dvec3 from = m.pos + glm::dvec3(0, info.height * 0.85 - 0.1, 0);
             glm::dvec3 d = playerPos + glm::dvec3(0, 1.8 / 3.0, 0) - from;
             d.y += std::sqrt(d.x * d.x + d.z * d.z) * 0.2; // aim above for the drop

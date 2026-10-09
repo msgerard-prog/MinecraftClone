@@ -551,3 +551,13 @@ TEST_CASE("M29 review: a trapped chest broken while open stops powering; dust co
     w.setBlock({8, 64, 8}, r.defaultState(blocks::TrappedChest));
     CHECK(w.chunk({0, 0})->chest(8, 64, 8)->trapped);
 }
+
+TEST_CASE("M29 review: eyes in a bubble column don't lose air; in plain water they do") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 64, 4}, r.defaultState(blocks::Water));
+    w.setBlock({5, 64, 4}, r.defaultState(blocks::BubbleColumn));
+    CHECK(eyesUnderWater(w, {4.5, 64.5, 4.5}));
+    CHECK_FALSE(eyesUnderWater(w, {5.5, 64.5, 4.5}));
+}

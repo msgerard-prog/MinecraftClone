@@ -2068,7 +2068,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const mc::world::BlockStateId bs = world.getBlock(
                         {int(std::floor(f.x)), int(std::floor(f.y)) + dy, int(std::floor(f.z))});
                     // (M29.4a; wiki: Wither Rose) walking into one withers (not in creative)
-                    if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::WitherRose && survival && !dead)
+                    if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::WitherRose && survival && !dead &&
+                        difficulty != 0) // (wiki: not on Peaceful)
                         vitals.addEffect(mc::world::Effect::Wither, 0, 40);
                     if (mc::world::blockRegistry().blockOf(bs) == mc::world::blocks::Cobweb) {
                         // (M26.4a; wiki: Cobweb) stuck: a quarter of the speed, almost no fall;
@@ -2260,7 +2261,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     const int respiration = mc::world::enchantLevel(
                         inventory.armor(0), mc::world::Enchantment::Respiration);
                     vitals.breathe(
-                        mc::pointInFluid(world, player.eyePosition(1.0), mc::world::blocks::Water),
+                        mc::eyesUnderWater(world, player.eyePosition(1.0)), // (bubble columns: air)
                         respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
                     if (player.inLava()) {
                         vitals.attacked(

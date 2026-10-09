@@ -1920,20 +1920,38 @@ void BlockUpdates::tick() {
 }
 
 void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
-    // Frosted ice (M29.2b; wiki: Frosted Ice): every 1-2 s a third of the time (always in
-    // bright light) it ages; at age 3 it melts into water.
+    // Frosted ice (M29.2b; wiki: Frosted Ice): every 1-2 s, a third of the time - or always
+    // with fewer than 4 frosted ice neighbours - it ages if its light is above 11 - age (so a
+    // Frost Walker path lasts the night: M29 review). At age 3 it melts into water, and its
+    // frosted neighbours age at once.
     if (blockOf(s) == B::FrostedIce) {
-        const int iceAge = R().get(s, age3);
-        const Chunk* c = m_world.chunk(p.chunk());
-        const int light = c ? c->blockLight(blockToLocal(p.x), p.y, blockToLocal(p.z)) : 0;
-        if (m_random.nextInt(3) == 0 || light > 11) {
-            if (iceAge >= 3) {
-                set(p, R().defaultState(B::Water)); // (recorded: re-meshed - M29 review)
-                return;
+        auto frostedNeighbours = [&](const BlockPos& q) {
+            int n = 0;
+            for (int d = 0; d < 6; ++d) n += blockOf(at(rel(q, static_cast<Direction>(d)))) == B::FrostedIce;
+            return n;
+        };
+        // Ages `q` one step; true when it melted.
+        auto slightlyMelt = [&](const BlockPos& q, BlockStateId qs) {
+            const int qAge = R().get(qs, age3);
+            if (qAge < 3) {
+                set(q, R().set(qs, age3, qAge + 1));
+                return false;
             }
-            set(p, R().set(s, age3, iceAge + 1));
+            set(q, R().defaultState(B::Water)); // (recorded: re-meshed - M29 review)
+            return true;
+        };
+        const int iceAge = R().get(s, age3);
+        if ((m_random.nextInt(3) == 0 || frostedNeighbours(p) < 4) && rawBrightness(p) > 11 - iceAge &&
+            slightlyMelt(p, s)) {
+            for (int d = 0; d < 6; ++d) {
+                const BlockPos q = rel(p, static_cast<Direction>(d));
+                const BlockStateId qs = at(q);
+                if (blockOf(qs) == B::FrostedIce && !slightlyMelt(q, qs) && !hasTick(q, B::FrostedIce))
+                    schedule(q, B::FrostedIce, 20 + int(m_random.nextInt(21)), 0);
+            }
+            return;
         }
-        schedule(p, B::FrostedIce, 20 + int(m_random.nextInt(20)), 0);
+        schedule(p, B::FrostedIce, 20 + int(m_random.nextInt(21)), 0);
         return;
     }
     if (tickOcean(p, s)) return; // (M25.1: coral drying out)

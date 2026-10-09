@@ -129,7 +129,7 @@ uint32_t potionColour(Potion p) { return effectInfo(potionInfo(p).effect).colour
 
 std::span<const StewFlower> stewFlowers() {
     static constexpr StewFlower kFlowers[] = {
-        {"allium", Effect::FireResistance, 60},     {"azure_bluet", Effect::Blindness, 160},
+        {"allium", Effect::FireResistance, 60},     {"azure_bluet", Effect::Blindness, 220},
         {"blue_orchid", Effect::Saturation, 7},     {"dandelion", Effect::Saturation, 7},
         {"cornflower", Effect::JumpBoost, 100},     {"lily_of_the_valley", Effect::Poison, 220},
         {"oxeye_daisy", Effect::Regeneration, 140}, {"poppy", Effect::NightVision, 100},

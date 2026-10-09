@@ -1835,8 +1835,9 @@ void Mobs::addEffect(MobData& mob, Effect effect, int amplifier, int ticks) {
 }
 
 void Mobs::tickMobEffects(Context& ctx, MobData& m) {
-    // (M29.4a) a wither rose withers what stands in it - not the undead
-    if (!isUndead(m.type) &&
+    // (M29.4a) a wither rose withers what stands in it (not on Peaceful; addEffect spares
+    // wither skeletons and the Wither - wiki: Wither (effect), M29 review)
+    if (ctx.difficulty != 0 &&
         blockRegistry().blockOf(ctx.world.getBlock({int(std::floor(m.pos.x)), int(std::floor(m.pos.y + 0.01)),
                                                     int(std::floor(m.pos.z))})) == blocks::WitherRose)
         addEffect(m, Effect::Wither, 0, 40);
@@ -1849,7 +1850,8 @@ void Mobs::tickMobEffects(Context& ctx, MobData& m) {
         if (type == Effect::Poison && e.ticks % std::max(1, 25 >> e.amplifier) == 0 && m.health > 1.0f) {
             m.health -= 1.0f;
             m.hurtTime = 10;
-        } else if (type == Effect::Wither && e.ticks % std::max(1, 40 >> e.amplifier) == 0) {
+        } else if (type == Effect::Wither && e.ticks % std::max(1, 40 >> e.amplifier) == 0 &&
+                   m.hurtTime <= 0) { // (the hurt cooldown paces a rose's every-tick dose)
             m.health -= 1.0f;
             m.hurtTime = 10;
         } else if (type == Effect::Regeneration && e.ticks % std::max(1, 50 >> e.amplifier) == 0) {

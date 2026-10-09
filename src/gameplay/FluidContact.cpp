@@ -80,4 +80,10 @@ bool pointInFluid(const World& world, const glm::dvec3& p, BlockId block) {
     return h >= 0.0 && p.y < y + h;
 }
 
+bool eyesUnderWater(const World& world, const glm::dvec3& eye) {
+    const BlockPos at{int(std::floor(eye.x)), int(std::floor(eye.y)), int(std::floor(eye.z))};
+    if (blockRegistry().blockOf(world.getBlock(at)) == blocks::BubbleColumn) return false;
+    return pointInFluid(world, eye, blocks::Water);
+}
+
 } // namespace mc
