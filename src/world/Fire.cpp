@@ -224,6 +224,12 @@ BlockStateId BlockUpdates::fireState(int fireAge) {
 }
 
 void BlockUpdates::placeFire(const BlockPos& p, int fireAge) {
+    // (M29.4c; wiki: Soul Fire) fire lit on soul sand or soul soil is soul fire: it never
+    // spreads or burns out, so it has no ticks; it goes when its soul block does.
+    if (const BlockId below = R().blockOf(at(rel(p, Direction::Down))); below == B::SoulSand || below == B::SoulSoil) {
+        set(p, R().defaultState(B::SoulFire));
+        return;
+    }
     set(p, fireState(fireAge));
     schedule(p, B::Fire, 30 + static_cast<int>(m_random.nextInt(10)), 0); // its own first tick
 }

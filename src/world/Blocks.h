@@ -570,6 +570,13 @@ enum : BlockId {
     FlowerPot,
     PottedFirst,
     PottedLast = PottedFirst + 36,
+    // (M29.4c; wiki pages of each)
+    SoulFire,      // fire on soul sand or soil: blue, light 10, never spreads
+    GlowLichen,    // facing: the side it covers (ours: one face, like sculk veins); light 7
+    PowderSnow,    // sink in and freeze
+    BambooSapling, // what a planted bamboo shoot is until it grows
+    CoralWallFanFirst, // the 10 wall fans: kCoralKinds alive then dead each (facing: out of the wall)
+    CoralWallFanLast = CoralWallFanFirst + 9,
     Count
 };
 } // namespace blocks
@@ -607,6 +614,8 @@ inline constexpr const char* kPottedPlants[37] = {
     "warped_fungus",  "crimson_roots",   "warped_roots",    "azalea",             "flowering_azalea",
     "open_eyeblossom", "closed_eyeblossom"};
 static_assert(blocks::PottedLast - blocks::PottedFirst + 1 == 37);
+// Fire and soul fire (M29.4c): both burn what is in them (soul fire 2 a hit, fire 1).
+inline bool isFire(BlockId b) { return b == blocks::Fire || b == blocks::SoulFire; }
 inline bool isPotted(BlockId b) { return b >= blocks::PottedFirst && b <= blocks::PottedLast; }
 // The plant in a potted block / the potted block for a plant (none: 0).
 BlockId plantInPot(BlockId potted);

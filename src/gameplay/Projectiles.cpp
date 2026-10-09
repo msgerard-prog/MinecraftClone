@@ -745,7 +745,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                                {c.x, c.y, c.z - 1}};
                     for (const BlockPos& f : cells)
                         if (world.isInHeight(f.y) &&
-                            blockRegistry().blockOf(world.getBlock(f)) == blocks::Fire) {
+                            isFire(blockRegistry().blockOf(world.getBlock(f)))) {
                             world.updateBlock(f, 0);
                             if (m_edits.size() < m_edits.capacity()) m_edits.push_back(f);
                         }

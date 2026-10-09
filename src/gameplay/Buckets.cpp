@@ -19,10 +19,27 @@ std::optional<BucketResult> useBucket(World& world, ItemId held, const glm::dvec
         const auto hit = raycastBlocks(world, eye, look, reach, RayFluids::Sources);
         if (!hit) return std::nullopt;
         const BlockId b = reg.blockOf(world.getBlock(hit->block));
-        if (b != blocks::Water && b != blocks::Lava) return std::nullopt;
+        if (b != blocks::Water && b != blocks::Lava && b != blocks::PowderSnow) return std::nullopt;
         world.updateBlock(hit->block, 0);
         changed.push_back(hit->block);
-        return BucketResult{*items.find(b == blocks::Water ? "water_bucket" : "lava_bucket")};
+        return BucketResult{*items.find(b == blocks::Water       ? "water_bucket"
+                                        : b == blocks::PowderSnow ? "powder_snow_bucket" // (M29.4c)
+                                                                  : "lava_bucket")};
+    }
+    if (id == "minecraft:powder_snow_bucket") { // (M29.4c) a block against the clicked face
+        const auto hit = raycastBlocks(world, eye, look, reach);
+        if (!hit) return std::nullopt;
+        BlockPos at = hit->block;
+        if (!BlockUpdates::breaksInFluid(reg.blockOf(world.getBlock(at)))) at = neighbour(hit->block, hit->face);
+        if (!world.isInHeight(at.y) || !world.chunk(at.chunk())) return std::nullopt;
+        const BlockStateId there = world.getBlock(at);
+        if (there != 0 && !BlockUpdates::isFluid(reg.blockOf(there)) && !BlockUpdates::breaksInFluid(reg.blockOf(there)))
+            return std::nullopt;
+        world.updateBlock(at, reg.defaultState(blocks::PowderSnow));
+        changed.push_back(at);
+        BucketResult result{*items.find("bucket")};
+        result.at = at;
+        return result;
     }
     const MobType fish = bucketFish(held);
     const bool water = id == "minecraft:water_bucket" || fish != MobType::Count,

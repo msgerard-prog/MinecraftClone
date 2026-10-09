@@ -13,6 +13,7 @@ struct FluidContact {
     bool lava = false;
     glm::dvec3 flow{0.0}; // unit direction of the water current (0 in still water)
     double height = 0.0;  // how far the fluid reaches above the box's bottom
+    bool soulFire = false; // (M29.4c) the fire is soul fire: 2 a hit
     bool fire = false;    // touching a fire block (same scan: one lookup per cell)
 };
 

@@ -117,6 +117,10 @@ std::optional<ItemStack> BlockUpdates::useCauldron(const BlockPos& p, const Item
         set(p, R().defaultState(B::LavaCauldron));
         return item("bucket");
     }
+    if (is(held.item, "powder_snow_bucket")) { // (M29.4c) a full powder snow cauldron
+        set(p, R().set(R().defaultState(B::PowderSnowCauldron), properties::cauldronLevel, 2));
+        return item("bucket");
+    }
     if (is(held.item, "bucket") && level == 3) {
         if (b == B::WaterCauldron) {
             water(0);
@@ -126,7 +130,8 @@ std::optional<ItemStack> BlockUpdates::useCauldron(const BlockPos& p, const Item
             set(p, R().defaultState(B::Cauldron));
             return item("lava_bucket");
         }
-        return std::nullopt; // (powder snow: no powder snow bucket yet)
+        set(p, R().defaultState(B::Cauldron)); // (M29.4c) powder snow
+        return item("powder_snow_bucket");
     }
     if (b == B::WaterCauldron) { // a dyed shulker box washes plain, keeping its slots (wiki: Shulker Box)
         const BlockId hb = itemRegistry().item(held.item).block;

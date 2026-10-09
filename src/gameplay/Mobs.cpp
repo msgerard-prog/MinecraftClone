@@ -216,7 +216,7 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
     if (fireproof) m.fireTicks = 0;
     if (fluid.fire && !fireproof) { // wiki: Fire - 1 a tick (hurt cooldown), 8 s alight
         if (m.hurtTime == 0 && m.deathTime == 0) {
-            m.health -= 1.0f;
+            m.health -= fluid.soulFire ? 2.0f : 1.0f; // (M29.4c: soul fire 2)
             m.hurtTime = 10;
         }
         if (m.fireTicks < 160) m.fireTicks = 160;

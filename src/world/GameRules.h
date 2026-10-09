@@ -17,7 +17,7 @@ struct GameRules {
     bool fallDamage = true;          // fall_damage
     bool fireDamage = true;          // fire_damage (fire, lava, burning)
     bool drowningDamage = true;      // drowning_damage
-    bool freezeDamage = true;        // freeze_damage (no powder snow yet: kept for vanilla)
+    bool freezeDamage = true;        // freeze_damage (powder snow, M29.4c)
     bool naturalRegeneration = true; // natural_health_regeneration
     bool mobDrops = true;            // mob_drops (doMobLoot: items and experience)
     bool blockDrops = true;          // block_drops (doTileDrops)

@@ -186,6 +186,13 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
             }
         }
         break;
+    case B::BambooSapling: { // (M29.4c; wiki: Bamboo Shoot) grows into bamboo 1 in 3, light 9+
+        const BlockPos up = rel(p, Direction::Up);
+        if (at(up) != 0 || !m_world.isInHeight(up.y) || rawBrightness(up) < 9 || m_random.nextInt(3) != 0) break;
+        set(p, R().defaultState(B::Bamboo));
+        set(up, R().set(R().defaultState(B::Bamboo), bambooLeaves, 1));
+        break;
+    }
     case B::Bamboo: { // grows a block on top up to 12-16 tall, at light 9+ (wiki: Bamboo)
         const BlockPos up = rel(p, Direction::Up);
         if (at(up) != 0 || !m_world.isInHeight(up.y) || rawBrightness(up) < 9 || m_random.nextInt(3) != 0) break;

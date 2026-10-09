@@ -41,6 +41,16 @@ void Player::gatherBoxes(const world::World& world, const Aabb& region) {
     // Block shapes (doors, fences...); unloaded chunks count as solid: never move into
     // terrain that hasn't been generated yet (it would appear around the player).
     gatherBlockBoxes(world, region, m_boxes, true);
+    if (!m_powderWalker || m_sneaking) return;
+    // Powder snow tops below the feet are floors for leather boots (M29.4c).
+    const auto& reg = world::blockRegistry();
+    for (int y = int(std::floor(region.min.y)); y <= int(std::floor(region.max.y)); ++y) {
+        if (y + 1.0 > m_pos.y + 1e-7) continue; // only blocks the feet are above
+        for (int z = int(std::floor(region.min.z)); z <= int(std::floor(region.max.z)); ++z)
+            for (int x = int(std::floor(region.min.x)); x <= int(std::floor(region.max.x)); ++x)
+                if (reg.blockOf(world.getBlock({x, y, z})) == world::blocks::PowderSnow)
+                    m_boxes.push_back({{double(x), double(y), double(z)}, {x + 1.0, y + 1.0, z + 1.0}});
+    }
 }
 
 glm::dvec3 Player::collide(const world::World& world, const Aabb& start, const glm::dvec3& delta) {

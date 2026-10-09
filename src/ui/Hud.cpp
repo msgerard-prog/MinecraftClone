@@ -96,6 +96,20 @@ void drawJumpBar(gfx::GuiBatch& batch, float charge, int guiWidth, int guiHeight
     if (charge > 0.0f) batch.fill(x + 1, y + 1, 180.0f * std::min(1.0f, charge), 3, gfx::rgba(120, 170, 255));
 }
 
+void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiHeight) {
+    if (frozen <= 0.0f) return;
+    const float w = float(guiWidth), h = float(guiHeight);
+    for (int band = 0; band < 8; ++band) { // outer bands most opaque
+        const float inset = band * std::min(w, h) * 0.025f, t = std::min(w, h) * 0.025f;
+        const uint32_t a = uint32_t(std::clamp(frozen * (150.0f - band * 18.0f), 0.0f, 255.0f));
+        const uint32_t c = a << 24 | 0xD8F0FFu;
+        batch.fill(inset, inset, w - 2 * inset, t, gfx::argb(c));
+        batch.fill(inset, h - inset - t, w - 2 * inset, t, gfx::argb(c));
+        batch.fill(inset, inset + t, t, h - 2 * inset - 2 * t, gfx::argb(c));
+        batch.fill(w - inset - t, inset + t, t, h - 2 * inset - 2 * t, gfx::argb(c));
+    }
+}
+
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight) {
     batch.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0x80700000));
     const std::string_view title = "You died!";

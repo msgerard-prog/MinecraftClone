@@ -102,7 +102,8 @@ Push pushKind(BlockStateId s) {
     if (b == B::CreakingHeart || b == B::SculkCatalyst || b == B::SculkSensor || b == B::SculkShrieker ||
         b == B::ReinforcedDeepslate)
         return Push::Block; // (vanilla: block entities; reinforced deepslate never moves)
-    if (b == B::SculkVein || R().likeOf(b) == B::Poppy || b == B::LilyPad) return Push::Destroy; // (M29.4a: flowers, pads)
+    if (b == B::SculkVein || R().likeOf(b) == B::Poppy || b == B::LilyPad || b == B::GlowLichen || b == B::BambooSapling || b == B::SoulFire)
+        return Push::Destroy; // (M29.4a: flowers, pads)
     // (M29.4b) beds of every colour, pots, stems and cocoa break
     if (R().likeOf(b) == B::RedBed || R().likeOf(b) == B::FlowerPot || b == B::PumpkinStem || b == B::MelonStem ||
         b == B::AttachedPumpkinStem || b == B::AttachedMelonStem || b == B::Cocoa)
@@ -924,6 +925,11 @@ BlockId BlockUpdates::infestedOf(BlockId b) {
 void BlockUpdates::onBlockChanged(const BlockPos& p, BlockStateId old, BlockStateId now) {
     // An infested block that broke lets its silverfish out (M26.4a; wiki: Infested Block).
     if (isInfested(blockOf(old)) && !isInfested(blockOf(now)) && m_silverfish.size() < 256) m_silverfish.push_back(p);
+    // (M29.4c; wiki: Soul Fire) fire on soul sand or soul soil burns as soul fire.
+    if (blockOf(now) == B::Fire) {
+        const BlockId below = blockOf(at(rel(p, Direction::Down)));
+        if (below == B::SoulSand || below == B::SoulSoil) set(p, R().defaultState(B::SoulFire));
+    }
     // A bed's foot placed by a player brings its head (one block toward its facing).
     if (blockOf(now) == B::RedBed && R().get(now, bedPart) == 1) {
         const BlockPos head = rel(p, hFacing(now));
@@ -1111,7 +1117,7 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     case B::Bamboo: { // on bamboo or ground it can root in (wiki: Bamboo)
         const BlockStateId below = at(rel(p, Direction::Down));
         const BlockId bb = blockOf(below);
-        return bb == B::Bamboo || plantableSoil(below) || bb == B::Sand || bb == B::RedSand || bb == B::Gravel;
+        return bb == B::Bamboo || bb == B::BambooSapling || plantableSoil(below) || bb == B::Sand || bb == B::RedSand || bb == B::Gravel;
     }
     case B::Lantern: // hanging from the block above, or standing (wiki: Lantern)
     case B::SoulLantern:
@@ -1368,6 +1374,20 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
         const bool melon = blockOf(s) == B::AttachedMelonStem;
         if (blockOf(at(rel(p, hFacing(s)))) != (melon ? B::Melon : B::Pumpkin))
             set(p, R().set(R().defaultState(melon ? B::MelonStem : B::PumpkinStem), age7, 7));
+        break;
+    }
+    case B::GlowLichen: // (M29.4c) holds to the block on its side
+        if (!R().collides(at(rel(p, static_cast<Direction>(R().get(s, facing6)))))) pop(p);
+        break;
+    case B::BambooSapling: { // (M29.4c) on soil, like bamboo
+        const BlockStateId below = at(rel(p, Direction::Down));
+        const BlockId bb = blockOf(below);
+        if (!plantableSoil(below) && bb != B::Sand && bb != B::RedSand && bb != B::Gravel) pop(p);
+        break;
+    }
+    case B::SoulFire: { // (M29.4c) only on soul sand or soil
+        const BlockId below = blockOf(at(rel(p, Direction::Down)));
+        if (below != B::SoulSand && below != B::SoulSoil) set(p, 0);
         break;
     }
     case B::Cocoa: // (M29.4b) hangs from a jungle log
@@ -2225,6 +2245,13 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     // Slabs and stairs go in the top half when put against a block's underside or
     // the upper half of its side (wiki: Slab, Stairs).
     const bool upper = faceDir == Direction::Down || (horizontal(faceDir) && hitY > 0.5);
+    // (M29.4c; wiki: Coral Fan) put on a block's side, a fan is a wall fan
+    if (horizontal(faceDir) && r.block(blockOf(state)).id.ends_with("_coral_fan")) {
+        if (!solid(opposite(faceDir))) return std::nullopt;
+        std::string id = r.block(blockOf(state)).id;
+        id.insert(id.rfind("_fan"), "_wall");
+        return withHFacing(r.set(r.defaultState(*r.findBlock(id)), waterlogged, r.get(state, waterlogged)), faceDir);
+    }
     switch (r.kind(blockOf(state))) {
     case BlockKind::Slab: return r.set(state, slabType, upper ? 0 : 1);
     case BlockKind::Stairs: // facing the way the player looks: they walk up away from themselves
@@ -2550,10 +2577,15 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Bamboo: {
         const BlockStateId below = world.getBlock(rel(at, Direction::Down));
         const BlockId bb = blockOf(below);
-        if (bb != B::Bamboo && !plantableSoil(below) && bb != B::Sand && bb != B::RedSand && bb != B::Gravel)
+        if (bb != B::Bamboo && bb != B::BambooSapling && !plantableSoil(below) && bb != B::Sand && bb != B::RedSand &&
+            bb != B::Gravel)
             return std::nullopt;
-        return state;
+        // (M29.4c; wiki: Bamboo Shoot) planted on the ground it is a shoot first
+        return bb == B::Bamboo || bb == B::BambooSapling ? state : r.defaultState(B::BambooSapling);
     }
+    case B::GlowLichen: // (M29.4c) covers the face it was put on
+        if (!solid(opposite(faceDir))) return std::nullopt;
+        return r.set(state, facing6, static_cast<int>(opposite(faceDir)));
     case B::Campfire: // faces the player; over a hay bale its smoke goes higher (wiki: Campfire)
     case B::SoulCampfire:
         return r.set(withHFacing(state, opposite(look)), signalFire,

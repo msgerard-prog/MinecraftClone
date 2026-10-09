@@ -83,6 +83,9 @@ public:
         if (on) m_creative = m_flying = true;
     }
     bool spectator() const { return m_spectator; }
+    // (M29.4c; wiki: Powder Snow) with leather boots the player stands on powder snow
+    // unless sneaking (then sinks in).
+    void setPowderSnowWalker(bool on) { m_powderWalker = on; }
     // Benchmarks only (--auto-fly): scales flight acceleration.
     void setFlySpeedMultiplier(double k) { m_flyMultiplier = k; }
     // Effects (M19.4; wiki: Speed, Slowness, Jump Boost, Slow Falling): walking speed
@@ -162,6 +165,7 @@ private:
     bool m_inWater = false, m_inLava = false;
     bool m_creative = true;
     bool m_spectator = false;
+    bool m_powderWalker = false;
     bool m_flying = false;
     bool m_sprinting = false;
     bool m_sneaking = false;

@@ -58,7 +58,7 @@ ItemRegistry buildItems() {
         // Placed by another item (redstone dust, torches on walls) or never an item.
         if (b == blocks::RedstoneWire || b == blocks::RedstoneWallTorch || b == blocks::WallTorch ||
             b == blocks::SoulWallTorch || b == blocks::PistonHead || b == blocks::NetherPortal ||
-            b == blocks::EndPortal || b == blocks::EndGateway || b == blocks::Fire ||
+            b == blocks::EndPortal || b == blocks::EndGateway || isFire(b) ||
             b == blocks::Wheat || b == blocks::Carrots || b == blocks::Potatoes ||
             b == blocks::Beetroots ||      // crops: planted by seeds
             b == blocks::SweetBerryBush || // (planted by sweet berries)
@@ -69,7 +69,10 @@ ItemRegistry buildItems() {
             b == blocks::FrostedIce ||  // (M29.2b: only from Frost Walker)
             b == blocks::PumpkinStem || b == blocks::MelonStem || b == blocks::AttachedPumpkinStem ||
             b == blocks::AttachedMelonStem || b == blocks::Cocoa || // (M29.4b: seeds and beans)
-            isPotted(b))                                          // (filled by hand)
+            isPotted(b) ||                                        // (filled by hand)
+            (b >= blocks::CoralWallFanFirst && b <= blocks::CoralWallFanLast) || // (M29.4c: from fans)
+            b == blocks::BambooSapling ||                                         // (planted bamboo)
+            b == blocks::PowderSnow)                                              // (a bucket below)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -226,6 +229,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:water_bucket", .maxStack = 1, .texture = "item/water_bucket"});
     r.add({.id = "minecraft:lava_bucket", .maxStack = 1, .texture = "item/lava_bucket"});
     r.add({.id = "minecraft:milk_bucket", .maxStack = 1, .texture = "item/milk_bucket"});
+    // (M29.4c; wiki: Powder Snow Bucket) the only way to carry powder snow
+    r.mapBlock(blocks::PowderSnow,
+               r.add({.id = "minecraft:powder_snow_bucket", .maxStack = 1, .texture = "item/powder_snow_bucket"}));
     // Redstone dust is placed as redstone_wire; wall torches drop the torch item.
     r.mapBlock(blocks::RedstoneWire, *r.find("redstone"));
     r.mapBlock(blocks::RedstoneWallTorch, *r.find("redstone_torch"));
@@ -627,6 +633,13 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::MelonStem, *r.find("melon_seeds"));
     r.mapBlock(blocks::AttachedMelonStem, *r.find("melon_seeds"));
     r.mapBlock(blocks::Cocoa, *r.find("cocoa_beans"));
+    // (M29.4c) wall fans give their fan, a shoot its bamboo
+    for (BlockId b = blocks::CoralWallFanFirst; b <= blocks::CoralWallFanLast; ++b) {
+        std::string fan = blockRegistry().block(b).id;
+        fan.erase(fan.rfind("_wall"), 5);
+        r.mapBlock(b, *r.find(fan));
+    }
+    r.mapBlock(blocks::BambooSapling, *r.find("bamboo"));
     r.add({.id = "minecraft:enchanted_golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
            .texture = "item/enchanted_golden_apple"});
     // (M29.3c; wiki: Spyglass, Bottle o' Enchanting, Knowledge Book)

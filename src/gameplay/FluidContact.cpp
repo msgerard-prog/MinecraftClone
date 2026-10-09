@@ -37,7 +37,7 @@ FluidContact fluidContact(const World& world, const Aabb& box) {
                 // One lookup per cell; only fluid cells read their neighbours.
                 const BlockStateId s = world.getBlock({x, y, z});
                 const BlockId kind = fluidIn(s);
-                if (kind == blocks::Fire) c.fire = true;
+                if (isFire(kind)) c.fire = true, c.soulFire = c.soulFire || kind == blocks::SoulFire;
                 if (kind != blocks::Water && kind != blocks::Lava) continue;
                 const double h = fluidIn(world.getBlock({x, y + 1, z})) == kind
                                      ? 1.0

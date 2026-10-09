@@ -1,5 +1,7 @@
 // Blocks of M29 (completeness; wiki pages of each block).
+#include "gameplay/Buckets.h"
 #include "gameplay/Mining.h"
+#include "gameplay/Vitals.h"
 #include "gameplay/Mobs.h"
 #include "gameplay/Recipes.h"
 #include "world/BlockUpdates.h"
@@ -63,4 +65,73 @@ TEST_CASE("M29.4b: flower pots hold 37 plants; a potted plant drops the pot and 
     REQUIRE(out.size() == 2);
     CHECK(itemRegistry().item(out[0].item).id == "minecraft:flower_pot");
     CHECK(itemRegistry().item(out[1].item).id == "minecraft:cactus");
+}
+
+TEST_CASE("M29.4c: soul fire on soul blocks; glow lichen and wall fans hold to their wall; bamboo shoots") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    // Fire lit on soul sand burns as soul fire and goes with it.
+    w.setBlock({2, 63, 2}, r.defaultState(blocks::SoulSand));
+    w.updateBlock({2, 64, 2}, BlockUpdates::fireState(0));
+    CHECK(r.blockOf(w.getBlock({2, 64, 2})) == blocks::SoulFire);
+    CHECK(r.lightEmission(r.defaultState(blocks::SoulFire)) == 10);
+    w.updateBlock({2, 63, 2}, r.defaultState(blocks::Stone));
+    CHECK(w.getBlock({2, 64, 2}) == 0);
+    // Glow lichen put on a block's east side covers its west side.
+    w.setBlock({5, 64, 5}, r.defaultState(blocks::Stone));
+    const auto lichen = BlockUpdates::placement(w, r.defaultState(blocks::GlowLichen), {6, 64, 5}, Direction::East, 0, 0);
+    REQUIRE(lichen);
+    CHECK(r.value(*lichen, "facing") == "west");
+    w.updateBlock({6, 64, 5}, *lichen);
+    w.updateBlock({5, 64, 5}, 0);
+    CHECK(w.getBlock({6, 64, 5}) == 0);
+    // A fan put on a side becomes a wall fan facing out, and breaks with its wall.
+    w.setBlock({8, 64, 8}, r.defaultState(blocks::Stone));
+    const auto fan = BlockUpdates::placement(w, r.defaultState(*r.findBlock("minecraft:tube_coral_fan")), {8, 64, 9},
+                                             Direction::South, 0, 0);
+    REQUIRE(fan);
+    CHECK(r.block(r.blockOf(*fan)).id == "minecraft:tube_coral_wall_fan");
+    CHECK(r.value(*fan, "facing") == "south");
+    w.updateBlock({8, 64, 9}, *fan);
+    w.updateBlock({8, 64, 8}, 0);
+    CHECK(r.blockOf(w.getBlock({8, 64, 9})) == blocks::Water); // (its water stays)
+    // Bamboo planted on grass is a shoot; bone meal grows it into two bamboo blocks.
+    w.setBlock({10, 63, 10}, r.defaultState(blocks::GrassBlock));
+    const auto shoot = BlockUpdates::placement(w, r.defaultState(blocks::Bamboo), {10, 64, 10}, Direction::Up, 0, 0);
+    REQUIRE(shoot);
+    CHECK(r.blockOf(*shoot) == blocks::BambooSapling);
+    w.updateBlock({10, 64, 10}, *shoot);
+    CHECK(u.boneMeal({10, 64, 10}));
+    CHECK(r.blockOf(w.getBlock({10, 64, 10})) == blocks::Bamboo);
+    CHECK(r.blockOf(w.getBlock({10, 65, 10})) == blocks::Bamboo);
+}
+
+TEST_CASE("M29.4c: powder snow freezes in 140 ticks, then hurts every 40; leather keeps warm; buckets") {
+    Vitals v;
+    for (int i = 0; i < 140; ++i) v.tickFreezing(true, false);
+    CHECK(v.frozen() == doctest::Approx(1.0f));
+    const float before = v.health();
+    for (int i = 0; i < 40; ++i) v.tickFreezing(true, false);
+    CHECK(v.health() == doctest::Approx(before - 1.0f));
+    for (int i = 0; i < 70; ++i) v.tickFreezing(false, false);
+    CHECK(v.frozenTicks() == 0);
+    for (int i = 0; i < 100; ++i) v.tickFreezing(true, true); // leather armor
+    CHECK(v.frozenTicks() == 0);
+    // An empty bucket scoops it; the bucket puts it back.
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({4, 64, 4}, r.defaultState(blocks::PowderSnow));
+    std::vector<BlockPos> changed;
+    const auto got = useBucket(w, *itemRegistry().find("bucket"), {4.5, 66.5, 4.5}, {0, -1, 0}, 5.0, changed);
+    REQUIRE(got);
+    CHECK(itemRegistry().item(got->filled).id == "minecraft:powder_snow_bucket");
+    CHECK(w.getBlock({4, 64, 4}) == 0);
+    w.setBlock({4, 63, 4}, r.defaultState(blocks::Stone));
+    const auto back = useBucket(w, got->filled, {4.5, 66.5, 4.5}, {0, -1, 0}, 5.0, changed);
+    REQUIRE(back);
+    CHECK(r.blockOf(w.getBlock({4, 64, 4})) == blocks::PowderSnow);
 }

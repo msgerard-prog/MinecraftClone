@@ -52,7 +52,7 @@ bool Pathfinder::passable(const World& world, const glm::ivec3& c, int height) {
     for (int i = 0; i < height; ++i) {
         const BlockStateId s = at(world, c.x, c.y + i, c.z);
         const BlockId b = reg.blockOf(s);
-        if (reg.collides(s) || b == blocks::Lava || b == blocks::Fire) return false;
+        if (reg.collides(s) || b == blocks::Lava || isFire(b)) return false;
     }
     return true;
 }
@@ -70,7 +70,7 @@ int Pathfinder::danger(const World& world, const glm::ivec3& c) {
     static constexpr int kSides[5][3] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0}};
     for (const auto& d : kSides) {
         const BlockId b = reg.blockOf(at(world, c.x + d[0], c.y + d[1], c.z + d[2]));
-        if (b == blocks::Lava || b == blocks::Fire) return cost + 80;
+        if (b == blocks::Lava || isFire(b)) return cost + 80;
     }
     return cost;
 }

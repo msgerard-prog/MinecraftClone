@@ -17,6 +17,7 @@ using namespace properties;
 namespace B = blocks;
 
 const BlockRegistry& R() { return blockRegistry(); }
+Direction opposite(Direction d) { return static_cast<Direction>(static_cast<int>(d) ^ 1); }
 BlockPos rel(const BlockPos& p, Direction d) {
     const glm::ivec3 v = normal(d);
     return {p.x + v.x, p.y + v.y, p.z + v.z};
@@ -26,7 +27,7 @@ bool supports(BlockStateId s) { return R().collides(s) && !R().block(R().blockOf
 // Each coral block, plant and fan, alive or dead, with the dead counterpart of the
 // living ones (worked out once from the names).
 struct CoralInfo {
-    enum Kind : uint8_t { None, Block, Plant, Fan } kind = None;
+    enum Kind : uint8_t { None, Block, Plant, Fan, WallFan } kind = None;
     bool alive = false;
     BlockId dead = 0;
 };
@@ -39,6 +40,7 @@ const std::vector<CoralInfo>& coralTable() {
             if (id.ends_with("_coral_block")) c.kind = CoralInfo::Block;
             else if (id.ends_with("_coral")) c.kind = CoralInfo::Plant;
             else if (id.ends_with("_coral_fan")) c.kind = CoralInfo::Fan;
+            else if (id.ends_with("_coral_wall_fan")) c.kind = CoralInfo::WallFan; // (M29.4c)
             else continue;
             c.alive = !id.starts_with("dead_");
             if (c.alive) c.dead = *R().findBlock("dead_" + id);
@@ -71,6 +73,8 @@ bool BlockUpdates::oceanSurvives(const BlockPos& p, BlockStateId s) const {
     case B::SeaPickle:
         return supports(below) && bb != B::MagmaBlock;
     default:
+        if (b < coralTable().size() && coralTable()[b].kind == CoralInfo::WallFan) // (M29.4c) on its wall
+            return supports(at(rel(p, opposite(static_cast<Direction>(R().get(s, facing) + 2)))));
         if (b < coralTable().size() && coralTable()[b].kind != CoralInfo::None && coralTable()[b].kind != CoralInfo::Block)
             return supports(below);
         return true;
@@ -123,6 +127,7 @@ bool BlockUpdates::tickOcean(const BlockPos& p, BlockStateId s) {
     if (!coralWet(p, s)) { // still dry: dead (keeping its waterlogged state - dry anyway)
         BlockStateId dead = R().defaultState(coralTable()[b].dead);
         if (coralTable()[b].kind != CoralInfo::Block) dead = R().set(dead, waterlogged, 1);
+        if (coralTable()[b].kind == CoralInfo::WallFan) dead = R().set(dead, facing, R().get(s, facing));
         set(p, dead);
     }
     return true;

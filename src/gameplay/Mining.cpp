@@ -438,7 +438,9 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
             out.push_back({itemRegistry().blockItem(blocks::BigDripleaf), 1});
             return;
         }
-        if (ob == blocks::PaleHangingMoss) { // (wiki: only with shears or Silk Touch)
+        // (wiki: only with shears or Silk Touch; M29.4c: glow lichen, vines, bushes, dry grass)
+        if (ob == blocks::PaleHangingMoss || ob == blocks::GlowLichen || ob == blocks::Vine || ob == blocks::Bush ||
+            ob == blocks::ShortDryGrass || ob == blocks::TallDryGrass) {
             if (shears || enchantLevel(held, Enchantment::SilkTouch) > 0)
                 out.push_back({itemRegistry().blockItem(ob), 1});
             return;
@@ -460,7 +462,7 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         }
         if (id.starts_with("minecraft:infested_")) return;
         if (enchantLevel(held, Enchantment::SilkTouch) > 0 &&
-            (id.ends_with("_coral") || id.ends_with("_coral_fan") || id.ends_with("_coral_block") ||
+            (id.ends_with("_coral") || id.ends_with("_fan") || id.ends_with("_coral_block") ||
              ob == blocks::BlueIce || ob == blocks::TurtleEgg)) {
             out.push_back({itemRegistry().blockItem(ob), 1});
             return;
@@ -646,7 +648,7 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
             add(itemRegistry().blockItem(b), reg.get(state, properties::pickles) + 1);
             return;
         }
-        if (id.ends_with("_coral") || id.ends_with("_coral_fan") || b == blocks::BlueIce ||
+        if (id.ends_with("_coral") || id.ends_with("_fan") || b == blocks::BlueIce || // (and wall fans)
             b == blocks::TurtleEgg)
             return;
         if (id.ends_with("_coral_block") && !id.starts_with("minecraft:dead_")) {
@@ -824,6 +826,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::FrostedIce:
     case blocks::PistonHead: // the base drops the piston
     case blocks::Fire:
+    case blocks::SoulFire:
+    case blocks::PowderSnow: // (M29.4c: only taken with a bucket)
         return;
     // Crops (wiki: each crop): ripe wheat 1 wheat + 1-4 seeds; carrots and potatoes
     // 2-5 (potatoes: 2% a poisonous one); beetroots 1 + 1-4 seeds; unripe: the seed.

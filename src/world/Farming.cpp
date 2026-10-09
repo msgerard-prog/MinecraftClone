@@ -198,6 +198,25 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
         set(p, R().set(s, age7, std::min(7, a + 2 + static_cast<int>(m_random.nextInt(4)))));
         return true;
     }
+    if (b == B::BambooSapling) { // (M29.4c) it grows into bamboo
+        const BlockPos up{p.x, p.y + 1, p.z};
+        if (at(up) != 0) return false;
+        set(p, R().defaultState(B::Bamboo));
+        set(up, R().set(R().defaultState(B::Bamboo), bambooLeaves, 1));
+        return true;
+    }
+    if (b == B::GlowLichen) { // (M29.4c; wiki: Glow Lichen) spreads to a free face nearby
+        const int f = R().get(s, facing6);
+        for (int i = 0; i < 8; ++i) {
+            const BlockPos q{p.x + int(m_random.nextInt(3)) - 1, p.y + int(m_random.nextInt(3)) - 1,
+                             p.z + int(m_random.nextInt(3)) - 1};
+            if (at(q) != 0 && at(q) != R().defaultState(B::Water)) continue;
+            if (!R().collides(at(neighbour(q, static_cast<Direction>(f))))) continue;
+            set(q, R().set(R().set(s, facing6, f), waterlogged, at(q) == 0 ? 1 : 0));
+            return true;
+        }
+        return false;
+    }
     if (b == B::Cocoa) { // (M29.4b) a stage
         if (R().get(s, age2) >= 2) return false;
         set(p, R().set(s, age2, R().get(s, age2) + 1));

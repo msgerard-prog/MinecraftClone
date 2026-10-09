@@ -36,7 +36,8 @@ public:
     int difficulty() const { return m_difficulty; }
     static float scaledDamage(float amount, int difficulty);
     // Game rules (M28.1): fall_damage, fire_damage, drowning_damage, natural_health_regeneration.
-    void setRules(bool fall, bool fire, bool drowning, bool regen) {
+    void setRules(bool fall, bool fire, bool drowning, bool regen, bool freeze = true) {
+        m_freezeDamage = freeze;
         m_fallDamage = fall;
         m_fireDamage = fire;
         m_drowningDamage = drowning;
@@ -66,7 +67,7 @@ public:
     //   damage x (1 - min(20, max(armor / 5, armor - 4 x damage / (toughness + 8))) / 25)
     // and each worn piece wears floor(damage / 4), at least 1. `from`: where it came
     // from (null: no direction, the shield can't help). Returns true if it hurt.
-    enum class Hit : uint8_t { Generic, Fire, Explosion, Projectile };
+    enum class Hit : uint8_t { Generic, Fire, Explosion, Projectile, Freeze };
     bool attacked(float amount, const glm::dvec3* from = nullptr, Hit kind = Hit::Generic);
     // Protection enchantments worn (levels summed over the pieces): each hit adds up
     // "enchantment protection" - Protection 1 per level, Fire/Blast/Projectile
@@ -124,10 +125,16 @@ public:
     // Standing in a fire block (wiki: Fire › Burning): 1 damage a tick (the hurt cooldown
     // makes it one every half second); after a second in it the player catches fire for
     // 8 s (the player's Fire tag starts at -20). Call each tick, `inFire` or not.
-    float touchFire(bool inFire);
+    float touchFire(bool inFire, float damage = 1.0f); // (soul fire: 2)
     float tickFire(bool inWater);
     bool burning() const { return m_fire > 0; }
     int fireTicks() const { return m_fire; }
+    // Freezing (M29.4c; wiki: Powder Snow): +1 a tick in powder snow (not with leather
+    // armor), -2 out of it; at 140 (fully frozen) 1 damage every 40 ticks.
+    static constexpr int kFreezeTicks = 140;
+    void tickFreezing(bool inPowderSnow, bool immune);
+    int frozenTicks() const { return m_frozen; }
+    float frozen() const { return float(m_frozen) / float(kFreezeTicks); }
     void setFireTicks(int ticks) { m_fire = ticks; }
 
     // Experience (M17.5; wiki: Experience): points fill the bar to the next level -
@@ -227,7 +234,7 @@ private:
     float m_landingFactor = 1.0f;
     bool m_stalagmite = false;
     bool m_fallDamage = true, m_fireDamage = true, m_drowningDamage = true,
-         m_naturalRegen = true; // (M28.1)
+         m_naturalRegen = true, m_freezeDamage = true; // (M28.1; freeze: M29.4c)
     int m_difficulty = 2;
     float m_damageTaken = 0.0f;
     int m_peacefulTicks = 0;
@@ -243,6 +250,8 @@ private:
     int m_air = kMaxAir;
     int m_fire = 0;        // burning ticks left
     int m_fireContact = 0; // ticks spent in fire blocks (catches fire at 20)
+    int m_frozen = 0;      // (M29.4c) vanilla TicksFrozen
+    int m_freezeClock = 0; // ticks toward the next freezing hurt
     int m_timeSinceRest = 0;
     int m_xpLevel = 0;
     float m_xpProgress = 0.0f;

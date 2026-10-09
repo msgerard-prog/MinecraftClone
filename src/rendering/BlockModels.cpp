@@ -841,6 +841,28 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     const BakedModel& pm = m_models[registry.defaultState(plant)];
                     m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
                 }
+            } else if (name == "soul_fire") { // (M29.4c) as fire: a cross of its animated texture
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("soul_fire_0");
+            } else if (name == "bamboo_sapling") { // (M29.4c; vanilla: a cross of bamboo_stage0)
+                m.visible = true;
+                m.cross = true;
+                m.crossSprite = sprite("bamboo_stage0");
+            } else if (name.ends_with("_coral_wall_fan")) {
+                // (M29.4c) vanilla: two planes tilted out of the wall; ours: one flat plane
+                // standing 8 pixels out from the wall, seen from above and below.
+                m.visible = true;
+                std::string fan = name;
+                fan.erase(fan.rfind("_wall"), 5);
+                const uint16_t sp = sprite(fan.c_str());
+                const auto f = registry.value(state, "facing").value_or("north"); // out of the wall
+                if (f == "north") addBox(m, 0, 4, 8, 16, 4, 16, sp);
+                else if (f == "south") addBox(m, 0, 4, 0, 16, 4, 8, sp);
+                else if (f == "west") addBox(m, 8, 4, 0, 16, 4, 16, sp);
+                else addBox(m, 0, 4, 0, 8, 4, 16, sp);
+                for (int d = 0; d < 6; ++d)
+                    m.boxes[0].faces[d].present = d == int(Direction::Up) || d == int(Direction::Down);
             } else if (name == "melon") { // vanilla: cube_column
                 m = single(cubeColumn(sprite("melon_side"), sprite("melon_top"), "y"));
             } else if (name.ends_with("_stem") && (name.starts_with("melon") || name.starts_with("pumpkin") ||
@@ -1122,9 +1144,9 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                 v.faces[int(Direction::Up)].sprite = sprite(("vault_top" + om).c_str());
                 v.faces[int(Direction::Down)].sprite = sprite(("vault_bottom" + om).c_str());
                 m = single(v);
-            } else if (name == "sculk_vein") { // (M27.3) a thin layer on its face
+            } else if (name == "sculk_vein" || name == "glow_lichen") { // (M27.3; M29.4c) a layer on its face
                 const std::string_view f = registry.value(state, "facing").value_or("down");
-                const uint16_t sp = sprite("sculk_vein");
+                const uint16_t sp = sprite(name.c_str());
                 m.visible = true;
                 if (f == "down") addBox(m, 0, 0, 0, 16, 1, 16, sp);
                 else if (f == "up") addBox(m, 0, 15, 0, 16, 16, 16, sp);

@@ -40,6 +40,9 @@ void drawBossBar(gfx::GuiBatch& batch, std::string_view name, float fraction, ui
 
 // The death screen: red tint, "You died!" and how to respawn.
 void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight);
+// Freezing in powder snow (M29.4c; vanilla: the powder_snow_outline vignette, faded in
+// with the frozen fraction 0..1): frosty bands closing in from the edges.
+void drawFrostOverlay(gfx::GuiBatch& batch, float frozen, int guiWidth, int guiHeight);
 
 // What the F3 debug screen shows (filled by main.cpp each frame).
 struct DebugInfo {

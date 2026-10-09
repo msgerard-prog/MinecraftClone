@@ -1367,6 +1367,29 @@ BlockRegistry buildVanillaBlocks() {
                     {.opaqueCube = false, .layer = RenderLayer::Cutout, .like = blocks::FlowerPot}),
               BlockId(blocks::PottedFirst + i));
     }
+    // (M29.4c; wiki: Soul Fire - light 10; Glow Lichen - 0.2, light 7; Powder Snow - 0.25,
+    // no collision for most; Bamboo Shoot - 1.0, axe/sword; Coral Fan - wall kinds)
+    check(r.add("soul_fire", {.lightEmission = 10, .opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout}),
+          blocks::SoulFire);
+    check(r.add("glow_lichen", {.hardness = 0.2f, .resistance = 0.2f, .lightEmission = 7, .opaqueCube = false,
+                                .collision = false, .layer = RenderLayer::Cutout},
+                {{&facing6, "down"}, {&waterlogged, "false"}}),
+          blocks::GlowLichen);
+    check(r.add("powder_snow", {.hardness = 0.25f, .resistance = 0.25f, .lightOpacity = 1, .opaqueCube = false,
+                                .collision = false, .tool = HarvestTool::Shovel}),
+          blocks::PowderSnow);
+    check(r.add("bamboo_sapling", {.hardness = 1.0f, .resistance = 1.0f, .opaqueCube = false, .collision = false,
+                                   .layer = RenderLayer::Cutout, .randomTicks = true, .tool = HarvestTool::Axe}),
+          blocks::BambooSapling);
+    {
+        BlockId next = blocks::CoralWallFanFirst;
+        for (const char* kind : kCoralKinds)
+            for (const char* dead : {"", "dead_"})
+                check(r.add(std::string(dead) + kind + "_coral_wall_fan",
+                            {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                            {{&facing, "north"}, {&waterlogged, "true"}}),
+                      next++);
+    }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

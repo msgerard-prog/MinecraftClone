@@ -28,14 +28,27 @@ float Vitals::breathe(bool eyesInWater, bool keepBreath) {
     return 0.0f;
 }
 
-float Vitals::touchFire(bool inFire) {
+void Vitals::tickFreezing(bool inPowderSnow, bool immune) {
+    if (inPowderSnow && !immune) m_frozen = std::min(kFreezeTicks, m_frozen + 1);
+    else m_frozen = std::max(0, m_frozen - 2);
+    if (m_frozen >= kFreezeTicks && inPowderSnow) {
+        if (++m_freezeClock >= 40) {
+            m_freezeClock = 0;
+            attacked(1.0f, nullptr, Hit::Freeze);
+        }
+    } else {
+        m_freezeClock = 0;
+    }
+}
+
+float Vitals::touchFire(bool inFire, float damage) {
     if (!inFire) {
         m_fireContact = 0;
         return 0.0f;
     }
     if (++m_fireContact >= 20) setOnFire(160);
-    return attacked(1.0f, nullptr, Hit::Fire)
-               ? 1.0f
+    return attacked(damage, nullptr, Hit::Fire)
+               ? damage
                : 0.0f; // (standing in fire: armor helps; burning doesn't)
 }
 
@@ -200,6 +213,7 @@ bool Vitals::attacked(float amount, const glm::dvec3* from, Hit kind) {
     if (amount <= 0.0f || m_invulnerable > 0 || dead()) return false;
     if (kind == Hit::Fire && effectLevel(world::Effect::FireResistance) > 0) return false; // (wiki)
     if (kind == Hit::Fire && !m_fireDamage) return false; // (M28.1: game rule)
+    if (kind == Hit::Freeze && !m_freezeDamage) return false; // (M29.4c: freeze_damage)
     if (m_shieldRaised && from) {
         glm::dvec3 to = *from - m_eye;
         to.y = 0.0;

@@ -1873,7 +1873,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             {
                 using E = mc::world::Effect;
                 vitals.setRules(rules.fallDamage, rules.fireDamage, rules.drowningDamage,
-                                rules.naturalRegeneration);
+                                rules.naturalRegeneration, rules.freezeDamage);
                 interaction.setBlockDrops(rules.blockDrops);
                 interaction.setMayBuild(gameMode != 2);
                 vitals.setDifficulty(difficulty);
@@ -1904,6 +1904,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 const mc::world::ItemStack& chestPiece = inventory.armor(1);
                 player.setCanGlide(!dead && chestPiece.item == elytraItem &&
                                    chestPiece.damage < 431);
+                // (M29.4c; wiki: Powder Snow) leather boots walk on powder snow
+                static const mc::world::ItemId leatherBoots = *mc::world::itemRegistry().find("leather_boots");
+                player.setPowderSnowWalker(inventory.armor(3).item == leatherBoots);
             }
             if (elytraBoost > 0) { // (M28.4c) a firework pushing the glide along the look
                 if (player.gliding()) {
@@ -1941,6 +1944,32 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             if (survival && player.onSoulBlock() && gameRng.nextInt(25) == 0 &&
                 mc::world::enchantLevel(inventory.armor(3), mc::world::Enchantment::SoulSpeed) > 0)
                 inventory.setArmor(3, mc::wearItem(inventory.armor(3), 1, gameRng));
+            { // Powder snow (M29.4c; wiki: Powder Snow): inside it the player sinks slowly, moves
+                // slowly, takes no fall damage and freezes - not with any leather armor on.
+                const mc::Aabb box = player.box();
+                bool inPowder = false;
+                for (int y = int(std::floor(box.min.y)); y <= int(std::floor(box.max.y - 1e-7)) && !inPowder; ++y)
+                    for (int z = int(std::floor(box.min.z)); z <= int(std::floor(box.max.z - 1e-7)) && !inPowder; ++z)
+                        for (int x = int(std::floor(box.min.x)); x <= int(std::floor(box.max.x - 1e-7)); ++x)
+                            if (mc::world::blockRegistry().blockOf(world.getBlock({x, y, z})) ==
+                                mc::world::blocks::PowderSnow) {
+                                inPowder = true;
+                                break;
+                            }
+                inPowder = inPowder && !player.spectator();
+                static const std::array<mc::world::ItemId, 4> leather = {
+                    *mc::world::itemRegistry().find("leather_helmet"), *mc::world::itemRegistry().find("leather_chestplate"),
+                    *mc::world::itemRegistry().find("leather_leggings"), *mc::world::itemRegistry().find("leather_boots")};
+                bool warm = !survival || dead;
+                for (int piece = 0; piece < 4; ++piece)
+                    warm = warm || inventory.armor(piece).item == leather[size_t(piece)];
+                vitals.tickFreezing(inPowder, warm);
+                if (inPowder && !player.flying()) {
+                    const glm::dvec3 v = player.velocity();
+                    player.setVelocity({v.x * 0.5, std::max(v.y, -0.12), v.z * 0.5});
+                    vitals.resetFall();
+                }
+            }
             if (ridingCart == 0 && !player.flying()) {
                 // A sweet berry bush (M26.3; wiki) slows whoever walks through it and pricks
                 // them (1 damage) while they move, once it has grown past its first stage.
@@ -2149,8 +2178,11 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             mc::Vitals::Hit::Fire); // lava: armor reduces it (wiki: Armor)
                         vitals.setOnFire(300);      // 15 s
                     }
-                    vitals.touchFire(
-                        mc::portals::touching(world, player.box(), mc::world::blocks::Fire));
+                    { // (M29.4c: soul fire hurts 2)
+                        const bool soul = mc::portals::touching(world, player.box(), mc::world::blocks::SoulFire);
+                        vitals.touchFire(soul || mc::portals::touching(world, player.box(), mc::world::blocks::Fire),
+                                         soul ? 2.0f : 1.0f);
+                    }
                     // A lit campfire burns what stands in it: 1, soul campfires 2 (wiki: Campfire).
                     {
                         const mc::world::BlockPos in{int(std::floor(feet.x)),
@@ -5716,6 +5748,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 dials.seconds = mc::timeSeconds();
                 itemIcons.setDials(dials);
             }
+            mc::ui::drawFrostOverlay(batch, vitals.frozen(), guiW, guiH); // (M29.4c: powder snow)
             if (gameMode != 3)
                 mc::ui::drawHotbar(batch, inventory, itemIcons, renderer.models(), guiW, guiH);
             { // The held map (M28.2b): ours is a panel at the bottom right (vanilla holds it
