@@ -1778,6 +1778,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 fishing.cancel();
                 particles.clear();
                 primedTnt.clear();
+                activeGeysers.clear(); // (M33 review: a geyser stays in its dimension)
                 blockUpdates.landAll();
                 orbs.clear();
                 const Dimension from = dimension;
@@ -2370,6 +2371,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     cart->paddleTurn = int8_t(input.strafe > 0.0f   ? 1
                                               : input.strafe < 0.0f ? -1
                                                                     : 0);
+                } else if (cart->type == mc::world::MobType::Cushion) {
+                    // (M33 review) a cushion is a seat, not a cart: walking keys don't push it
                 } else if (input.forward > 0.0f) {
                     const glm::dvec3 f(mc::world::forwardFlat(player.yaw()));
                     if (cart->vel.x * cart->vel.x + cart->vel.z * cart->vel.z < 0.01)
@@ -2451,7 +2454,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                                         int(std::floor(feet.z))};
                         const mc::world::BlockId ub = reg.blockOf(world.getBlock(under));
                         vitals.setLandingFactor(ub == mc::world::blocks::HayBlock                ? 0.2f
-                                                : reg.likeOf(ub) == mc::world::blocks::RedBed ||
+                                                : (reg.likeOf(ub) == mc::world::blocks::RedBed &&
+                                                   !mc::world::isStrawBed(ub)) || // (straw: no softer landing)
                                                           mc::world::isShelfMushroom(ub)
                                                       ? 0.5f // (wiki: Bed, Shelf Mushroom)
                                                                                                   : 1.0f);

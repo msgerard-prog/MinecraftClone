@@ -211,7 +211,7 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
                 m.health = std::min(maxHealthOf(m), m.health + 2.0f);
                 return Use::Fed;
             }
-            if (m.isBaby()) {
+            if (m.isBaby() && !m.ageLocked) { // (M33 review: a golden dandelion holds it back)
                 m.age = std::min(0, m.age + 2400);
                 return Use::Fed;
             }
@@ -273,7 +273,7 @@ Mobs::Use Mobs::mountInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntit
             m.health = std::min(maxHealthOf(m), m.health + f->heal);
             used = true;
         }
-        if (m.isBaby() && f->grow > 0) {
+        if (m.isBaby() && f->grow > 0 && !m.ageLocked) { // (M33 review: not while age-locked)
             m.age = std::min(0, m.age + f->grow);
             used = true;
         }

@@ -137,15 +137,17 @@ void treeShape(TreeKind kind, int32_t wx, int32_t y0, int32_t wz, int height, Xo
         disc(wx, top, wz, 3, false, 0.2f);
         disc(wx, top + 1, wz, 2, false, 0.1f);
     } else if (kind == TreeKind::Poplar) {
-        // (M33.3a; 26.3) a tall, slim trunk wrapped in a narrow column of leaves from a third of
-        // the way up to a point over the top - fuller in the middle.
+        // (M33.3a; wiki: Poplar - one trunk under an especially large canopy) a tall trunk in a
+        // big egg of leaves from a third of the way up to a point over the top, widest (3) in
+        // its middle (our reading of the shape).
         for (int i = 0; i < height; ++i)
             log(wx, y0 + i, wz);
-        const int32_t top = y0 + height - 1;
-        for (int32_t y = y0 + height / 3; y <= top + 1; ++y) {
-            const int fromTop = top + 1 - y;
-            const int r = fromTop <= 1 ? 1 : (y - y0 > height / 2 && fromTop > 2) ? 2 : 1;
-            disc(wx, y, wz, r, false, r == 2 ? 0.45f : 0.1f);
+        const int32_t top = y0 + height - 1, base = y0 + height / 3;
+        const int span = top + 1 - base;
+        for (int32_t y = base; y <= top + 1; ++y) {
+            const int fromTop = top + 1 - y, fromBase = y - base;
+            const int r = fromTop <= 1 || fromBase == 0 ? 1 : (fromBase * 4 >= span && fromTop * 3 >= span) ? 3 : 2;
+            disc(wx, y, wz, r, false, r == 3 ? 0.4f : r == 2 ? 0.2f : 0.0f);
         }
         leaf(wx, top + 2, wz);
     } else if (kind == TreeKind::Cherry) {

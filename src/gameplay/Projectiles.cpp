@@ -958,9 +958,10 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                                    (m.health < mobInfo(m.type).maxHealth * 0.5f ||
                                     m.spellTicks > 0)) {
                             // (M26.4b) below half health its armour turns arrows (wiki: Wither)
-                        } else if (m.type == MobType::Enderman) {
-                            m.wantsTeleport =
-                                true; // arrows can't hurt endermen: they teleport away (wiki)
+                        } else if (m.type == MobType::Enderman && m.vehicle == 0) {
+                            // arrows can't hurt endermen: they teleport away (wiki) - (M33.3f; 26.3)
+                            // unless it is riding something
+                            m.wantsTeleport = true;
                         } else if (perchedDragon) {
                             // A perched dragon shrugs arrows off (wiki: Ender Dragon).
                         } else if (m.hurtTime == 0) {

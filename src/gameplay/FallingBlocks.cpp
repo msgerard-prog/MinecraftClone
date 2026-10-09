@@ -72,7 +72,7 @@ void FallingBlocks::tick(World& world, ItemEntities& items, Xoroshiro& rng,
             if (const ItemId item = itemRegistry().blockItem(reg.blockOf(f.state)))
                 items.spawn(f.pos + glm::dvec3(0, 0.25, 0), {item, 1}, rng);
         };
-        if (landed && reg.blockOf(f.state) == blocks::PointedDripstone) {
+        if (landed && reg.likeOf(reg.blockOf(f.state)) == blocks::PointedDripstone) { // (M33.3 review: spikes too)
             // A stalactite breaks where it lands, hurting what's there: 6 for each block it
             // fell after the first, at most 40 (wiki: Pointed Dripstone).
             const float dmg =

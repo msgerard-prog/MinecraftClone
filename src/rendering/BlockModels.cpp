@@ -318,10 +318,10 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
             const BakedModel& pm = m_models[registry.defaultState(plant)];
             m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
         }
-    } else if (name == "shelf_mushroom" || name == "large_shelf_mushroom") {
-        // (M33.3b) a shelf sticking out of the wall behind it (its facing points out)
+    } else if (name == "shelf_mushroom") {
+        // (M33.3b) a shelf sticking out of the wall behind it (its facing points out); large at age 1
         m.visible = true;
-        const int d = name == "large_shelf_mushroom" ? 10 : 6;
+        const int d = registry.get(state, properties::age1) == 1 ? 10 : 6;
         const int wall = registry.get(state, properties::facing) ^ 1; // (north <-> south, west <-> east)
         if (wall == 0) addBox(m, 0, 6, 0, 16, 9, d, sprite("shelf_mushroom_side"));
         else if (wall == 1) addBox(m, 0, 6, 16 - d, 16, 9, 16, sprite("shelf_mushroom_side"));

@@ -148,7 +148,8 @@ glm::dvec3 Player::move(const world::World& world, glm::dvec3 delta) {
         // thirds) unless sneaking; the landing still counts (half damage: main).
         // (M33.3b) shelf mushrooms bounce like beds (wiki: Shelf Mushroom)
         if (const world::BlockId ub = world::blockRegistry().blockOf(world.getBlock(under));
-            (world::blockRegistry().likeOf(ub) == world::blocks::RedBed || world::isShelfMushroom(ub)) &&
+            ((world::blockRegistry().likeOf(ub) == world::blocks::RedBed && !world::isStrawBed(ub)) ||
+             world::isShelfMushroom(ub)) && // (straw beds: no bounce - wiki: Straw Bed)
             delta.y < -0.1 && !m_sneaking)
             m_velocity.y = -delta.y * 0.75;
         if (world::blockRegistry().blockOf(world.getBlock(under)) == world::blocks::SlimeBlock) {

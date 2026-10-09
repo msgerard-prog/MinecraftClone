@@ -611,6 +611,8 @@ void Particles::tick(World& world, const std::vector<LevelEvent>& events, const 
             crit(at, rng);
             break;
         case LevelEvent::Type::SulfurGas: { // (M33.2b; wiki: Potent Sulfur) a second's bubbles and haze
+            // (M33 perf review) only near the player: a cave of vents far away would fill the pool
+            if (glm::dot(at - player, at - player) > 48.0 * 48.0) break;
             const int depth = int(e.data);
             for (int i = 0; i < 3 * depth; ++i) {
                 Particle p;

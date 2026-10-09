@@ -113,6 +113,9 @@ int Explosion::explode(World& world, const glm::dvec3& centre, float power, Xoro
                                 Mobs::sulfurArchetype(m.absorbed)->kind == Mobs::SulfurKind::Explosive &&
                                 glm::length(m.pos - centre) < 2.0 * power)
                                 m.fuse = int16_t(15 + (int(m.pos.x * 7.0 + m.pos.z * 13.0) & 31) % 30); // (15-44)
+                            // (M33 review) a blast throws it like any other hit, without hurting it
+                            hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85,
+                                 [&](float, const glm::dvec3& push) { m.vel += push; });
                             continue;
                         }
                         hurt(Mobs::box(m), m.pos, mobInfo(m.type).height * 0.85,

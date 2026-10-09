@@ -104,8 +104,9 @@ ItemRegistry buildItems() {
         const bool sign =
             blocks.kind(b) == BlockKind::Sign || blocks.kind(b) == BlockKind::HangingSign;
         const bool bed = blocks.likeOf(b) == blocks::RedBed; // (M29.4b; wiki: Bed - unstackable)
+        const bool straw = blocks.block(b).id == "minecraft:straw_bed"; // (M33.3 review: straw beds stack to 16)
         r.mapBlock(b, r.add({.id = id,
-                             .maxStack = uint8_t(bed ? 1 : sign ? 16 : 64),
+                             .maxStack = uint8_t(straw ? 16 : bed ? 1 : sign ? 16 : 64),
                              .block = b})); // (signs stack to 16)
     }
     r.mapBlock(blocks::KelpPlant, *r.find("kelp")); // (M25.1)

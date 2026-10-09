@@ -24,7 +24,7 @@ Mobs::Use Mobs::happyGhastInteract(MobData& m, ItemId held, Xoroshiro& rng, Item
     const std::string_view id = held != kNoItem ? itemRegistry().item(held).id : std::string_view{};
     if (id == "minecraft:snowball") { // a ghastling grows a tenth faster; adults just like it
         if (!m.isBaby()) return Use::None;
-        m.age += -m.age / 10;
+        if (!m.ageLocked) m.age += -m.age / 10; // (M33 review: a golden dandelion holds it back)
         return Use::Fed;
     }
     if (m.isBaby()) return Use::None;

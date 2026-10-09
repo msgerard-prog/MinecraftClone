@@ -543,8 +543,11 @@ void Mobs::wildlifeTick(Context& ctx, MobData& m, bool blockedAhead) {
                                 o.type == MobType::ZombifiedPiglin;
                      }) != nullptr;
         // (M33.3f; 26.3) not while in water or lava
-        const FluidContact wet = fluidContact(ctx.world, box(m));
-        if (scared && !wet.water && !wet.lava) {
+        if (scared) { // (M33 perf review: the fluid check only when it would roll up)
+            const FluidContact wet = fluidContact(ctx.world, box(m));
+            scared = !wet.water && !wet.lava;
+        }
+        if (scared) {
             m.sitting = true;
             m.goalTicks = 80; // (stays rolled at least 4 s after the last scare)
         } else if (m.sitting && --m.goalTicks <= 0) {

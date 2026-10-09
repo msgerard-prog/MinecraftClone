@@ -2885,7 +2885,7 @@ TEST_CASE("M33.2 (26.2): sulfur and cinnabar families, potent sulfur and spikes;
                            "polished_cinnabar_wall", "potent_sulfur", "sulfur_spike"})
         CHECK(R.findBlock(id).has_value());
     CHECK(R.likeOf(*R.findBlock("sulfur_spike")) == blocks::PointedDripstone);
-    CHECK(R.block(*R.findBlock("cinnabar")).settings.hardness == 2.5f);
+    CHECK(R.block(*R.findBlock("cinnabar")).settings.hardness == 1.5f);
     const auto& it = itemRegistry();
     std::array<ItemStack, 9> nine{};
     for (auto& g : nine) g = {*it.find("sulfur"), 1};
@@ -2993,18 +2993,86 @@ TEST_CASE("M33.3d (26.3): cushions are sat on and pop back into their item; stra
     CHECK(isStrawBed(blockRegistry().blockOf(blockRegistry().defaultState(*blockRegistry().findBlock("straw_bed")))));
 }
 
-TEST_CASE("M33.3f (26.3): an enderman hurt by its surroundings stays put; armadillos don't roll up in water") {
+TEST_CASE("M33.3f (26.3): an enderman hurt by its surroundings teleports - only not while riding") {
+    // (M33 review: 26.3 stops the teleport only while it rides something)
+    for (const bool riding : {false, true}) {
+        MonsterScene s;
+        s.naturalSpawning = false;
+        s.player.setPosition({40.5, 64.0, 40.5});
+        MobData mount = Mobs::make(MobType::Minecart, {3.5, 64.0, 3.5}, s.rng);
+        REQUIRE(Mobs::add(s.world, mount));
+        MobData man = Mobs::make(MobType::Enderman, {3.5, 64.0, 3.5}, s.rng);
+        if (riding) man.vehicle = mount.uuidHi;
+        REQUIRE(Mobs::add(s.world, man));
+        auto enderman = [&] {
+            for (MobData* m : s.all())
+                if (m->type == MobType::Enderman) return m;
+            return static_cast<MobData*>(nullptr);
+        };
+        for (int k = 0; k < 20; ++k) {
+            MobData* e = enderman();
+            REQUIRE(e);
+            e->health = 40.0f; // (as fire would: not the player)
+            e->hurtTime = 10;
+            e->lastHurtByPlayer = false;
+            s.run(1);
+        }
+        const double moved = glm::length(enderman()->pos - glm::dvec3(3.5, 64.0, 3.5));
+        if (riding) CHECK(moved < 2.0);
+        else CHECK(moved > 2.0);
+    }
+}
+
+TEST_CASE("M33 review: a cushion holds its rider and its colour through a save; a bucketed cube keeps its block") {
+    const auto& it = itemRegistry();
     MonsterScene s;
     s.naturalSpawning = false;
-    s.player.setPosition({40.5, 64.0, 40.5});
-    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Enderman, {3.5, 64.0, 3.5}, s.rng)));
-    MobData* e = s.all().at(0);
-    for (int k = 0; k < 20; ++k) {
-        e = s.all().at(0);
-        e->health -= 0.1f; // (as fire would: not the player)
-        e->hurtTime = 10;
-        e->lastHurtByPlayer = false;
-        s.run(1);
-    }
-    CHECK(glm::length(s.all().at(0)->pos - glm::dvec3(3.5, 64.0, 3.5)) < 2.0);
+    MobData c = Mobs::make(MobType::Cushion, {3.5, 64.0, 3.5}, s.rng);
+    c.woolColour = 5;
+    c.persistent = true;
+    REQUIRE(Mobs::add(s.world, c));
+    MobData& seat = *s.all().at(0);
+    REQUIRE(Mobs::interact(seat, kNoItem, s.rng, s.items) == Mobs::Use::Ride);
+    CHECK(seat.ridden); // (main's riding check reads it: without it the rider fell off at once)
+    CHECK(Mobs::interact(seat, kNoItem, s.rng, s.items) == Mobs::Use::None); // (one rider)
+    Chunk ch({0, 0});
+    ch.mobs().push_back(seat);
+    Chunk back({0, 0});
+    entitiesFromNbt(entitiesToNbt(ChunkSnapshot::of(ch, 0)), back);
+    REQUIRE(back.mobs().size() == 1);
+    CHECK(back.mobs()[0].woolColour == 5);
+    ItemStack bucket{*it.find("sulfur_cube_bucket"), 1};
+    bucket.state = BlockStateId(*it.find("tnt"));
+    CHECK(itemFromNbtPublic(itemToNbt(bucket, 0)).state == bucket.state);
+}
+
+TEST_CASE("M33 review: a golden dandelion's lock holds a foal back from food; a blast throws a block-filled cube") {
+    const auto& it = itemRegistry();
+    MonsterScene s;
+    s.naturalSpawning = false;
+    MobData foal = Mobs::make(MobType::Horse, {3.5, 64.0, 3.5}, s.rng);
+    foal.age = -20000;
+    foal.ageLocked = true;
+    foal.health = maxHealthOf(foal);
+    REQUIRE(Mobs::add(s.world, foal));
+    Mobs::interact(*s.all().at(0), *it.find("wheat"), s.rng, s.items);
+    CHECK(s.all().at(0)->age == -20000);
+    s.all().at(0)->health = 0.0f; // (out of the way)
+    s.all().at(0)->deathTime = 19;
+    s.run(2);
+    MobData cube = Mobs::make(MobType::SulfurCube, {8.5, 64.0, 8.5}, s.rng);
+    cube.absorbed = uint16_t(*it.find("stone"));
+    REQUIRE(Mobs::add(s.world, cube));
+    MobData* placed = nullptr;
+    for (MobData* m : s.all())
+        if (m->type == MobType::SulfurCube) placed = m;
+    REQUIRE(placed);
+    const float health = placed->health;
+    Explosion e;
+    std::vector<BlockPos> changed;
+    ExplosionTargets t;
+    t.breakBlocks = false;
+    e.explode(s.world, {6.5, 64.5, 8.5}, 4.0f, s.rng, s.items, changed, t);
+    CHECK(placed->health == health);
+    CHECK(placed->vel.x > 0.1);
 }

@@ -121,7 +121,9 @@ constexpr T kLibrarian4[] = {buy("writable_book", 2, 12, 30),
                              sell(5, "clock", 1, 12, 15),
                              sell(4, "compass", 1, 12, 15),
                              {"emerald", 1, "book", 1, "enchanted_book", 1, 12, 15, 0.2f, 2}};
-constexpr T kLibrarian5[] = {sell(20, "name_tag", 1, 12, 30)};
+// (M33 review; 26.1: name tags became craftable and left the master librarian, who sells
+// candles in their place)
+constexpr T kLibrarian5[] = {sell(3, "red_candle", 1, 12, 30), sell(3, "yellow_candle", 1, 12, 30)};
 
 constexpr T kMason1[] = {buy("clay_ball", 10, 16, 2), sell(1, "brick", 10, 16, 1)};
 constexpr T kMason2[] = {buy("stone", 20, 16, 10), sell(1, "chiseled_stone_bricks", 4, 16, 5)};
@@ -235,13 +237,13 @@ constexpr T kTraderCommon[] = {
     sell(1, "red_dye", 3, 12, 1),       sell(1, "white_dye", 3, 12, 1),    sell(1, "blue_dye", 3, 12, 1),
     sell(1, "yellow_dye", 3, 12, 1),    sell(1, "sand", 8, 8, 1),          sell(1, "red_sand", 4, 6, 1),
     sell(3, "podzol", 3, 6, 1),         sell(1, "gunpowder", 1, 8, 1),     sell(2, "glowstone", 1, 5, 1),
-    sell(1, "brown_mushroom", 1, 4, 1), sell(1, "red_mushroom", 1, 4, 1),  sell(1, "lily_pad", 2, 5, 1)};
+    sell(1, "brown_mushroom", 1, 4, 1), sell(1, "red_mushroom", 1, 4, 1),  sell(1, "lily_pad", 2, 5, 1),
+    // (M33 review) 26.1's name tag; 26.3's poplar saplings and shelf mushrooms
+    sell(1, "name_tag", 1, 5, 1),       sell(1, "poplar_sapling", 5, 8, 1), sell(1, "shelf_mushroom", 3, 12, 1)};
 constexpr T kTraderRare[] = {sell(5, "nautilus_shell", 1, 5, 1), sell(3, "packed_ice", 1, 6, 1),
                              sell(6, "blue_ice", 1, 6, 1),       sell(4, "slime_ball", 1, 5, 1),
                              sell(6, "mangrove_propagule", 1, 6, 1), sell(5, "pale_oak_sapling", 1, 6, 1),
-                             // (M33.3f; 26.3) poplar logs and saplings, shelf mushrooms (prices ours)
-                             sell(1, "poplar_log", 8, 4, 1), sell(5, "poplar_sapling", 1, 6, 1),
-                             sell(1, "shelf_mushroom", 2, 6, 1)};
+                             sell(1, "poplar_log", 8, 4, 1)}; // (M33.3f; 26.3; ours)
 constexpr T kTraderBuys[] = {buy("baked_potato", 4, 2, 1), buy("hay_block", 1, 2, 1), buy("fermented_spider_eye", 1, 2, 1),
                              buy("glass_bottle", 1, 2, 1)};
 

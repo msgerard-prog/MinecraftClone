@@ -68,20 +68,40 @@ constexpr LootEntry kMine3[] = {{"rail", 4, 8, 20},
                                 {"detector_rail", 1, 4, 5},
                                 {"powered_rail", 1, 4, 5}};
 constexpr LootPool kMine[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}};
-// (M33.2e; wiki: Music Disc - "Bounce" in sulfur cave mineshafts; our odds: 1 chest in 3)
-constexpr LootEntry kMineSulfur4[] = {{"music_disc_bounce", 1, 1, 1}, {"", 1, 1, 2}};
-constexpr LootPool kMineSulfur[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMine3}, {1, 1, kMineSulfur4}};
-// (M33.3e; 26.3 abandoned camps - the wiki names the chests, not their odds: ours, a camper's
-// supplies and, buried, their savings; explorer maps are left out - not in ours yet)
-constexpr LootEntry kCamp1[] = {{"bread", 1, 3, 15},   {"apple", 1, 3, 10},  {"torch", 2, 8, 12},
-                                {"string", 1, 4, 10},  {"leather", 1, 3, 8}, {"stick", 2, 6, 10},
-                                {"wheat", 2, 5, 8},    {"coal", 1, 4, 8},    {"map", 1, 1, 4},
-                                {"cooked_beef", 1, 2, 6}, {"red_shrub", 1, 2, 4}, {"poplar_sapling", 1, 2, 4}};
-constexpr LootPool kCampCommon[] = {{3, 6, kCamp1}};
-constexpr LootEntry kCamp2[] = {{"emerald", 1, 4, 12}, {"gold_ingot", 1, 3, 10}, {"iron_ingot", 1, 4, 12},
-                                {"diamond", 1, 1, 2},  {"name_tag", 1, 1, 5},   {"golden_apple", 1, 1, 4},
-                                {"book", 1, 2, 6},     {"compass", 1, 1, 4},    {"music_disc_bounce", 1, 1, 1}};
-constexpr LootPool kCampSecret[] = {{2, 4, kCamp2}};
+// (M33.2e; wiki: Music Disc, Module:LootChest - "Bounce" has weight 10 in the 3-roll rail pool
+// of sulfur cave mineshaft chests: about 42% of chests)
+constexpr LootEntry kMineSulfur3[] = {{"rail", 4, 8, 20},         {"torch", 1, 16, 15},       {"activator_rail", 1, 4, 5},
+                                      {"detector_rail", 1, 4, 5}, {"powered_rail", 1, 4, 5}, {"music_disc_bounce", 1, 1, 10}};
+constexpr LootPool kMineSulfur[] = {{1, 1, kMine1}, {2, 4, kMine2}, {3, 3, kMineSulfur3}};
+// (M33 review; wiki: Abandoned Camp, Module:LootChest - abandoned_camp_barrel / common_chest /
+// secret_chest). Camp and explorer maps are empty maps here until maps carry markers.
+constexpr LootEntry kCampBarrel1[] = {{"arrow", 1, 3, 1},       {"bone", 2, 4, 1},         {"bowl", 1, 2, 1},
+                                      {"bread", 1, 3, 1},       {"coal", 2, 4, 1},         {"cobweb", 1, 1, 1},
+                                      {"glass_bottle", 1, 3, 1}, {"leather", 1, 3, 1},     {"rabbit_hide", 1, 4, 1},
+                                      {"string", 1, 2, 1},      {"wheat", 1, 4, 1},        {"white_candle", 1, 3, 1},
+                                      {"white_cushion", 1, 2, 1}, {"straw_bed", 2, 4, 1}};
+constexpr LootEntry kCampBarrel2[] = {{"bundle", 1, 1, 1}, {"wooden_axe", 1, 1, 1}, {"fishing_rod", 1, 1, 1}};
+constexpr LootPool kCampBarrel[] = {{4, 8, kCampBarrel1}, {1, 1, kCampBarrel2}};
+constexpr LootEntry kCamp1[] = {{"arrow", 4, 4, 1},     {"map", 1, 1, 1},          {"bone", 2, 4, 1},
+                                {"cobweb", 1, 1, 1},    {"compass", 1, 1, 1},      {"map", 1, 2, 1},
+                                {"gunpowder", 2, 4, 1}, {"fishing_rod", 1, 1, 1},  {"flint_and_steel", 1, 1, 1},
+                                {"glass_bottle", 1, 4, 1}, {"lead", 1, 3, 1},      {"leather", 1, 4, 1},
+                                {"bundle", 1, 1, 1},    {"rabbit_hide", 1, 4, 1},  {"saddle", 1, 1, 1},
+                                {"white_candle", 1, 3, 1}};
+constexpr LootEntry kCamp2[] = {{"bow", 1, 1, 1},           {"bucket", 1, 1, 1},          {"copper_axe", 1, 1, 1},
+                                {"copper_boots", 1, 1, 1},  {"copper_chestplate", 1, 1, 1}, {"copper_leggings", 1, 1, 1},
+                                {"copper_spear", 1, 1, 1},  {"copper_sword", 1, 1, 1},    {"spyglass", 1, 1, 1},
+                                {"shears", 1, 1, 1}};
+constexpr LootEntry kCampMap[] = {{"map", 1, 1, 1}};
+constexpr LootPool kCampCommon[] = {{4, 6, kCamp1}, {2, 2, kCamp2}, {1, 1, kCampMap}};
+constexpr LootEntry kSecret1[] = {{"diamond", 1, 1, 1},
+                                  {"potion", 1, 1, 1, false, uint8_t(Potion::Healing)},
+                                  {"potion", 1, 1, 1, false, uint8_t(Potion::Leaping)},
+                                  {"potion", 1, 1, 1, false, uint8_t(Potion::NightVision)},
+                                  {"potion", 1, 1, 1, false, uint8_t(Potion::Swiftness)}};
+constexpr LootEntry kSecret2[] = {{"map", 1, 1, 1}, {"copper_ingot", 1, 2, 1}, {"gold_ingot", 1, 2, 1}, {"iron_ingot", 1, 1, 1}};
+constexpr LootEntry kSecret3[] = {{"iron_axe", 1, 1, 1}, {"iron_boots", 1, 1, 1}, {"iron_leggings", 1, 1, 1}, {"iron_spear", 1, 1, 1}};
+constexpr LootPool kCampSecret[] = {{2, 2, kSecret1}, {4, 6, kSecret2}, {0, 1, kSecret3}, {1, 1, kCampMap}};
 
 // wiki: Stronghold › Loot (Java Edition).
 constexpr LootEntry kAltar1[] = {
@@ -351,6 +371,7 @@ std::span<const LootPool> lootPools(LootTable table) {
     case LootTable::MineshaftSulfur: return kMineSulfur;
     case LootTable::CampCommon: return kCampCommon;
     case LootTable::CampSecret: return kCampSecret;
+    case LootTable::CampBarrel: return kCampBarrel;
     case LootTable::StrongholdCorridor: return kAltar;
     case LootTable::StrongholdCrossing: return kStore;
     case LootTable::StrongholdLibrary: return kLibrary;
@@ -474,8 +495,8 @@ constexpr std::string_view kTableNames[] = {
     "archaeology/desert_pyramid", "archaeology/desert_well",    "archaeology/ocean_ruin_cold",
     "archaeology/ocean_ruin_warm", "archaeology/trail_ruins_common", "archaeology/trail_ruins_rare",
     "chests/trial_chambers/reward_ominous", "chests/abandoned_mineshaft_sulfur_caves",
-    "chests/abandoned_camp/common", "chests/abandoned_camp/secret"}; // (ours: names after the wiki's chest kinds) // (ours: vanilla rolls the disc
-                                                                                       //  in its mineshaft table)
+    "chests/abandoned_camp_common_chest", "chests/abandoned_camp_secret_chest", // (the wiki's file names)
+    "chests/abandoned_camp_barrel"};
 static_assert(std::size(kTableNames) == size_t(LootTable::Count));
 } // namespace
 

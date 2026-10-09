@@ -94,6 +94,9 @@ int igniteOddsSlow(BlockId b) {
     case B::JungleLeaves:
     case B::DarkOakLeaves:
     case B::CherryLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
         return 30;
     case B::ShortGrass:
     case B::Fern:
@@ -147,6 +150,9 @@ int burnOddsSlow(BlockId b) {
     case B::JungleLeaves:
     case B::DarkOakLeaves:
     case B::CherryLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
         return 60;
     case B::ShortGrass:
     case B::Fern:

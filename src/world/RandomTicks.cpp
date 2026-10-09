@@ -52,7 +52,7 @@ TreeBlocks treeOf(BlockId sapling) {
         return {TreeKind::Mangrove, B::MangroveLog, B::MangroveLeaves};
     case B::CherrySapling:
         return {TreeKind::Cherry, B::CherryLog, B::CherryLeaves};
-    case B::PoplarSapling: // (M33.3a; ours: grown poplars turn yellow)
+    case B::PoplarSapling: // (M33.3a; growTree picks the leaves' colour)
         return {TreeKind::Poplar, B::PoplarLog, B::YellowPoplarLeaves};
     default:
         return {TreeKind::Oak, B::OakLog, B::OakLeaves};
@@ -226,6 +226,9 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
     case B::AzaleaLeaves: // (M27.2)
     case B::FloweringAzaleaLeaves:
         // Leaves without a log within 6 blocks decay, dropping their loot (wiki: Leaves).
@@ -257,6 +260,7 @@ void BlockUpdates::randomTick(const BlockPos& p, BlockStateId s) {
     case B::DarkOakSapling:
     case B::CherrySapling:
     case B::PaleOakSapling:
+    case B::PoplarSapling: // (M33 review: 26.3)
     case B::MangrovePropagule:
         // Light 9+ above, then a 1 in 7 chance to advance: stage 0 -> 1 -> a tree
         // (wiki: Sapling).
@@ -511,6 +515,10 @@ void BlockUpdates::leavesChanged(const BlockPos& p, BlockStateId s) {
 
 bool BlockUpdates::growTree(const BlockPos& sapPos, BlockStateId sapling) {
     TreeBlocks t = treeOf(blockOf(sapling));
+    if (t.kind == TreeKind::Poplar) { // (M33 review; wiki: Poplar - red, orange or yellow at random)
+        static constexpr BlockId kColours[] = {B::RedPoplarLeaves, B::OrangePoplarLeaves, B::YellowPoplarLeaves};
+        t.leaves = kColours[m_random.nextInt(3)];
+    }
     // Jungle and dark oak saplings in a 2x2 square grow one big tree from its corner;
     // a lone dark oak sapling never grows (wiki: Sapling › Growth).
     BlockPos p = sapPos;

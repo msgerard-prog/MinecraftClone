@@ -97,16 +97,23 @@ bool Mobs::isFood(MobType type, ItemId item) {
 Mobs::Use Mobs::interact(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     if (m.health <= 0.0f) return Use::None;
     // (M33.1; wiki: Golden Dandelion, 26.1) used on a baby it stops it growing up; used again,
-    // it grows on. One is used up each time.
+    // it grows on. One is used up each time. Not villagers or the zombie kinds; a locked baby
+    // never despawns (M33 review).
     static const ItemId golden = itemRegistry().blockItem(blocks::GoldenDandelion);
-    if (held != kNoItem && held == golden && m.isBaby() && !isHanging(m.type) && m.type != MobType::ArmorStand) {
+    if (held != kNoItem && held == golden && m.isBaby() && !isHanging(m.type) && m.type != MobType::ArmorStand &&
+        m.type != MobType::Villager && !isZombie(m.type)) {
         m.ageLocked = !m.ageLocked;
+        if (m.ageLocked) m.persistent = true;
         return Use::Fed;
     }
     // (M32.6; wiki: Creeper) flint and steel or a fire charge lights a creeper's fuse.
     static const ItemId flint = itemOr0("flint_and_steel"), fireCharge = itemOr0("fire_charge");
     if (m.type == MobType::SulfurCube) return sulfurCubeInteract(m, held, rng, items); // (M33.2c)
-    if (m.type == MobType::Cushion) return Use::Ride; // (M33.3d: sat on, whatever the hand holds)
+    if (m.type == MobType::Cushion) { // (M33.3d: sat on, whatever the hand holds)
+        if (m.ridden) return Use::None;
+        m.ridden = true;
+        return Use::Ride;
+    }
     if (m.type == MobType::Creeper && held != kNoItem && (held == flint || held == fireCharge) && !m.ignited) {
         m.ignited = true;
         return Use::Ignited;
@@ -306,7 +313,7 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
                 }
                 if (ate) {
                     m.sheared = false;
-                    if (m.isBaby()) m.age = std::min(0, m.age + 1200);
+                    if (m.isBaby() && !m.ageLocked) m.age = std::min(0, m.age + 1200);
                 }
             }
         } else if (ctx.rng.nextInt(m.isBaby() ? 50 : 1000) == 0 &&

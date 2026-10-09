@@ -742,7 +742,7 @@ TEST_CASE("overworld8 (M33.2e; 26.2): sulfur caves - sulfur and cinnabar bands, 
     CHECK(s > 500);
     CHECK(c > 500);
     CHECK(spikes > 0);
-    CHECK(h == 4374325674733634202ull); // (frozen once released: new worlds make overworld8)
+    CHECK(h == 2744098644514034249ull); // (frozen once released: new worlds make overworld8)
 }
 
 #include "world/TreeFeature.h"
@@ -759,8 +759,8 @@ TEST_CASE("M33.3a (26.3): a poplar is a tall slim trunk in a narrow column of le
         widest = std::max({widest, std::abs(x), std::abs(z)});
     });
     CHECK(logs == height);
-    CHECK(leaves > 20);
-    CHECK(widest <= 2);
+    CHECK(leaves > 60); // (M33 review: a large canopy)
+    CHECK(widest == 3);
     CHECK(blockRegistry().findBlock("poplar_hanging_sign").has_value());
     CHECK(blockRegistry().findBlock("stripped_poplar_wood").has_value());
     CHECK(itemRegistry().find("poplar_chest_boat").has_value());
@@ -772,9 +772,9 @@ TEST_CASE("overworld8 (M33.3b; 26.3): the dappled forest - poplars in three colo
     REQUIRE(at);
     MESSAGE("dappled forest at chunk " << at->x << ", " << at->z);
     const auto& r = blockRegistry();
-    const BlockId shrub = *r.findBlock("red_shrub"), shelf = *r.findBlock("shelf_mushroom"),
-                  bigShelf = *r.findBlock("large_shelf_mushroom");
+    const BlockId shrub = *r.findBlock("red_shrub"), shelf = *r.findBlock("shelf_mushroom");
     int logs = 0, shrubs = 0, shelves = 0, colours[3] = {};
+    uint64_t h = 1469598103934665603ull;
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx) {
             Chunk ch({at->x + dx, at->z + dz});
@@ -783,9 +783,14 @@ TEST_CASE("overworld8 (M33.3b; 26.3): the dappled forest - poplars in three colo
                 for (int z = 0; z < 16; ++z)
                     for (int x = 0; x < 16; ++x) {
                         const BlockId b = r.blockOf(ch.get(x, y, z));
+                        if (dx == 0 && dz == 0)
+                            for (const char chr : r.toString(ch.get(x, y, z))) {
+                                h ^= uint8_t(chr);
+                                h *= 1099511628211ull;
+                            }
                         logs += b == blocks::PoplarLog;
                         shrubs += b == shrub;
-                        shelves += b == shelf || b == bigShelf;
+                        shelves += b == shelf;
                         colours[0] += b == blocks::RedPoplarLeaves;
                         colours[1] += b == blocks::OrangePoplarLeaves;
                         colours[2] += b == blocks::YellowPoplarLeaves;
@@ -797,6 +802,8 @@ TEST_CASE("overworld8 (M33.3b; 26.3): the dappled forest - poplars in three colo
     CHECK(shrubs > 5);
     CHECK(shelves > 0);
     CHECK(colours[0] + colours[1] + colours[2] > 100);
+    MESSAGE("dappled chunk hash " << h);
+    CHECK(h == 1473953903496764944ull); // (M33 review: pinned - frozen once released)
 }
 
 TEST_CASE("M33.3c (26.3): wool and concrete stairs and slabs, with their block's hardness and tool") {
@@ -821,7 +828,7 @@ TEST_CASE("overworld8 (M33.3e; 26.3): abandoned camps - a wool tent, a straw bed
             if (!isSpreadCandidate(42, kCamps, {cx, cz})) continue;
             const auto col = gen.column(cx * 16 + 7, cz * 16 + 7);
             const Biome b = gen.biomeAt(col);
-            if ((b == Biome::Plains || b == Biome::Forest || b == Biome::Taiga || b == Biome::Savanna) &&
+            if ((b == Biome::BirchForest || b == Biome::Forest || b == Biome::Taiga || b == Biome::Savanna) &&
                 gen.surfaceY(cx * 16 + 7, cz * 16 + 7) > 64)
                 camp = ChunkPos{cx, cz};
         }
@@ -830,19 +837,76 @@ TEST_CASE("overworld8 (M33.3e; 26.3): abandoned camps - a wool tent, a straw bed
     Chunk ch(*camp);
     gen.generate(ch);
     const auto& r = blockRegistry();
-    int straw = 0, fires = 0, wool = 0, slabs = 0;
+    int straw = 0, fires = 0, wool = 0, slabs = 0, copper = 0;
+    uint64_t h = 1469598103934665603ull;
     for (int y = kOverworldHeight.minY; y <= kOverworldHeight.maxY(); ++y)
         for (int z = 0; z < 16; ++z)
             for (int x = 0; x < 16; ++x) {
                 const BlockId b = r.blockOf(ch.get(x, y, z));
                 straw += isStrawBed(b);
                 fires += b == blocks::Campfire;
-                wool += r.block(b).id.ends_with("_wool_stairs");
-                slabs += r.block(b).id.ends_with("_wool_slab");
+                wool += r.block(b).id == "minecraft:white_wool_stairs"; // (M33 review: white tents)
+                slabs += r.block(b).id == "minecraft:white_wool_slab";
+                copper += r.block(b).id == "minecraft:oxidized_copper_chest";
+                for (const char chr : r.toString(ch.get(x, y, z))) {
+                    h ^= uint8_t(chr);
+                    h *= 1099511628211ull;
+                }
             }
+    MESSAGE("camp chunk hash " << h);
     CHECK(straw == 2);
     CHECK(fires == 1);
     CHECK(wool == 6);
     CHECK(slabs == 3);
-    CHECK(ch.chests().size() >= 2); // (the barrel and the buried chest)
+    CHECK(copper == 1); // (the secret chest)
+    CHECK(ch.chests().size() == 3); // (the barrel, the camp's chest and the buried one)
+    CHECK(h == 242559324329242033ull); // (M33 review: pinned - frozen once released)
+}
+
+TEST_CASE("M33 review: poplar saplings grow, poplar leaves decay and drop poplar saplings; shelf mushrooms grow large") {
+    Garden g;
+    g.world.updateBlock({2, 64, 2}, S(blocks::PoplarSapling));
+    for (int i = 0; i < 20 && g.at(2, 64, 2) == blocks::PoplarSapling; ++i) g.updates.boneMeal({2, 64, 2});
+    CHECK(g.at(2, 64, 2) == blocks::PoplarLog);
+    // A loose leaf (distance 7, not placed by a player) decays on its random tick.
+    BlockStateId loose = R().set(S(blocks::OrangePoplarLeaves), properties::distance, 6);
+    loose = R().set(loose, properties::persistent, 1);
+    g.world.chunk({0, 0})->set(12, 70, 12, loose);
+    g.updates.setRandomTicks({0, 0}, 1, 4096);
+    for (int i = 0; i < 20 && g.at(12, 70, 12) == blocks::OrangePoplarLeaves; ++i) g.updates.tick();
+    CHECK(g.at(12, 70, 12) == 0);
+    Xoroshiro rng(3);
+    bool sapling = false;
+    for (int i = 0; i < 400 && !sapling; ++i) {
+        std::vector<ItemStack> out;
+        blockDrops(S(blocks::RedPoplarLeaves), ItemStack{}, rng, out);
+        for (const ItemStack& st : out) sapling = sapling || st.item == itemRegistry().blockItem(blocks::PoplarSapling);
+    }
+    CHECK(sapling);
+    // Shelf mushrooms: one block, `age` 1 large; bone meal grows a small one, which then drops 2.
+    const BlockId shelf = *R().findBlock("shelf_mushroom");
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dz = -1; dz <= 1; ++dz) g.world.chunk({0, 0})->set(6 + dx, 66, 6 + dz, S(blocks::OakLog));
+    g.world.chunk({0, 0})->set(6, 66, 6, R().defaultState(shelf));
+    REQUIRE(g.updates.boneMeal({6, 66, 6}));
+    CHECK(R().get(g.world.getBlock({6, 66, 6}), properties::age1) == 1);
+    CHECK_FALSE(g.updates.boneMeal({6, 66, 6}));
+    std::vector<ItemStack> out;
+    blockDrops(g.world.getBlock({6, 66, 6}), ItemStack{}, rng, out);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0].count == 2);
+}
+
+TEST_CASE("M33 review: a sulfur spike works like pointed dripstone - it falls when its sulfur goes") {
+    Garden g;
+    const BlockId sulfur = *R().findBlock("sulfur"), spike = *R().findBlock("sulfur_spike");
+    g.world.updateBlock({4, 70, 4}, R().defaultState(sulfur));
+    g.world.updateBlock({4, 69, 4}, R().set(R().defaultState(spike), properties::verticalDirection, 1));
+    REQUIRE(g.at(4, 69, 4) == spike);
+    g.updates.fallingStarts().clear();
+    g.world.updateBlock({4, 70, 4}, 0);
+    for (int i = 0; i < 4; ++i) g.updates.tick();
+    bool fell = false;
+    for (const auto& f : g.updates.fallingStarts()) fell = fell || R().blockOf(f.state) == spike;
+    CHECK(fell);
 }

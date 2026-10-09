@@ -652,6 +652,7 @@ std::vector<Recipe> build() {
         // Dyes from flowers and minerals, and mixed (wiki: Dye).
         static constexpr std::pair<const char*, const char*> kFrom[] = {
             {"dandelion", "yellow_dye"},
+            {"golden_dandelion", "yellow_dye"}, // (M33 review: 26.1)
             {"poppy", "red_dye"},
             {"cornflower", "blue_dye"},
             {"ink_sac", "black_dye"}, // (M25 review: squid ink, wiki: Black Dye)

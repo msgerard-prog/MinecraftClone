@@ -77,8 +77,8 @@ constexpr BiomeInfo kBiomes[] = {
     {"minecraft:lush_caves", 0.5f, 0x8EB971, 0x71A74D, 0x3F76E4},
     {"minecraft:dripstone_caves", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
     {"minecraft:deep_dark", 0.8f, 0x91BD59, 0x77AB2F, 0x3F76E4},
-    {"minecraft:sulfur_caves", 0.8f, 0xABA64F, 0xABA64F, 0x34BF89, 0x8CB831}, // (M33.2e; wiki: Sulfur Caves)
-    {"minecraft:dappled_forest", 0.7f, 0x9CB04C, 0xC89A3A, 0x3F76E4}, // (M33.3b; colours ours: an autumn tone)
+    {"minecraft:sulfur_caves", 0.8f, 0xABA64F, 0x77AB2F, 0x34BF89, 0x8CB831}, // (M33.2e; wiki: Sulfur Caves)
+    {"minecraft:dappled_forest", 0.6f, 0xDF6827, 0xE68E30, 0x375154, 0, 0x7CA3FF}, // (M33.3b; wiki: Dappled Forest)
 };
 static_assert(std::size(kBiomes) == static_cast<size_t>(Biome::Count));
 
@@ -130,6 +130,8 @@ int farmVariant(Biome b) {
     case Biome::NetherWastes: case Biome::CrimsonForest: case Biome::WarpedForest: case Biome::SoulSandValley:
     case Biome::BasaltDeltas:
         return 1;
+    case Biome::DappledForest: // (M33 review; wiki: Dappled Forest - cold chickens, pigs and cows)
+        return 2;
     default:
         return biomeInfo(b).temperature <= 0.25f ? 2 : 0;
     }

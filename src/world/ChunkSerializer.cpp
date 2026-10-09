@@ -333,6 +333,13 @@ nbt::Compound itemNbt(const ItemStack& s, int slot) {
             components.put("minecraft:suspicious_stew_effects",
                            nbt::listOf(nbt::TagType::Compound, std::move(list)));
         }
+        if (itemRegistry().item(s.item).id == "minecraft:sulfur_cube_bucket" && s.state < itemRegistry().count()) {
+            // (M33 review) the cube's block: vanilla keeps a bucketed mob's data in
+            // bucket_entity_data; the block's item id under our own key
+            nbt::Compound data;
+            data.put("clone_block", std::string(itemRegistry().item(ItemId(s.state)).id));
+            components.put("minecraft:bucket_entity_data", std::move(data));
+        }
         if (itemRegistry().item(s.item).id ==
             "minecraft:crossbow") { // (M28.4a) what it is loaded with
             std::vector<nbt::Tag> loaded;
@@ -524,6 +531,10 @@ ItemStack itemFromNbt(const nbt::Compound& c) {
             f.explosions[0] = fireworkExplosionFromNbt(*ec);
             s.extra = addFireworks(f);
         }
+        if (def.id == "minecraft:sulfur_cube_bucket") // (M33 review) the cube's block
+            if (const nbt::Compound* data = comps->compound("minecraft:bucket_entity_data"))
+                if (const std::string* b = data->string("clone_block"))
+                    if (const auto bi = itemRegistry().find(*b)) s.state = BlockStateId(*bi);
         if (def.id == "minecraft:suspicious_stew") // (M29.3c) the flower whose effect it is
             if (const nbt::List* fx = comps->list("minecraft:suspicious_stew_effects");
                 fx && !fx->items.empty())
@@ -1559,6 +1570,7 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
             if (m.type == MobType::SulfurCube && m.absorbed != 0) // (M33.2c: its block, our tag)
                 e.put("clone_block", std::string(itemRegistry().item(m.absorbed).id));
         }
+        if (m.type == MobType::Cushion) e.put("Color", int8_t(m.woolColour)); // (M33 review: its dye, our tag)
         if (m.type == MobType::Sheep) {
             e.put("Color", int8_t(m.woolColour));
             e.put("Sheared", int8_t(m.sheared ? 1 : 0));

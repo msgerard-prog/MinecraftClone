@@ -22,7 +22,8 @@ const BlockRegistry& R() { return blockRegistry(); }
 BlockPos dy(const BlockPos& p, int d) { return {p.x, p.y + d, p.z}; }
 // The direction a piece points: +1 up (a stalagmite), -1 down (a stalactite).
 int pointing(BlockStateId s) { return R().get(s, verticalDirection) == 0 ? 1 : -1; }
-bool dripstone(BlockStateId s) { return R().blockOf(s) == B::PointedDripstone; }
+// (M33.3 review: sulfur spikes are pointed dripstone too - `like`)
+bool dripstone(BlockStateId s) { return R().likeOf(R().blockOf(s)) == B::PointedDripstone; }
 
 } // namespace
 
@@ -59,6 +60,22 @@ bool BlockUpdates::dripstoneChanged(const BlockPos& p, BlockStateId s) {
 void BlockUpdates::tickDripstone(const BlockPos& tip, BlockStateId s) {
     // Only a hanging tip drips or grows.
     if (pointing(s) != -1 || R().get(s, thickness) > 1) return;
+    // (M33.3 review; wiki: Sulfur Spike) a sulfur spike grows down under a sulfur block, no
+    // water needed, 64 in 5625 a random tick, up to 3 long, not when waterlogged; it drips nothing.
+    static const BlockId spike = R().findBlock("sulfur_spike").value_or(0), sulfur = R().findBlock("sulfur").value_or(0);
+    if (R().blockOf(s) == spike) {
+        if (R().get(s, waterlogged) == 0) return; // [true, false]
+        BlockPos root = tip;
+        int length = 1;
+        while (R().blockOf(at(dy(root, 1))) == spike && pointing(at(dy(root, 1))) == -1) {
+            root = dy(root, 1);
+            ++length;
+        }
+        if (R().blockOf(at(dy(root, 1))) == sulfur && length < 3 && at(dy(tip, -1)) == 0 &&
+            m_random.nextInt(5625) < 64)
+            set(dy(tip, -1), R().set(R().defaultState(spike), verticalDirection, 1));
+        return;
+    }
     BlockPos root = tip;
     int length = 1;
     while (dripstone(at(dy(root, 1))) && pointing(at(dy(root, 1))) == -1) {

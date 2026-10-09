@@ -83,8 +83,8 @@ BlockShape compute(BlockStateId s) {
     const BlockId b = r.likeOf(r.blockOf(s)); // (M23.3: wood sets take the oak shapes)
     if (!r.collides(s)) return {};
     // (M33.3b) a shelf mushroom: a 3-thick shelf from the wall it grows on, 6 (large: 10) out
-    if (const BlockId own = r.blockOf(s); own == shelfMushroomBlock(false) || own == shelfMushroomBlock(true)) {
-        const int d = own == shelfMushroomBlock(true) ? 10 : 6;
+    if (r.blockOf(s) == shelfMushroomBlock()) {
+        const int d = r.get(s, properties::age1) == 1 ? 10 : 6;
         switch (oppositeH(r.get(s, properties::facing))) {
         case 0: return box(0, 6, 0, 16, 9, d);
         case 1: return box(0, 6, 16 - d, 16, 9, 16);
@@ -258,10 +258,9 @@ const BlockShape& collisionShape(BlockStateId state) {
     return table[state];
 }
 
-BlockId shelfMushroomBlock(bool large) {
-    static const BlockId small = blockRegistry().findBlock("shelf_mushroom").value_or(0),
-                         big = blockRegistry().findBlock("large_shelf_mushroom").value_or(0);
-    return large ? big : small;
+BlockId shelfMushroomBlock() {
+    static const BlockId id = blockRegistry().findBlock("shelf_mushroom").value_or(0);
+    return id;
 }
 
 } // namespace mc::world

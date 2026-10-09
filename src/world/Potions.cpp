@@ -136,7 +136,8 @@ std::span<const StewFlower> stewFlowers() {
         {"red_tulip", Effect::Weakness, 140},       {"orange_tulip", Effect::Weakness, 140},
         {"white_tulip", Effect::Weakness, 140},     {"pink_tulip", Effect::Weakness, 140},
         {"wither_rose", Effect::Wither, 140},       {"torchflower", Effect::NightVision, 100},
-        {"open_eyeblossom", Effect::Blindness, 220}, {"closed_eyeblossom", Effect::Nausea, 140}};
+        {"open_eyeblossom", Effect::Blindness, 220}, {"closed_eyeblossom", Effect::Nausea, 140},
+        {"golden_dandelion", Effect::Saturation, 7}}; // (M33 review: 26.1, as the dandelion)
     return kFlowers;
 }
 

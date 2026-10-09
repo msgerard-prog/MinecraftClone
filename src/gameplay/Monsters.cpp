@@ -473,8 +473,11 @@ void Mobs::monsterTick(Context& ctx, MobData& m, bool chase, double playerDist2)
                 }
             }
         }
-        // (M33.3f; 26.3: endermen no longer teleport from environmental damage - fire, lava, a
-        // cactus, a fall - nor while riding something)
+        // Hurt by something that isn't a creature (fire, lava, a cactus, a fall): it teleports
+        // away (vanilla: 9 times in 10) - (M33.3f; 26.3) not while it rides something, and
+        // then it doesn't teleport at all.
+        if (m.hurtTime == 9 && !m.lastHurtByPlayer && m.vehicle == 0 && ctx.rng.nextInt(10) != 0)
+            m.wantsTeleport = true;
         if (m.vehicle != 0) m.wantsTeleport = false;
         if (m.wantsTeleport) {
             m.wantsTeleport = false;

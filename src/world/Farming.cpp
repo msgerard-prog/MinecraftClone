@@ -5,6 +5,7 @@
 #include "world/Raycast.h"
 #include "world/Weather.h"
 
+#include "world/BlockShapes.h"
 #include "world/Blocks.h"
 #include "world/Items.h"
 
@@ -185,6 +186,12 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
     }
     const BlockStateId s = at(p);
     const BlockId b = blockOf(s);
+    // (M33.3 review; wiki: Shelf Mushroom) bone meal grows a small one large
+    if (R().blockOf(s) == shelfMushroomBlock()) {
+        if (R().get(s, properties::age1) == 1) return false;
+        set(p, R().set(s, properties::age1, 1));
+        return true;
+    }
     if (isCrop(b)) {
         const int a = cropAge(s), max = cropMaxAge(b);
         if (a >= max) return false;
@@ -230,7 +237,7 @@ bool BlockUpdates::boneMeal(const BlockPos& p) {
     }
     if (b == B::OakSapling || b == B::BirchSapling || b == B::SpruceSapling || b == B::AcaciaSapling ||
         b == B::JungleSapling || b == B::DarkOakSapling || b == B::CherrySapling || b == B::PaleOakSapling ||
-        b == B::MangrovePropagule) {
+        b == B::MangrovePropagule || b == B::PoplarSapling) {
         if (m_random.nextFloat() < 0.45f) {
             if (R().get(s, stage) == 0) setRaw(p, R().set(s, stage, 1));
             else growTree(p, s);

@@ -186,6 +186,9 @@ Push pushKind(BlockStateId s) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
     case B::AzaleaLeaves: // (M27.2)
     case B::FloweringAzaleaLeaves:
     case B::OakSapling:
@@ -196,6 +199,7 @@ Push pushKind(BlockStateId s) {
     case B::DarkOakSapling:
     case B::CherrySapling:
     case B::PaleOakSapling:
+    case B::PoplarSapling: // (M33 review: 26.3)
     case B::MangrovePropagule:
     case B::Fire:
     case B::RedBed:
@@ -237,6 +241,8 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_lightning.reserve(64);
     m_silverfish.reserve(256); // (M26.4a: a mined vein)
     m_hatched.reserve(64);
+    m_sulfurGas.reserve(64); // (M33 review: no growth inside a tick)
+    m_geysers.reserve(64);
     m_shrieks.reserve(16);
     m_openChests.reserve(16);
     m_changed.reserve(4096);
@@ -1342,7 +1348,8 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
 void BlockUpdates::neighbourChanged(const BlockPos& p) {
     if (!m_world.isInHeight(p.y)) return;
     // (M33.2b) potent sulfur wakes when the water or magma around it changes
-    if (R().blockOf(at(p)) == potentSulfur() && !hasTick(p, potentSulfur())) schedule(p, potentSulfur(), 20, 0);
+    if (const BlockStateId here = at(p); R().blockOf(here) == potentSulfur() && !hasTick(p, potentSulfur()))
+        schedule(p, potentSulfur(), 20, 0);
     if (m_depth > 2048) { // runaway update chain: stop (vanilla also caps its updates)
         static bool logged = false;
         if (!logged) MC_LOG_WARN("Block updates nested too deeply; some were skipped");
@@ -1800,6 +1807,9 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::CherryLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
     case B::AzaleaLeaves: // (M27.2)
     case B::FloweringAzaleaLeaves:
         leavesChanged(p, s);
@@ -1812,6 +1822,7 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::DarkOakSapling:
     case B::CherrySapling:
     case B::PaleOakSapling:
+    case B::PoplarSapling: // (M33 review: 26.3)
     case B::MangrovePropagule:
     case B::SweetBerryBush:
         if (!plantableSoil(at(rel(p, Direction::Down)))) pop(p); // lost its soil
@@ -2041,6 +2052,9 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::DarkOakLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
     case B::AzaleaLeaves: // (M27.2)
     case B::FloweringAzaleaLeaves:
     case B::CherryLeaves: {
@@ -2759,6 +2773,9 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::DarkOakLeaves:
     case B::MangroveLeaves:
     case B::PaleOakLeaves:
+    case B::RedPoplarLeaves: // (M33 review: 26.3)
+    case B::OrangePoplarLeaves:
+    case B::YellowPoplarLeaves:
     case B::AzaleaLeaves: // (M27.2)
     case B::FloweringAzaleaLeaves:
     case B::CherryLeaves: {
@@ -2782,6 +2799,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::DarkOakSapling:
     case B::CherrySapling:
     case B::PaleOakSapling:
+    case B::PoplarSapling: // (M33 review: 26.3)
     case B::MangrovePropagule:
     case B::SweetBerryBush:
         if (!plantableSoil(world.getBlock(rel(at, Direction::Down)))) return std::nullopt;

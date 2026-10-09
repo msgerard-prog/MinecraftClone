@@ -924,6 +924,7 @@ void OverworldGenerator::generate(Chunk& out) const {
     // Cave biomes (overworld6, M27.2c): cells well under the surface take the column's
     // cave biome (vanilla picks them from the same climate plus depth).
     bool caveCells = false; // (any: else the cave pass has nothing to do - M27 perf review)
+    bool sulfurCells = false; // (M33 perf review: the sulfur pass likewise)
     if (m_version >= 6)
         for (int qz = 0; qz < 4; ++qz)
             for (int qx = 0; qx < 4; ++qx) {
@@ -932,6 +933,7 @@ void OverworldGenerator::generate(Chunk& out) const {
                 const bool deep = deepDark(col);
                 if (cave == Biome::Count && !deep) continue;
                 caveCells = true;
+                sulfurCells = sulfurCells || cave == Biome::SulfurCaves;
                 for (int s = 0; s < kOverworldHeight.sections(); ++s)
                     for (int qy = 0; qy < 4; ++qy) {
                         const int y = kOverworldHeight.minY + s * 16 + qy * 4 + 2;
@@ -1354,7 +1356,7 @@ void OverworldGenerator::generate(Chunk& out) const {
         placeArchaeology6(blockArray.data(), cx, cz, topY, columnBiome, entities); // (M27.5b)
     }
     if (m_version >= 7) placeFeatures7(blockArray.data(), out, cx, cz, topY, columnBiome); // (M29.8)
-    if (m_version >= 8 && caveCells) placeSulfurCaves8(blockArray.data(), cx, cz, *biomes, topY); // (M33.2e)
+    if (m_version >= 8 && sulfurCells) placeSulfurCaves8(blockArray.data(), cx, cz, *biomes, topY); // (M33.2e)
     if (m_version >= 8) placeDappled8(blockArray.data(), cx, cz, topY, columnBiome);                // (M33.3b)
     if (m_version >= 8) placeCamps8(blockArray.data(), cx, cz, entities);                            // (M33.3e)
 
@@ -1469,7 +1471,9 @@ void OverworldGenerator::generate(Chunk& out) const {
             continue;
         }
         // (M33.3e: a camp's barrel holds loot too)
-        if (here == (e.chest ? blocks::Chest : blocks::Spawner) || (e.chest && here == blocks::Barrel)) {
+        // (M33 review: and its secret chest is a copper one - chests by `like`)
+        if (here == (e.chest ? blocks::Chest : blocks::Spawner) ||
+            (e.chest && (here == blocks::Barrel || blockRegistry().likeOf(here) == blocks::Chest))) {
             if (e.chest) {
                 Xoroshiro loot(chunkSeed(m_seed, cx, cz, 640 + uint64_t(i)));
                 ChestData& cd = out.addChest(e.x, e.y, e.z);
@@ -3868,16 +3872,18 @@ void OverworldGenerator::placeRuinedPortals(BlockStateId* blocks, int32_t cx, in
 void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t cz, GeneratedEntities& out) const {
     const auto& reg = blockRegistry();
     const Blocks& B = blockSet();
-    // The 16 biomes (the wiki's count; which ones is ours) and the tent's wool in each.
-    static constexpr std::pair<Biome, int> kCampBiomes[] = {
-        {Biome::Plains, 14},      {Biome::Forest, 13},         {Biome::BirchForest, 0},   {Biome::FlowerForest, 6},
-        {Biome::Taiga, 12},       {Biome::Savanna, 1},         {Biome::Swamp, 13},        {Biome::Jungle, 5},
-        {Biome::BambooJungle, 5}, {Biome::CherryGrove, 6},     {Biome::DappledForest, 1}, {Biome::PaleGarden, 8},
-        {Biome::WindsweptForest, 7}, {Biome::Meadow, 4},       {Biome::SnowyPlains, 3},   {Biome::DarkForest, 15}};
+    // The wiki's 18 biomes (M33 review; wiki: Abandoned Camp); tents are white wool.
+    static constexpr Biome kCampBiomes[] = {
+        Biome::BambooJungle,         Biome::BirchForest,        Biome::CherryGrove,          Biome::DappledForest,
+        Biome::FlowerForest,         Biome::Forest,             Biome::Meadow,               Biome::OldGrowthBirchForest,
+        Biome::OldGrowthPineTaiga,   Biome::OldGrowthSpruceTaiga, Biome::PaleGarden,         Biome::Savanna,
+        Biome::SnowyTaiga,           Biome::SparseJungle,       Biome::Swamp,                Biome::Taiga,
+        Biome::WindsweptForest,      Biome::WoodedBadlands};
     auto find = [&](const std::string& id) { return reg.defaultState(*reg.findBlock(id)); };
     static const BlockStateId campfire = reg.set(reg.defaultState(blocks::Campfire), properties::lit, 1), // [true, false]
                               strawFoot = find("straw_bed"), barrel = find("barrel"),
-                              cobweb = reg.defaultState(blocks::Cobweb);
+                              cobweb = reg.defaultState(blocks::Cobweb), secret = find("oxidized_copper_chest"),
+                              stairs = find("white_wool_stairs"), slab = find("white_wool_slab");
     for (int dz = -1; dz <= 1; ++dz)
         for (int dx = -1; dx <= 1; ++dx) {
             const ChunkPos start{cx + dx, cz + dz};
@@ -3885,10 +3891,7 @@ void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t c
             const int32_t ax = start.x * 16 + 4, az = start.z * 16 + 4;
             const Column col = column(ax + 3, az + 3);
             const Biome biome = biomeAt(col);
-            int wool = -1;
-            for (const auto& [b, w] : kCampBiomes)
-                if (b == biome) wool = w;
-            if (wool < 0) continue;
+            if (std::find(std::begin(kCampBiomes), std::end(kCampBiomes), biome) == std::end(kCampBiomes)) continue;
             const int ground = surfaceY(ax + 3, az + 3);
             if (ground <= kSeaLevel || ground >= kOverworldHeight.maxY() - 8) continue;
             Xoroshiro r(chunkSeed(m_seed, start.x, start.z, 860));
@@ -3899,8 +3902,6 @@ void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t c
                     sb.foundation(x, z, B.dirt, 4);
                 }
             // The tent: two rows of wool stairs leaning together over a straw bed, a slab ridge.
-            const std::string colour = kDyeColours[wool];
-            const BlockStateId stairs = find(colour + "_wool_stairs"), slab = find(colour + "_wool_slab");
             for (int x = 0; x < 3; ++x) {
                 sb.set(x, 0, 0, reg.set(stairs, properties::facing, 1)); // (facing south: rising toward z 1)
                 sb.set(x, 0, 2, reg.set(stairs, properties::facing, 0));
@@ -3908,9 +3909,12 @@ void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t c
             }
             sb.set(0, 0, 1, reg.set(reg.set(strawFoot, properties::facing, 3), properties::bedPart, 1)); // (foot, facing east)
             sb.set(1, 0, 1, reg.set(reg.set(strawFoot, properties::facing, 3), properties::bedPart, 0)); // (head)
-            // The fire ring with the secret chest buried under it, cushions round it, a barrel.
+            // The fire ring with the secret chest (an oxidized copper chest) buried under it,
+            // cushions round it, a barrel and the camp's chest.
             sb.set(4, 0, 4, campfire);
             sb.chest(4, -3, 4, LootTable::CampSecret);
+            sb.set(4, -3, 4, secret); // (its loot entry above stays: chests are matched by `like`)
+            sb.chest(0, 0, 4, LootTable::CampCommon);
             sb.mob(5, 0, 2, MobType::Cushion);
             sb.mob(2, 0, 5, MobType::Cushion);
             sb.set(6, 0, 0, barrel);
@@ -3918,7 +3922,7 @@ void OverworldGenerator::placeCamps8(BlockStateId* blocks, int32_t cx, int32_t c
             if (sb.toChunk(6, 0, lx, lz) && !out.full())
                 out.list[size_t(out.count++)] = {static_cast<int8_t>(lx), static_cast<int8_t>(lz),
                                                  static_cast<int16_t>(ground + 1), true, MobType::Zombie,
-                                                 LootTable::CampCommon};
+                                                 LootTable::CampBarrel};
             if (r.nextInt(2) == 0) sb.set(6, 0, 6, cobweb);
             if (r.nextInt(3) == 0) sb.set(0, 0, 6, cobweb);
         }
@@ -4155,7 +4159,7 @@ void OverworldGenerator::placeDappled8(BlockStateId* blocks, int32_t cx, int32_t
     r.nextLong();
     static const BlockStateId shrub = reg.defaultState(*reg.findBlock("red_shrub")),
                               shelf = reg.defaultState(*reg.findBlock("shelf_mushroom")),
-                              bigShelf = reg.defaultState(*reg.findBlock("large_shelf_mushroom")),
+                              bigShelf = reg.set(reg.defaultState(*reg.findBlock("shelf_mushroom")), properties::age1, 1),
                               litter = reg.defaultState(blocks::LeafLitter),
                               brown = reg.defaultState(blocks::BrownMushroom), poplarLog = reg.defaultState(blocks::PoplarLog);
     for (int z = 0; z < 16; ++z)
@@ -4231,8 +4235,7 @@ void OverworldGenerator::placeSulfurCaves8(BlockStateId* blocks, int32_t cx, int
         }
     if (!any) return;
     // Spikes on sulfur floors and ceilings (like dripstone), and pools: a cave floor cell whose
-    // floor is walled in on all sides becomes water over potent sulfur, a third of them over a
-    // magma block (a geyser).
+    // floor is walled in on all sides becomes water over potent sulfur.
     auto spikeColumn = [&](int x, int y0, int z, int dir, int n) {
         int len = 0;
         while (len < n && kOverworldHeight.contains(y0 + dir * len) && chunk.get(x, y0 + dir * len, z) == B.air &&
@@ -4260,8 +4263,7 @@ void OverworldGenerator::placeSulfurCaves8(BlockStateId* blocks, int32_t cx, int
                            solid(chunk.get(x - 1, y - 1, z)) && solid(chunk.get(x, y - 1, z + 1)) &&
                            solid(chunk.get(x, y - 1, z - 1)) && solid(chunk.get(x, y - 2, z))) {
                     chunk.set(x, y - 1, z, B.water);
-                    chunk.set(x, y - 2, z, potent);
-                    if (r.nextInt(3) == 0 && solid(chunk.get(x, y - 3, z))) chunk.set(x, y - 3, z, magma);
+                    chunk.set(x, y - 2, z, potent); // (no magma under cave pools: geysers come from springs)
                 }
             }
         }

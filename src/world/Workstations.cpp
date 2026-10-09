@@ -26,7 +26,8 @@ const std::vector<uint8_t>& compostTable() {
                                                    "hanging_roots", "kelp", "melon_seeds", "moss_carpet",
                                                    "pink_petals", "pitcher_pod", "pumpkin_seeds", "seagrass",
                                                    "small_dripleaf", "sweet_berries", "torchflower_seeds",
-                                                   "wheat_seeds", "mangrove_roots", "mangrove_propagule"};
+                                                   "wheat_seeds", "mangrove_roots", "mangrove_propagule",
+                                                   "red_shrub"}; // (M33.3 review: 26.3)
         static constexpr std::string_view k50[] = {"cactus", "dried_kelp_block", "flowering_azalea_leaves",
                                                    "glow_lichen", "melon_slice", "nether_sprouts", "sugar_cane",
                                                    "tall_grass", "twisting_vines", "vine", "weeping_vines"};
@@ -37,7 +38,7 @@ const std::vector<uint8_t>& compostTable() {
             "peony", "torchflower", "pitcher_plant", "large_fern", "lily_pad", "melon", "moss_block",
             "brown_mushroom", "red_mushroom", "mushroom_stem", "nether_wart", "potato", "pumpkin",
             "carved_pumpkin", "crimson_fungus", "warped_fungus", "crimson_roots", "warped_roots", "sea_pickle",
-            "shroomlight", "spore_blossom", "wheat"};
+            "shroomlight", "spore_blossom", "wheat", "shelf_mushroom"}; // (M33 review: 26.3)
         static constexpr std::string_view k85[] = {"baked_potato", "bread", "cookie", "flowering_azalea", "hay_block",
                                                    "brown_mushroom_block", "red_mushroom_block", "nether_wart_block",
                                                    "warped_wart_block"};

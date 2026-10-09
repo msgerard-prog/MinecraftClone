@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <vector>
 
 namespace mc {
 
@@ -48,7 +49,23 @@ Chunk* chunkOf(World& world, const MobData& m) {
 
 } // namespace
 
+namespace {
+const Mobs::SulfurArchetype* archetypeByName(ItemId item);
+}
+
+// (M33 perf review) looked up per item scanned each tick: one byte per item, built once.
 const Mobs::SulfurArchetype* Mobs::sulfurArchetype(ItemId item) {
+    static const std::vector<int8_t> table = [] {
+        std::vector<int8_t> t(itemRegistry().count(), -1);
+        for (size_t i = 1; i < t.size(); ++i)
+            if (const SulfurArchetype* a = archetypeByName(ItemId(i))) t[i] = int8_t(a - kArchetypes);
+        return t;
+    }();
+    return item < table.size() && table[item] >= 0 ? &kArchetypes[table[item]] : nullptr;
+}
+
+namespace {
+const Mobs::SulfurArchetype* archetypeByName(ItemId item) {
     // Which blocks it takes and how they act (the wiki's examples, extended to their kin; no
     // slabs, stairs, sand, gravel or redstone blocks - and nothing outside these groups).
     if (item == kNoItem) return nullptr;
@@ -57,7 +74,7 @@ const Mobs::SulfurArchetype* Mobs::sulfurArchetype(ItemId item) {
     std::string_view id = blockRegistry().block(b).id;
     if (id.starts_with("minecraft:")) id.remove_prefix(10);
     if (id.ends_with("_slab") || id.ends_with("_stairs") || id.ends_with("_wall")) return nullptr;
-    using K = SulfurKind;
+    using K = Mobs::SulfurKind;
     K k;
     if (id.ends_with("_planks") || id.ends_with("_log") || id.ends_with("_wood") || id.ends_with("_stem") ||
         id.ends_with("_hyphae") || id == "bamboo_block" || id == "bamboo_mosaic")
@@ -94,6 +111,7 @@ const Mobs::SulfurArchetype* Mobs::sulfurArchetype(ItemId item) {
         return nullptr;
     return &kArchetypes[static_cast<int>(k)];
 }
+} // namespace
 
 Mobs::Use Mobs::sulfurCubeInteract(MobData& m, ItemId held, Xoroshiro& rng, ItemEntities& items) {
     static const ItemId shears = *itemRegistry().find("shears"), slime = *itemRegistry().find("slime_ball"),
@@ -104,7 +122,7 @@ Mobs::Use Mobs::sulfurCubeInteract(MobData& m, ItemId held, Xoroshiro& rng, Item
         if (!m.ageLocked) m.age += -m.age / 10;
         return Use::Fed;
     }
-    if (held == bucket) return Use::Bucket;
+    if (held == bucket) return m.fuse > 0 ? Use::None : Use::Bucket; // (M33 review: not while primed)
     if (held == shears) { // the block comes back out
         if (m.absorbed == 0) return Use::None;
         items.spawn(m.pos + glm::dvec3(0, 0.5, 0), {m.absorbed, 1}, rng);
@@ -157,18 +175,17 @@ bool Mobs::sulfurCubeAi(Context& ctx, MobData& m) {
     } else if (!m.isBaby() && m.absorbed == 0) {
         double best = 8.0 * 8.0;
         for (const ItemEntity& e : ctx.items.items()) {
-            if (e.stack.empty() || e.pickupDelay > 0 || !sulfurArchetype(e.stack.item)) continue;
+            if (e.stack.empty() || e.pickupDelay > 0) continue;
             const double d2 = glm::dot(e.pos - m.pos, e.pos - m.pos);
-            if (d2 < best) {
-                best = d2;
-                want = e.pos;
-                wants = true;
-                if (d2 < 1.0) { // touching it: in it goes
-                    m.absorbed = uint16_t(e.stack.item);
-                    ctx.items.takeOne(&e);
-                    wants = false;
-                    break;
-                }
+            if (d2 >= best || !sulfurArchetype(e.stack.item)) continue;
+            best = d2;
+            want = e.pos;
+            wants = true;
+            if (d2 < 1.0) { // touching it: in it goes
+                m.absorbed = uint16_t(e.stack.item);
+                ctx.items.takeOne(&e);
+                wants = false;
+                break;
             }
         }
     }

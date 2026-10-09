@@ -217,7 +217,8 @@ bool LevelData::save(const std::filesystem::path& dir) const {
                                         "minecraft:writable_book_content", "minecraft:written_book_content",
                                         "minecraft:banner_patterns", "minecraft:charged_projectiles",
                                         "minecraft:fireworks", "minecraft:firework_explosion",
-                                        "minecraft:map_post_processing", "minecraft:suspicious_stew_effects"})
+                                        "minecraft:map_post_processing", "minecraft:suspicious_stew_effects",
+                                        "minecraft:bucket_entity_data"})
                     if (const Tag* t = fc->find(key)) components.put(key, *t);
         }
         if (!components.entries.empty()) item.put("components", std::move(components));
@@ -510,7 +511,7 @@ std::optional<LevelData> LevelData::load(const std::filesystem::path& dir) {
                     comps->compound("minecraft:lodestone_tracker") || comps->compound("minecraft:writable_book_content") ||
                     comps->compound("minecraft:written_book_content") || comps->list("minecraft:banner_patterns") ||
                     comps->list("minecraft:charged_projectiles") || comps->find("minecraft:map_post_processing") ||
-                    comps->list("minecraft:suspicious_stew_effects") ||
+                    comps->list("minecraft:suspicious_stew_effects") || comps->compound("minecraft:bucket_entity_data") ||
                     comps->compound("minecraft:fireworks") || comps->compound("minecraft:firework_explosion")) {
                     const ItemStack parsed = itemFromNbtPublic(item);
                     saved.contents = parsed.contents;

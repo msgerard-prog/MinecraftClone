@@ -194,6 +194,9 @@ HarvestInfo harvestInfo(BlockId b) {
     case blocks::CherryLeaves:
     case blocks::MangroveLeaves:
     case blocks::PaleOakLeaves:
+    case blocks::RedPoplarLeaves: // (M33 review: 26.3)
+    case blocks::OrangePoplarLeaves:
+    case blocks::YellowPoplarLeaves:
     case blocks::AzaleaLeaves: // (M27.2)
     case blocks::FloweringAzaleaLeaves:
         return {T::Hoe, -1};
@@ -521,6 +524,9 @@ void blockDrops(BlockStateId state, const ItemStack& held, Xoroshiro& rng,
         case blocks::CherryLeaves:
         case blocks::MangroveLeaves:
         case blocks::PaleOakLeaves:
+        case blocks::RedPoplarLeaves: // (M33 review: 26.3)
+        case blocks::OrangePoplarLeaves:
+        case blocks::YellowPoplarLeaves:
         case blocks::AzaleaLeaves: // (M27.2)
         case blocks::FloweringAzaleaLeaves:
         case blocks::Deepslate:
@@ -595,8 +601,8 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
         add(itemRegistry().blockItem(b), reg.get(state, properties::candles) + 1);
         return;
     }
-    if (b != 0 && b == shelfMushroomBlock(true)) { // (M33.3b; wiki: Shelf Mushroom - a large one drops 2)
-        add(itemRegistry().blockItem(shelfMushroomBlock(false)), 2);
+    if (b != 0 && b == shelfMushroomBlock()) { // (M33.3b; wiki: Shelf Mushroom - a large one drops 2)
+        add(itemRegistry().blockItem(b), reg.get(state, properties::age1) == 1 ? 2 : 1);
         return;
     }
     if (reg.likeOf(b) == blocks::CandleCake) {
@@ -795,6 +801,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
     case blocks::CherryLeaves:
     case blocks::MangroveLeaves:
     case blocks::PaleOakLeaves:
+    case blocks::RedPoplarLeaves: // (M33 review: 26.3)
+    case blocks::OrangePoplarLeaves:
+    case blocks::YellowPoplarLeaves:
     case blocks::AzaleaLeaves: // (M27.2)
     case blocks::FloweringAzaleaLeaves:
         // wiki: Leaves - saplings 5% (jungle 2.5%; mangrove leaves drop none: propagules
@@ -808,6 +817,9 @@ void blockDropsPlain(BlockStateId state, Xoroshiro& rng, std::vector<ItemStack>&
                                     : b == blocks::DarkOakLeaves ? blocks::DarkOakSapling
                                     : b == blocks::CherryLeaves  ? blocks::CherrySapling
                                     : b == blocks::PaleOakLeaves ? blocks::PaleOakSapling
+                                    : b == blocks::RedPoplarLeaves || b == blocks::OrangePoplarLeaves ||
+                                            b == blocks::YellowPoplarLeaves
+                                        ? blocks::PoplarSapling
                                     : b == blocks::AzaleaLeaves
                                         ? blocks::Azalea // (M27.2: their bushes)
                                     : b == blocks::FloweringAzaleaLeaves ? blocks::FloweringAzalea

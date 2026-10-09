@@ -1604,7 +1604,9 @@ BlockRegistry buildVanillaBlocks() {
         r.setStateEmission(s, r.get(s, berries) == 0 ? 14 : 0);
     }
     for (const BlockId leaves : {BlockId(blocks::MangroveLeaves), BlockId(blocks::PaleOakLeaves),
-                                 BlockId(blocks::AzaleaLeaves), BlockId(blocks::FloweringAzaleaLeaves)})
+                                 BlockId(blocks::AzaleaLeaves), BlockId(blocks::FloweringAzaleaLeaves),
+                                 BlockId(blocks::RedPoplarLeaves), BlockId(blocks::OrangePoplarLeaves), // (M33 review)
+                                 BlockId(blocks::YellowPoplarLeaves)})
         for (uint32_t i = 0; i < r.block(leaves).stateCount; ++i) {
             const BlockStateId s = static_cast<BlockStateId>(r.block(leaves).firstState + i);
             r.setStateRandomTicks(s, r.get(s, distance) == 6 && r.get(s, persistent) == 1);
@@ -1680,11 +1682,10 @@ BlockRegistry buildVanillaBlocks() {
         BlockSettings shrub = kPlant;
         shrub.like = blocks::Bush;
         r.add("red_shrub", shrub);
-        const BlockSettings shelfMushroom{.hardness = 0.2f, .resistance = 0.2f, .opaqueCube = false,
-                                          .layer = RenderLayer::Cutout, .tool = HarvestTool::Axe,
-                                          .like = blocks::Ladder};
-        r.add("shelf_mushroom", shelfMushroom, {{&facing, "north"}});
-        r.add("large_shelf_mushroom", shelfMushroom, {{&facing, "north"}});
+        // (M33.3 review; wiki: Shelf Mushroom - breaks at once, any tool; one block, `age` 0 small /
+        // 1 large)
+        const BlockSettings shelfMushroom{.opaqueCube = false, .layer = RenderLayer::Cutout, .like = blocks::Ladder};
+        r.add("shelf_mushroom", shelfMushroom, {{&facing, "north"}, {&age1, "0"}});
     }
     // (M33.3c; wiki: Wool, Concrete - 26.3) stairs and slabs of each wool and concrete colour,
     // as hard as their block and mined with its tool.
@@ -1703,10 +1704,11 @@ BlockRegistry buildVanillaBlocks() {
                            .like = blocks::Shelf},
           {{&facing, "north"}, {&powered, "false"}, {&sideChain, "unconnected"}, {&waterlogged, "false"}});
     // 26.2 "Chaos Cubed" (M33.2; wiki: Sulfur, Cinnabar, Potent Sulfur, Sulfur Spike), registered
-    // last so earlier state ids stay put: two stones of the sulfur caves - sulfur 2 / 6, cinnabar
-    // 2.5 / 6, a stone pickaxe - each polished, as bricks and chiseled, with stairs, slabs and walls.
-    for (const auto& [stone, hard] : {std::pair<const char*, float>{"sulfur", 2.0f}, {"cinnabar", 2.5f}}) {
-        const BlockSettings st{.hardness = hard, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 1};
+    // last so earlier state ids stay put: two stones of the sulfur caves - 1.5 / 6, any pickaxe -
+    // each polished, as bricks and chiseled, with stairs, slabs and walls.
+    // (M33.3 review; wiki: Sulfur, Cinnabar - 1.5 / 6, any pickaxe)
+    for (const auto& [stone, hard] : {std::pair<const char*, float>{"sulfur", 1.5f}, {"cinnabar", 1.5f}}) {
+        const BlockSettings st{.hardness = hard, .resistance = 6.0f, .tool = HarvestTool::Pickaxe};
         const std::string n(stone);
         for (const std::string& id : {n, "polished_" + n, n + "_bricks", "chiseled_" + n}) r.add(id, st);
         addFamily(r, n, n, true, true, true);
@@ -1720,7 +1722,7 @@ BlockRegistry buildVanillaBlocks() {
     // Sulfur spikes grow, stack and fall like pointed dripstone (`like`).
     r.add("sulfur_spike",
           {.hardness = 1.5f, .resistance = 3.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
-           .tool = HarvestTool::Pickaxe, .like = blocks::PointedDripstone},
+           .randomTicks = true, .tool = HarvestTool::Pickaxe, .like = blocks::PointedDripstone},
           {{&thickness, "tip"}, {&verticalDirection, "up"}, {&waterlogged, "false"}});
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})

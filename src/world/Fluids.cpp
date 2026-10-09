@@ -96,6 +96,7 @@ bool BlockUpdates::breaksInFluid(BlockId b) {
     case B::DarkOakSapling:
     case B::CherrySapling:
     case B::PaleOakSapling:
+    case B::PoplarSapling: // (M33 review: 26.3)
     case B::MangrovePropagule:
         return true;
     default:

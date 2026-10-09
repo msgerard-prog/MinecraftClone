@@ -430,8 +430,10 @@ void Mobs::ai(Context& ctx, MobData& m) {
         armorStandTick(ctx, m);
         return;
     }
-    if (m.type == MobType::Cushion) { // (M33.3d) it only falls
-        physics(ctx.world, m, glm::dvec3(0.0), false);
+    if (m.type == MobType::Cushion) { // (M33.3d) it only falls (at rest on the ground: nothing to do)
+        if (!m.onGround || m.vel.x != 0.0 || m.vel.z != 0.0 || m.vel.y > 0.0 || m.ridden ||
+            (m_tickCount & 15) == 0) // (every 16 ticks: notices its floor going)
+            physics(ctx.world, m, glm::dvec3(0.0), false);
         return;
     }
     if (m.type == MobType::LeashKnot) { // (M28.3c, Leads.cpp)
