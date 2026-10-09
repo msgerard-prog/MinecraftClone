@@ -34,6 +34,11 @@ public:
     static constexpr double kSneakHeight = 1.5;
     static constexpr double kEyeHeight = 1.62;
     static constexpr double kSneakEyeHeight = 1.27;
+    // (M30.3; wiki: Player › Pose) swimming, crawling and gliding: 0.6 high, eyes at 0.4.
+    static constexpr double kSwimHeight = 0.6, kSwimEyeHeight = 0.4;
+    // Sprint-swimming (wiki: Swimming - 5.612 b/s): drag 0.9 while sprinting in water;
+    // the acceleration is ours, tuned so the speed comes out at the wiki's.
+    static constexpr double kSprintWaterDrag = 0.9, kSwimSprintAccel = 0.02863;
     static constexpr double kStepHeight = 0.6;
     // Movement constants (blocks per tick).
     static constexpr double kGravity = 0.08;
@@ -146,8 +151,19 @@ public:
     // A charged sprinting hit ends the sprint (M30.2); held keys start it again next tick.
     void stopSprinting() { m_sprinting = false; }
     bool sneaking() const { return m_sneaking; }
-    double eyeHeight() const { return m_sneaking ? kSneakEyeHeight : kEyeHeight; }
-    Aabb box() const { return Aabb::fromFeet(m_pos, kWidth, m_sneaking ? kSneakHeight : kHeight); }
+    // The body's pose (M30.3; vanilla Pose): standing, crouching, or lying flat - swimming
+    // (sprinting under water), crawling (no room to stand or crouch) and gliding.
+    enum class Pose : uint8_t { Standing, Crouching, Swimming, Gliding };
+    Pose pose() const { return m_pose; }
+    bool swimming() const { return m_swimming; }
+    bool crawling() const { return m_pose == Pose::Swimming && !m_swimming; }
+    static double heightOf(Pose p) {
+        return p == Pose::Standing ? kHeight : p == Pose::Crouching ? kSneakHeight : kSwimHeight;
+    }
+    double eyeHeight() const {
+        return m_pose == Pose::Standing ? kEyeHeight : m_pose == Pose::Crouching ? kSneakEyeHeight : kSwimEyeHeight;
+    }
+    Aabb box() const { return Aabb::fromFeet(m_pos, kWidth, heightOf(m_pose)); }
 
 private:
     bool m_climbing = false;
@@ -171,6 +187,8 @@ private:
     bool m_flying = false;
     bool m_sprinting = false;
     bool m_sneaking = false;
+    bool m_swimming = false;
+    Pose m_pose = Pose::Standing;
     double m_sneakFactor = kSneakFactor;
     int m_ticksSinceJumpPress = 1000;
     int m_jumpDelay = 0;

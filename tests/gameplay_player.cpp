@@ -224,25 +224,33 @@ TEST_CASE("walls hold from any fractional or negative starting position (collisi
     }
 }
 
-TEST_CASE("releasing sneak only stands up when there is headroom") {
-    // With full blocks only, a 1.5-1.8 gap needs fractional feet: put the sneaking
-    // player at y 65.25 (as if on a 1/4 slab) under a roof at y 67 (1.75 headroom).
+TEST_CASE("releasing sneak only stands up when there is headroom; a 1-block gap makes the player crawl (M30.3)") {
     World w = floorWorld();
-    const auto stone = world::blockRegistry().defaultState(world::blocks::Stone);
-    w.setBlock({0, kFloorY + 1, 0}, stone); // the "slab" support (top at 66)
-    w.setBlock({0, kFloorY + 3, 0}, stone); // roof bottom at y 67
+    const auto& r = world::blockRegistry();
+    const auto stone = r.defaultState(world::blocks::Stone);
+    // A top slab one block up: its bottom at feet + 1.5 - room to crouch, not to stand.
+    const auto slab = *r.findBlock("minecraft:stone_slab");
+    w.setBlock({0, kFloorY + 2, 0}, *r.with(r.defaultState(slab), "type", "top"));
     Player p;
-    p.setPosition({0.5, kFloorY + 2.0, 0.5}); // feet on the support, roof 1.0 above
+    p.setPosition({0.5, kFloorY + 1.0, 0.5});
     PlayerInput sneak;
     sneak.sneak = true;
     for (int i = 0; i < 3; ++i)
         p.tick(w, sneak);
     REQUIRE(p.sneaking());
-    p.tick(w, {}); // let go: 1.0 headroom < 1.8, must stay crouched
+    p.tick(w, {}); // let go: 1.5 headroom < 1.8, stays crouched
     CHECK(p.sneaking());
-    w.setBlock({0, kFloorY + 3, 0}, 0); // remove the roof
+    CHECK(p.pose() == Player::Pose::Crouching);
+    w.setBlock({0, kFloorY + 2, 0}, 0); // the slab goes: stand up
     p.tick(w, {});
     CHECK_FALSE(p.sneaking());
+    CHECK(p.pose() == Player::Pose::Standing);
+    // A full block one up: only lying flat fits - crawling, 0.6 high, eyes at 0.4.
+    w.setBlock({0, kFloorY + 2, 0}, stone);
+    p.tick(w, {});
+    CHECK(p.crawling());
+    CHECK(p.box().max.y - p.box().min.y == doctest::Approx(0.6));
+    CHECK(p.eyeHeight() == doctest::Approx(0.4));
 }
 
 TEST_CASE("falling into a one-block ledge does not climb it") {
@@ -662,4 +670,45 @@ TEST_CASE("attack indicator: a bar under the crosshair while recharging, nothing
     CHECK(b.vertices().empty());
     mc::ui::drawAttackIndicator(b, 0.5f, 320, 240);
     CHECK_FALSE(b.vertices().empty());
+}
+
+#include "gameplay/BlockCollision.h"
+
+TEST_CASE("M30.3: sprinting under water swims - lying flat, 0.6 high, at the wiki's 5.6 b/s - and surfacing ends it") {
+    World w = floorWorld();
+    const auto water = world::blockRegistry().defaultState(world::blocks::Water);
+    for (int x = -8; x <= 8; ++x)
+        for (int z = -2; z <= 40; ++z)
+            for (int y = kFloorY + 1; y <= kFloorY + 6; ++y) w.setBlock({x, y, z}, water);
+    Player p;
+    p.setCreative(false);
+    p.setPosition({0.5, kFloorY + 2.0, 0.5}); // under 4 blocks of water
+    PlayerInput swim;
+    swim.forward = 1;
+    swim.sprint = true;
+    double lastZ = p.position().z;
+    double speed = 0.0;
+    for (int i = 0; i < 60; ++i) {
+        p.tick(w, swim);
+        speed = p.position().z - lastZ;
+        lastZ = p.position().z;
+    }
+    CHECK(p.swimming());
+    CHECK(p.pose() == Player::Pose::Swimming);
+    CHECK(p.box().max.y - p.box().min.y == doctest::Approx(0.6));
+    CHECK(speed * 20.0 == doctest::Approx(5.612).epsilon(0.05));
+    // Letting go of forward ends the sprint and the swim.
+    p.tick(w, {});
+    p.tick(w, {});
+    CHECK_FALSE(p.swimming());
+}
+
+TEST_CASE("M30.3: a head inside an opaque block suffocates; glass and air don't") {
+    World w = floorWorld();
+    const auto& r = world::blockRegistry();
+    w.setBlock({0, kFloorY + 2, 0}, r.defaultState(world::blocks::Stone));
+    w.setBlock({4, kFloorY + 2, 0}, r.defaultState(world::blocks::Glass));
+    CHECK(mc::headInWall(w, {0.5, kFloorY + 2.62, 0.5}, Player::kWidth));
+    CHECK_FALSE(mc::headInWall(w, {4.5, kFloorY + 2.62, 0.5}, Player::kWidth));
+    CHECK_FALSE(mc::headInWall(w, {8.5, kFloorY + 2.62, 0.5}, Player::kWidth));
 }

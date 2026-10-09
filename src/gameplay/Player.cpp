@@ -176,28 +176,42 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         }
     }
 
-    // Sneaking pose (not while flying): only stand up again if there is headroom.
-    const bool wantSneak = input.sneak && !m_flying;
-    if (!wantSneak && m_sneaking) {
-        gatherBoxes(world, Aabb::fromFeet(m_pos, kWidth, kHeight));
-        const Aabb standing = Aabb::fromFeet(m_pos, kWidth, kHeight);
-        bool blocked = false;
+    // Swimming (M30.3; vanilla updateSwimming): sprinting with the eyes under water starts
+    // it; it lasts while sprinting in water.
+    const bool underwater = eyesUnderWater(world, m_pos + glm::dvec3(0.0, eyeHeight(), 0.0));
+    m_swimming = !m_flying && !m_spectator && m_sprinting && m_inWater && (m_swimming || underwater);
+    // The pose (vanilla updatePlayerPose): the one wanted - gliding, swimming, crouching
+    // (sneak, not while flying) or standing - if the box fits, else crouching, else lying
+    // flat (crawling under a 1-block gap).
+    auto fits = [&](Pose p) {
+        const Aabb b = Aabb::fromFeet(m_pos, kWidth, heightOf(p));
+        gatherBoxes(world, b);
         for (const Aabb& wall : m_boxes)
-            blocked |= standing.intersects(wall);
-        m_sneaking = blocked;
-    } else {
-        m_sneaking = wantSneak;
-    }
+            if (b.intersects(wall)) return false;
+        return true;
+    };
+    Pose want = m_gliding ? Pose::Gliding
+                : m_swimming ? Pose::Swimming
+                : input.sneak && !m_flying ? Pose::Crouching
+                                           : Pose::Standing;
+    if (!m_spectator && !fits(want)) want = fits(Pose::Crouching) ? Pose::Crouching : Pose::Swimming;
+    m_pose = want;
+    m_sneaking = want == Pose::Crouching;
 
     // Sprinting: needs forward input; stops when forward is released or after running
     // into a wall (wiki: Sprinting). Sneaking doesn't end it (1.21.5+): a sprint that
-    // goes on while sneaking is a faster sneak. It can't start while sneaking.
-    if (input.sprint && input.canSprint && input.forward > 0.0f && !m_sneaking) m_sprinting = true;
-    if (input.forward <= 0.0f || !input.canSprint) m_sprinting = false;
+    // goes on while sneaking is a faster sneak. It can't start while sneaking or crawling,
+    // nor in water unless under it; out of a swim, surfacing ends it (M30.3, vanilla).
+    const bool slow = m_sneaking || crawling();
+    if (input.sprint && input.canSprint && input.forward > 0.0f && (!slow || underwater) &&
+        (!m_inWater || underwater))
+        m_sprinting = true;
+    if (input.forward <= 0.0f || !input.canSprint || (!m_swimming && m_inWater && !underwater))
+        m_sprinting = false;
 
-    // Horizontal input, scaled like vanilla (0.98, sneak 0.3), normalised if > 1.
+    // Horizontal input, scaled like vanilla (0.98, sneak and crawl 0.3), normalised if > 1.
     glm::dvec2 in(input.strafe * kInputScale, input.forward * kInputScale);
-    if (m_sneaking) in *= m_sneakFactor;
+    if (slow) in *= m_sneakFactor;
     if (glm::dot(in, in) > 1.0) in = glm::normalize(in);
 
     // In water or lava (not flying): swim (M14; vanilla travel in fluids - acceleration
@@ -226,7 +240,15 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         // Depth Strider (M29.2b; wiki): water slows a third less a level - drag and
         // acceleration move toward the ground's (half as much off the ground).
         const double strider = fluid.water ? double(m_depthStrider) / 3.0 * (m_onGround ? 1.0 : 0.5) : 0.0;
-        const double swimAccel = kSwimAccel + (kWalkSpeed * m_walkMultiplier - kSwimAccel) * strider;
+        const double baseAccel = m_swimming && fluid.water ? kSwimSprintAccel : kSwimAccel;
+        const double swimAccel = baseAccel + (kWalkSpeed * m_walkMultiplier - baseAccel) * strider;
+        // Swimming steers up and down with the look (vanilla Player.travel): toward the
+        // look's height at 0.06 (0.085 diving), rising only while jumping or under water.
+        if (m_swimming && fluid.water) {
+            const double ly = world::lookVector(m_yaw, m_pitch).y;
+            const bool waterAbove = pointInFluid(world, m_pos + glm::dvec3(0.0, 0.9, 0.0), world::blocks::Water);
+            if (ly <= 0.0 || input.jump || waterAbove) m_velocity.y += (ly - m_velocity.y) * (ly < -0.2 ? 0.085 : 0.06);
+        }
         m_velocity += (fwd * in.y + rgt * in.x) * swimAccel;
         if (fluid.water) m_velocity += fluid.flow * kWaterPush;
         const glm::dvec3 wanted = m_velocity;
@@ -237,12 +259,13 @@ void Player::tick(const world::World& world, const PlayerInput& input) {
         if (fluid.water && m_dolphinsGrace)
             m_velocity *= glm::dvec3(0.96, kWaterDrag, 0.96); // (Dolphin's Grace)
         else if (fluid.water) {
-            const double drag = kWaterDrag + (0.546 - kWaterDrag) * strider;
+            const double base = m_sprinting ? kSprintWaterDrag : kWaterDrag; // (M30.3: sprinting in water)
+            const double drag = base + (0.546 - base) * strider;
             m_velocity *= glm::dvec3(drag, kWaterDrag, drag);
         }
         else
             m_velocity *= glm::dvec3(kLavaDrag, kWaterDrag, kLavaDrag);
-        m_velocity.y -= kFluidGravity;
+        if (!(m_sprinting && fluid.water)) m_velocity.y -= kFluidGravity; // (no sinking while sprinting - vanilla)
         if (bumped) { // climb out over a ledge (vanilla: if the space 0.6 up is free)
             const Aabb up = box().moved({wanted.x, 0.6, wanted.z});
             gatherBoxes(world, up);

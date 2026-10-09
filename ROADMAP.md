@@ -19,7 +19,7 @@ M30 - Play feel (the deviations noticed within minutes of playing):
 2. ✅ M30.2 - Combat (1.9+): attack cooldown from each item's attack speed, damage x
    (0.2 + 0.8 x charge^2), crits and sweeps only when charged, sprint knockback; the
    attack indicator under the crosshair.
-3. M30.3 - Poses: swimming (sprint under water, 0.6 box), crawling under 1-block gaps,
+3. ✅ M30.3 - Poses (the camera's eye height now eases, as vanilla - answers the M4 check): swimming (sprint under water, 0.6 box), crawling under 1-block gaps,
    the gliding box; suffocation for the player and mobs.
 4. M30.4 - Dropped items and orbs: merging, saved as entities, death drops scattered.
 5. M30.5 - Pathfinding 2: diagonal moves, the mob's width, doors (villagers open wooden
@@ -277,7 +277,6 @@ and GUI textures are made with their systems.
 - M4 in-game checks (we can't verify these from the wiki):
   - Sprint diagonally (mostly along Z) into a block corner from both sides: which
     side catches? (pins the collision axis order; the public source contradicts itself)
-  - Does the camera ease down when you sneak, or snap? (ours snaps)
   - Time a 10 s creative climb with F3: ours rises 7.5 b/s; sprint-fly: ours 21.78 vs
     the wiki's 21.6 b/s.
 - In your game (spectator + F3): how much of Y -60 is bedrock compared with Y -63?

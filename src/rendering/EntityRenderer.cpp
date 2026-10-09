@@ -631,11 +631,16 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     glm::mat3 body = rotY(-bodyYaw * kDeg);
     if (mob.deathTime > 0 && mob.type != world::MobType::EnderDragon) body = body * rotZ(std::min(1.0f, float(mob.deathTime) / 20.0f) * 90.0f * kDeg);
     if (mob.sleeping) body = body * rotX(-90.0f * kDeg); // in bed: lying on its back, head toward the pillow
+    // (M30.3) swimming, crawling, gliding: lying face down, head forward, centred on the
+    // 0.6-high box (the model is turned about its feet, then moved back and up).
+    if (mob.lyingFlat) body = body * rotX(90.0f * kDeg);
     const bool roosting = mob.type == world::MobType::Bat && mob.sitting; // (M29.1c: hanging upside down)
     if (roosting) body = body * rotZ(180.0f * kDeg);
     // (the head turns the same way as the body: vanilla yaw goes from +Z toward -X, so
     // both use -yaw - M30.1 fix: heads turned away from their body looked the wrong way)
-    const glm::mat3 head = rotY(-(headYaw - bodyYaw) * kDeg) * rotX(-pitch * kDeg);
+    // (lying flat, the head is raised to look ahead: it undoes the body's 90 degree lean)
+    const glm::mat3 head =
+        rotY(-(headYaw - bodyYaw) * kDeg) * (mob.lyingFlat ? rotX(-90.0f * kDeg) : glm::mat3(1.0f)) * rotX(-pitch * kDeg);
     // (M29.1b) a jockey sits: legs forward and a little apart (vanilla's riding pose).
     const bool seated = mob.vehicle != 0;
     const glm::mat3 legA = seated ? rotX(-72.0f * kDeg) * rotY(-18.0f * kDeg) : rotX(swing),
@@ -658,6 +663,7 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
     const bool red = mob.hurtTime > 0 || mob.deathTime > 0;
     glm::vec3 base(pos - cameraPos);
     if (roosting) base.y += float(world::mobInfo(mob.type).height);
+    if (mob.lyingFlat) base += rotY(-bodyYaw * kDeg) * glm::vec3(0.0f, 0.15f, -0.9f);
     else if (mob.sitting && mob.type != world::MobType::Villager) // (a sitting pet sinks onto its haunches; a camel lies down)
         base.y -= world::isCamel(mob.type) ? 1.0f : 0.25f;
     if (mob.convertTicks > 0) // a curing zombie villager shakes (wiki)

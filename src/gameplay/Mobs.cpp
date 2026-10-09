@@ -233,6 +233,15 @@ void Mobs::physics(const World& world, MobData& m, const glm::dvec3& wish, bool 
         m.fireTicks = 300;
         m.vel *= 0.5;
     }
+    // Suffocation (M30.3; wiki: Suffocation): a head inside an opaque block hurts 1, paced
+    // by the hurt cooldown (living mobs only; flat things and vehicles don't breathe).
+    if (m.hurtTime == 0 && m.deathTime == 0 && !isHanging(m.type) && !isTechnical(m.type) &&
+        m.type != MobType::Boat && m.type != MobType::Minecart && m.type != MobType::EndCrystal &&
+        m.type != MobType::LeashKnot && m.type != MobType::ArmorStand && m.type != MobType::Shulker &&
+        headInWall(world, m.pos + glm::dvec3(0.0, mobInfo(m.type).height * 0.85, 0.0), mobInfo(m.type).width)) {
+        m.health -= 1.0f;
+        m.hurtTime = 10;
+    }
     const bool vehicle =
         m.type == MobType::Boat; // (its velocity is set by boatTick: collision only)
     // Walking: horizontal speed approaches `wish` (blocks/tick) with ground friction.

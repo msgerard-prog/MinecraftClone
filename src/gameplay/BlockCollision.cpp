@@ -43,4 +43,16 @@ void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector
         }
 }
 
+bool headInWall(const world::World& world, const glm::dvec3& eye, double width) {
+    const double h = width * 0.4;
+    const auto& reg = world::blockRegistry();
+    for (int i = 0; i < 4; ++i) {
+        const world::BlockPos p{int(std::floor(eye.x + (i & 1 ? h : -h))), int(std::floor(eye.y)),
+                                int(std::floor(eye.z + (i & 2 ? h : -h)))};
+        const world::BlockStateId s = world.getBlock(p);
+        if (s != 0 && reg.opaqueCube(s) && reg.collides(s)) return true;
+    }
+    return false;
+}
+
 } // namespace mc

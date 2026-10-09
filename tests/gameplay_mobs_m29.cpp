@@ -540,3 +540,18 @@ TEST_CASE("M29 review: a fully oxidized copper golem soon turns into a statue, d
     for (const auto& it : s.items.items()) apples += it.stack.item == *itemRegistry().find("apple") ? it.stack.count : 0;
     CHECK(apples == 2);
 }
+
+TEST_CASE("M30.3: a mob with its head in a block suffocates (1 a hurt cooldown)") {
+    MobScene s;
+    s.survival = false;
+    REQUIRE(Mobs::add(s.world, Mobs::make(MobType::Cow, {8.5, 64.0, 8.5}, s.rng)));
+    s.world.setBlock({8, 65, 8}, blockRegistry().defaultState(blocks::Stone)); // (a cow's head ~1.19 up)
+    MobData* cow = findType(s, MobType::Cow);
+    REQUIRE(cow);
+    const float before = cow->health;
+    s.tick(25);
+    cow = findType(s, MobType::Cow);
+    REQUIRE(cow);
+    CHECK(before - cow->health >= 2.0f);
+    CHECK(before - cow->health <= 3.0f);
+}

@@ -736,6 +736,10 @@ free, so nothing typed acts later. Chat lines are queued and run as commands
   Combat (M30.2): `attackSpeed`/`attackCharge`/`MeleeHit::charge` (`gameplay/Combat.h`); main
   counts `attackTicker` (reset by swings at a mob or the air and by switching items) and draws
   `ui::drawAttackIndicator`.
+  Poses (M30.3): `Player::Pose` (standing 1.8, crouching 1.5, swimming/crawling/gliding 0.6),
+  chosen each tick by vanilla's rules (`fits`, then crouch, then lie flat); `swimming()` steers
+  by the look; main eases the camera's eye height and draws `MobData::lyingFlat`.
+  Suffocation: `headInWall` (gameplay/BlockCollision) for the player (main) and mobs (physics).
 - Collision shapes (M21.1, `world/BlockShapes`): per-state boxes in 1/16 (up to 1.5
   tall), built once; `gameplay/BlockCollision::gatherBlockBoxes` feeds them to the
   player, mobs and dropped items. Doors (two halves kept together in `BlockUpdates`),

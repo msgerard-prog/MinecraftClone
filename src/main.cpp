@@ -36,6 +36,7 @@
 #include "gameplay/Mobs.h"
 #include "gameplay/Particles.h"
 #include "gameplay/Patrols.h"
+#include "gameplay/BlockCollision.h"
 #include "gameplay/Player.h"
 #include "gameplay/PlayerAnimation.h"
 #include "gameplay/Portals.h"
@@ -335,6 +336,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     // (M30.2) ticks since the last swing or item switch: the attack's charge (wiki: Attack cooldown).
     int attackTicker = 1000;
     mc::world::ItemId attackItem = 0;
+    // (M30.3; vanilla Camera.tick) the camera's eye height eases halfway to the pose's each
+    // tick, so crouching and lying down to swim don't snap the view.
+    double camEye = mc::Player::kEyeHeight, prevCamEye = mc::Player::kEyeHeight;
     std::array<char, 64> typed{};
     mc::world::World world;
     glm::dvec3 spawn(0.5, -60.0, -6.0); // flat world: feet on the grass
@@ -2026,6 +2030,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             playerAnim.tick(player.position(), animPrev, player.yaw(), player.onGround() || ridingCart != 0,
                             inventory.selectedStack().item);
             animPrev = player.position();
+            prevCamEye = camEye;
+            camEye += (player.eyeHeight() - camEye) * 0.5;
             ++attackTicker;
             if (inventory.selectedStack().item != attackItem) { // switching items resets the charge
                 attackItem = inventory.selectedStack().item;
@@ -2292,6 +2298,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     vitals.breathe(
                         mc::eyesUnderWater(world, player.eyePosition(1.0)), // (bubble columns: air)
                         respiration > 0 && gameRng.nextInt(uint32_t(respiration + 1)) > 0);
+                    // (M30.3; wiki: Suffocation) a head inside a block: 1 damage, paced by the hurt
+                    // cooldown, ignoring armour.
+                    if (mc::headInWall(world, player.eyePosition(1.0), mc::Player::kWidth)) vitals.damage(1.0f, false);
                     if (player.inLava()) {
                         vitals.attacked(
                             4.0f, nullptr,
@@ -5472,7 +5481,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
         }
         mc::gfx::Camera camera;
         camera.fovDegrees = spyglassUp ? shared.options.fov * 0.1f : shared.options.fov;
-        camera.position = player.eyePosition(clock.alpha);
+        camera.position = player.renderPosition(clock.alpha) +
+                          glm::dvec3(0.0, prevCamEye + (camEye - prevCamEye) * clock.alpha, 0.0);
         camera.yaw = player.yaw();
         audio.setListener(camera.position, camera.yaw);
         camera.pitch = player.pitch();
@@ -6112,6 +6122,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             body.limbSwingAmount = playerAnim.limbAmount(animAlpha);
             body.heldItem = inventory.selectedStack().item;
             body.crouching = player.sneaking() && !player.flying();
+            body.lyingFlat = player.pose() == mc::Player::Pose::Swimming || player.pose() == mc::Player::Pose::Gliding;
             body.swingProgress = playerAnim.swing(animAlpha);
             body.vehicle = ridingCart != 0 ? 1 : 0;
             body.sleeping = sleepTicks > 0;

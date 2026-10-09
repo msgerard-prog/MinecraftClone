@@ -14,4 +14,9 @@ namespace mc {
 void gatherBlockBoxes(const world::World& world, const Aabb& region, std::vector<Aabb>& out,
                       bool unloadedSolid = false);
 
+// Suffocation (M30.3; wiki: Suffocation, vanilla isInWall): whether a flat square
+// `width` x 0.8 wide at the eye's height lies in an opaque full block (stone, dirt...;
+// not glass, leaves or other see-through blocks).
+bool headInWall(const world::World& world, const glm::dvec3& eye, double width);
+
 } // namespace mc

@@ -493,6 +493,7 @@ struct MobData {
     // Drawing only, not saved (M30.1: the player drawn as a mannequin): crouching, and the
     // right arm's attack swing (0..1).
     bool crouching = false;
+    bool lyingFlat = false; // (M30.3) swimming, crawling, gliding
     float swingProgress = 0.0f;
     int16_t poiSearch = 0;    // ticks to the next look for a bed / job site
     uint8_t restocksToday = 0; // (M24.2) two restocks a day at the job site
