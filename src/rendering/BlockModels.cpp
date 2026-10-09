@@ -431,6 +431,17 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name.ends_with("command_block")) { // (M29.7) the arrow front, its back, marked sides
+        const auto f = registry.value(state, "facing").value_or("north");
+        static constexpr const char* kSides[6] = {"down", "up", "north", "south", "west", "east"};
+        int front = 2;
+        for (int k = 0; k < 6; ++k)
+            if (f == kSides[k]) front = k;
+        const bool cond = registry.value(state, "conditional") == "true";
+        BakedVariant v = cubeAll(sprite((name + (cond ? "_conditional" : "_side")).c_str()));
+        v.faces[front].sprite = sprite((name + "_front").c_str());
+        v.faces[front ^ 1].sprite = sprite((name + "_back").c_str());
+        m = single(v);
     } else if (name.ends_with("copper_golem_statue")) {
         // (M29.6) a copper golem in its stage's copper (vanilla: the golem's model in a pose):
         // legs, body and head; sitting it is 4 pixels lower, with arms up for "star"; its

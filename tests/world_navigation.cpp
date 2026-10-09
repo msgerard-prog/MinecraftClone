@@ -310,3 +310,47 @@ TEST_CASE("equal books and lodestone targets share one entry (reloads don't grow
     other.pos.x = 8;
     CHECK(mc::world::addLodestoneTarget(other) != mc::world::addLodestoneTarget(t));
 }
+
+#include "gameplay/CommandBlocks.h"
+#include "world/BlockUpdates.h"
+
+TEST_CASE("M29.7: a pulse runs an impulse command block (~ from the block), then its chain") {
+    Player player;
+    Inventory inv;
+    int64_t dayTime = 0;
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    const auto& r = blockRegistry();
+    std::vector<BlockPos> changed;
+    CommandContext ctx{player, inv, dayTime, 0, 42};
+    ctx.world = &w;
+    ctx.changed = &changed;
+    // An impulse block facing east with a chain block in front of it.
+    w.updateBlock({4, 64, 4}, *r.with(r.defaultState(blocks::CommandBlock), "facing", "east"));
+    w.updateBlock({5, 64, 4}, *r.with(r.defaultState(blocks::ChainCommandBlock), "facing", "east"));
+    w.chunk({0, 0})->commandBlock(4, 64, 4)->command = "/setblock ~ ~2 ~ stone";
+    CommandBlockData* chain = w.chunk({0, 0})->commandBlock(5, 64, 4);
+    chain->command = "setblock ~ ~2 ~ gold_block";
+    chain->autoActive = true;
+    int64_t t = 0;
+    u.setTime(++t);
+    w.updateBlock({4, 64, 3}, r.defaultState(blocks::RedstoneBlock));
+    for (int i = 0; i < 3; ++i) {
+        u.setTime(++t);
+        u.tick();
+        runCommandBlocks(w, u.commandRuns(), ctx);
+    }
+    CHECK(r.blockOf(w.getBlock({4, 66, 4})) == blocks::Stone);
+    CHECK(r.blockOf(w.getBlock({5, 66, 4})) == blocks::GoldBlock);
+    CHECK(w.chunk({0, 0})->commandBlock(4, 64, 4)->successCount == 1);
+    // It fires once per rising edge, not while the power stays.
+    w.updateBlock({4, 66, 4}, 0);
+    for (int i = 0; i < 3; ++i) {
+        u.setTime(++t);
+        u.tick();
+        runCommandBlocks(w, u.commandRuns(), ctx);
+    }
+    CHECK(w.getBlock({4, 66, 4}) == 0);
+}

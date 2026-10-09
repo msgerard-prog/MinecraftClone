@@ -78,6 +78,7 @@ public:
         m_campfires.clear();
         m_beacons.clear();
         m_jukeboxes.clear();
+        m_commandBlocks.clear();
         m_brushables.clear();
         m_mobs.clear();
         m_blockTicks.clear();
@@ -350,6 +351,22 @@ public:
         return m_jukeboxes.back().data;
     }
     std::vector<JukeboxEntry>& jukeboxes() { return m_jukeboxes; }
+    struct CommandBlockEntry { // (M29.7)
+        int x, y, z;
+        CommandBlockData data;
+    };
+    CommandBlockData* commandBlock(int x, int y, int z) {
+        for (auto& c : m_commandBlocks)
+            if (c.x == x && c.y == y && c.z == z) return &c.data;
+        return nullptr;
+    }
+    CommandBlockData& addCommandBlock(int x, int y, int z) {
+        if (CommandBlockData* c = commandBlock(x, y, z)) return *c;
+        m_dirty = true;
+        m_commandBlocks.push_back({x, y, z, {}});
+        return m_commandBlocks.back().data;
+    }
+    const std::vector<CommandBlockEntry>& commandBlocks() const { return m_commandBlocks; }
     struct BrushableEntry { // (M27.5)
         int x, y, z;
         BrushableData data;
@@ -393,6 +410,7 @@ public:
         std::erase_if(m_campfires, [&](const CampfireEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_beacons, [&](const BeaconEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_jukeboxes, [&](const JukeboxEntry& j) { return j.x == x && j.y == y && j.z == z; });
+        std::erase_if(m_commandBlocks, [&](const CommandBlockEntry& c) { return c.x == x && c.y == y && c.z == z; });
         std::erase_if(m_brushables, [&](const BrushableEntry& b) { return b.x == x && b.y == y && b.z == z; });
         std::erase_if(m_beehives, [&](const BeehiveEntry& h) { return h.x == x && h.y == y && h.z == z; });
         std::erase_if(m_comparators, [&](const ComparatorEntry& c) { return c.x == x && c.y == y && c.z == z; });
@@ -514,6 +532,7 @@ private:
     std::vector<CampfireEntry> m_campfires;
     std::vector<BeaconEntry> m_beacons;
     std::vector<JukeboxEntry> m_jukeboxes;
+    std::vector<CommandBlockEntry> m_commandBlocks; // (M29.7)
     std::vector<BrushableEntry> m_brushables;
     std::vector<BeehiveEntry> m_beehives;
     std::vector<BrewingEntry> m_brewing;

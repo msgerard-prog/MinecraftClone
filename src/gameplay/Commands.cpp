@@ -49,6 +49,9 @@ template <typename T> std::optional<T> number(std::string_view s) {
 
 // A coordinate: absolute, or ~ / ~N relative to `base` (wiki: Coordinates). Absolute
 // whole numbers for x/z are block centres (+0.5), as vanilla does for /tp.
+// Where relative coordinates count from (M29.7: a command block, else the player).
+glm::dvec3 origin(const CommandContext& ctx) { return ctx.origin ? *ctx.origin : ctx.player.position(); }
+
 std::optional<double> coordinate(std::string_view s, double base, bool centre) {
     if (!s.empty() && s.front() == '~') {
         if (s.size() == 1) return base;
@@ -94,7 +97,7 @@ CommandResult teleport(const std::vector<std::string_view>& a, CommandContext& c
         return fail("Only @s/@p is supported");
     if (a.size() - i != 3 && a.size() - i != 5)
         return fail("Usage: /tp [@s] <x> <y> <z> [yaw pitch]");
-    const glm::dvec3 p = ctx.player.position();
+    const glm::dvec3 p = origin(ctx);
     const auto x = coordinate(a[i], p.x, true);
     const auto y = coordinate(a[i + 1], p.y, false);
     const auto z = coordinate(a[i + 2], p.z, true);
@@ -339,7 +342,7 @@ CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) 
     // (M29.6) /item replace block <x> <y> <z> container.<n> with <item> [count]: a slot of
     // the container there - chests, barrels, shelves, bookshelves, dispensers, hoppers.
     if (a.size() >= 9 && a.size() <= 10 && a[1] == "replace" && a[2] == "block" && a[7] == "with" && ctx.world) {
-        const glm::dvec3 p = ctx.player.position();
+        const glm::dvec3 p = origin(ctx);
         const auto x = coordinate(a[3], p.x, false), y = coordinate(a[4], p.y, false), z = coordinate(a[5], p.z, false);
         if (!x || !y || !z) return fail("Invalid position");
         const world::BlockPos at{int(std::floor(*x)), int(std::floor(*y)), int(std::floor(*z))};
@@ -479,7 +482,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
     if (a[0] == "setblock") {
         // /setblock <x> <y> <z> <block> (wiki: Commands/setblock): neighbours update.
         if (!ctx.world || a.size() != 5) return fail("Usage: /setblock <x> <y> <z> <block>");
-        const glm::dvec3 p = ctx.player.position();
+        const glm::dvec3 p = origin(ctx);
         const auto x = coordinate(a[1], p.x, false), y = coordinate(a[2], p.y, false),
                    z = coordinate(a[3], p.z, false);
         if (!x || !y || !z) return fail("Invalid position");
@@ -498,7 +501,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         // then the neighbours are updated; at most 32768 blocks.
         if (!ctx.world || a.size() != 8)
             return fail("Usage: /fill <x1> <y1> <z1> <x2> <y2> <z2> <block>");
-        const glm::dvec3 p = ctx.player.position();
+        const glm::dvec3 p = origin(ctx);
         std::optional<double> c[6];
         for (int i = 0; i < 6; ++i)
             c[i] = coordinate(a[size_t(1 + i)], i % 3 == 0 ? p.x : i % 3 == 1 ? p.y : p.z, false);
@@ -545,7 +548,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         // sign's front lines (wiki: Commands/data; M23.3c).
         if (!ctx.world || a.size() < 6 || a[1] != "merge" || a[2] != "block")
             return fail("Usage: /data merge block <x> <y> <z> {front_text:{messages:[...]}}");
-        const glm::dvec3 here = ctx.player.position();
+        const glm::dvec3 here = origin(ctx);
         const auto x = coordinate(a[3], here.x, true), y = coordinate(a[4], here.y, false),
                    z = coordinate(a[5], here.z, true);
         if (!x || !y || !z) return fail("Invalid position");
@@ -619,7 +622,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
         (a[1] == "lightning_bolt" || a[1] == "minecraft:lightning_bolt")) {
         if (!ctx.lightning || (a.size() != 2 && a.size() != 5))
             return fail("Usage: /summon lightning_bolt [x y z]");
-        glm::dvec3 p = ctx.player.position();
+        glm::dvec3 p = origin(ctx);
         if (a.size() == 5) {
             const auto x = coordinate(a[2], p.x, true), y = coordinate(a[3], p.y, false),
                        z = coordinate(a[4], p.z, true);
@@ -649,7 +652,7 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                 cartKind = k;
             }
         if (!type) return fail(format("Unknown entity '%.*s'", int(id.size()), id.data()));
-        glm::dvec3 p = ctx.player.position();
+        glm::dvec3 p = origin(ctx);
         if (a.size() >= 5) {
             const auto x = coordinate(a[2], p.x, true), y = coordinate(a[3], p.y, false),
                        z = coordinate(a[4], p.z, true);

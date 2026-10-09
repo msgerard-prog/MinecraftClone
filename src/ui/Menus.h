@@ -24,7 +24,8 @@ enum class MenuScreen {
     Options,
     Pause,
     Statistics,
-    Advancements
+    Advancements,
+    CommandBlock // (M29.7) a command block's settings (creative)
 };
 
 enum class MenuAction {
@@ -37,6 +38,7 @@ enum class MenuAction {
     SaveAndQuit,    // pause: Save and Quit to Title
     OptionsChanged, // a setting changed (apply it; saved when the screen closes)
     OptionsClosed,  // Done: save options.txt
+    CommandBlockDone, // (M29.7) apply the command block screen's settings
 };
 
 struct MenuState {
@@ -60,6 +62,11 @@ struct MenuState {
     // Advancements (M28.5c, from the Game Menu): the player's, the tab and its scroll.
     const world::Advancements* adv = nullptr;
     int advTab = 0, advScroll = 0;
+    // Command block (M29.7; vanilla "Set Console Command for Block"): the command, the
+    // mode (0 impulse, 1 chain, 2 repeat), conditional, Always Active, the last output.
+    std::string command, commandOutput;
+    int commandMode = 0;
+    bool commandConditional = false, commandAlways = false;
 };
 
 // Draws the current screen and handles its input. `dirtSprite`: the atlas cell tiled

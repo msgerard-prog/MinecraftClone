@@ -248,6 +248,7 @@ BlockUpdates::BlockUpdates(World& world) : m_world(world) {
     m_plates.reserve(1024); // (pressure plates being pressed)
     m_tntPrimed.reserve(256);
     m_dispensed.reserve(256);
+    m_commandRuns.reserve(256);
     m_moving.reserve(256);
     m_pushDestroy.reserve(16);
 }
@@ -363,6 +364,11 @@ int BlockUpdates::daylightPower(const BlockPos& p, bool invertedMode) const {
     double angle = celestialAngle(m_dayTime) * 2.0 * std::numbers::pi;
     angle += ((angle < std::numbers::pi ? 0.0 : 2.0 * std::numbers::pi) - angle) * 0.2;
     return std::clamp(int(std::lround(sky * std::cos(angle))), 0, 15);
+}
+
+void BlockUpdates::armCommandBlock(const BlockPos& p) {
+    const BlockId b = blockOf(at(p));
+    if ((b == B::CommandBlock || b == B::RepeatingCommandBlock) && !hasTick(p, b)) schedule(p, b, 1, 0);
 }
 
 void BlockUpdates::hitTarget(const BlockPos& p, int strength, int ticks) {
@@ -487,6 +493,11 @@ int BlockUpdates::containerSignal(const BlockPos& p) const {
     // (wiki: Redstone Comparator › Measure block state).
     if (const int fill = cauldronSignal(at(p)); fill >= 0) return fill; // (M23.5: composters, cauldrons)
     if (blockOf(at(p)) == B::RespawnAnchor) return 15 * R().get(at(p), charges) / 4; // (M29.5: by charge)
+    if (const BlockId cb = blockOf(at(p)); cb == B::CommandBlock || cb == B::ChainCommandBlock || cb == B::RepeatingCommandBlock) {
+        Chunk* cc = chunkAt(p); // (M29.7) its last success count
+        const CommandBlockData* d = cc ? cc->commandBlock(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        return d ? std::min(15, d->successCount) : 0;
+    }
     if (blockOf(at(p)) == B::Crafter) { // (M29.5) how many of its 9 slots hold something
         Chunk* cc = chunkAt(p);
         const DispenserData* d = cc ? cc->dispenser(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
@@ -1568,6 +1579,23 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Scaffolding: // (M29.5) re-reads its support next tick
         if (!hasTick(p, B::Scaffolding)) schedule(p, B::Scaffolding, 1, 0);
         break;
+    case B::CommandBlock: // (M29.7) the power it gets; an impulse block fires on a rising edge
+    case B::ChainCommandBlock:
+    case B::RepeatingCommandBlock: {
+        Chunk* cc = chunkAt(p);
+        CommandBlockData* d = cc ? cc->commandBlock(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        if (!d) break;
+        const bool on = bestNeighbourSignal(p) > 0;
+        const bool rising = on && !d->powered;
+        if (on != d->powered) {
+            d->powered = on;
+            cc->markDirty();
+        }
+        if ((blockOf(s) == B::CommandBlock && rising && !d->autoActive) ||
+            (blockOf(s) == B::RepeatingCommandBlock && (on || d->autoActive)))
+            armCommandBlock(p);
+        break;
+    }
     case B::Shelf: { // (M29.6) powered by redstone; powered rows mark their ends
         BlockStateId now = withFlag(s, powered, bestNeighbourSignal(p) > 0);
         if (now != s) set(p, now); // (its neighbours in a row hear it)
@@ -1980,6 +2008,17 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
     case B::RedstoneLamp:
         if (flag(s, lit) && bestNeighbourSignal(p) == 0) set(p, withFlag(s, lit, false));
         break;
+    case B::CommandBlock: // (M29.7) gameplay runs it
+        if (m_commandRuns.size() < m_commandRuns.capacity()) m_commandRuns.push_back(p);
+        break;
+    case B::RepeatingCommandBlock: { // every tick while powered or always active
+        Chunk* cc = chunkAt(p);
+        const CommandBlockData* d = cc ? cc->commandBlock(blockToLocal(p.x), p.y, blockToLocal(p.z)) : nullptr;
+        if (!d || !(d->powered || d->autoActive)) break;
+        if (m_commandRuns.size() < m_commandRuns.capacity()) m_commandRuns.push_back(p);
+        schedule(p, B::RepeatingCommandBlock, 1, 0);
+        break;
+    }
     case B::Target: // (M29.5) the hit wears off
         if (R().get(s, power) != 0) set(p, R().set(s, power, 0));
         break;
@@ -2911,6 +2950,12 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));
+    case B::CommandBlock: // (M29.7) pointing the way the player looks (a chain runs on from its front)
+    case B::ChainCommandBlock:
+    case B::RepeatingCommandBlock: {
+        const Direction f = pitch > 45.0f ? Direction::Down : pitch < -45.0f ? Direction::Up : look;
+        return r.set(state, facing6, static_cast<int>(f));
+    }
     case B::LightningRod: // (M29.5) points out of the face it was put on, like an end rod
         return r.set(state, facing6, static_cast<int>(faceDir));
     case B::TripwireHook: // (M29.5) only on a block's side, facing out of it

@@ -32,6 +32,9 @@ struct CommandContext {
     world::GameRules* rules = nullptr;                 // /gamerule (M28.1)
     int* difficulty = nullptr;                         // /difficulty: 0 peaceful .. 3 hard
     int* gameMode = nullptr; // /gamemode adventure|spectator (0 survival .. 3 spectator)
+    // (M29.7) where the command runs from: a command block's centre; ~ coordinates (and
+    // /summon without any) are relative to it. Null: the player.
+    const glm::dvec3* origin = nullptr;
 };
 
 struct CommandResult {

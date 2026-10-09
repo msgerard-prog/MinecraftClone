@@ -210,6 +210,12 @@ public:
     // one block above them: quasi-connectivity) fires them 4 ticks later; gameplay does
     // what their item does.
     std::vector<BlockPos>& dispensed() { return m_dispensed; }
+    // Command blocks that fire this tick (M29.7; wiki: Command Block): impulse ones on a
+    // rising edge (or set to Always Active), repeating ones each tick while active. Gameplay
+    // runs them (and the chain blocks after them). `armCommandBlock`: fire once / start
+    // repeating after its settings changed.
+    std::vector<BlockPos>& commandRuns() { return m_commandRuns; }
+    void armCommandBlock(const BlockPos& p);
     // Blocks in flight (M21.5; wiki: Piston › Behavior, Moving Piston): a push or pull
     // takes 2 ticks; meanwhile the target cell holds an invisible moving_piston and the
     // renderer draws the block sliding from `to - dir` to `to`. `visual`: the retracting
@@ -500,6 +506,7 @@ private:
     std::vector<BlockPos> m_openChests; // (M29.5) trapped chests being looked into
     std::vector<BlockPos> m_tntPrimed;
     std::vector<BlockPos> m_dispensed;
+    std::vector<BlockPos> m_commandRuns;
     std::vector<Moving> m_moving;
     std::vector<BlockPos> m_pushDestroy;
     void finishMoves(bool force = false);

@@ -93,6 +93,12 @@ void World::setBlock(const BlockPos& p, BlockStateId state) {
         c->addBeehive(x, p.y, z);
         markTicking(c->pos());
     }
+    // (M29.7) command blocks keep their command while switching between the three kinds
+    const auto isCommand = [](BlockId id) {
+        return id == blocks::CommandBlock || id == blocks::ChainCommandBlock || id == blocks::RepeatingCommandBlock;
+    };
+    if (isCommand(was) && !isCommand(b)) c->removeBlockEntity(x, p.y, z);
+    if (isCommand(b)) c->addCommandBlock(x, p.y, z);
     if (b != was && b == blocks::Jukebox) {
         c->addJukebox(x, p.y, z);
         markTicking(c->pos());

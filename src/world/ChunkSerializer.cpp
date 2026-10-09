@@ -37,6 +37,7 @@ ChunkSnapshot ChunkSnapshot::of(const Chunk& chunk, int64_t gameTime) {
     s.campfires = chunk.campfires();
     s.beacons = chunk.beacons();
     s.jukeboxes = chunk.jukeboxes();
+    s.commandBlocks = chunk.commandBlocks();
     s.brushables = chunk.brushables();
     s.beehives = chunk.beehives();
     s.comparators = chunk.comparators();
@@ -735,6 +736,23 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
         else if (br.data.table != 255) e.put("LootTable", std::string(lootTableName(LootTable(br.data.table))));
         entities.emplace_back(std::move(e));
     }
+    for (const auto& cb : chunk.commandBlocks) { // (M29.7) wiki: Command Block › Block data
+        nbt::Compound e;
+        e.put("id", std::string("minecraft:command_block")); // (all three kinds)
+        e.put("x", int32_t{chunk.pos.x * 16 + cb.x});
+        e.put("y", int32_t{cb.y});
+        e.put("z", int32_t{chunk.pos.z * 16 + cb.z});
+        e.put("keepPacked", int8_t{0});
+        e.put("Command", cb.data.command);
+        e.put("auto", int8_t{cb.data.autoActive});
+        e.put("powered", int8_t{cb.data.powered});
+        e.put("SuccessCount", int32_t{cb.data.successCount});
+        e.put("LastOutput", cb.data.lastOutput);
+        e.put("TrackOutput", int8_t{1});
+        e.put("conditionMet", int8_t{cb.data.conditionMet});
+        e.put("UpdateLastExecution", int8_t{1});
+        entities.emplace_back(std::move(e));
+    }
     for (const auto& jb : chunk.jukeboxes) { // wiki: Jukebox › Block data
         nbt::Compound e;
         e.put("id", std::string("minecraft:jukebox"));
@@ -1086,6 +1104,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                         *id != "minecraft:crafter" &&
                         *id != "minecraft:hanging_sign" && *id != "minecraft:campfire" && *id != "minecraft:banner" &&
                         *id != "minecraft:beacon" && *id != "minecraft:conduit" && *id != "minecraft:jukebox" &&
+                        *id != "minecraft:command_block" &&
                         *id != "minecraft:brushable_block" &&
                         *id != "minecraft:beehive"))
                 continue;
@@ -1152,6 +1171,19 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 if (const nbt::Compound* it = e->compound("item")) bd.item = itemFromNbt(*it);
                 if (const std::string* lt = e->string("LootTable"))
                     if (const auto table = lootTableFromName(*lt)) bd.table = uint8_t(*table);
+                continue;
+            }
+            if (*id == "minecraft:command_block") { // (M29.7)
+                const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
+                if (cb != blocks::CommandBlock && cb != blocks::ChainCommandBlock && cb != blocks::RepeatingCommandBlock)
+                    continue;
+                CommandBlockData& cd = chunk.addCommandBlock(x, y, z);
+                if (const std::string* c = e->string("Command")) cd.command = *c;
+                if (const std::string* o = e->string("LastOutput")) cd.lastOutput = *o;
+                cd.autoActive = e->integer("auto").value_or(0) != 0;
+                cd.powered = e->integer("powered").value_or(0) != 0;
+                cd.successCount = int(std::clamp<int64_t>(e->integer("SuccessCount").value_or(0), 0, 1 << 20));
+                cd.conditionMet = e->integer("conditionMet").value_or(0) != 0;
                 continue;
             }
             if (*id == "minecraft:jukebox") {

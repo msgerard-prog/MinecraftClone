@@ -256,6 +256,27 @@ MenuAction pause(Menu& m, MenuState& st) {
     return MenuAction::None;
 }
 
+MenuAction commandBlockScreen(Menu& m, MenuState& st) {
+    m.dim();
+    const float cx = float(m.width()) / 2.0f;
+    const float top = float(m.height()) / 4.0f;
+    m.text("Set Console Command for Block", cx, top - 16.0f, argb(0xFFFFFFFF), true);
+    m.text("Console Command", cx - 150.0f, top, argb(0xFFA0A0A0));
+    m.setFocus(0);
+    m.textField(st.command, cx - 150.0f, top + 12.0f, 300.0f, 256);
+    m.text("Previous Output", cx - 150.0f, top + 40.0f, argb(0xFFA0A0A0));
+    m.text(st.commandOutput, cx - 150.0f, top + 52.0f, argb(0xFFFFFFFF));
+    static constexpr const char* kModes[3] = {"Impulse", "Chain", "Repeat"};
+    if (m.button(kModes[st.commandMode % 3], cx - 150.0f, top + 70.0f, 96.0f)) st.commandMode = (st.commandMode + 1) % 3;
+    if (m.button(st.commandConditional ? "Conditional" : "Unconditional", cx - 48.0f, top + 70.0f, 96.0f))
+        st.commandConditional = !st.commandConditional;
+    if (m.button(st.commandAlways ? "Always Active" : "Needs Redstone", cx + 54.0f, top + 70.0f, 96.0f))
+        st.commandAlways = !st.commandAlways;
+    if (m.button("Done", cx - 150.0f, top + 100.0f, 146.0f) || m.input().enter) return MenuAction::CommandBlockDone;
+    if (m.button("Cancel", cx + 4.0f, top + 100.0f, 146.0f) || m.input().escape) return MenuAction::Resume;
+    return MenuAction::None;
+}
+
 // "minecraft:oak_log" -> "Oak Log" (our names come from the ids).
 void prettyName(std::string_view id, char* out, size_t size) {
     if (id.starts_with("minecraft:")) id.remove_prefix(10);
@@ -422,6 +443,8 @@ MenuAction drawMenu(Menu& menu, MenuState& state, GameOptions& options, uint16_t
         return statisticsScreen(menu, state);
     case MenuScreen::Advancements:
         return advancementsScreen(menu, state);
+    case MenuScreen::CommandBlock:
+        return commandBlockScreen(menu, state);
     case MenuScreen::None:
         break;
     }

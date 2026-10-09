@@ -15,6 +15,7 @@
 #include "gameplay/Buckets.h"
 #include "gameplay/Cartography.h"
 #include "gameplay/Combat.h"
+#include "gameplay/CommandBlocks.h"
 #include "gameplay/Commands.h"
 #include "gameplay/Dispensers.h"
 #include "gameplay/DragonFight.h"
@@ -308,6 +309,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     mc::ui::CreativeInventory creative;
     mc::ui::ContainerScreen container; // survival inventory, crafting table, furnace
     mc::world::BlockPos containerBlock{};
+    mc::world::BlockPos commandEditing{}; // (M29.7) the command block whose screen is open
     std::optional<mc::world::BlockPos> chestSecond; // a double chest's second half
     std::vector<mc::world::ItemStack> screenDrops;
     screenDrops.reserve(16);
@@ -1529,6 +1531,27 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         containerBlock = lastHit->block;
                         container.openAnvil();
                         window.setCursorCaptured(false);
+                    } else if ((block == mc::world::blocks::CommandBlock || block == mc::world::blocks::ChainCommandBlock ||
+                                block == mc::world::blocks::RepeatingCommandBlock) &&
+                               gameMode == 1) { // (M29.7) its settings (creative only, as vanilla's operators)
+                        mc::world::Chunk* cc = world.chunk(lastHit->block.chunk());
+                        if (const mc::world::CommandBlockData* d =
+                                cc ? cc->commandBlock(mc::world::blockToLocal(lastHit->block.x), lastHit->block.y,
+                                                      mc::world::blockToLocal(lastHit->block.z))
+                                   : nullptr) {
+                            auto& ms = shared.menuState;
+                            ms.command = d->command;
+                            ms.commandOutput = d->lastOutput;
+                            ms.commandAlways = d->autoActive;
+                            ms.commandMode = block == mc::world::blocks::ChainCommandBlock       ? 1
+                                             : block == mc::world::blocks::RepeatingCommandBlock ? 2
+                                                                                                 : 0;
+                            ms.commandConditional = reg.get(world.getBlock(lastHit->block),
+                                                            mc::world::properties::conditional) == 0;
+                            ms.screen = mc::ui::MenuScreen::CommandBlock;
+                            commandEditing = lastHit->block;
+                            window.setCursorCaptured(false);
+                        }
                     } else if (reg.likeOf(block) == mc::world::blocks::Chest ||
                                block == mc::world::blocks::Barrel ||
                                block == mc::world::blocks::EnderChest ||
@@ -4195,6 +4218,15 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 blockUpdates.settlePlates();
             }
             blockUpdates.tick();
+            if (!blockUpdates.commandRuns().empty()) { // (M29.7) command blocks that fired
+                mc::CommandContext ctx{player,   inventory,   dayTime,  gameTime,
+                                       seed,     &survival,   &vitals,  &world,
+                                       &gameRng, &frameEdits, &weather, &commandBolts};
+                ctx.rules = &rules;
+                ctx.difficulty = &difficulty;
+                ctx.gameMode = &gameMode;
+                mc::runCommandBlocks(world, blockUpdates.commandRuns(), ctx);
+            }
             // Lightning (M22.1; wiki: Lightning): storms strike in BlockUpdates (fire
             // placed there); here the bolt hurts what stands near and is drawn.
             {
@@ -6136,6 +6168,38 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.setCursorCaptured(true);
                 attackArmed = false;      // (the click on the button mustn't break a block)
                 last = mc::timeSeconds(); // (no catching up on the paused time)
+            } else if (action == mc::ui::MenuAction::CommandBlockDone) { // (M29.7) set the block up
+                const auto& ms = shared.menuState;
+                const auto& reg = mc::world::blockRegistry();
+                const mc::world::BlockStateId old = world.getBlock(commandEditing);
+                const mc::world::BlockId kind = ms.commandMode == 1   ? mc::world::blocks::ChainCommandBlock
+                                                : ms.commandMode == 2 ? mc::world::blocks::RepeatingCommandBlock
+                                                                      : mc::world::blocks::CommandBlock;
+                if (reg.blockOf(old) == mc::world::blocks::CommandBlock || reg.blockOf(old) == mc::world::blocks::ChainCommandBlock ||
+                    reg.blockOf(old) == mc::world::blocks::RepeatingCommandBlock) {
+                    mc::world::BlockStateId cmdState = reg.set(reg.defaultState(kind), mc::world::properties::facing6,
+                                                               reg.get(old, mc::world::properties::facing6));
+                    cmdState = reg.set(cmdState, mc::world::properties::conditional, ms.commandConditional ? 0 : 1);
+                    if (cmdState != old) world.updateBlock(commandEditing, cmdState);
+                    mc::world::Chunk* cc = world.chunk(commandEditing.chunk());
+                    if (mc::world::CommandBlockData* d =
+                            cc ? cc->commandBlock(mc::world::blockToLocal(commandEditing.x), commandEditing.y,
+                                                  mc::world::blockToLocal(commandEditing.z))
+                               : nullptr) {
+                        const bool wasAlways = d->autoActive;
+                        d->command = ms.command;
+                        d->autoActive = ms.commandAlways;
+                        cc->markDirty();
+                        // Always Active: an impulse block fires once, a repeating one starts.
+                        if (d->autoActive && (!wasAlways || kind == mc::world::blocks::RepeatingCommandBlock))
+                            blockUpdates.armCommandBlock(commandEditing);
+                    }
+                    frameEdits.push_back(commandEditing);
+                }
+                shared.menuState.screen = mc::ui::MenuScreen::None;
+                window.setCursorCaptured(true);
+                attackArmed = false;
+                last = mc::timeSeconds();
             } else if (action == mc::ui::MenuAction::SaveAndQuit) {
                 sessionEnd = SessionEnd::ToTitle;
                 break;
@@ -6335,7 +6399,7 @@ int main(int argc, char** argv) {
     shared.cliNoVsync = !opts->vsync;
     // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
     if (!opts->menu.empty() && opts->menu != "pause" && opts->menu != "statistics" &&
-        opts->menu != "advancements") {
+        opts->menu != "advancements" && opts->menu != "commandblock") { // (in-world screens below)
         menuState.worlds = mc::world::listWorlds(MC_SAVES_DIR);
         menuState.selected = menuState.worlds.empty() ? -1 : 0;
         menuState.screen = opts->menu == "title"    ? mc::ui::MenuScreen::Title
@@ -6370,7 +6434,14 @@ int main(int argc, char** argv) {
         menuState.screen = opts->menu == "pause"          ? mc::ui::MenuScreen::Pause
                            : opts->menu == "statistics"   ? mc::ui::MenuScreen::Statistics
                            : opts->menu == "advancements" ? mc::ui::MenuScreen::Advancements
+                           : opts->menu == "commandblock" ? mc::ui::MenuScreen::CommandBlock // (M29.7)
                                                           : mc::ui::MenuScreen::None;
+        if (opts->menu == "commandblock") { // (a sample for screenshots)
+            menuState.command = "/setblock ~ ~1 ~ minecraft:gold_block";
+            menuState.commandOutput = "Changed the block at 4, 65, 4";
+            menuState.commandMode = 2;
+            menuState.commandAlways = true;
+        }
         SessionEnd end;
         const int code = runSession(shared, &launch, end);
         if (!interactive || end != SessionEnd::ToTitle || window.shouldClose()) return code;

@@ -105,6 +105,17 @@ struct BrushableData {
 
 // A jukebox's disc and how long it has played (M23.6; wiki: Jukebox › Block data:
 // RecordItem, ticks_since_song_started).
+// A command block's command (M29.7; wiki: Command Block › Block data: Command, auto,
+// powered, SuccessCount, LastOutput, conditionMet).
+struct CommandBlockData {
+    std::string command;
+    bool autoActive = false; // "Always Active" (vanilla auto)
+    bool powered = false;
+    int successCount = 0;    // its comparator signal
+    std::string lastOutput;
+    bool conditionMet = false;
+};
+
 struct JukeboxData {
     ItemStack record;
     int ticks = 0;        // since the song started

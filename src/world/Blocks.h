@@ -85,6 +85,7 @@ extern const Property orientation;      // the crafter's front and top: north_up
 extern const Property drag;             // true | false (M29.5: bubble columns pulling down)
 extern const Property sideChain;        // unconnected | right | center | left (M29.6: powered shelves in a row)
 extern const Property golemPose;        // standing | sitting | running | star (M29.6: copper golem statues)
+extern const Property conditional;      // true | false (M29.7: command blocks)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -615,6 +616,10 @@ enum : BlockId {
     ShelfLast = Shelf + 11,
     CopperGolemStatue, // 4 stages, then waxed (copper_golem_pose, facing, waterlogged)
     CopperGolemStatueLast = CopperGolemStatue + 7,
+    // M29.7 - technical blocks (wiki pages of each)
+    CommandBlock,          // impulse (conditional, facing)
+    ChainCommandBlock,     // runs after the one pointing into it
+    RepeatingCommandBlock, // runs every tick while active
     Count
 };
 } // namespace blocks

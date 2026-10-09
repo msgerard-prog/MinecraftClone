@@ -121,6 +121,7 @@ const Property crafting{"crafting", {"true", "false"}};
 const Property drag{"drag", {"true", "false"}};
 const Property sideChain{"side_chain", {"unconnected", "right", "center", "left"}};
 const Property golemPose{"copper_golem_pose", {"standing", "sitting", "running", "star"}};
+const Property conditional{"conditional", {"true", "false"}};
 const Property orientation{"orientation", {"down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
                                            "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
@@ -1520,6 +1521,10 @@ BlockRegistry buildVanillaBlocks() {
                       next++);
             }
     }
+    // (M29.7; wiki: Command Block - unbreakable outside creative)
+    for (const auto& [id, b] : {std::pair{"command_block", blocks::CommandBlock}, std::pair{"chain_command_block", blocks::ChainCommandBlock},
+                                std::pair{"repeating_command_block", blocks::RepeatingCommandBlock}})
+        check(r.add(id, {.hardness = -1.0f, .resistance = 3600000.0f}, {{&conditional, "false"}, {&facing6, "north"}}), b);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);
