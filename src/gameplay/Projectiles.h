@@ -68,6 +68,7 @@ struct Projectile {
     ProjectileKind kind = ProjectileKind::Arrow;
     glm::dvec3 pos{0.0}, prevPos{0.0}, vel{0.0};
     bool fromPlayer = false; // shot by the player (can be picked up; doesn't hit them at once)
+    uint8_t eggVariant = 0;  // (M29.1d) an egg's chicken: 0 temperate, 1 warm (brown), 2 cold (blue)
     uint64_t owner =
         0; // the mob it can't hit (high UUID half): its shooter, or the last one it pierced
     uint64_t shooter = 0; // who shot it (kept when Piercing moves `owner` on)
@@ -183,7 +184,7 @@ private:
     std::vector<Projectile> m_items;
     std::vector<world::BlockPos> m_channeled;
     bool m_thundering = false;
-    std::vector<glm::dvec3> m_chicks;   // reused
+    std::vector<std::pair<glm::dvec3, uint8_t>> m_chicks; // reused (where, the egg's variant - M29.1d)
     std::vector<glm::dvec3> m_eyeDrops; // reused
     std::vector<glm::dvec3> m_explosions;
     std::vector<glm::dvec3> m_witherBlasts;

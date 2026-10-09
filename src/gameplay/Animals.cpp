@@ -193,6 +193,15 @@ MobData* Mobs::findMob(World& world, const MobData& self, double range, bool wan
 }
 
 void Mobs::animalUpkeep(Context& ctx, MobData& m) {
+    // Farm animal variants (M29.1d; 1.21.5, wiki: Cow, Pig, Chicken › Variants): warm in hot
+    // biomes, cold in cold ones, temperate elsewhere - chosen once, on its first tick
+    // (`color2` 1: chosen; calves take a parent's).
+    if ((m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken) && m.color2 == 0) {
+        m.color2 = 1;
+        const BlockPos at{int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
+        if (const Chunk* c = ctx.world.chunk(at.chunk()); c && c->biomes())
+            m.woolColour = uint8_t(farmVariant(c->biomes()->at(blockToLocal(at.x), at.y, blockToLocal(at.z), ctx.world.height())));
+    }
     if (m.type == MobType::Turtle && m.home.y == kNoPoint) // (its home: where it first stood)
         m.home = {int(std::floor(m.pos.x)), int(std::floor(m.pos.y)), int(std::floor(m.pos.z))};
     // A baby turtle growing up sheds a scute (wiki: Turtle Scute).
@@ -205,10 +214,11 @@ void Mobs::animalUpkeep(Context& ctx, MobData& m) {
     else if (m.age > 0)
         --m.age; // breeding cooldown (5 minutes)
     if (m.loveTicks > 0) --m.loveTicks;
-    // Chickens lay an egg every 5-10 minutes (wiki: Chicken), adults only.
+    // Chickens lay an egg every 5-10 minutes (wiki: Chicken), adults only - (M29.1d) cold
+    // ones blue, warm ones brown.
     if (m.type == MobType::Chicken && !m.isBaby() && --m.eggTicks <= 0) {
-        static const ItemId egg = itemId("egg");
-        ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {egg, 1}, ctx.rng);
+        static const ItemId eggs[3] = {itemId("egg"), itemId("brown_egg"), itemId("blue_egg")};
+        ctx.items.spawn(m.pos + glm::dvec3(0, 0.3, 0), {eggs[m.woolColour % 3], 1}, ctx.rng);
         m.eggTicks = 6000 + static_cast<int>(ctx.rng.nextInt(6000));
     }
     // Sheep graze (wiki: Sheep › Eating): now and then (adults 1 in 1000 ticks, lambs

@@ -391,6 +391,9 @@ ItemRegistry buildItems() {
     r.add({.id = "minecraft:wheat_seeds", .block = blocks::Wheat, .texture = "item/wheat_seeds"});
     r.add({.id = "minecraft:feather", .texture = "item/feather"});
     r.add({.id = "minecraft:egg", .maxStack = 16, .texture = "item/egg"});
+    // (M29.1d; 1.21.5) cold chickens lay blue eggs, warm ones brown; each hatches its kind
+    r.add({.id = "minecraft:blue_egg", .maxStack = 16, .texture = "item/blue_egg"});
+    r.add({.id = "minecraft:brown_egg", .maxStack = 16, .texture = "item/brown_egg"});
     r.add({.id = "minecraft:shears", .maxStack = 1, .durability = 238, .texture = "item/shears"});
     // Farming (M17.1; wiki: Potato 1 / 0.6, Baked Potato 5 / 6, Poisonous Potato 2 / 1.2,
     // Beetroot 1 / 1.2, Bread 5 / 6).

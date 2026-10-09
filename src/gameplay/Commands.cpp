@@ -623,6 +623,11 @@ CommandResult runCommand(std::string_view line, CommandContext& ctx) {
                     mob.tamed = v != 0.0;
                 else if (key == "SkeletonTrap" && *type == world::MobType::SkeletonHorse) // (M29.1b)
                     mob.skeletonTrap = v != 0.0;
+                else if (key == "FarmVariant" && (*type == world::MobType::Cow || *type == world::MobType::Pig ||
+                                                  *type == world::MobType::Chicken)) { // (M29.1d, ours: 0-2)
+                    mob.woolColour = uint8_t(std::clamp(int(v), 0, 2));
+                    mob.color2 = 1;
+                }
                 else if (key == "Variant" && *type == world::MobType::Horse) {
                     mob.woolColour = uint8_t(std::clamp(int(v) & 255, 0, 6));
                     mob.color2 = uint8_t(std::clamp(int(v) >> 8, 0, 4));

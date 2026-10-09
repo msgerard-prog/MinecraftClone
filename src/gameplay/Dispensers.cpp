@@ -75,12 +75,13 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
         if (ctx.projectiles.shoot(ProjectileKind::Arrow, mouth, shootDir(), 1.1, 6.0, false, false,
                                   ctx.rng))
             use();
-    } else if (id == "minecraft:egg" || id == "minecraft:splash_potion") {
-        const ProjectileKind k =
-            id == "minecraft:egg" ? ProjectileKind::Egg : ProjectileKind::SplashPotion;
-        if (ctx.projectiles.shoot(k, mouth, shootDir(), id == "minecraft:egg" ? 1.1 : 0.5, 6.0,
-                                  false, false, ctx.rng)) {
+    } else if (id == "minecraft:egg" || id == "minecraft:blue_egg" || id == "minecraft:brown_egg" ||
+               id == "minecraft:splash_potion") {
+        const bool egg = id != "minecraft:splash_potion";
+        const ProjectileKind k = egg ? ProjectileKind::Egg : ProjectileKind::SplashPotion;
+        if (ctx.projectiles.shoot(k, mouth, shootDir(), egg ? 1.1 : 0.5, 6.0, false, false, ctx.rng)) {
             ctx.projectiles.last().potion = one.potion;
+            ctx.projectiles.last().eggVariant = id == "minecraft:brown_egg" ? 1 : id == "minecraft:blue_egg" ? 2 : 0;
             ctx.projectiles.last().pickup = false;
             use();
         }

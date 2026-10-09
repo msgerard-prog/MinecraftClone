@@ -255,3 +255,29 @@ TEST_CASE("snow golems are built of snow; mooshrooms give stew and shear into co
     CHECK(items.items()[0].stack.count == 5);
     CHECK(itemRegistry().item(items.items()[0].stack.item).id == "minecraft:red_mushroom");
 }
+
+// M29.1d: 1.21.5 farm animal variants.
+TEST_CASE("farm animal variants: warm, cold and temperate biomes; cold chickens lay blue eggs") {
+    CHECK(farmVariant(Biome::Desert) == 1);
+    CHECK(farmVariant(Biome::MangroveSwamp) == 1);
+    CHECK(farmVariant(Biome::SnowyPlains) == 2);
+    CHECK(farmVariant(Biome::Taiga) == 2);
+    CHECK(farmVariant(Biome::Plains) == 0);
+    MobScene s;
+    s.survival = false;
+    MobData hen = Mobs::make(MobType::Chicken, {8.5, 64.0, 8.5}, s.rng);
+    hen.woolColour = 2;
+    hen.color2 = 1;
+    hen.eggTicks = 1;
+    REQUIRE(Mobs::add(s.world, hen));
+    s.tick(2);
+    bool blue = false;
+    for (const auto& it : s.items.items()) blue = blue || itemRegistry().item(it.stack.item).id == "minecraft:blue_egg";
+    CHECK(blue);
+    // Saved as vanilla's variant.
+    const nbt::Compound n = entitiesToNbt(ChunkSnapshot::of(*s.world.chunk({0, 0}), 0));
+    bool saved = false;
+    for (const nbt::Tag& t : n.list("Entities")->items)
+        if (const std::string* v = t.get<nbt::Compound>()->string("variant")) saved = saved || *v == "minecraft:cold";
+    CHECK(saved);
+}

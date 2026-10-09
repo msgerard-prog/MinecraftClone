@@ -2728,7 +2728,8 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     mc::throwSnowball(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }
-                if (!dead && heldId == "minecraft:egg" && clicks.useClick) {
+                if (!dead && (heldId == "minecraft:egg" || heldId == "minecraft:blue_egg" || heldId == "minecraft:brown_egg") &&
+                    clicks.useClick) {
                     mc::throwEgg(inventory, survival, eye, look, projectiles, gameRng);
                     clicks.useClick = false;
                 }

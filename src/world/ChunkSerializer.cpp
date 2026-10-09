@@ -1349,6 +1349,9 @@ nbt::Compound entitiesToNbt(const ChunkSnapshot& chunk) {
         // (M29.1b) jockeys: the mount's UUID high half (ours; vanilla nests the rider in the
         // mount's Passengers); a skeleton trap horse.
         if (m.vehicle != 0) e.put("clone:Vehicle", int64_t(m.vehicle));
+        // (M29.1d; 1.21.5) a farm animal's variant, once chosen
+        if ((m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken) && m.color2 != 0)
+            e.put("variant", std::string("minecraft:") + kFarmVariants[m.woolColour % 3]);
         if (m.type == MobType::SkeletonHorse) e.put("SkeletonTrap", int8_t(m.skeletonTrap ? 1 : 0));
         if (m.type == MobType::ArmorStand) { // (M28.3b; wiki: Armor Stand › Entity data)
             nbt::Compound eq;
@@ -1961,6 +1964,13 @@ void entitiesFromNbt(const nbt::Compound& root, Chunk& chunk) {
                     }
             }
         m.vehicle = uint64_t(e->integer("clone:Vehicle").value_or(0)); // (M29.1b)
+        if (m.type == MobType::Cow || m.type == MobType::Pig || m.type == MobType::Chicken)
+            if (const std::string* v = e->string("variant")) // (M29.1d; none: chosen by biome)
+                for (int k = 0; k < 3; ++k)
+                    if (*v == std::string("minecraft:") + kFarmVariants[k]) {
+                        m.woolColour = uint8_t(k);
+                        m.color2 = 1;
+                    }
         if (m.type == MobType::SkeletonHorse) m.skeletonTrap = e->integer("SkeletonTrap").value_or(0) != 0;
         if (const nbt::Tag* l = e->find("leash")) { // (M28.3c)
             if (l->get<nbt::Compound>()) {

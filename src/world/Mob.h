@@ -189,6 +189,8 @@ inline bool isHorseKind(MobType t) {
            t == MobType::ZombieHorse;
 }
 inline bool isCamel(MobType t) { return t == MobType::Camel || t == MobType::CamelHusk; }
+// 1.21.5 farm animal variants (M29.1d), kept in `woolColour`: their vanilla names.
+inline constexpr const char* kFarmVariants[3] = {"temperate", "warm", "cold"};
 inline bool isNautilus(MobType t) { return t == MobType::Nautilus || t == MobType::ZombieNautilus; }
 // The undead mounts never breed (wiki).
 inline bool isUndeadMount(MobType t) {

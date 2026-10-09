@@ -101,6 +101,10 @@ struct BiomeInfo {
 };
 
 const BiomeInfo& biomeInfo(Biome b);
+// (M29.1d; 1.21.5) the farm animal variant born in a biome: 0 temperate, 1 warm (deserts,
+// savannas, badlands, jungles, mangrove swamps, warm oceans, the Nether), 2 cold (biomes at
+// temperature 0.25 or less - snowy ones, taigas, groves, peaks, cold and frozen water).
+int farmVariant(Biome b);
 // Under-water fog colour (wiki: biome pages, water fog colour): warm oceans #041F33,
 // lukewarm #041633, swamps #232317, everywhere else #050533. 0xRRGGBB.
 inline uint32_t waterFogColor(Biome b) {

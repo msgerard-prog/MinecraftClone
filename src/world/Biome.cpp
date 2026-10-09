@@ -120,4 +120,17 @@ uint32_t skyColorFor(float temperature) {
     return c(r) << 16 | c(g) << 8 | c(b);
 }
 
+int farmVariant(Biome b) {
+    switch (b) {
+    case Biome::Desert: case Biome::Savanna: case Biome::SavannaPlateau: case Biome::WindsweptSavanna:
+    case Biome::Badlands: case Biome::WoodedBadlands: case Biome::ErodedBadlands: case Biome::Jungle:
+    case Biome::SparseJungle: case Biome::BambooJungle: case Biome::MangroveSwamp: case Biome::WarmOcean:
+    case Biome::NetherWastes: case Biome::CrimsonForest: case Biome::WarpedForest: case Biome::SoulSandValley:
+    case Biome::BasaltDeltas:
+        return 1;
+    default:
+        return biomeInfo(b).temperature <= 0.25f ? 2 : 0;
+    }
+}
+
 } // namespace mc::world

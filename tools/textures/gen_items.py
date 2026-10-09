@@ -541,8 +541,8 @@ def membrane():
     return s.render()
 
 
-def egg():
-    pal = ramp(hexc("#E8D2A8"), 5, spread=0.3)
+def egg(base="#E8D2A8"):  # (M29.1d: blue and brown eggs too)
+    pal = ramp(hexc(base), 5, spread=0.3)
     s = Shape()
     s.add({(x, y) for x in range(16) for y in range(16) if ((x - 7.5) / 4.2) ** 2 + ((y - 8.5) / (5.6 if y < 8.5 else 4.8)) ** 2 < 1}, pal)
     return s.render()
@@ -1412,6 +1412,8 @@ def all_items():
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)
     items["feather"] = feather()
     items["egg"] = egg()
+    items["blue_egg"] = egg("#9CC4D8")
+    items["brown_egg"] = egg("#B07A4A")
     items["shears"] = shears()
     items["bow"] = bow()
     items["arrow"] = arrow()

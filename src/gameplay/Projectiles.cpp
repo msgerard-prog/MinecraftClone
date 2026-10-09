@@ -255,7 +255,9 @@ void throwSnowball(Inventory& inventory, bool survival, const glm::dvec3& eye,
 
 void throwEgg(Inventory& inventory, bool survival, const glm::dvec3& eye, const glm::dvec3& look,
               Projectiles& projectiles, Xoroshiro& rng) {
-    projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng);
+    const std::string_view id = itemRegistry().item(inventory.selectedStack().item).id;
+    if (projectiles.shoot(ProjectileKind::Egg, eye, look, 1.5, 1.0, true, false, rng))
+        projectiles.last().eggVariant = id == "minecraft:brown_egg" ? 1 : id == "minecraft:blue_egg" ? 2 : 0;
     if (survival) inventory.consumeSelected(1);
 }
 
@@ -928,7 +930,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                            !p.fromPlayer) {
                     player.knockback(p.vel.x, p.vel.z, 0.3);
                 }
-                if (p.kind == ProjectileKind::Egg) m_chicks.push_back(p.pos + dir * reach);
+                if (p.kind == ProjectileKind::Egg) m_chicks.push_back({p.pos + dir * reach, p.eggVariant});
                 remove = !pierced;
             } else if (block) {
                 if (p.kind == ProjectileKind::Arrow ||
@@ -940,7 +942,7 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
                     p.life = 0;
                 } else {
                     if (p.kind == ProjectileKind::Egg)
-                        m_chicks.push_back(p.pos + dir * block->distance); // (snowballs just break)
+                        m_chicks.push_back({p.pos + dir * block->distance, p.eggVariant}); // (snowballs just break)
                     remove = true;
                 }
             } else {
@@ -974,12 +976,14 @@ Projectiles::Hits Projectiles::tick(World& world, Player& player, Vitals* vitals
         }
     }
     // Eggs: 1 in 8 hatches a chick, 1 in 32 of those four (wiki: Egg).
-    for (const glm::dvec3& at : m_chicks) {
+    for (const auto& [at, variant] : m_chicks) {
         if (rng.nextInt(8) != 0) continue;
         const int n = rng.nextInt(32) == 0 ? 4 : 1;
         for (int k = 0; k < n; ++k) {
             MobData chick = Mobs::make(MobType::Chicken, at, rng);
             chick.age = -24000;
+            chick.woolColour = variant; // (M29.1d) the egg's kind
+            chick.color2 = 1;
             Mobs::add(world, chick);
         }
     }

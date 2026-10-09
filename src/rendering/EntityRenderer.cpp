@@ -693,6 +693,11 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         glm::vec3 partTint = tint;
         if (mob.type == world::MobType::Mooshroom && mob.woolColour == 1) // (M29.1c) a brown mooshroom
             partTint *= glm::vec3(0.78f, 0.58f, 0.46f);
+        // (M29.1d) warm farm animals are ruddier, cold ones paler and greyer (ours: tints
+        // of the one skin; vanilla gives each its own model and coat)
+        if ((mob.type == world::MobType::Cow || mob.type == world::MobType::Pig ||
+             mob.type == world::MobType::Chicken) && mob.woolColour % 3 != 0)
+            partTint *= mob.woolColour % 3 == 1 ? glm::vec3(1.0f, 0.72f, 0.5f) : glm::vec3(0.82f, 0.84f, 0.9f);
         if (part.layer == 3) { // the profession's colour (M24.1)
             const uint32_t c = world::professionInfo(static_cast<world::Profession>(mob.profession)).colour;
             partTint *= glm::vec3(float(c >> 16 & 255), float(c >> 8 & 255), float(c & 255)) / 255.0f;
