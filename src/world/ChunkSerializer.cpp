@@ -929,6 +929,7 @@ nbt::Compound chunkToNbt(const ChunkSnapshot& chunk) {
                                 : c.data.shulker   ? "minecraft:shulker_box"
                                 : c.data.trapped   ? "minecraft:trapped_chest" // (M29.5)
                                 : c.data.bookshelf ? "minecraft:chiseled_bookshelf"
+                                : c.data.shelf     ? "minecraft:shelf" // (M29.6)
                                                    : "minecraft:chest"));
         if (c.data.bookshelf) e.put("last_interacted_slot", int32_t{c.data.lastSlot});
         e.put("x", int32_t{chunk.pos.x * 16 + c.x});
@@ -1079,7 +1080,7 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
             const std::string* id = e ? e->string("id") : nullptr;
             if (!id || (*id != "minecraft:furnace" && *id != "minecraft:chest" && *id != "minecraft:mob_spawner" &&
                         *id != "minecraft:smoker" && *id != "minecraft:blast_furnace" && *id != "minecraft:barrel" && *id != "minecraft:shulker_box" &&
-                        *id != "minecraft:trapped_chest" && *id != "minecraft:chiseled_bookshelf" &&
+                        *id != "minecraft:trapped_chest" && *id != "minecraft:chiseled_bookshelf" && *id != "minecraft:shelf" &&
                         *id != "minecraft:brewing_stand" && *id != "minecraft:comparator" && *id != "minecraft:hopper" &&
                         *id != "minecraft:dispenser" && *id != "minecraft:dropper" && *id != "minecraft:sign" &&
                         *id != "minecraft:crafter" &&
@@ -1263,17 +1264,18 @@ bool chunkFromNbt(const nbt::Compound& root, Chunk& chunk, int* unknownBlocks, b
                 continue;
             }
             if (*id == "minecraft:chest" || *id == "minecraft:barrel" || *id == "minecraft:shulker_box" ||
-                *id == "minecraft:trapped_chest" || *id == "minecraft:chiseled_bookshelf") {
+                *id == "minecraft:trapped_chest" || *id == "minecraft:chiseled_bookshelf" || *id == "minecraft:shelf") {
                 const BlockId cb = blockRegistry().blockOf(chunk.get(x, y, z));
                 const bool shulker = blockRegistry().likeOf(cb) == blocks::ShulkerBox;
                 if (blockRegistry().likeOf(cb) != blocks::Chest && cb != blocks::Barrel && !shulker &&
-                    cb != blocks::ChiseledBookshelf)
+                    cb != blocks::ChiseledBookshelf && blockRegistry().likeOf(cb) != blocks::Shelf)
                     continue; // (copper chests too)
                 ChestData& c = chunk.addChest(x, y, z);
                 c.barrel = cb == blocks::Barrel;
                 c.shulker = shulker;
                 c.trapped = cb == blocks::TrappedChest; // (M29.5)
                 c.bookshelf = cb == blocks::ChiseledBookshelf;
+                c.shelf = blockRegistry().likeOf(cb) == blocks::Shelf;
                 c.lastSlot = int8_t(std::clamp<int64_t>(e->integer("last_interacted_slot").value_or(-1), -1, 5));
                 if (const nbt::List* items = e->list("Items"))
                     for (const nbt::Tag& it : items->items)

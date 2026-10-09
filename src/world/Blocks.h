@@ -83,6 +83,7 @@ extern const Property bottom;           // true | false (M29.5: scaffolding)
 extern const Property crafting;         // true | false (M29.5: crafters)
 extern const Property orientation;      // the crafter's front and top: north_up, down_east... (vanilla order)
 extern const Property drag;             // true | false (M29.5: bubble columns pulling down)
+extern const Property sideChain;        // unconnected | right | center | left (M29.6: powered shelves in a row)
 extern const Property candles;        // 1..4 (M28.5a: candles)
 extern const Property bites;          // 0..6 (cake)
 extern const Property flowerAmount;   // "flower_amount": 1..4 (pink petals, wildflowers)
@@ -609,6 +610,8 @@ enum : BlockId {
     CopperLanternLast = CopperLantern + 7,
     CopperTorch,     // like the torch (light 14), green flame
     CopperWallTorch, // like the wall torch
+    Shelf,           // oak, then the other 11 woods (kShelfWoods) like it: facing, powered, side_chain
+    ShelfLast = Shelf + 11,
     Count
 };
 } // namespace blocks
@@ -652,6 +655,10 @@ inline bool isPotted(BlockId b) { return b >= blocks::PottedFirst && b <= blocks
 // The plant in a potted block / the potted block for a plant (none: 0).
 BlockId plantInPot(BlockId potted);
 BlockId pottedFor(BlockId plant);
+
+// The woods of shelves (M29.6), in their blocks' order.
+inline constexpr const char* kShelfWoods[12] = {"oak",     "spruce",   "birch",  "jungle", "acacia",  "dark_oak",
+                                                "mangrove", "cherry",  "pale_oak", "bamboo", "crimson", "warped"};
 
 // The global registry, built on first use (thread-safe) and immutable afterwards.
 const BlockRegistry& blockRegistry();

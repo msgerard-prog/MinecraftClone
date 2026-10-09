@@ -186,6 +186,10 @@ public:
     // state and the comparator's last slot. `isBook`: books, book and quills, written,
     // enchanted and knowledge books.
     static int bookshelfSlot(double u, double v);
+    // Shelves (M29.6; wiki: Shelf): powered shelves side by side with the same facing make
+    // a row of up to 3. `shelfRow` fills `row` with the row's shelves from the viewer's left
+    // (just `p` when unpowered or alone) and returns how many.
+    int shelfRow(const BlockPos& p, std::array<BlockPos, 3>& row) const;
     // Scaffolding (M29.5; wiki: Scaffolding): 0 over a block that holds it, the scaffolding
     // below's, or one more than scaffolding beside it; 7 means unsupported (it breaks).
     static int scaffoldingDistance(const World& world, const BlockPos& p);

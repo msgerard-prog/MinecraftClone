@@ -119,6 +119,7 @@ const Property scaffoldDistance{"distance", {"0", "1", "2", "3", "4", "5", "6", 
 const Property bottom{"bottom", {"true", "false"}};
 const Property crafting{"crafting", {"true", "false"}};
 const Property drag{"drag", {"true", "false"}};
+const Property sideChain{"side_chain", {"unconnected", "right", "center", "left"}};
 const Property orientation{"orientation", {"down_east", "down_north", "down_south", "down_west", "up_east", "up_north",
                                            "up_south", "up_west", "west_up", "east_up", "north_up", "south_up"}};
 const Property bookSlots[6] = {{"slot_0_occupied", {"true", "false"}}, {"slot_1_occupied", {"true", "false"}},
@@ -1494,6 +1495,14 @@ BlockRegistry buildVanillaBlocks() {
         BlockSettings wall = r.block(blocks::WallTorch).settings;
         wall.like = blocks::WallTorch;
         check(r.add("copper_wall_torch", wall, {{&facing, "north"}}), blocks::CopperWallTorch);
+    }
+    // (M29.6; wiki: Shelf - 2.0 / 3.0, axe) three stacks shown on its front
+    for (int i = 0; i < 12; ++i) {
+        BlockSettings shelf{.hardness = 2.0f, .resistance = 3.0f, .opaqueCube = false, .tool = HarvestTool::Axe};
+        if (i > 0) shelf.like = blocks::Shelf;
+        check(r.add(std::string(kShelfWoods[i]) + "_shelf", shelf,
+                    {{&facing, "north"}, {&powered, "false"}, {&sideChain, "unconnected"}, {&waterlogged, "false"}}),
+              BlockId(blocks::Shelf + i));
     }
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).

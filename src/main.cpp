@@ -2488,6 +2488,44 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                         used = true;
                     }
                 }
+                // Shelves (M29.6; wiki: Shelf): a click on the front swaps the held stack with the
+                // one in that third of the shelf; on a powered row, the row's 3 x 3 stacks swap
+                // with the hotbar's 9.
+                if (!used && like == mc::world::blocks::Shelf &&
+                    lastHit->face == static_cast<mc::world::Direction>(creg.get(cs, mc::world::properties::facing) + 2)) {
+                    const glm::dvec3 hp = player.eyePosition(1.0) +
+                                          glm::dvec3(mc::world::lookVector(player.yaw(), player.pitch())) * lastHit->distance -
+                                          glm::dvec3(at.x, at.y, at.z);
+                    const mc::world::Direction f = lastHit->face;
+                    const double u = f == mc::world::Direction::North   ? 1.0 - hp.x
+                                     : f == mc::world::Direction::South ? hp.x
+                                     : f == mc::world::Direction::West  ? hp.z
+                                                                        : 1.0 - hp.z;
+                    auto shelfAt = [&](const mc::world::BlockPos& q) -> mc::world::ChestData* {
+                        mc::world::Chunk* sc = world.chunk(q.chunk());
+                        mc::world::ChestData* sd = sc ? sc->chest(mc::world::blockToLocal(q.x), q.y, mc::world::blockToLocal(q.z)) : nullptr;
+                        if (sd && sd->shelf) sc->markDirty();
+                        return sd && sd->shelf ? sd : nullptr;
+                    };
+                    std::array<mc::world::BlockPos, 3> row;
+                    const int n = blockUpdates.shelfRow(at, row);
+                    if (creg.get(cs, mc::world::properties::powered) == 0) { // powered: the hotbar
+                        for (int k = 0; k < n; ++k)
+                            if (mc::world::ChestData* sd = shelfAt(row[size_t(k)]))
+                                for (int j = 0; j < 3; ++j) {
+                                    const mc::world::ItemStack held = inventory.slot(k * 3 + j);
+                                    inventory.setSlot(k * 3 + j, sd->items[size_t(j)]);
+                                    sd->items[size_t(j)] = held;
+                                }
+                    } else if (mc::world::ChestData* sd = shelfAt(at)) {
+                        const int slot = std::clamp(int(u * 3.0), 0, 2);
+                        const mc::world::ItemStack held = inventory.selectedStack();
+                        inventory.setSlot(inventory.selected(), sd->items[size_t(slot)]);
+                        sd->items[size_t(slot)] = held;
+                    }
+                    playSound(mc::world::Sound::WoodClick, {at.x + 0.5, at.y + 0.5, at.z + 0.5}, 0.8f, 1.2f, true);
+                    used = true;
+                }
                 // Respawn anchors (M29.5; wiki: Respawn Anchor): glowstone charges one (up to 4);
                 // used charged, it sets the respawn point in the Nether and explodes anywhere else.
                 if (!used && cb == mc::world::blocks::RespawnAnchor) {
@@ -5559,9 +5597,28 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                                 const glm::dvec3 at(ch->pos().x * 16 + cf.x + kSlot[i][0],
                                                     cf.y + 0.45,
                                                     ch->pos().z * 16 + cf.z + kSlot[i][1]);
-                                entities.addItem(cf.data.items[size_t(i)], at, float(i) * 90.0f,
+                                entities.addItem(cf.data.items[size_t(i)], at, float(i) * 1.5707963f, // (radians)
                                                  0.0f, lightTable[15 * 16 + 15], camera.position);
                             }
+                    for (const auto& sh : ch->chests()) { // (M29.6) a shelf's three stacks on its front
+                        if (!sh.data.shelf) continue;
+                        const auto st = ch->get(sh.x, sh.y, sh.z);
+                        const auto& sreg = mc::world::blockRegistry();
+                        if (sreg.likeOf(sreg.blockOf(st)) != mc::world::blocks::Shelf) continue;
+                        const int f = sreg.get(st, mc::world::properties::facing); // north, south, west, east
+                        static constexpr int kOut[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+                        static constexpr int kRight[4][2] = {{-1, 0}, {1, 0}, {0, 1}, {0, -1}}; // the viewer's right
+                        static constexpr float kYaw[4] = {3.14159265f, 0.0f, 1.5707963f, 4.712389f}; // (radians: flat items face out)
+                        const glm::dvec3 centre(ch->pos().x * 16 + sh.x + 0.5, sh.y + 0.3, ch->pos().z * 16 + sh.z + 0.5);
+                        for (int j = 0; j < 3; ++j) {
+                            const mc::world::ItemStack& it = sh.data.items[size_t(j)];
+                            if (it.empty()) continue;
+                            const double side = (j - 1) * 0.3125;
+                            const glm::dvec3 pos = centre + glm::dvec3(kOut[f][0] * 0.56 + kRight[f][0] * side, 0.0,
+                                                                       kOut[f][1] * 0.56 + kRight[f][1] * side);
+                            entities.addItem(it, pos, kYaw[f], 0.0f, lightTable[15 * 16 + 15], camera.position);
+                        }
+                    }
                     for (const auto& bn : ch->banners()) { // (M28.3d) the cloth and its layers
                         const auto st = ch->get(bn.x, bn.y, bn.z);
                         const auto& breg = mc::world::blockRegistry();

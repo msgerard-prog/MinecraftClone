@@ -336,6 +336,34 @@ CommandResult give(const std::vector<std::string_view>& a, CommandContext& ctx) 
 }
 
 CommandResult item(const std::vector<std::string_view>& a, CommandContext& ctx) {
+    // (M29.6) /item replace block <x> <y> <z> container.<n> with <item> [count]: a slot of
+    // the container there - chests, barrels, shelves, bookshelves, dispensers, hoppers.
+    if (a.size() >= 9 && a.size() <= 10 && a[1] == "replace" && a[2] == "block" && a[7] == "with" && ctx.world) {
+        const glm::dvec3 p = ctx.player.position();
+        const auto x = coordinate(a[3], p.x, false), y = coordinate(a[4], p.y, false), z = coordinate(a[5], p.z, false);
+        if (!x || !y || !z) return fail("Invalid position");
+        const world::BlockPos at{int(std::floor(*x)), int(std::floor(*y)), int(std::floor(*z))};
+        if (!a[6].starts_with("container.")) return fail("Unknown slot");
+        const auto slot = number<int64_t>(a[6].substr(10));
+        std::string error;
+        auto parsed = parseStack(a[8], error);
+        if (!parsed) return fail(error);
+        parsed->count = uint8_t(std::clamp<int64_t>(a.size() == 10 ? number<int64_t>(a[9]).value_or(1) : 1, 1,
+                                                    world::itemRegistry().item(parsed->item).maxStack));
+        world::Chunk* c = ctx.world->chunk(at.chunk());
+        const int lx = world::blockToLocal(at.x), lz = world::blockToLocal(at.z);
+        std::span<world::ItemStack> slots;
+        if (c) {
+            if (world::ChestData* d = c->chest(lx, at.y, lz)) slots = std::span(d->items).first(d->shelf ? 3 : d->bookshelf ? 6 : 27);
+            else if (world::DispenserData* dd = c->dispenser(lx, at.y, lz)) slots = dd->items;
+            else if (world::HopperData* h = c->hopper(lx, at.y, lz)) slots = h->items;
+        }
+        if (slots.empty()) return fail("The target block is not a container");
+        if (!slot || *slot < 0 || *slot >= int64_t(slots.size())) return fail("Unknown slot");
+        slots[size_t(*slot)] = *parsed;
+        c->markDirty();
+        return {true, format("Replaced a slot at %d, %d, %d with [%.*s]", at.x, at.y, at.z, int(a[8].size()), a[8].data())};
+    }
     // /item replace entity @s <slot> with <item> [count] (wiki: Commands/item): slots
     // weapon.mainhand, weapon.offhand, hotbar.0-8, inventory.0-26, armor.head/chest/legs/feet.
     if (a.size() < 7 || a.size() > 8 || a[1] != "replace" || a[2] != "entity" || !isSelf(a[3]) ||

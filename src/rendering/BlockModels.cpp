@@ -431,6 +431,14 @@ bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::Blo
                 b.faces[d].uv[1] = uint8_t(full ? 16 - y1 : 0), b.faces[d].uv[3] = uint8_t(full ? 16 - y0 : 8);
             }
         }
+    } else if (name.ends_with("_shelf")) { // (M29.6) the shelf on its front, planks round it
+        const std::string wood = name.substr(0, name.size() - 6);
+        BakedVariant v = cubeAll(sprite((wood + "_planks").c_str()));
+        const auto fc = registry.value(state, "facing").value_or("north");
+        const Direction front = fc == "north" ? Direction::North : fc == "south" ? Direction::South
+                                : fc == "west" ? Direction::West : Direction::East;
+        v.faces[int(front)].sprite = sprite(name.c_str());
+        m = single(v);
     } else if (name == "copper_torch") { // (M29.6) the torch's stick with the copper flame
         m = m_models[registry.defaultState(blocks::Torch)];
         for (int b = 0; b < m.boxCount; ++b)

@@ -208,6 +208,15 @@ TEST_CASE("/item replace entity @s weapon.mainhand / offhand / hotbar.N") {
     CHECK(inv.slot(3).count == 5);
     CHECK_FALSE(runCommand("/item replace entity @s hotbar.9 with stick", ctx).ok);
     CHECK_FALSE(runCommand("/item replace entity @s nowhere with stick", ctx).ok);
+    // (M29.6) a container's slot: a shelf takes 3
+    World w;
+    w.createChunk({0, 0});
+    w.setBlock({2, 64, 2}, blockRegistry().defaultState(blocks::Shelf));
+    ctx.world = &w;
+    CHECK(runCommand("/item replace block 2 64 2 container.1 with apple 3", ctx).ok);
+    CHECK(w.chunk({0, 0})->chest(2, 64, 2)->items[1].count == 3);
+    CHECK_FALSE(runCommand("/item replace block 2 64 2 container.3 with apple", ctx).ok);
+    CHECK_FALSE(runCommand("/item replace block 5 64 5 container.0 with apple", ctx).ok);
 }
 
 #include "ui/BookScreen.h"

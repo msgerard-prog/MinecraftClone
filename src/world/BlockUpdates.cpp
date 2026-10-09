@@ -390,6 +390,22 @@ int BlockUpdates::scaffoldingDistance(const World& world, const BlockPos& p) {
     return std::min(d, 7);
 }
 
+int BlockUpdates::shelfRow(const BlockPos& p, std::array<BlockPos, 3>& row) const {
+    const BlockStateId s = at(p);
+    row[0] = p;
+    if (blockOf(s) != B::Shelf || !flag(s, powered)) return 1;
+    const Direction f = hFacing(s), left = chestClockwise(f), right = opposite(left);
+    auto joins = [&](const BlockPos& q) {
+        const BlockStateId n = at(q);
+        return blockOf(n) == B::Shelf && flag(n, powered) && hFacing(n) == f;
+    };
+    BlockPos start = p;
+    for (int i = 0; i < 2 && joins(rel(start, left)); ++i) start = rel(start, left);
+    int n = 0;
+    for (BlockPos q = start; n < 3 && (n == 0 || joins(q)); q = rel(q, right)) row[size_t(n++)] = q;
+    return n;
+}
+
 int BlockUpdates::bookshelfSlot(double u, double v) {
     const int column = u < 0.375 ? 0 : u < 0.6875 ? 1 : 2; // (vanilla: 6, 5 and 5 pixels wide)
     return (v >= 0.5 ? 0 : 3) + column;
@@ -1552,6 +1568,19 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::Scaffolding: // (M29.5) re-reads its support next tick
         if (!hasTick(p, B::Scaffolding)) schedule(p, B::Scaffolding, 1, 0);
         break;
+    case B::Shelf: { // (M29.6) powered by redstone; powered rows mark their ends
+        BlockStateId now = withFlag(s, powered, bestNeighbourSignal(p) > 0);
+        if (now != s) set(p, now); // (its neighbours in a row hear it)
+        std::array<BlockPos, 3> row;
+        const int n = shelfRow(p, row);
+        for (int i = 0; i < n; ++i) {
+            const BlockStateId rs = at(row[size_t(i)]);
+            const int chain = n == 1 ? 0 : i == 0 ? 3 : i == n - 1 ? 1 : 2; // unconnected, right, center, left
+            if (R().get(rs, sideChain) != chain) setRaw(row[size_t(i)], R().set(rs, sideChain, chain));
+        }
+        if (n == 1 && R().get(at(p), sideChain) != 0) setRaw(p, R().set(at(p), sideChain, 0));
+        break;
+    }
     case B::BubbleColumn: // (M29.5; vanilla: 5 ticks)
         if (!hasTick(p, B::BubbleColumn)) schedule(p, B::BubbleColumn, 5, 0);
         break;
@@ -2733,6 +2762,7 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
         if (!solid(Direction::Down)) return std::nullopt;
         return state;
     case B::ChiseledBookshelf: // (M29.5) its front toward the player
+    case B::Shelf:             // (M29.6)
         return withHFacing(state, opposite(look));
     case B::Crafter: { // (M29.5) its front toward the player; looking steeply, up or down with
         // its top toward where the player looks (vanilla: orientation front_top)

@@ -736,6 +736,13 @@ std::vector<Recipe> build() {
         r.push_back(shaped({"BSB", "B.B", "B.B"}, {{'B', item("bamboo")}, {'S', item("string")}}, "scaffolding", 6));
         // (M29.6; wiki: each Copper Age block)
         r.push_back(shaped({"CCC", "CCC"}, {{'C', item("copper_ingot")}}, "copper_bars", 16));
+        for (const char* wood : kShelfWoods) { // (wiki: Shelf - 6 of its stripped logs, 6 shelves)
+            const std::string w = wood;
+            const std::string log = w == "bamboo"                       ? "stripped_bamboo_block"
+                                    : w == "crimson" || w == "warped"   ? "stripped_" + w + "_stem"
+                                                                        : "stripped_" + w + "_log";
+            if (has(log)) r.push_back(shaped({"LLL", "...", "LLL"}, {{'L', item(log)}}, w + "_shelf", 6));
+        }
         r.push_back(shaped({"N", "I", "N"}, {{'N', item("copper_nugget")}, {'I', item("copper_ingot")}}, "copper_chain"));
         r.push_back(shaped({"N", "C", "S"}, {{'N', item("copper_nugget")}, {'C', item("coal")}, {'S', item("stick")}},
                            "copper_torch", 4));

@@ -440,3 +440,24 @@ TEST_CASE("M29.6: copper bars, chains, lanterns and torches; chain is iron_chain
     CHECK(r.blockOf(*wall) == blocks::CopperWallTorch);
     CHECK(itemRegistry().blockItem(blocks::CopperWallTorch) == *itemRegistry().find("copper_torch"));
 }
+
+TEST_CASE("M29.6: shelves hold 3 stacks; powered ones side by side make a row of up to 3") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    const BlockId cherry = *r.findBlock("minecraft:cherry_shelf");
+    CHECK(r.likeOf(cherry) == blocks::Shelf);
+    for (int x = 3; x <= 6; ++x) // facing south: the viewer, looking north, has +x... on the right
+        w.updateBlock({x, 64, 4}, *r.with(r.defaultState(x == 4 ? cherry : blocks::Shelf), "facing", "south"));
+    CHECK(w.chunk({0, 0})->chest(4, 64, 4)->shelf);
+    std::array<BlockPos, 3> row;
+    CHECK(u.shelfRow({4, 64, 4}, row) == 1); // unpowered: alone
+    for (int x = 3; x <= 6; ++x) w.updateBlock({x, 65, 4}, r.defaultState(blocks::RedstoneBlock));
+    CHECK(r.value(w.getBlock({4, 64, 4}), "powered") == "true");
+    const int n = u.shelfRow({5, 64, 4}, row);
+    CHECK(n == 3);
+    CHECK(row[0] == BlockPos{3, 64, 4}); // the viewer's left end
+    CHECK(r.value(w.getBlock({3, 64, 4}), "side_chain") != "unconnected");
+}
