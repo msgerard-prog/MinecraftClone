@@ -27,10 +27,13 @@ functional and not missing, tag v1.0"). An audit against the wiki's 1.21.11 data
    snow bucket come with their blocks in M29.4): bundles, spyglass, name tags, chainmail, stews and foods, carrot/fungus
    on a stick, minecart variants, copper/netherite horse armor, nautilus armor, the six
    missing discs, bottles o' enchanting, powder snow buckets.
-4. M29.4 - Blocks 1: the missing flowers and pots, melons and stems, cocoa, lily pads,
+4. ✅ M29.4 - Blocks 1 (a: flowers, lily pads, jack o'lanterns, raw blocks; b: melons and
+   stems, cocoa, 16 beds, 37 flower pots; c: soul fire, glow lichen, powder snow and freezing,
+   bamboo shoots, coral wall fans): the missing flowers and pots, melons and stems, cocoa, lily pads,
    jack o'lanterns, 16 bed colours, mushroom blocks, raw ore blocks, magma blocks, dried
    kelp blocks, glow lichen, nether brick variants, soul fire, frosted ice, powder snow.
-5. M29.5 - Blocks 2: target, tripwires, daylight detectors, lightning rods, crafter,
+5. ✅ M29.5 - Blocks 2 (dust now joins plates, detectors, targets, hooks; flush box faces lit
+   by their neighbour): target, tripwires, daylight detectors, lightning rods, crafter,
    chiseled bookshelves, respawn anchors, scaffolding, trapped chests, calibrated sculk
    sensors, bubble columns, coral wall fans.
 6. M29.6 - The Copper Age (1.21.9): shelves, copper bars/chains/lanterns/torches, copper
