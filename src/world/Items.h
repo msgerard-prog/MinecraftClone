@@ -51,6 +51,8 @@ struct ItemDef {
     uint8_t armorSlot = 0;
     int armor = 0;
     float toughness = 0.0f;
+    // (M29.1e; wiki: Spawn Egg) the mob a spawn egg makes: its MobType + 1 (0: not an egg).
+    uint8_t spawnEgg = 0;
 };
 
 // Every item: a block item for each placeable block (same id), then tools,

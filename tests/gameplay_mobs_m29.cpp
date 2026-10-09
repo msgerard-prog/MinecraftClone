@@ -12,6 +12,8 @@
 
 #include <doctest/doctest.h>
 
+#include <filesystem>
+
 using namespace mc;
 using namespace mc::world;
 
@@ -280,4 +282,23 @@ TEST_CASE("farm animal variants: warm, cold and temperate biomes; cold chickens 
     for (const nbt::Tag& t : n.list("Entities")->items)
         if (const std::string* v = t.get<nbt::Compound>()->string("variant")) saved = saved || *v == "minecraft:cold";
     CHECK(saved);
+}
+
+TEST_CASE("spawn eggs: one for every mob (not decorations, vehicles or illusioners), each with a texture") {
+    int eggs = 0;
+    for (int t = 0; t < int(MobType::Count); ++t) {
+        const MobType type = MobType(t);
+        const auto id = itemRegistry().find(std::string(mobInfo(type).id.substr(10)) + "_spawn_egg");
+        const bool none = isHanging(type) || type == MobType::ArmorStand || type == MobType::LeashKnot ||
+                          type == MobType::Boat || type == MobType::Minecart || type == MobType::EndCrystal ||
+                          type == MobType::Illusioner;
+        CHECK(id.has_value() == !none);
+        if (id) {
+            ++eggs;
+            CHECK(itemRegistry().item(*id).spawnEgg == t + 1);
+            CHECK(std::filesystem::exists(std::filesystem::path(MC_ASSETS_DIR) / "minecraft/textures" /
+                                          (itemRegistry().item(*id).texture + ".png")));
+        }
+    }
+    CHECK(eggs >= 85);
 }

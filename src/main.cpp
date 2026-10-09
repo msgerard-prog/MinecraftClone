@@ -2671,6 +2671,43 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                     clicks.useClick = false;
                     clicks.use = false;
                 }
+                // Spawn eggs (M29.1e; wiki: Spawn Egg): on a mob of its kind, a baby; on a
+                // spawner, the spawner's mob; else the mob stands on the clicked face.
+                if (const uint8_t eggOf = mc::world::itemRegistry().item(inventory.selectedStack().item).spawnEgg;
+                    !dead && clicks.useClick && eggOf != 0) {
+                    const auto type = mc::world::MobType(eggOf - 1);
+                    bool used = false;
+                    if (const auto mh = mc::Mobs::raycast(world, eye, look, survival ? 3.0 : 5.0, ridingCart);
+                        mh && (!lastHit || mh->distance < lastHit->distance)) {
+                        const mc::world::MobData& target = world.chunk(mh->chunk)->mobs()[size_t(mh->index)];
+                        if (target.type == type && !mc::world::mobInfo(type).hostile) {
+                            mc::world::MobData baby = mc::Mobs::make(type, target.pos, gameRng);
+                            baby.age = -24000;
+                            baby.woolColour = target.woolColour;
+                            baby.color2 = target.color2;
+                            used = mc::Mobs::add(world, baby);
+                        }
+                    } else if (lastHit && mayBuild) {
+                        const mc::world::BlockPos b = lastHit->block;
+                        if (mc::world::Chunk* c = world.chunk(b.chunk());
+                            c && mc::world::blockRegistry().blockOf(world.getBlock(b)) == mc::world::blocks::Spawner) {
+                            if (mc::world::SpawnerData* sp =
+                                    c->spawner(mc::world::blockToLocal(b.x), b.y, mc::world::blockToLocal(b.z))) {
+                                sp->mob = type;
+                                c->markDirty();
+                                used = true;
+                            }
+                        } else {
+                            const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];
+                            const glm::dvec3 at(b.x + n.x + 0.5, b.y + n.y, b.z + n.z + 0.5);
+                            mc::world::MobData mob = mc::Mobs::make(type, at, gameRng);
+                            used = mc::Mobs::add(world, mob);
+                        }
+                    }
+                    if (used && survival) inventory.consumeSelected(1);
+                    clicks.useClick = false;
+                    clicks.use = false;
+                }
                 if (!dead && mayBuild && clicks.useClick && lastHit &&
                     heldId == "minecraft:armor_stand") {
                     const glm::ivec3 n = mc::world::kDirectionNormals[int(lastHit->face)];

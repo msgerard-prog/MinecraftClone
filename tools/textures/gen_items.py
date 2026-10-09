@@ -207,6 +207,77 @@ def bowl(filled=None):
     return s.render()
 
 
+def read_png_rgba(path):
+    """A small PNG reader for our own 8-bit RGBA skins (M29.1e): returns (w, h, rows of
+    (r, g, b, a))."""
+    import struct
+    import zlib
+    data = Path(path).read_bytes()
+    pos, idat, w, h = 8, b"", 0, 0
+    while pos < len(data):
+        n, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + n]
+        if kind == b"IHDR":
+            w, h = struct.unpack(">II", body[:8])
+        elif kind == b"IDAT":
+            idat += body
+        pos += 12 + n
+    raw, stride, prev, rows = zlib.decompress(idat), w * 4, bytearray(w * 4), []
+    for y in range(h):
+        f, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):
+            a = line[i - 4] if i >= 4 else 0
+            b, c = prev[i], prev[i - 4] if i >= 4 else 0
+            if f == 1:
+                line[i] = (line[i] + a) & 255
+            elif f == 2:
+                line[i] = (line[i] + b) & 255
+            elif f == 3:
+                line[i] = (line[i] + (a + b) // 2) & 255
+            elif f == 4:
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append([tuple(line[x * 4:x * 4 + 4]) for x in range(w)])
+        prev = line
+    return w, h, rows
+
+
+def spawn_egg(base, spots, seed):
+    """A spawn egg (M29.1e): the egg in the mob's main colour with spots of its second
+    colour (ours: both taken from the mob's skin)."""
+    rng = random.Random(seed)
+    s = Shape()
+    egg_px = {(x, y) for x in range(16) for y in range(16)
+              if ((x - 7.5) / 4.6) ** 2 + ((y - 8.5) / (6.0 if y < 8.5 else 5.2)) ** 2 < 1}
+    s.add(egg_px, ramp(base, 5, spread=0.3))
+    dots = set()
+    for _ in range(7):
+        cx, cy = rng.randint(4, 11), rng.randint(4, 13)
+        dots |= {(cx, cy), (cx + 1, cy), (cx, cy + 1)} if rng.random() < 0.5 else {(cx, cy)}
+    s.add(dots & egg_px, ramp(spots, 5, spread=0.25))
+    return s.render()
+
+
+def skin_colours(name):
+    """The main and second colour of a mob's skin: the mean of its opaque pixels, and the
+    mean of its darkest (or, on dark skins, lightest) quarter."""
+    path = Path(__file__).resolve().parents[2] / "assets/minecraft/textures/entity/clone" / f"{name}.png"
+    if not path.exists():
+        return (128, 128, 128, 255), (60, 60, 60, 255)
+    _, _, rows = read_png_rgba(path)
+    px = [p for row in rows for p in row if p[3] > 128]
+    if not px:
+        return (128, 128, 128, 255), (60, 60, 60, 255)
+    lum = lambda p: p[0] * 0.3 + p[1] * 0.59 + p[2] * 0.11  # noqa: E731
+    px.sort(key=lum)
+    mean = lambda q: tuple(sum(p[i] for p in q) // len(q) for i in range(3)) + (255,)  # noqa: E731
+    base = mean(px)
+    quarter = max(1, len(px) // 4)
+    spots = mean(px[:quarter]) if lum(base) > 70 else mean(px[-quarter:])
+    return base, spots
+
+
 def saddle():
     """A brown leather saddle from the side (M26.2): seat, raised back, stirrup strap."""
     pal = ramp(hexc("#8A4E26"), 5, spread=0.35)
@@ -1412,6 +1483,15 @@ def all_items():
     items["cooked_chicken"] = meat("cooked_chicken", "#C88A48", "#E8B868", marbled=False)
     items["feather"] = feather()
     items["egg"] = egg()
+    # Spawn eggs (M29.1e): one per mob type in src/world/Mob.cpp that has one in vanilla.
+    import re
+    mob_cpp = (Path(__file__).resolve().parents[2] / "src/world/Mob.cpp").read_text()
+    no_egg = {"end_crystal", "minecart", "boat", "item_frame", "glow_item_frame", "painting", "armor_stand",
+              "leash_knot", "illusioner"}
+    for mob in re.findall(r'\{"minecraft:([a-z_]+)", [0-9.]+f,', mob_cpp):
+        if mob not in no_egg:
+            base, spots = skin_colours(mob)
+            items[f"{mob}_spawn_egg"] = spawn_egg(base, spots, mob)
     items["blue_egg"] = egg("#9CC4D8")
     items["brown_egg"] = egg("#B07A4A")
     items["shears"] = shears()

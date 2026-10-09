@@ -584,6 +584,17 @@ ItemRegistry buildItems() {
     r.mapBlock(blocks::PitcherCrop, *r.find("pitcher_pod"));
     r.mapBlock(blocks::CaveVinesPlant, *r.find("glow_berries"));
     r.mapBlock(blocks::BigDripleafStem, *r.find("big_dripleaf"));
+    // Spawn eggs (M29.1e; wiki: Spawn Egg): one per mob, except the entities that aren't
+    // mobs and the illusioner (none in vanilla either). Registered last: older ids stay.
+    for (int t = 0; t < int(MobType::Count); ++t) {
+        const MobType type = MobType(t);
+        if (type == MobType::EndCrystal || type == MobType::Minecart || type == MobType::Boat ||
+            type == MobType::ItemFrame || type == MobType::GlowItemFrame || type == MobType::Painting ||
+            type == MobType::ArmorStand || type == MobType::LeashKnot || type == MobType::Illusioner)
+            continue;
+        const std::string name = std::string(mobInfo(type).id.substr(10)) + "_spawn_egg";
+        r.add({.id = "minecraft:" + name, .texture = "item/" + name, .spawnEgg = uint8_t(t + 1)});
+    }
     return r;
 }
 

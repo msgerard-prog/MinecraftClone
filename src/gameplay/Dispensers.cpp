@@ -1,6 +1,7 @@
 #include "gameplay/Dispensers.h"
 
 #include "gameplay/Hoppers.h"
+#include "gameplay/Mobs.h"
 #include "gameplay/Mining.h"
 #include "world/Blocks.h"
 
@@ -71,6 +72,11 @@ void dispense(DispenseContext& ctx, const BlockPos& p) {
     auto shootDir = [&] {
         return dir.y == 0.0 ? glm::normalize(dir + glm::dvec3(0.0, 0.1, 0.0)) : dir;
     };
+    if (const uint8_t egg = itemRegistry().item(one.item).spawnEgg; egg != 0) { // (M29.1e) a mob in front
+        const glm::dvec3 at(front.x + 0.5, front.y, front.z + 0.5);
+        if (Mobs::add(ctx.world, Mobs::make(MobType(egg - 1), at, ctx.rng))) use();
+        return;
+    }
     if (id == "minecraft:arrow") { // (wiki: speed 1.1, spread 6)
         if (ctx.projectiles.shoot(ProjectileKind::Arrow, mouth, shootDir(), 1.1, 6.0, false, false,
                                   ctx.rng))
