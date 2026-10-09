@@ -494,3 +494,31 @@ def _drip(rng, direction, part):
 for direction in ("up", "down"):
     for part in ("tip", "tip_merge", "frustum", "middle", "base"):
         reg(f"pointed_dripstone_{direction}_{part}", lambda r, d=direction, p=part: _drip(r, d, p))
+
+
+# --- 26.2 "Chaos Cubed" (M33.2): sulfur and cinnabar, potent sulfur, sulfur spikes -------
+SULFUR = ramp(hexc("d6bf3a"), spread=0.3)
+CINNABAR = ramp(hexc("a8342c"), spread=0.3)
+POTENT = ramp(hexc("b8d040"), spread=0.35)
+for _name, _pal, _motif in (("sulfur", SULFUR, "ring"), ("cinnabar", CINNABAR, "diamond")):
+    reg(_name, lambda r, p=_pal: M.pits(M.speckle(M.mottled(r, p), r, [p[4]], 14), r, p, 5))
+    reg(f"polished_{_name}", lambda r, p=_pal: M.polished(r, p))
+    reg(f"{_name}_bricks", lambda r, p=_pal: M.bricks(r, p, scale(p[0], 0.7), brick_w=8))
+    reg(f"chiseled_{_name}", lambda r, p=_pal, m=_motif: M.chiseled(r, p, m))
+reg("potent_sulfur", lambda r: M.speckle(M.pits(M.mottled(r, POTENT), r, POTENT, 8), r, [hexc("f4f8a0")], 18))
+
+
+def _spike(rng, direction, part):
+    img = _drip(rng, direction, part)
+    for y in range(N):
+        for x in range(N):
+            c = img.get(x, y)
+            if c[3]:
+                i = DRIPSTONE.index(c) if c in DRIPSTONE else 2
+                img.set(x, y, SULFUR[i])
+    return img
+
+
+for direction in ("up", "down"):
+    for part in ("tip", "tip_merge", "frustum", "middle", "base"):
+        reg(f"sulfur_spike_{direction}_{part}", lambda r, d=direction, p=part: _spike(r, d, p))

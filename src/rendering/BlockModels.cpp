@@ -1371,10 +1371,10 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                                                ? "sculk_sensor_tendril_active"
                                                : "sculk_sensor_tendril_inactive");
                 }
-            } else if (name == "pointed_dripstone") { // (M27.2b) a cross by direction and thickness
+            } else if (name == "pointed_dripstone" || name == "sulfur_spike") { // (M27.2b; M33.2) a cross by direction and thickness
                 m.visible = true;
                 m.cross = true;
-                m.crossSprite = sprite(("pointed_dripstone_" + std::string(registry.value(state, "vertical_direction").value_or("up")) +
+                m.crossSprite = sprite((name + "_" + std::string(registry.value(state, "vertical_direction").value_or("up")) +
                                         "_" + std::string(registry.value(state, "thickness").value_or("tip")))
                                            .c_str());
             } else if (name == "cave_vines" || name == "cave_vines_plant") { // (M27.2) lit with berries

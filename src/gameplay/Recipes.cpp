@@ -548,6 +548,15 @@ std::vector<Recipe> build() {
         pillarOf("red_sandstone_slab", "chiseled_red_sandstone", 1);
         pillarOf("tuff_slab", "chiseled_tuff", 1);
         pillarOf("tuff_brick_slab", "chiseled_tuff_bricks", 1);
+        // 26.2 (M33.2; wiki: Sulfur, Cinnabar, Potent Sulfur, Sulfur Spike)
+        for (const char* stone : {"sulfur", "cinnabar"}) {
+            const std::string n(stone);
+            square(n, "polished_" + n, 4);
+            square("polished_" + n, n + "_bricks", 4);
+            pillarOf(n + "_slab", "chiseled_" + n, 1);
+        }
+        r.push_back(shaped({"###", "###", "###"}, {{'#', item("sulfur")}}, "potent_sulfur"));
+        r.push_back(shaped({"##", "##"}, {{'#', item("sulfur_spike")}}, "sulfur"));
         pillarOf("polished_blackstone_slab", "chiseled_polished_blackstone", 1);
         r.push_back(shaped({"NW", "WN"}, {{'N', item("nether_brick")}, {'W', item("nether_wart")}},
                            "red_nether_bricks"));

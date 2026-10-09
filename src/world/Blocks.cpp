@@ -238,6 +238,43 @@ void addCopperBlocks(BlockRegistry& r) {
 // Building blocks (M23.1; wiki: each block's page): the full blocks the families need
 // that weren't registered yet, then the slabs, stairs and walls of vanilla's stone,
 // brick, sandstone, deepslate, Nether, End and wood families.
+// A block's stairs, slab and wall (M23.1; shared by M33.2's 26.2 families): copies of its
+// hardness and tool, `base` naming the full block they're cut from.
+void addFamily(BlockRegistry& r, std::string_view prefixId, std::string_view baseId, bool stairs, bool slab,
+               bool wall) {
+    using namespace properties;
+    using HT = HarvestTool;
+    const auto base = r.findBlock(baseId);
+    assert(base && "family base block must be registered");
+    const BlockSettings& bs = r.block(*base).settings;
+    const bool wood = baseId.ends_with("_planks") || bs.tool == HT::Axe; // (bamboo mosaic)
+    BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
+                     .randomTicks = bs.randomTicks, // (cut copper stairs oxidize too)
+                     .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe, .tier = bs.tier};
+    const std::string prefix(prefixId);
+    if (stairs) {
+        st.kind = BlockKind::Stairs;
+        r.add(prefix + "_stairs", st, {{&facing, "north"}, {&slabHalf, "bottom"}, {&stairShape, "straight"}});
+    }
+    if (slab) {
+        // Slabs: 2 / 6 for stone kinds (deepslate keeps its 3.5), wood 2 / 3 (wiki: Slab).
+        BlockSettings ss = st;
+        ss.kind = BlockKind::Slab;
+        ss.hardness = wood ? 2.0f : std::max(2.0f, bs.hardness);
+        ss.resistance = wood ? 3.0f : 6.0f;
+        const BlockId id = r.add(prefix + "_slab", ss, {{&slabType, "bottom"}});
+        // A double slab is a full block: it hides neighbours' faces and blocks light.
+        const BlockStateId first = r.block(id).firstState;
+        for (uint32_t i = 0; i < r.block(id).stateCount; ++i)
+            if (r.get(BlockStateId(first + i), slabType) == 2) r.setStateOpaque(BlockStateId(first + i), true);
+    }
+    if (wall) {
+        st.kind = BlockKind::Wall;
+        r.add(prefix + "_wall", st,
+              {{&fireUp, "true"}, {&wallNorth, "none"}, {&wallEast, "none"}, {&wallSouth, "none"}, {&wallWest, "none"}});
+    }
+}
+
 void addBuildingFamilies(BlockRegistry& r) {
     using namespace properties;
     using HT = HarvestTool;
@@ -354,37 +391,7 @@ void addBuildingFamilies(BlockRegistry& r) {
         {"waxed_weathered_cut_copper", "waxed_weathered_cut_copper", true, true, false},
         {"waxed_oxidized_cut_copper", "waxed_oxidized_cut_copper", true, true, false},
     };
-    for (const Family& f : kFamilies) {
-        const auto base = r.findBlock(f.base);
-        assert(base && "family base block must be registered");
-        const BlockSettings& bs = r.block(*base).settings;
-        const bool wood = std::string_view(f.base).ends_with("_planks") || bs.tool == HT::Axe; // (bamboo mosaic)
-        BlockSettings st{.hardness = bs.hardness, .resistance = bs.resistance, .opaqueCube = false,
-                         .randomTicks = bs.randomTicks, // (cut copper stairs oxidize too)
-                         .base = *base, .tool = wood ? HT::Axe : HT::Pickaxe, .tier = bs.tier};
-        const std::string prefix(f.prefix);
-        if (f.stairs) {
-            st.kind = BlockKind::Stairs;
-            r.add(prefix + "_stairs", st, {{&facing, "north"}, {&slabHalf, "bottom"}, {&stairShape, "straight"}});
-        }
-        if (f.slab) {
-            // Slabs: 2 / 6 for stone kinds (deepslate keeps its 3.5), wood 2 / 3 (wiki: Slab).
-            BlockSettings ss = st;
-            ss.kind = BlockKind::Slab;
-            ss.hardness = wood ? 2.0f : std::max(2.0f, bs.hardness);
-            ss.resistance = wood ? 3.0f : 6.0f;
-            const BlockId slab = r.add(prefix + "_slab", ss, {{&slabType, "bottom"}});
-            // A double slab is a full block: it hides neighbours' faces and blocks light.
-            const BlockStateId first = r.block(slab).firstState;
-            for (uint32_t i = 0; i < r.block(slab).stateCount; ++i)
-                if (r.get(BlockStateId(first + i), slabType) == 2) r.setStateOpaque(BlockStateId(first + i), true);
-        }
-        if (f.wall) {
-            st.kind = BlockKind::Wall;
-            r.add(prefix + "_wall", st,
-                  {{&fireUp, "true"}, {&wallNorth, "none"}, {&wallEast, "none"}, {&wallSouth, "none"}, {&wallWest, "none"}});
-        }
-    }
+    for (const Family& f : kFamilies) addFamily(r, f.prefix, f.base, f.stairs, f.slab, f.wall);
 }
 
 // Every wood's doors, trapdoors, fences, fence gates, buttons and pressure plates (M23.3;
@@ -1657,6 +1664,24 @@ BlockRegistry buildVanillaBlocks() {
             r.setStateEmission(s, like == blocks::Candle ? uint8_t(3 * (r.get(s, candles) + 1)) : 3);
         }
     }
+    // 26.2 "Chaos Cubed" (M33.2; wiki: Sulfur, Cinnabar, Potent Sulfur, Sulfur Spike), registered
+    // last so earlier state ids stay put: two stones of the sulfur caves - sulfur 2 / 6, cinnabar
+    // 2.5 / 6, a stone pickaxe - each polished, as bricks and chiseled, with stairs, slabs and walls.
+    for (const auto& [stone, hard] : {std::pair<const char*, float>{"sulfur", 2.0f}, {"cinnabar", 2.5f}}) {
+        const BlockSettings st{.hardness = hard, .resistance = 6.0f, .tool = HarvestTool::Pickaxe, .tier = 1};
+        const std::string n(stone);
+        for (const std::string& id : {n, "polished_" + n, n + "_bricks", "chiseled_" + n}) r.add(id, st);
+        addFamily(r, n, n, true, true, true);
+        addFamily(r, "polished_" + n, "polished_" + n, true, true, true);
+        addFamily(r, n + "_brick", n + "_bricks", true, true, true);
+    }
+    // Potent sulfur (1.5 / 6, any pickaxe): bubbles and gas under water, geysers over magma.
+    r.add("potent_sulfur", {.hardness = 1.5f, .resistance = 6.0f, .tool = HarvestTool::Pickaxe});
+    // Sulfur spikes grow, stack and fall like pointed dripstone (`like`).
+    r.add("sulfur_spike",
+          {.hardness = 1.5f, .resistance = 3.0f, .opaqueCube = false, .layer = RenderLayer::Cutout,
+           .tool = HarvestTool::Pickaxe, .like = blocks::PointedDripstone},
+          {{&thickness, "tip"}, {&verticalDirection, "up"}, {&waterlogged, "false"}});
     // An extended piston's base is not a full cube (light and faces pass its front).
     for (BlockId b : {blocks::Piston, blocks::StickyPiston})
         for (uint32_t i = 0; i < r.block(b).stateCount; ++i) {

@@ -2877,3 +2877,30 @@ TEST_CASE("M33.1 (26.1): a golden dandelion stops a baby growing up and lets it 
             CHECK(m->panicTicks == 0);
         }
 }
+
+TEST_CASE("M33.2 (26.2): sulfur and cinnabar families, potent sulfur and spikes; their recipes") {
+    const auto& R = blockRegistry();
+    for (const char* id : {"sulfur", "polished_sulfur", "sulfur_bricks", "chiseled_sulfur", "sulfur_stairs", "sulfur_slab",
+                           "sulfur_wall", "polished_sulfur_stairs", "sulfur_brick_wall", "cinnabar", "cinnabar_brick_slab",
+                           "polished_cinnabar_wall", "potent_sulfur", "sulfur_spike"})
+        CHECK(R.findBlock(id).has_value());
+    CHECK(R.likeOf(*R.findBlock("sulfur_spike")) == blocks::PointedDripstone);
+    CHECK(R.block(*R.findBlock("cinnabar")).settings.hardness == 2.5f);
+    const auto& it = itemRegistry();
+    std::array<ItemStack, 9> nine{};
+    for (auto& g : nine) g = {*it.find("sulfur"), 1};
+    const auto potent = craft(nine, 3);
+    REQUIRE(potent);
+    CHECK(potent->item == *it.find("potent_sulfur"));
+    std::array<ItemStack, 4> four{};
+    for (auto& g : four) g = {*it.find("cinnabar"), 1};
+    const auto pol = craft(four, 2);
+    REQUIRE(pol);
+    CHECK(pol->item == *it.find("polished_cinnabar"));
+    CHECK(pol->count == 4);
+    std::array<ItemStack, 9> stairs{};
+    stairs[0] = stairs[3] = stairs[4] = stairs[6] = stairs[7] = stairs[8] = {*it.find("sulfur_bricks"), 1};
+    const auto st = craft(stairs, 3);
+    REQUIRE(st);
+    CHECK(st->item == *it.find("sulfur_brick_stairs"));
+}
