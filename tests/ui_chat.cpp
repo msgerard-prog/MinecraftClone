@@ -161,7 +161,7 @@ TEST_CASE("creative inventory: take from the grid, put into the hotbar, drop out
     inv.build(visibleModels());
     mc::Inventory hotbar;
     inv.open();
-    const auto first = inv.items()[0].item;
+    const auto first = inv.items()[size_t(inv.shown()[0])].item; // (the open tab's first item)
     inv.click(gridX(0), gridY(0), kGw, kGh, hotbar);
     CHECK(inv.carried().item == first);
     CHECK(inv.carried().count == 64); // creative: a full stack
@@ -173,7 +173,7 @@ TEST_CASE("creative inventory: take from the grid, put into the hotbar, drop out
     CHECK(inv.carried().empty());
     // Number key over a grid item copies a full stack into that hotbar slot.
     inv.numberKey(0, gridX(1), gridY(0), kGw, kGh, hotbar);
-    CHECK(hotbar.slot(0).item == inv.items()[1].item);
+    CHECK(hotbar.slot(0).item == inv.items()[size_t(inv.shown()[1])].item);
     // Closing drops whatever is carried.
     inv.click(gridX(2), gridY(0), kGw, kGh, hotbar);
     inv.close();
@@ -187,4 +187,52 @@ TEST_CASE("creative inventory scrolling is clamped to the item rows") {
     CHECK(inv.scrollRow() == inv.maxScrollRow());
     inv.scroll(10000);
     CHECK(inv.scrollRow() == 0);
+}
+
+TEST_CASE("M30.6: creative tabs group items as vanilla; the Search tab filters by name") {
+    using Tab = CreativeInventory::Tab;
+    const auto& items = mc::world::itemRegistry();
+    auto tab = [&](const char* id) { return CreativeInventory::tabOf(items.item(*items.find(id))); };
+    CHECK(tab("oak_planks") == Tab::Building);
+    CHECK(tab("stone_bricks") == Tab::Building);
+    CHECK(tab("red_wool") == Tab::Colored);
+    CHECK(tab("lime_concrete") == Tab::Colored);
+    CHECK(tab("grass_block") == Tab::Natural);
+    CHECK(tab("diamond_ore") == Tab::Natural);
+    CHECK(tab("oak_log") == Tab::Natural);
+    CHECK(tab("crafting_table") == Tab::Functional);
+    CHECK(tab("chest") == Tab::Functional);
+    CHECK(tab("redstone") == Tab::Redstone); // (dust places a block; vanilla lists it here and in Ingredients)
+    CHECK(tab("repeater") == Tab::Redstone);
+    CHECK(tab("piston") == Tab::Redstone);
+    CHECK(tab("command_block") == Tab::Operator);
+    CHECK(tab("diamond_pickaxe") == Tab::Tools);
+    CHECK(tab("water_bucket") == Tab::Tools);
+    CHECK(tab("diamond_sword") == Tab::Combat);
+    CHECK(tab("iron_chestplate") == Tab::Combat);
+    CHECK(tab("bow") == Tab::Combat);
+    CHECK(tab("bread") == Tab::Food);
+    CHECK(tab("iron_ingot") == Tab::Ingredients);
+    CHECK(tab("pig_spawn_egg") == Tab::SpawnEggs);
+    // Clicking a tab shows its items; the Search tab filters every item by the typed words.
+    CreativeInventory inv;
+    inv.build(visibleModels());
+    mc::Inventory hotbar;
+    inv.open();
+    // (Combat: the second tab of the bottom row, under the panel)
+    const double combatX = 102 + (CreativeInventory::kTabWidth + 2) * 1 + 10, combatY = 82 + 136 + 10;
+    inv.click(combatX, combatY, kGw, kGh, hotbar);
+    CHECK(inv.tab() == Tab::Combat);
+    for (int i : inv.shown()) CHECK(CreativeInventory::tabOf(items.item(inv.items()[size_t(i)].item)) == Tab::Combat);
+    inv.selectTab(Tab::Search);
+    CHECK(inv.shown().size() == inv.items().size());
+    inv.type("oak log");
+    REQUIRE_FALSE(inv.shown().empty());
+    for (int i : inv.shown()) {
+        const std::string id = items.item(inv.items()[size_t(i)].item).id;
+        CHECK(id.find("oak") != std::string::npos);
+        CHECK(id.find("log") != std::string::npos);
+    }
+    inv.type("\b\b\b\b");
+    CHECK(inv.query() == "oak");
 }

@@ -1452,12 +1452,20 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             for (int n = window.takePresses(mc::Press::LeftMouse); n > 0; --n)
                 creative.click(mx, my, fw / scale, fh / scale, inventory);
             creative.scroll(window.scrollDelta());
-            for (int i = 0; i < mc::Inventory::kHotbar; ++i) {
+            // (M30.6) the Search tab takes what is typed - E and the number keys included
+            const bool searching = creative.tab() == mc::ui::CreativeInventory::Tab::Search;
+            {
+                char searchTyped[64];
+                const int n = window.takeText(searchTyped, int(sizeof(searchTyped)));
+                if (searching) creative.type(std::string_view(searchTyped, size_t(n)));
+            }
+            for (int i = 0; i < mc::Inventory::kHotbar && !searching; ++i) {
                 const bool down =
                     window.keyDown(static_cast<mc::Key>(static_cast<int>(mc::Key::Num1) + i));
                 if (down && !numberWasDown[i])
                     creative.numberKey(i, mx, my, fw / scale, fh / scale, inventory);
             }
+            if (searching) window.takePresses(mc::Press::Inventory);
             if (window.takePresses(mc::Press::Escape) > 0 ||
                 window.takePresses(mc::Press::Inventory) > 0) {
                 creative.close();

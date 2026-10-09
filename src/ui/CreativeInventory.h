@@ -5,7 +5,9 @@
 #include "rendering/BlockModels.h"
 #include "rendering/GuiBatch.h"
 
+#include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mc::ui {
@@ -20,6 +22,24 @@ class CreativeInventory {
 public:
     static constexpr int kWidth = 195, kHeight = 136;
     static constexpr int kColumns = 9, kRows = 5, kSlot = 18;
+    // Tabs (M30.6; wiki: Creative inventory): seven along the top, five below, 28 px apart.
+    enum class Tab : uint8_t {
+        Building, Colored, Natural, Functional, Redstone, Operator, Search, // top
+        Tools, Combat, Food, Ingredients, SpawnEggs,                        // bottom
+        Count
+    };
+    static constexpr int kTabWidth = 26, kTabHeight = 28, kTopTabs = 7;
+    // Which tab an item is listed under (vanilla's grouping, by the item's kind and id).
+    static Tab tabOf(const world::ItemDef& def);
+    static const char* tabName(Tab t);
+    Tab tab() const { return m_tab; }
+    void selectTab(Tab t);
+    // The search box (Search tab): typed text filters the list by name.
+    void type(std::string_view text);
+    void backspace();
+    const std::string& query() const { return m_query; }
+    // The items the grid shows now (indices into items()).
+    const std::vector<int>& shown() const { return m_shown; }
 
     // The item list: every item (block items whose block has a visible model, then
     // tools, materials, food). Load time.
@@ -44,13 +64,21 @@ public:
 
 private:
     struct Hit {
-        enum Kind { None, Grid, HotbarSlot, Panel } kind = None;
-        int index = -1; // grid item index or hotbar slot
+        enum Kind { None, Grid, HotbarSlot, Panel, TabButton } kind = None;
+        int index = -1; // grid item index, hotbar slot or tab
     };
     Hit hitTest(double mx, double my, int guiWidth, int guiHeight) const;
+    void refilter();
+    static void tabRect(Tab t, float left, float top, float& x, float& y);
 
     std::vector<world::ItemStack> m_items;
     std::vector<std::string> m_names; // tooltip text per item (built at load)
+    std::vector<std::string> m_searchNames; // lower case, '_' as ' ' (search)
+    std::array<std::vector<int>, size_t(Tab::Count)> m_tabItems;
+    std::array<world::ItemStack, size_t(Tab::Count)> m_tabIcons{};
+    std::vector<int> m_shown;
+    Tab m_tab = Tab::Building;
+    std::string m_query;
     bool m_open = false;
     int m_scrollRow = 0;
     double m_scrollRemainder = 0.0;
