@@ -135,3 +135,41 @@ TEST_CASE("M29.4c: powder snow freezes in 140 ticks, then hurts every 40; leathe
     REQUIRE(back);
     CHECK(r.blockOf(w.getBlock({4, 64, 4})) == blocks::PowderSnow);
 }
+
+TEST_CASE("M29.5: two hooks with tripwire between attach; something in the wire powers them") {
+    const auto& r = blockRegistry();
+    World w;
+    w.createChunk({0, 0});
+    BlockUpdates u(w);
+    w.setListener(&u);
+    int64_t t = 0;
+    u.setTime(t);
+    for (const int x : {2, 8}) w.setBlock({x, 64, 4}, r.defaultState(blocks::Stone));
+    auto place = [&](BlockId b, BlockPos p, Direction face) {
+        const auto s = BlockUpdates::placement(w, r.defaultState(b), p, face, 0, 0);
+        REQUIRE(s);
+        w.updateBlock(p, *s);
+    };
+    place(blocks::TripwireHook, {3, 64, 4}, Direction::East); // on the west wall, facing east
+    for (int x = 4; x <= 6; ++x) place(blocks::Tripwire, {x, 64, 4}, Direction::Up);
+    place(blocks::TripwireHook, {7, 64, 4}, Direction::West);
+    CHECK(r.value(w.getBlock({3, 64, 4}), "attached") == "true");
+    CHECK(r.value(w.getBlock({7, 64, 4}), "attached") == "true");
+    CHECK(r.value(w.getBlock({5, 64, 4}), "attached") == "true");
+    CHECK(r.value(w.getBlock({5, 64, 4}), "east") == "true");
+    // Stepping in: both hooks power for as long as something stays, then 10 ticks more at most.
+    u.setTime(++t);
+    u.pressPlate({5, 64, 4}, false);
+    u.settlePlates();
+    CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "true");
+    CHECK(r.value(w.getBlock({7, 64, 4}), "powered") == "true");
+    for (int i = 0; i < 12; ++i) {
+        u.setTime(++t);
+        u.tick();
+    }
+    CHECK(r.value(w.getBlock({3, 64, 4}), "powered") == "false");
+    // Cutting the line detaches the hooks.
+    w.updateBlock({5, 64, 4}, 0);
+    CHECK(r.value(w.getBlock({3, 64, 4}), "attached") == "false");
+    CHECK(r.value(w.getBlock({4, 64, 4}), "attached") == "false");
+}

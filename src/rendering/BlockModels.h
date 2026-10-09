@@ -78,6 +78,8 @@ public:
     BakedModel& at(world::BlockStateId state) { return m_models[state]; }
 
 private:
+    bool bakeLateModel(const world::BlockRegistry& registry, world::BlockStateId state, const std::string& name,
+                       const TextureAtlas& atlas, BakedModel& m) const;
     std::vector<BakedModel> m_models;
 };
 

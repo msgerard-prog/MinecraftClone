@@ -112,6 +112,7 @@ const Property dusted{"dusted", {"0", "1", "2", "3"}};
 const Property age1{"age", {"0", "1"}};
 const Property age4{"age", {"0", "1", "2", "3", "4"}};
 const Property age2{"age", {"0", "1", "2"}};
+const Property disarmed{"disarmed", {"true", "false"}};
 const Property candles{"candles", {"1", "2", "3", "4"}};
 const Property bites{"bites", {"0", "1", "2", "3", "4", "5", "6"}};
 const Property flowerAmount{"flower_amount", {"1", "2", "3", "4"}};
@@ -1393,6 +1394,14 @@ BlockRegistry buildVanillaBlocks() {
     // (M29.5; wiki: Target - 0.5, hoe)
     check(r.add("target", {.hardness = 0.5f, .resistance = 0.5f, .tool = HarvestTool::Hoe}, {{&power, "0"}}),
           blocks::Target);
+    // (M29.5; wiki: Tripwire, Tripwire Hook - break at once, no collision)
+    check(r.add("tripwire", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                {{&attached, "false"}, {&disarmed, "false"}, {&fireEast, "false"}, {&fireNorth, "false"},
+                 {&powered, "false"}, {&fireSouth, "false"}, {&fireWest, "false"}}),
+          blocks::Tripwire);
+    check(r.add("tripwire_hook", {.opaqueCube = false, .collision = false, .layer = RenderLayer::Cutout},
+                {{&attached, "false"}, {&facing, "north"}, {&powered, "false"}}),
+          blocks::TripwireHook);
     // A kelp tip at age 25 never grows again: it doesn't random-tick (M25 review: whole
     // ocean-floor sections dropped out of the random tick pass).
     r.setStateRandomTicks(r.set(r.defaultState(blocks::Kelp), age25, 25), false);

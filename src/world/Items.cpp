@@ -72,7 +72,8 @@ ItemRegistry buildItems() {
             isPotted(b) ||                                        // (filled by hand)
             (b >= blocks::CoralWallFanFirst && b <= blocks::CoralWallFanLast) || // (M29.4c: from fans)
             b == blocks::BambooSapling ||                                         // (planted bamboo)
-            b == blocks::PowderSnow)                                              // (a bucket below)
+            b == blocks::PowderSnow ||                                            // (a bucket below)
+            b == blocks::Tripwire)                                                // (M29.5: string)
             continue;
         const std::string& id = blocks.block(b).id;
         // Wall signs come from the sign items (M23.3c), like wall torches from torches.
@@ -522,7 +523,7 @@ ItemRegistry buildItems() {
     // Ender Pearl - stacks to 16).
     r.add({.id = "minecraft:bone", .texture = "item/bone"});
     r.add({.id = "minecraft:gunpowder", .texture = "item/gunpowder"});
-    r.add({.id = "minecraft:string", .texture = "item/string"});
+    r.add({.id = "minecraft:string", .block = blocks::Tripwire, .texture = "item/string"}); // (M29.5: places tripwire)
     r.add({.id = "minecraft:spider_eye",
            .food = 2,
            .saturation = 3.2f,
@@ -640,6 +641,7 @@ ItemRegistry buildItems() {
         r.mapBlock(b, *r.find(fan));
     }
     r.mapBlock(blocks::BambooSapling, *r.find("bamboo"));
+    r.mapBlock(blocks::Tripwire, *r.find("string"));
     r.add({.id = "minecraft:enchanted_golden_apple", .food = 4, .saturation = 9.6f, .alwaysEdible = true,
            .texture = "item/enchanted_golden_apple"});
     // (M29.3c; wiki: Spyglass, Bottle o' Enchanting, Knowledge Book)

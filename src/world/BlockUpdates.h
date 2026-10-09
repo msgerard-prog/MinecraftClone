@@ -127,6 +127,8 @@ public:
     // Dirt-like blocks saplings can be planted on (wiki: Sapling).
     static bool plantableSoil(BlockStateId s);
     static bool jungleLog(BlockId b); // (M29.4b) what cocoa grows on
+    // (M29.5) a tripwire piece joined to the wire and hooks around it
+    static BlockStateId tripwireConnected(const World& world, const BlockPos& p, BlockStateId wire);
     static bool isLeaves(BlockId b);
     static bool sugarCaneCanStay(const World& world, const BlockPos& p);
     // M18.1: a cactus stands on cactus or sand with nothing solid (or lava) beside it;
@@ -337,6 +339,9 @@ private:
     void tickFarmland(const BlockPos& p, BlockStateId s);
     void tickCrop(const BlockPos& p, BlockStateId s);
     void tickStem(const BlockPos& p, BlockStateId s); // (M29.4b) melon and pumpkin stems
+    // Tripwire (M29.5, Tripwire.cpp): a hook re-reads its line; a piece of wire tells its hooks.
+    void tripwireHookUpdate(const BlockPos& p);
+    void tripwireChanged(const BlockPos& wire);
     bool nextToFlammable(const BlockPos& p) const;
     void placeFire(const BlockPos& p, int age);
     void fireNeighbourChanged(const BlockPos& p);

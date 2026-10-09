@@ -105,6 +105,8 @@ Push pushKind(BlockStateId s) {
     if (b == B::SculkVein || R().likeOf(b) == B::Poppy || b == B::LilyPad || b == B::GlowLichen || b == B::BambooSapling || b == B::SoulFire)
         return Push::Destroy; // (M29.4a: flowers, pads)
     // (M29.4b) beds of every colour, pots, stems and cocoa break
+    if (b == B::Tripwire || b == B::TripwireHook || b == B::Target) // (M29.5: tripwire breaks; targets move)
+        return b == B::Target ? Push::Move : Push::Destroy;
     if (R().likeOf(b) == B::RedBed || R().likeOf(b) == B::FlowerPot || b == B::PumpkinStem || b == B::MelonStem ||
         b == B::AttachedPumpkinStem || b == B::AttachedMelonStem || b == B::Cocoa)
         return Push::Destroy;
@@ -273,6 +275,8 @@ int BlockUpdates::weak(BlockStateId s, Direction toward) const {
         return 15;
     case B::Target: // (M29.5) on every side, while hit
         return R().get(s, power);
+    case B::TripwireHook: // (M29.5) while its line is tripped
+        return flag(s, powered) ? 15 : 0;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -304,6 +308,8 @@ int BlockUpdates::strong(BlockStateId s, Direction toward) const {
         return flag(s, powered) && toward == attachDir(s) ? 15 : 0;
     case B::SculkSensor: // (M27.3) strongly the block it stands on
         return toward == Direction::Down ? weak(s, toward) : 0;
+    case B::TripwireHook: // (M29.5) strongly the block it hangs on
+        return flag(s, powered) && toward == opposite(hFacing(s)) ? 15 : 0;
     case B::OakPressurePlate: // plates power the block under them strongly (wiki)
     case B::StonePressurePlate:
     case B::DetectorRail:
@@ -772,7 +778,8 @@ int BlockUpdates::plateTarget(BlockId b, int count) const {
 
 void BlockUpdates::pressPlate(const BlockPos& p, bool item, bool minecart) {
     const BlockId b = blockOf(at(p));
-    if (!isPressurePlate(b) || (item && b == B::StonePressurePlate)) return; // (stone: mobs and players only)
+    if ((!isPressurePlate(b) && b != B::Tripwire) || (item && b == B::StonePressurePlate))
+        return; // (stone: mobs and players only; M29.5: tripwire feels everything)
     if (b == B::DetectorRail && !minecart) return;
     if (b == B::StonePressurePlate && minecart) return; // (stone: the rider, not the cart)
     for (Plate& pl : m_plates)
@@ -825,6 +832,14 @@ void BlockUpdates::settlePlates() {
         if (pl.time != m_now) continue;
         const BlockStateId s = at(pl.pos);
         const BlockId b = blockOf(s);
+        if (b == B::Tripwire) { // (M29.5) powered, checked again in 10 ticks
+            if (!flag(s, powered)) {
+                set(pl.pos, withFlag(s, powered, true));
+                tripwireChanged(pl.pos);
+            }
+            if (!hasTick(pl.pos, b)) schedule(pl.pos, b, 10, 0);
+            continue;
+        }
         if (!isPressurePlate(b)) continue;
         const int want = plateTarget(b, pl.count);
         const bool weighted = b == B::LightWeightedPressurePlate || b == B::HeavyWeightedPressurePlate;
@@ -1021,6 +1036,9 @@ void BlockUpdates::reach(const BlockPos& p, BlockStateId s) {
     case B::OakButton:
         notifyNeighbours(rel(p, attachDir(s)));
         break;
+    case B::TripwireHook: // (M29.5) the wall it hangs on passes the power on
+        notifyNeighbours(rel(p, opposite(hFacing(s))));
+        break;
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::LightWeightedPressurePlate:
@@ -1149,6 +1167,8 @@ bool BlockUpdates::survives(const BlockPos& p, BlockStateId s) const {
     case B::StoneButton:
     case B::OakButton:
         return supports(at(rel(p, attachDir(s))));
+    case B::TripwireHook: // (M29.5)
+        return supports(at(rel(p, opposite(hFacing(s)))));
     default:
         return true;
     }
@@ -1310,6 +1330,14 @@ void BlockUpdates::neighbourChanged(const BlockPos& p) {
     case B::StoneButton:
     case B::OakButton:
         if (!survives(p, s)) pop(p);
+        break;
+    case B::TripwireHook: // (M29.5)
+        if (!survives(p, s)) pop(p);
+        else tripwireHookUpdate(p);
+        break;
+    case B::Tripwire:
+        setRaw(p, tripwireConnected(m_world, p, s));
+        tripwireChanged(p);
         break;
     case B::RedstoneLamp: {
         // Lamps light at once and go out 4 ticks later (wiki: Redstone Lamp).
@@ -1823,6 +1851,18 @@ void BlockUpdates::tickBlock(const BlockPos& p, BlockStateId s) {
             schedule(p, B::Observer, 2, 0); // a 2-tick pulse (wiki: Observer)
         }
         break;
+    case B::Tripwire: { // (M29.5) still something in it? stay powered; else let go
+        bool still = false;
+        for (const Plate& pl : m_plates)
+            if (pl.pos == p) still = m_now - pl.time <= 1;
+        if (still) {
+            schedule(p, B::Tripwire, 10, 0);
+        } else if (flag(s, powered)) {
+            set(p, withFlag(s, powered, false));
+            tripwireChanged(p);
+        }
+        break;
+    }
     case B::OakPressurePlate:
     case B::StonePressurePlate:
     case B::LightWeightedPressurePlate:
@@ -2643,6 +2683,11 @@ std::optional<BlockStateId> BlockUpdates::placement(const World& world, BlockSta
     case B::Loom: // (wiki: Loom - its front faces the player)
     case B::EnderChest: // the front faces the player (wiki: Ender Chest)
         return withHFacing(state, opposite(look));
+    case B::TripwireHook: // (M29.5) only on a block's side, facing out of it
+        if (!horizontal(faceDir) || !solid(opposite(faceDir))) return std::nullopt;
+        return withHFacing(state, faceDir);
+    case B::Tripwire:
+        return tripwireConnected(world, at, state);
     case B::Lever:
     case B::StoneButton:
     case B::OakButton: {

@@ -4058,7 +4058,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                             reg.blockOf(c.get(mc::world::blockToLocal(int(std::floor(m.pos.x))), fy,
                                               mc::world::blockToLocal(int(std::floor(m.pos.z)))));
                         if (!mc::world::BlockUpdates::isPressurePlate(under) &&
-                            under != mc::world::blocks::BigDripleaf)
+                            under != mc::world::blocks::BigDripleaf && under != mc::world::blocks::Tripwire)
                             continue;
                         pressAt(m.pos, info.width * 0.5, false, cart);
                     }

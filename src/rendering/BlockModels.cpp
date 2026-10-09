@@ -284,6 +284,155 @@ BakedVariant rotateY(BakedVariant v, int quarters) {
     return v;
 }
 
+// Models of the blocks M29 added (out of bake()'s name chain: MSVC limits how deeply
+// an if-else chain may nest). True when `name` was one of them.
+bool BlockModels::bakeLateModel(const world::BlockRegistry& registry, world::BlockStateId state, const std::string& name,
+                                const TextureAtlas& atlas, BakedModel& m) const {
+    using namespace world;
+    auto sprite = [&](const char* n) { return static_cast<uint16_t>(atlas.spriteIndex(n)); };
+    if (name == "lily_pad") { // (M29.4a) a pad lying on the water, 1/16 thick (ours)
+        m.visible = true;
+        addBox(m, 0, 0, 0, 16, 1, 16, sprite("lily_pad"));
+        // vanilla tints it a fixed green (#208030); ours takes the biome's foliage
+        for (auto& f : m.boxes[m.boxCount - 1].faces) f.tint = Tint::Foliage;
+    } else if (name == "flower_pot" || name.starts_with("potted_")) {
+        // (M29.4b; wiki: Flower Pot) a 6x6x6 pot, soil on top when planted; the plant
+        // is its own cross (vanilla lifts it 4 pixels; ours stands in the pot), cacti
+        // and bamboo a thin column, azaleas a small bush.
+        m.visible = true;
+        addBox(m, 5, 0, 5, 11, 6, 11, sprite("flower_pot"));
+        const BlockId plant = plantInPot(registry.blockOf(state));
+        if (plant) m.boxes[0].faces[int(Direction::Up)].sprite = sprite("dirt");
+        const std::string plantName = plant ? registry.block(plant).id.substr(10) : std::string();
+        if (plantName == "cactus") {
+            addBox(m, 6, 6, 6, 10, 16, 10, sprite("cactus_side"));
+            m.boxes[1].faces[int(Direction::Up)].sprite = sprite("cactus_top");
+        } else if (plantName == "bamboo") {
+            addBox(m, 7, 6, 7, 9, 16, 9, sprite("bamboo_stalk"));
+        } else if (plantName == "azalea" || plantName == "flowering_azalea") {
+            addBox(m, 4, 6, 4, 12, 14, 12, sprite((plantName + "_side").c_str()));
+            m.boxes[1].faces[int(Direction::Up)].sprite = sprite((plantName + "_top").c_str());
+        } else if (plantName == "crimson_roots" || plantName == "warped_roots") {
+            m.cross = true, m.crossSprite = sprite((plantName + "_pot").c_str());
+        } else if (plant) {
+            const BakedModel& pm = m_models[registry.defaultState(plant)];
+            m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
+        }
+    } else if (name == "soul_fire") { // (M29.4c) as fire: a cross of its animated texture
+        m.visible = true;
+        m.cross = true;
+        m.crossSprite = sprite("soul_fire_0");
+    } else if (name == "bamboo_sapling") { // (M29.4c; vanilla: a cross of bamboo_stage0)
+        m.visible = true;
+        m.cross = true;
+        m.crossSprite = sprite("bamboo_stage0");
+    } else if (name.ends_with("_coral_wall_fan")) {
+        // (M29.4c) vanilla: two planes tilted out of the wall; ours: one flat plane
+        // standing 8 pixels out from the wall, seen from above and below.
+        m.visible = true;
+        std::string fan = name;
+        fan.erase(fan.rfind("_wall"), 5);
+        const uint16_t sp = sprite(fan.c_str());
+        const auto f = registry.value(state, "facing").value_or("north"); // out of the wall
+        if (f == "north") addBox(m, 0, 4, 8, 16, 4, 16, sp);
+        else if (f == "south") addBox(m, 0, 4, 0, 16, 4, 8, sp);
+        else if (f == "west") addBox(m, 8, 4, 0, 16, 4, 16, sp);
+        else addBox(m, 0, 4, 0, 8, 4, 16, sp);
+        for (int d = 0; d < 6; ++d)
+            m.boxes[0].faces[d].present = d == int(Direction::Up) || d == int(Direction::Down);
+    } else if (name == "tripwire") {
+        // (M29.5) flat strips toward its connections (both ways when it has none),
+        // 1 pixel up while attached, 2 when loose (vanilla: 1.5 / 2.5).
+        m.visible = true;
+        const uint16_t sp = sprite("tripwire");
+        const int y = registry.value(state, "attached") == "true" ? 1 : 2;
+        auto on = [&](const char* d) { return registry.value(state, d) == "true"; };
+        const bool n = on("north"), so = on("south"), w = on("west"), e = on("east");
+        const bool any = n || so || w || e;
+        auto strip = [&](int x0, int z0, int x1, int z1, bool alongZ) {
+            addBox(m, x0, y, z0, x1, y, z1, sp);
+            for (int d = 0; d < 6; ++d) {
+                auto& f = m.boxes[m.boxCount - 1].faces[d];
+                f.present = d == int(Direction::Up) || d == int(Direction::Down);
+                // the texture's line is its rows 7-8: along z, turn it a quarter
+                if (alongZ) f.uv[0] = 0, f.uv[1] = 7, f.uv[2] = 16, f.uv[3] = 8, f.rotation = 1;
+                else f.uv[1] = 7, f.uv[3] = 8;
+            }
+        };
+        if (w || e) strip(w ? 0 : 8, 7, e ? 16 : 8, 8, false);
+        if (n || so || !any) strip(7, n || !any ? 0 : 8, 8, so || !any ? 16 : 8, true);
+    } else if (name == "tripwire_hook") {
+        // (M29.5) a post on the wall and a ring reaching out (tilted down when not
+        // attached, vanilla; ours stays level)
+        m.visible = true;
+        const uint16_t sp = sprite("tripwire_hook"), ring = sprite("iron_block");
+        const auto fc = registry.value(state, "facing").value_or("north"); // out of the wall
+        if (fc == "north") addBox(m, 7, 2, 14, 9, 12, 16, sp), addBox(m, 7, 6, 10, 9, 8, 14, ring);
+        else if (fc == "south") addBox(m, 7, 2, 0, 9, 12, 2, sp), addBox(m, 7, 6, 2, 9, 8, 6, ring);
+        else if (fc == "west") addBox(m, 14, 2, 7, 16, 12, 9, sp), addBox(m, 10, 6, 7, 14, 8, 9, ring);
+        else addBox(m, 0, 2, 7, 2, 12, 9, sp), addBox(m, 2, 6, 7, 6, 8, 9, ring);
+    } else if (name == "target") { // (M29.5) cube_column
+        m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
+    } else if (name == "melon") { // vanilla: cube_column
+        m = single(cubeColumn(sprite("melon_side"), sprite("melon_top"), "y"));
+    } else if (name.ends_with("_stem") && (name.starts_with("melon") || name.starts_with("pumpkin") ||
+                                           name.starts_with("attached_"))) {
+        // (M29.4b) Stems: vanilla draws a cross (2 + 2*age)/16 tall, the attached one a
+        // single plane bent toward its fruit; ours are planes on the block's middle
+        // axes (a "+"), tinted green to yellow by age.
+        m.visible = true;
+        const bool attachedStem = name.starts_with("attached_");
+        const int a = attachedStem ? 7 : std::stoi(std::string(registry.value(state, "age").value_or("0")));
+        m.fixedTintSlot = uint8_t(world::kStemSlot0 + a);
+        const uint16_t sp = sprite(name.c_str());
+        // `toward`: the face's texture runs left to right as seen, so a face whose
+        // viewer's right is the fruit's side keeps it; the back face mirrors it.
+        auto plane = [&](bool alongX, std::string_view toward, int height) {
+            if (alongX) addBox(m, 0, 0, 8, 16, height, 8, sp);
+            else addBox(m, 8, 0, 0, 8, height, 16, sp);
+            BakedBox& b = m.boxes[m.boxCount - 1];
+            for (int d = 0; d < 6; ++d) {
+                auto& f = b.faces[d];
+                const auto dir = static_cast<Direction>(d);
+                const bool shown = alongX ? (dir == Direction::North || dir == Direction::South)
+                                          : (dir == Direction::West || dir == Direction::East);
+                f.present = shown;
+                f.tint = Tint::Foliage;
+                const std::string_view right = dir == Direction::South   ? "east"
+                                               : dir == Direction::North ? "west"
+                                               : dir == Direction::East  ? "north"
+                                                                         : "south";
+                if (!toward.empty() && right != toward) std::swap(f.uv[0], f.uv[2]);
+            }
+        };
+        if (attachedStem) { // the texture's arm is on its right: toward the fruit
+            const auto fc = registry.value(state, "facing").value_or("north");
+            plane(fc == "east" || fc == "west", fc, 16);
+        } else {
+            plane(true, {}, 2 + 2 * a);
+            plane(false, {}, 2 + 2 * a);
+        }
+    } else if (name == "cocoa") {
+        // (M29.4b; wiki: Cocoa Beans) a pod hanging from the log's side, 4/6/8 wide
+        // and 3/5/7 tall by age (our texture's pod), its top 4/16 under the block's.
+        m.visible = true;
+        const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
+        const int w = 4 + 2 * a, h = 3 + 2 * a, lo = 8 - w / 2, hi = 8 + w / 2;
+        const auto fc = registry.value(state, "facing").value_or("north"); // toward the log
+        const uint16_t sp = sprite(("cocoa_stage" + std::to_string(a)).c_str());
+        if (fc == "north") addBox(m, lo, 12 - h, 1, hi, 12, 1 + w, sp);
+        else if (fc == "south") addBox(m, lo, 12 - h, 15 - w, hi, 12, 15, sp);
+        else if (fc == "west") addBox(m, 1, 12 - h, lo, 1 + w, 12, hi, sp);
+        else addBox(m, 15 - w, 12 - h, lo, 15, 12, hi, sp);
+        for (auto& f : m.boxes[m.boxCount - 1].faces) { // every face shows the pod's side
+            f.uv[0] = uint8_t(lo), f.uv[1] = 4, f.uv[2] = uint8_t(hi), f.uv[3] = uint8_t(4 + h);
+        }
+    } else {
+        return false;
+    }
+    return true;
+}
+
 void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas& atlas) {
     using namespace world;
     m_models.assign(registry.stateCount(), {});
@@ -398,6 +547,7 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
             if (name.starts_with("minecraft:")) name.erase(0, 10);
             if (name.starts_with("waxed_")) name.erase(0, 6); // (waxed copper looks the same)
             const auto ends = [&](std::string_view s) { return name.ends_with(s); };
+            if (bakeLateModel(registry, state, name, atlas, m)) break; // (M29)
             static constexpr std::string_view kPlants[] = {
                 "short_grass", "fern", "dandelion", "poppy", "cornflower", "azure_bluet",
                 "oxeye_daisy", "dead_bush", "oak_sapling", "birch_sapling", "spruce_sapling", "acacia_sapling",
@@ -813,112 +963,6 @@ void BlockModels::bake(const world::BlockRegistry& registry, const TextureAtlas&
                     if (registry.value(state, prop).value_or("true") == "false")
                         v.faces[int(d)].sprite = sprite("mushroom_block_inside");
                 m = single(v);
-            } else if (name == "lily_pad") { // (M29.4a) a pad lying on the water, 1/16 thick (ours)
-                m.visible = true;
-                addBox(m, 0, 0, 0, 16, 1, 16, sprite("lily_pad"));
-                // vanilla tints it a fixed green (#208030); ours takes the biome's foliage
-                for (auto& f : m.boxes[m.boxCount - 1].faces) f.tint = Tint::Foliage;
-            } else if (name == "flower_pot" || name.starts_with("potted_")) {
-                // (M29.4b; wiki: Flower Pot) a 6x6x6 pot, soil on top when planted; the plant
-                // is its own cross (vanilla lifts it 4 pixels; ours stands in the pot), cacti
-                // and bamboo a thin column, azaleas a small bush.
-                m.visible = true;
-                addBox(m, 5, 0, 5, 11, 6, 11, sprite("flower_pot"));
-                const BlockId plant = plantInPot(registry.blockOf(state));
-                if (plant) m.boxes[0].faces[int(Direction::Up)].sprite = sprite("dirt");
-                const std::string plantName = plant ? registry.block(plant).id.substr(10) : std::string();
-                if (plantName == "cactus") {
-                    addBox(m, 6, 6, 6, 10, 16, 10, sprite("cactus_side"));
-                    m.boxes[1].faces[int(Direction::Up)].sprite = sprite("cactus_top");
-                } else if (plantName == "bamboo") {
-                    addBox(m, 7, 6, 7, 9, 16, 9, sprite("bamboo_stalk"));
-                } else if (plantName == "azalea" || plantName == "flowering_azalea") {
-                    addBox(m, 4, 6, 4, 12, 14, 12, sprite((plantName + "_side").c_str()));
-                    m.boxes[1].faces[int(Direction::Up)].sprite = sprite((plantName + "_top").c_str());
-                } else if (plantName == "crimson_roots" || plantName == "warped_roots") {
-                    m.cross = true, m.crossSprite = sprite((plantName + "_pot").c_str());
-                } else if (plant) {
-                    const BakedModel& pm = m_models[registry.defaultState(plant)];
-                    m.cross = pm.cross, m.crossSprite = pm.crossSprite, m.crossTint = pm.crossTint;
-                }
-            } else if (name == "soul_fire") { // (M29.4c) as fire: a cross of its animated texture
-                m.visible = true;
-                m.cross = true;
-                m.crossSprite = sprite("soul_fire_0");
-            } else if (name == "bamboo_sapling") { // (M29.4c; vanilla: a cross of bamboo_stage0)
-                m.visible = true;
-                m.cross = true;
-                m.crossSprite = sprite("bamboo_stage0");
-            } else if (name.ends_with("_coral_wall_fan")) {
-                // (M29.4c) vanilla: two planes tilted out of the wall; ours: one flat plane
-                // standing 8 pixels out from the wall, seen from above and below.
-                m.visible = true;
-                std::string fan = name;
-                fan.erase(fan.rfind("_wall"), 5);
-                const uint16_t sp = sprite(fan.c_str());
-                const auto f = registry.value(state, "facing").value_or("north"); // out of the wall
-                if (f == "north") addBox(m, 0, 4, 8, 16, 4, 16, sp);
-                else if (f == "south") addBox(m, 0, 4, 0, 16, 4, 8, sp);
-                else if (f == "west") addBox(m, 8, 4, 0, 16, 4, 16, sp);
-                else addBox(m, 0, 4, 0, 8, 4, 16, sp);
-                for (int d = 0; d < 6; ++d)
-                    m.boxes[0].faces[d].present = d == int(Direction::Up) || d == int(Direction::Down);
-            } else if (name == "target") { // (M29.5) cube_column
-                m = single(cubeColumn(sprite("target_side"), sprite("target_top"), "y"));
-            } else if (name == "melon") { // vanilla: cube_column
-                m = single(cubeColumn(sprite("melon_side"), sprite("melon_top"), "y"));
-            } else if (name.ends_with("_stem") && (name.starts_with("melon") || name.starts_with("pumpkin") ||
-                                                   name.starts_with("attached_"))) {
-                // (M29.4b) Stems: vanilla draws a cross (2 + 2*age)/16 tall, the attached one a
-                // single plane bent toward its fruit; ours are planes on the block's middle
-                // axes (a "+"), tinted green to yellow by age.
-                m.visible = true;
-                const bool attachedStem = name.starts_with("attached_");
-                const int a = attachedStem ? 7 : std::stoi(std::string(registry.value(state, "age").value_or("0")));
-                m.fixedTintSlot = uint8_t(world::kStemSlot0 + a);
-                const uint16_t sp = sprite(name.c_str());
-                // `toward`: the face's texture runs left to right as seen, so a face whose
-                // viewer's right is the fruit's side keeps it; the back face mirrors it.
-                auto plane = [&](bool alongX, std::string_view toward, int height) {
-                    if (alongX) addBox(m, 0, 0, 8, 16, height, 8, sp);
-                    else addBox(m, 8, 0, 0, 8, height, 16, sp);
-                    BakedBox& b = m.boxes[m.boxCount - 1];
-                    for (int d = 0; d < 6; ++d) {
-                        auto& f = b.faces[d];
-                        const auto dir = static_cast<Direction>(d);
-                        const bool shown = alongX ? (dir == Direction::North || dir == Direction::South)
-                                                  : (dir == Direction::West || dir == Direction::East);
-                        f.present = shown;
-                        f.tint = Tint::Foliage;
-                        const std::string_view right = dir == Direction::South   ? "east"
-                                                       : dir == Direction::North ? "west"
-                                                       : dir == Direction::East  ? "north"
-                                                                                 : "south";
-                        if (!toward.empty() && right != toward) std::swap(f.uv[0], f.uv[2]);
-                    }
-                };
-                if (attachedStem) { // the texture's arm is on its right: toward the fruit
-                    const auto fc = registry.value(state, "facing").value_or("north");
-                    plane(fc == "east" || fc == "west", fc, 16);
-                } else {
-                    plane(true, {}, 2 + 2 * a);
-                    plane(false, {}, 2 + 2 * a);
-                }
-            } else if (name == "cocoa") {
-                // (M29.4b; wiki: Cocoa Beans) a pod hanging from the log's side, 4/6/8 wide
-                // and 3/5/7 tall by age (our texture's pod), its top 4/16 under the block's.
-                m.visible = true;
-                const int a = std::stoi(std::string(registry.value(state, "age").value_or("0")));
-                const int w = 4 + 2 * a, h = 3 + 2 * a, lo = 8 - w / 2, hi = 8 + w / 2;
-                const auto fc = registry.value(state, "facing").value_or("north"); // toward the log
-                const uint16_t sp = sprite(("cocoa_stage" + std::to_string(a)).c_str());
-                if (fc == "north") addBox(m, lo, 12 - h, 1, hi, 12, 1 + w, sp);
-                else if (fc == "south") addBox(m, lo, 12 - h, 15 - w, hi, 12, 15, sp);
-                else if (fc == "west") addBox(m, 1, 12 - h, lo, 1 + w, 12, hi, sp);
-                else addBox(m, 15 - w, 12 - h, lo, 15, 12, hi, sp);
-                for (auto& f : m.boxes[m.boxCount - 1].faces) { // every face shows the pod's side
-                    f.uv[0] = uint8_t(lo), f.uv[1] = 4, f.uv[2] = uint8_t(hi), f.uv[3] = uint8_t(4 + h);
-                }
             } else if (name == "carved_pumpkin" || name == "jack_o_lantern") { // the face toward `facing`
                 const auto facing = registry.value(state, "facing").value_or("north");
                 BakedVariant v = cubeColumn(sprite("pumpkin_side"), sprite("pumpkin_top"), "y");
