@@ -102,6 +102,7 @@ public:
     void draw(const Camera& camera, float aspect);
 
 private:
+    uint16_t itemSprite(const world::ItemStack& item) const; // (its icon, or a block item's face; 0: none)
     struct Vertex {
         float x, y, z;
         float u, v; // atlas texels

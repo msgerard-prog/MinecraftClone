@@ -1,5 +1,7 @@
 #include "world/Mob.h"
 
+#include "world/Items.h"
+
 #include <iterator>
 
 namespace mc::world {
@@ -188,6 +190,24 @@ float maxHealthOf(const MobData& m) {
     if (m.maxHealth > 0.0f) return m.maxHealth;
     if (m.type == MobType::Wolf && m.tamed) return 40.0f; // (wiki: Wolf - 40 once tamed)
     return mobInfo(m.type).maxHealth;
+}
+
+uint16_t heldItemOf(const MobData& m) {
+    const auto& items = itemRegistry();
+    auto id = [&](const char* name) { return uint16_t(items.find(name).value_or(0)); };
+    static const uint16_t trident = id("trident"), bow = id("bow"), crossbow = id("crossbow"),
+                          ironAxe = id("iron_axe"), stoneSword = id("stone_sword"), goldSword = id("golden_sword");
+    if (m.heldTrident) return trident;
+    if (m.heldItem != 0) return m.heldItem;
+    switch (m.type) { // (wiki: each mob's spawn equipment)
+    case MobType::Skeleton: case MobType::Stray: case MobType::Bogged: case MobType::Parched: return bow;
+    case MobType::WitherSkeleton: return stoneSword;
+    case MobType::Pillager: return crossbow;
+    case MobType::Vindicator: return ironAxe;
+    case MobType::Piglin: return m.isBaby() ? 0 : goldSword;
+    case MobType::ZombifiedPiglin: return goldSword;
+    default: return 0;
+    }
 }
 
 } // namespace mc::world

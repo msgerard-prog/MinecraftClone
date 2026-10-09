@@ -286,14 +286,8 @@ void EntityRenderer::addItemFrame(const glm::dvec3& centre, int facing, bool glo
     cube(c - half, c + half, sprites, light, tints, m_items, true);
     if (item.empty()) return;
     // The item: its sprite (or a block's face) flat on the frame, half a block across.
-    uint16_t sprite = m_icons->sprite(item.item);
-    if (!sprite) {
-        const world::ItemDef& def = world::itemRegistry().item(item.item);
-        if (!def.block) return;
-        const BakedModel& m = (*m_models)[item.state ? item.state : world::blockRegistry().defaultState(def.block)];
-        if (!m.visible) return;
-        sprite = m.cross ? m.crossSprite : m.boxCount ? m.boxes[0].faces[2].sprite : m.variants[0].faces[2].sprite;
-    }
+    const uint16_t sprite = itemSprite(item);
+    if (!sprite) return;
     const float a = float(rotation % 8) * 0.785398f, cs = std::cos(a), sn = std::sin(a);
     const glm::vec3 rr = r * cs - u * sn, uu = u * cs + r * sn;
     const glm::vec3 o = c + n * (1.0f / 32.0f + 0.004f);
@@ -301,6 +295,15 @@ void EntityRenderer::addItemFrame(const glm::dvec3& centre, int facing, bool glo
     const glm::vec3 p[4] = {o - rr * s + uu * s, o - rr * s - uu * s, o + rr * s - uu * s, o + rr * s + uu * s};
     const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
     quad(p, u0, v0, u0 + m_cell, v0 + m_cell, pack(glow ? glm::vec3(1.0f) : light), m_items);
+}
+
+uint16_t EntityRenderer::itemSprite(const world::ItemStack& item) const {
+    if (const uint16_t s = m_icons->sprite(item.item)) return s;
+    const world::ItemDef& def = world::itemRegistry().item(item.item);
+    if (!def.block) return 0;
+    const BakedModel& m = (*m_models)[item.state ? item.state : world::blockRegistry().defaultState(def.block)];
+    if (!m.visible) return 0;
+    return m.cross ? m.crossSprite : m.boxCount ? m.boxes[0].faces[2].sprite : m.variants[0].faces[2].sprite;
 }
 
 void EntityRenderer::addBanner(const glm::dvec3& cell, bool wall, int turn, int base, const world::BannerLayers& layers,
@@ -670,6 +673,10 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
         if ((mob.fuse / 3) % 2 == 1) flash = glm::vec3(0.6f * f);
     }
     const bool chestBoat = mob.type == world::MobType::Boat && mob.hasChest;
+    // (M29.1f) what it holds in its right hand: where the hand is and which way the arm points.
+    const world::ItemId held = world::heldItemOf(mob);
+    glm::vec3 hand(0.0f), armOut(0.0f);
+    bool haveHand = false;
     for (const MobPart& part : chestBoat ? gfx::chestBoatModel() : mobModel(mob.type)) {
         // Mount gear (M26.2): what it wears.
         if ((part.layer == 9 && !mob.saddled) || (part.layer == 10 && mob.horseArmor == 0) ||
@@ -766,6 +773,12 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
             if (part.anim == MobPart::Anim::Lift) c.y += float(mob.peek) * 0.08f;
             corners[i] = base + body * c * (scale / 16.0f); // pixels -> blocks
         }
+        if (held != 0 && part.anim == MobPart::Anim::ArmForward && part.pivot[0] < 0.0f && !haveHand) {
+            const glm::vec3 tip((mn.x + mx.x) * 0.5f, mn.y, (mn.z + mx.z) * 0.5f); // the hand: the arm's end
+            hand = base + body * (*anim * (tip - pivot) + pivot) * (scale / 16.0f);
+            armOut = glm::normalize(body * (*anim * glm::vec3(0.0f, -1.0f, 0.0f)));
+            haveHand = true;
+        }
         const float uv[6][4] = {
             {u + d, v + d, w, h}, {u + 2 * d + w, v + d, w, h}, {u, v + d, d, h},
             {u + d + w, v + d, d, h}, {u + d, v, w, d}, {u + d + w, v, w, d},
@@ -778,6 +791,20 @@ void EntityRenderer::addMob(const world::MobData& mob, const glm::dvec3& pos, fl
                  m_mobs);
         }
     }
+    // The held item (vanilla draws it in the hand): its sprite upright beside the arm, the
+    // handle at the hand, drawn from both sides.
+    if (haveHand)
+        if (const uint16_t sprite = itemSprite({held, 1})) {
+            const glm::vec3 up = glm::normalize(body * glm::vec3(0.0f, 1.0f, 0.0f) - armOut * glm::dot(armOut, body * glm::vec3(0.0f, 1.0f, 0.0f)) + glm::vec3(0.0f, 0.001f, 0.0f));
+            const float s = 0.32f * scale;
+            const glm::vec3 o = hand + (armOut + up) * (s * 0.6f);
+            const float u0 = float(sprite % m_columns) * m_cell, v0 = float(sprite / m_columns) * m_cell;
+            const glm::vec3 front[4] = {o - armOut * s + up * s, o - armOut * s - up * s, o + armOut * s - up * s,
+                                        o + armOut * s + up * s};
+            const glm::vec3 back[4] = {front[3], front[2], front[1], front[0]};
+            quad(front, u0, v0, u0 + m_cell, v0 + m_cell, pack(light), m_items);
+            quad(back, u0 + m_cell, v0, u0, v0 + m_cell, pack(light), m_items);
+        }
 }
 
 void EntityRenderer::setCrack(const world::BlockPos& block, int stage) {

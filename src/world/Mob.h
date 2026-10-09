@@ -189,6 +189,9 @@ inline bool isHorseKind(MobType t) {
            t == MobType::ZombieHorse;
 }
 inline bool isCamel(MobType t) { return t == MobType::Camel || t == MobType::CamelHusk; }
+// What a mob holds in its main hand for drawing (M29.1f): its saved item, a drowned's
+// trident, else its kind's usual weapon (skeletons bows, pillagers crossbows...). 0: none.
+uint16_t heldItemOf(const struct MobData& m);
 // 1.21.5 farm animal variants (M29.1d), kept in `woolColour`: their vanilla names.
 inline constexpr const char* kFarmVariants[3] = {"temperate", "warm", "cold"};
 inline bool isNautilus(MobType t) { return t == MobType::Nautilus || t == MobType::ZombieNautilus; }
