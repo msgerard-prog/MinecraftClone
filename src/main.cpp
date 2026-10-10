@@ -252,6 +252,12 @@ struct Shared {
     int cliRenderDistance = 0;     // 0: none
     int optionsRenderDistance = 0; // options.txt's value when the game started
     bool cliNoVsync = false;
+    // (v1.5.5) the display mode and resolution are applied in interactive runs only (hidden
+    // and screenshot runs keep --size), and only when they change.
+    bool manageDisplay = false;
+    bool displayApplied = false;
+    mc::DisplayMode appliedMode = mc::DisplayMode::Windowed;
+    mc::DisplayResolution appliedResolution;
 };
 enum class SessionEnd { Quit, ToTitle };
 
@@ -260,12 +266,39 @@ void applyGlobalOptions(Shared& shared) {
     shared.audio.setMasterVolume(shared.options.masterVolume);
     shared.window.setVsync(shared.options.vsync && !shared.cliNoVsync);
     mc::gfx::GuiRenderer::setScaleSetting(shared.options.guiScale);
+    if (shared.manageDisplay &&
+        (!shared.displayApplied || shared.appliedMode != shared.options.displayMode ||
+         !(shared.appliedResolution == shared.options.resolution))) {
+        shared.window.applyDisplay(shared.options.displayMode, shared.options.resolution);
+        shared.displayApplied = true;
+        shared.appliedMode = shared.options.displayMode;
+        shared.appliedResolution = shared.options.resolution;
+        shared.menuState.resolutions = shared.window.displayResolutions();
+        shared.menuState.monitorResolution = shared.window.monitorResolution();
+    }
+}
+
+// F11 (vanilla): windowed <-> full screen. Ours goes back to the last full-screen kind used
+// (borderless unless fullscreen was chosen), and saves the choice like vanilla.
+void handleFullscreenKey(Shared& shared) {
+    if (shared.window.takePresses(mc::Press::Fullscreen) == 0 || !shared.manageDisplay) return;
+    static mc::DisplayMode lastFull = mc::DisplayMode::Borderless;
+    if (shared.options.displayMode == mc::DisplayMode::Windowed) {
+        shared.options.displayMode = lastFull;
+    } else {
+        lastFull = shared.options.displayMode;
+        shared.options.displayMode = mc::DisplayMode::Windowed;
+    }
+    applyGlobalOptions(shared);
+    shared.options.save(shared.optionsFile);
 }
 
 // One frame of the menu screen: input in GUI pixels, the widgets, the GUI draw. With
 // `clear` the screen is cleared first (no world behind it).
 mc::ui::MenuAction drawMenuFrame(Shared& shared, int fbWidth, int fbHeight, bool clear) {
     mc::Window& window = shared.window;
+    handleFullscreenKey(shared);
+    shared.menuState.maxGuiScale = std::max(1, std::min(fbWidth / 320, fbHeight / 240)); // (v1.5.5)
     const int scale = mc::gfx::GuiRenderer::guiScale(fbWidth, fbHeight);
     mc::ui::MenuInput in;
     window.cursorPos(in.mx, in.my);
@@ -1286,6 +1319,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
     if (!screenshotMode && !opts->hidden) window.setCursorCaptured(true); // (into the game)
     while (!window.shouldClose()) {
         window.pollEvents();
+        handleFullscreenKey(shared); // (v1.5.5: F11 in a world too)
         // The Game Menu (Esc) pauses the game: no ticks, the menu takes the input.
         const bool paused = shared.menuState.screen != mc::ui::MenuScreen::None;
         // An open chest screen follows its block(s) (closed if broken).
@@ -1579,7 +1613,10 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 window.takePresses(p);
         } else {
             // Respawn at the bed or world spawn (game rule immediate_respawn: no death screen).
-            if (dead && (rules.immediateRespawn || window.takePresses(mc::Press::Enter) > 0)) {
+            // A controller respawns with A (v1.5.5; Bedrock's Respawn button), which reaches
+            // the game as a jump press.
+            const bool padRespawn = dead && window.gamepadConnected() && window.takePresses(mc::Press::Jump) > 0;
+            if (dead && (rules.immediateRespawn || padRespawn || window.takePresses(mc::Press::Enter) > 0)) {
                 dead = false;
                 vitals.reset(rules.keepInventory);
                 if (bedSpawn && dimension == spawnDim) {
@@ -1735,7 +1772,9 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
             }
             if (!screenshotMode) {
                 // Click to capture the mouse, Esc to release it (pause menu: later).
-                if (!window.cursorCaptured() && window.leftMousePressed()) {
+                // (v1.5.5) a controller button does the same: otherwise its A and Y would keep
+                // acting as menu clicks with no menu open, and the game never came back.
+                if (!window.cursorCaptured() && (window.leftMousePressed() || window.padPressed())) {
                     window.setCursorCaptured(true);
                     attackArmed = false;
                     window.takePresses(mc::Press::LeftMouse); // the capturing click doesn't act
@@ -6801,7 +6840,7 @@ int runSession(Shared& shared, mc::LaunchOptions* opts, SessionEnd& sessionEnd) 
                 std::snprintf(title, sizeof title, "%.*s", int(a.title.size()), a.title.data());
                 batch.text(title, tx + 8.0f, ty + 18.0f, mc::gfx::argb(0xFFFFFFFF));
             }
-            if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH);
+            if (dead) mc::ui::drawDeathScreen(batch, guiW, guiH, window.gamepadConnected());
             if (sleepTicks > 0) // falling asleep: the screen darkens (vanilla)
                 batch.fill(
                     0, 0, float(guiW), float(guiH),
@@ -7168,6 +7207,10 @@ int main(int argc, char** argv) {
     shared.optionsRenderDistance = options.renderDistance;
     if (!interactive || opts->renderDistanceSet) shared.cliRenderDistance = launch.renderDistance;
     shared.cliNoVsync = !opts->vsync;
+    shared.manageDisplay = interactive; // (v1.5.5)
+    shared.menuState.resolutions = window.displayResolutions();
+    shared.menuState.monitorResolution = window.monitorResolution();
+    applyGlobalOptions(shared); // (the saved display mode from the start)
     // --menu: a screen by itself (screenshots of the menus; "pause" opens over a world).
     if (!opts->menu.empty() && opts->menu != "pause" && opts->menu != "statistics" &&
         opts->menu != "advancements" && opts->menu != "commandblock") { // (in-world screens below)

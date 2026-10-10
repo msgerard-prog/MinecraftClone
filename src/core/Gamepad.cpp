@@ -38,6 +38,8 @@ GamepadInput GamepadMapper::update(const GamepadState& pad, bool inWorld, double
     deadZone(pad.axes[B::LX], pad.axes[B::LY], lx, ly);
     deadZone(pad.axes[B::RX], pad.axes[B::RY], rx, ry);
 
+    for (int b = 0; b < GamepadState::ButtonCount; ++b) in.anyPressed = in.anyPressed || pressed(b);
+    in.anyPressed = in.anyPressed || rtPressed || ltPressed;
     if (pressed(B::Start)) in.escape = true; // Menu: pause / back, everywhere
     if (pressed(B::DRight)) in.chat = true;
     if (inWorld) {

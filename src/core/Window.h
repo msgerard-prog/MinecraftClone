@@ -1,6 +1,9 @@
 #pragma once
 
 #include "core/Gamepad.h"
+#include "core/Options.h"
+
+#include <vector>
 
 struct GLFWwindow;
 
@@ -30,6 +33,7 @@ enum class Press {
     Down,
     Perspective, // F5 (M30.1)
     SwapHands,   // F (M32.4): the held item and the offhand trade places
+    Fullscreen,  // F11 (v1.5.5; vanilla): windowed <-> full screen
     Count
 };
 
@@ -108,8 +112,21 @@ public:
     bool gamepadConnected() const { return m_pad.connected; }
     float padForward() const { return m_padInput.moveForward; }
     float padStrafe() const { return m_padInput.moveStrafe; }
+    // A controller button or trigger went down this frame (v1.5.5: takes the game back when
+    // the mouse isn't captured - a controller can't click the window).
+    bool padPressed() const { return m_padInput.anyPressed; }
 
     GLFWwindow* handle() const { return m_window; }
+
+    // (v1.5.5) the resolutions of the monitor the window is on (each size once, at its highest
+    // refresh rate, smallest first), and the monitor's own.
+    std::vector<DisplayResolution> displayResolutions() const;
+    DisplayResolution monitorResolution() const;
+    // Shows the window windowed (decorated, `res` in size - 0x0 keeps the current size),
+    // borderless (no frame: the whole monitor, or `res` centred on it) or fullscreen (the
+    // monitor in video mode `res`; 0x0 its current mode). Remembers the windowed placement to
+    // come back to.
+    void applyDisplay(DisplayMode mode, DisplayResolution res);
 
 private:
     GLFWwindow* m_window = nullptr;
@@ -136,6 +153,8 @@ private:
     double m_padTime = 0.0;
     bool m_padShift = false;  // a quick-move click (Y) holds shift for its frame
     bool m_padEnabled = true; // off for hidden windows: screenshot/test runs stay reproducible
+    DisplayMode m_displayMode = DisplayMode::Windowed;
+    int m_windowedX = 100, m_windowedY = 100, m_windowedW = 1280, m_windowedH = 720; // to restore
 };
 
 // Seconds since GLFW init (monotonic).

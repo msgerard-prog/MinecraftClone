@@ -46,6 +46,7 @@ struct GamepadInput {
     double lookDx = 0.0, lookDy = 0.0;           // camera turn in mouse pixels this frame
     double cursorDx = 0.0, cursorDy = 0.0;       // screen cursor movement, framebuffer pixels
     double screenScroll = 0.0;                   // wheel steps on screens (right stick)
+    bool anyPressed = false;                     // any button or trigger went down this frame
 };
 
 class GamepadMapper {

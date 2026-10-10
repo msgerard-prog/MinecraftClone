@@ -202,8 +202,8 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
         std::snprintf(label, sizeof(label), "GUI Scale: Auto");
     else
         std::snprintf(label, sizeof(label), "GUI Scale: %d", o.guiScale);
-    if (m.button(label, l, y, 150.0f)) {
-        o.guiScale = (o.guiScale + 1) % 5;
+    if (m.button(label, l, y, 150.0f)) { // (v1.5.5: up to the largest that fits, as vanilla)
+        o.guiScale = (o.guiScale + 1) % (std::max(1, st.maxGuiScale) + 1);
         changed = true;
     }
     v = o.masterVolume;
@@ -233,6 +233,33 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
     if (m.button(o.hotbarNumbers ? "Hotbar Numbers: ON" : "Hotbar Numbers: OFF", r, y, 150.0f)) { // (ours)
         o.hotbarNumbers = !o.hotbarNumbers;
         changed = true;
+    }
+    // (v1.5.5) Display: windowed / borderless (ours) / fullscreen (vanilla's F11), and the
+    // resolution - the window's size, or the monitor's video mode in fullscreen.
+    y += 24.0f;
+    const char* modeName = o.displayMode == DisplayMode::Borderless   ? "Display: Borderless"
+                           : o.displayMode == DisplayMode::Fullscreen ? "Display: Fullscreen"
+                                                                      : "Display: Windowed";
+    if (m.button(modeName, l, y, 150.0f)) {
+        o.displayMode = DisplayMode((int(o.displayMode) + 1) % 3);
+        changed = true;
+    }
+    {
+        // Native (0x0, the monitor's own) first, then the monitor's sizes, smallest up.
+        const auto& list = st.resolutions;
+        int index = -1;
+        for (size_t i = 0; i < list.size(); ++i)
+            if (list[i].width == o.resolution.width && list[i].height == o.resolution.height) index = int(i);
+        if (o.resolution.width > 0 && index < 0) index = -2; // (a size the monitor doesn't list)
+        if (o.resolution.width == 0)
+            std::snprintf(label, sizeof(label), "Resolution: Native"); // (the monitor's own)
+        else
+            std::snprintf(label, sizeof(label), "Resolution: %dx%d", o.resolution.width, o.resolution.height);
+        if (m.button(label, r, y, 150.0f) && !list.empty()) {
+            const int next = index + 1; // (-2/-1 -> 0; the last -> Native)
+            o.resolution = next >= int(list.size()) || next < 0 ? DisplayResolution{} : list[size_t(next)];
+            changed = true;
+        }
     }
     if (m.button("Done", cx - 100.0f, float(m.height()) - 28.0f, 200.0f) || m.input().escape) {
         st.screen = st.optionsBack;

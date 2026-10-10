@@ -7,6 +7,8 @@
 
 #include <doctest/doctest.h>
 
+#include <fstream>
+
 #include <filesystem>
 
 using namespace mc;
@@ -152,18 +154,24 @@ TEST_CASE("options.txt round-trips in vanilla's format") {
     o.vsync = false;
     o.bobView = false;
     o.hotbarNumbers = false;
+    o.displayMode = mc::DisplayMode::Borderless;
+    o.resolution = {2560, 1440, 144};
+    o.guiScale = 9; // (v1.5.5: beyond 4 on big screens)
     REQUIRE(o.save(file));
     GameOptions back;
     REQUIRE(back.load(file));
     CHECK(back.fov == doctest::Approx(90.0f)); // stored as (90 - 70) / 40 = 0.5
     CHECK(back.renderDistance == 8);
     CHECK(back.sensitivity == doctest::Approx(0.75f));
-    CHECK(back.guiScale == 3);
+    // (guiScale: set to 9 below the other fields, checked there)
     CHECK(back.masterVolume == doctest::Approx(0.25f));
     CHECK_FALSE(back.clouds);
     CHECK_FALSE(back.vsync);
     CHECK_FALSE(back.bobView); // (M30.1)
     CHECK_FALSE(back.hotbarNumbers); // (v1.5.3)
+    CHECK(back.displayMode == mc::DisplayMode::Borderless); // (v1.5.5)
+    CHECK(back.resolution == mc::DisplayResolution{2560, 1440, 144});
+    CHECK(back.guiScale == 9);
     std::filesystem::remove(file);
     GameOptions missing;
     CHECK_FALSE(missing.load(file)); // defaults stay
@@ -201,4 +209,24 @@ TEST_CASE("world folders: bad characters replaced, taken names numbered") {
     CHECK(worlds[0].folder == "listed");
     CHECK(worlds[0].lastPlayed > 0);
     std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("v1.5.5 options.txt: vanilla's fullscreen keys are read; ours says which kind") {
+    const auto file = std::filesystem::temp_directory_path() / "mc_options_display.txt";
+    {
+        std::ofstream out(file);
+        out << "fullscreen:true\nfullscreenResolution:1920x1080@60:24\n";
+    }
+    mc::GameOptions o;
+    REQUIRE(o.load(file));
+    CHECK(o.displayMode == mc::DisplayMode::Fullscreen); // (vanilla's file: fullscreen)
+    CHECK(o.resolution == mc::DisplayResolution{1920, 1080, 60});
+    {
+        std::ofstream out(file);
+        out << "fullscreenResolution:12x9\n"; // too small: ignored
+    }
+    mc::GameOptions small;
+    REQUIRE(small.load(file));
+    CHECK(small.resolution.width == 0);
+    std::filesystem::remove(file);
 }

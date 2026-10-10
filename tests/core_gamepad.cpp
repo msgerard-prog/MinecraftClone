@@ -102,3 +102,18 @@ TEST_CASE("v1.5.4 controller: on screens the stick moves the cursor; A/X/Y click
     GamepadState none; // disconnected: nothing
     CHECK_FALSE(m.update(none, true, 0.016, 1000).escape);
 }
+
+TEST_CASE("v1.5.5 controller: any button press is reported (it takes the game back; A respawns)") {
+    GamepadMapper m;
+    GamepadState s = pad();
+    CHECK_FALSE(m.update(s, false, 0.016, 1000).anyPressed);
+    s.buttons[GamepadState::Y] = 1;
+    CHECK(m.update(s, false, 0.016, 1000).anyPressed);
+    CHECK_FALSE(m.update(s, false, 0.016, 1000).anyPressed); // (held: once)
+    s = pad();
+    m.update(s, true, 0.016, 1000);
+    s.buttons[GamepadState::A] = 1;
+    const auto in = m.update(s, true, 0.016, 1000);
+    CHECK(in.jump); // A in the game is a jump press - the death screen's respawn
+    CHECK(in.anyPressed);
+}

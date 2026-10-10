@@ -137,12 +137,12 @@ void drawItemActivation(gfx::GuiBatch& batch, uint16_t sprite, float progress, i
     batch.atlasSpriteCentred(sprite, float(guiWidth) * 0.5f, float(guiHeight) * 0.5f, size * std::cos(turn), size);
 }
 
-void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight) {
+void drawDeathScreen(gfx::GuiBatch& batch, int guiWidth, int guiHeight, bool controller) {
     batch.fill(0, 0, static_cast<float>(guiWidth), static_cast<float>(guiHeight), gfx::argb(0x80700000));
     const std::string_view title = "You died!";
     const float w = static_cast<float>(batch.textWidth(title)) * 2.0f;
     batch.text(title, (guiWidth - w) / 2.0f, guiHeight / 4.0f, gfx::argb(0xFFFFFFFF), true, 2.0f);
-    const std::string_view hint = "Press Enter to respawn";
+    const std::string_view hint = controller ? "Press Enter or A to respawn" : "Press Enter to respawn";
     batch.text(hint, (guiWidth - batch.textWidth(hint)) / 2.0f, guiHeight / 4.0f + 40.0f,
                gfx::argb(0xFFE0E0E0));
 }

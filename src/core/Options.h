@@ -4,6 +4,16 @@
 
 namespace mc {
 
+// A monitor resolution (v1.5.5): one of its video modes, or 0x0 = the monitor's own.
+struct DisplayResolution {
+    int width = 0, height = 0, refresh = 0;
+    bool operator==(const DisplayResolution&) const = default;
+};
+
+// How the game window is shown (v1.5.5). Vanilla Java has windowed and fullscreen (F11, its
+// "fullscreen" option and Fullscreen Resolution); borderless is ours, by the user's request.
+enum class DisplayMode : int { Windowed, Borderless, Fullscreen };
+
 // Player settings (M22.5), kept in options.txt in vanilla's "key:value" format and key
 // names (wiki: Options.txt), so the meaning of each value matches vanilla's.
 struct GameOptions {
@@ -11,7 +21,7 @@ struct GameOptions {
     int renderDistance = 16;     // chunks, 2..32 (our default "Far", as the command line)
     int simulationDistance = 12; // chunks, 5..32
     float sensitivity = 0.5f;    // 0..1 (shown as 0..200%; 0.5 = 100%)
-    int guiScale = 0;            // 0 = auto (largest that fits), else 1..4
+    int guiScale = 0;            // 0 = auto (largest that fits), else 1..the largest that fits
     float masterVolume = 1.0f;   // 0..1 (soundCategory_master)
     bool clouds = true;          // renderClouds "true" (fancy) / "false"
     bool vsync = true;           // enableVsync
@@ -20,6 +30,11 @@ struct GameOptions {
     // Ours: vanilla has no such option or label (OFF gives vanilla's look). Saved as
     // "clone_hotbarNumbers" (an unknown key to vanilla, which ignores it).
     bool hotbarNumbers = true;
+    // (v1.5.5) display: vanilla's "fullscreen" and "fullscreenResolution" keys plus ours,
+    // "clone_displayMode" (windowed / borderless / fullscreen). The resolution is the window's
+    // size (windowed, borderless) or the video mode (fullscreen); 0x0 = the monitor's own.
+    DisplayMode displayMode = DisplayMode::Windowed;
+    DisplayResolution resolution;
 
     // Missing or unreadable file: defaults. Unknown keys are ignored.
     bool load(const std::filesystem::path& file);

@@ -55,6 +55,11 @@ struct MenuState {
     int newDifficulty = 2;   // Normal (vanilla's default; M28.1b)
     bool newFlat = false;
     std::string splash = "Made from scratch!"; // the title's yellow line (ours)
+    // (v1.5.5) the Options screen's display choices: the monitor's resolutions (set by main
+    // when Options opens), its own, and the largest GUI scale that fits the window.
+    std::vector<DisplayResolution> resolutions;
+    DisplayResolution monitorResolution;
+    int maxGuiScale = 4;
     // Statistics (M28.1d, from the Game Menu): the session's counters, the tab (General,
     // Items, Mobs) and its scroll.
     const world::Statistics* stats = nullptr;

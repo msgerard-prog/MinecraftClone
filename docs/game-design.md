@@ -63,6 +63,7 @@ fine until a system works.
 ## Known deviations from vanilla
 | Deviation | Why | Remove by |
 |---|---|---|
+| Display (v1.5.5, user request): Options › Display Windowed / Borderless / Fullscreen and Resolution (the monitor's sizes or Native); vanilla Java has windowed and fullscreen (F11, Fullscreen Resolution) - borderless is ours; options.txt keeps vanilla's `fullscreen`/`fullscreenResolution` keys plus our `clone_displayMode`. GUI Scale now goes up to the largest that fits (vanilla), not 4 | user request | — |
 | Controllers (v1.5.4, user request, ADR 0010): Bedrock's default Xbox layout through GLFW's gamepad API (vanilla Java has none); screen-button roles, dead zone and look speed are our assumptions; no rumble, button prompts or remapping | ADR 0010 | — |
 | Hotbar Numbers (v1.5.3, user request, ADR 0009): each hotbar slot shows its key 1-9 (an option, on by default; vanilla has no labels - OFF is vanilla) | ADR 0009 | — |
 | Legacy "terrain" generator (M3 placeholder: 2D heightmap, no caves/ores/trees/biomes) is kept for worlds created with it | Saved worlds keep their generator | — (legacy worlds) |

@@ -59,6 +59,7 @@ void onKey(GLFWwindow* handle, int key, int, int action, int) {
     case GLFW_KEY_ESCAPE: if (press) count(Press::Escape); break;
     case GLFW_KEY_F3: if (press) count(Press::F3); break;
     case GLFW_KEY_F5: if (press) count(Press::Perspective); break;
+    case GLFW_KEY_F11: if (press) count(Press::Fullscreen); break;
     case GLFW_KEY_T: if (press) count(Press::Chat); break;
     case GLFW_KEY_SLASH: if (press) count(Press::Command); break;
     case GLFW_KEY_E: if (press) count(Press::Inventory); break;
@@ -248,6 +249,97 @@ void Window::setCursorCaptured(bool captured) {
     glfwSetInputMode(m_window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
     // The cursor jumps when the mode changes; don't turn that jump into a camera spin.
     m_skipNextDelta = true;
+}
+
+namespace {
+
+// The monitor holding most of the window (its centre), else the primary one.
+GLFWmonitor* monitorOf(GLFWwindow* w) {
+    if (GLFWmonitor* full = glfwGetWindowMonitor(w)) return full;
+    int x = 0, y = 0, ww = 0, wh = 0;
+    glfwGetWindowPos(w, &x, &y);
+    glfwGetWindowSize(w, &ww, &wh);
+    const int cx = x + ww / 2, cy = y + wh / 2;
+    int count = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&count);
+    for (int i = 0; i < count; ++i) {
+        int mx = 0, my = 0;
+        glfwGetMonitorPos(monitors[i], &mx, &my);
+        const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
+        if (m && cx >= mx && cx < mx + m->width && cy >= my && cy < my + m->height) return monitors[i];
+    }
+    return glfwGetPrimaryMonitor();
+}
+
+} // namespace
+
+std::vector<DisplayResolution> Window::displayResolutions() const {
+    std::vector<DisplayResolution> out;
+    GLFWmonitor* mon = monitorOf(m_window);
+    int count = 0;
+    const GLFWvidmode* modes = mon ? glfwGetVideoModes(mon, &count) : nullptr;
+    for (int i = 0; i < count; ++i) {
+        if (modes[i].width < 640 || modes[i].height < 480) continue; // (too small for the GUI)
+        auto same = std::find_if(out.begin(), out.end(), [&](const DisplayResolution& r) {
+            return r.width == modes[i].width && r.height == modes[i].height;
+        });
+        if (same == out.end())
+            out.push_back({modes[i].width, modes[i].height, modes[i].refreshRate});
+        else
+            same->refresh = std::max(same->refresh, modes[i].refreshRate);
+    }
+    std::sort(out.begin(), out.end(), [](const DisplayResolution& a, const DisplayResolution& b) {
+        return a.width * a.height != b.width * b.height ? a.width * a.height < b.width * b.height : a.width < b.width;
+    });
+    return out;
+}
+
+DisplayResolution Window::monitorResolution() const {
+    GLFWmonitor* mon = monitorOf(m_window);
+    const GLFWvidmode* m = mon ? glfwGetVideoMode(mon) : nullptr;
+    return m ? DisplayResolution{m->width, m->height, m->refreshRate} : DisplayResolution{};
+}
+
+void Window::applyDisplay(DisplayMode mode, DisplayResolution res) {
+    GLFWmonitor* mon = monitorOf(m_window);
+    const GLFWvidmode* desktop = mon ? glfwGetVideoMode(mon) : nullptr;
+    if (!mon || !desktop) return;
+    int mx = 0, my = 0;
+    glfwGetMonitorPos(mon, &mx, &my);
+    if (m_displayMode == DisplayMode::Windowed && !glfwGetWindowMonitor(m_window)) { // remember where it was
+        glfwGetWindowPos(m_window, &m_windowedX, &m_windowedY);
+        glfwGetWindowSize(m_window, &m_windowedW, &m_windowedH);
+    }
+    const int w = res.width > 0 ? std::min(res.width, desktop->width) : desktop->width;
+    const int h = res.height > 0 ? std::min(res.height, desktop->height) : desktop->height;
+    switch (mode) {
+    case DisplayMode::Fullscreen: // the monitor itself switches to that video mode
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(m_window, mon, 0, 0, res.width > 0 ? res.width : desktop->width,
+                             res.height > 0 ? res.height : desktop->height,
+                             res.refresh > 0 ? res.refresh : desktop->refreshRate);
+        break;
+    case DisplayMode::Borderless: // a frameless window over the desktop (no mode switch)
+        glfwSetWindowMonitor(m_window, nullptr, mx + (desktop->width - w) / 2, my + (desktop->height - h) / 2, w, h,
+                             GLFW_DONT_CARE);
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowPos(m_window, mx + (desktop->width - w) / 2, my + (desktop->height - h) / 2);
+        glfwSetWindowSize(m_window, w, h);
+        break;
+    case DisplayMode::Windowed: {
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_TRUE);
+        const bool sized = res.width > 0;
+        const int ww = sized ? std::min(res.width, desktop->width) : m_windowedW;
+        const int wh = sized ? std::min(res.height, desktop->height) : m_windowedH;
+        int x = sized ? mx + (desktop->width - ww) / 2 : m_windowedX;
+        int y = sized ? my + (desktop->height - wh) / 2 : m_windowedY;
+        y = std::max(y, my + 32); // (keep the title bar on the screen)
+        glfwSetWindowMonitor(m_window, nullptr, x, y, ww, wh, GLFW_DONT_CARE);
+        break;
+    }
+    }
+    m_displayMode = mode;
+    m_skipNextDelta = true; // (the cursor jumps with the window)
 }
 
 double timeSeconds() { return glfwGetTime(); }
