@@ -31,10 +31,19 @@ struct GameOptions {
     // "clone_hotbarNumbers" (an unknown key to vanilla, which ignores it).
     bool hotbarNumbers = true;
     // (v1.5.5) display: vanilla's "fullscreen" and "fullscreenResolution" keys plus ours,
-    // "clone_displayMode" (windowed / borderless / fullscreen). The resolution is the window's
-    // size (windowed, borderless) or the video mode (fullscreen); 0x0 = the monitor's own.
+    // "clone_displayMode" (windowed / fullscreen). The resolution is the window's size
+    // (windowed) or the video mode (fullscreen); 0x0 = the monitor's own.
     DisplayMode displayMode = DisplayMode::Windowed;
     DisplayResolution resolution;
+    // (v1.5.6, the user's request) a windowed game without the title bar and frame
+    // ("clone_borderlessWindow"); at the Native resolution it covers the whole monitor.
+    bool borderlessWindow = false;
+    // What the window shows: fullscreen, or windowed with or without its frame.
+    DisplayMode effectiveDisplay() const {
+        return displayMode == DisplayMode::Fullscreen ? DisplayMode::Fullscreen
+               : borderlessWindow                     ? DisplayMode::Borderless
+                                                      : DisplayMode::Windowed;
+    }
 
     // Missing or unreadable file: defaults. Unknown keys are ignored.
     bool load(const std::filesystem::path& file);

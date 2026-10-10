@@ -266,29 +266,25 @@ void applyGlobalOptions(Shared& shared) {
     shared.audio.setMasterVolume(shared.options.masterVolume);
     shared.window.setVsync(shared.options.vsync && !shared.cliNoVsync);
     mc::gfx::GuiRenderer::setScaleSetting(shared.options.guiScale);
-    if (shared.manageDisplay &&
-        (!shared.displayApplied || shared.appliedMode != shared.options.displayMode ||
-         !(shared.appliedResolution == shared.options.resolution))) {
-        shared.window.applyDisplay(shared.options.displayMode, shared.options.resolution);
+    const mc::DisplayMode display = shared.options.effectiveDisplay(); // (v1.5.6: + Borderless Window)
+    if (shared.manageDisplay && (!shared.displayApplied || shared.appliedMode != display ||
+                                 !(shared.appliedResolution == shared.options.resolution))) {
+        shared.window.applyDisplay(display, shared.options.resolution);
         shared.displayApplied = true;
-        shared.appliedMode = shared.options.displayMode;
+        shared.appliedMode = display;
         shared.appliedResolution = shared.options.resolution;
         shared.menuState.resolutions = shared.window.displayResolutions();
         shared.menuState.monitorResolution = shared.window.monitorResolution();
     }
 }
 
-// F11 (vanilla): windowed <-> full screen. Ours goes back to the last full-screen kind used
-// (borderless unless fullscreen was chosen), and saves the choice like vanilla.
+// F11 (vanilla): windowed <-> fullscreen, saved like vanilla. (A borderless window stays
+// borderless when it comes back from fullscreen.)
 void handleFullscreenKey(Shared& shared) {
     if (shared.window.takePresses(mc::Press::Fullscreen) == 0 || !shared.manageDisplay) return;
-    static mc::DisplayMode lastFull = mc::DisplayMode::Borderless;
-    if (shared.options.displayMode == mc::DisplayMode::Windowed) {
-        shared.options.displayMode = lastFull;
-    } else {
-        lastFull = shared.options.displayMode;
-        shared.options.displayMode = mc::DisplayMode::Windowed;
-    }
+    shared.options.displayMode = shared.options.displayMode == mc::DisplayMode::Fullscreen
+                                     ? mc::DisplayMode::Windowed
+                                     : mc::DisplayMode::Fullscreen;
     applyGlobalOptions(shared);
     shared.options.save(shared.optionsFile);
 }
@@ -7220,6 +7216,10 @@ int main(int argc, char** argv) {
                            : opts->menu == "worlds" ? mc::ui::MenuScreen::WorldList
                            : opts->menu == "create" ? mc::ui::MenuScreen::CreateWorld
                                                     : mc::ui::MenuScreen::Options;
+        menuState.resolutionListOpen = opts->menu == "resolutions"; // (v1.5.6: the drop-down open)
+        if (menuState.resolutionListOpen && menuState.resolutions.empty()) // (hidden runs: a sample list)
+            menuState.resolutions = {{1280, 720, 60}, {1920, 1080, 144}, {2560, 1440, 144}, {3440, 1440, 100},
+                                     {3840, 2160, 120}, {5120, 2160, 120}};
         for (int f = 0; !window.shouldClose(); ++f) {
             window.pollEvents();
             int fbWidth = 0, fbHeight = 0;

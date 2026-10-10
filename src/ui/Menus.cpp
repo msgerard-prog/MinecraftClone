@@ -163,6 +163,15 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
     m.text("Options", cx, 15.0f, argb(0xFFFFFFFF), true);
     bool changed = false;
     char label[64];
+    // (v1.5.6) while the Resolution list is open the widgets under it get no input; the list
+    // takes the real input at the end (drawn last, on top).
+    const bool listOpen = st.resolutionListOpen;
+    MenuInput real{};
+    if (listOpen) {
+        MenuInput none;
+        none.timeMs = m.input().timeMs;
+        real = m.swapInput(none);
+    }
     const float l = cx - 155.0f, r = cx + 5.0f;
     float y = 40.0f;
     // FOV 30..110 (vanilla labels 70 "Normal" and 110 "Quake Pro").
@@ -234,36 +243,79 @@ MenuAction optionsScreen(Menu& m, MenuState& st, GameOptions& o, uint16_t dirt) 
         o.hotbarNumbers = !o.hotbarNumbers;
         changed = true;
     }
-    // (v1.5.5) Display: windowed / borderless (ours) / fullscreen (vanilla's F11), and the
-    // resolution - the window's size, or the monitor's video mode in fullscreen.
+    // (v1.5.5) Display: windowed / fullscreen (vanilla's F11) and the resolution - the window's
+    // size, or the monitor's video mode in fullscreen; (v1.5.6) Borderless Window takes the
+    // window's title bar and frame away (windowed only).
     y += 24.0f;
-    const char* modeName = o.displayMode == DisplayMode::Borderless   ? "Display: Borderless"
-                           : o.displayMode == DisplayMode::Fullscreen ? "Display: Fullscreen"
-                                                                      : "Display: Windowed";
-    if (m.button(modeName, l, y, 150.0f)) {
-        o.displayMode = DisplayMode((int(o.displayMode) + 1) % 3);
+    const bool fullscreen = o.displayMode == DisplayMode::Fullscreen;
+    if (m.button(fullscreen ? "Display: Fullscreen" : "Display: Windowed", l, y, 150.0f)) {
+        o.displayMode = fullscreen ? DisplayMode::Windowed : DisplayMode::Fullscreen;
         changed = true;
     }
-    {
-        // Native (0x0, the monitor's own) first, then the monitor's sizes, smallest up.
-        const auto& list = st.resolutions;
-        int index = -1;
-        for (size_t i = 0; i < list.size(); ++i)
-            if (list[i].width == o.resolution.width && list[i].height == o.resolution.height) index = int(i);
-        if (o.resolution.width > 0 && index < 0) index = -2; // (a size the monitor doesn't list)
-        if (o.resolution.width == 0)
-            std::snprintf(label, sizeof(label), "Resolution: Native"); // (the monitor's own)
-        else
-            std::snprintf(label, sizeof(label), "Resolution: %dx%d", o.resolution.width, o.resolution.height);
-        if (m.button(label, r, y, 150.0f) && !list.empty()) {
-            const int next = index + 1; // (-2/-1 -> 0; the last -> Native)
-            o.resolution = next >= int(list.size()) || next < 0 ? DisplayResolution{} : list[size_t(next)];
-            changed = true;
-        }
+    if (o.resolution.width == 0)
+        std::snprintf(label, sizeof(label), "Resolution: Native"); // (the monitor's own)
+    else
+        std::snprintf(label, sizeof(label), "Resolution: %dx%d", o.resolution.width, o.resolution.height);
+    const float listX = r, listY = y + 20.0f;
+    bool openedNow = false;
+    if (m.button(label, r, y, 150.0f) && !st.resolutions.empty()) {
+        st.resolutionListOpen = openedNow = true;
+        st.resolutionScroll = 0;
+    }
+    y += 24.0f;
+    if (m.button(o.borderlessWindow ? "Borderless Window: ON" : "Borderless Window: OFF", l, y, 150.0f, !fullscreen)) {
+        o.borderlessWindow = !o.borderlessWindow;
+        changed = true;
     }
     if (m.button("Done", cx - 100.0f, float(m.height()) - 28.0f, 200.0f) || m.input().escape) {
         st.screen = st.optionsBack;
+        st.resolutionListOpen = false;
         return MenuAction::OptionsClosed;
+    }
+    if (st.resolutionListOpen) {
+        if (listOpen) m.swapInput(real); // (the list's turn: the real input)
+        // The drop-down: Native, then the monitor's sizes from the largest down, 12 pixels a
+        // row, under the button (above it if the screen is too short), scrolled by the wheel.
+        const auto& list = st.resolutions;
+        const int count = int(list.size()) + 1;
+        constexpr float kRow = 12.0f;
+        const float below = float(m.height()) - listY - 4.0f, above = listY - 20.0f - 4.0f;
+        const bool down = below >= std::min(float(count) * kRow, 6.0f * kRow) || below >= above;
+        const int rows = std::max(1, std::min(count, int((down ? below : above) / kRow)));
+        st.resolutionScroll = std::clamp(st.resolutionScroll - int(m.input().wheel), 0, count - rows);
+        const float top = down ? listY : listY - 20.0f - float(rows) * kRow;
+        gfx::GuiBatch& b = m.batch();
+        b.fill(listX - 1.0f, top - 1.0f, 152.0f, float(rows) * kRow + 2.0f, argb(0xFFA0A0A0));
+        b.fill(listX, top, 150.0f, float(rows) * kRow, argb(0xFF000000));
+        int picked = -2;
+        for (int i = 0; i < rows; ++i) {
+            const int item = st.resolutionScroll + i; // 0 = Native, then largest first
+            const DisplayResolution res = item == 0 ? DisplayResolution{} : list[list.size() - size_t(item)];
+            const float ry = top + float(i) * kRow;
+            const bool current = res.width == o.resolution.width && res.height == o.resolution.height;
+            const bool hot = m.hovered(listX, ry, 150.0f, kRow);
+            if (hot || current) b.fill(listX, ry, 150.0f, kRow, current ? argb(0xFF305030) : argb(0xFF404040));
+            if (item == 0)
+                std::snprintf(label, sizeof(label), "Native (%dx%d)", st.monitorResolution.width,
+                              st.monitorResolution.height);
+            else
+                std::snprintf(label, sizeof(label), "%dx%d  %d Hz", res.width, res.height, res.refresh);
+            m.text(label, listX + 4.0f, ry + 2.0f, hot ? argb(0xFFFFFFA0) : argb(0xFFE0E0E0));
+            if (hot && m.input().click && !openedNow) picked = item;
+        }
+        if (count > rows) { // a scrollbar: more sizes below or above (the wheel scrolls)
+            const float h = float(rows) * kRow, thumb = std::max(6.0f, h * float(rows) / float(count));
+            const float ty = top + (h - thumb) * float(st.resolutionScroll) / float(count - rows);
+            b.fill(listX + 146.0f, top, 4.0f, h, argb(0xFF202020));
+            b.fill(listX + 146.0f, ty, 4.0f, thumb, argb(0xFFA0A0A0));
+        }
+        if (picked >= 0) {
+            o.resolution = picked == 0 ? DisplayResolution{} : list[list.size() - size_t(picked)];
+            st.resolutionListOpen = false;
+            changed = true;
+        } else if (!openedNow && (m.input().escape || m.input().click)) {
+            st.resolutionListOpen = false; // (a click outside, or Esc, closes it)
+        }
     }
     return changed ? MenuAction::OptionsChanged : MenuAction::None;
 }

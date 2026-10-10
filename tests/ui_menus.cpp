@@ -154,7 +154,8 @@ TEST_CASE("options.txt round-trips in vanilla's format") {
     o.vsync = false;
     o.bobView = false;
     o.hotbarNumbers = false;
-    o.displayMode = mc::DisplayMode::Borderless;
+    o.displayMode = mc::DisplayMode::Windowed;
+    o.borderlessWindow = true; // (v1.5.6)
     o.resolution = {2560, 1440, 144};
     o.guiScale = 9; // (v1.5.5: beyond 4 on big screens)
     REQUIRE(o.save(file));
@@ -169,7 +170,9 @@ TEST_CASE("options.txt round-trips in vanilla's format") {
     CHECK_FALSE(back.vsync);
     CHECK_FALSE(back.bobView); // (M30.1)
     CHECK_FALSE(back.hotbarNumbers); // (v1.5.3)
-    CHECK(back.displayMode == mc::DisplayMode::Borderless); // (v1.5.5)
+    CHECK(back.displayMode == mc::DisplayMode::Windowed); // (v1.5.5)
+    CHECK(back.borderlessWindow);                          // (v1.5.6)
+    CHECK(back.effectiveDisplay() == mc::DisplayMode::Borderless);
     CHECK(back.resolution == mc::DisplayResolution{2560, 1440, 144});
     CHECK(back.guiScale == 9);
     std::filesystem::remove(file);
@@ -228,5 +231,20 @@ TEST_CASE("v1.5.5 options.txt: vanilla's fullscreen keys are read; ours says whi
     mc::GameOptions small;
     REQUIRE(small.load(file));
     CHECK(small.resolution.width == 0);
+    std::filesystem::remove(file);
+}
+
+TEST_CASE("v1.5.6 options.txt: v1.5.5's borderless display mode becomes a borderless window") {
+    const auto file = std::filesystem::temp_directory_path() / "mc_options_borderless.txt";
+    {
+        std::ofstream out(file);
+        out << "fullscreen:true\nclone_displayMode:borderless\n";
+    }
+    mc::GameOptions o;
+    REQUIRE(o.load(file));
+    CHECK(o.displayMode == mc::DisplayMode::Windowed);
+    CHECK(o.borderlessWindow);
+    o.displayMode = mc::DisplayMode::Fullscreen; // fullscreen wins over the frame setting
+    CHECK(o.effectiveDisplay() == mc::DisplayMode::Fullscreen);
     std::filesystem::remove(file);
 }

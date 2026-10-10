@@ -60,6 +60,8 @@ struct MenuState {
     std::vector<DisplayResolution> resolutions;
     DisplayResolution monitorResolution;
     int maxGuiScale = 4;
+    bool resolutionListOpen = false; // (v1.5.6) the Resolution drop-down
+    int resolutionScroll = 0;
     // Statistics (M28.1d, from the Game Menu): the session's counters, the tab (General,
     // Items, Mobs) and its scroll.
     const world::Statistics* stats = nullptr;

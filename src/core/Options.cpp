@@ -46,12 +46,13 @@ bool GameOptions::load(const std::filesystem::path& file) {
         else if (key == "enableVsync") vsync = value == "true";
         else if (key == "bobView") bobView = value == "true";
         else if (key == "clone_hotbarNumbers") hotbarNumbers = value == "true";
-        else if (key == "fullscreen" && value == "true" && displayMode == DisplayMode::Windowed)
+        else if (key == "fullscreen" && value == "true")
             displayMode = DisplayMode::Fullscreen; // (vanilla's key; ours below says which kind)
-        else if (key == "clone_displayMode")
-            displayMode = value == "borderless"   ? DisplayMode::Borderless
-                          : value == "fullscreen" ? DisplayMode::Fullscreen
-                                                  : DisplayMode::Windowed;
+        else if (key == "clone_displayMode") {
+            displayMode = value == "fullscreen" ? DisplayMode::Fullscreen : DisplayMode::Windowed;
+            if (value == "borderless") borderlessWindow = true; // (v1.5.5's third mode)
+        } else if (key == "clone_borderlessWindow")
+            borderlessWindow = value == "true";
         else if (key == "fullscreenResolution") { // vanilla's form: "1920x1080@60:24"
             DisplayResolution r;
             const char* p = value.data();
@@ -87,11 +88,8 @@ bool GameOptions::save(const std::filesystem::path& file) const {
         << "bobView:" << (bobView ? "true" : "false") << '\n'
         << "clone_hotbarNumbers:" << (hotbarNumbers ? "true" : "false") << '\n'
         << "fullscreen:" << (displayMode != DisplayMode::Windowed ? "true" : "false") << '\n'
-        << "clone_displayMode:"
-        << (displayMode == DisplayMode::Borderless   ? "borderless"
-            : displayMode == DisplayMode::Fullscreen ? "fullscreen"
-                                                     : "windowed")
-        << '\n';
+        << "clone_displayMode:" << (displayMode == DisplayMode::Fullscreen ? "fullscreen" : "windowed") << '\n'
+        << "clone_borderlessWindow:" << (borderlessWindow ? "true" : "false") << '\n';
     if (resolution.width > 0)
         out << "fullscreenResolution:" << resolution.width << 'x' << resolution.height << '@' << resolution.refresh
             << ":24\n";

@@ -46,6 +46,14 @@ public:
     void dim();
     bool hovered(float x, float y, float w, float h) const;
 
+    // Replaces this frame's input and returns the previous one (v1.5.6: an open drop-down
+    // list draws the screen under it with no input, then takes the real input itself).
+    MenuInput swapInput(const MenuInput& in) {
+        const MenuInput old = m_in;
+        m_in = in;
+        return old;
+    }
+
     // Focus moves with clicks; screens can set the first field focused.
     void setFocus(int field) { m_focus = field; }
 
